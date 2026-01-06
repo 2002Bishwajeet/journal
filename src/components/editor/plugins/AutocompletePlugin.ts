@@ -24,7 +24,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 interface AutocompletePluginOptions {
     getSuggestion: (text: string) => Promise<string>;
-    isAIReadyRef: { current: boolean }; // React ref object
+    getIsAIReady: () => boolean; // Getter function to check AI readiness
     debounceMs?: number;
     minCharsBeforeTrigger?: number;
     debug?: boolean;
@@ -98,7 +98,7 @@ export const AutocompletePlugin = Extension.create<AutocompletePluginOptions>({
     addOptions() {
         return {
             getSuggestion: async () => '',
-            isAIReadyRef: { current: false }, // Default ref-like object
+            getIsAIReady: () => false, // Default getter
             debounceMs: 2000, // 2 seconds after stopping
             minCharsBeforeTrigger: 20, // Need at least 20 chars of context
             debug: false,
@@ -148,7 +148,7 @@ export const AutocompletePlugin = Extension.create<AutocompletePluginOptions>({
             }
         };
 
-        const log = (message: string, ...args: any[]) => {
+        const log = (message: string, ...args: unknown[]) => {
             if (options.debug) {
                 console.log(`[Autocomplete] ${message}`, ...args);
             }
@@ -233,7 +233,7 @@ export const AutocompletePlugin = Extension.create<AutocompletePluginOptions>({
                 view(view) {
                     const fetchSuggestion = async () => {
                         // Check if AI is ready
-                        if (!options.isAIReadyRef.current) {
+                        if (!options.getIsAIReady()) {
                             log('Skipping: AI not ready');
                             return;
                         }

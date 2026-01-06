@@ -59,11 +59,11 @@ export const OdinPayloadImage = ({
   // Error handling
   useEffect(() => {
     if (imageError) onError?.();
-  }, [imageError]);
+  }, [imageError, onError]);
 
   useEffect(() => {
     if (isImageFetched && !imageData) onError?.();
-  }, [imageData, isImageFetched]);
+  }, [imageData, isImageFetched, onError]);
 
   return <img src={imageData?.url} onError={onError} {...props} />;
 };

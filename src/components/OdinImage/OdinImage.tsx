@@ -119,7 +119,10 @@ export const OdinImage = ({
 
   useEffect(() => {
     // Once we have the tinyThumb, we can calculate the size
+    // Note: calculateSize is not in deps because it uses component state that changes,
+    // and we only want to trigger this once when isTinyLoaded becomes true
     if (isTinyLoaded) calculateSize();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- calculateSize uses complex state/refs, safe to omit from deps as we only want to trigger on isTinyLoaded
   }, [isTinyLoaded]);
 
   if (weDontHaveSourceProps) return null;

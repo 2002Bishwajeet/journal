@@ -10,10 +10,10 @@ import { PGlite } from '@electric-sql/pglite';
 
 // We need to mock getDatabase to use the test instance
 vi.mock('@/lib/db/pglite', () => {
-    let testDb: any = null;
+    let testDb: PGlite | null = null;
     return {
         getDatabase: async () => testDb,
-        setTestDb: (db: any) => { testDb = db; }
+        setTestDb: (db: PGlite) => { testDb = db; }
     };
 });
 

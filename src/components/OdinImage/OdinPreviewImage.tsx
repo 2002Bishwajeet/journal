@@ -79,7 +79,7 @@ export const OdinPreviewImage = forwardRef(
         fileId && fileKey
           ? getFromCache(odinId, fileId, globalTransitId, fileKey, targetDrive)
           : undefined,
-      [fileId]
+      [fileId, fileKey, getFromCache, odinId, globalTransitId, targetDrive]
     );
     const fetchTinyFromServer =
       !blockFetchFromServer && !embeddedThumbUrl && !cachedImage?.url;
@@ -101,11 +101,11 @@ export const OdinPreviewImage = forwardRef(
     // Error handling
     useEffect(() => {
       if (tinyError) onError?.();
-    }, [tinyError]);
+    }, [tinyError, onError]);
 
     useEffect(() => {
       if (isTinyFetched && !tinyThumb) onError?.();
-    }, [tinyThumb, isTinyFetched]);
+    }, [tinyThumb, isTinyFetched, onError]);
 
     const naturalSize: ImageSize | undefined = tinyThumb
       ? {
@@ -123,12 +123,12 @@ export const OdinPreviewImage = forwardRef(
     useEffect(() => {
       const timeout = setTimeout(() => {
         if (onLoadCalled.current === false && previewUrl) {
-          isDebug && console.warn("OdinPreviewImage: image load timeout");
+          if (isDebug) console.warn("OdinPreviewImage: image load timeout");
           onError?.();
         }
       }, 5000);
       return () => clearTimeout(timeout);
-    }, []);
+    }, [onError, previewUrl]);
 
     return (
       <img

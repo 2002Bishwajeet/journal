@@ -67,6 +67,7 @@ export function TableColumnMenu({ editor }: TableColumnMenuProps) {
 
   return (
     <div 
+        // eslint-disable-next-line react-hooks/refs -- refs.setFloating is a callback setter from @floating-ui/react, not a ref value access
         ref={refs.setFloating}
         style={{ ...floatingStyles, zIndex: 50 }} 
         // Force fixed just in case floatingStyles comes back absolute and we have scrolling issues, 

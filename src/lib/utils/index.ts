@@ -29,7 +29,7 @@ export function formatRelativeTime(date: Date | string): string {
     return formatDate(d);
 }
 
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => void>(
     fn: T,
     delay: number
 ): (...args: Parameters<T>) => void {

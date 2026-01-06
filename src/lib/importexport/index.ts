@@ -417,9 +417,10 @@ function xmlElementToMarkdown(element: Y.XmlElement): string {
     }).join('');
 
     switch (tag) {
-        case 'heading':
+        case 'heading': {
             const level = element.getAttribute('level') || 1;
             return '#'.repeat(Number(level)) + ' ' + content;
+        }
         case 'paragraph':
             return content + '\n';
         case 'bulletList':

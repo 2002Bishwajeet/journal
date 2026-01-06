@@ -1,5 +1,5 @@
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Smile, Search } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
@@ -18,8 +18,11 @@ export function EmojiPicker({ editor, className }: EmojiPickerProps) {
   const [open, setOpen] = useState(false);
   const { recents, addRecent } = useRecentEmojis();
   
-  // State for the skin tone popup
-  const [activeSkinToneEmoji, setActiveSkinToneEmoji] = useState<{ emoji: string, index: number } | null>(null);
+  // State for the skin tone popup (internal state)
+  const [skinToneEmojiState, setSkinToneEmojiState] = useState<{ emoji: string, index: number } | null>(null);
+  
+  // Derive actual active skin tone emoji - only show if popover is open
+  const activeSkinToneEmoji = open ? skinToneEmojiState : null;
 
   // Filter emojis based on search
   const filteredEmojis = useMemo(() => {
@@ -32,17 +35,20 @@ export function EmojiPicker({ editor, className }: EmojiPickerProps) {
         item.tags.some((t) => t.includes(lower))
     );
   }, [search]);
-
-  // Close skin tone popup when main popover closes
-  useEffect(() => {
-    if (!open) setActiveSkinToneEmoji(null);
-  }, [open]);
+  
+  // Reset skin tone state when popover closes via onOpenChange
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
+      setSkinToneEmojiState(null);
+    }
+  };
 
   const insertEmoji = (emoji: string) => {
     editor.chain().focus().insertContent(emoji).run();
     addRecent(emoji);
     setOpen(false);
-    setActiveSkinToneEmoji(null);
+    setSkinToneEmojiState(null);
   };
 
   const handleEmojiClick = (item: typeof emojis[0], index: number) => {
@@ -50,9 +56,9 @@ export function EmojiPicker({ editor, className }: EmojiPickerProps) {
     if (hasSkinTones(item.emoji)) {
         // Toggle if same, otherwise set new
         if (activeSkinToneEmoji?.index === index) {
-            setActiveSkinToneEmoji(null);
+            setSkinToneEmojiState(null);
         } else {
-            setActiveSkinToneEmoji({ emoji: item.emoji, index });
+            setSkinToneEmojiState({ emoji: item.emoji, index });
         }
     } else {
         // Direct insert
@@ -61,7 +67,7 @@ export function EmojiPicker({ editor, className }: EmojiPickerProps) {
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"

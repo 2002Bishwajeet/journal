@@ -54,9 +54,10 @@ export async function extractMarkdownFromYjs(noteId: string, yjsBlob?: Uint8Arra
 
     // Map TipTap node types to markdown
     switch (nodeName) {
-      case 'heading':
+      case 'heading': {
         const level = node.getAttribute('level') || 1;
         return '#'.repeat(Number(level)) + ' ' + content + '\n\n';
+      }
       case 'paragraph':
         return content + '\n\n';
       case 'bulletList':
@@ -66,9 +67,10 @@ export async function extractMarkdownFromYjs(noteId: string, yjsBlob?: Uint8Arra
         return '- ' + content + '\n';
       case 'taskList':
         return content + '\n';
-      case 'taskItem':
+      case 'taskItem': {
         const checked = node.getAttribute('checked');
         return `- [${checked ? 'x' : ' '}] ` + content + '\n';
+      }
       case 'codeBlock':
         return '```\n' + content + '\n```\n\n';
       case 'blockquote':

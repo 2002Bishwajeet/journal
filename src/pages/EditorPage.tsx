@@ -135,7 +135,7 @@ export default function EditorPage() {
     },
   });
 
-  const handleSave = async (_yjsBlob: Uint8Array) => {
+  const handleSave = async () => {
     // The sync service will pick up pending changes on focus/visibility
     // For immediate sync, we can trigger syncNote
     if (noteId) {

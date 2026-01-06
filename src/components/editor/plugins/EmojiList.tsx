@@ -1,5 +1,5 @@
 
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import type { EmojiItem } from './emojiData';
 
 interface EmojiListProps {
@@ -9,6 +9,12 @@ interface EmojiListProps {
 
 export const EmojiList = forwardRef((props: EmojiListProps, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  
+  // Calculate valid selected index - reset to 0 when items change, clamp to valid range
+  const validSelectedIndex = useMemo(() => {
+    if (props.items.length === 0) return 0;
+    return Math.min(selectedIndex, props.items.length - 1);
+  }, [selectedIndex, props.items.length]);
 
   const selectItem = (index: number) => {
     const item = props.items[index];
@@ -18,20 +24,16 @@ export const EmojiList = forwardRef((props: EmojiListProps, ref) => {
   };
 
   const upHandler = () => {
-    setSelectedIndex((selectedIndex + props.items.length - 1) % props.items.length);
+    setSelectedIndex((validSelectedIndex + props.items.length - 1) % props.items.length);
   };
 
   const downHandler = () => {
-    setSelectedIndex((selectedIndex + 1) % props.items.length);
+    setSelectedIndex((validSelectedIndex + 1) % props.items.length);
   };
 
   const enterHandler = () => {
-    selectItem(selectedIndex);
+    selectItem(validSelectedIndex);
   };
-
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [props.items]);
 
   useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }: { event: KeyboardEvent }) => {

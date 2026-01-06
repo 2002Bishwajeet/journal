@@ -4,7 +4,7 @@
  * Used for link and formula inputs in the toolbar.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -39,15 +39,16 @@ export function ToolbarPopover({
     }
   }, [value, onApply]);
 
-  // Update value when popover opens to reflect current editor state
-  useEffect(() => {
-    if (open) {
+  // Handle popover open state change - reset value when opening
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (newOpen) {
       setValue(defaultValue);
     }
-  }, [open, defaultValue]);
+  };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"

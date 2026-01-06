@@ -60,6 +60,7 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
 
   return (
     <div 
+        // eslint-disable-next-line react-hooks/refs -- refs.setFloating is a callback setter from @floating-ui/react, not a ref value access
         ref={refs.setFloating}
         style={{ ...floatingStyles, zIndex: 50 }} 
     >

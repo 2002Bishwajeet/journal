@@ -51,7 +51,7 @@ export const GrammarPlugin = Extension.create<GrammarPluginOptions>({
         let debounceTimer: ReturnType<typeof setTimeout> | null = null;
         let currentRequest: AbortController | null = null;
 
-        const log = (message: string, ...args: any[]) => {
+        const log = (message: string, ...args: unknown[]) => {
             if (options.debug) {
                 console.log(`[Grammar] ${message}`, ...args);
             }
@@ -209,7 +209,11 @@ export const GrammarPlugin = Extension.create<GrammarPluginOptions>({
                                     description = item;
                                 } else if (typeof item === 'object' && item !== null) {
                                     // Handle case where LLM returns object (e.g. { error: "...", fixed: "..." })
-                                    description = (item as any).message || (item as any).error || (item as any).description || JSON.stringify(item);
+                                    const obj = item as Record<string, unknown>;
+                                    description = (typeof obj.message === 'string' ? obj.message : '') ||
+                                        (typeof obj.error === 'string' ? obj.error : '') ||
+                                        (typeof obj.description === 'string' ? obj.description : '') ||
+                                        JSON.stringify(item);
                                 } else {
                                     continue;
                                 }

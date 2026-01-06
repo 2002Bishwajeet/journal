@@ -59,4 +59,5 @@ function Button({
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- buttonVariants is needed for extending button styles
 export { Button, buttonVariants }

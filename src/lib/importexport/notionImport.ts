@@ -125,7 +125,8 @@ function parseNotionMarkdown(text: string, filename: string): { metadata: Docume
 
     // Convert Notion callouts to blockquotes
     // > 💡 Callout text → > Callout text
-    content = content.replace(/^>\s*[🔶💡⚠️❗📌🎯]\s*/gm, '> ');
+    // eslint-disable-next-line no-misleading-character-class -- Emoji regex is intentional for Notion callout conversion
+    content = content.replace(/^>\s*[\u{1F536}\u{1F4A1}\u{26A0}\u{FE0F}\u{2757}\u{1F4CC}\u{1F3AF}]\s*/gmu, '> ');
 
     // Convert Notion toggle syntax
     // <details><summary>Toggle</summary>Content</details>

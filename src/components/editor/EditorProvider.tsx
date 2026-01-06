@@ -52,7 +52,7 @@ export function EditorProvider({
   onEditorReady,
   isAIReady = false,
   onGetAutocompleteSuggestion,
-  onCheckGrammar,
+  // onCheckGrammar, // Currently disabled - GrammarPlugin is commented out
   children,
 }: EditorProviderProps) {
   const [yDoc] = useState(() => new Y.Doc());
@@ -150,22 +150,23 @@ export function EditorProvider({
         onImageDrop: handleImageDrop,
       }),
       // AI-powered plugins (conditionally active)
+      // eslint-disable-next-line react-hooks/refs -- getIsAIReady is a getter called only within plugin execution, not during render
       AutocompletePlugin.configure({
         getSuggestion: onGetAutocompleteSuggestion || (async () => ''),
-        isAIReadyRef, // Pass ref directly to avoid React warning about accessing refs during render
+        getIsAIReady: () => isAIReadyRef.current, // Use getter function to defer ref read
         debounceMs: 500,
         minCharsBeforeTrigger: 5,
         debug: false,
       }),
       // GrammarPlugin.configure({
       //   checkGrammar: onCheckGrammar || (async () => []),
-      //   isAIReadyRef, // Pass ref directly to avoid React warning about accessing refs during render
+      //   getIsAIReady: () => isAIReadyRef.current,
       //   debounceMs: 2000,
       //   minCharsToCheck: 5,
       //   debug: true,
       // }),
     ],
-    [yXmlFragment, onGetAutocompleteSuggestion, onCheckGrammar, handleImageDrop]
+    [yXmlFragment, onGetAutocompleteSuggestion, handleImageDrop]
   );
 
   // Create TipTap editor with performance optimizations
