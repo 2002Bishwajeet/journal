@@ -1,0 +1,52 @@
+name: Build and Deploy (Netlify)
+
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+        paths:
+            - "src/**"
+            - "public/**"
+            - "package.json"
+            - "package-lock.json"
+            - "vite.config.ts"
+            - "tsconfig*.json"
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        concurrency: deploy-netlify
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Use Node.js 22
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+
+            - name: Authenticate to Github packages
+              run: |
+                  echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+                  echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
+
+            - name: Install dependencies
+              run: npm install
+
+            - name: Build web app
+              run: npm run build
+              env:
+                  CI: true
+
+            - name: Install Netlify CLI
+              run: npm install --global netlify-cli@17.36.1
+
+            - name: Deploy to Netlify
+              run: netlify deploy --dir=dist --prod --build false --message "GitHub Actions deploy ${{ github.sha }}"
+              env:
+                  NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+                  NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
