@@ -24,6 +24,7 @@ export default defineConfig({
         theme_color: '#FDFCF8',
         background_color: '#FDFCF8',
         display: 'standalone',
+        display_override: ['window-controls-overlay', 'standalone'],
         icons: [
           {
             src: 'pwa-192x192.png',
