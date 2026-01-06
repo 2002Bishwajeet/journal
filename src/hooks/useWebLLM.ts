@@ -100,6 +100,18 @@ export function useWebLLM(): UseWebLLMResult {
         checkIfAlreadyReady();
     }, []);
 
+    // Sync isReady state from the module periodically
+    // This ensures all hook consumers see the update when any one initializes WebLLM
+    useEffect(() => {
+        const syncInterval = setInterval(async () => {
+            if (!isReady && webllmModule && webllmModule.isWebLLMReady()) {
+                setIsReady(true);
+            }
+        }, 500); // Check every 500ms
+
+        return () => clearInterval(syncInterval);
+    }, [isReady]);
+
     const initialize = useCallback(async (): Promise<boolean> => {
         // Check if already ready (module loaded and engine initialized)
         if (webllmModule && webllmModule.isWebLLMReady()) {

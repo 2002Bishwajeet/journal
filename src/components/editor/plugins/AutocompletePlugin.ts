@@ -21,7 +21,6 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
-import type { Transaction } from '@tiptap/pm/state';
 
 interface AutocompletePluginOptions {
     getSuggestion: (text: string) => Promise<string>;
@@ -40,54 +39,35 @@ interface AutocompleteState {
 const autocompletePluginKey = new PluginKey<AutocompleteState>('autocomplete');
 
 /**
- * Checks if a transaction represents actual text typing (not formatting, selection, etc.)
- * Uses multiple heuristics to detect genuine typing:
- * 1. Document size increased slightly (1-5 chars typical for typing)
- * 2. Selection moved forward after the change
- * 3. Change was not a pure deletion
+ * Checks if we're likely seeing text typing by comparing two editor states.
+ * Simplified logic:
+ * 1. Document size increased by 1-10 characters (typical typing)
+ * 2. Cursor moved forward (typing inserts at cursor)
  */
-function isTextInsertion(tr: Transaction, prevState: { doc: { content: { size: number } }; selection: { from: number } }): boolean {
-    if (!tr.docChanged) return false;
-
+function isTextInsertion(
+    currentState: { doc: { content: { size: number } }; selection: { from: number } },
+    prevState: { doc: { content: { size: number } }; selection: { from: number } }
+): boolean {
     const prevSize = prevState.doc.content.size;
-    const newSize = tr.doc.content.size;
+    const newSize = currentState.doc.content.size;
     const sizeDiff = newSize - prevSize;
 
-    // Typing usually adds 1-5 characters at a time
-    // Larger insertions might be paste operations, which we might want to exclude
+    // Typing usually adds 1-10 characters at a time
+    // Deletions (sizeDiff <= 0) or large pastes (sizeDiff > 10) don't trigger autocomplete
     if (sizeDiff <= 0 || sizeDiff > 10) {
         return false;
     }
 
     // Cursor should have moved forward (typing inserts at cursor)
     const prevFrom = prevState.selection.from;
-    const newFrom = tr.selection.from;
+    const newFrom = currentState.selection.from;
 
-    if (newFrom <= prevFrom) {
-        return false;
-    }
-
-    // Check steps - avoid formatting-only changes
-    for (let i = 0; i < tr.steps.length; i++) {
-        const step = tr.steps[i];
-        const stepJson = step.toJSON();
-
-        // ReplaceStep is the step type for insertions
-        if (stepJson.stepType === 'replace' || stepJson.stepType === 'replaceAround') {
-            const slice = stepJson.slice;
-            if (slice && slice.content && slice.content.length > 0) {
-                return true;
-            }
-        }
-    }
-
-    // Default: if doc grew and cursor moved forward, likely text insertion
-    return sizeDiff > 0 && sizeDiff <= 5;
+    return newFrom > prevFrom;
 }
 
 /**
- * Checks if cursor is at a good position for autocomplete
- * (at end of text, not in middle of a word)
+ * Checks if cursor is at a reasonable position for autocomplete.
+ * More permissive: only reject if clearly in the middle of a word with more text after.
  */
 function isCursorAtGoodPosition(state: { selection: { from: number; to: number; empty: boolean }; doc: { textBetween: (from: number, to: number, sep?: string) => string; content: { size: number } } }): boolean {
     const { from, to, empty } = state.selection;
@@ -95,24 +75,18 @@ function isCursorAtGoodPosition(state: { selection: { from: number; to: number; 
     // Must have no selection (cursor only)
     if (!empty || from !== to) return false;
 
-    // Get character after cursor
-    const textAfter = state.doc.textBetween(from, Math.min(from + 10, state.doc.content.size - 1), '');
+    // Get a few characters after cursor
+    const maxEnd = Math.min(from + 10, state.doc.content.size - 1);
+    const textAfter = maxEnd > from ? state.doc.textBetween(from, maxEnd, '') : '';
 
-    // If there's text after cursor (not at end), don't autocomplete
-    // Allow if text after is only whitespace or punctuation
-    if (textAfter.length > 0 && !/^[\s\n\r.,!?;:)\]}"']*$/.test(textAfter)) {
-        return false;
-    }
-
-    // Get character before cursor - must end with space, punctuation, or be at word boundary
-    const textBefore = state.doc.textBetween(Math.max(0, from - 1), from, '');
-
-    // Good positions: after space, after punctuation, or after a word
-    // This prevents triggering in the middle of words
-    if (textBefore.length > 0 && /\S/.test(textBefore)) {
-        // We're after a non-space character, which is fine
-        // (autocomplete continues the word/sentence)
-        return true;
+    // Only reject if there's substantial text after that looks like a word
+    // Allow: whitespace, punctuation, or nothing after cursor
+    if (textAfter.length > 0) {
+        const firstChar = textAfter[0];
+        // If the first character after cursor is a letter/number, we're mid-word - skip
+        if (/[a-zA-Z0-9]/.test(firstChar)) {
+            return false;
+        }
     }
 
     return true;
@@ -343,15 +317,13 @@ export const AutocompletePlugin = Extension.create<AutocompletePluginOptions>({
 
                     return {
                         update(view, prevState) {
-                            const tr = view.state.tr;
-
                             // Clear timer on any update
                             clearState();
 
-                            // Only proceed if document changed with text insertion
+                            // Only proceed if document changed
                             if (!view.state.doc.eq(prevState.doc)) {
-                                // Check if this was actual text typing
-                                const wasTextInsertion = isTextInsertion(tr, prevState);
+                                // Check if this was actual text typing by comparing states
+                                const wasTextInsertion = isTextInsertion(view.state, prevState);
 
                                 if (wasTextInsertion) {
                                     // Track consecutive typing
@@ -363,24 +335,21 @@ export const AutocompletePlugin = Extension.create<AutocompletePluginOptions>({
                                     }
                                     lastTypingTimestamp = now;
 
-                                    if (options.debug) console.log(`[Autocomplete] Typing detected! Count: ${consecutiveTypingCount}`);
+                                    log(`Typing detected! Count: ${consecutiveTypingCount}`);
 
-                                    // Only trigger after user has typed a few characters
-                                    // (indicates active writing, not just a quick edit)
-                                    // Lowered threshold to 1 for faster testing, logic handled in fetchSuggestion
+                                    // Trigger after any typing (threshold = 1)
                                     if (consecutiveTypingCount >= 1) {
-                                        if (options.debug) console.log(`[Autocomplete] Scheduling fetch in ${options.debounceMs}ms`);
+                                        log(`Scheduling fetch in ${options.debounceMs}ms`);
                                         debounceTimer = setTimeout(fetchSuggestion, options.debounceMs);
                                     }
                                 } else {
-                                    // Reset consecutive count on non-typing changes
-                                    if (options.debug) console.log('[Autocomplete] Reset count: not text insertion');
+                                    // Reset consecutive count on non-typing changes (deletions, pastes, etc.)
+                                    log('Reset count: not text insertion (deletion or large paste)');
                                     consecutiveTypingCount = 0;
                                 }
-                            } else if (tr.selectionSet) {
+                            } else if (!view.state.selection.eq(prevState.selection)) {
                                 // Selection changed without doc change = user navigating
-                                // Reset typing state
-                                if (options.debug) console.log('[Autocomplete] Reset count: selection change');
+                                log('Reset count: selection change');
                                 consecutiveTypingCount = 0;
                             }
                         },

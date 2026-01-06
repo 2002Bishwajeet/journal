@@ -155,7 +155,7 @@ export function EditorProvider({
         isAIReadyRef, // Pass ref directly to avoid React warning about accessing refs during render
         debounceMs: 500,
         minCharsBeforeTrigger: 5,
-        debug: true,
+        debug: false,
       }),
       // GrammarPlugin.configure({
       //   checkGrammar: onCheckGrammar || (async () => []),
