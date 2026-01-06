@@ -1,0 +1,430 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* JOURNAL - SOFT MONOCHROME THEME 
+  Based on Design System JSON
+*/
+
+:root {
+  /* Fonts */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: 'Playfair Display', serif;
+  --font-script: 'Great Vibes', cursive; /* or 'Dancing Script' */
+
+  /* Base - Light Mode (from JSON) */
+  --background: #FDFCF8; /* Soft White Main */
+  --foreground: #2C2B29; /* Dark Charcoal Text */
+
+  --card: #FFFFFF;
+  --card-foreground: #2C2B29;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #2C2B29;
+
+  --primary: #2C2B29; /* Strong Dark Action */
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #F2F0E9; /* Soft Beige/Grey */
+  --secondary-foreground: #2C2B29;
+
+  --muted: #F2F0E9;
+  --muted-foreground: #8A8780; /* Muted Text */
+
+  --accent: #F7F5F0; /* Hover State */
+  --accent-foreground: #2C2B29;
+
+  --destructive: #ef4444; /* Standard Red */
+  --destructive-foreground: #FFFFFF;
+
+  --border: #E6E4DD; /* Soft Border */
+  --input: #FFFFFF;  /* Input BG */
+  --ring: #2C2B29;
+
+  --radius: 0.5rem;
+  
+  /* Chart Colors (Monochromatic approximations) */
+  --chart-1: #2C2B29;
+  --chart-2: #595752;
+  --chart-3: #8A8780;
+  --chart-4: #BDBBB5;
+  --chart-5: #E6E4DD;
+  
+  /* Sidebar (Matches Secondary) */
+  --sidebar: #F2F0E9;
+  --sidebar-foreground: #2C2B29;
+  --sidebar-primary: #2C2B29;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E6E4DD;
+  --sidebar-accent-foreground: #2C2B29;
+  --sidebar-border: #E6E4DD;
+  --sidebar-ring: #2C2B29;
+}
+
+/* Dark Mode - Warm Charcoal (Inverted Premium Feel) */
+.dark {
+  --background: #1C1B1A; /* Warm Dark Base */
+  --foreground: #E6E4DD; /* Soft Off-White Text */
+
+  --card: #242321; /* Slightly lighter surface */
+  --card-foreground: #E6E4DD;
+
+  --popover: #242321;
+  --popover-foreground: #E6E4DD;
+
+  --primary: #E6E4DD; /* Light Action */
+  --primary-foreground: #1C1B1A;
+
+  --secondary: #2C2B29; /* Darker Surface */
+  --secondary-foreground: #E6E4DD;
+
+  --muted: #2C2B29;
+  --muted-foreground: #8A8780;
+
+  --accent: #2C2B29;
+  --accent-foreground: #E6E4DD;
+
+  --destructive: #7f1d1d;
+  --destructive-foreground: #E6E4DD;
+
+  --border: #3E3D3A; /* Dark Border */
+  --input: #242321;
+  --ring: #8A8780;
+  
+  /* Sidebar Dark */
+  --sidebar: #161514; /* Slightly darker than bg */
+  --sidebar-foreground: #E6E4DD;
+  --sidebar-primary: #E6E4DD;
+  --sidebar-primary-foreground: #1C1B1A;
+  --sidebar-accent: #2C2B29;
+  --sidebar-accent-foreground: #E6E4DD;
+  --sidebar-border: #2C2B29;
+  --sidebar-ring: #8A8780;
+}
+
+/* Reset & Base */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* TipTap Editor Styles */
+.tiptap {
+  outline: none;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  color: var(--muted-foreground);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Typography / Prose (Using Variables) */
+.prose {
+  max-width: none;
+  color: var(--foreground);
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  font-family: var(--font-serif);
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.prose h1 { font-size: 2.5rem; margin-top: 2rem; margin-bottom: 1rem; }
+.prose h2 { font-size: 1.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; }
+.prose p { margin-top: 0.75rem; margin-bottom: 0.75rem; line-height: 1.7; }
+
+.prose blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  color: var(--muted-foreground);
+  font-style: italic;
+  font-family: var(--font-serif);
+}
+
+.prose code {
+  background: var(--muted);
+  color: var(--foreground);
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.3rem;
+  font-size: 0.875rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.prose pre {
+  background: var(--secondary);
+  color: var(--foreground);
+  padding: 1rem;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  margin: 1rem 0;
+  border: 1px solid var(--border);
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}
+
+.prose img {
+  border-radius: var(--radius);
+  margin: 1.5rem 0;
+}
+
+/* Lists */
+.prose ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.prose ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.prose li {
+  margin: 0.25rem 0;
+}
+
+.prose li > p {
+  margin: 0;
+}
+
+.prose ul ul, .prose ol ul {
+  list-style-type: circle;
+}
+
+.prose ul ul ul, .prose ol ul ul {
+  list-style-type: square;
+}
+
+/* Task Lists (Checkboxes) */
+.prose ul[data-type="taskList"] {
+  list-style: none;
+  margin-left: 0;
+  padding: 0;
+}
+
+.prose ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+}
+
+.prose ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-right: 0.5rem;
+  margin-top: 0.35rem;
+  user-select: none;
+}
+
+.prose ul[data-type="taskList"] li > label input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.prose ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+}
+
+.prose ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+
+.prose ul[data-type="taskList"] ul[data-type='taskList'] {
+  margin: 0;
+}
+
+.prose ul[data-type="taskList"] li p {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+/* Tables */
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.prose th, .prose td {
+  border: 1px solid var(--border);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.prose th {
+  background: var(--secondary);
+  font-weight: 600;
+}
+
+/* Tailwind v4 Theme Configuration */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Font mapping */
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-script: var(--font-script);
+
+  /* Sidebar mapping */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* AI-Powered Editor Features */
+
+/* Grammar Error Underline */
+.grammar-error {
+  text-decoration: underline wavy;
+  text-decoration-color: #ef4444;
+  text-decoration-skip-ink: none;
+  cursor: help;
+}
+
+/* Grammar Tooltip */
+.grammar-tooltip {
+  position: fixed;
+  z-index: 9999;
+  display: none;
+  max-width: 280px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--popover-foreground);
+  background-color: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  animation: tooltip-fade-in 0.15s ease-out;
+}
+
+@keyframes tooltip-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Autocomplete Suggestion (Ghost Text) */
+.autocomplete-suggestion {
+  color: var(--muted-foreground);
+  opacity: 0.4;
+  user-select: none;
+  pointer-events: none;
+  font-style: normal;
+  white-space: pre-wrap;
+  display: inline;
+  animation: autocomplete-fade-in 0.2s ease-out;
+}
+
+@keyframes autocomplete-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.4;
+  }
+}
+
+/* Dark mode adjustments */
+.dark .grammar-error {
+  text-decoration-color: #f87171;
+}
+
+.dark .grammar-tooltip {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.dark .autocomplete-suggestion {
+  opacity: 0.35;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--radius);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}

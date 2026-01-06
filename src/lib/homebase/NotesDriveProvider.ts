@@ -1,0 +1,524 @@
+import {
+    uploadFile,
+    patchFile,
+    queryBatch,
+    deleteFile,
+    getFileHeaderByUniqueId,
+    getPayloadBytes,
+    getContentFromHeaderOrPayload,
+    SecurityGroupType,
+    type DotYouClient,
+    type HomebaseFile,
+    type UploadFileMetadata,
+    type UploadInstructionSet,
+    type UpdateInstructionSet,
+    type PayloadFile,
+    type ThumbnailFile,
+    getFileHeader,
+    reUploadFile,
+} from '@homebase-id/js-lib/core';
+import { getRandom16ByteArray, toGuidId } from '@homebase-id/js-lib/helpers';
+import { createThumbnails } from '@homebase-id/js-lib/media';
+import {
+    JOURNAL_DRIVE,
+    JOURNAL_FILE_TYPE,
+    JOURNAL_DATA_TYPE,
+    PAYLOAD_KEY_CONTENT,
+    PAYLOAD_KEY_IMAGE_PREFIX,
+} from './config';
+import type { NoteFileContent, DocumentMetadata } from '@/types';
+
+export interface ImageUploadData {
+    file: Blob;
+    filename?: string;
+}
+
+const YJS_MIME_TYPE = 'application/yjs';
+
+/**
+ * NotesDriveProvider handles all note operations with Homebase.
+ * Notes are stored as files with JOURNAL_FILE_TYPE (605) and JOURNAL_DATA_TYPE (706).
+ * Yjs content is stored as a payload with key PAYLOAD_KEY_CONTENT ('jrnl_txt').
+ * Images are stored as payloads with keys like 'jrnl_img0', 'jrnl_img1', etc.
+ */
+export class NotesDriveProvider {
+    #dotYouClient: DotYouClient;
+
+    constructor(dotYouClient: DotYouClient) {
+        this.#dotYouClient = dotYouClient;
+    }
+
+    /**
+     * Query notes from Homebase with pagination.
+     * Uses queryBatch with proper cursor params.
+     */
+    async queryNotes(cursor?: string, pageSize = 50): Promise<{
+        notes: HomebaseFile<NoteFileContent>[];
+        cursor: string;
+    }> {
+        const response = await queryBatch(this.#dotYouClient, {
+            targetDrive: JOURNAL_DRIVE,
+            fileType: [JOURNAL_FILE_TYPE],
+        }, {
+            maxRecords: pageSize,
+            cursorState: cursor,
+            includeMetadataHeader: true,
+            includeTransferHistory: false,
+            ordering: 'newestFirst',
+            sorting: 'anyChangeDate',
+        });
+
+        const notes = await Promise.all(
+            response.searchResults.map(async (file) => {
+                const content = await getContentFromHeaderOrPayload<NoteFileContent>(
+                    this.#dotYouClient,
+                    JOURNAL_DRIVE,
+                    file,
+                    true
+                );
+
+                return {
+                    ...file,
+                    fileMetadata: {
+                        ...file.fileMetadata,
+                        appData: { ...file.fileMetadata.appData, content: content },
+                    },
+                } as HomebaseFile<NoteFileContent>;
+            })
+        );
+
+        return { notes, cursor: response.cursorState || '' };
+    }
+
+    /**
+     * Query notes by folder (using groupId).
+     * The folderId is stored as groupId in Homebase for easy filtering.
+     */
+    async queryNotesByFolder(folderId: string): Promise<HomebaseFile<NoteFileContent>[]> {
+        const response = await queryBatch(this.#dotYouClient, {
+            targetDrive: JOURNAL_DRIVE,
+            fileType: [JOURNAL_FILE_TYPE],
+            groupId: [folderId],
+        }, {
+            maxRecords: 100,
+            includeMetadataHeader: true,
+            ordering: 'newestFirst',
+        });
+
+        return Promise.all(
+            response.searchResults.map(async (file) => {
+                const content = await getContentFromHeaderOrPayload<NoteFileContent>(
+                    this.#dotYouClient,
+                    JOURNAL_DRIVE,
+                    file,
+                    true
+                );
+
+                return {
+                    ...file,
+                    fileMetadata: {
+                        ...file.fileMetadata,
+                        appData: { ...file.fileMetadata.appData, content: content },
+                    },
+                } as HomebaseFile<NoteFileContent>;
+            })
+        );
+    }
+
+    /**
+     * Get a single note by uniqueId (local docId)
+     */
+    async getNote(uniqueId: string): Promise<HomebaseFile<NoteFileContent> | null> {
+        const header = await getFileHeaderByUniqueId<NoteFileContent>(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            uniqueId,
+            { decrypt: true }
+        );
+        if (!header) return null;
+
+        return header;
+    }
+
+    /**
+     * Get the Yjs payload for a note
+     */
+    async getNotePayload(fileId: string): Promise<Uint8Array | null> {
+        const result = await getPayloadBytes(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            fileId,
+            PAYLOAD_KEY_CONTENT,
+            { decrypt: true }
+        );
+        return result?.bytes || null;
+    }
+
+    /**
+     * Create a new note with optional Yjs blob and images.
+     */
+    async createNote(
+        uniqueId: string,
+        metadata: DocumentMetadata,
+        yjsBlob?: Uint8Array,
+        images?: ImageUploadData[]
+    ): Promise<{ fileId: string; versionTag: string; imagePayloadKeys: string[] }> {
+        const noteContent: NoteFileContent = {
+            title: metadata.title,
+            tags: metadata.tags,
+            excludeFromAI: metadata.excludeFromAI,
+        };
+        const payloads: PayloadFile[] = [];
+        const thumbnails: ThumbnailFile[] = [];
+        const imagePayloadKeys: string[] = [];
+
+        // Add Yjs content payload
+        if (yjsBlob && yjsBlob.length > 0) {
+            payloads.push({
+                key: PAYLOAD_KEY_CONTENT,
+                payload: new Blob([new Uint8Array(yjsBlob)], {
+                    type: YJS_MIME_TYPE,
+                }),
+                iv: getRandom16ByteArray(),
+            });
+        }
+
+        // Process images
+        if (images) {
+            for (let i = 0; i < images.length; i++) {
+                const payloadKey = `${PAYLOAD_KEY_IMAGE_PREFIX}${i}`;
+                imagePayloadKeys.push(payloadKey);
+
+                if (images[i].file.type.startsWith('image/')) {
+                    const { additionalThumbnails, tinyThumb } = await createThumbnails(
+                        images[i].file,
+                        payloadKey
+                    );
+                    thumbnails.push(...additionalThumbnails);
+                    payloads.push({
+                        key: payloadKey,
+                        payload: images[i].file,
+                        previewThumbnail: tinyThumb,
+                        descriptorContent: images[i].filename || images[i].file.type,
+                    });
+                } else {
+                    payloads.push({
+                        key: payloadKey,
+                        payload: images[i].file,
+                        descriptorContent: images[i].filename || images[i].file.type,
+                    });
+                }
+            }
+        }
+
+
+        const uploadMetadata: UploadFileMetadata = {
+            allowDistribution: false,
+            appData: {
+                uniqueId,
+                groupId: metadata.folderId, // Group by folder for easy querying
+                fileType: JOURNAL_FILE_TYPE,
+                dataType: JOURNAL_DATA_TYPE,
+                userDate: Date.now(),
+                tags: (metadata.tags || []).map(tag => toGuidId(tag)),
+                content: JSON.stringify(noteContent),
+            },
+            isEncrypted: true,
+            accessControlList: {
+                requiredSecurityGroup: SecurityGroupType.Owner,
+            },
+        };
+
+        const instructionSet: UploadInstructionSet = {
+            transferIv: getRandom16ByteArray(),
+            storageOptions: { drive: JOURNAL_DRIVE },
+
+        };
+
+        const result = await uploadFile(
+            this.#dotYouClient,
+            instructionSet,
+            uploadMetadata,
+            payloads,
+            thumbnails
+        );
+
+        if (!result) {
+            throw new Error('Failed to create note');
+        }
+
+        return {
+            fileId: result.file.fileId,
+            versionTag: result.newVersionTag,
+            imagePayloadKeys,
+        };
+    }
+
+    /**
+     * Update an existing note using patchFile.
+     * versionTag is required for updates to handle optimistic locking.
+     * Fetches the existing file to get the keyHeader for encrypted updates.
+     */
+    async updateNote(
+        uniqueId: string,
+        fileId: string,
+        versionTag: string,
+        metadata: DocumentMetadata,
+        yjsBlob?: Uint8Array
+    ): Promise<{ versionTag: string }> {
+        // First fetch the existing file header to get the encryption key
+        const existingHeader = await getFileHeader<string>(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            fileId, // We'll use uniqueId lookup to verify file exists
+            { decrypt: false }
+        );
+
+        const noteContent: NoteFileContent = {
+            title: metadata.title,
+            tags: metadata.tags,
+            excludeFromAI: metadata.excludeFromAI,
+        };
+        const payloads: PayloadFile[] = [];
+
+        if (yjsBlob && yjsBlob.length > 0) {
+            payloads.push({
+                key: PAYLOAD_KEY_CONTENT,
+                payload: new Blob([new Uint8Array(yjsBlob)], { type: YJS_MIME_TYPE }),
+            });
+        }
+
+        const uploadMetadata: UploadFileMetadata = {
+            versionTag: existingHeader?.fileMetadata.versionTag || versionTag,
+            allowDistribution: false,
+            appData: {
+                uniqueId, // Preserve uniqueId on updates
+                groupId: metadata.folderId,
+                fileType: JOURNAL_FILE_TYPE,
+                dataType: JOURNAL_DATA_TYPE,
+                userDate: Date.now(),
+                tags: (metadata.tags || []).map(tag => toGuidId(tag)),
+                content: JSON.stringify(noteContent),
+            },
+            isEncrypted: true,
+            accessControlList: {
+                requiredSecurityGroup: SecurityGroupType.Owner,
+            },
+        };
+
+        // UpdateLocalInstructionSet for patchFile
+        const updateInstructions: UpdateInstructionSet = {
+            locale: 'local',
+            file: { fileId, targetDrive: JOURNAL_DRIVE },
+            versionTag,
+
+        };
+
+        const result = await patchFile(
+            this.#dotYouClient,
+            existingHeader?.sharedSecretEncryptedKeyHeader,
+            updateInstructions,
+            uploadMetadata,
+            payloads
+        );
+
+        if (!result) {
+            throw new Error('Failed to update note');
+        }
+
+        return { versionTag: result.newVersionTag };
+    }
+
+    /**
+     * Add an image to an existing note using patchFile.
+     * Uses uniqueId to look up the file, ensuring consistency with how notes are tracked.
+     */
+    async addImageToNote(
+        uniqueId: string,
+        versionTag: string,
+        image: ImageUploadData,
+        existingPayloadCount: number
+    ): Promise<{ versionTag: string; payloadKey: string }> {
+        // Fetch existing file header by uniqueId to get encryption key and fileId
+        const existingHeader = await getFileHeaderByUniqueId<unknown>(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            uniqueId,
+            { decrypt: false }
+        );
+
+        if (!existingHeader) {
+            throw new Error(`Cannot add image: note with uniqueId ${uniqueId} not found`);
+        }
+
+        const fileId = existingHeader.fileId;
+
+        const payloadKey = `${PAYLOAD_KEY_IMAGE_PREFIX}${existingPayloadCount}`;
+        const payloads: PayloadFile[] = [];
+        const thumbnails: ThumbnailFile[] = [];
+
+        if (image.file.type.startsWith('image/')) {
+            const { additionalThumbnails, tinyThumb } = await createThumbnails(
+                image.file,
+                payloadKey
+            );
+            thumbnails.push(...additionalThumbnails);
+            payloads.push({
+                key: payloadKey,
+                payload: image.file,
+                previewThumbnail: tinyThumb,
+                descriptorContent: image.filename || image.file.type,
+            });
+        } else {
+            payloads.push({
+                key: payloadKey,
+                payload: image.file,
+                descriptorContent: image.filename || image.file.type,
+            });
+        }
+
+        const uploadMetadata: UploadFileMetadata = {
+            versionTag,
+            allowDistribution: false,
+            appData: {
+                fileType: JOURNAL_FILE_TYPE,
+                dataType: JOURNAL_DATA_TYPE,
+            },
+            isEncrypted: true,
+            accessControlList: {
+                requiredSecurityGroup: SecurityGroupType.Owner,
+            },
+        };
+
+        // UpdateLocalInstructionSet for patchFile
+        const updateInstructions: UpdateInstructionSet = {
+            locale: 'local',
+            file: { fileId, targetDrive: JOURNAL_DRIVE },
+            versionTag: existingHeader.fileMetadata.versionTag || versionTag,
+        };
+
+        const result = await patchFile(
+            this.#dotYouClient,
+            existingHeader?.sharedSecretEncryptedKeyHeader,
+            updateInstructions,
+            uploadMetadata,
+            payloads,
+            thumbnails
+        );
+
+        if (!result) {
+            throw new Error('Failed to add image to note');
+        }
+
+        return {
+            versionTag: result.newVersionTag,
+            payloadKey,
+        };
+    }
+
+    /**
+     * Delete a note from Homebase
+     */
+    async deleteNote(fileId: string): Promise<void> {
+        await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, fileId);
+    }
+
+    /**
+     * Update a note's access control to make it publicly accessible (Anonymous).
+     * This is used for the Share feature.
+     * 
+     * @param uniqueId - The unique ID of the note
+     * @returns The new version tag after update
+     */
+    async makeNotePublic(uniqueId: string): Promise<{ versionTag: string }> {
+        // Fetch existing file header
+        const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            uniqueId,
+            { decrypt: false }
+        );
+
+        if (!existingHeader) {
+            throw new Error(`Note with uniqueId ${uniqueId} not found`);
+        }
+
+
+        const versionTag = existingHeader.fileMetadata.versionTag;
+
+        // Update metadata with Anonymous access control
+        const uploadMetadata: UploadFileMetadata = {
+            versionTag,
+            allowDistribution: true, // Allow distribution for public access
+            appData: {
+                fileType: JOURNAL_FILE_TYPE,
+                dataType: JOURNAL_DATA_TYPE,
+                uniqueId,
+            },
+            isEncrypted: false, // Public notes should not be encrypted
+            accessControlList: {
+                requiredSecurityGroup: SecurityGroupType.Anonymous,
+            },
+        };
+        const uploadInstructionSet: UploadInstructionSet = {
+            storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: existingHeader.fileId },
+            transferIv: getRandom16ByteArray(),
+        }
+
+        const result = await reUploadFile(this.#dotYouClient, uploadInstructionSet, uploadMetadata, false);
+
+        if (!result) {
+            throw new Error('Failed to make note public');
+        }
+
+        return { versionTag: result.newVersionTag };
+    }
+
+    /**
+     * Update a note's access control back to private (Owner only).
+     * This revokes public sharing.
+     * 
+     * @param uniqueId - The unique ID of the note
+     * @returns The new version tag after update
+     */
+    async makeNotePrivate(uniqueId: string): Promise<{ versionTag: string }> {
+        // Fetch existing file header
+        const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            uniqueId,
+            { decrypt: false }
+        );
+
+        if (!existingHeader) {
+            throw new Error(`Note with uniqueId ${uniqueId} not found`);
+        }
+
+        // Update metadata with Owner access control
+        const uploadMetadata: UploadFileMetadata = {
+            allowDistribution: false,
+            appData: {
+                fileType: JOURNAL_FILE_TYPE,
+                dataType: JOURNAL_DATA_TYPE,
+                uniqueId,
+            },
+            isEncrypted: true, // Private notes should be encrypted
+            accessControlList: {
+                requiredSecurityGroup: SecurityGroupType.Owner,
+            },
+        };
+
+        const updateInstructions: UploadInstructionSet = {
+            storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: existingHeader.fileId },
+            transferIv: getRandom16ByteArray(),
+        };
+
+        const result = await reUploadFile(this.#dotYouClient, updateInstructions, uploadMetadata, true);
+
+        if (!result) {
+            throw new Error('Failed to make note private');
+        }
+
+        return { versionTag: result.newVersionTag };
+    }
+}
