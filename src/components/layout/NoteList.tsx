@@ -7,6 +7,10 @@ import { ContextMenuWrapper } from '@/components/ui/context-menu-wrapper';
 import { cn } from '@/lib/utils';
 import type { SearchIndexEntry } from '@/types';
 import { formatRelativeTime } from '@/lib/utils/index';
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { useSyncService } from "@/hooks/useSyncService";
+import { useQueryClient } from "@tanstack/react-query";
+import { notesQueryKey } from "@/hooks/useNotes";
 
 interface NoteListProps {
   notes: SearchIndexEntry[];
@@ -30,6 +34,13 @@ export default function NoteList({
   className = '',
 }: NoteListProps) {
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+  const { sync } = useSyncService();
+  const queryClient = useQueryClient();
+
+  const handleRefresh = async () => {
+    await sync();
+    await queryClient.invalidateQueries({ queryKey: notesQueryKey });
+  };
 
   return (
     <div
@@ -49,6 +60,7 @@ export default function NoteList({
 
       {/* Notes list */}
       <ScrollArea className="flex-1">
+        <PullToRefresh onRefresh={handleRefresh} className="min-h-full">
         {isLoading ? (
           <div className="flex items-center justify-center h-32">
             <span className="text-sm text-muted-foreground">Loading...</span>
@@ -75,6 +87,7 @@ export default function NoteList({
             ))}
           </div>
         )}
+        </PullToRefresh>
       </ScrollArea>
 
       <ConfirmDialog

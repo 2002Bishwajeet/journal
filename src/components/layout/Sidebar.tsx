@@ -27,6 +27,10 @@ import {
 import { ConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
 import type { Folder } from "@/types";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
+import { useSyncService } from "@/hooks/useSyncService";
+import { useQueryClient } from "@tanstack/react-query";
+import { foldersQueryKey } from "@/hooks/useFolders";
 
 interface SidebarProps {
   folders: Folder[];
@@ -54,6 +58,13 @@ export default function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { sync } = useSyncService();
+  const queryClient = useQueryClient();
+
+  const handleRefresh = async () => {
+    await sync();
+    await queryClient.invalidateQueries({ queryKey: foldersQueryKey });
+  };
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -117,6 +128,7 @@ export default function Sidebar({
         <Separator />
 
         <ScrollArea className="flex-1">
+          <PullToRefresh onRefresh={handleRefresh} className="min-h-full">
           <div className="px-2 py-2">
             <div
               className={cn(
@@ -202,6 +214,7 @@ export default function Sidebar({
               })}
             </nav>
           </div>
+          </PullToRefresh>
         </ScrollArea>
 
         <ConfirmDialog
