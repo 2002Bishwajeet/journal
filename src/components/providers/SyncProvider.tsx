@@ -132,9 +132,21 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setSyncStatus("syncing");
     setSyncProgress(null); // Reset progress
     try {
-      const result = await syncService.sync(setSyncProgress);
+      // Safe progress updater that avoids synchronous updates during render
+      const handleProgress = (progress: SyncProgress) => {
+        requestAnimationFrame(() => {
+          setSyncProgress(progress);
+        });
+      };
+
+      const result = await syncService.sync(handleProgress);
       setLastSyncResult(result);
-      setSyncProgress(null); // Clear progress when done
+      
+      // Clear progress safely
+      requestAnimationFrame(() => {
+          setSyncProgress(null);
+      });
+      
       setSyncStatus("idle");
 
       // Invalidate queries to refresh UI with pulled data

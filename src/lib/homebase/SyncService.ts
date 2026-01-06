@@ -565,9 +565,19 @@ export class SyncService {
                     payloadCount
                 );
 
+                // Update the Yjs document to replace pending reference with permanent one
+                await this.updateImageReference(
+                    upload.noteDocId,
+                    upload.id, // data-pending-id
+                    syncRecord.remoteFileId,
+                    result.payloadKey
+                );
+
                 // Success - update sync record and remove pending upload
                 await markSynced(upload.noteDocId, syncRecord.remoteFileId, result.versionTag);
                 await deletePendingImageUpload(upload.id);
+
+                console.log(`[SyncService] Image ${upload.id} uploaded as ${result.payloadKey}`);
             } catch (error) {
                 console.error(`[SyncService] Image upload failed:`, error);
 
@@ -580,6 +590,67 @@ export class SyncService {
                 console.log(`[SyncService] Image ${upload.id} retry scheduled for ${nextRetryAt.toISOString()}`);
             }
         }
+    }
+
+    /**
+     * Update the Yjs document to replace pending image reference with permanent payloadKey.
+     * The new src format is: attachment://fileId/payloadKey
+     */
+    private async updateImageReference(
+        docId: string,
+        pendingId: string,
+        fileId: string,
+        payloadKey: string
+    ): Promise<void> {
+        const updates = await getDocumentUpdates(docId);
+        if (!updates.length) return;
+
+        const ydoc = new Y.Doc();
+        for (const update of updates) {
+            Y.applyUpdate(ydoc, update);
+        }
+
+        const fragment = ydoc.getXmlFragment('prosemirror');
+        let found = false;
+
+        // Walk the Yjs XML tree and find the image with data-pending-id
+        const replaceInFragment = (node: Y.XmlElement | Y.XmlText | Y.XmlFragment) => {
+            if (node instanceof Y.XmlElement) {
+                const attrs = node.getAttributes();
+                if (attrs['data-pending-id'] === pendingId) {
+                    // Replace with permanent reference
+                    node.setAttribute('src', `attachment://${fileId}/${payloadKey}`);
+                    node.removeAttribute('data-pending-id');
+                    found = true;
+                    console.log(`[SyncService] Updated image reference: ${pendingId} -> attachment://${fileId}/${payloadKey}`);
+                }
+                // Recurse children
+                for (let i = 0; i < node.length; i++) {
+                    const child = node.get(i);
+                    if (child instanceof Y.XmlElement || child instanceof Y.XmlFragment) {
+                        replaceInFragment(child);
+                    }
+                }
+            } else if (node instanceof Y.XmlFragment) {
+                for (let i = 0; i < node.length; i++) {
+                    const child = node.get(i);
+                    if (child instanceof Y.XmlElement || child instanceof Y.XmlFragment) {
+                        replaceInFragment(child);
+                    }
+                }
+            }
+        };
+
+        replaceInFragment(fragment);
+
+        if (found) {
+            // Save updated state
+            const newUpdate = Y.encodeStateAsUpdate(ydoc);
+            await deleteDocumentUpdates(docId);
+            await saveDocumentUpdate(docId, newUpdate);
+        }
+
+        ydoc.destroy();
     }
 
     /**

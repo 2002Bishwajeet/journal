@@ -1,0 +1,258 @@
+import { useEffect, useRef, useState } from "react";
+import {
+  OdinPreviewImage,
+  type OdinPreviewImageProps,
+} from "./OdinPreviewImage";
+import { OdinThumbnailImage } from "./OdinThumbnailImage";
+import { OdinPayloadImage } from "./OdinPayloadImage";
+import { Loader2, AlertCircle } from "lucide-react";
+import type { ImageSize } from "@homebase-id/js-lib/core";
+
+import { useIntersection } from "@/hooks/useIntersection";
+import type { ThumbnailMeta } from "@homebase-id/js-lib/media";
+
+export interface OdinImageProps
+  extends Omit<Omit<OdinPreviewImageProps, "onLoad">, "blockFetchFromServer"> {
+  probablyEncrypted?: boolean;
+
+  lazyLoad?: boolean;
+  onLoad?: () => void;
+  avoidPayload?: boolean;
+  fit?: "cover" | "contain";
+  position?: "left" | "center";
+  preferObjectUrl?: boolean; // => Prefer image urls over base64; But the objectUrls are never cleared after use;
+
+  maxWidth?: string;
+}
+
+const thumblessContentTypes = ["image/svg+xml", "image/gif"];
+
+export const OdinImage = ({
+  className,
+  previewThumbnail,
+  probablyEncrypted,
+  avoidPayload,
+  fit,
+  position,
+  onLoad,
+  lazyLoad = true,
+  maxWidth,
+  ...props
+}: OdinImageProps) => {
+  const imgFitClassNames = `${
+    fit === "cover"
+      ? "w-full h-full object-cover"
+      : fit === "contain"
+      ? `max-h-[inherit] ${
+          position === "left" ? "my-auto" : "m-auto"
+        } object-contain`
+      : ""
+  }`;
+
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const previewImgRef = useRef<HTMLImageElement>(null);
+
+  const [isTinyLoaded, setIsTinyLoaded] = useState(false);
+  const [isFinal, setIsFinal] = useState(false);
+  const [isFatalError, setIsFatalError] = useState(false);
+
+  const [isInView, setIsInView] = useState(!lazyLoad);
+  useIntersection(wrapperRef, () => setIsInView(true));
+
+  const [loadSize, setLoadSize] = useState<ImageSize | "full" | undefined>(
+    undefined
+  );
+
+  const [naturalSize, setNaturalSize] = useState<ImageSize | undefined>(
+    previewThumbnail
+  );
+  const [tinyThumb, setTinyThumb] = useState<ThumbnailMeta | undefined>();
+
+  const weDontHaveSourceProps =
+    !props.fileId || !props.fileKey || !props.targetDrive;
+
+  const calculateSize = () => {
+    if (loadSize !== undefined) return;
+
+    // If no element or nothing to create a size that has the aspect ratio, don't bother and load full...
+    // If the image is an svg.. Then there are no thumbs and we should just load the full image;
+    if (
+      !previewImgRef.current ||
+      thumblessContentTypes.includes(
+        previewThumbnail?.contentType || tinyThumb?.contentType || ""
+      ) ||
+      (tinyThumb && !tinyThumb?.sizes?.length)
+    ) {
+      setLoadSize(
+        avoidPayload ? { pixelHeight: 200, pixelWidth: 200 } : "full"
+      );
+      return;
+    }
+
+    const targetWidth = previewImgRef.current?.clientWidth;
+    const targetHeight = previewImgRef.current?.clientHeight;
+
+    // Find the best matching size in the meta sizes
+    let matchingSize = undefined;
+    tinyThumb?.sizes?.find((size) => {
+      return targetWidth < size.pixelWidth && targetHeight < size.pixelHeight;
+    });
+
+    // If no exact size, pass the size of the img element
+    // If targetWidth or targetHeight is 0, we can't calculate the size; And shouldn't even fetch
+    if (!matchingSize && targetWidth && targetHeight) {
+      // The preview size is heavily rounded so we recalculate the pixelHeight
+      const validatedHeight = naturalSize
+        ? Math.round(
+            targetWidth * (naturalSize.pixelHeight / naturalSize.pixelWidth)
+          )
+        : targetHeight;
+
+      matchingSize = {
+        pixelWidth: targetWidth,
+        pixelHeight: validatedHeight,
+      };
+    }
+
+    setLoadSize(matchingSize);
+  };
+
+  useEffect(() => {
+    // Once we have the tinyThumb, we can calculate the size
+    if (isTinyLoaded) calculateSize();
+  }, [isTinyLoaded]);
+
+  if (weDontHaveSourceProps) return null;
+
+  return (
+    <div
+      className={`${
+        className && className?.indexOf("absolute") !== -1 ? "" : "relative"
+      } overflow-hidden ${
+        fit !== "cover"
+          ? `${position === "left" ? "my-auto" : "m-auto"} h-auto w-full`
+          : ""
+      } ${className ?? ""}`}
+      ref={wrapperRef}
+      data-odinid={props.odinId}
+      data-load-size={
+        loadSize && loadSize !== "full"
+          ? `${loadSize.pixelWidth}x${loadSize.pixelHeight}`
+          : loadSize
+      }
+      data-natural-size={
+        naturalSize
+          ? `${naturalSize.pixelWidth}x${naturalSize.pixelHeight}`
+          : "none"
+      }
+      data-probably-encrypted={probablyEncrypted}
+      data-fileid={props.fileId}
+      data-globaltransitid={props.globalTransitId}
+      data-filekey={props.fileKey}
+      style={
+        naturalSize?.pixelWidth && naturalSize?.pixelHeight && fit !== "cover"
+          ? {
+              aspectRatio: `${naturalSize?.pixelWidth}/${naturalSize?.pixelHeight}`,
+              maxWidth: maxWidth || `${naturalSize.pixelWidth}px`,
+            }
+          : undefined
+      }
+    >
+      <OdinPreviewImage
+        {...props}
+        previewThumbnail={previewThumbnail}
+        onLoad={(
+          naturalSize: ImageSize | undefined,
+          tinyThumb: ThumbnailMeta | undefined
+        ) => {
+          setNaturalSize((oldVal) => naturalSize || oldVal);
+          setTinyThumb(tinyThumb);
+          setIsTinyLoaded(true);
+        }}
+        className={`absolute inset-0 transition-opacity delay-500 ${imgFitClassNames} ${
+          fit === "contain" ? (position === "left" ? "object-left" : "") : ""
+        } ${isFinal ? "opacity-0" : "opacity-100"}`}
+        onError={() => setIsTinyLoaded(true)}
+        ref={previewImgRef}
+        blur="auto"
+        blockFetchFromServer={!isInView}
+      />
+
+      {!isFinal && !isFatalError ? (
+        <TinyThumbLoader isTinyLoaded={isTinyLoaded} />
+      ) : null}
+      {loadSize === "full" ? (
+        <OdinPayloadImage
+          {...props}
+          naturalSize={naturalSize}
+          probablyEncrypted={probablyEncrypted}
+          style={
+            naturalSize?.pixelWidth && naturalSize?.pixelHeight
+              ? {
+                  aspectRatio: `${naturalSize?.pixelWidth}/${naturalSize?.pixelHeight}`,
+                }
+              : undefined
+          }
+          onLoad={() => {
+            setIsFinal(true);
+            onLoad?.();
+          }}
+          onError={() => setIsFatalError(true)}
+          className={`relative transition-opacity duration-300 ${imgFitClassNames} ${
+            isFinal ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      ) : loadSize !== undefined ? (
+        <OdinThumbnailImage
+          {...props}
+          naturalSize={naturalSize}
+          probablyEncrypted={probablyEncrypted}
+          loadSize={loadSize}
+          style={
+            naturalSize?.pixelWidth && naturalSize?.pixelHeight
+              ? {
+                  aspectRatio: `${naturalSize?.pixelWidth}/${naturalSize?.pixelHeight}`,
+                }
+              : undefined
+          }
+          onLoad={(e) => {
+            // We re-set the natural size as this would be the max size/thumb of the image
+            setNaturalSize(
+              e.currentTarget.naturalWidth && e.currentTarget.naturalHeight
+                ? {
+                    pixelWidth: e.currentTarget.naturalWidth,
+                    pixelHeight: e.currentTarget.naturalHeight,
+                  }
+                : undefined
+            );
+            setIsFinal(true);
+            onLoad?.();
+          }}
+          onError={() => setIsFatalError(true)}
+          className={`relative transition-opacity duration-300 ${imgFitClassNames} ${
+            isFinal ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      ) : null}
+      {isFatalError ? <FatalError /> : null}
+    </div>
+  );
+};
+
+const TinyThumbLoader = ({ isTinyLoaded }: { isTinyLoaded: boolean }) => (
+  <div
+    className={`absolute inset-0 flex text-white transition-opacity delay-[2000ms] ${
+      isTinyLoaded ? "opacity-100" : "opacity-0"
+    }`}
+  >
+    <Loader2 className="m-auto h-7 w-7 animate-spin" />
+  </div>
+);
+
+const FatalError = () => (
+  <div
+    className={`absolute inset-0 flex items-center justify-center bg-white/75 dark:bg-black/75`}
+  >
+    <AlertCircle className="mr-2 h-6 w-6 text-destructive" /> <p className="text-sm">Something went wrong</p>
+  </div>
+);

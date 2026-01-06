@@ -12,6 +12,7 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import Image from '@tiptap/extension-image';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { ReactNodeViewRenderer } from '@tiptap/react';
 
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -20,9 +21,38 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { Mathematics } from '@tiptap/extension-mathematics';
 import { createLowlight } from 'lowlight';
 import { EmojiExtension } from './EmojiExtension';
+import { ImageNodeView } from '../nodes/ImageNode';
+
+// Re-export FileHandler for use in EditorProvider
+export { FileHandler } from './FileHandler';
 
 // Initialize lowlight for code syntax highlighting
 const lowlight = createLowlight();
+
+/**
+ * Custom Image extension with NodeView for handling pending uploads and remote images
+ */
+const CustomImage = Image.extend({
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+            'data-pending-id': {
+                default: null,
+                parseHTML: element => element.getAttribute('data-pending-id'),
+                renderHTML: attributes => {
+                    if (!attributes['data-pending-id']) return {};
+                    return { 'data-pending-id': attributes['data-pending-id'] };
+                },
+            },
+        };
+    },
+    addNodeView() {
+        return ReactNodeViewRenderer(ImageNodeView);
+    },
+}).configure({
+    inline: true,
+    allowBase64: true,
+});
 
 
 /**
@@ -62,20 +92,15 @@ export function createBaseExtensions(options?: ExtensionOptions) {
             nested: true,
         }),
 
-        Image.configure({
-            inline: true,
-            allowBase64: true,
-        }),
+        CustomImage,
 
         CodeBlockLowlight.configure({
             lowlight,
         }),
 
-
-
         Table.configure({
             resizable: true,
-            lastColumnResizable: false,
+            lastColumnResizable: true,
         }),
 
         TableRow,

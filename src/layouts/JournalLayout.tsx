@@ -12,6 +12,7 @@ import {
   useSessionPersistence,
   useDeviceType,
   useSyncService,
+  useKeyboardShortcuts,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -74,6 +75,11 @@ export default function JournalLayout() {
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [shareNote, setShareNote] = useState<SearchIndexEntry | null>(null);
+
+  // Keyboard shortcuts (Cmd+K for search)
+  useKeyboardShortcuts({
+    onSearch: () => setShowSearch(true),
+  });
 
   // Device type detection
   const deviceType = useDeviceType();

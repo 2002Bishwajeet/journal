@@ -15,8 +15,7 @@
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
     "@floating-ui/react": "^0.27.16",
-    "@homebase-id/js-lib": "^0.0.7-alpha.76",
-    "@homebase-id/ui-lib": "^0.0.3-alpha.36",
+    "@homebase-id/js-lib": "^0.0.7-alpha.78",
     "@mlc-ai/web-llm": "^0.2.80",
     "@radix-ui/react-context-menu": "^2.2.16",
     "@radix-ui/react-dialog": "^1.1.15",

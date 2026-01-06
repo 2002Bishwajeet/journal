@@ -1,10 +1,11 @@
-import { useEffect, useState, useRef, useMemo, type ReactNode } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback, type ReactNode } from "react";
 import { useEditor, type Editor } from "@tiptap/react";
 import * as Y from "yjs";
 import { PGliteProvider } from "@/lib/yjs";
-import { upsertSearchIndex } from "@/lib/db";
+import { upsertSearchIndex, savePendingImageUpload } from "@/lib/db";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
+import { useSyncService } from "@/hooks/useSyncService";
 
 // Import modular plugins
 import {
@@ -12,6 +13,7 @@ import {
   createCollaborationExtension,
   CustomShortcuts,
   AutocompletePlugin,
+  FileHandler,
 } from "./plugins";
 
 // Import KaTeX styles for math rendering
@@ -109,6 +111,30 @@ export function EditorProvider({
     };
   }, [yDoc]);
 
+  // Get sync service to trigger upload after queuing
+  const { sync } = useSyncService();
+
+  // Handle image drop/paste - queue for upload and trigger sync
+  const handleImageDrop = useCallback(async (file: File, pendingId: string) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const blobData = new Uint8Array(arrayBuffer);
+
+    await savePendingImageUpload({
+      id: pendingId,
+      noteDocId: docId,
+      blobData,
+      contentType: file.type,
+      status: 'pending',
+      retryCount: 0,
+      createdAt: new Date().toISOString(),
+    });
+
+    console.log(`[EditorProvider] Queued image ${pendingId} for upload, triggering sync...`);
+    
+    // Trigger sync to upload the image immediately
+    sync().catch(err => console.error('[EditorProvider] Sync after image drop failed:', err));
+  }, [docId, sync]);
+
   // Memoize extensions to avoid recreation on every render
   const extensions = useMemo(
     () => [
@@ -116,6 +142,12 @@ export function EditorProvider({
       createCollaborationExtension(yXmlFragment),
       CustomShortcuts.configure({
         // Custom shortcuts can trigger actions here if needed
+      }),
+      // File handler for image drag/drop/paste
+      FileHandler.configure({
+        maxSizeMB: 5,
+        allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+        onImageDrop: handleImageDrop,
       }),
       // AI-powered plugins (conditionally active)
       AutocompletePlugin.configure({
@@ -133,7 +165,7 @@ export function EditorProvider({
       //   debug: true,
       // }),
     ],
-    [yXmlFragment, onGetAutocompleteSuggestion, onCheckGrammar]
+    [yXmlFragment, onGetAutocompleteSuggestion, onCheckGrammar, handleImageDrop]
   );
 
   // Create TipTap editor with performance optimizations
