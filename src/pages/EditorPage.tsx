@@ -200,12 +200,15 @@ export default function EditorPage() {
       key={noteId} // Force re-mount provider when note changes
       docId={noteId}
       metadata={selectedNoteMetadata}
-      onMetadataChange={(meta) =>
-        updateNoteMetadata({
-          docId: noteId,
-          metadata: meta,
-        })
-      }
+          onMetadataChange={async (meta) => {
+            await updateNoteMetadata({
+              docId: noteId,
+              metadata: meta,
+            });
+            // Trigger immediate sync for title updates to ensure they are pushed to remote
+            // The editor content sync is debounced separately, but title is critical metadata
+            await syncNote(noteId);
+          }}
       onSave={handleSave}
       isAIReady={isAIReady}
       onGetAutocompleteSuggestion={handleGetAutocompleteSuggestion}
