@@ -251,7 +251,7 @@ Instructions:
           </div>
 
           {/* Messages Area */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="flex flex-col gap-4 p-4 min-h-full">
               {!isReady && (
                 <div className="flex flex-col items-center justify-center flex-1 text-center space-y-4 py-8 text-muted-foreground">
