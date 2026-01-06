@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { DotYouClient } from '@homebase-id/js-lib/core';
 import { hasValidToken } from '@homebase-id/js-lib/auth';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 /**
  * Hook to verify if the current auth token is still valid.
@@ -8,15 +9,20 @@ import { hasValidToken } from '@homebase-id/js-lib/auth';
  */
 export function useVerifyToken(dotYouClient: DotYouClient | null) {
     const identity = dotYouClient?.getHostIdentity() || 'anonymous';
+    const isOnline = useOnlineStatus();
 
     return useQuery({
         queryKey: ['verifyToken', identity],
         queryFn: async () => {
             if (!dotYouClient) return false;
+            // If offline, assume token is valid to prevent logout
+            if (!isOnline) return true;
             try {
                 return await hasValidToken(dotYouClient);
             } catch (error) {
                 console.error('[useVerifyToken] Error:', error);
+                // If error is network related, maybe we should also return true?
+                // But isOnline should handle most cases.
                 return false;
             }
         },

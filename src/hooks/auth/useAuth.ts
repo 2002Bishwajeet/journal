@@ -11,6 +11,7 @@ import {
     STORAGE_KEY_SHARED_SECRET,
 } from '@/lib/homebase/config';
 import { useVerifyToken } from './useVerifyToken';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 export type AuthenticationState = 'unknown' | 'anonymous' | 'authenticated';
 
@@ -27,6 +28,7 @@ export function useAuth() {
         hasSharedSecret() ? 'unknown' : 'anonymous'
     );
     const navigate = useNavigate();
+    const isOnline = useOnlineStatus();
 
     const getAppAuthToken = useCallback(() => {
         return localStorage.getItem(STORAGE_KEY_AUTH_TOKEN);
@@ -120,7 +122,10 @@ export function useAuth() {
             });
 
             // If we had credentials but token is invalid, log out
-            if (hasSharedSecret()) {
+            // BUT only if we are online. If offline, we might just be unable to verify.
+            // Actually, useVerifyToken now returns true if offline, so this blok might not be reached if offline.
+            // However, as a safety net:
+            if (hasSharedSecret() && isOnline) {
                 logout();
             }
         }

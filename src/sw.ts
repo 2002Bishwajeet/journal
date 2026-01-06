@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
-import { registerRoute } from 'workbox-routing';
+import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
+import { registerRoute, NavigationRoute } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
@@ -68,6 +68,18 @@ registerRoute(
                 maxEntries: 50,
                 maxAgeSeconds: 24 * 60 * 60, // 1 day
             }),
+        ],
+    })
+);
+
+// SPA Navigation Fallback: Serve index.html for all navigation requests
+// This is essential for the PWA to work offline on non-root paths
+registerRoute(
+    new NavigationRoute(createHandlerBoundToURL('/index.html'), {
+        denylist: [
+            /^\/api\//, // Exclude API calls
+            /^\/img\//, // Exclude images if needed (though they are cached separately)
+            /^\/proxy-image\//, // Exclude proxy image calls
         ],
     })
 );

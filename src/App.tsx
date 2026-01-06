@@ -16,6 +16,8 @@ import {
   RootRedirect,
 } from "@/components/auth";
 import { SyncProvider } from "@/components/providers/SyncProvider";
+import { OnlineProvider } from "@/components/providers/OnlineProvider";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,31 +33,34 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <BrowserRouter>
-          <DotYouClientProvider>
-            <Routes>
-              {/* Protected route */}
-              <Route
-                element={
-                  <AuthGuard>
-                    <SyncProvider>
-                      <JournalLayout />
-                    </SyncProvider>
-                  </AuthGuard>
-                }
-              >
-                <Route index element={<RootRedirect />} />
-                <Route path="/:folderId" element={<EmptyEditorPage />} />
-                <Route path="/:folderId/:noteId" element={<EditorPage />} />
-              </Route>
+          <OnlineProvider>
+            <DotYouClientProvider>
+              <Routes>
+                {/* Protected route */}
+                <Route
+                  element={
+                    <AuthGuard>
+                      <SyncProvider>
+                        <JournalLayout />
+                      </SyncProvider>
+                    </AuthGuard>
+                  }
+                >
+                  <Route index element={<RootRedirect />} />
+                  <Route path="/:folderId" element={<EmptyEditorPage />} />
+                  <Route path="/:folderId/:noteId" element={<EditorPage />} />
+                </Route>
 
-              {/* Public routes */}
-              <Route path="/welcome" element={<LandingPage />} />
-              <Route path="/auth/finalize" element={<AuthFinalizePage />} />
-              <Route path="/share/:identity/:noteId" element={<SharePage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </DotYouClientProvider>
+                {/* Public routes */}
+                <Route path="/welcome" element={<LandingPage />} />
+                <Route path="/auth/finalize" element={<AuthFinalizePage />} />
+                <Route path="/share/:identity/:noteId" element={<SharePage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </DotYouClientProvider>
+          </OnlineProvider>
         </BrowserRouter>
+
         <Toaster />
       </ErrorBoundary>
     </QueryClientProvider>

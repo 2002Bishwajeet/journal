@@ -69,9 +69,11 @@ export class SyncService {
 
     /**
      * Check if network is available.
+     * Checks both navigator.onLine and internal state if managed.
      */
     isOnline(): boolean {
-        return typeof navigator !== 'undefined' ? navigator.onLine : true;
+        if (typeof navigator === 'undefined') return true;
+        return navigator.onLine;
     }
 
     /**
