@@ -3,6 +3,11 @@
  * 
  * Appears above the keyboard on touch devices.
  * Uses shared useToolbarState for optimized re-renders.
+ * 
+ * Features:
+ * - Proper safe area inset handling for notched devices
+ * - Larger touch targets (48px) for accessibility
+ * - Comprehensive formatting options matching desktop
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -10,16 +15,24 @@ import { Editor } from '@tiptap/react';
 import {
   Bold,
   Italic,
+  Strikethrough,
   List,
   ListOrdered,
+  ListTodo,
   Heading1,
+  Heading2,
+  Heading3,
   Code,
+  Quote,
   Link as LinkIcon,
   Image as ImageIcon,
+  Undo,
+  Redo,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToolbarState, safeEditorCommand } from './shared';
 import { EmojiPicker } from './EmojiPicker';
+import { undo, redo } from './plugins/collaboration';
 
 interface MobileToolbarProps {
   editor: Editor;
@@ -31,17 +44,20 @@ interface ToolbarButtonProps {
   isActive?: boolean;
   disabled?: boolean;
   children: React.ReactNode;
+  title?: string;
 }
 
-function ToolbarButton({ onClick, isActive, disabled, children }: ToolbarButtonProps) {
+// Increased button size to 48px for better touch accessibility
+function ToolbarButton({ onClick, isActive, disabled, children, title }: ToolbarButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className={cn(
-        "flex items-center justify-center w-11 h-11 min-w-[44px] rounded-lg transition-colors",
-        "active:bg-primary/20",
+        "flex items-center justify-center w-12 h-12 min-w-[48px] rounded-lg transition-colors",
+        "active:bg-primary/20 touch-manipulation",
         isActive
           ? "bg-primary/10 text-primary"
           : "text-foreground hover:bg-muted",
@@ -53,12 +69,35 @@ function ToolbarButton({ onClick, isActive, disabled, children }: ToolbarButtonP
   );
 }
 
+// Divider component for visual separation
+function ToolbarDivider() {
+  return <div className="w-px h-8 bg-border mx-1 flex-shrink-0" />;
+}
+
 export default function MobileToolbar({ editor, className }: MobileToolbarProps) {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
+  const [safeAreaBottom, setSafeAreaBottom] = useState(0);
   
   // Use shared toolbar state hook
   const state = useToolbarState(editor);
+
+  // Get safe area insets
+  useEffect(() => {
+    const updateSafeArea = () => {
+      // Get the safe area inset from CSS env() or compute from viewport
+      const testEl = document.createElement('div');
+      testEl.style.cssText = 'position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom, 0px);';
+      document.body.appendChild(testEl);
+      const computedPadding = window.getComputedStyle(testEl).paddingBottom;
+      document.body.removeChild(testEl);
+      setSafeAreaBottom(parseFloat(computedPadding) || 0);
+    };
+    
+    updateSafeArea();
+    window.addEventListener('orientationchange', updateSafeArea);
+    return () => window.removeEventListener('orientationchange', updateSafeArea);
+  }, []);
 
   // Detect keyboard visibility using visualViewport API
   useEffect(() => {
@@ -70,6 +109,7 @@ export default function MobileToolbar({ editor, className }: MobileToolbarProps)
       const viewportHeight = viewport.height;
       const heightDiff = windowHeight - viewportHeight;
       
+      // Keyboard is visible when there's a significant height difference
       if (heightDiff > 150) {
         setKeyboardHeight(heightDiff);
         setIsVisible(true);
@@ -93,12 +133,30 @@ export default function MobileToolbar({ editor, className }: MobileToolbarProps)
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
   // Action handlers using safeEditorCommand
+  const handleUndo = useCallback(() => {
+    safeEditorCommand(editor, () => {
+      undo(editor.state);
+      editor.view.focus();
+    });
+  }, [editor]);
+
+  const handleRedo = useCallback(() => {
+    safeEditorCommand(editor, () => {
+      redo(editor.state);
+      editor.view.focus();
+    });
+  }, [editor]);
+
   const toggleBold = useCallback(() => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleBold().run());
   }, [editor]);
 
   const toggleItalic = useCallback(() => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleItalic().run());
+  }, [editor]);
+
+  const toggleStrike = useCallback(() => {
+    safeEditorCommand(editor, () => editor.chain().focus().toggleStrike().run());
   }, [editor]);
 
   const toggleBulletList = useCallback(() => {
@@ -109,12 +167,28 @@ export default function MobileToolbar({ editor, className }: MobileToolbarProps)
     safeEditorCommand(editor, () => editor.chain().focus().toggleOrderedList().run());
   }, [editor]);
 
-  const toggleHeading = useCallback(() => {
+  const toggleTaskList = useCallback(() => {
+    safeEditorCommand(editor, () => editor.chain().focus().toggleTaskList().run());
+  }, [editor]);
+
+  const toggleHeading1 = useCallback(() => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleHeading({ level: 1 }).run());
+  }, [editor]);
+
+  const toggleHeading2 = useCallback(() => {
+    safeEditorCommand(editor, () => editor.chain().focus().toggleHeading({ level: 2 }).run());
+  }, [editor]);
+
+  const toggleHeading3 = useCallback(() => {
+    safeEditorCommand(editor, () => editor.chain().focus().toggleHeading({ level: 3 }).run());
   }, [editor]);
 
   const toggleCode = useCallback(() => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleCode().run());
+  }, [editor]);
+
+  const toggleBlockquote = useCallback(() => {
+    safeEditorCommand(editor, () => editor.chain().focus().toggleBlockquote().run());
   }, [editor]);
 
   const addLink = useCallback(() => {
@@ -148,51 +222,92 @@ export default function MobileToolbar({ editor, className }: MobileToolbarProps)
   return (
     <div
       className={cn(
-        "fixed left-0 right-0 z-50 bg-background border-t border-border shadow-lg",
-        "safe-area-inset-bottom",
+        "fixed left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border shadow-lg",
         className
       )}
       style={{
         bottom: keyboardHeight,
+        paddingBottom: safeAreaBottom > 0 ? `${safeAreaBottom}px` : 'env(safe-area-inset-bottom, 0px)',
         transition: 'bottom 0.1s ease-out',
       }}
     >
-      <div className="flex items-center gap-1 px-2 py-2 overflow-x-auto">
-        <ToolbarButton onClick={toggleBold} isActive={state.isBold}>
-          <Bold className="h-6 w-6" />
+      {/* Scrollable toolbar container */}
+      <div 
+        className="flex items-center gap-0.5 px-2 py-2 overflow-x-auto scrollbar-hide"
+        style={{
+          paddingLeft: 'max(8px, env(safe-area-inset-left, 8px))',
+          paddingRight: 'max(8px, env(safe-area-inset-right, 8px))',
+        }}
+      >
+        {/* Undo/Redo */}
+        <ToolbarButton onClick={handleUndo} title="Undo">
+          <Undo className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={handleRedo} title="Redo">
+          <Redo className="h-5 w-5" />
         </ToolbarButton>
 
-        <ToolbarButton onClick={toggleItalic} isActive={state.isItalic}>
-          <Italic className="h-6 w-6" />
+        <ToolbarDivider />
+
+        {/* Text formatting */}
+        <ToolbarButton onClick={toggleBold} isActive={state.isBold} title="Bold">
+          <Bold className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={toggleItalic} isActive={state.isItalic} title="Italic">
+          <Italic className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={toggleStrike} isActive={state.isStrike} title="Strikethrough">
+          <Strikethrough className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={toggleCode} isActive={state.isCode} title="Code">
+          <Code className="h-5 w-5" />
         </ToolbarButton>
 
-        <ToolbarButton onClick={toggleBulletList} isActive={state.isBulletList}>
-          <List className="h-6 w-6" />
+        <ToolbarDivider />
+
+        {/* Headings */}
+        <ToolbarButton onClick={toggleHeading1} isActive={state.isHeading1} title="Heading 1">
+          <Heading1 className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={toggleHeading2} isActive={state.isHeading2} title="Heading 2">
+          <Heading2 className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={toggleHeading3} isActive={state.isHeading3} title="Heading 3">
+          <Heading3 className="h-5 w-5" />
         </ToolbarButton>
 
-        <ToolbarButton onClick={toggleOrderedList} isActive={state.isOrderedList}>
-          <ListOrdered className="h-6 w-6" />
+        <ToolbarDivider />
+
+        {/* Lists */}
+        <ToolbarButton onClick={toggleBulletList} isActive={state.isBulletList} title="Bullet List">
+          <List className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={toggleOrderedList} isActive={state.isOrderedList} title="Numbered List">
+          <ListOrdered className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={toggleTaskList} isActive={state.isTaskList} title="Task List">
+          <ListTodo className="h-5 w-5" />
         </ToolbarButton>
 
-        <ToolbarButton onClick={toggleHeading} isActive={state.isHeading1}>
-          <Heading1 className="h-6 w-6" />
+        <ToolbarDivider />
+
+        {/* Block elements */}
+        <ToolbarButton onClick={toggleBlockquote} isActive={state.isBlockquote} title="Quote">
+          <Quote className="h-5 w-5" />
         </ToolbarButton>
 
-        <ToolbarButton onClick={toggleCode} isActive={state.isCode}>
-          <Code className="h-6 w-6" />
-        </ToolbarButton>
+        <ToolbarDivider />
 
-        <ToolbarButton onClick={addLink} isActive={state.isLink}>
-          <LinkIcon className="h-6 w-6" />
+        {/* Insert */}
+        <ToolbarButton onClick={addLink} isActive={state.isLink} title="Add Link">
+          <LinkIcon className="h-5 w-5" />
         </ToolbarButton>
-
         <EmojiPicker 
           editor={editor} 
-          className="flex items-center justify-center w-11 h-11 min-w-[44px] rounded-lg transition-colors text-foreground hover:bg-muted active:bg-primary/20"
+          className="flex items-center justify-center w-12 h-12 min-w-[48px] rounded-lg transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
         />
-
-        <ToolbarButton onClick={addImage}>
-          <ImageIcon className="h-6 w-6" />
+        <ToolbarButton onClick={addImage} title="Add Image">
+          <ImageIcon className="h-5 w-5" />
         </ToolbarButton>
       </div>
     </div>
