@@ -40,7 +40,7 @@ function ToolbarButton({ onClick, isActive, disabled, children }: ToolbarButtonP
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex items-center justify-center w-10 h-10 rounded-lg transition-colors",
+        "flex items-center justify-center w-11 h-11 min-w-[44px] rounded-lg transition-colors",
         "active:bg-primary/20",
         isActive
           ? "bg-primary/10 text-primary"
@@ -157,42 +157,42 @@ export default function MobileToolbar({ editor, className }: MobileToolbarProps)
         transition: 'bottom 0.1s ease-out',
       }}
     >
-      <div className="flex items-center justify-around px-2 py-1.5">
+      <div className="flex items-center gap-1 px-2 py-2 overflow-x-auto">
         <ToolbarButton onClick={toggleBold} isActive={state.isBold}>
-          <Bold className="h-5 w-5" />
+          <Bold className="h-6 w-6" />
         </ToolbarButton>
 
         <ToolbarButton onClick={toggleItalic} isActive={state.isItalic}>
-          <Italic className="h-5 w-5" />
+          <Italic className="h-6 w-6" />
         </ToolbarButton>
 
         <ToolbarButton onClick={toggleBulletList} isActive={state.isBulletList}>
-          <List className="h-5 w-5" />
+          <List className="h-6 w-6" />
         </ToolbarButton>
 
         <ToolbarButton onClick={toggleOrderedList} isActive={state.isOrderedList}>
-          <ListOrdered className="h-5 w-5" />
+          <ListOrdered className="h-6 w-6" />
         </ToolbarButton>
 
         <ToolbarButton onClick={toggleHeading} isActive={state.isHeading1}>
-          <Heading1 className="h-5 w-5" />
+          <Heading1 className="h-6 w-6" />
         </ToolbarButton>
 
         <ToolbarButton onClick={toggleCode} isActive={state.isCode}>
-          <Code className="h-5 w-5" />
+          <Code className="h-6 w-6" />
         </ToolbarButton>
 
         <ToolbarButton onClick={addLink} isActive={state.isLink}>
-          <LinkIcon className="h-5 w-5" />
+          <LinkIcon className="h-6 w-6" />
         </ToolbarButton>
 
         <EmojiPicker 
           editor={editor} 
-          className="flex items-center justify-center w-10 h-10 rounded-lg transition-colors text-foreground hover:bg-muted active:bg-primary/20"
+          className="flex items-center justify-center w-11 h-11 min-w-[44px] rounded-lg transition-colors text-foreground hover:bg-muted active:bg-primary/20"
         />
 
         <ToolbarButton onClick={addImage}>
-          <ImageIcon className="h-5 w-5" />
+          <ImageIcon className="h-6 w-6" />
         </ToolbarButton>
       </div>
     </div>

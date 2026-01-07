@@ -434,6 +434,7 @@ export async function getSyncRecord(localId: string): Promise<SyncRecord | null>
         version_tag: string | null;
         last_synced_at: string | null;
         sync_status: 'pending' | 'synced' | 'conflict' | 'error';
+        content_hash: string | null;
     }>(
         'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash FROM sync_records WHERE local_id = $1',
         [localId]
@@ -447,6 +448,7 @@ export async function getSyncRecord(localId: string): Promise<SyncRecord | null>
         versionTag: row.version_tag || undefined,
         lastSyncedAt: row.last_synced_at || undefined,
         syncStatus: row.sync_status,
+        contentHash: row.content_hash || undefined,
     };
 }
 

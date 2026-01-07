@@ -259,11 +259,35 @@ body {
   margin-bottom: 0.25em;
 }
 
-/* Tables */
+/* Tables - Scrollable on Mobile */
 .prose table {
   width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
+}
+
+/* Mobile table scroll - wrap table in block container */
+@media (max-width: 768px) {
+  .prose table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  
+  .prose tbody {
+    display: table;
+    width: 100%;
+    min-width: 500px;
+  }
+  
+  .prose thead {
+    display: table-header-group;
+  }
+  
+  .prose tr {
+    display: table-row;
+  }
 }
 
 .prose th, .prose td {

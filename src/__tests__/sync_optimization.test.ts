@@ -121,7 +121,7 @@ describe('Sync Optimization (Content Hashing)', () => {
 
     describe('DB Persistence', () => {
         it('should save and retrieve content_hash', async () => {
-            const localId = 'test-id-1';
+            const localId = '11111111-1111-1111-1111-111111111111';
             const contentHash = 'abc-123-hash';
 
             await upsertSyncRecord({
@@ -137,7 +137,7 @@ describe('Sync Optimization (Content Hashing)', () => {
         });
 
         it('should update content_hash when marking synced', async () => {
-            const localId = 'test-id-2';
+            const localId = '22222222-2222-2222-2222-222222222222';
             const initialHash = 'hash-1';
             const newHash = 'hash-2';
 

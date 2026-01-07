@@ -183,7 +183,7 @@ export default function JournalLayout() {
             "flex absolute inset-0 z-20 w-full"
         )}
       >
-        <div className="flex flex-col h-full w-full">
+        <div className="flex flex-col h-full w-full max-w-full min-w-0 overflow-hidden">
           {/* Mobile Header for NoteList */}
           <div
             className={cn(
