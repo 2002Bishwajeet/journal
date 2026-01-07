@@ -30,7 +30,7 @@ import {
     calculateNextRetryAt,
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
-import { extractPreviewTextFromYjs } from '@/lib/utils';
+import { extractPreviewTextFromYjs, tryJsonParse } from '@/lib/utils';
 import { MAIN_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
 import type { FolderFile, NoteFileContent, SyncRecord, SyncProgress } from '@/types';
 
@@ -257,8 +257,9 @@ export class SyncService {
         const uniqueId = remoteFile.fileMetadata.appData.uniqueId;
         if (!uniqueId) return;
 
-        // Parse the content - it may be a string or already parsed
-        const content = remoteFile.fileMetadata.appData.content;
+        // Parse the content - it's stored as a JSON string from Homebase
+        const rawContent = remoteFile.fileMetadata.appData.content;
+        const content = typeof rawContent === "string" ? tryJsonParse<FolderFile>(rawContent) : rawContent;
         const folderName = content?.name || 'Untitled Folder';
 
         const existingRecord = await getSyncRecord(uniqueId);
