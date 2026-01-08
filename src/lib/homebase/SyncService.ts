@@ -33,6 +33,7 @@ import { computeContentHash } from '@/lib/utils/hash';
 import { extractPreviewTextFromYjs, tryJsonParse } from '@/lib/utils';
 import { MAIN_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
 import type { FolderFile, NoteFileContent, SyncRecord, SyncProgress } from '@/types';
+import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
 
 export type SyncStatus = 'idle' | 'syncing' | 'error';
 
@@ -310,6 +311,11 @@ export class SyncService {
         const noteTitle = content?.title || 'Untitled';
         const existingRecord = await getSyncRecord(uniqueId);
 
+        if (stringGuidsEqual(remoteFile.fileMetadata.versionTag, existingRecord?.versionTag)) {
+            // No changes - skip processing
+            return;
+        }
+
         // Get remote Yjs blob
         const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId);
 
@@ -512,15 +518,56 @@ export class SyncService {
         }
 
         if (existingFile) {
-            // File exists remotely, update it
+            // File exists remotely - check version tag to determine if merge is needed
+            const remoteVersionTag = existingFile.fileMetadata.versionTag;
+            const localVersionTag = record.versionTag;
+
+            // If version tags match exactly, no changes on remote - skip push if content hash also matches
+            if (stringGuidsEqual(remoteVersionTag, localVersionTag)) {
+                console.debug(`[SyncService] Version tags match for note ${record.localId}, skipping push`);
+                // Just mark as synced to clear pending state
+                if (record.syncStatus === 'pending' || record.syncStatus === 'error') {
+                    await markSynced(record.localId, existingFile.fileId, remoteVersionTag, currentHash);
+                }
+                return;
+            }
+
+            // Version tags differ - remote has been updated, need to merge
+            console.log(`[SyncService] Version tag mismatch for note ${record.localId}, merging with remote`);
+
+            // Get remote Yjs blob for merging
+            const remoteBlob = await this.#notesProvider.getNotePayload(existingFile.fileId);
+            let mergedBlob = yjsBlob;
+
+            if (remoteBlob && yjsBlob) {
+                // Merge local and remote Yjs documents
+                mergedBlob = await this.mergeYjsDocuments(record.localId, remoteBlob);
+                // The mergeYjsDocuments already applies local updates, so merge with our new blob
+                const mergedDoc = new Y.Doc();
+                Y.applyUpdate(mergedDoc, mergedBlob);
+                if (yjsBlob) {
+                    Y.applyUpdate(mergedDoc, yjsBlob);
+                }
+                mergedBlob = Y.encodeStateAsUpdate(mergedDoc);
+            } else if (remoteBlob && !yjsBlob) {
+                // Local is empty, use remote
+                mergedBlob = remoteBlob;
+            }
+            // else: remote is empty or both empty, use local yjsBlob as-is
+
             try {
                 const result = await this.#notesProvider.updateNote(
                     record.localId, // uniqueId
                     existingFile.fileId,
-                    existingFile.fileMetadata.versionTag,
+                    remoteVersionTag, // Use the current remote version tag
                     doc.metadata,
-                    yjsBlob
+                    mergedBlob
                 );
+                // Update local Yjs state with merged blob
+                if (mergedBlob) {
+                    await deleteDocumentUpdates(record.localId);
+                    await saveDocumentUpdate(record.localId, mergedBlob);
+                }
                 await markSynced(record.localId, existingFile.fileId, result.versionTag, currentHash);
             } catch (error) {
                 // If update fails (e.g., version conflict), try to re-fetch and retry

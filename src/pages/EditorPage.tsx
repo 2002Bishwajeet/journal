@@ -104,9 +104,9 @@ function EditorLayout({
             : "border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 sticky bottom-0 z-50 w-full overflow-x-auto scrollbar-hide"
         }
         style={{
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          paddingLeft: 'env(safe-area-inset-left, 0px)',
-          paddingRight: 'env(safe-area-inset-right, 0px)',
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          paddingLeft: "env(safe-area-inset-left, 0px)",
+          paddingRight: "env(safe-area-inset-right, 0px)",
         }}
       >
         {editor && <EditorToolbar editor={editor} isMobile={true} />}
@@ -205,15 +205,12 @@ export default function EditorPage() {
       key={noteId} // Force re-mount provider when note changes
       docId={noteId}
       metadata={selectedNoteMetadata}
-          onMetadataChange={async (meta) => {
-            await updateNoteMetadata({
-              docId: noteId,
-              metadata: meta,
-            });
-            // Trigger immediate sync for title updates to ensure they are pushed to remote
-            // The editor content sync is debounced separately, but title is critical metadata
-            await syncNote(noteId);
-          }}
+      onMetadataChange={async (meta) => {
+        await updateNoteMetadata({
+          docId: noteId,
+          metadata: meta,
+        });
+      }}
       onSave={handleSave}
       isAIReady={isAIReady}
       onGetAutocompleteSuggestion={handleGetAutocompleteSuggestion}
