@@ -522,38 +522,35 @@ export class SyncService {
             const remoteVersionTag = existingFile.fileMetadata.versionTag;
             const localVersionTag = record.versionTag;
 
-            // If version tags match exactly, no changes on remote - skip push if content hash also matches
-            if (stringGuidsEqual(remoteVersionTag, localVersionTag)) {
-                console.debug(`[SyncService] Version tags match for note ${record.localId}, skipping push`);
-                // Just mark as synced to clear pending state
-                if (record.syncStatus === 'pending' || record.syncStatus === 'error') {
-                    await markSynced(record.localId, existingFile.fileId, remoteVersionTag, currentHash);
-                }
-                return;
-            }
+            // Check if remote has changed since our last sync
+            const remoteHasChanged = !stringGuidsEqual(remoteVersionTag, localVersionTag);
 
-            // Version tags differ - remote has been updated, need to merge
-            console.log(`[SyncService] Version tag mismatch for note ${record.localId}, merging with remote`);
+            let blobToUpload = yjsBlob;
 
-            // Get remote Yjs blob for merging
-            const remoteBlob = await this.#notesProvider.getNotePayload(existingFile.fileId);
-            let mergedBlob = yjsBlob;
+            if (remoteHasChanged) {
+                // Version tags differ - remote has been updated, need to merge before pushing
+                console.log(`[SyncService] Version tag mismatch for note ${record.localId}, merging with remote`);
 
-            if (remoteBlob && yjsBlob) {
-                // Merge local and remote Yjs documents
-                mergedBlob = await this.mergeYjsDocuments(record.localId, remoteBlob);
-                // The mergeYjsDocuments already applies local updates, so merge with our new blob
-                const mergedDoc = new Y.Doc();
-                Y.applyUpdate(mergedDoc, mergedBlob);
-                if (yjsBlob) {
+                // Get remote Yjs blob for merging
+                const remoteBlob = await this.#notesProvider.getNotePayload(existingFile.fileId);
+
+                if (remoteBlob && yjsBlob) {
+                    // Merge local and remote Yjs documents
+                    const mergedBlob = await this.mergeYjsDocuments(record.localId, remoteBlob);
+                    // The mergeYjsDocuments already applies local updates, so merge with our new blob
+                    const mergedDoc = new Y.Doc();
+                    Y.applyUpdate(mergedDoc, mergedBlob);
                     Y.applyUpdate(mergedDoc, yjsBlob);
+                    blobToUpload = Y.encodeStateAsUpdate(mergedDoc);
+                } else if (remoteBlob && !yjsBlob) {
+                    // Local is empty, use remote
+                    blobToUpload = remoteBlob;
                 }
-                mergedBlob = Y.encodeStateAsUpdate(mergedDoc);
-            } else if (remoteBlob && !yjsBlob) {
-                // Local is empty, use remote
-                mergedBlob = remoteBlob;
+                // else: remote is empty or both empty, use local yjsBlob as-is
+            } else {
+                // Version tags match - no remote changes, just push our local changes
+                console.debug(`[SyncService] Version tags match for note ${record.localId}, pushing local changes`);
             }
-            // else: remote is empty or both empty, use local yjsBlob as-is
 
             try {
                 const result = await this.#notesProvider.updateNote(
@@ -561,12 +558,12 @@ export class SyncService {
                     existingFile.fileId,
                     remoteVersionTag, // Use the current remote version tag
                     doc.metadata,
-                    mergedBlob
+                    blobToUpload
                 );
-                // Update local Yjs state with merged blob
-                if (mergedBlob) {
+                // Update local Yjs state with merged blob if we merged
+                if (remoteHasChanged && blobToUpload) {
                     await deleteDocumentUpdates(record.localId);
-                    await saveDocumentUpdate(record.localId, mergedBlob);
+                    await saveDocumentUpdate(record.localId, blobToUpload);
                 }
                 await markSynced(record.localId, existingFile.fileId, result.versionTag, currentHash);
             } catch (error) {
