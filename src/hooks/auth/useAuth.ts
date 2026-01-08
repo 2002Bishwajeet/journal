@@ -129,7 +129,7 @@ export function useAuth() {
                 logout();
             }
         }
-    }, [dotYouClient, hasValidToken, isFetchedAfterMount, logout]);
+    }, [dotYouClient, hasValidToken, isFetchedAfterMount, logout, isOnline]);
 
     // Keep auth state aligned when we are definitely not authenticated
     useEffect(() => {

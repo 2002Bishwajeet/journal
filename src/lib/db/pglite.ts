@@ -95,7 +95,8 @@ async function initializeSchema(database: PGlite): Promise<void> {
       remote_file_id TEXT,
       version_tag TEXT,
       last_synced_at TIMESTAMP WITH TIME ZONE,
-      sync_status TEXT NOT NULL DEFAULT 'pending'
+      sync_status TEXT NOT NULL DEFAULT 'pending',
+      content_hash TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_sync_records_status ON sync_records(sync_status);
@@ -281,8 +282,9 @@ async function runMigrations(database: PGlite): Promise<void> {
     await database.exec(`
       ALTER TABLE sync_records ADD COLUMN IF NOT EXISTS content_hash TEXT;
     `);
-  } catch {
-    // Column might already exist
+    console.log('[DB Migration] content_hash column ensured');
+  } catch (error) {
+    console.warn('[DB Migration] Could not add content_hash column:', error);
   }
 
   // Create pending_image_uploads if not exists (for existing dbs)

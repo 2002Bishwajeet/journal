@@ -1,95 +1,126 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useCallback, type ReactNode } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }
 
 const PULL_THRESHOLD = 80;
 const MAX_PULL = 120;
+const FRICTION = 0.5;
 
 export function PullToRefresh({ onRefresh, children, className }: PullToRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollableRef = useRef<HTMLElement | null>(null);
+  const touchStartY = useRef<number>(0);
+  const touchCurrentY = useRef<number>(0);
+  const isPulling = useRef<boolean>(false);
+  
   const y = useMotionValue(0);
 
   // Transform y value to opacity/rotation for indicators
   const opacity = useTransform(y, [0, PULL_THRESHOLD], [0, 1]);
   const rotate = useTransform(y, [0, MAX_PULL], [0, 360]);
 
-  // Find the scrollable parent
-  useEffect(() => {
-    if (containerRef.current) {
-      // Look for the ScrollArea viewport or nearest scrolling parent
-      // Radix ScrollArea puts the content in a data-radix-scroll-area-viewport
-      const scrollAreaViewport = containerRef.current.closest('[data-radix-scroll-area-viewport]');
-      if (scrollAreaViewport) {
-        scrollableRef.current = scrollAreaViewport as HTMLElement;
-      } else {
-        // Fallback to window or closest overflow-y-auto
-        let parent = containerRef.current.parentElement;
-        while (parent) {
-            const style = window.getComputedStyle(parent);
-            if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-                scrollableRef.current = parent;
-                break;
-            }
-            parent = parent.parentElement;
-        }
-      }
+  const getScrollableParent = useCallback((): HTMLElement | null => {
+    if (!containerRef.current) return null;
+
+    // Look for Radix ScrollArea viewport
+    const scrollAreaViewport = containerRef.current.closest('[data-radix-scroll-area-viewport]');
+    if (scrollAreaViewport) {
+      return scrollAreaViewport as HTMLElement;
     }
+
+    // Fallback: find nearest scrollable parent
+    let parent = containerRef.current.parentElement;
+    while (parent) {
+      const style = window.getComputedStyle(parent);
+      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+        return parent;
+      }
+      parent = parent.parentElement;
+    }
+
+    return null;
   }, []);
 
-  const handlePan = (_: any, info: any) => {
-    if (isRefreshing) return;
+  const isAtTop = useCallback((): boolean => {
+    const scrollable = getScrollableParent();
+    if (!scrollable) return true;
+    return scrollable.scrollTop <= 0;
+  }, [getScrollableParent]);
 
-    // Only allow pulling if we are at the top of the scroll container
-    const scrollTop = scrollableRef.current ? scrollableRef.current.scrollTop : 0;
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (isRefreshing) return;
     
-    // We only care about dragging down (delta.y > 0) when at top, or dragging up when already pulled
-    if (scrollTop <= 0) {
-      const newY = y.get() + info.delta.y * 0.5; // 0.5 friction
-      
-      if (newY >= 0) {
-        // We are pulling down
-        y.set(Math.min(newY, MAX_PULL));
-      } else {
-        // We are scrolling back up / normally
-        y.set(0);
-      }
-    } else {
-      y.set(0);
+    // Only start tracking if we're at the top
+    if (isAtTop()) {
+      touchStartY.current = e.touches[0].clientY;
+      touchCurrentY.current = e.touches[0].clientY;
+      isPulling.current = false;
     }
-  };
+  }, [isAtTop, isRefreshing]);
 
-  const handlePanEnd = async () => {
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (isRefreshing) return;
+    if (touchStartY.current === 0) return;
 
-    if (y.get() > PULL_THRESHOLD) {
+    touchCurrentY.current = e.touches[0].clientY;
+    const deltaY = touchCurrentY.current - touchStartY.current;
+
+    // Only start pulling if dragging down significantly and at top
+    if (deltaY > 10 && isAtTop()) {
+      isPulling.current = true;
+    }
+
+    if (isPulling.current && deltaY > 0) {
+      // Prevent native scroll while pulling
+      e.preventDefault();
+      
+      // Apply friction
+      const pullDistance = deltaY * FRICTION;
+      const clampedDistance = Math.min(pullDistance, MAX_PULL);
+      y.set(clampedDistance);
+    }
+  }, [isAtTop, isRefreshing, y]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (isRefreshing) return;
+    
+    const pullDistance = y.get();
+    
+    if (pullDistance >= PULL_THRESHOLD) {
       setIsRefreshing(true);
-      // Snap to threshold
-      animate(y, PULL_THRESHOLD);
+      animate(y, PULL_THRESHOLD, { duration: 0.2 });
       
       try {
         await onRefresh();
       } finally {
         setIsRefreshing(false);
-        animate(y, 0);
+        animate(y, 0, { duration: 0.2 });
       }
     } else {
-      animate(y, 0);
+      animate(y, 0, { duration: 0.2 });
     }
-  };
+
+    // Reset touch tracking
+    touchStartY.current = 0;
+    touchCurrentY.current = 0;
+    isPulling.current = false;
+  }, [isRefreshing, onRefresh, y]);
 
   return (
     <div 
       ref={containerRef} 
       className={cn("relative h-full flex flex-col", className)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ touchAction: 'pan-y' }}
     >
       {/* Loading Indicator Layer */}
       <motion.div
@@ -113,8 +144,6 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
       <motion.div
         className="flex-1 h-full"
         style={{ y }}
-        onPan={handlePan}
-        onPanEnd={handlePanEnd}
       >
         {children}
       </motion.div>

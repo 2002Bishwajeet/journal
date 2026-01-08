@@ -1,14 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-
-interface OnlineContextType {
-  isOnline: boolean;
-}
-
-const OnlineContext = createContext<OnlineContextType>({
-  isOnline: true,
-});
-
-export const useOnlineContext = () => useContext(OnlineContext);
+import { useEffect, useState, type ReactNode } from 'react';
+import { OnlineContext } from '@/contexts/OnlineContext';
 
 interface OnlineProviderProps {
   children: ReactNode;

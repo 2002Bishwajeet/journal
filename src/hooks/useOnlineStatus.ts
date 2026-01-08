@@ -1,4 +1,4 @@
-import { useOnlineContext } from '@/components/providers/OnlineProvider';
+import { useOnlineContext } from '@/hooks/useOnlineContext';
 
 /**
  * Hook to get the current network status.

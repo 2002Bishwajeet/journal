@@ -306,8 +306,9 @@ export class SyncService {
         const uniqueId = remoteFile.fileMetadata.appData.uniqueId;
         if (!uniqueId) return;
 
-        // Parse the content - ensure title has a default value
-        const content = remoteFile.fileMetadata.appData.content;
+        // Parse the content - it's stored as a JSON string from Homebase
+        const rawContent = remoteFile.fileMetadata.appData.content;
+        const content = typeof rawContent === "string" ? tryJsonParse<NoteFileContent>(rawContent) : rawContent;
         const noteTitle = content?.title || 'Untitled';
         const existingRecord = await getSyncRecord(uniqueId);
 
