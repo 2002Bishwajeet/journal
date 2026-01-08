@@ -32,12 +32,10 @@ import { TablePicker } from './TablePicker';
 
 interface EditorToolbarProps {
   editor: Editor;
-  isMobile?: boolean;
 }
 
-export default function EditorToolbar({ editor, isMobile = false }: EditorToolbarProps) {
-  // Use larger icons on mobile for better touch targets
-  const iconSize = isMobile ? 22 : 18;
+export default function EditorToolbar({ editor }: EditorToolbarProps) {
+  const iconSize = 18;
   const state = useToolbarState(editor);
 
   const addImage = () => {
@@ -65,12 +63,7 @@ export default function EditorToolbar({ editor, isMobile = false }: EditorToolba
 
 
   return (
-    <div 
-      className={`flex items-center gap-0.5 px-4 py-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto ${
-        isMobile ? 'mobile-toolbar py-3 gap-1' : ''
-      }`}
-      style={isMobile ? { minHeight: '56px' } : undefined}
-    >
+    <div className="flex items-center gap-0.5 px-4 py-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
       {/* Undo/Redo - uses Y.js undo manager */}
       <ToolbarButton
         onClick={() => safeEditorCommand(editor, () => {

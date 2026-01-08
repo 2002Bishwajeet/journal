@@ -95,22 +95,6 @@ function EditorLayout({
           className="min-h-full py-8 px-6 md:px-12 max-w-5xl mx-auto pb-24 md:pb-8"
         />
       </div>
-
-      {/* Mobile Bottom Toolbar (Sticky) */}
-      <div
-        className={
-          isDesktop
-            ? "hidden"
-            : "border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 sticky bottom-0 z-50 w-full overflow-x-auto scrollbar-hide"
-        }
-        style={{
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
-          paddingLeft: "env(safe-area-inset-left, 0px)",
-          paddingRight: "env(safe-area-inset-right, 0px)",
-        }}
-      >
-        {editor && <EditorToolbar editor={editor} isMobile={true} />}
-      </div>
     </div>
   );
 }
