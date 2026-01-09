@@ -8,7 +8,9 @@ import {
     upsertSyncRecord,
     deleteSyncRecord,
     updateSyncStatus,
+    saveDocumentUpdate,
 } from '@/lib/db';
+import * as Y from 'yjs';
 import { getNewId } from '@/lib/utils';
 import type { SearchIndexEntry, DocumentMetadata } from '@/types';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
@@ -157,9 +159,66 @@ export function useNotes() {
         },
     });
 
+    const createNoteWithContentMutation = useMutation<CreateNoteResult, Error, { title: string; content: string; folderId: string }, NoteMutationContext>({
+        mutationFn: async ({ title, content, folderId }) => {
+            const docId = formatGuidId(getNewId());
+            const now = new Date().toISOString();
+
+            const metadata: DocumentMetadata = {
+                title: title || 'Untitled',
+                folderId: folderId || MAIN_FOLDER_ID,
+                tags: [],
+                timestamps: { created: now, modified: now },
+                excludeFromAI: false,
+            };
+
+            // 1. Create YJS Document with Content
+            const ydoc = new Y.Doc();
+            const fragment = ydoc.getXmlFragment('prosemirror');
+
+            // Create Tiptap JSON structure equivalent for a paragraph
+            // But YJS manipulation is lower level. 
+            // We need to create XML elements.
+            const paragraph = new Y.XmlElement('paragraph');
+            if (content) {
+                const text = new Y.XmlText(content);
+                paragraph.push([text]);
+            }
+            fragment.push([paragraph]);
+
+            const updateBlob = Y.encodeStateAsUpdate(ydoc);
+
+            // 2. Save YJS Update
+            await saveDocumentUpdate(docId, updateBlob);
+
+            // 3. Save Search Index
+            await upsertSearchIndex({
+                docId,
+                title: metadata.title,
+                plainTextContent: content,
+                metadata,
+            });
+
+            // 4. Create Sync Record
+            await upsertSyncRecord({
+                localId: docId,
+                entityType: 'note',
+                syncStatus: 'pending',
+            });
+
+            ydoc.destroy();
+
+            return { docId, folderId: metadata.folderId };
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: notesQueryKey });
+        },
+    });
+
     return {
         get: query,
         createNote: createNoteMutation,
+        createNoteWithContent: createNoteWithContentMutation,
         deleteNote: deleteNoteMutation,
         updateNote: updateMetadataMutation,
     };

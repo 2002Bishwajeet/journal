@@ -36,7 +36,33 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png'
           }
-        ]
+        ],
+        shortcuts: [
+          {
+            name: "New Note",
+            short_name: "New Note",
+            description: "Create a new note",
+            url: "/?action=new",
+            icons: [{ src: "pwa-192x192.png", sizes: "192x192" }]
+          },
+          {
+            name: "Search",
+            short_name: "Search",
+            description: "Search your notes",
+            url: "/?action=search",
+            icons: [{ src: "pwa-192x192.png", sizes: "192x192" }]
+          }
+        ],
+        share_target: {
+          action: "/share-target",
+          method: "GET",
+          enctype: "application/x-www-form-urlencoded",
+          params: {
+            title: "title",
+            text: "text",
+            url: "url"
+          }
+        }
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,wasm,data}'],

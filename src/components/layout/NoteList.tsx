@@ -269,7 +269,7 @@ function NoteItem({
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         className={cn(
-          'relative flex flex-col w-full px-3 py-2 text-left bg-background group cursor-pointer outline-none focus:bg-accent',
+          'relative flex flex-col w-full px-4 py-3.5 text-left bg-background group cursor-pointer outline-none focus:bg-accent select-none',
           'hover:bg-accent',
           'transition-[transform,background-color] duration-200 ease-out',
           selectedNoteId === note.docId && 'bg-accent',
