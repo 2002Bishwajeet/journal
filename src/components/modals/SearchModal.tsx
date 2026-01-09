@@ -211,7 +211,7 @@ export default function SearchModal({
       onClick={handleClose}
     >
       <div
-        className="fixed left-1/2 top-[20%] -translate-x-1/2 w-full max-w-lg bg-popover border border-border rounded-lg shadow-lg overflow-hidden"
+        className="fixed inset-0 md:left-1/2 md:top-[20%] md:-translate-x-1/2 md:inset-auto md:w-full md:max-w-lg bg-popover border-b md:border border-border md:rounded-lg shadow-lg overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
@@ -230,7 +230,7 @@ export default function SearchModal({
             }}
             onKeyDown={handleKeyDown}
             placeholder="Search notes..."
-            className="border-0 focus-visible:ring-0 px-0"
+            className="border-0 focus-visible:ring-0 px-0 h-12 md:h-10 text-base md:text-sm"
           />
           <Button
             variant="ghost"
@@ -324,8 +324,8 @@ export default function SearchModal({
           )}
         </ScrollArea>
 
-        {/* Footer hint */}
-        <div className="px-3 py-2 border-t border-border bg-muted/50">
+        {/* Footer hint - visible only on desktop */}
+        <div className="hidden md:block px-3 py-2 border-t border-border bg-muted/50">
           <p className="text-xs text-muted-foreground">
             <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
               ↑↓

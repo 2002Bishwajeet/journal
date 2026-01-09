@@ -70,7 +70,7 @@ export default function Sidebar({
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 overflow-hidden",
+          "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 overflow-hidden pt-[env(safe-area-inset-top)]",
           isCollapsed ? "w-14 items-center" : "w-full md:w-60", // Centered items when collapsed
           className
         )}
@@ -167,7 +167,7 @@ export default function Sidebar({
                           <Button
                             variant={isSelected ? "secondary" : "ghost"}
                             className={cn(
-                              "w-full h-8 group relative transition-all duration-200 flex items-center",
+                              "w-full h-10 group relative transition-all duration-200 flex items-center",
                               isCollapsed
                                 ? "justify-center px-0"
                                 : "justify-start px-2",

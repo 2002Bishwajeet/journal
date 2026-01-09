@@ -229,11 +229,11 @@ Instructions:
   };
 
   return (
-    <div className="fixed bottom-20 md:bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+    <div className="z-50">
       {isOpen && (
-        <div className="w-[90vw] md:w-100 h-[60vh] md:h-137.5 bg-background border rounded-lg shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-300">
+        <div className="fixed inset-0 z-50 md:inset-auto md:bottom-20 md:right-4 w-full h-full md:w-100 md:h-137.5 bg-background md:border md:rounded-lg shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-full md:slide-in-from-bottom-2 fade-in duration-300">
           {/* Header */}
-          <div className="p-3 border-b flex items-center justify-between bg-muted/50 shrink-0">
+          <div className="p-3 border-b flex items-center justify-between bg-muted/50 shrink-0 pt-[env(safe-area-inset-top)] md:pt-3">
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5 text-primary" />
               <span className="font-semibold text-sm">Assistant</span>
@@ -328,7 +328,7 @@ Instructions:
           </ScrollArea>
 
           {/* Input Area */}
-          <div className="p-3 border-t bg-background shrink-0 relative">
+          <div className="p-3 border-t bg-background shrink-0 relative pb-[max(12px,env(safe-area-inset-bottom))]">
             {/* Command Suggestions Popup */}
             {showSuggestions && (
               <div className="absolute bottom-full left-3 w-64 mb-2 bg-popover text-popover-foreground border rounded-md shadow-lg overflow-hidden z-50">
@@ -378,13 +378,15 @@ Instructions:
       )}
 
       {!isOpen && (
-        <Button
-          size="lg"
-          className="rounded-full h-14 w-14 shadow-lg animate-in fade-in zoom-in duration-300"
-          onClick={toggleChat}
-        >
-          <MessageCircle className="w-6 h-6" />
-        </Button>
+        <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 flex flex-col items-end gap-2">
+            <Button
+            size="lg"
+            className="rounded-full h-14 w-14 shadow-lg animate-in fade-in zoom-in duration-300"
+            onClick={toggleChat}
+            >
+            <MessageCircle className="w-6 h-6" />
+            </Button>
+        </div>
       )}
     </div>
   );

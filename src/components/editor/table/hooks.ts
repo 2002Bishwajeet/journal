@@ -4,64 +4,101 @@ import { Editor } from '@tiptap/react';
 
 
 export function useTableState(editor: Editor | null, open: boolean) {
-    const [activeCell, setActiveCell] = useState<{
-        pos: number;
-        node: HTMLElement | null;
-        rowIndex: number;
-        colIndex: number;
-    } | null>(null);
+    const [tableState, setTableState] = useState<{
+        activeCell: {
+            pos: number;
+            node: HTMLElement | null;
+            rowIndex: number;
+            colIndex: number;
+        } | null;
+        hoveredCell: {
+            node: HTMLElement | null;
+            rowIndex: number;
+            colIndex: number;
+            rect: DOMRect;
+        } | null;
+    }>({ activeCell: null, hoveredCell: null });
 
     const updateTableState = useCallback(() => {
         if (!editor || open) return;
 
         const { selection } = editor.state;
-        if (!selection) return;
 
-        // Find the cell closest to the selection
-        // This part requires traversing the DOM or using Tiptap's pos finding
-        // simplified approach: use domAtPos
+        let newActiveCell = null;
 
-        try {
-            // Check if we are inside a table
-            if (!editor.isActive('table')) {
-                setActiveCell(null);
-                return;
-            }
-
+        if (selection && editor.isActive('table')) {
             const view = editor.view;
             const domAtPos = view.domAtPos(selection.anchor);
-
             let node = domAtPos.node as HTMLElement;
 
-            // Traverse up to find TD or TH
             while (node && node.nodeName !== 'TD' && node.nodeName !== 'TH' && node.nodeName !== 'BODY') {
                 node = node.parentElement as HTMLElement;
             }
 
             if (node && (node.nodeName === 'TD' || node.nodeName === 'TH')) {
-                // We found a cell. Now we need its row/col index if possible.
-                // Tiptap doesn't easily expose this from the DOM node alone without
-                // resolvable positions, but for handles we mainly just need the DOM rect.
-                // We can get rowIndex from tr parent.
-
                 const tr = node.parentElement as HTMLTableRowElement;
-                const rowIndex = tr ? (tr.rowIndex) : -1; // Note: this might be relative to table or section
+                const rowIndex = tr ? (tr.rowIndex) : -1;
                 const colIndex = (node as HTMLTableCellElement).cellIndex;
 
-                setActiveCell({
+                newActiveCell = {
                     pos: selection.anchor,
                     node,
                     rowIndex,
                     colIndex
-                });
-            } else {
-                setActiveCell(null);
+                };
             }
-        } catch (e) {
-            console.warn("Error updating table state", e);
-            setActiveCell(null);
         }
+
+        setTableState(prev => {
+            // Only update if changed
+            if (prev.activeCell?.node === newActiveCell?.node) return prev;
+            return { ...prev, activeCell: newActiveCell };
+        });
+
     }, [editor, open]);
+
+    // Hover handler
+    useEffect(() => {
+        if (!editor) return;
+        const view = editor.view;
+
+        const handleMouseMove = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            const cell = target.closest('td, th') as HTMLTableCellElement;
+
+            if (!cell || !view.dom.contains(cell)) {
+                setTableState(prev => (prev.hoveredCell ? { ...prev, hoveredCell: null } : prev));
+                return;
+            }
+
+            const tr = cell.parentElement as HTMLTableRowElement;
+            const rowIndex = tr ? tr.rowIndex : -1;
+            const colIndex = cell.cellIndex;
+            const rect = cell.getBoundingClientRect();
+
+            setTableState(prev => {
+                if (prev.hoveredCell?.node === cell) return prev;
+                return {
+                    ...prev,
+                    hoveredCell: {
+                        node: cell,
+                        rowIndex,
+                        colIndex,
+                        rect
+                    }
+                };
+            });
+        };
+
+        // Debounce or throttle this if needed, but for UI responsiveness direct is usually okay
+        view.dom.addEventListener('mousemove', handleMouseMove);
+        view.dom.addEventListener('mouseleave', () => setTableState(prev => ({ ...prev, hoveredCell: null })));
+
+        return () => {
+            view.dom.removeEventListener('mousemove', handleMouseMove);
+        };
+
+    }, [editor]);
 
     useEffect(() => {
         if (!editor) return;
@@ -79,5 +116,5 @@ export function useTableState(editor: Editor | null, open: boolean) {
         };
     }, [editor, updateTableState]);
 
-    return activeCell;
+    return tableState;
 }

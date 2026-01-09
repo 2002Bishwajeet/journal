@@ -6,6 +6,7 @@ import {
   AuthFinalizePage,
   EmptyEditorPage,
   SharePage,
+  ShareTargetPage,
 } from "@/pages";
 import JournalLayout from "@/layouts/JournalLayout";
 import { Toaster } from "@/components/ui/sonner";
@@ -50,6 +51,18 @@ function App() {
                   <Route path="/:folderId" element={<EmptyEditorPage />} />
                   <Route path="/:folderId/:noteId" element={<EditorPage />} />
                 </Route>
+
+                {/* Secure Share Target Route - requires auth to save */}
+                <Route
+                  path="/share-target"
+                  element={
+                    <AuthGuard>
+                      <SyncProvider>
+                        <ShareTargetPage />
+                      </SyncProvider>
+                    </AuthGuard>
+                  }
+                />
 
                 {/* Public routes */}
                 <Route path="/welcome" element={<LandingPage />} />
