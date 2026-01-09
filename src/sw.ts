@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
-import { registerRoute, NavigationRoute } from 'workbox-routing';
+import { registerRoute, NavigationRoute, Route } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
@@ -55,11 +55,12 @@ registerRoute(
     })
 );
 
-// Network-first for API requests
+// Network-first for API requests with proper offline fallback
 registerRoute(
     ({ url }) => url.pathname.startsWith('/api/'),
     new NetworkFirst({
         cacheName: 'api-cache',
+        networkTimeoutSeconds: 10, // Timeout after 10 seconds
         plugins: [
             new CacheableResponsePlugin({
                 statuses: [0, 200],
@@ -72,100 +73,120 @@ registerRoute(
     })
 );
 
+// Image proxy handler with proper offline support
+// Uses Workbox's CacheFirst with custom handler for COEP compliance
+registerRoute(
+    ({ url }) => url.pathname.startsWith('/proxy-image/'),
+    new Route(
+        ({ url }) => url.pathname.startsWith('/proxy-image/'),
+        async ({ request }) => {
+            const url = new URL(request.url);
+            const encodedUrl = url.pathname.replace('/proxy-image/', '');
+
+            let externalUrl: string;
+            try {
+                externalUrl = decodeURIComponent(encodedUrl);
+            } catch {
+                return new Response('Invalid URL encoding', { status: 400 });
+            }
+
+            try {
+                new URL(externalUrl);
+            } catch {
+                return new Response('Invalid URL', { status: 400 });
+            }
+
+            // Check cache first (critical for offline support)
+            try {
+                const cache = await caches.open('proxied-images');
+                const cachedResponse = await cache.match(externalUrl);
+                if (cachedResponse) {
+                    return cachedResponse;
+                }
+            } catch {
+                // Cache access failed, continue to network
+            }
+
+            // If offline, return a placeholder response instead of throwing
+            if (!navigator.onLine) {
+                return new Response('Image unavailable offline', {
+                    status: 503,
+                    headers: { 'Content-Type': 'text/plain' }
+                });
+            }
+
+            try {
+                const response = await fetch(externalUrl, {
+                    mode: 'cors',
+                    credentials: 'omit',
+                });
+
+                if (!response.ok) {
+                    return new Response(`Failed to fetch image: ${response.status}`, {
+                        status: response.status
+                    });
+                }
+
+                const headers = new Headers(response.headers);
+                headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
+                headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
+
+                const modifiedResponse = new Response(response.body, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers,
+                });
+
+                // Cache the response
+                try {
+                    const cache = await caches.open('proxied-images');
+                    await cache.put(externalUrl, modifiedResponse.clone());
+                } catch {
+                    // Caching failed, but we can still return the response
+                }
+
+                return modifiedResponse;
+            } catch (error) {
+                // Network error - return a graceful offline response
+                console.warn('[SW] Image proxy failed:', error);
+                return new Response('Image unavailable', {
+                    status: 503,
+                    headers: { 'Content-Type': 'text/plain' }
+                });
+            }
+        }
+    ).handler
+);
+
+// Cache Google Fonts with CacheFirst (they rarely change)
+registerRoute(
+    ({ url }) => url.origin === 'https://fonts.googleapis.com' ||
+        url.origin === 'https://fonts.gstatic.com',
+    new CacheFirst({
+        cacheName: 'google-fonts',
+        plugins: [
+            new CacheableResponsePlugin({
+                statuses: [0, 200],
+            }),
+            new ExpirationPlugin({
+                maxEntries: 30,
+                maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
+            }),
+        ],
+    })
+);
+
 // SPA Navigation Fallback: Serve index.html for all navigation requests
 // This is essential for the PWA to work offline on non-root paths
 registerRoute(
     new NavigationRoute(createHandlerBoundToURL('/index.html'), {
         denylist: [
             /^\/api\//, // Exclude API calls
-            /^\/img\//, // Exclude images if needed (though they are cached separately)
+            /^\/img\//, // Exclude images if needed
             /^\/proxy-image\//, // Exclude proxy image calls
         ],
     })
 );
-
-// Image proxy handler for COEP compliance
-// Proxies external images to add Cross-Origin-Resource-Policy header
-self.addEventListener('fetch', (event) => {
-    const url = new URL(event.request.url);
-
-    // Handle image proxy requests: /proxy-image/{encoded-url}
-    if (url.pathname.startsWith('/proxy-image/')) {
-        event.respondWith(handleImageProxy(event.request));
-        return;
-    }
-});
-
-async function handleImageProxy(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const encodedUrl = url.pathname.replace('/proxy-image/', '');
-
-    // Decode the external URL
-    let externalUrl: string;
-    try {
-        externalUrl = decodeURIComponent(encodedUrl);
-    } catch {
-        return new Response('Invalid URL encoding', { status: 400 });
-    }
-
-    // Validate it's a proper URL
-    try {
-        new URL(externalUrl);
-    } catch {
-        return new Response('Invalid URL', { status: 400 });
-    }
-
-    // Check cache first
-    try {
-        const cache = await caches.open('proxied-images');
-        const cachedResponse = await cache.match(externalUrl);
-        if (cachedResponse) {
-            return cachedResponse;
-        }
-    } catch (cacheError) {
-        console.warn('Cache access failed:', cacheError);
-    }
-
-    try {
-        // Fetch the external image
-        const response = await fetch(externalUrl, {
-            mode: 'cors',
-            credentials: 'omit',
-        });
-
-        if (!response.ok) {
-            return new Response(`Failed to fetch image: ${response.status}`, {
-                status: response.status
-            });
-        }
-
-        // Clone the response to add CORP header
-        const headers = new Headers(response.headers);
-        headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
-        headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
-
-        // Create new response with modified headers
-        const modifiedResponse = new Response(response.body, {
-            status: response.status,
-            statusText: response.statusText,
-            headers,
-        });
-
-        // Cache the response for future use
-        try {
-            const cache = await caches.open('proxied-images');
-            const clonedResponse = modifiedResponse.clone();
-            await cache.put(externalUrl, clonedResponse);
-        } catch (cacheError) {
-            console.warn('Failed to cache response:', cacheError);
-        }
-
-        return modifiedResponse;
-    } catch (error) {
-        console.error('Image proxy error:', error);
-        return new Response('Failed to proxy image', { status: 500 });
-    }
-}
 
 // Handle service worker activation
 self.addEventListener('activate', (event) => {
@@ -175,7 +196,7 @@ self.addEventListener('activate', (event) => {
             const cacheNames = await caches.keys();
             await Promise.all(
                 cacheNames
-                    .filter((name) => !['static-resources', 'images', 'api-cache', 'proxied-images'].includes(name) && !name.startsWith('webllm'))
+                    .filter((name) => !['static-resources', 'images', 'api-cache', 'proxied-images', 'google-fonts'].includes(name) && !name.startsWith('webllm') && !name.startsWith('workbox-'))
                     .map((name) => caches.delete(name))
             );
 
