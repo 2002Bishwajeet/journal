@@ -21,6 +21,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { Mathematics } from '@tiptap/extension-mathematics';
 import { createLowlight } from 'lowlight';
 import { EmojiExtension } from './EmojiExtension';
+import { DrawingExtension } from './DrawingExtension';
 import { ImageNodeView } from '../nodes/ImageNode';
 
 // Re-export FileHandler for use in EditorProvider
@@ -110,5 +111,6 @@ export function createBaseExtensions(options?: ExtensionOptions) {
 
         Mathematics,
         EmojiExtension,
+        DrawingExtension,
     ];
 }

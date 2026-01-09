@@ -18,6 +18,7 @@ A premium, offline-first markdown note-taking app powered by **Homebase**. Built
 | Backend | Homebase SDK (encrypted sync) |
 | AI | WebLLM (Llama-3.2-1B in OPFS) |
 | PWA | vite-plugin-pwa + Service Worker |
+| Drawing | perfect-freehand + tesseract.js (OCR) |
 
 ## SDK Utilities
 
@@ -34,17 +35,23 @@ import { getNewId, tryJsonParse, base64ToUint8Array } from '@/lib/utils';
 src/
 ├── components/
 │   ├── editor/           # TipTap editor + toolbar
+│   │   ├── nodes/        # Custom node views (Image, Drawing)
+│   │   ├── plugins/      # TipTap extensions
+│   │   └── shared/       # Shared toolbar components
 │   ├── layout/           # Sidebar, NoteList
-│   ├── modals/           # SearchModal
-│   ├── providers/        # Context providers
+│   ├── modals/           # SearchModal, Settings
+│   ├── providers/        # Context providers (Sync, Online)
 │   └── ui/               # shadcn components
 ├── hooks/
 │   ├── useNotes.ts         # Note CRUD hooks
 │   ├── useFolders.ts       # Folder CRUD hooks
 │   ├── useSyncService.ts   # Sync status & operations
+│   ├── useDrawingCanvas.ts # Drawing canvas state management
+│   ├── useOnlineStatus.ts  # Offline detection
 │   └── index.ts
 ├── lib/
 │   ├── db/               # PGlite database layer
+│   ├── drawing/          # Drawing utilities (strokeUtils, OCR)
 │   ├── homebase/         # Auth, drive
 │   ├── yjs/              # PGlite Yjs provider
 │   ├── webllm/           # Grammar, autocomplete
@@ -63,13 +70,40 @@ src/
 |------|---------|
 | `src/hooks/useNotes.ts` | Note CRUD & Query hooks |
 | `src/hooks/useSyncService.ts` | Sync Context consumer |
+| `src/hooks/useDrawingCanvas.ts` | Drawing canvas hook with stroke/shape management |
 | `src/components/providers/SyncProvider.tsx` | Sync state management |
+| `src/components/providers/OnlineProvider.tsx` | Online/offline detection |
 | `src/lib/db/pglite.ts` | PGlite singleton + schema |
 | `src/lib/homebase/auth.ts` | YouAuth flow |
 | `src/lib/homebase/drive.ts` | Note CRUD via Homebase |
 | `src/lib/webllm/engine.ts` | Grammar/autocomplete |
+| `src/lib/drawing/strokeUtils.ts` | Stroke rendering with perfect-freehand |
+| `src/lib/drawing/ocrService.ts` | Handwriting-to-text OCR (lazy-loaded) |
 | `src/components/modals/SearchModal.tsx` | Cmd+K search |
 | `src/lib/importexport/index.ts` | .md/.zip export/import |
+
+## Editor Extensions
+
+| Extension | File | Purpose |
+|-----------|------|---------|
+| Drawing | `plugins/DrawingExtension.ts` | Apple Notes-style drawing canvas with pen modes |
+| Emoji | `plugins/EmojiExtension.ts` | Emoji insertion with picker |
+| Code Block | Starter Kit + Lowlight | Syntax-highlighted code blocks |
+| Mathematics | `@tiptap/extension-mathematics` | LaTeX math formulas |
+| Tables | Table extensions | Resizable tables |
+
+## Drawing Feature
+
+The drawing extension provides Apple Notes-style functionality:
+
+**Pen Modes**: Pen, Pencil, Highlighter, Scribble (OCR), Eraser
+**Shapes**: Rectangle, Circle, Line, Arrow
+**Key Components**:
+- `DrawingNodeView.tsx` - SVG canvas component
+- `DrawingToolbar.tsx` - Floating toolbar with tool selection
+- `useDrawingCanvas.ts` - State management hook
+
+OCR uses tesseract.js (lazy-loaded, cached in IndexedDB for offline).
 
 ## Keyboard Shortcuts
 
@@ -119,3 +153,4 @@ npm run build  # Production build
 - **Concurrent Features**: Use `useTransition` for non-urgent state updates to keep the UI responsive.
 - **Suspense**: Wrap async components or lazy-loaded routes in `<Suspense>` boundaries. Avoid multiple nested loading states where possible.
 - **Avoid Over-Optimization**: Don't use `useCallback` or `useMemo` unless profiling shows a need, or for referential stability in dependencies. Trust the React compiler/runtime.
+

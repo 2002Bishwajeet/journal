@@ -24,6 +24,7 @@ import {
   Undo,
   Redo,
   Sigma,
+  PenTool,
 } from 'lucide-react';
 import { ToolbarButton, ToolbarDivider, ToolbarPopover, useToolbarState, safeEditorCommand } from './shared';
 import { undo, redo } from './plugins/collaboration';
@@ -214,6 +215,12 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
       </ToolbarButton>
       <EmojiPicker editor={editor} />
       <TablePicker editor={editor} />
+      <ToolbarButton
+        onClick={() => safeEditorCommand(editor, () => editor.chain().focus().insertDrawing().run())}
+        title="Insert Drawing Canvas"
+      >
+        <PenTool size={iconSize} />
+      </ToolbarButton>
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
   Image as ImageIcon,
   Undo,
   Redo,
+  PenTool,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToolbarState, safeEditorCommand } from './shared';
@@ -216,6 +217,10 @@ export default function MobileToolbar({ editor, className }: MobileToolbarProps)
     input.click();
   }, [editor]);
 
+  const insertDrawing = useCallback(() => {
+    safeEditorCommand(editor, () => editor.chain().focus().insertDrawing().run());
+  }, [editor]);
+
   // Don't render on non-touch devices or when keyboard is not visible
   if (!isTouchDevice || !isVisible) return null;
 
@@ -308,6 +313,9 @@ export default function MobileToolbar({ editor, className }: MobileToolbarProps)
         />
         <ToolbarButton onClick={addImage} title="Add Image">
           <ImageIcon className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={insertDrawing} title="Insert Drawing">
+          <PenTool className="h-5 w-5" />
         </ToolbarButton>
       </div>
     </div>
