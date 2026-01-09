@@ -226,7 +226,7 @@ export default function Sidebar({
             }
           }}
           title="Delete Folder?"
-          description="Are you sure you want to delete this folder? This action cannot be undone."
+          description="Are you sure you want to delete this folder? All notes in this folder will also be permanently deleted. This action cannot be undone."
           confirmText="Delete"
         />
 

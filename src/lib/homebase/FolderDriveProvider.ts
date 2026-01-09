@@ -12,6 +12,7 @@ import {
     type UploadInstructionSet,
     type UpdateInstructionSet,
     getFileHeader,
+    deleteFilesByGroupId,
 } from '@homebase-id/js-lib/core';
 import { getRandom16ByteArray } from '@homebase-id/js-lib/helpers';
 import {
@@ -192,5 +193,6 @@ export class FolderDriveProvider {
      */
     async deleteFolder(fileId: string): Promise<void> {
         await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, fileId);
+        await deleteFilesByGroupId(this.#dotYouClient, JOURNAL_DRIVE, [fileId]);
     }
 }

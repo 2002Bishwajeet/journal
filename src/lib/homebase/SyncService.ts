@@ -285,11 +285,27 @@ export class SyncService {
 
     /**
      * Handle a deleted folder from remote.
+     * Also deletes all notes in that folder locally.
      */
     async handleDeletedFolder(deleted: DeletedHomebaseFile): Promise<void> {
         const uniqueId = deleted.fileMetadata.appData.uniqueId;
         if (!uniqueId || uniqueId === MAIN_FOLDER_ID) return; // Never delete Main folder
 
+        // Delete all notes in this folder locally
+        const allDocs = await getAllDocuments();
+        const notesInFolder = allDocs.filter(doc => doc.metadata.folderId === uniqueId);
+
+        for (const note of notesInFolder) {
+            try {
+                await deleteSearchIndexEntry(note.docId);
+                await deleteDocumentUpdates(note.docId);
+                await deleteSyncRecord(note.docId);
+            } catch (error) {
+                console.warn(`[SyncService] Failed to delete local note ${note.docId} from deleted folder:`, error);
+            }
+        }
+
+        // Delete the folder itself
         try {
             await deleteLocalFolder(uniqueId);
         } catch {
