@@ -27,7 +27,8 @@ import { ImageNodeView } from '../nodes/ImageNode';
 export { FileHandler } from './FileHandler';
 
 // Initialize lowlight for code syntax highlighting
-const lowlight = createLowlight();
+import { common } from 'lowlight';
+const lowlight = createLowlight(common);
 
 /**
  * Custom Image extension with NodeView for handling pending uploads and remote images
