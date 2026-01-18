@@ -3,7 +3,7 @@ import { useWebLLM, type ChatMessage } from "@/hooks/useWebLLM";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Send, Loader2, Bot, MessageCircle } from "lucide-react";
+import { X, Send, Loader2, Bot, MessageCircle, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotes } from "@/hooks/useNotes";
 
@@ -145,23 +145,26 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
         .map((n) => `- ${n.title}`)
         .join("\n");
 
-      const systemContext = `You are a helpful AI assistant for a personal journal/notebook app.
-You answer questions based on the user's notes context.
+      const systemContext = `You are a helpful assistant for a personal journal app. Answer questions based ONLY on the provided context below. If you don't know or the information isn't in the context, say so honestly.
 
 ${
   currentNote
-    ? `CURRENTLY OPEN NOTE:\nTitle: ${currentNote.title}\nContent: ${currentNote.plainTextContent}\n`
+    ? `CURRENT NOTE:
+Title: ${currentNote.title}
+Content:
+${currentNote.plainTextContent?.slice(0, 2000) || "(empty)"}
+`
     : "No note is currently open."
 }
 
-RECENT NOTES (Titles only):
-${recentNotes}
+OTHER NOTES (titles only):
+${recentNotes || "(none)"}
 
-Instructions:
-1. Answer the user's question helpfully and concisely.
-2. If the user asks about the current note, use its content.
-3. If the user asks about other notes, you only know their titles. You can mention that.
-4. Use simple text formatting. Do not use complex markdown as it may not render perfectly.
+RULES:
+- Be concise and helpful.
+- Only use information from the context above.
+- If asked about something not in your context, say "I don't have that information in your notes."
+- Do not make up facts or content that isn't in the notes.
 `;
 
       // Handle specific command overrides for the AI prompt
@@ -245,23 +248,33 @@ Instructions:
   return (
     <div className="z-50">
       {isOpen && (
-        <div className="fixed inset-0 z-50 md:inset-auto md:bottom-20 md:right-4 w-full h-full md:w-100 md:h-137.5 bg-background md:border md:rounded-lg shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-full md:slide-in-from-bottom-2 fade-in duration-300">
-          {/* Header */}
-          <div className="p-3 border-b flex items-center justify-between bg-muted/50 shrink-0 pt-[env(safe-area-inset-top)] md:pt-3">
-            <div className="flex items-center gap-2">
+        <div className="fixed inset-0 z-50 lg:inset-auto lg:bottom-20 lg:right-4 w-full h-full lg:w-100 lg:h-137.5 bg-background lg:border lg:rounded-lg shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-full lg:slide-in-from-bottom-2 fade-in duration-300">
+          {/* Header - Mobile/Tablet with back button, Desktop with X */}
+          <div className="flex items-center h-12 px-3 border-b border-border gap-2 shrink-0 pt-[env(safe-area-inset-top)] lg:pt-0 bg-muted/30">
+            {/* Mobile/Tablet: Back button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 lg:hidden"
+              onClick={() => setIsOpen(false)}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            
+            <div className="flex items-center gap-2 flex-1">
               <Bot className="w-5 h-5 text-primary" />
-              <span className="font-semibold text-sm">Assistant</span>
+              <span className="font-medium text-sm">Assistant</span>
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => setIsOpen(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
+            
+            {/* Desktop: X close button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 hidden lg:flex"
+              onClick={() => setIsOpen(false)}
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
 
           {/* Messages Area */}

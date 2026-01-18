@@ -252,8 +252,9 @@ export async function chat(messages: ChatMessage[]): Promise<string> {
     try {
         const response = await engine.chat.completions.create({
             messages,
-            max_tokens: 1000,
-            temperature: 0.7,
+            max_tokens: 512,  // Reduced to encourage concise answers
+            temperature: 0.4, // Lower temperature = less hallucination
+            top_p: 0.9,       // Nucleus sampling for coherence
         });
 
         return response.choices[0]?.message?.content || '';
