@@ -62,6 +62,23 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
         return;
       }
       
+      // Don't show for node selections (images, tables, code blocks, etc.)
+      // These are nodes where text formatting doesn't apply
+      // Check if it's a NodeSelection by checking if it has a 'node' property
+      if ('node' in selection) {
+        setIsVisible(false);
+        return;
+      }
+      
+      // Also check if the selection is entirely within a non-text node
+      const $from = selection.$from;
+      const nodeType = $from.parent.type.name;
+      const nonTextNodes = ['image', 'codeBlock', 'table', 'horizontalRule'];
+      if (nonTextNodes.includes(nodeType)) {
+        setIsVisible(false);
+        return;
+      }
+      
       // Get the bounding rect of the selection
       const view = editor.view;
       const start = view.coordsAtPos(from);

@@ -14,6 +14,7 @@ import {
   CustomShortcuts,
   AutocompletePlugin,
   FileHandler,
+  SlashCommandsExtension,
 } from "./plugins";
 
 import "katex/dist/katex.min.css";
@@ -158,6 +159,8 @@ export function EditorProvider({
         minCharsBeforeTrigger: 5,
         debug: false,
       }),
+      // Slash commands (triggered by typing /)
+      SlashCommandsExtension,
       // GrammarPlugin.configure({
       //   checkGrammar: onCheckGrammar || (async () => []),
       //   getIsAIReady: () => isAIReadyRef.current,
