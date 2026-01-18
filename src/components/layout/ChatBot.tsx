@@ -3,9 +3,11 @@ import { useWebLLM, type ChatMessage } from "@/hooks/useWebLLM";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Send, Loader2, Bot, MessageCircle, ChevronLeft } from "lucide-react";
+import { X, Send, Loader2, Bot, MessageCircle, ChevronLeft, Globe, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotes } from "@/hooks/useNotes";
+import { webSearch } from "@/lib/search/searchService";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ChatBotProps {
   activeNoteId?: string | null;
@@ -13,6 +15,7 @@ interface ChatBotProps {
 
 const COMMANDS = [
   { label: "/summarize", description: "Summarize current note" },
+  { label: "/search", description: "Search the web" },
   { label: "/clear", description: "Clear chat history" },
   { label: "/help", description: "Show available commands" },
 ];
@@ -23,6 +26,11 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
   // Per-note chat history - keyed by activeNoteId, session-based (lost on app close)
   const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Search consent state
+  const [showSearchConsent, setShowSearchConsent] = useState(false);
+  const [pendingSearchQuery, setPendingSearchQuery] = useState<string | null>(null);
 
   // Derive current messages from chatHistories based on activeNoteId
   const noteKey = activeNoteId ?? '__global__';
@@ -64,7 +72,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
     if (isOpen) {
       scrollToBottom();
     }
-  }, [messages, isOpen, isGenerating]);
+  }, [messages, isOpen, isGenerating, isSearching]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -86,20 +94,112 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
     setShowSuggestions(false);
     // Optional: auto-focus back to input if needed, but Input has focus
   };
+  
+  const performSearch = async (query: string) => {
+    setIsSearching(true);
+    setMessages(prev => [...prev, { role: "assistant", content: "🔍 Searching the web..." }]);
+    
+    try {
+      const results = await webSearch(query);
+      
+      // Remove the "Searching..." message
+      setMessages(prev => {
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg && lastMsg.content === "🔍 Searching the web...") {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
+      
+      if (results.length === 0) {
+        setMessages(prev => [...prev, { role: "assistant", content: "I couldn't find any results for that query." }]);
+        setIsSearching(false);
+        return;
+      }
+      
+      // Construct search context
+      const searchContext = results.map((r, i) => 
+        `[${i+1}] ${r.title} (${r.source})\nURL: ${r.url}\n${r.snippet}`
+      ).join("\n\n");
+      
+      const systemPrompt = `You are a helpful research assistant. Answer the user's question based ONLY on the search results below.
+      
+SEARCH RESULTS:
+${searchContext}
+
+INSTRUCTIONS:
+1. Synthesize the information to answer the query: "${query}"
+2. Cite your sources using [1], [2], etc.
+3. Be concise and factual.
+4. If the search results don't contain the answer, say so.
+`;
+
+      setIsGenerating(true);
+      const response = await chat([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "Please summarize what you found." }
+      ]);
+      
+      setMessages(prev => [...prev, { role: "assistant", content: response }]);
+      
+    } catch (error) {
+      console.error("Search failed:", error);
+      setMessages(prev => {
+        // Remove "Searching..." if distinct from prev
+        const msgs = prev[prev.length - 1].content === "🔍 Searching the web..." ? prev.slice(0, -1) : prev;
+        return [...msgs, { role: "assistant", content: "Sorry, the search failed. Please try again." }];
+      });
+    } finally {
+      setIsSearching(false);
+      setIsGenerating(false);
+    }
+  };
+
+  const confirmSearch = () => {
+    localStorage.setItem("journal-search-consent", "true");
+    setShowSearchConsent(false);
+    if (pendingSearchQuery) {
+      performSearch(pendingSearchQuery);
+      setPendingSearchQuery(null);
+    }
+  };
 
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || isGenerating) return;
+    if (!text || isGenerating || isSearching) return;
 
     setShowSuggestions(false);
 
     // Command handling
     if (text.startsWith("/")) {
       setInput("");
-      const command = text.toLowerCase().split(" ")[0];
+      const parts = text.split(" ");
+      const command = parts[0].toLowerCase();
+      // Combine all arguments into the query string
+      const args = parts.slice(1).join(" ");
 
       if (command === "/clear") {
         setMessages([]);
+        return;
+      }
+      
+      if (command === "/search") {
+        if (!args) {
+           setMessages(prev => [...prev, { role: "user", content: text }, { role: "assistant", content: "Please provide a search query. Example: /search latest AI news" }]);
+           return;
+        }
+        
+        setMessages(prev => [...prev, { role: "user", content: text }]);
+        
+        // Check consent
+        const hasConsent = localStorage.getItem("journal-search-consent") === "true";
+        if (!hasConsent) {
+          setPendingSearchQuery(args);
+          setShowSearchConsent(true);
+          return;
+        }
+        
+        performSearch(args);
         return;
       }
 
@@ -110,7 +210,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
           {
             role: "assistant",
             content:
-              "Available commands:\n\n/summarize - Summarize the current note\n/clear - Clear chat history\n/help - Show this help message",
+              "Available commands:\n\n/search <query> - Search the web\n/summarize - Summarize the current note\n/clear - Clear chat history\n/help - Show this help message",
           },
         ]);
         return;
@@ -388,14 +488,14 @@ RULES:
                 placeholder={
                   isReady ? "Type a message or /help..." : "Waiting for AI..."
                 }
-                disabled={!isReady || isGenerating}
+                disabled={!isReady || isGenerating || isSearching}
                 className="flex-1 h-9 text-sm"
               />
               <Button
                 size="icon"
                 className="h-9 w-9"
                 onClick={handleSend}
-                disabled={!isReady || isGenerating || !input.trim()}
+                disabled={!isReady || (isGenerating && !isSearching) || !input.trim()}
               >
                 <Send className="w-4 h-4" />
               </Button>
@@ -415,6 +515,34 @@ RULES:
             </Button>
         </div>
       )}
+
+      <Dialog open={showSearchConsent} onOpenChange={setShowSearchConsent}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-blue-500" />
+              Enable Web Search?
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              You are about to use the web search feature. Unlike the AI chat which runs purely on your device, this will send your query to an external search provider.
+            </DialogDescription>
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-900/50 flex gap-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 shrink-0" />
+              <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                Your search query "{pendingSearchQuery}" will be sent to a public SearXNG instance.
+              </p>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowSearchConsent(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmSearch}>
+              I Understand, Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
