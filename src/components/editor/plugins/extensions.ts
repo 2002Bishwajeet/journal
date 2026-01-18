@@ -81,9 +81,11 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         }),
 
         Link.configure({
-            openOnClick: false,
+            openOnClick: true,
             HTMLAttributes: {
                 class: options?.linkClass ?? 'text-blue-500 underline cursor-pointer',
+                target: '_blank',
+                rel: 'noopener noreferrer',
             },
         }),
 

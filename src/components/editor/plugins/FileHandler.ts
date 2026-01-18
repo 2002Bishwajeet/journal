@@ -7,8 +7,8 @@
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
-import { v4 as uuid } from 'uuid';
 import { toast } from 'sonner';
+import { getNewId } from '@homebase-id/js-lib/helpers';
 
 export interface FileHandlerOptions {
     /** Maximum file size in MB */
@@ -24,7 +24,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
 
     addOptions() {
         return {
-            maxSizeMB: 5,
+            maxSizeMB: 20,
             allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
             onImageDrop: async () => { },
         };
@@ -47,7 +47,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
                 return false;
             }
 
-            const pendingId = uuid();
+            const pendingId = getNewId();
             const blobUrl = URL.createObjectURL(file);
 
             // Insert image with pending marker

@@ -34,6 +34,7 @@ import { extractPreviewTextFromYjs, tryJsonParse } from '@/lib/utils';
 import { MAIN_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
 import type { FolderFile, NoteFileContent, SyncRecord, SyncProgress } from '@/types';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
+import { DOC_UPDATE_CHANNEL } from '@/lib/yjs';
 
 export type SyncStatus = 'idle' | 'syncing' | 'error';
 
@@ -343,7 +344,10 @@ export class SyncService {
             }
             // Build local metadata from simplified content + groupId
             const folderId = remoteFile.fileMetadata.appData.groupId || MAIN_FOLDER_ID;
-            const now = new Date().toISOString();
+            // Use remote userDate as the timestamp (set by NotesDriveProvider on upload)
+            const remoteTimestamp = new Date(
+                remoteFile.fileMetadata.appData.userDate || Date.now()
+            ).toISOString();
 
             // Extract plain text content from the Yjs blob for the note list display
             const plainTextContent = remoteBlob
@@ -358,7 +362,7 @@ export class SyncService {
                     title: noteTitle,
                     folderId,
                     tags: content?.tags,
-                    timestamps: { created: now, modified: now },
+                    timestamps: { created: remoteTimestamp, modified: remoteTimestamp },
                     excludeFromAI: content?.excludeFromAI,
                 },
             });
@@ -383,7 +387,15 @@ export class SyncService {
             }
             // Build local metadata from simplified content + groupId
             const folderId = remoteFile.fileMetadata.appData.groupId || MAIN_FOLDER_ID;
-            const now = new Date().toISOString();
+
+            // Preserve existing local timestamps to avoid unnecessary "last updated" changes
+            const existingDocs = await getAllDocuments();
+            const existingDoc = existingDocs.find(d => d.docId === uniqueId);
+            const existingTimestamps = existingDoc?.metadata.timestamps;
+            // Fallback to remote userDate if no local timestamps exist
+            const remoteTimestamp = new Date(
+                remoteFile.fileMetadata.appData.userDate || Date.now()
+            ).toISOString();
 
             await upsertSearchIndex({
                 docId: uniqueId,
@@ -393,7 +405,7 @@ export class SyncService {
                     title: noteTitle,
                     folderId,
                     tags: content?.tags,
-                    timestamps: { created: now, modified: now },
+                    timestamps: existingTimestamps ?? { created: remoteTimestamp, modified: remoteTimestamp },
                     excludeFromAI: content?.excludeFromAI,
                 },
             });
@@ -712,6 +724,13 @@ export class SyncService {
             const newUpdate = Y.encodeStateAsUpdate(ydoc);
             await deleteDocumentUpdates(docId);
             await saveDocumentUpdate(docId, newUpdate);
+
+            // Notify the editor via BroadcastChannel that the document was updated
+            if (typeof BroadcastChannel !== 'undefined') {
+                const channel = new BroadcastChannel(DOC_UPDATE_CHANNEL);
+                channel.postMessage({ docId, type: 'update' });
+                channel.close();
+            }
         }
 
         ydoc.destroy();

@@ -1,22 +1,22 @@
 import { useEffect, useState, useRef, useMemo, useCallback, type ReactNode } from "react";
 import { useEditor, type Editor } from "@tiptap/react";
 import * as Y from "yjs";
+import { useQueryClient } from "@tanstack/react-query";
 import { PGliteProvider } from "@/lib/yjs";
 import { upsertSearchIndex, savePendingImageUpload } from "@/lib/db";
+import { notesQueryKey } from "@/hooks/useNotes";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { useSyncService } from "@/hooks/useSyncService";
-
-// Import modular plugins
 import {
   createBaseExtensions,
   createCollaborationExtension,
   CustomShortcuts,
   AutocompletePlugin,
   FileHandler,
+  SlashCommandsExtension,
 } from "./plugins";
 
-// Import KaTeX styles for math rendering
 import "katex/dist/katex.min.css";
 
 interface EditorProviderProps {
@@ -57,6 +57,7 @@ export function EditorProvider({
 }: EditorProviderProps) {
   const [yDoc] = useState(() => new Y.Doc());
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   
   // Use refs for cleanup to avoid stale closure issues
   const providerRef = useRef<PGliteProvider | null>(null);
@@ -158,6 +159,8 @@ export function EditorProvider({
         minCharsBeforeTrigger: 5,
         debug: false,
       }),
+      // Slash commands (triggered by typing /)
+      SlashCommandsExtension,
       // GrammarPlugin.configure({
       //   checkGrammar: onCheckGrammar || (async () => []),
       //   getIsAIReady: () => isAIReadyRef.current,
@@ -236,6 +239,13 @@ export function EditorProvider({
     }, 2000)
   );
 
+  // Debounced query invalidation for NoteList updates (separate, longer debounce)
+  const invalidateNotesRef = useRef(
+    debounce(() => {
+      queryClient.invalidateQueries({ queryKey: notesQueryKey });
+    }, 1000) // Slightly longer than search index update to batch
+  );
+
   // Handle editor content changes
   useEffect(() => {
     if (!editor || !providerRef.current) return;
@@ -245,6 +255,9 @@ export function EditorProvider({
       // they should propagate via metadata prop. 
       // If we implement local title state in context, we would use that.
       updateSearchIndexRef.current(editor, metadata.title, metadata);
+      
+      // Invalidate React Query cache so NoteList updates
+      invalidateNotesRef.current();
 
       if (onSave && providerRef.current) {
         debouncedSaveRef.current(providerRef.current, onSave);

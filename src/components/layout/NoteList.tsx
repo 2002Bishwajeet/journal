@@ -45,7 +45,7 @@ export default function NoteList({
   return (
     <div
       className={cn(
-        'flex flex-col h-full w-full bg-background border-r border-border', // w-full by default
+        'flex flex-col h-full w-full max-w-full bg-background border-r border-border overflow-hidden', // w-full by default
         className
       )}
     >
@@ -59,8 +59,8 @@ export default function NoteList({
       </div>
 
       {/* Notes list */}
-      <ScrollArea className="flex-1">
-        <PullToRefresh onRefresh={handleRefresh} className="min-h-full">
+      <ScrollArea className="flex-1 w-full">
+        <PullToRefresh onRefresh={handleRefresh} className="min-h-full w-full">
         {isLoading ? (
           <div className="flex items-center justify-center h-32">
             <span className="text-sm text-muted-foreground">Loading...</span>
@@ -74,7 +74,7 @@ export default function NoteList({
             </Button>
           </div>
         ) : (
-          <div className="py-1">
+          <div className="py-1 w-full">
             {notes.map((note) => (
               <NoteItem 
                 key={note.docId} 
@@ -269,7 +269,7 @@ function NoteItem({
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         className={cn(
-          'relative flex flex-col w-full px-4 py-3.5 text-left bg-background group cursor-pointer outline-none focus:bg-accent select-none',
+          'relative grid grid-cols-1 w-full px-4 py-3.5 text-left bg-background group cursor-pointer outline-none focus:bg-accent select-none',
           'hover:bg-accent',
           'transition-[transform,background-color] duration-200 ease-out',
           selectedNoteId === note.docId && 'bg-accent',
@@ -278,7 +278,7 @@ function NoteItem({
           transform: `translateX(-${swipeOffset}px)`,
         }}
       >
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
           <span
             className={cn(
               'text-sm font-medium truncate',
@@ -289,9 +289,8 @@ function NoteItem({
           >
             {note.title || 'Untitled'}
           </span>
-          {/* Delete button removed in favor of Context Menu (Desktop) and Swipe (Mobile) */}
         </div>
-        <p className="text-xs text-muted-foreground truncate mt-0.5">
+        <p className="text-xs text-muted-foreground truncate mt-0.5 w-full">
           {note.plainTextContent || 'No content'}
         </p>
         <span className="text-xs text-muted-foreground/70 mt-1">

@@ -1,9 +1,13 @@
 import * as Y from 'yjs';
 import { saveDocumentUpdate, getDocumentUpdates, deleteDocumentUpdates } from '@/lib/db';
 
+// BroadcastChannel name for document update notifications
+export const DOC_UPDATE_CHANNEL = 'journal-doc-updates';
+
 /**
  * Custom Yjs provider that persists to PGlite
  * Handles loading and saving Yjs updates to the local database
+ * Also listens for external updates via BroadcastChannel (e.g., from SyncService)
  */
 export class PGliteProvider {
     private doc: Y.Doc;
@@ -13,6 +17,7 @@ export class PGliteProvider {
     private pendingUpdates: Uint8Array[] = [];
     private updateCount: number = 0;
     private static readonly COMPACTION_THRESHOLD = 50; // Compact after 50 updates
+    private broadcastChannel: BroadcastChannel | null = null;
 
     constructor(docId: string, doc: Y.Doc) {
         this.docId = docId;
@@ -20,6 +25,47 @@ export class PGliteProvider {
 
         // Listen for local updates
         this.doc.on('update', this.handleUpdate);
+
+        // Listen for external updates via BroadcastChannel
+        this.setupBroadcastChannel();
+    }
+
+    /**
+     * Set up BroadcastChannel to listen for external document updates
+     */
+    private setupBroadcastChannel(): void {
+        if (typeof BroadcastChannel === 'undefined') return;
+
+        this.broadcastChannel = new BroadcastChannel(DOC_UPDATE_CHANNEL);
+        this.broadcastChannel.onmessage = async (event) => {
+            const { docId, type } = event.data;
+            if (docId !== this.docId || type !== 'update') return;
+
+            // Reload updates from DB and apply any new ones
+            await this.reloadFromDb();
+        };
+    }
+
+    /**
+     * Reload document state from database (called when external update is detected)
+     */
+    private async reloadFromDb(): Promise<void> {
+        try {
+            const updates = await getDocumentUpdates(this.docId);
+            const currentStateVector = Y.encodeStateVector(this.doc);
+
+            // Apply each update, Yjs will handle deduplication automatically
+            for (const update of updates) {
+                // Only apply updates that contain new information
+                const diff = Y.diffUpdate(update, currentStateVector);
+                if (diff.length > 0) {
+                    Y.applyUpdate(this.doc, update, 'remote');
+                }
+            }
+            this.updateCount = updates.length;
+        } catch (error) {
+            console.error('[PGliteProvider] Failed to reload from DB:', error);
+        }
     }
 
     /**
@@ -144,6 +190,10 @@ export class PGliteProvider {
      */
     async destroy(): Promise<void> {
         this.doc.off('update', this.handleUpdate);
+
+        // Close BroadcastChannel
+        this.broadcastChannel?.close();
+        this.broadcastChannel = null;
 
         // Compact on destroy to save memory for next load
         if (this.updateCount > 1) {
