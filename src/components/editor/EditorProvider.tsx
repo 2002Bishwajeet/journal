@@ -8,8 +8,6 @@ import { notesQueryKey } from "@/hooks/useNotes";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { useSyncService } from "@/hooks/useSyncService";
-
-// Import modular plugins
 import {
   createBaseExtensions,
   createCollaborationExtension,
@@ -18,7 +16,6 @@ import {
   FileHandler,
 } from "./plugins";
 
-// Import KaTeX styles for math rendering
 import "katex/dist/katex.min.css";
 
 interface EditorProviderProps {

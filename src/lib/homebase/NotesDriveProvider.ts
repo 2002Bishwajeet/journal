@@ -365,6 +365,7 @@ export class NotesDriveProvider {
             thumbnails.push(...additionalThumbnails);
             payloads.push({
                 key: payloadKey,
+                iv: existingHeader.fileMetadata.isEncrypted ? getRandom16ByteArray() : undefined,
                 payload: image.file,
                 previewThumbnail: tinyThumb,
                 descriptorContent: image.filename || image.file.type,
