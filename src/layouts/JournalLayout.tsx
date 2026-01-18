@@ -29,8 +29,12 @@ import { useNotes, useNotesByFolder } from "@/hooks/useNotes";
 import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
 import { useFolders } from "@/hooks/useFolders";
+import { useThemePreference } from "@/hooks/useThemePreference";
 
 export default function JournalLayout() {
+  // Initialize theme preference & system listener at root level
+  useThemePreference();
+  
   const { folderId, noteId } = useParams();
   const navigate = useNavigate();
 

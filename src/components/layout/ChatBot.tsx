@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useWebLLM, type ChatMessage } from "@/hooks/useWebLLM";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,8 +20,22 @@ const COMMANDS = [
 export function ChatBot({ activeNoteId }: ChatBotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Per-note chat history - keyed by activeNoteId, session-based (lost on app close)
+  const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Derive current messages from chatHistories based on activeNoteId
+  const noteKey = activeNoteId ?? '__global__';
+  const messages = chatHistories[noteKey] ?? [];
+  
+  // Helper to update messages for current note
+  const setMessages = useCallback((updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+    setChatHistories(prev => {
+      const currentMessages = prev[noteKey] ?? [];
+      const newMessages = typeof updater === 'function' ? updater(currentMessages) : updater;
+      return { ...prev, [noteKey]: newMessages };
+    });
+  }, [noteKey]);
 
   // Command Auto-complete state
   const [showSuggestions, setShowSuggestions] = useState(false);

@@ -14,6 +14,7 @@ import { useEditorContext } from "./EditorContext";
 
 import EditorToolbar from "./EditorToolbar";
 import MobileToolbar from "./MobileToolbar";
+import BubbleMenuToolbar from "./BubbleMenuToolbar";
 import { TableColumnMenu } from "./table/TableColumnMenu";
 import { TableRowMenu } from "./table/TableRowMenu";
 
@@ -89,6 +90,9 @@ export default function TipTapEditor({
 
       {/* Mobile Toolbar - appears above keyboard on touch devices */}
       {editor && <MobileToolbar editor={editor} />}
+      
+      {/* Bubble Menu - appears when text is selected on any screen */}
+      {editor && <BubbleMenuToolbar editor={editor} />}
       
       {/* Table Handles */}
       {editor && <TableColumnMenu editor={editor} />}
