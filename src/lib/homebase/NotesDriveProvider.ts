@@ -14,6 +14,8 @@ import {
     type UpdateInstructionSet,
     type PayloadFile,
     type ThumbnailFile,
+    type EncryptedKeyHeader,
+    type UpdateResult,
     getFileHeader,
     reUploadFile,
 } from '@homebase-id/js-lib/core';
@@ -256,24 +258,24 @@ export class NotesDriveProvider {
 
     /**
      * Update an existing note using patchFile.
-     * versionTag is required for updates to handle optimistic locking.
-     * Fetches the existing file to get the keyHeader for encrypted updates.
+     * Uses optimistic concurrency with onVersionConflict for lazy conflict resolution.
+     * 
+     * @param uniqueId - The unique ID of the note
+     * @param fileId - The remote file ID
+     * @param versionTag - The cached version tag (may be stale)
+     * @param metadata - Document metadata to update
+     * @param yjsBlob - Optional Yjs blob to update
+     * @param cachedKeyHeader - Optional cached encrypted key header (avoids network call)
+     * @returns The new versionTag and the encryptedKeyHeader used (for caching)
      */
     async updateNote(
         uniqueId: string,
         fileId: string,
         versionTag: string,
         metadata: DocumentMetadata,
-        yjsBlob?: Uint8Array
-    ): Promise<{ versionTag: string }> {
-        // First fetch the existing file header to get the encryption key
-        const existingHeader = await getFileHeader<string>(
-            this.#dotYouClient,
-            JOURNAL_DRIVE,
-            fileId, // We'll use uniqueId lookup to verify file exists
-            { decrypt: false }
-        );
-
+        yjsBlob?: Uint8Array,
+        cachedKeyHeader?: EncryptedKeyHeader
+    ): Promise<{ versionTag: string; encryptedKeyHeader?: EncryptedKeyHeader }> {
         const noteContent: NoteFileContent = {
             title: metadata.title,
             tags: metadata.tags,
@@ -285,11 +287,12 @@ export class NotesDriveProvider {
             payloads.push({
                 key: PAYLOAD_KEY_CONTENT,
                 payload: new Blob([new Uint8Array(yjsBlob)], { type: YJS_MIME_TYPE }),
+                iv: getRandom16ByteArray(),
             });
         }
 
         const uploadMetadata: UploadFileMetadata = {
-            versionTag: existingHeader?.fileMetadata.versionTag || versionTag,
+            versionTag,
             allowDistribution: false,
             appData: {
                 uniqueId, // Preserve uniqueId on updates
@@ -306,27 +309,77 @@ export class NotesDriveProvider {
             },
         };
 
-        // UpdateLocalInstructionSet for patchFile
         const updateInstructions: UpdateInstructionSet = {
             locale: 'local',
             file: { fileId, targetDrive: JOURNAL_DRIVE },
             versionTag,
-
         };
 
+        // Track the key header used (for caching)
+        let usedKeyHeader: EncryptedKeyHeader | undefined = cachedKeyHeader;
+
+        // Define the conflict handler - only called when version mismatch occurs
+        const handleVersionConflict = async (): Promise<UpdateResult | void> => {
+            console.log(`[NotesDriveProvider] Version conflict for note ${uniqueId}, fetching fresh header...`);
+
+            // Fetch fresh header on conflict
+            const freshHeader = await getFileHeader<string>(
+                this.#dotYouClient,
+                JOURNAL_DRIVE,
+                fileId,
+                { decrypt: false }
+            );
+
+            if (!freshHeader) {
+                throw new Error(`Note with fileId ${fileId} not found during conflict resolution`);
+            }
+
+            // Update the metadata with fresh version tag
+            const freshUploadMetadata: UploadFileMetadata = {
+                ...uploadMetadata,
+                versionTag: freshHeader.fileMetadata.versionTag,
+            };
+
+            const freshUpdateInstructions: UpdateInstructionSet = {
+                ...updateInstructions,
+                versionTag: freshHeader.fileMetadata.versionTag,
+            };
+
+            // Store the fresh key header for return
+            usedKeyHeader = freshHeader.sharedSecretEncryptedKeyHeader;
+
+            // Retry with fresh data (no conflict handler this time - avoid infinite loop)
+            const retryResult = await patchFile(
+                this.#dotYouClient,
+                freshHeader.sharedSecretEncryptedKeyHeader,
+                freshUpdateInstructions,
+                freshUploadMetadata,
+                payloads
+            );
+
+            return retryResult || undefined;
+        };
+
+        // First attempt: Use cached key header (may be undefined for first sync)
         const result = await patchFile(
             this.#dotYouClient,
-            existingHeader?.sharedSecretEncryptedKeyHeader,
+            cachedKeyHeader,
             updateInstructions,
             uploadMetadata,
-            payloads
+            payloads,
+            undefined, // thumbnails
+            undefined, // toDeletePayloads
+            handleVersionConflict
         );
 
         if (!result) {
             throw new Error('Failed to update note');
         }
 
-        return { versionTag: result.newVersionTag };
+        return {
+            versionTag: result.newVersionTag,
+            encryptedKeyHeader: usedKeyHeader,
+        };
     }
 
     /**
