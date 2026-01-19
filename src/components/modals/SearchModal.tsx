@@ -164,7 +164,7 @@ export default function SearchModal({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       switch (e.key) {
-        case "ArrowDown":
+        case "ArrowDown": {
           e.preventDefault();
           if (results.length === 0) return;
           setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
@@ -174,7 +174,8 @@ export default function SearchModal({
           const nextEl = document.getElementById(`search-result-${nextIndex}`);
           nextEl?.scrollIntoView({ block: 'nearest' });
           break;
-        case "ArrowUp":
+        }
+        case "ArrowUp": {
           e.preventDefault();
           if (results.length === 0) return;
           setSelectedIndex((i) => Math.max(i - 1, 0));
@@ -184,6 +185,7 @@ export default function SearchModal({
           const prevEl = document.getElementById(`search-result-${prevIndex}`);
           prevEl?.scrollIntoView({ block: 'nearest' });
           break;
+        }
         case "Enter":
           e.preventDefault();
           if (results[selectedIndex]) {

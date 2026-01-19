@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useWebLLM, type ChatMessage } from "@/hooks/useWebLLM";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +34,8 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
 
   // Derive current messages from chatHistories based on activeNoteId
   const noteKey = activeNoteId ?? '__global__';
-  const messages = chatHistories[noteKey] ?? [];
+  // Memoize messages to prevent dependency changes on every render
+  const messages = useMemo(() => chatHistories[noteKey] ?? [], [chatHistories, noteKey]);
   
   // Helper to update messages for current note
   const setMessages = useCallback((updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {

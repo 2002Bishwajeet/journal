@@ -56,7 +56,10 @@ export function AISuggestionOverlay({ editor }: AISuggestionOverlayProps) {
   // Update position when suggestion changes
   useEffect(() => {
     if (suggestion.isVisible && suggestion.position) {
-      updateTooltipPosition();
+      // Schedule position update outside React's render cycle
+      requestAnimationFrame(() => {
+        updateTooltipPosition();
+      });
     }
   }, [suggestion.isVisible, suggestion.position, updateTooltipPosition]);
 

@@ -17,7 +17,7 @@ interface TableRowMenuProps {
 }
 
 export function TableRowMenu({ editor }: TableRowMenuProps) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const { hoveredCell } = useTableState(editor, false);
   const [isOpen, setIsOpen] = useState(false);
   const [handleOpen, setHandleOpen] = useState(false);

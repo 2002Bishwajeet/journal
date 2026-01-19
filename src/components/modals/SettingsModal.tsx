@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import {
   Dialog,
@@ -11,7 +12,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, Monitor, Database, Shield } from "lucide-react";
+import { 
+  Moon, 
+  Sun, 
+  Monitor, 
+  Database, 
+  Shield, 
+  Download, 
+  FolderInput, 
+  Loader2 
+} from "lucide-react";
+import { toast } from "sonner";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -20,6 +31,49 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { theme, setTheme } = useThemePreference();
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      const { ExportService } = await import("@/lib/importexport/ExportService");
+      const result = await ExportService.exportAllAsZip();
+      toast.success(`Exported ${result.count} items (${(result.size / 1024).toFixed(1)} KB)`);
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export data");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImport = async (files: FileList) => {
+    try {
+      setIsImporting(true);
+      const { ImportService } = await import("@/lib/importexport/ImportService");
+      const result = await ImportService.importFiles(files);
+      
+      if (result.failed > 0) {
+        toast.warning(
+          `Import complete: ${result.imported} imported, ${result.foldersCreated} folders created. ${result.failed} failed.`
+        );
+      } else {
+        toast.success(
+          `Successfully imported ${result.imported} notes and created ${result.foldersCreated} folders.`
+        );
+      }
+      
+      if (result.errors.length > 0) {
+        console.warn("Import errors:", result.errors);
+      }
+    } catch (error) {
+      console.error("Import error:", error);
+      toast.error("Critical error during import");
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   return (
     <Dialog
@@ -119,6 +173,77 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   Your notes are stored in a dedicated Homebase Drive (ID:
                   f4b63...).
                 </p>
+              </div>
+
+              <div className="rounded-md border p-4 space-y-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-primary">
+                    <Download className="h-4 w-4" />
+                    <span className="font-medium text-sm">Import & Export</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Manage your data ownership. Import from Markdown/Zip or export
+                    everything.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id="import-file"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      accept=".md,.zip,.csv"
+                      multiple
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          handleImport(e.target.files);
+                          // Reset input
+                          e.target.value = "";
+                        }
+                      }}
+                      disabled={isImporting}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={isImporting}
+                    >
+                      {isImporting ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          <FolderInput className="h-3 w-3 mr-2" />
+                          Import Data
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={handleExport}
+                    disabled={isExporting}
+                  >
+                    {isExporting ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3 mr-2" />
+                        Export All
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <div className="rounded-md border p-4 space-y-2 bg-muted/50">
