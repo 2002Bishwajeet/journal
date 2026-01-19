@@ -186,8 +186,9 @@ export default function EditorPage() {
 
   return (
     <EditorProvider
-      key={noteId} // Force re-mount provider when note changes
+      key={noteId}
       docId={noteId}
+
       metadata={selectedNoteMetadata}
       onMetadataChange={async (meta) => {
         await updateNoteMetadata({

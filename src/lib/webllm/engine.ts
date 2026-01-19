@@ -1,6 +1,7 @@
-import * as webllm from '@mlc-ai/web-llm';
+import type * as WebLLMTypes from '@mlc-ai/web-llm';
 
-let engine: webllm.MLCEngine | null = null;
+let webllmModule: typeof WebLLMTypes | null = null;
+let engine: WebLLMTypes.MLCEngine | null = null;
 let isLoading = false;
 let modelLoaded = false; // Track if model is actually loaded and ready
 
@@ -70,7 +71,7 @@ export async function unloadWebLLM(): Promise<void> {
  * Initialize WebLLM engine with model stored in OPFS
  */
 export async function initWebLLM(
-    onProgress?: (progress: webllm.InitProgressReport) => void
+    onProgress?: (progress: WebLLMTypes.InitProgressReport) => void
 ): Promise<boolean> {
     if (engine && modelLoaded) return true;
     if (isLoading) return false;
@@ -79,7 +80,11 @@ export async function initWebLLM(
     modelLoaded = false;
 
     try {
-        engine = new webllm.MLCEngine();
+        if (!webllmModule) {
+            webllmModule = await import('@mlc-ai/web-llm');
+        }
+
+        engine = new webllmModule.MLCEngine();
 
         if (onProgress) {
             engine.setInitProgressCallback(onProgress);
@@ -234,7 +239,7 @@ const STYLE_PROMPTS: Record<RewriteStyle, string> = {
     summary: 'Summarize the key points of this text in 2-3 sentences.',
     keypoints: 'Extract the key points from this text as a bullet list.',
     list: 'Convert this text into a structured bullet point list.',
-    table: 'Convert this text into a markdown table if applicable, otherwise organize as structured data.',
+    table: 'Convert this text into a markdown table. Use this EXACT format with pipes and dashes:\\n| Column1 | Column2 |\\n|---------|---------|\\n| Data1 | Data2 |\\nOutput ONLY the table with no explanation or extra text.',
 };
 
 export interface ChatMessage {
