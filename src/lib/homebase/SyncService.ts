@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { DotYouClient, HomebaseFile, DeletedHomebaseFile, PayloadDescriptor, EncryptedKeyHeader } from '@homebase-id/js-lib/core';
+import type { DotYouClient, HomebaseFile, DeletedHomebaseFile, EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import { FolderDriveProvider } from './FolderDriveProvider';
 import { NotesDriveProvider } from './NotesDriveProvider';
 import { InboxProcessor } from './InboxProcessor';
