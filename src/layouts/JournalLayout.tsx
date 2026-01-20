@@ -239,7 +239,7 @@ export default function JournalLayout() {
             <h2 className="text-sm font-medium truncate flex-1 leading-none">
               {folders.find((f) => f.id === folderId)?.name || "Notes"}
             </h2>
-            <SyncStatus showText={false} />
+            <SyncStatus />
           </div>
 
           <NoteList

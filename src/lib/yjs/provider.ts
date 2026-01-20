@@ -48,19 +48,18 @@ export class PGliteProvider {
 
     /**
      * Reload document state from database (called when external update is detected)
+     * This is triggered by BroadcastChannel when SyncService updates the document
+     * (e.g., after image upload completes and updates src attribute)
      */
     private async reloadFromDb(): Promise<void> {
         try {
             const updates = await getDocumentUpdates(this.docId);
-            const currentStateVector = Y.encodeStateVector(this.doc);
 
-            // Apply each update, Yjs will handle deduplication automatically
+            // Apply all updates - Yjs handles deduplication internally
+            // We can't use diffUpdate here because it doesn't reliably detect
+            // attribute changes (like src or data-pending-id modifications)
             for (const update of updates) {
-                // Only apply updates that contain new information
-                const diff = Y.diffUpdate(update, currentStateVector);
-                if (diff.length > 0) {
-                    Y.applyUpdate(this.doc, update, 'remote');
-                }
+                Y.applyUpdate(this.doc, update, 'remote');
             }
             this.updateCount = updates.length;
         } catch (error) {

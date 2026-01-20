@@ -8,6 +8,7 @@ import { notesQueryKey } from "@/hooks/useNotes";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { useSyncService } from "@/hooks/useSyncService";
+import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
 import {
   createBaseExtensions,
   createCollaborationExtension,
@@ -101,6 +102,9 @@ export function EditorProvider({
       yDoc.destroy();
     };
   }, [yDoc]);
+
+  // Track image deletions with cancellable timeouts and sync trigger
+  useImageDeletionTracker({ docId, yXmlFragment });
 
   // Get sync service to trigger upload after queuing
   const { sync } = useSyncService();

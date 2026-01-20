@@ -29,6 +29,8 @@ import {
     getImageUploadsReadyForRetry,
     updateImageRetryAt,
     calculateNextRetryAt,
+    getPendingImageDeletions,
+    clearPendingImageDeletions,
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
 import { extractPreviewTextFromYjs, serializeKeyHeader, tryJsonParse, validateKeyHeader } from '@/lib/utils';
@@ -582,8 +584,18 @@ export class SyncService {
                 let cachedKeyHeader = record.encryptedKeyHeader ? tryJsonParse<EncryptedKeyHeader>(record.encryptedKeyHeader) : undefined
 
                 // Should happen rarely but if deserialization failed, re-fetch from remote
-                if (cachedKeyHeader && !validateKeyHeader(cachedKeyHeader)) {
+                if (!cachedKeyHeader || !validateKeyHeader(cachedKeyHeader)) {
                     cachedKeyHeader = (await this.#notesProvider.getNote(record.localId))?.sharedSecretEncryptedKeyHeader;
+                }
+
+                // Get pending image deletions for this note
+                const pendingDeletions = await getPendingImageDeletions(record.localId);
+                const toDeletePayloads = pendingDeletions.length > 0
+                    ? pendingDeletions.map(key => ({ key }))
+                    : undefined;
+
+                if (toDeletePayloads) {
+                    console.log(`[SyncService] Deleting payloads for note ${record.localId}:`, pendingDeletions);
                 }
 
                 let conflictResult: ConflictResolutionResult | undefined;
@@ -619,7 +631,8 @@ export class SyncService {
                         freshFile.fileMetadata.versionTag,
                         doc.metadata,
                         mergedBlob,
-                        cachedKeyHeader
+                        cachedKeyHeader,
+                        { toDeletePayloads }
                     );
 
                     // Compute hash for the merged blob
@@ -640,7 +653,7 @@ export class SyncService {
                     doc.metadata,
                     yjsBlob,
                     cachedKeyHeader,
-                    { onVersionConflict }
+                    { onVersionConflict, toDeletePayloads }
                 );
 
                 // Determine final values based on whether conflict resolution occurred
@@ -654,6 +667,11 @@ export class SyncService {
                     : undefined;
 
                 await markSynced(record.localId, record.remoteFileId, finalVersionTag, finalHash, keyHeaderToCache);
+
+                // Clear pending image deletions after successful sync
+                if (pendingDeletions.length > 0) {
+                    await clearPendingImageDeletions(record.localId);
+                }
             } catch (error) {
                 // If update fails (e.g., version conflict), try to re-fetch and retry
                 console.warn('[SyncService] Update failed, will retry on next sync:', error);
@@ -747,14 +765,16 @@ export class SyncService {
         const replaceInFragment = (node: Y.XmlElement | Y.XmlText | Y.XmlFragment) => {
             if (node instanceof Y.XmlElement) {
                 const attrs = node.getAttributes();
-                if (attrs['data-pending-id'] === pendingId) {
+
+                // Check for data-pending-id attribute (use stringGuidsEqual for UUID comparison)
+                if (stringGuidsEqual(attrs['data-pending-id'], pendingId)) {
                     // Replace with permanent reference
                     node.setAttribute('src', `attachment://${fileId}/${payloadKey}`);
                     node.removeAttribute('data-pending-id');
                     found = true;
-                    console.log(`[SyncService] Updated image reference: ${pendingId} -> attachment://${fileId}/${payloadKey}`);
                 }
-                // Recurse children
+
+                // Recurse children - need to handle all child types
                 for (let i = 0; i < node.length; i++) {
                     const child = node.get(i);
                     if (child instanceof Y.XmlElement || child instanceof Y.XmlFragment) {
@@ -785,6 +805,8 @@ export class SyncService {
                 channel.postMessage({ docId, type: 'update' });
                 channel.close();
             }
+
+            console.log(`[SyncService] Updated Yjs doc for ${docId}`);
         }
 
         ydoc.destroy();

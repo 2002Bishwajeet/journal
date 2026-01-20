@@ -284,6 +284,7 @@ export class NotesDriveProvider {
         cachedKeyHeader?: EncryptedKeyHeader,
         options?: {
             onVersionConflict?: () => void;
+            toDeletePayloads?: { key: string }[];
         }
     ): Promise<{ versionTag: string; encryptedKeyHeader?: EncryptedKeyHeader }> {
 
@@ -333,10 +334,9 @@ export class NotesDriveProvider {
             updateInstructions,
             uploadMetadata,
             payloads,
-            undefined,
-            undefined,
+            undefined, // thumbnails
+            options?.toDeletePayloads,
             options?.onVersionConflict
-
         );
 
         if (!result) {

@@ -687,6 +687,7 @@ export async function clearAllLocalData(): Promise<void> {
         -- Clear sync tracking
         DELETE FROM sync_records;
         DELETE FROM pending_image_uploads;
+        DELETE FROM pending_image_deletions;
         DELETE FROM sync_errors;
         
         -- Clear job queue
@@ -922,3 +923,41 @@ export async function getImageUploadsReadyForRetry(): Promise<PendingImageUpload
         createdAt: row.created_at,
     }));
 }
+
+// ============================================
+// Pending Image Deletions (for tracking remote payloads to delete)
+// ============================================
+
+/**
+ * Save a pending image deletion (image was removed from editor)
+ */
+export async function savePendingImageDeletion(noteDocId: string, payloadKey: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `INSERT INTO pending_image_deletions (note_doc_id, payload_key)
+         VALUES ($1, $2)
+         ON CONFLICT (note_doc_id, payload_key) DO NOTHING`,
+        [noteDocId, payloadKey]
+    );
+}
+
+/**
+ * Get all pending image deletions for a note
+ */
+export async function getPendingImageDeletions(noteDocId: string): Promise<string[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ payload_key: string }>(
+        `SELECT payload_key FROM pending_image_deletions WHERE note_doc_id = $1`,
+        [noteDocId]
+    );
+    return result.rows.map(row => row.payload_key);
+}
+
+/**
+ * Clear pending image deletions for a note (after successful sync)
+ */
+export async function clearPendingImageDeletions(noteDocId: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query('DELETE FROM pending_image_deletions WHERE note_doc_id = $1', [noteDocId]);
+}
+

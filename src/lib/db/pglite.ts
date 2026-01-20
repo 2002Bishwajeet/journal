@@ -140,6 +140,16 @@ async function initializeSchema(database: PGlite): Promise<void> {
     INSERT INTO folders (id, name)
     VALUES ('${MAIN_FOLDER_ID}', 'Main')
     ON CONFLICT (id) DO NOTHING;
+
+    -- Create pending_image_deletions table for tracking image payloads to delete
+    CREATE TABLE IF NOT EXISTS pending_image_deletions (
+      id SERIAL PRIMARY KEY,
+      note_doc_id UUID NOT NULL,
+      payload_key TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(note_doc_id, payload_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pending_deletions_note ON pending_image_deletions(note_doc_id);
   `);
 
   console.log('[DB Schema] Base tables created');
@@ -346,6 +356,22 @@ async function runMigrations(database: PGlite): Promise<void> {
       );
       CREATE INDEX IF NOT EXISTS idx_sync_errors_entity ON sync_errors(entity_id);
       CREATE INDEX IF NOT EXISTS idx_sync_errors_unresolved ON sync_errors(resolved_at) WHERE resolved_at IS NULL;
+    `);
+  } catch {
+    // Table might already exist
+  }
+
+  // Create pending_image_deletions if not exists (for existing dbs)
+  try {
+    await database.exec(`
+      CREATE TABLE IF NOT EXISTS pending_image_deletions (
+        id SERIAL PRIMARY KEY,
+        note_doc_id UUID NOT NULL,
+        payload_key TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(note_doc_id, payload_key)
+      );
+      CREATE INDEX IF NOT EXISTS idx_pending_deletions_note ON pending_image_deletions(note_doc_id);
     `);
   } catch {
     // Table might already exist
