@@ -96,7 +96,8 @@ async function initializeSchema(database: PGlite): Promise<void> {
       version_tag TEXT,
       last_synced_at TIMESTAMP WITH TIME ZONE,
       sync_status TEXT NOT NULL DEFAULT 'pending',
-      content_hash TEXT
+      content_hash TEXT,
+      encrypted_key_header TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_sync_records_status ON sync_records(sync_status);
@@ -268,7 +269,8 @@ async function runMigrations(database: PGlite): Promise<void> {
         version_tag TEXT,
         last_synced_at TIMESTAMP WITH TIME ZONE,
         sync_status TEXT NOT NULL DEFAULT 'pending',
-        content_hash TEXT
+        content_hash TEXT,
+        encrypted_key_header TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_sync_records_status ON sync_records(sync_status);
       CREATE INDEX IF NOT EXISTS idx_sync_records_type ON sync_records(entity_type);
@@ -285,6 +287,16 @@ async function runMigrations(database: PGlite): Promise<void> {
     console.log('[DB Migration] content_hash column ensured');
   } catch (error) {
     console.warn('[DB Migration] Could not add content_hash column:', error);
+  }
+
+  // Add encrypted_key_header column if it doesn't exist (for version conflict optimization)
+  try {
+    await database.exec(`
+      ALTER TABLE sync_records ADD COLUMN IF NOT EXISTS encrypted_key_header TEXT;
+    `);
+    console.log('[DB Migration] encrypted_key_header column ensured');
+  } catch (error) {
+    console.warn('[DB Migration] Could not add encrypted_key_header column:', error);
   }
 
   // Create pending_image_uploads if not exists (for existing dbs)

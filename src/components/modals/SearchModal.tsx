@@ -1,22 +1,12 @@
-import { useEffect, useState, useCallback, useRef } from "react";
 import { HighlightedText } from "@/components/ui/HighlightedText";
 import { Search, FileText, Loader2, Sparkles, Type, FileSearch, Wand2 } from "lucide-react";
-import { advancedSearch, getAllDocuments } from "@/lib/db";
-import { isIndexingInProgress } from "@/lib/workers";
 import { cn } from "@/lib/utils";
-import type { SearchIndexEntry, AdvancedSearchResult } from "@/types";
+import { useSearchModal, isAdvancedResult, type SearchResult } from "@/hooks/useSearchModal";
 
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectNote: (docId: string) => void;
-}
-
-// Type for results - either basic search index entry or advanced result with highlights
-type SearchResult = SearchIndexEntry | AdvancedSearchResult;
-
-function isAdvancedResult(result: SearchResult): result is AdvancedSearchResult {
-  return 'matchType' in result;
 }
 
 // Icon component for match type
@@ -51,170 +41,114 @@ function getMatchTypeLabel(matchType?: 'title' | 'content' | 'fuzzy' | 'semantic
   }
 }
 
+// Result item component
+function SearchResultItem({
+  result,
+  index,
+  isSelected,
+  onSelect,
+  onHover,
+}: {
+  result: SearchResult;
+  index: number;
+  isSelected: boolean;
+  onSelect: () => void;
+  onHover: () => void;
+}) {
+  const isAdvanced = isAdvancedResult(result);
+  const matchType = isAdvanced ? result.matchType : undefined;
+  const contentHighlight = isAdvanced ? result.contentHighlight : undefined;
+  const plainText = 'plainTextContent' in result ? result.plainTextContent : undefined;
+
+  return (
+    <button
+      key={result.docId}
+      id={`search-result-${index}`}
+      onClick={onSelect}
+      onMouseEnter={onHover}
+      className={cn(
+        "flex items-start gap-3 w-full px-3 py-3 text-left rounded-md transition-colors",
+        isSelected ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"
+      )}
+    >
+      <div className={cn(
+        "mt-0.5 p-1 rounded-md bg-background border border-border shadow-sm shrink-0",
+        isSelected ? "border-transparent" : ""
+      )}>
+        <FileText className="h-4 w-4" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className={cn(
+            "text-sm font-medium truncate",
+            isSelected ? "text-foreground" : "text-foreground"
+          )}>
+            {result.title || "Untitled"}
+          </span>
+
+          {matchType && (
+            <span
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide font-medium shrink-0",
+                matchType === 'title' && "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+                matchType === 'content' && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                matchType === 'fuzzy' && "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+                matchType === 'semantic' && "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+              )}
+              title={getMatchTypeLabel(matchType)}
+            >
+              <MatchTypeIcon matchType={matchType} />
+              {matchType}
+            </span>
+          )}
+        </div>
+
+        {/* Show highlighted content if available, otherwise show first 80 chars */}
+        {contentHighlight ? (
+          <HighlightedText
+            text={contentHighlight}
+            className="text-xs opacity-80 line-clamp-2"
+          />
+        ) : plainText ? (
+          <p className="text-xs opacity-60 truncate">
+            {plainText.slice(0, 100)}
+          </p>
+        ) : (
+          <p className="text-xs opacity-40 italic">
+            No preview available
+          </p>
+        )}
+      </div>
+
+      {isSelected && (
+        <div className="self-center shrink-0 text-muted-foreground opacity-50 px-2">
+          <span className="text-[10px]">↵</span>
+        </div>
+      )}
+    </button>
+  );
+}
+
 export default function SearchModal({
   isOpen,
   onClose,
   onSelectNote,
 }: SearchModalProps) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [pendingQuery, setPendingQuery] = useState<string | null>(null);
-  const [isIndexing, setIsIndexing] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const requestSeqRef = useRef(0);
-
-  const trimmedQuery = query.trim();
-  const isLoading = Boolean(
-    pendingQuery && pendingQuery === trimmedQuery && trimmedQuery
-  );
-
-  const handleClose = useCallback(() => {
-    setQuery("");
-    setResults([]);
-    setSelectedIndex(0);
-    setPendingQuery(null);
-    onClose();
-  }, [onClose]);
-
-  // Check indexing status
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    let cancelled = false;
-    
-    const checkIndexing = async () => {
-      try {
-        const indexing = await isIndexingInProgress();
-        if (!cancelled) {
-          setIsIndexing(indexing);
-        }
-      } catch {
-        // Ignore errors during indexing check
-      }
-    };
-    
-    checkIndexing();
-    const interval = setInterval(checkIndexing, 2000);
-    
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [isOpen]);
-
-  // Focus input when modal opens
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let cancelled = false;
-    // Small timeout to ensure render is complete
-    const timer = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 10);
-
-    // Load all notes initially
-    (async () => {
-      const docs = await getAllDocuments();
-      if (cancelled) return;
-      setResults(docs);
-    })();
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [isOpen]);
-
-  // Search on query change
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const trimmed = query.trim();
-    const requestSeq = ++requestSeqRef.current;
-    let cancelled = false;
-
-    if (!trimmed) {
-      (async () => {
-        const docs = await getAllDocuments();
-        if (cancelled || requestSeqRef.current !== requestSeq) return;
-        setResults(docs);
-        setSelectedIndex(0);
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const debounce = setTimeout(async () => {
-      // Use advanced search with FTS, fuzzy matching, and highlighting
-      const searchResults = await advancedSearch(trimmed);
-      if (cancelled || requestSeqRef.current !== requestSeq) return;
-      setPendingQuery((current) => (current === trimmed ? null : current));
-      setResults(searchResults);
-      setSelectedIndex(0);
-    }, 150);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(debounce);
-    };
-  }, [query, isOpen]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      switch (e.key) {
-        case "ArrowDown": {
-          e.preventDefault();
-          if (results.length === 0) return;
-          setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
-          
-          // Scroll active item into view
-          const nextIndex = Math.min(selectedIndex + 1, results.length - 1);
-          const nextEl = document.getElementById(`search-result-${nextIndex}`);
-          nextEl?.scrollIntoView({ block: 'nearest' });
-          break;
-        }
-        case "ArrowUp": {
-          e.preventDefault();
-          if (results.length === 0) return;
-          setSelectedIndex((i) => Math.max(i - 1, 0));
-          
-          // Scroll active item into view
-          const prevIndex = Math.max(selectedIndex - 1, 0);
-          const prevEl = document.getElementById(`search-result-${prevIndex}`);
-          prevEl?.scrollIntoView({ block: 'nearest' });
-          break;
-        }
-        case "Enter":
-          e.preventDefault();
-          if (results[selectedIndex]) {
-            onSelectNote(results[selectedIndex].docId);
-            handleClose();
-          }
-          break;
-        case "Escape":
-          e.preventDefault();
-          handleClose();
-          break;
-      }
-    },
-    [results, selectedIndex, onSelectNote, handleClose]
-  );
-
-  // Handle keyboard shortcut
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Cmd+K or Ctrl+K to open search
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        // This is handled by parent component
-      }
-    };
-
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, []);
+  const {
+    query,
+    results,
+    selectedIndex,
+    isLoading,
+    isIndexing,
+    trimmedQuery,
+    inputRef,
+    handleQueryChange,
+    handleKeyDown,
+    handleClose,
+    handleSelectResult,
+    setSelectedIndex,
+  } = useSearchModal({ isOpen, onClose, onSelectNote });
 
   if (!isOpen) return null;
 
@@ -234,13 +168,7 @@ export default function SearchModal({
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => {
-              const next = e.target.value;
-              const nextTrimmed = next.trim();
-              setPendingQuery(nextTrimmed ? nextTrimmed : null);
-              setQuery(next);
-              setSelectedIndex(0);
-            }}
+            onChange={(e) => handleQueryChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search notes..."
             className="flex-1 bg-transparent border-0 outline-none text-lg placeholder:text-muted-foreground"
@@ -249,9 +177,9 @@ export default function SearchModal({
             spellCheck="false"
           />
           <div className="hidden sm:flex items-center gap-1.5 ">
-             <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-               <span className="text-xs">Esc</span>
-             </kbd>
+            <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+              <span className="text-xs">Esc</span>
+            </kbd>
           </div>
         </div>
 
@@ -281,106 +209,38 @@ export default function SearchModal({
               <div className="text-xs font-semibold text-muted-foreground px-2 py-2 mb-1 uppercase tracking-wider">
                 Notes
               </div>
-              {results.map((result, index) => {
-                const isAdvanced = isAdvancedResult(result);
-                const matchType = isAdvanced ? result.matchType : undefined;
-                const contentHighlight = isAdvanced ? result.contentHighlight : undefined;
-                const plainText = 'plainTextContent' in result ? result.plainTextContent : undefined;
-                
-                return (
-                  <button
-                    key={result.docId}
-                    id={`search-result-${index}`}
-                    onClick={() => {
-                      onSelectNote(result.docId);
-                      handleClose();
-                    }}
-                    onMouseEnter={() => setSelectedIndex(index)}
-                    className={cn(
-                      "flex items-start gap-3 w-full px-3 py-3 text-left rounded-md transition-colors",
-                      index === selectedIndex ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"
-                    )}
-                  >
-                    <div className={cn(
-                      "mt-0.5 p-1 rounded-md bg-background border border-border shadow-sm shrink-0",
-                       index === selectedIndex ? "border-transparent" : "" 
-                    )}>
-                      <FileText className="h-4 w-4" />
-                    </div>
-                    
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className={cn(
-                          "text-sm font-medium truncate",
-                          index === selectedIndex ? "text-foreground" : "text-foreground"
-                        )}>
-                          {result.title || "Untitled"}
-                        </span>
-                        
-                        {matchType && (
-                          <span 
-                            className={cn(
-                              "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide font-medium shrink-0",
-                              matchType === 'title' && "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-                              matchType === 'content' && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-                              matchType === 'fuzzy' && "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-                              matchType === 'semantic' && "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                            )}
-                            title={getMatchTypeLabel(matchType)}
-                          >
-                            <MatchTypeIcon matchType={matchType} />
-                            {matchType}
-                          </span>
-                        )}
-                      </div>
-                      
-                      {/* Show highlighted content if available, otherwise show first 80 chars */}
-                      {contentHighlight ? (
-                        <HighlightedText 
-                          text={contentHighlight}
-                          className="text-xs opacity-80 line-clamp-2"
-                        />
-                      ) : plainText ? (
-                        <p className="text-xs opacity-60 truncate">
-                          {plainText.slice(0, 100)}
-                        </p>
-                      ) : (
-                        <p className="text-xs opacity-40 italic">
-                          No preview available
-                        </p>
-                      )}
-                    </div>
-                    
-                    {index === selectedIndex && (
-                      <div className="self-center shrink-0 text-muted-foreground opacity-50 px-2">
-                        <span className="text-[10px]">↵</span>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
+              {results.map((result, index) => (
+                <SearchResultItem
+                  key={result.docId}
+                  result={result}
+                  index={index}
+                  isSelected={index === selectedIndex}
+                  onSelect={() => handleSelectResult(result.docId)}
+                  onHover={() => setSelectedIndex(index)}
+                />
+              ))}
             </div>
           )}
         </div>
 
         {/* Footer actions - visible only on desktop */}
         <div className="hidden sm:flex items-center justify-between px-4 py-2 bg-muted/30 border-t border-border shrink-0 text-[11px] text-muted-foreground">
-           <div className="flex gap-4">
-             <span className="flex items-center gap-1">
-               <kbd className="bg-background border border-border px-1 rounded shadow-sm">↓</kbd>
-               <kbd className="bg-background border border-border px-1 rounded shadow-sm">↑</kbd>
-               navigate
-             </span>
-             <span className="flex items-center gap-1">
-               <kbd className="bg-background border border-border px-1 rounded shadow-sm">↵</kbd>
-               select
-             </span>
-           </div>
-           <div>
-              <span className="opacity-70">
-                {results.length} results
-              </span>
-           </div>
+          <div className="flex gap-4">
+            <span className="flex items-center gap-1">
+              <kbd className="bg-background border border-border px-1 rounded shadow-sm">↓</kbd>
+              <kbd className="bg-background border border-border px-1 rounded shadow-sm">↑</kbd>
+              navigate
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="bg-background border border-border px-1 rounded shadow-sm">↵</kbd>
+              select
+            </span>
+          </div>
+          <div>
+            <span className="opacity-70">
+              {results.length} results
+            </span>
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { DotYouClient } from '@homebase-id/js-lib/core';
 import { hasValidToken } from '@homebase-id/js-lib/auth';
-import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useOnlineContext } from '../useOnlineContext';
+
 
 /**
  * Hook to verify if the current auth token is still valid.
@@ -9,7 +10,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
  */
 export function useVerifyToken(dotYouClient: DotYouClient | null) {
     const identity = dotYouClient?.getHostIdentity() || 'anonymous';
-    const isOnline = useOnlineStatus();
+    const { isOnline } = useOnlineContext();
 
     return useQuery({
         queryKey: ['verifyToken', identity],

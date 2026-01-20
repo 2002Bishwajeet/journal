@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { useThemePreference } from "@/hooks/useThemePreference";
+import { useSettingsModal } from "@/hooks/useSettingsModal";
 import {
   Dialog,
   DialogContent,
@@ -12,17 +12,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { 
-  Moon, 
-  Sun, 
-  Monitor, 
-  Database, 
-  Shield, 
-  Download, 
-  FolderInput, 
-  Loader2 
+import {
+  Moon,
+  Sun,
+  Monitor,
+  Database,
+  Shield,
+  Download,
+  FolderInput,
+  Loader2
 } from "lucide-react";
-import { toast } from "sonner";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -31,49 +30,7 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { theme, setTheme } = useThemePreference();
-  const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-
-  const handleExport = async () => {
-    try {
-      setIsExporting(true);
-      const { ExportService } = await import("@/lib/importexport/ExportService");
-      const result = await ExportService.exportAllAsZip();
-      toast.success(`Exported ${result.count} items (${(result.size / 1024).toFixed(1)} KB)`);
-    } catch (error) {
-      console.error("Export error:", error);
-      toast.error("Failed to export data");
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleImport = async (files: FileList) => {
-    try {
-      setIsImporting(true);
-      const { ImportService } = await import("@/lib/importexport/ImportService");
-      const result = await ImportService.importFiles(files);
-      
-      if (result.failed > 0) {
-        toast.warning(
-          `Import complete: ${result.imported} imported, ${result.foldersCreated} folders created. ${result.failed} failed.`
-        );
-      } else {
-        toast.success(
-          `Successfully imported ${result.imported} notes and created ${result.foldersCreated} folders.`
-        );
-      }
-      
-      if (result.errors.length > 0) {
-        console.warn("Import errors:", result.errors);
-      }
-    } catch (error) {
-      console.error("Import error:", error);
-      toast.error("Critical error during import");
-    } finally {
-      setIsImporting(false);
-    }
-  };
+  const { isExporting, isImporting, handleExport, handleImport } = useSettingsModal();
 
   return (
     <Dialog

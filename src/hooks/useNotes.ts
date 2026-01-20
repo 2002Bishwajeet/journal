@@ -70,7 +70,7 @@ export function useNotes() {
             };
 
             await upsertSearchIndex(newNote);
-
+            //TODO: Should we create a sync record whne there is no content?
             // Create sync record for Homebase sync
             await upsertSyncRecord({
                 localId: docId,

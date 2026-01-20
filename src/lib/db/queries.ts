@@ -147,6 +147,22 @@ export async function getAllFolders(): Promise<Folder[]> {
     }));
 }
 
+export async function getFolderById(id: string): Promise<Folder | null> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        id: string;
+        name: string;
+        created_at: Date;
+    }>('SELECT id, name, created_at FROM folders WHERE id = $1', [id]);
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return {
+        id: row.id,
+        name: row.name,
+        createdAt: row.created_at,
+    };
+}
+
 export async function createFolder(id: string, name: string): Promise<void> {
     const db = await getDatabase();
     await db.query(
@@ -404,15 +420,16 @@ export async function deleteAppState(key: string): Promise<void> {
 export async function upsertSyncRecord(record: SyncRecord): Promise<void> {
     const db = await getDatabase();
     await db.query(
-        `INSERT INTO sync_records (local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO sync_records (local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (local_id) DO UPDATE SET
            entity_type = EXCLUDED.entity_type,
            remote_file_id = EXCLUDED.remote_file_id,
            version_tag = EXCLUDED.version_tag,
            last_synced_at = EXCLUDED.last_synced_at,
            sync_status = EXCLUDED.sync_status,
-           content_hash = EXCLUDED.content_hash`,
+           content_hash = EXCLUDED.content_hash,
+           encrypted_key_header = EXCLUDED.encrypted_key_header`,
         [
             record.localId,
             record.entityType,
@@ -421,6 +438,7 @@ export async function upsertSyncRecord(record: SyncRecord): Promise<void> {
             record.lastSyncedAt || null,
             record.syncStatus,
             record.contentHash || null,
+            record.encryptedKeyHeader || null,
         ]
     );
 }
@@ -435,8 +453,9 @@ export async function getSyncRecord(localId: string): Promise<SyncRecord | null>
         last_synced_at: string | null;
         sync_status: 'pending' | 'synced' | 'conflict' | 'error';
         content_hash: string | null;
+        encrypted_key_header: string | null;
     }>(
-        'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash FROM sync_records WHERE local_id = $1',
+        'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header FROM sync_records WHERE local_id = $1',
         [localId]
     );
     if (result.rows.length === 0) return null;
@@ -449,6 +468,7 @@ export async function getSyncRecord(localId: string): Promise<SyncRecord | null>
         lastSyncedAt: row.last_synced_at || undefined,
         syncStatus: row.sync_status,
         contentHash: row.content_hash || undefined,
+        encryptedKeyHeader: row.encrypted_key_header || undefined,
     };
 }
 
@@ -480,9 +500,9 @@ export async function getSyncRecordByRemoteId(remoteFileId: string): Promise<Syn
 export async function getPendingSyncRecords(entityType?: 'folder' | 'note'): Promise<SyncRecord[]> {
     const db = await getDatabase();
     const query = entityType
-        ? `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status 
+        ? `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header 
            FROM sync_records WHERE sync_status = 'pending' AND entity_type = $1`
-        : `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status 
+        : `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header 
            FROM sync_records WHERE sync_status = 'pending'`;
     const params = entityType ? [entityType] : [];
     const result = await db.query<{
@@ -492,6 +512,8 @@ export async function getPendingSyncRecords(entityType?: 'folder' | 'note'): Pro
         version_tag: string | null;
         last_synced_at: string | null;
         sync_status: 'pending' | 'synced' | 'conflict' | 'error';
+        content_hash: string | null;
+        encrypted_key_header: string | null;
     }>(query, params);
     return result.rows.map(row => ({
         localId: row.local_id,
@@ -500,10 +522,12 @@ export async function getPendingSyncRecords(entityType?: 'folder' | 'note'): Pro
         versionTag: row.version_tag || undefined,
         lastSyncedAt: row.last_synced_at || undefined,
         syncStatus: row.sync_status,
+        contentHash: row.content_hash || undefined,
+        encryptedKeyHeader: row.encrypted_key_header || undefined,
     }));
 }
 
-export async function markSynced(localId: string, remoteFileId: string, versionTag: string, contentHash?: string): Promise<void> {
+export async function markSynced(localId: string, remoteFileId: string, versionTag: string, contentHash?: string, encryptedKeyHeader?: string): Promise<void> {
     const db = await getDatabase();
     await db.query(
         `UPDATE sync_records SET 
@@ -511,9 +535,10 @@ export async function markSynced(localId: string, remoteFileId: string, versionT
            version_tag = $3, 
            last_synced_at = CURRENT_TIMESTAMP, 
            sync_status = 'synced',
-           content_hash = $4
+           content_hash = $4,
+           encrypted_key_header = COALESCE($5, encrypted_key_header)
          WHERE local_id = $1`,
-        [localId, remoteFileId, versionTag, contentHash || null]
+        [localId, remoteFileId, versionTag, contentHash || null, encryptedKeyHeader || null]
     );
 }
 

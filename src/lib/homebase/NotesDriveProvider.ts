@@ -15,9 +15,8 @@ import {
     type PayloadFile,
     type ThumbnailFile,
     type EncryptedKeyHeader,
-    type UpdateResult,
-    getFileHeader,
     reUploadFile,
+    type PayloadDescriptor
 } from '@homebase-id/js-lib/core';
 import { getRandom16ByteArray, toGuidId } from '@homebase-id/js-lib/helpers';
 import { createThumbnails } from '@homebase-id/js-lib/media';
@@ -130,12 +129,14 @@ export class NotesDriveProvider {
     /**
      * Get a single note by uniqueId (local docId)
      */
-    async getNote(uniqueId: string): Promise<HomebaseFile<NoteFileContent> | null> {
+    async getNote(uniqueId: string, options?: {
+        decrypt?: boolean;
+    }): Promise<HomebaseFile<NoteFileContent> | null> {
         const header = await getFileHeaderByUniqueId<NoteFileContent>(
             this.#dotYouClient,
             JOURNAL_DRIVE,
             uniqueId,
-            { decrypt: true }
+            { decrypt: options?.decrypt }
         );
         if (!header) return null;
 
@@ -163,7 +164,11 @@ export class NotesDriveProvider {
         uniqueId: string,
         metadata: DocumentMetadata,
         yjsBlob?: Uint8Array,
-        images?: ImageUploadData[]
+        images?: ImageUploadData[],
+        options?: {
+            encrypt?: boolean;
+            onversionConflict?: () => void;
+        }
     ): Promise<{ fileId: string; versionTag: string; imagePayloadKeys: string[] }> {
         const noteContent: NoteFileContent = {
             title: metadata.title,
@@ -225,7 +230,7 @@ export class NotesDriveProvider {
                 tags: (metadata.tags || []).map(tag => toGuidId(tag)),
                 content: JSON.stringify(noteContent),
             },
-            isEncrypted: true,
+            isEncrypted: options?.encrypt || true,
             accessControlList: {
                 requiredSecurityGroup: SecurityGroupType.Owner,
             },
@@ -242,7 +247,9 @@ export class NotesDriveProvider {
             instructionSet,
             uploadMetadata,
             payloads,
-            thumbnails
+            thumbnails,
+            options?.encrypt || true,
+            options?.onversionConflict
         );
 
         if (!result) {
@@ -274,8 +281,12 @@ export class NotesDriveProvider {
         versionTag: string,
         metadata: DocumentMetadata,
         yjsBlob?: Uint8Array,
-        cachedKeyHeader?: EncryptedKeyHeader
+        cachedKeyHeader?: EncryptedKeyHeader,
+        options?: {
+            onVersionConflict?: () => void;
+        }
     ): Promise<{ versionTag: string; encryptedKeyHeader?: EncryptedKeyHeader }> {
+
         const noteContent: NoteFileContent = {
             title: metadata.title,
             tags: metadata.tags,
@@ -315,61 +326,17 @@ export class NotesDriveProvider {
             versionTag,
         };
 
-        // Track the key header used (for caching)
-        let usedKeyHeader: EncryptedKeyHeader | undefined = cachedKeyHeader;
 
-        // Define the conflict handler - only called when version mismatch occurs
-        const handleVersionConflict = async (): Promise<UpdateResult | void> => {
-            console.log(`[NotesDriveProvider] Version conflict for note ${uniqueId}, fetching fresh header...`);
-
-            // Fetch fresh header on conflict
-            const freshHeader = await getFileHeader<string>(
-                this.#dotYouClient,
-                JOURNAL_DRIVE,
-                fileId,
-                { decrypt: false }
-            );
-
-            if (!freshHeader) {
-                throw new Error(`Note with fileId ${fileId} not found during conflict resolution`);
-            }
-
-            // Update the metadata with fresh version tag
-            const freshUploadMetadata: UploadFileMetadata = {
-                ...uploadMetadata,
-                versionTag: freshHeader.fileMetadata.versionTag,
-            };
-
-            const freshUpdateInstructions: UpdateInstructionSet = {
-                ...updateInstructions,
-                versionTag: freshHeader.fileMetadata.versionTag,
-            };
-
-            // Store the fresh key header for return
-            usedKeyHeader = freshHeader.sharedSecretEncryptedKeyHeader;
-
-            // Retry with fresh data (no conflict handler this time - avoid infinite loop)
-            const retryResult = await patchFile(
-                this.#dotYouClient,
-                freshHeader.sharedSecretEncryptedKeyHeader,
-                freshUpdateInstructions,
-                freshUploadMetadata,
-                payloads
-            );
-
-            return retryResult || undefined;
-        };
-
-        // First attempt: Use cached key header (may be undefined for first sync)
         const result = await patchFile(
             this.#dotYouClient,
             cachedKeyHeader,
             updateInstructions,
             uploadMetadata,
             payloads,
-            undefined, // thumbnails
-            undefined, // toDeletePayloads
-            handleVersionConflict
+            undefined,
+            undefined,
+            options?.onVersionConflict
+
         );
 
         if (!result) {
@@ -378,7 +345,7 @@ export class NotesDriveProvider {
 
         return {
             versionTag: result.newVersionTag,
-            encryptedKeyHeader: usedKeyHeader,
+            encryptedKeyHeader: cachedKeyHeader,
         };
     }
 
@@ -386,27 +353,30 @@ export class NotesDriveProvider {
      * Add an image to an existing note using patchFile.
      * Uses uniqueId to look up the file, ensuring consistency with how notes are tracked.
      */
+    //TODO: This corrupts the previous note data
     async addImageToNote(
         uniqueId: string,
         versionTag: string,
         image: ImageUploadData,
-        existingPayloadCount: number
     ): Promise<{ versionTag: string; payloadKey: string }> {
         // Fetch existing file header by uniqueId to get encryption key and fileId
-        const existingHeader = await getFileHeaderByUniqueId<unknown>(
-            this.#dotYouClient,
-            JOURNAL_DRIVE,
+        const existingHeader = await this.getNote(
             uniqueId,
-            { decrypt: false }
+            { decrypt: true }
         );
+
 
         if (!existingHeader) {
             throw new Error(`Cannot add image: note with uniqueId ${uniqueId} not found`);
         }
+        const payloadCount = existingHeader?.fileMetadata.payloads?.filter(
+            (p: PayloadDescriptor) => p.key.startsWith('jrnl_img')
+        ).length || 0;
 
         const fileId = existingHeader.fileId;
+        const appData = existingHeader.fileMetadata.appData
 
-        const payloadKey = `${PAYLOAD_KEY_IMAGE_PREFIX}${existingPayloadCount}`;
+        const payloadKey = `${PAYLOAD_KEY_IMAGE_PREFIX}${payloadCount}`;
         const payloads: PayloadFile[] = [];
         const thumbnails: ThumbnailFile[] = [];
 
@@ -432,11 +402,11 @@ export class NotesDriveProvider {
         }
 
         const uploadMetadata: UploadFileMetadata = {
-            versionTag,
+            versionTag: existingHeader.fileMetadata.versionTag,
             allowDistribution: false,
             appData: {
-                fileType: JOURNAL_FILE_TYPE,
-                dataType: JOURNAL_DATA_TYPE,
+                ...appData,
+                content: JSON.stringify(appData.content),
             },
             isEncrypted: true,
             accessControlList: {
@@ -480,7 +450,7 @@ export class NotesDriveProvider {
     /**
      * Update a note's access control to make it publicly accessible (Anonymous).
      * This is used for the Share feature.
-     * 
+     *  TODO(2002Bishwajeet): Create a new collaborative note drive which has access to anonymous and public notes and move there
      * @param uniqueId - The unique ID of the note
      * @returns The new version tag after update
      */

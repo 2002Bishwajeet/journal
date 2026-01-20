@@ -1,4 +1,4 @@
-import { tryJsonParse } from "@/lib/utils";
+// searchService.ts - Web search using public SearXNG instances
 
 export interface SearchResult {
     title: string;
@@ -62,7 +62,7 @@ async function queryInstance(baseUrl: string, query: string): Promise<SearchResu
     }
 
     // Parse and normalize results
-    return data.results.slice(0, 5).map((result: any) => ({
+    return data.results.slice(0, 5).map((result: { title?: string; url: string; content?: string; snippet?: string; engine?: string }) => ({
         title: result.title || 'No Title',
         url: result.url,
         snippet: result.content || result.snippet || '',

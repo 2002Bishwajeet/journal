@@ -117,7 +117,7 @@ export function TableColumnMenu({ editor }: TableColumnMenuProps) {
                 <GripHorizontal className="h-4 w-4 text-muted-foreground/50 hover:text-foreground" />
            </Button>
          </PopoverTrigger>
-         <PopoverContent className="w-auto p-1 flex gap-1 z-[9999]" side="top" align="center">
+         <PopoverContent className="w-auto p-1 flex gap-1 z-9999" side="top" align="center">
              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().addColumnBefore().run()}>
                 <ArrowLeft className="w-4 h-4" />
              </Button>
