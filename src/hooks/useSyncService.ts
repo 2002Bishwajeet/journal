@@ -7,14 +7,14 @@ import { createContext, useContext } from 'react';
 export interface SyncContextType {
     /** Current sync status */
     syncStatus: SyncStatus;
-    /** Whether we're online */
-    isOnline: boolean;
     /** Count of pending items to sync */
     pendingCount: PendingCount;
     /** Last sync result (counts of pulled/pushed items) */
     lastSyncResult: SyncResult | null;
     /** Current sync progress (during sync operation) */
     syncProgress: SyncProgress | null;
+    /** Timestamp of the last successful sync */
+    lastSyncedAt: Date | null;
     /** Trigger a full sync */
     sync: () => Promise<void>;
     /** Sync a single note (for debounced saves) */

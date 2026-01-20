@@ -105,7 +105,7 @@ export function EmojiPicker({ editor, className }: EmojiPickerProps) {
                         <button
                             key={i}
                             onClick={() => insertEmoji(emoji)}
-                            className="hover:bg-accent hover:text-accent-foreground rounded-md w-8 h-8 flex-shrink-0 flex items-center justify-center text-lg transition-colors cursor-pointer"
+                            className="hover:bg-accent hover:text-accent-foreground rounded-md w-8 h-8 shrink-0 flex items-center justify-center text-lg transition-colors cursor-pointer"
                         >
                             {emoji}
                         </button>

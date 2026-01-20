@@ -17,7 +17,7 @@ interface TableRowMenuProps {
 }
 
 export function TableRowMenu({ editor }: TableRowMenuProps) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const { hoveredCell } = useTableState(editor, false);
   const [isOpen, setIsOpen] = useState(false);
   const [handleOpen, setHandleOpen] = useState(false);
@@ -104,7 +104,7 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
                 <GripVertical className="h-4 w-4 text-muted-foreground/50 hover:text-foreground" />
            </Button>
          </PopoverTrigger>
-         <PopoverContent className="w-auto p-1 flex gap-1 z-[9999]" side="left" align="center">
+         <PopoverContent className="w-auto p-1 flex gap-1 z-9999" side="left" align="center">
              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().addRowBefore().run()}>
                 <ArrowUp className="w-4 h-4" />
              </Button>

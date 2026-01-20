@@ -77,7 +77,8 @@ export async function createTestDatabase(): Promise<PGlite> {
       version_tag TEXT,
       last_synced_at TIMESTAMP WITH TIME ZONE,
       sync_status TEXT NOT NULL DEFAULT 'pending',
-      content_hash TEXT
+      content_hash TEXT,
+      encrypted_key_header TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_sync_records_status ON sync_records(sync_status);

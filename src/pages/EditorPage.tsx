@@ -26,7 +26,6 @@ function EditorLayout({
     get: { data: notes = [] },
     updateNote: { mutateAsync: updateNoteMetadata },
   } = useNotes();
-  // const { notes, updateNoteMetadata } = useJournalState();
   const deviceType = useDeviceType();
   const isDesktop = deviceType === "desktop";
 
@@ -67,7 +66,7 @@ function EditorLayout({
         <span className="text-sm font-medium truncate flex-1 mx-2">
           {selectedNoteMetadata?.title || "Untitled"}
         </span>
-        <SyncStatus showText={false} />
+        <SyncStatus />
       </div>
 
       {/* Desktop Toolbar */}
@@ -152,7 +151,7 @@ export default function EditorPage() {
         return "";
       }
     },
-    [isAIReady]
+    [isAIReady],
   );
 
   const handleCheckGrammar = useCallback(
@@ -166,7 +165,7 @@ export default function EditorPage() {
         return [];
       }
     },
-    [isAIReady]
+    [isAIReady],
   );
 
   if (!noteId) {
@@ -186,7 +185,7 @@ export default function EditorPage() {
 
   return (
     <EditorProvider
-      key={noteId} // Force re-mount provider when note changes
+      key={noteId}
       docId={noteId}
       metadata={selectedNoteMetadata}
       onMetadataChange={async (meta) => {

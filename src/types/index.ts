@@ -1,5 +1,3 @@
-// Document types for the Journal app
-
 export interface DocumentMetadata {
     title: string;
     folderId: string; // 'main'  UUID
@@ -87,6 +85,7 @@ export interface SyncRecord {
     lastSyncedAt?: string;
     syncStatus: 'pending' | 'synced' | 'conflict' | 'error';
     contentHash?: string;
+    encryptedKeyHeader?: string;
 }
 
 // Image pending upload for retry queue

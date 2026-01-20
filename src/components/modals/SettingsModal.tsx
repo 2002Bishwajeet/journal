@@ -1,4 +1,5 @@
 import { useThemePreference } from "@/hooks/useThemePreference";
+import { useSettingsModal } from "@/hooks/useSettingsModal";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, Monitor, Database, Shield } from "lucide-react";
+import {
+  Moon,
+  Sun,
+  Monitor,
+  Database,
+  Shield,
+  Download,
+  FolderInput,
+  Loader2
+} from "lucide-react";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -20,6 +30,7 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { theme, setTheme } = useThemePreference();
+  const { isExporting, isImporting, handleExport, handleImport } = useSettingsModal();
 
   return (
     <Dialog
@@ -119,6 +130,77 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   Your notes are stored in a dedicated Homebase Drive (ID:
                   f4b63...).
                 </p>
+              </div>
+
+              <div className="rounded-md border p-4 space-y-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-primary">
+                    <Download className="h-4 w-4" />
+                    <span className="font-medium text-sm">Import & Export</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Manage your data ownership. Import from Markdown/Zip or export
+                    everything.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id="import-file"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      accept=".md,.zip,.csv"
+                      multiple
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          handleImport(e.target.files);
+                          // Reset input
+                          e.target.value = "";
+                        }
+                      }}
+                      disabled={isImporting}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={isImporting}
+                    >
+                      {isImporting ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          <FolderInput className="h-3 w-3 mr-2" />
+                          Import Data
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={handleExport}
+                    disabled={isExporting}
+                  >
+                    {isExporting ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3 mr-2" />
+                        Export All
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <div className="rounded-md border p-4 space-y-2 bg-muted/50">

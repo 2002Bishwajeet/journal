@@ -20,10 +20,10 @@ export function ImageNodeView({ node }: NodeViewProps) {
   // Case 1: Still pending upload (local blob URL)
   if (pendingId || src.startsWith("blob:")) {
     return (
-      <NodeViewWrapper className="image-node">
+      <NodeViewWrapper className="image-node" data-drag-handle>
         <div className="relative inline-block">
-          <img src={src} alt="" className="max-w-full rounded opacity-70" />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded">
+          <img src={src} alt="" className="max-w-full opacity-70" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
             <span className="text-xs bg-black/60 text-white px-2 py-1 rounded flex items-center gap-1">
               <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
                 <circle
@@ -54,13 +54,13 @@ export function ImageNodeView({ node }: NodeViewProps) {
     const [fileId, payloadKey] = src.replace("attachment://", "").split("/");
 
     return (
-      <NodeViewWrapper className="image-node">
+      <NodeViewWrapper className="image-node" data-drag-handle>
         <OdinImage
           dotYouClient={dotYouClient}
           targetDrive={JOURNAL_DRIVE}
           fileId={fileId}
           fileKey={payloadKey}
-          className="max-w-full rounded"
+          className="max-w-full"
         />
       </NodeViewWrapper>
     );
@@ -68,8 +68,9 @@ export function ImageNodeView({ node }: NodeViewProps) {
 
   // Case 3: Regular URL or base64
   return (
-    <NodeViewWrapper className="image-node">
-      <img src={src} alt="" className="max-w-full rounded" />
+    <NodeViewWrapper className="image-node" data-drag-handle>
+      <img src={src} alt="" className="max-w-full" />
     </NodeViewWrapper>
   );
 }
+

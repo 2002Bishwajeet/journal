@@ -98,6 +98,30 @@ export default defineConfig({
       allow: ['..'],
     },
   },
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'web-llm': ['@mlc-ai/web-llm'],
+          'pglite': ['@electric-sql/pglite'],
+          'tiptap': [
+            '@tiptap/react',
+            '@tiptap/pm',
+            '@tiptap/starter-kit',
+            '@tiptap/extension-image',
+            '@tiptap/extension-link',
+            '@tiptap/extension-placeholder',
+            '@tiptap/extension-task-item',
+            '@tiptap/extension-task-list'
+          ],
+          'ui-libs': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-popover']
+        }
+      }
+    }
+  },
   preview: {
     headers: {
       'Cross-Origin-Embedder-Policy': 'require-corp',

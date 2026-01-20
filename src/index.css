@@ -155,14 +155,28 @@ body {
 }
 
 .prose h1, .prose h2, .prose h3, .prose h4 {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   color: var(--foreground);
   font-weight: 600;
 }
 
 .prose h1 { font-size: 2.5rem; margin-top: 2rem; margin-bottom: 1rem; }
 .prose h2 { font-size: 1.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; }
+.prose h3 { font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+.prose h4 { font-size: 1rem; margin-top: 1.25rem; margin-bottom: 0.5rem; }
 .prose p { margin-top: 0.75rem; margin-bottom: 0.75rem; line-height: 1.7; }
+
+/* Links */
+.prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.prose a:hover {
+  opacity: 0.7;
+}
 
 .prose blockquote {
   border-left: 3px solid var(--border);

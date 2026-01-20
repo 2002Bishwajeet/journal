@@ -77,12 +77,14 @@ export class FolderDriveProvider {
     /**
      * Get a single folder by uniqueId (local folder ID)
      */
-    async getFolder(uniqueId: string): Promise<HomebaseFile<FolderFile> | null> {
+    async getFolder(uniqueId: string, options?: {
+        decrypt?: boolean;
+    }): Promise<HomebaseFile<FolderFile> | null> {
         const header = await getFileHeaderByUniqueId<FolderFile>(
             this.#dotYouClient,
             JOURNAL_DRIVE,
             uniqueId,
-            { decrypt: true }
+            { decrypt: options?.decrypt }
         );
         if (!header) return null;
         return header;
@@ -91,7 +93,11 @@ export class FolderDriveProvider {
 
     async createFolder(
         uniqueId: string,
-        folder: FolderFile
+        folder: FolderFile,
+        options?: {
+            onVersionConflict?: () => void;
+            encrypt?: boolean;
+        }
     ): Promise<{ fileId: string; versionTag: string }> {
         const uploadMetadata: UploadFileMetadata = {
             allowDistribution: false,
@@ -102,7 +108,7 @@ export class FolderDriveProvider {
                 userDate: Date.now(),
                 content: JSON.stringify(folder),
             },
-            isEncrypted: true,
+            isEncrypted: options?.encrypt || true,
             accessControlList: {
                 requiredSecurityGroup: SecurityGroupType.Owner,
             },
@@ -119,7 +125,7 @@ export class FolderDriveProvider {
             this.#dotYouClient,
             instructionSet,
             uploadMetadata,
-            []
+            [], [], options?.encrypt || true, options?.onVersionConflict
         );
 
         if (!result) {

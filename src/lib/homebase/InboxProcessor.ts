@@ -42,15 +42,35 @@ export class InboxProcessor {
         // Add buffer to account for clock skew and ensure we don't miss changes
         const sinceTime = lastSyncTime ? lastSyncTime - BUFFER_MS : undefined;
 
-        // Get folder changes
-        const folders = await this.findChangesSince([FOLDER_FILE_TYPE], sinceTime);
+        // process both at the same time. not much changes while we are offline.
+        const results = await this.findChangesSince(
+            [FOLDER_FILE_TYPE, JOURNAL_FILE_TYPE],
+            sinceTime,
+        );
 
-        // Get note changes
-        const notes = await this.findChangesSince([JOURNAL_FILE_TYPE], sinceTime);
+        // Process and separate folder and note changes
+        const folders: (HomebaseFile<FolderFile> | DeletedHomebaseFile)[] = [];
+        const notes: (HomebaseFile<NoteFileContent> | DeletedHomebaseFile)[] = [];
+        const yieldEvery = 500;
+
+        for (let index = 0; index < results.length; index += 1) {
+            const item = results[index];
+            const fileType = item.fileMetadata.appData.fileType;
+
+            if (fileType === FOLDER_FILE_TYPE) {
+                folders.push(item as HomebaseFile<FolderFile> | DeletedHomebaseFile);
+            } else if (fileType === JOURNAL_FILE_TYPE) {
+                notes.push(item as HomebaseFile<NoteFileContent> | DeletedHomebaseFile);
+            }
+
+            if (index % yieldEvery === 0) {
+                await this.yieldToMainThread();
+            }
+        }
 
         return {
-            folders: folders as (HomebaseFile<FolderFile> | DeletedHomebaseFile)[],
-            notes: notes as (HomebaseFile<NoteFileContent> | DeletedHomebaseFile)[],
+            folders,
+            notes,
         };
     }
 
@@ -66,7 +86,7 @@ export class InboxProcessor {
         // For initial sync (timestamp = 0), we use 1ms (epoch start) to ensure
         // ALL files are fetched from the beginning of time
         let cursor: string | undefined = getQueryBatchCursorFromTime(
-            Date.now(),
+            new Date().getTime(),
             timestamp
         );
 
@@ -102,6 +122,9 @@ export class InboxProcessor {
         return allResults;
     }
 
+    private async yieldToMainThread(): Promise<void> {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
     /**
      * Get current time for saving as last sync timestamp.
      */

@@ -2,6 +2,9 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import * as Y from 'yjs';
 import { getDocumentUpdates } from '@/lib/db';
+import type { EncryptedKeyHeader } from "@homebase-id/js-lib/core";
+import { jsonStringify64 } from "@homebase-id/js-lib/helpers";
+
 
 // Re-export Homebase SDK utilities for convenience
 export { getNewId, tryJsonParse, base64ToUint8Array, uint8ArrayToBase64, stringToUint8Array, byteArrayToString } from '@homebase-id/js-lib/helpers';
@@ -167,4 +170,24 @@ export async function extractPreviewTextFromYjs(noteId: string, yjsBlob?: Uint8A
 
   // Collapse multiple spaces/newlines into single spaces and trim
   return text.replace(/\s+/g, ' ').trim();
+}
+
+
+
+/**
+ * Serialize EncryptedKeyHeader to JSON string for database storage.
+ * Converts Uint8Array fields to base64 strings.
+ */
+export function serializeKeyHeader(keyHeader: EncryptedKeyHeader): string {
+  return jsonStringify64(keyHeader);
+}
+
+
+export function validateKeyHeader(result: EncryptedKeyHeader): boolean {
+  return (
+    typeof result.encryptionVersion === 'number' &&
+    typeof result.type === 'string' &&
+    result.iv.length > 0 &&
+    result.encryptedAesKey.length > 0
+  );
 }
