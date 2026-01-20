@@ -109,7 +109,6 @@ export default defineConfig({
           'pglite': ['@electric-sql/pglite'],
           'tiptap': [
             '@tiptap/react',
-            '@tiptap/pm',
             '@tiptap/starter-kit',
             '@tiptap/extension-image',
             '@tiptap/extension-link',
