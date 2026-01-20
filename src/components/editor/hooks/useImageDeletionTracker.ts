@@ -47,7 +47,7 @@ export function useImageDeletionTracker({ docId, yXmlFragment }: UseImageDeletio
                                 currentPayloads.add(parts[1]);
                             }
                         }
-                    } catch (e) {
+                    } catch {
                         // Ignore errors
                     }
                 }
