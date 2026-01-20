@@ -1,5 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { get, set, del } from "idb-keyval";
 import {
   EditorPage,
   LandingPage,
@@ -19,19 +22,32 @@ import {
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { OnlineProvider } from "@/components/providers/OnlineProvider";
 
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 60 * 24, // 24 hours - keep in cache for offline
       refetchOnWindowFocus: false,
     },
   },
 });
 
+// IndexedDB persister for offline support
+const persister = createAsyncStoragePersister({
+  storage: {
+    getItem: async (key: string) => await get(key),
+    setItem: async (key: string, value: string) => await set(key, value),
+    removeItem: async (key: string) => await del(key),
+  },
+  key: "journal-query-cache",
+});
+
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider 
+      client={queryClient} 
+      persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}
+    >
       <ErrorBoundary>
         <BrowserRouter>
           <OnlineProvider>
@@ -76,7 +92,7 @@ function App() {
 
         <Toaster />
       </ErrorBoundary>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 
