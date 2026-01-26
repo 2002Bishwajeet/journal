@@ -1,8 +1,8 @@
 import type { TargetDrive } from "@homebase-id/js-lib/core";
 
 // Homebase configuration constants
-export const JOURNAL_APP_ID = 'c762ee784274473480919d8080d7a825';
-export const JOURNAL_APP_NAME = 'Journal';
+export const JOURNAL_APP_ID = import.meta.env.PROD ? 'c762ee784274473480919d8080d7a825' : '38e160f1f815438a89eabc3a261e9952 '
+export const JOURNAL_APP_NAME = `Journal${import.meta.env.PROD ? '' : ' (Local Dev)'}`;
 
 // Drive constants per spec
 export const JOURNAL_FILE_TYPE = 605;

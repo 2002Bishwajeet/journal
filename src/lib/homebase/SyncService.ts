@@ -37,7 +37,7 @@ import { extractPreviewTextFromYjs, serializeKeyHeader, tryJsonParse, validateKe
 import { MAIN_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
 import type { FolderFile, NoteFileContent, SyncRecord, SyncProgress } from '@/types';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
-import { DOC_UPDATE_CHANNEL } from '@/lib/yjs';
+import { documentBroadcast } from '@/lib/broadcast';
 import type { OnlineContextType } from '@/contexts/OnlineContext';
 
 export type SyncStatus = 'idle' | 'syncing' | 'error';
@@ -87,6 +87,14 @@ export class SyncService {
     }
 
     /**
+     * Request all active PGliteProviders to flush pending updates to DB.
+     * Uses DocumentBroadcast singleton to notify providers.
+     */
+    private async flushAllProviders(): Promise<void> {
+        await documentBroadcast.requestFlushAndWait();
+    }
+
+    /**
      * Full bidirectional sync with optional progress callback.
      */
     async sync(onProgress?: (progress: SyncProgress) => void): Promise<SyncResult> {
@@ -107,6 +115,9 @@ export class SyncService {
         };
 
         try {
+            // 0. Flush all active editors to ensure pending updates are saved to DB
+            await this.flushAllProviders();
+
             // 1. Pull remote changes
             const pullResult = await this.pullChanges(onProgress);
             result.pulled = pullResult;
@@ -401,6 +412,9 @@ export class SyncService {
                 await saveDocumentUpdate(uniqueId, mergedBlob);
                 // Extract plain text content from the merged Yjs blob for the note list display
                 plainTextContent = await extractPreviewTextFromYjs(uniqueId, mergedBlob);
+
+                // Notify the editor that the document was updated
+                documentBroadcast.notifyDocumentUpdated(uniqueId);
             }
             // Build local metadata from simplified content + groupId
             const folderId = remoteFile.fileMetadata.appData.groupId || MAIN_FOLDER_ID;
@@ -456,19 +470,22 @@ export class SyncService {
         // Get all local updates
         const localUpdates = await getDocumentUpdates(docId);
 
-        // Create merged document
         const mergedDoc = new Y.Doc();
 
-        // Apply local updates first
-        for (const update of localUpdates) {
-            Y.applyUpdate(mergedDoc, update);
+        try {
+            // Apply local updates first
+            for (const update of localUpdates) {
+                Y.applyUpdate(mergedDoc, update);
+            }
+
+            // Apply remote update (Yjs handles CRDT merge automatically)
+            Y.applyUpdate(mergedDoc, remoteBlob);
+
+            // Export merged state as a single update
+            return Y.encodeStateAsUpdate(mergedDoc);
+        } finally {
+            mergedDoc.destroy();
         }
-
-        // Apply remote update (Yjs handles CRDT merge automatically)
-        Y.applyUpdate(mergedDoc, remoteBlob);
-
-        // Export merged state as a single update
-        return Y.encodeStateAsUpdate(mergedDoc);
     }
 
     /**
@@ -532,12 +549,15 @@ export class SyncService {
         const updates = await getDocumentUpdates(record.localId);
         let yjsBlob: Uint8Array | undefined;
 
+
+
         // If content is completely empty, send a fresh empty YJS doc to ensure clean state
         // This avoids issues with large deletion histories or invalid states
         if (!doc.plainTextContent || doc.plainTextContent.trim() === '') {
             const emptyDoc = new Y.Doc();
             yjsBlob = Y.encodeStateAsUpdate(emptyDoc);
             emptyDoc.destroy();
+
         } else if (updates.length > 0) {
             // Use try-finally to ensure Y.Doc cleanup even on exception
             const ydoc = new Y.Doc();
@@ -546,9 +566,13 @@ export class SyncService {
                     Y.applyUpdate(ydoc, update);
                 }
                 yjsBlob = Y.encodeStateAsUpdate(ydoc);
+
+
             } finally {
                 ydoc.destroy();
             }
+        } else {
+
         }
 
         // Compute content hash to check if upload is needed
@@ -799,12 +823,8 @@ export class SyncService {
             await deleteDocumentUpdates(docId);
             await saveDocumentUpdate(docId, newUpdate);
 
-            // Notify the editor via BroadcastChannel that the document was updated
-            if (typeof BroadcastChannel !== 'undefined') {
-                const channel = new BroadcastChannel(DOC_UPDATE_CHANNEL);
-                channel.postMessage({ docId, type: 'update' });
-                channel.close();
-            }
+            // Notify the editor that the document was updated
+            documentBroadcast.notifyDocumentUpdated(docId);
 
             console.log(`[SyncService] Updated Yjs doc for ${docId}`);
         }

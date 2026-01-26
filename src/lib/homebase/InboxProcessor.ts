@@ -12,13 +12,21 @@ import {
     FOLDER_FILE_TYPE,
 } from './config';
 import type { FolderFile, NoteFileContent } from '@/types';
+import { processInbox } from '@homebase-id/js-lib/peer';
 
 const BATCH_SIZE = 500;
 const BUFFER_MS = 15 * 60 * 1000; // 15 minutes buffer to handle clock skew
 
+type ProcessInboxResponse = {
+    totalItems: number;
+    poppedCount: number;
+    oldestItemTimestamp: number;
+};
+
 export interface InboxProcessResult {
     folders: (HomebaseFile<FolderFile> | DeletedHomebaseFile)[];
     notes: (HomebaseFile<NoteFileContent> | DeletedHomebaseFile)[];
+    processedresult: ProcessInboxResponse;
 }
 
 /**
@@ -41,6 +49,9 @@ export class InboxProcessor {
     async processChanges(lastSyncTime?: number): Promise<InboxProcessResult> {
         // Add buffer to account for clock skew and ensure we don't miss changes
         const sinceTime = lastSyncTime ? lastSyncTime - BUFFER_MS : undefined;
+
+        const processedresult = await processInbox(this.#dotYouClient, JOURNAL_DRIVE, BATCH_SIZE);
+
 
         // process both at the same time. not much changes while we are offline.
         const results = await this.findChangesSince(
@@ -71,6 +82,7 @@ export class InboxProcessor {
         return {
             folders,
             notes,
+            processedresult,
         };
     }
 

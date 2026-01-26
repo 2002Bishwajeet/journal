@@ -98,9 +98,6 @@ export default defineConfig({
       allow: ['..'],
     },
   },
-  esbuild: {
-    drop: ['console', 'debugger'],
-  },
   build: {
     rollupOptions: {
       output: {

@@ -1,13 +1,11 @@
 import * as Y from 'yjs';
 import { saveDocumentUpdate, getDocumentUpdates, deleteDocumentUpdates } from '@/lib/db';
-
-// BroadcastChannel name for document update notifications
-export const DOC_UPDATE_CHANNEL = 'journal-doc-updates';
+import { documentBroadcast, type DocumentBroadcastMessage } from '@/lib/broadcast';
 
 /**
  * Custom Yjs provider that persists to PGlite
  * Handles loading and saving Yjs updates to the local database
- * Also listens for external updates via BroadcastChannel (e.g., from SyncService)
+ * Also listens for external updates via DocumentBroadcast (e.g., from SyncService)
  */
 export class PGliteProvider {
     private doc: Y.Doc;
@@ -17,7 +15,7 @@ export class PGliteProvider {
     private pendingUpdates: Uint8Array[] = [];
     private updateCount: number = 0;
     private static readonly COMPACTION_THRESHOLD = 50; // Compact after 50 updates
-    private broadcastChannel: BroadcastChannel | null = null;
+    private unsubscribe: (() => void) | null = null;
 
     constructor(docId: string, doc: Y.Doc) {
         this.docId = docId;
@@ -26,25 +24,28 @@ export class PGliteProvider {
         // Listen for local updates
         this.doc.on('update', this.handleUpdate);
 
-        // Listen for external updates via BroadcastChannel
-        this.setupBroadcastChannel();
+        // Subscribe to broadcast messages
+        this.unsubscribe = documentBroadcast.subscribe(this.handleBroadcastMessage);
     }
 
     /**
-     * Set up BroadcastChannel to listen for external document updates
+     * Handle broadcast messages from DocumentBroadcast singleton
      */
-    private setupBroadcastChannel(): void {
-        if (typeof BroadcastChannel === 'undefined') return;
+    private handleBroadcastMessage = async (message: DocumentBroadcastMessage): Promise<void> => {
+        if (message.type === 'flush') {
+            // Flush all providers when sync starts (docId may be undefined for global flush)
+            if (!message.docId || message.docId === this.docId) {
+                await this.flush();
+            }
+            return;
+        }
 
-        this.broadcastChannel = new BroadcastChannel(DOC_UPDATE_CHANNEL);
-        this.broadcastChannel.onmessage = async (event) => {
-            const { docId, type } = event.data;
-            if (docId !== this.docId || type !== 'update') return;
-
+        if (message.type === 'update') {
+            if (message.docId !== this.docId) return;
             // Reload updates from DB and apply any new ones
             await this.reloadFromDb();
-        };
-    }
+        }
+    };
 
     /**
      * Reload document state from database (called when external update is detected)
@@ -135,6 +136,28 @@ export class PGliteProvider {
     };
 
     /**
+     * Flush all pending updates to the database.
+     * Call this before sync operations to ensure no updates are lost.
+     */
+    async flush(): Promise<void> {
+        // Save any pending updates immediately
+        if (this.pendingUpdates.length > 0) {
+            const updates = [...this.pendingUpdates];
+            this.pendingUpdates = [];
+
+            for (const u of updates) {
+                await saveDocumentUpdate(this.docId, u);
+                this.updateCount++;
+            }
+        }
+
+        // Wait for any in-progress save to complete
+        while (this.isSaving) {
+            await new Promise(resolve => setTimeout(resolve, 10));
+        }
+    }
+
+    /**
      * Compact all updates into a single update blob
      * This significantly reduces memory and storage usage
      */
@@ -190,9 +213,9 @@ export class PGliteProvider {
     async destroy(): Promise<void> {
         this.doc.off('update', this.handleUpdate);
 
-        // Close BroadcastChannel
-        this.broadcastChannel?.close();
-        this.broadcastChannel = null;
+        // Unsubscribe from broadcast messages
+        this.unsubscribe?.();
+        this.unsubscribe = null;
 
         // Compact on destroy to save memory for next load
         if (this.updateCount > 1) {

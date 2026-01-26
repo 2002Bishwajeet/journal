@@ -44,8 +44,9 @@ src/
 │   ├── useSyncService.ts   # Sync status & operations
 │   └── index.ts
 ├── lib/
+│   ├── broadcast/        # Cross-tab communication (DocumentBroadcast singleton)
 │   ├── db/               # PGlite database layer
-│   ├── homebase/         # Auth, drive
+│   ├── homebase/         # Auth, drive, SyncService
 │   ├── yjs/              # PGlite Yjs provider
 │   ├── webllm/           # Grammar, autocomplete
 │   ├── importexport/     # .md and .zip export/import
@@ -54,7 +55,8 @@ src/
 │   ├── EditorPage.tsx
 │   ├── AuthPage.tsx
 │   └── AuthFinalizePage.tsx
-└── types/
+├── types/
+└── __tests__/            # Unit tests (Vitest)
 ```
 
 ## Key Files
@@ -64,9 +66,11 @@ src/
 | `src/hooks/useNotes.ts` | Note CRUD & Query hooks |
 | `src/hooks/useSyncService.ts` | Sync Context consumer |
 | `src/components/providers/SyncProvider.tsx` | Sync state management |
+| `src/lib/broadcast/DocumentBroadcast.ts` | Cross-tab/component messaging singleton |
 | `src/lib/db/pglite.ts` | PGlite singleton + schema |
 | `src/lib/homebase/auth.ts` | YouAuth flow |
-| `src/lib/homebase/drive.ts` | Note CRUD via Homebase |
+| `src/lib/homebase/SyncService.ts` | Bidirectional Homebase sync |
+| `src/lib/yjs/provider.ts` | PGlite Yjs persistence provider |
 | `src/lib/webllm/engine.ts` | Grammar/autocomplete |
 | `src/components/modals/SearchModal.tsx` | Cmd+K search |
 | `src/lib/importexport/index.ts` | .md/.zip export/import |
@@ -104,6 +108,7 @@ src/
 npm install
 npm run dev    # HTTPS on dev.dotyou.cloud:3000
 npm run build  # Production build
+npm run test   # Run unit tests
 ```
 
 ## Code Conventions
@@ -113,9 +118,89 @@ npm run build  # Production build
 - **Keep pages clean**: Pages only compose components
 - **Use SDK utilities**: `getNewId()`, `tryJsonParse()`, etc.
 
+## Testing Requirements
+
+> **IMPORTANT**: All new features MUST include unit tests.
+
+- **Test Location**: `src/__tests__/` directory
+- **Test Framework**: Vitest
+- **Naming Convention**: `<feature>.test.ts`
+
+### When to Add Tests
+
+| Change Type | Test Required? |
+|-------------|----------------|
+| New utility/helper module | ✅ Yes |
+| New singleton/service class | ✅ Yes |
+| New database query function | ✅ Yes |
+| Bug fix | ✅ Yes (regression test) |
+| UI component | Optional (prefer E2E) |
+
+### Running Tests
+
+```bash
+npm run test          # Run all tests
+npm run test:watch    # Watch mode
+npm run test -- broadcast  # Run specific test file
+```
+
+### Example Test Structure
+
+```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+describe('ModuleName', () => {
+    beforeEach(() => {
+        // Reset state
+    });
+
+    it('should do expected behavior', () => {
+        // Arrange, Act, Assert
+    });
+});
+```
+
 ## Performance and Best Practices
 
 - **Lazy Loading**: If a component needs to be loaded only when needed (e.g., heavy editors, expensive charts), add it to `AGENTS.md` and `pages/` as a lazy import.
 - **Concurrent Features**: Use `useTransition` for non-urgent state updates to keep the UI responsive.
 - **Suspense**: Wrap async components or lazy-loaded routes in `<Suspense>` boundaries. Avoid multiple nested loading states where possible.
 - **Avoid Over-Optimization**: Don't use `useCallback` or `useMemo` unless profiling shows a need, or for referential stability in dependencies. Trust the React compiler/runtime.
+
+## Sync Architecture
+
+The app uses a bidirectional sync system with Yjs CRDTs for conflict resolution:
+
+1. **SyncService** (`src/lib/homebase/SyncService.ts`) - Orchestrates pull/push operations
+2. **PGliteProvider** (`src/lib/yjs/provider.ts`) - Persists Yjs updates to local DB
+3. **DocumentBroadcast** (`src/lib/broadcast/DocumentBroadcast.ts`) - Cross-tab communication
+
+### Sync Flow
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Editor (Yjs)  │ ←── │ DocumentBroadcast│ ←── │  SyncService    │
+│                 │     │    (Singleton)   │     │                 │
+│ PGliteProvider  │ ──→ │  - flush         │ ──→ │ Pull/Push to    │
+│                 │     │  - update        │     │ Homebase        │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+### DocumentBroadcast API
+
+```typescript
+import { documentBroadcast } from '@/lib/broadcast';
+
+// Notify editors to reload from DB
+documentBroadcast.notifyDocumentUpdated(docId);
+
+// Request all providers to flush pending updates
+await documentBroadcast.requestFlushAndWait();
+
+// Subscribe to messages
+const unsubscribe = documentBroadcast.subscribe((message) => {
+    if (message.type === 'update') { /* reload */ }
+    if (message.type === 'flush') { /* save pending */ }
+});
+```
+
