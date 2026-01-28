@@ -138,6 +138,7 @@ body {
 /* TipTap Editor Styles */
 .tiptap {
   outline: none;
+  white-space: pre-wrap;
 }
 
 .tiptap p.is-editor-empty:first-child::before {
@@ -522,6 +523,17 @@ body {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Chrome, Safari, Opera */
+}
+
+/* Scroll containment - prevents scroll chaining to parent/body */
+.scroll-contained {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Apply to all scroll areas to prevent body scroll */
+[data-radix-scroll-area-viewport] {
+  overscroll-behavior: contain;
 }
 
 /* Mobile Toolbar Enhancements */

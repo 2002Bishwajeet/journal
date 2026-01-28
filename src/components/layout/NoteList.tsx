@@ -50,7 +50,7 @@ export default function NoteList({
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between h-12 px-3 border-b border-border">
+      <div className="flex items-center justify-between h-12 px-3 border-b border-border shrink-0">
         <span className="text-sm font-medium text-foreground">Notes</span>
         <Button size="sm" onClick={onCreateNote} className="h-7 text-xs">
           <Plus className="h-3.5 w-3.5 mr-1" />
@@ -59,8 +59,8 @@ export default function NoteList({
       </div>
 
       {/* Notes list */}
-      <ScrollArea className="flex-1 w-full">
-        <PullToRefresh onRefresh={handleRefresh} className="min-h-full w-full">
+      <ScrollArea className="flex-1 min-h-0 w-full">
+        <PullToRefresh onRefresh={handleRefresh} className="w-full">
         {isLoading ? (
           <div className="flex items-center justify-center h-32">
             <span className="text-sm text-muted-foreground">Loading...</span>

@@ -134,6 +134,7 @@ export const OdinPreviewImage = forwardRef(
       <img
         ref={ref}
         src={previewUrl}
+        crossOrigin="anonymous"
         onError={onError}
         onLoad={() => {
           onLoad?.(

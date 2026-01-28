@@ -82,6 +82,8 @@ export function createBaseExtensions(options?: ExtensionOptions) {
 
         Link.configure({
             openOnClick: true,
+            autolink: true,
+            linkOnPaste: true,
             HTMLAttributes: {
                 class: options?.linkClass ?? 'text-blue-500 underline cursor-pointer',
                 target: '_blank',

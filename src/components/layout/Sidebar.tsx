@@ -31,6 +31,7 @@ import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
 import { useQueryClient } from "@tanstack/react-query";
 import { foldersQueryKey } from "@/hooks/useFolders";
+import { OwnerImage } from "@/components/author/AuthorImage";
 
 interface SidebarProps {
   folders: Folder[];
@@ -85,9 +86,12 @@ export default function Sidebar({
           )}
         >
           {!isCollapsed && (
-            <span className="text-sm font-semibold text-sidebar-foreground">
-              Journal
-            </span>
+            <div className="flex items-center gap-2">
+               <OwnerImage size="xs" />
+               <span className="text-sm font-semibold text-sidebar-foreground">
+                 Journal
+               </span>
+            </div>
           )}
           <Tooltip>
             <TooltipTrigger asChild>

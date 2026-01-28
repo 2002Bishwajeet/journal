@@ -123,7 +123,7 @@ export default function JournalLayout() {
   const isDesktop = deviceType === "desktop";
   // If not desktop (so mobile or tablet), treat as mobile layout
 
-  const { data: filteredNotes = [] } = useNotesByFolder(folderId);
+  const { data: filteredNotes = [], isLoading: isFilteredNotesLoading } = useNotesByFolder(folderId);
 
   // Open tab when navigating to a note
   useEffect(() => {
@@ -197,7 +197,18 @@ export default function JournalLayout() {
         <Sidebar
           folders={folders}
           selectedFolderId={folderId || ""}
-          onSelectFolder={(id) => navigate(`/${id}`, { viewTransition: true })}
+          onSelectFolder={(id) => {
+            // On desktop, if there's an active tab, keep showing it
+            if (isDesktop && activeTabId) {
+              const activeNote = notes.find((n) => n.docId === activeTabId);
+              if (activeNote) {
+                // Navigate to new folder but keep showing the active note
+                navigate(`/${id}/${activeTabId}`, { viewTransition: true });
+                return;
+              }
+            }
+            navigate(`/${id}`, { viewTransition: true });
+          }}
           onCreateFolder={() => setShowCreateFolder(true)}
           onDeleteFolder={(id) => deleteFolder(id)}
           onSearch={() => setShowSearch(true)}
@@ -284,6 +295,7 @@ export default function JournalLayout() {
               }
             }}
             onShareNote={(note) => setShareNote(note)}
+            isLoading={isFilteredNotesLoading}
             className="flex-1 w-full border-r-0"
           />
         </div>

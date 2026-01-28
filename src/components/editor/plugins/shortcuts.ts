@@ -48,6 +48,46 @@ export const CustomShortcuts = Extension.create<CustomShortcutsOptions>({
                 }
                 return true;
             },
+
+            // Arrow right at end of link exits the link mark
+            'ArrowRight': () => {
+                const { editor } = this;
+                const { selection } = editor.state;
+                const { $from } = selection;
+
+                // Only handle if we're at the end of a link
+                if (!editor.isActive('link')) return false;
+
+                // Check if cursor is at the end of the current text node
+                const isAtEnd = $from.parentOffset === $from.parent.nodeSize - 2;
+                if (!isAtEnd) return false;
+
+                // Remove the link mark for subsequent typing
+                editor.chain().focus().unsetLink().run();
+                return false; // Let default behavior move cursor
+            },
+
+            // Space at end of link exits the link and inserts space
+            'Space': () => {
+                const { editor } = this;
+
+                if (!editor.isActive('link')) return false;
+
+                const { selection } = editor.state;
+                const { $from } = selection;
+
+                // Check if cursor is at the end of the current text node
+                const isAtEnd = $from.parentOffset === $from.parent.nodeSize - 2;
+                if (!isAtEnd) return false;
+
+                // Unset link, insert space without link mark
+                editor.chain()
+                    .focus()
+                    .unsetLink()
+                    .insertContent(' ')
+                    .run();
+                return true;
+            },
         };
     },
 });

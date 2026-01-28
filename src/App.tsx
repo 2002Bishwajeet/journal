@@ -10,6 +10,7 @@ import {
   EmptyEditorPage,
   SharePage,
   ShareTargetPage,
+  ChatBotPage,
 } from "@/pages";
 import JournalLayout from "@/layouts/JournalLayout";
 import { Toaster } from "@/components/ui/sonner";
@@ -66,6 +67,7 @@ function App() {
                   <Route index element={<RootRedirect />} />
                   <Route path="/:folderId" element={<EmptyEditorPage />} />
                   <Route path="/:folderId/:noteId" element={<EditorPage />} />
+                  <Route path="/:folderId/:noteId/chat" element={<ChatBotPage />} />
                 </Route>
 
                 {/* Secure Share Target Route - requires auth to save */}

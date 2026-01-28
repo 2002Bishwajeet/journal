@@ -10,6 +10,7 @@ export type { ThemePreference } from './useThemePreference';
 export { useDeviceType } from './useDeviceType';
 export type { DeviceType } from './useDeviceType';
 export { useSyncService } from './useSyncService';
+export { useDocumentCache } from './useDocumentCache';
 
 // Modal hooks
 export { useSearchModal, isAdvancedResult } from './useSearchModal';
