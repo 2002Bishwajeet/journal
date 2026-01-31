@@ -380,6 +380,7 @@ export class SyncService {
                 tags: content?.tags,
                 timestamps: { created: remoteTimestamp, modified: updatedAt },
                 excludeFromAI: content?.excludeFromAI,
+                isPinned: content?.isPinned,
             };
 
             const contentHash = remoteBlob ? await computeContentHash(metadata, remoteBlob) : undefined;
@@ -436,6 +437,7 @@ export class SyncService {
                 tags: content?.tags,
                 timestamps: existingTimestamps ?? { created: remoteTimestamp, modified: updatedAt },
                 excludeFromAI: content?.excludeFromAI,
+                isPinned: content?.isPinned,
             };
 
             const contentHash = mergedBlob ? await computeContentHash(updatedMetadata, mergedBlob) : undefined;

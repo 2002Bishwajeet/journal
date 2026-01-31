@@ -7,6 +7,7 @@ export interface DocumentMetadata {
         modified: string;
     };
     excludeFromAI: boolean;
+    isPinned?: boolean;
 }
 
 export interface Document {
@@ -73,6 +74,7 @@ export interface NoteFileContent {
     title: string;
     tags: string[];
     excludeFromAI: boolean;
+    isPinned?: boolean;
     isCollaborative?: boolean;
 }
 

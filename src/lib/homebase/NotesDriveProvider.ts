@@ -174,6 +174,7 @@ export class NotesDriveProvider {
             title: metadata.title,
             tags: metadata.tags,
             excludeFromAI: metadata.excludeFromAI,
+            isPinned: metadata.isPinned,
         };
         const payloads: PayloadFile[] = [];
         const thumbnails: ThumbnailFile[] = [];
@@ -292,6 +293,7 @@ export class NotesDriveProvider {
             title: metadata.title,
             tags: metadata.tags,
             excludeFromAI: metadata.excludeFromAI,
+            isPinned: metadata.isPinned,
         };
         const payloads: PayloadFile[] = [];
 
