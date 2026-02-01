@@ -29,3 +29,6 @@ export const STORAGE_KEY_IDENTITY = 'IDENTITY';
 export const STORAGE_KEY_AUTH_TOKEN = 'BX0900';
 export const STORAGE_KEY_SHARED_SECRET = 'APSS';
 export const STORAGE_KEY_LAST_SYNC = 'LAST_SYNC';
+
+// WebSocket subscription drives
+export const websocketDrives: TargetDrive[] = [JOURNAL_DRIVE];

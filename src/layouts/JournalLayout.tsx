@@ -13,6 +13,7 @@ import {
   useDeviceType,
   useSyncService,
   useKeyboardShortcuts,
+  useJournalWebsocket,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -73,6 +74,9 @@ export default function JournalLayout() {
 
   // Homebase sync - auto-syncs on mount and focus
   useSyncService();
+
+  // WebSocket for real-time updates
+  useJournalWebsocket(true);
 
   // Modal states
   const [showSearch, setShowSearch] = useState(false);
