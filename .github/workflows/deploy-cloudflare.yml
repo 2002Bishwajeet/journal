@@ -17,7 +17,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       deployments: write
     concurrency: deploy-cloudflare
     steps:
@@ -37,6 +37,14 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Bump version
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          npm version patch -m "chore(release): %s [skip ci]"
+          git push origin main
+          git push --tags
 
       - name: Build web app
         run: npm run build
