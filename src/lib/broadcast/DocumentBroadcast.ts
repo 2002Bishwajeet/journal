@@ -36,11 +36,16 @@ class DocumentBroadcast {
      * Initialize the BroadcastChannel
      */
     private initChannel(): void {
-        if (typeof BroadcastChannel === 'undefined') return;
+        if (typeof BroadcastChannel === 'undefined') {
+            console.warn('[DocumentBroadcast] BroadcastChannel not available');
+            return;
+        }
 
         this.channel = new BroadcastChannel(DOC_BROADCAST_CHANNEL);
+        console.debug('[DocumentBroadcast] Channel initialized', { channel: DOC_BROADCAST_CHANNEL });
         this.channel.onmessage = async (event) => {
             const message = event.data as DocumentBroadcastMessage;
+            console.debug('[DocumentBroadcast] Message received', message);
 
             // Notify all registered handlers
             for (const handler of this.handlers) {
@@ -59,7 +64,26 @@ class DocumentBroadcast {
      */
     subscribe(handler: MessageHandler): () => void {
         this.handlers.add(handler);
-        return () => this.handlers.delete(handler);
+        console.debug('[DocumentBroadcast] Handler subscribed', { handlerCount: this.handlers.size });
+        return () => {
+            this.handlers.delete(handler);
+            console.debug('[DocumentBroadcast] Handler unsubscribed', { handlerCount: this.handlers.size });
+        };
+    }
+
+    private dispatchLocal(message: DocumentBroadcastMessage): void {
+        for (const handler of this.handlers) {
+            try {
+                const result = handler(message);
+                if (result instanceof Promise) {
+                    result.catch((error) => {
+                        console.error('[DocumentBroadcast] Handler error:', error);
+                    });
+                }
+            } catch (error) {
+                console.error('[DocumentBroadcast] Handler error:', error);
+            }
+        }
     }
 
     /**
@@ -67,7 +91,14 @@ class DocumentBroadcast {
      * Active editors should reload the document.
      */
     notifyDocumentUpdated(docId: string): void {
-        this.channel?.postMessage({ type: 'update', docId });
+        const message: DocumentBroadcastMessage = { type: 'update', docId };
+        console.debug('[DocumentBroadcast] notifyDocumentUpdated', { docId });
+        this.dispatchLocal(message);
+        if (!this.channel) {
+            console.warn('[DocumentBroadcast] notifyDocumentUpdated called without channel', { docId });
+            return;
+        }
+        this.channel.postMessage(message);
     }
 
     /**
@@ -75,7 +106,14 @@ class DocumentBroadcast {
      * @param docId - Optional. If provided, only that document's provider flushes.
      */
     requestFlush(docId?: string): void {
-        this.channel?.postMessage({ type: 'flush', docId });
+        const message: DocumentBroadcastMessage = { type: 'flush', docId };
+        console.debug('[DocumentBroadcast] requestFlush', { docId });
+        this.dispatchLocal(message);
+        if (!this.channel) {
+            console.warn('[DocumentBroadcast] requestFlush called without channel', { docId });
+            return;
+        }
+        this.channel.postMessage(message);
     }
 
     /**
