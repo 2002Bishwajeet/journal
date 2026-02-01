@@ -353,8 +353,11 @@ export class SyncService {
             return;
         }
 
+
+
         // Get remote Yjs blob
-        const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId);
+        const lastModified = remoteFile.fileMetadata.updated;
+        const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId, lastModified);
 
         if (!existingRecord) {
             // New note from remote
@@ -553,10 +556,13 @@ export class SyncService {
 
         // If content is completely empty, send a fresh empty YJS doc to ensure clean state
         // This avoids issues with large deletion histories or invalid states
+        // If content is completely empty, send a fresh empty YJS doc to ensure clean state
+        // This avoids issues with large deletion histories or invalid states
         if (!doc.plainTextContent || doc.plainTextContent.trim() === '') {
             const emptyDoc = new Y.Doc();
             yjsBlob = Y.encodeStateAsUpdate(emptyDoc);
             emptyDoc.destroy();
+
 
         } else if (updates.length > 0) {
             // Use try-finally to ensure Y.Doc cleanup even on exception
@@ -566,6 +572,7 @@ export class SyncService {
                     Y.applyUpdate(ydoc, update);
                 }
                 yjsBlob = Y.encodeStateAsUpdate(ydoc);
+
 
 
             } finally {
@@ -629,7 +636,8 @@ export class SyncService {
                     if (!freshFile) throw new Error('Remote note not found during conflict resolution');
                     cachedKeyHeader = freshFile.sharedSecretEncryptedKeyHeader;
 
-                    const remoteBlob = await this.#notesProvider.getNotePayload(freshFile.fileId);
+                    const lastModified = freshFile.fileMetadata.updated;
+                    const remoteBlob = await this.#notesProvider.getNotePayload(freshFile.fileId, lastModified);
                     let mergedBlob: Uint8Array | undefined = yjsBlob;
 
                     if (remoteBlob && yjsBlob) {

@@ -146,13 +146,13 @@ export class NotesDriveProvider {
     /**
      * Get the Yjs payload for a note
      */
-    async getNotePayload(fileId: string): Promise<Uint8Array | null> {
+    async getNotePayload(fileId: string, lastModified?: number): Promise<Uint8Array | null> {
         const result = await getPayloadBytes(
             this.#dotYouClient,
             JOURNAL_DRIVE,
             fileId,
             PAYLOAD_KEY_CONTENT,
-            { decrypt: true }
+            { decrypt: true, lastModified }
         );
         return result?.bytes || null;
     }
@@ -309,7 +309,7 @@ export class NotesDriveProvider {
             versionTag,
             allowDistribution: false,
             appData: {
-                uniqueId, // Preserve uniqueId on updates
+                uniqueId,
                 groupId: metadata.folderId,
                 fileType: JOURNAL_FILE_TYPE,
                 dataType: JOURNAL_DATA_TYPE,

@@ -9,6 +9,7 @@ import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { useSyncService } from "@/hooks/useSyncService";
 import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
+import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
 import {
   createBaseExtensions,
   createCollaborationExtension,
@@ -129,6 +130,20 @@ export function EditorProvider({
     // Trigger sync to upload the image immediately
     sync().catch(err => console.error('[EditorProvider] Sync after image drop failed:', err));
   }, [docId, sync]);
+
+  // Handle document updates from broadcast (sync service)
+  const handleDocumentUpdate = useCallback(async () => {
+    console.log('[EditorProvider] Document updated remotely, reloading...');
+    if (providerRef.current) {
+      try {
+        await providerRef.current.load();
+      } catch (err) {
+        console.error('[EditorProvider] Failed to reload document:', err);
+      }
+    }
+  }, []);
+
+  useDocumentSubscription(docId, handleDocumentUpdate);
 
   // Memoize extensions to avoid recreation on every render
   const extensions = useMemo(
