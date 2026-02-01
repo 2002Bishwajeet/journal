@@ -22,6 +22,7 @@ import {
 } from "@/components/auth";
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { OnlineProvider } from "@/components/providers/OnlineProvider";
+import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,6 +94,7 @@ function App() {
         </BrowserRouter>
 
         <Toaster />
+        <UpdatePrompt />
       </ErrorBoundary>
     </PersistQueryClientProvider>
   );
