@@ -26,7 +26,7 @@ const hasSharedSecret = () => {
  */
 export function useAuth() {
     const [authenticationState, setAuthenticationState] = useState<AuthenticationState>(
-        hasSharedSecret() ? 'unknown' : 'anonymous'
+        hasSharedSecret() ? 'authenticated' : 'anonymous'
     );
     const navigate = useNavigate();
     const { isOnline } = useOnlineContext();
@@ -147,6 +147,7 @@ export function useAuth() {
         getDotYouClient,
         getSharedSecret,
         getIdentity,
+        getAppAuthToken,
     };
 }
 

@@ -19,11 +19,28 @@ export function useVerifyToken(dotYouClient: DotYouClient | null) {
             // If offline, assume token is valid to prevent logout
             if (!isOnline) return true;
             try {
-                return await hasValidToken(dotYouClient);
+                // Race the token check against a timeout
+                // If the server is slow or hanging (common with some network issues), assume valid/offline after 2s
+                const timeoutPromise = new Promise<boolean>((resolve) =>
+                    setTimeout(() => {
+                        console.warn('[useVerifyToken] Token verification timed out, assuming offline/valid');
+                        resolve(true);
+                    }, 2000)
+                );
+
+                const checkPromise = hasValidToken(dotYouClient);
+
+                return await Promise.race([checkPromise, timeoutPromise]);
             } catch (error) {
                 console.error('[useVerifyToken] Error:', error);
-                // If error is network related, maybe we should also return true?
-                // But isOnline should handle most cases.
+
+                // Check if it's a network error (server offline/unreachable)
+                // In these cases, we should be optimistic and allow the user to proceed
+                if (error instanceof TypeError && (error.message === 'Failed to fetch' || error.message.includes('Network request failed'))) {
+                    console.log('[useVerifyToken] Network error detected, assuming offline mode');
+                    return true;
+                }
+
                 return false;
             }
         },
