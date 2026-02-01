@@ -16,7 +16,7 @@ export function UpdatePrompt() {
         }, 60 * 60 * 1000);
       }
     },
-    onRegisterError(error: any) {
+    onRegisterError(error: unknown) {
       console.error('SW registration error', error);
     },
   });
