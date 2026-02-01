@@ -60,6 +60,7 @@ export function useNotes() {
                 tags: [],
                 timestamps: { created: now, modified: now },
                 excludeFromAI: false,
+                isPinned: false,
             };
 
             const newNote: SearchIndexEntry = {
@@ -159,6 +160,46 @@ export function useNotes() {
         },
     });
 
+    const togglePinMutation = useMutation<void, Error, { docId: string; isPinned: boolean }, NoteMutationContext>({
+        mutationFn: async ({ docId, isPinned }) => {
+            const notes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
+            const currentNote = notes?.find((n) => n.docId === docId);
+
+            if (!currentNote) return;
+
+            const updatedMetadata = { ...currentNote.metadata, isPinned };
+
+            await upsertSearchIndex({
+                ...currentNote,
+                metadata: updatedMetadata,
+            });
+
+            await updateSyncStatus(docId, 'pending');
+        },
+        onMutate: async ({ docId, isPinned }) => {
+            await queryClient.cancelQueries({ queryKey: notesQueryKey });
+            const previousNotes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
+
+            queryClient.setQueryData<SearchIndexEntry[]>(notesQueryKey, (old) =>
+                old?.map((n) =>
+                    n.docId === docId
+                        ? { ...n, metadata: { ...n.metadata, isPinned } }
+                        : n
+                ) || []
+            );
+
+            return { previousNotes };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previousNotes) {
+                queryClient.setQueryData(notesQueryKey, context.previousNotes);
+            }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: notesQueryKey });
+        },
+    });
+
     const createNoteWithContentMutation = useMutation<CreateNoteResult, Error, { title: string; content: string; folderId: string }, NoteMutationContext>({
         mutationFn: async ({ title, content, folderId }) => {
             const docId = formatGuidId(getNewId());
@@ -170,6 +211,7 @@ export function useNotes() {
                 tags: [],
                 timestamps: { created: now, modified: now },
                 excludeFromAI: false,
+                isPinned: false,
             };
 
             // 1. Create YJS Document with Content
@@ -221,6 +263,7 @@ export function useNotes() {
         createNoteWithContent: createNoteWithContentMutation,
         deleteNote: deleteNoteMutation,
         updateNote: updateMetadataMutation,
+        togglePin: togglePinMutation,
     };
 }
 

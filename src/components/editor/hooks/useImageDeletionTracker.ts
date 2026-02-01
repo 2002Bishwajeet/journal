@@ -80,9 +80,10 @@ export function useImageDeletionTracker({ docId, yXmlFragment }: UseImageDeletio
 
     // Cleanup pending timeouts on unmount
     useEffect(() => {
+        const pendingDeletions = pendingDeletionsRef.current;
         return () => {
-            pendingDeletionsRef.current.forEach(timeout => clearTimeout(timeout));
-            pendingDeletionsRef.current.clear();
+            pendingDeletions.forEach(timeout => clearTimeout(timeout));
+            pendingDeletions.clear();
         };
     }, []);
 

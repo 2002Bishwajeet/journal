@@ -380,6 +380,7 @@ export class SyncService {
                 tags: content?.tags,
                 timestamps: { created: remoteTimestamp, modified: updatedAt },
                 excludeFromAI: content?.excludeFromAI,
+                isPinned: content?.isPinned,
             };
 
             const contentHash = remoteBlob ? await computeContentHash(metadata, remoteBlob) : undefined;
@@ -436,6 +437,7 @@ export class SyncService {
                 tags: content?.tags,
                 timestamps: existingTimestamps ?? { created: remoteTimestamp, modified: updatedAt },
                 excludeFromAI: content?.excludeFromAI,
+                isPinned: content?.isPinned,
             };
 
             const contentHash = mergedBlob ? await computeContentHash(updatedMetadata, mergedBlob) : undefined;
@@ -549,8 +551,6 @@ export class SyncService {
         const updates = await getDocumentUpdates(record.localId);
         let yjsBlob: Uint8Array | undefined;
 
-
-
         // If content is completely empty, send a fresh empty YJS doc to ensure clean state
         // This avoids issues with large deletion histories or invalid states
         if (!doc.plainTextContent || doc.plainTextContent.trim() === '') {
@@ -571,8 +571,6 @@ export class SyncService {
             } finally {
                 ydoc.destroy();
             }
-        } else {
-
         }
 
         // Compute content hash to check if upload is needed
