@@ -551,8 +551,6 @@ export class SyncService {
         const updates = await getDocumentUpdates(record.localId);
         let yjsBlob: Uint8Array | undefined;
 
-
-
         // If content is completely empty, send a fresh empty YJS doc to ensure clean state
         // This avoids issues with large deletion histories or invalid states
         if (!doc.plainTextContent || doc.plainTextContent.trim() === '') {
@@ -573,8 +571,6 @@ export class SyncService {
             } finally {
                 ydoc.destroy();
             }
-        } else {
-
         }
 
         // Compute content hash to check if upload is needed
