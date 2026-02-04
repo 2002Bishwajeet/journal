@@ -380,7 +380,7 @@ export default function JournalLayout() {
         appId={JOURNAL_APP_ID}
         appName={JOURNAL_APP_NAME}
         drives={[journalDriveRequest]}
-        circleDrives={[journalDriveRequest]}
+        circleDrives={[]}
         permissions={[]}
       />
     </div>

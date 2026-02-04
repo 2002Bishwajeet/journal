@@ -38,8 +38,10 @@ export const useMissingPermissions = ({
     permissions: AppPermissionType[];
     needsAllConnected?: boolean;
 }) => {
-    const { data: context } = useSecurityContext().fetch;
-    const host = useDotYouClientContext().getRoot();
+    const dotyouClient = useDotYouClientContext();
+    const host = dotyouClient.getRoot();
+    const odinId = dotyouClient.getHostIdentity();
+    const { data: context } = useSecurityContext(odinId).fetch;
 
     if (!context || !host) return;
 
