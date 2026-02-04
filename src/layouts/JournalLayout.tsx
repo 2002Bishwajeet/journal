@@ -27,9 +27,7 @@ import {
 } from "@/components/modals";
 import { 
   JOURNAL_APP_ID, 
-  JOURNAL_APP_NAME, 
-  JOURNAL_APP_ID, 
-  JOURNAL_APP_NAME, 
+  JOURNAL_APP_NAME,  
 } from "@/lib/homebase/config";
 import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
 import type { SearchIndexEntry } from "@/types";

@@ -48,17 +48,6 @@ export interface Folder {
     createdAt: Date;
 }
 
-// Homebase specific types
-export interface HomebaseNote {
-    fileId?: string;
-    globalTransitId?: string;
-    metadata: DocumentMetadata;
-    payloads: {
-        content?: string; // payloadKey for Yjs blob
-        images?: string[]; // payloadKeys for images
-        linkPreviews?: string[]; // payloadKeys for link previews
-    };
-}
 
 // Folder file content stored in Homebase
 export interface FolderFile {
