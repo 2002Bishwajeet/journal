@@ -424,21 +424,22 @@ export class SyncService {
             const folderId = remoteFile.fileMetadata.appData.groupId || MAIN_FOLDER_ID;
 
 
-            // Preserve existing local timestamps to avoid unnecessary "last updated" changes
+            // Get existing document to preserve the created timestamp (if available)
             const existingDoc = await getSearchIndexEntry(uniqueId);
-            const existingTimestamps = existingDoc?.metadata.timestamps;
-            // Fallback to remote userDate if no local timestamps exist
+            const existingCreated = existingDoc?.metadata.timestamps?.created;
+            // Fallback to remote userDate if no local created timestamp exists
             const remoteTimestamp = new Date(
                 remoteFile.fileMetadata.appData.userDate || Date.now()
             ).toISOString();
 
+            // Always use remote updated time for the modified timestamp to ensure proper date grouping
             const updatedAt = new Date(remoteFile.fileMetadata.updated).toISOString();
 
             const updatedMetadata = {
                 title: noteTitle,
                 folderId,
                 tags: content?.tags,
-                timestamps: existingTimestamps ?? { created: remoteTimestamp, modified: updatedAt },
+                timestamps: { created: existingCreated ?? remoteTimestamp, modified: updatedAt },
                 excludeFromAI: content?.excludeFromAI,
                 isPinned: content?.isPinned,
             };
