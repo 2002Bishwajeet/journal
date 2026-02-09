@@ -1,4 +1,5 @@
 
+import { useQueryClient } from "@tanstack/react-query";
 import { type TargetDriveAccessRequest } from "@homebase-id/js-lib/auth";
 import { type AppPermissionType } from "@homebase-id/js-lib/network";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -24,6 +25,7 @@ export const ExtendPermissionDialog = ({
   permissions,
   needsAllConnected,
 }: ExtendPermissionDialogProps) => {
+  const queryClient = useQueryClient();
   const extendPermissionUrl = useMissingPermissions({
     appId,
     drives,
@@ -53,7 +55,13 @@ export const ExtendPermissionDialog = ({
 
         <div className="flex justify-center mt-2">
           <Button asChild className="w-full sm:w-auto min-w-[200px]" size="lg">
-            <a href={extendPermissionUrl} className="flex items-center gap-2">
+            <a 
+              href={extendPermissionUrl} 
+              className="flex items-center gap-2"
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['security-context'], exact: false });
+              }}
+            >
               Extend permissions <ExternalLink className="h-4 w-4" />
             </a>
           </Button>

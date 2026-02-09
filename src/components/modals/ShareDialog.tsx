@@ -47,8 +47,7 @@ export default function ShareDialog({
             const provider = new NotesDriveProvider(dotYouClient);
             const note = await provider.getNote(noteId);
             
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if ((note?.fileMetadata as any).accessControlList?.requiredSecurityGroup === SecurityGroupType.Anonymous) {
+            if (note?.serverMetadata?.accessControlList?.requiredSecurityGroup === SecurityGroupType.Anonymous) {
                 setIsPublic(true);
             }
         } catch (err) {

@@ -8,6 +8,11 @@ export interface DocumentMetadata {
     };
     excludeFromAI: boolean;
     isPinned?: boolean;
+    // Collaboration fields
+    isCollaborative?: boolean;
+    circleIds?: string[];    // Circles granted access (multiple)
+    recipients?: string[];   // OdinIds of collaborators (from circle members)
+    lastEditedBy?: string;   // OdinId of last editor
 }
 
 export interface Document {
@@ -64,7 +69,11 @@ export interface NoteFileContent {
     tags: string[];
     excludeFromAI: boolean;
     isPinned?: boolean;
+    // Collaboration fields
     isCollaborative?: boolean;
+    circleIds?: string[];
+    recipients?: string[];   // OdinIds of collaborators (from circle members)
+    lastEditedBy?: string;
 }
 
 // Sync tracking for local ↔ remote mapping
