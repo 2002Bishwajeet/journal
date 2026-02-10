@@ -5,4 +5,4 @@ export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as ConflictModal } from './ConflictModal';
 export { default as ShareDialog } from './ShareDialog';
 export { ExtendPermissionDialog } from './ExtendPermissionDialog';
-
+export { MarkCollaborativeDialog } from './MarkCollaborativeDialog';
