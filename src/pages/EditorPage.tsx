@@ -9,7 +9,8 @@ import {
 } from "@/components/editor";
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Users } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
@@ -66,6 +67,25 @@ function EditorLayout({
         <span className="text-sm font-medium truncate flex-1 mx-2">
           {selectedNoteMetadata?.title || "Untitled"}
         </span>
+        {selectedNoteMetadata?.isCollaborative && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-xs">
+                  <Users className="h-3 w-3" />
+                  <span className="hidden sm:inline">Collaborative</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">
+                  {selectedNoteMetadata?.lastEditedBy 
+                    ? `Last edited by ${selectedNoteMetadata.lastEditedBy}`
+                    : 'Shared with your circles'}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         <SyncStatus />
       </div>
 
