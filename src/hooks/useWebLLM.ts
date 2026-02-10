@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useDeviceType } from './useDeviceType';
 
 // Re-export type for convenience (type-only import doesn't add to bundle)
 export type RewriteStyle =
@@ -52,12 +53,17 @@ export function useWebLLM(): UseWebLLMResult {
     const [loadingMessage, setLoadingMessage] = useState('');
     const [grammarErrors, setGrammarErrors] = useState<string[]>([]);
 
+    const deviceType = useDeviceType();
+    const isMobile = deviceType === 'mobile';
+
     // Debounce timer for grammar check
     const grammarDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     // Check if WebLLM was previously initialized (handles hot-reload and page refresh)
     useEffect(() => {
         const checkIfAlreadyReady = async () => {
+            if (isMobile) return;
+
             // If module was already loaded (hot-reload scenario)
             if (webllmModule && webllmModule.isWebLLMReady()) {
                 setIsReady(true);
@@ -98,11 +104,13 @@ export function useWebLLM(): UseWebLLMResult {
             }
         };
         checkIfAlreadyReady();
-    }, []);
+    }, [isMobile]);
 
     // Sync isReady state from the module periodically
     // This ensures all hook consumers see the update when any one initializes WebLLM
     useEffect(() => {
+        if (isMobile) return;
+
         const syncInterval = setInterval(async () => {
             if (!isReady && webllmModule && webllmModule.isWebLLMReady()) {
                 setIsReady(true);
@@ -110,9 +118,14 @@ export function useWebLLM(): UseWebLLMResult {
         }, 500); // Check every 500ms
 
         return () => clearInterval(syncInterval);
-    }, [isReady]);
+    }, [isReady, isMobile]);
 
     const initialize = useCallback(async (): Promise<boolean> => {
+        if (isMobile) {
+            console.warn('[WebLLM] AI execution is disabled on mobile devices.');
+            return false;
+        }
+
         // Check if already ready (module loaded and engine initialized)
         if (webllmModule && webllmModule.isWebLLMReady()) {
             setIsReady(true);
@@ -155,9 +168,10 @@ export function useWebLLM(): UseWebLLMResult {
             setLoadingMessage('Failed to load AI');
             return false;
         }
-    }, []);
+    }, [isMobile]);
 
     const runGrammarCheck = useCallback(async (text: string) => {
+        if (isMobile) return;
         if (!webllmModule || !webllmModule.isWebLLMReady()) return;
 
         // Debounce grammar check (2 seconds)
@@ -169,30 +183,35 @@ export function useWebLLM(): UseWebLLMResult {
             const errors = await webllmModule!.checkGrammar(text);
             setGrammarErrors(errors);
         }, 2000);
-    }, []);
+    }, [isMobile]);
 
     const rewrite = useCallback(async (text: string, style: RewriteStyle): Promise<string> => {
+        if (isMobile) return text;
+
         // Ensure module is loaded and initialized
         if (!webllmModule || !webllmModule.isWebLLMReady()) {
             const success = await initialize();
             if (!success) return text;
         }
         return webllmModule!.rewriteText(text, style);
-    }, [initialize]);
+    }, [initialize, isMobile]);
 
     const getSuggestions = useCallback(async (text: string): Promise<string[]> => {
+        if (isMobile) return [];
         if (!webllmModule || !webllmModule.isWebLLMReady()) return [];
         return webllmModule.getActionSuggestions(text);
-    }, []);
+    }, [isMobile]);
 
     const chat = useCallback(async (messages: ChatMessage[]): Promise<string> => {
+        if (isMobile) throw new Error('AI not supported on mobile');
+
         // Ensure module is loaded and initialized
         if (!webllmModule || !webllmModule.isWebLLMReady()) {
             const success = await initialize();
             if (!success) throw new Error('Failed to initialize AI');
         }
         return webllmModule!.chat(messages);
-    }, [initialize]);
+    }, [initialize, isMobile]);
 
     // Cleanup on unmount
     useEffect(() => {

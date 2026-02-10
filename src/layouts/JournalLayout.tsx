@@ -23,7 +23,13 @@ import {
   SearchModal,
   SettingsModal,
   ShareDialog,
+  ExtendPermissionDialog,
 } from "@/components/modals";
+import { 
+  JOURNAL_APP_ID, 
+  JOURNAL_APP_NAME,  
+} from "@/lib/homebase/config";
+import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
 import type { SearchIndexEntry } from "@/types";
 import { useNotes, useNotesByFolder } from "@/hooks/useNotes";
 import { clearAllLocalData } from "@/lib/db";
@@ -179,6 +185,7 @@ export default function JournalLayout() {
   if (isNotesLoading || isFolderLoading) {
     return <SplashScreen />;
   }
+
 
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
@@ -368,6 +375,14 @@ export default function JournalLayout() {
           noteTitle={shareNote.title || "Untitled"}
         />
       )}
+
+      <ExtendPermissionDialog 
+        appId={JOURNAL_APP_ID}
+        appName={JOURNAL_APP_NAME}
+        drives={[journalDriveRequest]}
+        circleDrives={[]}
+        permissions={[]}
+      />
     </div>
   );
 }

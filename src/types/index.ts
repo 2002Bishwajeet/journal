@@ -8,6 +8,11 @@ export interface DocumentMetadata {
     };
     excludeFromAI: boolean;
     isPinned?: boolean;
+    // Collaboration fields
+    isCollaborative?: boolean;
+    circleIds?: string[];    // Circles granted access (multiple)
+    recipients?: string[];   // OdinIds of collaborators (from circle members)
+    lastEditedBy?: string;   // OdinId of last editor
 }
 
 export interface Document {
@@ -48,17 +53,6 @@ export interface Folder {
     createdAt: Date;
 }
 
-// Homebase specific types
-export interface HomebaseNote {
-    fileId?: string;
-    globalTransitId?: string;
-    metadata: DocumentMetadata;
-    payloads: {
-        content?: string; // payloadKey for Yjs blob
-        images?: string[]; // payloadKeys for images
-        linkPreviews?: string[]; // payloadKeys for link previews
-    };
-}
 
 // Folder file content stored in Homebase
 export interface FolderFile {
@@ -75,7 +69,11 @@ export interface NoteFileContent {
     tags: string[];
     excludeFromAI: boolean;
     isPinned?: boolean;
+    // Collaboration fields
     isCollaborative?: boolean;
+    circleIds?: string[];
+    recipients?: string[];   // OdinIds of collaborators (from circle members)
+    lastEditedBy?: string;
 }
 
 // Sync tracking for local ↔ remote mapping

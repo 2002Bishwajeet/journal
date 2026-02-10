@@ -29,6 +29,7 @@ interface SuggestionState {
 
 export function AISuggestionOverlay({ editor }: AISuggestionOverlayProps) {
   const { isReady, rewrite, chat, initialize, isLoading: isModelLoading } = useWebLLM();
+
   const [suggestion, setSuggestion] = useState<SuggestionState>({
     isVisible: false,
     isLoading: false,
