@@ -33,11 +33,7 @@ const COMMANDS = [
   { label: "/help", description: "Show available commands" },
 ];
 
-/**
- * Dedicated ChatBot page for mobile devices.
- * Provides full-screen chat experience with proper routing.
- */
-export default function ChatBotPage() {
+function ChatInterface() {
   const navigate = useNavigate();
   const { noteId, folderId } = useParams();
 
@@ -45,27 +41,6 @@ export default function ChatBotPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-
-  const deviceType = useDeviceType();
-  const isMobile = deviceType === 'mobile';
-
-  if (isMobile) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-background p-4 text-center">
-        <div className="bg-muted/50 rounded-full p-6 mb-4">
-          <Bot className="w-12 h-12 text-muted-foreground" />
-        </div>
-        <h2 className="text-xl font-semibold mb-2">Not Available on Mobile</h2>
-        <p className="text-muted-foreground max-w-xs mb-6">
-          The AI assistant requires significant memory and is currently available only on desktop and tablet devices.
-        </p>
-        <Button onClick={() => navigate(-1)}>
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Go Back
-        </Button>
-      </div>
-    );
-  }
 
   const {
     chat,
@@ -440,4 +415,34 @@ export default function ChatBotPage() {
       </Dialog>
     </div>
   );
+}
+
+/**
+ * Dedicated ChatBot page for mobile devices.
+ * Provides full-screen chat experience with proper routing.
+ */
+export default function ChatBotPage() {
+  const navigate = useNavigate();
+  const deviceType = useDeviceType();
+  const isMobile = deviceType === 'mobile';
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-background p-4 text-center">
+        <div className="bg-muted/50 rounded-full p-6 mb-4">
+          <Bot className="w-12 h-12 text-muted-foreground" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">Not Available on Mobile</h2>
+        <p className="text-muted-foreground max-w-xs mb-6">
+          The AI assistant requires significant memory and is currently available only on desktop and tablet devices.
+        </p>
+        <Button onClick={() => navigate(-1)}>
+          <ChevronLeft className="w-4 h-4 mr-2" />
+          Go Back
+        </Button>
+      </div>
+    );
+  }
+
+  return <ChatInterface />;
 }

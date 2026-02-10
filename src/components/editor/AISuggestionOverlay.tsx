@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import { Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useWebLLM, useDeviceType } from '@/hooks';
+import { useWebLLM } from '@/hooks';
 
 interface AISuggestionOverlayProps {
   editor: Editor;
@@ -29,9 +29,6 @@ interface SuggestionState {
 
 export function AISuggestionOverlay({ editor }: AISuggestionOverlayProps) {
   const { isReady, rewrite, chat, initialize, isLoading: isModelLoading } = useWebLLM();
-  const deviceType = useDeviceType();
-  
-  if (deviceType === 'mobile') return null;
 
   const [suggestion, setSuggestion] = useState<SuggestionState>({
     isVisible: false,
