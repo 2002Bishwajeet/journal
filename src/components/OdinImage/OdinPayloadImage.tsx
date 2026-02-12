@@ -65,5 +65,5 @@ export const OdinPayloadImage = ({
     if (isImageFetched && !imageData) onError?.();
   }, [imageData, isImageFetched, onError]);
 
-  return <img src={imageData?.url} onError={onError} {...props} />;
+  return <img src={imageData?.url} crossOrigin="anonymous" onError={onError} {...props} />;
 };

@@ -50,9 +50,10 @@ src/
 │   ├── useOnlineStatus.ts  # Offline detection
 │   └── index.ts
 ├── lib/
+│   ├── broadcast/        # Cross-tab communication (DocumentBroadcast singleton)
 │   ├── db/               # PGlite database layer
 │   ├── drawing/          # Drawing utilities (strokeUtils, OCR)
-│   ├── homebase/         # Auth, drive
+│   ├── homebase/         # Auth, drive, SyncService
 │   ├── yjs/              # PGlite Yjs provider
 │   ├── webllm/           # Grammar, autocomplete
 │   ├── importexport/     # .md and .zip export/import
@@ -61,7 +62,8 @@ src/
 │   ├── EditorPage.tsx
 │   ├── AuthPage.tsx
 │   └── AuthFinalizePage.tsx
-└── types/
+├── types/
+└── __tests__/            # Unit tests (Vitest)
 ```
 
 ## Key Files
@@ -73,9 +75,11 @@ src/
 | `src/hooks/useDrawingCanvas.ts` | Drawing canvas hook with stroke/shape management |
 | `src/components/providers/SyncProvider.tsx` | Sync state management |
 | `src/components/providers/OnlineProvider.tsx` | Online/offline detection |
+| `src/lib/broadcast/DocumentBroadcast.ts` | Cross-tab/component messaging singleton |
 | `src/lib/db/pglite.ts` | PGlite singleton + schema |
 | `src/lib/homebase/auth.ts` | YouAuth flow |
-| `src/lib/homebase/drive.ts` | Note CRUD via Homebase |
+| `src/lib/homebase/SyncService.ts` | Bidirectional Homebase sync |
+| `src/lib/yjs/provider.ts` | PGlite Yjs persistence provider |
 | `src/lib/webllm/engine.ts` | Grammar/autocomplete |
 | `src/lib/drawing/strokeUtils.ts` | Stroke rendering with perfect-freehand |
 | `src/lib/drawing/ocrService.ts` | Handwriting-to-text OCR (lazy-loaded) |
@@ -138,6 +142,7 @@ OCR uses tesseract.js (lazy-loaded, cached in IndexedDB for offline).
 npm install
 npm run dev    # HTTPS on dev.dotyou.cloud:3000
 npm run build  # Production build
+npm run test   # Run unit tests
 ```
 
 ## Code Conventions
@@ -146,6 +151,48 @@ npm run build  # Production build
 - **Extract hooks**: Complex state logic goes in `src/hooks/`
 - **Keep pages clean**: Pages only compose components
 - **Use SDK utilities**: `getNewId()`, `tryJsonParse()`, etc.
+
+## Testing Requirements
+
+> **IMPORTANT**: All new features MUST include unit tests.
+
+- **Test Location**: `src/__tests__/` directory
+- **Test Framework**: Vitest
+- **Naming Convention**: `<feature>.test.ts`
+
+### When to Add Tests
+
+| Change Type | Test Required? |
+|-------------|----------------|
+| New utility/helper module | ✅ Yes |
+| New singleton/service class | ✅ Yes |
+| New database query function | ✅ Yes |
+| Bug fix | ✅ Yes (regression test) |
+| UI component | Optional (prefer E2E) |
+
+### Running Tests
+
+```bash
+npm run test          # Run all tests
+npm run test:watch    # Watch mode
+npm run test -- broadcast  # Run specific test file
+```
+
+### Example Test Structure
+
+```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+describe('ModuleName', () => {
+    beforeEach(() => {
+        // Reset state
+    });
+
+    it('should do expected behavior', () => {
+        // Arrange, Act, Assert
+    });
+});
+```
 
 ## Performance and Best Practices
 

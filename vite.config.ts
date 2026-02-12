@@ -14,7 +14,7 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       injectRegister: 'auto',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
@@ -36,10 +36,36 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png'
           }
-        ]
+        ],
+        shortcuts: [
+          {
+            name: "New Note",
+            short_name: "New Note",
+            description: "Create a new note",
+            url: "/?action=new",
+            icons: [{ src: "pwa-192x192.png", sizes: "192x192" }]
+          },
+          {
+            name: "Search",
+            short_name: "Search",
+            description: "Search your notes",
+            url: "/?action=search",
+            icons: [{ src: "pwa-192x192.png", sizes: "192x192" }]
+          }
+        ],
+        share_target: {
+          action: "/share-target",
+          method: "GET",
+          enctype: "application/x-www-form-urlencoded",
+          params: {
+            title: "title",
+            text: "text",
+            url: "url"
+          }
+        }
       },
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,wasm,data}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,wasm,data,gz}'],
         maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15 MB for large WASM files
       },
       devOptions: {
@@ -71,6 +97,26 @@ export default defineConfig({
     fs: {
       allow: ['..'],
     },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'web-llm': ['@mlc-ai/web-llm'],
+          'pglite': ['@electric-sql/pglite'],
+          'tiptap': [
+            '@tiptap/react',
+            '@tiptap/starter-kit',
+            '@tiptap/extension-image',
+            '@tiptap/extension-link',
+            '@tiptap/extension-placeholder',
+            '@tiptap/extension-task-item',
+            '@tiptap/extension-task-list'
+          ],
+          'ui-libs': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-popover']
+        }
+      }
+    }
   },
   preview: {
     headers: {

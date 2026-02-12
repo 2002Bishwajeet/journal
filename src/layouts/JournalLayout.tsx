@@ -1,4 +1,4 @@
-import { Outlet, useParams, useNavigate } from "react-router-dom";
+import { Outlet, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Sidebar,
   NoteList,
@@ -23,14 +23,24 @@ import {
   SearchModal,
   SettingsModal,
   ShareDialog,
+  ExtendPermissionDialog,
 } from "@/components/modals";
+import { 
+  JOURNAL_APP_ID, 
+  JOURNAL_APP_NAME,  
+} from "@/lib/homebase/config";
+import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
 import type { SearchIndexEntry } from "@/types";
 import { useNotes, useNotesByFolder } from "@/hooks/useNotes";
 import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
 import { useFolders } from "@/hooks/useFolders";
+import { useThemePreference } from "@/hooks/useThemePreference";
 
 export default function JournalLayout() {
+  // Initialize theme preference & system listener at root level
+  useThemePreference();
+  
   const { folderId, noteId } = useParams();
   const navigate = useNavigate();
 
@@ -76,6 +86,39 @@ export default function JournalLayout() {
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [shareNote, setShareNote] = useState<SearchIndexEntry | null>(null);
 
+  // Handle App Shortcuts (PWA)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const action = searchParams.get("action");
+
+  useEffect(() => {
+    const handleAction = async () => {
+        if (!action) return;
+
+        if (action === "search") {
+            setShowSearch(true);
+        } else if (action === "new") {
+            const targetFolderId = folderId || folders[0]?.id;
+
+            if (targetFolderId) {
+                // Create note directly
+                const { docId, folderId: newFolderId } = await createNote(targetFolderId);
+
+                if (docId) {
+                    navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
+                }
+            }
+        }
+
+        // Clear the action param
+        setSearchParams((params: URLSearchParams) => {
+            params.delete("action");
+            return params;
+        }, { replace: true });
+    };
+
+    handleAction();
+  }, [action, folders, folderId, createNote, navigate, setSearchParams]);
+
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
     onSearch: () => setShowSearch(true),
@@ -86,7 +129,7 @@ export default function JournalLayout() {
   const isDesktop = deviceType === "desktop";
   // If not desktop (so mobile or tablet), treat as mobile layout
 
-  const { data: filteredNotes = [] } = useNotesByFolder(folderId);
+  const { data: filteredNotes = [], isLoading: isFilteredNotesLoading } = useNotesByFolder(folderId);
 
   // Open tab when navigating to a note
   useEffect(() => {
@@ -112,7 +155,7 @@ export default function JournalLayout() {
   const handleTabClick = (docId: string) => {
     const note = notes.find((n) => n.docId === docId);
     if (note) {
-      navigate(`/${note.metadata.folderId}/${docId}`);
+      navigate(`/${note.metadata.folderId}/${docId}`, { viewTransition: true });
       switchTab(docId);
     }
   };
@@ -128,10 +171,10 @@ export default function JournalLayout() {
         const nextTab = remainingTabs[remainingTabs.length - 1];
         const note = notes.find((n) => n.docId === nextTab.docId);
         if (note) {
-          navigate(`/${note.metadata.folderId}/${nextTab.docId}`);
+          navigate(`/${note.metadata.folderId}/${nextTab.docId}`, { viewTransition: true });
         }
       } else if (folderId) {
-        navigate(`/${folderId}`);
+        navigate(`/${folderId}`, { viewTransition: true });
       }
     }
   };
@@ -143,12 +186,13 @@ export default function JournalLayout() {
     return <SplashScreen />;
   }
 
+
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
       {/* Sidebar */}
       <div
         className={cn(
-          "h-full border-r bg-muted/10 transition-all duration-300 ease-in-out",
+          "h-full border-r bg-muted/10 transition-all duration-300 ease-in-out pb-[env(safe-area-inset-bottom)]",
           // Desktop: Always visible
           isDesktop ? "flex static" : "hidden",
           // Mobile: Visible only when no folder selected (root)
@@ -160,7 +204,18 @@ export default function JournalLayout() {
         <Sidebar
           folders={folders}
           selectedFolderId={folderId || ""}
-          onSelectFolder={(id) => navigate(`/${id}`)}
+          onSelectFolder={(id) => {
+            // On desktop, if there's an active tab, keep showing it
+            if (isDesktop && activeTabId) {
+              const activeNote = notes.find((n) => n.docId === activeTabId);
+              if (activeNote) {
+                // Navigate to new folder but keep showing the active note
+                navigate(`/${id}/${activeTabId}`, { viewTransition: true });
+                return;
+              }
+            }
+            navigate(`/${id}`, { viewTransition: true });
+          }}
           onCreateFolder={() => setShowCreateFolder(true)}
           onDeleteFolder={(id) => deleteFolder(id)}
           onSearch={() => setShowSearch(true)}
@@ -173,7 +228,7 @@ export default function JournalLayout() {
       {/* Note List */}
       <div
         className={cn(
-          "h-full border-r bg-background",
+          "h-full border-r bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
           // Desktop: Always visible, static positioning (part of flex flow)
           isDesktop ? "flex w-64 static shrink-0" : "hidden",
           // Mobile: Visible when folder selected but no note selected (Absolute covering screen)
@@ -202,18 +257,18 @@ export default function JournalLayout() {
             <h2 className="text-sm font-medium truncate flex-1 leading-none">
               {folders.find((f) => f.id === folderId)?.name || "Notes"}
             </h2>
-            <SyncStatus showText={false} />
+            <SyncStatus />
           </div>
 
           <NoteList
             notes={filteredNotes}
             selectedNoteId={noteId || null}
-            onSelectNote={(id) => navigate(`/${folderId}/${id}`)}
+            onSelectNote={(id) => navigate(`/${folderId}/${id}`, { viewTransition: true })}
             onCreateNote={async () => {
               const { docId, folderId: newFolderId } = await createNote(
                 folderId
               );
-              if (docId) navigate(`/${newFolderId}/${docId}`);
+              if (docId) navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
             }}
             onDeleteNote={async (id) => {
               // Find the next note to select
@@ -240,13 +295,14 @@ export default function JournalLayout() {
               // If the deleted note is the one currently open, navigate to next note or folder
               if (noteId === id) {
                 if (nextNoteId) {
-                  navigate(`/${folderId}/${nextNoteId}`);
+                  navigate(`/${folderId}/${nextNoteId}`, { viewTransition: true });
                 } else {
-                  navigate(`/${folderId}`);
+                  navigate(`/${folderId}`, { viewTransition: true });
                 }
               }
             }}
             onShareNote={(note) => setShareNote(note)}
+            isLoading={isFilteredNotesLoading}
             className="flex-1 w-full border-r-0"
           />
         </div>
@@ -255,7 +311,7 @@ export default function JournalLayout() {
       {/* Main Content (Editor) */}
       <main
         className={cn(
-          "flex-1 flex flex-col overflow-hidden bg-background",
+          "flex-1 flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
           // Desktop: Always visible (Outlet renders Editor or Empty)
           isDesktop ? "flex" : "hidden",
           // Mobile: Visible only when note is selected
@@ -319,6 +375,14 @@ export default function JournalLayout() {
           noteTitle={shareNote.title || "Untitled"}
         />
       )}
+
+      <ExtendPermissionDialog 
+        appId={JOURNAL_APP_ID}
+        appName={JOURNAL_APP_NAME}
+        drives={[journalDriveRequest]}
+        circleDrives={[]}
+        permissions={[]}
+      />
     </div>
   );
 }

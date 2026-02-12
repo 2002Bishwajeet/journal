@@ -13,7 +13,13 @@
     <!-- SEO & Meta -->
     <title>Journal - Effortless Writing</title>
     <meta name="description" content="Premium Offline first markdown note-taking app powered by Homebase" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#FDFCF8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1C1B1A" media="(prefers-color-scheme: dark)" />
+    
+    <!-- iOS PWA -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
@@ -30,6 +36,22 @@
     <meta property="twitter:image" content="https://journal.cloudx.run/banner.webp" />
   </head>
   <body>
+    <!-- Inline script to prevent flash of wrong theme -->
+    <script>
+      (function() {
+        const THEME_KEY = 'journal-theme-preference';
+        const stored = localStorage.getItem(THEME_KEY);
+        let theme = 'system';
+        if (stored === 'light' || stored === 'dark' || stored === 'system') {
+          theme = stored;
+        }
+        const actualTheme = theme === 'system' 
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : theme;
+        document.documentElement.classList.add(actualTheme);
+        document.documentElement.style.colorScheme = actualTheme;
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

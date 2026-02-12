@@ -17,37 +17,65 @@ interface TableRowMenuProps {
 }
 
 export function TableRowMenu({ editor }: TableRowMenuProps) {
-  const activeCell = useTableState(editor, false);
+   
+  const { hoveredCell } = useTableState(editor, false);
+  const [isOpen, setIsOpen] = useState(false);
   const [handleOpen, setHandleOpen] = useState(false);
+  const [isMenuHovered, setIsMenuHovered] = useState(false);
+  const [activeCell, setActiveCell] = useState(hoveredCell);
 
-  // Virtual element for the Handle's reference (the active cell)
+  useEffect(() => {
+    if (hoveredCell) {
+        setActiveCell(hoveredCell);
+    }
+  }, [hoveredCell]);
+
+  // Virtual element
   const virtualElement = useMemo(() => {
-    if (!activeCell?.node) return null;
+    const cell = hoveredCell || activeCell;
+    if (!cell?.node) return null;
+
+    const node = cell.node;
+    const rect = cell.rect;
+    
+    // Find table left
+    const table = node.closest('table');
+    const tableRect = table?.getBoundingClientRect();
+
+    if (!tableRect) return null;
 
     return {
       getBoundingClientRect: () => {
-        const rect = activeCell.node!.getBoundingClientRect();
         return {
-            width: rect.width,
+            width: 20,
             height: rect.height,
-            x: rect.x,
+            x: tableRect.left - 24, // Position to the left of the table
             y: rect.y,
             top: rect.top,
-            left: rect.left,
-            right: rect.right,
+            left: tableRect.left - 24,
+            right: tableRect.left - 4,
             bottom: rect.bottom,
         };
       },
-      contextElement: activeCell.node
+      contextElement: node
     };
-  }, [activeCell?.node]);
+  }, [hoveredCell, activeCell]);
+
+  useEffect(() => {
+     if (hoveredCell || isMenuHovered || handleOpen) {
+         setIsOpen(true);
+     } else {
+         const t = setTimeout(() => setIsOpen(false), 200);
+         return () => clearTimeout(t);
+     }
+  }, [hoveredCell, isMenuHovered, handleOpen]);
 
   const { refs, floatingStyles } = useFloating({
-    open: true, 
+    open: isOpen, 
     placement: 'left', // Position to the left of the row
     middleware: [
-        offset(6), // gap
-        shift(), // ensure it stays on screen
+        offset(0), 
+        shift(), 
     ],
     whileElementsMounted: autoUpdate,
   });
@@ -56,25 +84,27 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
       refs.setPositionReference(virtualElement);
   }, [virtualElement, refs]);
 
-  if (!activeCell) return null;
+  if (!isOpen || !virtualElement) return null;
 
   return (
     <div 
         // eslint-disable-next-line react-hooks/refs -- refs.setFloating is a callback setter from @floating-ui/react, not a ref value access
         ref={refs.setFloating}
         style={{ ...floatingStyles, zIndex: 50 }} 
+        onMouseEnter={() => setIsMenuHovered(true)}
+        onMouseLeave={() => setIsMenuHovered(false)}
     >
        <Popover open={handleOpen} onOpenChange={setHandleOpen}>
          <PopoverTrigger asChild>
            <Button 
-                variant="secondary" 
+                variant="ghost" 
                 size="icon" 
-                className="h-10 w-6 rounded-sm shadow-sm border border-border/50 cursor-grab hover:bg-accent active:cursor-grabbing flex flex-col items-center justify-center"
+                className="h-full w-6 rounded-none hover:bg-muted active:bg-muted-foreground/20 flex flex-col items-center justify-center transition-colors"
             >
-                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                <GripVertical className="h-4 w-4 text-muted-foreground/50 hover:text-foreground" />
            </Button>
          </PopoverTrigger>
-         <PopoverContent className="w-auto p-1 flex gap-1" side="left" align="center">
+         <PopoverContent className="w-auto p-1 flex gap-1 z-9999" side="left" align="center">
              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().addRowBefore().run()}>
                 <ArrowUp className="w-4 h-4" />
              </Button>

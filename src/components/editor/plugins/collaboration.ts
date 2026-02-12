@@ -15,6 +15,12 @@ import type { XmlFragment } from 'yjs';
  * - Syncs editor content with Y.js document
  * - Provides Y.js-aware undo/redo (tracks remote changes separately)
  * 
+ * Note: y-prosemirror's yUndoPlugin creates and manages its own UndoManager
+ * with proper configuration including:
+ * - trackedOrigins: tracks only user edits via ySyncPluginKey
+ * - deleteFilter: protects paragraph nodes from deletion
+ * - captureTransaction: respects 'addToHistory' meta
+ * 
  * @param yXmlFragment - The Y.js XML fragment to sync with
  */
 export function createCollaborationExtension(yXmlFragment: XmlFragment) {
@@ -24,6 +30,7 @@ export function createCollaborationExtension(yXmlFragment: XmlFragment) {
         addProseMirrorPlugins() {
             return [
                 ySyncPlugin(yXmlFragment),
+                // Let y-prosemirror create and manage the UndoManager internally
                 yUndoPlugin(),
             ];
         },
@@ -49,3 +56,4 @@ export function createCollaborationExtension(yXmlFragment: XmlFragment) {
 
 // Re-export Y.js undo/redo for use in toolbar
 export { undo, redo };
+

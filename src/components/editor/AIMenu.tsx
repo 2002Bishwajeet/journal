@@ -11,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useWebLLM, type RewriteStyle } from '@/hooks';
+import { toast } from 'sonner';
+import { parseMarkdownTable, looksLikeMarkdownTable } from '@/lib/utils/markdownTableParser';
 
 const REWRITE_OPTIONS: { label: string; style: RewriteStyle; group: 'transform' | 'tone' | 'extract' }[] = [
   { label: 'Proofread', style: 'proofread', group: 'transform' },
@@ -63,10 +65,25 @@ export default function AIMenu({ editor }: AIMenuProps) {
     try {
       const result = await rewrite(selectedText, style);
       
-      // Apply changes directly to editor
-      if (!editor.isDestroyed) {
-        editor.chain().focus().deleteSelection().insertContent(result).run();
+      // Validate result - check if AI actually returned something useful
+      if (!result || result.trim() === selectedText.trim()) {
+        toast.error("AI couldn't transform the text. Try again or select different text.");
+        return;
       }
+      
+      // Apply changes to editor
+      if (!editor.isDestroyed) {
+        // For table style, try to parse markdown table into TipTap table
+        if (style === 'table' && looksLikeMarkdownTable(result)) {
+          const tableContent = parseMarkdownTable(result);
+          editor.chain().focus().deleteSelection().insertContent(tableContent).run();
+        } else {
+          editor.chain().focus().deleteSelection().insertContent(result).run();
+        }
+      }
+    } catch (error) {
+      console.error('[AIMenu] Rewrite failed:', error);
+      toast.error("AI processing failed. Please try again.");
     } finally {
       setIsProcessing(false);
     }

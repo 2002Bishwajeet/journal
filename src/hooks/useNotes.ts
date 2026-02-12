@@ -8,7 +8,9 @@ import {
     upsertSyncRecord,
     deleteSyncRecord,
     updateSyncStatus,
+    saveDocumentUpdate,
 } from '@/lib/db';
+import * as Y from 'yjs';
 import { getNewId } from '@/lib/utils';
 import type { SearchIndexEntry, DocumentMetadata } from '@/types';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
@@ -58,6 +60,7 @@ export function useNotes() {
                 tags: [],
                 timestamps: { created: now, modified: now },
                 excludeFromAI: false,
+                isPinned: false,
             };
 
             const newNote: SearchIndexEntry = {
@@ -68,7 +71,7 @@ export function useNotes() {
             };
 
             await upsertSearchIndex(newNote);
-
+            //TODO: Should we create a sync record whne there is no content?
             // Create sync record for Homebase sync
             await upsertSyncRecord({
                 localId: docId,
@@ -157,11 +160,110 @@ export function useNotes() {
         },
     });
 
+    const togglePinMutation = useMutation<void, Error, { docId: string; isPinned: boolean }, NoteMutationContext>({
+        mutationFn: async ({ docId, isPinned }) => {
+            const notes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
+            const currentNote = notes?.find((n) => n.docId === docId);
+
+            if (!currentNote) return;
+
+            const updatedMetadata = { ...currentNote.metadata, isPinned };
+
+            await upsertSearchIndex({
+                ...currentNote,
+                metadata: updatedMetadata,
+            });
+
+            await updateSyncStatus(docId, 'pending');
+        },
+        onMutate: async ({ docId, isPinned }) => {
+            await queryClient.cancelQueries({ queryKey: notesQueryKey });
+            const previousNotes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
+
+            queryClient.setQueryData<SearchIndexEntry[]>(notesQueryKey, (old) =>
+                old?.map((n) =>
+                    n.docId === docId
+                        ? { ...n, metadata: { ...n.metadata, isPinned } }
+                        : n
+                ) || []
+            );
+
+            return { previousNotes };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previousNotes) {
+                queryClient.setQueryData(notesQueryKey, context.previousNotes);
+            }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: notesQueryKey });
+        },
+    });
+
+    const createNoteWithContentMutation = useMutation<CreateNoteResult, Error, { title: string; content: string; folderId: string }, NoteMutationContext>({
+        mutationFn: async ({ title, content, folderId }) => {
+            const docId = formatGuidId(getNewId());
+            const now = new Date().toISOString();
+
+            const metadata: DocumentMetadata = {
+                title: title || 'Untitled',
+                folderId: folderId || MAIN_FOLDER_ID,
+                tags: [],
+                timestamps: { created: now, modified: now },
+                excludeFromAI: false,
+                isPinned: false,
+            };
+
+            // 1. Create YJS Document with Content
+            const ydoc = new Y.Doc();
+            const fragment = ydoc.getXmlFragment('prosemirror');
+
+            // Create Tiptap JSON structure equivalent for a paragraph
+            // But YJS manipulation is lower level. 
+            // We need to create XML elements.
+            const paragraph = new Y.XmlElement('paragraph');
+            if (content) {
+                const text = new Y.XmlText(content);
+                paragraph.push([text]);
+            }
+            fragment.push([paragraph]);
+
+            const updateBlob = Y.encodeStateAsUpdate(ydoc);
+
+            // 2. Save YJS Update
+            await saveDocumentUpdate(docId, updateBlob);
+
+            // 3. Save Search Index
+            await upsertSearchIndex({
+                docId,
+                title: metadata.title,
+                plainTextContent: content,
+                metadata,
+            });
+
+            // 4. Create Sync Record
+            await upsertSyncRecord({
+                localId: docId,
+                entityType: 'note',
+                syncStatus: 'pending',
+            });
+
+            ydoc.destroy();
+
+            return { docId, folderId: metadata.folderId };
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: notesQueryKey });
+        },
+    });
+
     return {
         get: query,
         createNote: createNoteMutation,
+        createNoteWithContent: createNoteWithContentMutation,
         deleteNote: deleteNoteMutation,
         updateNote: updateMetadataMutation,
+        togglePin: togglePinMutation,
     };
 }
 

@@ -3,10 +3,10 @@ import {
     getAllFolders,
     createFolder,
     deleteFolder,
-    upsertSearchIndex,
     upsertSyncRecord,
     deleteSyncRecord,
-    updateSyncStatus,
+    deleteSearchIndexEntry,
+    deleteDocumentUpdates,
 } from '@/lib/db';
 import { getNewId } from '@/lib/utils';
 import type { Folder, SearchIndexEntry } from '@/types';
@@ -73,31 +73,22 @@ export function useFolders() {
             // First delete from remote
             await deleteFolderRemote(folderId);
 
-            // Move notes to Main folder
+            // Delete all notes in the folder locally (matching remote deletion via deleteFilesByGroupId)
             const notes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
             const notesInFolder = notes?.filter((n) => n.metadata.folderId === folderId) || [];
 
+            // Delete each note's data locally
             await Promise.all(
-                notesInFolder.map((note) =>
-                    upsertSearchIndex({
-                        ...note,
-                        metadata: {
-                            ...note.metadata,
-                            folderId: MAIN_FOLDER_ID,
-                        },
-                    })
-                )
+                notesInFolder.map(async (note) => {
+                    await deleteSearchIndexEntry(note.docId);
+                    await deleteDocumentUpdates(note.docId);
+                    await deleteSyncRecord(note.docId);
+                })
             );
 
+            // Delete the folder itself
             await deleteFolder(folderId);
             await deleteSyncRecord(folderId);
-
-            // Also mark moved notes as pending sync
-            await Promise.all(
-                notesInFolder.map((note) =>
-                    updateSyncStatus(note.docId, 'pending')
-                )
-            );
         },
         onMutate: async (folderId) => {
             await queryClient.cancelQueries({ queryKey: foldersQueryKey });
@@ -111,13 +102,9 @@ export function useFolders() {
                 old?.filter((f) => f.id !== folderId) || []
             );
 
-            // Optimistically move notes to Main
+            // Optimistically remove notes in the folder
             queryClient.setQueryData<SearchIndexEntry[]>(notesQueryKey, (old) =>
-                old?.map((n) =>
-                    n.metadata.folderId === folderId
-                        ? { ...n, metadata: { ...n.metadata, folderId: MAIN_FOLDER_ID } }
-                        : n
-                ) || []
+                old?.filter((n) => n.metadata.folderId !== folderId) || []
             );
 
             return { previousFolders, previousNotes };

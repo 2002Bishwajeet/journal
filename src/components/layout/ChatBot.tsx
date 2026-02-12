@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useWebLLM, type ChatMessage } from "@/hooks/useWebLLM";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Send, Loader2, Bot, MessageCircle } from "lucide-react";
+import { X, Send, Loader2, Bot, MessageCircle, ChevronLeft, Globe, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotes } from "@/hooks/useNotes";
+import { webSearch } from "@/lib/search/searchService";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ChatBotProps {
   activeNoteId?: string | null;
@@ -13,6 +15,7 @@ interface ChatBotProps {
 
 const COMMANDS = [
   { label: "/summarize", description: "Summarize current note" },
+  { label: "/search", description: "Search the web" },
   { label: "/clear", description: "Clear chat history" },
   { label: "/help", description: "Show available commands" },
 ];
@@ -20,8 +23,28 @@ const COMMANDS = [
 export function ChatBot({ activeNoteId }: ChatBotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Per-note chat history - keyed by activeNoteId, session-based (lost on app close)
+  const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Search consent state
+  const [showSearchConsent, setShowSearchConsent] = useState(false);
+  const [pendingSearchQuery, setPendingSearchQuery] = useState<string | null>(null);
+
+  // Derive current messages from chatHistories based on activeNoteId
+  const noteKey = activeNoteId ?? '__global__';
+  // Memoize messages to prevent dependency changes on every render
+  const messages = useMemo(() => chatHistories[noteKey] ?? [], [chatHistories, noteKey]);
+  
+  // Helper to update messages for current note
+  const setMessages = useCallback((updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+    setChatHistories(prev => {
+      const currentMessages = prev[noteKey] ?? [];
+      const newMessages = typeof updater === 'function' ? updater(currentMessages) : updater;
+      return { ...prev, [noteKey]: newMessages };
+    });
+  }, [noteKey]);
 
   // Command Auto-complete state
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -50,7 +73,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
     if (isOpen) {
       scrollToBottom();
     }
-  }, [messages, isOpen, isGenerating]);
+  }, [messages, isOpen, isGenerating, isSearching]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -72,20 +95,112 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
     setShowSuggestions(false);
     // Optional: auto-focus back to input if needed, but Input has focus
   };
+  
+  const performSearch = async (query: string) => {
+    setIsSearching(true);
+    setMessages(prev => [...prev, { role: "assistant", content: "🔍 Searching the web..." }]);
+    
+    try {
+      const results = await webSearch(query);
+      
+      // Remove the "Searching..." message
+      setMessages(prev => {
+        const lastMsg = prev[prev.length - 1];
+        if (lastMsg && lastMsg.content === "🔍 Searching the web...") {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
+      
+      if (results.length === 0) {
+        setMessages(prev => [...prev, { role: "assistant", content: "I couldn't find any results for that query." }]);
+        setIsSearching(false);
+        return;
+      }
+      
+      // Construct search context
+      const searchContext = results.map((r, i) => 
+        `[${i+1}] ${r.title} (${r.source})\nURL: ${r.url}\n${r.snippet}`
+      ).join("\n\n");
+      
+      const systemPrompt = `You are a helpful research assistant. Answer the user's question based ONLY on the search results below.
+      
+SEARCH RESULTS:
+${searchContext}
+
+INSTRUCTIONS:
+1. Synthesize the information to answer the query: "${query}"
+2. Cite your sources using [1], [2], etc.
+3. Be concise and factual.
+4. If the search results don't contain the answer, say so.
+`;
+
+      setIsGenerating(true);
+      const response = await chat([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "Please summarize what you found." }
+      ]);
+      
+      setMessages(prev => [...prev, { role: "assistant", content: response }]);
+      
+    } catch (error) {
+      console.error("Search failed:", error);
+      setMessages(prev => {
+        // Remove "Searching..." if distinct from prev
+        const msgs = prev[prev.length - 1].content === "🔍 Searching the web..." ? prev.slice(0, -1) : prev;
+        return [...msgs, { role: "assistant", content: "Sorry, the search failed. Please try again." }];
+      });
+    } finally {
+      setIsSearching(false);
+      setIsGenerating(false);
+    }
+  };
+
+  const confirmSearch = () => {
+    localStorage.setItem("journal-search-consent", "true");
+    setShowSearchConsent(false);
+    if (pendingSearchQuery) {
+      performSearch(pendingSearchQuery);
+      setPendingSearchQuery(null);
+    }
+  };
 
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || isGenerating) return;
+    if (!text || isGenerating || isSearching) return;
 
     setShowSuggestions(false);
 
     // Command handling
     if (text.startsWith("/")) {
       setInput("");
-      const command = text.toLowerCase().split(" ")[0];
+      const parts = text.split(" ");
+      const command = parts[0].toLowerCase();
+      // Combine all arguments into the query string
+      const args = parts.slice(1).join(" ");
 
       if (command === "/clear") {
         setMessages([]);
+        return;
+      }
+      
+      if (command === "/search") {
+        if (!args) {
+           setMessages(prev => [...prev, { role: "user", content: text }, { role: "assistant", content: "Please provide a search query. Example: /search latest AI news" }]);
+           return;
+        }
+        
+        setMessages(prev => [...prev, { role: "user", content: text }]);
+        
+        // Check consent
+        const hasConsent = localStorage.getItem("journal-search-consent") === "true";
+        if (!hasConsent) {
+          setPendingSearchQuery(args);
+          setShowSearchConsent(true);
+          return;
+        }
+        
+        performSearch(args);
         return;
       }
 
@@ -96,7 +211,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
           {
             role: "assistant",
             content:
-              "Available commands:\n\n/summarize - Summarize the current note\n/clear - Clear chat history\n/help - Show this help message",
+              "Available commands:\n\n/search <query> - Search the web\n/summarize - Summarize the current note\n/clear - Clear chat history\n/help - Show this help message",
           },
         ]);
         return;
@@ -131,23 +246,26 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
         .map((n) => `- ${n.title}`)
         .join("\n");
 
-      const systemContext = `You are a helpful AI assistant for a personal journal/notebook app.
-You answer questions based on the user's notes context.
+      const systemContext = `You are a helpful assistant for a personal journal app. Answer questions based ONLY on the provided context below. If you don't know or the information isn't in the context, say so honestly.
 
 ${
   currentNote
-    ? `CURRENTLY OPEN NOTE:\nTitle: ${currentNote.title}\nContent: ${currentNote.plainTextContent}\n`
+    ? `CURRENT NOTE:
+Title: ${currentNote.title}
+Content:
+${currentNote.plainTextContent?.slice(0, 2000) || "(empty)"}
+`
     : "No note is currently open."
 }
 
-RECENT NOTES (Titles only):
-${recentNotes}
+OTHER NOTES (titles only):
+${recentNotes || "(none)"}
 
-Instructions:
-1. Answer the user's question helpfully and concisely.
-2. If the user asks about the current note, use its content.
-3. If the user asks about other notes, you only know their titles. You can mention that.
-4. Use simple text formatting. Do not use complex markdown as it may not render perfectly.
+RULES:
+- Be concise and helpful.
+- Only use information from the context above.
+- If asked about something not in your context, say "I don't have that information in your notes."
+- Do not make up facts or content that isn't in the notes.
 `;
 
       // Handle specific command overrides for the AI prompt
@@ -229,25 +347,35 @@ Instructions:
   };
 
   return (
-    <div className="fixed bottom-20 md:bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+    <div className="z-50">
       {isOpen && (
-        <div className="w-[90vw] md:w-100 h-[60vh] md:h-137.5 bg-background border rounded-lg shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-300">
-          {/* Header */}
-          <div className="p-3 border-b flex items-center justify-between bg-muted/50 shrink-0">
-            <div className="flex items-center gap-2">
+        <div className="fixed inset-0 z-50 lg:inset-auto lg:bottom-20 lg:right-4 w-full h-full lg:w-100 lg:h-137.5 bg-background lg:border lg:rounded-lg shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-full lg:slide-in-from-bottom-2 fade-in duration-300">
+          {/* Header - Mobile/Tablet with back button, Desktop with X */}
+          <div className="flex items-center h-12 px-3 border-b border-border gap-2 shrink-0 pt-[env(safe-area-inset-top)] lg:pt-0 bg-muted/30">
+            {/* Mobile/Tablet: Back button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 lg:hidden"
+              onClick={() => setIsOpen(false)}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            
+            <div className="flex items-center gap-2 flex-1">
               <Bot className="w-5 h-5 text-primary" />
-              <span className="font-semibold text-sm">Assistant</span>
+              <span className="font-medium text-sm">Assistant</span>
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => setIsOpen(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
+            
+            {/* Desktop: X close button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 hidden lg:flex"
+              onClick={() => setIsOpen(false)}
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
 
           {/* Messages Area */}
@@ -328,7 +456,7 @@ Instructions:
           </ScrollArea>
 
           {/* Input Area */}
-          <div className="p-3 border-t bg-background shrink-0 relative">
+          <div className="p-3 border-t bg-background shrink-0 relative pb-[max(12px,env(safe-area-inset-bottom))]">
             {/* Command Suggestions Popup */}
             {showSuggestions && (
               <div className="absolute bottom-full left-3 w-64 mb-2 bg-popover text-popover-foreground border rounded-md shadow-lg overflow-hidden z-50">
@@ -361,14 +489,14 @@ Instructions:
                 placeholder={
                   isReady ? "Type a message or /help..." : "Waiting for AI..."
                 }
-                disabled={!isReady || isGenerating}
+                disabled={!isReady || isGenerating || isSearching}
                 className="flex-1 h-9 text-sm"
               />
               <Button
                 size="icon"
                 className="h-9 w-9"
                 onClick={handleSend}
-                disabled={!isReady || isGenerating || !input.trim()}
+                disabled={!isReady || (isGenerating && !isSearching) || !input.trim()}
               >
                 <Send className="w-4 h-4" />
               </Button>
@@ -378,14 +506,44 @@ Instructions:
       )}
 
       {!isOpen && (
-        <Button
-          size="lg"
-          className="rounded-full h-14 w-14 shadow-lg animate-in fade-in zoom-in duration-300"
-          onClick={toggleChat}
-        >
-          <MessageCircle className="w-6 h-6" />
-        </Button>
+        <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 flex flex-col items-end gap-2">
+            <Button
+            size="lg"
+            className="rounded-full h-14 w-14 shadow-lg animate-in fade-in zoom-in duration-300"
+            onClick={toggleChat}
+            >
+            <MessageCircle className="w-6 h-6" />
+            </Button>
+        </div>
       )}
+
+      <Dialog open={showSearchConsent} onOpenChange={setShowSearchConsent}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-blue-500" />
+              Enable Web Search?
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              You are about to use the web search feature. Unlike the AI chat which runs purely on your device, this will send your query to an external search provider.
+            </DialogDescription>
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-900/50 flex gap-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 shrink-0" />
+              <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                Your search query "{pendingSearchQuery}" will be sent to a public SearXNG instance.
+              </p>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowSearchConsent(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmSearch}>
+              I Understand, Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

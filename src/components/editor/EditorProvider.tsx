@@ -1,22 +1,24 @@
 import { useEffect, useState, useRef, useMemo, useCallback, type ReactNode } from "react";
 import { useEditor, type Editor } from "@tiptap/react";
 import * as Y from "yjs";
+import { useQueryClient } from "@tanstack/react-query";
 import { PGliteProvider } from "@/lib/yjs";
 import { upsertSearchIndex, savePendingImageUpload } from "@/lib/db";
+import { notesQueryKey } from "@/hooks/useNotes";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { useSyncService } from "@/hooks/useSyncService";
-
-// Import modular plugins
+import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
+import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
 import {
   createBaseExtensions,
   createCollaborationExtension,
   CustomShortcuts,
   AutocompletePlugin,
   FileHandler,
+  SlashCommandsExtension,
 } from "./plugins";
 
-// Import KaTeX styles for math rendering
 import "katex/dist/katex.min.css";
 
 interface EditorProviderProps {
@@ -32,17 +34,7 @@ interface EditorProviderProps {
   children: ReactNode;
 }
 
-// Simple debounce function
-function debounce<T extends (...args: Parameters<T>) => void>(
-  fn: T,
-  delay: number
-) {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  return (...args: Parameters<T>) => {
-    if (timeoutId) clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn(...args), delay);
-  };
-}
+
 
 export function EditorProvider({
   docId,
@@ -57,6 +49,7 @@ export function EditorProvider({
 }: EditorProviderProps) {
   const [yDoc] = useState(() => new Y.Doc());
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   
   // Use refs for cleanup to avoid stale closure issues
   const providerRef = useRef<PGliteProvider | null>(null);
@@ -111,6 +104,9 @@ export function EditorProvider({
     };
   }, [yDoc]);
 
+  // Track image deletions with cancellable timeouts and sync trigger
+  useImageDeletionTracker({ docId, yXmlFragment });
+
   // Get sync service to trigger upload after queuing
   const { sync } = useSyncService();
 
@@ -135,6 +131,20 @@ export function EditorProvider({
     sync().catch(err => console.error('[EditorProvider] Sync after image drop failed:', err));
   }, [docId, sync]);
 
+  // Handle document updates from broadcast (sync service)
+  const handleDocumentUpdate = useCallback(async () => {
+    console.log('[EditorProvider] Document updated remotely, reloading...');
+    if (providerRef.current) {
+      try {
+        await providerRef.current.load();
+      } catch (err) {
+        console.error('[EditorProvider] Failed to reload document:', err);
+      }
+    }
+  }, []);
+
+  useDocumentSubscription(docId, handleDocumentUpdate);
+
   // Memoize extensions to avoid recreation on every render
   const extensions = useMemo(
     () => [
@@ -158,6 +168,8 @@ export function EditorProvider({
         minCharsBeforeTrigger: 5,
         debug: false,
       }),
+      // Slash commands (triggered by typing /)
+      SlashCommandsExtension,
       // GrammarPlugin.configure({
       //   checkGrammar: onCheckGrammar || (async () => []),
       //   getIsAIReady: () => isAIReadyRef.current,
@@ -201,61 +213,124 @@ export function EditorProvider({
     [extensions]
   );
 
-  // Debounced search index update (stable ref to avoid recreation)
-  const updateSearchIndexRef = useRef(
-    debounce(
-      (
-        editorInstance: Editor,
-        currentTitle: string,
-        meta: DocumentMetadata
-      ) => {
-        const plainText = editorInstance.getText();
-        upsertSearchIndex({
-          docId,
-          title: currentTitle,
-          plainTextContent: plainText,
-          metadata: {
-            ...meta,
-            title: currentTitle,
-            timestamps: {
-              ...meta.timestamps,
-              modified: new Date().toISOString(),
-            },
+  // Refs for current values - avoids stale closures in debounced functions
+  const docIdRef = useRef(docId);
+  const metadataRef = useRef(metadata);
+  const onSaveRef = useRef(onSave);
+  
+  // Keep refs in sync with props
+  useEffect(() => {
+    docIdRef.current = docId;
+    metadataRef.current = metadata;
+    onSaveRef.current = onSave;
+  }, [docId, metadata, onSave]);
+
+  // Timeout refs for cleanup
+  const searchIndexTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const invalidateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced search index update - reads current values from refs
+  const updateSearchIndex = useCallback((editorInstance: Editor) => {
+    if (searchIndexTimeoutRef.current) {
+      clearTimeout(searchIndexTimeoutRef.current);
+    }
+    
+    searchIndexTimeoutRef.current = setTimeout(() => {
+      const currentDocId = docIdRef.current;
+      const currentMetadata = metadataRef.current;
+      const plainText = editorInstance.getText();
+      
+      upsertSearchIndex({
+        docId: currentDocId,
+        title: currentMetadata.title,
+        plainTextContent: plainText,
+        metadata: {
+          ...currentMetadata,
+          title: currentMetadata.title,
+          timestamps: {
+            ...currentMetadata.timestamps,
+            modified: new Date().toISOString(),
           },
-        });
-      },
-      500
-    )
-  );
+        },
+      });
+    }, 500);
+  }, []);
 
-  // Debounced save to avoid calling getFullState() on every keystroke
-  const debouncedSaveRef = useRef(
-    debounce((provider: PGliteProvider, saveFn: (blob: Uint8Array) => void) => {
-      const fullState = provider.getFullState();
-      saveFn(fullState);
-    }, 2000)
-  );
+  // Debounced save - reads current values from refs
+  const debouncedSave = useCallback((provider: PGliteProvider) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      const saveFn = onSaveRef.current;
+      if (saveFn) {
+        const fullState = provider.getFullState();
+        saveFn(fullState);
+      }
+    }, 2000);
+  }, []);
 
-  // Handle editor content changes
+  // Debounced query invalidation for NoteList updates
+  const invalidateNotes = useCallback(() => {
+    if (invalidateTimeoutRef.current) {
+      clearTimeout(invalidateTimeoutRef.current);
+    }
+    
+    invalidateTimeoutRef.current = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: notesQueryKey });
+    }, 1000);
+  }, [queryClient]);
+
+  // Clean up all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (searchIndexTimeoutRef.current) clearTimeout(searchIndexTimeoutRef.current);
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (invalidateTimeoutRef.current) clearTimeout(invalidateTimeoutRef.current);
+    };
+  }, []);
+
+  // Track the last known content to detect actual changes
+  const lastContentRef = useRef<string | null>(null);
+
+  // Handle editor content changes - only update when content actually changes
   useEffect(() => {
     if (!editor || !providerRef.current) return;
 
     const handleUpdate = () => {
-      // Note: We use metadata.title here. If title changes happen outside, 
-      // they should propagate via metadata prop. 
-      // If we implement local title state in context, we would use that.
-      updateSearchIndexRef.current(editor, metadata.title, metadata);
+      const currentContent = editor.getText();
+      
+      // Skip if content hasn't actually changed (e.g., Yjs sync on load)
+      if (lastContentRef.current === currentContent) {
+        return;
+      }
+      
+      // First time we see content (initial load) - just store it, don't trigger update
+      if (lastContentRef.current === null) {
+        lastContentRef.current = currentContent;
+        return;
+      }
+      
+      // Content has genuinely changed - update everything
+      lastContentRef.current = currentContent;
 
-      if (onSave && providerRef.current) {
-        debouncedSaveRef.current(providerRef.current, onSave);
+      updateSearchIndex(editor);
+      invalidateNotes();
+
+      if (providerRef.current) {
+        debouncedSave(providerRef.current);
       }
     };
 
     editor.on("update", handleUpdate);
     return () => {
+      lastContentRef.current = null;
       editor.off("update", handleUpdate);
     };
-  }, [editor, metadata, onSave]);
+  }, [editor, updateSearchIndex, invalidateNotes, debouncedSave]);
+
 
   const value = {
     editor,
@@ -270,3 +345,4 @@ export function EditorProvider({
     </EditorContext.Provider>
   );
 }
+

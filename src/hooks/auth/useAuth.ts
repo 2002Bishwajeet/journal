@@ -11,7 +11,8 @@ import {
     STORAGE_KEY_SHARED_SECRET,
 } from '@/lib/homebase/config';
 import { useVerifyToken } from './useVerifyToken';
-import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useOnlineContext } from '../useOnlineContext';
+
 
 export type AuthenticationState = 'unknown' | 'anonymous' | 'authenticated';
 
@@ -25,10 +26,10 @@ const hasSharedSecret = () => {
  */
 export function useAuth() {
     const [authenticationState, setAuthenticationState] = useState<AuthenticationState>(
-        hasSharedSecret() ? 'unknown' : 'anonymous'
+        hasSharedSecret() ? 'authenticated' : 'anonymous'
     );
     const navigate = useNavigate();
-    const isOnline = useOnlineStatus();
+    const { isOnline } = useOnlineContext();
 
     const getAppAuthToken = useCallback(() => {
         return localStorage.getItem(STORAGE_KEY_AUTH_TOKEN);
@@ -146,6 +147,7 @@ export function useAuth() {
         getDotYouClient,
         getSharedSecret,
         getIdentity,
+        getAppAuthToken,
     };
 }
 

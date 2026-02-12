@@ -19,3 +19,7 @@ export type { CustomShortcutsOptions } from './shortcuts';
 // AI-powered plugins (conditionally used when AI is enabled)
 export { AutocompletePlugin } from './AutocompletePlugin';
 export { GrammarPlugin } from './GrammarPlugin';
+
+// Slash Commands (triggered by typing /)
+export { SlashCommandsExtension } from './SlashCommands';
+

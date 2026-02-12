@@ -1,15 +1,13 @@
-import { useParams, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { usePublicNote } from '@/hooks/queries/usePublicNote';
+import { useSharePage } from '@/hooks/useSharePage';
 
 /**
  * Public page to display a shared note.
  */
 export default function SharePage() {
-    const { identity, noteId } = useParams<{ identity: string; noteId: string }>();
-
-    const { data: note, isLoading, error } = usePublicNote(identity, noteId);
+    const { identity, note, isLoading, error } = useSharePage();
 
     if (isLoading) {
         return (

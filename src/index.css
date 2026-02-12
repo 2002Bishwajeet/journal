@@ -106,21 +106,42 @@
 /* Reset & Base */
 *, *::before, *::after {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent; /* Native app feel */
+}
+
+/* Safe Area Utility Variables */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+  --sar: env(safe-area-inset-right);
+}
+
+html {
+  overscroll-behavior: none;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh; /* Mobile viewport height */
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  user-select: none; /* Prevent accidental selection on UI */
+}
+
+/* Re-enable text selection for content that should be selectable */
+.prose, .selectable, input, textarea {
+  user-select: text;
 }
 
 /* TipTap Editor Styles */
 .tiptap {
   outline: none;
+  white-space: pre-wrap;
 }
 
 .tiptap p.is-editor-empty:first-child::before {
@@ -138,14 +159,28 @@ body {
 }
 
 .prose h1, .prose h2, .prose h3, .prose h4 {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   color: var(--foreground);
   font-weight: 600;
 }
 
 .prose h1 { font-size: 2.5rem; margin-top: 2rem; margin-bottom: 1rem; }
 .prose h2 { font-size: 1.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; }
+.prose h3 { font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+.prose h4 { font-size: 1rem; margin-top: 1.25rem; margin-bottom: 0.5rem; }
 .prose p { margin-top: 0.75rem; margin-bottom: 0.75rem; line-height: 1.7; }
+
+/* Links */
+.prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.prose a:hover {
+  opacity: 0.7;
+}
 
 .prose blockquote {
   border-left: 3px solid var(--border);
@@ -260,45 +295,75 @@ body {
 }
 
 /* Tables - Scrollable on Mobile */
+/* Tables - Modern & Notion-like */
 .prose table {
   width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
+  table-layout: fixed; /* Important for resizing */
+  overflow: hidden;
 }
 
-/* Mobile table scroll - wrap table in block container */
-@media (max-width: 768px) {
-  .prose table {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    max-width: 100%;
-  }
-  
-  .prose tbody {
-    display: table;
-    width: 100%;
-    min-width: 500px;
-  }
-  
-  .prose thead {
-    display: table-header-group;
-  }
-  
-  .prose tr {
-    display: table-row;
-  }
-}
+/* Container wrapper handled by mobile responsive below */
 
 .prose th, .prose td {
   border: 1px solid var(--border);
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   text-align: left;
+  position: relative;
+  vertical-align: top;
 }
 
 .prose th {
-  background: var(--secondary);
+  background: var(--muted);
   font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+/* Selected Cell (Tiptap Table Extension) */
+.prose .selectedCell:after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(44, 43, 41, 0.1); 
+  pointer-events: none;
+  z-index: 2;
+}
+
+.dark .prose .selectedCell:after {
+  background: rgba(230, 228, 221, 0.1); 
+}
+
+/* Column Resize Handle */
+.prose .column-resize-handle {
+  position: absolute;
+  right: -2px; 
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: var(--blue-400, #60a5fa); /* Blue line on hover/active */
+  pointer-events: none;
+  opacity: 0;
+  z-index: 20;
+  transition: opacity 0.2s;
+}
+
+/* Show handle when hovering header or when dragging (Tiptap adds class usually) */
+.prose th:hover .column-resize-handle,
+.prose td:hover .column-resize-handle { 
+  /* Tiptap uses a specific way to handle resizing, typically relying on a div inside the cell or global events. 
+     The 'resize-cursor' class is added to body during resize. */
+}
+
+/* Tiptap Resizing State */
+.resize-cursor {
+  cursor: col-resize;
+}
+
+/* Highlight column being resized */
+.resize-cursor .column-resize-handle {
+  opacity: 1;
+  background-color: var(--primary);
 }
 
 /* Tailwind v4 Theme Configuration */
@@ -463,6 +528,17 @@ body {
   display: none;  /* Chrome, Safari, Opera */
 }
 
+/* Scroll containment - prevents scroll chaining to parent/body */
+.scroll-contained {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Apply to all scroll areas to prevent body scroll */
+[data-radix-scroll-area-viewport] {
+  overscroll-behavior: contain;
+}
+
 /* Mobile Toolbar Enhancements */
 .mobile-toolbar button {
   min-width: 48px;
@@ -474,4 +550,72 @@ body {
 
 .mobile-toolbar button:active {
   background-color: var(--accent);
+}
+
+/* View Transitions (Native Slide Effect) */
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes slide-from-right {
+  from { transform: translateX(100%); }
+}
+
+@keyframes slide-to-left {
+  to { transform: translateX(-100%); }
+}
+
+@keyframes slide-from-left {
+  from { transform: translateX(-100%); }
+}
+
+@keyframes slide-to-right {
+  to { transform: translateX(100%); }
+}
+
+/* Base fade for desktop or default */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+  animation-fill-mode: both;
+}
+
+::view-transition-old(root) {
+  animation-name: fade-out;
+}
+
+::view-transition-new(root) {
+  animation-name: fade-in;
+}
+
+/* Mobile Slide Animations applied via classes if needed, 
+   but for now we'll stick to a smooth crossfade which feels 
+   native enough without complex route direction logic */
+
+/* Mobile table scroll - wrap table in block container */
+@media (max-width: 768px) {
+  .prose table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  
+  .prose tbody {
+    display: table;
+    width: 100%;
+    min-width: 500px; /* Minimum width to prevent compaction */
+  }
+  
+  .prose thead {
+    display: table-header-group;
+  }
+  
+  .prose tr {
+    display: table-row;
+  }
 }

@@ -19,7 +19,7 @@ import {
 } from '@/lib/homebase/config';
 
 // Drive request for Journal app
-const journalDriveRequest: TargetDriveAccessRequest = {
+export const journalDriveRequest: TargetDriveAccessRequest = {
     ...JOURNAL_DRIVE,
     name: 'Journal Notes',
     description: 'Store your personal notes and thoughts',

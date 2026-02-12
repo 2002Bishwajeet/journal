@@ -1,8 +1,8 @@
 import type { TargetDrive } from "@homebase-id/js-lib/core";
 
 // Homebase configuration constants
-export const JOURNAL_APP_ID = 'c762ee784274473480919d8080d7a825';
-export const JOURNAL_APP_NAME = 'Journal';
+export const JOURNAL_APP_ID = import.meta.env.PROD ? 'c762ee784274473480919d8080d7a825' : '38e160f1f815438a89eabc3a261e9952 '
+export const JOURNAL_APP_NAME = `Journal${import.meta.env.PROD ? '' : ' (Local Dev)'}`;
 
 // Drive constants per spec
 export const JOURNAL_FILE_TYPE = 605;
@@ -17,6 +17,7 @@ export const JOURNAL_DRIVE: TargetDrive = {
 };
 
 export const MAIN_FOLDER_ID = '06cf9262-4eae-4276-b0d1-8ca3cf5be6f4';
+export const COLLABORATIVE_FOLDER_ID = 'fc360190-4e23-b870-0ea4-ef233aad98ad'; // For shared/collaborative notes V2
 
 // Payload keys
 export const PAYLOAD_KEY_CONTENT = 'jrnl_txt'; // Yjs binary blob

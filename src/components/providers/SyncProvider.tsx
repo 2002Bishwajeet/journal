@@ -17,11 +17,14 @@ import {
   migrateExistingDataToSync,
   needsSyncMigration,
   getPendingSyncCount,
+  getAppState,
 } from "@/lib/db";
+import { STORAGE_KEY_LAST_SYNC } from "@/lib/homebase";
 import { SyncContext, type SyncContextType } from "@/hooks/useSyncService";
 import { notesQueryKey } from "@/hooks/useNotes";
 import { foldersQueryKey } from "@/hooks/useFolders";
 import type { SyncProgress } from "@/types";
+import { useOnlineContext } from "@/hooks/useOnlineContext";
 
 export interface PendingCount {
   notes: number;
@@ -36,9 +39,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const dotYouClient = useDotYouClientContext();
   const queryClient = useQueryClient();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
-  const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator !== "undefined" ? navigator.onLine : true
-  );
+  const onlineContext = useOnlineContext();
   const [pendingCount, setPendingCount] = useState<PendingCount>({
     notes: 0,
     folders: 0,
@@ -47,6 +48,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   });
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   // Refs for tracking state
   const hasInitialSynced = useRef(false);
@@ -58,8 +60,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Create sync service instance (memoized)
   const syncService = useMemo(() => {
     if (!dotYouClient) return null;
-    return new SyncService(dotYouClient);
-  }, [dotYouClient]);
+    return new SyncService(dotYouClient, onlineContext);
+  }, [dotYouClient, onlineContext]);
 
   // Update pending count
   const refreshPendingCount = useCallback(async () => {
@@ -83,11 +85,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       const needsMigration = await needsSyncMigration();
       if (needsMigration) {
         console.log(
-          "[SyncProvider] Migrating existing notes/folders to sync..."
+          "[SyncProvider] Migrating existing notes/folders to sync...",
         );
         const result = await migrateExistingDataToSync();
         console.log(
-          `[SyncProvider] Migration complete: ${result.notes} notes, ${result.folders} folders`
+          `[SyncProvider] Migration complete: ${result.notes} notes, ${result.folders} folders`,
         );
         await refreshPendingCount();
       }
@@ -141,12 +143,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
       const result = await syncService.sync(handleProgress);
       setLastSyncResult(result);
-      
+
       // Clear progress safely
       requestAnimationFrame(() => {
-          setSyncProgress(null);
+        setSyncProgress(null);
       });
-      
+
+      // Update last synced time
+      setLastSyncedAt(new Date());
+
       setSyncStatus("idle");
 
       // Invalidate queries to refresh UI with pulled data
@@ -158,7 +163,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (result.errors.length > 0) {
         console.warn(
           "[SyncProvider] Sync completed with errors:",
-          result.errors
+          result.errors,
         );
         scheduleRetry();
       }
@@ -188,7 +193,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         console.error("[SyncProvider] Note sync error:", error);
       }
     },
-    [syncService, refreshPendingCount]
+    [syncService, refreshPendingCount],
   );
 
   // Sync a single folder
@@ -202,7 +207,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         console.error("[SyncProvider] Folder sync error:", error);
       }
     },
-    [syncService, refreshPendingCount]
+    [syncService, refreshPendingCount],
   );
 
   // Delete a note from remote
@@ -215,7 +220,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         console.error("[SyncProvider] Note delete error:", error);
       }
     },
-    [syncService]
+    [syncService],
   );
 
   // Delete a folder from remote
@@ -228,20 +233,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         console.error("[SyncProvider] Folder delete error:", error);
       }
     },
-    [syncService]
+    [syncService],
   );
 
   // Online/offline handlers
   useEffect(() => {
     const handleOnline = () => {
       console.log("[SyncProvider] Network online, syncing...");
-      setIsOnline(true);
       sync();
     };
 
     const handleOffline = () => {
       console.log("[SyncProvider] Network offline");
-      setIsOnline(false);
       // Clear any pending retry
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
@@ -287,7 +290,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           sync();
         } else {
           console.debug(
-            "[SyncProvider] Tab visible but sync throttled (last sync < 60s ago)"
+            "[SyncProvider] Tab visible but sync throttled (last sync < 60s ago)",
           );
         }
       }
@@ -303,12 +306,23 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     };
   }, [syncService, sync, runMigration, refreshPendingCount]);
 
+  // Load initial lastSyncedAt from storage on mount
+  useEffect(() => {
+    const loadLastSyncedAt = async () => {
+      const storedTime = await getAppState<number>(STORAGE_KEY_LAST_SYNC);
+      if (storedTime) {
+        setLastSyncedAt(new Date(storedTime));
+      }
+    };
+    loadLastSyncedAt();
+  }, []);
+
   const value: SyncContextType = {
     syncStatus,
-    isOnline,
     pendingCount,
     lastSyncResult,
     syncProgress,
+    lastSyncedAt,
     sync,
     syncNote,
     syncFolder,

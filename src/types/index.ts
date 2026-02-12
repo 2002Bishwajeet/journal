@@ -1,5 +1,3 @@
-// Document types for the Journal app
-
 export interface DocumentMetadata {
     title: string;
     folderId: string; // 'main'  UUID
@@ -9,6 +7,12 @@ export interface DocumentMetadata {
         modified: string;
     };
     excludeFromAI: boolean;
+    isPinned?: boolean;
+    // Collaboration fields
+    isCollaborative?: boolean;
+    circleIds?: string[];    // Circles granted access (multiple)
+    recipients?: string[];   // OdinIds of collaborators (from circle members)
+    lastEditedBy?: string;   // OdinId of last editor
 }
 
 export interface Document {
@@ -49,17 +53,6 @@ export interface Folder {
     createdAt: Date;
 }
 
-// Homebase specific types
-export interface HomebaseNote {
-    fileId?: string;
-    globalTransitId?: string;
-    metadata: DocumentMetadata;
-    payloads: {
-        content?: string; // payloadKey for Yjs blob
-        images?: string[]; // payloadKeys for images
-        linkPreviews?: string[]; // payloadKeys for link previews
-    };
-}
 
 // Folder file content stored in Homebase
 export interface FolderFile {
@@ -75,7 +68,12 @@ export interface NoteFileContent {
     title: string;
     tags: string[];
     excludeFromAI: boolean;
+    isPinned?: boolean;
+    // Collaboration fields
     isCollaborative?: boolean;
+    circleIds?: string[];
+    recipients?: string[];   // OdinIds of collaborators (from circle members)
+    lastEditedBy?: string;
 }
 
 // Sync tracking for local ↔ remote mapping
@@ -87,6 +85,7 @@ export interface SyncRecord {
     lastSyncedAt?: string;
     syncStatus: 'pending' | 'synced' | 'conflict' | 'error';
     contentHash?: string;
+    encryptedKeyHeader?: string;
 }
 
 // Image pending upload for retry queue

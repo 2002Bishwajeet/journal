@@ -31,6 +31,7 @@ import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
 import { useQueryClient } from "@tanstack/react-query";
 import { foldersQueryKey } from "@/hooks/useFolders";
+import { OwnerImage } from "@/components/author/AuthorImage";
 
 interface SidebarProps {
   folders: Folder[];
@@ -70,7 +71,7 @@ export default function Sidebar({
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 overflow-hidden",
+          "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 overflow-hidden pt-[env(safe-area-inset-top)]",
           isCollapsed ? "w-14 items-center" : "w-full md:w-60", // Centered items when collapsed
           className
         )}
@@ -85,9 +86,12 @@ export default function Sidebar({
           )}
         >
           {!isCollapsed && (
-            <span className="text-sm font-semibold text-sidebar-foreground">
-              Journal
-            </span>
+            <div className="flex items-center gap-2">
+               <OwnerImage size="xs" />
+               <span className="text-sm font-semibold text-sidebar-foreground">
+                 Journal
+               </span>
+            </div>
           )}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -167,7 +171,7 @@ export default function Sidebar({
                           <Button
                             variant={isSelected ? "secondary" : "ghost"}
                             className={cn(
-                              "w-full h-8 group relative transition-all duration-200 flex items-center",
+                              "w-full h-10 group relative transition-all duration-200 flex items-center",
                               isCollapsed
                                 ? "justify-center px-0"
                                 : "justify-start px-2",
@@ -226,7 +230,7 @@ export default function Sidebar({
             }
           }}
           title="Delete Folder?"
-          description="Are you sure you want to delete this folder? This action cannot be undone."
+          description="Are you sure you want to delete this folder? All notes in this folder will also be permanently deleted. This action cannot be undone."
           confirmText="Delete"
         />
 
