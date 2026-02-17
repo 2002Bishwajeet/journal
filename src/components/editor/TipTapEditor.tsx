@@ -11,6 +11,7 @@ import { EditorContent } from "@tiptap/react";
 import type { DocumentMetadata } from "@/types";
 import { debounce } from "@/lib/utils/index";
 import { useEditorContext } from "./EditorContext";
+import { useDeviceType } from "@/hooks";
 
 import EditorToolbar from "./EditorToolbar";
 import MobileToolbar from "./MobileToolbar";
@@ -36,6 +37,7 @@ export default function TipTapEditor({
   className = "",
 }: TipTapEditorProps) {
   const { editor, isLoading } = useEditorContext();
+  const deviceType = useDeviceType();
   const [title, setTitle] = useState(metadata.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -100,7 +102,7 @@ export default function TipTapEditor({
       {editor && <TableRowMenu editor={editor} />}
 
       {/* AI Suggestion Overlay - shows inline suggestions from slash commands */}
-      {editor && <AISuggestionOverlay editor={editor} />}
+      {editor && deviceType !== 'mobile' && <AISuggestionOverlay editor={editor} />}
     </div>
   );
 }
