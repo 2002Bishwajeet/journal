@@ -1,87 +1,75 @@
 import { useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { DotYouClient, TypedConnectionNotification, HomebaseFile, DeletedHomebaseFile, NotificationType } from '@homebase-id/js-lib/core';
+import type { DotYouClient, TypedConnectionNotification, DeletedHomebaseFile } from '@homebase-id/js-lib/core';
 import { drivesEqual } from '@homebase-id/js-lib/helpers';
 import { useWebsocketSubscriber } from './useWebsocketSubscriber';
-import { useSyncService } from './useSyncService';
 import { notesQueryKey } from './useNotes';
 import { foldersQueryKey } from './useFolders';
 import {
     JOURNAL_DRIVE,
     JOURNAL_FILE_TYPE,
     FOLDER_FILE_TYPE,
-    websocketDrives,
 } from '@/lib/homebase';
-import type { NoteFileContent, FolderFile } from '@/types';
+import type { SyncService } from '@/lib/homebase/SyncService';
+import type { NotificationType } from '@homebase-id/js-lib/core';
 
-// Type guard to check if the notification has file-related properties
-type FileNotification = TypedConnectionNotification & {
-    targetDrive: { alias: string; type: string };
-    header: HomebaseFile<string>;
-};
+// Stable references to prevent useWebsocketSubscriber from re-subscribing
+const WS_NOTIFICATION_TYPES: NotificationType[] = ['fileAdded', 'fileModified', 'fileDeleted'];
+const WS_DRIVES = [JOURNAL_DRIVE];
 
-function isFileNotification(notification: TypedConnectionNotification): notification is FileNotification {
-    return 'targetDrive' in notification && 'header' in notification;
+interface UseJournalWebsocketOptions {
+    isEnabled: boolean;
+    syncService: SyncService | null;
+    onReconnect: () => Promise<void>;
 }
-
-const NOTIFICATION_TYPES = ['fileAdded', 'fileModified', 'fileDeleted'] as const;
 
 /**
  * Journal-specific WebSocket handler.
  * Processes real-time notifications for notes and folders,
  * directly updating local state via SyncService handlers.
  */
-export const useJournalWebsocket = (isEnabled: boolean) => {
+export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: UseJournalWebsocketOptions) => {
     const queryClient = useQueryClient();
-    const { syncService, sync } = useSyncService();
     const disconnectTimeRef = useRef<number | null>(null);
 
     const handleNotification = useCallback(
         async (_dotYouClient: DotYouClient, notification: TypedConnectionNotification) => {
-            // Only process file-related notifications
-            if (!isFileNotification(notification)) {
-                return;
-            }
-
-            // Only process notifications for JOURNAL_DRIVE
-            if (!drivesEqual(notification.targetDrive, JOURNAL_DRIVE)) {
-                return;
-            }
-
             if (!syncService) {
                 console.warn('[JournalWebsocket] SyncService not available');
                 return;
             }
 
-            const fileType = notification.header?.fileMetadata?.appData?.fileType;
-
-            console.debug('[JournalWebsocket] Received notification:', notification.notificationType, fileType);
+            console.debug('[JournalWebsocket] Received notification:', notification);
 
             try {
                 if (
                     notification.notificationType === 'fileAdded' ||
-                    notification.notificationType === 'fileModified'
+                    notification.notificationType === 'fileModified' ||
+                    notification.notificationType === 'statisticsChanged' &&
+                    drivesEqual(notification.targetDrive, JOURNAL_DRIVE)
                 ) {
+                    const fileType = notification.header?.fileMetadata?.appData?.fileType;
                     if (fileType === JOURNAL_FILE_TYPE) {
                         await syncService.handleRemoteNote(
-                            notification.header as unknown as HomebaseFile<NoteFileContent>
+                            notification.header,
                         );
                         queryClient.invalidateQueries({ queryKey: notesQueryKey });
                     } else if (fileType === FOLDER_FILE_TYPE) {
                         await syncService.handleRemoteFolder(
-                            notification.header as unknown as HomebaseFile<FolderFile>
+                            notification.header,
                         );
                         queryClient.invalidateQueries({ queryKey: foldersQueryKey });
                     }
                 } else if (notification.notificationType === 'fileDeleted') {
+                    const fileType = notification.header?.fileMetadata?.appData?.fileType;
                     if (fileType === JOURNAL_FILE_TYPE) {
                         await syncService.handleDeletedNote(
-                            notification.header as unknown as DeletedHomebaseFile
+                            notification.header as unknown as DeletedHomebaseFile,
                         );
                         queryClient.invalidateQueries({ queryKey: notesQueryKey });
                     } else if (fileType === FOLDER_FILE_TYPE) {
                         await syncService.handleDeletedFolder(
-                            notification.header as unknown as DeletedHomebaseFile
+                            notification.header as unknown as DeletedHomebaseFile,
                         );
                         queryClient.invalidateQueries({ queryKey: foldersQueryKey });
                     }
@@ -103,15 +91,15 @@ export const useJournalWebsocket = (isEnabled: boolean) => {
         // Trigger delta sync to catch any missed changes during disconnect
         if (disconnectTimeRef.current) {
             console.log('[JournalWebsocket] Triggering delta sync after reconnect');
-            sync();
+            onReconnect();
             disconnectTimeRef.current = null;
         }
-    }, [sync]);
+    }, [onReconnect]);
 
     return useWebsocketSubscriber(
         isEnabled ? handleNotification : undefined,
-        NOTIFICATION_TYPES as unknown as NotificationType[],
-        websocketDrives,
+        WS_NOTIFICATION_TYPES,
+        WS_DRIVES,
         handleDisconnect,
         handleReconnect,
         'useJournalWebsocket'

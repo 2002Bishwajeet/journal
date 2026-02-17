@@ -25,6 +25,7 @@ import { notesQueryKey } from "@/hooks/useNotes";
 import { foldersQueryKey } from "@/hooks/useFolders";
 import type { SyncProgress } from "@/types";
 import { useOnlineContext } from "@/hooks/useOnlineContext";
+import { useJournalWebsocket } from "@/hooks/useJournalWebsocket";
 
 export interface PendingCount {
   notes: number;
@@ -176,6 +177,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       scheduleRetry();
     }
   }, [syncService, refreshPendingCount, scheduleRetry, queryClient]);
+
+  // WebSocket for real-time updates — active when sync service is ready
+  useJournalWebsocket({ isEnabled: !!syncService, syncService, onReconnect: sync });
 
   // Keep ref in sync with the latest sync function
   useEffect(() => {
