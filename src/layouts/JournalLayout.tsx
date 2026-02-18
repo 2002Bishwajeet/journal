@@ -80,6 +80,7 @@ export default function JournalLayout() {
   // Homebase sync - auto-syncs on mount and focus
   useSyncService();
 
+
   // Modal states
   const [showSearch, setShowSearch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);

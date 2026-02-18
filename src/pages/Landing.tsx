@@ -146,8 +146,12 @@ export default function LandingPage() {
                   value={identity}
                   onChange={(e) => setIdentity(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="name.homebase.id"
+                  placeholder="johndoe.com"
                   disabled={isPending}
+                  autoComplete="username"
+                  aria-autocomplete="list"
+                  aria-label="Identity"
+                  aria-describedby="identity-description"
                   className="h-11 px-4 bg-transparent border-input hover:border-foreground/20 focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-input transition-all duration-200 shadow-sm rounded-lg text-sm"
                 />
               </div>

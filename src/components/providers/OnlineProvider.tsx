@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useMemo, type ReactNode } from "react";
 import { OnlineContext } from "@/contexts/OnlineContext";
 
 interface OnlineProviderProps {
@@ -23,8 +23,10 @@ export function OnlineProvider({ children }: OnlineProviderProps) {
     };
   }, []);
 
+  const value = useMemo(() => ({ isOnline }), [isOnline]);
+
   return (
-    <OnlineContext.Provider value={{ isOnline }}>
+    <OnlineContext.Provider value={value}>
       {children}
     </OnlineContext.Provider>
   );
