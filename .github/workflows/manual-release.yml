@@ -1,0 +1,69 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Type of version bump'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Authenticate to Github packages
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Setup Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        run: |
+          VERSION_TYPE=${{ github.event.inputs.version_type }}
+          npm version $VERSION_TYPE --no-git-tag-version
+
+      - name: Generate Changelog
+        run: |
+          npx conventional-changelog-cli -p angular -i CHANGELOG.md -s
+
+      - name: Commit and Tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "chore(release): $VERSION [skip ci]"
+          git tag v$VERSION
+          git push origin main --tags
+
+      - name: Create GitHub Release
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release create v$VERSION --title "v$VERSION" --generate-notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
