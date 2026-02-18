@@ -105,7 +105,7 @@ export const useWebsocketSubscriber = (
             return;
 
         if (connectedHandler.current) {
-            setIsConnected(false);
+            // setIsConnected(false);
             unsubscribe(connectedHandler.current);
         }
 
