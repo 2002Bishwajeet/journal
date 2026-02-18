@@ -12,7 +12,6 @@ import type {
 } from '@homebase-id/js-lib/core';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useDotYouClientContext } from '@/components/auth';
-import { useAuth } from './auth';
 
 /**
  * Wrapper for the notification subscriber within DotYouCore-js.
@@ -29,7 +28,6 @@ export const useWebsocketSubscriber = (
     refId?: string
 ) => {
     const dotYouClient = useDotYouClientContext();
-    const authToken = useAuth().getAppAuthToken();
     const [isConnected, setIsConnected] = useState(false);
     const connectedHandler =
         useRef<((dotYouClient: DotYouClient, data: TypedConnectionNotification) => void) | null>(null);
@@ -52,7 +50,7 @@ export const useWebsocketSubscriber = (
 
             // Filter by notification types if specified
             if (types?.length >= 1 && !types.includes(notification.notificationType)) return;
-            handler && handler(dotYouClient, notification);
+            handler?.(dotYouClient, notification);
         },
         [handler, types]
     );
@@ -63,24 +61,26 @@ export const useWebsocketSubscriber = (
         async (handler: (dotYouClient: DotYouClient, data: TypedConnectionNotification) => void) => {
             connectedHandler.current = handler;
 
-            await Subscribe(
-                dotYouClient,
-                drives,
-                handler,
-                () => {
-                    setIsConnected(false);
-                    onDisconnect?.();
-                },
-                () => {
-                    setIsConnected(true);
-                    onReconnect?.();
-                },
-                {
-                    headers: { Cookie: `BX0900=${authToken}` }
-
-                },
-                refId
-            );
+            try {
+                await Subscribe(
+                    dotYouClient,
+                    drives,
+                    handler,
+                    () => {
+                        setIsConnected(false);
+                        onDisconnect?.();
+                    },
+                    () => {
+                        setIsConnected(true);
+                        onReconnect?.();
+                    },
+                    refId
+                );
+            } catch (error) {
+                console.error('[WebsocketSubscriber] Subscribe failed:', error);
+                setIsConnected(false);
+                onDisconnect?.();
+            }
         },
         [dotYouClient, drives, onDisconnect, onReconnect, refId]
     );
