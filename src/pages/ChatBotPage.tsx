@@ -34,6 +34,7 @@ const COMMANDS = [
 ];
 
 function ChatInterface() {
+  // HOOKS MUST BE CALLED UNCONDITIONALLY AT THE TOP LEVEL
   const navigate = useNavigate();
   const { noteId, folderId } = useParams();
 

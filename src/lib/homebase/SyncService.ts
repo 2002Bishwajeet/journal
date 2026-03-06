@@ -357,7 +357,8 @@ export class SyncService {
 
         // Get remote Yjs blob
         const lastModified = remoteFile.fileMetadata.updated;
-        const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId, lastModified);
+        //TODO: Fix undefined
+        const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId, undefined, lastModified);
 
         if (!existingRecord) {
             // New note from remote
@@ -632,13 +633,13 @@ export class SyncService {
 
                 const onVersionConflict = async () => {
                     console.log(`[SyncService] Version conflict for note ${record.localId}`);
-
-                    const freshFile = await this.#notesProvider.getNote(record.localId, { decrypt: false });
+                    //TODO: Fix undefined
+                    const freshFile = await this.#notesProvider.getNote(record.localId, undefined, { decrypt: false });
                     if (!freshFile) throw new Error('Remote note not found during conflict resolution');
                     cachedKeyHeader = freshFile.sharedSecretEncryptedKeyHeader;
 
                     const lastModified = freshFile.fileMetadata.updated;
-                    const remoteBlob = await this.#notesProvider.getNotePayload(freshFile.fileId, lastModified);
+                    const remoteBlob = await this.#notesProvider.getNotePayload(freshFile.fileId, undefined, lastModified);
                     let mergedBlob: Uint8Array | undefined = yjsBlob;
 
                     if (remoteBlob && yjsBlob) {
@@ -655,12 +656,14 @@ export class SyncService {
                         await deleteDocumentUpdates(record.localId);
                         await saveDocumentUpdate(record.localId, mergedBlob);
                     }
-
+                    //TODO: Fix Undefined
                     const result = await this.#notesProvider.updateNote(
                         record.localId,
                         freshFile.fileId,
                         freshFile.fileMetadata.versionTag,
                         doc.metadata,
+                        undefined, // authorOdinId - local
+                        undefined, // globalTransitId - local
                         mergedBlob,
                         cachedKeyHeader,
                         { toDeletePayloads }
@@ -682,6 +685,8 @@ export class SyncService {
                     record.remoteFileId,
                     record.versionTag || '',
                     doc.metadata,
+                    undefined, // authorOdinId - local
+                    undefined, // globalTransitId - local
                     yjsBlob,
                     cachedKeyHeader,
                     { onVersionConflict, toDeletePayloads }
