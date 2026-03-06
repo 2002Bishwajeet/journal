@@ -2,7 +2,13 @@ import { useEffect } from 'react';
 import { documentBroadcast, type DocumentBroadcastMessage } from '@/lib/broadcast';
 
 /**
- * Hook to subscribe to document updates from various sources (BroadcastChannel, WebSocket).
+ * Hook to subscribe to document updates from various sources.
+ * 
+ * Updates flow through the DocumentBroadcast singleton:
+ * - **BroadcastChannel**: Cross-tab updates from SyncService (pull sync)
+ * - **WebSocket**: Real-time notifications are queued via WebSocketProcessQueue,
+ *   which calls SyncService.handleRemoteNote → documentBroadcast.notifyDocumentUpdated.
+ *   This means WebSocket updates automatically arrive here through the broadcast layer.
  * 
  * @param docId - The unique ID of the document to watch.
  * @param onUpdate - Callback function triggered when an update occurs.
@@ -14,40 +20,20 @@ export function useDocumentSubscription(
     useEffect(() => {
         if (!docId) return;
 
-        /**
-         * Handle BroadcastChannel messages (from SyncService)
-         */
         const handleBroadcastMessage = (message: DocumentBroadcastMessage) => {
-            // Check for specific document update or global flush
             if (
                 message.type === 'update' &&
                 message.docId === docId
             ) {
-                console.debug(`[useDocumentSubscription] Received broadcast update for ${docId}`);
+                console.debug(`[useDocumentSubscription] Received update for ${docId}`);
                 onUpdate();
             }
         };
 
-        // Subscribe to BroadcastChannel
-        const unsubscribeBroadcast = documentBroadcast.subscribe(handleBroadcastMessage);
-
-        /**
-         * Future: WebSocket Subscription
-         * 
-         * // Example implementation:
-         * const handleSocketMessage = (event: any) => {
-         *     if (event.docId === docId && event.type === 'update') {
-         *         onUpdate();
-         *     }
-         * };
-         * socket.on('document:update', handleSocketMessage);
-         */
+        const unsubscribe = documentBroadcast.subscribe(handleBroadcastMessage);
 
         return () => {
-            unsubscribeBroadcast();
-
-            // Future: Unsubscribe from WebSocket
-            // socket.off('document:update', handleSocketMessage);
+            unsubscribe();
         };
     }, [docId, onUpdate]);
 }

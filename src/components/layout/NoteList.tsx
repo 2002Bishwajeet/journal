@@ -20,6 +20,7 @@ interface NoteListProps {
   onCreateNote: () => void;
   onDeleteNote: (docId: string) => void;
   onShareNote: (note: SearchIndexEntry) => void;
+  onMarkCollaborative?: (note: SearchIndexEntry) => void;
   isLoading?: boolean;
   className?: string;
 }
@@ -32,6 +33,7 @@ export default function NoteList({
   onCreateNote,
   onDeleteNote,
   onShareNote,
+  onMarkCollaborative,
   isLoading = false,
   className = '',
 }: NoteListProps) {
@@ -155,7 +157,7 @@ export default function NoteList({
                     {!collapsedGroups.has(group.label) && (
                         <div className="space-y-0.5 mt-1">
                             {group.notes.map((note) => (
-                                <NoteItem 
+                            <NoteItem 
                                     key={note.docId} 
                                     note={note} 
                                     selectedNoteId={selectedNoteId} 
@@ -163,6 +165,7 @@ export default function NoteList({
                                     onDeleteNote={(id) => setNoteToDelete(id)}
                                     onShareNote={() => onShareNote(note)}
                                     onTogglePin={(id, isPinned) => togglePin.mutate({ docId: id, isPinned })}
+                                    onMarkCollaborative={() => onMarkCollaborative?.(note)}
                                 />
                             ))}
                         </div>
@@ -198,6 +201,7 @@ function NoteItem({
   onDeleteNote,
   onShareNote,
   onTogglePin,
+  onMarkCollaborative,
 }: { 
   note: SearchIndexEntry; 
   selectedNoteId: string | null; 
@@ -205,6 +209,7 @@ function NoteItem({
   onDeleteNote: (id: string) => void;
   onShareNote: () => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
+  onMarkCollaborative?: () => void;
 }) {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -302,10 +307,10 @@ function NoteItem({
                  action: onShareNote,
              },
              { 
-                 label: 'Mark collaborative', 
+                 label: note.metadata.isCollaborative ? 'Revoke collaboration' : 'Mark collaborative', 
                  icon: Users, 
-                 action: () => {},
-                 disabled: true,
+                 action: () => onMarkCollaborative?.(),
+                 disabled: !onMarkCollaborative,
              },
              { 
                  label: 'Delete', 
@@ -382,6 +387,9 @@ function NoteItem({
           </span>
           {note.metadata.isPinned && (
               <Pin className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+          )}
+          {note.metadata.isCollaborative && (
+              <Users className="h-3 w-3 text-blue-500/70 shrink-0" />
           )}
         </div>
         <p className="text-xs text-muted-foreground truncate mt-0.5 w-full">

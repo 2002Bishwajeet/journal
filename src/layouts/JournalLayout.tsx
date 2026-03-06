@@ -24,6 +24,7 @@ import {
   SettingsModal,
   ShareDialog,
   ExtendPermissionDialog,
+  MarkCollaborativeDialog,
 } from "@/components/modals";
 import { 
   JOURNAL_APP_ID, 
@@ -80,11 +81,13 @@ export default function JournalLayout() {
   // Homebase sync - auto-syncs on mount and focus
   useSyncService();
 
+
   // Modal states
   const [showSearch, setShowSearch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [shareNote, setShareNote] = useState<SearchIndexEntry | null>(null);
+  const [collaborativeNote, setCollaborativeNote] = useState<SearchIndexEntry | null>(null);
 
   // Handle App Shortcuts (PWA)
   const [searchParams, setSearchParams] = useSearchParams();
@@ -92,7 +95,18 @@ export default function JournalLayout() {
 
   useEffect(() => {
     const handleAction = async () => {
-        if (!action) return;
+        if (!action) {
+            // Check localStorage for pending collaborative action (fallback if URL params were cleared)
+            const pendingNoteId = localStorage.getItem('pendingCollaborativeNoteId');
+            if (pendingNoteId && notes.length > 0) {
+                const note = notes.find(n => n.docId === pendingNoteId);
+                if (note) {
+                    setCollaborativeNote(note);
+                    localStorage.removeItem('pendingCollaborativeNoteId');
+                }
+            }
+            return;
+        }
 
         if (action === "search") {
             setShowSearch(true);
@@ -107,17 +121,32 @@ export default function JournalLayout() {
                     navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
                 }
             }
+        } else if (action === "collaborate") {
+            // Reopen collaborative dialog after permission redirect
+            const collaborateNoteId = searchParams.get("noteId");
+            if (collaborateNoteId) {
+                // Wait for notes to be loaded before trying to find the note
+                if (notes.length === 0) {
+                    // Notes not loaded yet - don't clear params, will retry when notes load
+                    return;
+                }
+                const note = notes.find(n => n.docId === collaborateNoteId);
+                if (note) {
+                    setCollaborativeNote(note);
+                }
+            }
         }
 
-        // Clear the action param
+        // Clear the action params (only after successful handling)
         setSearchParams((params: URLSearchParams) => {
             params.delete("action");
+            params.delete("noteId");
             return params;
         }, { replace: true });
     };
 
     handleAction();
-  }, [action, folders, folderId, createNote, navigate, setSearchParams]);
+  }, [action, folders, folderId, notes, createNote, navigate, setSearchParams, searchParams]);
 
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
@@ -302,6 +331,7 @@ export default function JournalLayout() {
               }
             }}
             onShareNote={(note) => setShareNote(note)}
+            onMarkCollaborative={(note) => setCollaborativeNote(note)}
             isLoading={isFilteredNotesLoading}
             className="flex-1 w-full border-r-0"
           />
@@ -338,7 +368,7 @@ export default function JournalLayout() {
       </main>
 
       {/* Modals */}
-      {noteId && <ChatBot activeNoteId={noteId} />}
+      {noteId && deviceType !== 'mobile' && <ChatBot activeNoteId={noteId} />}
 
       <SearchModal
         isOpen={showSearch}
@@ -373,6 +403,15 @@ export default function JournalLayout() {
           onClose={() => setShareNote(null)}
           noteId={shareNote.docId}
           noteTitle={shareNote.title || "Untitled"}
+        />
+      )}
+
+      {collaborativeNote && (
+        <MarkCollaborativeDialog
+          isOpen={!!collaborativeNote}
+          onClose={() => setCollaborativeNote(null)}
+          noteId={collaborativeNote.docId}
+          noteTitle={collaborativeNote.title || "Untitled"}
         />
       )}
 

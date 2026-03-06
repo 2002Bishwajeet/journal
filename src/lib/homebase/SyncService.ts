@@ -164,7 +164,7 @@ export class SyncService {
                 if (remoteFolderOrDeleted.fileState === 'deleted') {
                     await this.handleDeletedFolder(remoteFolderOrDeleted as DeletedHomebaseFile);
                 } else {
-                    await this.handleRemoteFolder(remoteFolderOrDeleted as HomebaseFile<FolderFile>);
+                    await this.handleRemoteFolder(remoteFolderOrDeleted);
                 }
                 folderCount++;
                 current++;
@@ -186,7 +186,7 @@ export class SyncService {
                 if (remoteNoteOrDeleted.fileState === 'deleted') {
                     await this.handleDeletedNote(remoteNoteOrDeleted as DeletedHomebaseFile);
                 } else {
-                    await this.handleRemoteNote(remoteNoteOrDeleted as HomebaseFile<NoteFileContent>);
+                    await this.handleRemoteNote(remoteNoteOrDeleted);
                 }
                 noteCount++;
                 current++;
@@ -274,13 +274,14 @@ export class SyncService {
     /**
      * Handle a remote folder (create or update locally).
      */
-    async handleRemoteFolder(remoteFile: HomebaseFile<FolderFile>): Promise<void> {
+    async handleRemoteFolder(remoteFile: HomebaseFile<string>): Promise<void> {
         const uniqueId = remoteFile.fileMetadata.appData.uniqueId;
-        if (!uniqueId) return;
 
-        // Parse the content - it's stored as a JSON string from Homebase
-        const rawContent = remoteFile.fileMetadata.appData.content;
-        const content = typeof rawContent === "string" ? tryJsonParse<FolderFile>(rawContent) : rawContent;
+        const content = await this.#folderProvider.dsrToFolderFileContent(remoteFile, true,);
+        if (!content || !uniqueId) {
+            console.error(`[SyncService] Failed to convert remote folder ${remoteFile.fileId} to folder file content`);
+            return;
+        }
         const folderName = content?.name || 'Untitled Folder';
 
         const existingRecord = await getSyncRecord(uniqueId);
@@ -338,26 +339,26 @@ export class SyncService {
      * Handle a remote note (create, update, or merge).
      * Uses Yjs CRDT merge for conflict resolution.
      */
-    async handleRemoteNote(remoteFile: HomebaseFile<NoteFileContent>): Promise<void> {
+    async handleRemoteNote(remoteFile: HomebaseFile<string>): Promise<void> {
         const uniqueId = remoteFile.fileMetadata.appData.uniqueId;
-        if (!uniqueId) return;
-
-        // Parse the content - it's stored as a JSON string from Homebase
-        const rawContent = remoteFile.fileMetadata.appData.content;
-        const content = typeof rawContent === "string" ? tryJsonParse<NoteFileContent>(rawContent) : rawContent;
+        const content = await this.#notesProvider.dsrToNoteFileContent(remoteFile, true,);
+        if (!content || !uniqueId) {
+            console.error(`[SyncService] Failed to convert remote note ${remoteFile.fileId} to note file content`);
+            return;
+        }
         const noteTitle = content?.title || 'Untitled';
         const existingRecord = await getSyncRecord(uniqueId);
 
         if (stringGuidsEqual(remoteFile.fileMetadata.versionTag, existingRecord?.versionTag)) {
             // No changes - skip processing
+            console.log(`[SyncService] No changes for note ${uniqueId}`);
             return;
         }
 
-
-
         // Get remote Yjs blob
         const lastModified = remoteFile.fileMetadata.updated;
-        const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId, lastModified);
+        //TODO: Fix undefined
+        const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId, undefined, lastModified);
 
         if (!existingRecord) {
             // New note from remote
@@ -632,13 +633,13 @@ export class SyncService {
 
                 const onVersionConflict = async () => {
                     console.log(`[SyncService] Version conflict for note ${record.localId}`);
-
-                    const freshFile = await this.#notesProvider.getNote(record.localId, { decrypt: false });
+                    //TODO: Fix undefined
+                    const freshFile = await this.#notesProvider.getNote(record.localId, undefined, { decrypt: false });
                     if (!freshFile) throw new Error('Remote note not found during conflict resolution');
                     cachedKeyHeader = freshFile.sharedSecretEncryptedKeyHeader;
 
                     const lastModified = freshFile.fileMetadata.updated;
-                    const remoteBlob = await this.#notesProvider.getNotePayload(freshFile.fileId, lastModified);
+                    const remoteBlob = await this.#notesProvider.getNotePayload(freshFile.fileId, undefined, lastModified);
                     let mergedBlob: Uint8Array | undefined = yjsBlob;
 
                     if (remoteBlob && yjsBlob) {
@@ -655,12 +656,14 @@ export class SyncService {
                         await deleteDocumentUpdates(record.localId);
                         await saveDocumentUpdate(record.localId, mergedBlob);
                     }
-
+                    //TODO: Fix Undefined
                     const result = await this.#notesProvider.updateNote(
                         record.localId,
                         freshFile.fileId,
                         freshFile.fileMetadata.versionTag,
                         doc.metadata,
+                        undefined, // authorOdinId - local
+                        undefined, // globalTransitId - local
                         mergedBlob,
                         cachedKeyHeader,
                         { toDeletePayloads }
@@ -682,6 +685,8 @@ export class SyncService {
                     record.remoteFileId,
                     record.versionTag || '',
                     doc.metadata,
+                    undefined, // authorOdinId - local
+                    undefined, // globalTransitId - local
                     yjsBlob,
                     cachedKeyHeader,
                     { onVersionConflict, toDeletePayloads }
