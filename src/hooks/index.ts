@@ -11,6 +11,7 @@ export { useDeviceType } from './useDeviceType';
 export type { DeviceType } from './useDeviceType';
 export { useSyncService } from './useSyncService';
 export { useDocumentCache } from './useDocumentCache';
+export { useJournalWebsocket } from './useJournalWebsocket';
 
 // Modal hooks
 export { useSearchModal, isAdvancedResult } from './useSearchModal';

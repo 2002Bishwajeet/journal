@@ -70,7 +70,8 @@ export function useYouAuthAuthorization() {
             [journalDriveRequest], // circleDrives
             undefined, // circles
             eccKey.publicKey,
-            window.location.host,
+            undefined,
+            // window.location.host,
             `${JOURNAL_APP_NAME} PWA`, // clientFriendlyName
             returnUrl
         );

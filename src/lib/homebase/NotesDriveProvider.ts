@@ -610,6 +610,19 @@ export class NotesDriveProvider {
         return { versionTag: result.newVersionTag };
     }
 
+    async dsrToNoteFileContent(dsr: HomebaseFile,
+        includeMetadataHeader: boolean): Promise<NoteFileContent | null> {
+        try {
+            const noteFileContent = await getContentFromHeaderOrPayload<NoteFileContent>(this.#dotYouClient, JOURNAL_DRIVE, dsr, includeMetadataHeader);
+            if (!noteFileContent) {
+                return null;
+            }
+            return noteFileContent;
+        } catch (error) {
+            console.error('[NotesDriveProvider] failed to get the noteFileContent of a dsr', dsr, error);
+            return null;
+
+        }
     /**
      * Make a note collaborative, granting access to specified circles.
      * Changes ACL to Connected with circleIds and moves to COLLABORATIVE_FOLDER_ID.
