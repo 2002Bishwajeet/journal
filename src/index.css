@@ -260,24 +260,29 @@ body {
 .prose ul[data-type="taskList"] li {
   display: flex;
   align-items: flex-start;
+  margin: 0.25rem 0;
 }
 
 .prose ul[data-type="taskList"] li > label {
   flex: 0 0 auto;
   margin-right: 0.5rem;
-  margin-top: 0.35rem;
+  margin-top: 0.15rem; /* Adjusted to vertically center the checkbox with the first line of text */
   user-select: none;
+  display: flex;
+  align-items: center;
 }
 
 .prose ul[data-type="taskList"] li > label input[type="checkbox"] {
-  width: 1rem;
-  height: 1rem;
+  width: 1.1rem;
+  height: 1.1rem;
   cursor: pointer;
   accent-color: var(--primary);
+  margin: 0;
 }
 
 .prose ul[data-type="taskList"] li > div {
   flex: 1 1 auto;
+  min-width: 0;
 }
 
 .prose ul[data-type="taskList"] li[data-checked="true"] > div {
@@ -286,12 +291,12 @@ body {
 }
 
 .prose ul[data-type="taskList"] ul[data-type='taskList'] {
-  margin: 0;
+  margin: 0.25rem 0 0 0;
+  padding-left: 1.5rem; /* Fix sublist indentation indentation */
 }
 
 .prose ul[data-type="taskList"] li p {
-  margin-top: 0.25em;
-  margin-bottom: 0.25em;
+  margin: 0;
 }
 
 /* Tables - Scrollable on Mobile */
