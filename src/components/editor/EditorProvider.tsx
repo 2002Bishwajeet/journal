@@ -230,8 +230,7 @@ export function EditorProvider({
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const invalidateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced search index update - reads current values from refs
-  const updateSearchIndex = useCallback((editorInstance: Editor) => {
+  const updateSearchIndex = useCallback((editorInstance: Editor, plainTextContent?: string) => {
     if (searchIndexTimeoutRef.current) {
       clearTimeout(searchIndexTimeoutRef.current);
     }
@@ -239,7 +238,8 @@ export function EditorProvider({
     searchIndexTimeoutRef.current = setTimeout(() => {
       const currentDocId = docIdRef.current;
       const currentMetadata = metadataRef.current;
-      const plainText = editorInstance.getText();
+      // Use passed plainText if available, otherwise fallback
+      const plainText = plainTextContent ?? editorInstance.getText();
       
       upsertSearchIndex({
         docId: currentDocId,
@@ -292,31 +292,24 @@ export function EditorProvider({
     };
   }, []);
 
-  // Track the last known content to detect actual changes
-  const lastContentRef = useRef<string | null>(null);
+
 
   // Handle editor content changes - only update when content actually changes
   useEffect(() => {
     if (!editor || !providerRef.current) return;
 
-    const handleUpdate = () => {
-      const currentContent = editor.getText();
-      
-      // Skip if content hasn't actually changed (e.g., Yjs sync on load)
-      if (lastContentRef.current === currentContent) {
+    const handleUpdate = ({ transaction }: { transaction: import("@tiptap/pm/state").Transaction }) => {
+      // Performance optimization: Only trigger save flow if the document actually changed
+      // `transaction.docChanged` is extremely fast as it's a simple boolean flag indicating
+      // if steps were applied to the document (including text or node attribute changes like checkboxes).
+      if (!transaction.docChanged) {
         return;
       }
-      
-      // First time we see content (initial load) - just store it, don't trigger update
-      if (lastContentRef.current === null) {
-        lastContentRef.current = currentContent;
-        return;
-      }
-      
-      // Content has genuinely changed - update everything
-      lastContentRef.current = currentContent;
 
-      updateSearchIndex(editor);
+      // We still need the plain text to update search index
+      const plainText = editor.getText();
+      
+      updateSearchIndex(editor, plainText);
       invalidateNotes();
 
       if (providerRef.current) {
@@ -326,7 +319,6 @@ export function EditorProvider({
 
     editor.on("update", handleUpdate);
     return () => {
-      lastContentRef.current = null;
       editor.off("update", handleUpdate);
     };
   }, [editor, updateSearchIndex, invalidateNotes, debouncedSave]);
