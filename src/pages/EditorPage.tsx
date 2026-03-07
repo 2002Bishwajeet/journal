@@ -98,8 +98,17 @@ function EditorLayout({
   );
 }
 
-export default function EditorPage() {
-  const { noteId, folderId } = useParams();
+export default function EditorPage({ 
+  overrideNoteId, 
+  overrideFolderId 
+}: { 
+  overrideNoteId?: string;
+  overrideFolderId?: string;
+} = {}) {
+  const params = useParams();
+  const noteId = overrideNoteId || params.noteId;
+  const folderId = overrideFolderId || params.folderId;
+  
   const navigate = useNavigate();
   const {
     get: { data: notes = [] },

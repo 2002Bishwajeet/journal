@@ -36,6 +36,7 @@ import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
 import { useFolders } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
+import EditorPage from "@/pages/EditorPage";
 
 export default function JournalLayout() {
   // Initialize theme preference & system listener at root level
@@ -332,8 +333,45 @@ export default function JournalLayout() {
           <SyncStatus className="ml-auto px-3" />
         </div>
 
-        <div className="flex-1 overflow-hidden">
-          <Outlet />
+        <div className="flex-1 relative overflow-hidden">
+          {isDesktop ? (
+            /* Desktop DOM Keep-Alive implementation */
+            openTabs.map((tab) => (
+              <div 
+                key={tab.docId}
+                className={cn(
+                  "absolute inset-0 w-full h-full",
+                  tab.docId === activeTabId ? "z-10 bg-background" : "z-0 opacity-0 pointer-events-none"
+                )}
+              >
+                {/* 
+                  We render EditorPage directly instead of through Outlet.
+                  Since EditorPage uses useParams() internally, but we aren't at the exact URL
+                  for background tabs, we need to pass the docId explicitly if we refactor EditorPage,
+                  OR since the router URL *is* changing, EditorPage will pick up the new URL 
+                  but we need to isolate the params.
+                  
+                  Actually, EditorPage relies heavily on `useParams().noteId`. 
+                  Since React Router's URL is shared by all rendered components, 
+                  all 10 EditorPages would read the *same* `noteId` from the URL, which is broken.
+
+                  Therefore, we must import and render `EditorPage` but we'll need to modify it
+                  to accept props instead of reading from `useParams`.
+                */}
+                <EditorPage overrideNoteId={tab.docId} overrideFolderId={folderId} />
+              </div>
+            ))
+          ) : (
+            /* Mobile keeps the simple Router Outlet behavior */
+            <Outlet />
+          )}
+
+          {/* Show empty state when no tab is active on desktop */}
+          {isDesktop && openTabs.length === 0 && (
+            <div className="absolute inset-0 z-0 flex items-center justify-center text-muted-foreground bg-background">
+              No notes open
+            </div>
+          )}
         </div>
       </main>
 
