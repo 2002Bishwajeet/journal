@@ -1,16 +1,21 @@
 import type * as WebLLMTypes from '@mlc-ai/web-llm';
+import { DEFAULT_MODEL_ID } from './models';
 
 let webllmModule: typeof WebLLMTypes | null = null;
 let engine: WebLLMTypes.MLCEngine | null = null;
 let isLoading = false;
 let modelLoaded = false; // Track if model is actually loaded and ready
 
-const MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+let currentModelId: string = DEFAULT_MODEL_ID;
 
 // Auto-GC configuration
-const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+let idleTimeoutMs = 5 * 60 * 1000; // Default 5 minutes
 let lastActivityTimestamp = 0;
 let idleCheckInterval: ReturnType<typeof setInterval> | null = null;
+
+export function setIdleTimeout(minutes: number): void {
+    idleTimeoutMs = Math.max(1, minutes) * 60 * 1000;
+}
 
 /**
  * Track activity to reset the idle timer
@@ -28,7 +33,7 @@ function startIdleChecker(): void {
     idleCheckInterval = setInterval(() => {
         if (engine && lastActivityTimestamp > 0) {
             const idleTime = Date.now() - lastActivityTimestamp;
-            if (idleTime >= IDLE_TIMEOUT_MS) {
+            if (idleTime >= idleTimeoutMs) {
                 console.log('[WebLLM] Idle for 5+ minutes, unloading to free memory...');
                 unloadWebLLM();
             }
@@ -71,13 +76,22 @@ export async function unloadWebLLM(): Promise<void> {
  * Initialize WebLLM engine with model stored in OPFS
  */
 export async function initWebLLM(
-    onProgress?: (progress: WebLLMTypes.InitProgressReport) => void
+    onProgress?: (progress: WebLLMTypes.InitProgressReport) => void,
+    modelId?: string
 ): Promise<boolean> {
+    const targetModel = modelId || currentModelId;
+
+    // If a different model is requested, unload current first
+    if (engine && modelLoaded && targetModel !== currentModelId) {
+        await unloadWebLLM();
+    }
+
     if (engine && modelLoaded) return true;
     if (isLoading) return false;
 
     isLoading = true;
     modelLoaded = false;
+    currentModelId = targetModel;
 
     try {
         if (!webllmModule) {
@@ -90,10 +104,10 @@ export async function initWebLLM(
             engine.setInitProgressCallback(onProgress);
         }
 
-        await engine.reload(MODEL_ID);
+        await engine.reload(currentModelId);
 
         isLoading = false;
-        modelLoaded = true; // Model is now fully loaded
+        modelLoaded = true;
         trackActivity();
         startIdleChecker();
         return true;
@@ -117,20 +131,32 @@ export async function checkGrammar(text: string): Promise<string[]> {
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a helpful writing assistant. Check the following text for grammar and spelling errors. Return ONLY a JSON array of error descriptions. If no errors, return []. Do not include any other text.',
+                    content: `You are a grammar checker. Check the text for grammar and spelling errors ONLY.
+Rules:
+- Return a JSON array of strings describing errors found.
+- Each string must be under 80 characters.
+- If no errors exist, return exactly: []
+- Do NOT explain, do NOT add commentary.
+- Do NOT invent errors that aren't there.
+- Maximum 5 errors per check.
+Output format: ["error 1", "error 2"]`,
                 },
                 {
                     role: 'user',
-                    content: text.slice(0, 500), // Limit to first 500 chars
+                    content: text.slice(0, 500),
                 },
             ],
-            max_tokens: 200,
-            temperature: 0.1,
+            max_tokens: 150,
+            temperature: 0.0,
         });
 
         const result = response.choices[0]?.message?.content || '[]';
         try {
-            return JSON.parse(result);
+            const parsed = JSON.parse(result);
+            if (!Array.isArray(parsed)) return [];
+            return parsed
+                .filter((e: unknown): e is string => typeof e === 'string' && e.length < 200)
+                .slice(0, 5);
         } catch {
             return [];
         }
@@ -152,18 +178,21 @@ export async function getAutocompleteSuggestion(text: string): Promise<string> {
             messages: [
                 {
                     role: 'system',
-                    content: 'Complete the following text with a natural continuation. Output ONLY the completion, no explanation. Keep it brief (under 20 words).',
+                    content: 'Continue the user\'s text naturally. Output ONLY the next few words (max 15 words). No explanation, no repetition of input, no quotes.',
                 },
                 {
                     role: 'user',
-                    content: text.slice(-200), // Last 200 chars
+                    content: text.slice(-200),
                 },
             ],
-            max_tokens: 50,
-            temperature: 0.7,
+            max_tokens: 30,
+            temperature: 0.3,
         });
 
-        return response.choices[0]?.message?.content || '';
+        const raw = response.choices[0]?.message?.content || '';
+        const trimmed = raw.trim();
+        if (trimmed.length > 80) return ''; // Hallucination guard
+        return trimmed;
     } catch (error) {
         console.error('[WebLLM] Autocomplete failed:', error);
         return '';
@@ -182,20 +211,27 @@ export async function getActionSuggestions(text: string): Promise<string[]> {
             messages: [
                 {
                     role: 'system',
-                    content: 'Analyze the following note text and suggest 0-3 helpful actions the user might want to take. Examples: "Add to calendar", "Create todo", "Set reminder". Return ONLY a JSON array of action strings. If no relevant actions, return [].',
+                    content: `Analyze the note and suggest 0-3 actions. Return ONLY a JSON array.
+Valid actions: "Add to calendar", "Create todo", "Set reminder", "Add tag", "Create checklist"
+If no actions are relevant, return: []
+Output format: ["action1", "action2"]`,
                 },
                 {
                     role: 'user',
-                    content: text.slice(0, 1000),
+                    content: text.slice(0, 500),
                 },
             ],
-            max_tokens: 100,
-            temperature: 0.3,
+            max_tokens: 60,
+            temperature: 0.1,
         });
 
         const result = response.choices[0]?.message?.content || '[]';
         try {
-            return JSON.parse(result);
+            const parsed = JSON.parse(result);
+            if (!Array.isArray(parsed)) return [];
+            return parsed
+                .filter((e: unknown): e is string => typeof e === 'string' && e.length < 100)
+                .slice(0, 3);
         } catch {
             return [];
         }
@@ -217,6 +253,13 @@ export function isWebLLMReady(): boolean {
  */
 export function isWebLLMLoading(): boolean {
     return isLoading;
+}
+
+/**
+ * Get the currently loaded model ID
+ */
+export function getCurrentModelId(): string {
+    return currentModelId;
 }
 
 export type RewriteStyle =
