@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDeviceType } from './useDeviceType';
+import { useAISettings } from './useAISettings';
 
 // Re-export type for convenience (type-only import doesn't add to bundle)
 export type RewriteStyle =
@@ -26,6 +27,7 @@ interface UseWebLLMResult {
 
     // Actions
     initialize: () => Promise<boolean>;
+    switchModel: (modelId: string) => Promise<boolean>;
     runGrammarCheck: (text: string) => Promise<void>;
     rewrite: (text: string, style: RewriteStyle) => Promise<string>;
     getSuggestions: (text: string) => Promise<string[]>;
@@ -53,6 +55,8 @@ export function useWebLLM(): UseWebLLMResult {
     const [loadingMessage, setLoadingMessage] = useState('');
     const [grammarErrors, setGrammarErrors] = useState<string[]>([]);
 
+    const { settings } = useAISettings();
+
     const deviceType = useDeviceType();
     const isMobile = deviceType === 'mobile';
 
@@ -70,13 +74,9 @@ export function useWebLLM(): UseWebLLMResult {
                 return;
             }
 
-            // Check if user previously enabled AI - auto-initialize on reload
-            // The model is cached in OPFS, so reloading is much faster
-            const wasEnabled = localStorage.getItem('webllm-enabled') === 'true';
-            if (wasEnabled) {
+            if (settings.enabled) {
                 setIsLoading(true);
                 setLoadingMessage('Restoring AI...');
-
                 try {
                     const module = await getWebLLMModule();
 
@@ -87,24 +87,21 @@ export function useWebLLM(): UseWebLLMResult {
                         return;
                     }
 
-                    // Initialize from cached model
                     const success = await module.initWebLLM((progress) => {
                         setLoadingProgress(progress.progress);
                         setLoadingMessage(progress.text);
-                    });
+                    }, settings.modelId);
 
                     setIsLoading(false);
                     setIsReady(success);
                 } catch (error) {
                     console.error('[WebLLM] Auto-init failed:', error);
                     setIsLoading(false);
-                    // Clear the flag if auto-init fails
-                    localStorage.removeItem('webllm-enabled');
                 }
             }
         };
         checkIfAlreadyReady();
-    }, [isMobile]);
+    }, [isMobile, settings.enabled, settings.modelId]);
 
     // Sync isReady state from the module periodically
     // This ensures all hook consumers see the update when any one initializes WebLLM
@@ -143,7 +140,6 @@ export function useWebLLM(): UseWebLLMResult {
             if (module.isWebLLMReady()) {
                 setIsReady(true);
                 setIsLoading(false);
-                localStorage.setItem('webllm-enabled', 'true');
                 return true;
             }
 
@@ -151,21 +147,42 @@ export function useWebLLM(): UseWebLLMResult {
             const success = await module.initWebLLM((progress) => {
                 setLoadingProgress(progress.progress);
                 setLoadingMessage(progress.text);
-            });
+            }, settings.modelId);
 
             setIsLoading(false);
             setIsReady(success);
-
-            // Persist AI enabled state
-            if (success) {
-                localStorage.setItem('webllm-enabled', 'true');
-            }
 
             return success;
         } catch (error) {
             console.error('[WebLLM] Failed to load module:', error);
             setIsLoading(false);
             setLoadingMessage('Failed to load AI');
+            return false;
+        }
+    }, [isMobile, settings.modelId]);
+
+    const switchModel = useCallback(async (modelId: string): Promise<boolean> => {
+        if (isMobile) return false;
+        setIsLoading(true);
+        setLoadingMessage('Switching model...');
+        setLoadingProgress(0);
+
+        try {
+            const module = await getWebLLMModule();
+            await module.unloadWebLLM();
+            setIsReady(false);
+
+            const success = await module.initWebLLM((progress) => {
+                setLoadingProgress(progress.progress);
+                setLoadingMessage(progress.text);
+            }, modelId);
+
+            setIsLoading(false);
+            setIsReady(success);
+            return success;
+        } catch (error) {
+            console.error('[WebLLM] Model switch failed:', error);
+            setIsLoading(false);
             return false;
         }
     }, [isMobile]);
@@ -229,6 +246,7 @@ export function useWebLLM(): UseWebLLMResult {
         loadingMessage,
         grammarErrors,
         initialize,
+        switchModel,
         runGrammarCheck,
         rewrite,
         getSuggestions,
