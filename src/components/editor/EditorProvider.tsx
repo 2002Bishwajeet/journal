@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback, type ReactNode } from "react";
+import { useAISettings } from "@/hooks/useAISettings";
 import { useEditor, type Editor } from "@tiptap/react";
 import * as Y from "yjs";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import {
   createCollaborationExtension,
   CustomShortcuts,
   AutocompletePlugin,
+  GrammarPlugin,
   FileHandler,
   SlashCommandsExtension,
 } from "./plugins";
@@ -44,7 +46,7 @@ export function EditorProvider({
   onEditorReady,
   isAIReady = false,
   onGetAutocompleteSuggestion,
-  // onCheckGrammar, // Currently disabled - GrammarPlugin is commented out
+  onCheckGrammar,
   children,
 }: EditorProviderProps) {
   const [yDoc] = useState(() => new Y.Doc());
@@ -60,6 +62,13 @@ export function EditorProvider({
   useEffect(() => {
     isAIReadyRef.current = isAIReady;
   }, [isAIReady]);
+
+  // Store grammar enabled state in ref to avoid editor recreation on toggle
+  const { settings: aiSettings } = useAISettings();
+  const isGrammarEnabledRef = useRef(aiSettings.grammarEnabled);
+  useEffect(() => {
+    isGrammarEnabledRef.current = aiSettings.grammarEnabled;
+  }, [aiSettings.grammarEnabled]);
 
   // Get Yjs fragment for ProseMirror - memoized to avoid recreating on every render
   const yXmlFragment = useMemo(
@@ -170,15 +179,18 @@ export function EditorProvider({
       }),
       // Slash commands (triggered by typing /)
       SlashCommandsExtension,
-      // GrammarPlugin.configure({
-      //   checkGrammar: onCheckGrammar || (async () => []),
-      //   getIsAIReady: () => isAIReadyRef.current,
-      //   debounceMs: 2000,
-      //   minCharsToCheck: 5,
-      //   debug: true,
-      // }),
+      // Grammar plugin — always included, checks getIsGrammarEnabled() at runtime
+      // eslint-disable-next-line react-hooks/refs -- getIsAIReady/getIsGrammarEnabled are getters called only within plugin execution, not during render
+      GrammarPlugin.configure({
+        checkGrammar: onCheckGrammar || (async () => []),
+        getIsAIReady: () => isAIReadyRef.current,
+        getIsGrammarEnabled: () => isGrammarEnabledRef.current,
+        debounceMs: 3000,
+        minCharsToCheck: 20,
+        debug: false,
+      }),
     ],
-    [yXmlFragment, onGetAutocompleteSuggestion, handleImageDrop]
+    [yXmlFragment, onGetAutocompleteSuggestion, onCheckGrammar, handleImageDrop]
   );
 
   // Create TipTap editor with performance optimizations
