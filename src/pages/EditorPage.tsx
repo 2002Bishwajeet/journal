@@ -13,6 +13,7 @@ import { ChevronLeft } from "lucide-react";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
+import { useAISettings } from "@/hooks/useAISettings";
 
 function EditorLayout({
   noteId,
@@ -118,6 +119,7 @@ export default function EditorPage({
 
   // WebLLM for AI-powered features
   const { isReady: isAIReady } = useWebLLM();
+  const { settings: aiSettings } = useAISettings();
 
   // Find the selected note metadata from the notes list
   const selectedNote = notes.find((n) => n.docId === noteId);
@@ -151,6 +153,7 @@ export default function EditorPage({
   // AI callbacks
   const handleGetAutocompleteSuggestion = useCallback(
     async (text: string): Promise<string> => {
+      if (!aiSettings.autocompleteEnabled) return "";
       if (!isAIReady) return "";
       try {
         const { getAutocompleteSuggestion } = await import("@/lib/webllm");
@@ -160,7 +163,7 @@ export default function EditorPage({
         return "";
       }
     },
-    [isAIReady],
+    [isAIReady, aiSettings.autocompleteEnabled],
   );
 
   const handleCheckGrammar = useCallback(
