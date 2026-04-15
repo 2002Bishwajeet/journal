@@ -41,8 +41,8 @@ export async function createTestDatabase(): Promise<PGlite> {
     CREATE INDEX IF NOT EXISTS idx_search_index_title
     ON search_index(title);
 
-    CREATE INDEX IF NOT EXISTS idx_search_metadata_gin
-    ON search_index USING GIN(metadata);
+    CREATE INDEX IF NOT EXISTS idx_search_metadata_folderid
+    ON search_index ((metadata->>'folderId'));
 
     -- Create folders table
     CREATE TABLE IF NOT EXISTS folders (
