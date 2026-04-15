@@ -9,7 +9,7 @@ import {
     deleteDocumentUpdates,
 } from '@/lib/db';
 import { getNewId } from '@/lib/utils';
-import type { Folder, SearchIndexEntry } from '@/types';
+import type { Folder, NoteListEntry } from '@/types';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { notesQueryKey } from './useNotes';
 import { useSyncService } from '@/hooks/useSyncService';
@@ -23,7 +23,7 @@ interface CreateFolderContext {
 
 interface DeleteFolderContext {
     previousFolders: Folder[] | undefined;
-    previousNotes: SearchIndexEntry[] | undefined;
+    previousNotes: NoteListEntry[] | undefined;
 }
 
 /**
@@ -74,7 +74,7 @@ export function useFolders() {
             await deleteFolderRemote(folderId);
 
             // Delete all notes in the folder locally (matching remote deletion via deleteFilesByGroupId)
-            const notes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
+            const notes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
             const notesInFolder = notes?.filter((n) => n.metadata.folderId === folderId) || [];
 
             // Delete each note's data locally
@@ -95,7 +95,7 @@ export function useFolders() {
             await queryClient.cancelQueries({ queryKey: notesQueryKey });
 
             const previousFolders = queryClient.getQueryData<Folder[]>(foldersQueryKey);
-            const previousNotes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
+            const previousNotes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
 
             // Optimistically remove folder
             queryClient.setQueryData<Folder[]>(foldersQueryKey, (old) =>
@@ -103,7 +103,7 @@ export function useFolders() {
             );
 
             // Optimistically remove notes in the folder
-            queryClient.setQueryData<SearchIndexEntry[]>(notesQueryKey, (old) =>
+            queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) =>
                 old?.filter((n) => n.metadata.folderId !== folderId) || []
             );
 

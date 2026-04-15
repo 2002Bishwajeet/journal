@@ -1,6 +1,6 @@
 import { MAIN_FOLDER_ID } from '../homebase';
 import { getDatabase } from './pglite';
-import type { SearchIndexEntry, Folder, DocumentMetadata, SyncRecord, PendingImageUpload, SyncError, AdvancedSearchResult } from '@/types';
+import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRecord, PendingImageUpload, SyncError, AdvancedSearchResult } from '@/types';
 
 
 
@@ -104,6 +104,32 @@ export async function getAllDocuments(): Promise<SearchIndexEntry[]> {
     }));
 }
 
+/**
+ * Lightweight query for the note list sidebar.
+ * Returns only title, a short preview, and metadata — NOT full content.
+ */
+export async function getNotesForList(): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        doc_id: string;
+        title: string;
+        preview: string;
+        metadata: DocumentMetadata;
+    }>(
+        `SELECT doc_id, title,
+                LEFT(plain_text_content, 150) as preview,
+                metadata
+         FROM search_index
+         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
+    );
+    return result.rows.map(row => ({
+        docId: row.doc_id,
+        title: row.title,
+        preview: row.preview || '',
+        metadata: row.metadata,
+    }));
+}
+
 export async function getDocumentsByFolder(folderId: string): Promise<SearchIndexEntry[]> {
     const db = await getDatabase();
     const result = await db.query<{
@@ -126,6 +152,34 @@ export async function getDocumentsByFolder(folderId: string): Promise<SearchInde
 }
 
 
+
+/**
+ * Lightweight query for the note list sidebar, filtered by folder.
+ * Returns only title, a short preview, and metadata — NOT full content.
+ */
+export async function getNotesForListByFolder(folderId: string): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        doc_id: string;
+        title: string;
+        preview: string;
+        metadata: DocumentMetadata;
+    }>(
+        `SELECT doc_id, title,
+                LEFT(plain_text_content, 150) as preview,
+                metadata
+         FROM search_index
+         WHERE metadata->>'folderId' = $1
+         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`,
+        [folderId]
+    );
+    return result.rows.map(row => ({
+        docId: row.doc_id,
+        title: row.title,
+        preview: row.preview || '',
+        metadata: row.metadata,
+    }));
+}
 
 export async function deleteSearchIndexEntry(docId: string): Promise<void> {
     const db = await getDatabase();

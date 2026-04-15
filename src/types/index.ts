@@ -34,6 +34,14 @@ export interface SearchIndexEntry {
     vectorEmbedding?: number[];
 }
 
+/** Lightweight version for list rendering — no full content */
+export interface NoteListEntry {
+    docId: string;
+    title: string;
+    preview: string; // first ~150 chars of content
+    metadata: DocumentMetadata;
+}
+
 // Enhanced search result with match highlighting
 export interface AdvancedSearchResult {
     docId: string;

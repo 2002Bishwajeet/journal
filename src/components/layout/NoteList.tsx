@@ -5,7 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConfirmDialog } from '@/components/modals';
 import { ContextMenuWrapper } from '@/components/ui/context-menu-wrapper';
 import { cn } from '@/lib/utils';
-import type { SearchIndexEntry } from '@/types';
+import type { NoteListEntry } from '@/types';
 import { formatRelativeTime } from '@/lib/utils/index';
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
@@ -14,12 +14,12 @@ import { notesQueryKey, useNotes } from "@/hooks/useNotes"; // Import useNotes
 import { getNoteGroup } from "@/helpers/dateGrouping"; // Import helper
 
 interface NoteListProps {
-  notes: SearchIndexEntry[];
+  notes: NoteListEntry[];
   selectedNoteId: string | null;
   onSelectNote: (docId: string) => void;
   onCreateNote: () => void;
   onDeleteNote: (docId: string) => void;
-  onShareNote: (note: SearchIndexEntry) => void;
+  onShareNote: (note: NoteListEntry) => void;
   isLoading?: boolean;
   className?: string;
 }
@@ -60,7 +60,7 @@ export default function NoteList({
 
   // Grouping Logic
   const groupedNotes = useMemo(() => {
-    const groups: { label: string; notes: SearchIndexEntry[] }[] = [];
+    const groups: { label: string; notes: NoteListEntry[] }[] = [];
     
     // 1. Pinned Notes
     const pinnedNotes = notes.filter(n => n.metadata.isPinned);
@@ -81,7 +81,7 @@ export default function NoteList({
     );
 
     // Bucket them
-    const dateGroups: Record<string, SearchIndexEntry[]> = {};
+    const dateGroups: Record<string, NoteListEntry[]> = {};
     const groupOrder: string[] = []; // To preserve order of appearance
 
     unpinnedNotes.forEach(note => {
@@ -191,17 +191,17 @@ export default function NoteList({
 }
 
 // Extracted NoteItem for cleaner swipe logic with enhanced touch implementation
-function NoteItem({ 
-  note, 
-  selectedNoteId, 
-  onSelectNote, 
+function NoteItem({
+  note,
+  selectedNoteId,
+  onSelectNote,
   onDeleteNote,
   onShareNote,
   onTogglePin,
-}: { 
-  note: SearchIndexEntry; 
-  selectedNoteId: string | null; 
-  onSelectNote: (id: string) => void; 
+}: {
+  note: NoteListEntry;
+  selectedNoteId: string | null;
+  onSelectNote: (id: string) => void;
   onDeleteNote: (id: string) => void;
   onShareNote: () => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
@@ -385,7 +385,7 @@ function NoteItem({
           )}
         </div>
         <p className="text-xs text-muted-foreground truncate mt-0.5 w-full">
-          {note.plainTextContent || 'No content'}
+          {note.preview || 'No content'}
         </p>
         <span className="text-xs text-muted-foreground/70 mt-1">
           {formatRelativeTime(note.metadata.timestamps.modified)}

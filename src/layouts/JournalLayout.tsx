@@ -30,7 +30,7 @@ import {
   JOURNAL_APP_NAME,  
 } from "@/lib/homebase/config";
 import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
-import type { SearchIndexEntry } from "@/types";
+import type { NoteListEntry } from "@/types";
 import { useNotes, useNotesByFolder } from "@/hooks/useNotes";
 import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
@@ -85,7 +85,7 @@ export default function JournalLayout() {
   const [showSearch, setShowSearch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
-  const [shareNote, setShareNote] = useState<SearchIndexEntry | null>(null);
+  const [shareNote, setShareNote] = useState<NoteListEntry | null>(null);
 
   // Handle App Shortcuts (PWA)
   const [searchParams, setSearchParams] = useSearchParams();
