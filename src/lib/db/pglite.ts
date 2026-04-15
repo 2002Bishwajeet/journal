@@ -222,6 +222,17 @@ async function runMigrations(database: PGlite): Promise<void> {
     console.warn('[DB Migration] Could not create content trigram index:', error);
   }
 
+  // Create GIN index on metadata JSONB for folder filtering
+  try {
+    await database.exec(`
+        CREATE INDEX IF NOT EXISTS idx_search_metadata_gin
+        ON search_index USING GIN(metadata);
+    `);
+    console.log('[DB Migration] Metadata GIN index ensured');
+  } catch (error) {
+    console.warn('[DB Migration] Could not create metadata GIN index:', error);
+  }
+
   // Populate search_vector for existing documents that don't have it
   try {
     await database.exec(`
