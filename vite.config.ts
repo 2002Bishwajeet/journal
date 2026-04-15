@@ -6,15 +6,17 @@ import fs from 'fs'
 import path from 'path'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
-    react({
-      babel: {
-        plugins: [
-          ['babel-plugin-react-compiler', {}],
-        ],
-      },
-    }),
+    react(
+      mode === 'production'
+        ? {
+            babel: {
+              plugins: [['babel-plugin-react-compiler', {}]],
+            },
+          }
+        : undefined
+    ),
     tailwindcss(),
     VitePWA({
       strategies: 'injectManifest',
@@ -130,5 +132,4 @@ export default defineConfig({
       'Cross-Origin-Opener-Policy': 'same-origin',
     },
   },
-})
-
+}))
