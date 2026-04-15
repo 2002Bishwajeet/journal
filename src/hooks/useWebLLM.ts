@@ -62,12 +62,10 @@ export function useWebLLM(): UseWebLLMResult {
 
     // Debounce timer for grammar check
     const grammarDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-    // Cleanup for deferred auto-init
-    const cleanupRef = useRef<(() => void) | null>(null);
 
     // Check if WebLLM was previously initialized (handles hot-reload and page refresh).
-    // Auto-init is deferred so it never blocks the initial render — engine.reload()
-    // compiles WASM shaders synchronously on the main thread and would freeze the UI.
+    // With WebWorkerMLCEngine, heavy work runs off-thread, but we still defer briefly
+    // to let the initial render complete before starting the module import.
     useEffect(() => {
         if (isMobile) return;
 
@@ -79,22 +77,8 @@ export function useWebLLM(): UseWebLLMResult {
 
         if (!settings.enabled) return;
 
-        // Defer heavy initialization until the browser is idle + a short delay,
-        // so the initial render, layout, and paint all complete first.
-        const timeoutId = setTimeout(() => {
-            const rid = typeof requestIdleCallback === 'function'
-                ? requestIdleCallback(() => autoInit())
-                : setTimeout(() => autoInit(), 100);
-
-            // Store for cleanup
-            cleanupRef.current = () => {
-                if (typeof cancelIdleCallback === 'function' && typeof rid === 'number') {
-                    cancelIdleCallback(rid);
-                }
-            };
-        }, 2000); // 2s delay — let the app fully render first
-
-        async function autoInit() {
+        // Brief defer so the initial render completes first
+        const timeoutId = setTimeout(async () => {
             setIsLoading(true);
             setLoadingMessage('Restoring AI...');
             try {
@@ -116,12 +100,9 @@ export function useWebLLM(): UseWebLLMResult {
                 console.error('[WebLLM] Auto-init failed:', error);
                 setIsLoading(false);
             }
-        }
+        }, 500);
 
-        return () => {
-            clearTimeout(timeoutId);
-            cleanupRef.current?.();
-        };
+        return () => clearTimeout(timeoutId);
     }, [isMobile, settings.enabled, settings.modelId]);
 
     // Sync isReady state from the module periodically

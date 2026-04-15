@@ -2,7 +2,8 @@ import type * as WebLLMTypes from '@mlc-ai/web-llm';
 import { DEFAULT_MODEL_ID } from './models';
 
 let webllmModule: typeof WebLLMTypes | null = null;
-let engine: WebLLMTypes.MLCEngine | null = null;
+let engine: WebLLMTypes.MLCEngineInterface | null = null;
+let worker: Worker | null = null;
 let isLoading = false;
 let modelLoaded = false; // Track if model is actually loaded and ready
 
@@ -68,6 +69,10 @@ export async function unloadWebLLM(): Promise<void> {
         modelLoaded = false;
         console.log('[WebLLM] Engine unloaded, memory freed');
     }
+    if (worker) {
+        worker.terminate();
+        worker = null;
+    }
     stopIdleChecker();
     lastActivityTimestamp = 0;
 }
@@ -98,7 +103,15 @@ export async function initWebLLM(
             webllmModule = await import('@mlc-ai/web-llm');
         }
 
-        engine = new webllmModule.MLCEngine();
+        // Use WebWorkerMLCEngine to run all heavy work (WASM compilation,
+        // model loading, inference) off the main thread.
+        if (!worker) {
+            worker = new Worker(
+                new URL('./worker.ts', import.meta.url),
+                { type: 'module' }
+            );
+        }
+        engine = new webllmModule.WebWorkerMLCEngine(worker);
 
         if (onProgress) {
             engine.setInitProgressCallback(onProgress);
