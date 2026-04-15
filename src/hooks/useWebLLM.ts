@@ -62,45 +62,66 @@ export function useWebLLM(): UseWebLLMResult {
 
     // Debounce timer for grammar check
     const grammarDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    // Cleanup for deferred auto-init
+    const cleanupRef = useRef<(() => void) | null>(null);
 
-    // Check if WebLLM was previously initialized (handles hot-reload and page refresh)
+    // Check if WebLLM was previously initialized (handles hot-reload and page refresh).
+    // Auto-init is deferred so it never blocks the initial render — engine.reload()
+    // compiles WASM shaders synchronously on the main thread and would freeze the UI.
     useEffect(() => {
-        const checkIfAlreadyReady = async () => {
-            if (isMobile) return;
+        if (isMobile) return;
 
-            // If module was already loaded (hot-reload scenario)
-            if (webllmModule && webllmModule.isWebLLMReady()) {
-                setIsReady(true);
-                return;
-            }
+        // If module was already loaded (hot-reload scenario), just sync state
+        if (webllmModule && webllmModule.isWebLLMReady()) {
+            setIsReady(true);
+            return;
+        }
 
-            if (settings.enabled) {
-                setIsLoading(true);
-                setLoadingMessage('Restoring AI...');
-                try {
-                    const module = await getWebLLMModule();
+        if (!settings.enabled) return;
 
-                    // Check if already ready after loading module
-                    if (module.isWebLLMReady()) {
-                        setIsReady(true);
-                        setIsLoading(false);
-                        return;
-                    }
+        // Defer heavy initialization until the browser is idle + a short delay,
+        // so the initial render, layout, and paint all complete first.
+        const timeoutId = setTimeout(() => {
+            const rid = typeof requestIdleCallback === 'function'
+                ? requestIdleCallback(() => autoInit())
+                : setTimeout(() => autoInit(), 100);
 
-                    const success = await module.initWebLLM((progress) => {
-                        setLoadingProgress(progress.progress);
-                        setLoadingMessage(progress.text);
-                    }, settings.modelId);
-
-                    setIsLoading(false);
-                    setIsReady(success);
-                } catch (error) {
-                    console.error('[WebLLM] Auto-init failed:', error);
-                    setIsLoading(false);
+            // Store for cleanup
+            cleanupRef.current = () => {
+                if (typeof cancelIdleCallback === 'function' && typeof rid === 'number') {
+                    cancelIdleCallback(rid);
                 }
+            };
+        }, 2000); // 2s delay — let the app fully render first
+
+        async function autoInit() {
+            setIsLoading(true);
+            setLoadingMessage('Restoring AI...');
+            try {
+                const module = await getWebLLMModule();
+                if (module.isWebLLMReady()) {
+                    setIsReady(true);
+                    setIsLoading(false);
+                    return;
+                }
+
+                const success = await module.initWebLLM((progress) => {
+                    setLoadingProgress(progress.progress);
+                    setLoadingMessage(progress.text);
+                }, settings.modelId);
+
+                setIsLoading(false);
+                setIsReady(success);
+            } catch (error) {
+                console.error('[WebLLM] Auto-init failed:', error);
+                setIsLoading(false);
             }
+        }
+
+        return () => {
+            clearTimeout(timeoutId);
+            cleanupRef.current?.();
         };
-        checkIfAlreadyReady();
     }, [isMobile, settings.enabled, settings.modelId]);
 
     // Sync isReady state from the module periodically
