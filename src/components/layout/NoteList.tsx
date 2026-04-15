@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Plus, FileText, Trash2, Share2, Users, Pin, PinOff, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -57,6 +57,8 @@ export default function NoteList({
         return next;
     });
   };
+
+  const handleDeleteNote = useCallback((id: string) => setNoteToDelete(id), []);
 
   // Grouping Logic
   const groupedNotes = useMemo(() => {
@@ -200,7 +202,7 @@ export default function NoteList({
                         note={row.note}
                         selectedNoteId={selectedNoteId}
                         onSelectNote={onSelectNote}
-                        onDeleteNote={(id) => setNoteToDelete(id)}
+                        onDeleteNote={handleDeleteNote}
                         onShareNote={() => onShareNote(row.note)}
                         onTogglePin={(id, isPinned) => togglePin.mutate({ docId: id, isPinned })}
                       />
@@ -231,7 +233,7 @@ export default function NoteList({
 }
 
 // Extracted NoteItem for cleaner swipe logic with enhanced touch implementation
-function NoteItem({
+const NoteItem = memo(function NoteItem({
   note,
   selectedNoteId,
   onSelectNote,
@@ -435,4 +437,4 @@ function NoteItem({
       </ContextMenuWrapper>
     </div>
   );
-}
+});
