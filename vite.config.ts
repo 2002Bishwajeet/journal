@@ -8,7 +8,13 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      babel: {
+        plugins: [
+          ['babel-plugin-react-compiler', {}],
+        ],
+      },
+    }),
     tailwindcss(),
     VitePWA({
       strategies: 'injectManifest',
