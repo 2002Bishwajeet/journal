@@ -123,8 +123,10 @@ export default function NoteList({
   const virtualizer = useVirtualizer({
     count: flatRows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => flatRows[index].type === 'header' ? 32 : 72,
+    estimateSize: (index) => flatRows[index].type === 'header' ? 32 : 74,
     overscan: 10,
+    paddingStart: 8,
+    paddingEnd: 8,
   });
 
   return (
@@ -160,7 +162,7 @@ export default function NoteList({
           </div>
         ) : (
           <div
-            className="py-2 w-full relative"
+            className="w-full relative"
             style={{ height: `${virtualizer.getTotalSize()}px` }}
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
@@ -168,9 +170,10 @@ export default function NoteList({
               return (
                 <div
                   key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
                   className="absolute top-0 left-0 w-full"
                   style={{
-                    height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
@@ -192,14 +195,16 @@ export default function NoteList({
                       </span>
                     </button>
                   ) : (
-                    <NoteItem
-                      note={row.note}
-                      selectedNoteId={selectedNoteId}
-                      onSelectNote={onSelectNote}
-                      onDeleteNote={(id) => setNoteToDelete(id)}
-                      onShareNote={() => onShareNote(row.note)}
-                      onTogglePin={(id, isPinned) => togglePin.mutate({ docId: id, isPinned })}
-                    />
+                    <div className="pb-0.5">
+                      <NoteItem
+                        note={row.note}
+                        selectedNoteId={selectedNoteId}
+                        onSelectNote={onSelectNote}
+                        onDeleteNote={(id) => setNoteToDelete(id)}
+                        onShareNote={() => onShareNote(row.note)}
+                        onTogglePin={(id, isPinned) => togglePin.mutate({ docId: id, isPinned })}
+                      />
+                    </div>
                   )}
                 </div>
               );
