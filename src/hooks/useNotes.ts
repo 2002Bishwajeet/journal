@@ -3,6 +3,7 @@ import {
     getNotesForList,
     getNotesForListByFolder,
     upsertSearchIndex,
+    updateSearchIndexMetadata,
     deleteSearchIndexEntry,
     deleteDocumentUpdates,
     upsertSyncRecord,
@@ -124,16 +125,7 @@ export function useNotes() {
 
     const updateMetadataMutation = useMutation<void, Error, UpdateMetadataParams, NoteMutationContext>({
         mutationFn: async ({ docId, metadata }) => {
-            const notes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
-            const currentNote = notes?.find((n) => n.docId === docId);
-
-            await upsertSearchIndex({
-                docId,
-                title: metadata.title,
-                // preview is a truncated snapshot; pass it back as plainTextContent for the search index
-                plainTextContent: currentNote?.preview || '',
-                metadata,
-            });
+            await updateSearchIndexMetadata(docId, metadata.title, metadata);
 
             await updateSyncStatus(docId, 'pending');
         },
@@ -170,13 +162,7 @@ export function useNotes() {
 
             const updatedMetadata = { ...currentNote.metadata, isPinned };
 
-            await upsertSearchIndex({
-                docId: currentNote.docId,
-                title: currentNote.title,
-                // preview is a truncated snapshot; pass it back as plainTextContent for the search index
-                plainTextContent: currentNote.preview,
-                metadata: updatedMetadata,
-            });
+            await updateSearchIndexMetadata(docId, currentNote.title, updatedMetadata);
 
             await updateSyncStatus(docId, 'pending');
         },

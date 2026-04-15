@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotes } from "@/hooks/useNotes";
+import { getSearchIndexEntry } from "@/lib/db";
 import { webSearch } from "@/lib/search/searchService";
 import {
   Dialog,
@@ -184,10 +185,10 @@ function ChatInterface() {
 
     if (trimmed.startsWith("/summarize")) {
       if (noteId) {
-        const note = notes.find((n) => n.docId === noteId);
-        if (note?.plainTextContent) {
+        const fullEntry = await getSearchIndexEntry(noteId);
+        if (fullEntry?.plainTextContent) {
           await sendMessage(
-            `Please summarize this note:\n\n${note.plainTextContent.slice(0, 2000)}`
+            `Please summarize this note:\n\n${fullEntry.plainTextContent.slice(0, 2000)}`
           );
         } else {
           await sendMessage("No note content found to summarize.");

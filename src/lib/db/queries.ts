@@ -64,6 +64,29 @@ export async function upsertSearchIndex(entry: SearchIndexEntry): Promise<void> 
     }
 }
 
+/**
+ * Update only metadata fields in search_index — does NOT touch plain_text_content.
+ * Use this for metadata-only mutations (title change, pin toggle, etc.)
+ * to avoid overwriting full content with a truncated preview.
+ */
+export async function updateSearchIndexMetadata(
+    docId: string,
+    title: string,
+    metadata: DocumentMetadata,
+): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `UPDATE search_index
+         SET title = $2,
+             metadata = $3,
+             search_vector = setweight(to_tsvector('english', COALESCE($2, '')), 'A') ||
+                             setweight(to_tsvector('english', COALESCE(plain_text_content, '')), 'B'),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE doc_id = $1`,
+        [docId, title, JSON.stringify(metadata)]
+    );
+}
+
 export async function getSearchIndexEntry(docId: string): Promise<SearchIndexEntry | null> {
     const db = await getDatabase();
     const result = await db.query<{
