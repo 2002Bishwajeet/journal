@@ -172,10 +172,9 @@ export default function NoteList({
               return (
                 <div
                   key={virtualRow.key}
-                  data-index={virtualRow.index}
-                  ref={virtualizer.measureElement}
                   className="absolute top-0 left-0 w-full"
                   style={{
+                    height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
