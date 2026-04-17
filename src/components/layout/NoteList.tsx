@@ -1,7 +1,7 @@
-import { useState, useMemo, useRef, useCallback, memo } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { Plus, FileText, Trash2, Share2, Users, Pin, PinOff, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { ConfirmDialog } from '@/components/modals';
 import { ContextMenuWrapper } from '@/components/ui/context-menu-wrapper';
 import { cn } from '@/lib/utils';
@@ -10,8 +10,8 @@ import { formatRelativeTime } from '@/lib/utils/index';
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
 import { useQueryClient } from "@tanstack/react-query";
-import { notesQueryKey, useNotes } from "@/hooks/useNotes"; // Import useNotes
-import { getNoteGroup } from "@/helpers/dateGrouping"; // Import helper
+import { notesQueryKey, useNotes } from "@/hooks/useNotes";
+import { getNoteGroup } from "@/helpers/dateGrouping";
 
 interface NoteListProps {
   notes: NoteListEntry[];
@@ -60,31 +60,24 @@ export default function NoteList({
 
   const handleDeleteNote = useCallback((id: string) => setNoteToDelete(id), []);
 
-  // Grouping Logic
   const groupedNotes = useMemo(() => {
     const groups: { label: string; notes: NoteListEntry[] }[] = [];
-    
-    // 1. Pinned Notes
+
     const pinnedNotes = notes.filter(n => n.metadata.isPinned);
     if (pinnedNotes.length > 0) {
-        // Sort pinned notes by modified date (newest first)
-        pinnedNotes.sort((a, b) => 
+        pinnedNotes.sort((a, b) =>
             new Date(b.metadata.timestamps.modified).getTime() - new Date(a.metadata.timestamps.modified).getTime()
         );
         groups.push({ label: 'Pinned', notes: pinnedNotes });
     }
 
-    // 2. Unpinned Notes
     const unpinnedNotes = notes.filter(n => !n.metadata.isPinned);
-    
-    // Sort unpinned by date first
-    unpinnedNotes.sort((a, b) => 
+    unpinnedNotes.sort((a, b) =>
         new Date(b.metadata.timestamps.modified).getTime() - new Date(a.metadata.timestamps.modified).getTime()
     );
 
-    // Bucket them
     const dateGroups: Record<string, NoteListEntry[]> = {};
-    const groupOrder: string[] = []; // To preserve order of appearance
+    const groupOrder: string[] = [];
 
     unpinnedNotes.forEach(note => {
         const groupLabel = getNoteGroup(note.metadata.timestamps.modified);
@@ -102,39 +95,10 @@ export default function NoteList({
     return groups;
   }, [notes]);
 
-  const flatRows = useMemo(() => {
-    const rows: Array<
-      | { type: 'header'; label: string; count: number; collapsed: boolean }
-      | { type: 'note'; note: NoteListEntry }
-    > = [];
-
-    for (const group of groupedNotes) {
-      const collapsed = collapsedGroups.has(group.label);
-      rows.push({ type: 'header', label: group.label, count: group.notes.length, collapsed });
-      if (!collapsed) {
-        for (const note of group.notes) {
-          rows.push({ type: 'note', note });
-        }
-      }
-    }
-    return rows;
-  }, [groupedNotes, collapsedGroups]);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  const virtualizer = useVirtualizer({
-    count: flatRows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => flatRows[index].type === 'header' ? 32 : 74,
-    overscan: 10,
-    paddingStart: 8,
-    paddingEnd: 8,
-  });
-
   return (
     <div
       className={cn(
-        'flex flex-col h-full w-full max-w-full bg-background border-r border-border overflow-hidden', 
+        'flex flex-col h-full w-full max-w-full bg-background border-r border-border overflow-hidden',
         className
       )}
     >
@@ -148,7 +112,7 @@ export default function NoteList({
       </div>
 
       {/* Notes list */}
-      <div ref={scrollRef} className="flex-1 min-h-0 w-full overflow-y-auto">
+      <ScrollArea className="flex-1 min-h-0 w-full">
         <PullToRefresh onRefresh={handleRefresh} className="w-full">
         {isLoading ? (
           <div className="flex items-center justify-center h-32">
@@ -163,57 +127,46 @@ export default function NoteList({
             </Button>
           </div>
         ) : (
-          <div
-            className="w-full relative"
-            style={{ height: `${virtualizer.getTotalSize()}px` }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const row = flatRows[virtualRow.index];
-              return (
-                <div
-                  key={virtualRow.key}
-                  className="absolute top-0 left-0 w-full"
-                  style={{
-                    height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  {row.type === 'header' ? (
+          <div className="py-2 w-full space-y-4">
+            {groupedNotes.map((group) => (
+                <div key={group.label} className="w-full">
                     <button
-                      onClick={() => toggleGroup(row.label)}
-                      className="flex items-center w-full px-3 py-1 hover:bg-muted/50 transition-colors group/header"
+                        onClick={() => toggleGroup(group.label)}
+                        className="flex items-center w-full px-3 py-1 hover:bg-muted/50 transition-colors group/header"
                     >
-                      {row.collapsed ? (
-                        <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-                      )}
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        {row.label}
-                      </span>
-                      <span className="ml-2 text-xs text-muted-foreground/50 opacity-0 group-hover/header:opacity-100 transition-opacity">
-                        {row.count}
-                      </span>
+                        {collapsedGroups.has(group.label) ?
+                            <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground" /> :
+                            <ChevronDown className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                        }
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            {group.label}
+                        </span>
+                        <span className="ml-2 text-xs text-muted-foreground/50 opacity-0 group-hover/header:opacity-100 transition-opacity">
+                            {group.notes.length}
+                        </span>
                     </button>
-                  ) : (
-                    <div className="pb-0.5">
-                      <NoteItem
-                        note={row.note}
-                        selectedNoteId={selectedNoteId}
-                        onSelectNote={onSelectNote}
-                        onDeleteNote={handleDeleteNote}
-                        onShareNote={() => onShareNote(row.note)}
-                        onTogglePin={(id, isPinned) => togglePin.mutate({ docId: id, isPinned })}
-                      />
-                    </div>
-                  )}
+
+                    {!collapsedGroups.has(group.label) && (
+                        <div className="space-y-0.5 mt-1">
+                            {group.notes.map((note) => (
+                                <NoteItem
+                                    key={note.docId}
+                                    note={note}
+                                    selectedNoteId={selectedNoteId}
+                                    onSelectNote={onSelectNote}
+                                    onDeleteNote={handleDeleteNote}
+                                    onShareNote={() => onShareNote(note)}
+                                    onTogglePin={(id, isPinned) => togglePin.mutate({ docId: id, isPinned })}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
-              );
-            })}
+            ))}
           </div>
         )}
         </PullToRefresh>
-      </div>
+      </ScrollArea>
 
       <ConfirmDialog
         isOpen={!!noteToDelete}
