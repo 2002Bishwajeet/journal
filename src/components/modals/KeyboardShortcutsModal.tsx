@@ -15,7 +15,8 @@ interface ShortcutGroup {
   shortcuts: ShortcutEntry[];
 }
 
-const isMac = navigator.platform.includes("Mac");
+const isMac = (navigator.userAgentData?.platform ?? navigator.platform)?.includes("mac") ||
+  (navigator.userAgentData?.platform ?? navigator.platform)?.includes("Mac");
 const mod = isMac ? "⌘" : "Ctrl";
 const shift = isMac ? "⇧" : "Shift";
 

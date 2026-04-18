@@ -6,8 +6,8 @@
  * Refactored to consume EditorContext.
  */
 
-import { useState, useRef } from "react";
-import { EditorContent, useEditorState } from "@tiptap/react";
+import { useState, useRef, useEffect } from "react";
+import { EditorContent } from "@tiptap/react";
 import type { DocumentMetadata } from "@/types";
 import { debounce } from "@/lib/utils/index";
 import { useEditorContext } from "./EditorContext";
@@ -41,15 +41,18 @@ export default function TipTapEditor({
   const [title, setTitle] = useState(metadata.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  const wordCount = useEditorState({
-    editor: editor ?? undefined,
-    selector: ({ editor: ed }) => {
-      if (!ed?.view || ed.isDestroyed) return { words: 0, characters: 0 };
-      const text = ed.getText();
-      const words = text.split(/\s+/).filter(Boolean).length;
-      return { words, characters: text.length };
-    },
-  });
+  const [wordCount, setWordCount] = useState({ words: 0, characters: 0 });
+  useEffect(() => {
+    if (!editor) return;
+    const update = () => {
+      const text = editor.getText();
+      setWordCount({ words: text.split(/\s+/).filter(Boolean).length, characters: text.length });
+    };
+    update();
+    const debounced = debounce(update, 500);
+    editor.on("update", debounced);
+    return () => { editor.off("update", debounced); };
+  }, [editor]);
 
   // Debounce metadata updates to prevent excessive sync calls
   const debouncedMetadataUpdate = useRef(

@@ -183,14 +183,7 @@ const formattingCommands: SlashCommandItem[] = [
         group: 'formatting',
         command: ({ editor, range }) => {
             editor.chain().focus().deleteRange(range).run();
-            const { state, view } = editor;
-            const { $from } = state.selection;
-            const pos = $from.before($from.depth);
-            const end = $from.after($from.depth);
-            const node = state.doc.nodeAt(pos);
-            if (node) {
-                view.dispatch(state.tr.insert(end, node.copy(node.content)));
-            }
+            editor.commands.duplicateBlock();
         },
     },
 ];

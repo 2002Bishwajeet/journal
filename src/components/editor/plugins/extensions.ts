@@ -37,18 +37,22 @@ const lowlight = createLowlight(common);
 
 const DuplicateBlock = Extension.create({
     name: 'duplicateBlock',
-    addKeyboardShortcuts() {
+    addCommands() {
         return {
-            'Mod-Shift-d': () => {
-                const { state, view } = this.editor;
+            duplicateBlock: () => ({ state, dispatch }) => {
                 const { $from } = state.selection;
                 const pos = $from.before($from.depth);
                 const end = $from.after($from.depth);
                 const node = state.doc.nodeAt(pos);
                 if (!node) return false;
-                view.dispatch(state.tr.insert(end, node.copy(node.content)));
+                if (dispatch) dispatch(state.tr.insert(end, node.copy(node.content)));
                 return true;
             },
+        };
+    },
+    addKeyboardShortcuts() {
+        return {
+            'Mod-Shift-d': () => this.editor.commands.duplicateBlock(),
         };
     },
 });

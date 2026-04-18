@@ -30,8 +30,8 @@ export function TextAlignPicker({ editor, currentAlign = 'left', className, icon
           type="button"
           className={cn(
             'p-2 rounded-md transition-colors',
-            'hover:bg-gray-100 dark:hover:bg-gray-800',
-            open && 'bg-gray-200 dark:bg-gray-700',
+            'hover:bg-muted',
+            open && 'bg-accent text-accent-foreground',
             className
           )}
           title="Text Alignment"
@@ -53,8 +53,8 @@ export function TextAlignPicker({ editor, currentAlign = 'left', className, icon
             }}
             className={cn(
               'p-2 rounded-md transition-colors',
-              'hover:bg-gray-100 dark:hover:bg-gray-800',
-              currentAlign === value && 'bg-gray-200 dark:bg-gray-700 text-blue-600 dark:text-blue-400'
+              'hover:bg-muted',
+              currentAlign === value && 'bg-accent text-accent-foreground'
             )}
           >
             <Icon size={iconSize} />
