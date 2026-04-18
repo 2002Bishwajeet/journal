@@ -35,6 +35,70 @@ export { FileHandler } from './FileHandler';
 import { common } from 'lowlight';
 const lowlight = createLowlight(common);
 
+const DuplicateBlock = Extension.create({
+    name: 'duplicateBlock',
+    addKeyboardShortcuts() {
+        return {
+            'Mod-Shift-d': () => {
+                const { state, view } = this.editor;
+                const { $from } = state.selection;
+                const pos = $from.before($from.depth);
+                const end = $from.after($from.depth);
+                const node = state.doc.nodeAt(pos);
+                if (!node) return false;
+                view.dispatch(state.tr.insert(end, node.copy(node.content)));
+                return true;
+            },
+        };
+    },
+});
+
+const IndentExtension = Extension.create({
+    name: 'indent',
+    addGlobalAttributes() {
+        return [{
+            types: ['paragraph', 'heading'],
+            attributes: {
+                indent: {
+                    default: 0,
+                    parseHTML: element => parseInt(element.getAttribute('data-indent') || '0', 10),
+                    renderHTML: attributes => {
+                        if (!attributes.indent) return {};
+                        return {
+                            'data-indent': attributes.indent,
+                            style: `padding-left: ${attributes.indent * 2}rem`,
+                        };
+                    },
+                },
+            },
+        }];
+    },
+    addKeyboardShortcuts() {
+        return {
+            'Tab': () => {
+                if (this.editor.isActive('listItem') || this.editor.isActive('taskItem') || this.editor.isActive('table')) {
+                    return false;
+                }
+                const nodeType = this.editor.state.selection.$from.parent.type.name;
+                if (!['paragraph', 'heading'].includes(nodeType)) return false;
+                const current = this.editor.getAttributes(nodeType).indent || 0;
+                if (current >= 8) return false;
+                return this.editor.chain().updateAttributes(nodeType, { indent: current + 1 }).run();
+            },
+            'Shift-Tab': () => {
+                if (this.editor.isActive('listItem') || this.editor.isActive('taskItem') || this.editor.isActive('table')) {
+                    return false;
+                }
+                const nodeType = this.editor.state.selection.$from.parent.type.name;
+                if (!['paragraph', 'heading'].includes(nodeType)) return false;
+                const current = this.editor.getAttributes(nodeType).indent || 0;
+                if (current <= 0) return false;
+                return this.editor.chain().updateAttributes(nodeType, { indent: current - 1 }).run();
+            },
+        };
+    },
+});
+
 const ClearFormattingShortcut = Extension.create({
     name: 'clearFormatting',
     addKeyboardShortcuts() {
@@ -147,5 +211,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
             types: ['heading', 'paragraph'],
         }),
         ClearFormattingShortcut,
+        DuplicateBlock,
+        IndentExtension,
     ];
 }
