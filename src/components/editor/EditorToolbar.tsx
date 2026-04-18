@@ -9,8 +9,10 @@ import { Editor } from '@tiptap/react';
 import {
   Bold,
   Italic,
+  Underline,
   Strikethrough,
   Code,
+  RemoveFormatting,
   List,
   ListOrdered,
   ListTodo,
@@ -29,6 +31,7 @@ import { ToolbarButton, ToolbarDivider, ToolbarPopover, useToolbarState, safeEdi
 import { undo, redo } from './plugins/collaboration';
 import { EmojiPicker } from './EmojiPicker';
 import { TablePicker } from './TablePicker';
+import { TextAlignPicker } from './TextAlignPicker';
 
 interface EditorToolbarProps {
   editor: Editor;
@@ -102,6 +105,13 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
         <Italic size={iconSize} />
       </ToolbarButton>
       <ToolbarButton
+        onClick={() => safeEditorCommand(editor, () => editor.chain().focus().toggleUnderline().run())}
+        isActive={state.isUnderline}
+        title="Underline (Cmd+U)"
+      >
+        <Underline size={iconSize} />
+      </ToolbarButton>
+      <ToolbarButton
         onClick={() => safeEditorCommand(editor, () => editor.chain().focus().toggleStrike().run())}
         isActive={state.isStrike}
         title="Strikethrough (Cmd+Shift+X)"
@@ -114,6 +124,12 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
         title="Inline Code (Cmd+E)"
       >
         <Code size={iconSize} />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => safeEditorCommand(editor, () => editor.chain().focus().clearNodes().unsetAllMarks().run())}
+        title="Clear Formatting (Cmd+\)"
+      >
+        <RemoveFormatting size={iconSize} />
       </ToolbarButton>
 
       <ToolbarPopover
@@ -214,6 +230,11 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
       </ToolbarButton>
       <EmojiPicker editor={editor} />
       <TablePicker editor={editor} />
+
+      <ToolbarDivider />
+
+      {/* Text Alignment */}
+      <TextAlignPicker editor={editor} currentAlign={state.textAlign} />
     </div>
   );
 }

@@ -15,7 +15,9 @@ import { Editor } from "@tiptap/react";
 import {
   Bold,
   Italic,
+  Underline,
   Strikethrough,
+  RemoveFormatting,
   List,
   ListOrdered,
   ListTodo,
@@ -32,6 +34,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useToolbarState, safeEditorCommand } from "./shared";
 import { EmojiPicker } from "./EmojiPicker";
+import { TablePicker } from "./TablePicker";
+import { TextAlignPicker } from "./TextAlignPicker";
 import { undo, redo } from "./plugins/collaboration";
 
 interface MobileToolbarProps {
@@ -170,9 +174,21 @@ export default function MobileToolbar({
     );
   }, [editor]);
 
+  const toggleUnderline = useCallback(() => {
+    safeEditorCommand(editor, () =>
+      editor.chain().focus().toggleUnderline().run(),
+    );
+  }, [editor]);
+
   const toggleStrike = useCallback(() => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleStrike().run(),
+    );
+  }, [editor]);
+
+  const clearFormatting = useCallback(() => {
+    safeEditorCommand(editor, () =>
+      editor.chain().focus().clearNodes().unsetAllMarks().run(),
     );
   }, [editor]);
 
@@ -303,6 +319,13 @@ export default function MobileToolbar({
           <Italic className="h-5 w-5" />
         </ToolbarButton>
         <ToolbarButton
+          onClick={toggleUnderline}
+          isActive={state.isUnderline}
+          title="Underline"
+        >
+          <Underline className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton
           onClick={toggleStrike}
           isActive={state.isStrike}
           title="Strikethrough"
@@ -315,6 +338,9 @@ export default function MobileToolbar({
           title="Code"
         >
           <Code className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={clearFormatting} title="Clear Formatting">
+          <RemoveFormatting className="h-5 w-5" />
         </ToolbarButton>
 
         <ToolbarDivider />
@@ -395,6 +421,16 @@ export default function MobileToolbar({
         <ToolbarButton onClick={addImage} title="Add Image">
           <ImageIcon className="h-5 w-5" />
         </ToolbarButton>
+        <TablePicker editor={editor} />
+
+        <ToolbarDivider />
+
+        <TextAlignPicker
+          editor={editor}
+          currentAlign={state.textAlign}
+          className="flex items-center justify-center w-12 h-12 min-w-12 rounded-lg transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
+          iconSize={20}
+        />
       </div>
     </div>
   );

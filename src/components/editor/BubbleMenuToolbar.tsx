@@ -11,7 +11,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
-import { Bold, Italic, Code, Link as LinkIcon, Strikethrough } from 'lucide-react';
+import { Bold, Italic, Underline, Code, Link as LinkIcon, Strikethrough, RemoveFormatting } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { safeEditorCommand } from './shared';
 import { useDeviceType } from '@/hooks';
@@ -115,8 +115,16 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
     safeEditorCommand(editor, () => editor.chain().focus().toggleItalic().run());
   }, [editor]);
 
+  const toggleUnderline = useCallback(() => {
+    safeEditorCommand(editor, () => editor.chain().focus().toggleUnderline().run());
+  }, [editor]);
+
   const toggleStrike = useCallback(() => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleStrike().run());
+  }, [editor]);
+
+  const clearFormatting = useCallback(() => {
+    safeEditorCommand(editor, () => editor.chain().focus().clearNodes().unsetAllMarks().run());
   }, [editor]);
 
   const toggleCode = useCallback(() => {
@@ -164,7 +172,15 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
       >
         <Italic size={iconSize} />
       </ToolbarButton>
-      
+
+      <ToolbarButton
+        onClick={toggleUnderline}
+        isActive={editor.isActive('underline')}
+        title="Underline"
+      >
+        <Underline size={iconSize} />
+      </ToolbarButton>
+
       <ToolbarButton
         onClick={toggleStrike}
         isActive={editor.isActive('strike')}
@@ -189,6 +205,15 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
         title="Link"
       >
         <LinkIcon size={iconSize} />
+      </ToolbarButton>
+
+      <div className="w-px h-5 bg-border mx-1" />
+
+      <ToolbarButton
+        onClick={clearFormatting}
+        title="Clear Formatting"
+      >
+        <RemoveFormatting size={iconSize} />
       </ToolbarButton>
     </div>
   );

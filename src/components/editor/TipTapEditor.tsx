@@ -7,7 +7,7 @@
  */
 
 import { useState, useRef } from "react";
-import { EditorContent } from "@tiptap/react";
+import { EditorContent, useEditorState } from "@tiptap/react";
 import type { DocumentMetadata } from "@/types";
 import { debounce } from "@/lib/utils/index";
 import { useEditorContext } from "./EditorContext";
@@ -40,6 +40,16 @@ export default function TipTapEditor({
   const deviceType = useDeviceType();
   const [title, setTitle] = useState(metadata.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const wordCount = useEditorState({
+    editor: editor ?? undefined,
+    selector: ({ editor: ed }) => {
+      if (!ed?.view || ed.isDestroyed) return { words: 0, characters: 0 };
+      const text = ed.getText();
+      const words = text.split(/\s+/).filter(Boolean).length;
+      return { words, characters: text.length };
+    },
+  });
 
   // Debounce metadata updates to prevent excessive sync calls
   const debouncedMetadataUpdate = useRef(
@@ -103,6 +113,15 @@ export default function TipTapEditor({
 
       {/* AI Suggestion Overlay - shows inline suggestions from slash commands */}
       {editor && deviceType !== 'mobile' && <AISuggestionOverlay editor={editor} />}
+
+      {/* Word Count Status Bar */}
+      {editor && (
+        <div className="flex items-center justify-end px-4 py-1.5 border-t border-gray-200 dark:border-gray-700 text-xs text-muted-foreground select-none">
+          <span>{wordCount.words} words</span>
+          <span className="mx-2">·</span>
+          <span>{wordCount.characters} characters</span>
+        </div>
+      )}
     </div>
   );
 }

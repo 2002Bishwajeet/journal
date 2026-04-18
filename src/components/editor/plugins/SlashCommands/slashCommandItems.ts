@@ -10,6 +10,9 @@ import {
     Heading1,
     Heading2,
     Heading3,
+    Heading4,
+    Heading5,
+    Heading6,
     List,
     ListOrdered,
     CheckSquare,
@@ -17,6 +20,8 @@ import {
     Quote,
     Table,
     Minus,
+    Subscript,
+    Superscript,
     Sparkles,
     FileText,
     Wand2,
@@ -60,6 +65,33 @@ const formattingCommands: SlashCommandItem[] = [
         group: 'formatting',
         command: ({ editor, range }) => {
             editor.chain().focus().deleteRange(range).setNode('heading', { level: 3 }).run();
+        },
+    },
+    {
+        title: 'Heading 4',
+        description: 'Sub-section heading',
+        icon: Heading4,
+        group: 'formatting',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).setNode('heading', { level: 4 }).run();
+        },
+    },
+    {
+        title: 'Heading 5',
+        description: 'Minor heading',
+        icon: Heading5,
+        group: 'formatting',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).setNode('heading', { level: 5 }).run();
+        },
+    },
+    {
+        title: 'Heading 6',
+        description: 'Smallest heading',
+        icon: Heading6,
+        group: 'formatting',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).setNode('heading', { level: 6 }).run();
         },
     },
     {
@@ -123,6 +155,24 @@ const formattingCommands: SlashCommandItem[] = [
         group: 'formatting',
         command: ({ editor, range }) => {
             editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+        },
+    },
+    {
+        title: 'Subscript',
+        description: 'Toggle subscript text',
+        icon: Subscript,
+        group: 'formatting',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).toggleSubscript().run();
+        },
+    },
+    {
+        title: 'Superscript',
+        description: 'Toggle superscript text',
+        icon: Superscript,
+        group: 'formatting',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).toggleSuperscript().run();
         },
     },
 ];

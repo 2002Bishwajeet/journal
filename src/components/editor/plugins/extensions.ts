@@ -5,12 +5,17 @@
  * Add, remove, or modify extensions here to customize the editor.
  */
 
+import { Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import Image from '@tiptap/extension-image';
+import Underline from '@tiptap/extension-underline';
+import Subscript from '@tiptap/extension-subscript';
+import Superscript from '@tiptap/extension-superscript';
+import TextAlign from '@tiptap/extension-text-align';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 
@@ -29,6 +34,26 @@ export { FileHandler } from './FileHandler';
 // Initialize lowlight for code syntax highlighting
 import { common } from 'lowlight';
 const lowlight = createLowlight(common);
+
+const ClearFormattingShortcut = Extension.create({
+    name: 'clearFormatting',
+    addKeyboardShortcuts() {
+        return {
+            'Mod-\\': () => this.editor.chain().clearNodes().unsetAllMarks().run(),
+        };
+    },
+});
+
+const CustomTextAlign = TextAlign.extend({
+    addKeyboardShortcuts() {
+        return {
+            'Mod-Shift-l': () => this.editor.commands.setTextAlign('left'),
+            'Mod-Shift-e': () => this.editor.commands.setTextAlign('center'),
+            'Mod-Shift-r': () => this.editor.commands.setTextAlign('right'),
+            'Mod-Shift-j': () => this.editor.commands.setTextAlign('justify'),
+        };
+    },
+});
 
 /**
  * Custom Image extension with NodeView for handling pending uploads and remote images
@@ -114,5 +139,13 @@ export function createBaseExtensions(options?: ExtensionOptions) {
 
         Mathematics,
         EmojiExtension,
+
+        Underline,
+        Subscript,
+        Superscript,
+        CustomTextAlign.configure({
+            types: ['heading', 'paragraph'],
+        }),
+        ClearFormattingShortcut,
     ];
 }
