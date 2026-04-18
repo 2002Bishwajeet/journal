@@ -24,6 +24,7 @@ import {
   SettingsModal,
   ShareDialog,
   ExtendPermissionDialog,
+  KeyboardShortcutsModal,
 } from "@/components/modals";
 import { 
   JOURNAL_APP_ID, 
@@ -85,6 +86,7 @@ export default function JournalLayout() {
   const [showSearch, setShowSearch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [shareNote, setShareNote] = useState<NoteListEntry | null>(null);
 
   // Handle App Shortcuts (PWA)
@@ -123,6 +125,7 @@ export default function JournalLayout() {
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
     onSearch: () => setShowSearch(true),
+    onKeyboardHelp: () => setShowKeyboardHelp(true),
   });
 
   // Device type detection
@@ -413,6 +416,11 @@ export default function JournalLayout() {
           noteTitle={shareNote.title || "Untitled"}
         />
       )}
+
+      <KeyboardShortcutsModal
+        isOpen={showKeyboardHelp}
+        onClose={() => setShowKeyboardHelp(false)}
+      />
 
       <ExtendPermissionDialog 
         appId={JOURNAL_APP_ID}
