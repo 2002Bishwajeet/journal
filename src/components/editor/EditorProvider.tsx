@@ -308,19 +308,22 @@ export function EditorProvider({
 
   // Handle editor content changes - only update when content actually changes
   useEffect(() => {
-    if (!editor || !providerRef.current) return;
+    if (!editor || !providerRef.current || isLoading) return;
 
+    let skipInitial = true;
     const handleUpdate = ({ transaction }: { transaction: import("@tiptap/pm/state").Transaction }) => {
-      // Performance optimization: Only trigger save flow if the document actually changed
-      // `transaction.docChanged` is extremely fast as it's a simple boolean flag indicating
-      // if steps were applied to the document (including text or node attribute changes like checkboxes).
       if (!transaction.docChanged) {
         return;
       }
 
-      // We still need the plain text to update search index
+      // Skip the first docChanged after attaching — that's the Yjs initial content load
+      if (skipInitial) {
+        skipInitial = false;
+        return;
+      }
+
       const plainText = editor.getText();
-      
+
       updateSearchIndex(editor, plainText);
       invalidateNotes();
 
@@ -333,7 +336,7 @@ export function EditorProvider({
     return () => {
       editor.off("update", handleUpdate);
     };
-  }, [editor, updateSearchIndex, invalidateNotes, debouncedSave]);
+  }, [editor, isLoading, updateSearchIndex, invalidateNotes, debouncedSave]);
 
 
   const value = {

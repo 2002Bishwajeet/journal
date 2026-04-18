@@ -69,16 +69,15 @@ export function useWebLLM(): UseWebLLMResult {
     useEffect(() => {
         if (isMobile) return;
 
-        // If module was already loaded (hot-reload scenario), just sync state
-        if (webllmModule && webllmModule.isWebLLMReady()) {
-            setIsReady(true);
-            return;
-        }
+        if (!settings.enabled && !(webllmModule && webllmModule.isWebLLMReady())) return;
 
-        if (!settings.enabled) return;
-
-        // Brief defer so the initial render completes first
+        // Defer to avoid synchronous setState in effect body
         const timeoutId = setTimeout(async () => {
+            // If module was already loaded (hot-reload scenario), just sync state
+            if (webllmModule && webllmModule.isWebLLMReady()) {
+                setIsReady(true);
+                return;
+            }
             setIsLoading(true);
             setLoadingMessage('Restoring AI...');
             try {

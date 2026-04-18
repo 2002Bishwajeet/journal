@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useSettingsModal } from "@/hooks/useSettingsModal";
 import {
@@ -238,7 +238,7 @@ function SectionHeader({
   children,
   subtitle,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   subtitle?: string;
 }) {
   return (
@@ -431,8 +431,8 @@ interface AITabProps {
   isAILoading: boolean;
   loadingProgress: number;
   loadingMessage: string;
-  initializeAI: () => void;
-  switchModel: (id: string) => Promise<void>;
+  initializeAI: () => Promise<boolean>;
+  switchModel: (id: string) => Promise<boolean>;
 }
 
 function AITab({
@@ -741,7 +741,7 @@ function AITab({
                         }
                       }
                       const root = await navigator.storage.getDirectory();
-                      for await (const [name] of (root as any).entries()) {
+                      for await (const [name] of (root as FileSystemDirectoryHandle & { entries(): AsyncIterable<[string, FileSystemHandle]> }).entries()) {
                         if (
                           name.includes("mlc") ||
                           name.includes("webllm")
@@ -1066,7 +1066,7 @@ function SettingsRow({
   icon: typeof Monitor;
   label: string;
   description: string;
-  trailing: React.ReactNode;
+  trailing: ReactNode;
 }) {
   return (
     <div className="flex items-center justify-between p-4 rounded-xl border border-border/60 bg-card hover:bg-accent/30 transition-colors">

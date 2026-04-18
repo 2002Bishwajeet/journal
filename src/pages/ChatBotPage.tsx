@@ -15,7 +15,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useNotes } from "@/hooks/useNotes";
 import { getSearchIndexEntry } from "@/lib/db";
 import { webSearch } from "@/lib/search/searchService";
 import {
@@ -52,9 +51,7 @@ function ChatInterface() {
     loadingMessage,
   } = useWebLLM();
 
-  const {
-    get: { data: notes = [] },
-  } = useNotes();
+
 
   const [input, setInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -214,7 +211,7 @@ function ChatInterface() {
 
     // Normal message
     await sendMessage(trimmed);
-  }, [input, sendMessage, clearHistory, noteId, notes]);
+  }, [input, sendMessage, clearHistory, noteId]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

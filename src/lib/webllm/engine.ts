@@ -35,7 +35,7 @@ function startIdleChecker(): void {
         if (engine && lastActivityTimestamp > 0) {
             const idleTime = Date.now() - lastActivityTimestamp;
             if (idleTime >= idleTimeoutMs) {
-                console.log('[WebLLM] Idle for 5+ minutes, unloading to free memory...');
+                console.log(`[WebLLM] Idle for ${Math.round(idleTimeoutMs / 60000)}+ minutes, unloading to free memory...`);
                 unloadWebLLM();
             }
         }
