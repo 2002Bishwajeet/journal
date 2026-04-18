@@ -12,38 +12,14 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import { Bold, Italic, Underline, Code, Link as LinkIcon, Strikethrough, RemoveFormatting } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { safeEditorCommand } from './shared';
+import { ToolbarButton, safeEditorCommand } from './shared';
 import { useDeviceType } from '@/hooks';
 
 interface BubbleMenuToolbarProps {
   editor: Editor;
 }
 
-interface ToolbarButtonProps {
-  onClick: () => void;
-  isActive?: boolean;
-  children: React.ReactNode;
-  title: string;
-}
-
-function ToolbarButton({ onClick, isActive, children, title }: ToolbarButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      className={cn(
-        "flex items-center justify-center w-8 h-8 rounded transition-colors",
-        "hover:bg-accent active:bg-accent/80",
-        "text-popover-foreground",
-        isActive && "bg-accent text-accent-foreground"
-      )}
-    >
-      {children}
-    </button>
-  );
-}
+const V = "bubble" as const;
 
 export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
   const iconSize = 16;
@@ -157,7 +133,7 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
       }}
       onMouseDown={(e) => e.preventDefault()} // Prevent losing selection
     >
-      <ToolbarButton
+      <ToolbarButton variant={V}
         onClick={toggleBold}
         isActive={editor.isActive('bold')}
         title="Bold"
@@ -165,7 +141,7 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
         <Bold size={iconSize} />
       </ToolbarButton>
       
-      <ToolbarButton
+      <ToolbarButton variant={V}
         onClick={toggleItalic}
         isActive={editor.isActive('italic')}
         title="Italic"
@@ -173,7 +149,7 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
         <Italic size={iconSize} />
       </ToolbarButton>
 
-      <ToolbarButton
+      <ToolbarButton variant={V}
         onClick={toggleUnderline}
         isActive={editor.isActive('underline')}
         title="Underline"
@@ -181,7 +157,7 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
         <Underline size={iconSize} />
       </ToolbarButton>
 
-      <ToolbarButton
+      <ToolbarButton variant={V}
         onClick={toggleStrike}
         isActive={editor.isActive('strike')}
         title="Strikethrough"
@@ -189,7 +165,7 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
         <Strikethrough size={iconSize} />
       </ToolbarButton>
       
-      <ToolbarButton
+      <ToolbarButton variant={V}
         onClick={toggleCode}
         isActive={editor.isActive('code')}
         title="Code"
@@ -199,7 +175,7 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
       
       <div className="w-px h-5 bg-border mx-1" />
       
-      <ToolbarButton
+      <ToolbarButton variant={V}
         onClick={addLink}
         isActive={editor.isActive('link')}
         title="Link"
@@ -209,7 +185,7 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
 
       <div className="w-px h-5 bg-border mx-1" />
 
-      <ToolbarButton
+      <ToolbarButton variant={V}
         onClick={clearFormatting}
         title="Clear Formatting"
       >

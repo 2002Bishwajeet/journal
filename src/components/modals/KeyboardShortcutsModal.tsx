@@ -4,6 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Kbd } from "@/components/ui/kbd";
 
 interface ShortcutEntry {
   keys: string[];
@@ -80,14 +81,6 @@ const shortcutGroups: ShortcutGroup[] = [
     ],
   },
 ];
-
-function Kbd({ children }: { children: string }) {
-  return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border bg-muted px-1.5 font-mono text-[11px] font-medium text-muted-foreground">
-      {children}
-    </kbd>
-  );
-}
 
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;

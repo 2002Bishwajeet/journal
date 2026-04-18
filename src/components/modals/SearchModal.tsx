@@ -1,4 +1,5 @@
 import { HighlightedText } from "@/components/ui/HighlightedText";
+import { Kbd } from "@/components/ui/kbd";
 import { Search, FileText, Loader2, Sparkles, Type, FileSearch, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchModal, isAdvancedResult, type SearchResult } from "@/hooks/useSearchModal";
@@ -177,9 +178,7 @@ export default function SearchModal({
             spellCheck="false"
           />
           <div className="hidden sm:flex items-center gap-1.5 ">
-            <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-              <span className="text-xs">Esc</span>
-            </kbd>
+            <Kbd>Esc</Kbd>
           </div>
         </div>
 
@@ -227,12 +226,12 @@ export default function SearchModal({
         <div className="hidden sm:flex items-center justify-between px-4 py-2 bg-muted/30 border-t border-border shrink-0 text-[11px] text-muted-foreground">
           <div className="flex gap-4">
             <span className="flex items-center gap-1">
-              <kbd className="bg-background border border-border px-1 rounded shadow-sm">↓</kbd>
-              <kbd className="bg-background border border-border px-1 rounded shadow-sm">↑</kbd>
+              <Kbd>↓</Kbd>
+              <Kbd>↑</Kbd>
               navigate
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="bg-background border border-border px-1 rounded shadow-sm">↵</kbd>
+              <Kbd>↵</Kbd>
               select
             </span>
           </div>
