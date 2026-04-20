@@ -36,6 +36,12 @@ export default function TabBar({
               ? "bg-background border-b-2 border-b-primary"
               : "bg-transparent"
           )}
+          onMouseDown={(e) => {
+            if (e.button === 1) {
+              e.preventDefault();
+              onTabClose(tab.docId);
+            }
+          }}
           onClick={() => onTabClick(tab.docId)}
         >
           <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />

@@ -3,7 +3,7 @@
  */
 
 export { ToolbarButton, ToolbarDivider } from './ToolbarButton';
-export type { ToolbarButtonProps } from './ToolbarButton';
+export type { ToolbarButtonProps, ToolbarVariant } from './ToolbarButton';
 
 export { ToolbarPopover } from './ToolbarPopover';
 export type { ToolbarPopoverProps } from './ToolbarPopover';

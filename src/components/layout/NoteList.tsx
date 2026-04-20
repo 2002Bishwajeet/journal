@@ -1,25 +1,26 @@
-import { useState, useMemo } from 'react';
-import { Plus, FileText, Trash2, Share2, Users, Pin, PinOff, ChevronDown, ChevronRight } from 'lucide-react';
+import { useState, useMemo, useCallback, memo } from 'react';
+import { Plus, FileText, Trash2, Share2, Users, Pin, PinOff, ChevronDown, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/modals';
 import { ContextMenuWrapper } from '@/components/ui/context-menu-wrapper';
 import { cn } from '@/lib/utils';
-import type { SearchIndexEntry } from '@/types';
+import type { NoteListEntry } from '@/types';
 import { formatRelativeTime } from '@/lib/utils/index';
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
 import { useQueryClient } from "@tanstack/react-query";
-import { notesQueryKey, useNotes } from "@/hooks/useNotes"; // Import useNotes
-import { getNoteGroup } from "@/helpers/dateGrouping"; // Import helper
+import { notesQueryKey, useNotes } from "@/hooks/useNotes";
+import { getNoteGroup } from "@/helpers/dateGrouping";
 
 interface NoteListProps {
-  notes: SearchIndexEntry[];
+  notes: NoteListEntry[];
   selectedNoteId: string | null;
   onSelectNote: (docId: string) => void;
   onCreateNote: () => void;
   onDeleteNote: (docId: string) => void;
-  onShareNote: (note: SearchIndexEntry) => void;
+  onShareNote: (note: NoteListEntry) => void;
   isLoading?: boolean;
   className?: string;
 }
@@ -36,6 +37,7 @@ export default function NoteList({
   className = '',
 }: NoteListProps) {
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'modified' | 'created' | 'title'>('modified');
   const { sync } = useSyncService();
   const queryClient = useQueryClient();
   const { togglePin } = useNotes();
@@ -58,63 +60,93 @@ export default function NoteList({
     });
   };
 
-  // Grouping Logic
+  const handleDeleteNote = useCallback((id: string) => setNoteToDelete(id), []);
+
   const groupedNotes = useMemo(() => {
-    const groups: { label: string; notes: SearchIndexEntry[] }[] = [];
-    
-    // 1. Pinned Notes
+    const groups: { label: string; notes: NoteListEntry[] }[] = [];
+
     const pinnedNotes = notes.filter(n => n.metadata.isPinned);
     if (pinnedNotes.length > 0) {
-        // Sort pinned notes by modified date (newest first)
-        pinnedNotes.sort((a, b) => 
+        pinnedNotes.sort((a, b) =>
             new Date(b.metadata.timestamps.modified).getTime() - new Date(a.metadata.timestamps.modified).getTime()
         );
         groups.push({ label: 'Pinned', notes: pinnedNotes });
     }
 
-    // 2. Unpinned Notes
     const unpinnedNotes = notes.filter(n => !n.metadata.isPinned);
-    
-    // Sort unpinned by date first
-    unpinnedNotes.sort((a, b) => 
-        new Date(b.metadata.timestamps.modified).getTime() - new Date(a.metadata.timestamps.modified).getTime()
-    );
-
-    // Bucket them
-    const dateGroups: Record<string, SearchIndexEntry[]> = {};
-    const groupOrder: string[] = []; // To preserve order of appearance
-
-    unpinnedNotes.forEach(note => {
-        const groupLabel = getNoteGroup(note.metadata.timestamps.modified);
-        if (!dateGroups[groupLabel]) {
-            dateGroups[groupLabel] = [];
-            groupOrder.push(groupLabel);
+    unpinnedNotes.sort((a, b) => {
+        switch (sortBy) {
+            case 'created':
+                return new Date(b.metadata.timestamps.created).getTime() - new Date(a.metadata.timestamps.created).getTime();
+            case 'title':
+                return (a.title || 'Untitled').localeCompare(b.title || 'Untitled');
+            default:
+                return new Date(b.metadata.timestamps.modified).getTime() - new Date(a.metadata.timestamps.modified).getTime();
         }
-        dateGroups[groupLabel].push(note);
     });
 
-    groupOrder.forEach(label => {
-        groups.push({ label, notes: dateGroups[label] });
-    });
+    if (sortBy === 'title') {
+        if (unpinnedNotes.length > 0) {
+            groups.push({ label: 'All Notes', notes: unpinnedNotes });
+        }
+    } else {
+        const dateGroups: Record<string, NoteListEntry[]> = {};
+        const groupOrder: string[] = [];
+
+        unpinnedNotes.forEach(note => {
+            const groupTimestamp = sortBy === 'created'
+                ? note.metadata.timestamps.created
+                : note.metadata.timestamps.modified;
+            const groupLabel = getNoteGroup(groupTimestamp);
+            if (!dateGroups[groupLabel]) {
+                dateGroups[groupLabel] = [];
+                groupOrder.push(groupLabel);
+            }
+            dateGroups[groupLabel].push(note);
+        });
+
+        groupOrder.forEach(label => {
+            groups.push({ label, notes: dateGroups[label] });
+        });
+    }
 
     return groups;
-  }, [notes]);
-
+  }, [notes, sortBy]);
 
   return (
     <div
       className={cn(
-        'flex flex-col h-full w-full max-w-full bg-background border-r border-border overflow-hidden', 
+        'flex flex-col h-full w-full max-w-full bg-background border-r border-border overflow-hidden',
         className
       )}
     >
       {/* Header */}
       <div className="flex items-center justify-between h-12 px-3 border-b border-border shrink-0">
         <span className="text-sm font-medium text-foreground">Notes</span>
-        <Button size="sm" onClick={onCreateNote} className="h-7 text-xs">
-          <Plus className="h-3.5 w-3.5 mr-1" />
-          New
-        </Button>
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7">
+                <ArrowUpDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setSortBy('modified')} className={sortBy === 'modified' ? 'bg-accent' : ''}>
+                Last modified
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy('created')} className={sortBy === 'created' ? 'bg-accent' : ''}>
+                Date created
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy('title')} className={sortBy === 'title' ? 'bg-accent' : ''}>
+                Title A-Z
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button size="sm" onClick={onCreateNote} className="h-7 text-xs">
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            New
+          </Button>
+        </div>
       </div>
 
       {/* Notes list */}
@@ -136,12 +168,12 @@ export default function NoteList({
           <div className="py-2 w-full space-y-4">
             {groupedNotes.map((group) => (
                 <div key={group.label} className="w-full">
-                    <button 
+                    <button
                         onClick={() => toggleGroup(group.label)}
                         className="flex items-center w-full px-3 py-1 hover:bg-muted/50 transition-colors group/header"
                     >
-                        {collapsedGroups.has(group.label) ? 
-                            <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground" /> : 
+                        {collapsedGroups.has(group.label) ?
+                            <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground" /> :
                             <ChevronDown className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                         }
                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -151,16 +183,16 @@ export default function NoteList({
                             {group.notes.length}
                         </span>
                     </button>
-                    
+
                     {!collapsedGroups.has(group.label) && (
                         <div className="space-y-0.5 mt-1">
                             {group.notes.map((note) => (
-                                <NoteItem 
-                                    key={note.docId} 
-                                    note={note} 
-                                    selectedNoteId={selectedNoteId} 
-                                    onSelectNote={onSelectNote} 
-                                    onDeleteNote={(id) => setNoteToDelete(id)}
+                                <NoteItem
+                                    key={note.docId}
+                                    note={note}
+                                    selectedNoteId={selectedNoteId}
+                                    onSelectNote={onSelectNote}
+                                    onDeleteNote={handleDeleteNote}
                                     onShareNote={() => onShareNote(note)}
                                     onTogglePin={(id, isPinned) => togglePin.mutate({ docId: id, isPinned })}
                                 />
@@ -191,17 +223,17 @@ export default function NoteList({
 }
 
 // Extracted NoteItem for cleaner swipe logic with enhanced touch implementation
-function NoteItem({ 
-  note, 
-  selectedNoteId, 
-  onSelectNote, 
+const NoteItem = memo(function NoteItem({
+  note,
+  selectedNoteId,
+  onSelectNote,
   onDeleteNote,
   onShareNote,
   onTogglePin,
-}: { 
-  note: SearchIndexEntry; 
-  selectedNoteId: string | null; 
-  onSelectNote: (id: string) => void; 
+}: {
+  note: NoteListEntry;
+  selectedNoteId: string | null;
+  onSelectNote: (id: string) => void;
   onDeleteNote: (id: string) => void;
   onShareNote: () => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
@@ -385,8 +417,25 @@ function NoteItem({
           )}
         </div>
         <p className="text-xs text-muted-foreground truncate mt-0.5 w-full">
-          {note.plainTextContent || 'No content'}
+          {note.preview || 'No content'}
         </p>
+        {note.metadata.tags.length > 0 && (
+          <div className="flex items-center gap-1 mt-1 overflow-hidden">
+            {note.metadata.tags.slice(0, 3).map(tag => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-muted text-[10px] text-muted-foreground shrink-0"
+              >
+                #{'\u2009'}{tag}
+              </span>
+            ))}
+            {note.metadata.tags.length > 3 && (
+              <span className="text-[10px] text-muted-foreground/50">
+                +{note.metadata.tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
         <span className="text-xs text-muted-foreground/70 mt-1">
           {formatRelativeTime(note.metadata.timestamps.modified)}
         </span>
@@ -395,4 +444,4 @@ function NoteItem({
       </ContextMenuWrapper>
     </div>
   );
-}
+});

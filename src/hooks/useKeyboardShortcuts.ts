@@ -4,6 +4,8 @@ interface KeyboardShortcutsConfig {
     onSearch?: () => void;
     onNewNote?: () => void;
     onSave?: () => void;
+    onKeyboardHelp?: () => void;
+    onFocusMode?: () => void;
 }
 
 /**
@@ -12,11 +14,14 @@ interface KeyboardShortcutsConfig {
  * - Cmd/Ctrl+K: Open search
  * - Cmd/Ctrl+N: Create new note
  * - Cmd/Ctrl+S: Save current note
+ * - Cmd/Ctrl+/: Keyboard shortcuts help
  */
 export function useKeyboardShortcuts({
     onSearch,
     onNewNote,
     onSave,
+    onKeyboardHelp,
+    onFocusMode,
 }: KeyboardShortcutsConfig) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -43,10 +48,22 @@ export function useKeyboardShortcuts({
                         onSave();
                     }
                     break;
+                case '/':
+                    if (onKeyboardHelp) {
+                        e.preventDefault();
+                        onKeyboardHelp();
+                    }
+                    break;
+                case 'f':
+                    if (e.shiftKey && onFocusMode) {
+                        e.preventDefault();
+                        onFocusMode();
+                    }
+                    break;
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onSearch, onNewNote, onSave]);
+    }, [onSearch, onNewNote, onSave, onKeyboardHelp, onFocusMode]);
 }

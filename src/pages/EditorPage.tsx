@@ -10,16 +10,20 @@ import {
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
+import { useAISettings } from "@/hooks/useAISettings";
 
 function EditorLayout({
   noteId,
   onBack,
+  focusMode = false,
 }: {
   noteId: string;
   onBack: () => void;
+  focusMode?: boolean;
 }) {
   const { editor, isLoading } = useEditorContext();
   const {
@@ -83,23 +87,40 @@ function EditorLayout({
 
       <div className="flex-1 overflow-y-auto relative bg-background w-full">
         <TipTapEditor
-          metadata={selectedNoteMetadata!} // We handled null above, but strictly we should check again or rely on loader
+          noteId={noteId}
+          metadata={selectedNoteMetadata!}
           onMetadataChange={(meta) =>
             updateNoteMetadata({
               docId: noteId,
               metadata: meta,
             })
           }
-          hideToolbar={true} // We use the external toolbar
-          className="min-h-full py-8 px-6 md:px-12 max-w-5xl mx-auto pb-24 md:pb-8"
+          hideToolbar={true}
+          className={cn(
+            "min-h-full py-8 px-6 mx-auto pb-24 md:pb-8",
+            focusMode
+              ? "max-w-2xl md:px-8 pt-12"
+              : "max-w-5xl md:px-12"
+          )}
         />
       </div>
     </div>
   );
 }
 
-export default function EditorPage() {
-  const { noteId, folderId } = useParams();
+export default function EditorPage({
+  overrideNoteId,
+  overrideFolderId,
+  focusMode = false,
+}: {
+  overrideNoteId?: string;
+  overrideFolderId?: string;
+  focusMode?: boolean;
+} = {}) {
+  const params = useParams();
+  const noteId = overrideNoteId || params.noteId;
+  const folderId = overrideFolderId || params.folderId;
+  
   const navigate = useNavigate();
   const {
     get: { data: notes = [] },
@@ -109,6 +130,7 @@ export default function EditorPage() {
 
   // WebLLM for AI-powered features
   const { isReady: isAIReady } = useWebLLM();
+  const { settings: aiSettings } = useAISettings();
 
   // Find the selected note metadata from the notes list
   const selectedNote = notes.find((n) => n.docId === noteId);
@@ -142,6 +164,7 @@ export default function EditorPage() {
   // AI callbacks
   const handleGetAutocompleteSuggestion = useCallback(
     async (text: string): Promise<string> => {
+      if (!aiSettings.autocompleteEnabled) return "";
       if (!isAIReady) return "";
       try {
         const { getAutocompleteSuggestion } = await import("@/lib/webllm");
@@ -151,7 +174,7 @@ export default function EditorPage() {
         return "";
       }
     },
-    [isAIReady],
+    [isAIReady, aiSettings.autocompleteEnabled],
   );
 
   const handleCheckGrammar = useCallback(
@@ -199,7 +222,7 @@ export default function EditorPage() {
       onGetAutocompleteSuggestion={handleGetAutocompleteSuggestion}
       onCheckGrammar={handleCheckGrammar}
     >
-      <EditorLayout noteId={noteId} onBack={handleBackToNotes} />
+      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} />
     </EditorProvider>
   );
 }

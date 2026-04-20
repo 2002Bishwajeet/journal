@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-    getAllDocuments,
-    getDocumentsByFolder,
+    getNotesForList,
+    getNotesForListByFolder,
     upsertSearchIndex,
+    updateSearchIndexMetadata,
     deleteSearchIndexEntry,
     deleteDocumentUpdates,
     upsertSyncRecord,
@@ -12,7 +13,7 @@ import {
 } from '@/lib/db';
 import * as Y from 'yjs';
 import { getNewId } from '@/lib/utils';
-import type { SearchIndexEntry, DocumentMetadata } from '@/types';
+import type { NoteListEntry, SearchIndexEntry, DocumentMetadata } from '@/types';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { useSyncService } from '@/hooks/useSyncService';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
@@ -25,7 +26,7 @@ interface CreateNoteResult {
 }
 
 interface NoteMutationContext {
-    previousNotes: SearchIndexEntry[] | undefined;
+    previousNotes: NoteListEntry[] | undefined;
 }
 
 interface UpdateMetadataParams {
@@ -43,9 +44,9 @@ export function useNotes() {
 
     // --- Queries ---
 
-    const query = useQuery<SearchIndexEntry[]>({
+    const query = useQuery<NoteListEntry[]>({
         queryKey: notesQueryKey,
-        queryFn: getAllDocuments,
+        queryFn: getNotesForList,
     });
 
     // --- Mutations ---
@@ -104,9 +105,9 @@ export function useNotes() {
         },
         onMutate: async (docId) => {
             await queryClient.cancelQueries({ queryKey: notesQueryKey });
-            const previousNotes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
+            const previousNotes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
 
-            queryClient.setQueryData<SearchIndexEntry[]>(notesQueryKey, (old) =>
+            queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) =>
                 old?.filter((n) => n.docId !== docId) || []
             );
 
@@ -124,23 +125,15 @@ export function useNotes() {
 
     const updateMetadataMutation = useMutation<void, Error, UpdateMetadataParams, NoteMutationContext>({
         mutationFn: async ({ docId, metadata }) => {
-            const notes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
-            const currentNote = notes?.find((n) => n.docId === docId);
-
-            await upsertSearchIndex({
-                docId,
-                title: metadata.title,
-                plainTextContent: currentNote?.plainTextContent || '',
-                metadata,
-            });
+            await updateSearchIndexMetadata(docId, metadata.title, metadata);
 
             await updateSyncStatus(docId, 'pending');
         },
         onMutate: async ({ docId, metadata }) => {
             await queryClient.cancelQueries({ queryKey: notesQueryKey });
-            const previousNotes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
+            const previousNotes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
 
-            queryClient.setQueryData<SearchIndexEntry[]>(notesQueryKey, (old) =>
+            queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) =>
                 old?.map((n) =>
                     n.docId === docId
                         ? { ...n, title: metadata.title, metadata }
@@ -162,25 +155,22 @@ export function useNotes() {
 
     const togglePinMutation = useMutation<void, Error, { docId: string; isPinned: boolean }, NoteMutationContext>({
         mutationFn: async ({ docId, isPinned }) => {
-            const notes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
+            const notes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
             const currentNote = notes?.find((n) => n.docId === docId);
 
             if (!currentNote) return;
 
             const updatedMetadata = { ...currentNote.metadata, isPinned };
 
-            await upsertSearchIndex({
-                ...currentNote,
-                metadata: updatedMetadata,
-            });
+            await updateSearchIndexMetadata(docId, currentNote.title, updatedMetadata);
 
             await updateSyncStatus(docId, 'pending');
         },
         onMutate: async ({ docId, isPinned }) => {
             await queryClient.cancelQueries({ queryKey: notesQueryKey });
-            const previousNotes = queryClient.getQueryData<SearchIndexEntry[]>(notesQueryKey);
+            const previousNotes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
 
-            queryClient.setQueryData<SearchIndexEntry[]>(notesQueryKey, (old) =>
+            queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) =>
                 old?.map((n) =>
                     n.docId === docId
                         ? { ...n, metadata: { ...n.metadata, isPinned } }
@@ -269,11 +259,12 @@ export function useNotes() {
 
 /**
  * Query hook to fetch notes for a specific folder.
+ * Returns lightweight NoteListEntry objects (no full content).
  */
 export function useNotesByFolder(folderId: string | undefined) {
-    return useQuery<SearchIndexEntry[]>({
+    return useQuery<NoteListEntry[]>({
         queryKey: [...notesQueryKey, 'folder', folderId],
-        queryFn: () => getDocumentsByFolder(folderId!),
+        queryFn: () => getNotesForListByFolder(folderId!),
         enabled: !!folderId,
     });
 }

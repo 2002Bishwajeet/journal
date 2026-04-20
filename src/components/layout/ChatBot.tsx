@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Send, Loader2, Bot, MessageCircle, ChevronLeft, Globe, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotes } from "@/hooks/useNotes";
+import { getSearchIndexEntry } from "@/lib/db";
 import { webSearch } from "@/lib/search/searchService";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -239,8 +240,8 @@ INSTRUCTIONS:
     setIsGenerating(true);
 
     try {
-      // Construct context
-      const currentNote = notes.find((n) => n.docId === activeNoteId);
+      // Construct context — fetch full content from DB to avoid using truncated preview
+      const fullEntry = activeNoteId ? await getSearchIndexEntry(activeNoteId) : null;
       const recentNotes = notes
         .slice(0, 30)
         .map((n) => `- ${n.title}`)
@@ -249,11 +250,11 @@ INSTRUCTIONS:
       const systemContext = `You are a helpful assistant for a personal journal app. Answer questions based ONLY on the provided context below. If you don't know or the information isn't in the context, say so honestly.
 
 ${
-  currentNote
+  fullEntry
     ? `CURRENT NOTE:
-Title: ${currentNote.title}
+Title: ${fullEntry.title}
 Content:
-${currentNote.plainTextContent?.slice(0, 2000) || "(empty)"}
+${fullEntry.plainTextContent?.slice(0, 2000) || "(empty)"}
 `
     : "No note is currently open."
 }

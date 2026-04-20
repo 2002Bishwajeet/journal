@@ -10,6 +10,7 @@ import { Editor, useEditorState } from '@tiptap/react';
 export interface ToolbarState {
     isBold: boolean;
     isItalic: boolean;
+    isUnderline: boolean;
     isStrike: boolean;
     isCode: boolean;
     isHeading1: boolean;
@@ -21,11 +22,13 @@ export interface ToolbarState {
     isBlockquote: boolean;
     isLink: boolean;
     linkHref: string;
+    textAlign: string;
 }
 
 const defaultState: ToolbarState = {
     isBold: false,
     isItalic: false,
+    isUnderline: false,
     isStrike: false,
     isCode: false,
     isHeading1: false,
@@ -37,6 +40,7 @@ const defaultState: ToolbarState = {
     isBlockquote: false,
     isLink: false,
     linkHref: '',
+    textAlign: 'left',
 };
 
 /**
@@ -54,6 +58,7 @@ export function useToolbarState(editor: Editor): ToolbarState {
             return {
                 isBold: ed.isActive('bold'),
                 isItalic: ed.isActive('italic'),
+                isUnderline: ed.isActive('underline'),
                 isStrike: ed.isActive('strike'),
                 isCode: ed.isActive('code'),
                 isHeading1: ed.isActive('heading', { level: 1 }),
@@ -65,6 +70,9 @@ export function useToolbarState(editor: Editor): ToolbarState {
                 isBlockquote: ed.isActive('blockquote'),
                 isLink: ed.isActive('link'),
                 linkHref: ed.getAttributes('link').href as string || '',
+                textAlign: (['left', 'center', 'right', 'justify'] as const).find(
+                    a => ed.isActive({ textAlign: a })
+                ) ?? 'left',
             };
         },
     });
