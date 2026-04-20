@@ -69,7 +69,7 @@ jobs:
       - name: Set version from release tag
         if: steps.version.outputs.source == 'release'
         run: |
-          npm version "${{ steps.version.outputs.version }}" --no-git-tag-force --allow-same-version
+          npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
 
       - name: Build web app
         run: npm run build
