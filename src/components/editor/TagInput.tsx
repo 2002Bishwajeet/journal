@@ -13,11 +13,12 @@ export function TagInput({ docId, metadata }: TagInputProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { tags: allTags, addTag, removeTag } = useTags();
+  const tags = metadata.tags ?? [];
 
   const suggestions = inputValue.trim()
     ? allTags.filter(t =>
         t.includes(inputValue.toLowerCase().replace(/^#/, '')) &&
-        !metadata.tags.includes(t)
+        !tags.includes(t)
       ).slice(0, 5)
     : [];
 
@@ -34,8 +35,8 @@ export function TagInput({ docId, metadata }: TagInputProps) {
       const val = inputValue.trim().replace(/^#/, '');
       if (val) handleAdd(val);
     }
-    if (e.key === 'Backspace' && !inputValue && metadata.tags.length > 0) {
-      removeTag(docId, metadata.tags[metadata.tags.length - 1], metadata);
+    if (e.key === 'Backspace' && !inputValue && tags.length > 0) {
+      removeTag(docId, tags[tags.length - 1], metadata);
     }
     if (e.key === 'Escape') {
       setShowSuggestions(false);
@@ -51,7 +52,7 @@ export function TagInput({ docId, metadata }: TagInputProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2" onClick={(e) => e.stopPropagation()}>
-      {metadata.tags.map(tag => (
+      {tags.map(tag => (
         <span
           key={tag}
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-xs font-medium text-muted-foreground group"
@@ -76,7 +77,7 @@ export function TagInput({ docId, metadata }: TagInputProps) {
           }}
           onKeyDown={handleKeyDown}
           onFocus={() => setShowSuggestions(true)}
-          placeholder={metadata.tags.length === 0 ? 'Add tags...' : '#'}
+          placeholder={tags.length === 0 ? 'Add tags...' : '#'}
           className="bg-transparent text-xs outline-none placeholder:text-muted-foreground/50 w-24"
         />
         {showSuggestions && suggestions.length > 0 && (

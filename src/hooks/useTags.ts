@@ -15,11 +15,12 @@ export function useTags() {
 
     const addTag = async (docId: string, tag: string, currentMetadata: DocumentMetadata) => {
         const normalizedTag = tag.toLowerCase().trim().replace(/^#/, '');
-        if (!normalizedTag || currentMetadata.tags.includes(normalizedTag)) return;
+        const currentTags = currentMetadata.tags ?? [];
+        if (!normalizedTag || currentTags.includes(normalizedTag)) return;
 
         const updatedMetadata = {
             ...currentMetadata,
-            tags: [...currentMetadata.tags, normalizedTag],
+            tags: [...currentTags, normalizedTag],
             timestamps: { ...currentMetadata.timestamps, modified: new Date().toISOString() },
         };
 
@@ -35,7 +36,7 @@ export function useTags() {
     const removeTag = async (docId: string, tag: string, currentMetadata: DocumentMetadata) => {
         const updatedMetadata = {
             ...currentMetadata,
-            tags: currentMetadata.tags.filter(t => t !== tag),
+            tags: (currentMetadata.tags ?? []).filter(t => t !== tag),
             timestamps: { ...currentMetadata.timestamps, modified: new Date().toISOString() },
         };
 

@@ -351,7 +351,7 @@ function generateMarkdownWithFrontmatter(note: SearchIndexEntry, content: string
         `title: "${note.title}"`,
         `created: "${note.metadata.timestamps.created}"`,
         `modified: "${note.metadata.timestamps.modified}"`,
-        `tags: [${note.metadata.tags.map(t => `"${t}"`).join(', ')}]`,
+        `tags: [${(note.metadata.tags ?? []).map(t => `"${t}"`).join(', ')}]`,
         '---',
         '',
     ].join('\n');
