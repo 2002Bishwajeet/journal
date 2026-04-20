@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, memo } from 'react';
-import { Plus, FileText, Trash2, Share2, Users, Pin, PinOff, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, FileText, Trash2, Share2, Users, Pin, PinOff, ChevronDown, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/modals';
 import { ContextMenuWrapper } from '@/components/ui/context-menu-wrapper';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ export default function NoteList({
   className = '',
 }: NoteListProps) {
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'modified' | 'created' | 'title'>('modified');
   const { sync } = useSyncService();
   const queryClient = useQueryClient();
   const { togglePin } = useNotes();
@@ -72,28 +74,41 @@ export default function NoteList({
     }
 
     const unpinnedNotes = notes.filter(n => !n.metadata.isPinned);
-    unpinnedNotes.sort((a, b) =>
-        new Date(b.metadata.timestamps.modified).getTime() - new Date(a.metadata.timestamps.modified).getTime()
-    );
-
-    const dateGroups: Record<string, NoteListEntry[]> = {};
-    const groupOrder: string[] = [];
-
-    unpinnedNotes.forEach(note => {
-        const groupLabel = getNoteGroup(note.metadata.timestamps.modified);
-        if (!dateGroups[groupLabel]) {
-            dateGroups[groupLabel] = [];
-            groupOrder.push(groupLabel);
+    unpinnedNotes.sort((a, b) => {
+        switch (sortBy) {
+            case 'created':
+                return new Date(b.metadata.timestamps.created).getTime() - new Date(a.metadata.timestamps.created).getTime();
+            case 'title':
+                return (a.title || 'Untitled').localeCompare(b.title || 'Untitled');
+            default:
+                return new Date(b.metadata.timestamps.modified).getTime() - new Date(a.metadata.timestamps.modified).getTime();
         }
-        dateGroups[groupLabel].push(note);
     });
 
-    groupOrder.forEach(label => {
-        groups.push({ label, notes: dateGroups[label] });
-    });
+    if (sortBy === 'title') {
+        if (unpinnedNotes.length > 0) {
+            groups.push({ label: 'All Notes', notes: unpinnedNotes });
+        }
+    } else {
+        const dateGroups: Record<string, NoteListEntry[]> = {};
+        const groupOrder: string[] = [];
+
+        unpinnedNotes.forEach(note => {
+            const groupLabel = getNoteGroup(note.metadata.timestamps.modified);
+            if (!dateGroups[groupLabel]) {
+                dateGroups[groupLabel] = [];
+                groupOrder.push(groupLabel);
+            }
+            dateGroups[groupLabel].push(note);
+        });
+
+        groupOrder.forEach(label => {
+            groups.push({ label, notes: dateGroups[label] });
+        });
+    }
 
     return groups;
-  }, [notes]);
+  }, [notes, sortBy]);
 
   return (
     <div
@@ -105,10 +120,30 @@ export default function NoteList({
       {/* Header */}
       <div className="flex items-center justify-between h-12 px-3 border-b border-border shrink-0">
         <span className="text-sm font-medium text-foreground">Notes</span>
-        <Button size="sm" onClick={onCreateNote} className="h-7 text-xs">
-          <Plus className="h-3.5 w-3.5 mr-1" />
-          New
-        </Button>
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7">
+                <ArrowUpDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setSortBy('modified')} className={sortBy === 'modified' ? 'bg-accent' : ''}>
+                Last modified
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy('created')} className={sortBy === 'created' ? 'bg-accent' : ''}>
+                Date created
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy('title')} className={sortBy === 'title' ? 'bg-accent' : ''}>
+                Title A-Z
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button size="sm" onClick={onCreateNote} className="h-7 text-xs">
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            New
+          </Button>
+        </div>
       </div>
 
       {/* Notes list */}
