@@ -991,7 +991,7 @@ function AboutTab({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
           <span
             className="inline-block mt-3 text-[11px] font-mono text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-md"
           >
-            v1.0.6
+            v{__APP_VERSION__}
           </span>
           <button
             onClick={onOpenShortcuts}
