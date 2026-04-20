@@ -197,7 +197,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </nav>
 
           {/* ── Content Area ── */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarGutter: 'stable' }}>
             <AnimatePresence mode="wait">
               {activeTab === "general" && (
                 <GeneralTab key="general" theme={theme} setTheme={setTheme} />
