@@ -362,8 +362,8 @@ export default function JournalLayout() {
             onTabClick={handleTabClick}
             onTabClose={handleTabClose}
           />
-          {noteId ? (
-            <div className="flex items-center ml-auto gap-1 px-3">
+          <div className="flex items-center ml-auto gap-1 px-3">
+            {noteId && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -373,9 +373,9 @@ export default function JournalLayout() {
               >
                 <Maximize2 className="h-3.5 w-3.5" />
               </Button>
-              <SyncStatus />
-            </div>
-          ) : null}
+            )}
+            <SyncStatus />
+          </div>
         </div>
 
         <div className="flex-1 relative overflow-hidden">
