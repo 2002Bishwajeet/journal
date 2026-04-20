@@ -84,6 +84,7 @@ function EditorLayout({
 
       <div className="flex-1 overflow-y-auto relative bg-background w-full">
         <TipTapEditor
+          noteId={noteId}
           metadata={selectedNoteMetadata!} // We handled null above, but strictly we should check again or rely on loader
           onMetadataChange={(meta) =>
             updateNoteMetadata({

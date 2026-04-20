@@ -19,11 +19,13 @@ import BubbleMenuToolbar from "./BubbleMenuToolbar";
 import { AISuggestionOverlay } from "./AISuggestionOverlay";
 import { TableColumnMenu } from "./table/TableColumnMenu";
 import { TableRowMenu } from "./table/TableRowMenu";
+import { TagInput } from "./TagInput";
 
 // Import KaTeX styles for math rendering
 import "katex/dist/katex.min.css";
 
 interface TipTapEditorProps {
+  noteId: string;
   metadata: DocumentMetadata;
   onMetadataChange?: (metadata: DocumentMetadata) => void;
   hideToolbar?: boolean;
@@ -31,6 +33,7 @@ interface TipTapEditorProps {
 }
 
 export default function TipTapEditor({
+  noteId,
   metadata,
   onMetadataChange,
   hideToolbar = false,
@@ -95,6 +98,9 @@ export default function TipTapEditor({
           className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder:text-gray-400 dark:text-white"
         />
       </div>
+
+      {/* Tag Input */}
+      <TagInput docId={noteId} metadata={metadata} />
 
       {/* Toolbar */}
       {editor && !hideToolbar && <EditorToolbar editor={editor} />}
