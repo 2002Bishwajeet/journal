@@ -41,7 +41,7 @@ export default function NoteList({
   const { sync } = useSyncService();
   const queryClient = useQueryClient();
   const { togglePin } = useNotes();
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
 
   const handleRefresh = async () => {
     await sync();
@@ -67,23 +67,23 @@ export default function NoteList({
 
     const pinnedNotes = notes.filter(n => n.metadata.isPinned);
     if (pinnedNotes.length > 0) {
-        pinnedNotes.sort((a, b) =>
+        const sortedPinned = pinnedNotes.toSorted((a: NoteListEntry, b: NoteListEntry) =>
             new Date(b.metadata.timestamps.modified).getTime() - new Date(a.metadata.timestamps.modified).getTime()
         );
-        groups.push({ label: 'Pinned', notes: pinnedNotes });
+        groups.push({ label: 'Pinned', notes: sortedPinned });
     }
 
-    const unpinnedNotes = notes.filter(n => !n.metadata.isPinned);
-    unpinnedNotes.sort((a, b) => {
-        switch (sortBy) {
-            case 'created':
-                return new Date(b.metadata.timestamps.created).getTime() - new Date(a.metadata.timestamps.created).getTime();
-            case 'title':
-                return (a.title || 'Untitled').localeCompare(b.title || 'Untitled');
-            default:
-                return new Date(b.metadata.timestamps.modified).getTime() - new Date(a.metadata.timestamps.modified).getTime();
-        }
-    });
+    const unpinnedNotes = notes.filter(n => !n.metadata.isPinned)
+        .toSorted((a: NoteListEntry, b: NoteListEntry) => {
+            switch (sortBy) {
+                case 'created':
+                    return new Date(b.metadata.timestamps.created).getTime() - new Date(a.metadata.timestamps.created).getTime();
+                case 'title':
+                    return (a.title || 'Untitled').localeCompare(b.title || 'Untitled');
+                default:
+                    return new Date(b.metadata.timestamps.modified).getTime() - new Date(a.metadata.timestamps.modified).getTime();
+            }
+        });
 
     if (sortBy === 'title') {
         if (unpinnedNotes.length > 0) {
@@ -317,8 +317,9 @@ const NoteItem = memo(function NoteItem({
   };
 
   return (
-    <div 
+    <div
       className="relative overflow-hidden w-full select-none"
+      style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 72px' }}
       onClick={isSwiped ? handleGlobalClick : undefined}
     >
       <ContextMenuWrapper

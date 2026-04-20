@@ -72,10 +72,10 @@ describe('AI Settings - loadSettings', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBeTruthy();
   });
 
-  it('should preserve Llama model ID during migration', () => {
+  it('should use default model for legacy migration', () => {
     localStorage.setItem('webllm-enabled', 'true');
     const settings = loadSettings();
-    expect(settings.modelId).toBe('Llama-3.2-1B-Instruct-q4f16_1-MLC');
+    expect(settings.modelId).toBe(DEFAULT_SETTINGS.modelId);
   });
 
   it('should handle corrupted data gracefully', () => {

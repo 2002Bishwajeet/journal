@@ -96,7 +96,7 @@ export default function MobileToolbar({
     };
 
     viewport.addEventListener("resize", handleResize);
-    viewport.addEventListener("scroll", handleResize);
+    viewport.addEventListener("scroll", handleResize, { passive: true });
     handleResize();
 
     return () => {

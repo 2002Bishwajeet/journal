@@ -79,11 +79,13 @@ export function useFolders() {
 
             // Delete each note's data locally
             await Promise.all(
-                notesInFolder.map(async (note) => {
-                    await deleteSearchIndexEntry(note.docId);
-                    await deleteDocumentUpdates(note.docId);
-                    await deleteSyncRecord(note.docId);
-                })
+                notesInFolder.map((note) =>
+                    Promise.all([
+                        deleteSearchIndexEntry(note.docId),
+                        deleteDocumentUpdates(note.docId),
+                        deleteSyncRecord(note.docId),
+                    ])
+                )
             );
 
             // Delete the folder itself

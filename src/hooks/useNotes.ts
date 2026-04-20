@@ -71,14 +71,16 @@ export function useNotes() {
                 metadata,
             };
 
-            await upsertSearchIndex(newNote);
-            //TODO: Should we create a sync record whne there is no content?
-            // Create sync record for Homebase sync
-            await upsertSyncRecord({
-                localId: docId,
-                entityType: 'note',
-                syncStatus: 'pending',
-            });
+            await Promise.all([
+                upsertSearchIndex(newNote),
+                //TODO: Should we create a sync record whne there is no content?
+                // Create sync record for Homebase sync
+                upsertSyncRecord({
+                    localId: docId,
+                    entityType: 'note',
+                    syncStatus: 'pending',
+                }),
+            ]);
 
             return { docId, folderId: metadata.folderId };
         },
@@ -99,9 +101,11 @@ export function useNotes() {
             await deleteNoteRemote(docId);
 
             // Then delete locally
-            await deleteSearchIndexEntry(docId);
-            await deleteDocumentUpdates(docId);
-            await deleteSyncRecord(docId);
+            await Promise.all([
+                deleteSearchIndexEntry(docId),
+                deleteDocumentUpdates(docId),
+                deleteSyncRecord(docId),
+            ]);
         },
         onMutate: async (docId) => {
             await queryClient.cancelQueries({ queryKey: notesQueryKey });
