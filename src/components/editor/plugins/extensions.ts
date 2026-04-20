@@ -166,6 +166,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
             codeBlock: false,
             undoRedo: false,
             link: false,
+            underline: false,
         }),
 
         Placeholder.configure({
