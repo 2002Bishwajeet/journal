@@ -99,7 +99,7 @@ export default defineConfig(({ mode }) => ({
     },
     headers: {
       // Required for OPFS/WebLLM and SharedArrayBuffer
-      'Cross-Origin-Embedder-Policy': 'credentialless',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy': 'same-origin',
     },
     fs: {
@@ -120,7 +120,7 @@ export default defineConfig(({ mode }) => ({
   },
   preview: {
     headers: {
-      'Cross-Origin-Embedder-Policy': 'credentialless',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy': 'same-origin',
     },
   },
