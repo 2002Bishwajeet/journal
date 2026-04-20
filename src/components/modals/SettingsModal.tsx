@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { useThemePreference } from "@/hooks/useThemePreference";
+import { useThemePreference, type ThemePreference } from "@/hooks/useThemePreference";
 import { useSettingsModal } from "@/hooks/useSettingsModal";
 import {
   Dialog,
@@ -54,13 +54,15 @@ const NAV_ITEMS: { id: SettingsTab; label: string; icon: typeof Monitor }[] = [
   { id: "about", label: "About", icon: Info },
 ];
 
+const easeOut: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
+
 const contentVariants = {
   hidden: { opacity: 0, y: 8, filter: "blur(4px)" },
   visible: {
     opacity: 1,
     y: 0,
     filter: "blur(0px)",
-    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.35, ease: easeOut },
   },
   exit: {
     opacity: 0,
@@ -81,7 +83,7 @@ const staggerItem = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.35, ease: easeOut },
   },
 };
 
@@ -273,7 +275,7 @@ function GeneralTab({
   setTheme,
 }: {
   theme: string;
-  setTheme: (t: string) => void;
+  setTheme: (t: ThemePreference) => void;
 }) {
   const themes = [
     {
@@ -303,7 +305,7 @@ function GeneralTab({
       line: "#E6E4DD",
       accent: "#F2F0E9",
     },
-  ];
+  ] as const;
 
   return (
     <motion.div

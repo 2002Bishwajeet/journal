@@ -89,8 +89,9 @@ export function useDocumentCache() {
      */
     const getRecentDocIds = useCallback((): string[] => {
         const entries = Array.from(cacheRef.current.values());
-        entries.sort((a, b) => b.lastAccessed - a.lastAccessed);
-        return entries.map(e => e.docId);
+        return entries
+            .toSorted((a: CachedDocumentMeta, b: CachedDocumentMeta) => b.lastAccessed - a.lastAccessed)
+            .map(e => e.docId);
     }, []);
 
     /**

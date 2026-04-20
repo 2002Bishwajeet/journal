@@ -23,8 +23,10 @@ export function useTags() {
             timestamps: { ...currentMetadata.timestamps, modified: new Date().toISOString() },
         };
 
-        await updateSearchIndexMetadata(docId, updatedMetadata.title, updatedMetadata);
-        await updateSyncStatus(docId, 'pending');
+        await Promise.all([
+            updateSearchIndexMetadata(docId, updatedMetadata.title, updatedMetadata),
+            updateSyncStatus(docId, 'pending'),
+        ]);
 
         queryClient.invalidateQueries({ queryKey: notesQueryKey });
         queryClient.invalidateQueries({ queryKey: tagsQueryKey });
@@ -37,8 +39,10 @@ export function useTags() {
             timestamps: { ...currentMetadata.timestamps, modified: new Date().toISOString() },
         };
 
-        await updateSearchIndexMetadata(docId, updatedMetadata.title, updatedMetadata);
-        await updateSyncStatus(docId, 'pending');
+        await Promise.all([
+            updateSearchIndexMetadata(docId, updatedMetadata.title, updatedMetadata),
+            updateSyncStatus(docId, 'pending'),
+        ]);
 
         queryClient.invalidateQueries({ queryKey: notesQueryKey });
         queryClient.invalidateQueries({ queryKey: tagsQueryKey });

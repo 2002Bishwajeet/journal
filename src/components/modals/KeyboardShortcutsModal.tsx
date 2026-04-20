@@ -6,6 +6,12 @@ import {
 } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
 
+declare global {
+  interface Navigator {
+    userAgentData?: { platform: string };
+  }
+}
+
 interface ShortcutEntry {
   keys: string[];
   description: string;

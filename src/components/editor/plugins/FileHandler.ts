@@ -32,11 +32,12 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
 
     addProseMirrorPlugins() {
         const { maxSizeMB, allowedTypes, onImageDrop } = this.options;
+        const allowedTypesSet = new Set(allowedTypes);
         const editor = this.editor;
 
         const processFile = async (file: File): Promise<boolean> => {
             // Validate file type
-            if (!allowedTypes.includes(file.type)) {
+            if (!allowedTypesSet.has(file.type)) {
                 toast.error(`Unsupported file type: ${file.type}`);
                 return false;
             }
@@ -84,7 +85,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
 
                         // Check if any file is an image
                         const imageFiles = Array.from(files).filter(f =>
-                            allowedTypes.includes(f.type)
+                            allowedTypesSet.has(f.type)
                         );
 
                         if (!imageFiles.length) return false;
@@ -104,7 +105,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
                         if (!items) return false;
 
                         const imageItems = Array.from(items).filter(item =>
-                            item.kind === 'file' && allowedTypes.includes(item.type)
+                            item.kind === 'file' && allowedTypesSet.has(item.type)
                         );
 
                         if (!imageItems.length) return false;

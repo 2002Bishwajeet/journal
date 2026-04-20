@@ -362,18 +362,20 @@ export default function JournalLayout() {
             onTabClick={handleTabClick}
             onTabClose={handleTabClose}
           />
-          <div className="flex items-center ml-auto gap-1 px-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => setFocusMode(true)}
-              title="Focus Mode (Cmd+Shift+F)"
-            >
-              <Maximize2 className="h-3.5 w-3.5" />
-            </Button>
-            <SyncStatus />
-          </div>
+          {noteId ? (
+            <div className="flex items-center ml-auto gap-1 px-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setFocusMode(true)}
+                title="Focus Mode (Cmd+Shift+F)"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </Button>
+              <SyncStatus />
+            </div>
+          ) : null}
         </div>
 
         <div className="flex-1 relative overflow-hidden">
@@ -433,7 +435,7 @@ export default function JournalLayout() {
       )}
 
       {/* Modals */}
-      {noteId && <ChatBot activeNoteId={noteId} />}
+      {noteId ? <ChatBot activeNoteId={noteId} /> : null}
 
       <SearchModal
         isOpen={showSearch}

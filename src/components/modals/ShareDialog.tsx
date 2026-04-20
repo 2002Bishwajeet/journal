@@ -31,7 +31,7 @@ export default function ShareDialog({
 }: ShareDialogProps) {
     const { getIdentity } = useAuth();
     const dotYouClient = useDotYouClientContext();
-    
+
     const [copied, setCopied] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isPublic, setIsPublic] = useState(false);
@@ -40,30 +40,29 @@ export default function ShareDialog({
     const identity = getIdentity() || 'unknown';
     const shareUrl = `${window.location.origin}/share/${encodeURIComponent(identity)}/${noteId}`;
 
-    const checkPublicStatus = useCallback(async () => {
-        if (!dotYouClient || !isOpen) return;
-
-        try {
-            const provider = new NotesDriveProvider(dotYouClient);
-            const note = await provider.getNote(noteId);
-            
-            if (note?.serverMetadata?.accessControlList?.requiredSecurityGroup === SecurityGroupType.Anonymous) {
-                setIsPublic(true);
-            }
-        } catch (err) {
-            console.error('Failed to check public status:', err);
-        }
-    }, [dotYouClient, isOpen, noteId]);
-
-    // Check status when dialog opens
-    useEffect(() => {
-        if (isOpen) {
-            checkPublicStatus();
-        } else {
+    const handleOpenChange = useCallback((open: boolean) => {
+        if (!open) {
             setIsPublic(false);
             setCopied(false);
+            onClose();
         }
-    }, [isOpen, checkPublicStatus]);
+    }, [onClose]);
+
+    useEffect(() => {
+        if (!isOpen || !dotYouClient) return;
+
+        let cancelled = false;
+        const provider = new NotesDriveProvider(dotYouClient);
+        provider.getNote(noteId).then(note => {
+            if (!cancelled && note?.serverMetadata?.accessControlList?.requiredSecurityGroup === SecurityGroupType.Anonymous) {
+                setIsPublic(true);
+            }
+        }).catch(err => {
+            console.error('Failed to check public status:', err);
+        });
+
+        return () => { cancelled = true; };
+    }, [isOpen, dotYouClient, noteId]);
 
     const handleMakePublic = useCallback(async () => {
         if (!dotYouClient) {
@@ -119,7 +118,7 @@ export default function ShareDialog({
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Share Note</DialogTitle>

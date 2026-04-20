@@ -5,7 +5,7 @@
  * Add, remove, or modify extensions here to customize the editor.
  */
 
-import { Extension } from '@tiptap/core';
+import { Extension, type RawCommands, type CommandProps } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
@@ -35,11 +35,19 @@ export { FileHandler } from './FileHandler';
 import { common } from 'lowlight';
 const lowlight = createLowlight(common);
 
+declare module '@tiptap/core' {
+    interface Commands<ReturnType> {
+        duplicateBlock: {
+            duplicateBlock: () => ReturnType;
+        };
+    }
+}
+
 const DuplicateBlock = Extension.create({
     name: 'duplicateBlock',
     addCommands() {
         return {
-            duplicateBlock: () => ({ state, dispatch }) => {
+            duplicateBlock: () => ({ state, dispatch }: CommandProps) => {
                 const { $from } = state.selection;
                 const pos = $from.before($from.depth);
                 const end = $from.after($from.depth);
@@ -48,7 +56,7 @@ const DuplicateBlock = Extension.create({
                 if (dispatch) dispatch(state.tr.insert(end, node.copy(node.content)));
                 return true;
             },
-        };
+        } as Partial<RawCommands>;
     },
     addKeyboardShortcuts() {
         return {

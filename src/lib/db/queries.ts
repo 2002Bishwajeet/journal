@@ -351,6 +351,7 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
         `, [trimmedQuery, likePattern]);
 
         const results: AdvancedSearchResult[] = [];
+        const highlightRegex = new RegExp(`(${trimmedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
 
         for (const row of result.rows) {
             // Determine match type and score
@@ -384,8 +385,7 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
             let contentHighlight = row.content_highlight;
             if (contentHighlight && !contentHighlight.includes('<mark>') && row.content_like_match) {
                 // Add manual highlighting for LIKE matches
-                const regex = new RegExp(`(${trimmedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                contentHighlight = contentHighlight.replace(regex, '<mark>$1</mark>');
+                contentHighlight = contentHighlight.replace(highlightRegex, '<mark>$1</mark>');
             }
 
             results.push({
@@ -400,9 +400,7 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
         }
 
         // Sort by score descending (should already be sorted by SQL, but ensure consistency)
-        results.sort((a, b) => b.score - a.score);
-
-        return results;
+        return results.toSorted((a: AdvancedSearchResult, b: AdvancedSearchResult) => b.score - a.score);
     } catch (error) {
         console.error('[advancedSearch] Error:', error);
         // Fallback to simple LIKE search if advanced search fails
@@ -433,6 +431,8 @@ async function fallbackSearch(query: string): Promise<AdvancedSearchResult[]> {
         LIMIT 50
     `, [searchPattern]);
 
+    const highlightRegex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+
     return result.rows.map((row, index) => {
         const isTitle = row.title.toLowerCase().includes(query.toLowerCase());
 
@@ -446,8 +446,7 @@ async function fallbackSearch(query: string): Promise<AdvancedSearchResult[]> {
                 const end = Math.min(row.plain_text_content.length, matchIndex + query.length + 80);
                 const snippet = row.plain_text_content.substring(start, end);
                 // Add highlight markers
-                const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                contentHighlight = snippet.replace(regex, '<mark>$1</mark>');
+                contentHighlight = snippet.replace(highlightRegex, '<mark>$1</mark>');
                 if (start > 0) contentHighlight = '...' + contentHighlight;
                 if (end < row.plain_text_content.length) contentHighlight += '...';
             }
