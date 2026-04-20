@@ -16,7 +16,8 @@ import {
 } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Minimize2, Maximize2 } from "lucide-react";
+import { Kbd } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
 import {
   CreateFolderModal,
@@ -24,18 +25,21 @@ import {
   SettingsModal,
   ShareDialog,
   ExtendPermissionDialog,
+  KeyboardShortcutsModal,
 } from "@/components/modals";
 import { 
   JOURNAL_APP_ID, 
   JOURNAL_APP_NAME,  
 } from "@/lib/homebase/config";
 import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
-import type { SearchIndexEntry } from "@/types";
+import type { NoteListEntry } from "@/types";
 import { useNotes, useNotesByFolder } from "@/hooks/useNotes";
+import { useTags, useNotesByTag } from "@/hooks/useTags";
 import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
 import { useFolders } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
+import EditorPage from "@/pages/EditorPage";
 
 export default function JournalLayout() {
   // Initialize theme preference & system listener at root level
@@ -80,11 +84,15 @@ export default function JournalLayout() {
   // Homebase sync - auto-syncs on mount and focus
   useSyncService();
 
+  // Focus / Zen mode state
+  const [focusMode, setFocusMode] = useState(false);
+
   // Modal states
   const [showSearch, setShowSearch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
-  const [shareNote, setShareNote] = useState<SearchIndexEntry | null>(null);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [shareNote, setShareNote] = useState<NoteListEntry | null>(null);
 
   // Handle App Shortcuts (PWA)
   const [searchParams, setSearchParams] = useSearchParams();
@@ -122,6 +130,8 @@ export default function JournalLayout() {
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
     onSearch: () => setShowSearch(true),
+    onKeyboardHelp: () => setShowKeyboardHelp(true),
+    onFocusMode: () => setFocusMode(prev => !prev),
   });
 
   // Device type detection
@@ -130,6 +140,11 @@ export default function JournalLayout() {
   // If not desktop (so mobile or tablet), treat as mobile layout
 
   const { data: filteredNotes = [], isLoading: isFilteredNotesLoading } = useNotesByFolder(folderId);
+
+  const selectedTag = searchParams.get('tag');
+  const { tags } = useTags();
+  const { data: tagFilteredNotes } = useNotesByTag(selectedTag);
+  const notesToShow = selectedTag ? (tagFilteredNotes ?? []) : filteredNotes;
 
   // Open tab when navigating to a note
   useEffect(() => {
@@ -198,7 +213,8 @@ export default function JournalLayout() {
           // Mobile: Visible only when no folder selected (root)
           !isDesktop &&
             !isFolderSelected &&
-            "flex absolute inset-0 z-30 w-full bg-background"
+            "flex absolute inset-0 z-30 w-full bg-background",
+          focusMode && "!hidden"
         )}
       >
         <Sidebar
@@ -221,6 +237,15 @@ export default function JournalLayout() {
           onSearch={() => setShowSearch(true)}
           onSettings={() => setShowSettings(true)}
           onLogout={handleLogout}
+          tags={tags}
+          selectedTag={selectedTag}
+          onSelectTag={(tag) => {
+            if (tag) {
+              navigate(`/?tag=${encodeURIComponent(tag)}`);
+            } else {
+              navigate(folderId ? `/${folderId}` : '/');
+            }
+          }}
           className="w-full h-full"
         />
       </div>
@@ -235,7 +260,8 @@ export default function JournalLayout() {
           !isDesktop &&
             isFolderSelected &&
             !isNoteSelected &&
-            "flex absolute inset-0 z-20 w-full"
+            "flex absolute inset-0 z-20 w-full",
+          focusMode && "!hidden"
         )}
       >
         <div className="flex flex-col h-full w-full max-w-full min-w-0 overflow-hidden">
@@ -261,9 +287,17 @@ export default function JournalLayout() {
           </div>
 
           <NoteList
-            notes={filteredNotes}
+            notes={notesToShow}
             selectedNoteId={noteId || null}
-            onSelectNote={(id) => navigate(`/${folderId}/${id}`, { viewTransition: true })}
+            onSelectNote={(id) => {
+              const note = notesToShow.find(n => n.docId === id);
+              const targetFolder = note?.metadata.folderId || folderId;
+              if (selectedTag) {
+                navigate(`/${targetFolder}/${id}?tag=${encodeURIComponent(selectedTag)}`, { viewTransition: true });
+              } else {
+                navigate(`/${folderId}/${id}`, { viewTransition: true });
+              }
+            }}
             onCreateNote={async () => {
               const { docId, folderId: newFolderId } = await createNote(
                 folderId
@@ -272,18 +306,18 @@ export default function JournalLayout() {
             }}
             onDeleteNote={async (id) => {
               // Find the next note to select
-              const currentIndex = filteredNotes.findIndex(
+              const currentIndex = notesToShow.findIndex(
                 (n) => n.docId === id
               );
               let nextNoteId: string | null = null;
 
-              if (currentIndex !== -1 && filteredNotes.length > 1) {
-                if (currentIndex < filteredNotes.length - 1) {
+              if (currentIndex !== -1 && notesToShow.length > 1) {
+                if (currentIndex < notesToShow.length - 1) {
                   // Select next note
-                  nextNoteId = filteredNotes[currentIndex + 1].docId;
+                  nextNoteId = notesToShow[currentIndex + 1].docId;
                 } else {
                   // Select previous note if we are deleting the last one
-                  nextNoteId = filteredNotes[currentIndex - 1].docId;
+                  nextNoteId = notesToShow[currentIndex - 1].docId;
                 }
               }
 
@@ -320,25 +354,88 @@ export default function JournalLayout() {
             "flex absolute inset-0 z-10 w-full h-full"
         )}
       >
-        {/* Desktop Tab Bar */}
-        <div className={isDesktop ? "flex items-center" : "hidden"}>
+        {/* Desktop Tab Bar — hidden in focus mode */}
+        <div className={cn(isDesktop ? "flex items-center" : "hidden", focusMode && "!hidden")}>
           <TabBar
             tabs={openTabs}
             activeTabId={activeTabId}
             onTabClick={handleTabClick}
             onTabClose={handleTabClose}
           />
-          {/* Sync Status Indicator */}
-          <SyncStatus className="ml-auto px-3" />
+          {noteId ? (
+            <div className="flex items-center ml-auto gap-1 px-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setFocusMode(true)}
+                title="Focus Mode (Cmd+Shift+F)"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </Button>
+              <SyncStatus />
+            </div>
+          ) : null}
         </div>
 
-        <div className="flex-1 overflow-hidden">
-          <Outlet />
+        <div className="flex-1 relative overflow-hidden">
+          {isDesktop ? (
+            /* Desktop DOM Keep-Alive implementation */
+            openTabs.map((tab) => (
+              <div 
+                key={tab.docId}
+                className={cn(
+                  "absolute inset-0 w-full h-full",
+                  tab.docId === activeTabId ? "z-10 bg-background" : "z-0 opacity-0 pointer-events-none"
+                )}
+              >
+                {/* 
+                  We render EditorPage directly instead of through Outlet.
+                  Since EditorPage uses useParams() internally, but we aren't at the exact URL
+                  for background tabs, we need to pass the docId explicitly if we refactor EditorPage,
+                  OR since the router URL *is* changing, EditorPage will pick up the new URL 
+                  but we need to isolate the params.
+                  
+                  Actually, EditorPage relies heavily on `useParams().noteId`. 
+                  Since React Router's URL is shared by all rendered components, 
+                  all 10 EditorPages would read the *same* `noteId` from the URL, which is broken.
+
+                  Therefore, we must import and render `EditorPage` but we'll need to modify it
+                  to accept props instead of reading from `useParams`.
+                */}
+                <EditorPage overrideNoteId={tab.docId} overrideFolderId={folderId} focusMode={focusMode} />
+              </div>
+            ))
+          ) : (
+            /* Mobile keeps the simple Router Outlet behavior */
+            <Outlet />
+          )}
+
+          {/* Show empty state when no tab is active on desktop */}
+          {isDesktop && openTabs.length === 0 && (
+            <div className="absolute inset-0 z-0 flex items-center justify-center text-muted-foreground bg-background">
+              No notes open
+            </div>
+          )}
         </div>
       </main>
 
+      {/* Focus mode exit pill — centered top, auto-fades, reveals on hover */}
+      {focusMode && (
+        <div className="fixed top-0 left-0 right-0 z-40 flex justify-center group/focus">
+          <button
+            onClick={() => setFocusMode(false)}
+            className="mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-foreground/5 backdrop-blur-md border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-all opacity-0 group-hover/focus:opacity-100 translate-y-[-8px] group-hover/focus:translate-y-0"
+          >
+            <Minimize2 className="h-3 w-3" />
+            Exit Focus
+            <Kbd>⌘⇧F</Kbd>
+          </button>
+        </div>
+      )}
+
       {/* Modals */}
-      {noteId && <ChatBot activeNoteId={noteId} />}
+      {noteId ? <ChatBot activeNoteId={noteId} /> : null}
 
       <SearchModal
         isOpen={showSearch}
@@ -375,6 +472,11 @@ export default function JournalLayout() {
           noteTitle={shareNote.title || "Untitled"}
         />
       )}
+
+      <KeyboardShortcutsModal
+        isOpen={showKeyboardHelp}
+        onClose={() => setShowKeyboardHelp(false)}
+      />
 
       <ExtendPermissionDialog 
         appId={JOURNAL_APP_ID}

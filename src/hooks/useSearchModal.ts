@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useDeferredValue } from "react";
 import { advancedSearch, getAllDocuments } from "@/lib/db";
 import { isIndexingInProgress } from "@/lib/workers";
 import type { SearchIndexEntry, AdvancedSearchResult } from "@/types";
@@ -213,9 +213,11 @@ export function useSearchModal({
         return () => window.removeEventListener("keydown", handleGlobalKeyDown);
     }, []);
 
+    const deferredResults = useDeferredValue(results);
+
     return {
         query,
-        results,
+        results: deferredResults,
         selectedIndex,
         isLoading,
         isIndexing,

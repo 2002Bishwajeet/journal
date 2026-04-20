@@ -1,51 +1,48 @@
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 export function UpdatePrompt() {
+  const registrationRef = useRef<ServiceWorkerRegistration | undefined>(undefined);
+
   const {
-    offlineReady: [offlineReady, setOfflineReady],
-    needRefresh: [needRefresh, setNeedRefresh],
+    needRefresh: [, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegistered(r: ServiceWorkerRegistration | undefined) {
-      // Checked every hour
-      if (r) {
-        setInterval(() => {
-          r.update();
-        }, 60 * 60 * 1000);
-      }
+    onRegisteredSW(_swUrl: string, registration: ServiceWorkerRegistration | undefined) {
+      registrationRef.current = registration;
     },
-    onRegisterError(error: unknown) {
-      console.error('SW registration error', error);
-    },
-  });
-
-  useEffect(() => {
-    if (offlineReady) {
+    onOfflineReady() {
       toast.success("App ready to work offline");
-      setOfflineReady(false);
-    }
-  }, [offlineReady, setOfflineReady]);
-
-  useEffect(() => {
-    if (needRefresh) {
+    },
+    onNeedRefresh() {
       toast.info("New version available", {
         description: "A new version of the app is available. Click to update.",
         duration: Infinity,
         action: {
           label: "Update",
           onClick: () => {
-             updateServiceWorker(true);
+            updateServiceWorker(true);
           },
         },
         cancel: {
-            label: "Dismiss",
-            onClick: () => setNeedRefresh(false),
+          label: "Dismiss",
+          onClick: () => setNeedRefresh(false),
         },
       });
-    }
-  }, [needRefresh, updateServiceWorker, setNeedRefresh]);
+    },
+    onRegisterError(error: unknown) {
+      console.error('SW registration error', error);
+    },
+  });
+
+  // Periodically check for SW updates (every hour) with proper cleanup
+  useEffect(() => {
+    const id = setInterval(() => {
+      registrationRef.current?.update();
+    }, 60 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
 
   return null;
 }

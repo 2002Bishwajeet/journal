@@ -23,6 +23,7 @@ import { STORAGE_KEY_LAST_SYNC } from "@/lib/homebase";
 import { SyncContext, type SyncContextType } from "@/hooks/useSyncService";
 import { notesQueryKey } from "@/hooks/useNotes";
 import { foldersQueryKey } from "@/hooks/useFolders";
+import { tagsQueryKey } from "@/hooks/useTags";
 import type { SyncProgress } from "@/types";
 import { useOnlineContext } from "@/hooks/useOnlineContext";
 
@@ -156,8 +157,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
       // Invalidate queries to refresh UI with pulled data
       if (result.pulled.folders > 0 || result.pulled.notes > 0) {
-        queryClient.invalidateQueries({ queryKey: foldersQueryKey });
-        queryClient.invalidateQueries({ queryKey: notesQueryKey });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: foldersQueryKey }),
+          queryClient.invalidateQueries({ queryKey: notesQueryKey }),
+          queryClient.invalidateQueries({ queryKey: tagsQueryKey }),
+        ]);
       }
 
       if (result.errors.length > 0) {
@@ -236,30 +240,21 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [syncService],
   );
 
-  // Online/offline handlers
+  const prevOnlineRef = useRef(onlineContext.isOnline);
   useEffect(() => {
-    const handleOnline = () => {
+    const wasOffline = !prevOnlineRef.current;
+    prevOnlineRef.current = onlineContext.isOnline;
+
+    if (onlineContext.isOnline && wasOffline) {
       console.log("[SyncProvider] Network online, syncing...");
       sync();
-    };
+    }
 
-    const handleOffline = () => {
-      console.log("[SyncProvider] Network offline");
-      // Clear any pending retry
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-        retryTimeoutRef.current = null;
-      }
-    };
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, [sync]);
+    if (!onlineContext.isOnline && retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+  }, [onlineContext.isOnline, sync]);
 
   // Initial setup: migration + sync on mount + visibility handler (throttled)
   useEffect(() => {

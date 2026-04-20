@@ -3,23 +3,41 @@ import { useState, useCallback } from 'react';
 
 const STORAGE_KEY = 'journal-recent-emojis';
 const MAX_RECENTS = 28; // 4 rows of 7
+const CURRENT_VERSION = 1;
+
+interface StoredRecents {
+    _v: number;
+    items: string[];
+}
+
+function loadRecents(): string[] {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw) as StoredRecents | string[];
+        if (Array.isArray(parsed)) {
+            const versioned: StoredRecents = { _v: CURRENT_VERSION, items: parsed };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(versioned));
+            return parsed;
+        }
+        return parsed.items ?? [];
+    } catch {
+        return [];
+    }
+}
+
+function saveRecents(items: string[]) {
+    const data: StoredRecents = { _v: CURRENT_VERSION, items };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
 
 export function useRecentEmojis() {
-    // Use lazy initialization to read from localStorage synchronously
-    const [recents, setRecents] = useState<string[]>(() => {
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            return stored ? JSON.parse(stored) : [];
-        } catch (e) {
-            console.error('Failed to parse recent emojis', e);
-            return [];
-        }
-    });
+    const [recents, setRecents] = useState<string[]>(loadRecents);
 
     const addRecent = useCallback((emoji: string) => {
         setRecents((prev) => {
             const newRecents = [emoji, ...prev.filter((e) => e !== emoji)].slice(0, MAX_RECENTS);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newRecents));
+            saveRecents(newRecents);
             return newRecents;
         });
     }, []);
@@ -31,3 +49,5 @@ export function useRecentEmojis() {
 
     return { recents, addRecent, clearRecents };
 }
+
+export { loadRecents, STORAGE_KEY };

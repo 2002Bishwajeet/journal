@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback, type ReactNode } from "react";
+import { useAISettings } from "@/hooks/useAISettings";
 import { useEditor, type Editor } from "@tiptap/react";
 import * as Y from "yjs";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import {
   createCollaborationExtension,
   CustomShortcuts,
   AutocompletePlugin,
+  GrammarPlugin,
   FileHandler,
   SlashCommandsExtension,
 } from "./plugins";
@@ -44,7 +46,7 @@ export function EditorProvider({
   onEditorReady,
   isAIReady = false,
   onGetAutocompleteSuggestion,
-  // onCheckGrammar, // Currently disabled - GrammarPlugin is commented out
+  onCheckGrammar,
   children,
 }: EditorProviderProps) {
   const [yDoc] = useState(() => new Y.Doc());
@@ -60,6 +62,13 @@ export function EditorProvider({
   useEffect(() => {
     isAIReadyRef.current = isAIReady;
   }, [isAIReady]);
+
+  // Store grammar enabled state in ref to avoid editor recreation on toggle
+  const { settings: aiSettings } = useAISettings();
+  const isGrammarEnabledRef = useRef(aiSettings.grammarEnabled);
+  useEffect(() => {
+    isGrammarEnabledRef.current = aiSettings.grammarEnabled;
+  }, [aiSettings.grammarEnabled]);
 
   // Get Yjs fragment for ProseMirror - memoized to avoid recreating on every render
   const yXmlFragment = useMemo(
@@ -170,15 +179,18 @@ export function EditorProvider({
       }),
       // Slash commands (triggered by typing /)
       SlashCommandsExtension,
-      // GrammarPlugin.configure({
-      //   checkGrammar: onCheckGrammar || (async () => []),
-      //   getIsAIReady: () => isAIReadyRef.current,
-      //   debounceMs: 2000,
-      //   minCharsToCheck: 5,
-      //   debug: true,
-      // }),
+      // Grammar plugin — always included, checks getIsGrammarEnabled() at runtime
+      // eslint-disable-next-line react-hooks/refs -- getIsAIReady/getIsGrammarEnabled are getters called only within plugin execution, not during render
+      GrammarPlugin.configure({
+        checkGrammar: onCheckGrammar || (async () => []),
+        getIsAIReady: () => isAIReadyRef.current,
+        getIsGrammarEnabled: () => isGrammarEnabledRef.current,
+        debounceMs: 3000,
+        minCharsToCheck: 20,
+        debug: false,
+      }),
     ],
-    [yXmlFragment, onGetAutocompleteSuggestion, handleImageDrop]
+    [yXmlFragment, onGetAutocompleteSuggestion, onCheckGrammar, handleImageDrop]
   );
 
   // Create TipTap editor with performance optimizations
@@ -230,8 +242,7 @@ export function EditorProvider({
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const invalidateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced search index update - reads current values from refs
-  const updateSearchIndex = useCallback((editorInstance: Editor) => {
+  const updateSearchIndex = useCallback((editorInstance: Editor, plainTextContent?: string) => {
     if (searchIndexTimeoutRef.current) {
       clearTimeout(searchIndexTimeoutRef.current);
     }
@@ -239,7 +250,8 @@ export function EditorProvider({
     searchIndexTimeoutRef.current = setTimeout(() => {
       const currentDocId = docIdRef.current;
       const currentMetadata = metadataRef.current;
-      const plainText = editorInstance.getText();
+      // Use passed plainText if available, otherwise fallback
+      const plainText = plainTextContent ?? editorInstance.getText();
       
       upsertSearchIndex({
         docId: currentDocId,
@@ -292,31 +304,27 @@ export function EditorProvider({
     };
   }, []);
 
-  // Track the last known content to detect actual changes
-  const lastContentRef = useRef<string | null>(null);
+
 
   // Handle editor content changes - only update when content actually changes
   useEffect(() => {
-    if (!editor || !providerRef.current) return;
+    if (!editor || !providerRef.current || isLoading) return;
 
-    const handleUpdate = () => {
-      const currentContent = editor.getText();
-      
-      // Skip if content hasn't actually changed (e.g., Yjs sync on load)
-      if (lastContentRef.current === currentContent) {
+    let skipInitial = true;
+    const handleUpdate = ({ transaction }: { transaction: import("@tiptap/pm/state").Transaction }) => {
+      if (!transaction.docChanged) {
         return;
       }
-      
-      // First time we see content (initial load) - just store it, don't trigger update
-      if (lastContentRef.current === null) {
-        lastContentRef.current = currentContent;
+
+      // Skip the first docChanged after attaching — that's the Yjs initial content load
+      if (skipInitial) {
+        skipInitial = false;
         return;
       }
-      
-      // Content has genuinely changed - update everything
-      lastContentRef.current = currentContent;
 
-      updateSearchIndex(editor);
+      const plainText = editor.getText();
+
+      updateSearchIndex(editor, plainText);
       invalidateNotes();
 
       if (providerRef.current) {
@@ -326,10 +334,9 @@ export function EditorProvider({
 
     editor.on("update", handleUpdate);
     return () => {
-      lastContentRef.current = null;
       editor.off("update", handleUpdate);
     };
-  }, [editor, updateSearchIndex, invalidateNotes, debouncedSave]);
+  }, [editor, isLoading, updateSearchIndex, invalidateNotes, debouncedSave]);
 
 
   const value = {

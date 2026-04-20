@@ -19,7 +19,8 @@ interface GrammarError {
 
 interface GrammarPluginOptions {
     checkGrammar: (text: string) => Promise<string[]>;
-    isAIReadyRef: { current: boolean }; // React ref object
+    getIsAIReady: () => boolean;          // Changed from isAIReadyRef
+    getIsGrammarEnabled: () => boolean;   // NEW
     debounceMs?: number;
     minCharsToCheck?: number;
     debug?: boolean;
@@ -39,7 +40,8 @@ export const GrammarPlugin = Extension.create<GrammarPluginOptions>({
     addOptions() {
         return {
             checkGrammar: async () => [],
-            isAIReadyRef: { current: false }, // Default ref-like object
+            getIsAIReady: () => false,
+            getIsGrammarEnabled: () => false,
             debounceMs: 3000,
             minCharsToCheck: 20,
             debug: false,
@@ -162,8 +164,8 @@ export const GrammarPlugin = Extension.create<GrammarPluginOptions>({
                     view.dom.addEventListener('mouseout', handleMouseOut);
 
                     const checkGrammar = async () => {
-                        if (!options.isAIReadyRef.current) {
-                            log('Skipping: AI not ready');
+                        if (!options.getIsAIReady() || !options.getIsGrammarEnabled()) {
+                            log('Skipping: AI not ready or grammar not enabled');
                             return;
                         }
 
@@ -197,8 +199,17 @@ export const GrammarPlugin = Extension.create<GrammarPluginOptions>({
 
                             // Get text from first 500 chars (to limit API load)
                             const textToCheck = docText.slice(0, 500);
-                            const errorDescriptions = await options.checkGrammar(textToCheck);
-                            log(`Found ${errorDescriptions.length} potential errors`);
+                            const rawErrorDescriptions = await options.checkGrammar(textToCheck);
+                            log(`Found ${rawErrorDescriptions.length} potential errors (before validation)`);
+
+                            // Filter out hallucinations and false positives
+                            const errorDescriptions = rawErrorDescriptions.filter((error: string) => {
+                                if (error.length > 150) return false;
+                                if (error.toLowerCase().includes('no error') || error.toLowerCase().includes('looks good')) return false;
+                                if (error.toLowerCase().includes('no issues') || error.toLowerCase().includes('correct')) return false;
+                                return true;
+                            });
+                            log(`Found ${errorDescriptions.length} valid errors (after validation)`);
 
                             // Parse error descriptions and find positions in document
                             const errors: GrammarError[] = [];

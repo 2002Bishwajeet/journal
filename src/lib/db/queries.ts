@@ -1,6 +1,6 @@
 import { MAIN_FOLDER_ID } from '../homebase';
 import { getDatabase } from './pglite';
-import type { SearchIndexEntry, Folder, DocumentMetadata, SyncRecord, PendingImageUpload, SyncError, AdvancedSearchResult } from '@/types';
+import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRecord, PendingImageUpload, SyncError, AdvancedSearchResult } from '@/types';
 
 
 
@@ -64,6 +64,29 @@ export async function upsertSearchIndex(entry: SearchIndexEntry): Promise<void> 
     }
 }
 
+/**
+ * Update only metadata fields in search_index — does NOT touch plain_text_content.
+ * Use this for metadata-only mutations (title change, pin toggle, etc.)
+ * to avoid overwriting full content with a truncated preview.
+ */
+export async function updateSearchIndexMetadata(
+    docId: string,
+    title: string,
+    metadata: DocumentMetadata,
+): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `UPDATE search_index
+         SET title = $2,
+             metadata = $3,
+             search_vector = setweight(to_tsvector('english', COALESCE($2, '')), 'A') ||
+                             setweight(to_tsvector('english', COALESCE(plain_text_content, '')), 'B'),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE doc_id = $1`,
+        [docId, title, JSON.stringify(metadata)]
+    );
+}
+
 export async function getSearchIndexEntry(docId: string): Promise<SearchIndexEntry | null> {
     const db = await getDatabase();
     const result = await db.query<{
@@ -104,6 +127,32 @@ export async function getAllDocuments(): Promise<SearchIndexEntry[]> {
     }));
 }
 
+/**
+ * Lightweight query for the note list sidebar.
+ * Returns only title, a short preview, and metadata — NOT full content.
+ */
+export async function getNotesForList(): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        doc_id: string;
+        title: string;
+        preview: string;
+        metadata: DocumentMetadata;
+    }>(
+        `SELECT doc_id, title,
+                LEFT(plain_text_content, 150) as preview,
+                metadata
+         FROM search_index
+         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
+    );
+    return result.rows.map(row => ({
+        docId: row.doc_id,
+        title: row.title,
+        preview: row.preview || '',
+        metadata: row.metadata,
+    }));
+}
+
 export async function getDocumentsByFolder(folderId: string): Promise<SearchIndexEntry[]> {
     const db = await getDatabase();
     const result = await db.query<{
@@ -126,6 +175,34 @@ export async function getDocumentsByFolder(folderId: string): Promise<SearchInde
 }
 
 
+
+/**
+ * Lightweight query for the note list sidebar, filtered by folder.
+ * Returns only title, a short preview, and metadata — NOT full content.
+ */
+export async function getNotesForListByFolder(folderId: string): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        doc_id: string;
+        title: string;
+        preview: string;
+        metadata: DocumentMetadata;
+    }>(
+        `SELECT doc_id, title,
+                LEFT(plain_text_content, 150) as preview,
+                metadata
+         FROM search_index
+         WHERE metadata->>'folderId' = $1
+         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`,
+        [folderId]
+    );
+    return result.rows.map(row => ({
+        docId: row.doc_id,
+        title: row.title,
+        preview: row.preview || '',
+        metadata: row.metadata,
+    }));
+}
 
 export async function deleteSearchIndexEntry(docId: string): Promise<void> {
     const db = await getDatabase();
@@ -274,6 +351,7 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
         `, [trimmedQuery, likePattern]);
 
         const results: AdvancedSearchResult[] = [];
+        const highlightRegex = new RegExp(`(${trimmedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
 
         for (const row of result.rows) {
             // Determine match type and score
@@ -307,8 +385,7 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
             let contentHighlight = row.content_highlight;
             if (contentHighlight && !contentHighlight.includes('<mark>') && row.content_like_match) {
                 // Add manual highlighting for LIKE matches
-                const regex = new RegExp(`(${trimmedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                contentHighlight = contentHighlight.replace(regex, '<mark>$1</mark>');
+                contentHighlight = contentHighlight.replace(highlightRegex, '<mark>$1</mark>');
             }
 
             results.push({
@@ -323,9 +400,7 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
         }
 
         // Sort by score descending (should already be sorted by SQL, but ensure consistency)
-        results.sort((a, b) => b.score - a.score);
-
-        return results;
+        return results.toSorted((a: AdvancedSearchResult, b: AdvancedSearchResult) => b.score - a.score);
     } catch (error) {
         console.error('[advancedSearch] Error:', error);
         // Fallback to simple LIKE search if advanced search fails
@@ -356,6 +431,8 @@ async function fallbackSearch(query: string): Promise<AdvancedSearchResult[]> {
         LIMIT 50
     `, [searchPattern]);
 
+    const highlightRegex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+
     return result.rows.map((row, index) => {
         const isTitle = row.title.toLowerCase().includes(query.toLowerCase());
 
@@ -369,8 +446,7 @@ async function fallbackSearch(query: string): Promise<AdvancedSearchResult[]> {
                 const end = Math.min(row.plain_text_content.length, matchIndex + query.length + 80);
                 const snippet = row.plain_text_content.substring(start, end);
                 // Add highlight markers
-                const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                contentHighlight = snippet.replace(regex, '<mark>$1</mark>');
+                contentHighlight = snippet.replace(highlightRegex, '<mark>$1</mark>');
                 if (start > 0) contentHighlight = '...' + contentHighlight;
                 if (end < row.plain_text_content.length) contentHighlight += '...';
             }
@@ -961,3 +1037,51 @@ export async function clearPendingImageDeletions(noteDocId: string): Promise<voi
     await db.query('DELETE FROM pending_image_deletions WHERE note_doc_id = $1', [noteDocId]);
 }
 
+// ============================================
+// Tags
+// ============================================
+
+/**
+ * Get all distinct tags across all notes, sorted alphabetically.
+ */
+export async function getAllTags(): Promise<string[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ tag: string }>(
+        `SELECT DISTINCT jsonb_array_elements_text(metadata->'tags') AS tag
+         FROM search_index
+         WHERE jsonb_array_length(COALESCE(metadata->'tags', '[]'::jsonb)) > 0
+         ORDER BY tag`
+    );
+    return result.rows.map(row => row.tag);
+}
+
+/**
+ * Lightweight query for the note list sidebar, filtered by tag.
+ * Returns only title, a short preview, and metadata — NOT full content.
+ * Pinned notes appear first, then sorted by updated_at descending.
+ */
+export async function getNotesForListByTag(tag: string): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        doc_id: string;
+        title: string;
+        preview: string;
+        metadata: DocumentMetadata;
+    }>(
+        `SELECT doc_id, title,
+                LEFT(plain_text_content, 150) as preview,
+                metadata
+         FROM search_index
+         WHERE metadata->'tags' ? $1
+         ORDER BY
+            (metadata->>'isPinned')::boolean DESC NULLS LAST,
+            updated_at DESC`,
+        [tag]
+    );
+    return result.rows.map(row => ({
+        docId: row.doc_id,
+        title: row.title,
+        preview: row.preview || '',
+        metadata: row.metadata,
+    }));
+}

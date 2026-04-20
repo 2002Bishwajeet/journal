@@ -17,18 +17,28 @@ interface TableRowMenuProps {
 }
 
 export function TableRowMenu({ editor }: TableRowMenuProps) {
-   
   const { hoveredCell } = useTableState(editor, false);
   const [isOpen, setIsOpen] = useState(false);
   const [handleOpen, setHandleOpen] = useState(false);
   const [isMenuHovered, setIsMenuHovered] = useState(false);
-  const [activeCell, setActiveCell] = useState(hoveredCell);
 
-  useEffect(() => {
+  const [activeCell, setActiveCell] = useState(hoveredCell);
+  const [prevHoveredCell, setPrevHoveredCell] = useState(hoveredCell);
+  if (hoveredCell !== prevHoveredCell) {
+    setPrevHoveredCell(hoveredCell);
     if (hoveredCell) {
-        setActiveCell(hoveredCell);
+      setActiveCell(hoveredCell);
     }
-  }, [hoveredCell]);
+  }
+
+  const shouldBeOpen = !!(hoveredCell || isMenuHovered || handleOpen);
+  const [prevShouldBeOpen, setPrevShouldBeOpen] = useState(false);
+  if (shouldBeOpen !== prevShouldBeOpen) {
+    setPrevShouldBeOpen(shouldBeOpen);
+    if (shouldBeOpen) {
+      setIsOpen(true);
+    }
+  }
 
   // Virtual element
   const virtualElement = useMemo(() => {
@@ -62,13 +72,11 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
   }, [hoveredCell, activeCell]);
 
   useEffect(() => {
-     if (hoveredCell || isMenuHovered || handleOpen) {
-         setIsOpen(true);
-     } else {
-         const t = setTimeout(() => setIsOpen(false), 200);
-         return () => clearTimeout(t);
-     }
-  }, [hoveredCell, isMenuHovered, handleOpen]);
+    if (!shouldBeOpen) {
+      const t = setTimeout(() => setIsOpen(false), 200);
+      return () => clearTimeout(t);
+    }
+  }, [shouldBeOpen]);
 
   const { refs, floatingStyles } = useFloating({
     open: isOpen, 
