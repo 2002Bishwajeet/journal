@@ -45,16 +45,29 @@ export default function TipTapEditor({
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   const [wordCount, setWordCount] = useState({ words: 0, characters: 0 });
+  const wordCountTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!editor) return;
     const update = () => {
       const text = editor.getText();
       setWordCount({ words: text.split(/\s+/).filter(Boolean).length, characters: text.length });
     };
+    const handleUpdate = () => {
+      if (wordCountTimeoutRef.current) clearTimeout(wordCountTimeoutRef.current);
+      wordCountTimeoutRef.current = setTimeout(() => {
+        update();
+        wordCountTimeoutRef.current = null;
+      }, 500);
+    };
     update();
-    const debounced = debounce(update, 500);
-    editor.on("update", debounced);
-    return () => { editor.off("update", debounced); };
+    editor.on("update", handleUpdate);
+    return () => {
+      editor.off("update", handleUpdate);
+      if (wordCountTimeoutRef.current) {
+        clearTimeout(wordCountTimeoutRef.current);
+        wordCountTimeoutRef.current = null;
+      }
+    };
   }, [editor]);
 
   // Debounce metadata updates to prevent excessive sync calls

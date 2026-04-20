@@ -1082,7 +1082,7 @@ export async function getNotesForListByTag(tag: string): Promise<NoteListEntry[]
     return result.rows.map(row => ({
         docId: row.doc_id,
         title: row.title,
-        preview: row.preview,
+        preview: row.preview || '',
         metadata: row.metadata,
     }));
 }

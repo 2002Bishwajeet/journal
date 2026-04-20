@@ -94,7 +94,10 @@ export default function NoteList({
         const groupOrder: string[] = [];
 
         unpinnedNotes.forEach(note => {
-            const groupLabel = getNoteGroup(note.metadata.timestamps.modified);
+            const groupTimestamp = sortBy === 'created'
+                ? note.metadata.timestamps.created
+                : note.metadata.timestamps.modified;
+            const groupLabel = getNoteGroup(groupTimestamp);
             if (!dateGroups[groupLabel]) {
                 dateGroups[groupLabel] = [];
                 groupOrder.push(groupLabel);
