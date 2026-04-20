@@ -1,7 +1,6 @@
 import { PGlite as PGliteV3 } from 'pglite-v3';
 
 const VERSION_KEY = 'journal-pglite-version';
-const CURRENT_VERSION = '0.4';
 const DATA_DIR = 'idb://journal-db';
 
 export function getStoredPGliteVersion(): string | null {
@@ -12,29 +11,10 @@ export function setStoredPGliteVersion(version: string) {
   localStorage.setItem(VERSION_KEY, version);
 }
 
-export function needsMigration(): boolean {
-  const stored = getStoredPGliteVersion();
-  if (!stored) {
-    return checkV3DatabaseExists();
-  }
-  return stored !== CURRENT_VERSION;
-}
-
-function checkV3DatabaseExists(): boolean {
-  if (typeof indexedDB === 'undefined') return false;
-  try {
-    const dbName = '/pglite/journal-db';
-    const request = indexedDB.open(dbName);
-    request.onsuccess = () => request.result.close();
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export async function migrateFromV3(): Promise<Blob | null> {
-  console.log('[PGlite Migration] Opening v0.3 database for dump...');
   try {
+    console.log('[PGlite Migration] Checking for v0.3 database...');
     const oldDb = new PGliteV3(DATA_DIR);
     await oldDb.waitReady;
 
@@ -42,7 +22,7 @@ export async function migrateFromV3(): Promise<Blob | null> {
     const tableCount = (testResult.rows[0] as { cnt: number }).cnt;
 
     if (tableCount === 0) {
-      console.log('[PGlite Migration] v0.3 database is empty, skipping migration');
+      console.log('[PGlite Migration] v0.3 database is empty, skipping');
       await oldDb.close();
       return null;
     }
@@ -52,8 +32,8 @@ export async function migrateFromV3(): Promise<Blob | null> {
     await oldDb.close();
     console.log('[PGlite Migration] Dump complete');
     return dump as Blob;
-  } catch (error) {
-    console.warn('[PGlite Migration] Could not open v0.3 database:', error);
+  } catch {
+    console.log('[PGlite Migration] No v0.3 database found, skipping');
     return null;
   }
 }

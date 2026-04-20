@@ -2,7 +2,6 @@ import { PGliteWorker } from '@electric-sql/pglite/worker';
 import type { PGliteInterface } from '@electric-sql/pglite';
 import { MAIN_FOLDER_ID } from '../homebase';
 import {
-  needsMigration,
   migrateFromV3,
   deleteV3Database,
   getStoredPGliteVersion,
