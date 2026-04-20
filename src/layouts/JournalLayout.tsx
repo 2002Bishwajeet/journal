@@ -136,7 +136,7 @@ export default function JournalLayout() {
 
   const { data: filteredNotes = [], isLoading: isFilteredNotesLoading } = useNotesByFolder(folderId);
 
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const selectedTag = searchParams.get('tag');
   const { tags } = useTags();
   const { data: tagFilteredNotes } = useNotesByTag(selectedTag);
   const notesToShow = selectedTag ? (tagFilteredNotes ?? []) : filteredNotes;
@@ -233,7 +233,13 @@ export default function JournalLayout() {
           onLogout={handleLogout}
           tags={tags}
           selectedTag={selectedTag}
-          onSelectTag={setSelectedTag}
+          onSelectTag={(tag) => {
+            if (tag) {
+              navigate(`/?tag=${encodeURIComponent(tag)}`);
+            } else {
+              navigate(folderId ? `/${folderId}` : '/');
+            }
+          }}
           className="w-full h-full"
         />
       </div>
@@ -276,7 +282,15 @@ export default function JournalLayout() {
           <NoteList
             notes={notesToShow}
             selectedNoteId={noteId || null}
-            onSelectNote={(id) => navigate(`/${folderId}/${id}`, { viewTransition: true })}
+            onSelectNote={(id) => {
+              const note = notesToShow.find(n => n.docId === id);
+              const targetFolder = note?.metadata.folderId || folderId;
+              if (selectedTag) {
+                navigate(`/${targetFolder}/${id}?tag=${encodeURIComponent(selectedTag)}`, { viewTransition: true });
+              } else {
+                navigate(`/${folderId}/${id}`, { viewTransition: true });
+              }
+            }}
             onCreateNote={async () => {
               const { docId, folderId: newFolderId } = await createNote(
                 folderId
