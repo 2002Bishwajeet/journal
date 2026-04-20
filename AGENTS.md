@@ -10,11 +10,11 @@ A premium, offline-first markdown note-taking app powered by **Homebase**. Built
 
 | Layer | Technology |
 |-------|------------|
-| Framework | React 19 + TypeScript + Vite 7 |
+| Framework | React 19 + TypeScript 6 + Vite 8 |
 | State/Data | React Query (@tanstack), Custom Hooks |
-| UI | **shadcn/ui** + Tailwind CSS 4 + Radix UI |
-| Editor | TipTap 3.x (ProseMirror) + Yjs |
-| Local DB | PGlite 0.3.x (IndexedDB persistence, pg_trgm) |
+| UI | **shadcn/ui** + Tailwind CSS 4.2 + Radix UI |
+| Editor | TipTap 3.22 (ProseMirror) + Yjs |
+| Local DB | PGlite 0.4.x (IndexedDB persistence, pg_trgm) |
 | Backend | Homebase SDK 0.0.7-alpha (encrypted sync) |
 | AI | WebLLM — Qwen2.5-1.5B default, 4 models available |
 | PWA | vite-plugin-pwa + Service Worker |
@@ -288,6 +288,7 @@ npm run test:ui  # visual dashboard
 - **Use SDK utilities**: `getNewId()`, `tryJsonParse()`, `base64ToUint8Array()` from `@/lib/utils`
 - **Lazy loading**: Dynamic imports for heavy modules (WebLLM ~7MB, ImportService, ExportService)
 - **Avoid over-optimization**: No `useCallback`/`useMemo` unless profiling shows need
+- **No `any` type**: Always use proper types. Use library-provided types (e.g. `CommandProps` from `@tiptap/core`), module augmentation (`declare global`/`declare module`), or generics instead of `any`. If there is genuinely no way to avoid `any`, stop and explain why to the user before proceeding.
 
 ## Testing Requirements
 

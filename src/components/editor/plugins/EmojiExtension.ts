@@ -85,7 +85,7 @@ export const EmojiExtension = Extension.create({
                                 return true;
                             }
 
-                            return (component.ref as EmojiListRef | null)?.onKeyDown(props);
+                            return (component.ref as EmojiListRef | null)?.onKeyDown(props) ?? false;
                         },
 
                         onExit() {
