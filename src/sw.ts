@@ -18,12 +18,14 @@ precacheAndRoute(self.__WB_MANIFEST);
 // Cleanup old caches
 cleanupOutdatedCaches();
 
-// Cache static assets (JS, CSS, images)
+// Cache same-origin static assets (JS, CSS, workers)
 registerRoute(
-    ({ request }) =>
-        request.destination === 'style' ||
-        request.destination === 'script' ||
-        request.destination === 'worker',
+    ({ request, sameOrigin }) =>
+        sameOrigin && (
+            request.destination === 'style' ||
+            request.destination === 'script' ||
+            request.destination === 'worker'
+        ),
     new CacheFirst({
         cacheName: 'static-resources',
         plugins: [
