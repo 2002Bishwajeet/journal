@@ -1038,3 +1038,51 @@ export async function clearPendingImageDeletions(noteDocId: string): Promise<voi
     await db.query('DELETE FROM pending_image_deletions WHERE note_doc_id = $1', [noteDocId]);
 }
 
+// ============================================
+// Tags
+// ============================================
+
+/**
+ * Get all distinct tags across all notes, sorted alphabetically.
+ */
+export async function getAllTags(): Promise<string[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ tag: string }>(
+        `SELECT DISTINCT jsonb_array_elements_text(metadata->'tags') AS tag
+         FROM search_index
+         WHERE jsonb_array_length(COALESCE(metadata->'tags', '[]'::jsonb)) > 0
+         ORDER BY tag`
+    );
+    return result.rows.map(row => row.tag);
+}
+
+/**
+ * Lightweight query for the note list sidebar, filtered by tag.
+ * Returns only title, a short preview, and metadata — NOT full content.
+ * Pinned notes appear first, then sorted by updated_at descending.
+ */
+export async function getNotesForListByTag(tag: string): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        doc_id: string;
+        title: string;
+        preview: string;
+        metadata: DocumentMetadata;
+    }>(
+        `SELECT doc_id, title,
+                LEFT(plain_text_content, 150) as preview,
+                metadata
+         FROM search_index
+         WHERE metadata->'tags' ? $1
+         ORDER BY
+            (metadata->>'isPinned')::boolean DESC NULLS LAST,
+            updated_at DESC`,
+        [tag]
+    );
+    return result.rows.map(row => ({
+        docId: row.doc_id,
+        title: row.title,
+        preview: row.preview,
+        metadata: row.metadata,
+    }));
+}
