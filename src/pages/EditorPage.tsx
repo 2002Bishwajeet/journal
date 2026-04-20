@@ -73,28 +73,17 @@ function EditorLayout({
         <SyncStatus />
       </div>
 
-      {/* Desktop Toolbar — auto-reveals on hover in focus mode */}
-      {focusMode && isDesktop && (
-        <div className="group/toolbar absolute top-0 left-0 right-0 z-20">
-          <div className="h-2" />
-          <div className="flex items-center border-b bg-background/95 backdrop-blur-sm shadow-lg opacity-0 group-hover/toolbar:opacity-100 translate-y-[-100%] group-hover/toolbar:translate-y-0 transition-all duration-300 ease-out">
-            {editor && <EditorToolbar editor={editor} />}
-            {editor && <AIMenu editor={editor} />}
-          </div>
-        </div>
-      )}
-      {!focusMode && (
-        <div
-          className={
-            isDesktop
-              ? "flex items-center border-b shrink-0 bg-background z-10 w-full"
-              : "hidden"
-          }
-        >
-          {editor && <EditorToolbar editor={editor} />}
-          {editor && <AIMenu editor={editor} />}
-        </div>
-      )}
+      {/* Desktop Toolbar */}
+      <div
+        className={
+          isDesktop
+            ? "flex items-center border-b shrink-0 bg-background z-10 w-full"
+            : "hidden"
+        }
+      >
+        {editor && <EditorToolbar editor={editor} />}
+        {editor && <AIMenu editor={editor} />}
+      </div>
 
       <div className="flex-1 overflow-y-auto relative bg-background w-full">
         <TipTapEditor
