@@ -5,6 +5,7 @@ interface KeyboardShortcutsConfig {
     onNewNote?: () => void;
     onSave?: () => void;
     onKeyboardHelp?: () => void;
+    onFocusMode?: () => void;
 }
 
 /**
@@ -20,6 +21,7 @@ export function useKeyboardShortcuts({
     onNewNote,
     onSave,
     onKeyboardHelp,
+    onFocusMode,
 }: KeyboardShortcutsConfig) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -52,10 +54,16 @@ export function useKeyboardShortcuts({
                         onKeyboardHelp();
                     }
                     break;
+                case 'f':
+                    if (e.shiftKey && onFocusMode) {
+                        e.preventDefault();
+                        onFocusMode();
+                    }
+                    break;
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onSearch, onNewNote, onSave, onKeyboardHelp]);
+    }, [onSearch, onNewNote, onSave, onKeyboardHelp, onFocusMode]);
 }

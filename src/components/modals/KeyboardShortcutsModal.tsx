@@ -29,6 +29,7 @@ const shortcutGroups: ShortcutGroup[] = [
       { keys: [mod, "N"], description: "New note" },
       { keys: [mod, "S"], description: "Save note" },
       { keys: [mod, "/"], description: "Keyboard shortcuts" },
+      { keys: [mod, shift, "F"], description: "Focus mode" },
     ],
   },
   {

@@ -16,7 +16,7 @@ import {
 } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   CreateFolderModal,
@@ -83,6 +83,9 @@ export default function JournalLayout() {
   // Homebase sync - auto-syncs on mount and focus
   useSyncService();
 
+  // Focus / Zen mode state
+  const [focusMode, setFocusMode] = useState(false);
+
   // Modal states
   const [showSearch, setShowSearch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -127,6 +130,7 @@ export default function JournalLayout() {
   useKeyboardShortcuts({
     onSearch: () => setShowSearch(true),
     onKeyboardHelp: () => setShowKeyboardHelp(true),
+    onFocusMode: () => setFocusMode(prev => !prev),
   });
 
   // Device type detection
@@ -208,7 +212,8 @@ export default function JournalLayout() {
           // Mobile: Visible only when no folder selected (root)
           !isDesktop &&
             !isFolderSelected &&
-            "flex absolute inset-0 z-30 w-full bg-background"
+            "flex absolute inset-0 z-30 w-full bg-background",
+          focusMode && "!hidden"
         )}
       >
         <Sidebar
@@ -254,7 +259,8 @@ export default function JournalLayout() {
           !isDesktop &&
             isFolderSelected &&
             !isNoteSelected &&
-            "flex absolute inset-0 z-20 w-full"
+            "flex absolute inset-0 z-20 w-full",
+          focusMode && "!hidden"
         )}
       >
         <div className="flex flex-col h-full w-full max-w-full min-w-0 overflow-hidden">
@@ -400,6 +406,18 @@ export default function JournalLayout() {
           )}
         </div>
       </main>
+
+      {/* Focus mode exit button */}
+      {focusMode && (
+        <button
+          onClick={() => setFocusMode(false)}
+          className="fixed top-4 left-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/80 backdrop-blur-sm text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          title="Exit Focus Mode (Cmd+Shift+F)"
+        >
+          <Minimize2 className="h-4 w-4" />
+          Exit Focus
+        </button>
+      )}
 
       {/* Modals */}
       {noteId && <ChatBot activeNoteId={noteId} />}
