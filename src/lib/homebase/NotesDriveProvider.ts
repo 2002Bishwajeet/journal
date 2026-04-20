@@ -623,6 +623,7 @@ export class NotesDriveProvider {
             return null;
 
         }
+    }
     /**
      * Make a note collaborative, granting access to specified circles.
      * Changes ACL to Connected with circleIds and moves to COLLABORATIVE_FOLDER_ID.
