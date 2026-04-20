@@ -31,10 +31,12 @@ import {
   HardDrive,
   Zap,
   SpellCheck,
+  Keyboard,
 } from "lucide-react";
 import logo from "@/assets/logo_withoutbg.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAISettings } from "@/hooks/useAISettings";
+import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
 import { useWebLLM } from "@/hooks/useWebLLM";
 import { AVAILABLE_MODELS, getModelInfo } from "@/lib/webllm";
 
@@ -85,6 +87,7 @@ const staggerItem = {
 
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const { theme, setTheme } = useThemePreference();
   const { isExporting, isImporting, handleExport, handleImport } =
     useSettingsModal();
@@ -221,11 +224,16 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   handleImport={handleImport}
                 />
               )}
-              {activeTab === "about" && <AboutTab key="about" />}
+              {activeTab === "about" && <AboutTab key="about" onOpenShortcuts={() => setShowShortcuts(true)} />}
             </AnimatePresence>
           </div>
         </div>
       </DialogContent>
+
+      <KeyboardShortcutsModal
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
     </Dialog>
   );
 }
@@ -950,7 +958,7 @@ function DataTab({
    About Tab
    ═══════════════════════════════════════ */
 
-function AboutTab() {
+function AboutTab({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
   return (
     <motion.div
       variants={contentVariants}
@@ -985,6 +993,13 @@ function AboutTab() {
           >
             v1.0.6
           </span>
+          <button
+            onClick={onOpenShortcuts}
+            className="flex items-center gap-2 mx-auto mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Keyboard className="h-4 w-4" />
+            View keyboard shortcuts
+          </button>
         </motion.div>
       </motion.div>
 
