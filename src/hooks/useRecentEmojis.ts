@@ -49,3 +49,5 @@ export function useRecentEmojis() {
 
     return { recents, addRecent, clearRecents };
 }
+
+export { loadRecents, STORAGE_KEY };

@@ -1,20 +1,65 @@
-import { PGlite } from '@electric-sql/pglite';
-import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { PGliteWorker } from '@electric-sql/pglite/worker';
+import type { PGliteInterface } from '@electric-sql/pglite';
 import { MAIN_FOLDER_ID } from '../homebase';
+import {
+  needsMigration,
+  migrateFromV3,
+  deleteV3Database,
+  getStoredPGliteVersion,
+  setStoredPGliteVersion,
+} from './pglite-migrate';
 
-let db: PGlite | null = null;
+const DATA_DIR = 'idb://journal-db';
+const PGLITE_VERSION = '0.4';
 
-export async function getDatabase(): Promise<PGlite> {
-  if (db) return db;
+let dbPromise: Promise<PGliteInterface> | null = null;
 
-  console.log('[DB] Creating new PGlite instance...');
-  db = new PGlite('idb://journal-db', {
-    extensions: { pg_trgm }
-  });
+export function getDatabase(): Promise<PGliteInterface> {
+  if (!dbPromise) {
+    dbPromise = initDatabase().catch((err) => {
+      dbPromise = null;
+      throw err;
+    });
+  }
+  return dbPromise;
+}
 
-  // Wait for PGlite to be ready
-  await db.waitReady;
-  console.log('[DB] PGlite ready, initializing schema...');
+function createWorkerInstance(loadDataDir?: Blob): Promise<PGliteInterface> {
+  const options: Record<string, unknown> = {
+    dataDir: DATA_DIR,
+    id: 'journal-pglite',
+  };
+  if (loadDataDir) {
+    options.loadDataDir = loadDataDir;
+  }
+  return PGliteWorker.create(
+    new Worker(new URL('./pglite-worker.ts', import.meta.url), { type: 'module' }),
+    options,
+  );
+}
+
+async function initDatabase(): Promise<PGliteInterface> {
+  const storedVersion = getStoredPGliteVersion();
+
+  if (!storedVersion && needsMigration()) {
+    console.log('[DB] Detected v0.3 database, migrating to v0.4...');
+    const dump = await migrateFromV3();
+
+    if (dump) {
+      await deleteV3Database();
+      console.log('[DB] Creating PGlite v0.4 with migrated data...');
+      const db = await createWorkerInstance(dump);
+      setStoredPGliteVersion(PGLITE_VERSION);
+      console.log('[DB] Migration complete, initializing schema...');
+      await initializeSchema(db);
+      return db;
+    }
+  }
+
+  console.log('[DB] Creating PGlite worker instance...');
+  const db = await createWorkerInstance();
+  setStoredPGliteVersion(PGLITE_VERSION);
+  console.log('[DB] PGlite worker ready, initializing schema...');
 
   await initializeSchema(db);
   console.log('[DB] Schema initialized');
@@ -22,7 +67,7 @@ export async function getDatabase(): Promise<PGlite> {
   return db;
 }
 
-async function initializeSchema(database: PGlite): Promise<void> {
+async function initializeSchema(database: PGliteInterface): Promise<void> {
   console.log('[DB Schema] Starting schema initialization...');
 
   // Enable pg_trgm extension for fuzzy/trigram matching
@@ -158,7 +203,7 @@ async function initializeSchema(database: PGlite): Promise<void> {
   await runMigrations(database);
 }
 
-async function runMigrations(database: PGlite): Promise<void> {
+async function runMigrations(database: PGliteInterface): Promise<void> {
   console.log('[DB Migration] Starting migrations...');
 
   // Ensure pg_trgm extension is enabled (for existing dbs)
@@ -390,8 +435,12 @@ async function runMigrations(database: PGlite): Promise<void> {
 }
 
 export async function closeDatabase(): Promise<void> {
-  if (db) {
-    await db.close();
-    db = null;
+  if (dbPromise) {
+    try {
+      const db = await dbPromise;
+      await db.close();
+    } finally {
+      dbPromise = null;
+    }
   }
 }
