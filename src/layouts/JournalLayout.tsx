@@ -33,6 +33,7 @@ import {
 import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
 import type { NoteListEntry } from "@/types";
 import { useNotes, useNotesByFolder } from "@/hooks/useNotes";
+import { useTags, useNotesByTag } from "@/hooks/useTags";
 import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
 import { useFolders } from "@/hooks/useFolders";
@@ -135,6 +136,11 @@ export default function JournalLayout() {
 
   const { data: filteredNotes = [], isLoading: isFilteredNotesLoading } = useNotesByFolder(folderId);
 
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const { tags } = useTags();
+  const { data: tagFilteredNotes } = useNotesByTag(selectedTag);
+  const notesToShow = selectedTag ? (tagFilteredNotes ?? []) : filteredNotes;
+
   // Open tab when navigating to a note
   useEffect(() => {
     if (noteId) {
@@ -225,6 +231,9 @@ export default function JournalLayout() {
           onSearch={() => setShowSearch(true)}
           onSettings={() => setShowSettings(true)}
           onLogout={handleLogout}
+          tags={tags}
+          selectedTag={selectedTag}
+          onSelectTag={setSelectedTag}
           className="w-full h-full"
         />
       </div>
@@ -265,7 +274,7 @@ export default function JournalLayout() {
           </div>
 
           <NoteList
-            notes={filteredNotes}
+            notes={notesToShow}
             selectedNoteId={noteId || null}
             onSelectNote={(id) => navigate(`/${folderId}/${id}`, { viewTransition: true })}
             onCreateNote={async () => {
@@ -276,18 +285,18 @@ export default function JournalLayout() {
             }}
             onDeleteNote={async (id) => {
               // Find the next note to select
-              const currentIndex = filteredNotes.findIndex(
+              const currentIndex = notesToShow.findIndex(
                 (n) => n.docId === id
               );
               let nextNoteId: string | null = null;
 
-              if (currentIndex !== -1 && filteredNotes.length > 1) {
-                if (currentIndex < filteredNotes.length - 1) {
+              if (currentIndex !== -1 && notesToShow.length > 1) {
+                if (currentIndex < notesToShow.length - 1) {
                   // Select next note
-                  nextNoteId = filteredNotes[currentIndex + 1].docId;
+                  nextNoteId = notesToShow[currentIndex + 1].docId;
                 } else {
                   // Select previous note if we are deleting the last one
-                  nextNoteId = filteredNotes[currentIndex - 1].docId;
+                  nextNoteId = notesToShow[currentIndex - 1].docId;
                 }
               }
 
