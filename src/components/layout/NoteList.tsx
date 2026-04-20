@@ -381,6 +381,23 @@ const NoteItem = memo(function NoteItem({
         <p className="text-xs text-muted-foreground truncate mt-0.5 w-full">
           {note.preview || 'No content'}
         </p>
+        {note.metadata.tags.length > 0 && (
+          <div className="flex items-center gap-1 mt-1 overflow-hidden">
+            {note.metadata.tags.slice(0, 3).map(tag => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-muted text-[10px] text-muted-foreground shrink-0"
+              >
+                #{'\u2009'}{tag}
+              </span>
+            ))}
+            {note.metadata.tags.length > 3 && (
+              <span className="text-[10px] text-muted-foreground/50">
+                +{note.metadata.tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
         <span className="text-xs text-muted-foreground/70 mt-1">
           {formatRelativeTime(note.metadata.timestamps.modified)}
         </span>
