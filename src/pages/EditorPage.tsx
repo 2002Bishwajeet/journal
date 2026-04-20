@@ -10,6 +10,7 @@ import {
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
@@ -18,9 +19,11 @@ import { useAISettings } from "@/hooks/useAISettings";
 function EditorLayout({
   noteId,
   onBack,
+  focusMode = false,
 }: {
   noteId: string;
   onBack: () => void;
+  focusMode?: boolean;
 }) {
   const { editor, isLoading } = useEditorContext();
   const {
@@ -70,42 +73,51 @@ function EditorLayout({
         <SyncStatus />
       </div>
 
-      {/* Desktop Toolbar */}
-      <div
-        className={
-          isDesktop
-            ? "flex items-center border-b shrink-0 bg-background z-10 w-full"
-            : "hidden"
-        }
-      >
-        {editor && <EditorToolbar editor={editor} />}
-        {editor && <AIMenu editor={editor} />}
-      </div>
+      {/* Desktop Toolbar — hidden in focus mode */}
+      {!focusMode && (
+        <div
+          className={
+            isDesktop
+              ? "flex items-center border-b shrink-0 bg-background z-10 w-full"
+              : "hidden"
+          }
+        >
+          {editor && <EditorToolbar editor={editor} />}
+          {editor && <AIMenu editor={editor} />}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto relative bg-background w-full">
         <TipTapEditor
           noteId={noteId}
-          metadata={selectedNoteMetadata!} // We handled null above, but strictly we should check again or rely on loader
+          metadata={selectedNoteMetadata!}
           onMetadataChange={(meta) =>
             updateNoteMetadata({
               docId: noteId,
               metadata: meta,
             })
           }
-          hideToolbar={true} // We use the external toolbar
-          className="min-h-full py-8 px-6 md:px-12 max-w-5xl mx-auto pb-24 md:pb-8"
+          hideToolbar={true}
+          className={cn(
+            "min-h-full py-8 px-6 mx-auto pb-24 md:pb-8",
+            focusMode
+              ? "max-w-2xl md:px-8 pt-12"
+              : "max-w-5xl md:px-12"
+          )}
         />
       </div>
     </div>
   );
 }
 
-export default function EditorPage({ 
-  overrideNoteId, 
-  overrideFolderId 
-}: { 
+export default function EditorPage({
+  overrideNoteId,
+  overrideFolderId,
+  focusMode = false,
+}: {
   overrideNoteId?: string;
   overrideFolderId?: string;
+  focusMode?: boolean;
 } = {}) {
   const params = useParams();
   const noteId = overrideNoteId || params.noteId;
@@ -212,7 +224,7 @@ export default function EditorPage({
       onGetAutocompleteSuggestion={handleGetAutocompleteSuggestion}
       onCheckGrammar={handleCheckGrammar}
     >
-      <EditorLayout noteId={noteId} onBack={handleBackToNotes} />
+      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} />
     </EditorProvider>
   );
 }

@@ -16,7 +16,8 @@ import {
 } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
-import { ChevronLeft, Minimize2 } from "lucide-react";
+import { ChevronLeft, Minimize2, Maximize2 } from "lucide-react";
+import { Kbd } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
 import {
   CreateFolderModal,
@@ -353,16 +354,26 @@ export default function JournalLayout() {
             "flex absolute inset-0 z-10 w-full h-full"
         )}
       >
-        {/* Desktop Tab Bar */}
-        <div className={isDesktop ? "flex items-center" : "hidden"}>
+        {/* Desktop Tab Bar — hidden in focus mode */}
+        <div className={cn(isDesktop ? "flex items-center" : "hidden", focusMode && "!hidden")}>
           <TabBar
             tabs={openTabs}
             activeTabId={activeTabId}
             onTabClick={handleTabClick}
             onTabClose={handleTabClose}
           />
-          {/* Sync Status Indicator */}
-          <SyncStatus className="ml-auto px-3" />
+          <div className="flex items-center ml-auto gap-1 px-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setFocusMode(true)}
+              title="Focus Mode (Cmd+Shift+F)"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
+            <SyncStatus />
+          </div>
         </div>
 
         <div className="flex-1 relative overflow-hidden">
@@ -390,7 +401,7 @@ export default function JournalLayout() {
                   Therefore, we must import and render `EditorPage` but we'll need to modify it
                   to accept props instead of reading from `useParams`.
                 */}
-                <EditorPage overrideNoteId={tab.docId} overrideFolderId={folderId} />
+                <EditorPage overrideNoteId={tab.docId} overrideFolderId={folderId} focusMode={focusMode} />
               </div>
             ))
           ) : (
@@ -407,16 +418,18 @@ export default function JournalLayout() {
         </div>
       </main>
 
-      {/* Focus mode exit button */}
+      {/* Focus mode exit pill — centered top, auto-fades, reveals on hover */}
       {focusMode && (
-        <button
-          onClick={() => setFocusMode(false)}
-          className="fixed top-4 left-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/80 backdrop-blur-sm text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Exit Focus Mode (Cmd+Shift+F)"
-        >
-          <Minimize2 className="h-4 w-4" />
-          Exit Focus
-        </button>
+        <div className="fixed top-0 left-0 right-0 z-40 flex justify-center group/focus">
+          <button
+            onClick={() => setFocusMode(false)}
+            className="mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-foreground/5 backdrop-blur-md border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-all opacity-0 group-hover/focus:opacity-100 translate-y-[-8px] group-hover/focus:translate-y-0"
+          >
+            <Minimize2 className="h-3 w-3" />
+            Exit Focus
+            <Kbd>⌘⇧F</Kbd>
+          </button>
+        </div>
       )}
 
       {/* Modals */}
