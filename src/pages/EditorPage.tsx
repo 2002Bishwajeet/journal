@@ -73,7 +73,16 @@ function EditorLayout({
         <SyncStatus />
       </div>
 
-      {/* Desktop Toolbar — hidden in focus mode */}
+      {/* Desktop Toolbar — auto-reveals on hover in focus mode */}
+      {focusMode && isDesktop && (
+        <div className="group/toolbar absolute top-0 left-0 right-0 z-20">
+          <div className="h-2" />
+          <div className="flex items-center border-b bg-background/95 backdrop-blur-sm shadow-lg opacity-0 group-hover/toolbar:opacity-100 translate-y-[-100%] group-hover/toolbar:translate-y-0 transition-all duration-300 ease-out">
+            {editor && <EditorToolbar editor={editor} />}
+            {editor && <AIMenu editor={editor} />}
+          </div>
+        </div>
+      )}
       {!focusMode && (
         <div
           className={
