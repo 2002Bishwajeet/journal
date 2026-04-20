@@ -41,10 +41,8 @@ function createWorkerInstance(loadDataDir?: Blob): Promise<PGliteInterface> {
 async function initDatabase(): Promise<PGliteInterface> {
   const storedVersion = getStoredPGliteVersion();
 
-  if (!storedVersion && needsMigration()) {
-    console.log('[DB] Detected v0.3 database, migrating to v0.4...');
+  if (!storedVersion) {
     const dump = await migrateFromV3();
-
     if (dump) {
       await deleteV3Database();
       console.log('[DB] Creating PGlite v0.4 with migrated data...');
