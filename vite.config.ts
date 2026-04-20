@@ -1,14 +1,22 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import fs from 'fs'
 import path from 'path'
+import pkg from './package.json' with { type: 'json' }
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
     react(),
+    ...(mode === 'production'
+      ? [babel({ presets: [reactCompilerPreset()] })]
+      : []),
     tailwindcss(),
     VitePWA({
       strategies: 'injectManifest',
@@ -101,19 +109,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'web-llm': ['@mlc-ai/web-llm'],
-          'pglite': ['@electric-sql/pglite'],
-          'tiptap': [
-            '@tiptap/react',
-            '@tiptap/starter-kit',
-            '@tiptap/extension-image',
-            '@tiptap/extension-link',
-            '@tiptap/extension-placeholder',
-            '@tiptap/extension-task-item',
-            '@tiptap/extension-task-list'
-          ],
-          'ui-libs': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-popover']
+        manualChunks(id) {
+          if (id.includes('@mlc-ai/web-llm')) return 'web-llm';
+          if (id.includes('@electric-sql/pglite')) return 'pglite';
+          if (id.includes('@tiptap/')) return 'tiptap';
+          if (id.includes('@radix-ui/react-dialog') || id.includes('@radix-ui/react-dropdown-menu') || id.includes('@radix-ui/react-popover')) return 'ui-libs';
         }
       }
     }
@@ -124,5 +124,4 @@ export default defineConfig({
       'Cross-Origin-Opener-Policy': 'same-origin',
     },
   },
-})
-
+}))

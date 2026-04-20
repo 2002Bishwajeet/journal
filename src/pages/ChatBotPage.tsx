@@ -15,7 +15,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useNotes } from "@/hooks/useNotes";
+import { getSearchIndexEntry } from "@/lib/db";
 import { webSearch } from "@/lib/search/searchService";
 import {
   Dialog,
@@ -52,9 +52,7 @@ function ChatInterface() {
     loadingMessage,
   } = useWebLLM();
 
-  const {
-    get: { data: notes = [] },
-  } = useNotes();
+
 
   const [input, setInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -185,10 +183,10 @@ function ChatInterface() {
 
     if (trimmed.startsWith("/summarize")) {
       if (noteId) {
-        const note = notes.find((n) => n.docId === noteId);
-        if (note?.plainTextContent) {
+        const fullEntry = await getSearchIndexEntry(noteId);
+        if (fullEntry?.plainTextContent) {
           await sendMessage(
-            `Please summarize this note:\n\n${note.plainTextContent.slice(0, 2000)}`
+            `Please summarize this note:\n\n${fullEntry.plainTextContent.slice(0, 2000)}`
           );
         } else {
           await sendMessage("No note content found to summarize.");
@@ -214,7 +212,7 @@ function ChatInterface() {
 
     // Normal message
     await sendMessage(trimmed);
-  }, [input, sendMessage, clearHistory, noteId, notes]);
+  }, [input, sendMessage, clearHistory, noteId]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

@@ -222,6 +222,17 @@ async function runMigrations(database: PGlite): Promise<void> {
     console.warn('[DB Migration] Could not create content trigram index:', error);
   }
 
+  // Create BTREE expression index on metadata folderId for folder filtering
+  try {
+    await database.exec(`
+        CREATE INDEX IF NOT EXISTS idx_search_metadata_folderid
+        ON search_index ((metadata->>'folderId'));
+    `);
+    console.log('[DB Migration] Metadata folderId index ensured');
+  } catch (error) {
+    console.warn('[DB Migration] Could not create metadata folderId index:', error);
+  }
+
   // Populate search_vector for existing documents that don't have it
   try {
     await database.exec(`

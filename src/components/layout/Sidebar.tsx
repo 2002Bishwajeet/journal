@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FolderOpen,
+  Hash,
   Plus,
   Search,
   Settings,
@@ -42,6 +43,9 @@ interface SidebarProps {
   onSearch: () => void;
   onSettings: () => void;
   onLogout: () => void;
+  tags?: string[];
+  selectedTag?: string | null;
+  onSelectTag?: (tag: string | null) => void;
   className?: string;
 }
 
@@ -54,6 +58,9 @@ export default function Sidebar({
   onSearch,
   onSettings,
   onLogout,
+  tags,
+  selectedTag,
+  onSelectTag,
   className = "",
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -218,6 +225,35 @@ export default function Sidebar({
               })}
             </nav>
           </div>
+
+          {!isCollapsed && tags && tags.length > 0 && (
+            <>
+              <Separator className="my-2" />
+              <div className="px-2 py-2">
+                <div className="flex items-center justify-between px-2 mb-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Tags
+                  </span>
+                </div>
+                <nav className="space-y-0.5">
+                  {tags.map(tag => (
+                    <Button
+                      key={tag}
+                      variant={selectedTag === tag ? "secondary" : "ghost"}
+                      className={cn(
+                        "w-full h-8 justify-start px-2 text-sm",
+                        selectedTag === tag && "bg-accent text-accent-foreground font-medium"
+                      )}
+                      onClick={() => onSelectTag?.(selectedTag === tag ? null : tag)}
+                    >
+                      <Hash className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                      <span className="truncate">{tag}</span>
+                    </Button>
+                  ))}
+                </nav>
+              </div>
+            </>
+          )}
           </PullToRefresh>
         </ScrollArea>
 

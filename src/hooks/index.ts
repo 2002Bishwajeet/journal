@@ -22,3 +22,5 @@ export type { UseSettingsModalReturn } from './useSettingsModal';
 // Page hooks
 export { useSharePage } from './useSharePage';
 export type { UseSharePageReturn } from './useSharePage';
+
+export { useTags, useNotesByTag } from './useTags';

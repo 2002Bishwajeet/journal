@@ -6,7 +6,7 @@
  * Refactored to consume EditorContext.
  */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { EditorContent } from "@tiptap/react";
 import type { DocumentMetadata } from "@/types";
 import { debounce } from "@/lib/utils/index";
@@ -19,11 +19,13 @@ import BubbleMenuToolbar from "./BubbleMenuToolbar";
 import { AISuggestionOverlay } from "./AISuggestionOverlay";
 import { TableColumnMenu } from "./table/TableColumnMenu";
 import { TableRowMenu } from "./table/TableRowMenu";
+import { TagInput } from "./TagInput";
 
 // Import KaTeX styles for math rendering
 import "katex/dist/katex.min.css";
 
 interface TipTapEditorProps {
+  noteId: string;
   metadata: DocumentMetadata;
   onMetadataChange?: (metadata: DocumentMetadata) => void;
   hideToolbar?: boolean;
@@ -31,6 +33,7 @@ interface TipTapEditorProps {
 }
 
 export default function TipTapEditor({
+  noteId,
   metadata,
   onMetadataChange,
   hideToolbar = false,
@@ -40,6 +43,32 @@ export default function TipTapEditor({
   const deviceType = useDeviceType();
   const [title, setTitle] = useState(metadata.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
+
+  const [wordCount, setWordCount] = useState({ words: 0, characters: 0 });
+  const wordCountTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!editor) return;
+    const update = () => {
+      const text = editor.getText();
+      setWordCount({ words: text.split(/\s+/).filter(Boolean).length, characters: text.length });
+    };
+    const handleUpdate = () => {
+      if (wordCountTimeoutRef.current) clearTimeout(wordCountTimeoutRef.current);
+      wordCountTimeoutRef.current = setTimeout(() => {
+        update();
+        wordCountTimeoutRef.current = null;
+      }, 500);
+    };
+    update();
+    editor.on("update", handleUpdate);
+    return () => {
+      editor.off("update", handleUpdate);
+      if (wordCountTimeoutRef.current) {
+        clearTimeout(wordCountTimeoutRef.current);
+        wordCountTimeoutRef.current = null;
+      }
+    };
+  }, [editor]);
 
   // Debounce metadata updates to prevent excessive sync calls
   const debouncedMetadataUpdate = useRef(
@@ -83,6 +112,9 @@ export default function TipTapEditor({
         />
       </div>
 
+      {/* Tag Input */}
+      <TagInput docId={noteId} metadata={metadata} />
+
       {/* Toolbar */}
       {editor && !hideToolbar && <EditorToolbar editor={editor} />}
 
@@ -103,6 +135,15 @@ export default function TipTapEditor({
 
       {/* AI Suggestion Overlay - shows inline suggestions from slash commands */}
       {editor && deviceType !== 'mobile' && <AISuggestionOverlay editor={editor} />}
+
+      {/* Word Count Status Bar */}
+      {editor && (
+        <div className="flex items-center justify-end px-4 py-1.5 border-t border-gray-200 dark:border-gray-700 text-xs text-muted-foreground select-none">
+          <span>{wordCount.words} words</span>
+          <span className="mx-2">·</span>
+          <span>{wordCount.characters} characters</span>
+        </div>
+      )}
     </div>
   );
 }

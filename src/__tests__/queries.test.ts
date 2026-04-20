@@ -390,6 +390,154 @@ describe('Query Functions', () => {
         });
     });
 
+    describe('getNotesForList (lightweight list query)', () => {
+        async function upsertSearchIndexForList(entry: {
+            docId: string;
+            title: string;
+            plainTextContent: string;
+            metadata: DocumentMetadata;
+        }): Promise<void> {
+            await db.query(
+                `INSERT INTO search_index (doc_id, title, plain_text_content, metadata, updated_at)
+                 VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+                 ON CONFLICT (doc_id) DO UPDATE SET
+                   title = EXCLUDED.title,
+                   plain_text_content = EXCLUDED.plain_text_content,
+                   metadata = EXCLUDED.metadata,
+                   updated_at = CURRENT_TIMESTAMP`,
+                [entry.docId, entry.title, entry.plainTextContent, JSON.stringify(entry.metadata)]
+            );
+        }
+
+        async function getNotesForList(): Promise<Array<{
+            docId: string;
+            title: string;
+            preview: string;
+            metadata: DocumentMetadata;
+        }>> {
+            const result = await db.query<{
+                doc_id: string;
+                title: string;
+                preview: string;
+                metadata: DocumentMetadata;
+            }>(
+                `SELECT doc_id, title,
+                        LEFT(plain_text_content, 150) as preview,
+                        metadata
+                 FROM search_index
+                 ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
+            );
+            return result.rows.map(row => ({
+                docId: row.doc_id,
+                title: row.title,
+                preview: row.preview || '',
+                metadata: row.metadata,
+            }));
+        }
+
+        it('should return notes without full content', async () => {
+            const docId = generateTestId();
+            const longContent = 'A'.repeat(500);
+            const metadata: DocumentMetadata = {
+                title: 'Long Note',
+                folderId: MAIN_FOLDER_ID,
+                tags: [],
+                timestamps: { created: new Date().toISOString(), modified: new Date().toISOString() },
+                excludeFromAI: false,
+            };
+
+            await upsertSearchIndexForList({ docId, title: 'Long Note', plainTextContent: longContent, metadata });
+
+            const notes = await getNotesForList();
+            expect(notes.length).toBe(1);
+            expect(notes[0].docId).toBe(docId);
+            expect(notes[0].title).toBe('Long Note');
+            // preview is truncated to 150 chars
+            expect(notes[0].preview.length).toBe(150);
+            expect(notes[0].preview).toBe('A'.repeat(150));
+        });
+
+        it('should return empty preview for notes with no content', async () => {
+            const docId = generateTestId();
+            const metadata: DocumentMetadata = {
+                title: 'Empty Note',
+                folderId: MAIN_FOLDER_ID,
+                tags: [],
+                timestamps: { created: new Date().toISOString(), modified: new Date().toISOString() },
+                excludeFromAI: false,
+            };
+
+            await upsertSearchIndexForList({ docId, title: 'Empty Note', plainTextContent: '', metadata });
+
+            const notes = await getNotesForList();
+            expect(notes.length).toBe(1);
+            expect(notes[0].preview).toBe('');
+        });
+
+        it('should not truncate content shorter than 150 chars', async () => {
+            const docId = generateTestId();
+            const shortContent = 'Short content';
+            const metadata: DocumentMetadata = {
+                title: 'Short Note',
+                folderId: MAIN_FOLDER_ID,
+                tags: [],
+                timestamps: { created: new Date().toISOString(), modified: new Date().toISOString() },
+                excludeFromAI: false,
+            };
+
+            await upsertSearchIndexForList({ docId, title: 'Short Note', plainTextContent: shortContent, metadata });
+
+            const notes = await getNotesForList();
+            expect(notes.length).toBe(1);
+            expect(notes[0].preview).toBe(shortContent);
+        });
+
+        it('should order notes by modified timestamp descending', async () => {
+            const older: DocumentMetadata = {
+                title: 'Older Note',
+                folderId: MAIN_FOLDER_ID,
+                tags: [],
+                timestamps: { created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z' },
+                excludeFromAI: false,
+            };
+            const newer: DocumentMetadata = {
+                title: 'Newer Note',
+                folderId: MAIN_FOLDER_ID,
+                tags: [],
+                timestamps: { created: '2026-04-01T00:00:00.000Z', modified: '2026-04-01T00:00:00.000Z' },
+                excludeFromAI: false,
+            };
+
+            await upsertSearchIndexForList({ docId: generateTestId(), title: 'Older Note', plainTextContent: 'old', metadata: older });
+            await upsertSearchIndexForList({ docId: generateTestId(), title: 'Newer Note', plainTextContent: 'new', metadata: newer });
+
+            const notes = await getNotesForList();
+            expect(notes.length).toBe(2);
+            expect(notes[0].title).toBe('Newer Note');
+            expect(notes[1].title).toBe('Older Note');
+        });
+
+        it('should include metadata in results', async () => {
+            const docId = generateTestId();
+            const metadata: DocumentMetadata = {
+                title: 'Tagged Note',
+                folderId: MAIN_FOLDER_ID,
+                tags: ['work', 'important'],
+                timestamps: { created: new Date().toISOString(), modified: new Date().toISOString() },
+                excludeFromAI: true,
+                isPinned: true,
+            };
+
+            await upsertSearchIndexForList({ docId, title: 'Tagged Note', plainTextContent: 'content', metadata });
+
+            const notes = await getNotesForList();
+            expect(notes.length).toBe(1);
+            expect(notes[0].metadata.tags).toEqual(['work', 'important']);
+            expect(notes[0].metadata.excludeFromAI).toBe(true);
+            expect(notes[0].metadata.isPinned).toBe(true);
+        });
+    });
+
     describe('Cosine Similarity', () => {
         it('should return 1 for identical vectors', () => {
             const vec = [0.5, 0.5, 0.5];

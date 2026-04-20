@@ -6,3 +6,5 @@ export { default as ConflictModal } from './ConflictModal';
 export { default as ShareDialog } from './ShareDialog';
 export { ExtendPermissionDialog } from './ExtendPermissionDialog';
 export { MarkCollaborativeDialog } from './MarkCollaborativeDialog';
+export { default as KeyboardShortcutsModal } from './KeyboardShortcutsModal';
+

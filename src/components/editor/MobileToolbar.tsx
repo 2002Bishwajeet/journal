@@ -15,7 +15,9 @@ import { Editor } from "@tiptap/react";
 import {
   Bold,
   Italic,
+  Underline,
   Strikethrough,
+  RemoveFormatting,
   List,
   ListOrdered,
   ListTodo,
@@ -30,8 +32,10 @@ import {
   Redo,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useToolbarState, safeEditorCommand } from "./shared";
+import { ToolbarButton, ToolbarDivider, useToolbarState, safeEditorCommand } from "./shared";
 import { EmojiPicker } from "./EmojiPicker";
+import { TablePicker } from "./TablePicker";
+import { TextAlignPicker } from "./TextAlignPicker";
 import { undo, redo } from "./plugins/collaboration";
 
 interface MobileToolbarProps {
@@ -39,47 +43,7 @@ interface MobileToolbarProps {
   className?: string;
 }
 
-interface ToolbarButtonProps {
-  onClick: () => void;
-  isActive?: boolean;
-  disabled?: boolean;
-  children: React.ReactNode;
-  title?: string;
-}
-
-// Increased button size to 48px for better touch accessibility
-function ToolbarButton({
-  onClick,
-  isActive,
-  disabled,
-  children,
-  title,
-}: ToolbarButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={cn(
-        "flex items-center justify-center w-12 h-12 min-w-12 rounded-lg transition-colors",
-        "active:bg-primary/20 touch-manipulation",
-        isActive
-          ? "bg-primary/10 text-primary"
-          : "text-foreground hover:bg-muted",
-        disabled && "opacity-50",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-// Divider component for visual separation
-function ToolbarDivider() {
-  const newLocal = "w-px h-8 bg-border mx-1 flex-shrink-0";
-  return <div className={newLocal} />;
-}
+const V = "mobile" as const;
 
 export default function MobileToolbar({
   editor,
@@ -132,7 +96,7 @@ export default function MobileToolbar({
     };
 
     viewport.addEventListener("resize", handleResize);
-    viewport.addEventListener("scroll", handleResize);
+    viewport.addEventListener("scroll", handleResize, { passive: true });
     handleResize();
 
     return () => {
@@ -170,9 +134,21 @@ export default function MobileToolbar({
     );
   }, [editor]);
 
+  const toggleUnderline = useCallback(() => {
+    safeEditorCommand(editor, () =>
+      editor.chain().focus().toggleUnderline().run(),
+    );
+  }, [editor]);
+
   const toggleStrike = useCallback(() => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleStrike().run(),
+    );
+  }, [editor]);
+
+  const clearFormatting = useCallback(() => {
+    safeEditorCommand(editor, () =>
+      editor.chain().focus().clearNodes().unsetAllMarks().run(),
     );
   }, [editor]);
 
@@ -278,63 +254,73 @@ export default function MobileToolbar({
         }}
       >
         {/* Undo/Redo */}
-        <ToolbarButton onClick={handleUndo} title="Undo">
+        <ToolbarButton variant={V} onClick={handleUndo} title="Undo">
           <Undo className="h-5 w-5" />
         </ToolbarButton>
-        <ToolbarButton onClick={handleRedo} title="Redo">
+        <ToolbarButton variant={V} onClick={handleRedo} title="Redo">
           <Redo className="h-5 w-5" />
         </ToolbarButton>
 
-        <ToolbarDivider />
+        <ToolbarDivider variant="mobile" />
 
         {/* Text formatting */}
-        <ToolbarButton
+        <ToolbarButton variant={V}
           onClick={toggleBold}
           isActive={state.isBold}
           title="Bold"
         >
           <Bold className="h-5 w-5" />
         </ToolbarButton>
-        <ToolbarButton
+        <ToolbarButton variant={V}
           onClick={toggleItalic}
           isActive={state.isItalic}
           title="Italic"
         >
           <Italic className="h-5 w-5" />
         </ToolbarButton>
-        <ToolbarButton
+        <ToolbarButton variant={V}
+          onClick={toggleUnderline}
+          isActive={state.isUnderline}
+          title="Underline"
+        >
+          <Underline className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton variant={V}
           onClick={toggleStrike}
           isActive={state.isStrike}
           title="Strikethrough"
         >
           <Strikethrough className="h-5 w-5" />
         </ToolbarButton>
-        <ToolbarButton
+        <ToolbarButton variant={V}
           onClick={toggleCode}
           isActive={state.isCode}
           title="Code"
         >
           <Code className="h-5 w-5" />
         </ToolbarButton>
+        <ToolbarButton variant={V} onClick={clearFormatting} title="Clear Formatting">
+          <RemoveFormatting className="h-5 w-5" />
+        </ToolbarButton>
 
-        <ToolbarDivider />
+        <ToolbarDivider variant="mobile" />
 
         {/* Headings */}
-        <ToolbarButton
+        <ToolbarButton variant={V}
           onClick={toggleHeading1}
           isActive={state.isHeading1}
           title="Heading 1"
         >
           <Heading1 className="h-5 w-5" />
         </ToolbarButton>
-        <ToolbarButton
+        <ToolbarButton variant={V}
           onClick={toggleHeading2}
           isActive={state.isHeading2}
           title="Heading 2"
         >
           <Heading2 className="h-5 w-5" />
         </ToolbarButton>
-        <ToolbarButton
+        <ToolbarButton variant={V}
           onClick={toggleHeading3}
           isActive={state.isHeading3}
           title="Heading 3"
@@ -342,24 +328,24 @@ export default function MobileToolbar({
           <Heading3 className="h-5 w-5" />
         </ToolbarButton>
 
-        <ToolbarDivider />
+        <ToolbarDivider variant="mobile" />
 
         {/* Lists */}
-        <ToolbarButton
+        <ToolbarButton variant={V}
           onClick={toggleBulletList}
           isActive={state.isBulletList}
           title="Bullet List"
         >
           <List className="h-5 w-5" />
         </ToolbarButton>
-        <ToolbarButton
+        <ToolbarButton variant={V}
           onClick={toggleOrderedList}
           isActive={state.isOrderedList}
           title="Numbered List"
         >
           <ListOrdered className="h-5 w-5" />
         </ToolbarButton>
-        <ToolbarButton
+        <ToolbarButton variant={V}
           onClick={toggleTaskList}
           isActive={state.isTaskList}
           title="Task List"
@@ -367,10 +353,10 @@ export default function MobileToolbar({
           <ListTodo className="h-5 w-5" />
         </ToolbarButton>
 
-        <ToolbarDivider />
+        <ToolbarDivider variant="mobile" />
 
         {/* Block elements */}
-        <ToolbarButton
+        <ToolbarButton variant={V}
           onClick={toggleBlockquote}
           isActive={state.isBlockquote}
           title="Quote"
@@ -378,10 +364,10 @@ export default function MobileToolbar({
           <Quote className="h-5 w-5" />
         </ToolbarButton>
 
-        <ToolbarDivider />
+        <ToolbarDivider variant="mobile" />
 
         {/* Insert */}
-        <ToolbarButton
+        <ToolbarButton variant={V}
           onClick={addLink}
           isActive={state.isLink}
           title="Add Link"
@@ -392,9 +378,19 @@ export default function MobileToolbar({
           editor={editor}
           className="flex items-center justify-center w-12 h-12 min-w-12 rounded-lg transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
         />
-        <ToolbarButton onClick={addImage} title="Add Image">
+        <ToolbarButton variant={V} onClick={addImage} title="Add Image">
           <ImageIcon className="h-5 w-5" />
         </ToolbarButton>
+        <TablePicker editor={editor} />
+
+        <ToolbarDivider variant="mobile" />
+
+        <TextAlignPicker
+          editor={editor}
+          currentAlign={state.textAlign}
+          className="flex items-center justify-center w-12 h-12 min-w-12 rounded-lg transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
+          iconSize={20}
+        />
       </div>
     </div>
   );
