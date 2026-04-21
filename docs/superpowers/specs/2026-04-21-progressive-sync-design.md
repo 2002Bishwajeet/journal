@@ -87,15 +87,18 @@ No extra dependency — `live` ships with `@electric-sql/pglite` (already at ^0.
 
 #### 2. `useLiveQuery<T>(sql, params?)` — Generic Hook
 
-Location: `src/hooks/useLiveQuery.ts` (~30 lines)
+Location: `src/hooks/useLiveQuery.ts` (~40 lines)
 
 - Gets PGlite instance
 - Calls `db.live.incrementalQuery(sql, params)` — uses row diffing, only transmits changed/added/removed rows
-- Subscribes to result changes → `setState`
+- Subscribes to result changes → wraps `setState` in `startTransition()` so rapid sync updates don't block user interactions (per `rerender-transitions` rule)
+- Uses primitive dependencies (SQL string, serialized params) to avoid re-establishing subscriptions on re-render (per `rerender-dependencies` rule)
 - Cleans up subscription on unmount
 - Returns `{ data: T[], isLoading: boolean, error: Error | null }`
 
 Uses `incrementalQuery` (not `query`) because it diffs results by row ID — efficient even during rapid sync writes where many rows change in quick succession.
+
+**Subscription deduplication:** If multiple components mount with the same SQL/params, they should share a single PGlite subscription rather than creating duplicates. The hook uses a module-level subscription registry (keyed by SQL+params) with a reference count — first consumer creates the subscription, last unmounter destroys it (per `client-event-listeners` deduplication pattern).
 
 #### 3. `useLiveNotes()` / `useLiveNotesByFolder(folderId)` / `useLiveCollaborativeNotes()`
 
@@ -142,11 +145,54 @@ Remove `useQueryClient` import and all `invalidateQueries()` calls. Keep `WebSoc
 
 - `live` extension in PGlite worker config (1 line)
 - `live` extension in test PGlite setup (1 line)
-- `useLiveQuery()` generic hook (~30 lines)
+- `useLiveQuery()` generic hook (~40 lines) with `startTransition`, subscription deduplication, and primitive deps
 - `useLiveNotes()`, `useLiveNotesByFolder()`, `useLiveCollaborativeNotes()` (thin wrappers)
 - `useLiveFolders()` (thin wrapper)
 - Local-first mutation functions
 - Test helpers: `waitForEmission()`, `collectEmissions()`
+
+## React Performance Patterns (Vercel Best Practices)
+
+These patterns apply specifically to the live query integration:
+
+### `startTransition` for subscription updates (`rerender-transitions`)
+
+Live query emissions during heavy sync are non-urgent — the user isn't directly interacting with the sync. Wrapping `setState` inside `useLiveQuery` with `startTransition()` ensures that user interactions (typing in the editor, clicking sidebar) remain responsive even when the note list is rapidly updating. React can interrupt a pending list re-render to process the user's click.
+
+### `useDeferredValue` for the note list (`rerender-use-deferred-value`)
+
+The `NoteList` component sorts, groups by date, and filters notes on every render. During first-sync with 200+ notes streaming in, this re-computation on every emission could lag. Consumers should wrap the live query result with `useDeferredValue` before passing it to the expensive list renderer:
+
+```ts
+const { data: notes } = useLiveNotes();
+const deferredNotes = useDeferredValue(notes);
+// Pass deferredNotes to NoteList — React skips re-renders when a newer update arrives
+```
+
+This lets React drop intermediate renders during rapid updates — the list jumps from 10 to 15 to 25 notes instead of re-rendering at 10, 11, 12, 13... individually.
+
+### Subscription deduplication (`client-event-listeners`)
+
+Multiple components (NoteList, Sidebar badge, TabBar) may consume `useLiveNotes()`. Without deduplication, each mounts its own PGlite `live.incrementalQuery` subscription. The hook uses a module-level registry keyed by SQL+params with reference counting — one subscription per unique query, shared across all consumers.
+
+### Primitive hook dependencies (`rerender-dependencies`)
+
+`useLiveQuery(sql, params)` uses the SQL string and JSON-serialized params as effect dependencies — both primitives. This avoids re-establishing the subscription when the parent re-renders with a new (but identical) params object reference.
+
+### No derived state in effects (`rerender-derived-state-no-effect`)
+
+The live query result is used directly — not copied into separate state via `useEffect`. The subscription callback sets state once; any derived values (filtered notes, sorted notes, note count) are computed during render, not stored in additional state.
+
+### `content-visibility: auto` for note list items (`rendering-content-visibility`)
+
+During first-sync, the note list can grow to hundreds of items rapidly. Apply CSS `content-visibility: auto` with `contain-intrinsic-size` on note list items so the browser skips layout/paint for off-screen entries. This is a CSS-only optimization — no component changes needed.
+
+```css
+.note-list-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px; /* estimated item height */
+}
+```
 
 ## Testing Strategy — TDD (Tests First)
 
@@ -230,6 +276,12 @@ All tests written and failing before implementation. Real in-memory PGlite with 
 - Unsubscribing one does not affect others
 - Re-subscribing after unsubscribe gets fresh initial data
 - No memory leak after repeated subscribe/unsubscribe cycles
+
+**Subscription deduplication:**
+- Two components using same SQL/params share one PGlite subscription (ref count = 2)
+- Unmounting one component keeps subscription alive for the other
+- Unmounting both destroys the subscription
+- Different SQL/params create separate subscriptions
 
 **Concurrent operations:**
 - Simultaneous insert + delete produces correct final state
