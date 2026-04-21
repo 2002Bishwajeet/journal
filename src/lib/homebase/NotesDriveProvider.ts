@@ -216,7 +216,7 @@ export class NotesDriveProvider {
     ): Promise<{ fileId: string; versionTag: string; imagePayloadKeys: string[] }> {
         const noteContent: NoteFileContent = {
             title: metadata.title,
-            tags: metadata.tags,
+            tags: metadata?.tags || [],
             excludeFromAI: metadata.excludeFromAI,
             isPinned: metadata.isPinned,
         };
@@ -343,7 +343,7 @@ export class NotesDriveProvider {
 
         const noteContent: NoteFileContent = {
             title: metadata.title,
-            tags: metadata.tags,
+            tags: metadata?.tags || [],
             excludeFromAI: metadata.excludeFromAI,
             isPinned: metadata.isPinned,
         };

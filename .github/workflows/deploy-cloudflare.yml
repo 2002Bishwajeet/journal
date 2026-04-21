@@ -25,33 +25,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GH_TOKEN }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-
-      - name: Authenticate to Github packages
-        run: |
-          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Determine version
         id: version
         run: |
           if [ "${{ github.event_name }}" = "release" ]; then
-            # Strip leading 'v' from release tag (v1.2.3 -> 1.2.3)
             VERSION="${{ github.event.release.tag_name }}"
             echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
             echo "source=release" >> "$GITHUB_OUTPUT"
           else
-            echo "version=" >> "$GITHUB_OUTPUT"
             echo "source=manual" >> "$GITHUB_OUTPUT"
             echo "bump=${{ inputs.bump || 'patch' }}" >> "$GITHUB_OUTPUT"
           fi
@@ -61,7 +48,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -- .npmrc
           npm version ${{ steps.version.outputs.bump }} -m "chore(release): %s [skip ci]"
           git push origin HEAD:main
           git push --tags
@@ -69,7 +55,15 @@ jobs:
       - name: Set version from release tag
         if: steps.version.outputs.source == 'release'
         run: |
-          npm version "${{ steps.version.outputs.version }}" --no-git-tag-force --allow-same-version
+          npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Authenticate to Github packages
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build web app
         run: npm run build

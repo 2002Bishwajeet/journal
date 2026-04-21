@@ -83,4 +83,44 @@ describe('AI Settings - loadSettings', () => {
     const settings = loadSettings();
     expect(settings).toEqual(DEFAULT_SETTINGS);
   });
+
+  it('should migrate v1 settings with legacy Llama model to default', () => {
+    const v1 = { enabled: true, modelId: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', autocompleteEnabled: true, grammarEnabled: false };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(v1));
+    const settings = loadSettings();
+    expect(settings.modelId).toBe(DEFAULT_SETTINGS.modelId);
+    expect(settings.enabled).toBe(true);
+  });
+
+  it('should preserve non-legacy model during v1 migration', () => {
+    const v1 = { enabled: true, modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', autocompleteEnabled: false, grammarEnabled: true };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(v1));
+    const settings = loadSettings();
+    expect(settings.modelId).toBe('Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
+    expect(settings.autocompleteEnabled).toBe(false);
+    expect(settings.grammarEnabled).toBe(true);
+  });
+
+  it('should write _v version tag after migration', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ enabled: true }));
+    loadSettings();
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(stored._v).toBe(2);
+  });
+
+  it('should not rewrite storage if already at current version', () => {
+    const v2 = { _v: 2, enabled: true, modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', autocompleteEnabled: true, grammarEnabled: false };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(v2));
+    const before = localStorage.getItem(STORAGE_KEY);
+    loadSettings();
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(before);
+  });
+
+  it('should validate field types and use defaults for invalid types', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, enabled: 'yes', modelId: 123, autocompleteEnabled: null }));
+    const settings = loadSettings();
+    expect(settings.enabled).toBe(DEFAULT_SETTINGS.enabled);
+    expect(settings.modelId).toBe(DEFAULT_SETTINGS.modelId);
+    expect(settings.autocompleteEnabled).toBe(DEFAULT_SETTINGS.autocompleteEnabled);
+  });
 });

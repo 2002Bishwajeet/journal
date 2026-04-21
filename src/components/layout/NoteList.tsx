@@ -37,7 +37,6 @@ interface NoteListProps {
   onCreateNote: () => void;
   onDeleteNote: (docId: string) => void;
   onShareNote: (note: NoteListEntry) => void;
-  onMarkCollaborative?: (note: NoteListEntry) => void;
   isLoading?: boolean;
   className?: string;
 }
@@ -49,7 +48,6 @@ export default function NoteList({
   onCreateNote,
   onDeleteNote,
   onShareNote,
-  onMarkCollaborative,
   isLoading = false,
   className = "",
 }: NoteListProps) {
@@ -238,9 +236,6 @@ export default function NoteList({
                           onTogglePin={(id, isPinned) =>
                             togglePin.mutate({ docId: id, isPinned })
                           }
-                          onMarkCollaborative={() =>
-                            onMarkCollaborative?.(note)
-                          }
                         />
                       ))}
                     </div>
@@ -276,7 +271,6 @@ const NoteItem = memo(function NoteItem({
   onDeleteNote,
   onShareNote,
   onTogglePin,
-  onMarkCollaborative,
 }: {
   note: NoteListEntry;
   selectedNoteId: string | null;
@@ -284,7 +278,6 @@ const NoteItem = memo(function NoteItem({
   onDeleteNote: (id: string) => void;
   onShareNote: () => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
-  onMarkCollaborative?: () => void;
 }) {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -384,12 +377,10 @@ const NoteItem = memo(function NoteItem({
             action: onShareNote,
           },
           {
-            label: note.metadata.isCollaborative
-              ? "Revoke collaboration"
-              : "Mark collaborative",
+            label: "Mark collaborative",
             icon: Users,
-            action: () => onMarkCollaborative?.(),
-            disabled: !onMarkCollaborative,
+            action: () => {},
+            disabled: true,
           },
           {
             label: "Delete",
@@ -467,16 +458,13 @@ const NoteItem = memo(function NoteItem({
               {note.metadata.isPinned && (
                 <Pin className="h-3 w-3 text-muted-foreground/50 shrink-0" />
               )}
-              {note.metadata.isCollaborative && (
-                <Users className="h-3 w-3 text-blue-500/70 shrink-0" />
-              )}
             </div>
             <p className="text-xs text-muted-foreground truncate mt-0.5 w-full">
               {note.preview || "No content"}
             </p>
-            {note.metadata.tags.length > 0 && (
+            {(note.metadata.tags ?? []).length > 0 && (
               <div className="flex items-center gap-1 mt-1 overflow-hidden">
-                {note.metadata.tags.slice(0, 3).map((tag) => (
+                {(note.metadata.tags ?? []).slice(0, 3).map((tag) => (
                   <span
                     key={tag}
                     className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-muted text-[10px] text-muted-foreground shrink-0"
@@ -485,9 +473,9 @@ const NoteItem = memo(function NoteItem({
                     {tag}
                   </span>
                 ))}
-                {note.metadata.tags.length > 3 && (
+                {(note.metadata.tags ?? []).length > 3 && (
                   <span className="text-[10px] text-muted-foreground/50">
-                    +{note.metadata.tags.length - 3}
+                    +{(note.metadata.tags ?? []).length - 3}
                   </span>
                 )}
               </div>

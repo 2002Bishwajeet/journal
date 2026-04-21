@@ -94,7 +94,9 @@ src/
 │   ├── broadcast/
 │   │   └── DocumentBroadcast.ts  # Singleton, BroadcastChannel API
 │   ├── db/
-│   │   ├── pglite.ts           # PGlite singleton + schema (9 tables)
+│   │   ├── pglite.ts           # PGlite worker singleton + schema (9 tables)
+│   │   ├── pglite-worker.ts    # Web Worker entry — runs PGlite off main thread
+│   │   ├── pglite-migrate.ts   # Version migration (v0.3→v0.4 dump/restore)
 │   │   └── queries.ts          # All SQL queries (~50 functions)
 │   ├── homebase/
 │   │   ├── config.ts           # App IDs, drive, file/data types, payload keys
@@ -241,6 +243,26 @@ src/
 
 ### `app_state` — Session persistence (key-value)
 - `key` TEXT PK, `value` JSONB, `updated_at` TIMESTAMPTZ
+
+## PGlite Version Migration
+
+PGlite runs in a **Web Worker** (`pglite-worker.ts`) via `PGliteWorker` for off-main-thread DB operations. The version is tracked in `localStorage['journal-pglite-version']`.
+
+**IMPORTANT — When bumping PGlite minor versions (e.g. 0.4→0.5):**
+
+1. Install the **old** version as an alias: `npm install pglite-v4@npm:@electric-sql/pglite@0.4.x`
+2. Update `pglite-migrate.ts`:
+   - Rename `migrateFromV3` → `migrateFromV4` (or add a new function)
+   - Import `PGlite` from the old alias (`pglite-v4`)
+   - Update `CURRENT_VERSION` to the new version
+3. Update `pglite.ts`: bump `PGLITE_VERSION` constant
+4. Update `pglite-worker.ts` if the worker API changed
+5. Test migration locally: verify existing IDB data survives the upgrade
+6. **After the next release is stable**, remove the old alias package (`pglite-v3`) from `package.json` — it's only needed during the transition window
+
+Current state: `pglite-v3` (0.3.14) is installed for migrating users from 0.3→0.4. Remove it once all users have migrated.
+
+Migration flow: detect old IDB → `dumpDataDir('none')` with old PGlite → delete old IDB → `loadDataDir: dump` with new PGlite → `initializeSchema()`.
 
 ## AI Integration
 

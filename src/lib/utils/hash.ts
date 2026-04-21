@@ -13,7 +13,7 @@ export async function computeContentHash(
     const metadataString = JSON.stringify({
         title: metadata.title,
         folderId: metadata.folderId,
-        tags: metadata.tags,
+        tags: metadata.tags ?? [],
         // Exclude timestamps as they change on every save even if content is same
         excludeFromAI: metadata.excludeFromAI,
     });
