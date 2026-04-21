@@ -25,6 +25,7 @@ import {
   SettingsModal,
   ShareDialog,
   ExtendPermissionDialog,
+  MarkCollaborativeDialog,
   KeyboardShortcutsModal,
 } from "@/components/modals";
 import { 
@@ -91,6 +92,7 @@ export default function JournalLayout() {
   const [showSearch, setShowSearch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [collaborativeNote, setCollaborativeNote] = useState<NoteListEntry | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [shareNote, setShareNote] = useState<NoteListEntry | null>(null);
 
@@ -100,7 +102,18 @@ export default function JournalLayout() {
 
   useEffect(() => {
     const handleAction = async () => {
-        if (!action) return;
+        if (!action) {
+            // Check localStorage for pending collaborative action (fallback if URL params were cleared)
+            const pendingNoteId = localStorage.getItem('pendingCollaborativeNoteId');
+            if (pendingNoteId && notes.length > 0) {
+                const note = notes.find(n => n.docId === pendingNoteId);
+                if (note) {
+                    setCollaborativeNote(note);
+                    localStorage.removeItem('pendingCollaborativeNoteId');
+                }
+            }
+            return;
+        }
 
         if (action === "search") {
             setShowSearch(true);
@@ -115,17 +128,32 @@ export default function JournalLayout() {
                     navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
                 }
             }
+        } else if (action === "collaborate") {
+            // Reopen collaborative dialog after permission redirect
+            const collaborateNoteId = searchParams.get("noteId");
+            if (collaborateNoteId) {
+                // Wait for notes to be loaded before trying to find the note
+                if (notes.length === 0) {
+                    // Notes not loaded yet - don't clear params, will retry when notes load
+                    return;
+                }
+                const note = notes.find(n => n.docId === collaborateNoteId);
+                if (note) {
+                    setCollaborativeNote(note);
+                }
+            }
         }
 
-        // Clear the action param
+        // Clear the action params (only after successful handling)
         setSearchParams((params: URLSearchParams) => {
             params.delete("action");
+            params.delete("noteId");
             return params;
         }, { replace: true });
     };
 
     handleAction();
-  }, [action, folders, folderId, createNote, navigate, setSearchParams]);
+  }, [action, folders, folderId, notes, createNote, navigate, setSearchParams, searchParams]);
 
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
@@ -214,7 +242,7 @@ export default function JournalLayout() {
           !isDesktop &&
             !isFolderSelected &&
             "flex absolute inset-0 z-30 w-full bg-background",
-          focusMode && "!hidden"
+          focusMode && "hidden!"
         )}
       >
         <Sidebar
@@ -261,7 +289,7 @@ export default function JournalLayout() {
             isFolderSelected &&
             !isNoteSelected &&
             "flex absolute inset-0 z-20 w-full",
-          focusMode && "!hidden"
+          focusMode && "hidden!"
         )}
       >
         <div className="flex flex-col h-full w-full max-w-full min-w-0 overflow-hidden">
@@ -336,6 +364,7 @@ export default function JournalLayout() {
               }
             }}
             onShareNote={(note) => setShareNote(note)}
+            onMarkCollaborative={(note) => setCollaborativeNote(note)}
             isLoading={isFilteredNotesLoading}
             className="flex-1 w-full border-r-0"
           />
@@ -355,7 +384,7 @@ export default function JournalLayout() {
         )}
       >
         {/* Desktop Tab Bar — hidden in focus mode */}
-        <div className={cn(isDesktop ? "flex items-center" : "hidden", focusMode && "!hidden")}>
+        <div className={cn(isDesktop ? "flex items-center" : "hidden", focusMode && "hidden!")}>
           <TabBar
             tabs={openTabs}
             activeTabId={activeTabId}
@@ -425,7 +454,7 @@ export default function JournalLayout() {
         <div className="fixed top-0 left-0 right-0 z-40 flex justify-center group/focus">
           <button
             onClick={() => setFocusMode(false)}
-            className="mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-foreground/5 backdrop-blur-md border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-all opacity-0 group-hover/focus:opacity-100 translate-y-[-8px] group-hover/focus:translate-y-0"
+            className="mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-foreground/5 backdrop-blur-md border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-all opacity-0 group-hover/focus:opacity-100 -translate-y-2 group-hover/focus:translate-y-0"
           >
             <Minimize2 className="h-3 w-3" />
             Exit Focus
@@ -473,6 +502,14 @@ export default function JournalLayout() {
         />
       )}
 
+      {collaborativeNote && (
+        <MarkCollaborativeDialog
+          isOpen={!!collaborativeNote}
+          onClose={() => setCollaborativeNote(null)}
+          noteId={collaborativeNote.docId}
+          noteTitle={collaborativeNote.title || "Untitled"}
+        />
+      )}
       <KeyboardShortcutsModal
         isOpen={showKeyboardHelp}
         onClose={() => setShowKeyboardHelp(false)}
