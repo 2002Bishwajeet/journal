@@ -13,6 +13,7 @@ export interface DocumentMetadata {
     circleIds?: string[];    // Circles granted access (multiple)
     recipients?: string[];   // OdinIds of collaborators (from circle members)
     lastEditedBy?: string;   // OdinId of last editor
+    authorOdinId?: string;     // Identity that owns the note (for peer fetch)
 }
 
 export interface Document {
@@ -84,6 +85,14 @@ export interface NoteFileContent {
     lastEditedBy?: string;
 }
 
+export interface CollaborationInviteContent {
+    authorOdinId: string;
+    noteUniqueId: string;
+    noteTitle: string;
+    notePreview: string;
+    sharedAt: string;
+}
+
 // Sync tracking for local ↔ remote mapping
 export interface SyncRecord {
     localId: string;
@@ -94,6 +103,8 @@ export interface SyncRecord {
     syncStatus: 'pending' | 'synced' | 'conflict' | 'error';
     contentHash?: string;
     encryptedKeyHeader?: string;
+    authorOdinId?: string;
+    globalTransitId?: string;
 }
 
 // Image pending upload for retry queue

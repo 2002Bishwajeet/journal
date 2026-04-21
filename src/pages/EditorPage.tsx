@@ -9,10 +9,12 @@ import {
 } from "@/components/editor";
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Users } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ChevronLeft } from "lucide-react";
+import { CollaborativePopover } from '@/components/editor/CollaborativePopover';
 import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
+import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
+import { useDotYouClientContext } from "@/components/auth";
 import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
 import { useAISettings } from "@/hooks/useAISettings";
@@ -72,23 +74,11 @@ function EditorLayout({
           {selectedNoteMetadata?.title || "Untitled"}
         </span>
         {selectedNoteMetadata?.isCollaborative && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-xs">
-                  <Users className="h-3 w-3" />
-                  <span className="hidden sm:inline">Collaborative</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="text-xs">
-                  {selectedNoteMetadata?.lastEditedBy 
-                    ? `Last edited by ${selectedNoteMetadata.lastEditedBy}`
-                    : 'Shared with your circles'}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <CollaborativePopover
+            circleIds={selectedNoteMetadata.circleIds}
+            recipients={selectedNoteMetadata.recipients}
+            lastEditedBy={selectedNoteMetadata.lastEditedBy}
+          />
         )}
         <SyncStatus />
       </div>
@@ -103,6 +93,15 @@ function EditorLayout({
       >
         {editor && <EditorToolbar editor={editor} />}
         {editor && <AIMenu editor={editor} />}
+        {selectedNoteMetadata?.isCollaborative && (
+          <div className="ml-auto px-3">
+            <CollaborativePopover
+              circleIds={selectedNoteMetadata.circleIds}
+              recipients={selectedNoteMetadata.recipients}
+              lastEditedBy={selectedNoteMetadata.lastEditedBy}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto relative bg-background w-full">
@@ -146,7 +145,8 @@ export default function EditorPage({
     get: { data: notes = [] },
     updateNote: { mutateAsync: updateNoteMetadata },
   } = useNotes();
-  const { syncNote } = useSyncService();
+  const { syncNote, syncService } = useSyncService();
+  const dotYouClient = useDotYouClientContext();
 
   // WebLLM for AI-powered features
   const { isReady: isAIReady } = useWebLLM();
@@ -155,6 +155,16 @@ export default function EditorPage({
   // Find the selected note metadata from the notes list
   const selectedNote = notes.find((n) => n.docId === noteId);
   const selectedNoteMetadata = selectedNote?.metadata;
+
+  // Peer WebSocket for collaborative notes from other identities
+  const isPeerNote = !!selectedNoteMetadata?.authorOdinId &&
+      selectedNoteMetadata.authorOdinId !== dotYouClient.getHostIdentity();
+  usePeerNoteWebsocket({
+      authorOdinId: selectedNoteMetadata?.authorOdinId,
+      noteUniqueId: noteId,
+      isEnabled: isPeerNote,
+      syncService,
+  });
 
   // Keyboard shortcuts
   useKeyboardShortcuts({

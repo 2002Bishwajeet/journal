@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Users, ExternalLink, Loader2, Check, AlertTriangle } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Users, ExternalLink, Loader2, Check, Info } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -70,13 +70,6 @@ export function MarkCollaborativeDialog({
     const circles: CircleDefinition[] = circlesFetch.data || [];
     const isLoading = circlesFetch.isLoading;
 
-    // Reset selection when dialog closes
-    useEffect(() => {
-        if (!isOpen) {
-            setSelectedCircles([]);
-        }
-    }, [isOpen]);
-
     const handleCircleSelect = useCallback((circle: CircleDefinition, members: string[]) => {
         setSelectedCircles(prev => {
             const existing = prev.find(c => c.circleId === circle.id);
@@ -124,14 +117,21 @@ export function MarkCollaborativeDialog({
         }
     }, [dotYouClient, noteId, selectedCircles, onClose, onSuccess]);
 
-    const selectedCircleIds = selectedCircles.map(c => c.circleId);
+    const selectedCircleIdSet = new Set(selectedCircles.map(c => c.circleId));
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={(open) => {
+            if (open) {
+                queryClient.invalidateQueries({ queryKey: ['security-context'], exact: false });
+            } else {
+                setSelectedCircles([]);
+                onClose();
+            }
+        }}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <div className="mx-auto bg-secondary p-3 rounded-full mb-4 w-fit">
-                        <Users className="h-6 w-6 text-primary" />
+                    <div className="mx-auto bg-collaborative/10 p-3 rounded-full mb-4 w-fit">
+                        <Users className="h-6 w-6 text-collaborative" />
                     </div>
                     <DialogTitle className="text-center text-xl">
                         Mark as Collaborative
@@ -145,19 +145,17 @@ export function MarkCollaborativeDialog({
                     {/* Permission Warning */}
                     {hasMissingPermissions ? (
                         <div className="space-y-4">
-                            <Alert variant="destructive">
-                                <AlertTriangle className="h-4 w-4" />
+                            <Alert>
+                                <Info className="h-4 w-4" />
                                 <AlertDescription>
                                     {JOURNAL_APP_NAME} needs additional permissions to enable collaboration.
                                 </AlertDescription>
                             </Alert>
-                            
+
                             <Button asChild className="w-full" size="lg">
                                 <a href={extendPermissionUrl}
                                   onClick={() => {
-                                    // Store noteId in localStorage as backup for redirect
-                                    localStorage.setItem('pendingCollaborativeNoteId', noteId);
-                                    queryClient.invalidateQueries({ queryKey: ['security-context'], exact: false });
+                                    try { localStorage.setItem('pendingCollaborativeNoteId', noteId); } catch { /* private browsing */ }
                                   }}
                                 className="flex items-center gap-2">
                                     Grant Permissions <ExternalLink className="h-4 w-4" />
@@ -193,7 +191,7 @@ export function MarkCollaborativeDialog({
                                                 <CircleOption
                                                     key={circle.id}
                                                     circle={circle}
-                                                    isActive={selectedCircleIds.includes(circle.id!)}
+                                                    isActive={selectedCircleIdSet.has(circle.id!)}
                                                     onSelect={handleCircleSelect}
                                                 />
                                             ))}

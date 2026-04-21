@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, useRef, memo } from "react";
 import {
   Plus,
   FileText,
@@ -37,6 +37,7 @@ interface NoteListProps {
   onCreateNote: () => void;
   onDeleteNote: (docId: string) => void;
   onShareNote: (note: NoteListEntry) => void;
+  onMarkCollaborative?: (note: NoteListEntry) => void;
   isLoading?: boolean;
   className?: string;
 }
@@ -48,6 +49,7 @@ export default function NoteList({
   onCreateNote,
   onDeleteNote,
   onShareNote,
+  onMarkCollaborative,
   isLoading = false,
   className = "",
 }: NoteListProps) {
@@ -80,6 +82,10 @@ export default function NoteList({
   };
 
   const handleDeleteNote = useCallback((id: string) => setNoteToDelete(id), []);
+  const handleTogglePin = useCallback(
+    (id: string, isPinned: boolean) => togglePin.mutate({ docId: id, isPinned }),
+    [togglePin],
+  );
 
   const groupedNotes = useMemo(() => {
     const groups: { label: string; notes: NoteListEntry[] }[] = [];
@@ -232,10 +238,9 @@ export default function NoteList({
                           selectedNoteId={selectedNoteId}
                           onSelectNote={onSelectNote}
                           onDeleteNote={handleDeleteNote}
-                          onShareNote={() => onShareNote(note)}
-                          onTogglePin={(id, isPinned) =>
-                            togglePin.mutate({ docId: id, isPinned })
-                          }
+                          onShareNote={onShareNote}
+                          onTogglePin={handleTogglePin}
+                          onMarkCollaborative={onMarkCollaborative}
                         />
                       ))}
                     </div>
@@ -271,23 +276,24 @@ const NoteItem = memo(function NoteItem({
   onDeleteNote,
   onShareNote,
   onTogglePin,
+  onMarkCollaborative,
 }: {
   note: NoteListEntry;
   selectedNoteId: string | null;
   onSelectNote: (id: string) => void;
   onDeleteNote: (id: string) => void;
-  onShareNote: () => void;
+  onShareNote: (note: NoteListEntry) => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
+  onMarkCollaborative?: (note: NoteListEntry) => void;
 }) {
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const touchStartRef = useRef<number | null>(null);
+  const touchEndRef = useRef<number | null>(null);
   const [isSwiped, setIsSwiped] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
 
   const minSwipeDistance = 50;
   const maxSwipeDistance = 80;
 
-  // Haptic feedback helper
   const triggerHaptic = (duration = 10) => {
     if ("vibrate" in navigator) {
       navigator.vibrate(duration);
@@ -295,40 +301,36 @@ const NoteItem = memo(function NoteItem({
   };
 
   const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
+    touchEndRef.current = null;
+    touchStartRef.current = e.targetTouches[0].clientX;
     setSwipeOffset(0);
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
     const currentX = e.targetTouches[0].clientX;
-    setTouchEnd(currentX);
+    touchEndRef.current = currentX;
 
-    if (touchStart !== null) {
-      const diff = touchStart - currentX;
-      // Only allow left swipe with elastic resistance
+    if (touchStartRef.current !== null) {
+      const diff = touchStartRef.current - currentX;
       if (diff > 0) {
-        // Apply elastic resistance after maxSwipeDistance
         const offset =
           diff > maxSwipeDistance
             ? maxSwipeDistance + (diff - maxSwipeDistance) * 0.2
             : diff;
         setSwipeOffset(Math.min(offset, 100));
       } else if (isSwiped) {
-        // Allow right swipe to reset
         setSwipeOffset(Math.max(maxSwipeDistance + diff, 0));
       }
     }
   };
 
   const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) {
-      // Reset if no valid touch
+    if (!touchStartRef.current || !touchEndRef.current) {
       if (!isSwiped) setSwipeOffset(0);
       return;
     }
 
-    const distance = touchStart - touchEnd;
+    const distance = touchStartRef.current - touchEndRef.current;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
 
@@ -341,15 +343,13 @@ const NoteItem = memo(function NoteItem({
       setSwipeOffset(0);
       triggerHaptic(10);
     } else {
-      // Snap back or maintain position
       setSwipeOffset(isSwiped ? maxSwipeDistance : 0);
     }
 
-    setTouchStart(null);
-    setTouchEnd(null);
+    touchStartRef.current = null;
+    touchEndRef.current = null;
   };
 
-  // Auto-reset when clicking elsewhere (global handler)
   const handleGlobalClick = (e: React.MouseEvent) => {
     if (isSwiped) {
       e.stopPropagation();
@@ -374,13 +374,15 @@ const NoteItem = memo(function NoteItem({
           {
             label: "Share",
             icon: Share2,
-            action: onShareNote,
+            action: () => onShareNote(note),
           },
           {
-            label: "Mark collaborative",
+            label: note.metadata.isCollaborative
+              ? "Revoke collaboration"
+              : "Mark collaborative",
             icon: Users,
-            action: () => {},
-            disabled: true,
+            action: () => onMarkCollaborative?.(note),
+            disabled: !onMarkCollaborative,
           },
           {
             label: "Delete",
@@ -457,6 +459,9 @@ const NoteItem = memo(function NoteItem({
               </span>
               {note.metadata.isPinned && (
                 <Pin className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+              )}
+              {note.metadata.isCollaborative && (
+                <Users className="h-3 w-3 text-collaborative/70 shrink-0" />
               )}
             </div>
             <p className="text-xs text-muted-foreground truncate mt-0.5 w-full">

@@ -10,6 +10,7 @@ import {
     JOURNAL_DRIVE,
     JOURNAL_FILE_TYPE,
     FOLDER_FILE_TYPE,
+    COLLABORATION_INVITE_FILE_TYPE,
 } from './config';
 import { processInbox } from '@homebase-id/js-lib/peer';
 
@@ -25,6 +26,7 @@ type ProcessInboxResponse = {
 export interface InboxProcessResult {
     folders: (HomebaseFile<string> | DeletedHomebaseFile)[];
     notes: (HomebaseFile<string> | DeletedHomebaseFile)[];
+    invitations: (HomebaseFile<string> | DeletedHomebaseFile)[];
     processedresult: ProcessInboxResponse;
 }
 
@@ -54,13 +56,14 @@ export class InboxProcessor {
 
         // process both at the same time. not much changes while we are offline.
         const results = await this.findChangesSince(
-            [FOLDER_FILE_TYPE, JOURNAL_FILE_TYPE],
+            [FOLDER_FILE_TYPE, JOURNAL_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE],
             sinceTime,
         );
 
         // Process and separate folder and note changes
         const folders: (HomebaseFile<string> | DeletedHomebaseFile)[] = [];
         const notes: (HomebaseFile<string> | DeletedHomebaseFile)[] = [];
+        const invitations: (HomebaseFile<string> | DeletedHomebaseFile)[] = [];
         const yieldEvery = 500;
 
         for (let index = 0; index < results.length; index += 1) {
@@ -71,6 +74,8 @@ export class InboxProcessor {
                 folders.push(item as HomebaseFile<string> | DeletedHomebaseFile);
             } else if (fileType === JOURNAL_FILE_TYPE) {
                 notes.push(item as HomebaseFile<string> | DeletedHomebaseFile);
+            } else if (fileType === COLLABORATION_INVITE_FILE_TYPE) {
+                invitations.push(item as HomebaseFile<string> | DeletedHomebaseFile);
             }
 
             if (index % yieldEvery === 0) {
@@ -81,6 +86,7 @@ export class InboxProcessor {
         return {
             folders,
             notes,
+            invitations,
             processedresult,
         };
     }

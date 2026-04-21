@@ -38,6 +38,9 @@
   --destructive: #ef4444; /* Standard Red */
   --destructive-foreground: #FFFFFF;
 
+  --collaborative: #b45309; /* Warm amber — sharing/connection */
+  --collaborative-foreground: #FFFFFF;
+
   --border: #E6E4DD; /* Soft Border */
   --input: #FFFFFF;  /* Input BG */
   --ring: #2C2B29;
@@ -87,6 +90,9 @@
 
   --destructive: #7f1d1d;
   --destructive-foreground: #E6E4DD;
+
+  --collaborative: #fbbf24; /* Warm gold — lighter for dark mode */
+  --collaborative-foreground: #1C1B1A;
 
   --border: #3E3D3A; /* Dark Border */
   --input: #242321;
@@ -401,6 +407,9 @@ body {
   
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-collaborative: var(--collaborative);
+  --color-collaborative-foreground: var(--collaborative-foreground);
   
   --color-border: var(--border);
   --color-input: var(--input);

@@ -10,17 +10,19 @@ import type {
     TargetDrive,
     TypedConnectionNotification,
 } from '@homebase-id/js-lib/core';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import {
+    SubscribeOverPeer,
+    UnsubscribeOverPeer,
+    NotifyOverPeer,
+} from '@homebase-id/js-lib/peer';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useDotYouClientContext } from '@/components/auth';
 
-/**
- * Wrapper for the notification subscriber within DotYouCore-js.
- * Adds client-side filtering of notifications by type.
- */
 export const useWebsocketSubscriber = (
     handler:
         | ((dotYouClient: DotYouClient, notification: TypedConnectionNotification) => void)
         | undefined,
+    odinId: string | undefined,
     types: NotificationType[],
     drives: TargetDrive[],
     onDisconnect?: () => void,
@@ -28,6 +30,7 @@ export const useWebsocketSubscriber = (
     refId?: string
 ) => {
     const dotYouClient = useDotYouClientContext();
+    const isPeer = useMemo(() => !!odinId && odinId !== dotYouClient.getHostIdentity(), [odinId, dotYouClient]);
     const [isConnected, setIsConnected] = useState(false);
     const connectedHandler =
         useRef<((dotYouClient: DotYouClient, data: TypedConnectionNotification) => void) | null>(null);
@@ -39,7 +42,8 @@ export const useWebsocketSubscriber = (
                     '[WebsocketSubscriber] Replying to inboxItemReceived by sending processInbox'
                 );
 
-                Notify({
+                const notifyFn = isPeer ? NotifyOverPeer : Notify;
+                notifyFn({
                     command: 'processInbox',
                     data: JSON.stringify({
                         targetDrive: notification.targetDrive,
@@ -48,53 +52,20 @@ export const useWebsocketSubscriber = (
                 });
             }
 
-            // Filter by notification types if specified
             if (types?.length >= 1 && !types.includes(notification.notificationType)) return;
             handler?.(dotYouClient, notification);
         },
-        [handler, types]
+        [handler, types, isPeer]
     );
 
     const localHandler = handler ? wrappedHandler : undefined;
 
-    const subscribe = useCallback(
-        async (handler: (dotYouClient: DotYouClient, data: TypedConnectionNotification) => void) => {
-            connectedHandler.current = handler;
-
-            try {
-                await Subscribe(
-                    dotYouClient,
-                    drives,
-                    handler,
-                    () => {
-                        setIsConnected(false);
-                        onDisconnect?.();
-                    },
-                    () => {
-                        setIsConnected(true);
-                        onReconnect?.();
-                    },
-                    refId
-                );
-            } catch (error) {
-                console.error('[WebsocketSubscriber] Subscribe failed:', error);
-                setIsConnected(false);
-                onDisconnect?.();
-            }
-        },
-        [dotYouClient, drives, onDisconnect, onReconnect, refId]
-    );
-
-    const unsubscribe = useCallback(
-        (handler: (dotYouClient: DotYouClient, data: TypedConnectionNotification) => void) => {
-            try {
-                Unsubscribe(handler);
-            } catch (e) {
-                console.error('[WebsocketSubscriber] Unsubscribe error:', e);
-            }
-        },
-        []
-    );
+    const onDisconnectRef = useRef(onDisconnect);
+    const onReconnectRef = useRef(onReconnect);
+    useEffect(() => {
+        onDisconnectRef.current = onDisconnect;
+        onReconnectRef.current = onReconnect;
+    }, [onDisconnect, onReconnect]);
 
     useEffect(() => {
         if (
@@ -105,17 +76,72 @@ export const useWebsocketSubscriber = (
             return;
 
         if (connectedHandler.current) {
-            // setIsConnected(false);
-            unsubscribe(connectedHandler.current);
+            if (isPeer) {
+                UnsubscribeOverPeer(connectedHandler.current);
+            } else {
+                Unsubscribe(connectedHandler.current);
+            }
         }
 
-        subscribe(localHandler).then(() => setIsConnected(true));
+        connectedHandler.current = localHandler;
+        let cancelled = false;
+
+        const disconnectCb = () => {
+            if (!cancelled) setIsConnected(false);
+            onDisconnectRef.current?.();
+        };
+        const reconnectCb = () => {
+            if (!cancelled) setIsConnected(true);
+            onReconnectRef.current?.();
+        };
+
+        const subscribePromise = isPeer
+            ? SubscribeOverPeer(
+                  dotYouClient,
+                  odinId!,
+                  drives,
+                  localHandler,
+                  disconnectCb,
+                  reconnectCb,
+                  undefined,
+                  refId
+              )
+            : Subscribe(
+                  dotYouClient,
+                  drives,
+                  localHandler,
+                  disconnectCb,
+                  reconnectCb,
+                  undefined,
+                  refId
+              );
+
+        subscribePromise
+            .then(() => {
+                if (!cancelled) setIsConnected(true);
+            })
+            .catch((error: unknown) => {
+                console.error('[WebsocketSubscriber] Subscribe failed:', error);
+                if (!cancelled) setIsConnected(false);
+                onDisconnectRef.current?.();
+            });
 
         return () => {
+            cancelled = true;
             setIsConnected(false);
-            unsubscribe(localHandler);
+            if (connectedHandler.current) {
+                try {
+                    if (isPeer) {
+                        UnsubscribeOverPeer(connectedHandler.current);
+                    } else {
+                        Unsubscribe(connectedHandler.current);
+                    }
+                } catch (e) {
+                    console.error('[WebsocketSubscriber] Unsubscribe error:', e);
+                }
+            }
         };
-    }, [localHandler, dotYouClient, subscribe, unsubscribe]);
+    }, [localHandler, dotYouClient, drives, refId, isPeer, odinId]);
 
     return isConnected;
 };

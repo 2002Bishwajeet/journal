@@ -30,8 +30,12 @@ import {
     JOURNAL_DATA_TYPE,
     PAYLOAD_KEY_CONTENT,
     PAYLOAD_KEY_IMAGE_PREFIX,
+    COLLABORATION_INVITE_FILE_TYPE,
+    COLLABORATION_INVITE_DATA_TYPE,
+    COLLABORATIVE_FOLDER_ID,
+    MAIN_FOLDER_ID,
 } from './config';
-import type { NoteFileContent, DocumentMetadata } from '@/types';
+import type { NoteFileContent, DocumentMetadata, CollaborationInviteContent } from '@/types';
 
 export interface ImageUploadData {
     file: Blob;
@@ -346,6 +350,10 @@ export class NotesDriveProvider {
             tags: metadata?.tags || [],
             excludeFromAI: metadata.excludeFromAI,
             isPinned: metadata.isPinned,
+            isCollaborative: metadata.isCollaborative,
+            circleIds: metadata.circleIds,
+            recipients: metadata.recipients,
+            lastEditedBy: metadata.lastEditedBy,
         };
         const payloads: PayloadFile[] = [];
 
@@ -356,6 +364,15 @@ export class NotesDriveProvider {
                 iv: getRandom16ByteArray(),
             });
         }
+
+        const accessControlList = metadata.isCollaborative && metadata.circleIds?.length
+            ? {
+                requiredSecurityGroup: SecurityGroupType.Connected,
+                circleIdList: metadata.circleIds,
+            }
+            : {
+                requiredSecurityGroup: SecurityGroupType.Owner,
+            };
 
         const uploadMetadata: UploadFileMetadata = {
             versionTag,
@@ -370,9 +387,7 @@ export class NotesDriveProvider {
                 content: JSON.stringify(noteContent),
             },
             isEncrypted: true,
-            accessControlList: {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            },
+            accessControlList,
         };
 
         const updateInstructions: UpdateInstructionSet = isPeer
@@ -639,8 +654,6 @@ export class NotesDriveProvider {
         recipients: string[],
         editorOdinId: string
     ): Promise<{ versionTag: string }> {
-        const { COLLABORATIVE_FOLDER_ID } = await import('./config');
-
         // Fetch existing file header
         const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
             this.#dotYouClient,
@@ -708,6 +721,14 @@ export class NotesDriveProvider {
             throw new Error('Failed to make note collaborative');
         }
 
+        await this.createOrUpdateInvitation(
+            uniqueId,
+            existingContent?.title || '',
+            '',
+            circleIds,
+            editorOdinId,
+        );
+
         return { versionTag: result.newVersionTag };
     }
 
@@ -723,9 +744,6 @@ export class NotesDriveProvider {
         uniqueId: string,
         editorOdinId: string
     ): Promise<{ versionTag: string }> {
-        // Import MAIN_FOLDER_ID dynamically to avoid circular deps
-        const { MAIN_FOLDER_ID } = await import('./config');
-
         // Fetch existing file header
         const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
             this.#dotYouClient,
@@ -749,6 +767,7 @@ export class NotesDriveProvider {
             isPinned: existingContent?.isPinned || false,
             isCollaborative: false,
             circleIds: undefined,
+            recipients: undefined,
             lastEditedBy: editorOdinId,
         };
 
@@ -790,6 +809,108 @@ export class NotesDriveProvider {
             throw new Error('Failed to revoke note collaboration');
         }
 
+        await this.deleteInvitation(uniqueId);
+
         return { versionTag: result.newVersionTag };
+    }
+
+    async createOrUpdateInvitation(
+        noteUniqueId: string,
+        noteTitle: string,
+        notePreview: string,
+        circleIds: string[],
+        authorOdinId: string,
+    ): Promise<void> {
+        const inviteUniqueId = toGuidId(`collab-invite-${noteUniqueId}`);
+        const inviteContent: CollaborationInviteContent = {
+            authorOdinId,
+            noteUniqueId,
+            noteTitle,
+            notePreview: notePreview.slice(0, 150),
+            sharedAt: new Date().toISOString(),
+        };
+
+        const existingInvite = await getFileHeaderByUniqueId(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            inviteUniqueId,
+            { decrypt: false }
+        );
+
+        if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
+            const uploadMetadata: UploadFileMetadata = {
+                versionTag: existingInvite.fileMetadata.versionTag,
+                allowDistribution: true,
+                appData: {
+                    fileType: COLLABORATION_INVITE_FILE_TYPE,
+                    dataType: COLLABORATION_INVITE_DATA_TYPE,
+                    uniqueId: inviteUniqueId,
+                    groupId: COLLABORATIVE_FOLDER_ID,
+                    content: JSON.stringify(inviteContent),
+                },
+                isEncrypted: true,
+                accessControlList: {
+                    requiredSecurityGroup: SecurityGroupType.Connected,
+                    circleIdList: circleIds,
+                },
+            };
+
+            const updateInstructions: UpdateInstructionSet = {
+                locale: 'local',
+                file: { fileId: existingInvite.fileId, targetDrive: JOURNAL_DRIVE },
+                versionTag: existingInvite.fileMetadata.versionTag,
+            };
+
+            await patchFile(
+                this.#dotYouClient,
+                existingInvite.sharedSecretEncryptedKeyHeader,
+                updateInstructions,
+                uploadMetadata,
+            );
+        } else {
+            const uploadMetadata: UploadFileMetadata = {
+                allowDistribution: true,
+                appData: {
+                    fileType: COLLABORATION_INVITE_FILE_TYPE,
+                    dataType: COLLABORATION_INVITE_DATA_TYPE,
+                    uniqueId: inviteUniqueId,
+                    groupId: COLLABORATIVE_FOLDER_ID,
+                    content: JSON.stringify(inviteContent),
+                },
+                isEncrypted: true,
+                accessControlList: {
+                    requiredSecurityGroup: SecurityGroupType.Connected,
+                    circleIdList: circleIds,
+                },
+            };
+
+            const instructionSet: UploadInstructionSet = {
+                transferIv: getRandom16ByteArray(),
+                storageOptions: { drive: JOURNAL_DRIVE },
+            };
+
+            await uploadFile(
+                this.#dotYouClient,
+                instructionSet,
+                uploadMetadata,
+                [],
+                [],
+                true,
+            );
+        }
+    }
+
+    async deleteInvitation(noteUniqueId: string): Promise<void> {
+        const inviteUniqueId = toGuidId(`collab-invite-${noteUniqueId}`);
+        const existingInvite = await getFileHeaderByUniqueId(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            inviteUniqueId,
+            { decrypt: false }
+        );
+
+        if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
+            await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, existingInvite.fileId);
+        }
     }
 }

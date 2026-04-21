@@ -8,6 +8,9 @@ import App from './App.tsx'
 // Import memory monitor for dev debugging (exposes window.memoryMonitor)
 import './lib/utils/memoryMonitor'
 
+// Request persistent storage so the browser won't evict IndexedDB/Cache under storage pressure
+navigator.storage?.persist?.();
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

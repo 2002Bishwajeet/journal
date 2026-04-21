@@ -34,8 +34,8 @@ import {
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
 import { extractPreviewTextFromYjs, serializeKeyHeader, tryJsonParse, validateKeyHeader } from '@/lib/utils';
-import { MAIN_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
-import type { FolderFile, NoteFileContent, SyncRecord, SyncProgress } from '@/types';
+import { MAIN_FOLDER_ID, COLLABORATIVE_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
+import type { FolderFile, SyncRecord, SyncProgress, CollaborationInviteContent } from '@/types';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
 import { documentBroadcast } from '@/lib/broadcast';
 import type { OnlineContextType } from '@/contexts/OnlineContext';
@@ -94,6 +94,10 @@ export class SyncService {
         await documentBroadcast.requestFlushAndWait();
     }
 
+    getNoteProvider(): NotesDriveProvider {
+        return this.#notesProvider;
+    }
+
     /**
      * Full bidirectional sync with optional progress callback.
      */
@@ -147,11 +151,11 @@ export class SyncService {
      */
     async pullChanges(onProgress?: (progress: SyncProgress) => void): Promise<{ folders: number; notes: number }> {
         const lastSync = await getAppState<number>(STORAGE_KEY_LAST_SYNC);
-        const { folders, notes } = await this.#inboxProcessor.processChanges(lastSync || undefined);
+        const { folders, notes, invitations } = await this.#inboxProcessor.processChanges(lastSync || undefined);
 
         let folderCount = 0;
         let noteCount = 0;
-        const total = folders.length + notes.length;
+        const total = folders.length + notes.length + invitations.length;
         let current = 0;
 
         if (onProgress && total > 0) {
@@ -198,6 +202,21 @@ export class SyncService {
                 console.error('[SyncService] Error processing remote note:', error);
                 const id = remoteNoteOrDeleted.fileMetadata?.appData?.uniqueId || 'unknown';
                 await this.logSyncError(id, 'note', 'pull', error);
+            }
+        }
+
+        // Process invitations (collaboration sharing)
+        for (const invitationOrDeleted of invitations) {
+            try {
+                if (invitationOrDeleted.fileState === 'deleted') {
+                    await this.handleDeletedInvitation(invitationOrDeleted as DeletedHomebaseFile);
+                } else {
+                    await this.handleInvitation(invitationOrDeleted);
+                }
+                current++;
+                if (onProgress) onProgress({ phase: 'pull', current, total, message: `Processing invitation` });
+            } catch (error) {
+                console.error('[SyncService] Error processing invitation:', error);
             }
         }
 
@@ -335,6 +354,43 @@ export class SyncService {
         await deleteSyncRecord(uniqueId);
     }
 
+    async handleInvitation(remoteFile: HomebaseFile<string>): Promise<void> {
+        const content = await this.#notesProvider.dsrToNoteFileContent(remoteFile, true) as unknown as CollaborationInviteContent | null;
+        if (!content || !content.noteUniqueId) {
+            console.error('[SyncService] Invalid invitation file', remoteFile.fileId);
+            return;
+        }
+
+        const metadata = {
+            title: content.noteTitle,
+            folderId: COLLABORATIVE_FOLDER_ID,
+            tags: [] as string[],
+            timestamps: {
+                created: content.sharedAt,
+                modified: content.sharedAt,
+            },
+            excludeFromAI: true,
+            isCollaborative: true,
+            authorOdinId: content.authorOdinId,
+        };
+
+        await upsertSearchIndex({
+            docId: content.noteUniqueId,
+            title: content.noteTitle,
+            plainTextContent: content.notePreview,
+            metadata,
+        });
+    }
+
+    async handleDeletedInvitation(deleted: DeletedHomebaseFile): Promise<void> {
+        const uniqueId = deleted.fileMetadata.appData.uniqueId;
+        if (!uniqueId) return;
+
+        await deleteSearchIndexEntry(uniqueId);
+        await deleteDocumentUpdates(uniqueId);
+        await deleteSyncRecord(uniqueId);
+    }
+
     /**
      * Handle a remote note (create, update, or merge).
      * Uses Yjs CRDT merge for conflict resolution.
@@ -355,10 +411,10 @@ export class SyncService {
             return;
         }
 
-        // Get remote Yjs blob
+        // Get remote Yjs blob — use senderOdinId for peer-based fetch when note is from another identity
         const lastModified = remoteFile.fileMetadata.updated;
-        //TODO: Fix undefined
-        const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId, undefined, lastModified);
+        const authorOdinId = remoteFile.fileMetadata.senderOdinId || remoteFile.fileMetadata.originalAuthor;
+        const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId, authorOdinId, lastModified);
 
         if (!existingRecord) {
             // New note from remote
@@ -385,6 +441,10 @@ export class SyncService {
                 timestamps: { created: remoteTimestamp, modified: updatedAt },
                 excludeFromAI: content?.excludeFromAI,
                 isPinned: content?.isPinned,
+                isCollaborative: content?.isCollaborative,
+                circleIds: content?.circleIds,
+                recipients: content?.recipients,
+                lastEditedBy: content?.lastEditedBy,
             };
 
             const contentHash = remoteBlob ? await computeContentHash(metadata, remoteBlob) : undefined;
@@ -405,6 +465,8 @@ export class SyncService {
                 syncStatus: 'synced',
                 encryptedKeyHeader: serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader),
                 contentHash,
+                authorOdinId: authorOdinId || undefined,
+                globalTransitId: remoteFile.fileMetadata.globalTransitId || undefined,
             });
         } else {
             // Existing note - merge Yjs documents (CRDT handles conflicts automatically)
@@ -443,6 +505,10 @@ export class SyncService {
                 timestamps: { created: existingCreated ?? remoteTimestamp, modified: updatedAt },
                 excludeFromAI: content?.excludeFromAI,
                 isPinned: content?.isPinned,
+                isCollaborative: content?.isCollaborative,
+                circleIds: content?.circleIds,
+                recipients: content?.recipients,
+                lastEditedBy: content?.lastEditedBy,
             };
 
             const contentHash = mergedBlob ? await computeContentHash(updatedMetadata, mergedBlob) : undefined;
@@ -453,7 +519,7 @@ export class SyncService {
                 plainTextContent,
                 metadata: updatedMetadata
             });
-            await markSynced(uniqueId, remoteFile.fileId, remoteFile.fileMetadata.versionTag, contentHash, serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader));
+            await markSynced(uniqueId, remoteFile.fileId, remoteFile.fileMetadata.versionTag, contentHash, serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader), authorOdinId, remoteFile.fileMetadata.globalTransitId);
         }
     }
 
@@ -616,7 +682,7 @@ export class SyncService {
 
                 // Should happen rarely but if deserialization failed, re-fetch from remote
                 if (!cachedKeyHeader || !validateKeyHeader(cachedKeyHeader)) {
-                    cachedKeyHeader = (await this.#notesProvider.getNote(record.localId))?.sharedSecretEncryptedKeyHeader;
+                    cachedKeyHeader = (await this.#notesProvider.getNote(record.localId, record.authorOdinId))?.sharedSecretEncryptedKeyHeader;
                 }
 
                 // Get pending image deletions for this note
@@ -633,37 +699,32 @@ export class SyncService {
 
                 const onVersionConflict = async () => {
                     console.log(`[SyncService] Version conflict for note ${record.localId}`);
-                    //TODO: Fix undefined
-                    const freshFile = await this.#notesProvider.getNote(record.localId, undefined, { decrypt: false });
+                    const freshFile = await this.#notesProvider.getNote(record.localId, record.authorOdinId, { decrypt: false });
                     if (!freshFile) throw new Error('Remote note not found during conflict resolution');
                     cachedKeyHeader = freshFile.sharedSecretEncryptedKeyHeader;
 
                     const lastModified = freshFile.fileMetadata.updated;
-                    const remoteBlob = await this.#notesProvider.getNotePayload(freshFile.fileId, undefined, lastModified);
+                    const remoteBlob = await this.#notesProvider.getNotePayload(freshFile.fileId, record.authorOdinId, lastModified);
                     let mergedBlob: Uint8Array | undefined = yjsBlob;
 
                     if (remoteBlob && yjsBlob) {
-                        // Merge local and remote Yjs documents (mergeYjsDocuments already applies local updates)
                         mergedBlob = await this.mergeYjsDocuments(record.localId, remoteBlob);
                     } else if (remoteBlob && !yjsBlob) {
-                        // Local is empty, preserving remote content
                         console.warn(`[SyncService] Local content empty, preserving remote for ${record.localId}`);
                         mergedBlob = remoteBlob;
                     }
 
-                    // Update local Yjs state with merged blob if we merged
                     if (mergedBlob) {
                         await deleteDocumentUpdates(record.localId);
                         await saveDocumentUpdate(record.localId, mergedBlob);
                     }
-                    //TODO: Fix Undefined
                     const result = await this.#notesProvider.updateNote(
                         record.localId,
                         freshFile.fileId,
                         freshFile.fileMetadata.versionTag,
                         doc.metadata,
-                        undefined, // authorOdinId - local
-                        undefined, // globalTransitId - local
+                        record.authorOdinId,
+                        freshFile.fileMetadata.globalTransitId,
                         mergedBlob,
                         cachedKeyHeader,
                         { toDeletePayloads }
@@ -685,8 +746,8 @@ export class SyncService {
                     record.remoteFileId,
                     record.versionTag || '',
                     doc.metadata,
-                    undefined, // authorOdinId - local
-                    undefined, // globalTransitId - local
+                    record.authorOdinId,
+                    record.globalTransitId,
                     yjsBlob,
                     cachedKeyHeader,
                     { onVersionConflict, toDeletePayloads }

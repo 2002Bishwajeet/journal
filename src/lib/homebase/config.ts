@@ -10,7 +10,7 @@ export const COLLABORATION_PERMISSIONS = [
 ];
 
 // Homebase configuration constants
-export const JOURNAL_APP_ID = import.meta.env.PROD ? 'c762ee784274473480919d8080d7a825' : '38e160f1f815438a89eabc3a261e9952 '
+export const JOURNAL_APP_ID = import.meta.env.PROD ? 'c762ee784274473480919d8080d7a825' : '38e160f1f815438a89eabc3a261e9952';
 export const JOURNAL_APP_NAME = `Journal${import.meta.env.PROD ? '' : ' (Local Dev)'}`;
 
 // Drive constants per spec
@@ -19,6 +19,9 @@ export const JOURNAL_DATA_TYPE = 706;
 
 export const FOLDER_FILE_TYPE = 606;
 export const FOLDER_DATA_TYPE = 707;
+
+export const COLLABORATION_INVITE_FILE_TYPE = 615; // JOURNAL_FILE_TYPE + 10
+export const COLLABORATION_INVITE_DATA_TYPE = 716; // JOURNAL_DATA_TYPE + 10
 
 export const JOURNAL_DRIVE: TargetDrive = {
     alias: 'd5f411fa83fd4854a3bd7e974cc9bca9',

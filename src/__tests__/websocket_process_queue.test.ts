@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { WebSocketProcessQueue } from '@/lib/sync/WebSocketProcessQueue';
-import type { ClientFileNotification } from '@homebase-id/js-lib/core';
+import type { ClientFileNotification, EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 
 /**
  * Helper to create a mock ClientFileNotification.
@@ -37,7 +37,7 @@ function createNotification(
                 originalAuthor: '',
                 payloads: [],
             },
-            sharedSecretEncryptedKeyHeader: {} as any,
+            sharedSecretEncryptedKeyHeader: {} as EncryptedKeyHeader,
             fileSystemType: 'Standard',
             priority: 0,
             serverMetadata: {
@@ -232,13 +232,13 @@ describe('WebSocketProcessQueue', () => {
     describe('Missing uniqueId', () => {
         it('should skip notifications without uniqueId', async () => {
             const processed: string[] = [];
-            const queue = new WebSocketProcessQueue(async (_notification) => {
+            const queue = new WebSocketProcessQueue(async () => {
                 processed.push('processed');
             });
 
             // Create a notification with no uniqueId
             const notification = createNotification('', 'v1', 1000);
-            notification.header!.fileMetadata!.appData!.uniqueId = undefined as any;
+            notification.header!.fileMetadata!.appData!.uniqueId = undefined as unknown as string;
 
             queue.enqueue(notification);
             await vi.advanceTimersByTimeAsync(700);

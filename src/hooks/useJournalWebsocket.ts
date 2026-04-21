@@ -5,10 +5,12 @@ import { drivesEqual } from '@homebase-id/js-lib/helpers';
 import { useWebsocketSubscriber } from './useWebsocketSubscriber';
 import { notesQueryKey } from './useNotes';
 import { foldersQueryKey } from './useFolders';
+import { toast } from 'sonner';
 import {
     JOURNAL_DRIVE,
     JOURNAL_FILE_TYPE,
     FOLDER_FILE_TYPE,
+    COLLABORATION_INVITE_FILE_TYPE,
 } from '@/lib/homebase';
 import type { SyncService } from '@/lib/homebase/SyncService';
 import type { NotificationType } from '@homebase-id/js-lib/core';
@@ -44,9 +46,9 @@ export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: Use
 
         try {
             if (
-                notification.notificationType === 'fileAdded' ||
+                (notification.notificationType === 'fileAdded' ||
                 notification.notificationType === 'fileModified' ||
-                notification.notificationType === 'statisticsChanged' &&
+                notification.notificationType === 'statisticsChanged') &&
                 drivesEqual(notification.targetDrive, JOURNAL_DRIVE)
             ) {
                 const fileType = notification.header?.fileMetadata?.appData?.fileType;
@@ -56,6 +58,18 @@ export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: Use
                 } else if (fileType === FOLDER_FILE_TYPE) {
                     await syncService.handleRemoteFolder(notification.header);
                     queryClient.invalidateQueries({ queryKey: foldersQueryKey });
+                } else if (fileType === COLLABORATION_INVITE_FILE_TYPE) {
+                    await syncService.handleInvitation(notification.header);
+                    queryClient.invalidateQueries({ queryKey: notesQueryKey });
+                    const content = notification.header?.fileMetadata?.appData?.content;
+                    if (content) {
+                        try {
+                            const invite = typeof content === 'string' ? JSON.parse(content) : content;
+                            if (invite.authorOdinId && invite.noteTitle) {
+                                toast(`${invite.authorOdinId.split('.')[0]} shared "${invite.noteTitle}" with you`);
+                            }
+                        } catch { /* ignore parse errors for toast */ }
+                    }
                 }
             } else if (notification.notificationType === 'fileDeleted') {
                 const fileType = notification.header?.fileMetadata?.appData?.fileType;
@@ -69,6 +83,11 @@ export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: Use
                         notification.header as unknown as DeletedHomebaseFile,
                     );
                     queryClient.invalidateQueries({ queryKey: foldersQueryKey });
+                } else if (fileType === COLLABORATION_INVITE_FILE_TYPE) {
+                    await syncService.handleDeletedInvitation(
+                        notification.header as unknown as DeletedHomebaseFile,
+                    );
+                    queryClient.invalidateQueries({ queryKey: notesQueryKey });
                 }
             }
         } catch (error) {
@@ -129,6 +148,7 @@ export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: Use
 
     return useWebsocketSubscriber(
         isEnabled ? handleNotification : undefined,
+        undefined,
         WS_NOTIFICATION_TYPES,
         WS_DRIVES,
         handleDisconnect,
