@@ -361,25 +361,98 @@ export class SyncService {
             return;
         }
 
+        await this.bootstrapCollaborativeNote(
+            content.noteUniqueId,
+            content.authorOdinId,
+            content.noteTitle,
+            content.notePreview,
+            content.sharedAt,
+        );
+    }
+
+    private async bootstrapCollaborativeNote(
+        noteUniqueId: string,
+        authorOdinId: string,
+        inviteTitle: string,
+        invitePreview: string,
+        sharedAt: string,
+    ): Promise<void> {
+        const peerNote = await this.#notesProvider.getNote(noteUniqueId, authorOdinId, { decrypt: true });
+        if (!peerNote || !peerNote.fileId) {
+            console.warn(`[SyncService] Could not fetch peer note ${noteUniqueId} from ${authorOdinId} — author may be offline`);
+            await upsertSearchIndex({
+                docId: noteUniqueId,
+                title: inviteTitle,
+                plainTextContent: invitePreview,
+                metadata: {
+                    title: inviteTitle,
+                    folderId: COLLABORATIVE_FOLDER_ID,
+                    tags: [],
+                    timestamps: { created: sharedAt, modified: sharedAt },
+                    excludeFromAI: true,
+                    isCollaborative: true,
+                    authorOdinId,
+                },
+            });
+            return;
+        }
+
+        const content = await this.#notesProvider.dsrToNoteFileContent(peerNote, true);
+        const noteTitle = content?.title || inviteTitle || 'Untitled';
+
+        const lastModified = peerNote.fileMetadata.updated;
+        const remoteBlob = await this.#notesProvider.getNotePayload(peerNote.fileId, authorOdinId, lastModified);
+
+        // async-parallel: saveDocumentUpdate and extractPreviewTextFromYjs are independent — run in parallel
+        const [, plainTextContent] = await Promise.all([
+            remoteBlob ? saveDocumentUpdate(noteUniqueId, remoteBlob) : Promise.resolve(),
+            remoteBlob
+                ? extractPreviewTextFromYjs(noteUniqueId, remoteBlob)
+                : Promise.resolve(invitePreview),
+        ]);
+
+        const remoteTimestamp = new Date(
+            peerNote.fileMetadata.appData.userDate || Date.now()
+        ).toISOString();
+        const updatedAt = new Date(peerNote.fileMetadata.updated).toISOString();
+
         const metadata = {
-            title: content.noteTitle,
+            title: noteTitle,
             folderId: COLLABORATIVE_FOLDER_ID,
-            tags: [] as string[],
-            timestamps: {
-                created: content.sharedAt,
-                modified: content.sharedAt,
-            },
-            excludeFromAI: true,
+            tags: content?.tags || [],
+            timestamps: { created: remoteTimestamp, modified: updatedAt },
+            excludeFromAI: content?.excludeFromAI,
+            isPinned: content?.isPinned,
             isCollaborative: true,
-            authorOdinId: content.authorOdinId,
+            circleIds: content?.circleIds,
+            recipients: content?.recipients,
+            lastEditedBy: content?.lastEditedBy,
+            authorOdinId,
         };
 
-        await upsertSearchIndex({
-            docId: content.noteUniqueId,
-            title: content.noteTitle,
-            plainTextContent: content.notePreview,
-            metadata,
-        });
+        const contentHash = remoteBlob ? await computeContentHash(metadata, remoteBlob) : undefined;
+
+        // async-parallel: search index and sync record upserts are independent
+        await Promise.all([
+            upsertSearchIndex({
+                docId: noteUniqueId,
+                title: noteTitle,
+                plainTextContent,
+                metadata,
+            }),
+            upsertSyncRecord({
+                localId: noteUniqueId,
+                entityType: 'note',
+                remoteFileId: peerNote.fileId,
+                versionTag: peerNote.fileMetadata.versionTag,
+                lastSyncedAt: new Date().toISOString(),
+                syncStatus: 'synced',
+                encryptedKeyHeader: serializeKeyHeader(peerNote.sharedSecretEncryptedKeyHeader),
+                contentHash,
+                authorOdinId,
+                globalTransitId: peerNote.fileMetadata.globalTransitId || undefined,
+            }),
+        ]);
     }
 
     async handleDeletedInvitation(deleted: DeletedHomebaseFile): Promise<void> {
