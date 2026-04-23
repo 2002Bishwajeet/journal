@@ -53,18 +53,18 @@ private async bootstrapCollaborativeNote(
     const lastModified = peerNote.fileMetadata.updated;
     const remoteBlob = await this.#notesProvider.getNotePayload(peerNote.fileId, authorOdinId, lastModified);
 
-    if (remoteBlob) {
-        await saveDocumentUpdate(noteUniqueId, remoteBlob);
-    }
+    // async-parallel: saveDocumentUpdate and extractPreviewTextFromYjs are independent — run in parallel
+    const [, plainTextContent] = await Promise.all([
+        remoteBlob ? saveDocumentUpdate(noteUniqueId, remoteBlob) : Promise.resolve(),
+        remoteBlob
+            ? extractPreviewTextFromYjs(noteUniqueId, remoteBlob)
+            : Promise.resolve(invitePreview),
+    ]);
 
     const remoteTimestamp = new Date(
         peerNote.fileMetadata.appData.userDate || Date.now()
     ).toISOString();
     const updatedAt = new Date(peerNote.fileMetadata.updated).toISOString();
-
-    const plainTextContent = remoteBlob
-        ? await extractPreviewTextFromYjs(noteUniqueId, remoteBlob)
-        : invitePreview;
 
     const metadata = {
         title: noteTitle,
@@ -82,25 +82,27 @@ private async bootstrapCollaborativeNote(
 
     const contentHash = remoteBlob ? await computeContentHash(metadata, remoteBlob) : undefined;
 
-    await upsertSearchIndex({
-        docId: noteUniqueId,
-        title: noteTitle,
-        plainTextContent,
-        metadata,
-    });
-
-    await upsertSyncRecord({
-        localId: noteUniqueId,
-        entityType: 'note',
-        remoteFileId: peerNote.fileId,
-        versionTag: peerNote.fileMetadata.versionTag,
-        lastSyncedAt: new Date().toISOString(),
-        syncStatus: 'synced',
-        encryptedKeyHeader: serializeKeyHeader(peerNote.sharedSecretEncryptedKeyHeader),
-        contentHash,
-        authorOdinId,
-        globalTransitId: peerNote.fileMetadata.globalTransitId || undefined,
-    });
+    // async-parallel: search index and sync record upserts are independent
+    await Promise.all([
+        upsertSearchIndex({
+            docId: noteUniqueId,
+            title: noteTitle,
+            plainTextContent,
+            metadata,
+        }),
+        upsertSyncRecord({
+            localId: noteUniqueId,
+            entityType: 'note',
+            remoteFileId: peerNote.fileId,
+            versionTag: peerNote.fileMetadata.versionTag,
+            lastSyncedAt: new Date().toISOString(),
+            syncStatus: 'synced',
+            encryptedKeyHeader: serializeKeyHeader(peerNote.sharedSecretEncryptedKeyHeader),
+            contentHash,
+            authorOdinId,
+            globalTransitId: peerNote.fileMetadata.globalTransitId || undefined,
+        }),
+    ]);
 }
 ```
 
