@@ -1,9 +1,7 @@
 import { useDotYouClientContext } from "@/components/auth";
 import { getExtendAppRegistrationParams, type TargetDriveAccessRequest } from "@homebase-id/js-lib/auth";
-import { getDrivesByType } from "@homebase-id/js-lib/core";
 import { drivesEqual, getUniqueDrivesWithHighestPermission, stringifyToQueryParams } from "@homebase-id/js-lib/helpers";
 import type { AppPermissionType } from "@homebase-id/js-lib/network";
-import { useQuery } from "@tanstack/react-query";
 import { useSecurityContext } from "../securityContext/useSecurityContext";
 
 const getExtendAppRegistrationUrl = (
@@ -45,23 +43,9 @@ export const useMissingPermissions = ({
     circleOdinIds?: string[] | undefined;
     returnUrl?: string;
 }) => {
-    const dotYouClient = useDotYouClientContext();
-    const host = dotYouClient.getRoot();
+    const dotyouClient = useDotYouClientContext();
+    const host = dotyouClient.getRoot();
     const { data: context } = useSecurityContext().fetch;
-
-    const driveTypes = [...new Set(drives.map((d) => d.type))];
-
-    const { data: driveDefinitions } = useQuery({
-        queryKey: ['drive-definitions', ...driveTypes],
-        queryFn: async () => {
-            const results = await Promise.all(
-                driveTypes.map((type) => getDrivesByType(dotYouClient, type, 1, 100))
-            );
-            return results.flatMap((r) => r.results);
-        },
-        enabled: !!context && !!host,
-        staleTime: 1000 * 60 * 10,
-    });
 
     if (!context || !host) return;
 
@@ -85,17 +69,7 @@ export const useMissingPermissions = ({
             return allPermissions >= requestingPermission;
         });
 
-        if (!hasAccess) return true;
-
-        if (driveDefinitions) {
-            const def = driveDefinitions.find((d) => drivesEqual(d.targetDriveInfo, drive));
-            if (def) {
-                if (drive.allowSubscriptions && !def.allowSubscriptions) return true;
-                if (drive.allowAnonymousRead && !def.allowAnonymousReads) return true;
-            }
-        }
-
-        return false;
+        return !hasAccess;
     });
 
     const missingPermissions = permissions?.filter((key) => permissionKeys?.indexOf(key) === -1);
