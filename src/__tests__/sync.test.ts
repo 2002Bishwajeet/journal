@@ -396,11 +396,12 @@ describe('Sync Query Functions', () => {
                 globalTransitId,
             });
 
-            // Simulate what happens when user edits — status goes to pending
-            await markSynced(noteId, remoteFileId, generateTestId());
+            // Simulate user edit: updateSyncStatus sets record to 'pending', then pushNote reads it
+            await db.query(`UPDATE sync_records SET sync_status = 'pending' WHERE local_id = $1`, [noteId]);
             const record = await getSyncRecord(noteId);
 
             // pushNote needs these to route via peer
+            expect(record!.syncStatus).toBe('pending');
             expect(record!.remoteFileId).toBe(remoteFileId);
             expect(record!.authorOdinId).toBe(authorOdinId);
             expect(record!.globalTransitId).toBe(globalTransitId);
