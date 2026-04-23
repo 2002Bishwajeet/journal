@@ -397,13 +397,13 @@ export class SyncService {
             return;
         }
 
-        const content = await this.#notesProvider.dsrToNoteFileContent(peerNote, true);
+        const lastModified = peerNote.fileMetadata.updated;
+        const [content, remoteBlob] = await Promise.all([
+            this.#notesProvider.dsrToNoteFileContent(peerNote, true),
+            this.#notesProvider.getNotePayload(peerNote.fileId, authorOdinId, lastModified),
+        ]);
         const noteTitle = content?.title || inviteTitle || 'Untitled';
 
-        const lastModified = peerNote.fileMetadata.updated;
-        const remoteBlob = await this.#notesProvider.getNotePayload(peerNote.fileId, authorOdinId, lastModified);
-
-        // async-parallel: saveDocumentUpdate and extractPreviewTextFromYjs are independent — run in parallel
         const [, plainTextContent] = await Promise.all([
             remoteBlob ? saveDocumentUpdate(noteUniqueId, remoteBlob) : Promise.resolve(),
             remoteBlob
@@ -421,7 +421,7 @@ export class SyncService {
             folderId: COLLABORATIVE_FOLDER_ID,
             tags: content?.tags || [],
             timestamps: { created: remoteTimestamp, modified: updatedAt },
-            excludeFromAI: content?.excludeFromAI,
+            excludeFromAI: content?.excludeFromAI ?? true,
             isPinned: content?.isPinned,
             isCollaborative: true,
             circleIds: content?.circleIds,
@@ -432,7 +432,6 @@ export class SyncService {
 
         const contentHash = remoteBlob ? await computeContentHash(metadata, remoteBlob) : undefined;
 
-        // async-parallel: search index and sync record upserts are independent
         await Promise.all([
             upsertSearchIndex({
                 docId: noteUniqueId,
