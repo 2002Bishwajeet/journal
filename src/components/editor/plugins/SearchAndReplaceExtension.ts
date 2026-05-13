@@ -139,6 +139,13 @@ declare module '@tiptap/core' {
             replaceAllMatches: (replaceTerm: string) => ReturnType;
         };
     }
+
+    interface Storage {
+        searchAndReplace: {
+            isOpen: boolean;
+            isReplaceOpen: boolean;
+        };
+    }
 }
 
 export const SearchAndReplace = Extension.create({
