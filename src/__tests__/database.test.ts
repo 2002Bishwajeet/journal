@@ -551,4 +551,118 @@ describe('Database Operations', () => {
             expect(result.rows.length).toBe(50);
         });
     });
+
+    describe('getCollaborativeNotesForList', () => {
+        it('should return only collaborative notes', async () => {
+            const collabMetadata = {
+                title: 'Shared Doc',
+                folderId: MAIN_FOLDER_ID,
+                tags: [],
+                timestamps: { created: '2026-04-21T10:00:00Z', modified: '2026-04-21T12:00:00Z' },
+                excludeFromAI: false,
+                isCollaborative: true,
+                circleIds: ['circle-1'],
+                recipients: ['alice.odin'],
+                lastEditedBy: 'alice.odin',
+            };
+
+            const privateMetadata = {
+                title: 'Private Doc',
+                folderId: MAIN_FOLDER_ID,
+                tags: [],
+                timestamps: { created: '2026-04-21T11:00:00Z', modified: '2026-04-21T13:00:00Z' },
+                excludeFromAI: false,
+            };
+
+            await db.query(
+                `INSERT INTO search_index (doc_id, title, plain_text_content, metadata)
+                 VALUES ($1, $2, $3, $4)`,
+                [generateTestId(), 'Shared Doc', 'shared content', JSON.stringify(collabMetadata)]
+            );
+
+            await db.query(
+                `INSERT INTO search_index (doc_id, title, plain_text_content, metadata)
+                 VALUES ($1, $2, $3, $4)`,
+                [generateTestId(), 'Private Doc', 'private content', JSON.stringify(privateMetadata)]
+            );
+
+            const result = await db.query<{
+                doc_id: string;
+                title: string;
+                preview: string;
+                metadata: DocumentMetadata;
+            }>(
+                `SELECT doc_id, title,
+                        LEFT(plain_text_content, 150) as preview,
+                        metadata
+                 FROM search_index
+                 WHERE (metadata->>'isCollaborative')::boolean = true
+                 ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
+            );
+
+            expect(result.rows).toHaveLength(1);
+            expect(result.rows[0].title).toBe('Shared Doc');
+            expect(result.rows[0].metadata.isCollaborative).toBe(true);
+        });
+    });
+
+    describe('Collaboration Invitation Storage', () => {
+        it('should store invitation as collaborative note in search_index', async () => {
+            const metadata = {
+                title: 'Shared Meeting Notes',
+                folderId: 'fc360190-4e23-b870-0ea4-ef233aad98ad',
+                tags: [] as string[],
+                timestamps: { created: '2026-04-21T10:00:00Z', modified: '2026-04-21T10:00:00Z' },
+                excludeFromAI: true,
+                isCollaborative: true,
+                authorOdinId: 'alice.dotyou.cloud',
+            };
+
+            await db.query(
+                `INSERT INTO search_index (doc_id, title, plain_text_content, metadata)
+                 VALUES ($1, $2, $3, $4)`,
+                [generateTestId(), 'Shared Meeting Notes', 'Agenda items...', JSON.stringify(metadata)]
+            );
+
+            const result = await db.query<{
+                doc_id: string;
+                metadata: DocumentMetadata;
+            }>(
+                `SELECT doc_id, metadata FROM search_index
+                 WHERE (metadata->>'isCollaborative')::boolean = true
+                   AND metadata->>'authorOdinId' IS NOT NULL`
+            );
+
+            expect(result.rows).toHaveLength(1);
+            expect(result.rows[0].metadata.authorOdinId).toBe('alice.dotyou.cloud');
+            expect(result.rows[0].metadata.isCollaborative).toBe(true);
+        });
+
+        it('should remove invitation when deleted', async () => {
+            const inviteDocId = generateTestId();
+            const metadata = {
+                title: 'Temp Note',
+                folderId: 'fc360190-4e23-b870-0ea4-ef233aad98ad',
+                tags: [] as string[],
+                timestamps: { created: '2026-04-21T10:00:00Z', modified: '2026-04-21T10:00:00Z' },
+                excludeFromAI: true,
+                isCollaborative: true,
+                authorOdinId: 'bob.dotyou.cloud',
+            };
+
+            await db.query(
+                `INSERT INTO search_index (doc_id, title, plain_text_content, metadata)
+                 VALUES ($1, $2, $3, $4)`,
+                [inviteDocId, 'Temp Note', 'temp', JSON.stringify(metadata)]
+            );
+
+            await db.query('DELETE FROM search_index WHERE doc_id = $1', [inviteDocId]);
+
+            const result = await db.query(
+                'SELECT doc_id FROM search_index WHERE doc_id = $1',
+                [inviteDocId]
+            );
+            expect(result.rows).toHaveLength(0);
+        });
+    });
 });

@@ -19,6 +19,7 @@ interface UseImageDeletionTrackerOptions {
     yXmlFragment: Y.XmlFragment;
 }
 
+//TODO: Why is this needed?
 export function useImageDeletionTracker({ docId, yXmlFragment }: UseImageDeletionTrackerOptions) {
     const { syncNote } = useSyncService();
 

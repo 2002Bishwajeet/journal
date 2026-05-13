@@ -124,6 +124,8 @@ export function useTabManager() {
     // Update tab title
     const updateTabTitle = useCallback((docId: string, title: string) => {
         setState(prev => {
+            const tab = prev.openTabs.find(t => t.docId === docId);
+            if (!tab || tab.title === title) return prev;
             const newTabs = prev.openTabs.map(t =>
                 t.docId === docId ? { ...t, title } : t
             );

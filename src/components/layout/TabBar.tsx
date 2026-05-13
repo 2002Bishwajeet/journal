@@ -1,4 +1,4 @@
-import { X, FileText } from "lucide-react";
+import { X, FileText, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TabInfo } from "@/hooks/useTabManager";
 
@@ -7,6 +7,7 @@ interface TabBarProps {
   activeTabId: string | null;
   onTabClick: (docId: string) => void;
   onTabClose: (docId: string) => void;
+  collaborativeTabIds?: Set<string>;
   className?: string;
 }
 
@@ -15,6 +16,7 @@ export default function TabBar({
   activeTabId,
   onTabClick,
   onTabClose,
+  collaborativeTabIds,
   className,
 }: TabBarProps) {
   if (tabs.length === 0) return null;
@@ -49,6 +51,9 @@ export default function TabBar({
             {tab.title || "Untitled"}
             {tab.isDirty && <span className="text-primary ml-1">•</span>}
           </span>
+          {collaborativeTabIds?.has(tab.docId) && (
+            <Users className="h-3 w-3 text-collaborative shrink-0 opacity-80" />
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();

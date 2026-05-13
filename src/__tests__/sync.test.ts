@@ -38,14 +38,18 @@ describe('Sync Query Functions', () => {
 
     async function upsertSyncRecord(record: SyncRecord): Promise<void> {
         await db.query(
-            `INSERT INTO sync_records (local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status)
-             VALUES ($1, $2, $3, $4, $5, $6)
+            `INSERT INTO sync_records (local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
              ON CONFLICT (local_id) DO UPDATE SET
                entity_type = EXCLUDED.entity_type,
                remote_file_id = EXCLUDED.remote_file_id,
                version_tag = EXCLUDED.version_tag,
                last_synced_at = EXCLUDED.last_synced_at,
-               sync_status = EXCLUDED.sync_status`,
+               sync_status = EXCLUDED.sync_status,
+               content_hash = EXCLUDED.content_hash,
+               encrypted_key_header = EXCLUDED.encrypted_key_header,
+               author_odin_id = EXCLUDED.author_odin_id,
+               global_transit_id = EXCLUDED.global_transit_id`,
             [
                 record.localId,
                 record.entityType,
@@ -53,6 +57,10 @@ describe('Sync Query Functions', () => {
                 record.versionTag || null,
                 record.lastSyncedAt || null,
                 record.syncStatus,
+                record.contentHash || null,
+                record.encryptedKeyHeader || null,
+                record.authorOdinId || null,
+                record.globalTransitId || null,
             ]
         );
     }
@@ -65,8 +73,12 @@ describe('Sync Query Functions', () => {
             version_tag: string | null;
             last_synced_at: string | null;
             sync_status: 'pending' | 'synced' | 'conflict' | 'error';
+            content_hash: string | null;
+            encrypted_key_header: string | null;
+            author_odin_id: string | null;
+            global_transit_id: string | null;
         }>(
-            'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status FROM sync_records WHERE local_id = $1',
+            'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id FROM sync_records WHERE local_id = $1',
             [localId]
         );
         if (result.rows.length === 0) return null;
@@ -78,6 +90,10 @@ describe('Sync Query Functions', () => {
             versionTag: row.version_tag || undefined,
             lastSyncedAt: row.last_synced_at || undefined,
             syncStatus: row.sync_status,
+            contentHash: row.content_hash || undefined,
+            encryptedKeyHeader: row.encrypted_key_header || undefined,
+            authorOdinId: row.author_odin_id || undefined,
+            globalTransitId: row.global_transit_id || undefined,
         };
     }
 
@@ -329,6 +345,66 @@ describe('Sync Query Functions', () => {
 
             const uploads = await getPendingImageUploads();
             expect(uploads.length).toBe(0);
+        });
+    });
+
+    describe('Collaborative Note Bootstrap (DB layer)', () => {
+        it('should create sync record with peer identifiers for collaborative note', async () => {
+            const noteId = generateTestId();
+            const authorOdinId = 'frodo.hobbit.me';
+            const remoteFileId = generateTestId();
+            const globalTransitId = generateTestId();
+            const versionTag = generateTestId();
+
+            await upsertSyncRecord({
+                localId: noteId,
+                entityType: 'note',
+                remoteFileId,
+                versionTag,
+                lastSyncedAt: new Date().toISOString(),
+                syncStatus: 'synced',
+                contentHash: 'abc123',
+                encryptedKeyHeader: '{}',
+                authorOdinId,
+                globalTransitId,
+            });
+
+            const record = await getSyncRecord(noteId);
+            expect(record).not.toBeNull();
+            expect(record!.remoteFileId).toBe(remoteFileId);
+            expect(record!.authorOdinId).toBe(authorOdinId);
+            expect(record!.globalTransitId).toBe(globalTransitId);
+            expect(record!.syncStatus).toBe('synced');
+            expect(record!.versionTag).toBe(versionTag);
+        });
+
+        it('should allow pushNote to find peer identifiers after bootstrap', async () => {
+            const noteId = generateTestId();
+            const authorOdinId = 'sam.hobbit.me';
+            const remoteFileId = generateTestId();
+            const globalTransitId = generateTestId();
+
+            // Simulate what bootstrapCollaborativeNote does
+            await upsertSyncRecord({
+                localId: noteId,
+                entityType: 'note',
+                remoteFileId,
+                versionTag: generateTestId(),
+                lastSyncedAt: new Date().toISOString(),
+                syncStatus: 'synced',
+                authorOdinId,
+                globalTransitId,
+            });
+
+            // Simulate user edit: updateSyncStatus sets record to 'pending', then pushNote reads it
+            await db.query(`UPDATE sync_records SET sync_status = 'pending' WHERE local_id = $1`, [noteId]);
+            const record = await getSyncRecord(noteId);
+
+            // pushNote needs these to route via peer
+            expect(record!.syncStatus).toBe('pending');
+            expect(record!.remoteFileId).toBe(remoteFileId);
+            expect(record!.authorOdinId).toBe(authorOdinId);
+            expect(record!.globalTransitId).toBe(globalTransitId);
         });
     });
 });

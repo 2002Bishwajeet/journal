@@ -20,7 +20,9 @@ export const useSecurityContext = (odinId?: string, isEnabled?: boolean) => {
     fetch: useQuery({
       queryKey: ['security-context', odinId],
       queryFn: () => fetch(odinId),
-      staleTime: 1000 * 60 * 60, // 1 hour
+      //TODO: Lets fix this cache sometime else
+      // staleTime: 1000 * 60 * 60, // 1 hour
+      staleTime: 0, // Disable cache to ensure we always have the latest permissions after granting
       enabled: isEnabled === undefined ? true : isEnabled,
     }),
   };

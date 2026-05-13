@@ -1,4 +1,11 @@
-import { useEffect, useState, useRef, useMemo, useCallback, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useRef,
+  useMemo,
+  useCallback,
+  type ReactNode,
+} from "react";
 import { useAISettings } from "@/hooks/useAISettings";
 import { useEditor, type Editor } from "@tiptap/react";
 import * as Y from "yjs";
@@ -26,6 +33,7 @@ import "katex/dist/katex.min.css";
 interface EditorProviderProps {
   docId: string;
   metadata: DocumentMetadata;
+  editorOdinId?: string;
   onMetadataChange?: (metadata: DocumentMetadata) => void;
   onSave?: (yjsBlob: Uint8Array) => void;
   onEditorReady?: (editor: Editor) => void;
@@ -36,11 +44,10 @@ interface EditorProviderProps {
   children: ReactNode;
 }
 
-
-
 export function EditorProvider({
   docId,
   metadata,
+  editorOdinId,
   // onMetadataChange, // Not used in provider currently
   onSave,
   onEditorReady,
@@ -52,7 +59,7 @@ export function EditorProvider({
   const [yDoc] = useState(() => new Y.Doc());
   const [isLoading, setIsLoading] = useState(true);
   const queryClient = useQueryClient();
-  
+
   // Use refs for cleanup to avoid stale closure issues
   const providerRef = useRef<PGliteProvider | null>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -73,7 +80,7 @@ export function EditorProvider({
   // Get Yjs fragment for ProseMirror - memoized to avoid recreating on every render
   const yXmlFragment = useMemo(
     () => yDoc.getXmlFragment("prosemirror"),
-    [yDoc]
+    [yDoc],
   );
 
   // Initialize PGlite provider with proper cleanup
@@ -120,34 +127,41 @@ export function EditorProvider({
   const { sync } = useSyncService();
 
   // Handle image drop/paste - queue for upload and trigger sync
-  const handleImageDrop = useCallback(async (file: File, pendingId: string) => {
-    const arrayBuffer = await file.arrayBuffer();
-    const blobData = new Uint8Array(arrayBuffer);
+  const handleImageDrop = useCallback(
+    async (file: File, pendingId: string) => {
+      const arrayBuffer = await file.arrayBuffer();
+      const blobData = new Uint8Array(arrayBuffer);
 
-    await savePendingImageUpload({
-      id: pendingId,
-      noteDocId: docId,
-      blobData,
-      contentType: file.type,
-      status: 'pending',
-      retryCount: 0,
-      createdAt: new Date().toISOString(),
-    });
+      await savePendingImageUpload({
+        id: pendingId,
+        noteDocId: docId,
+        blobData,
+        contentType: file.type,
+        status: "pending",
+        retryCount: 0,
+        createdAt: new Date().toISOString(),
+      });
 
-    console.log(`[EditorProvider] Queued image ${pendingId} for upload, triggering sync...`);
-    
-    // Trigger sync to upload the image immediately
-    sync().catch(err => console.error('[EditorProvider] Sync after image drop failed:', err));
-  }, [docId, sync]);
+      console.log(
+        `[EditorProvider] Queued image ${pendingId} for upload, triggering sync...`,
+      );
+
+      // Trigger sync to upload the image immediately
+      sync().catch((err) =>
+        console.error("[EditorProvider] Sync after image drop failed:", err),
+      );
+    },
+    [docId, sync],
+  );
 
   // Handle document updates from broadcast (sync service)
   const handleDocumentUpdate = useCallback(async () => {
-    console.log('[EditorProvider] Document updated remotely, reloading...');
+    console.log("[EditorProvider] Document updated remotely, reloading...");
     if (providerRef.current) {
       try {
         await providerRef.current.load();
       } catch (err) {
-        console.error('[EditorProvider] Failed to reload document:', err);
+        console.error("[EditorProvider] Failed to reload document:", err);
       }
     }
   }, []);
@@ -165,13 +179,13 @@ export function EditorProvider({
       // File handler for image drag/drop/paste
       FileHandler.configure({
         maxSizeMB: 5,
-        allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+        allowedTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
         onImageDrop: handleImageDrop,
       }),
       // AI-powered plugins (conditionally active)
       // eslint-disable-next-line react-hooks/refs -- getIsAIReady is a getter called only within plugin execution, not during render
       AutocompletePlugin.configure({
-        getSuggestion: onGetAutocompleteSuggestion || (async () => ''),
+        getSuggestion: onGetAutocompleteSuggestion || (async () => ""),
         getIsAIReady: () => isAIReadyRef.current, // Use getter function to defer ref read
         debounceMs: 500,
         minCharsBeforeTrigger: 5,
@@ -190,7 +204,12 @@ export function EditorProvider({
         debug: false,
       }),
     ],
-    [yXmlFragment, onGetAutocompleteSuggestion, onCheckGrammar, handleImageDrop]
+    [
+      yXmlFragment,
+      onGetAutocompleteSuggestion,
+      onCheckGrammar,
+      handleImageDrop,
+    ],
   );
 
   // Create TipTap editor with performance optimizations
@@ -209,8 +228,8 @@ export function EditorProvider({
       onCreate: ({ editor: ed }) => {
         editorRef.current = ed;
         // Don't focus automatically on load, let user interact
-        // ed.commands.focus("end"); 
-        
+        // ed.commands.focus("end");
+
         if (onEditorReady) {
           // Defer state update to avoid "update during render" error
           setTimeout(() => {
@@ -222,14 +241,14 @@ export function EditorProvider({
         editorRef.current = null;
       },
     },
-    [extensions]
+    [extensions],
   );
 
   // Refs for current values - avoids stale closures in debounced functions
   const docIdRef = useRef(docId);
   const metadataRef = useRef(metadata);
   const onSaveRef = useRef(onSave);
-  
+
   // Keep refs in sync with props
   useEffect(() => {
     docIdRef.current = docId;
@@ -238,43 +257,53 @@ export function EditorProvider({
   }, [docId, metadata, onSave]);
 
   // Timeout refs for cleanup
-  const searchIndexTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchIndexTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const invalidateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const invalidateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
-  const updateSearchIndex = useCallback((editorInstance: Editor, plainTextContent?: string) => {
-    if (searchIndexTimeoutRef.current) {
-      clearTimeout(searchIndexTimeoutRef.current);
-    }
-    
-    searchIndexTimeoutRef.current = setTimeout(() => {
-      const currentDocId = docIdRef.current;
-      const currentMetadata = metadataRef.current;
-      // Use passed plainText if available, otherwise fallback
-      const plainText = plainTextContent ?? editorInstance.getText();
-      
-      upsertSearchIndex({
-        docId: currentDocId,
-        title: currentMetadata.title,
-        plainTextContent: plainText,
-        metadata: {
-          ...currentMetadata,
+  const updateSearchIndex = useCallback(
+    (editorInstance: Editor, plainTextContent?: string) => {
+      if (searchIndexTimeoutRef.current) {
+        clearTimeout(searchIndexTimeoutRef.current);
+      }
+
+      searchIndexTimeoutRef.current = setTimeout(() => {
+        const currentDocId = docIdRef.current;
+        const currentMetadata = metadataRef.current;
+        // Use passed plainText if available, otherwise fallback
+        const plainText = plainTextContent ?? editorInstance.getText();
+
+        upsertSearchIndex({
+          docId: currentDocId,
           title: currentMetadata.title,
-          timestamps: {
-            ...currentMetadata.timestamps,
-            modified: new Date().toISOString(),
+          plainTextContent: plainText,
+          metadata: {
+            ...currentMetadata,
+            title: currentMetadata.title,
+            timestamps: {
+              ...currentMetadata.timestamps,
+              modified: new Date().toISOString(),
+            },
+            lastEditedBy: currentMetadata.isCollaborative
+              ? editorOdinId
+              : currentMetadata.lastEditedBy,
           },
-        },
-      });
-    }, 500);
-  }, []);
+        });
+      }, 500);
+    },
+    [editorOdinId],
+  );
 
   // Debounced save - reads current values from refs
   const debouncedSave = useCallback((provider: PGliteProvider) => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    
+
     saveTimeoutRef.current = setTimeout(() => {
       const saveFn = onSaveRef.current;
       if (saveFn) {
@@ -289,7 +318,7 @@ export function EditorProvider({
     if (invalidateTimeoutRef.current) {
       clearTimeout(invalidateTimeoutRef.current);
     }
-    
+
     invalidateTimeoutRef.current = setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: notesQueryKey });
     }, 1000);
@@ -298,20 +327,24 @@ export function EditorProvider({
   // Clean up all timeouts on unmount
   useEffect(() => {
     return () => {
-      if (searchIndexTimeoutRef.current) clearTimeout(searchIndexTimeoutRef.current);
+      if (searchIndexTimeoutRef.current)
+        clearTimeout(searchIndexTimeoutRef.current);
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      if (invalidateTimeoutRef.current) clearTimeout(invalidateTimeoutRef.current);
+      if (invalidateTimeoutRef.current)
+        clearTimeout(invalidateTimeoutRef.current);
     };
   }, []);
-
-
 
   // Handle editor content changes - only update when content actually changes
   useEffect(() => {
     if (!editor || !providerRef.current || isLoading) return;
 
     let skipInitial = true;
-    const handleUpdate = ({ transaction }: { transaction: import("@tiptap/pm/state").Transaction }) => {
+    const handleUpdate = ({
+      transaction,
+    }: {
+      transaction: import("@tiptap/pm/state").Transaction;
+    }) => {
       if (!transaction.docChanged) {
         return;
       }
@@ -338,7 +371,6 @@ export function EditorProvider({
     };
   }, [editor, isLoading, updateSearchIndex, invalidateNotes, debouncedSave]);
 
-
   const value = {
     editor,
     isReady: !isLoading && !!editor,
@@ -347,9 +379,6 @@ export function EditorProvider({
   };
 
   return (
-    <EditorContext.Provider value={value}>
-        {children}
-    </EditorContext.Provider>
+    <EditorContext.Provider value={value}>{children}</EditorContext.Provider>
   );
 }
-

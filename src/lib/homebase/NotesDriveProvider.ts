@@ -16,8 +16,15 @@ import {
     type ThumbnailFile,
     type EncryptedKeyHeader,
     reUploadFile,
-    type PayloadDescriptor
+    type PayloadDescriptor,
+    ScheduleOptions,
+    PriorityOptions,
+    SendContents,
 } from '@homebase-id/js-lib/core';
+import {
+    getFileHeaderOverPeerByUniqueId,
+    getPayloadBytesOverPeer,
+} from '@homebase-id/js-lib/peer';
 import { getRandom16ByteArray, toGuidId } from '@homebase-id/js-lib/helpers';
 import { createThumbnails } from '@homebase-id/js-lib/media';
 import {
@@ -26,8 +33,12 @@ import {
     JOURNAL_DATA_TYPE,
     PAYLOAD_KEY_CONTENT,
     PAYLOAD_KEY_IMAGE_PREFIX,
+    COLLABORATION_INVITE_FILE_TYPE,
+    COLLABORATION_INVITE_DATA_TYPE,
+    COLLABORATIVE_FOLDER_ID,
+    MAIN_FOLDER_ID,
 } from './config';
-import type { NoteFileContent, DocumentMetadata } from '@/types';
+import type { NoteFileContent, DocumentMetadata, CollaborationInviteContent } from '@/types';
 
 export interface ImageUploadData {
     file: Blob;
@@ -127,11 +138,36 @@ export class NotesDriveProvider {
     }
 
     /**
-     * Get a single note by uniqueId (local docId)
+     * Get a single note by uniqueId (local docId).
+     * If authorOdinId is provided and differs from the host identity,
+     * the note is fetched over peer from the author's identity server.
+     *
+     * @param uniqueId - The unique ID of the note
+     * @param authorOdinId - Optional owner identity; if different from host, fetches over peer
+     * @param options - Optional settings (decrypt)
      */
-    async getNote(uniqueId: string, options?: {
+    async getNote(uniqueId: string, authorOdinId?: string, options?: {
         decrypt?: boolean;
     }): Promise<HomebaseFile<NoteFileContent> | null> {
+        const hostIdentity = this.#dotYouClient.getHostIdentity();
+        const isPeer = authorOdinId && authorOdinId !== hostIdentity;
+
+        if (isPeer) {
+            try {
+                const result = await getFileHeaderOverPeerByUniqueId<NoteFileContent>(
+                    this.#dotYouClient,
+                    authorOdinId,
+                    JOURNAL_DRIVE,
+                    uniqueId,
+                    { decrypt: options?.decrypt }
+                );
+                return result;
+            } catch (err) {
+                console.error(`[NotesDriveProvider.getNote] peer FAILED:`, err);
+                throw err;
+            }
+        }
+
         const header = await getFileHeaderByUniqueId<NoteFileContent>(
             this.#dotYouClient,
             JOURNAL_DRIVE,
@@ -144,9 +180,35 @@ export class NotesDriveProvider {
     }
 
     /**
-     * Get the Yjs payload for a note
+     * Get the Yjs payload for a note.
+     * If authorOdinId is provided and differs from the host identity,
+     * the payload is fetched over peer from the author's identity server.
+     *
+     * @param fileId - The remote file ID
+     * @param authorOdinId - Optional owner identity; if different from host, fetches over peer
+     * @param lastModified - Optional last modified timestamp for caching
      */
-    async getNotePayload(fileId: string, lastModified?: number): Promise<Uint8Array | null> {
+    async getNotePayload(fileId: string, authorOdinId?: string, lastModified?: number): Promise<Uint8Array | null> {
+        const hostIdentity = this.#dotYouClient.getHostIdentity();
+        const isPeer = authorOdinId && authorOdinId !== hostIdentity;
+
+        if (isPeer) {
+            try {
+                const result = await getPayloadBytesOverPeer(
+                    this.#dotYouClient,
+                    authorOdinId,
+                    JOURNAL_DRIVE,
+                    fileId,
+                    PAYLOAD_KEY_CONTENT,
+                    { decrypt: true, lastModified }
+                );
+                return result?.bytes || null;
+            } catch (err) {
+                console.error(`[NotesDriveProvider.getNotePayload] peer FAILED:`, err);
+                throw err;
+            }
+        }
+
         const result = await getPayloadBytes(
             this.#dotYouClient,
             JOURNAL_DRIVE,
@@ -267,11 +329,15 @@ export class NotesDriveProvider {
     /**
      * Update an existing note using patchFile.
      * Uses optimistic concurrency with onVersionConflict for lazy conflict resolution.
-     * 
+     * If authorOdinId differs from host identity, the update is sent over peer
+     * using globalTransitId instead of fileId.
+     *
      * @param uniqueId - The unique ID of the note
      * @param fileId - The remote file ID
      * @param versionTag - The cached version tag (may be stale)
      * @param metadata - Document metadata to update
+     * @param authorOdinId - Owner identity; if different from host, updates over peer
+     * @param globalTransitId - Required for peer updates to identify the file
      * @param yjsBlob - Optional Yjs blob to update
      * @param cachedKeyHeader - Optional cached encrypted key header (avoids network call)
      * @returns The new versionTag and the encryptedKeyHeader used (for caching)
@@ -281,6 +347,8 @@ export class NotesDriveProvider {
         fileId: string,
         versionTag: string,
         metadata: DocumentMetadata,
+        authorOdinId?: string,
+        globalTransitId?: string,
         yjsBlob?: Uint8Array,
         cachedKeyHeader?: EncryptedKeyHeader,
         options?: {
@@ -288,12 +356,18 @@ export class NotesDriveProvider {
             toDeletePayloads?: { key: string }[];
         }
     ): Promise<{ versionTag: string; encryptedKeyHeader?: EncryptedKeyHeader }> {
+        const hostIdentity = this.#dotYouClient.getHostIdentity();
+        const isPeer = authorOdinId && authorOdinId !== hostIdentity;
 
         const noteContent: NoteFileContent = {
             title: metadata.title,
             tags: metadata?.tags || [],
             excludeFromAI: metadata.excludeFromAI,
             isPinned: metadata.isPinned,
+            isCollaborative: metadata.isCollaborative,
+            circleIds: metadata.circleIds,
+            recipients: metadata.recipients,
+            lastEditedBy: metadata.lastEditedBy,
         };
         const payloads: PayloadFile[] = [];
 
@@ -305,9 +379,18 @@ export class NotesDriveProvider {
             });
         }
 
+        const accessControlList = metadata.isCollaborative && metadata.circleIds?.length
+            ? {
+                requiredSecurityGroup: SecurityGroupType.Connected,
+                circleIdList: metadata.circleIds,
+            }
+            : {
+                requiredSecurityGroup: SecurityGroupType.Owner,
+            };
+
         const uploadMetadata: UploadFileMetadata = {
             versionTag,
-            allowDistribution: false,
+            allowDistribution: isPeer ? true : false,
             appData: {
                 uniqueId,
                 groupId: metadata.folderId,
@@ -318,16 +401,24 @@ export class NotesDriveProvider {
                 content: JSON.stringify(noteContent),
             },
             isEncrypted: true,
-            accessControlList: {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            },
+            accessControlList,
         };
 
-        const updateInstructions: UpdateInstructionSet = {
-            locale: 'local',
-            file: { fileId, targetDrive: JOURNAL_DRIVE },
-            versionTag,
-        };
+        const updateInstructions: UpdateInstructionSet = isPeer
+            ? {
+                locale: 'peer' as const,
+                file: {
+                    globalTransitId: globalTransitId!,
+                    targetDrive: JOURNAL_DRIVE,
+                },
+                recipients: [authorOdinId],
+                versionTag,
+            }
+            : {
+                locale: 'local' as const,
+                file: { fileId, targetDrive: JOURNAL_DRIVE },
+                versionTag,
+            };
 
 
         const result = await patchFile(
@@ -364,6 +455,7 @@ export class NotesDriveProvider {
         // Fetch existing file header by uniqueId to get encryption key and fileId
         const existingHeader = await this.getNote(
             uniqueId,
+            undefined,
             { decrypt: true }
         );
 
@@ -546,5 +638,302 @@ export class NotesDriveProvider {
         }
 
         return { versionTag: result.newVersionTag };
+    }
+
+    async dsrToNoteFileContent(dsr: HomebaseFile,
+        includeMetadataHeader: boolean): Promise<NoteFileContent | null> {
+        try {
+            const noteFileContent = await getContentFromHeaderOrPayload<NoteFileContent>(this.#dotYouClient, JOURNAL_DRIVE, dsr, includeMetadataHeader);
+            if (!noteFileContent) {
+                return null;
+            }
+            return noteFileContent;
+        } catch (error) {
+            console.error('[NotesDriveProvider] failed to get the noteFileContent of a dsr', dsr, error);
+            return null;
+
+        }
+    }
+    /**
+     * Make a note collaborative, granting access to specified circles.
+     * Changes ACL to Connected with circleIds and moves to COLLABORATIVE_FOLDER_ID.
+     * 
+     * @param uniqueId - The unique ID of the note
+     * @param circleIds - Array of circle IDs to grant access
+     * @param editorOdinId - OdinId of the user making this change
+     * @returns The new version tag after update
+     */
+    async makeNoteCollaborative(
+        uniqueId: string,
+        circleIds: string[],
+        recipients: string[],
+        editorOdinId: string
+    ): Promise<{ versionTag: string }> {
+        // Fetch existing file header
+        const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            uniqueId,
+            { decrypt: true }
+        );
+
+        if (!existingHeader) {
+            throw new Error(`Note with uniqueId ${uniqueId} not found`);
+        }
+
+        // Get existing content to preserve it
+        const existingContent = existingHeader.fileMetadata.appData.content as NoteFileContent | undefined;
+
+        // Build updated note content with collaborative metadata
+        const noteContent: NoteFileContent = {
+            title: existingContent?.title || '',
+            tags: existingContent?.tags || [],
+            excludeFromAI: existingContent?.excludeFromAI || false,
+            isPinned: existingContent?.isPinned || false,
+            isCollaborative: true,
+            circleIds,
+            recipients,
+            lastEditedBy: editorOdinId,
+        };
+
+        const versionTag = existingHeader.fileMetadata.versionTag;
+
+        // Update metadata with Connected access control for circles
+        const uploadMetadata: UploadFileMetadata = {
+            versionTag,
+            allowDistribution: false,
+            appData: {
+                fileType: JOURNAL_FILE_TYPE,
+                dataType: JOURNAL_DATA_TYPE,
+                uniqueId,
+                groupId: COLLABORATIVE_FOLDER_ID, // Move to collaborative folder
+                content: JSON.stringify(noteContent),
+            },
+            isEncrypted: true,
+            accessControlList: {
+                requiredSecurityGroup: SecurityGroupType.Connected,
+                circleIdList: circleIds,
+            },
+        };
+
+        const updateInstructions: UpdateInstructionSet = {
+            locale: 'local',
+            file: { fileId: existingHeader.fileId, targetDrive: JOURNAL_DRIVE },
+            versionTag,
+        };
+
+        const result = await patchFile(
+            this.#dotYouClient,
+            existingHeader.sharedSecretEncryptedKeyHeader,
+            updateInstructions,
+            uploadMetadata,
+        );
+
+        if (!result) {
+            throw new Error('Failed to make note collaborative');
+        }
+
+        await this.createOrUpdateInvitation(
+            uniqueId,
+            existingContent?.title || '',
+            '',
+            circleIds,
+            recipients,
+            editorOdinId,
+        );
+
+        return { versionTag: result.newVersionTag };
+    }
+
+    /**
+     * Revoke collaboration, returning note to private (Owner only).
+     * Moves note back to MAIN_FOLDER_ID.
+     * 
+     * @param uniqueId - The unique ID of the note
+     * @param editorOdinId - OdinId of the user making this change
+     * @returns The new version tag after update
+     */
+    async revokeNoteCollaboration(
+        uniqueId: string,
+        editorOdinId: string
+    ): Promise<{ versionTag: string }> {
+        // Fetch existing file header
+        const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            uniqueId,
+            { decrypt: true }
+        );
+
+        if (!existingHeader) {
+            throw new Error(`Note with uniqueId ${uniqueId} not found`);
+        }
+
+        // Get existing content to preserve it
+        const existingContent = existingHeader.fileMetadata.appData.content as NoteFileContent | undefined;
+
+        // Build updated note content - remove collaborative metadata
+        const noteContent: NoteFileContent = {
+            title: existingContent?.title || '',
+            tags: existingContent?.tags || [],
+            excludeFromAI: existingContent?.excludeFromAI || false,
+            isPinned: existingContent?.isPinned || false,
+            isCollaborative: false,
+            circleIds: undefined,
+            recipients: undefined,
+            lastEditedBy: editorOdinId,
+        };
+
+        // Update metadata with Owner access control
+        const uploadMetadata: UploadFileMetadata = {
+            allowDistribution: false,
+            versionTag: existingHeader.fileMetadata.versionTag,
+            appData: {
+                fileType: JOURNAL_FILE_TYPE,
+                dataType: JOURNAL_DATA_TYPE,
+                uniqueId,
+                groupId: MAIN_FOLDER_ID, // Move back to main folder
+                content: JSON.stringify(noteContent),
+            },
+            isEncrypted: true, // Private notes should be encrypted
+            accessControlList: {
+                requiredSecurityGroup: SecurityGroupType.Owner,
+            },
+        };
+
+
+        const versionTag = existingHeader.fileMetadata.versionTag;
+
+        const updateInstructions: UpdateInstructionSet = {
+            locale: 'local',
+            file: { fileId: existingHeader.fileId, targetDrive: JOURNAL_DRIVE },
+            versionTag,
+        };
+
+        const result = await patchFile(
+            this.#dotYouClient,
+            existingHeader.sharedSecretEncryptedKeyHeader,
+            updateInstructions,
+            uploadMetadata,
+            [], // no payloads to update
+            undefined, // no thumbnails
+            undefined, // no payloads to delete
+        );
+
+        if (!result) {
+            throw new Error('Failed to revoke note collaboration');
+        }
+
+        await this.deleteInvitation(uniqueId);
+
+        return { versionTag: result.newVersionTag };
+    }
+
+    async createOrUpdateInvitation(
+        noteUniqueId: string,
+        noteTitle: string,
+        notePreview: string,
+        circleIds: string[],
+        recipients: string[],
+        authorOdinId: string,
+    ): Promise<void> {
+        const inviteUniqueId = toGuidId(`collab-invite-${noteUniqueId}`);
+        const inviteContent: CollaborationInviteContent = {
+            authorOdinId,
+            noteUniqueId,
+            noteTitle,
+            notePreview: notePreview.slice(0, 150),
+            sharedAt: new Date().toISOString(),
+        };
+
+        const existingInvite = await getFileHeaderByUniqueId(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            inviteUniqueId,
+            { decrypt: false }
+        );
+
+        if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
+            const uploadMetadata: UploadFileMetadata = {
+                versionTag: existingInvite.fileMetadata.versionTag,
+                allowDistribution: true,
+                appData: {
+                    fileType: COLLABORATION_INVITE_FILE_TYPE,
+                    dataType: COLLABORATION_INVITE_DATA_TYPE,
+                    uniqueId: inviteUniqueId,
+                    groupId: COLLABORATIVE_FOLDER_ID,
+                    content: JSON.stringify(inviteContent),
+                },
+                isEncrypted: true,
+                accessControlList: {
+                    requiredSecurityGroup: SecurityGroupType.Connected,
+                    circleIdList: circleIds,
+                },
+            };
+
+            const updateInstructions: UpdateInstructionSet = {
+                locale: 'local',
+                file: { fileId: existingInvite.fileId, targetDrive: JOURNAL_DRIVE },
+                versionTag: existingInvite.fileMetadata.versionTag,
+                recipients,
+            };
+
+            await patchFile(
+                this.#dotYouClient,
+                existingInvite.sharedSecretEncryptedKeyHeader,
+                updateInstructions,
+                uploadMetadata,
+            );
+        } else {
+            const uploadMetadata: UploadFileMetadata = {
+                allowDistribution: true,
+                appData: {
+                    fileType: COLLABORATION_INVITE_FILE_TYPE,
+                    dataType: COLLABORATION_INVITE_DATA_TYPE,
+                    uniqueId: inviteUniqueId,
+                    groupId: COLLABORATIVE_FOLDER_ID,
+                    content: JSON.stringify(inviteContent),
+                },
+                isEncrypted: true,
+                accessControlList: {
+                    requiredSecurityGroup: SecurityGroupType.Connected,
+                    circleIdList: circleIds,
+                },
+            };
+
+            const instructionSet: UploadInstructionSet = {
+                transferIv: getRandom16ByteArray(),
+                storageOptions: { drive: JOURNAL_DRIVE },
+                transitOptions: {
+                    recipients,
+                    schedule: ScheduleOptions.SendLater,
+                    priority: PriorityOptions.High,
+                    sendContents: SendContents.All,
+                },
+            };
+
+            await uploadFile(
+                this.#dotYouClient,
+                instructionSet,
+                uploadMetadata,
+                [],
+                [],
+                true,
+            );
+        }
+    }
+
+    async deleteInvitation(noteUniqueId: string): Promise<void> {
+        const inviteUniqueId = toGuidId(`collab-invite-${noteUniqueId}`);
+        const existingInvite = await getFileHeaderByUniqueId(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            inviteUniqueId,
+            { decrypt: false }
+        );
+
+        if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
+            await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, existingInvite.fileId);
+        }
     }
 }

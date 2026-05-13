@@ -15,6 +15,7 @@ npm run test:watch # vitest watch mode
 
 ## Rules
 
+- **Never commit unless explicitly told to do so**
 - All new features must include unit tests in `src/__tests__/`
 - Use Homebase SDK helpers from `@/lib/utils` — never rewrite `getNewId()`, `tryJsonParse()`, etc.
 - Minimize `useState` — derive state during render when possible

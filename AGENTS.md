@@ -312,13 +312,30 @@ npm run test:ui  # visual dashboard
 - **Avoid over-optimization**: No `useCallback`/`useMemo` unless profiling shows need
 - **No `any` type**: Always use proper types. Use library-provided types (e.g. `CommandProps` from `@tiptap/core`), module augmentation (`declare global`/`declare module`), or generics instead of `any`. If there is genuinely no way to avoid `any`, stop and explain why to the user before proceeding.
 
-## Testing Requirements
+## Testing Requirements — Test-Driven Development (TDD)
 
-> **IMPORTANT**: All new features MUST include unit tests.
+> **MANDATORY**: This project follows **TDD**. Write failing tests FIRST, then implement code to make them pass. No exceptions.
+
+### TDD Workflow
+
+1. **Red** — Write a failing test that defines the expected behavior
+2. **Green** — Write the minimum code to make the test pass
+3. **Refactor** — Clean up while keeping tests green
+
+### Rules
+
+- **Tests before code**: Every new feature, bug fix, and refactoring MUST start with a failing test
+- **No untested code**: If it doesn't have a test, it doesn't ship
+- **Regression tests for bugs**: Every bug fix starts with a test that reproduces the bug
+- **Run tests before committing**: `npm run test` must pass with zero failures before any commit
+- **Test naming**: Describe behavior, not implementation (e.g., "should return only collaborative notes sorted by modified desc" not "test getCollaborativeNotesForList")
+
+### Test Setup
 
 - **Location**: `src/__tests__/`
 - **Framework**: Vitest (30s timeout, serial execution)
 - **Naming**: `<feature>.test.ts`
+- **Run**: `npm run test` (all) or `npx vitest run src/__tests__/<file>.test.ts` (single)
 
 ### Existing Tests
 
@@ -336,11 +353,13 @@ npm run test:ui  # visual dashboard
 
 | Change Type | Test Required? |
 |-------------|----------------|
-| New utility/helper module | Yes |
-| New singleton/service class | Yes |
-| New database query function | Yes |
-| Bug fix | Yes (regression test) |
-| UI component | Optional (prefer E2E) |
+| New utility/helper module | Yes — unit tests |
+| New singleton/service class | Yes — unit tests |
+| New database query function | Yes — unit tests |
+| New hook with logic | Yes — unit tests |
+| Bug fix | Yes — regression test that reproduces the bug first |
+| UI component | Yes — at minimum test props/state logic; prefer E2E for interactions |
+| Refactoring | Yes — ensure existing tests cover the code before refactoring; add tests if coverage is missing |
 
 ## Performance and Best Practices
 

@@ -139,7 +139,9 @@ async function initializeSchema(database: PGliteInterface): Promise<void> {
       last_synced_at TIMESTAMP WITH TIME ZONE,
       sync_status TEXT NOT NULL DEFAULT 'pending',
       content_hash TEXT,
-      encrypted_key_header TEXT
+      encrypted_key_header TEXT,
+      author_odin_id TEXT,
+      global_transit_id TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_sync_records_status ON sync_records(sync_status);
@@ -333,7 +335,9 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
         last_synced_at TIMESTAMP WITH TIME ZONE,
         sync_status TEXT NOT NULL DEFAULT 'pending',
         content_hash TEXT,
-        encrypted_key_header TEXT
+        encrypted_key_header TEXT,
+        author_odin_id TEXT,
+        global_transit_id TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_sync_records_status ON sync_records(sync_status);
       CREATE INDEX IF NOT EXISTS idx_sync_records_type ON sync_records(entity_type);
@@ -360,6 +364,17 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     console.log('[DB Migration] encrypted_key_header column ensured');
   } catch (error) {
     console.warn('[DB Migration] Could not add encrypted_key_header column:', error);
+  }
+
+  // Add collaboration peer tracking columns for sync_records
+  try {
+    await database.exec(`
+      ALTER TABLE sync_records ADD COLUMN IF NOT EXISTS author_odin_id TEXT;
+      ALTER TABLE sync_records ADD COLUMN IF NOT EXISTS global_transit_id TEXT;
+    `);
+    console.log('[DB Migration] collaboration peer columns ensured');
+  } catch (error) {
+    console.warn('[DB Migration] Could not add collaboration peer columns:', error);
   }
 
   // Create pending_image_uploads if not exists (for existing dbs)

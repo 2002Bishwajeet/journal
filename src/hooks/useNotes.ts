@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     getNotesForList,
     getNotesForListByFolder,
+    getCollaborativeNotesForList,
     upsertSearchIndex,
     updateSearchIndexMetadata,
     deleteSearchIndexEntry,
@@ -270,5 +271,12 @@ export function useNotesByFolder(folderId: string | undefined) {
         queryKey: [...notesQueryKey, 'folder', folderId],
         queryFn: () => getNotesForListByFolder(folderId!),
         enabled: !!folderId,
+    });
+}
+
+export function useCollaborativeNotes() {
+    return useQuery<NoteListEntry[]>({
+        queryKey: [...notesQueryKey, 'collaborative'],
+        queryFn: getCollaborativeNotesForList,
     });
 }
