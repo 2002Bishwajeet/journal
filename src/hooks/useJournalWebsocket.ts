@@ -127,7 +127,7 @@ export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: Use
     );
 
     const handleDisconnect = useCallback(() => {
-        console.log('[JournalWebsocket] Disconnected');
+        console.debug('[JournalWebsocket] Disconnected');
         disconnectTimeRef.current = Date.now();
 
         // Drain remaining queued items before disconnect
@@ -137,10 +137,8 @@ export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: Use
     }, []);
 
     const handleReconnect = useCallback(() => {
-        console.log('[JournalWebsocket] Reconnected');
-        // Trigger delta sync to catch any missed changes during disconnect
+        console.debug('[JournalWebsocket] Reconnected');
         if (disconnectTimeRef.current) {
-            console.log('[JournalWebsocket] Triggering delta sync after reconnect');
             onReconnect();
             disconnectTimeRef.current = null;
         }

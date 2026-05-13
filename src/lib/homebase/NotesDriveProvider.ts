@@ -152,8 +152,6 @@ export class NotesDriveProvider {
         const hostIdentity = this.#dotYouClient.getHostIdentity();
         const isPeer = authorOdinId && authorOdinId !== hostIdentity;
 
-        console.log(`[NotesDriveProvider.getNote]`, { uniqueId, authorOdinId, hostIdentity, isPeer });
-
         if (isPeer) {
             try {
                 const result = await getFileHeaderOverPeerByUniqueId<NoteFileContent>(
@@ -163,13 +161,6 @@ export class NotesDriveProvider {
                     uniqueId,
                     { decrypt: options?.decrypt }
                 );
-                console.log(`[NotesDriveProvider.getNote] peer result:`, {
-                    gotResult: !!result,
-                    fileId: result?.fileId,
-                    globalTransitId: result?.fileMetadata?.globalTransitId,
-                    isEncrypted: result?.fileMetadata?.isEncrypted,
-                    payloadCount: result?.fileMetadata?.payloads?.length,
-                });
                 return result;
             } catch (err) {
                 console.error(`[NotesDriveProvider.getNote] peer FAILED:`, err);
@@ -201,8 +192,6 @@ export class NotesDriveProvider {
         const hostIdentity = this.#dotYouClient.getHostIdentity();
         const isPeer = authorOdinId && authorOdinId !== hostIdentity;
 
-        console.log(`[NotesDriveProvider.getNotePayload]`, { fileId, authorOdinId, hostIdentity, isPeer, lastModified });
-
         if (isPeer) {
             try {
                 const result = await getPayloadBytesOverPeer(
@@ -213,11 +202,6 @@ export class NotesDriveProvider {
                     PAYLOAD_KEY_CONTENT,
                     { decrypt: true, lastModified }
                 );
-                console.log(`[NotesDriveProvider.getNotePayload] peer result:`, {
-                    gotBytes: !!result?.bytes,
-                    byteLength: result?.bytes?.length,
-                    contentType: result?.contentType,
-                });
                 return result?.bytes || null;
             } catch (err) {
                 console.error(`[NotesDriveProvider.getNotePayload] peer FAILED:`, err);

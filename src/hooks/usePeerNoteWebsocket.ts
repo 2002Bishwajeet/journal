@@ -1,11 +1,10 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { DotYouClient, TypedConnectionNotification, NotificationType, TargetDrive } from '@homebase-id/js-lib/core';
+import type { DotYouClient, TypedConnectionNotification, NotificationType, TargetDrive, DeletedHomebaseFile } from '@homebase-id/js-lib/core';
 import { drivesEqual } from '@homebase-id/js-lib/helpers';
 import { useWebsocketSubscriber } from './useWebsocketSubscriber';
 import { notesQueryKey } from './useNotes';
 import { JOURNAL_DRIVE, JOURNAL_FILE_TYPE } from '@/lib/homebase';
-import type { DeletedHomebaseFile } from '@homebase-id/js-lib/core';
 import type { SyncService } from '@/lib/homebase/SyncService';
 import { toast } from 'sonner';
 
@@ -28,26 +27,37 @@ export const usePeerNoteWebsocket = ({
     const queryClient = useQueryClient();
     const disconnectTimeRef = useRef<number | null>(null);
 
+    // Refs for stable callbacks — avoids WebSocket resubscription on prop changes
+    // (rerender-use-ref-transient-values)
+    const syncServiceRef = useRef(syncService);
+    const noteUniqueIdRef = useRef(noteUniqueId);
+    const authorOdinIdRef = useRef(authorOdinId);
+    useEffect(() => {
+        syncServiceRef.current = syncService;
+        noteUniqueIdRef.current = noteUniqueId;
+        authorOdinIdRef.current = authorOdinId;
+    }, [syncService, noteUniqueId, authorOdinId]);
+
     const handleNotification = useCallback(
         async (_dotYouClient: DotYouClient, notification: TypedConnectionNotification) => {
-            if (!syncService || !noteUniqueId) return;
+            if (!syncServiceRef.current || !noteUniqueIdRef.current) return;
 
             const fileUniqueId = notification.header?.fileMetadata?.appData?.uniqueId;
-            if (fileUniqueId !== noteUniqueId) return;
+            if (fileUniqueId !== noteUniqueIdRef.current) return;
 
             if (!drivesEqual(notification.targetDrive, JOURNAL_DRIVE)) return;
             if (notification.header?.fileMetadata?.appData?.fileType !== JOURNAL_FILE_TYPE) return;
 
             if (notification.notificationType === 'fileAdded' || notification.notificationType === 'fileModified') {
-                await syncService.handleRemoteNote(notification.header);
+                await syncServiceRef.current.handleRemoteNote(notification.header);
                 queryClient.invalidateQueries({ queryKey: notesQueryKey });
             } else if (notification.notificationType === 'fileDeleted') {
-                await syncService.handleDeletedNote(notification.header as unknown as DeletedHomebaseFile);
+                await syncServiceRef.current.handleDeletedNote(notification.header as unknown as DeletedHomebaseFile);
                 queryClient.invalidateQueries({ queryKey: notesQueryKey });
                 toast('This shared note has been deleted by the author');
             }
         },
-        [syncService, noteUniqueId, queryClient]
+        [queryClient],
     );
 
     const handleDisconnect = useCallback(() => {
@@ -55,18 +65,20 @@ export const usePeerNoteWebsocket = ({
     }, []);
 
     const handleReconnect = useCallback(async () => {
-        if (!syncService || !noteUniqueId || !authorOdinId) return;
+        if (!syncServiceRef.current || !noteUniqueIdRef.current || !authorOdinIdRef.current) return;
         disconnectTimeRef.current = null;
         try {
-            const freshFile = await syncService.getNoteProvider().getNote(noteUniqueId, authorOdinId, { decrypt: false });
+            const freshFile = await syncServiceRef.current.getNoteProvider().getNote(
+                noteUniqueIdRef.current, authorOdinIdRef.current, { decrypt: false },
+            );
             if (freshFile) {
-                await syncService.handleRemoteNote(freshFile);
+                await syncServiceRef.current.handleRemoteNote(freshFile);
                 queryClient.invalidateQueries({ queryKey: notesQueryKey });
             }
         } catch (error) {
             console.error('[PeerNoteWebsocket] Reconnect sync failed:', error);
         }
-    }, [syncService, noteUniqueId, authorOdinId, queryClient]);
+    }, [queryClient]);
 
     const shouldSubscribe = isEnabled && !!authorOdinId && !!noteUniqueId;
 
@@ -77,6 +89,6 @@ export const usePeerNoteWebsocket = ({
         PEER_WS_DRIVES,
         handleDisconnect,
         handleReconnect,
-        `peer-note-${noteUniqueId}`
+        `peer-note-${noteUniqueId}`,
     );
 };

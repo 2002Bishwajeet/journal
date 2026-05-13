@@ -355,14 +355,7 @@ export class SyncService {
     }
 
     async handleInvitation(remoteFile: HomebaseFile<string>): Promise<void> {
-        console.log('[SyncService] handleInvitation called', {
-            fileId: remoteFile.fileId,
-            uniqueId: remoteFile.fileMetadata?.appData?.uniqueId,
-            fileType: remoteFile.fileMetadata?.appData?.fileType,
-            rawContent: remoteFile.fileMetadata?.appData?.content,
-        });
         const content = await this.#notesProvider.dsrToNoteFileContent(remoteFile, true) as unknown as CollaborationInviteContent | null;
-        console.log('[SyncService] handleInvitation parsed content:', content);
         if (!content || !content.noteUniqueId) {
             console.error('[SyncService] Invalid invitation file', remoteFile.fileId);
             return;
@@ -387,19 +380,8 @@ export class SyncService {
         let peerNote;
         try {
             peerNote = await this.#notesProvider.getNote(noteUniqueId, authorOdinId, { decrypt: true });
-            console.log(`[SyncService] bootstrapCollaborativeNote peer fetch result:`, {
-                noteUniqueId,
-                authorOdinId,
-                gotNote: !!peerNote,
-                fileId: peerNote?.fileId,
-                globalTransitId: peerNote?.fileMetadata?.globalTransitId,
-                versionTag: peerNote?.fileMetadata?.versionTag,
-                payloads: peerNote?.fileMetadata?.payloads,
-                isEncrypted: peerNote?.fileMetadata?.isEncrypted,
-                acl: peerNote?.serverMetadata?.accessControlList,
-            });
         } catch (err) {
-            console.error(`[SyncService] bootstrapCollaborativeNote peer fetch FAILED:`, err);
+            console.error(`[SyncService] bootstrapCollaborativeNote peer fetch failed for ${noteUniqueId}:`, err);
         }
         if (!peerNote || !peerNote.fileId) {
             console.warn(`[SyncService] Could not fetch peer note ${noteUniqueId} from ${authorOdinId} — author may be offline`);
@@ -425,13 +407,6 @@ export class SyncService {
             this.#notesProvider.dsrToNoteFileContent(peerNote, true),
             this.#notesProvider.getNotePayload(peerNote.fileId, authorOdinId, lastModified),
         ]);
-        console.log(`[SyncService] bootstrapCollaborativeNote payload result:`, {
-            noteUniqueId,
-            hasContent: !!content,
-            contentTitle: content?.title,
-            hasBlobBytes: !!remoteBlob,
-            blobSize: remoteBlob?.length,
-        });
         const noteTitle = content?.title || inviteTitle || 'Untitled';
 
         const [, plainTextContent] = await Promise.all([
@@ -488,9 +463,12 @@ export class SyncService {
         const uniqueId = deleted.fileMetadata.appData.uniqueId;
         if (!uniqueId) return;
 
-        await deleteSearchIndexEntry(uniqueId);
-        await deleteDocumentUpdates(uniqueId);
-        await deleteSyncRecord(uniqueId);
+        // async-parallel: independent DB operations
+        await Promise.all([
+            deleteSearchIndexEntry(uniqueId),
+            deleteDocumentUpdates(uniqueId),
+            deleteSyncRecord(uniqueId),
+        ]);
     }
 
     /**
@@ -508,8 +486,6 @@ export class SyncService {
         const existingRecord = await getSyncRecord(uniqueId);
 
         if (stringGuidsEqual(remoteFile.fileMetadata.versionTag, existingRecord?.versionTag)) {
-            // No changes - skip processing
-            console.log(`[SyncService] No changes for note ${uniqueId}`);
             return;
         }
 
@@ -1001,7 +977,7 @@ export class SyncService {
             // Notify the editor that the document was updated
             documentBroadcast.notifyDocumentUpdated(docId);
 
-            console.log(`[SyncService] Updated Yjs doc for ${docId}`);
+            console.debug(`[SyncService] Updated Yjs doc for ${docId}`);
         }
 
         ydoc.destroy();
