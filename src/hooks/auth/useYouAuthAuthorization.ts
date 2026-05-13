@@ -30,7 +30,7 @@ export const journalDriveRequest: TargetDriveAccessRequest = {
         DrivePermissionType.Comment,
     ],
     allowAnonymousRead: true,
-    allowSubscriptions: false,
+    allowSubscriptions: true,
 };
 
 /**

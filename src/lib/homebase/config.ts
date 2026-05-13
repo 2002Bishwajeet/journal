@@ -1,13 +1,22 @@
-import type { TargetDrive } from "@homebase-id/js-lib/core";
-import { AppPermissionType } from "@homebase-id/js-lib/network";
+import type { TargetDriveAccessRequest } from "@homebase-id/js-lib/auth";
+import { DrivePermissionType, type TargetDrive } from "@homebase-id/js-lib/core";
+import { AppPermissionType, ContactConfig } from "@homebase-id/js-lib/network";
 
 // Collaboration permissions required for circle-based sharing
 export const COLLABORATION_PERMISSIONS = [
     AppPermissionType.SendDataToOtherIdentitiesOnMyBehalf,
     AppPermissionType.ReadCircleMembers,
+    AppPermissionType.ReadConnections,
     AppPermissionType.SendPushNotifications,
     AppPermissionType.ReceiveDataFromOtherIdentitiesOnMyBehalf,
 ];
+
+export const CONTACT_TARGET_DRIVE_REQUEST: TargetDriveAccessRequest = {
+    ...ContactConfig.ContactTargetDrive,
+    name: " ",
+    description: ' ',
+    permissions: [DrivePermissionType.Read],
+}
 
 // Homebase configuration constants
 export const JOURNAL_APP_ID = import.meta.env.PROD ? 'c762ee784274473480919d8080d7a825' : '38e160f1f815438a89eabc3a261e9952';

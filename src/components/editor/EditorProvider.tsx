@@ -26,6 +26,7 @@ import "katex/dist/katex.min.css";
 interface EditorProviderProps {
   docId: string;
   metadata: DocumentMetadata;
+  editorOdinId?: string;
   onMetadataChange?: (metadata: DocumentMetadata) => void;
   onSave?: (yjsBlob: Uint8Array) => void;
   onEditorReady?: (editor: Editor) => void;
@@ -41,6 +42,7 @@ interface EditorProviderProps {
 export function EditorProvider({
   docId,
   metadata,
+  editorOdinId,
   // onMetadataChange, // Not used in provider currently
   onSave,
   onEditorReady,
@@ -252,7 +254,7 @@ export function EditorProvider({
       const currentMetadata = metadataRef.current;
       // Use passed plainText if available, otherwise fallback
       const plainText = plainTextContent ?? editorInstance.getText();
-      
+
       upsertSearchIndex({
         docId: currentDocId,
         title: currentMetadata.title,
@@ -264,6 +266,7 @@ export function EditorProvider({
             ...currentMetadata.timestamps,
             modified: new Date().toISOString(),
           },
+          lastEditedBy: currentMetadata.isCollaborative ? editorOdinId : currentMetadata.lastEditedBy,
         },
       });
     }, 500);

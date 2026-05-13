@@ -241,6 +241,7 @@ export default function EditorPage({
       key={noteId}
       docId={noteId}
       metadata={selectedNoteMetadata}
+      editorOdinId={dotYouClient.getHostIdentity()}
       onMetadataChange={async (meta) => {
         await updateNoteMetadata({
           docId: noteId,

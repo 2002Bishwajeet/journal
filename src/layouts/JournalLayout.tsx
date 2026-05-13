@@ -1,4 +1,9 @@
-import { Outlet, useParams, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Outlet,
+  useParams,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import {
   Sidebar,
   NoteList,
@@ -23,22 +28,31 @@ import {
   CreateFolderModal,
   SearchModal,
   SettingsModal,
-  ExtendPermissionDialog,
   ConfirmDialog,
   KeyboardShortcutsModal,
+  ExtendPermissionDialog,
 } from "@/components/modals";
 
 const ShareDialog = lazy(() => import("@/components/modals/ShareDialog"));
 const MarkCollaborativeDialog = lazy(() =>
-  import("@/components/modals/MarkCollaborativeDialog").then(m => ({ default: m.MarkCollaborativeDialog }))
+  import("@/components/modals/MarkCollaborativeDialog").then((m) => ({
+    default: m.MarkCollaborativeDialog,
+  })),
 );
 import {
   JOURNAL_APP_ID,
   JOURNAL_APP_NAME,
+  MAIN_FOLDER_ID,
+  COLLABORATION_PERMISSIONS,
+  CONTACT_TARGET_DRIVE_REQUEST,
 } from "@/lib/homebase/config";
-import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
 import type { NoteListEntry } from "@/types";
-import { useNotes, useNotesByFolder, useCollaborativeNotes, notesQueryKey } from "@/hooks/useNotes";
+import {
+  useNotes,
+  useNotesByFolder,
+  useCollaborativeNotes,
+  notesQueryKey,
+} from "@/hooks/useNotes";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
 import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
@@ -49,11 +63,16 @@ import { NotesDriveProvider } from "@/lib/homebase/NotesDriveProvider";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import EditorPage from "@/pages/EditorPage";
+import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
+
+const BASE_DRIVES = [journalDriveRequest];
+const COLLAB_DRIVES = [journalDriveRequest, CONTACT_TARGET_DRIVE_REQUEST];
+const NO_PERMISSIONS: [] = [];
 
 export default function JournalLayout() {
   // Initialize theme preference & system listener at root level
   useThemePreference();
-  
+
   const { folderId, noteId } = useParams();
   const navigate = useNavigate();
 
@@ -69,6 +88,7 @@ export default function JournalLayout() {
     get: { data: notes = [], isLoading: isNotesLoading },
     createNote: { mutateAsync: createNote },
     deleteNote: { mutateAsync: deleteNote },
+    updateNote: { mutateAsync: updateNoteMetadata },
   } = useNotes();
 
   const {
@@ -103,7 +123,8 @@ export default function JournalLayout() {
   const [showSearch, setShowSearch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
-  const [collaborativeNote, setCollaborativeNote] = useState<NoteListEntry | null>(null);
+  const [collaborativeNote, setCollaborativeNote] =
+    useState<NoteListEntry | null>(null);
   const [revokeNote, setRevokeNote] = useState<NoteListEntry | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [shareNote, setShareNote] = useState<NoteListEntry | null>(null);
@@ -113,23 +134,31 @@ export default function JournalLayout() {
   const action = searchParams.get("action");
 
   const notesRef = useRef(notes);
-  useEffect(() => { notesRef.current = notes; }, [notes]);
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
 
   const collaborativeTabIds = useMemo(
-    () => new Set(notes.filter(n => n.metadata.isCollaborative).map(n => n.docId)),
-    [notes]
+    () =>
+      new Set(
+        notes.filter((n) => n.metadata.isCollaborative).map((n) => n.docId),
+      ),
+    [notes],
   );
 
   // Handle pending collaborative note from localStorage (after permission redirect)
   useEffect(() => {
     if (notes.length === 0) return;
-    const pendingNoteId = localStorage.getItem('pendingCollaborativeNoteId');
-    if (!pendingNoteId) return;
-    const note = notes.find(n => n.docId === pendingNoteId);
-    if (!note) return;
-    localStorage.removeItem('pendingCollaborativeNoteId');
-    // Defer to avoid synchronous setState in effect body
-    queueMicrotask(() => setCollaborativeNote(note));
+    try {
+      const pendingNoteId = localStorage.getItem("pendingCollaborativeNoteId");
+      if (!pendingNoteId) return;
+      const note = notes.find((n) => n.docId === pendingNoteId);
+      if (!note) return;
+      localStorage.removeItem("pendingCollaborativeNoteId");
+      queueMicrotask(() => setCollaborativeNote(note));
+    } catch {
+      /* private browsing */
+    }
   }, [notes]);
 
   // Handle URL action params (PWA shortcuts, permission redirects)
@@ -137,43 +166,55 @@ export default function JournalLayout() {
     if (!action) return;
 
     const handleAction = async () => {
-        if (action === "search") {
-            setShowSearch(true);
-        } else if (action === "new") {
-            const targetFolderId = folderId || folders[0]?.id;
-            if (targetFolderId) {
-                const { docId, folderId: newFolderId } = await createNote(targetFolderId);
-                if (docId) {
-                    navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
-                }
-            }
-        } else if (action === "collaborate") {
-            const collaborateNoteId = searchParams.get("noteId");
-            if (collaborateNoteId) {
-                const currentNotes = notesRef.current;
-                if (currentNotes.length === 0) return;
-                const note = currentNotes.find(n => n.docId === collaborateNoteId);
-                if (note) {
-                    setCollaborativeNote(note);
-                }
-            }
+      if (action === "search") {
+        setShowSearch(true);
+      } else if (action === "new") {
+        const targetFolderId = folderId || folders[0]?.id;
+        if (targetFolderId) {
+          const { docId, folderId: newFolderId } =
+            await createNote(targetFolderId);
+          if (docId) {
+            navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
+          }
         }
+      } else if (action === "collaborate") {
+        const collaborateNoteId = searchParams.get("noteId");
+        if (collaborateNoteId) {
+          const currentNotes = notesRef.current;
+          if (currentNotes.length === 0) return;
+          const note = currentNotes.find((n) => n.docId === collaborateNoteId);
+          if (note) {
+            setCollaborativeNote(note);
+          }
+        }
+      }
 
-        setSearchParams((params: URLSearchParams) => {
-            params.delete("action");
-            params.delete("noteId");
-            return params;
-        }, { replace: true });
+      setSearchParams(
+        (params: URLSearchParams) => {
+          params.delete("action");
+          params.delete("noteId");
+          return params;
+        },
+        { replace: true },
+      );
     };
 
     handleAction();
-  }, [action, folders, folderId, createNote, navigate, setSearchParams, searchParams]);
+  }, [
+    action,
+    folders,
+    folderId,
+    createNote,
+    navigate,
+    setSearchParams,
+    searchParams,
+  ]);
 
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
     onSearch: () => setShowSearch(true),
     onKeyboardHelp: () => setShowKeyboardHelp(true),
-    onFocusMode: () => setFocusMode(prev => !prev),
+    onFocusMode: () => setFocusMode((prev) => !prev),
   });
 
   // Device type detection
@@ -181,18 +222,21 @@ export default function JournalLayout() {
   const isDesktop = deviceType === "desktop";
   // If not desktop (so mobile or tablet), treat as mobile layout
 
-  const { data: filteredNotes = [], isLoading: isFilteredNotesLoading } = useNotesByFolder(folderId);
-  const { data: collaborativeNotes = [], isLoading: isCollaborativeLoading } = useCollaborativeNotes();
+  const { data: filteredNotes = [], isLoading: isFilteredNotesLoading } =
+    useNotesByFolder(folderId);
+  const { data: collaborativeNotes = [], isLoading: isCollaborativeLoading } =
+    useCollaborativeNotes();
 
-  const selectedTag = searchParams.get('tag');
+  const selectedTag = searchParams.get("tag");
   const { tags } = useTags();
   const { data: tagFilteredNotes } = useNotesByTag(selectedTag);
   const notesToShow = selectedTag
     ? (tagFilteredNotes ?? [])
-    : folderId === 'shared'
+    : folderId === "shared"
       ? collaborativeNotes
       : filteredNotes;
-  const isNotesToShowLoading = folderId === 'shared' ? isCollaborativeLoading : isFilteredNotesLoading;
+  const isNotesToShowLoading =
+    folderId === "shared" ? isCollaborativeLoading : isFilteredNotesLoading;
 
   // Open tab when noteId changes (URL navigation, back/forward)
   useEffect(() => {
@@ -232,7 +276,9 @@ export default function JournalLayout() {
         const nextTab = remainingTabs[remainingTabs.length - 1];
         const note = notes.find((n) => n.docId === nextTab.docId);
         if (note) {
-          navigate(`/${note.metadata.folderId}/${nextTab.docId}`, { viewTransition: true });
+          navigate(`/${note.metadata.folderId}/${nextTab.docId}`, {
+            viewTransition: true,
+          });
         }
       } else if (folderId) {
         navigate(`/${folderId}`, { viewTransition: true });
@@ -247,7 +293,6 @@ export default function JournalLayout() {
     return <SplashScreen />;
   }
 
-
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
       {/* Sidebar */}
@@ -260,7 +305,7 @@ export default function JournalLayout() {
           !isDesktop &&
             !isFolderSelected &&
             "flex absolute inset-0 z-30 w-full bg-background",
-          focusMode && "hidden!"
+          focusMode && "hidden!",
         )}
       >
         <Sidebar
@@ -281,7 +326,7 @@ export default function JournalLayout() {
           onCreateFolder={() => setShowCreateFolder(true)}
           onDeleteFolder={(id) => deleteFolder(id)}
           collaborativeCount={collaborativeNotes.length}
-          onSelectShared={() => navigate('/shared')}
+          onSelectShared={() => navigate("/shared")}
           onSearch={() => setShowSearch(true)}
           onSettings={() => setShowSettings(true)}
           onLogout={handleLogout}
@@ -291,7 +336,7 @@ export default function JournalLayout() {
             if (tag) {
               navigate(`/?tag=${encodeURIComponent(tag)}`);
             } else {
-              navigate(folderId ? `/${folderId}` : '/');
+              navigate(folderId ? `/${folderId}` : "/");
             }
           }}
           className="w-full h-full"
@@ -309,7 +354,7 @@ export default function JournalLayout() {
             isFolderSelected &&
             !isNoteSelected &&
             "flex absolute inset-0 z-20 w-full",
-          focusMode && "hidden!"
+          focusMode && "hidden!",
         )}
       >
         <div className="flex flex-col h-full w-full max-w-full min-w-0 overflow-hidden">
@@ -317,7 +362,7 @@ export default function JournalLayout() {
           <div
             className={cn(
               "flex items-center h-12 px-3 border-b border-border gap-2 shrink-0",
-              isDesktop && "hidden"
+              isDesktop && "hidden",
             )}
           >
             <Button
@@ -338,25 +383,26 @@ export default function JournalLayout() {
             notes={notesToShow}
             selectedNoteId={noteId || null}
             onSelectNote={(id) => {
-              const note = notesToShow.find(n => n.docId === id);
+              const note = notesToShow.find((n) => n.docId === id);
               const targetFolder = note?.metadata.folderId || folderId;
               if (selectedTag) {
-                navigate(`/${targetFolder}/${id}?tag=${encodeURIComponent(selectedTag)}`, { viewTransition: true });
+                navigate(
+                  `/${targetFolder}/${id}?tag=${encodeURIComponent(selectedTag)}`,
+                  { viewTransition: true },
+                );
               } else {
                 navigate(`/${folderId}/${id}`, { viewTransition: true });
               }
             }}
             onCreateNote={async () => {
-              const { docId, folderId: newFolderId } = await createNote(
-                folderId
-              );
-              if (docId) navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
+              const { docId, folderId: newFolderId } =
+                await createNote(folderId);
+              if (docId)
+                navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
             }}
             onDeleteNote={async (id) => {
               // Find the next note to select
-              const currentIndex = notesToShow.findIndex(
-                (n) => n.docId === id
-              );
+              const currentIndex = notesToShow.findIndex((n) => n.docId === id);
               let nextNoteId: string | null = null;
 
               if (currentIndex !== -1 && notesToShow.length > 1) {
@@ -377,7 +423,9 @@ export default function JournalLayout() {
               // If the deleted note is the one currently open, navigate to next note or folder
               if (noteId === id) {
                 if (nextNoteId) {
-                  navigate(`/${folderId}/${nextNoteId}`, { viewTransition: true });
+                  navigate(`/${folderId}/${nextNoteId}`, {
+                    viewTransition: true,
+                  });
                 } else {
                   navigate(`/${folderId}`, { viewTransition: true });
                 }
@@ -406,11 +454,16 @@ export default function JournalLayout() {
           // Mobile: Visible only when note is selected
           !isDesktop &&
             isNoteSelected &&
-            "flex absolute inset-0 z-10 w-full h-full"
+            "flex absolute inset-0 z-10 w-full h-full",
         )}
       >
         {/* Desktop Tab Bar — hidden in focus mode */}
-        <div className={cn(isDesktop ? "flex items-center" : "hidden", focusMode && "hidden!")}>
+        <div
+          className={cn(
+            isDesktop ? "flex items-center" : "hidden",
+            focusMode && "hidden!",
+          )}
+        >
           <TabBar
             tabs={openTabs}
             activeTabId={activeTabId}
@@ -438,11 +491,13 @@ export default function JournalLayout() {
           {isDesktop ? (
             /* Desktop DOM Keep-Alive implementation */
             openTabs.map((tab) => (
-              <div 
+              <div
                 key={tab.docId}
                 className={cn(
                   "absolute inset-0 w-full h-full",
-                  tab.docId === activeTabId ? "z-10 bg-background" : "z-0 opacity-0 pointer-events-none"
+                  tab.docId === activeTabId
+                    ? "z-10 bg-background"
+                    : "z-0 opacity-0 pointer-events-none",
                 )}
               >
                 {/* 
@@ -459,7 +514,11 @@ export default function JournalLayout() {
                   Therefore, we must import and render `EditorPage` but we'll need to modify it
                   to accept props instead of reading from `useParams`.
                 */}
-                <EditorPage overrideNoteId={tab.docId} overrideFolderId={folderId} focusMode={focusMode} />
+                <EditorPage
+                  overrideNoteId={tab.docId}
+                  overrideFolderId={folderId}
+                  focusMode={focusMode}
+                />
               </div>
             ))
           ) : (
@@ -556,10 +615,23 @@ export default function JournalLayout() {
           if (!revokeNote || !dotYouClient) return;
           try {
             const provider = new NotesDriveProvider(dotYouClient);
-            const editorOdinId = dotYouClient.getHostIdentity() || '';
-            await provider.revokeNoteCollaboration(revokeNote.docId, editorOdinId);
+            const editorOdinId = dotYouClient.getHostIdentity() || "";
+            await provider.revokeNoteCollaboration(
+              revokeNote.docId,
+              editorOdinId,
+            );
+            await updateNoteMetadata({
+              docId: revokeNote.docId,
+              metadata: {
+                ...revokeNote.metadata,
+                folderId: MAIN_FOLDER_ID,
+                isCollaborative: false,
+                circleIds: undefined,
+                recipients: undefined,
+                lastEditedBy: editorOdinId,
+              },
+            });
             toast.success("Collaboration revoked");
-            queryClient.invalidateQueries({ queryKey: notesQueryKey });
           } catch (err) {
             console.error("Failed to revoke collaboration:", err);
             toast.error("Failed to revoke collaboration");
@@ -571,12 +643,18 @@ export default function JournalLayout() {
         onClose={() => setShowKeyboardHelp(false)}
       />
 
-      <ExtendPermissionDialog 
+      <ExtendPermissionDialog
         appId={JOURNAL_APP_ID}
         appName={JOURNAL_APP_NAME}
-        drives={[journalDriveRequest]}
-        circleDrives={[]}
-        permissions={[]}
+        drives={collaborativeNotes.length > 0 ? COLLAB_DRIVES : BASE_DRIVES}
+        circleDrives={
+          collaborativeNotes.length > 0 ? COLLAB_DRIVES : NO_PERMISSIONS
+        }
+        permissions={
+          collaborativeNotes.length > 0
+            ? COLLABORATION_PERMISSIONS
+            : NO_PERMISSIONS
+        }
       />
     </div>
   );

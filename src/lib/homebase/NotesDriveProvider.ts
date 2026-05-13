@@ -16,7 +16,10 @@ import {
     type ThumbnailFile,
     type EncryptedKeyHeader,
     reUploadFile,
-    type PayloadDescriptor
+    type PayloadDescriptor,
+    ScheduleOptions,
+    PriorityOptions,
+    SendContents,
 } from '@homebase-id/js-lib/core';
 import {
     getFileHeaderOverPeerByUniqueId,
@@ -149,14 +152,29 @@ export class NotesDriveProvider {
         const hostIdentity = this.#dotYouClient.getHostIdentity();
         const isPeer = authorOdinId && authorOdinId !== hostIdentity;
 
+        console.log(`[NotesDriveProvider.getNote]`, { uniqueId, authorOdinId, hostIdentity, isPeer });
+
         if (isPeer) {
-            return getFileHeaderOverPeerByUniqueId<NoteFileContent>(
-                this.#dotYouClient,
-                authorOdinId,
-                JOURNAL_DRIVE,
-                uniqueId,
-                { decrypt: options?.decrypt }
-            );
+            try {
+                const result = await getFileHeaderOverPeerByUniqueId<NoteFileContent>(
+                    this.#dotYouClient,
+                    authorOdinId,
+                    JOURNAL_DRIVE,
+                    uniqueId,
+                    { decrypt: options?.decrypt }
+                );
+                console.log(`[NotesDriveProvider.getNote] peer result:`, {
+                    gotResult: !!result,
+                    fileId: result?.fileId,
+                    globalTransitId: result?.fileMetadata?.globalTransitId,
+                    isEncrypted: result?.fileMetadata?.isEncrypted,
+                    payloadCount: result?.fileMetadata?.payloads?.length,
+                });
+                return result;
+            } catch (err) {
+                console.error(`[NotesDriveProvider.getNote] peer FAILED:`, err);
+                throw err;
+            }
         }
 
         const header = await getFileHeaderByUniqueId<NoteFileContent>(
@@ -183,16 +201,28 @@ export class NotesDriveProvider {
         const hostIdentity = this.#dotYouClient.getHostIdentity();
         const isPeer = authorOdinId && authorOdinId !== hostIdentity;
 
+        console.log(`[NotesDriveProvider.getNotePayload]`, { fileId, authorOdinId, hostIdentity, isPeer, lastModified });
+
         if (isPeer) {
-            const result = await getPayloadBytesOverPeer(
-                this.#dotYouClient,
-                authorOdinId,
-                JOURNAL_DRIVE,
-                fileId,
-                PAYLOAD_KEY_CONTENT,
-                { decrypt: true, lastModified }
-            );
-            return result?.bytes || null;
+            try {
+                const result = await getPayloadBytesOverPeer(
+                    this.#dotYouClient,
+                    authorOdinId,
+                    JOURNAL_DRIVE,
+                    fileId,
+                    PAYLOAD_KEY_CONTENT,
+                    { decrypt: true, lastModified }
+                );
+                console.log(`[NotesDriveProvider.getNotePayload] peer result:`, {
+                    gotBytes: !!result?.bytes,
+                    byteLength: result?.bytes?.length,
+                    contentType: result?.contentType,
+                });
+                return result?.bytes || null;
+            } catch (err) {
+                console.error(`[NotesDriveProvider.getNotePayload] peer FAILED:`, err);
+                throw err;
+            }
         }
 
         const result = await getPayloadBytes(
@@ -376,7 +406,7 @@ export class NotesDriveProvider {
 
         const uploadMetadata: UploadFileMetadata = {
             versionTag,
-            allowDistribution: false,
+            allowDistribution: isPeer ? true : false,
             appData: {
                 uniqueId,
                 groupId: metadata.folderId,
@@ -397,6 +427,7 @@ export class NotesDriveProvider {
                     globalTransitId: globalTransitId!,
                     targetDrive: JOURNAL_DRIVE,
                 },
+                recipients: [authorOdinId],
                 versionTag,
             }
             : {
@@ -659,7 +690,7 @@ export class NotesDriveProvider {
             this.#dotYouClient,
             JOURNAL_DRIVE,
             uniqueId,
-            { decrypt: false }
+            { decrypt: true }
         );
 
         if (!existingHeader) {
@@ -712,9 +743,6 @@ export class NotesDriveProvider {
             existingHeader.sharedSecretEncryptedKeyHeader,
             updateInstructions,
             uploadMetadata,
-            [], // no payloads to update
-            undefined, // no thumbnails
-            undefined, // no payloads to delete
         );
 
         if (!result) {
@@ -726,6 +754,7 @@ export class NotesDriveProvider {
             existingContent?.title || '',
             '',
             circleIds,
+            recipients,
             editorOdinId,
         );
 
@@ -749,7 +778,7 @@ export class NotesDriveProvider {
             this.#dotYouClient,
             JOURNAL_DRIVE,
             uniqueId,
-            { decrypt: false }
+            { decrypt: true }
         );
 
         if (!existingHeader) {
@@ -774,6 +803,7 @@ export class NotesDriveProvider {
         // Update metadata with Owner access control
         const uploadMetadata: UploadFileMetadata = {
             allowDistribution: false,
+            versionTag: existingHeader.fileMetadata.versionTag,
             appData: {
                 fileType: JOURNAL_FILE_TYPE,
                 dataType: JOURNAL_DATA_TYPE,
@@ -787,6 +817,7 @@ export class NotesDriveProvider {
             },
         };
 
+
         const versionTag = existingHeader.fileMetadata.versionTag;
 
         const updateInstructions: UpdateInstructionSet = {
@@ -797,7 +828,7 @@ export class NotesDriveProvider {
 
         const result = await patchFile(
             this.#dotYouClient,
-            undefined, // no cached key header needed
+            existingHeader.sharedSecretEncryptedKeyHeader,
             updateInstructions,
             uploadMetadata,
             [], // no payloads to update
@@ -819,6 +850,7 @@ export class NotesDriveProvider {
         noteTitle: string,
         notePreview: string,
         circleIds: string[],
+        recipients: string[],
         authorOdinId: string,
     ): Promise<void> {
         const inviteUniqueId = toGuidId(`collab-invite-${noteUniqueId}`);
@@ -859,6 +891,7 @@ export class NotesDriveProvider {
                 locale: 'local',
                 file: { fileId: existingInvite.fileId, targetDrive: JOURNAL_DRIVE },
                 versionTag: existingInvite.fileMetadata.versionTag,
+                recipients,
             };
 
             await patchFile(
@@ -887,6 +920,12 @@ export class NotesDriveProvider {
             const instructionSet: UploadInstructionSet = {
                 transferIv: getRandom16ByteArray(),
                 storageOptions: { drive: JOURNAL_DRIVE },
+                transitOptions: {
+                    recipients,
+                    schedule: ScheduleOptions.SendLater,
+                    priority: PriorityOptions.High,
+                    sendContents: SendContents.All,
+                },
             };
 
             await uploadFile(
