@@ -3,8 +3,11 @@ export interface TextMatch {
     length: number;
 }
 
+const ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g;
+
 export function escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    ESCAPE_REGEX.lastIndex = 0;
+    return str.replace(ESCAPE_REGEX, '\\$&');
 }
 
 export function findMatchesInText(

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronUp, ChevronDown, X, ChevronRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEditorContext } from './EditorContext';
@@ -23,8 +23,8 @@ export function FindReplaceBar() {
             const storage = editor.storage.searchAndReplace;
             if (!storage) return;
 
-            if (storage.isOpen !== isOpen) setIsOpen(storage.isOpen);
-            if (storage.isReplaceOpen !== isReplaceOpen) setIsReplaceOpen(storage.isReplaceOpen);
+            setIsOpen(storage.isOpen);
+            setIsReplaceOpen(storage.isReplaceOpen);
 
             const state = searchPluginKey.getState(editor.state);
             if (state) {
@@ -39,7 +39,7 @@ export function FindReplaceBar() {
         return () => {
             editor.off('transaction', handler);
         };
-    }, [editor, isOpen, isReplaceOpen]);
+    }, [editor]);
 
     useEffect(() => {
         if (isOpen) {
@@ -58,26 +58,26 @@ export function FindReplaceBar() {
         editor.commands.updateSearch({ searchTerm, caseSensitive, wholeWord });
     }, [editor, searchTerm, caseSensitive, wholeWord, isOpen]);
 
-    const handleClose = useCallback(() => {
+    const handleClose = () => {
         editor?.commands.closeSearch();
         editor?.commands.focus();
-    }, [editor]);
+    };
 
-    const handleNext = useCallback(() => {
+    const handleNext = () => {
         editor?.commands.goToNextMatch();
-    }, [editor]);
+    };
 
-    const handlePrev = useCallback(() => {
+    const handlePrev = () => {
         editor?.commands.goToPrevMatch();
-    }, [editor]);
+    };
 
-    const handleReplace = useCallback(() => {
+    const handleReplace = () => {
         editor?.commands.replaceCurrentMatch(replaceTerm);
-    }, [editor, replaceTerm]);
+    };
 
-    const handleReplaceAll = useCallback(() => {
+    const handleReplaceAll = () => {
         editor?.commands.replaceAllMatches(replaceTerm);
-    }, [editor, replaceTerm]);
+    };
 
     const handleSearchKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
