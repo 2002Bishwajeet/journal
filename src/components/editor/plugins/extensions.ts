@@ -26,6 +26,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { Mathematics } from '@tiptap/extension-mathematics';
 import { createLowlight } from 'lowlight';
 import { EmojiExtension } from './EmojiExtension';
+import { SearchAndReplace } from './SearchAndReplaceExtension';
 import { ImageNodeView } from '../nodes/ImageNode';
 
 // Re-export FileHandler for use in EditorProvider
@@ -226,5 +227,6 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         ClearFormattingShortcut,
         DuplicateBlock,
         IndentExtension,
+        SearchAndReplace,
     ];
 }

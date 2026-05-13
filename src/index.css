@@ -633,3 +633,24 @@ body {
     display: table-row;
   }
 }
+
+/* Find & Replace highlights */
+.search-highlight {
+  background-color: rgb(250 204 21 / 0.35);
+  border-radius: 2px;
+}
+
+.search-highlight-current {
+  background-color: rgb(250 204 21 / 0.7);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgb(234 179 8 / 0.5);
+}
+
+.dark .search-highlight {
+  background-color: rgb(234 179 8 / 0.2);
+}
+
+.dark .search-highlight-current {
+  background-color: rgb(234 179 8 / 0.5);
+  box-shadow: 0 0 0 1px rgb(234 179 8 / 0.4);
+}

@@ -7,6 +7,7 @@ import {
   useEditorContext,
   TipTapEditor,
 } from "@/components/editor";
+import { FindReplaceBar } from "@/components/editor/FindReplaceBar";
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
@@ -105,6 +106,7 @@ function EditorLayout({
       </div>
 
       <div className="flex-1 overflow-y-auto relative bg-background w-full">
+        <FindReplaceBar />
         <TipTapEditor
           noteId={noteId}
           metadata={selectedNoteMetadata!}
