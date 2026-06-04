@@ -2,7 +2,7 @@
 
 Read `AGENTS.md` in this repository root for full project documentation: architecture, tech stack, database schema, file structure, code conventions, testing requirements, sync architecture, AI integration, and Homebase configuration.
 
-Read `docs/FEATURE_ROADMAP.md` for the prioritized feature backlog and competitive analysis.
+If present locally, read `docs/FEATURE_ROADMAP.md` for the prioritized feature backlog and competitive analysis. Note: `docs/` is git-ignored (local-only) and won't exist in a fresh clone.
 
 ## Quick Reference
 
