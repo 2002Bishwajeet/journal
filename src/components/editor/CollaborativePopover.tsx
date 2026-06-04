@@ -89,7 +89,7 @@ export function CollaborativePopover({
                     <div className="text-sm text-muted-foreground">
                         {circleIds?.length
                             ? 'Unknown circle'
-                            : 'Shared with your circles'}
+                            : 'Shared with people in your circles'}
                     </div>
                 )}
 

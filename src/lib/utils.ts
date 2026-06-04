@@ -99,9 +99,9 @@ export function formatLastEditedAt(value: number | string | undefined | null): s
   const diffDays = Math.floor(diffMs / 86_400_000);
 
   if (diffMs < 0) return date.toLocaleString(); // future timestamp — just show it
-  if (diffMins < 1) return 'just now';
+  if (diffMins < 1) return 'Just now';
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }

@@ -17,11 +17,11 @@ describe('formatLastEditedAt', () => {
         expect(formatLastEditedAt('not-a-date')).toBeNull();
     });
 
-    it('returns "just now" for timestamps less than 1 minute ago', () => {
+    it('returns "Just now" for timestamps less than 1 minute ago', () => {
         vi.useFakeTimers();
         const now = new Date('2026-06-04T12:00:00Z').getTime();
         vi.setSystemTime(now);
-        expect(formatLastEditedAt(now - 30_000)).toBe('just now');
+        expect(formatLastEditedAt(now - 30_000)).toBe('Just now');
     });
 
     it('returns minutes ago for timestamps 1-59 minutes ago', () => {
@@ -53,7 +53,7 @@ describe('formatLastEditedAt', () => {
         vi.setSystemTime(now);
         const old = new Date('2026-05-01T00:00:00Z');
         const result = formatLastEditedAt(old.toISOString());
-        expect(result).toBe(old.toLocaleDateString());
+        expect(result).toBe(old.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }));
     });
 
     it('accepts ISO string timestamps', () => {
