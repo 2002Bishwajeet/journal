@@ -85,6 +85,7 @@ function EditorLayout({
             circleIds={selectedNoteMetadata.circleIds}
             recipients={selectedNoteMetadata.recipients}
             lastEditedBy={selectedNoteMetadata.lastEditedBy}
+            lastEditedAt={selectedNoteMetadata.timestamps?.modified}
           />
         )}
         <SyncStatus />
@@ -106,6 +107,7 @@ function EditorLayout({
               circleIds={selectedNoteMetadata.circleIds}
               recipients={selectedNoteMetadata.recipients}
               lastEditedBy={selectedNoteMetadata.lastEditedBy}
+              lastEditedAt={selectedNoteMetadata.timestamps?.modified}
             />
           </div>
         )}

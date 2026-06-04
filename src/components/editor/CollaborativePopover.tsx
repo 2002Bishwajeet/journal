@@ -1,4 +1,5 @@
-import { Users, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
+import { Users, ChevronDown, Loader2 } from 'lucide-react';
 import {
     Popover,
     PopoverContent,
@@ -6,30 +7,41 @@ import {
 } from '@/components/ui/popover';
 import { useCircles } from '@/hooks/circles/useCircles';
 import { AuthorImage } from '@/components/author/AuthorImage';
+import { formatLastEditedAt } from '@/lib/utils';
 
 interface CollaborativePopoverProps {
     circleIds?: string[];
     recipients?: string[];
     lastEditedBy?: string;
+    lastEditedAt?: number | string;
 }
 
 export function CollaborativePopover({
     circleIds,
     recipients,
     lastEditedBy,
+    lastEditedAt,
 }: CollaborativePopoverProps) {
+    const [open, setOpen] = useState(false);
     const { fetch: circlesFetch } = useCircles(true);
     const circles = circlesFetch.data || [];
+    const isLoading = circlesFetch.isLoading;
 
     const circleIdSet = new Set(circleIds);
     const matchedCircles = circles.filter(
         c => c.id && circleIdSet.has(c.id)
     );
 
+    const formattedTime = formatLastEditedAt(lastEditedAt);
+
     return (
-        <Popover>
+        <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-                <button className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-collaborative/10 text-collaborative text-xs hover:bg-collaborative/20 transition-colors cursor-pointer">
+                <button
+                    aria-label="Show who can access this note"
+                    aria-expanded={open}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-collaborative/10 text-collaborative text-xs hover:bg-collaborative/20 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
                     <Users className="h-3 w-3" />
                     <span>Collaborative</span>
                     <ChevronDown className="h-3 w-3" />
@@ -40,7 +52,12 @@ export function CollaborativePopover({
                     Shared with
                 </div>
 
-                {matchedCircles.length > 0 ? (
+                {isLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-1">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                        <span>Loading…</span>
+                    </div>
+                ) : matchedCircles.length > 0 ? (
                     <div className="space-y-3">
                         {matchedCircles.map(circle => (
                             <div key={circle.id}>
@@ -82,6 +99,9 @@ export function CollaborativePopover({
                         <span className="text-foreground">
                             {lastEditedBy.split('.')[0]}
                         </span>
+                        {formattedTime && (
+                            <span className="ml-1">{formattedTime}</span>
+                        )}
                     </div>
                 )}
             </PopoverContent>

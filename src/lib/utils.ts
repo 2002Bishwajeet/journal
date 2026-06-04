@@ -241,3 +241,29 @@ export const toArrayBufferBackedView = (bytes: Uint8Array<ArrayBufferLike>): Uin
   copy.set(bytes);
   return copy;
 };
+
+
+/**
+ * Formats a timestamp (unix ms number or ISO string) into a short human-readable
+ * relative or absolute string suitable for "Last edited" display.
+ *
+ * Returns null if the value is falsy or unparseable.
+ */
+export function formatLastEditedAt(value: number | string | undefined | null): string | null {
+  if (!value) return null;
+  const date = typeof value === 'number' ? new Date(value) : new Date(value);
+  if (isNaN(date.getTime())) return null;
+
+  const now = Date.now();
+  const diffMs = now - date.getTime();
+  const diffMins = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMs / 3_600_000);
+  const diffDays = Math.floor(diffMs / 86_400_000);
+
+  if (diffMs < 0) return date.toLocaleString(); // future timestamp — just show it
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
