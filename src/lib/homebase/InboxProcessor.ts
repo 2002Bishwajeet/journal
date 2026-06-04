@@ -10,8 +10,8 @@ import {
     JOURNAL_DRIVE,
     JOURNAL_FILE_TYPE,
     FOLDER_FILE_TYPE,
+    COLLABORATION_INVITE_FILE_TYPE,
 } from './config';
-import type { FolderFile, NoteFileContent } from '@/types';
 import { processInbox } from '@homebase-id/js-lib/peer';
 
 const BATCH_SIZE = 500;
@@ -24,8 +24,9 @@ type ProcessInboxResponse = {
 };
 
 export interface InboxProcessResult {
-    folders: (HomebaseFile<FolderFile> | DeletedHomebaseFile)[];
-    notes: (HomebaseFile<NoteFileContent> | DeletedHomebaseFile)[];
+    folders: (HomebaseFile<string> | DeletedHomebaseFile)[];
+    notes: (HomebaseFile<string> | DeletedHomebaseFile)[];
+    invitations: (HomebaseFile<string> | DeletedHomebaseFile)[];
     processedresult: ProcessInboxResponse;
 }
 
@@ -55,13 +56,14 @@ export class InboxProcessor {
 
         // process both at the same time. not much changes while we are offline.
         const results = await this.findChangesSince(
-            [FOLDER_FILE_TYPE, JOURNAL_FILE_TYPE],
+            [FOLDER_FILE_TYPE, JOURNAL_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE],
             sinceTime,
         );
 
         // Process and separate folder and note changes
-        const folders: (HomebaseFile<FolderFile> | DeletedHomebaseFile)[] = [];
-        const notes: (HomebaseFile<NoteFileContent> | DeletedHomebaseFile)[] = [];
+        const folders: (HomebaseFile<string> | DeletedHomebaseFile)[] = [];
+        const notes: (HomebaseFile<string> | DeletedHomebaseFile)[] = [];
+        const invitations: (HomebaseFile<string> | DeletedHomebaseFile)[] = [];
         const yieldEvery = 500;
 
         for (let index = 0; index < results.length; index += 1) {
@@ -69,9 +71,11 @@ export class InboxProcessor {
             const fileType = item.fileMetadata.appData.fileType;
 
             if (fileType === FOLDER_FILE_TYPE) {
-                folders.push(item as HomebaseFile<FolderFile> | DeletedHomebaseFile);
+                folders.push(item as HomebaseFile<string> | DeletedHomebaseFile);
             } else if (fileType === JOURNAL_FILE_TYPE) {
-                notes.push(item as HomebaseFile<NoteFileContent> | DeletedHomebaseFile);
+                notes.push(item as HomebaseFile<string> | DeletedHomebaseFile);
+            } else if (fileType === COLLABORATION_INVITE_FILE_TYPE) {
+                invitations.push(item as HomebaseFile<string> | DeletedHomebaseFile);
             }
 
             if (index % yieldEvery === 0) {
@@ -82,6 +86,7 @@ export class InboxProcessor {
         return {
             folders,
             notes,
+            invitations,
             processedresult,
         };
     }
@@ -117,8 +122,6 @@ export class InboxProcessor {
                 includeTransferHistory: false,
                 ordering: 'newestFirst',
                 sorting: 'anyChangeDate',
-            }, {
-                decrypt: true,
             });
 
             allResults.push(...response.searchResults);

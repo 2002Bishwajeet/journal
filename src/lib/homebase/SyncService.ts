@@ -34,8 +34,8 @@ import {
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
 import { extractPreviewTextFromYjs, serializeKeyHeader, tryJsonParse, validateKeyHeader } from '@/lib/utils';
-import { MAIN_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
-import type { FolderFile, NoteFileContent, SyncRecord, SyncProgress } from '@/types';
+import { MAIN_FOLDER_ID, COLLABORATIVE_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
+import type { FolderFile, SyncRecord, SyncProgress, CollaborationInviteContent } from '@/types';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
 import { documentBroadcast } from '@/lib/broadcast';
 import type { OnlineContextType } from '@/contexts/OnlineContext';
@@ -46,6 +46,24 @@ export interface SyncResult {
     pulled: { folders: number; notes: number };
     pushed: { folders: number; notes: number };
     errors: string[];
+}
+
+export type EnsureNoteContentStatus =
+    | 'local' | 'fetched' | 'offline' | 'forbidden' | 'notfound' | 'empty' | 'error';
+
+export interface EnsureNoteContentResult {
+    status: EnsureNoteContentStatus;
+}
+
+/** Map a peer-fetch error to a typed status. No HTTP response → offline. */
+export function classifyPeerFetchError(err: unknown): Extract<
+    EnsureNoteContentStatus, 'forbidden' | 'notfound' | 'offline' | 'error'
+> {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 403) return 'forbidden';
+    if (status === 404) return 'notfound';
+    if (status === undefined) return 'offline';
+    return 'error';
 }
 
 /** Internal type for tracking conflict resolution state in pushNote */
@@ -64,18 +82,32 @@ type ConflictResolutionResult = {
  * 3. Push local pending changes
  * 4. Process pending image uploads
  */
+// A fresh empty Yjs doc encodes to 2 bytes ([0, 0]). A note bootstrapped before
+// the author's body had synced is a single such update, so any larger total has
+// real content. (revalidatePeerNote covers the rarer "accumulated-then-emptied"
+// case, so a cheap byte-sum is enough here — no need to build a Y.Doc.)
+const EMPTY_YDOC_BYTES = 2;
+
+function totalUpdateBytes(updates: Uint8Array[]): number {
+    let total = 0;
+    for (const update of updates) total += update.byteLength;
+    return total;
+}
+
 export class SyncService {
     #folderProvider: FolderDriveProvider;
     #notesProvider: NotesDriveProvider;
     #inboxProcessor: InboxProcessor;
     #status: SyncStatus = 'idle';
     #onlineContext: OnlineContextType;
+    #hostIdentity: string;
 
     constructor(dotYouClient: DotYouClient, onlineContext: OnlineContextType) {
         this.#folderProvider = new FolderDriveProvider(dotYouClient);
         this.#notesProvider = new NotesDriveProvider(dotYouClient);
         this.#inboxProcessor = new InboxProcessor(dotYouClient);
         this.#onlineContext = onlineContext;
+        this.#hostIdentity = dotYouClient.getHostIdentity();
     }
 
     getStatus(): SyncStatus {
@@ -92,6 +124,139 @@ export class SyncService {
      */
     private async flushAllProviders(): Promise<void> {
         await documentBroadcast.requestFlushAndWait();
+    }
+
+    /**
+     * Flush in-editor changes to the local store, then push this note to the
+     * server. Called before sharing so recipients bootstrap real content rather
+     * than an empty note.
+     */
+    async flushAndSyncNote(docId: string): Promise<void> {
+        await this.flushAllProviders();
+        const record = await getSyncRecord(docId);
+        if (record) await this.pushNote(record);
+    }
+
+    getNoteProvider(): NotesDriveProvider {
+        return this.#notesProvider;
+    }
+
+    /**
+     * Local-first content load for a peer note. Returns immediately if local
+     * content exists; otherwise fetches the note over peer, stores it, and
+     * broadcasts so an open editor reloads.
+     */
+    async ensurePeerNoteContent(
+        docId: string,
+        authorOdinId: string | undefined,
+    ): Promise<EnsureNoteContentResult> {
+        if (!authorOdinId || authorOdinId === this.#hostIdentity) {
+            return { status: 'local' };
+        }
+        const localUpdates = await getDocumentUpdates(docId);
+        // Treat an empty local doc (e.g. a note bootstrapped before the author's
+        // body had synced) as a miss, so we re-fetch the real content.
+        if (localUpdates.length > 0 && totalUpdateBytes(localUpdates) > EMPTY_YDOC_BYTES) {
+            return { status: 'local' };
+        }
+        return this.#fetchAndStorePeerNote(docId, authorOdinId);
+    }
+
+    async #fetchAndStorePeerNote(
+        docId: string,
+        authorOdinId: string,
+    ): Promise<EnsureNoteContentResult> {
+        let peerNote;
+        try {
+            peerNote = await this.#notesProvider.getNote(docId, authorOdinId, { decrypt: true });
+        } catch (err) {
+            return { status: classifyPeerFetchError(err) };
+        }
+        if (!peerNote || !peerNote.fileId) {
+            return { status: 'notfound' };
+        }
+
+        let blob: Uint8Array | null;
+        try {
+            blob = await this.#notesProvider.getNotePayload(
+                peerNote.fileId, authorOdinId, peerNote.fileMetadata.updated,
+            );
+        } catch (err) {
+            return { status: classifyPeerFetchError(err) };
+        }
+        if (!blob) {
+            return { status: 'empty' };
+        }
+
+        await Promise.all([
+            saveDocumentUpdate(docId, blob),
+            upsertSyncRecord({
+                localId: docId,
+                entityType: 'note',
+                remoteFileId: peerNote.fileId,
+                versionTag: peerNote.fileMetadata.versionTag,
+                lastSyncedAt: new Date().toISOString(),
+                syncStatus: 'synced',
+                encryptedKeyHeader: serializeKeyHeader(peerNote.sharedSecretEncryptedKeyHeader),
+                authorOdinId,
+                globalTransitId: peerNote.fileMetadata.globalTransitId || undefined,
+            }),
+        ]);
+        documentBroadcast.notifyDocumentUpdated(docId);
+        return { status: 'fetched' };
+    }
+
+    /**
+     * Background freshness check for a peer note. The author's edits are not pushed
+     * to us (that needs a live peer subscription), so on open we re-fetch the
+     * author's current note and CRDT-merge it when it's newer than our copy. Safe
+     * to call on every open — a no-op when the versionTag is unchanged.
+     */
+    async revalidatePeerNote(
+        docId: string,
+        authorOdinId: string | undefined,
+    ): Promise<'skipped' | 'unchanged' | 'updated'> {
+        if (!authorOdinId || authorOdinId === this.#hostIdentity) return 'skipped';
+
+        let header;
+        try {
+            header = await this.#notesProvider.getNote(docId, authorOdinId, { decrypt: false });
+        } catch {
+            return 'skipped'; // best-effort; offline/forbidden → keep the local copy
+        }
+        if (!header || !header.fileId) return 'skipped';
+
+        const record = await getSyncRecord(docId);
+        if (record?.versionTag && stringGuidsEqual(header.fileMetadata.versionTag, record.versionTag)) {
+            return 'unchanged';
+        }
+
+        let remoteBlob: Uint8Array | null;
+        try {
+            remoteBlob = await this.#notesProvider.getNotePayload(
+                header.fileId, authorOdinId, header.fileMetadata.updated,
+            );
+        } catch {
+            return 'skipped';
+        }
+        if (!remoteBlob) return 'skipped';
+
+        const mergedBlob = await this.mergeYjsDocuments(docId, remoteBlob);
+        await deleteDocumentUpdates(docId);
+        await saveDocumentUpdate(docId, mergedBlob);
+        await upsertSyncRecord({
+            localId: docId,
+            entityType: 'note',
+            remoteFileId: header.fileId,
+            versionTag: header.fileMetadata.versionTag,
+            lastSyncedAt: new Date().toISOString(),
+            syncStatus: 'synced',
+            encryptedKeyHeader: serializeKeyHeader(header.sharedSecretEncryptedKeyHeader),
+            authorOdinId,
+            globalTransitId: header.fileMetadata.globalTransitId || undefined,
+        });
+        documentBroadcast.notifyDocumentUpdated(docId);
+        return 'updated';
     }
 
     /**
@@ -147,11 +312,11 @@ export class SyncService {
      */
     async pullChanges(onProgress?: (progress: SyncProgress) => void): Promise<{ folders: number; notes: number }> {
         const lastSync = await getAppState<number>(STORAGE_KEY_LAST_SYNC);
-        const { folders, notes } = await this.#inboxProcessor.processChanges(lastSync || undefined);
+        const { folders, notes, invitations } = await this.#inboxProcessor.processChanges(lastSync || undefined);
 
         let folderCount = 0;
         let noteCount = 0;
-        const total = folders.length + notes.length;
+        const total = folders.length + notes.length + invitations.length;
         let current = 0;
 
         if (onProgress && total > 0) {
@@ -164,7 +329,7 @@ export class SyncService {
                 if (remoteFolderOrDeleted.fileState === 'deleted') {
                     await this.handleDeletedFolder(remoteFolderOrDeleted as DeletedHomebaseFile);
                 } else {
-                    await this.handleRemoteFolder(remoteFolderOrDeleted as HomebaseFile<FolderFile>);
+                    await this.handleRemoteFolder(remoteFolderOrDeleted);
                 }
                 folderCount++;
                 current++;
@@ -186,7 +351,7 @@ export class SyncService {
                 if (remoteNoteOrDeleted.fileState === 'deleted') {
                     await this.handleDeletedNote(remoteNoteOrDeleted as DeletedHomebaseFile);
                 } else {
-                    await this.handleRemoteNote(remoteNoteOrDeleted as HomebaseFile<NoteFileContent>);
+                    await this.handleRemoteNote(remoteNoteOrDeleted);
                 }
                 noteCount++;
                 current++;
@@ -198,6 +363,21 @@ export class SyncService {
                 console.error('[SyncService] Error processing remote note:', error);
                 const id = remoteNoteOrDeleted.fileMetadata?.appData?.uniqueId || 'unknown';
                 await this.logSyncError(id, 'note', 'pull', error);
+            }
+        }
+
+        // Process invitations (collaboration sharing)
+        for (const invitationOrDeleted of invitations) {
+            try {
+                if (invitationOrDeleted.fileState === 'deleted') {
+                    await this.handleDeletedInvitation(invitationOrDeleted as DeletedHomebaseFile);
+                } else {
+                    await this.handleInvitation(invitationOrDeleted);
+                }
+                current++;
+                if (onProgress) onProgress({ phase: 'pull', current, total, message: `Processing invitation` });
+            } catch (error) {
+                console.error('[SyncService] Error processing invitation:', error);
             }
         }
 
@@ -274,13 +454,14 @@ export class SyncService {
     /**
      * Handle a remote folder (create or update locally).
      */
-    async handleRemoteFolder(remoteFile: HomebaseFile<FolderFile>): Promise<void> {
+    async handleRemoteFolder(remoteFile: HomebaseFile<string>): Promise<void> {
         const uniqueId = remoteFile.fileMetadata.appData.uniqueId;
-        if (!uniqueId) return;
 
-        // Parse the content - it's stored as a JSON string from Homebase
-        const rawContent = remoteFile.fileMetadata.appData.content;
-        const content = typeof rawContent === "string" ? tryJsonParse<FolderFile>(rawContent) : rawContent;
+        const content = await this.#folderProvider.dsrToFolderFileContent(remoteFile, true,);
+        if (!content || !uniqueId) {
+            console.error(`[SyncService] Failed to convert remote folder ${remoteFile.fileId} to folder file content`);
+            return;
+        }
         const folderName = content?.name || 'Untitled Folder';
 
         const existingRecord = await getSyncRecord(uniqueId);
@@ -334,30 +515,147 @@ export class SyncService {
         await deleteSyncRecord(uniqueId);
     }
 
+    async handleInvitation(remoteFile: HomebaseFile<string>): Promise<void> {
+        const content = await this.#notesProvider.dsrToNoteFileContent(remoteFile, true) as unknown as CollaborationInviteContent | null;
+        if (!content || !content.noteUniqueId) {
+            console.error('[SyncService] Invalid invitation file', remoteFile.fileId);
+            return;
+        }
+
+        await this.bootstrapCollaborativeNote(
+            content.noteUniqueId,
+            content.authorOdinId,
+            content.noteTitle,
+            content.notePreview,
+            content.sharedAt,
+        );
+    }
+
+    private async bootstrapCollaborativeNote(
+        noteUniqueId: string,
+        authorOdinId: string,
+        inviteTitle: string,
+        invitePreview: string,
+        sharedAt: string,
+    ): Promise<void> {
+        let peerNote;
+        try {
+            peerNote = await this.#notesProvider.getNote(noteUniqueId, authorOdinId, { decrypt: true });
+        } catch (err) {
+            console.error(`[SyncService] bootstrapCollaborativeNote peer fetch failed for ${noteUniqueId}:`, err);
+        }
+        if (!peerNote || !peerNote.fileId) {
+            console.warn(`[SyncService] Could not fetch peer note ${noteUniqueId} from ${authorOdinId} — author may be offline`);
+            await upsertSearchIndex({
+                docId: noteUniqueId,
+                title: inviteTitle,
+                plainTextContent: invitePreview,
+                metadata: {
+                    title: inviteTitle,
+                    folderId: COLLABORATIVE_FOLDER_ID,
+                    tags: [],
+                    timestamps: { created: sharedAt, modified: sharedAt },
+                    excludeFromAI: true,
+                    isCollaborative: true,
+                    authorOdinId,
+                },
+            });
+            return;
+        }
+
+        const lastModified = peerNote.fileMetadata.updated;
+        const [content, remoteBlob] = await Promise.all([
+            this.#notesProvider.dsrToNoteFileContent(peerNote as unknown as HomebaseFile<string>, true),
+            this.#notesProvider.getNotePayload(peerNote.fileId, authorOdinId, lastModified),
+        ]);
+        const noteTitle = content?.title || inviteTitle || 'Untitled';
+
+        const [, plainTextContent] = await Promise.all([
+            remoteBlob ? saveDocumentUpdate(noteUniqueId, remoteBlob) : Promise.resolve(),
+            remoteBlob
+                ? extractPreviewTextFromYjs(noteUniqueId, remoteBlob)
+                : Promise.resolve(invitePreview),
+        ]);
+
+        const remoteTimestamp = new Date(
+            peerNote.fileMetadata.appData.userDate || Date.now()
+        ).toISOString();
+        const updatedAt = new Date(peerNote.fileMetadata.updated).toISOString();
+
+        const metadata = {
+            title: noteTitle,
+            folderId: COLLABORATIVE_FOLDER_ID,
+            tags: content?.tags || [],
+            timestamps: { created: remoteTimestamp, modified: updatedAt },
+            excludeFromAI: content?.excludeFromAI ?? true,
+            isPinned: content?.isPinned,
+            isCollaborative: true,
+            circleIds: content?.circleIds,
+            recipients: content?.recipients,
+            lastEditedBy: content?.lastEditedBy,
+            authorOdinId,
+        };
+
+        const contentHash = remoteBlob ? await computeContentHash(metadata, remoteBlob) : undefined;
+
+        await Promise.all([
+            upsertSearchIndex({
+                docId: noteUniqueId,
+                title: noteTitle,
+                plainTextContent,
+                metadata,
+            }),
+            upsertSyncRecord({
+                localId: noteUniqueId,
+                entityType: 'note',
+                remoteFileId: peerNote.fileId,
+                versionTag: peerNote.fileMetadata.versionTag,
+                lastSyncedAt: new Date().toISOString(),
+                syncStatus: 'synced',
+                encryptedKeyHeader: serializeKeyHeader(peerNote.sharedSecretEncryptedKeyHeader),
+                contentHash,
+                authorOdinId,
+                globalTransitId: peerNote.fileMetadata.globalTransitId || undefined,
+            }),
+        ]);
+    }
+
+    async handleDeletedInvitation(deleted: DeletedHomebaseFile): Promise<void> {
+        const uniqueId = deleted.fileMetadata.appData.uniqueId;
+        if (!uniqueId) return;
+
+        // async-parallel: independent DB operations
+        await Promise.all([
+            deleteSearchIndexEntry(uniqueId),
+            deleteDocumentUpdates(uniqueId),
+            deleteSyncRecord(uniqueId),
+        ]);
+    }
+
     /**
      * Handle a remote note (create, update, or merge).
      * Uses Yjs CRDT merge for conflict resolution.
      */
-    async handleRemoteNote(remoteFile: HomebaseFile<NoteFileContent>): Promise<void> {
+    async handleRemoteNote(remoteFile: HomebaseFile<string>): Promise<void> {
         const uniqueId = remoteFile.fileMetadata.appData.uniqueId;
-        if (!uniqueId) return;
-
-        // Parse the content - it's stored as a JSON string from Homebase
-        const rawContent = remoteFile.fileMetadata.appData.content;
-        const content = typeof rawContent === "string" ? tryJsonParse<NoteFileContent>(rawContent) : rawContent;
+        const content = await this.#notesProvider.dsrToNoteFileContent(remoteFile, true,);
+        if (!content || !uniqueId) {
+            console.error(`[SyncService] Failed to convert remote note ${remoteFile.fileId} to note file content`);
+            return;
+        }
         const noteTitle = content?.title || 'Untitled';
         const existingRecord = await getSyncRecord(uniqueId);
 
         if (stringGuidsEqual(remoteFile.fileMetadata.versionTag, existingRecord?.versionTag)) {
-            // No changes - skip processing
             return;
         }
 
-
-
-        // Get remote Yjs blob
+        // Get remote Yjs blob — use senderOdinId for peer-based fetch when note is from another identity
         const lastModified = remoteFile.fileMetadata.updated;
-        const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId, lastModified);
+        const authorOdinId = existingRecord?.authorOdinId
+            || remoteFile.fileMetadata.senderOdinId
+            || remoteFile.fileMetadata.originalAuthor;
+        const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId, authorOdinId, lastModified);
 
         if (!existingRecord) {
             // New note from remote
@@ -384,6 +682,10 @@ export class SyncService {
                 timestamps: { created: remoteTimestamp, modified: updatedAt },
                 excludeFromAI: content?.excludeFromAI,
                 isPinned: content?.isPinned,
+                isCollaborative: content?.isCollaborative,
+                circleIds: content?.circleIds,
+                recipients: content?.recipients,
+                lastEditedBy: content?.lastEditedBy,
             };
 
             const contentHash = remoteBlob ? await computeContentHash(metadata, remoteBlob) : undefined;
@@ -404,6 +706,8 @@ export class SyncService {
                 syncStatus: 'synced',
                 encryptedKeyHeader: serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader),
                 contentHash,
+                authorOdinId: authorOdinId || undefined,
+                globalTransitId: remoteFile.fileMetadata.globalTransitId || undefined,
             });
         } else {
             // Existing note - merge Yjs documents (CRDT handles conflicts automatically)
@@ -442,6 +746,10 @@ export class SyncService {
                 timestamps: { created: existingCreated ?? remoteTimestamp, modified: updatedAt },
                 excludeFromAI: content?.excludeFromAI,
                 isPinned: content?.isPinned,
+                isCollaborative: content?.isCollaborative,
+                circleIds: content?.circleIds,
+                recipients: content?.recipients,
+                lastEditedBy: content?.lastEditedBy,
             };
 
             const contentHash = mergedBlob ? await computeContentHash(updatedMetadata, mergedBlob) : undefined;
@@ -452,7 +760,7 @@ export class SyncService {
                 plainTextContent,
                 metadata: updatedMetadata
             });
-            await markSynced(uniqueId, remoteFile.fileId, remoteFile.fileMetadata.versionTag, contentHash, serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader));
+            await markSynced(uniqueId, remoteFile.fileId, remoteFile.fileMetadata.versionTag, contentHash, serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader), authorOdinId, remoteFile.fileMetadata.globalTransitId);
         }
     }
 
@@ -615,7 +923,7 @@ export class SyncService {
 
                 // Should happen rarely but if deserialization failed, re-fetch from remote
                 if (!cachedKeyHeader || !validateKeyHeader(cachedKeyHeader)) {
-                    cachedKeyHeader = (await this.#notesProvider.getNote(record.localId))?.sharedSecretEncryptedKeyHeader;
+                    cachedKeyHeader = (await this.#notesProvider.getNote(record.localId, record.authorOdinId))?.sharedSecretEncryptedKeyHeader;
                 }
 
                 // Get pending image deletions for this note
@@ -632,35 +940,32 @@ export class SyncService {
 
                 const onVersionConflict = async () => {
                     console.log(`[SyncService] Version conflict for note ${record.localId}`);
-
-                    const freshFile = await this.#notesProvider.getNote(record.localId, { decrypt: false });
+                    const freshFile = await this.#notesProvider.getNote(record.localId, record.authorOdinId, { decrypt: false });
                     if (!freshFile) throw new Error('Remote note not found during conflict resolution');
                     cachedKeyHeader = freshFile.sharedSecretEncryptedKeyHeader;
 
                     const lastModified = freshFile.fileMetadata.updated;
-                    const remoteBlob = await this.#notesProvider.getNotePayload(freshFile.fileId, lastModified);
+                    const remoteBlob = await this.#notesProvider.getNotePayload(freshFile.fileId, record.authorOdinId, lastModified);
                     let mergedBlob: Uint8Array | undefined = yjsBlob;
 
                     if (remoteBlob && yjsBlob) {
-                        // Merge local and remote Yjs documents (mergeYjsDocuments already applies local updates)
                         mergedBlob = await this.mergeYjsDocuments(record.localId, remoteBlob);
                     } else if (remoteBlob && !yjsBlob) {
-                        // Local is empty, preserving remote content
                         console.warn(`[SyncService] Local content empty, preserving remote for ${record.localId}`);
                         mergedBlob = remoteBlob;
                     }
 
-                    // Update local Yjs state with merged blob if we merged
                     if (mergedBlob) {
                         await deleteDocumentUpdates(record.localId);
                         await saveDocumentUpdate(record.localId, mergedBlob);
                     }
-
                     const result = await this.#notesProvider.updateNote(
                         record.localId,
                         freshFile.fileId,
                         freshFile.fileMetadata.versionTag,
                         doc.metadata,
+                        record.authorOdinId,
+                        freshFile.fileMetadata.globalTransitId,
                         mergedBlob,
                         cachedKeyHeader,
                         { toDeletePayloads }
@@ -682,6 +987,8 @@ export class SyncService {
                     record.remoteFileId,
                     record.versionTag || '',
                     doc.metadata,
+                    record.authorOdinId,
+                    record.globalTransitId,
                     yjsBlob,
                     cachedKeyHeader,
                     { onVersionConflict, toDeletePayloads }
@@ -833,7 +1140,7 @@ export class SyncService {
             // Notify the editor that the document was updated
             documentBroadcast.notifyDocumentUpdated(docId);
 
-            console.log(`[SyncService] Updated Yjs doc for ${docId}`);
+            console.debug(`[SyncService] Updated Yjs doc for ${docId}`);
         }
 
         ydoc.destroy();

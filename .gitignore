@@ -23,3 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 *.npmrc
+/.superpowers
+
+# Agent-generated docs and installed skills (not committed)
+docs/
+HANDOFF.md
+DESIGN-IS-*/
+.agents/skills/
+.claude/skills/
+skills-lock.json

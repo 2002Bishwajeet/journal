@@ -28,7 +28,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 60 * 24, // 24 hours - keep in cache for offline
+      gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days - keep in cache for offline
       refetchOnWindowFocus: false,
     },
   },
@@ -48,7 +48,7 @@ function App() {
   return (
     <PersistQueryClientProvider 
       client={queryClient} 
-      persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}
+      persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
     >
       <ErrorBoundary>
         <BrowserRouter>

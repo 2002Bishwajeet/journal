@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   Trash2,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -40,6 +41,8 @@ interface SidebarProps {
   onSelectFolder: (folderId: string) => void;
   onCreateFolder: () => void;
   onDeleteFolder?: (id: string) => void;
+  collaborativeCount?: number;
+  onSelectShared?: () => void;
   onSearch: () => void;
   onSettings: () => void;
   onLogout: () => void;
@@ -58,6 +61,8 @@ export default function Sidebar({
   onSearch,
   onSettings,
   onLogout,
+  collaborativeCount,
+  onSelectShared,
   tags,
   selectedTag,
   onSelectTag,
@@ -140,6 +145,43 @@ export default function Sidebar({
 
         <ScrollArea className="flex-1">
           <PullToRefresh onRefresh={handleRefresh} className="min-h-full">
+          {collaborativeCount != null && collaborativeCount > 0 && (
+            <div className="px-2 pt-2 pb-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={selectedFolderId === 'shared' ? "secondary" : "ghost"}
+                    className={cn(
+                      "w-full h-10 group relative transition-all duration-200 flex items-center",
+                      isCollapsed ? "justify-center px-0" : "justify-start px-2",
+                      selectedFolderId === 'shared' && "bg-accent text-accent-foreground font-medium hover:bg-accent"
+                    )}
+                    onClick={onSelectShared}
+                  >
+                    <Users
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-collaborative",
+                        !isCollapsed && "mr-2"
+                      )}
+                    />
+                    {!isCollapsed && (
+                      <>
+                        <span className="text-sm truncate flex-1 text-left">Shared with me</span>
+                        <span className="ml-auto text-xs bg-collaborative text-white px-1.5 py-0.5 rounded-full font-medium">
+                          {collaborativeCount}
+                        </span>
+                      </>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                {isCollapsed && (
+                  <TooltipContent side="right">
+                    Shared with me ({collaborativeCount})
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </div>
+          )}
           <div className="px-2 py-2">
             <div
               className={cn(

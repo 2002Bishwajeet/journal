@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSharePage } from '@/hooks/useSharePage';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 /**
  * Public page to display a shared note.
@@ -65,10 +67,9 @@ export default function SharePage() {
                         Shared by: {identity}
                     </div>
                     
-                    {/* Render markdown content as pre-formatted for boilerplate */}
-                    <div className="whitespace-pre-wrap font-mono text-sm bg-muted/50 p-4 rounded-lg">
+                    <Markdown remarkPlugins={[remarkGfm]}>
                         {note.content}
-                    </div>
+                    </Markdown>
                 </article>
             </main>
 

@@ -12,7 +12,7 @@ import {
     type UploadInstructionSet,
     type UpdateInstructionSet,
     getFileHeader,
-    deleteFilesByGroupId,
+    deleteFilesByGroupId
 } from '@homebase-id/js-lib/core';
 import { getRandom16ByteArray } from '@homebase-id/js-lib/helpers';
 import {
@@ -200,5 +200,22 @@ export class FolderDriveProvider {
     async deleteFolder(fileId: string): Promise<void> {
         await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, fileId);
         await deleteFilesByGroupId(this.#dotYouClient, JOURNAL_DRIVE, [fileId]);
+    }
+
+
+    async dsrToFolderFileContent(dsr: HomebaseFile<string>,
+        includeMetadataHeader: boolean): Promise<FolderFile | null> {
+        try {
+            const folderFileContent = await getContentFromHeaderOrPayload<FolderFile>(this.#dotYouClient, JOURNAL_DRIVE, dsr, includeMetadataHeader);
+            if (!folderFileContent) {
+                return null;
+            }
+            return folderFileContent;
+
+        } catch (error) {
+            console.error('[FolderDriveProvider] failed to get the folderFileContent of a dsr', dsr, error);
+            return null;
+
+        }
     }
 }

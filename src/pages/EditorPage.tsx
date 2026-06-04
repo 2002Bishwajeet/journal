@@ -7,11 +7,21 @@ import {
   useEditorContext,
   TipTapEditor,
 } from "@/components/editor";
+import { FindReplaceBar } from "@/components/editor/FindReplaceBar";
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
+import { CollaborativePopover } from '@/components/editor/CollaborativePopover';
 import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
+import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
+import { usePeerNoteContent } from "@/hooks/usePeerNoteContent";
+import { PeerNoteLoading, PeerNoteError } from "@/components/editor/PeerNoteFallback";
+import {
+  isPeerContentFailure,
+  isPeerContentReady,
+} from "@/components/editor/peerNoteStatus";
+import { useDotYouClientContext } from "@/components/auth";
 import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
 import { useAISettings } from "@/hooks/useAISettings";
@@ -70,6 +80,13 @@ function EditorLayout({
         <span className="text-sm font-medium truncate flex-1 mx-2">
           {selectedNoteMetadata?.title || "Untitled"}
         </span>
+        {selectedNoteMetadata?.isCollaborative && (
+          <CollaborativePopover
+            circleIds={selectedNoteMetadata.circleIds}
+            recipients={selectedNoteMetadata.recipients}
+            lastEditedBy={selectedNoteMetadata.lastEditedBy}
+          />
+        )}
         <SyncStatus />
       </div>
 
@@ -83,9 +100,19 @@ function EditorLayout({
       >
         {editor && <EditorToolbar editor={editor} />}
         {editor && <AIMenu editor={editor} />}
+        {selectedNoteMetadata?.isCollaborative && (
+          <div className="ml-auto px-3">
+            <CollaborativePopover
+              circleIds={selectedNoteMetadata.circleIds}
+              recipients={selectedNoteMetadata.recipients}
+              lastEditedBy={selectedNoteMetadata.lastEditedBy}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto relative bg-background w-full">
+        <FindReplaceBar />
         <TipTapEditor
           noteId={noteId}
           metadata={selectedNoteMetadata!}
@@ -126,7 +153,8 @@ export default function EditorPage({
     get: { data: notes = [] },
     updateNote: { mutateAsync: updateNoteMetadata },
   } = useNotes();
-  const { syncNote } = useSyncService();
+  const { syncNote, syncService } = useSyncService();
+  const dotYouClient = useDotYouClientContext();
 
   // WebLLM for AI-powered features
   const { isReady: isAIReady } = useWebLLM();
@@ -135,6 +163,23 @@ export default function EditorPage({
   // Find the selected note metadata from the notes list
   const selectedNote = notes.find((n) => n.docId === noteId);
   const selectedNoteMetadata = selectedNote?.metadata;
+
+  // Peer WebSocket for collaborative notes from other identities
+  const isPeerNote = !!selectedNoteMetadata?.authorOdinId &&
+      selectedNoteMetadata.authorOdinId !== dotYouClient.getHostIdentity();
+  usePeerNoteWebsocket({
+      authorOdinId: selectedNoteMetadata?.authorOdinId,
+      noteUniqueId: noteId,
+      isEnabled: isPeerNote,
+      syncService,
+  });
+
+  const peerContent = usePeerNoteContent({
+    docId: noteId,
+    authorOdinId: selectedNoteMetadata?.authorOdinId,
+    isEnabled: isPeerNote,
+    syncService,
+  });
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -206,11 +251,26 @@ export default function EditorPage({
     );
   }
 
+  if (isPeerNote && isPeerContentFailure(peerContent.status)) {
+    return (
+      <PeerNoteError
+        status={peerContent.status}
+        onRetry={peerContent.retry}
+        onBack={handleBackToNotes}
+      />
+    );
+  }
+
+  if (isPeerNote && !isPeerContentReady(peerContent.status)) {
+    return <PeerNoteLoading />;
+  }
+
   return (
     <EditorProvider
       key={noteId}
       docId={noteId}
       metadata={selectedNoteMetadata}
+      editorOdinId={dotYouClient.getHostIdentity()}
       onMetadataChange={async (meta) => {
         await updateNoteMetadata({
           docId: noteId,
