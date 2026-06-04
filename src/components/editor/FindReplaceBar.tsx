@@ -117,6 +117,7 @@ export function FindReplaceBar() {
       role="search"
       aria-label="Find and replace"
       aria-hidden={!isOpen}
+      inert={!isOpen || undefined}
     >
       <div className="relative bg-background/95 backdrop-blur-sm border-b border-border rounded-lg p-2 sm:min-w-95 space-y-1.5">
         {/* Find row — Close button is excluded here; it lives last in DOM for tab order */}
@@ -215,7 +216,7 @@ export function FindReplaceBar() {
             isReplaceOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
           }`}
         >
-          <div className="overflow-hidden min-h-0">
+          <div className="overflow-hidden min-h-0" inert={!isReplaceOpen || undefined}>
             <div className="flex items-center gap-1 pt-0.5">
               {/* Spacer to align with find input */}
               <div className="w-5 shrink-0" />
