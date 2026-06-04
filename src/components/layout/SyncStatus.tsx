@@ -72,7 +72,7 @@ export function SyncStatus({ className }: SyncStatusProps) {
           {isSyncing ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : !isOnline ? (
-            <WifiOff className="h-4 w-4 text-muted-foreground/50" />
+            <WifiOff className="h-4 w-4 text-muted-foreground/70" />
           ) : isPending ? (
             <div className="relative">
               <Cloud className="h-4 w-4 text-foreground" />
@@ -107,7 +107,7 @@ export function SyncStatus({ className }: SyncStatusProps) {
                 <span className="text-sm font-medium leading-none">
                   {status.label}
                 </span>
-                <span className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                <span className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                   <Clock className="h-3 w-3" />
                   {lastSyncedAt && formatRelativeTime(lastSyncedAt)}
                 </span>
@@ -168,7 +168,7 @@ export function SyncStatus({ className }: SyncStatusProps) {
 
           {/* Footer Status Message */}
           {!isOnline && (
-            <div className="bg-muted/30 px-3 py-2 text-[10px] text-muted-foreground">
+            <div className="bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
               Sync paused while offline
             </div>
           )}

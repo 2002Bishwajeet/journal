@@ -3,7 +3,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* JOURNAL - SOFT MONOCHROME THEME 
+/* ANIMATION TIMING SCALE (redesign surfaces only)
+   fast   = 100ms  (duration-100) — micro-interactions, icon swaps
+   normal = 200ms  (duration-200) — most transitions (hover, open/close)
+   slow   = 300ms  (duration-300) — larger reveals, swipe actions
+   Do NOT use 75ms, 120ms, or 150ms on redesign-touched components.
+*/
+
+/* JOURNAL - SOFT MONOCHROME THEME
   Based on Design System JSON
 */
 

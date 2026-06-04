@@ -27,12 +27,12 @@ import { Button } from "@/components/ui/button";
 import {
   CreateFolderModal,
   SearchModal,
-  SettingsModal,
   ConfirmDialog,
   KeyboardShortcutsModal,
   ExtendPermissionDialog,
 } from "@/components/modals";
 
+const SettingsModal = lazy(() => import("@/components/modals/SettingsModal"));
 const ShareDialog = lazy(() => import("@/components/modals/ShareDialog"));
 const MarkCollaborativeDialog = lazy(() =>
   import("@/components/modals/MarkCollaborativeDialog").then((m) => ({
@@ -570,10 +570,12 @@ export default function JournalLayout() {
         }}
       />
 
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-      />
+      <Suspense fallback={null}>
+        <SettingsModal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      </Suspense>
 
       {shareNote && (
         <Suspense fallback={null}>
