@@ -154,16 +154,15 @@ export class NotesDriveProvider {
 
         if (isPeer) {
             try {
-                const result = await getFileHeaderOverPeerByUniqueId<NoteFileContent>(
+                return await getFileHeaderOverPeerByUniqueId<NoteFileContent>(
                     this.#dotYouClient,
                     authorOdinId,
                     JOURNAL_DRIVE,
                     uniqueId,
                     { decrypt: options?.decrypt }
                 );
-                return result;
             } catch (err) {
-                console.error(`[NotesDriveProvider.getNote] peer FAILED:`, err);
+                console.error('[NotesDriveProvider.getNote] peer fetch failed:', err);
                 throw err;
             }
         }
@@ -204,7 +203,7 @@ export class NotesDriveProvider {
                 );
                 return result?.bytes || null;
             } catch (err) {
-                console.error(`[NotesDriveProvider.getNotePayload] peer FAILED:`, err);
+                console.error('[NotesDriveProvider.getNotePayload] peer fetch failed:', err);
                 throw err;
             }
         }

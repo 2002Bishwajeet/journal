@@ -15,6 +15,13 @@ import { CollaborativePopover } from '@/components/editor/CollaborativePopover';
 import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
+import { usePeerNoteContent } from "@/hooks/usePeerNoteContent";
+import {
+  PeerNoteLoading,
+  PeerNoteError,
+  isPeerContentFailure,
+  isPeerContentReady,
+} from "@/components/editor/PeerNoteFallback";
 import { useDotYouClientContext } from "@/components/auth";
 import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
@@ -168,6 +175,13 @@ export default function EditorPage({
       syncService,
   });
 
+  const peerContent = usePeerNoteContent({
+    docId: noteId,
+    authorOdinId: selectedNoteMetadata?.authorOdinId,
+    isEnabled: isPeerNote,
+    syncService,
+  });
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onSave: () => {
@@ -236,6 +250,20 @@ export default function EditorPage({
         </Button>
       </div>
     );
+  }
+
+  if (isPeerNote && isPeerContentFailure(peerContent.status)) {
+    return (
+      <PeerNoteError
+        status={peerContent.status}
+        onRetry={peerContent.retry}
+        onBack={handleBackToNotes}
+      />
+    );
+  }
+
+  if (isPeerNote && !isPeerContentReady(peerContent.status)) {
+    return <PeerNoteLoading />;
   }
 
   return (

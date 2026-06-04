@@ -48,6 +48,24 @@ export interface SyncResult {
     errors: string[];
 }
 
+export type EnsureNoteContentStatus =
+    | 'local' | 'fetched' | 'offline' | 'forbidden' | 'notfound' | 'empty' | 'error';
+
+export interface EnsureNoteContentResult {
+    status: EnsureNoteContentStatus;
+}
+
+/** Map a peer-fetch error to a typed status. No HTTP response → offline. */
+export function classifyPeerFetchError(err: unknown): Extract<
+    EnsureNoteContentStatus, 'forbidden' | 'notfound' | 'offline' | 'error'
+> {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 403) return 'forbidden';
+    if (status === 404) return 'notfound';
+    if (status === undefined) return 'offline';
+    return 'error';
+}
+
 /** Internal type for tracking conflict resolution state in pushNote */
 type ConflictResolutionResult = {
     result: { versionTag: string; encryptedKeyHeader?: EncryptedKeyHeader };
@@ -64,18 +82,32 @@ type ConflictResolutionResult = {
  * 3. Push local pending changes
  * 4. Process pending image uploads
  */
+// A fresh empty Yjs doc encodes to 2 bytes ([0, 0]). A note bootstrapped before
+// the author's body had synced is a single such update, so any larger total has
+// real content. (revalidatePeerNote covers the rarer "accumulated-then-emptied"
+// case, so a cheap byte-sum is enough here — no need to build a Y.Doc.)
+const EMPTY_YDOC_BYTES = 2;
+
+function totalUpdateBytes(updates: Uint8Array[]): number {
+    let total = 0;
+    for (const update of updates) total += update.byteLength;
+    return total;
+}
+
 export class SyncService {
     #folderProvider: FolderDriveProvider;
     #notesProvider: NotesDriveProvider;
     #inboxProcessor: InboxProcessor;
     #status: SyncStatus = 'idle';
     #onlineContext: OnlineContextType;
+    #hostIdentity: string;
 
     constructor(dotYouClient: DotYouClient, onlineContext: OnlineContextType) {
         this.#folderProvider = new FolderDriveProvider(dotYouClient);
         this.#notesProvider = new NotesDriveProvider(dotYouClient);
         this.#inboxProcessor = new InboxProcessor(dotYouClient);
         this.#onlineContext = onlineContext;
+        this.#hostIdentity = dotYouClient.getHostIdentity();
     }
 
     getStatus(): SyncStatus {
@@ -94,8 +126,137 @@ export class SyncService {
         await documentBroadcast.requestFlushAndWait();
     }
 
+    /**
+     * Flush in-editor changes to the local store, then push this note to the
+     * server. Called before sharing so recipients bootstrap real content rather
+     * than an empty note.
+     */
+    async flushAndSyncNote(docId: string): Promise<void> {
+        await this.flushAllProviders();
+        const record = await getSyncRecord(docId);
+        if (record) await this.pushNote(record);
+    }
+
     getNoteProvider(): NotesDriveProvider {
         return this.#notesProvider;
+    }
+
+    /**
+     * Local-first content load for a peer note. Returns immediately if local
+     * content exists; otherwise fetches the note over peer, stores it, and
+     * broadcasts so an open editor reloads.
+     */
+    async ensurePeerNoteContent(
+        docId: string,
+        authorOdinId: string | undefined,
+    ): Promise<EnsureNoteContentResult> {
+        if (!authorOdinId || authorOdinId === this.#hostIdentity) {
+            return { status: 'local' };
+        }
+        const localUpdates = await getDocumentUpdates(docId);
+        // Treat an empty local doc (e.g. a note bootstrapped before the author's
+        // body had synced) as a miss, so we re-fetch the real content.
+        if (localUpdates.length > 0 && totalUpdateBytes(localUpdates) > EMPTY_YDOC_BYTES) {
+            return { status: 'local' };
+        }
+        return this.#fetchAndStorePeerNote(docId, authorOdinId);
+    }
+
+    async #fetchAndStorePeerNote(
+        docId: string,
+        authorOdinId: string,
+    ): Promise<EnsureNoteContentResult> {
+        let peerNote;
+        try {
+            peerNote = await this.#notesProvider.getNote(docId, authorOdinId, { decrypt: true });
+        } catch (err) {
+            return { status: classifyPeerFetchError(err) };
+        }
+        if (!peerNote || !peerNote.fileId) {
+            return { status: 'notfound' };
+        }
+
+        let blob: Uint8Array | null;
+        try {
+            blob = await this.#notesProvider.getNotePayload(
+                peerNote.fileId, authorOdinId, peerNote.fileMetadata.updated,
+            );
+        } catch (err) {
+            return { status: classifyPeerFetchError(err) };
+        }
+        if (!blob) {
+            return { status: 'empty' };
+        }
+
+        await Promise.all([
+            saveDocumentUpdate(docId, blob),
+            upsertSyncRecord({
+                localId: docId,
+                entityType: 'note',
+                remoteFileId: peerNote.fileId,
+                versionTag: peerNote.fileMetadata.versionTag,
+                lastSyncedAt: new Date().toISOString(),
+                syncStatus: 'synced',
+                encryptedKeyHeader: serializeKeyHeader(peerNote.sharedSecretEncryptedKeyHeader),
+                authorOdinId,
+                globalTransitId: peerNote.fileMetadata.globalTransitId || undefined,
+            }),
+        ]);
+        documentBroadcast.notifyDocumentUpdated(docId);
+        return { status: 'fetched' };
+    }
+
+    /**
+     * Background freshness check for a peer note. The author's edits are not pushed
+     * to us (that needs a live peer subscription), so on open we re-fetch the
+     * author's current note and CRDT-merge it when it's newer than our copy. Safe
+     * to call on every open — a no-op when the versionTag is unchanged.
+     */
+    async revalidatePeerNote(
+        docId: string,
+        authorOdinId: string | undefined,
+    ): Promise<'skipped' | 'unchanged' | 'updated'> {
+        if (!authorOdinId || authorOdinId === this.#hostIdentity) return 'skipped';
+
+        let header;
+        try {
+            header = await this.#notesProvider.getNote(docId, authorOdinId, { decrypt: false });
+        } catch {
+            return 'skipped'; // best-effort; offline/forbidden → keep the local copy
+        }
+        if (!header || !header.fileId) return 'skipped';
+
+        const record = await getSyncRecord(docId);
+        if (record?.versionTag && stringGuidsEqual(header.fileMetadata.versionTag, record.versionTag)) {
+            return 'unchanged';
+        }
+
+        let remoteBlob: Uint8Array | null;
+        try {
+            remoteBlob = await this.#notesProvider.getNotePayload(
+                header.fileId, authorOdinId, header.fileMetadata.updated,
+            );
+        } catch {
+            return 'skipped';
+        }
+        if (!remoteBlob) return 'skipped';
+
+        const mergedBlob = await this.mergeYjsDocuments(docId, remoteBlob);
+        await deleteDocumentUpdates(docId);
+        await saveDocumentUpdate(docId, mergedBlob);
+        await upsertSyncRecord({
+            localId: docId,
+            entityType: 'note',
+            remoteFileId: header.fileId,
+            versionTag: header.fileMetadata.versionTag,
+            lastSyncedAt: new Date().toISOString(),
+            syncStatus: 'synced',
+            encryptedKeyHeader: serializeKeyHeader(header.sharedSecretEncryptedKeyHeader),
+            authorOdinId,
+            globalTransitId: header.fileMetadata.globalTransitId || undefined,
+        });
+        documentBroadcast.notifyDocumentUpdated(docId);
+        return 'updated';
     }
 
     /**
@@ -491,7 +652,9 @@ export class SyncService {
 
         // Get remote Yjs blob — use senderOdinId for peer-based fetch when note is from another identity
         const lastModified = remoteFile.fileMetadata.updated;
-        const authorOdinId = remoteFile.fileMetadata.senderOdinId || remoteFile.fileMetadata.originalAuthor;
+        const authorOdinId = existingRecord?.authorOdinId
+            || remoteFile.fileMetadata.senderOdinId
+            || remoteFile.fileMetadata.originalAuthor;
         const remoteBlob = await this.#notesProvider.getNotePayload(remoteFile.fileId, authorOdinId, lastModified);
 
         if (!existingRecord) {

@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useSyncService } from "@/hooks";
 import { Users, ExternalLink, Loader2, Check, Info } from "lucide-react";
 import {
   Dialog,
@@ -50,6 +51,7 @@ export function MarkCollaborativeDialog({
   onSuccess,
 }: MarkCollaborativeDialogProps) {
   const dotYouClient = useDotYouClientContext();
+  const { syncService } = useSyncService();
   const {
     get: { data: notes = [] },
     updateNote: { mutateAsync: updateNoteMetadata },
@@ -112,6 +114,12 @@ export function MarkCollaborativeDialog({
       const provider = new NotesDriveProvider(dotYouClient);
       const editorOdinId = dotYouClient.getHostIdentity() || "";
 
+      // Ensure the note body is on the server BEFORE we send the invite, so
+      // recipients bootstrap real content instead of an empty note.
+      if (syncService) {
+        await syncService.flushAndSyncNote(noteId);
+      }
+
       await provider.makeNoteCollaborative(
         noteId,
         circleIds,
@@ -155,6 +163,7 @@ export function MarkCollaborativeDialog({
     onSuccess,
     notes,
     updateNoteMetadata,
+    syncService,
   ]);
 
   const selectedCircleIdSet = new Set(selectedCircles.map((c) => c.circleId));
