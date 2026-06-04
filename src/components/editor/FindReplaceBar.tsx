@@ -118,8 +118,8 @@ export function FindReplaceBar() {
       aria-label="Find and replace"
       aria-hidden={!isOpen}
     >
-      <div className="bg-background/95 backdrop-blur-sm border-b border-border rounded-lg p-2 sm:min-w-95 space-y-1.5">
-        {/* Find row */}
+      <div className="relative bg-background/95 backdrop-blur-sm border-b border-border rounded-lg p-2 sm:min-w-95 space-y-1.5">
+        {/* Find row — Close button is excluded here; it lives last in DOM for tab order */}
         <div className="flex items-center gap-1">
           {/* Expand/collapse replace toggle */}
           <button
@@ -205,13 +205,8 @@ export function FindReplaceBar() {
             <span className="border-l border-current pl-px pr-px">ab</span>
           </button>
 
-          <button
-            onClick={handleClose}
-            aria-label="Close find (Escape)"
-            className="h-7 w-7 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0"
-          >
-            <X className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
+          {/* Reserve space where Close button used to sit so the find row width is unchanged */}
+          <div className="w-7 shrink-0" aria-hidden="true" />
         </div>
 
         {/* Replace row — CSS grid expand trick */}
@@ -257,6 +252,16 @@ export function FindReplaceBar() {
             </div>
           </div>
         </div>
+
+        {/* Close button — placed LAST in DOM so it is last in tab order,
+            but visually anchored top-right via absolute positioning. */}
+        <button
+          onClick={handleClose}
+          aria-label="Close find (Escape)"
+          className="absolute top-2 right-2 h-7 w-7 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
       </div>
     </div>
   );
