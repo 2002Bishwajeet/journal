@@ -1,0 +1,13 @@
+# Cloudflare Pages / Netlify headers
+# Cross-origin isolation — required for SharedArrayBuffer, WebLLM (WASM threads)
+# and OPFS. Mirrors the dev/preview server headers in vite.config.ts.
+# NOTE: require-corp blocks cross-origin subresources that lack CORP/CORS.
+# External images are proxied via the service worker to satisfy this; if Google
+# Fonts ever break, switch require-corp -> credentialless (still enables SAB in Chrome).
+/*
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Opener-Policy: same-origin
+
+# Hashed build assets are immutable — cache them aggressively.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

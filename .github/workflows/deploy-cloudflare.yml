@@ -1,6 +1,8 @@
 name: Build and Deploy (Cloudflare Pages)
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       bump:
@@ -14,6 +16,10 @@ on:
           - major
   release:
     types: [published]
+
+# Opt into Node.js 24 for JS actions (Node 20 on runners is deprecated June 2026).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   deploy:
@@ -38,9 +44,12 @@ jobs:
             VERSION="${{ github.event.release.tag_name }}"
             echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
             echo "source=release" >> "$GITHUB_OUTPUT"
-          else
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "source=manual" >> "$GITHUB_OUTPUT"
             echo "bump=${{ inputs.bump || 'patch' }}" >> "$GITHUB_OUTPUT"
+          else
+            # push to main: deploy the current package.json version, no bump
+            echo "source=push" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Bump version (manual dispatch)
@@ -75,4 +84,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "3.90.0"
           command: pages deploy dist --project-name=journal --commit-dirty=true
