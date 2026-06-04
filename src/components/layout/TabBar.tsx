@@ -23,7 +23,6 @@ export default function TabBar({
 
   return (
     <div
-      role="tablist"
       className={cn(
         "flex items-center h-9 bg-muted/30 border-b border-border overflow-x-auto scrollbar-thin",
         className
@@ -51,9 +50,7 @@ export default function TabBar({
           >
             {/* Tab activation button — the full clickable tab title area */}
             <button
-              role="tab"
-              aria-selected={isActive}
-              aria-current={isActive ? "true" : undefined}
+              aria-label={tabTitle}
               onClick={() => onTabClick(tab.docId)}
               className={cn(
                 "flex items-center gap-1.5 px-3 h-full min-w-0 cursor-pointer",
@@ -63,7 +60,12 @@ export default function TabBar({
               <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
               <span className="text-xs truncate flex-1 min-w-0">
                 {tabTitle}
-                {tab.isDirty && <span className="text-primary ml-1" aria-label="unsaved changes">•</span>}
+                {tab.isDirty && (
+                  <>
+                    <span className="text-primary ml-1" aria-hidden="true">•</span>
+                    <span className="sr-only">unsaved changes</span>
+                  </>
+                )}
               </span>
               {collaborativeTabIds?.has(tab.docId) && (
                 <>
@@ -75,10 +77,7 @@ export default function TabBar({
 
             {/* Close button — sibling of activation button, not nested inside it */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onTabClose(tab.docId);
-              }}
+              onClick={() => onTabClose(tab.docId)}
               aria-label={`Close ${tabTitle}`}
               className={cn(
                 "h-4 w-4 mr-1.5 rounded flex items-center justify-center shrink-0",
