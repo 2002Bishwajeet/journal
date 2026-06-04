@@ -109,7 +109,7 @@ export function FindReplaceBar() {
 
   return (
     <div
-      className={`absolute top-0 left-2 right-2 sm:left-auto sm:right-3 z-20 mt-2 sm:mt-3 transition-[opacity,transform] duration-150 ${
+      className={`absolute top-0 left-2 right-2 sm:left-auto sm:right-3 z-20 mt-2 sm:mt-3 transition-[opacity,transform] duration-200 ${
         isOpen
           ? "opacity-100 translate-y-0 pointer-events-auto"
           : "opacity-0 -translate-y-2 pointer-events-none"
@@ -130,7 +130,7 @@ export function FindReplaceBar() {
             className="h-7 w-5 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0"
           >
             <ChevronRight
-              className={`h-3.5 w-3.5 transition-transform duration-150 ${isReplaceOpen ? "rotate-90" : ""}`}
+              className={`h-3.5 w-3.5 transition-transform duration-200 ${isReplaceOpen ? "rotate-90" : ""}`}
               aria-hidden="true"
             />
           </button>
@@ -212,7 +212,7 @@ export function FindReplaceBar() {
 
         {/* Replace row — CSS grid expand trick */}
         <div
-          className={`grid transition-[grid-template-rows] duration-[120ms] ${
+          className={`grid transition-[grid-template-rows] duration-100 ${
             isReplaceOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
           }`}
         >
