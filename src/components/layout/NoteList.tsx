@@ -161,7 +161,7 @@ export default function NoteList({
         <div className="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
+              <Button variant="ghost" size="icon" aria-label="Sort notes" className="h-7 w-7">
                 <ArrowUpDown className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
@@ -214,6 +214,7 @@ export default function NoteList({
                 <div key={group.label} className="w-full">
                   <button
                     onClick={() => toggleGroup(group.label)}
+                    aria-expanded={!collapsedGroups.has(group.label)}
                     className="flex items-center w-full px-3 py-1 hover:bg-muted/50 transition-colors group/header"
                   >
                     {collapsedGroups.has(group.label) ? (

@@ -295,6 +295,12 @@ export default function JournalLayout() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Skip to content
+      </a>
       {/* Sidebar */}
       <div
         className={cn(
@@ -447,6 +453,8 @@ export default function JournalLayout() {
 
       {/* Main Content (Editor) */}
       <main
+        id="main-content"
+        tabIndex={-1}
         className={cn(
           "flex-1 flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
           // Desktop: Always visible (Outlet renders Editor or Empty)
