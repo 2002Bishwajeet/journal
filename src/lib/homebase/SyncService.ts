@@ -565,7 +565,7 @@ export class SyncService {
 
         const lastModified = peerNote.fileMetadata.updated;
         const [content, remoteBlob] = await Promise.all([
-            this.#notesProvider.dsrToNoteFileContent(peerNote, true),
+            this.#notesProvider.dsrToNoteFileContent(peerNote as unknown as HomebaseFile<string>, true),
             this.#notesProvider.getNotePayload(peerNote.fileId, authorOdinId, lastModified),
         ]);
         const noteTitle = content?.title || inviteTitle || 'Untitled';

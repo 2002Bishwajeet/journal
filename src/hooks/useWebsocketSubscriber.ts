@@ -43,7 +43,7 @@ export const useWebsocketSubscriber = (
                 );
 
                 const notifyPayload = {
-                    command: 'processInbox',
+                    command: 'processInbox' as const,
                     data: JSON.stringify({
                         targetDrive: notification.targetDrive,
                         batchSize: 100,

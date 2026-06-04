@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { DotYouClient, TypedConnectionNotification, NotificationType, TargetDrive, DeletedHomebaseFile } from '@homebase-id/js-lib/core';
+import type { DotYouClient, TypedConnectionNotification, NotificationType, TargetDrive, DeletedHomebaseFile, HomebaseFile } from '@homebase-id/js-lib/core';
 import { drivesEqual } from '@homebase-id/js-lib/helpers';
 import { useWebsocketSubscriber } from './useWebsocketSubscriber';
 import { notesQueryKey } from './useNotes';
@@ -42,6 +42,13 @@ export const usePeerNoteWebsocket = ({
         async (_dotYouClient: DotYouClient, notification: TypedConnectionNotification) => {
             if (!syncServiceRef.current || !noteUniqueIdRef.current) return;
 
+            // Only file notifications carry a header / targetDrive
+            if (
+                notification.notificationType !== 'fileAdded' &&
+                notification.notificationType !== 'fileModified' &&
+                notification.notificationType !== 'fileDeleted'
+            ) return;
+
             const fileUniqueId = notification.header?.fileMetadata?.appData?.uniqueId;
             if (fileUniqueId !== noteUniqueIdRef.current) return;
 
@@ -51,7 +58,7 @@ export const usePeerNoteWebsocket = ({
             if (notification.notificationType === 'fileAdded' || notification.notificationType === 'fileModified') {
                 await syncServiceRef.current.handleRemoteNote(notification.header);
                 queryClient.invalidateQueries({ queryKey: notesQueryKey });
-            } else if (notification.notificationType === 'fileDeleted') {
+            } else {
                 await syncServiceRef.current.handleDeletedNote(notification.header as unknown as DeletedHomebaseFile);
                 queryClient.invalidateQueries({ queryKey: notesQueryKey });
                 toast('This shared note has been deleted by the author');
@@ -72,7 +79,7 @@ export const usePeerNoteWebsocket = ({
                 noteUniqueIdRef.current, authorOdinIdRef.current, { decrypt: false },
             );
             if (freshFile) {
-                await syncServiceRef.current.handleRemoteNote(freshFile);
+                await syncServiceRef.current.handleRemoteNote(freshFile as unknown as HomebaseFile<string>);
                 queryClient.invalidateQueries({ queryKey: notesQueryKey });
             }
         } catch (error) {
