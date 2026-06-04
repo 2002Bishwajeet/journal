@@ -49,7 +49,7 @@ export function CollaborativePopover({
             </PopoverTrigger>
             <PopoverContent align="end" className="w-64 p-3">
                 <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
-                    Shared with
+                    People with access
                 </div>
 
                 {isLoading ? (
@@ -75,7 +75,7 @@ export function CollaborativePopover({
                                                     odinId={odinId}
                                                     className="h-4 w-4 rounded-full"
                                                 />
-                                                <span className="text-xs text-muted-foreground truncate max-w-[100px]">
+                                                <span title={odinId} className="text-xs text-muted-foreground truncate max-w-[100px]">
                                                     {odinId.split('.')[0]}
                                                 </span>
                                             </div>
@@ -96,7 +96,7 @@ export function CollaborativePopover({
                 {lastEditedBy && (
                     <div className="border-t mt-3 pt-2 text-xs text-muted-foreground">
                         Last edited by{' '}
-                        <span className="text-foreground">
+                        <span title={lastEditedBy} className="text-foreground">
                             {lastEditedBy.split('.')[0]}
                         </span>
                         {formattedTime && (

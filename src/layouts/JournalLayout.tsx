@@ -616,7 +616,7 @@ export default function JournalLayout() {
         isOpen={!!revokeNote}
         onClose={() => setRevokeNote(null)}
         title="Revoke Collaboration"
-        description={`This will remove circle access to "${revokeNote?.title || "Untitled"}" and make it private again.`}
+        description={`This will remove circle access to "${revokeNote?.title || "Untitled"}" and move it out of the shared folder — it will no longer be accessible to collaborators.`}
         confirmText="Revoke"
         variant="destructive"
         onConfirm={async () => {

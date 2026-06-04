@@ -195,6 +195,7 @@ export function MarkCollaborativeDialog({
               <Button asChild className="w-full" size="lg">
                 <a
                   href={extendPermissionUrl}
+                  aria-label="Grant Permissions in Homebase (opens Homebase)"
                   onClick={() => {
                     try {
                       localStorage.setItem(
@@ -225,6 +226,7 @@ export function MarkCollaborativeDialog({
               {/* Circle Selection */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Select Circles</Label>
+                <p className="text-xs text-muted-foreground">Circles are groups of people you're connected with on Homebase.</p>
 
                 {isLoading ? (
                   <div className="flex items-center justify-center py-8">
@@ -232,7 +234,7 @@ export function MarkCollaborativeDialog({
                   </div>
                 ) : circles.length === 0 ? (
                   <div className="text-center py-6 text-muted-foreground text-sm">
-                    No circles available. Create circles in your owner console.
+                    No circles available. Create circles in your Homebase settings.
                   </div>
                 ) : (
                   <ScrollArea className="h-56 rounded-md border p-2">

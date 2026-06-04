@@ -379,8 +379,8 @@ const NoteItem = memo(function NoteItem({
           },
           {
             label: note.metadata.isCollaborative
-              ? "Revoke collaboration"
-              : "Mark collaborative",
+              ? "Revoke Collaboration"
+              : "Mark as Collaborative",
             icon: Users,
             action: () => onMarkCollaborative?.(note),
             disabled: !onMarkCollaborative,
