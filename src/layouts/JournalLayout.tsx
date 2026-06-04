@@ -20,7 +20,7 @@ import {
   useKeyboardShortcuts,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, useMemo, Activity } from "react";
 import { ChevronLeft, Minimize2, Maximize2 } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
@@ -499,35 +499,23 @@ export default function JournalLayout() {
           {isDesktop ? (
             /* Desktop DOM Keep-Alive implementation */
             openTabs.map((tab) => (
-              <div
+              <Activity
                 key={tab.docId}
-                className={cn(
-                  "absolute inset-0 w-full h-full",
-                  tab.docId === activeTabId
-                    ? "z-10 bg-background"
-                    : "z-0 opacity-0 pointer-events-none",
-                )}
+                mode={tab.docId === activeTabId ? "visible" : "hidden"}
               >
-                {/* 
-                  We render EditorPage directly instead of through Outlet.
-                  Since EditorPage uses useParams() internally, but we aren't at the exact URL
-                  for background tabs, we need to pass the docId explicitly if we refactor EditorPage,
-                  OR since the router URL *is* changing, EditorPage will pick up the new URL 
-                  but we need to isolate the params.
-                  
-                  Actually, EditorPage relies heavily on `useParams().noteId`. 
-                  Since React Router's URL is shared by all rendered components, 
-                  all 10 EditorPages would read the *same* `noteId` from the URL, which is broken.
-
-                  Therefore, we must import and render `EditorPage` but we'll need to modify it
-                  to accept props instead of reading from `useParams`.
-                */}
-                <EditorPage
-                  overrideNoteId={tab.docId}
-                  overrideFolderId={folderId}
-                  focusMode={focusMode}
-                />
-              </div>
+                <div
+                  className={cn(
+                    "absolute inset-0 w-full h-full",
+                    tab.docId === activeTabId && "z-10 bg-background",
+                  )}
+                >
+                  <EditorPage
+                    overrideNoteId={tab.docId}
+                    overrideFolderId={folderId}
+                    focusMode={focusMode}
+                  />
+                </div>
+              </Activity>
             ))
           ) : (
             /* Mobile keeps the simple Router Outlet behavior */
