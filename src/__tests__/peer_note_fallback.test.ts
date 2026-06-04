@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isPeerContentFailure, isPeerContentReady } from '@/components/editor/PeerNoteFallback';
+import { isPeerContentFailure, isPeerContentReady } from '@/components/editor/peerNoteStatus';
 
 describe('PeerNoteFallback status predicates', () => {
     it('treats only offline/forbidden/notfound/error as failures', () => {

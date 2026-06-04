@@ -16,12 +16,11 @@ import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
 import { usePeerNoteContent } from "@/hooks/usePeerNoteContent";
+import { PeerNoteLoading, PeerNoteError } from "@/components/editor/PeerNoteFallback";
 import {
-  PeerNoteLoading,
-  PeerNoteError,
   isPeerContentFailure,
   isPeerContentReady,
-} from "@/components/editor/PeerNoteFallback";
+} from "@/components/editor/peerNoteStatus";
 import { useDotYouClientContext } from "@/components/auth";
 import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";

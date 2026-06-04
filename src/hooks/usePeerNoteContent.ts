@@ -11,8 +11,12 @@ interface UsePeerNoteContentOptions {
 }
 
 /**
- * Drives SyncService.ensurePeerNoteContent on open of a peer note.
- * Local-first: resolves to 'local' instantly when content already exists.
+ * Drives SyncService.ensurePeerNoteContent on open of a peer note, then
+ * revalidates against the author in the background. Local-first: resolves to
+ * 'local' instantly when content already exists.
+ *
+ * Only the resolved result is stored (keyed by request); 'idle' and 'loading'
+ * are derived, so the effect never calls setState synchronously.
  */
 export function usePeerNoteContent({
     docId,
@@ -20,26 +24,25 @@ export function usePeerNoteContent({
     isEnabled,
     syncService,
 }: UsePeerNoteContentOptions) {
-    const [status, setStatus] = useState<PeerNoteContentStatus>('idle');
+    const [resolved, setResolved] = useState<{ key: string; status: EnsureNoteContentStatus } | null>(null);
     const [attempt, setAttempt] = useState(0);
 
+    const active = isEnabled && !!docId && !!authorOdinId && !!syncService;
+    const requestKey = `${docId ?? ''}|${authorOdinId ?? ''}|${attempt}`;
+
     useEffect(() => {
-        if (!isEnabled || !docId || !authorOdinId || !syncService) {
-            setStatus('idle');
-            return;
-        }
+        if (!active || !docId || !authorOdinId || !syncService) return;
         let cancelled = false;
-        setStatus('loading');
         (async () => {
             let result;
             try {
                 result = await syncService.ensurePeerNoteContent(docId, authorOdinId);
             } catch {
-                if (!cancelled) setStatus('error');
+                if (!cancelled) setResolved({ key: requestKey, status: 'error' });
                 return;
             }
             if (cancelled) return;
-            setStatus(result.status);
+            setResolved({ key: requestKey, status: result.status });
             // Background freshness — only when we served a cached copy. A fresh
             // fetch ('fetched') is already current; 'empty'/failures have nothing
             // to revalidate. No-op when unchanged; merges + broadcasts when newer.
@@ -48,7 +51,14 @@ export function usePeerNoteContent({
             }
         })();
         return () => { cancelled = true; };
-    }, [docId, authorOdinId, isEnabled, syncService, attempt]);
+    }, [active, requestKey, docId, authorOdinId, syncService]);
+
+    // Derived: 'idle' while inactive, 'loading' until the current request resolves.
+    const status: PeerNoteContentStatus = !active
+        ? 'idle'
+        : resolved?.key === requestKey
+            ? resolved.status
+            : 'loading';
 
     return {
         status,
