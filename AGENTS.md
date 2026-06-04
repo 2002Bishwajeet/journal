@@ -312,6 +312,16 @@ npm run test:ui  # visual dashboard
 - **Avoid over-optimization**: No `useCallback`/`useMemo` unless profiling shows need
 - **No `any` type**: Always use proper types. Use library-provided types (e.g. `CommandProps` from `@tiptap/core`), module augmentation (`declare global`/`declare module`), or generics instead of `any`. If there is genuinely no way to avoid `any`, stop and explain why to the user before proceeding.
 
+### UI Floors & Motion
+
+Enforced minimums for all UI components. Do not go below these:
+
+- **Font size**: `text-xs` minimum. No arbitrary `text-[9px]` or `text-[10px]`.
+- **Disabled opacity**: `disabled:opacity-50` minimum. Do not use `disabled:opacity-30`.
+- **Muted text opacity**: `text-muted-foreground/70` minimum when using opacity modifiers. Avoid `/50` or lower on text.
+- **Animation timing**: fast = `duration-100`, normal = `duration-200`, slow = `duration-300`. Avoid non-scale values like `duration-[75ms]`, `duration-[120ms]`, `duration-[150ms]`.
+- **Reduced motion**: global rule in `src/index.css` zeroes all CSS transitions/animations under `prefers-reduced-motion: reduce`. JS-driven animations should additionally check `useReducedMotion()`.
+
 ## Testing Requirements — Test-Driven Development (TDD)
 
 > **MANDATORY**: This project follows **TDD**. Write failing tests FIRST, then implement code to make them pass. No exceptions.
