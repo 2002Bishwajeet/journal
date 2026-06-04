@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useSyncService } from "@/hooks";
 import { Users, ExternalLink, Loader2, Check, Info } from "lucide-react";
 import {
@@ -77,23 +77,20 @@ export function MarkCollaborativeDialog({
   const circles: CircleDefinition[] = circlesFetch.data || [];
   const isLoading = circlesFetch.isLoading;
 
-  const handleCircleSelect = useCallback(
-    (circle: CircleDefinition, members: string[]) => {
-      setSelectedCircles((prev) => {
-        const existing = prev.find((c) => c.circleId === circle.id);
-        if (existing) {
-          // Deselect
-          return prev.filter((c) => c.circleId !== circle.id);
-        } else {
-          // Select with members
-          return [...prev, { circleId: circle.id!, members }];
-        }
-      });
-    },
-    [],
-  );
+  function handleCircleSelect(circle: CircleDefinition, members: string[]) {
+    setSelectedCircles((prev) => {
+      const existing = prev.find((c) => c.circleId === circle.id);
+      if (existing) {
+        // Deselect
+        return prev.filter((c) => c.circleId !== circle.id);
+      } else {
+        // Select with members
+        return [...prev, { circleId: circle.id!, members }];
+      }
+    });
+  }
 
-  const handleSubmit = useCallback(async () => {
+  async function handleSubmit() {
     if (selectedCircles.length === 0) {
       toast.error("Please select at least one circle");
       return;
@@ -155,32 +152,21 @@ export function MarkCollaborativeDialog({
     } finally {
       setIsSubmitting(false);
     }
-  }, [
-    dotYouClient,
-    noteId,
-    selectedCircles,
-    onClose,
-    onSuccess,
-    notes,
-    updateNoteMetadata,
-    syncService,
-  ]);
+  }
 
   const selectedCircleIdSet = new Set(selectedCircles.map((c) => c.circleId));
 
   return (
     <Dialog
       open={isOpen}
-      //   onOpenChange={(open) => {
-      //     if (open) {
-      //       queryClient.invalidateQueries({
-      //         queryKey: ["security-context"],
-      //       });
-      //     } else {
-      //       setSelectedCircles([]);
-      //       onClose();
-      //     }
-      //   }}
+      onOpenChange={(open) => {
+        // When Radix requests a close (Escape key or overlay click), call onClose
+        // unless a submit is in progress — ignore the request in that case to
+        // avoid a confusing half-submitted state.
+        if (!open && !isSubmitting) {
+          onClose();
+        }
+      }}
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
