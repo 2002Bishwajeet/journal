@@ -1,3 +1,28 @@
+## [1.1.7](https://github.com/2002Bishwajeet/journal/compare/v1.1.6...v1.1.7) (2026-06-04)
+
+
+### Bug Fixes
+
+* address Vercel best practices review on find/replace ([8dc1c66](https://github.com/2002Bishwajeet/journal/commit/8dc1c6614bb2bf36c468206d7740f04d3e2a3b9f))
+* **deploy:** serve built dist/ on Cloudflare and restore COEP/COOP ([2b6a302](https://github.com/2002Bishwajeet/journal/commit/2b6a302538485f6f379ef397a049c36a280e8557))
+* **lint:** resolve eslint errors in peer-note fetch UI ([421109e](https://github.com/2002Bishwajeet/journal/commit/421109e37411063ec8ee3ea55dd143b924fc49ee))
+* **test:** correct lifecycle transition in bootstrap test ([51fbd73](https://github.com/2002Bishwajeet/journal/commit/51fbd73a12eb24a6462d3841aa12af989af875e9))
+* **types:** resolve tsc -b build errors in collaboration WS code ([5426e76](https://github.com/2002Bishwajeet/journal/commit/5426e76e0ca78359c62b8f03dedbd61f768b7f2c))
+
+
+### Features
+
+* add in-editor find and replace (Cmd+F / Cmd+H) ([753e3f8](https://github.com/2002Bishwajeet/journal/commit/753e3f8a84320abe203af9b99f2e350c9787c759))
+* bootstrap collaborative note with sync record on invitation ([862fd3c](https://github.com/2002Bishwajeet/journal/commit/862fd3c277fa4c25cd1ef57133440b8b4200a0c6))
+* collaboration feature — sync fixes, UI, distribution, peer websocket ([8eb8205](https://github.com/2002Bishwajeet/journal/commit/8eb8205cb814fa42f18931be5294b47cc4e1c02e))
+* local-first peer-note fetch with revalidate-on-open ([70d4415](https://github.com/2002Bishwajeet/journal/commit/70d4415c0149e59d086ade8f2def3a237740ca0a))
+* stamp lastEditedBy on collaborative edits and add peer fetch debug logging ([d3d1022](https://github.com/2002Bishwajeet/journal/commit/d3d10226e363d739f5b8b8370ae0b8015337be41))
+* websocket process queue ([2ec2c8a](https://github.com/2002Bishwajeet/journal/commit/2ec2c8a76b22eceeaa5b237b8326c2644b7b33b6))
+
+
+### Performance Improvements
+
+* parallelize peer fetches and fix excludeFromAI type safety ([4e10b62](https://github.com/2002Bishwajeet/journal/commit/4e10b622cd0d7c2b78b1682a13cdff35bc1c3834))
 # Changelog
 
 All notable changes to Journal will be documented in this file.
