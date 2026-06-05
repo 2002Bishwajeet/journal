@@ -7,13 +7,13 @@ import {
 } from '@/components/ui/popover';
 import { useCircles } from '@/hooks/circles/useCircles';
 import { AuthorImage } from '@/components/author/AuthorImage';
-import { formatLastEditedAt } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils/index';
 
 interface CollaborativePopoverProps {
     circleIds?: string[];
     recipients?: string[];
     lastEditedBy?: string;
-    lastEditedAt?: number | string;
+    lastEditedAt?: string;
 }
 
 export function CollaborativePopover({
@@ -32,7 +32,7 @@ export function CollaborativePopover({
         c => c.id && circleIdSet.has(c.id)
     );
 
-    const formattedTime = formatLastEditedAt(lastEditedAt);
+    const formattedTime = lastEditedAt ? formatRelativeTime(lastEditedAt) : null;
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
