@@ -114,6 +114,7 @@ export function TableColumnMenu({ editor }: TableColumnMenuProps) {
            <Button 
                 variant="ghost" 
                 size="icon" 
+                aria-label="Column options"
                 className="h-6 w-full rounded-none hover:bg-muted active:bg-muted-foreground/20 transition-colors"
                 // Match width to column roughly, or just be a small pill centered
             >
@@ -121,14 +122,14 @@ export function TableColumnMenu({ editor }: TableColumnMenuProps) {
            </Button>
          </PopoverTrigger>
          <PopoverContent className="w-auto p-1 flex gap-1 z-9999" side="top" align="center">
-             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().addColumnBefore().run()}>
+             <Button variant="ghost" size="icon" aria-label="Insert column left" className="h-7 w-7" onClick={() => editor.chain().focus().addColumnBefore().run()}>
                 <ArrowLeft className="w-4 h-4" />
              </Button>
-             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().addColumnAfter().run()}>
+             <Button variant="ghost" size="icon" aria-label="Insert column right" className="h-7 w-7" onClick={() => editor.chain().focus().addColumnAfter().run()}>
                 <ArrowRight className="w-4 h-4" />
              </Button>
              <Separator orientation="vertical" className="h-4 my-auto" />
-             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => editor.chain().focus().deleteColumn().run()}>
+             <Button variant="ghost" size="icon" aria-label="Delete column" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => editor.chain().focus().deleteColumn().run()}>
                 <Trash2 className="w-4 h-4" />
              </Button>
          </PopoverContent>

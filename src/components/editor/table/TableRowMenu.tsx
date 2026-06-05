@@ -107,20 +107,21 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
            <Button 
                 variant="ghost" 
                 size="icon" 
+                aria-label="Row options"
                 className="h-full w-6 rounded-none hover:bg-muted active:bg-muted-foreground/20 flex flex-col items-center justify-center transition-colors"
             >
                 <GripVertical className="h-4 w-4 text-muted-foreground/50 hover:text-foreground" />
            </Button>
          </PopoverTrigger>
          <PopoverContent className="w-auto p-1 flex gap-1 z-9999" side="left" align="center">
-             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().addRowBefore().run()}>
+             <Button variant="ghost" size="icon" aria-label="Insert row above" className="h-7 w-7" onClick={() => editor.chain().focus().addRowBefore().run()}>
                 <ArrowUp className="w-4 h-4" />
              </Button>
-             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().addRowAfter().run()}>
+             <Button variant="ghost" size="icon" aria-label="Insert row below" className="h-7 w-7" onClick={() => editor.chain().focus().addRowAfter().run()}>
                 <ArrowDown className="w-4 h-4" />
              </Button>
              <Separator orientation="vertical" className="h-4 my-auto" />
-             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => editor.chain().focus().deleteRow().run()}>
+             <Button variant="ghost" size="icon" aria-label="Delete row" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => editor.chain().focus().deleteRow().run()}>
                 <Trash2 className="w-4 h-4" />
              </Button>
          </PopoverContent>

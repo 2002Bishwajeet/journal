@@ -205,6 +205,7 @@ export default function ShareDialog({
                                     <Button
                                         size="icon"
                                         variant="outline"
+                                        aria-label="Copy link"
                                         onClick={handleCopyLink}
                                     >
                                         {copied ? (

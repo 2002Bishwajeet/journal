@@ -1,3 +1,4 @@
+import './lib/utils/initLogging';
 import './lib/utils/sw-safety';
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
