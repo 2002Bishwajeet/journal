@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useSyncService } from "@/hooks";
 import { Users, ExternalLink, Loader2, Check, Info } from "lucide-react";
 import {
@@ -77,23 +77,20 @@ export function MarkCollaborativeDialog({
   const circles: CircleDefinition[] = circlesFetch.data || [];
   const isLoading = circlesFetch.isLoading;
 
-  const handleCircleSelect = useCallback(
-    (circle: CircleDefinition, members: string[]) => {
-      setSelectedCircles((prev) => {
-        const existing = prev.find((c) => c.circleId === circle.id);
-        if (existing) {
-          // Deselect
-          return prev.filter((c) => c.circleId !== circle.id);
-        } else {
-          // Select with members
-          return [...prev, { circleId: circle.id!, members }];
-        }
-      });
-    },
-    [],
-  );
+  function handleCircleSelect(circle: CircleDefinition, members: string[]) {
+    setSelectedCircles((prev) => {
+      const existing = prev.find((c) => c.circleId === circle.id);
+      if (existing) {
+        // Deselect
+        return prev.filter((c) => c.circleId !== circle.id);
+      } else {
+        // Select with members
+        return [...prev, { circleId: circle.id!, members }];
+      }
+    });
+  }
 
-  const handleSubmit = useCallback(async () => {
+  async function handleSubmit() {
     if (selectedCircles.length === 0) {
       toast.error("Please select at least one circle");
       return;
@@ -155,32 +152,21 @@ export function MarkCollaborativeDialog({
     } finally {
       setIsSubmitting(false);
     }
-  }, [
-    dotYouClient,
-    noteId,
-    selectedCircles,
-    onClose,
-    onSuccess,
-    notes,
-    updateNoteMetadata,
-    syncService,
-  ]);
+  }
 
   const selectedCircleIdSet = new Set(selectedCircles.map((c) => c.circleId));
 
   return (
     <Dialog
       open={isOpen}
-      //   onOpenChange={(open) => {
-      //     if (open) {
-      //       queryClient.invalidateQueries({
-      //         queryKey: ["security-context"],
-      //       });
-      //     } else {
-      //       setSelectedCircles([]);
-      //       onClose();
-      //     }
-      //   }}
+      onOpenChange={(open) => {
+        // When Radix requests a close (Escape key or overlay click), call onClose
+        // unless a submit is in progress — ignore the request in that case to
+        // avoid a confusing half-submitted state.
+        if (!open && !isSubmitting) {
+          onClose();
+        }
+      }}
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -209,6 +195,7 @@ export function MarkCollaborativeDialog({
               <Button asChild className="w-full" size="lg">
                 <a
                   href={extendPermissionUrl}
+                  aria-label="Grant Permissions in Homebase (opens Homebase)"
                   onClick={() => {
                     try {
                       localStorage.setItem(
@@ -239,6 +226,7 @@ export function MarkCollaborativeDialog({
               {/* Circle Selection */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Select Circles</Label>
+                <p className="text-xs text-muted-foreground">Circles are groups of people you're connected with on Homebase.</p>
 
                 {isLoading ? (
                   <div className="flex items-center justify-center py-8">
@@ -246,7 +234,7 @@ export function MarkCollaborativeDialog({
                   </div>
                 ) : circles.length === 0 ? (
                   <div className="text-center py-6 text-muted-foreground text-sm">
-                    No circles available. Create circles in your owner console.
+                    No circles available. Create circles in your Homebase settings.
                   </div>
                 ) : (
                   <ScrollArea className="h-56 rounded-md border p-2">

@@ -161,7 +161,7 @@ export default function NoteList({
         <div className="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
+              <Button variant="ghost" size="icon" aria-label="Sort notes" className="h-7 w-7">
                 <ArrowUpDown className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
@@ -202,7 +202,7 @@ export default function NoteList({
             </div>
           ) : notes.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 px-4 text-center">
-              <FileText className="h-10 w-10 text-muted-foreground/50 mb-3" />
+              <FileText className="h-10 w-10 text-muted-foreground/70 mb-3" />
               <p className="text-sm text-muted-foreground mb-2">No notes yet</p>
               <Button variant="link" size="sm" onClick={onCreateNote}>
                 Create your first note
@@ -214,6 +214,7 @@ export default function NoteList({
                 <div key={group.label} className="w-full">
                   <button
                     onClick={() => toggleGroup(group.label)}
+                    aria-expanded={!collapsedGroups.has(group.label)}
                     className="flex items-center w-full px-3 py-1 hover:bg-muted/50 transition-colors group/header"
                   >
                     {collapsedGroups.has(group.label) ? (
@@ -224,7 +225,7 @@ export default function NoteList({
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       {group.label}
                     </span>
-                    <span className="ml-2 text-xs text-muted-foreground/50 opacity-0 group-hover/header:opacity-100 transition-opacity">
+                    <span className="ml-2 text-xs text-muted-foreground/70 opacity-0 group-hover/header:opacity-100 transition-opacity">
                       {group.notes.length}
                     </span>
                   </button>
@@ -378,8 +379,8 @@ const NoteItem = memo(function NoteItem({
           },
           {
             label: note.metadata.isCollaborative
-              ? "Revoke collaboration"
-              : "Mark collaborative",
+              ? "Revoke Collaboration"
+              : "Mark as Collaborative",
             icon: Users,
             action: () => onMarkCollaborative?.(note),
             disabled: !onMarkCollaborative,
@@ -458,7 +459,7 @@ const NoteItem = memo(function NoteItem({
                 {note.title || "Untitled"}
               </span>
               {note.metadata.isPinned && (
-                <Pin className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+                <Pin className="h-3 w-3 text-muted-foreground/70 shrink-0" />
               )}
               {note.metadata.isCollaborative && (
                 <Users className="h-3 w-3 text-collaborative/70 shrink-0" />
@@ -472,14 +473,14 @@ const NoteItem = memo(function NoteItem({
                 {(note.metadata.tags ?? []).slice(0, 3).map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-muted text-[10px] text-muted-foreground shrink-0"
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-muted text-xs text-muted-foreground shrink-0"
                   >
                     #{"\u2009"}
                     {tag}
                   </span>
                 ))}
                 {(note.metadata.tags ?? []).length > 3 && (
-                  <span className="text-[10px] text-muted-foreground/50">
+                  <span className="text-xs text-muted-foreground/70">
                     +{(note.metadata.tags ?? []).length - 3}
                   </span>
                 )}

@@ -73,8 +73,8 @@ export const CircleOption = memo(function CircleOption({
                             />
                         ))}
                         {members.length > 5 && (
-                            <div className="h-5 w-5 rounded-full bg-muted border-2 border-background flex items-center justify-center">
-                                <span className="text-[9px] text-muted-foreground font-medium">
+                            <div className="h-5 min-w-5 px-1 rounded-full bg-muted border-2 border-background flex items-center justify-center">
+                                <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
                                     +{members.length - 5}
                                 </span>
                             </div>

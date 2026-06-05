@@ -33,7 +33,8 @@ import {
     clearPendingImageDeletions,
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
-import { extractPreviewTextFromYjs, serializeKeyHeader, tryJsonParse, validateKeyHeader } from '@/lib/utils';
+import { serializeKeyHeader, tryJsonParse, validateKeyHeader } from '@/lib/utils';
+import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import { MAIN_FOLDER_ID, COLLABORATIVE_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
 import type { FolderFile, SyncRecord, SyncProgress, CollaborationInviteContent } from '@/types';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';

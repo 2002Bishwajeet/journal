@@ -6,7 +6,7 @@ import {
     getContentFromHeaderOrPayload,
     type HomebaseFile
 } from '@homebase-id/js-lib/core';
-import { extractMarkdownFromYjs } from '@/lib/utils';
+import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
 import type { NoteFileContent } from '@/types';
 import { JOURNAL_DRIVE, PAYLOAD_KEY_CONTENT } from '@/lib/homebase/config';
 
