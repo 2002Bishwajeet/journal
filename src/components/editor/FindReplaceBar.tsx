@@ -122,8 +122,8 @@ export function FindReplaceBar() {
     <div
       className={`absolute top-0 left-2 right-2 sm:left-auto sm:right-3 z-20 mt-2 sm:mt-3 transition-[opacity,transform] duration-200 ${
         isOpen
-          ? "opacity-100 translate-y-0 pointer-events-auto"
-          : "opacity-0 -translate-y-2 pointer-events-none"
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 -translate-y-2"
       }`}
       role="search"
       aria-label="Find and replace"
@@ -131,8 +131,9 @@ export function FindReplaceBar() {
       inert={!isOpen || undefined}
     >
       <div className="relative bg-background/95 backdrop-blur-sm border-b border-border rounded-lg p-2 sm:min-w-95 space-y-1.5">
-        {/* Find row — Close button is excluded here; it lives last in DOM for tab order */}
-        <div className="flex items-center gap-1">
+        {/* Find row — Close button is excluded here; it lives last in DOM for tab order.
+            pr-9 reserves the top-right corner so find controls never slide under it. */}
+        <div className="flex items-center gap-1 pr-9">
           {/* Expand/collapse replace toggle */}
           <button
             onClick={() => setIsReplaceOpen(!isReplaceOpen)}
@@ -217,8 +218,6 @@ export function FindReplaceBar() {
             <span className="border-l border-current pl-px pr-px">ab</span>
           </button>
 
-          {/* Reserve space where Close button used to sit so the find row width is unchanged */}
-          <div className="w-7 shrink-0" aria-hidden="true" />
         </div>
 
         {/* Replace row — CSS grid expand trick */}
