@@ -457,6 +457,8 @@ export default function JournalLayout() {
         tabIndex={-1}
         className={cn(
           "flex-1 flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
+          // Visible focus indicator when reached via the skip-link (WCAG 2.4.7)
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
           // Desktop: Always visible (Outlet renders Editor or Empty)
           isDesktop ? "flex" : "hidden",
           // Mobile: Visible only when note is selected
