@@ -4,7 +4,7 @@ import {
     getFileHeaderByUniqueId,
     getPayloadBytes,
     getContentFromHeaderOrPayload,
-    type HomebaseFile
+    type HomebaseFile,
 } from '@homebase-id/js-lib/core';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
 import type { NoteFileContent } from '@/types';
@@ -20,84 +20,86 @@ export interface SharedNoteData {
 export class ShareProvider {
     /**
      * Fetch a publicly shared note.
-     * 
+     *
+     * The note is read anonymously from the author's Guest API. The backend's CORS
+     * policy echoes the request origin and sets Access-Control-Allow-Credentials, so
+     * the SDK's guest client works cross-origin, and a logged-out caller is
+     * authenticated as SecurityGroupType.Anonymous. Public notes are unencrypted, so
+     * everything is fetched with decrypt:false.
+     *
      * @param identity - The identity of the note owner
      * @param noteId - The unique ID of the note
-     * @returns The shared note data or null if not found/not public
+     * @returns The shared note data, or null if not found / offline
+     * @throws if the note exists but is not publicly shared (401/403)
      */
     async getPublicNote(identity: string, noteId: string): Promise<SharedNoteData | null> {
-        console.log(`[ShareProvider] Fetching public note: ${identity}/${noteId}`);
+        const client = new DotYouClient({ hostIdentity: identity, api: ApiType.Guest });
 
+        let header: HomebaseFile<NoteFileContent> | null;
         try {
-            // Create a client for the target identity
-            const client = new DotYouClient({
-                hostIdentity: identity,
-                api: ApiType.Guest,
-            });
-
-            // 1. Try to fetch header directly (Cloud)
-            const header: HomebaseFile<unknown> | null = await getFileHeaderByUniqueId(
+            header = await getFileHeaderByUniqueId<NoteFileContent>(
                 client,
                 JOURNAL_DRIVE,
                 noteId,
-            );
-
-            if (!header) {
-                console.warn('[ShareProvider] Note not found via direct fetch');
-                return null;
-            }
-
-            // 3. Get content (metadata like title)
-            // getContentFromHeaderOrPayload handles parsing the appData.content
-            const content = await getContentFromHeaderOrPayload<NoteFileContent>(
-                client,
-                JOURNAL_DRIVE,
-                header as unknown as HomebaseFile<string>, // Cast to string as appData.content is string
-                false // Don't decrypt
-            );
-
-            // 4. Get Yjs payload
-            const yjsBlob = await getPayloadBytes(
-                client,
-                JOURNAL_DRIVE,
-                header.fileId,
-                PAYLOAD_KEY_CONTENT,
                 { decrypt: false }
             );
-
-            if (!yjsBlob?.bytes) {
-                console.warn('[ShareProvider] Payload not found');
-                // Even if payload missing, we might return just title?
-                // But for now let's return null or empty content
+        } catch (err) {
+            // The SDK returns null for a 404; a 401/403 means the note exists but
+            // isn't publicly shared.
+            const status = (err as { response?: { status?: number } })?.response?.status;
+            if (status === 401 || status === 403) {
+                // Tagged so the query hook can skip retrying a definitive result.
+                const forbidden = new Error('This note is not shared publicly.') as Error & {
+                    isForbidden?: boolean;
+                };
+                forbidden.isForbidden = true;
+                throw forbidden;
             }
-
-            // 6. Extract markdown
-            const markdown = await extractMarkdownFromYjs(
-                noteId, // Pass ID but we are providing blob so it won't use local DB
-                yjsBlob?.bytes
-            );
-
-            return {
-                title: content?.title || 'Untitled',
-                content: markdown,
-                createdAt: new Date(header.fileMetadata.appData.userDate || Date.now()).toISOString(),
-                updatedAt: new Date(header.fileMetadata.transitUpdated || Date.now()).toISOString(),
-            };
-
-        } catch (error) {
-            console.error('[ShareProvider] Error fetching public note:', error);
-            // Return null to trigger 404 state
+            console.error('[ShareProvider] Failed to fetch shared note header:', err);
             return null;
         }
+
+        if (!header?.fileId) return null;
+
+        // Title and other metadata live in appData.content (plaintext for public notes).
+        const content = await getContentFromHeaderOrPayload<NoteFileContent>(
+            client,
+            JOURNAL_DRIVE,
+            header as unknown as HomebaseFile<string>,
+            false // don't decrypt
+        );
+        const title = content?.title || 'Untitled';
+
+        // A missing payload is not fatal — render the titled note with an empty body.
+        let markdown = '';
+        try {
+            const yjs = await getPayloadBytes(client, JOURNAL_DRIVE, header.fileId, PAYLOAD_KEY_CONTENT, {
+                decrypt: false,
+            });
+            if (yjs?.bytes && yjs.bytes.length > 0) {
+                markdown = await extractMarkdownFromYjs(noteId, yjs.bytes);
+            }
+        } catch (err) {
+            console.warn('[ShareProvider] Failed to fetch shared note payload:', err);
+        }
+
+        return {
+            title,
+            content: markdown,
+            createdAt: new Date(header.fileMetadata.appData.userDate || Date.now()).toISOString(),
+            updatedAt: new Date(header.fileMetadata.transitUpdated || Date.now()).toISOString(),
+        };
     }
 
     /**
      * Check if a note is publicly shared.
      */
     async isNotePublic(identity: string, noteId: string): Promise<boolean> {
-        // Just try to fetch it
-        const note = await this.getPublicNote(identity, noteId);
-        return !!note;
+        try {
+            return !!(await this.getPublicNote(identity, noteId));
+        } catch {
+            return false;
+        }
     }
 }
 

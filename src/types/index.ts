@@ -8,6 +8,7 @@ export interface DocumentMetadata {
     };
     excludeFromAI: boolean;
     isPinned?: boolean;
+    isPublic?: boolean;      // Shared via public link (ACL = Anonymous)
     // Collaboration fields
     isCollaborative?: boolean;
     circleIds?: string[];    // Circles granted access (multiple)
@@ -78,6 +79,7 @@ export interface NoteFileContent {
     tags: string[];
     excludeFromAI: boolean;
     isPinned?: boolean;
+    isPublic?: boolean;      // Shared via public link (ACL = Anonymous)
     // Collaboration fields
     isCollaborative?: boolean;
     circleIds?: string[];

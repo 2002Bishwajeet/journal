@@ -24,7 +24,9 @@ export function usePublicNote(identity: string | undefined, noteId: string | und
             return data;
         },
         enabled: !!identity && !!noteId,
-        retry: 1, // Don't retry too much for 404s
+        // Don't retry a definitive "not shared publicly" (403); allow one retry otherwise.
+        retry: (failureCount, error) =>
+            !(error as { isForbidden?: boolean })?.isForbidden && failureCount < 1,
         staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     });
 }

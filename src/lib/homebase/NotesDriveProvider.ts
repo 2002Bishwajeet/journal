@@ -25,7 +25,7 @@ import {
     getFileHeaderOverPeerByUniqueId,
     getPayloadBytesOverPeer,
 } from '@homebase-id/js-lib/peer';
-import { getRandom16ByteArray, toGuidId } from '@homebase-id/js-lib/helpers';
+import { getRandom16ByteArray, toGuidId, tryJsonParse } from '@homebase-id/js-lib/helpers';
 import { createThumbnails } from '@homebase-id/js-lib/media';
 import {
     JOURNAL_DRIVE,
@@ -236,6 +236,7 @@ export class NotesDriveProvider {
             tags: metadata?.tags || [],
             excludeFromAI: metadata.excludeFromAI,
             isPinned: metadata.isPinned,
+            isPublic: metadata.isPublic,
         };
         const payloads: PayloadFile[] = [];
         const thumbnails: ThumbnailFile[] = [];
@@ -363,6 +364,7 @@ export class NotesDriveProvider {
             tags: metadata?.tags || [],
             excludeFromAI: metadata.excludeFromAI,
             isPinned: metadata.isPinned,
+            isPublic: metadata.isPublic,
             isCollaborative: metadata.isCollaborative,
             circleIds: metadata.circleIds,
             recipients: metadata.recipients,
@@ -548,22 +550,28 @@ export class NotesDriveProvider {
      * @returns The new version tag after update
      */
     async makeNotePublic(uniqueId: string): Promise<{ versionTag: string }> {
-        // Fetch existing file header
+        // Fetch existing file header, decrypted, so we can re-store the note's
+        // metadata (title, tags, dates) as plaintext that anonymous readers can read.
         const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
             this.#dotYouClient,
             JOURNAL_DRIVE,
             uniqueId,
-            { decrypt: false }
+            { decrypt: true }
         );
 
         if (!existingHeader) {
             throw new Error(`Note with uniqueId ${uniqueId} not found`);
         }
 
-
+        const existingAppData = existingHeader.fileMetadata.appData;
         const versionTag = existingHeader.fileMetadata.versionTag;
+        const existingContent: NoteFileContent =
+            (typeof existingAppData.content === 'string'
+                ? tryJsonParse<NoteFileContent>(existingAppData.content)
+                : existingAppData.content) ?? ({} as NoteFileContent);
+        const content = JSON.stringify({ ...existingContent, isPublic: true });
 
-        // Update metadata with Anonymous access control
+        // Update metadata with Anonymous access control, preserving note content.
         const uploadMetadata: UploadFileMetadata = {
             versionTag,
             allowDistribution: true, // Allow distribution for public access
@@ -571,6 +579,10 @@ export class NotesDriveProvider {
                 fileType: JOURNAL_FILE_TYPE,
                 dataType: JOURNAL_DATA_TYPE,
                 uniqueId,
+                groupId: existingAppData.groupId,
+                userDate: existingAppData.userDate,
+                tags: existingAppData.tags,
+                content,
             },
             isEncrypted: false, // Public notes should not be encrypted
             accessControlList: {
@@ -599,25 +611,39 @@ export class NotesDriveProvider {
      * @returns The new version tag after update
      */
     async makeNotePrivate(uniqueId: string): Promise<{ versionTag: string }> {
-        // Fetch existing file header
+        // Fetch existing file header, decrypted, so the note's metadata survives
+        // the round-trip back to an encrypted, owner-only file.
         const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
             this.#dotYouClient,
             JOURNAL_DRIVE,
             uniqueId,
-            { decrypt: false }
+            { decrypt: true }
         );
 
         if (!existingHeader) {
             throw new Error(`Note with uniqueId ${uniqueId} not found`);
         }
 
-        // Update metadata with Owner access control
+        const existingAppData = existingHeader.fileMetadata.appData;
+        const versionTag = existingHeader.fileMetadata.versionTag;
+        const existingContent: NoteFileContent =
+            (typeof existingAppData.content === 'string'
+                ? tryJsonParse<NoteFileContent>(existingAppData.content)
+                : existingAppData.content) ?? ({} as NoteFileContent);
+        const content = JSON.stringify({ ...existingContent, isPublic: false });
+
+        // Update metadata with Owner access control, preserving note content.
         const uploadMetadata: UploadFileMetadata = {
+            versionTag,
             allowDistribution: false,
             appData: {
                 fileType: JOURNAL_FILE_TYPE,
                 dataType: JOURNAL_DATA_TYPE,
                 uniqueId,
+                groupId: existingAppData.groupId,
+                userDate: existingAppData.userDate,
+                tags: existingAppData.tags,
+                content,
             },
             isEncrypted: true, // Private notes should be encrypted
             accessControlList: {
