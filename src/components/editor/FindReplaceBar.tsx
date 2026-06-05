@@ -14,6 +14,7 @@ export function FindReplaceBar() {
   const [matchInfo, setMatchInfo] = useState({ total: 0, current: -1 });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const wasOpenRef = useRef(false);
 
   useEffect(() => {
     if (!editor) return;
@@ -46,12 +47,22 @@ export function FindReplaceBar() {
 
   useEffect(() => {
     if (isOpen) {
+      wasOpenRef.current = true;
       requestAnimationFrame(() => {
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
       });
+    } else if (wasOpenRef.current) {
+      // Bar transitioned open -> closed. handleClose() already refocuses the
+      // editor, but an *external* close (e.g. a global Cmd+F toggle calling
+      // closeSearch()) doesn't — and `inert` then blurs the focused control to
+      // <body>. Return focus to the editor so keyboard users aren't stranded.
+      wasOpenRef.current = false;
+      if (!document.activeElement || document.activeElement === document.body) {
+        editor?.commands.focus();
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, editor]);
 
   useEffect(() => {
     if (!editor || !isOpen) return;

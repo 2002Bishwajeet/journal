@@ -51,6 +51,7 @@ export default function TabBar({
             {/* Tab activation button — the full clickable tab title area */}
             <button
               aria-label={tabTitle}
+              aria-current={isActive ? "true" : undefined}
               onClick={() => onTabClick(tab.docId)}
               className={cn(
                 "flex items-center gap-1.5 px-3 h-full min-w-0 cursor-pointer",
