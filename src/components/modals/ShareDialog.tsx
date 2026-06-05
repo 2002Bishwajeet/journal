@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/auth';
 import { useDotYouClientContext } from '@/components/auth';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
-import { extractMarkdownFromYjs } from '@/lib/utils';
+import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
 import { SecurityGroupType } from '@homebase-id/js-lib/core';
 import { toast } from 'sonner';
 

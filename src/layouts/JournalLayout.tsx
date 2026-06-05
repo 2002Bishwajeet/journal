@@ -20,19 +20,19 @@ import {
   useKeyboardShortcuts,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, useMemo, Activity } from "react";
 import { ChevronLeft, Minimize2, Maximize2 } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
 import {
   CreateFolderModal,
   SearchModal,
-  SettingsModal,
   ConfirmDialog,
   KeyboardShortcutsModal,
   ExtendPermissionDialog,
 } from "@/components/modals";
 
+const SettingsModal = lazy(() => import("@/components/modals/SettingsModal"));
 const ShareDialog = lazy(() => import("@/components/modals/ShareDialog"));
 const MarkCollaborativeDialog = lazy(() =>
   import("@/components/modals/MarkCollaborativeDialog").then((m) => ({
@@ -295,6 +295,12 @@ export default function JournalLayout() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Skip to content
+      </a>
       {/* Sidebar */}
       <div
         className={cn(
@@ -447,8 +453,12 @@ export default function JournalLayout() {
 
       {/* Main Content (Editor) */}
       <main
+        id="main-content"
+        tabIndex={-1}
         className={cn(
           "flex-1 flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
+          // Visible focus indicator when reached via the skip-link (WCAG 2.4.7)
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
           // Desktop: Always visible (Outlet renders Editor or Empty)
           isDesktop ? "flex" : "hidden",
           // Mobile: Visible only when note is selected
@@ -491,35 +501,23 @@ export default function JournalLayout() {
           {isDesktop ? (
             /* Desktop DOM Keep-Alive implementation */
             openTabs.map((tab) => (
-              <div
+              <Activity
                 key={tab.docId}
-                className={cn(
-                  "absolute inset-0 w-full h-full",
-                  tab.docId === activeTabId
-                    ? "z-10 bg-background"
-                    : "z-0 opacity-0 pointer-events-none",
-                )}
+                mode={tab.docId === activeTabId ? "visible" : "hidden"}
               >
-                {/* 
-                  We render EditorPage directly instead of through Outlet.
-                  Since EditorPage uses useParams() internally, but we aren't at the exact URL
-                  for background tabs, we need to pass the docId explicitly if we refactor EditorPage,
-                  OR since the router URL *is* changing, EditorPage will pick up the new URL 
-                  but we need to isolate the params.
-                  
-                  Actually, EditorPage relies heavily on `useParams().noteId`. 
-                  Since React Router's URL is shared by all rendered components, 
-                  all 10 EditorPages would read the *same* `noteId` from the URL, which is broken.
-
-                  Therefore, we must import and render `EditorPage` but we'll need to modify it
-                  to accept props instead of reading from `useParams`.
-                */}
-                <EditorPage
-                  overrideNoteId={tab.docId}
-                  overrideFolderId={folderId}
-                  focusMode={focusMode}
-                />
-              </div>
+                <div
+                  className={cn(
+                    "absolute inset-0 w-full h-full",
+                    tab.docId === activeTabId && "z-10 bg-background",
+                  )}
+                >
+                  <EditorPage
+                    overrideNoteId={tab.docId}
+                    overrideFolderId={folderId}
+                    focusMode={focusMode}
+                  />
+                </div>
+              </Activity>
             ))
           ) : (
             /* Mobile keeps the simple Router Outlet behavior */
@@ -574,10 +572,12 @@ export default function JournalLayout() {
         }}
       />
 
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-      />
+      <Suspense fallback={null}>
+        <SettingsModal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      </Suspense>
 
       {shareNote && (
         <Suspense fallback={null}>
@@ -594,7 +594,12 @@ export default function JournalLayout() {
         <Suspense fallback={null}>
           <MarkCollaborativeDialog
             isOpen={!!collaborativeNote}
-            onClose={() => setCollaborativeNote(null)}
+            onClose={() => {
+              setCollaborativeNote(null);
+              requestAnimationFrame(() => {
+                (document.getElementById("main-content") as HTMLElement | null)?.focus();
+              });
+            }}
             noteId={collaborativeNote.docId}
             noteTitle={collaborativeNote.title || "Untitled"}
             onSuccess={() => {
@@ -608,7 +613,7 @@ export default function JournalLayout() {
         isOpen={!!revokeNote}
         onClose={() => setRevokeNote(null)}
         title="Revoke Collaboration"
-        description={`This will remove circle access to "${revokeNote?.title || "Untitled"}" and make it private again.`}
+        description={`This will remove circle access to "${revokeNote?.title || "Untitled"}" and move it out of the shared folder — it will no longer be accessible to collaborators.`}
         confirmText="Revoke"
         variant="destructive"
         onConfirm={async () => {

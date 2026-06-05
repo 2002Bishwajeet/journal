@@ -14,8 +14,9 @@ export function formatDate(date: Date | string): string {
     });
 }
 
-export function formatRelativeTime(date: Date | string): string {
+export function formatRelativeTime(date: Date | string): string | null {
     const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return null;
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffMins = Math.floor(diffMs / 60000);

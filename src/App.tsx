@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
@@ -46,8 +47,9 @@ const persister = createAsyncStoragePersister({
 
 function App() {
   return (
-    <PersistQueryClientProvider 
-      client={queryClient} 
+    <MotionConfig reducedMotion="user">
+    <PersistQueryClientProvider
+      client={queryClient}
       persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
     >
       <ErrorBoundary>
@@ -97,6 +99,7 @@ function App() {
         <UpdatePrompt />
       </ErrorBoundary>
     </PersistQueryClientProvider>
+    </MotionConfig>
   );
 }
 

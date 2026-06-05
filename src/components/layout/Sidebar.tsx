@@ -82,6 +82,7 @@ export default function Sidebar({
   return (
     <TooltipProvider delayDuration={0}>
       <aside
+        aria-label="Sidebar"
         className={cn(
           "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 overflow-hidden pt-[env(safe-area-inset-top)]",
           isCollapsed ? "w-14 items-center" : "w-full md:w-60", // Centered items when collapsed
@@ -110,6 +111,7 @@ export default function Sidebar({
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 className={cn("h-7 w-7", isCollapsed ? "flex" : "md:flex")}
                 onClick={() => setIsCollapsed(!isCollapsed)}
               >
@@ -199,6 +201,7 @@ export default function Sidebar({
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="New folder"
                     className="h-6 w-6 shrink-0"
                     onClick={onCreateFolder}
                   >
@@ -209,7 +212,7 @@ export default function Sidebar({
               </Tooltip>
             </div>
 
-            <nav className="space-y-0.5">
+            <nav aria-label="Folders" className="space-y-0.5">
               {folders.map((folder) => {
                 const isSelected = selectedFolderId === folder.id;
                 return (
@@ -277,7 +280,7 @@ export default function Sidebar({
                     Tags
                   </span>
                 </div>
-                <nav className="space-y-0.5">
+                <nav aria-label="Tags" className="space-y-0.5">
                   {tags.map(tag => (
                     <Button
                       key={tag}

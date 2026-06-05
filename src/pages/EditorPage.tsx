@@ -48,6 +48,16 @@ function EditorLayout({
   const selectedNote = notes.find((n) => n.docId === noteId);
   const selectedNoteMetadata = selectedNote?.metadata;
 
+  const isCollaborative = !!selectedNoteMetadata?.isCollaborative;
+  const collaborativePopover = isCollaborative ? (
+    <CollaborativePopover
+      circleIds={selectedNoteMetadata!.circleIds}
+      recipients={selectedNoteMetadata!.recipients}
+      lastEditedBy={selectedNoteMetadata!.lastEditedBy}
+      lastEditedAt={selectedNoteMetadata!.timestamps?.modified}
+    />
+  ) : null;
+
   if (!selectedNoteMetadata && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -80,13 +90,7 @@ function EditorLayout({
         <span className="text-sm font-medium truncate flex-1 mx-2">
           {selectedNoteMetadata?.title || "Untitled"}
         </span>
-        {selectedNoteMetadata?.isCollaborative && (
-          <CollaborativePopover
-            circleIds={selectedNoteMetadata.circleIds}
-            recipients={selectedNoteMetadata.recipients}
-            lastEditedBy={selectedNoteMetadata.lastEditedBy}
-          />
-        )}
+        {collaborativePopover}
         <SyncStatus />
       </div>
 
@@ -100,14 +104,8 @@ function EditorLayout({
       >
         {editor && <EditorToolbar editor={editor} />}
         {editor && <AIMenu editor={editor} />}
-        {selectedNoteMetadata?.isCollaborative && (
-          <div className="ml-auto px-3">
-            <CollaborativePopover
-              circleIds={selectedNoteMetadata.circleIds}
-              recipients={selectedNoteMetadata.recipients}
-              lastEditedBy={selectedNoteMetadata.lastEditedBy}
-            />
-          </div>
+        {collaborativePopover && (
+          <div className="ml-auto px-3">{collaborativePopover}</div>
         )}
       </div>
 
