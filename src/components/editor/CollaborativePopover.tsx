@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Users, ChevronDown, Loader2 } from 'lucide-react';
 import {
     Popover,
@@ -22,7 +21,6 @@ export function CollaborativePopover({
     lastEditedBy,
     lastEditedAt,
 }: CollaborativePopoverProps) {
-    const [open, setOpen] = useState(false);
     const { fetch: circlesFetch } = useCircles(true);
     const circles = circlesFetch.data || [];
     const isLoading = circlesFetch.isLoading;
@@ -35,11 +33,10 @@ export function CollaborativePopover({
     const formattedTime = lastEditedAt ? formatRelativeTime(lastEditedAt) : null;
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover>
             <PopoverTrigger asChild>
                 <button
                     aria-label="Show who can access this note"
-                    aria-expanded={open}
                     className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-collaborative/10 text-collaborative text-xs hover:bg-collaborative/20 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                     <Users className="h-3 w-3" />
