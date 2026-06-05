@@ -5,6 +5,7 @@ import {
   Trash2,
   Share2,
   Users,
+  Globe,
   Pin,
   PinOff,
   ChevronDown,
@@ -90,7 +91,13 @@ export default function NoteList({
   const groupedNotes = useMemo(() => {
     const groups: { label: string; notes: NoteListEntry[] }[] = [];
 
-    const pinnedNotes = notes.filter((n) => n.metadata.isPinned);
+    // Partition into pinned / unpinned in a single pass.
+    const pinnedNotes: NoteListEntry[] = [];
+    const unpinned: NoteListEntry[] = [];
+    for (const n of notes) {
+      (n.metadata.isPinned ? pinnedNotes : unpinned).push(n);
+    }
+
     if (pinnedNotes.length > 0) {
       const sortedPinned = pinnedNotes.toSorted(
         (a: NoteListEntry, b: NoteListEntry) =>
@@ -100,8 +107,7 @@ export default function NoteList({
       groups.push({ label: "Pinned", notes: sortedPinned });
     }
 
-    const unpinnedNotes = notes
-      .filter((n) => !n.metadata.isPinned)
+    const unpinnedNotes = unpinned
       .toSorted((a: NoteListEntry, b: NoteListEntry) => {
         switch (sortBy) {
           case "created":
@@ -460,6 +466,9 @@ const NoteItem = memo(function NoteItem({
               </span>
               {note.metadata.isPinned && (
                 <Pin className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+              )}
+              {note.metadata.isPublic && (
+                <Globe className="h-3 w-3 text-muted-foreground/70 shrink-0" />
               )}
               {note.metadata.isCollaborative && (
                 <Users className="h-3 w-3 text-collaborative/70 shrink-0" />

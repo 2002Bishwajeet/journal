@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Copy, Download, ExternalLink, AlertTriangle, Check, Loader2, Globe } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Copy, Download, ExternalLink, AlertTriangle, Check, Loader2, Globe, Lock } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -13,8 +13,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/auth';
 import { useDotYouClientContext } from '@/components/auth';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
+import { useNotes } from '@/hooks/useNotes';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
-import { SecurityGroupType } from '@homebase-id/js-lib/core';
 import { toast } from 'sonner';
 
 interface ShareDialogProps {
@@ -31,38 +31,31 @@ export default function ShareDialog({
 }: ShareDialogProps) {
     const { getIdentity } = useAuth();
     const dotYouClient = useDotYouClientContext();
+    const { get, setNotePublic } = useNotes();
+    const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     const [copied, setCopied] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
-    const [isPublic, setIsPublic] = useState(false);
     const [isMakingPublic, setIsMakingPublic] = useState(false);
+    const [isMakingPrivate, setIsMakingPrivate] = useState(false);
+
+    // Derived from the cached note metadata (kept current by make-public/private),
+    // so the dialog matches the list badge without an extra network fetch.
+    const isPublic = !!get.data?.find((n) => n.docId === noteId)?.metadata.isPublic;
 
     const identity = getIdentity() || 'unknown';
     const shareUrl = `${window.location.origin}/share/${encodeURIComponent(identity)}/${noteId}`;
 
     const handleOpenChange = useCallback((open: boolean) => {
         if (!open) {
-            setIsPublic(false);
             setCopied(false);
             onClose();
         }
     }, [onClose]);
 
-    useEffect(() => {
-        if (!isOpen || !dotYouClient) return;
-
-        let cancelled = false;
-        const provider = new NotesDriveProvider(dotYouClient);
-        provider.getNote(noteId).then(note => {
-            if (!cancelled && note?.serverMetadata?.accessControlList?.requiredSecurityGroup === SecurityGroupType.Anonymous) {
-                setIsPublic(true);
-            }
-        }).catch(err => {
-            console.error('Failed to check public status:', err);
-        });
-
-        return () => { cancelled = true; };
-    }, [isOpen, dotYouClient, noteId]);
+    useEffect(() => () => {
+        if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    }, []);
 
     const handleMakePublic = useCallback(async () => {
         if (!dotYouClient) {
@@ -74,7 +67,7 @@ export default function ShareDialog({
         try {
             const provider = new NotesDriveProvider(dotYouClient);
             await provider.makeNotePublic(noteId);
-            setIsPublic(true);
+            setNotePublic.mutate({ docId: noteId, isPublic: true });
             toast.success('Note is now publicly accessible');
         } catch (err) {
             console.error('Failed to make note public:', err);
@@ -82,13 +75,34 @@ export default function ShareDialog({
         } finally {
             setIsMakingPublic(false);
         }
-    }, [dotYouClient, noteId]);
+    }, [dotYouClient, noteId, setNotePublic]);
+
+    const handleMakePrivate = useCallback(async () => {
+        if (!dotYouClient) {
+            toast.error('Not authenticated');
+            return;
+        }
+
+        setIsMakingPrivate(true);
+        try {
+            const provider = new NotesDriveProvider(dotYouClient);
+            await provider.makeNotePrivate(noteId);
+            setCopied(false);
+            setNotePublic.mutate({ docId: noteId, isPublic: false });
+            toast.success('Sharing stopped — this note is private again');
+        } catch (err) {
+            console.error('Failed to make note private:', err);
+            toast.error('Failed to stop sharing');
+        } finally {
+            setIsMakingPrivate(false);
+        }
+    }, [dotYouClient, noteId, setNotePublic]);
 
     const handleCopyLink = async () => {
         try {
             await navigator.clipboard.writeText(shareUrl);
             setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
         } catch (err) {
             console.error('Failed to copy link:', err);
         }
@@ -208,6 +222,25 @@ export default function ShareDialog({
                                 >
                                     <ExternalLink className="mr-2 h-4 w-4" />
                                     Open in New Tab
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    className="w-full justify-start text-destructive hover:text-destructive"
+                                    onClick={handleMakePrivate}
+                                    disabled={isMakingPrivate}
+                                >
+                                    {isMakingPrivate ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Stopping…
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Lock className="mr-2 h-4 w-4" />
+                                            Stop sharing (make private)
+                                        </>
+                                    )}
                                 </Button>
                             </>
                         )}

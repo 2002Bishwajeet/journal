@@ -195,6 +195,43 @@ export function useNotes() {
         },
     });
 
+    // Reflect public-share status locally for the list badge. The flag is already
+    // persisted remotely by makeNotePublic/makeNotePrivate, so this is a LOCAL-only
+    // update — we intentionally do NOT mark the note 'pending' (a normal sync push
+    // could disturb the Anonymous ACL).
+    const setNotePublicMutation = useMutation<void, Error, { docId: string; isPublic: boolean }, NoteMutationContext>({
+        mutationFn: async ({ docId, isPublic }) => {
+            const notes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
+            const currentNote = notes?.find((n) => n.docId === docId);
+            if (!currentNote) return;
+
+            const updatedMetadata = { ...currentNote.metadata, isPublic };
+            await updateSearchIndexMetadata(docId, currentNote.title, updatedMetadata);
+        },
+        onMutate: async ({ docId, isPublic }) => {
+            await queryClient.cancelQueries({ queryKey: notesQueryKey });
+            const previousNotes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
+
+            queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) =>
+                old?.map((n) =>
+                    n.docId === docId
+                        ? { ...n, metadata: { ...n.metadata, isPublic } }
+                        : n
+                ) || []
+            );
+
+            return { previousNotes };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previousNotes) {
+                queryClient.setQueryData(notesQueryKey, context.previousNotes);
+            }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: notesQueryKey });
+        },
+    });
+
     const createNoteWithContentMutation = useMutation<CreateNoteResult, Error, { title: string; content: string; folderId: string }, NoteMutationContext>({
         mutationFn: async ({ title, content, folderId }) => {
             const docId = formatGuidId(getNewId());
@@ -259,6 +296,7 @@ export function useNotes() {
         deleteNote: deleteNoteMutation,
         updateNote: updateMetadataMutation,
         togglePin: togglePinMutation,
+        setNotePublic: setNotePublicMutation,
     };
 }
 

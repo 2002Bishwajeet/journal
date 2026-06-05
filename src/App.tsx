@@ -1,18 +1,21 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { MotionConfig } from "framer-motion";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { get, set, del } from "idb-keyval";
-import {
-  EditorPage,
-  LandingPage,
-  AuthFinalizePage,
-  EmptyEditorPage,
-  SharePage,
-  ShareTargetPage,
-  ChatBotPage,
-} from "@/pages";
+// Core editing path stays eager (imported from individual files to avoid the
+// pages barrel, which would pull every page into the main bundle).
+import EditorPage from "@/pages/EditorPage";
+import EmptyEditorPage from "@/pages/EmptyEditorPage";
+// Non-core / public routes are code-split. SharePage in particular keeps
+// react-markdown out of the authenticated app's main bundle.
+const SharePage = lazy(() => import("@/pages/SharePage"));
+const LandingPage = lazy(() => import("@/pages/Landing"));
+const AuthFinalizePage = lazy(() => import("@/pages/AuthFinalizePage"));
+const ShareTargetPage = lazy(() => import("@/pages/ShareTargetPage"));
+const ChatBotPage = lazy(() => import("@/pages/ChatBotPage"));
 import JournalLayout from "@/layouts/JournalLayout";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -56,6 +59,7 @@ function App() {
         <BrowserRouter>
           <OnlineProvider>
             <DotYouClientProvider>
+              <Suspense fallback={<div className="min-h-screen bg-background" />}>
               <Routes>
                 {/* Protected route */}
                 <Route
@@ -91,6 +95,7 @@ function App() {
                 <Route path="/share/:identity/:noteId" element={<SharePage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
+              </Suspense>
             </DotYouClientProvider>
           </OnlineProvider>
         </BrowserRouter>
