@@ -594,7 +594,12 @@ export default function JournalLayout() {
         <Suspense fallback={null}>
           <MarkCollaborativeDialog
             isOpen={!!collaborativeNote}
-            onClose={() => setCollaborativeNote(null)}
+            onClose={() => {
+              setCollaborativeNote(null);
+              requestAnimationFrame(() => {
+                (document.getElementById("main-content") as HTMLElement | null)?.focus();
+              });
+            }}
             noteId={collaborativeNote.docId}
             noteTitle={collaborativeNote.title || "Untitled"}
             onSuccess={() => {
