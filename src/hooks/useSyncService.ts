@@ -23,6 +23,8 @@ export interface SyncContextType {
     syncFolder: (folderId: string) => Promise<void>;
     /** Delete a note from remote (call before deleting local) */
     deleteNoteRemote: (docId: string) => Promise<void>;
+    /** Soft-delete or restore a note remotely via archivalStatus (0 active, 2 trashed). Throws on failure. */
+    setNoteArchivalStatusRemote: (docId: string, status: number) => Promise<void>;
     /** Delete a folder from remote (call before deleting local) */
     deleteFolderRemote: (folderId: string) => Promise<void>;
     /** The underlying sync service instance */

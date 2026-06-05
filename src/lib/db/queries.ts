@@ -143,6 +143,33 @@ export async function getNotesForList(): Promise<NoteListEntry[]> {
                 LEFT(plain_text_content, 150) as preview,
                 metadata
          FROM search_index
+         WHERE COALESCE((metadata->>'archivalStatus')::int, 0) <> 2
+         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
+    );
+    return result.rows.map(row => ({
+        docId: row.doc_id,
+        title: row.title,
+        preview: row.preview || '',
+        metadata: row.metadata,
+    }));
+}
+
+/**
+ * Lightweight query for the Trash view — notes with archivalStatus 2 (Removed).
+ */
+export async function getTrashedNotes(): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        doc_id: string;
+        title: string;
+        preview: string;
+        metadata: DocumentMetadata;
+    }>(
+        `SELECT doc_id, title,
+                LEFT(plain_text_content, 150) as preview,
+                metadata
+         FROM search_index
+         WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 2
          ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
     );
     return result.rows.map(row => ({
@@ -163,6 +190,7 @@ export async function getDocumentsByFolder(folderId: string): Promise<SearchInde
     }>(
         `SELECT doc_id, title, plain_text_content, metadata FROM search_index 
      WHERE metadata->>'folderId' = $1
+       AND COALESCE((metadata->>'archivalStatus')::int, 0) <> 2
      ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`,
         [folderId]
     );
@@ -193,6 +221,7 @@ export async function getNotesForListByFolder(folderId: string): Promise<NoteLis
                 metadata
          FROM search_index
          WHERE metadata->>'folderId' = $1
+           AND COALESCE((metadata->>'archivalStatus')::int, 0) <> 2
          ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`,
         [folderId]
     );
@@ -217,6 +246,7 @@ export async function getCollaborativeNotesForList(): Promise<NoteListEntry[]> {
                 metadata
          FROM search_index
          WHERE (metadata->>'isCollaborative')::boolean = true
+           AND COALESCE((metadata->>'archivalStatus')::int, 0) <> 2
          ORDER BY
             (metadata->>'isPinned')::boolean DESC NULLS LAST,
             (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
@@ -232,6 +262,21 @@ export async function getCollaborativeNotesForList(): Promise<NoteListEntry[]> {
 export async function deleteSearchIndexEntry(docId: string): Promise<void> {
     const db = await getDatabase();
     await db.query('DELETE FROM search_index WHERE doc_id = $1', [docId]);
+}
+
+/**
+ * Update only the archivalStatus on a note's local metadata (0 active, 2 trashed),
+ * preserving every other metadata field.
+ */
+export async function setNoteArchivalStatusLocal(docId: string, status: number): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `UPDATE search_index
+         SET metadata = jsonb_set(metadata, '{archivalStatus}', to_jsonb($2::int)),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE doc_id = $1`,
+        [docId, status]
+    );
 }
 
 // Folders
@@ -1112,6 +1157,7 @@ export async function getNotesForListByTag(tag: string): Promise<NoteListEntry[]
                 metadata
          FROM search_index
          WHERE metadata->'tags' ? $1
+           AND COALESCE((metadata->>'archivalStatus')::int, 0) <> 2
          ORDER BY
             (metadata->>'isPinned')::boolean DESC NULLS LAST,
             updated_at DESC`,

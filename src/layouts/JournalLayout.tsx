@@ -51,8 +51,10 @@ import {
   useNotes,
   useNotesByFolder,
   useCollaborativeNotes,
+  useTrashedNotes,
   notesQueryKey,
 } from "@/hooks/useNotes";
+import { TrashView } from "@/components/layout/TrashView";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
 import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
@@ -88,6 +90,9 @@ export default function JournalLayout() {
     get: { data: notes = [], isLoading: isNotesLoading },
     createNote: { mutateAsync: createNote },
     deleteNote: { mutateAsync: deleteNote },
+    trashNote: { mutateAsync: trashNote },
+    restoreNote: { mutateAsync: restoreNote },
+    emptyTrash: { mutateAsync: emptyTrash },
     updateNote: { mutateAsync: updateNoteMetadata },
   } = useNotes();
 
@@ -226,6 +231,7 @@ export default function JournalLayout() {
     useNotesByFolder(folderId);
   const { data: collaborativeNotes = [], isLoading: isCollaborativeLoading } =
     useCollaborativeNotes();
+  const { data: trashedNotes = [], isLoading: isTrashLoading } = useTrashedNotes();
 
   const selectedTag = searchParams.get("tag");
   const { tags } = useTags();
@@ -333,6 +339,8 @@ export default function JournalLayout() {
           onDeleteFolder={(id) => deleteFolder(id)}
           collaborativeCount={collaborativeNotes.length}
           onSelectShared={() => navigate("/shared")}
+          onSelectTrash={() => navigate("/trash")}
+          trashCount={trashedNotes.length}
           onSearch={() => setShowSearch(true)}
           onSettings={() => setShowSettings(true)}
           onLogout={handleLogout}
@@ -381,11 +389,23 @@ export default function JournalLayout() {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <h2 className="text-sm font-medium truncate flex-1 leading-none">
-              {folders.find((f) => f.id === folderId)?.name || "Notes"}
+              {folderId === "trash"
+                ? "Trash"
+                : folders.find((f) => f.id === folderId)?.name || "Notes"}
             </h2>
             <SyncStatus />
           </div>
 
+          {folderId === "trash" ? (
+            <TrashView
+              notes={trashedNotes}
+              isLoading={isTrashLoading}
+              onRestore={(id) => { restoreNote(id).catch(() => {}); }}
+              onDeleteForever={(id) => { deleteNote(id).catch(() => {}); }}
+              onEmptyTrash={() => { emptyTrash().catch(() => {}); }}
+              className="flex-1"
+            />
+          ) : (
           <NoteList
             notes={notesToShow}
             selectedNoteId={noteId || null}
@@ -425,7 +445,7 @@ export default function JournalLayout() {
               // Also close the tab if it's open
               closeTab(id);
 
-              await deleteNote(id);
+              await trashNote(id);
 
               // If the deleted note is the one currently open, navigate to next note or folder
               if (noteId === id) {
@@ -449,6 +469,7 @@ export default function JournalLayout() {
             isLoading={isNotesToShowLoading}
             className="flex-1 w-full border-r-0"
           />
+          )}
         </div>
       </div>
 

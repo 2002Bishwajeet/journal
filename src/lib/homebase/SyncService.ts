@@ -684,6 +684,7 @@ export class SyncService {
                 excludeFromAI: content?.excludeFromAI,
                 isPinned: content?.isPinned,
                 isPublic: content?.isPublic,
+                archivalStatus: remoteFile.fileMetadata.appData.archivalStatus ?? 0,
                 isCollaborative: content?.isCollaborative,
                 circleIds: content?.circleIds,
                 recipients: content?.recipients,
@@ -749,6 +750,7 @@ export class SyncService {
                 excludeFromAI: content?.excludeFromAI,
                 isPinned: content?.isPinned,
                 isPublic: content?.isPublic,
+                archivalStatus: remoteFile.fileMetadata.appData.archivalStatus ?? 0,
                 isCollaborative: content?.isCollaborative,
                 circleIds: content?.circleIds,
                 recipients: content?.recipients,
@@ -1184,6 +1186,19 @@ export class SyncService {
                 // Don't throw - local delete should still proceed
             }
         }
+    }
+
+    /**
+     * Soft-delete / restore a note remotely by setting its Homebase archivalStatus
+     * (0 = active, 2 = trashed). Throws on failure so the caller can roll back —
+     * unlike a hard delete, a half-applied trash would resurface on the next pull.
+     */
+    async setNoteArchivalStatusRemote(docId: string, status: number): Promise<void> {
+        const record = await getSyncRecord(docId);
+        if (!record?.remoteFileId) return;
+        const { versionTag } = await this.#notesProvider.setNoteArchivalStatus(docId, status);
+        // Keep the cached versionTag fresh so later edits/deletes don't conflict.
+        await upsertSyncRecord({ ...record, versionTag });
     }
 
     /**

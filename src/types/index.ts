@@ -9,6 +9,7 @@ export interface DocumentMetadata {
     excludeFromAI: boolean;
     isPinned?: boolean;
     isPublic?: boolean;      // Shared via public link (ACL = Anonymous)
+    archivalStatus?: number; // Homebase ArchivalStatus: 0 active, 2 trashed (Removed)
     // Collaboration fields
     isCollaborative?: boolean;
     circleIds?: string[];    // Circles granted access (multiple)

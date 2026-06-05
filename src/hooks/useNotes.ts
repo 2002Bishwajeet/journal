@@ -11,6 +11,8 @@ import {
     deleteSyncRecord,
     updateSyncStatus,
     saveDocumentUpdate,
+    getTrashedNotes,
+    setNoteArchivalStatusLocal,
 } from '@/lib/db';
 import * as Y from 'yjs';
 import { getNewId } from '@/lib/utils';
@@ -20,6 +22,7 @@ import { useSyncService } from '@/hooks/useSyncService';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 
 export const notesQueryKey = ['notes'] as const;
+export const trashedNotesQueryKey = ['trashed-notes'] as const;
 
 interface CreateNoteResult {
     docId: string;
@@ -41,7 +44,7 @@ interface UpdateMetadataParams {
  */
 export function useNotes() {
     const queryClient = useQueryClient();
-    const { deleteNoteRemote } = useSyncService();
+    const { deleteNoteRemote, setNoteArchivalStatusRemote } = useSyncService();
 
     // --- Queries ---
 
@@ -96,6 +99,7 @@ export function useNotes() {
         },
     });
 
+    // Permanent delete (used from the Trash view and for emptying trash).
     const deleteNoteMutation = useMutation<void, Error, string, NoteMutationContext>({
         mutationFn: async (docId: string) => {
             // First delete from remote
@@ -115,6 +119,9 @@ export function useNotes() {
             queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) =>
                 old?.filter((n) => n.docId !== docId) || []
             );
+            queryClient.setQueryData<NoteListEntry[]>(trashedNotesQueryKey, (old) =>
+                old?.filter((n) => n.docId !== docId) || []
+            );
 
             return { previousNotes };
         },
@@ -125,6 +132,36 @@ export function useNotes() {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: notesQueryKey });
+            queryClient.invalidateQueries({ queryKey: trashedNotesQueryKey });
+        },
+    });
+
+    // Permanently delete every trashed note.
+    const emptyTrashMutation = useMutation<void, Error, void, { previousTrash: NoteListEntry[] | undefined }>({
+        mutationFn: async () => {
+            const trashed = await getTrashedNotes();
+            for (const note of trashed) {
+                await deleteNoteRemote(note.docId);
+                await Promise.all([
+                    deleteSearchIndexEntry(note.docId),
+                    deleteDocumentUpdates(note.docId),
+                    deleteSyncRecord(note.docId),
+                ]);
+            }
+        },
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: trashedNotesQueryKey });
+            const previousTrash = queryClient.getQueryData<NoteListEntry[]>(trashedNotesQueryKey);
+            queryClient.setQueryData<NoteListEntry[]>(trashedNotesQueryKey, []);
+            return { previousTrash };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previousTrash) {
+                queryClient.setQueryData(trashedNotesQueryKey, context.previousTrash);
+            }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: trashedNotesQueryKey });
         },
     });
 
@@ -289,6 +326,61 @@ export function useNotes() {
         },
     });
 
+    // Soft delete — move a note to Trash (Homebase archivalStatus 2).
+    const trashNoteMutation = useMutation<void, Error, string, NoteMutationContext>({
+        mutationFn: async (docId: string) => {
+            await setNoteArchivalStatusRemote(docId, 2);
+            await setNoteArchivalStatusLocal(docId, 2);
+        },
+        onMutate: async (docId) => {
+            await queryClient.cancelQueries({ queryKey: notesQueryKey });
+            const previousNotes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
+            queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) =>
+                old?.filter((n) => n.docId !== docId) || []
+            );
+            return { previousNotes };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previousNotes) {
+                queryClient.setQueryData(notesQueryKey, context.previousNotes);
+            }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: notesQueryKey });
+            queryClient.invalidateQueries({ queryKey: trashedNotesQueryKey });
+        },
+    });
+
+    // Restore a note from Trash (archivalStatus 0).
+    const restoreNoteMutation = useMutation<
+        void,
+        Error,
+        string,
+        { previousTrash: NoteListEntry[] | undefined }
+    >({
+        mutationFn: async (docId: string) => {
+            await setNoteArchivalStatusRemote(docId, 0);
+            await setNoteArchivalStatusLocal(docId, 0);
+        },
+        onMutate: async (docId) => {
+            await queryClient.cancelQueries({ queryKey: trashedNotesQueryKey });
+            const previousTrash = queryClient.getQueryData<NoteListEntry[]>(trashedNotesQueryKey);
+            queryClient.setQueryData<NoteListEntry[]>(trashedNotesQueryKey, (old) =>
+                old?.filter((n) => n.docId !== docId) || []
+            );
+            return { previousTrash };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previousTrash) {
+                queryClient.setQueryData(trashedNotesQueryKey, context.previousTrash);
+            }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: notesQueryKey });
+            queryClient.invalidateQueries({ queryKey: trashedNotesQueryKey });
+        },
+    });
+
     return {
         get: query,
         createNote: createNoteMutation,
@@ -297,7 +389,20 @@ export function useNotes() {
         updateNote: updateMetadataMutation,
         togglePin: togglePinMutation,
         setNotePublic: setNotePublicMutation,
+        trashNote: trashNoteMutation,
+        restoreNote: restoreNoteMutation,
+        emptyTrash: emptyTrashMutation,
     };
+}
+
+/**
+ * Query hook for the Trash view — notes with archivalStatus 2 (Removed).
+ */
+export function useTrashedNotes() {
+    return useQuery<NoteListEntry[]>({
+        queryKey: trashedNotesQueryKey,
+        queryFn: getTrashedNotes,
+    });
 }
 
 /**
