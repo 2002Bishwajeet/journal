@@ -2,6 +2,18 @@ import { MAIN_FOLDER_ID } from '../homebase';
 import { getDatabase } from './pglite';
 import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRecord, PendingImageUpload, SyncError, AdvancedSearchResult } from '@/types';
 
+// Notes with archivalStatus 2 (Homebase "Removed") live in the Trash — exclude them
+// from every active-note list. Single source of truth for the filter.
+const ACTIVE_NOTES_FILTER = `COALESCE((metadata->>'archivalStatus')::int, 0) <> 2`;
+
+type NoteListRow = { doc_id: string; title: string; preview: string; metadata: DocumentMetadata };
+const toNoteListEntry = (row: NoteListRow): NoteListEntry => ({
+    docId: row.doc_id,
+    title: row.title,
+    preview: row.preview || '',
+    metadata: row.metadata,
+});
+
 
 
 // Document Updates (Yjs blobs)
@@ -143,15 +155,10 @@ export async function getNotesForList(): Promise<NoteListEntry[]> {
                 LEFT(plain_text_content, 150) as preview,
                 metadata
          FROM search_index
-         WHERE COALESCE((metadata->>'archivalStatus')::int, 0) <> 2
+         WHERE ${ACTIVE_NOTES_FILTER}
          ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
     );
-    return result.rows.map(row => ({
-        docId: row.doc_id,
-        title: row.title,
-        preview: row.preview || '',
-        metadata: row.metadata,
-    }));
+    return result.rows.map(toNoteListEntry);
 }
 
 /**
@@ -172,12 +179,7 @@ export async function getTrashedNotes(): Promise<NoteListEntry[]> {
          WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 2
          ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
     );
-    return result.rows.map(row => ({
-        docId: row.doc_id,
-        title: row.title,
-        preview: row.preview || '',
-        metadata: row.metadata,
-    }));
+    return result.rows.map(toNoteListEntry);
 }
 
 export async function getDocumentsByFolder(folderId: string): Promise<SearchIndexEntry[]> {
@@ -190,7 +192,7 @@ export async function getDocumentsByFolder(folderId: string): Promise<SearchInde
     }>(
         `SELECT doc_id, title, plain_text_content, metadata FROM search_index 
      WHERE metadata->>'folderId' = $1
-       AND COALESCE((metadata->>'archivalStatus')::int, 0) <> 2
+       AND ${ACTIVE_NOTES_FILTER}
      ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`,
         [folderId]
     );
@@ -221,16 +223,11 @@ export async function getNotesForListByFolder(folderId: string): Promise<NoteLis
                 metadata
          FROM search_index
          WHERE metadata->>'folderId' = $1
-           AND COALESCE((metadata->>'archivalStatus')::int, 0) <> 2
+           AND ${ACTIVE_NOTES_FILTER}
          ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`,
         [folderId]
     );
-    return result.rows.map(row => ({
-        docId: row.doc_id,
-        title: row.title,
-        preview: row.preview || '',
-        metadata: row.metadata,
-    }));
+    return result.rows.map(toNoteListEntry);
 }
 
 export async function getCollaborativeNotesForList(): Promise<NoteListEntry[]> {
@@ -246,17 +243,12 @@ export async function getCollaborativeNotesForList(): Promise<NoteListEntry[]> {
                 metadata
          FROM search_index
          WHERE (metadata->>'isCollaborative')::boolean = true
-           AND COALESCE((metadata->>'archivalStatus')::int, 0) <> 2
+           AND ${ACTIVE_NOTES_FILTER}
          ORDER BY
             (metadata->>'isPinned')::boolean DESC NULLS LAST,
             (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
     );
-    return result.rows.map(row => ({
-        docId: row.doc_id,
-        title: row.title,
-        preview: row.preview || '',
-        metadata: row.metadata,
-    }));
+    return result.rows.map(toNoteListEntry);
 }
 
 export async function deleteSearchIndexEntry(docId: string): Promise<void> {
@@ -1157,16 +1149,11 @@ export async function getNotesForListByTag(tag: string): Promise<NoteListEntry[]
                 metadata
          FROM search_index
          WHERE metadata->'tags' ? $1
-           AND COALESCE((metadata->>'archivalStatus')::int, 0) <> 2
+           AND ${ACTIVE_NOTES_FILTER}
          ORDER BY
             (metadata->>'isPinned')::boolean DESC NULLS LAST,
             updated_at DESC`,
         [tag]
     );
-    return result.rows.map(row => ({
-        docId: row.doc_id,
-        title: row.title,
-        preview: row.preview || '',
-        metadata: row.metadata,
-    }));
+    return result.rows.map(toNoteListEntry);
 }

@@ -53,6 +53,7 @@ function TrashViewComponent({
               <li
                 key={note.docId}
                 className="flex items-start gap-2 px-3 py-3 border-b border-border/50"
+                style={{ contentVisibility: "auto", containIntrinsicSize: "auto 64px" }}
               >
                 <FileText className="h-4 w-4 mt-0.5 text-muted-foreground/60 shrink-0" />
                 <div className="min-w-0 flex-1">

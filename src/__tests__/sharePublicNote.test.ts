@@ -71,6 +71,25 @@ describe('ShareProvider.getPublicNote', () => {
         expect(client.getHostIdentity()).toBe(IDENTITY);
     });
 
+    it('returns null for a trashed note (archivalStatus 2), even though its ACL is still Anonymous', async () => {
+        mockGetHeader.mockResolvedValue({
+            fileId: 'file-xyz',
+            fileMetadata: {
+                transitUpdated: 1700000000000,
+                appData: {
+                    userDate: 1690000000000,
+                    archivalStatus: 2,
+                    content: JSON.stringify({ title: 'Trashed Public Note', tags: [] }),
+                },
+            },
+        });
+
+        const note = await shareProvider.getPublicNote(IDENTITY, NOTE_ID);
+
+        expect(note).toBeNull();
+        expect(mockGetPayload).not.toHaveBeenCalled();
+    });
+
     it('returns null when the note does not exist (header null / 404)', async () => {
         mockGetHeader.mockResolvedValue(null);
 
