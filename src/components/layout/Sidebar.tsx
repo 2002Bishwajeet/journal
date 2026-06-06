@@ -188,43 +188,6 @@ export default function Sidebar({
               </Tooltip>
             </div>
           )}
-          <div className="px-2 pt-1 pb-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={selectedFolderId === 'trash' ? "secondary" : "ghost"}
-                  className={cn(
-                    "w-full h-10 group relative transition-all duration-200 flex items-center",
-                    isCollapsed ? "justify-center px-0" : "justify-start px-2",
-                    selectedFolderId === 'trash' && "bg-accent text-accent-foreground font-medium hover:bg-accent"
-                  )}
-                  onClick={onSelectTrash}
-                >
-                  <Trash2
-                    className={cn(
-                      "h-4 w-4 shrink-0 text-muted-foreground",
-                      !isCollapsed && "mr-2"
-                    )}
-                  />
-                  {!isCollapsed && (
-                    <>
-                      <span className="text-sm truncate flex-1 text-left">Trash</span>
-                      {trashCount != null && trashCount > 0 && (
-                        <span className="ml-auto text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
-                          {trashCount}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </Button>
-              </TooltipTrigger>
-              {isCollapsed && (
-                <TooltipContent side="right">
-                  Trash{trashCount ? ` (${trashCount})` : ''}
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </div>
           <div className="px-2 py-2">
             <div
               className={cn(
@@ -378,6 +341,40 @@ export default function Sidebar({
           )}
         >
           {!isCollapsed && <Separator className="mb-2" />}
+
+          <Tooltip>
+            {/* Trash */}
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn(
+                  isCollapsed
+                    ? "h-9 w-9 justify-center px-0"
+                    : "w-full justify-start px-2 h-8 text-muted-foreground",
+                  selectedFolderId === 'trash' &&
+                    "bg-accent text-accent-foreground font-medium hover:bg-accent"
+                )}
+                onClick={onSelectTrash}
+              >
+                <Trash2 className="h-4 w-4" />
+                {!isCollapsed && (
+                  <>
+                    <span className="ml-2 text-sm flex-1 text-left">Trash</span>
+                    {trashCount != null && trashCount > 0 && (
+                      <span className="ml-auto text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
+                        {trashCount}
+                      </span>
+                    )}
+                  </>
+                )}
+              </Button>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent side="right">
+                Trash{trashCount ? ` (${trashCount})` : ''}
+              </TooltipContent>
+            )}
+          </Tooltip>
 
           <Tooltip>
             {/* Settings */}
