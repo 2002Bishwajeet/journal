@@ -3,12 +3,13 @@ import { createContext, useContext } from "react";
 export interface NoteLinkResolution {
   title: string;
   folderId: string;
-  status: number; // Homebase archivalStatus: 0 active, 1 archived, 2 trashed
 }
 
 export interface NoteLinkContextValue {
-  /** Resolve a target note's current title/folder/status, or undefined if it doesn't exist locally. */
+  /** Resolve a target note's current title/folder, or undefined if not an active note. */
   resolve: (noteId: string) => NoteLinkResolution | undefined;
+  /** True once the title map's first emission has arrived (distinguishes loading from missing). */
+  isReady: boolean;
   /** Navigate to a linked note. */
   onNavigate: (noteId: string) => void;
 }

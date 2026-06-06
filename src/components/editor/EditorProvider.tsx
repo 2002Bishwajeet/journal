@@ -18,8 +18,8 @@ import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { NoteLinkContext, type NoteLinkContextValue } from "./NoteLinkContext";
 import { useSyncService } from "@/hooks/useSyncService";
-import { useNotes } from "@/hooks/useNotes";
 import { useNoteTitleMap } from "@/hooks/useNoteTitleMap";
+import { createNoteWithContentInDb } from "@/hooks/useNotes";
 import { extractNoteLinkIds } from "@/lib/editor/extractNoteLinkIds";
 import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
 import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
@@ -208,24 +208,22 @@ export function EditorProvider({
 
   // --- Internal note links (`[[`) ---
   const navigate = useNavigate();
-  const noteTitleMap = useNoteTitleMap();
-  const { createNoteWithContent } = useNotes();
-  const createNoteAsync = createNoteWithContent.mutateAsync;
+  const { map: noteTitleMap, isReady: titleMapReady } = useNoteTitleMap();
   const noteFolderId = metadata.folderId;
 
   // Handlers for the suggestion extension. EditorProvider remounts per note
   // (key={noteId}), so docId/folderId are stable for this instance — close over
-  // them directly rather than reading refs during render.
+  // them directly. createNoteWithContent is a plain fn (no list subscription).
   const onCreateNoteLink = useCallback(
     async (title: string) => {
-      const res = await createNoteAsync({
+      const res = await createNoteWithContentInDb({
         title,
         content: "",
         folderId: noteFolderId,
       });
       return res ? { docId: res.docId } : null;
     },
-    [createNoteAsync, noteFolderId],
+    [noteFolderId],
   );
   const getCurrentNoteId = useCallback(() => docId, [docId]);
 
@@ -233,12 +231,13 @@ export function EditorProvider({
   const noteLinkValue = useMemo<NoteLinkContextValue>(
     () => ({
       resolve: (id) => noteTitleMap.get(id),
+      isReady: titleMapReady,
       onNavigate: (id) => {
         const r = noteTitleMap.get(id);
         if (r) navigate(`/${r.folderId}/${id}`, { viewTransition: true });
       },
     }),
-    [noteTitleMap, navigate],
+    [noteTitleMap, titleMapReady, navigate],
   );
 
   // Memoize extensions to avoid recreation on every render
@@ -289,6 +288,10 @@ export function EditorProvider({
     // Only the Yjs fragment is a real input; everything else is read via refs
     // (or is stable for this note's lifetime — the provider remounts per note)
     // so the editor is created once per note and undo/redo history survives.
+    // onCreateNoteLink / getCurrentNoteId are intentionally omitted: including
+    // them would recreate the editor (and discard undo history) on any change,
+    // and both are stable for this note because the provider is keyed by noteId.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [yXmlFragment],
   );
 

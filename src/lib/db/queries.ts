@@ -91,8 +91,10 @@ export type NoteCountsRow = { trashed: number; archived: number; collaborative: 
 
 export const FOLDERS_SQL = `SELECT id, name, created_at FROM folders ORDER BY name ASC`;
 
-// All notes' id → title/folder/status, for live-resolving internal-link titles.
-export const NOTE_TITLE_MAP_SQL = `SELECT doc_id, title, metadata->>'folderId' AS folder_id, COALESCE((metadata->>'archivalStatus')::int, 0) AS status FROM search_index`;
+// Active notes' id → title/folder, for live-resolving internal-link titles.
+// Active-only: links to archived/trashed notes resolve as "broken" rather than
+// navigating to an editor route that can't load them.
+export const NOTE_TITLE_MAP_SQL = `SELECT doc_id, title, metadata->>'folderId' AS folder_id FROM search_index WHERE ${ACTIVE_NOTES_FILTER}`;
 
 
 
@@ -180,10 +182,17 @@ export async function updateSearchIndexMetadata(
     metadata: DocumentMetadata,
 ): Promise<void> {
     const db = await getDatabase();
+    // `linkedNoteIds` is editor-owned (written only by the content-save path).
+    // Metadata-only writes (title, pin, tags, collaboration) must not clobber it
+    // from a stale snapshot, so preserve the row's existing value via a jsonb overlay.
     await db.query(
         `UPDATE search_index
          SET title = $2,
-             metadata = $3,
+             metadata = CASE
+               WHEN metadata ? 'linkedNoteIds'
+               THEN $3::jsonb || jsonb_build_object('linkedNoteIds', metadata->'linkedNoteIds')
+               ELSE $3::jsonb
+             END,
              search_vector = setweight(to_tsvector('english', COALESCE($2, '')), 'A') ||
                              setweight(to_tsvector('english', COALESCE(plain_text_content, '')), 'B'),
              updated_at = CURRENT_TIMESTAMP

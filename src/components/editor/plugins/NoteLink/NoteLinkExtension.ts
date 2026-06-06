@@ -29,16 +29,13 @@ export interface NoteLinkOptions {
 
 type Range = { from: number; to: number };
 
+const noteLinkContent = (noteId: string, label: string) => [
+    { type: 'noteLink', attrs: { noteId, label } },
+    { type: 'text', text: ' ' },
+];
+
 function insertNoteLink(editor: Editor, range: Range, noteId: string, label: string) {
-    editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .insertContent([
-            { type: 'noteLink', attrs: { noteId, label } },
-            { type: 'text', text: ' ' },
-        ])
-        .run();
+    editor.chain().focus().deleteRange(range).insertContent(noteLinkContent(noteId, label)).run();
 }
 
 export const NoteLinkExtension = Extension.create<NoteLinkOptions>({
@@ -54,24 +51,52 @@ export const NoteLinkExtension = Extension.create<NoteLinkOptions>({
 
     addProseMirrorPlugins() {
         const options = this.options;
+        // Monotonic id so a slow earlier query can't overwrite a newer result.
+        let requestSeq = 0;
         return [
             Suggestion<NoteLinkItem>({
                 editor: this.editor,
                 char: '[[',
                 allowSpaces: true,
                 startOfLine: false,
+
+                // Match `[[` then any chars except `]`, `[` or newline, up to the
+                // cursor. Excluding `]` makes `]]` terminate the query (popup
+                // closes) — the natural [[Title]] syntax, which the default
+                // allowSpaces matcher would over-run to end of line.
+                findSuggestionMatch: ({ $position }) => {
+                    const textBefore = $position.parent.textBetween(
+                        0,
+                        $position.parentOffset,
+                        undefined,
+                        '￼',
+                    );
+                    const m = /\[\[([^[\]\n]*)$/.exec(textBefore);
+                    if (!m) return null;
+                    return {
+                        range: { from: $position.pos - m[0].length, to: $position.pos },
+                        query: m[1],
+                        text: m[0],
+                    };
+                },
+
                 ...options.suggestion,
 
-                items: async ({ query }) => {
-                    const notes = await searchNotesByTitle(query, options.getCurrentNoteId());
-                    const items: NoteLinkItem[] = notes.map((n) => ({
-                        type: 'note',
-                        docId: n.docId,
-                        title: n.title || 'Untitled',
-                    }));
-                    const q = query.trim();
-                    if (q) items.push({ type: 'create', title: q });
-                    return items;
+                items: ({ query }) => {
+                    const seq = ++requestSeq;
+                    return searchNotesByTitle(query, options.getCurrentNoteId()).then((notes) => {
+                        // Stale result (a newer query started) — drop it instead of
+                        // overwriting fresher items. Never-resolving = no onUpdate.
+                        if (seq !== requestSeq) return new Promise<NoteLinkItem[]>(() => {});
+                        const items: NoteLinkItem[] = notes.map((n) => ({
+                            type: 'note',
+                            docId: n.docId,
+                            title: n.title || 'Untitled',
+                        }));
+                        const q = query.trim();
+                        if (q) items.push({ type: 'create', title: q });
+                        return items;
+                    });
                 },
 
                 command: ({ editor, range, props }) => {
@@ -80,19 +105,23 @@ export const NoteLinkExtension = Extension.create<NoteLinkOptions>({
                         insertNoteLink(editor, range, item.docId, item.title);
                         return;
                     }
-                    // Create-on-the-fly: clear the `[[query` first, then link once created.
+                    // Create-on-the-fly: clear the `[[query`, create, then link at the
+                    // same spot. On failure, restore the typed text so it isn't lost.
+                    const from = range.from;
                     editor.chain().focus().deleteRange(range).run();
-                    void options.onCreateNote(item.title).then((res) => {
-                        if (!res?.docId) return;
-                        editor
-                            .chain()
-                            .focus()
-                            .insertContent([
-                                { type: 'noteLink', attrs: { noteId: res.docId, label: item.title } },
-                                { type: 'text', text: ' ' },
-                            ])
-                            .run();
-                    });
+                    void options
+                        .onCreateNote(item.title)
+                        .then((res) => {
+                            if (res?.docId) {
+                                editor.chain().focus().insertContentAt(from, noteLinkContent(res.docId, item.title)).run();
+                            } else {
+                                editor.chain().focus().insertContentAt(from, `[[${item.title}`).run();
+                            }
+                        })
+                        .catch((err) => {
+                            console.error('[NoteLink] create note failed:', err);
+                            editor.chain().focus().insertContentAt(from, `[[${item.title}`).run();
+                        });
                 },
 
                 render: () => {

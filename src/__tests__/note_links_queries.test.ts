@@ -7,7 +7,7 @@ vi.mock('@/lib/db/pglite', () => {
     return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
 });
 import * as pgliteModule from '@/lib/db/pglite';
-import { upsertSearchIndex, searchNotesByTitle } from '@/lib/db/queries';
+import { upsertSearchIndex, searchNotesByTitle, updateSearchIndexMetadata, getSearchIndexEntry } from '@/lib/db/queries';
 
 const SELF = '50000000-0000-0000-0000-0000000000ff';
 const N1 = '50000000-0000-0000-0000-000000000001';
@@ -38,6 +38,50 @@ beforeAll(async () => {
 });
 afterAll(async () => { await closeTestDatabase(); });
 beforeEach(async () => { await resetTestDatabase(); });
+
+describe('updateSearchIndexMetadata preserves editor-owned linkedNoteIds', () => {
+    it('keeps existing linkedNoteIds when a metadata-only write omits them', async () => {
+        const now = new Date().toISOString();
+        // A note that already has outgoing links (written by the content-save path).
+        await upsertSearchIndex({
+            docId: N1,
+            title: 'Has links',
+            plainTextContent: 'body',
+            metadata: {
+                title: 'Has links',
+                folderId: 'main',
+                timestamps: { created: now, modified: now },
+                excludeFromAI: false,
+                linkedNoteIds: [N2, N3],
+            },
+        });
+
+        // A title-only update whose metadata snapshot is stale (no linkedNoteIds).
+        await updateSearchIndexMetadata(N1, 'Renamed', {
+            title: 'Renamed',
+            folderId: 'main',
+            timestamps: { created: now, modified: now },
+            excludeFromAI: false,
+        });
+
+        const entry = await getSearchIndexEntry(N1);
+        expect(entry?.title).toBe('Renamed');
+        expect(entry?.metadata.linkedNoteIds).toEqual([N2, N3]);
+    });
+
+    it('does not invent linkedNoteIds for notes that never had them', async () => {
+        const now = new Date().toISOString();
+        await addNote(N1, 'No links');
+        await updateSearchIndexMetadata(N1, 'Still no links', {
+            title: 'Still no links',
+            folderId: 'main',
+            timestamps: { created: now, modified: now },
+            excludeFromAI: false,
+        });
+        const entry = await getSearchIndexEntry(N1);
+        expect(entry?.metadata.linkedNoteIds).toBeUndefined();
+    });
+});
 
 describe('searchNotesByTitle', () => {
     it('matches notes by case-insensitive title substring', async () => {
