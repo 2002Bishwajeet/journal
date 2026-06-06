@@ -1,9 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import type { DotYouClient, TypedConnectionNotification, NotificationType, TargetDrive, DeletedHomebaseFile, HomebaseFile } from '@homebase-id/js-lib/core';
 import { drivesEqual } from '@homebase-id/js-lib/helpers';
 import { useWebsocketSubscriber } from './useWebsocketSubscriber';
-import { notesQueryKey } from './useNotes';
 import { JOURNAL_DRIVE, JOURNAL_FILE_TYPE } from '@/lib/homebase';
 import type { SyncService } from '@/lib/homebase/SyncService';
 import { toast } from 'sonner';
@@ -24,7 +22,6 @@ export const usePeerNoteWebsocket = ({
     isEnabled,
     syncService,
 }: UsePeerNoteWebsocketOptions) => {
-    const queryClient = useQueryClient();
     const disconnectTimeRef = useRef<number | null>(null);
 
     // Refs for stable callbacks — avoids WebSocket resubscription on prop changes
@@ -56,15 +53,14 @@ export const usePeerNoteWebsocket = ({
             if (notification.header?.fileMetadata?.appData?.fileType !== JOURNAL_FILE_TYPE) return;
 
             if (notification.notificationType === 'fileAdded' || notification.notificationType === 'fileModified') {
+                // handleRemoteNote writes to PGlite; the note list live query picks it up.
                 await syncServiceRef.current.handleRemoteNote(notification.header);
-                queryClient.invalidateQueries({ queryKey: notesQueryKey });
             } else {
                 await syncServiceRef.current.handleDeletedNote(notification.header as unknown as DeletedHomebaseFile);
-                queryClient.invalidateQueries({ queryKey: notesQueryKey });
                 toast('This shared note has been deleted by the author');
             }
         },
-        [queryClient],
+        [],
     );
 
     const handleDisconnect = useCallback(() => {
@@ -80,12 +76,11 @@ export const usePeerNoteWebsocket = ({
             );
             if (freshFile) {
                 await syncServiceRef.current.handleRemoteNote(freshFile as unknown as HomebaseFile<string>);
-                queryClient.invalidateQueries({ queryKey: notesQueryKey });
             }
         } catch (error) {
             console.error('[PeerNoteWebsocket] Reconnect sync failed:', error);
         }
-    }, [queryClient]);
+    }, []);
 
     const shouldSubscribe = isEnabled && !!authorOdinId && !!noteUniqueId;
 

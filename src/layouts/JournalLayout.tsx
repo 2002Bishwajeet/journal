@@ -53,7 +53,6 @@ import {
   useCollaborativeNotes,
   useTrashedNotes,
   useArchivedNotes,
-  notesQueryKey,
 } from "@/hooks/useNotes";
 import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
@@ -63,7 +62,6 @@ import { useFolders } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useDotYouClientContext } from "@/components/auth";
 import { NotesDriveProvider } from "@/lib/homebase/NotesDriveProvider";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import EditorPage from "@/pages/EditorPage";
 import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
@@ -121,7 +119,6 @@ export default function JournalLayout() {
   // Homebase sync - auto-syncs on mount and focus
   useSyncService();
 
-  const queryClient = useQueryClient();
   const dotYouClient = useDotYouClientContext();
 
   // Focus / Zen mode state
@@ -694,9 +691,6 @@ export default function JournalLayout() {
             }}
             noteId={collaborativeNote.docId}
             noteTitle={collaborativeNote.title || "Untitled"}
-            onSuccess={() => {
-              queryClient.invalidateQueries({ queryKey: notesQueryKey });
-            }}
           />
         </Suspense>
       )}

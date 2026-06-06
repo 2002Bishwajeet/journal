@@ -9,10 +9,8 @@ import {
 import { useAISettings } from "@/hooks/useAISettings";
 import { useEditor, type Editor } from "@tiptap/react";
 import * as Y from "yjs";
-import { useQueryClient } from "@tanstack/react-query";
 import { PGliteProvider } from "@/lib/yjs";
 import { upsertSearchIndex, savePendingImageUpload } from "@/lib/db";
-import { notesQueryKey } from "@/hooks/useNotes";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { useSyncService } from "@/hooks/useSyncService";
@@ -58,7 +56,6 @@ export function EditorProvider({
 }: EditorProviderProps) {
   const [yDoc] = useState(() => new Y.Doc());
   const [isLoading, setIsLoading] = useState(true);
-  const queryClient = useQueryClient();
 
   // Use refs for cleanup to avoid stale closure issues
   const providerRef = useRef<PGliteProvider | null>(null);
@@ -261,9 +258,6 @@ export function EditorProvider({
     null,
   );
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const invalidateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
 
   const updateSearchIndex = useCallback(
     (editorInstance: Editor, plainTextContent?: string) => {
@@ -313,25 +307,12 @@ export function EditorProvider({
     }, 2000);
   }, []);
 
-  // Debounced query invalidation for NoteList updates
-  const invalidateNotes = useCallback(() => {
-    if (invalidateTimeoutRef.current) {
-      clearTimeout(invalidateTimeoutRef.current);
-    }
-
-    invalidateTimeoutRef.current = setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: notesQueryKey });
-    }, 1000);
-  }, [queryClient]);
-
   // Clean up all timeouts on unmount
   useEffect(() => {
     return () => {
       if (searchIndexTimeoutRef.current)
         clearTimeout(searchIndexTimeoutRef.current);
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      if (invalidateTimeoutRef.current)
-        clearTimeout(invalidateTimeoutRef.current);
     };
   }, []);
 
@@ -357,8 +338,9 @@ export function EditorProvider({
 
       const plainText = editor.getText();
 
+      // upsertSearchIndex (above) writes to PGlite; the note list live query
+      // picks up the title/preview change with no manual invalidation.
       updateSearchIndex(editor, plainText);
-      invalidateNotes();
 
       if (providerRef.current) {
         debouncedSave(providerRef.current);
@@ -369,7 +351,7 @@ export function EditorProvider({
     return () => {
       editor.off("update", handleUpdate);
     };
-  }, [editor, isLoading, updateSearchIndex, invalidateNotes, debouncedSave]);
+  }, [editor, isLoading, updateSearchIndex, debouncedSave]);
 
   const value = {
     editor,

@@ -21,8 +21,6 @@ import {
 } from "@/lib/db";
 import { STORAGE_KEY_LAST_SYNC } from "@/lib/homebase";
 import { SyncContext, type SyncContextType } from "@/hooks/useSyncService";
-import { notesQueryKey } from "@/hooks/useNotes";
-import { foldersQueryKey } from "@/hooks/useFolders";
 import { tagsQueryKey } from "@/hooks/useTags";
 import type { SyncProgress } from "@/types";
 import { useOnlineContext } from "@/hooks/useOnlineContext";
@@ -156,13 +154,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
       setSyncStatus("idle");
 
-      // Invalidate queries to refresh UI with pulled data
-      if (result.pulled.folders > 0 || result.pulled.notes > 0) {
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: foldersQueryKey }),
-          queryClient.invalidateQueries({ queryKey: notesQueryKey }),
-          queryClient.invalidateQueries({ queryKey: tagsQueryKey }),
-        ]);
+      // Notes and folders are live queries — pulled writes surface automatically.
+      // Only the derived tag list still needs a manual refresh.
+      if (result.pulled.notes > 0) {
+        await queryClient.invalidateQueries({ queryKey: tagsQueryKey });
       }
 
       if (result.errors.length > 0) {

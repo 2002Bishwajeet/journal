@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAllTags, getNotesForListByTag, updateSearchIndexMetadata, updateSyncStatus } from '@/lib/db';
-import { notesQueryKey } from './useNotes';
-import type { NoteListEntry, DocumentMetadata } from '@/types';
+import { getAllTags, updateSearchIndexMetadata, updateSyncStatus, NOTE_LIST_SQL } from '@/lib/db';
+import { useLiveNoteList } from './useNotes';
+import type { DocumentMetadata } from '@/types';
 
 export const tagsQueryKey = ['tags'] as const;
 
@@ -29,7 +29,8 @@ export function useTags() {
             updateSyncStatus(docId, 'pending'),
         ]);
 
-        queryClient.invalidateQueries({ queryKey: notesQueryKey });
+        // The note list is a live query (auto-updates); only the derived tag list
+        // still needs a manual refresh.
         queryClient.invalidateQueries({ queryKey: tagsQueryKey });
     };
 
@@ -45,7 +46,6 @@ export function useTags() {
             updateSyncStatus(docId, 'pending'),
         ]);
 
-        queryClient.invalidateQueries({ queryKey: notesQueryKey });
         queryClient.invalidateQueries({ queryKey: tagsQueryKey });
     };
 
@@ -53,9 +53,5 @@ export function useTags() {
 }
 
 export function useNotesByTag(tag: string | null) {
-    return useQuery<NoteListEntry[]>({
-        queryKey: [...notesQueryKey, 'tag', tag],
-        queryFn: () => getNotesForListByTag(tag!),
-        enabled: !!tag,
-    });
+    return useLiveNoteList(NOTE_LIST_SQL.byTag, [tag ?? ''], !!tag);
 }

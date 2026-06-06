@@ -26,6 +26,7 @@ export function useLiveQuery<T>(
   sql: string,
   params: ReadonlyArray<unknown>,
   rowKey: string,
+  enabled: boolean = true,
 ): { data: T[]; isLoading: boolean } {
   const cacheKey = `${rowKey}::${sql}::${JSON.stringify(params)}`;
 
@@ -36,6 +37,11 @@ export function useLiveQuery<T>(
   const [isLoading, setIsLoading] = useState<boolean>(() => !registry.get(cacheKey)?.ready);
 
   useEffect(() => {
+    if (!enabled) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
     let active = true;
     const listener = (rows: unknown[]) => {
       if (!active) return;
@@ -103,7 +109,7 @@ export function useLiveQuery<T>(
     // cacheKey encodes rowKey+sql+params; depending on the raw (array) params would
     // re-subscribe on every render (rerender-dependencies). cacheKey is the gate.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cacheKey]);
+  }, [cacheKey, enabled]);
 
   return { data, isLoading };
 }

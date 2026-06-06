@@ -7,13 +7,39 @@ import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRec
 // Active = not archived (1) and not trashed (2).
 const ACTIVE_NOTES_FILTER = `COALESCE((metadata->>'archivalStatus')::int, 0) = 0`;
 
-type NoteListRow = { doc_id: string; title: string; preview: string; metadata: DocumentMetadata };
-const toNoteListEntry = (row: NoteListRow): NoteListEntry => ({
+export type NoteListRow = { doc_id: string; title: string; preview: string; metadata: DocumentMetadata };
+export const toNoteListEntry = (row: NoteListRow): NoteListEntry => ({
     docId: row.doc_id,
     title: row.title,
     preview: row.preview || '',
     metadata: row.metadata,
 });
+
+export const toFolder = (row: { id: string; name: string; created_at: Date }): Folder => ({
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+});
+
+// Shared SQL for note-list reads — used by both the imperative getters and the
+// live-query hooks so they never drift. Row key for note queries is 'doc_id'.
+const NOTE_LIST_SELECT = `SELECT doc_id, title, LEFT(plain_text_content, 150) as preview, metadata FROM search_index`;
+const MODIFIED_DESC = `ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`;
+const PINNED_THEN_MODIFIED = `ORDER BY (metadata->>'isPinned')::boolean DESC NULLS LAST, (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`;
+
+export const NOTE_ROW_KEY = 'doc_id';
+export const FOLDER_ROW_KEY = 'id';
+
+export const NOTE_LIST_SQL = {
+    active: `${NOTE_LIST_SELECT} WHERE ${ACTIVE_NOTES_FILTER} ${MODIFIED_DESC}`,
+    byFolder: `${NOTE_LIST_SELECT} WHERE metadata->>'folderId' = $1 AND ${ACTIVE_NOTES_FILTER} ${MODIFIED_DESC}`,
+    collaborative: `${NOTE_LIST_SELECT} WHERE (metadata->>'isCollaborative')::boolean = true AND ${ACTIVE_NOTES_FILTER} ${PINNED_THEN_MODIFIED}`,
+    trashed: `${NOTE_LIST_SELECT} WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 2 ${MODIFIED_DESC}`,
+    archived: `${NOTE_LIST_SELECT} WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 1 ${MODIFIED_DESC}`,
+    byTag: `${NOTE_LIST_SELECT} WHERE metadata->'tags' ? $1 AND ${ACTIVE_NOTES_FILTER} ORDER BY (metadata->>'isPinned')::boolean DESC NULLS LAST, updated_at DESC`,
+} as const;
+
+export const FOLDERS_SQL = `SELECT id, name, created_at FROM folders ORDER BY name ASC`;
 
 
 

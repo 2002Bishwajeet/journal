@@ -1,10 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import type { DotYouClient, TypedConnectionNotification, DeletedHomebaseFile, ClientFileNotification } from '@homebase-id/js-lib/core';
 import { drivesEqual } from '@homebase-id/js-lib/helpers';
 import { useWebsocketSubscriber } from './useWebsocketSubscriber';
-import { notesQueryKey } from './useNotes';
-import { foldersQueryKey } from './useFolders';
 import { toast } from 'sonner';
 import {
     JOURNAL_DRIVE,
@@ -33,7 +30,6 @@ interface UseJournalWebsocketOptions {
  * Notifications are batched by uniqueId and flushed after 700ms of inactivity.
  */
 export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: UseJournalWebsocketOptions) => {
-    const queryClient = useQueryClient();
     const disconnectTimeRef = useRef<number | null>(null);
     // Queue is created once in an effect — not during render
     const queueRef = useRef<WebSocketProcessQueue | null>(null);
@@ -54,13 +50,10 @@ export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: Use
                 const fileType = notification.header?.fileMetadata?.appData?.fileType;
                 if (fileType === JOURNAL_FILE_TYPE) {
                     await syncService.handleRemoteNote(notification.header);
-                    queryClient.invalidateQueries({ queryKey: notesQueryKey });
                 } else if (fileType === FOLDER_FILE_TYPE) {
                     await syncService.handleRemoteFolder(notification.header);
-                    queryClient.invalidateQueries({ queryKey: foldersQueryKey });
                 } else if (fileType === COLLABORATION_INVITE_FILE_TYPE) {
                     await syncService.handleInvitation(notification.header);
-                    queryClient.invalidateQueries({ queryKey: notesQueryKey });
                     const content = notification.header?.fileMetadata?.appData?.content;
                     if (content) {
                         try {
@@ -77,23 +70,20 @@ export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: Use
                     await syncService.handleDeletedNote(
                         notification.header as unknown as DeletedHomebaseFile,
                     );
-                    queryClient.invalidateQueries({ queryKey: notesQueryKey });
                 } else if (fileType === FOLDER_FILE_TYPE) {
                     await syncService.handleDeletedFolder(
                         notification.header as unknown as DeletedHomebaseFile,
                     );
-                    queryClient.invalidateQueries({ queryKey: foldersQueryKey });
                 } else if (fileType === COLLABORATION_INVITE_FILE_TYPE) {
                     await syncService.handleDeletedInvitation(
                         notification.header as unknown as DeletedHomebaseFile,
                     );
-                    queryClient.invalidateQueries({ queryKey: notesQueryKey });
                 }
             }
         } catch (error) {
             console.error('[JournalWebsocket] Error processing queued notification:', error);
         }
-    }, [syncService, queryClient]);
+    }, [syncService]);
 
 
     const processNotificationRef = useRef(processNotification);
