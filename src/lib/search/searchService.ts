@@ -1,4 +1,4 @@
-// searchService.ts - Web search using public SearXNG instances
+//TODO: We need to fix this  or host on of my own
 
 export interface SearchResult {
     title: string;

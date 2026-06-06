@@ -547,7 +547,6 @@ export class NotesDriveProvider {
     /**
      * Update a note's access control to make it publicly accessible (Anonymous).
      * This is used for the Share feature.
-     *  TODO(2002Bishwajeet): Create a new collaborative note drive which has access to anonymous and public notes and move there
      * @param uniqueId - The unique ID of the note
      * @returns The new version tag after update
      */
