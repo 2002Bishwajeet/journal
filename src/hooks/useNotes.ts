@@ -74,7 +74,13 @@ export function useNotes() {
         try {
             await setNoteArchivalStatusRemote(docId, status);
         } catch (err) {
-            await setNoteArchivalStatusLocal(docId, prev);
+            // Only roll back if no concurrent transition has changed the status
+            // since we wrote it — otherwise we'd clobber that transition's result
+            // and leave local/remote divergent.
+            const current = (await getSearchIndexEntry(docId))?.metadata.archivalStatus ?? 0;
+            if (current === status) {
+                await setNoteArchivalStatusLocal(docId, prev);
+            }
             throw err;
         }
     };

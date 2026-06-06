@@ -5,6 +5,7 @@ interface LiveEntry {
   refs: number;
   rows: unknown[];
   ready: boolean;
+  subscribing: boolean;
   listeners: Set<(rows: unknown[]) => void>;
   unsubscribe?: () => Promise<void>;
 }
@@ -21,6 +22,7 @@ const registry = new Map<string, LiveEntry>();
  * @param sql     query text
  * @param params  positional params (compared by value, not identity)
  * @param rowKey  unique column used by incrementalQuery for row diffing (e.g. 'doc_id')
+ * @param enabled when false, no subscription is created and the result is empty
  */
 export function useLiveQuery<T>(
   sql: string,
@@ -31,10 +33,24 @@ export function useLiveQuery<T>(
   const cacheKey = `${rowKey}::${sql}::${JSON.stringify(params)}`;
 
   const [data, setData] = useState<T[]>(() => {
-    const e = registry.get(cacheKey);
+    const e = enabled ? registry.get(cacheKey) : undefined;
     return e?.ready ? (e.rows as T[]) : [];
   });
-  const [isLoading, setIsLoading] = useState<boolean>(() => !registry.get(cacheKey)?.ready);
+  const [isLoading, setIsLoading] = useState<boolean>(
+    () => enabled && !registry.get(cacheKey)?.ready,
+  );
+
+  // When the query key changes for the SAME hook instance (e.g. switching folder
+  // or tag), reset to the new key's snapshot during render so the list never
+  // flashes the previous query's rows. (React's "adjust state on prop change"
+  // pattern — re-renders before paint, no stale frame.)
+  const [renderedKey, setRenderedKey] = useState(cacheKey);
+  if (renderedKey !== cacheKey) {
+    setRenderedKey(cacheKey);
+    const e = enabled ? registry.get(cacheKey) : undefined;
+    setData(e?.ready ? (e.rows as T[]) : []);
+    setIsLoading(enabled ? !e?.ready : false);
+  }
 
   useEffect(() => {
     if (!enabled) {
@@ -54,16 +70,22 @@ export function useLiveQuery<T>(
 
     let entry = registry.get(cacheKey);
     if (!entry) {
-      entry = { refs: 0, rows: [], ready: false, listeners: new Set() };
+      entry = { refs: 0, rows: [], ready: false, subscribing: false, listeners: new Set() };
       registry.set(cacheKey, entry);
     }
     entry.refs += 1;
     entry.listeners.add(listener);
+    // Capture the entry by identity so the async closure below always targets
+    // the entry it was created for — never a later generation that replaced it.
+    const myEntry = entry;
 
     if (entry.ready) {
       listener(entry.rows);
-    } else if (entry.refs === 1) {
-      // First consumer creates the shared subscription.
+    } else if (!entry.subscribing) {
+      // First consumer (or a retry after a failed attempt) creates the shared
+      // subscription. Gating on `subscribing` (not refs) lets a later mount
+      // re-attempt if creation failed, instead of wedging the entry forever.
+      entry.subscribing = true;
       void (async () => {
         try {
           const db = await getLiveDatabase();
@@ -72,25 +94,30 @@ export function useLiveQuery<T>(
             params as unknown[],
             rowKey,
             (res) => {
-              const e = registry.get(cacheKey);
-              if (!e) return;
-              e.rows = res.rows;
-              e.listeners.forEach((l) => l(res.rows));
+              // Drop emissions for an entry that was discarded and replaced.
+              if (registry.get(cacheKey) !== myEntry) return;
+              myEntry.rows = res.rows;
+              myEntry.listeners.forEach((l) => l(res.rows));
             },
           );
-          const e = registry.get(cacheKey);
-          if (!e) {
-            // Every consumer unmounted before the subscription was ready.
+          if (registry.get(cacheKey) !== myEntry) {
+            // Every consumer of this generation unmounted before the
+            // subscription resolved — tear the orphan down instead of leaking it.
             await lq.unsubscribe();
             return;
           }
-          e.rows = lq.initialResults.rows;
-          e.unsubscribe = lq.unsubscribe;
-          e.ready = true;
-          e.listeners.forEach((l) => l(e.rows));
+          myEntry.rows = lq.initialResults.rows;
+          myEntry.unsubscribe = lq.unsubscribe;
+          myEntry.ready = true;
+          myEntry.subscribing = false;
+          myEntry.listeners.forEach((l) => l(myEntry.rows));
         } catch (err) {
           console.error('[useLiveQuery] subscription failed:', err);
-          registry.get(cacheKey)?.listeners.forEach((l) => l([]));
+          // Clear the flag so a later mount can retry rather than stay wedged.
+          myEntry.subscribing = false;
+          if (registry.get(cacheKey) === myEntry) {
+            myEntry.listeners.forEach((l) => l([]));
+          }
         }
       })();
     }
