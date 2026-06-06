@@ -33,6 +33,11 @@ interface NoteMutationContext {
     previousNotes: NoteListEntry[] | undefined;
 }
 
+interface TrashMutationContext {
+    previousNotes: NoteListEntry[] | undefined;
+    previousTrash: NoteListEntry[] | undefined;
+}
+
 interface UpdateMetadataParams {
     docId: string;
     metadata: DocumentMetadata;
@@ -140,14 +145,17 @@ export function useNotes() {
     const emptyTrashMutation = useMutation<void, Error, void, { previousTrash: NoteListEntry[] | undefined }>({
         mutationFn: async () => {
             const trashed = await getTrashedNotes();
-            for (const note of trashed) {
-                await deleteNoteRemote(note.docId);
-                await Promise.all([
-                    deleteSearchIndexEntry(note.docId),
-                    deleteDocumentUpdates(note.docId),
-                    deleteSyncRecord(note.docId),
-                ]);
-            }
+            // Delete all in parallel; one failure must not abort the rest.
+            await Promise.allSettled(
+                trashed.map(async (note) => {
+                    await deleteNoteRemote(note.docId);
+                    await Promise.all([
+                        deleteSearchIndexEntry(note.docId),
+                        deleteDocumentUpdates(note.docId),
+                        deleteSyncRecord(note.docId),
+                    ]);
+                })
+            );
         },
         onMutate: async () => {
             await queryClient.cancelQueries({ queryKey: trashedNotesQueryKey });
@@ -327,7 +335,7 @@ export function useNotes() {
     });
 
     // Soft delete — move a note to Trash (Homebase archivalStatus 2).
-    const trashNoteMutation = useMutation<void, Error, string, NoteMutationContext>({
+    const trashNoteMutation = useMutation<void, Error, string, TrashMutationContext>({
         mutationFn: async (docId: string) => {
             await setNoteArchivalStatusRemote(docId, 2);
             await setNoteArchivalStatusLocal(docId, 2);
@@ -335,15 +343,23 @@ export function useNotes() {
         onMutate: async (docId) => {
             await queryClient.cancelQueries({ queryKey: notesQueryKey });
             const previousNotes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
+            const previousTrash = queryClient.getQueryData<NoteListEntry[]>(trashedNotesQueryKey);
+            // Optimistically move the note from the active list into the trash list.
+            const moved = previousNotes?.find((n) => n.docId === docId);
             queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) =>
                 old?.filter((n) => n.docId !== docId) || []
             );
-            return { previousNotes };
+            if (moved) {
+                queryClient.setQueryData<NoteListEntry[]>(trashedNotesQueryKey, (old) => [
+                    moved,
+                    ...(old || []).filter((n) => n.docId !== docId),
+                ]);
+            }
+            return { previousNotes, previousTrash };
         },
         onError: (_err, _vars, context) => {
-            if (context?.previousNotes) {
-                queryClient.setQueryData(notesQueryKey, context.previousNotes);
-            }
+            if (context?.previousNotes) queryClient.setQueryData(notesQueryKey, context.previousNotes);
+            if (context?.previousTrash) queryClient.setQueryData(trashedNotesQueryKey, context.previousTrash);
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: notesQueryKey });
@@ -352,12 +368,7 @@ export function useNotes() {
     });
 
     // Restore a note from Trash (archivalStatus 0).
-    const restoreNoteMutation = useMutation<
-        void,
-        Error,
-        string,
-        { previousTrash: NoteListEntry[] | undefined }
-    >({
+    const restoreNoteMutation = useMutation<void, Error, string, TrashMutationContext>({
         mutationFn: async (docId: string) => {
             await setNoteArchivalStatusRemote(docId, 0);
             await setNoteArchivalStatusLocal(docId, 0);
@@ -365,15 +376,23 @@ export function useNotes() {
         onMutate: async (docId) => {
             await queryClient.cancelQueries({ queryKey: trashedNotesQueryKey });
             const previousTrash = queryClient.getQueryData<NoteListEntry[]>(trashedNotesQueryKey);
+            const previousNotes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
+            // Optimistically move the note from the trash list back into the active list.
+            const moved = previousTrash?.find((n) => n.docId === docId);
             queryClient.setQueryData<NoteListEntry[]>(trashedNotesQueryKey, (old) =>
                 old?.filter((n) => n.docId !== docId) || []
             );
-            return { previousTrash };
+            if (moved) {
+                queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) => [
+                    moved,
+                    ...(old || []).filter((n) => n.docId !== docId),
+                ]);
+            }
+            return { previousNotes, previousTrash };
         },
         onError: (_err, _vars, context) => {
-            if (context?.previousTrash) {
-                queryClient.setQueryData(trashedNotesQueryKey, context.previousTrash);
-            }
+            if (context?.previousNotes) queryClient.setQueryData(notesQueryKey, context.previousNotes);
+            if (context?.previousTrash) queryClient.setQueryData(trashedNotesQueryKey, context.previousTrash);
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: notesQueryKey });
@@ -413,7 +432,8 @@ export function useNotesByFolder(folderId: string | undefined) {
     return useQuery<NoteListEntry[]>({
         queryKey: [...notesQueryKey, 'folder', folderId],
         queryFn: () => getNotesForListByFolder(folderId!),
-        enabled: !!folderId,
+        // 'trash' and 'shared' are pseudo-folders with their own views — skip the query.
+        enabled: !!folderId && folderId !== 'trash' && folderId !== 'shared',
     });
 }
 

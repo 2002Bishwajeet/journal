@@ -61,6 +61,10 @@ export class ShareProvider {
 
         if (!header?.fileId) return null;
 
+        // A trashed note (archivalStatus 2) keeps its Anonymous ACL, so the guest
+        // fetch still succeeds — but a shared link must not serve a trashed note.
+        if (header.fileMetadata?.appData?.archivalStatus === 2) return null;
+
         // Title and other metadata live in appData.content (plaintext for public notes).
         const content = await getContentFromHeaderOrPayload<NoteFileContent>(
             client,

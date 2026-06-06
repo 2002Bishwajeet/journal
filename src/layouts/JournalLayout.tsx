@@ -20,7 +20,7 @@ import {
   useKeyboardShortcuts,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef, lazy, Suspense, useMemo, Activity } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback, Activity } from "react";
 import { ChevronLeft, Minimize2, Maximize2 } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
@@ -233,6 +233,25 @@ export default function JournalLayout() {
     useCollaborativeNotes();
   const { data: trashedNotes = [], isLoading: isTrashLoading } = useTrashedNotes();
 
+  // Trash actions — stable handlers with user-visible error feedback.
+  const handleRestoreFromTrash = useCallback(
+    (id: string) => {
+      restoreNote(id).catch(() => toast.error("Couldn't restore note"));
+    },
+    [restoreNote],
+  );
+  const handleDeleteForever = useCallback(
+    (id: string) => {
+      // Close any open tab first so the editor can't resurrect the note via a debounced save.
+      closeTab(id);
+      deleteNote(id).catch(() => toast.error("Couldn't delete note"));
+    },
+    [deleteNote, closeTab],
+  );
+  const handleEmptyTrash = useCallback(() => {
+    emptyTrash().catch(() => toast.error("Couldn't empty Trash"));
+  }, [emptyTrash]);
+
   const selectedTag = searchParams.get("tag");
   const { tags } = useTags();
   const { data: tagFilteredNotes } = useNotesByTag(selectedTag);
@@ -400,9 +419,9 @@ export default function JournalLayout() {
             <TrashView
               notes={trashedNotes}
               isLoading={isTrashLoading}
-              onRestore={(id) => { restoreNote(id).catch(() => {}); }}
-              onDeleteForever={(id) => { deleteNote(id).catch(() => {}); }}
-              onEmptyTrash={() => { emptyTrash().catch(() => {}); }}
+              onRestore={handleRestoreFromTrash}
+              onDeleteForever={handleDeleteForever}
+              onEmptyTrash={handleEmptyTrash}
               className="flex-1"
             />
           ) : (
@@ -445,7 +464,12 @@ export default function JournalLayout() {
               // Also close the tab if it's open
               closeTab(id);
 
-              await trashNote(id);
+              try {
+                await trashNote(id);
+              } catch {
+                toast.error("Couldn't move note to Trash");
+                return;
+              }
 
               // If the deleted note is the one currently open, navigate to next note or folder
               if (noteId === id) {

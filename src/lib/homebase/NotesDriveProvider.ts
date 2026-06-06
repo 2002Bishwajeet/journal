@@ -71,7 +71,6 @@ export class NotesDriveProvider {
         const response = await queryBatch(this.#dotYouClient, {
             targetDrive: JOURNAL_DRIVE,
             fileType: [JOURNAL_FILE_TYPE],
-            archivalStatus: [0, 2], // active + trashed, so the Trash view stays in sync
         }, {
             maxRecords: pageSize,
             cursorState: cursor,
@@ -293,6 +292,7 @@ export class NotesDriveProvider {
                 userDate: Date.now(),
                 tags: (metadata.tags || []).map(tag => toGuidId(tag)),
                 content: JSON.stringify(noteContent),
+                archivalStatus: metadata.archivalStatus ?? 0,
             },
             isEncrypted: options?.encrypt || true,
             accessControlList: {
@@ -401,6 +401,7 @@ export class NotesDriveProvider {
                 userDate: Date.now(),
                 tags: (metadata.tags || []).map(tag => toGuidId(tag)),
                 content: JSON.stringify(noteContent),
+                archivalStatus: metadata.archivalStatus ?? 0,
             },
             isEncrypted: true,
             accessControlList,
@@ -698,9 +699,9 @@ export class NotesDriveProvider {
 
         const uploadMetadata: UploadFileMetadata = {
             versionTag: existingHeader.fileMetadata.versionTag,
-            // Keep distribution on only for collaborative (Connected) notes.
+            // Match the note's creation default: only public (Anonymous) notes distribute.
             allowDistribution:
-                accessControlList.requiredSecurityGroup === SecurityGroupType.Connected,
+                accessControlList.requiredSecurityGroup === SecurityGroupType.Anonymous,
             appData: {
                 fileType: JOURNAL_FILE_TYPE,
                 dataType: JOURNAL_DATA_TYPE,
@@ -715,12 +716,22 @@ export class NotesDriveProvider {
             accessControlList,
         };
 
-        const instructionSet: UploadInstructionSet = {
-            storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: existingHeader.fileId },
-            transferIv: getRandom16ByteArray(),
+        // Header-only patch — flips archivalStatus without re-uploading payloads
+        // (unlike makeNotePublic/Private, this never changes payload encryption).
+        const updateInstructions: UpdateInstructionSet = {
+            locale: 'local',
+            file: { fileId: existingHeader.fileId, targetDrive: JOURNAL_DRIVE },
+            versionTag: existingHeader.fileMetadata.versionTag,
         };
 
-        const result = await reUploadFile(this.#dotYouClient, instructionSet, uploadMetadata, isEncrypted);
+        const result = await patchFile(
+            this.#dotYouClient,
+            existingHeader.sharedSecretEncryptedKeyHeader,
+            updateInstructions,
+            uploadMetadata,
+            [],
+            undefined
+        );
 
         if (!result) {
             throw new Error('Failed to update note archival status');
