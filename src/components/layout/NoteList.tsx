@@ -392,7 +392,7 @@ const NoteItem = memo(function NoteItem({
             disabled: !onMarkCollaborative,
           },
           {
-            label: "Delete",
+            label: "Move to Trash",
             icon: Trash2,
             action: () => onDeleteNote(note.docId),
             variant: "destructive",

@@ -71,6 +71,7 @@ export class NotesDriveProvider {
         const response = await queryBatch(this.#dotYouClient, {
             targetDrive: JOURNAL_DRIVE,
             fileType: [JOURNAL_FILE_TYPE],
+            archivalStatus: [0, 2], // active + trashed, so the Trash view stays in sync
         }, {
             maxRecords: pageSize,
             cursorState: cursor,
@@ -660,6 +661,69 @@ export class NotesDriveProvider {
 
         if (!result) {
             throw new Error('Failed to make note private');
+        }
+
+        return { versionTag: result.newVersionTag };
+    }
+
+    /**
+     * Set a note's Homebase archivalStatus (0 = active, 2 = trashed/Removed).
+     * Used for soft delete and restore. Preserves the note's content, encryption
+     * and access control.
+     *
+     * @param uniqueId - The unique ID of the note
+     * @param status - 0 to restore, 2 to move to trash
+     * @returns The new version tag after update
+     */
+    async setNoteArchivalStatus(uniqueId: string, status: number): Promise<{ versionTag: string }> {
+        const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            uniqueId,
+            { decrypt: true }
+        );
+
+        if (!existingHeader) {
+            throw new Error(`Note with uniqueId ${uniqueId} not found`);
+        }
+
+        const existingAppData = existingHeader.fileMetadata.appData;
+        const isEncrypted = existingHeader.fileMetadata.isEncrypted ?? true;
+        const accessControlList = existingHeader.serverMetadata?.accessControlList ?? {
+            requiredSecurityGroup: SecurityGroupType.Owner,
+        };
+        const content = typeof existingAppData.content === 'string'
+            ? existingAppData.content
+            : JSON.stringify(existingAppData.content);
+
+        const uploadMetadata: UploadFileMetadata = {
+            versionTag: existingHeader.fileMetadata.versionTag,
+            // Keep distribution on only for collaborative (Connected) notes.
+            allowDistribution:
+                accessControlList.requiredSecurityGroup === SecurityGroupType.Connected,
+            appData: {
+                fileType: JOURNAL_FILE_TYPE,
+                dataType: JOURNAL_DATA_TYPE,
+                uniqueId,
+                groupId: existingAppData.groupId,
+                userDate: existingAppData.userDate,
+                tags: existingAppData.tags,
+                content,
+                archivalStatus: status,
+            },
+            isEncrypted,
+            accessControlList,
+        };
+
+        const instructionSet: UploadInstructionSet = {
+            storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: existingHeader.fileId },
+            transferIv: getRandom16ByteArray(),
+        };
+
+        const result = await reUploadFile(this.#dotYouClient, instructionSet, uploadMetadata, isEncrypted);
+
+        if (!result) {
+            throw new Error('Failed to update note archival status');
         }
 
         return { versionTag: result.newVersionTag };

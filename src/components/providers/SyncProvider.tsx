@@ -231,6 +231,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [syncService],
   );
 
+  // Soft-delete / restore a note remotely (archivalStatus). Throws on failure so
+  // the caller can roll back the optimistic UI update (unlike a hard delete, a
+  // half-applied trash would resurface on the next pull).
+  const setNoteArchivalStatusRemote = useCallback(
+    async (docId: string, status: number) => {
+      if (!syncService) throw new Error("Sync service unavailable");
+      await syncService.setNoteArchivalStatusRemote(docId, status);
+    },
+    [syncService],
+  );
+
   // Delete a folder from remote
   const deleteFolderRemote = useCallback(
     async (folderId: string) => {
@@ -326,6 +337,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     syncNote,
     syncFolder,
     deleteNoteRemote,
+    setNoteArchivalStatusRemote,
     deleteFolderRemote,
     syncService,
   };
