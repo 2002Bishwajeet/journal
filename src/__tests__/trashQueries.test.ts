@@ -12,12 +12,14 @@ import {
     getNotesForList,
     getNotesForListByFolder,
     getTrashedNotes,
+    getArchivedNotes,
     setNoteArchivalStatusLocal,
 } from '@/lib/db/queries';
 
 const ACTIVE_A = '10000000-0000-0000-0000-000000000001';
 const ACTIVE_B = '10000000-0000-0000-0000-000000000002';
 const TRASHED = '10000000-0000-0000-0000-000000000003';
+const ARCHIVED = '10000000-0000-0000-0000-000000000004';
 
 async function addNote(docId: string, title: string, archivalStatus?: number) {
     const now = new Date().toISOString();
@@ -87,5 +89,27 @@ describe('trash filtering in list queries', () => {
 
         await setNoteArchivalStatusLocal(ACTIVE_A, 0);
         expect((await getNotesForList()).map((n) => n.docId)).toContain(ACTIVE_A);
+    });
+
+    it('getNotesForList excludes archived notes (archivalStatus 1) as well as trashed', async () => {
+        await addNote(ACTIVE_A, 'Active A');
+        await addNote(ARCHIVED, 'Archived', 1);
+        await addNote(TRASHED, 'Trashed', 2);
+
+        const ids = (await getNotesForList()).map((n) => n.docId);
+
+        expect(ids).toContain(ACTIVE_A);
+        expect(ids).not.toContain(ARCHIVED);
+        expect(ids).not.toContain(TRASHED);
+    });
+
+    it('getArchivedNotes returns only archived notes (status 1, not active or trashed)', async () => {
+        await addNote(ACTIVE_A, 'Active A');
+        await addNote(ARCHIVED, 'Archived', 1);
+        await addNote(TRASHED, 'Trashed', 2);
+
+        const ids = (await getArchivedNotes()).map((n) => n.docId);
+
+        expect(ids).toEqual([ARCHIVED]);
     });
 });

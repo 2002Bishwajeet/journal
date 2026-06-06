@@ -12,6 +12,7 @@ import {
     updateSyncStatus,
     saveDocumentUpdate,
     getTrashedNotes,
+    getArchivedNotes,
     setNoteArchivalStatusLocal,
 } from '@/lib/db';
 import * as Y from 'yjs';
@@ -23,6 +24,7 @@ import { formatGuidId } from '@homebase-id/js-lib/helpers';
 
 export const notesQueryKey = ['notes'] as const;
 export const trashedNotesQueryKey = ['trashed-notes'] as const;
+export const archivedNotesQueryKey = ['archived-notes'] as const;
 
 interface CreateNoteResult {
     docId: string;
@@ -34,8 +36,9 @@ interface NoteMutationContext {
 }
 
 interface TrashMutationContext {
-    previousNotes: NoteListEntry[] | undefined;
-    previousTrash: NoteListEntry[] | undefined;
+    previousNotes?: NoteListEntry[] | undefined;
+    previousTrash?: NoteListEntry[] | undefined;
+    previousArchived?: NoteListEntry[] | undefined;
 }
 
 interface UpdateMetadataParams {
@@ -344,9 +347,15 @@ export function useNotes() {
             await queryClient.cancelQueries({ queryKey: notesQueryKey });
             const previousNotes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
             const previousTrash = queryClient.getQueryData<NoteListEntry[]>(trashedNotesQueryKey);
-            // Optimistically move the note from the active list into the trash list.
-            const moved = previousNotes?.find((n) => n.docId === docId);
+            const previousArchived = queryClient.getQueryData<NoteListEntry[]>(archivedNotesQueryKey);
+            // The note may be heading to Trash from the active list OR the Archive view.
+            const moved =
+                previousNotes?.find((n) => n.docId === docId) ??
+                previousArchived?.find((n) => n.docId === docId);
             queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) =>
+                old?.filter((n) => n.docId !== docId) || []
+            );
+            queryClient.setQueryData<NoteListEntry[]>(archivedNotesQueryKey, (old) =>
                 old?.filter((n) => n.docId !== docId) || []
             );
             if (moved) {
@@ -355,15 +364,17 @@ export function useNotes() {
                     ...(old || []).filter((n) => n.docId !== docId),
                 ]);
             }
-            return { previousNotes, previousTrash };
+            return { previousNotes, previousTrash, previousArchived };
         },
         onError: (_err, _vars, context) => {
             if (context?.previousNotes) queryClient.setQueryData(notesQueryKey, context.previousNotes);
             if (context?.previousTrash) queryClient.setQueryData(trashedNotesQueryKey, context.previousTrash);
+            if (context?.previousArchived) queryClient.setQueryData(archivedNotesQueryKey, context.previousArchived);
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: notesQueryKey });
             queryClient.invalidateQueries({ queryKey: trashedNotesQueryKey });
+            queryClient.invalidateQueries({ queryKey: archivedNotesQueryKey });
         },
     });
 
@@ -400,6 +411,70 @@ export function useNotes() {
         },
     });
 
+    // Archive — move a note to the Archive (Homebase archivalStatus 1).
+    const archiveNoteMutation = useMutation<void, Error, string, TrashMutationContext>({
+        mutationFn: async (docId: string) => {
+            await setNoteArchivalStatusRemote(docId, 1);
+            await setNoteArchivalStatusLocal(docId, 1);
+        },
+        onMutate: async (docId) => {
+            await queryClient.cancelQueries({ queryKey: notesQueryKey });
+            const previousNotes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
+            const previousArchived = queryClient.getQueryData<NoteListEntry[]>(archivedNotesQueryKey);
+            const moved = previousNotes?.find((n) => n.docId === docId);
+            queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) =>
+                old?.filter((n) => n.docId !== docId) || []
+            );
+            if (moved) {
+                queryClient.setQueryData<NoteListEntry[]>(archivedNotesQueryKey, (old) => [
+                    moved,
+                    ...(old || []).filter((n) => n.docId !== docId),
+                ]);
+            }
+            return { previousNotes, previousArchived };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previousNotes) queryClient.setQueryData(notesQueryKey, context.previousNotes);
+            if (context?.previousArchived) queryClient.setQueryData(archivedNotesQueryKey, context.previousArchived);
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: notesQueryKey });
+            queryClient.invalidateQueries({ queryKey: archivedNotesQueryKey });
+        },
+    });
+
+    // Unarchive — move a note from the Archive back to active (archivalStatus 0).
+    const unarchiveNoteMutation = useMutation<void, Error, string, TrashMutationContext>({
+        mutationFn: async (docId: string) => {
+            await setNoteArchivalStatusRemote(docId, 0);
+            await setNoteArchivalStatusLocal(docId, 0);
+        },
+        onMutate: async (docId) => {
+            await queryClient.cancelQueries({ queryKey: archivedNotesQueryKey });
+            const previousArchived = queryClient.getQueryData<NoteListEntry[]>(archivedNotesQueryKey);
+            const previousNotes = queryClient.getQueryData<NoteListEntry[]>(notesQueryKey);
+            const moved = previousArchived?.find((n) => n.docId === docId);
+            queryClient.setQueryData<NoteListEntry[]>(archivedNotesQueryKey, (old) =>
+                old?.filter((n) => n.docId !== docId) || []
+            );
+            if (moved) {
+                queryClient.setQueryData<NoteListEntry[]>(notesQueryKey, (old) => [
+                    moved,
+                    ...(old || []).filter((n) => n.docId !== docId),
+                ]);
+            }
+            return { previousNotes, previousArchived };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previousNotes) queryClient.setQueryData(notesQueryKey, context.previousNotes);
+            if (context?.previousArchived) queryClient.setQueryData(archivedNotesQueryKey, context.previousArchived);
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: notesQueryKey });
+            queryClient.invalidateQueries({ queryKey: archivedNotesQueryKey });
+        },
+    });
+
     return {
         get: query,
         createNote: createNoteMutation,
@@ -410,6 +485,8 @@ export function useNotes() {
         setNotePublic: setNotePublicMutation,
         trashNote: trashNoteMutation,
         restoreNote: restoreNoteMutation,
+        archiveNote: archiveNoteMutation,
+        unarchiveNote: unarchiveNoteMutation,
         emptyTrash: emptyTrashMutation,
     };
 }
@@ -425,6 +502,16 @@ export function useTrashedNotes() {
 }
 
 /**
+ * Query hook for the Archive view — notes with archivalStatus 1 (Archived).
+ */
+export function useArchivedNotes() {
+    return useQuery<NoteListEntry[]>({
+        queryKey: archivedNotesQueryKey,
+        queryFn: getArchivedNotes,
+    });
+}
+
+/**
  * Query hook to fetch notes for a specific folder.
  * Returns lightweight NoteListEntry objects (no full content).
  */
@@ -433,7 +520,7 @@ export function useNotesByFolder(folderId: string | undefined) {
         queryKey: [...notesQueryKey, 'folder', folderId],
         queryFn: () => getNotesForListByFolder(folderId!),
         // 'trash' and 'shared' are pseudo-folders with their own views — skip the query.
-        enabled: !!folderId && folderId !== 'trash' && folderId !== 'shared',
+        enabled: !!folderId && folderId !== 'trash' && folderId !== 'shared' && folderId !== 'archive',
     });
 }
 

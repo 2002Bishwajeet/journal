@@ -5,6 +5,7 @@ import {
   Trash2,
   Share2,
   Users,
+  Archive,
   Globe,
   Pin,
   PinOff,
@@ -39,6 +40,7 @@ interface NoteListProps {
   onDeleteNote: (docId: string) => void;
   onShareNote: (note: NoteListEntry) => void;
   onMarkCollaborative?: (note: NoteListEntry) => void;
+  onArchive?: (note: NoteListEntry) => void;
   isLoading?: boolean;
   className?: string;
 }
@@ -51,6 +53,7 @@ export default function NoteList({
   onDeleteNote,
   onShareNote,
   onMarkCollaborative,
+  onArchive,
   isLoading = false,
   className = "",
 }: NoteListProps) {
@@ -248,6 +251,7 @@ export default function NoteList({
                           onShareNote={onShareNote}
                           onTogglePin={handleTogglePin}
                           onMarkCollaborative={onMarkCollaborative}
+                          onArchive={onArchive}
                         />
                       ))}
                     </div>
@@ -284,6 +288,7 @@ const NoteItem = memo(function NoteItem({
   onShareNote,
   onTogglePin,
   onMarkCollaborative,
+  onArchive,
 }: {
   note: NoteListEntry;
   selectedNoteId: string | null;
@@ -292,6 +297,7 @@ const NoteItem = memo(function NoteItem({
   onShareNote: (note: NoteListEntry) => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
   onMarkCollaborative?: (note: NoteListEntry) => void;
+  onArchive?: (note: NoteListEntry) => void;
 }) {
   const touchStartRef = useRef<number | null>(null);
   const touchEndRef = useRef<number | null>(null);
@@ -390,6 +396,12 @@ const NoteItem = memo(function NoteItem({
             icon: Users,
             action: () => onMarkCollaborative?.(note),
             disabled: !onMarkCollaborative,
+          },
+          {
+            label: "Archive",
+            icon: Archive,
+            action: () => onArchive?.(note),
+            disabled: !onArchive,
           },
           {
             label: "Move to Trash",

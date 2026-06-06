@@ -4,7 +4,8 @@ import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRec
 
 // Notes with archivalStatus 2 (Homebase "Removed") live in the Trash — exclude them
 // from every active-note list. Single source of truth for the filter.
-const ACTIVE_NOTES_FILTER = `COALESCE((metadata->>'archivalStatus')::int, 0) <> 2`;
+// Active = not archived (1) and not trashed (2).
+const ACTIVE_NOTES_FILTER = `COALESCE((metadata->>'archivalStatus')::int, 0) = 0`;
 
 type NoteListRow = { doc_id: string; title: string; preview: string; metadata: DocumentMetadata };
 const toNoteListEntry = (row: NoteListRow): NoteListEntry => ({
@@ -177,6 +178,22 @@ export async function getTrashedNotes(): Promise<NoteListEntry[]> {
                 metadata
          FROM search_index
          WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 2
+         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
+    );
+    return result.rows.map(toNoteListEntry);
+}
+
+/**
+ * Lightweight query for the Archive view — notes with archivalStatus 1 (Archived).
+ */
+export async function getArchivedNotes(): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const result = await db.query<NoteListRow>(
+        `SELECT doc_id, title,
+                LEFT(plain_text_content, 150) as preview,
+                metadata
+         FROM search_index
+         WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 1
          ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
     );
     return result.rows.map(toNoteListEntry);
