@@ -12,8 +12,9 @@ export function NoteLinkNodeView({ node }: NodeViewProps) {
   const label = (node.attrs.label as string) || "note";
 
   const resolved = noteId ? ctx?.resolve(noteId) : undefined;
-  // Broken = we have a resolver but the target isn't there (deleted/foreign id).
-  const broken = !!noteId && !!ctx && !resolved;
+  // Broken only once the title map has loaded and the target is genuinely absent
+  // (deleted / archived / foreign id). While loading, show the label, not ⚠.
+  const broken = !!noteId && !!ctx && ctx.isReady && !resolved;
   const display = resolved?.title ?? label;
 
   return (

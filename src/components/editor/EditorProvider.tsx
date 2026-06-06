@@ -16,8 +16,8 @@ import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { NoteLinkContext, type NoteLinkContextValue } from "./NoteLinkContext";
 import { useSyncService } from "@/hooks/useSyncService";
-import { useNotes } from "@/hooks/useNotes";
 import { useNoteTitleMap } from "@/hooks/useNoteTitleMap";
+import { createNoteWithContent } from "@/lib/notes/createNoteWithContent";
 import { extractNoteLinkIds } from "@/lib/editor/extractNoteLinkIds";
 import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
 import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
@@ -186,24 +186,22 @@ export function EditorProvider({
 
   // --- Internal note links (`[[`) ---
   const navigate = useNavigate();
-  const noteTitleMap = useNoteTitleMap();
-  const { createNoteWithContent } = useNotes();
-  const createNoteAsync = createNoteWithContent.mutateAsync;
+  const { map: noteTitleMap, isReady: titleMapReady } = useNoteTitleMap();
   const noteFolderId = metadata.folderId;
 
   // Handlers for the suggestion extension. EditorProvider remounts per note
   // (key={noteId}), so docId/folderId are stable for this instance — close over
-  // them directly rather than reading refs during render.
+  // them directly. createNoteWithContent is a plain fn (no list subscription).
   const onCreateNoteLink = useCallback(
     async (title: string) => {
-      const res = await createNoteAsync({
+      const res = await createNoteWithContent({
         title,
         content: "",
         folderId: noteFolderId,
       });
       return res ? { docId: res.docId } : null;
     },
-    [createNoteAsync, noteFolderId],
+    [noteFolderId],
   );
   const getCurrentNoteId = useCallback(() => docId, [docId]);
 
@@ -211,12 +209,13 @@ export function EditorProvider({
   const noteLinkValue = useMemo<NoteLinkContextValue>(
     () => ({
       resolve: (id) => noteTitleMap.get(id),
+      isReady: titleMapReady,
       onNavigate: (id) => {
         const r = noteTitleMap.get(id);
         if (r) navigate(`/${r.folderId}/${id}`, { viewTransition: true });
       },
     }),
-    [noteTitleMap, navigate],
+    [noteTitleMap, titleMapReady, navigate],
   );
 
   // Memoize extensions to avoid recreation on every render
