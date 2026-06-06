@@ -342,3 +342,11 @@ export function useNotesByFolder(folderId: string | undefined) {
 export function useCollaborativeNotes(enabled: boolean = true) {
     return useLiveNoteList(NOTE_LIST_SQL.collaborative, [], enabled);
 }
+
+/**
+ * Backlinks for the "Linked mentions" panel — active notes whose
+ * metadata.linkedNoteIds contains this note's id.
+ */
+export function useBacklinks(noteId: string | undefined) {
+    return useLiveNoteList(NOTE_LIST_SQL.backlinks, [noteId ?? ''], !!noteId);
+}
