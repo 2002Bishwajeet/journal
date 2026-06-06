@@ -1,5 +1,7 @@
 import { PGliteWorker } from '@electric-sql/pglite/worker';
 import type { PGliteInterface } from '@electric-sql/pglite';
+import { live } from '@electric-sql/pglite/live';
+import type { PGliteWithLive } from '@electric-sql/pglite/live';
 import { MAIN_FOLDER_ID } from '../homebase';
 import {
   migrateFromV3,
@@ -23,10 +25,19 @@ export function getDatabase(): Promise<PGliteInterface> {
   return dbPromise;
 }
 
+/**
+ * Same singleton instance as getDatabase(), typed with the `live` extension
+ * so callers can use PGlite live queries (db.live.incrementalQuery).
+ */
+export function getLiveDatabase(): Promise<PGliteWithLive> {
+  return getDatabase() as Promise<PGliteWithLive>;
+}
+
 function createWorkerInstance(loadDataDir?: Blob): Promise<PGliteInterface> {
   const options: Record<string, unknown> = {
     dataDir: DATA_DIR,
     id: 'journal-pglite',
+    extensions: { live },
   };
   if (loadDataDir) {
     options.loadDataDir = loadDataDir;

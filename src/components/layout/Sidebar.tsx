@@ -32,8 +32,6 @@ import { cn } from "@/lib/utils";
 import type { Folder } from "@/types";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
-import { useQueryClient } from "@tanstack/react-query";
-import { foldersQueryKey } from "@/hooks/useFolders";
 import { OwnerImage } from "@/components/author/AuthorImage";
 
 interface SidebarProps {
@@ -81,11 +79,10 @@ export default function Sidebar({
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { sync } = useSyncService();
-  const queryClient = useQueryClient();
 
   const handleRefresh = async () => {
+    // The folder list is a live query — a sync pull surfaces new folders automatically.
     await sync();
-    await queryClient.invalidateQueries({ queryKey: foldersQueryKey });
   };
 
   return (

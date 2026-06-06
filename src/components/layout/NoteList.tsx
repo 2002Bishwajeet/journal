@@ -28,8 +28,7 @@ import type { NoteListEntry } from "@/types";
 import { formatRelativeTime } from "@/lib/utils/index";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
-import { useQueryClient } from "@tanstack/react-query";
-import { notesQueryKey, useNotes } from "@/hooks/useNotes";
+import { useNotes } from "@/hooks/useNotes";
 import { getNoteGroup } from "@/helpers/dateGrouping";
 
 interface NoteListProps {
@@ -62,15 +61,14 @@ export default function NoteList({
     "modified",
   );
   const { sync } = useSyncService();
-  const queryClient = useQueryClient();
   const { togglePin } = useNotes();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     () => new Set(),
   );
 
   const handleRefresh = async () => {
+    // The note list is a live query — a sync pull surfaces new notes automatically.
     await sync();
-    await queryClient.invalidateQueries({ queryKey: notesQueryKey });
   };
 
   const toggleGroup = (group: string) => {
