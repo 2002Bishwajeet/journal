@@ -37,9 +37,15 @@ export const NOTE_LIST_SQL = {
     trashed: `${NOTE_LIST_SELECT} WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 2 ${MODIFIED_DESC}`,
     archived: `${NOTE_LIST_SELECT} WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 1 ${MODIFIED_DESC}`,
     byTag: `${NOTE_LIST_SELECT} WHERE metadata->'tags' ? $1 AND ${ACTIVE_NOTES_FILTER} ORDER BY (metadata->>'isPinned')::boolean DESC NULLS LAST, updated_at DESC`,
+    // Backlinks: active notes whose metadata.linkedNoteIds array contains $1.
+    // Uses the same jsonb `?` element-exists operator as the tag filter.
+    backlinks: `${NOTE_LIST_SELECT} WHERE metadata->'linkedNoteIds' ? $1 AND ${ACTIVE_NOTES_FILTER} ${MODIFIED_DESC}`,
 } as const;
 
 export const FOLDERS_SQL = `SELECT id, name, created_at FROM folders ORDER BY name ASC`;
+
+// All notes' id → title/folder/status, for live-resolving internal-link titles.
+export const NOTE_TITLE_MAP_SQL = `SELECT doc_id, title, metadata->>'folderId' AS folder_id, COALESCE((metadata->>'archivalStatus')::int, 0) AS status FROM search_index`;
 
 
 
@@ -269,6 +275,43 @@ export async function getNotesForListByFolder(folderId: string): Promise<NoteLis
            AND ${ACTIVE_NOTES_FILTER}
          ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`,
         [folderId]
+    );
+    return result.rows.map(toNoteListEntry);
+}
+
+/**
+ * Search active notes by title substring, for the `[[` note-link picker.
+ * Excludes the current note (self-link) and archived/trashed notes. An empty
+ * query returns the most-recently-modified active notes.
+ */
+export async function searchNotesByTitle(
+    query: string,
+    excludeId?: string,
+    limit = 8,
+): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const trimmed = query.trim();
+
+    if (trimmed) {
+        const result = await db.query<NoteListRow>(
+            `${NOTE_LIST_SELECT}
+             WHERE title ILIKE '%' || $1 || '%'
+               AND ${ACTIVE_NOTES_FILTER}
+               AND ($2::uuid IS NULL OR doc_id <> $2)
+             ORDER BY title ASC
+             LIMIT $3`,
+            [trimmed, excludeId ?? null, limit],
+        );
+        return result.rows.map(toNoteListEntry);
+    }
+
+    const result = await db.query<NoteListRow>(
+        `${NOTE_LIST_SELECT}
+         WHERE ${ACTIVE_NOTES_FILTER}
+           AND ($1::uuid IS NULL OR doc_id <> $1)
+         ${MODIFIED_DESC}
+         LIMIT $2`,
+        [excludeId ?? null, limit],
     );
     return result.rows.map(toNoteListEntry);
 }
