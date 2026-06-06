@@ -1,4 +1,4 @@
-import { useEffect, useState, startTransition } from 'react';
+import { useEffect, useRef, useState, startTransition } from 'react';
 import { getLiveDatabase } from '@/lib/db/pglite';
 
 interface LiveEntry {
@@ -32,6 +32,19 @@ export function useLiveQuery<T>(
 ): { data: T[]; isLoading: boolean } {
   const cacheKey = `${rowKey}::${sql}::${JSON.stringify(params)}`;
 
+  // The subscription effect re-runs only when cacheKey/enabled change; the raw
+  // inputs are read through "latest" refs (cacheKey already encodes when they
+  // meaningfully change), keeping the dependency list honest without disabling
+  // exhaustive-deps. Refs are synced in an effect — never written during render.
+  const sqlRef = useRef(sql);
+  const paramsRef = useRef(params);
+  const rowKeyRef = useRef(rowKey);
+  useEffect(() => {
+    sqlRef.current = sql;
+    paramsRef.current = params;
+    rowKeyRef.current = rowKey;
+  }, [sql, params, rowKey]);
+
   const [data, setData] = useState<T[]>(() => {
     const e = enabled ? registry.get(cacheKey) : undefined;
     return e?.ready ? (e.rows as T[]) : [];
@@ -40,28 +53,27 @@ export function useLiveQuery<T>(
     () => enabled && !registry.get(cacheKey)?.ready,
   );
 
-  // When the query key changes for the SAME hook instance (e.g. switching folder
-  // or tag), reset to the new key's snapshot during render so the list never
-  // flashes the previous query's rows. (React's "adjust state on prop change"
-  // pattern — re-renders before paint, no stale frame.)
-  const [renderedKey, setRenderedKey] = useState(cacheKey);
-  if (renderedKey !== cacheKey) {
-    setRenderedKey(cacheKey);
+  // Reset to the new key's snapshot during render when the query key or the
+  // enabled flag changes, so switching folder/tag never flashes the previous
+  // query's rows. (React's adjust-state-on-change pattern — re-renders before
+  // paint, and keeps setState out of the effect body.)
+  const stateKey = `${cacheKey}::${enabled}`;
+  const [renderedKey, setRenderedKey] = useState(stateKey);
+  if (renderedKey !== stateKey) {
+    setRenderedKey(stateKey);
     const e = enabled ? registry.get(cacheKey) : undefined;
     setData(e?.ready ? (e.rows as T[]) : []);
     setIsLoading(enabled ? !e?.ready : false);
   }
 
   useEffect(() => {
-    if (!enabled) {
-      setData([]);
-      setIsLoading(false);
-      return;
-    }
+    if (!enabled) return;
+
     let active = true;
     const listener = (rows: unknown[]) => {
       if (!active) return;
-      // Sync emissions are non-urgent — keep user interactions responsive.
+      // Subscription callback (external store) — non-urgent, so keep user
+      // interactions responsive while sync emissions land.
       startTransition(() => {
         setData(rows as T[]);
         setIsLoading(false);
@@ -80,7 +92,10 @@ export function useLiveQuery<T>(
     const myEntry = entry;
 
     if (entry.ready) {
-      listener(entry.rows);
+      // Already-cached snapshot — deliver via a microtask so this stays out of
+      // the synchronous effect body (a re-render bails out if rows are unchanged).
+      const rows = entry.rows;
+      queueMicrotask(() => listener(rows));
     } else if (!entry.subscribing) {
       // First consumer (or a retry after a failed attempt) creates the shared
       // subscription. Gating on `subscribing` (not refs) lets a later mount
@@ -90,9 +105,9 @@ export function useLiveQuery<T>(
         try {
           const db = await getLiveDatabase();
           const lq = await db.live.incrementalQuery(
-            sql,
-            params as unknown[],
-            rowKey,
+            sqlRef.current,
+            paramsRef.current as unknown[],
+            rowKeyRef.current,
             (res) => {
               // Drop emissions for an entry that was discarded and replaced.
               if (registry.get(cacheKey) !== myEntry) return;
@@ -133,9 +148,6 @@ export function useLiveQuery<T>(
         void e.unsubscribe?.();
       }
     };
-    // cacheKey encodes rowKey+sql+params; depending on the raw (array) params would
-    // re-subscribe on every render (rerender-dependencies). cacheKey is the gate.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cacheKey, enabled]);
 
   return { data, isLoading };
