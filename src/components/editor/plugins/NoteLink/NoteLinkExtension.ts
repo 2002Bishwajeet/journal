@@ -1,0 +1,180 @@
+/**
+ * Note-link suggestion extension (`[[`).
+ *
+ * Triggered by typing `[[`, it searches notes by title and inserts a `noteLink`
+ * node (see NoteLinkNode). When the query matches nothing it offers a
+ * "Create '<query>'" action that creates a note and links it inline.
+ * Reuses the same @tiptap/suggestion + ReactRenderer + tippy plumbing as the
+ * slash-command palette.
+ */
+import { Extension } from '@tiptap/core';
+import type { Editor } from '@tiptap/core';
+import Suggestion, { type SuggestionOptions } from '@tiptap/suggestion';
+import { ReactRenderer } from '@tiptap/react';
+import tippy, { type Instance as TippyInstance } from 'tippy.js';
+import { NoteLinkList, type NoteLinkListRef } from './NoteLinkList';
+import { searchNotesByTitle } from '@/lib/db';
+
+export type NoteLinkItem =
+    | { type: 'note'; docId: string; title: string }
+    | { type: 'create'; title: string };
+
+export interface NoteLinkOptions {
+    /** Create a new note titled `title`; return its docId (or null to abort). */
+    onCreateNote: (title: string) => Promise<{ docId: string } | null>;
+    /** The note currently being edited — excluded from results (no self-links). */
+    getCurrentNoteId: () => string | undefined;
+    suggestion: Partial<SuggestionOptions>;
+}
+
+type Range = { from: number; to: number };
+
+const noteLinkContent = (noteId: string, label: string) => [
+    { type: 'noteLink', attrs: { noteId, label } },
+    { type: 'text', text: ' ' },
+];
+
+function insertNoteLink(editor: Editor, range: Range, noteId: string, label: string) {
+    editor.chain().focus().deleteRange(range).insertContent(noteLinkContent(noteId, label)).run();
+}
+
+export const NoteLinkExtension = Extension.create<NoteLinkOptions>({
+    name: 'noteLinkSuggestion',
+
+    addOptions() {
+        return {
+            onCreateNote: async () => null,
+            getCurrentNoteId: () => undefined,
+            suggestion: {},
+        };
+    },
+
+    addProseMirrorPlugins() {
+        const options = this.options;
+        // Monotonic id so a slow earlier query can't overwrite a newer result.
+        let requestSeq = 0;
+        return [
+            Suggestion<NoteLinkItem>({
+                editor: this.editor,
+                char: '[[',
+                allowSpaces: true,
+                startOfLine: false,
+
+                // Match `[[` then any chars except `]`, `[` or newline, up to the
+                // cursor. Excluding `]` makes `]]` terminate the query (popup
+                // closes) — the natural [[Title]] syntax, which the default
+                // allowSpaces matcher would over-run to end of line.
+                findSuggestionMatch: ({ $position }) => {
+                    const textBefore = $position.parent.textBetween(
+                        0,
+                        $position.parentOffset,
+                        undefined,
+                        '￼',
+                    );
+                    const m = /\[\[([^[\]\n]*)$/.exec(textBefore);
+                    if (!m) return null;
+                    return {
+                        range: { from: $position.pos - m[0].length, to: $position.pos },
+                        query: m[1],
+                        text: m[0],
+                    };
+                },
+
+                ...options.suggestion,
+
+                items: ({ query }) => {
+                    const seq = ++requestSeq;
+                    return searchNotesByTitle(query, options.getCurrentNoteId()).then((notes) => {
+                        // Stale result (a newer query started) — drop it instead of
+                        // overwriting fresher items. Never-resolving = no onUpdate.
+                        if (seq !== requestSeq) return new Promise<NoteLinkItem[]>(() => {});
+                        const items: NoteLinkItem[] = notes.map((n) => ({
+                            type: 'note',
+                            docId: n.docId,
+                            title: n.title || 'Untitled',
+                        }));
+                        const q = query.trim();
+                        if (q) items.push({ type: 'create', title: q });
+                        return items;
+                    });
+                },
+
+                command: ({ editor, range, props }) => {
+                    const item = props as NoteLinkItem;
+                    if (item.type === 'note') {
+                        insertNoteLink(editor, range, item.docId, item.title);
+                        return;
+                    }
+                    // Create-on-the-fly: clear the `[[query`, create, then link at the
+                    // same spot. On failure, restore the typed text so it isn't lost.
+                    const from = range.from;
+                    editor.chain().focus().deleteRange(range).run();
+                    void options
+                        .onCreateNote(item.title)
+                        .then((res) => {
+                            if (res?.docId) {
+                                editor.chain().focus().insertContentAt(from, noteLinkContent(res.docId, item.title)).run();
+                            } else {
+                                editor.chain().focus().insertContentAt(from, `[[${item.title}`).run();
+                            }
+                        })
+                        .catch((err) => {
+                            console.error('[NoteLink] create note failed:', err);
+                            editor.chain().focus().insertContentAt(from, `[[${item.title}`).run();
+                        });
+                },
+
+                render: () => {
+                    let component: ReactRenderer<NoteLinkListRef> | null = null;
+                    let popup: TippyInstance[] | null = null;
+
+                    return {
+                        onStart: (props) => {
+                            component = new ReactRenderer(NoteLinkList, {
+                                props,
+                                editor: props.editor,
+                            });
+
+                            if (!props.clientRect) return;
+
+                            popup = tippy('body', {
+                                getReferenceClientRect: props.clientRect as () => DOMRect,
+                                appendTo: () => document.body,
+                                content: component.element,
+                                showOnCreate: true,
+                                interactive: true,
+                                trigger: 'manual',
+                                placement: 'bottom-start',
+                                animation: 'shift-away',
+                                offset: [0, 8],
+                            });
+                        },
+
+                        onUpdate: (props) => {
+                            component?.updateProps(props);
+                            if (!props.clientRect || !popup?.[0]) return;
+                            popup[0].setProps({
+                                getReferenceClientRect: props.clientRect as () => DOMRect,
+                            });
+                        },
+
+                        onKeyDown: (props) => {
+                            if (props.event.key === 'Escape') {
+                                popup?.[0]?.hide();
+                                return true;
+                            }
+                            return component?.ref?.onKeyDown(props) ?? false;
+                        },
+
+                        onExit: () => {
+                            popup?.[0]?.destroy();
+                            component?.destroy();
+                        },
+                    };
+                },
+            }),
+        ];
+    },
+});
+
+export default NoteLinkExtension;
