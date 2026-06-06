@@ -65,7 +65,7 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.14.1",
+    "react-router-dom": "^7.15.0",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
     "tippy.js": "^6.3.7",
@@ -106,6 +106,10 @@
   "overrides": {
     "vite-plugin-pwa": {
       "vite": "$vite"
-    }
+    },
+    "axios": "^1.16.0",
+    "serialize-javascript": "^7.0.5",
+    "fast-uri": "^3.1.2",
+    "@babel/plugin-transform-modules-systemjs": "^7.29.4"
   }
 }
