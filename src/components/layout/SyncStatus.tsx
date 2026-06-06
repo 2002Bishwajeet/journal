@@ -117,6 +117,7 @@ export function SyncStatus({ className }: SyncStatusProps) {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Sync now"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               onClick={() => sync()}
               disabled={isSyncing || !isOnline}

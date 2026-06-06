@@ -357,6 +357,7 @@ RULES:
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Close assistant"
               className="h-8 w-8 lg:hidden"
               onClick={() => setIsOpen(false)}
             >
@@ -372,6 +373,7 @@ RULES:
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Close assistant"
               className="h-8 w-8 hidden lg:flex"
               onClick={() => setIsOpen(false)}
             >
@@ -495,6 +497,7 @@ RULES:
               />
               <Button
                 size="icon"
+                aria-label="Send message"
                 className="h-9 w-9"
                 onClick={handleSend}
                 disabled={!isReady || (isGenerating && !isSearching) || !input.trim()}

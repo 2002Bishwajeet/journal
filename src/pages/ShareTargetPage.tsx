@@ -56,7 +56,7 @@ export default function ShareTargetPage() {
     <div className="min-h-screen bg-background flex flex-col p-4 md:p-8 max-w-2xl mx-auto pt-[env(safe-area-inset-top)]">
       <div className="flex items-center justify-between mb-8 mt-4">
         <h1 className="text-2xl font-bold tracking-tight">Save to Journal</h1>
-        <Button variant="ghost" size="icon" onClick={handleCancel}>
+        <Button variant="ghost" size="icon" aria-label="Cancel" onClick={handleCancel}>
           <X className="w-5 h-5" />
         </Button>
       </div>

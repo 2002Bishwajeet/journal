@@ -374,6 +374,7 @@ export default function JournalLayout() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Back to notes"
               className="h-8 w-8"
               onClick={() => navigate("/")}
             >
