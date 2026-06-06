@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   Trash2,
+  Archive,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,8 @@ interface SidebarProps {
   onSelectShared?: () => void;
   onSelectTrash?: () => void;
   trashCount?: number;
+  onSelectArchive?: () => void;
+  archivedCount?: number;
   onSearch: () => void;
   onSettings: () => void;
   onLogout: () => void;
@@ -67,6 +70,8 @@ export default function Sidebar({
   onSelectShared,
   onSelectTrash,
   trashCount,
+  onSelectArchive,
+  archivedCount,
   tags,
   selectedTag,
   onSelectTag,
@@ -341,6 +346,40 @@ export default function Sidebar({
           )}
         >
           {!isCollapsed && <Separator className="mb-2" />}
+
+          <Tooltip>
+            {/* Archive */}
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn(
+                  isCollapsed
+                    ? "h-9 w-9 justify-center px-0"
+                    : "w-full justify-start px-2 h-8 text-muted-foreground",
+                  selectedFolderId === 'archive' &&
+                    "bg-accent text-accent-foreground font-medium hover:bg-accent"
+                )}
+                onClick={onSelectArchive}
+              >
+                <Archive className="h-4 w-4" />
+                {!isCollapsed && (
+                  <>
+                    <span className="ml-2 text-sm flex-1 text-left">Archive</span>
+                    {archivedCount != null && archivedCount > 0 && (
+                      <span className="ml-auto text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
+                        {archivedCount}
+                      </span>
+                    )}
+                  </>
+                )}
+              </Button>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent side="right">
+                Archive{archivedCount ? ` (${archivedCount})` : ''}
+              </TooltipContent>
+            )}
+          </Tooltip>
 
           <Tooltip>
             {/* Trash */}

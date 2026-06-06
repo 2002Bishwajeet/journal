@@ -21,7 +21,7 @@ import {
 } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback, Activity } from "react";
-import { ChevronLeft, Minimize2, Maximize2 } from "lucide-react";
+import { ChevronLeft, Minimize2, Maximize2, ArchiveRestore, Trash2, Archive } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,9 +52,10 @@ import {
   useNotesByFolder,
   useCollaborativeNotes,
   useTrashedNotes,
+  useArchivedNotes,
   notesQueryKey,
 } from "@/hooks/useNotes";
-import { TrashView } from "@/components/layout/TrashView";
+import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
 import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
@@ -92,6 +93,8 @@ export default function JournalLayout() {
     deleteNote: { mutateAsync: deleteNote },
     trashNote: { mutateAsync: trashNote },
     restoreNote: { mutateAsync: restoreNote },
+    archiveNote: { mutateAsync: archiveNote },
+    unarchiveNote: { mutateAsync: unarchiveNote },
     emptyTrash: { mutateAsync: emptyTrash },
     updateNote: { mutateAsync: updateNoteMetadata },
   } = useNotes();
@@ -232,8 +235,9 @@ export default function JournalLayout() {
   const { data: collaborativeNotes = [], isLoading: isCollaborativeLoading } =
     useCollaborativeNotes();
   const { data: trashedNotes = [], isLoading: isTrashLoading } = useTrashedNotes();
+  const { data: archivedNotes = [], isLoading: isArchivedLoading } = useArchivedNotes();
 
-  // Trash actions — stable handlers with user-visible error feedback.
+  // Trash / Archive actions — stable handlers with user-visible error feedback.
   const handleRestoreFromTrash = useCallback(
     (id: string) => {
       restoreNote(id).catch(() => toast.error("Couldn't restore note"));
@@ -251,6 +255,25 @@ export default function JournalLayout() {
   const handleEmptyTrash = useCallback(() => {
     emptyTrash().catch(() => toast.error("Couldn't empty Trash"));
   }, [emptyTrash]);
+  const handleArchive = useCallback(
+    (note: NoteListEntry) => {
+      archiveNote(note.docId).catch(() => toast.error("Couldn't archive note"));
+    },
+    [archiveNote],
+  );
+  const handleUnarchive = useCallback(
+    (id: string) => {
+      unarchiveNote(id).catch(() => toast.error("Couldn't unarchive note"));
+    },
+    [unarchiveNote],
+  );
+  const handleMoveArchivedToTrash = useCallback(
+    (id: string) => {
+      closeTab(id);
+      trashNote(id).catch(() => toast.error("Couldn't move note to Trash"));
+    },
+    [trashNote, closeTab],
+  );
 
   const selectedTag = searchParams.get("tag");
   const { tags } = useTags();
@@ -360,6 +383,8 @@ export default function JournalLayout() {
           onSelectShared={() => navigate("/shared")}
           onSelectTrash={() => navigate("/trash")}
           trashCount={trashedNotes.length}
+          onSelectArchive={() => navigate("/archive")}
+          archivedCount={archivedNotes.length}
           onSearch={() => setShowSearch(true)}
           onSettings={() => setShowSettings(true)}
           onLogout={handleLogout}
@@ -410,18 +435,38 @@ export default function JournalLayout() {
             <h2 className="text-sm font-medium truncate flex-1 leading-none">
               {folderId === "trash"
                 ? "Trash"
-                : folders.find((f) => f.id === folderId)?.name || "Notes"}
+                : folderId === "archive"
+                  ? "Archive"
+                  : folders.find((f) => f.id === folderId)?.name || "Notes"}
             </h2>
             <SyncStatus />
           </div>
 
           {folderId === "trash" ? (
-            <TrashView
+            <HiddenNotesView
+              title="Trash"
               notes={trashedNotes}
               isLoading={isTrashLoading}
-              onRestore={handleRestoreFromTrash}
-              onDeleteForever={handleDeleteForever}
-              onEmptyTrash={handleEmptyTrash}
+              emptyIcon={Trash2}
+              emptyLabel="Trash is empty"
+              rowActions={[
+                { icon: ArchiveRestore, label: "Restore note", onClick: handleRestoreFromTrash },
+                { icon: Trash2, label: "Delete forever", onClick: handleDeleteForever, destructive: true },
+              ]}
+              headerAction={{ label: "Empty Trash", onClick: handleEmptyTrash }}
+              className="flex-1"
+            />
+          ) : folderId === "archive" ? (
+            <HiddenNotesView
+              title="Archive"
+              notes={archivedNotes}
+              isLoading={isArchivedLoading}
+              emptyIcon={Archive}
+              emptyLabel="No archived notes"
+              rowActions={[
+                { icon: ArchiveRestore, label: "Unarchive note", onClick: handleUnarchive },
+                { icon: Trash2, label: "Move to Trash", onClick: handleMoveArchivedToTrash, destructive: true },
+              ]}
               className="flex-1"
             />
           ) : (
@@ -490,6 +535,7 @@ export default function JournalLayout() {
                 setCollaborativeNote(note);
               }
             }}
+            onArchive={handleArchive}
             isLoading={isNotesToShowLoading}
             className="flex-1 w-full border-r-0"
           />
