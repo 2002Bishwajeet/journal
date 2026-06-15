@@ -6,6 +6,7 @@
  */
 
 import { Extension, type RawCommands, type CommandProps } from '@tiptap/core';
+import type { EditorState, Transaction } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
@@ -108,6 +109,34 @@ const IndentExtension = Extension.create({
                 if (current <= 0) return false;
                 return this.editor.chain().updateAttributes(nodeType, { indent: current - 1 }).run();
             },
+        };
+    },
+});
+
+/**
+ * Deletes an empty top-level textblock at the very START of the document when
+ * another block follows it. StarterKit's Backspace (joinBackward) is a no-op
+ * there — nothing precedes the block to merge into — so a stray blank line above
+ * a list, horizontal rule, or image otherwise can't be removed. Pure command so
+ * it's unit-testable at the ProseMirror state level.
+ */
+export function deleteEmptyLeadingBlock(state: EditorState, dispatch?: (tr: Transaction) => void): boolean {
+    const { $from, empty } = state.selection;
+    if (!empty) return false;
+    if ($from.depth !== 1 || !$from.parent.isTextblock) return false; // top-level textblock only
+    if ($from.parent.content.size > 0) return false;                  // must be empty
+    if ($from.before() !== 0) return false;                           // must be the first block
+    if (state.doc.childCount < 2) return false;                       // keep the last block
+    if (dispatch) dispatch(state.tr.delete(0, $from.after()));
+    return true;
+}
+
+const DeleteEmptyLeadingBlock = Extension.create({
+    name: 'deleteEmptyLeadingBlock',
+    addKeyboardShortcuts() {
+        return {
+            Backspace: () =>
+                this.editor.commands.command(({ state, dispatch }) => deleteEmptyLeadingBlock(state, dispatch)),
         };
     },
 });
@@ -227,6 +256,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         ClearFormattingShortcut,
         DuplicateBlock,
         IndentExtension,
+        DeleteEmptyLeadingBlock,
         SearchAndReplace,
     ];
 }
