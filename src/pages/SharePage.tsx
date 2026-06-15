@@ -4,6 +4,22 @@ import { Button } from '@/components/ui/button';
 import { useSharePage } from '@/hooks/useSharePage';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeRaw from 'rehype-raw';
+import rehypeKatex from 'rehype-katex';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import 'katex/dist/katex.min.css';
+
+// The serializer emits author-controlled raw HTML (<u>/<sub>/<sup> marks) on top
+// of `$...$` math. On a PUBLIC page that HTML must be sanitized to prevent XSS,
+// so the rehype order is: parse raw HTML -> sanitize -> render math. KaTeX runs
+// LAST so its (trusted) markup isn't stripped. We only widen the default schema
+// to allow the three formatting tags; remark-math's class markers ride on <code>,
+// which the default schema already permits, so KaTeX still finds the math.
+const sanitizeSchema = {
+    ...defaultSchema,
+    tagNames: [...(defaultSchema.tagNames ?? []), 'u', 'sub', 'sup'],
+};
 
 /**
  * Public page to display a shared note.
@@ -67,7 +83,10 @@ export default function SharePage() {
                         Shared by: {identity}
                     </div>
                     
-                    <Markdown remarkPlugins={[remarkGfm]}>
+                    <Markdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeKatex]}
+                    >
                         {note.content}
                     </Markdown>
                 </article>
