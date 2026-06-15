@@ -74,6 +74,18 @@ export function EditorProvider({
     isGrammarEnabledRef.current = aiSettings.grammarEnabled;
   }, [aiSettings.grammarEnabled]);
 
+  // Route the AI callbacks through refs too. Their identities change whenever
+  // isAIReady flips (WebLLM finishes loading) or autocomplete is toggled; if they
+  // were extension-memo deps the editor would be recreated, which discards the
+  // y-prosemirror UndoManager and silently breaks undo/redo. Reading the latest
+  // callback at call time keeps the editor — and its undo history — stable.
+  const onGetAutocompleteSuggestionRef = useRef(onGetAutocompleteSuggestion);
+  const onCheckGrammarRef = useRef(onCheckGrammar);
+  useEffect(() => {
+    onGetAutocompleteSuggestionRef.current = onGetAutocompleteSuggestion;
+    onCheckGrammarRef.current = onCheckGrammar;
+  }, [onGetAutocompleteSuggestion, onCheckGrammar]);
+
   // Get Yjs fragment for ProseMirror - memoized to avoid recreating on every render
   const yXmlFragment = useMemo(
     () => yDoc.getXmlFragment("prosemirror"),
@@ -150,6 +162,12 @@ export function EditorProvider({
     },
     [docId, sync],
   );
+  // Ref so the file handler can reach the latest callback without the editor
+  // being recreated when its identity changes (see undo/redo note above).
+  const handleImageDropRef = useRef(handleImageDrop);
+  useEffect(() => {
+    handleImageDropRef.current = handleImageDrop;
+  }, [handleImageDrop]);
 
   // Handle document updates from broadcast (sync service)
   const handleDocumentUpdate = useCallback(async () => {
@@ -174,16 +192,19 @@ export function EditorProvider({
         // Custom shortcuts can trigger actions here if needed
       }),
       // File handler for image drag/drop/paste
+      // eslint-disable-next-line react-hooks/refs -- ref read happens on drop, not during render
       FileHandler.configure({
         maxSizeMB: 5,
         allowedTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
-        onImageDrop: handleImageDrop,
+        onImageDrop: (file: File, pendingId: string) => handleImageDropRef.current(file, pendingId),
       }),
-      // AI-powered plugins (conditionally active)
-      // eslint-disable-next-line react-hooks/refs -- getIsAIReady is a getter called only within plugin execution, not during render
+      // AI-powered plugins (conditionally active). All inputs are read via refs
+      // at call time so the editor (and its undo history) is never recreated when
+      // AI readiness / settings change.
+      // eslint-disable-next-line react-hooks/refs -- getters are called only within plugin execution, not during render
       AutocompletePlugin.configure({
-        getSuggestion: onGetAutocompleteSuggestion || (async () => ""),
-        getIsAIReady: () => isAIReadyRef.current, // Use getter function to defer ref read
+        getSuggestion: (text: string) => onGetAutocompleteSuggestionRef.current?.(text) ?? Promise.resolve(""),
+        getIsAIReady: () => isAIReadyRef.current,
         debounceMs: 500,
         minCharsBeforeTrigger: 5,
         debug: false,
@@ -191,9 +212,9 @@ export function EditorProvider({
       // Slash commands (triggered by typing /)
       SlashCommandsExtension,
       // Grammar plugin — always included, checks getIsGrammarEnabled() at runtime
-      // eslint-disable-next-line react-hooks/refs -- getIsAIReady/getIsGrammarEnabled are getters called only within plugin execution, not during render
+      // eslint-disable-next-line react-hooks/refs -- getters are called only within plugin execution, not during render
       GrammarPlugin.configure({
-        checkGrammar: onCheckGrammar || (async () => []),
+        checkGrammar: (text: string) => onCheckGrammarRef.current?.(text) ?? Promise.resolve([]),
         getIsAIReady: () => isAIReadyRef.current,
         getIsGrammarEnabled: () => isGrammarEnabledRef.current,
         debounceMs: 3000,
@@ -201,12 +222,9 @@ export function EditorProvider({
         debug: false,
       }),
     ],
-    [
-      yXmlFragment,
-      onGetAutocompleteSuggestion,
-      onCheckGrammar,
-      handleImageDrop,
-    ],
+    // Only the Yjs fragment is a real input; everything else is read via refs so
+    // the editor is created once per note and undo/redo history survives.
+    [yXmlFragment],
   );
 
   // Create TipTap editor with performance optimizations
