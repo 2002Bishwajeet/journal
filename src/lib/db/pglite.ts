@@ -12,8 +12,35 @@ import {
 
 const DATA_DIR = 'idb://journal-db';
 const PGLITE_VERSION = '0.4';
+// Bump whenever a new statement is added to runMigrations().
+const SCHEMA_VERSION = '1';
 
 let dbPromise: Promise<PGliteInterface> | null = null;
+
+// Lazily enabled the first time fuzzy search runs — see ensureTrigramSearch().
+let trigramSearchPromise: Promise<void> | null = null;
+
+/**
+ * Enable pg_trgm and its GIN indexes on demand. Deferred out of the boot path
+ * because loading the extension costs ~1–2s per launch and only fuzzy search
+ * (advancedSearch) needs it. Idempotent and run-once per app load; a failure
+ * clears the cached promise so the next search retries.
+ */
+export function ensureTrigramSearch(db: PGliteInterface): Promise<void> {
+  if (!trigramSearchPromise) {
+    trigramSearchPromise = (async () => {
+      await db.exec(`
+        CREATE EXTENSION IF NOT EXISTS pg_trgm;
+        CREATE INDEX IF NOT EXISTS idx_search_title_trgm ON search_index USING GIN(title gin_trgm_ops);
+        CREATE INDEX IF NOT EXISTS idx_search_content_trgm ON search_index USING GIN(plain_text_content gin_trgm_ops);
+      `);
+    })().catch((err) => {
+      trigramSearchPromise = null;
+      throw err;
+    });
+  }
+  return trigramSearchPromise;
+}
 
 export function getDatabase(): Promise<PGliteInterface> {
   if (!dbPromise) {
@@ -78,13 +105,25 @@ async function initDatabase(): Promise<PGliteInterface> {
 async function initializeSchema(database: PGliteInterface): Promise<void> {
   console.log('[DB Schema] Starting schema initialization...');
 
-  // Enable pg_trgm extension for fuzzy/trigram matching
-  // This must happen BEFORE any queries that use it
-  try {
-    await database.exec(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
-    console.log('[DB Schema] pg_trgm extension enabled');
-  } catch (error) {
-    console.warn('[DB Schema] Could not enable pg_trgm:', error);
+  // NOTE: pg_trgm is no longer enabled here — loading it costs ~1–2s and nothing
+  // on the boot path uses trigram matching. It's enabled lazily on first search
+  // via ensureTrigramSearch().
+
+  // The applied schema revision lives INSIDE the database (not localStorage) so
+  // it can never desync from the schema it guards: if the data dir is wiped or
+  // evicted, this marker is gone too and full setup re-runs. Once a revision is
+  // applied we skip BOTH the base-table DDL and the migration chain — they're
+  // idempotent, but re-running them costs several hundred ms on every launch.
+  // Bump SCHEMA_VERSION to force a re-run after a schema change.
+  await database.exec(
+    `CREATE TABLE IF NOT EXISTS schema_meta (id INTEGER PRIMARY KEY, version TEXT NOT NULL);`,
+  );
+  const applied = await database.query<{ version: string }>(
+    `SELECT version FROM schema_meta WHERE id = 1`,
+  );
+  if (applied.rows[0]?.version === SCHEMA_VERSION) {
+    console.log('[DB Schema] Schema up to date, skipping schema setup');
+    return;
   }
 
   await database.exec(`
@@ -209,20 +248,19 @@ async function initializeSchema(database: PGliteInterface): Promise<void> {
 
   console.log('[DB Schema] Base tables created');
 
-  // Run migrations for existing databases
   await runMigrations(database);
+  await database.query(
+    `INSERT INTO schema_meta (id, version) VALUES (1, $1)
+     ON CONFLICT (id) DO UPDATE SET version = $1`,
+    [SCHEMA_VERSION],
+  );
 }
 
 async function runMigrations(database: PGliteInterface): Promise<void> {
   console.log('[DB Migration] Starting migrations...');
 
-  // Ensure pg_trgm extension is enabled (for existing dbs)
-  try {
-    await database.exec(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
-    console.log('[DB Migration] pg_trgm extension enabled');
-  } catch (error) {
-    console.warn('[DB Migration] Could not enable pg_trgm extension:', error);
-  }
+  // pg_trgm and its trigram indexes are enabled lazily on first search via
+  // ensureTrigramSearch() — intentionally not created here.
 
   // Add vector_embedding column if it doesn't exist
   try {
@@ -255,26 +293,16 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     console.warn('[DB Migration] Could not create FTS index:', error);
   }
 
-  // Create GIN index for trigram similarity on title
+  // Drop any pre-existing trigram indexes. They're now created lazily on first
+  // search (ensureTrigramSearch); leaving them would force every search_index
+  // write to load pg_trgm at boot, defeating the deferral. DROP doesn't need the
+  // extension loaded, and on a fresh db these are no-ops.
   try {
-    await database.exec(`
-      CREATE INDEX IF NOT EXISTS idx_search_title_trgm 
-      ON search_index USING GIN(title gin_trgm_ops);
-    `);
-    console.log('[DB Migration] Title trigram index ensured');
+    await database.exec(`DROP INDEX IF EXISTS idx_search_title_trgm;`);
+    await database.exec(`DROP INDEX IF EXISTS idx_search_content_trgm;`);
+    console.log('[DB Migration] Legacy trigram indexes dropped (now lazy)');
   } catch (error) {
-    console.warn('[DB Migration] Could not create title trigram index:', error);
-  }
-
-  // Create GIN index for trigram similarity on content
-  try {
-    await database.exec(`
-      CREATE INDEX IF NOT EXISTS idx_search_content_trgm 
-      ON search_index USING GIN(plain_text_content gin_trgm_ops);
-    `);
-    console.log('[DB Migration] Content trigram index ensured');
-  } catch (error) {
-    console.warn('[DB Migration] Could not create content trigram index:', error);
+    console.warn('[DB Migration] Could not drop legacy trigram indexes:', error);
   }
 
   // Create BTREE expression index on metadata folderId for folder filtering
