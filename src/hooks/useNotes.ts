@@ -8,7 +8,6 @@ import {
     upsertSyncRecord,
     deleteSyncRecord,
     updateSyncStatus,
-    saveDocumentUpdate,
     getTrashedNotes,
     getSearchIndexEntry,
     setNoteArchivalStatusLocal,
@@ -19,13 +18,13 @@ import {
     type NoteListRow,
     type NoteCountsRow,
 } from '@/lib/db';
-import * as Y from 'yjs';
 import { getNewId } from '@/lib/utils';
 import type { NoteListEntry, SearchIndexEntry, DocumentMetadata } from '@/types';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { useSyncService } from '@/hooks/useSyncService';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import { useLiveQuery } from './useLiveQuery';
+import { createNoteWithContent } from '@/lib/notes/createNoteWithContent';
 
 interface CreateNoteResult {
     docId: string;
@@ -190,57 +189,7 @@ export function useNotes() {
     });
 
     const createNoteWithContentMutation = useMutation<CreateNoteResult, Error, { title: string; content: string; folderId: string }>({
-        mutationFn: async ({ title, content, folderId }) => {
-            const docId = formatGuidId(getNewId());
-            const now = new Date().toISOString();
-
-            const metadata: DocumentMetadata = {
-                title: title || 'Untitled',
-                folderId: folderId || MAIN_FOLDER_ID,
-                tags: [],
-                timestamps: { created: now, modified: now },
-                excludeFromAI: false,
-                isPinned: false,
-            };
-
-            // 1. Create YJS Document with Content
-            const ydoc = new Y.Doc();
-            const fragment = ydoc.getXmlFragment('prosemirror');
-
-            // Create Tiptap JSON structure equivalent for a paragraph
-            // But YJS manipulation is lower level.
-            // We need to create XML elements.
-            const paragraph = new Y.XmlElement('paragraph');
-            if (content) {
-                const text = new Y.XmlText(content);
-                paragraph.push([text]);
-            }
-            fragment.push([paragraph]);
-
-            const updateBlob = Y.encodeStateAsUpdate(ydoc);
-
-            // 2. Save YJS Update
-            await saveDocumentUpdate(docId, updateBlob);
-
-            // 3. Save Search Index
-            await upsertSearchIndex({
-                docId,
-                title: metadata.title,
-                plainTextContent: content,
-                metadata,
-            });
-
-            // 4. Create Sync Record
-            await upsertSyncRecord({
-                localId: docId,
-                entityType: 'note',
-                syncStatus: 'pending',
-            });
-
-            ydoc.destroy();
-
-            return { docId, folderId: metadata.folderId };
-        },
+        mutationFn: createNoteWithContent,
     });
 
     // Soft delete — move a note to Trash (Homebase archivalStatus 2).
@@ -323,4 +272,12 @@ export function useNotesByFolder(folderId: string | undefined) {
 
 export function useCollaborativeNotes(enabled: boolean = true) {
     return useLiveNoteList(NOTE_LIST_SQL.collaborative, [], enabled);
+}
+
+/**
+ * Backlinks for the "Linked mentions" panel — active notes whose
+ * metadata.linkedNoteIds contains this note's id.
+ */
+export function useBacklinks(noteId: string | undefined) {
+    return useLiveNoteList(NOTE_LIST_SQL.backlinks, [noteId ?? ''], !!noteId);
 }

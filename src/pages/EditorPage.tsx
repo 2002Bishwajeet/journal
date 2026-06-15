@@ -12,6 +12,7 @@ import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { CollaborativePopover } from '@/components/editor/CollaborativePopover';
+import { LinkedMentions } from "@/components/editor/LinkedMentions";
 import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
@@ -129,6 +130,14 @@ function EditorLayout({
               : "max-w-5xl md:px-12"
           )}
         />
+        <div
+          className={cn(
+            "mx-auto px-6 pb-24 md:pb-8",
+            focusMode ? "max-w-2xl md:px-8" : "max-w-5xl md:px-12"
+          )}
+        >
+          <LinkedMentions noteId={noteId} />
+        </div>
       </div>
     </div>
   );

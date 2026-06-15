@@ -431,6 +431,12 @@ function xmlElementToMarkdown(element: Y.XmlElement): string {
             return '```\n' + content + '\n```';
         case 'blockquote':
             return '> ' + content;
+        case 'noteLink': {
+            // Internal note link → stable markdown form `[label](note:<id>)`.
+            const label = element.getAttribute('label') || 'note';
+            const noteId = element.getAttribute('noteId');
+            return noteId ? `[${label}](note:${noteId})` : label;
+        }
         default:
             return content;
     }
