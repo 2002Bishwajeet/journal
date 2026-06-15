@@ -1,5 +1,5 @@
 import { MAIN_FOLDER_ID } from '../homebase';
-import { getDatabase } from './pglite';
+import { getDatabase, ensureTrigramSearch } from './pglite';
 import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRecord, PendingImageUpload, SyncError, AdvancedSearchResult } from '@/types';
 
 // Notes with archivalStatus 2 (Homebase "Removed") live in the Trash — exclude them
@@ -38,6 +38,18 @@ export const NOTE_LIST_SQL = {
     archived: `${NOTE_LIST_SELECT} WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 1 ${MODIFIED_DESC}`,
     byTag: `${NOTE_LIST_SELECT} WHERE metadata->'tags' ? $1 AND ${ACTIVE_NOTES_FILTER} ORDER BY (metadata->>'isPinned')::boolean DESC NULLS LAST, updated_at DESC`,
 } as const;
+
+// Single-row counts for the sidebar badges (trash / archive / shared). One live
+// subscription replaces the three full-list subscriptions that previously ran at
+// boot just to show counts. Filters mirror NOTE_LIST_SQL.{trashed,archived,collaborative}.
+export const NOTE_COUNTS_SQL = `
+    SELECT
+        (COUNT(*) FILTER (WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 2))::int AS trashed,
+        (COUNT(*) FILTER (WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 1))::int AS archived,
+        (COUNT(*) FILTER (WHERE (metadata->>'isCollaborative')::boolean = true AND ${ACTIVE_NOTES_FILTER}))::int AS collaborative
+    FROM search_index`;
+
+export type NoteCountsRow = { trashed: number; archived: number; collaborative: number };
 
 export const FOLDERS_SQL = `SELECT id, name, created_at FROM folders ORDER BY name ASC`;
 
@@ -382,6 +394,10 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
     const likePattern = `%${trimmedQuery.toLowerCase()}%`;
 
     try {
+        // pg_trgm + its indexes are loaded lazily (deferred out of app boot).
+        // If this fails the catch below falls back to plain LIKE search.
+        await ensureTrigramSearch(db);
+
         const result = await db.query<{
             doc_id: string;
             title: string;

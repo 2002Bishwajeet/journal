@@ -50,6 +50,7 @@ import type { NoteListEntry } from "@/types";
 import {
   useNotes,
   useNotesByFolder,
+  useNoteCounts,
   useCollaborativeNotes,
   useTrashedNotes,
   useArchivedNotes,
@@ -229,10 +230,16 @@ export default function JournalLayout() {
 
   const { data: filteredNotes = [], isLoading: isFilteredNotesLoading } =
     useNotesByFolder(folderId);
+  // Sidebar badge counts come from one lightweight live query. The full
+  // trash/archive/shared lists are only subscribed when their view is open, so
+  // they don't each spin up a live subscription at boot.
+  const counts = useNoteCounts();
   const { data: collaborativeNotes = [], isLoading: isCollaborativeLoading } =
-    useCollaborativeNotes();
-  const { data: trashedNotes = [], isLoading: isTrashLoading } = useTrashedNotes();
-  const { data: archivedNotes = [], isLoading: isArchivedLoading } = useArchivedNotes();
+    useCollaborativeNotes(folderId === "shared");
+  const { data: trashedNotes = [], isLoading: isTrashLoading } =
+    useTrashedNotes(folderId === "trash");
+  const { data: archivedNotes = [], isLoading: isArchivedLoading } =
+    useArchivedNotes(folderId === "archive");
 
   // Trash / Archive actions — stable handlers with user-visible error feedback.
   const handleRestoreFromTrash = useCallback(
@@ -376,12 +383,12 @@ export default function JournalLayout() {
           }}
           onCreateFolder={() => setShowCreateFolder(true)}
           onDeleteFolder={(id) => deleteFolder(id)}
-          collaborativeCount={collaborativeNotes.length}
+          collaborativeCount={counts.collaborative}
           onSelectShared={() => navigate("/shared")}
           onSelectTrash={() => navigate("/trash")}
-          trashCount={trashedNotes.length}
+          trashCount={counts.trashed}
           onSelectArchive={() => navigate("/archive")}
-          archivedCount={archivedNotes.length}
+          archivedCount={counts.archived}
           onSearch={() => setShowSearch(true)}
           onSettings={() => setShowSettings(true)}
           onLogout={handleLogout}
@@ -737,12 +744,12 @@ export default function JournalLayout() {
       <ExtendPermissionDialog
         appId={JOURNAL_APP_ID}
         appName={JOURNAL_APP_NAME}
-        drives={collaborativeNotes.length > 0 ? COLLAB_DRIVES : BASE_DRIVES}
+        drives={counts.collaborative > 0 ? COLLAB_DRIVES : BASE_DRIVES}
         circleDrives={
-          collaborativeNotes.length > 0 ? COLLAB_DRIVES : NO_PERMISSIONS
+          counts.collaborative > 0 ? COLLAB_DRIVES : NO_PERMISSIONS
         }
         permissions={
-          collaborativeNotes.length > 0
+          counts.collaborative > 0
             ? COLLABORATION_PERMISSIONS
             : NO_PERMISSIONS
         }

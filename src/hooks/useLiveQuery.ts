@@ -15,13 +15,19 @@ interface LiveEntry {
 const registry = new Map<string, LiveEntry>();
 
 /**
- * Subscribe to a PGlite live (incremental) query. PGlite is the reactive source:
- * any write to the underlying table re-emits results, so the UI updates
+ * Subscribe to a PGlite live query. PGlite is the reactive source: any write to
+ * the underlying table re-emits the full result set, so the UI updates
  * progressively (e.g. notes streaming in during sync) with no manual invalidation.
+ *
+ * Uses db.live.query (re-run on change) rather than incrementalQuery (row-level
+ * diffing): incrementalQuery's per-subscription setup costs ~1.2s on the single
+ * worker thread, and the boot path opens several subscriptions at once. live.query
+ * sets up ~2.6x faster, which dominates startup; these list result sets are small
+ * enough that re-running on change is cheap.
  *
  * @param sql     query text
  * @param params  positional params (compared by value, not identity)
- * @param rowKey  unique column used by incrementalQuery for row diffing (e.g. 'doc_id')
+ * @param rowKey  discriminator folded into the subscription cache key (e.g. 'doc_id')
  * @param enabled when false, no subscription is created and the result is empty
  */
 export function useLiveQuery<T>(
@@ -38,12 +44,10 @@ export function useLiveQuery<T>(
   // exhaustive-deps. Refs are synced in an effect — never written during render.
   const sqlRef = useRef(sql);
   const paramsRef = useRef(params);
-  const rowKeyRef = useRef(rowKey);
   useEffect(() => {
     sqlRef.current = sql;
     paramsRef.current = params;
-    rowKeyRef.current = rowKey;
-  }, [sql, params, rowKey]);
+  }, [sql, params]);
 
   const [data, setData] = useState<T[]>(() => {
     const e = enabled ? registry.get(cacheKey) : undefined;
@@ -104,10 +108,9 @@ export function useLiveQuery<T>(
       void (async () => {
         try {
           const db = await getLiveDatabase();
-          const lq = await db.live.incrementalQuery(
+          const lq = await db.live.query(
             sqlRef.current,
             paramsRef.current as unknown[],
-            rowKeyRef.current,
             (res) => {
               // Drop emissions for an entry that was discarded and replaced.
               if (registry.get(cacheKey) !== myEntry) return;
@@ -145,7 +148,7 @@ export function useLiveQuery<T>(
       e.refs -= 1;
       if (e.refs <= 0) {
         registry.delete(cacheKey);
-        void e.unsubscribe?.();
+        void e.unsubscribe?.()?.catch(() => {});
       }
     };
   }, [cacheKey, enabled]);

@@ -14,8 +14,10 @@ import {
     setNoteArchivalStatusLocal,
     NOTE_LIST_SQL,
     NOTE_ROW_KEY,
+    NOTE_COUNTS_SQL,
     toNoteListEntry,
     type NoteListRow,
+    type NoteCountsRow,
 } from '@/lib/db';
 import * as Y from 'yjs';
 import { getNewId } from '@/lib/utils';
@@ -278,17 +280,35 @@ export function useNotes() {
 }
 
 /**
- * Query hook for the Trash view — notes with archivalStatus 2 (Removed).
+ * Live counts for the sidebar badges (trash / archive / shared). A single
+ * subscription instead of three full-list subscriptions at boot — the full lists
+ * are only subscribed when their view is actually open (see the `enabled` params
+ * on useTrashedNotes / useArchivedNotes / useCollaborativeNotes).
  */
-export function useTrashedNotes() {
-    return useLiveNoteList(NOTE_LIST_SQL.trashed, []);
+export function useNoteCounts(): NoteCountsRow {
+    const { data } = useLiveQuery<NoteCountsRow>(NOTE_COUNTS_SQL, [], 'note-counts');
+    const row = data[0];
+    return {
+        trashed: row?.trashed ?? 0,
+        archived: row?.archived ?? 0,
+        collaborative: row?.collaborative ?? 0,
+    };
+}
+
+/**
+ * Query hook for the Trash view — notes with archivalStatus 2 (Removed).
+ * Pass enabled=false to skip the subscription when the Trash view isn't open.
+ */
+export function useTrashedNotes(enabled: boolean = true) {
+    return useLiveNoteList(NOTE_LIST_SQL.trashed, [], enabled);
 }
 
 /**
  * Query hook for the Archive view — notes with archivalStatus 1 (Archived).
+ * Pass enabled=false to skip the subscription when the Archive view isn't open.
  */
-export function useArchivedNotes() {
-    return useLiveNoteList(NOTE_LIST_SQL.archived, []);
+export function useArchivedNotes(enabled: boolean = true) {
+    return useLiveNoteList(NOTE_LIST_SQL.archived, [], enabled);
 }
 
 /**
@@ -301,6 +321,6 @@ export function useNotesByFolder(folderId: string | undefined) {
     return useLiveNoteList(NOTE_LIST_SQL.byFolder, [folderId ?? ''], enabled);
 }
 
-export function useCollaborativeNotes() {
-    return useLiveNoteList(NOTE_LIST_SQL.collaborative, []);
+export function useCollaborativeNotes(enabled: boolean = true) {
+    return useLiveNoteList(NOTE_LIST_SQL.collaborative, [], enabled);
 }
