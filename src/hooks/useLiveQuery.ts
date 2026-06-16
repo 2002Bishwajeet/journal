@@ -14,6 +14,26 @@ interface LiveEntry {
 // components reading the same query share one PGlite live subscription.
 const registry = new Map<string, LiveEntry>();
 
+// When the last consumer of a query unmounts (e.g. switching folders), keep the
+// subscription warm instead of tearing it down. The live query keeps its rows
+// fresh, so returning to a recently-viewed folder/tag shows them instantly
+// rather than flashing a loading state and re-querying. Bounded by an LRU so we
+// don't leak a live subscription for every folder/tag ever visited.
+const IDLE_LIMIT = 12;
+const idleKeys = new Set<string>(); // insertion-ordered LRU of idle cacheKeys
+
+function evictIdle() {
+  while (idleKeys.size > IDLE_LIMIT) {
+    const oldest = idleKeys.values().next().value as string;
+    idleKeys.delete(oldest);
+    const e = registry.get(oldest);
+    if (e && e.refs <= 0) {
+      registry.delete(oldest);
+      void e.unsubscribe?.()?.catch(() => {});
+    }
+  }
+}
+
 /**
  * Subscribe to a PGlite live query. PGlite is the reactive source: any write to
  * the underlying table re-emits the full result set, so the UI updates
@@ -89,6 +109,7 @@ export function useLiveQuery<T>(
       entry = { refs: 0, rows: [], ready: false, subscribing: false, listeners: new Set() };
       registry.set(cacheKey, entry);
     }
+    idleKeys.delete(cacheKey); // reacquired — no longer idle
     entry.refs += 1;
     entry.listeners.add(listener);
     // Capture the entry by identity so the async closure below always targets
@@ -147,8 +168,10 @@ export function useLiveQuery<T>(
       e.listeners.delete(listener);
       e.refs -= 1;
       if (e.refs <= 0) {
-        registry.delete(cacheKey);
-        void e.unsubscribe?.()?.catch(() => {});
+        // Keep the subscription warm; refresh its LRU position and evict overflow.
+        idleKeys.delete(cacheKey);
+        idleKeys.add(cacheKey);
+        evictIdle();
       }
     };
   }, [cacheKey, enabled]);
