@@ -31,6 +31,9 @@ export const journalDriveRequest: TargetDriveAccessRequest = {
     ],
     allowAnonymousRead: true,
     allowSubscriptions: true,
+    attributes: {
+        IsCollaborativeChannel: "true",
+    }
 };
 
 /**
