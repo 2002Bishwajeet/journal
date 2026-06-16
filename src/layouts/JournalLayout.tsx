@@ -216,11 +216,22 @@ export default function JournalLayout() {
     searchParams,
   ]);
 
+  // Trash/Archive are read-only management lists — their notes can't be opened
+  // in the editor, so on desktop the list takes the full width and the editor
+  // panel is hidden (otherwise the list is crammed into the 256px note column
+  // with a dead editor beside it).
+  const isManagementView = folderId === "trash" || folderId === "archive";
+
+  // Focus mode hides all chrome to spotlight the editor; management views have
+  // no editor, so its effect is suppressed there (otherwise: blank screen).
+  const inFocusMode = focusMode && !isManagementView;
+
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
     onSearch: () => setShowSearch(true),
     onKeyboardHelp: () => setShowKeyboardHelp(true),
-    onFocusMode: () => setFocusMode((prev) => !prev),
+    // No editor to focus in a management view — would just blank the screen.
+    onFocusMode: () => setFocusMode((prev) => (isManagementView ? false : !prev)),
   });
 
   // Device type detection
@@ -363,7 +374,7 @@ export default function JournalLayout() {
           !isDesktop &&
             !isFolderSelected &&
             "flex absolute inset-0 z-30 w-full bg-background",
-          focusMode && "hidden!",
+          inFocusMode && "hidden!",
         )}
       >
         <Sidebar
@@ -409,14 +420,20 @@ export default function JournalLayout() {
       <div
         className={cn(
           "h-full border-r bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
-          // Desktop: Always visible, static positioning (part of flex flow)
-          isDesktop ? "flex w-64 static shrink-0" : "hidden",
+          // Desktop: Always visible, static positioning (part of flex flow).
+          // Management views (Trash/Archive) span the full width instead of the
+          // fixed 256px note-list column.
+          isDesktop
+            ? isManagementView
+              ? "flex flex-1 static"
+              : "flex w-64 static shrink-0"
+            : "hidden",
           // Mobile: Visible when folder selected but no note selected (Absolute covering screen)
           !isDesktop &&
             isFolderSelected &&
             !isNoteSelected &&
             "flex absolute inset-0 z-20 w-full",
-          focusMode && "hidden!",
+          inFocusMode && "hidden!",
         )}
       >
         <div className="flex flex-col h-full w-full max-w-full min-w-0 overflow-hidden">
@@ -555,8 +572,9 @@ export default function JournalLayout() {
           "flex-1 flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
           // Visible focus indicator when reached via the skip-link (WCAG 2.4.7)
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-          // Desktop: Always visible (Outlet renders Editor or Empty)
-          isDesktop ? "flex" : "hidden",
+          // Desktop: Always visible (Outlet renders Editor or Empty), except in
+          // management views (Trash/Archive) where the list takes the full width.
+          isDesktop && !isManagementView ? "flex" : "hidden",
           // Mobile: Visible only when note is selected
           !isDesktop &&
             isNoteSelected &&
@@ -630,7 +648,7 @@ export default function JournalLayout() {
       </main>
 
       {/* Focus mode exit pill — centered top, auto-fades, reveals on hover */}
-      {focusMode && (
+      {inFocusMode && (
         <div className="fixed top-0 left-0 right-0 z-40 flex justify-center group/focus">
           <button
             onClick={() => setFocusMode(false)}
