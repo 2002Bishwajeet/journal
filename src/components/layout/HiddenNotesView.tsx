@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { FileText, type LucideIcon } from "lucide-react";
+import { ChevronLeft, FileText, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,8 @@ interface HiddenNotesViewProps {
   rowActions: HiddenNoteRowAction[];
   /** Optional header action (e.g. "Empty Trash"); disabled when the list is empty. */
   headerAction?: { label: string; onClick: () => void };
+  /** Optional back handler; renders a leading back button (mobile, where this is the only header). */
+  onBack?: () => void;
   className?: string;
 }
 
@@ -39,17 +41,29 @@ function HiddenNotesViewComponent({
   emptyLabel,
   rowActions,
   headerAction,
+  onBack,
   className,
 }: HiddenNotesViewProps) {
   return (
     <div className={cn("flex flex-col h-full w-full min-w-0", className)}>
-      <div className="flex items-center justify-between h-12 px-3 border-b border-border shrink-0">
-        <span className="text-sm font-medium">{title}</span>
+      <div className="flex items-center gap-2 h-12 px-3 border-b border-border shrink-0">
+        {onBack && (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Back to notes"
+            className="h-8 w-8 shrink-0"
+            onClick={onBack}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+        )}
+        <span className="text-sm font-medium flex-1 truncate">{title}</span>
         {headerAction && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 text-xs text-destructive hover:text-destructive"
+            className="h-7 text-xs text-destructive hover:text-destructive shrink-0"
             onClick={headerAction.onClick}
             disabled={notes.length === 0}
           >

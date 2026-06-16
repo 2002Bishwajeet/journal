@@ -437,11 +437,12 @@ export default function JournalLayout() {
         )}
       >
         <div className="flex flex-col h-full w-full max-w-full min-w-0 overflow-hidden">
-          {/* Mobile Header for NoteList */}
+          {/* Mobile Header for NoteList — management views (Trash/Archive) carry
+              their own header with a back button, so skip this one for them. */}
           <div
             className={cn(
               "flex items-center h-12 px-3 border-b border-border gap-2 shrink-0",
-              isDesktop && "hidden",
+              (isDesktop || isManagementView) && "hidden",
             )}
           >
             <Button
@@ -475,6 +476,7 @@ export default function JournalLayout() {
                 { icon: Trash2, label: "Delete forever", onClick: handleDeleteForever, destructive: true },
               ]}
               headerAction={{ label: "Empty Trash", onClick: handleEmptyTrash }}
+              onBack={isDesktop ? undefined : () => navigate("/")}
               className="flex-1"
             />
           ) : folderId === "archive" ? (
@@ -488,6 +490,7 @@ export default function JournalLayout() {
                 { icon: ArchiveRestore, label: "Unarchive note", onClick: handleUnarchive },
                 { icon: Trash2, label: "Move to Trash", onClick: handleMoveArchivedToTrash, destructive: true },
               ]}
+              onBack={isDesktop ? undefined : () => navigate("/")}
               className="flex-1"
             />
           ) : (
