@@ -5,15 +5,36 @@ import {
   OctagonXIcon,
   TriangleAlertIcon,
 } from "lucide-react"
-import { useTheme } from "next-themes"
+import { useSyncExternalStore } from "react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
+// Follow the theme the app actually applied to <html> (useThemePreference
+// toggles a .light/.dark class). next-themes isn't wired up here, so reading
+// from it leaves Sonner on "system" — i.e. the OS scheme — and a light app on a
+// dark OS renders unreadable light-on-light toast text.
+function subscribeToTheme(onChange: () => void) {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  })
+  return () => observer.disconnect()
+}
+
+function getThemeSnapshot(): "light" | "dark" {
+  return document.documentElement.classList.contains("dark") ? "dark" : "light"
+}
+
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const theme = useSyncExternalStore(
+    subscribeToTheme,
+    getThemeSnapshot,
+    () => "light" as const,
+  )
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={theme}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,
