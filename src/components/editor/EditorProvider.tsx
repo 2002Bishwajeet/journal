@@ -9,6 +9,7 @@ import {
 import { useAISettings } from "@/hooks/useAISettings";
 import { useEditor, type Editor } from "@tiptap/react";
 import * as Y from "yjs";
+import { ySyncPluginKey } from "y-prosemirror";
 import { PGliteProvider } from "@/lib/yjs";
 import { upsertSearchIndex, savePendingImageUpload } from "@/lib/db";
 import type { DocumentMetadata } from "@/types";
@@ -338,7 +339,6 @@ export function EditorProvider({
   useEffect(() => {
     if (!editor || !providerRef.current || isLoading) return;
 
-    let skipInitial = true;
     const handleUpdate = ({
       transaction,
     }: {
@@ -348,9 +348,13 @@ export function EditorProvider({
         return;
       }
 
-      // Skip the first docChanged after attaching — that's the Yjs initial content load
-      if (skipInitial) {
-        skipInitial = false;
+      // Skip Yjs-originated transactions (initial content load + remote sync);
+      // only genuine local user edits should trigger a save. y-prosemirror tags
+      // its own doc→editor sync transactions with isChangeOrigin. The previous
+      // one-shot "skip the first docChanged" dropped the user's FIRST edit — e.g.
+      // pasting into a fresh note never saved — because the initial-load update
+      // fires before this listener attaches (or not at all for an empty note).
+      if (transaction.getMeta(ySyncPluginKey)?.isChangeOrigin) {
         return;
       }
 
