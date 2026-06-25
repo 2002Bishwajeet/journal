@@ -6,7 +6,8 @@
  */
 
 import { Extension, type RawCommands, type CommandProps } from '@tiptap/core';
-import type { EditorState, Transaction } from '@tiptap/pm/state';
+import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
+import { Fragment, Slice, type Node as PMNode, type Schema } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
@@ -187,6 +188,74 @@ const CustomImage = Image.extend({
 });
 
 
+function fragmentHasHardBreak(frag: Fragment): boolean {
+    let found = false;
+    frag.forEach(child => { if (child.type.name === 'hardBreak') found = true; });
+    return found;
+}
+
+// Split an inline fragment into nodes of `type`, breaking at each hardBreak.
+function splitAtHardBreaks(frag: Fragment, type: PMNode['type'], attrs?: PMNode['attrs'], marks?: PMNode['marks']): PMNode[] {
+    const out: PMNode[] = [];
+    let buffer: PMNode[] = [];
+    const flush = () => { out.push(type.create(attrs, buffer.length ? Fragment.fromArray(buffer) : null, marks)); buffer = []; };
+    frag.forEach(child => { if (child.type.name === 'hardBreak') flush(); else buffer.push(child); });
+    flush();
+    return out;
+}
+
+function splitBlockFragment(frag: Fragment): Fragment {
+    const out: PMNode[] = [];
+    frag.forEach(node => {
+        if (node.isTextblock && fragmentHasHardBreak(node.content)) {
+            out.push(...splitAtHardBreaks(node.content, node.type, node.attrs, node.marks));
+        } else if (!node.isText && node.content.size > 0) {
+            out.push(node.copy(splitBlockFragment(node.content)));
+        } else {
+            out.push(node);
+        }
+    });
+    return Fragment.fromArray(out);
+}
+
+/**
+ * Multi-line content pasted from the web (YouTube comments, Notion, chat apps, …)
+ * arrives as a single block whose lines are joined by <br> hard-breaks. Block-level
+ * formatting (headings, lists) then applies to the WHOLE block — selecting one line
+ * and pressing "Heading 2" converts every line, and toggling a list collapses
+ * everything into one un-exitable list item. Splitting those hard-breaks into real
+ * paragraphs on paste makes each line independently formattable. Only runs on paste,
+ * so soft breaks typed with Shift+Enter inside the editor are left untouched, and
+ * code-block pastes (plain text, no hardBreak nodes) pass through unchanged.
+ */
+export function splitHardBreaksSlice(slice: Slice, schema: Schema): Slice {
+    const first = slice.content.firstChild;
+    if (!first) return slice;
+    if (first.isInline) {
+        if (!fragmentHasHardBreak(slice.content)) return slice;
+        const paragraphs = splitAtHardBreaks(slice.content, schema.nodes.paragraph);
+        // openStart/End = 1 so the first/last lines merge into the surrounding
+        // block when pasting into the middle of an existing paragraph.
+        return new Slice(Fragment.fromArray(paragraphs), 1, 1);
+    }
+    return new Slice(splitBlockFragment(slice.content), slice.openStart, slice.openEnd);
+}
+
+const SplitHardBreaksOnPaste = Extension.create({
+    name: 'splitHardBreaksOnPaste',
+    addProseMirrorPlugins() {
+        const editor = this.editor;
+        return [
+            new Plugin({
+                key: new PluginKey('splitHardBreaksOnPaste'),
+                props: {
+                    transformPasted: slice => splitHardBreaksSlice(slice, editor.schema),
+                },
+            }),
+        ];
+    },
+});
+
 /**
  * Type for extension configuration options
  */
@@ -257,6 +326,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         DuplicateBlock,
         IndentExtension,
         DeleteEmptyLeadingBlock,
+        SplitHardBreaksOnPaste,
         SearchAndReplace,
     ];
 }
