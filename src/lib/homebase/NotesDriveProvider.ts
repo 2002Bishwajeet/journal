@@ -381,7 +381,14 @@ export class NotesDriveProvider {
             });
         }
 
-        const accessControlList = metadata.isCollaborative && metadata.circleIds?.length
+        // A public note is stored Anonymous + unencrypted (see makeNotePublic).
+        // Editing one must NOT re-encrypt it or revert the ACL to Owner, or the
+        // share breaks and the SDK tries to encrypt with a key the file lacks.
+        const accessControlList = metadata.isPublic
+            ? {
+                requiredSecurityGroup: SecurityGroupType.Anonymous,
+            }
+            : metadata.isCollaborative && metadata.circleIds?.length
             ? {
                 requiredSecurityGroup: SecurityGroupType.Connected,
                 circleIdList: metadata.circleIds,
@@ -403,7 +410,7 @@ export class NotesDriveProvider {
                 content: JSON.stringify(noteContent),
                 archivalStatus: metadata.archivalStatus ?? 0,
             },
-            isEncrypted: true,
+            isEncrypted: !metadata.isPublic,
             accessControlList,
         };
 
@@ -426,7 +433,9 @@ export class NotesDriveProvider {
 
         const result = await patchFile(
             this.#dotYouClient,
-            cachedKeyHeader,
+            // No key header for a public note — it's stored unencrypted, so passing
+            // a cached (or empty) header would make the SDK encrypt the payload.
+            metadata.isPublic ? undefined : cachedKeyHeader,
             updateInstructions,
             uploadMetadata,
             payloads,
