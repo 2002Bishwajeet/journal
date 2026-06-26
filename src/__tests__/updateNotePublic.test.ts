@@ -30,6 +30,8 @@ function meta(over: Partial<DocumentMetadata>): DocumentMetadata {
 // patchFile args: (client, keyHeader, instructions, uploadMetadata, payloads, ...)
 const keyHeaderArg = () => mockPatch.mock.calls[0][1];
 const uploadMeta = () => mockPatch.mock.calls[0][3];
+const payloadsArg = () => mockPatch.mock.calls[0][4];
+const yjs = () => new Uint8Array([1, 2, 3]);
 
 describe('NotesDriveProvider.updateNote — encryption/ACL by visibility', () => {
     let provider: NotesDriveProvider;
@@ -64,5 +66,24 @@ describe('NotesDriveProvider.updateNote — encryption/ACL by visibility', () =>
 
         expect(uploadMeta().isEncrypted).toBe(true);
         expect(uploadMeta().accessControlList.requiredSecurityGroup).toBe(SecurityGroupType.Connected);
+    });
+
+    // Regression: syncing a PUBLIC note's content used to attach a payload IV to an
+    // unencrypted file, which the server rejects (400 invalidUpload, "All payload IVs
+    // must be 0 bytes when server file header is not encrypted").
+    it('omits the payload IV when saving a PUBLIC note (unencrypted)', async () => {
+        await provider.updateNote(NOTE_ID, 'file-1', 'v1', meta({ isPublic: true }),
+            undefined, undefined, yjs(), fakeKeyHeader);
+
+        expect(uploadMeta().isEncrypted).toBe(false);
+        expect(payloadsArg()[0].iv).toBeUndefined();
+    });
+
+    it('attaches a payload IV when saving a PRIVATE note (encrypted)', async () => {
+        await provider.updateNote(NOTE_ID, 'file-1', 'v1', meta({ isPublic: false }),
+            undefined, undefined, yjs(), fakeKeyHeader);
+
+        expect(uploadMeta().isEncrypted).toBe(true);
+        expect(payloadsArg()[0].iv).toBeDefined();
     });
 });
