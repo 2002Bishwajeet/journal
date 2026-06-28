@@ -9,7 +9,9 @@ import {
 import { useAISettings } from "@/hooks/useAISettings";
 import { useEditor, type Editor } from "@tiptap/react";
 import * as Y from "yjs";
+import { ySyncPluginKey } from "y-prosemirror";
 import { PGliteProvider } from "@/lib/yjs";
+import { flushPendingSaveOnTeardown } from "@/lib/yjs/flushPendingSave";
 import { upsertSearchIndex, savePendingImageUpload } from "@/lib/db";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
@@ -60,6 +62,10 @@ export function EditorProvider({
   // Use refs for cleanup to avoid stale closure issues
   const providerRef = useRef<PGliteProvider | null>(null);
   const editorRef = useRef<Editor | null>(null);
+  // Declared here (not next to debouncedSave) so the provider-init cleanup below
+  // can flush a still-pending save on unmount.
+  const onSaveRef = useRef(onSave);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Store AI ready state in ref for plugin access
   const isAIReadyRef = useRef(isAIReady);
@@ -117,8 +123,18 @@ export function EditorProvider({
 
     return () => {
       mounted = false;
-      providerRef.current?.destroy();
+      const provider = providerRef.current;
       providerRef.current = null;
+      if (!provider) return;
+      // A note switch unmounts this (it's keyed by noteId). If a debounced save
+      // is still pending, flush it so the last edits — already in PGlite — also
+      // reach the server instead of being dropped with the timer.
+      const hasPendingSave = saveTimeoutRef.current !== null;
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      flushPendingSaveOnTeardown(provider, hasPendingSave, onSaveRef.current);
     };
   }, [docId, yDoc]);
 
@@ -262,7 +278,6 @@ export function EditorProvider({
   // Refs for current values - avoids stale closures in debounced functions
   const docIdRef = useRef(docId);
   const metadataRef = useRef(metadata);
-  const onSaveRef = useRef(onSave);
 
   // Keep refs in sync with props
   useEffect(() => {
@@ -275,7 +290,6 @@ export function EditorProvider({
   const searchIndexTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateSearchIndex = useCallback(
     (editorInstance: Editor, plainTextContent?: string) => {
@@ -338,7 +352,6 @@ export function EditorProvider({
   useEffect(() => {
     if (!editor || !providerRef.current || isLoading) return;
 
-    let skipInitial = true;
     const handleUpdate = ({
       transaction,
     }: {
@@ -348,9 +361,13 @@ export function EditorProvider({
         return;
       }
 
-      // Skip the first docChanged after attaching — that's the Yjs initial content load
-      if (skipInitial) {
-        skipInitial = false;
+      // Skip Yjs-originated transactions (initial content load + remote sync);
+      // only genuine local user edits should trigger a save. y-prosemirror tags
+      // its own doc→editor sync transactions with isChangeOrigin. The previous
+      // one-shot "skip the first docChanged" dropped the user's FIRST edit — e.g.
+      // pasting into a fresh note never saved — because the initial-load update
+      // fires before this listener attaches (or not at all for an empty note).
+      if (transaction.getMeta(ySyncPluginKey)?.isChangeOrigin) {
         return;
       }
 
