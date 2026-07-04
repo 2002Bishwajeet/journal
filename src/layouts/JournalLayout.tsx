@@ -59,7 +59,6 @@ import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
-import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
 import { useFolders } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
@@ -81,12 +80,6 @@ export default function JournalLayout() {
   const navigate = useNavigate();
 
   const { logout } = useAuth();
-
-  const handleLogout = async () => {
-    // Clear all local data to prevent mixing between identities
-    await clearAllLocalData();
-    await logout();
-  };
 
   const {
     get: { data: notes = [], isLoading: isNotesLoading },
@@ -456,7 +449,7 @@ export default function JournalLayout() {
           archivedCount={counts.archived}
           onSearch={() => setShowSearch(true)}
           onSettings={() => setShowSettings(true)}
-          onLogout={handleLogout}
+          onLogout={logout}
           tags={tags}
           selectedTag={selectedTag}
           onSelectTag={(tag) => {
