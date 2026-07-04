@@ -10,6 +10,7 @@ import { useState, useRef, useEffect } from "react";
 import { EditorContent } from "@tiptap/react";
 import type { DocumentMetadata } from "@/types";
 import { debounce } from "@/lib/utils/index";
+import { readingTimeMinutes } from "@/lib/editor/extractHeadings";
 import { useEditorContext } from "./EditorContext";
 import { useDeviceType } from "@/hooks";
 
@@ -142,6 +143,12 @@ export default function TipTapEditor({
           <span>{wordCount.words} words</span>
           <span className="mx-2">·</span>
           <span>{wordCount.characters} characters</span>
+          {wordCount.words > 0 && (
+            <>
+              <span className="mx-2">·</span>
+              <span>{readingTimeMinutes(wordCount.words)} min read</span>
+            </>
+          )}
         </div>
       )}
     </div>
