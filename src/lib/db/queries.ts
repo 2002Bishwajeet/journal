@@ -113,6 +113,19 @@ export async function deleteDocumentUpdates(docId: string): Promise<void> {
     await db.query('DELETE FROM document_updates WHERE doc_id = $1', [docId]);
 }
 
+// Atomically replace all of a doc's updates with a single compacted blob. The
+// delete and insert run in ONE statement (a data-modifying CTE), so a crash or
+// error between them can never leave the note with zero rows — the note's local
+// history survives intact. Replaces the old non-atomic delete→save pairs.
+export async function replaceDocumentUpdates(docId: string, blob: Uint8Array): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `WITH del AS (DELETE FROM document_updates WHERE doc_id = $1)
+         INSERT INTO document_updates (doc_id, update_blob) VALUES ($1, $2)`,
+        [docId, blob]
+    );
+}
+
 // Search Index
 export async function upsertSearchIndex(entry: SearchIndexEntry): Promise<void> {
     const db = await getDatabase();
@@ -739,8 +752,9 @@ export async function getSyncRecord(localId: string): Promise<SyncRecord | null>
         encrypted_key_header: string | null;
         author_odin_id: string | null;
         global_transit_id: string | null;
+        dirty_generation: number;
     }>(
-        'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id FROM sync_records WHERE local_id = $1',
+        'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id, dirty_generation FROM sync_records WHERE local_id = $1',
         [localId]
     );
     if (result.rows.length === 0) return null;
@@ -756,6 +770,7 @@ export async function getSyncRecord(localId: string): Promise<SyncRecord | null>
         encryptedKeyHeader: row.encrypted_key_header || undefined,
         authorOdinId: row.author_odin_id || undefined,
         globalTransitId: row.global_transit_id || undefined,
+        dirtyGeneration: row.dirty_generation ?? 0,
     };
 }
 
@@ -787,9 +802,9 @@ export async function getSyncRecordByRemoteId(remoteFileId: string): Promise<Syn
 export async function getPendingSyncRecords(entityType?: 'folder' | 'note'): Promise<SyncRecord[]> {
     const db = await getDatabase();
     const query = entityType
-        ? `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id
+        ? `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id, dirty_generation
            FROM sync_records WHERE sync_status = 'pending' AND entity_type = $1`
-        : `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id
+        : `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id, dirty_generation
            FROM sync_records WHERE sync_status = 'pending'`;
     const params = entityType ? [entityType] : [];
     const result = await db.query<{
@@ -803,6 +818,7 @@ export async function getPendingSyncRecords(entityType?: 'folder' | 'note'): Pro
         encrypted_key_header: string | null;
         author_odin_id: string | null;
         global_transit_id: string | null;
+        dirty_generation: number;
     }>(query, params);
     return result.rows.map(row => ({
         localId: row.local_id,
@@ -815,29 +831,43 @@ export async function getPendingSyncRecords(entityType?: 'folder' | 'note'): Pro
         encryptedKeyHeader: row.encrypted_key_header || undefined,
         authorOdinId: row.author_odin_id || undefined,
         globalTransitId: row.global_transit_id || undefined,
+        dirtyGeneration: row.dirty_generation ?? 0,
     }));
 }
 
-export async function markSynced(localId: string, remoteFileId: string, versionTag: string, contentHash?: string, encryptedKeyHeader?: string, authorOdinId?: string, globalTransitId?: string): Promise<void> {
+export async function markSynced(localId: string, remoteFileId: string, versionTag: string, contentHash?: string, encryptedKeyHeader?: string, authorOdinId?: string, globalTransitId?: string, expectedGeneration?: number): Promise<void> {
     const db = await getDatabase();
+    // Generation guard: when the caller snapshotted a dirty_generation (from the
+    // record it read before a slow push), only promote to 'synced' if no edit has
+    // bumped the generation since — otherwise an edit made DURING the push would be
+    // clobbered back to synced. version_tag/content_hash/key header are ALWAYS
+    // recorded so a superseded push still captures what the server now has.
     await db.query(
         `UPDATE sync_records SET
            remote_file_id = $2,
            version_tag = $3,
            last_synced_at = CURRENT_TIMESTAMP,
-           sync_status = 'synced',
+           sync_status = CASE WHEN $8::int IS NULL OR dirty_generation = $8::int THEN 'synced' ELSE sync_status END,
            content_hash = $4,
            encrypted_key_header = COALESCE($5, encrypted_key_header),
            author_odin_id = COALESCE($6, author_odin_id),
            global_transit_id = COALESCE($7, global_transit_id)
          WHERE local_id = $1`,
-        [localId, remoteFileId, versionTag, contentHash || null, encryptedKeyHeader || null, authorOdinId || null, globalTransitId || null]
+        [localId, remoteFileId, versionTag, contentHash || null, encryptedKeyHeader || null, authorOdinId || null, globalTransitId || null, expectedGeneration ?? null]
     );
 }
 
 export async function updateSyncStatus(localId: string, status: SyncRecord['syncStatus']): Promise<void> {
     const db = await getDatabase();
-    await db.query('UPDATE sync_records SET sync_status = $2 WHERE local_id = $1', [localId, status]);
+    // Every write that sets 'pending' bumps dirty_generation so a concurrent push's
+    // markSynced (which snapshotted the old generation) cannot clobber it.
+    await db.query(
+        `UPDATE sync_records SET
+           sync_status = $2,
+           dirty_generation = dirty_generation + CASE WHEN $2 = 'pending' THEN 1 ELSE 0 END
+         WHERE local_id = $1`,
+        [localId, status]
+    );
 }
 
 export async function deleteSyncRecord(localId: string): Promise<void> {

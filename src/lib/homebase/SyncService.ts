@@ -14,6 +14,7 @@ import {
     getDocumentUpdates,
     saveDocumentUpdate,
     deleteDocumentUpdates,
+    replaceDocumentUpdates,
     getSyncRecord,
     upsertSyncRecord,
     getPendingSyncRecords,
@@ -243,8 +244,7 @@ export class SyncService {
         if (!remoteBlob) return 'skipped';
 
         const mergedBlob = await this.mergeYjsDocuments(docId, remoteBlob);
-        await deleteDocumentUpdates(docId);
-        await saveDocumentUpdate(docId, mergedBlob);
+        await replaceDocumentUpdates(docId, mergedBlob);
         await upsertSyncRecord({
             localId: docId,
             entityType: 'note',
@@ -718,9 +718,8 @@ export class SyncService {
             let mergedBlob: Uint8Array | undefined;
             if (remoteBlob) {
                 mergedBlob = await this.mergeYjsDocuments(uniqueId, remoteBlob);
-                // Clear old updates and save merged state
-                await deleteDocumentUpdates(uniqueId);
-                await saveDocumentUpdate(uniqueId, mergedBlob);
+                // Atomically swap old updates for the merged state
+                await replaceDocumentUpdates(uniqueId, mergedBlob);
                 // Extract plain text content from the merged Yjs blob for the note list display
                 plainTextContent = await extractPreviewTextFromYjs(uniqueId, mergedBlob);
 
@@ -868,17 +867,17 @@ export class SyncService {
         const updates = await getDocumentUpdates(record.localId);
         let yjsBlob: Uint8Array | undefined;
 
-        // If content is completely empty, send a fresh empty YJS doc to ensure clean state
-        // This avoids issues with large deletion histories or invalid states
-        // If content is completely empty, send a fresh empty YJS doc to ensure clean state
-        // This avoids issues with large deletion histories or invalid states
-        if (!doc.plainTextContent || doc.plainTextContent.trim() === '') {
+        // Decide emptiness from the update log, not the plain-text preview: an image-only
+        // note has an empty preview (preview extraction ignores embeds) but real content in
+        // document_updates. Pushing a fresh empty doc over it would wipe the remote payload
+        // and the stored hash would prevent correction (BUG-01).
+        if (updates.length === 0) {
+            // Nothing locally — push a clean empty doc (preserves the original intent of
+            // avoiding stale/invalid remote state for truly empty notes).
             const emptyDoc = new Y.Doc();
             yjsBlob = Y.encodeStateAsUpdate(emptyDoc);
             emptyDoc.destroy();
-
-
-        } else if (updates.length > 0) {
+        } else {
             // Use try-finally to ensure Y.Doc cleanup even on exception
             const ydoc = new Y.Doc();
             try {
@@ -886,9 +885,6 @@ export class SyncService {
                     Y.applyUpdate(ydoc, update);
                 }
                 yjsBlob = Y.encodeStateAsUpdate(ydoc);
-
-
-
             } finally {
                 ydoc.destroy();
             }
@@ -904,7 +900,7 @@ export class SyncService {
             // Only mark as synced if we have a valid remoteFileId and status indicates it needs updating
             if (record.syncStatus === 'pending' || record.syncStatus === 'error') {
                 if (record.remoteFileId) {
-                    await markSynced(record.localId, record.remoteFileId, record.versionTag || '', currentHash);
+                    await markSynced(record.localId, record.remoteFileId, record.versionTag || '', currentHash, undefined, undefined, undefined, record.dirtyGeneration);
                 } else {
                     // Edge case: hash matches but no remoteFileId - this shouldn't happen
                     // The note was never uploaded but somehow has matching content hash
@@ -961,8 +957,7 @@ export class SyncService {
                     }
 
                     if (mergedBlob) {
-                        await deleteDocumentUpdates(record.localId);
-                        await saveDocumentUpdate(record.localId, mergedBlob);
+                        await replaceDocumentUpdates(record.localId, mergedBlob);
                     }
                     const result = await this.#notesProvider.updateNote(
                         record.localId,
@@ -1009,7 +1004,7 @@ export class SyncService {
                     ? serializeKeyHeader(finalKeyHeader)
                     : undefined;
 
-                await markSynced(record.localId, record.remoteFileId, finalVersionTag, finalHash, keyHeaderToCache);
+                await markSynced(record.localId, record.remoteFileId, finalVersionTag, finalHash, keyHeaderToCache, undefined, undefined, record.dirtyGeneration);
 
                 // Clear pending image deletions after successful sync
                 if (pendingDeletions.length > 0) {
@@ -1029,7 +1024,7 @@ export class SyncService {
                 encrypt: true,
             }
             );
-            await markSynced(record.localId, result.fileId, result.versionTag, currentHash);
+            await markSynced(record.localId, result.fileId, result.versionTag, currentHash, undefined, undefined, undefined, record.dirtyGeneration);
         }
     }
 
@@ -1139,8 +1134,7 @@ export class SyncService {
         if (found) {
             // Save updated state
             const newUpdate = Y.encodeStateAsUpdate(ydoc);
-            await deleteDocumentUpdates(docId);
-            await saveDocumentUpdate(docId, newUpdate);
+            await replaceDocumentUpdates(docId, newUpdate);
 
             // Notify the editor that the document was updated
             documentBroadcast.notifyDocumentUpdated(docId);
@@ -1155,6 +1149,10 @@ export class SyncService {
      * Sync a single note immediately (for debounced saves).
      */
     async syncNote(docId: string): Promise<void> {
+        // Flush the active editor's in-memory Yjs updates to the DB (acknowledged,
+        // not blind-timed) so pushNote reads the latest content and records a hash
+        // that matches what is actually uploaded.
+        await documentBroadcast.requestFlushAndWait(docId);
         const record = await getSyncRecord(docId);
         if (record) {
             await this.pushNote(record);

@@ -4,9 +4,11 @@ import type { DotYouClient, EncryptedKeyHeader } from '@homebase-id/js-lib/core'
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     saveDocumentUpdate, getDocumentUpdates, upsertSyncRecord, getSyncRecord, upsertSearchIndex,
+    updateSyncStatus,
 } from '@/lib/db/queries';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader } from '@/lib/utils';
+import { documentBroadcast } from '@/lib/broadcast';
 import type { OnlineContextType } from '@/contexts/OnlineContext';
 import type { DocumentMetadata, SyncRecord } from '@/types';
 import * as Y from 'yjs';
@@ -146,10 +148,11 @@ describe('SyncService.pushNote', () => {
         expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('synced');
     });
 
-    it('sends an EMPTY doc blob when plain text is empty even though updates exist', async () => {
-        // Pins BUG-01 (current behavior). Plan 003 will flip this to upload the merged blob —
-        // that plan updates this assertion.
-        const updates = [textUpdate('this real content is thrown away')];
+    it('uploads the merged Yjs blob when the plain-text preview is empty but updates exist', async () => {
+        // BUG-01 fix: an image-only note has an empty plain-text preview but real content in
+        // document_updates. pushNote must upload the MERGED blob, not throw the content away
+        // by replacing it with a fresh empty doc.
+        const updates = [textUpdate('this real content must be preserved')];
         await seedNote({
             updates, plainText: '', metadata: META(),
             record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
@@ -161,8 +164,7 @@ describe('SyncService.pushNote', () => {
 
         expect(mockUpdateNote).toHaveBeenCalledTimes(1);
         const blob = mockUpdateNote.mock.calls[0][6] as Uint8Array;
-        expect(blob.byteLength).toBe(2); // fresh empty Y.Doc encodes to [0, 0]
-        expect(bodyOf(blob)).toBe('');
+        expect(bodyOf(blob)).toContain('this real content must be preserved');
     });
 
     it('re-fetches, merges and re-uploads on a version conflict, then marks synced with the merged hash', async () => {
@@ -209,10 +211,83 @@ describe('SyncService.pushNote', () => {
         expect(after?.contentHash).toBe(await computeContentHash(metadata, mergedBlob));
     });
 
-    it('marks a metadata-only pin toggle as synced WITHOUT uploading', async () => {
-        // Pins BUG-06 (current behavior). computeContentHash ignores isPinned, so toggling the
-        // pin leaves the hash unchanged and pushNote takes the skip-upload path. Plan 003 flips
-        // this so metadata-only changes still sync — that plan updates this assertion.
+    it('flushes active providers before reading the push blob', async () => {
+        // Plan 004 Step 4: syncNote must await requestFlushAndWait BEFORE pushNote reads
+        // document_updates. We stand in for an active provider with a flush handler that
+        // only writes its in-memory edit when the flush is acknowledged — and does so
+        // slowly, so a pre-fix (no flush / blind sleep) syncNote would read an empty doc.
+        await seedNote({
+            updates: [], plainText: '', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+        mockUpdateNote.mockResolvedValue({ versionTag: 'v2' });
+
+        const pending = textUpdate('typed-but-not-yet-persisted');
+        const unsub = documentBroadcast.subscribe(async (message) => {
+            if (message.type !== 'flush') return;
+            if (message.docId && message.docId !== DOC_ID) return;
+            await new Promise((r) => setTimeout(r, 100)); // slow provider flush
+            await saveDocumentUpdate(DOC_ID, pending);      // provider drains to DB
+        });
+
+        try {
+            await svc.syncNote(DOC_ID);
+        } finally {
+            unsub();
+        }
+
+        expect(mockUpdateNote).toHaveBeenCalledTimes(1);
+        const blob = mockUpdateNote.mock.calls[0][6] as Uint8Array;
+        expect(bodyOf(blob)).toContain('typed-but-not-yet-persisted');
+    });
+
+    it('does not clobber a pending status set by an edit made during the push', async () => {
+        // Plan 004 Step 5: an edit that lands mid-push bumps dirty_generation and sets
+        // pending. pushNote snapshotted the OLD generation, so its markSynced must NOT
+        // overwrite pending->synced — but it must still record the server's versionTag.
+        const updates = [textUpdate('content')];
+        await seedNote({
+            updates, plainText: 'content', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+        const record = await getSyncRecord(DOC_ID);
+
+        // Simulate the edit landing DURING the network push: updateNote resolves, but
+        // first a content edit marks the note pending (incrementing the generation).
+        mockUpdateNote.mockImplementation(async () => {
+            await updateSyncStatus(DOC_ID, 'pending');
+            return { versionTag: 'v2' };
+        });
+
+        await svc.pushNote(record!);
+
+        const after = await getSyncRecord(DOC_ID);
+        expect(after?.versionTag).toBe('v2');       // server state still recorded
+        expect(after?.syncStatus).toBe('pending');  // NOT clobbered to synced
+    });
+
+    it('marks synced on a normal push with no intervening edit', async () => {
+        // Same path, but no edit during the push: the snapshot generation still matches,
+        // so markSynced promotes the note to synced.
+        const updates = [textUpdate('content')];
+        await seedNote({
+            updates, plainText: 'content', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+        const record = await getSyncRecord(DOC_ID);
+        mockUpdateNote.mockResolvedValue({ versionTag: 'v2' });
+
+        await svc.pushNote(record!);
+
+        const after = await getSyncRecord(DOC_ID);
+        expect(after?.versionTag).toBe('v2');
+        expect(after?.syncStatus).toBe('synced');
+    });
+
+    it('uploads a metadata-only pin toggle because the hash covers isPinned', async () => {
+        // BUG-06 fix: computeContentHash now covers isPinned, so toggling the pin changes the
+        // hash and pushNote uploads instead of skipping. Previously the hash ignored isPinned,
+        // so a pin toggle was un-marked as synced without ever uploading.
         const updates = [textUpdate('body text')];
         // Stored hash reflects the pre-toggle content (isPinned: false); note is now pinned.
         const storedHash = await computeContentHash(META({ isPinned: false }), mergeBlob(updates));
@@ -220,12 +295,12 @@ describe('SyncService.pushNote', () => {
             updates, plainText: 'body text', metadata: META({ isPinned: true }),
             record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: storedHash, encryptedKeyHeader: VALID_KEY_HEADER },
         });
+        mockUpdateNote.mockResolvedValue({ versionTag: 'v2' });
 
         const record = await getSyncRecord(DOC_ID);
         await svc.pushNote(record!);
 
-        expect(mockUpdateNote).not.toHaveBeenCalled();
-        expect(mockCreateNote).not.toHaveBeenCalled();
+        expect(mockUpdateNote).toHaveBeenCalledTimes(1);
         expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('synced');
     });
 });

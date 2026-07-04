@@ -11,10 +11,10 @@ import { SecurityGroupType } from '@homebase-id/js-lib/core';
 import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import type { DocumentMetadata } from '@/types';
 
-const { mockPatch } = vi.hoisted(() => ({ mockPatch: vi.fn() }));
+const { mockPatch, mockUpload } = vi.hoisted(() => ({ mockPatch: vi.fn(), mockUpload: vi.fn() }));
 vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@homebase-id/js-lib/core')>();
-    return { ...actual, patchFile: mockPatch };
+    return { ...actual, patchFile: mockPatch, uploadFile: mockUpload };
 });
 
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
@@ -85,5 +85,41 @@ describe('NotesDriveProvider.updateNote — encryption/ACL by visibility', () =>
 
         expect(uploadMeta().isEncrypted).toBe(true);
         expect(payloadsArg()[0].iv).toBeDefined();
+    });
+});
+
+// Regression: createNote hardcoded Owner ACL + `options?.encrypt || true` (always true),
+// so if a public note's remote file was ever recreated it came back encrypted/Owner —
+// breaking the share. createNote must mirror updateNote's visibility-driven ACL/encryption.
+// createNote uses uploadFile, not patchFile; its args are
+// (client, instructions, uploadMetadata, payloads, thumbnails, encrypt, ...).
+const createMeta = () => mockUpload.mock.calls[0][2];
+const createPayloads = () => mockUpload.mock.calls[0][3];
+const createEncryptArg = () => mockUpload.mock.calls[0][5];
+
+describe('NotesDriveProvider.createNote — encryption/ACL by visibility', () => {
+    let provider: NotesDriveProvider;
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockUpload.mockResolvedValue({ file: { fileId: 'new-file' }, newVersionTag: 'v1' });
+        provider = new NotesDriveProvider(fakeClient);
+    });
+
+    it('creates a PUBLIC note unencrypted, Anonymous, with no payload IV', async () => {
+        await provider.createNote(NOTE_ID, meta({ isPublic: true }), yjs());
+
+        expect(createMeta().isEncrypted).toBe(false);
+        expect(createMeta().accessControlList.requiredSecurityGroup).toBe(SecurityGroupType.Anonymous);
+        expect(createEncryptArg()).toBe(false);
+        expect(createPayloads()[0].iv).toBeUndefined();
+    });
+
+    it('creates a PRIVATE note encrypted, Owner, with a payload IV by default', async () => {
+        await provider.createNote(NOTE_ID, meta({ isPublic: false }), yjs());
+
+        expect(createMeta().isEncrypted).toBe(true);
+        expect(createMeta().accessControlList.requiredSecurityGroup).toBe(SecurityGroupType.Owner);
+        expect(createEncryptArg()).toBe(true);
+        expect(createPayloads()[0].iv).toBeDefined();
     });
 });

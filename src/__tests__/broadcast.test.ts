@@ -168,6 +168,24 @@ describe('DocumentBroadcast', () => {
             // Should wait at least 100ms
             expect(elapsed).toBeGreaterThanOrEqual(95); // Allow small timing variance
         });
+
+        it('resolves only after a slow local handler finishes (acknowledged flush)', async () => {
+            // Plan 004: the flush must be ACKNOWLEDGED — requestFlushAndWait waits for the
+            // same-tab handler promise to settle, not a blind sleep. With no cross-tab grace
+            // (0), only the awaited local handler can gate resolution.
+            const { documentBroadcast } = await import('@/lib/broadcast/DocumentBroadcast');
+
+            let handlerDone = false;
+            documentBroadcast.subscribe(async (message) => {
+                if (message.type !== 'flush') return;
+                await new Promise((r) => setTimeout(r, 50));
+                handlerDone = true;
+            });
+
+            await documentBroadcast.requestFlushAndWait('doc-slow', 0);
+
+            expect(handlerDone).toBe(true);
+        });
     });
 
     describe('Multiple Subscribers', () => {

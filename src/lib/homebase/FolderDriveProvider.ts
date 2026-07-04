@@ -108,7 +108,7 @@ export class FolderDriveProvider {
                 userDate: Date.now(),
                 content: JSON.stringify(folder),
             },
-            isEncrypted: options?.encrypt || true,
+            isEncrypted: options?.encrypt ?? true,
             accessControlList: {
                 requiredSecurityGroup: SecurityGroupType.Owner,
             },
@@ -125,7 +125,7 @@ export class FolderDriveProvider {
             this.#dotYouClient,
             instructionSet,
             uploadMetadata,
-            [], [], options?.encrypt || true, options?.onVersionConflict
+            [], [], options?.encrypt ?? true, options?.onVersionConflict
         );
 
         if (!result) {

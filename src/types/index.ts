@@ -108,6 +108,7 @@ export interface SyncRecord {
     encryptedKeyHeader?: string;
     authorOdinId?: string;
     globalTransitId?: string;
+    dirtyGeneration?: number;
 }
 
 // Image pending upload for retry queue

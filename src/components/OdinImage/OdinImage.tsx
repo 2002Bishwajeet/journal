@@ -93,8 +93,7 @@ export const OdinImage = ({
     const targetHeight = previewImgRef.current?.clientHeight;
 
     // Find the best matching size in the meta sizes
-    let matchingSize = undefined;
-    tinyThumb?.sizes?.find((size) => {
+    let matchingSize = tinyThumb?.sizes?.find((size) => {
       return targetWidth < size.pixelWidth && targetHeight < size.pixelHeight;
     });
 

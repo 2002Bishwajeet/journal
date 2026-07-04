@@ -83,7 +83,8 @@ export async function createTestDatabase(): Promise<PGlite> {
       content_hash TEXT,
       encrypted_key_header TEXT,
       author_odin_id TEXT,
-      global_transit_id TEXT
+      global_transit_id TEXT,
+      dirty_generation INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE INDEX IF NOT EXISTS idx_sync_records_status ON sync_records(sync_status);
