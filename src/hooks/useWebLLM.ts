@@ -104,19 +104,27 @@ export function useWebLLM(): UseWebLLMResult {
         return () => clearTimeout(timeoutId);
     }, [isMobile, settings.enabled, settings.modelId]);
 
-    // Sync isReady state from the module periodically
-    // This ensures all hook consumers see the update when any one initializes WebLLM
+    // Sync isReady state from the module periodically so every hook consumer
+    // observes readiness once any one of them initializes WebLLM.
+    // Poll only while a load could actually flip us to ready: skip the interval
+    // entirely when this hook is already ready or AI is disabled in settings.
+    // The effect re-runs when those deps change, so the interval is torn down the
+    // moment we go ready (or AI is turned off) instead of ticking forever. After
+    // an idle-GC unload the action methods (chat/rewrite/initialize) re-check the
+    // module directly, so availability is re-established on the next interaction
+    // without a perpetual timer.
     useEffect(() => {
         if (isMobile) return;
+        if (isReady || !settings.enabled) return;
 
-        const syncInterval = setInterval(async () => {
-            if (!isReady && webllmModule && webllmModule.isWebLLMReady()) {
+        const syncInterval = setInterval(() => {
+            if (webllmModule && webllmModule.isWebLLMReady()) {
                 setIsReady(true);
             }
         }, 500); // Check every 500ms
 
         return () => clearInterval(syncInterval);
-    }, [isReady, isMobile]);
+    }, [isReady, isMobile, settings.enabled]);
 
     const initialize = useCallback(async (): Promise<boolean> => {
         if (isMobile) {
