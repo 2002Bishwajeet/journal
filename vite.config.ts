@@ -110,6 +110,7 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes('pglite-v3')) return 'pglite-v3';
           if (id.includes('@mlc-ai/web-llm')) return 'web-llm';
           if (id.includes('@electric-sql/pglite')) return 'pglite';
           if (id.includes('@tiptap/')) return 'tiptap';

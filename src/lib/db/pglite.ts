@@ -79,7 +79,19 @@ async function initDatabase(): Promise<PGliteInterface> {
   const storedVersion = getStoredPGliteVersion();
 
   if (!storedVersion) {
-    const dump = await migrateFromV3();
+    let dump: Blob | null;
+    try {
+      dump = await migrateFromV3();
+    } catch (err) {
+      // migrateFromV3 throws (V3MigrationError) only when a v0.3 database exists
+      // but its dump failed. Do NOT stamp the stored version here: leaving it
+      // unset makes the next launch retry the migration instead of stranding the
+      // user's v0.3 data behind the fresh empty database we boot below.
+      console.error('[DB] v0.3 → v0.4 migration failed; will retry next launch:', err);
+      const db = await createWorkerInstance();
+      await initializeSchema(db);
+      return db;
+    }
     if (dump) {
       await deleteV3Database();
       console.log('[DB] Creating PGlite v0.4 with migrated data...');
