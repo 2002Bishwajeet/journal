@@ -57,6 +57,7 @@ import {
 } from "@/hooks/useNotes";
 import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useDailyNote } from "@/hooks/useDailyNote";
+import { useTemplates } from "@/hooks/useTemplates";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
 import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
@@ -106,6 +107,7 @@ export default function JournalLayout() {
   } = useFolders();
 
   const { openToday } = useDailyNote();
+  const { templates, createFromTemplate, createTemplate } = useTemplates();
 
   // Tab management
   const {
@@ -238,6 +240,39 @@ export default function JournalLayout() {
       toast.error("Couldn't open today's note");
     }
   }, [openToday, navigate]);
+
+  // New-note dropdown (sidebar): blank note goes to the current folder (falling
+  // back to Main for pseudo-folder routes like Trash/Archive/Shared).
+  const handleCreateBlankNote = useCallback(async () => {
+    const targetFolderId = folders.find((f) => f.id === folderId)?.id ?? MAIN_FOLDER_ID;
+    try {
+      const { docId, folderId: newFolderId } = await createNote(targetFolderId);
+      if (docId) navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
+    } catch {
+      toast.error("Couldn't create note");
+    }
+  }, [createNote, folders, folderId, navigate]);
+
+  const handleCreateFromTemplate = useCallback(
+    async (templateDocId: string) => {
+      try {
+        const { docId, folderId: newFolderId } = await createFromTemplate(templateDocId);
+        navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
+      } catch {
+        toast.error("Couldn't create note from template");
+      }
+    },
+    [createFromTemplate, navigate],
+  );
+
+  const handleCreateTemplate = useCallback(async () => {
+    try {
+      const { docId, folderId: newFolderId } = await createTemplate();
+      navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
+    } catch {
+      toast.error("Couldn't create template");
+    }
+  }, [createTemplate, navigate]);
 
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
@@ -409,6 +444,10 @@ export default function JournalLayout() {
           onCreateFolder={() => setShowCreateFolder(true)}
           onDeleteFolder={(id) => deleteFolder(id)}
           onOpenToday={handleOpenToday}
+          templates={templates}
+          onCreateBlankNote={handleCreateBlankNote}
+          onCreateFromTemplate={handleCreateFromTemplate}
+          onCreateTemplate={handleCreateTemplate}
           collaborativeCount={counts.collaborative}
           onSelectShared={() => navigate("/shared")}
           onSelectTrash={() => navigate("/trash")}

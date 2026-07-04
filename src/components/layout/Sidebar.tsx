@@ -3,6 +3,8 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
+  FilePlus,
+  FileText,
   FolderOpen,
   Hash,
   Plus,
@@ -28,6 +30,13 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
 import type { Folder } from "@/types";
@@ -42,6 +51,10 @@ interface SidebarProps {
   onCreateFolder: () => void;
   onDeleteFolder?: (id: string) => void;
   onOpenToday?: () => void;
+  templates?: { docId: string; title: string }[];
+  onCreateBlankNote?: () => void;
+  onCreateFromTemplate?: (docId: string) => void;
+  onCreateTemplate?: () => void;
   collaborativeCount?: number;
   onSelectShared?: () => void;
   onSelectTrash?: () => void;
@@ -64,6 +77,10 @@ export default function Sidebar({
   onCreateFolder,
   onDeleteFolder,
   onOpenToday,
+  templates,
+  onCreateBlankNote,
+  onCreateFromTemplate,
+  onCreateTemplate,
   onSearch,
   onSettings,
   onLogout,
@@ -153,7 +170,7 @@ export default function Sidebar({
         </div>
 
         {/* Quick actions */}
-        <div className="px-2 pb-2">
+        <div className="px-2 pb-2 space-y-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -171,6 +188,47 @@ export default function Sidebar({
             </TooltipTrigger>
             {isCollapsed && <TooltipContent side="right">Today</TooltipContent>}
           </Tooltip>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                aria-label="New note"
+                className={cn(
+                  "w-full text-muted-foreground transition-all duration-200",
+                  isCollapsed ? "justify-center px-0" : "justify-start px-2"
+                )}
+              >
+                <FilePlus className="h-4 w-4 shrink-0" />
+                {!isCollapsed && <span className="ml-2 text-sm">New note</span>}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52">
+              <DropdownMenuItem onClick={onCreateBlankNote}>
+                <FilePlus className="h-4 w-4" />
+                Blank note
+              </DropdownMenuItem>
+              {templates && templates.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  {templates.map((t) => (
+                    <DropdownMenuItem
+                      key={t.docId}
+                      onClick={() => onCreateFromTemplate?.(t.docId)}
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span className="truncate">{t.title}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onCreateTemplate}>
+                <Plus className="h-4 w-4" />
+                New template
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <Separator />

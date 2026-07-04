@@ -9,6 +9,7 @@ vi.mock('@/lib/db/pglite', () => {
 import * as pgliteModule from '@/lib/db/pglite';
 import { upsertSearchIndex, getActiveNoteByTitle } from '@/lib/db/queries';
 import { todayTitle, findOrCreateDailyNote } from '@/hooks/useDailyNote';
+import { applyTemplateSubstitutions } from '@/hooks/useTemplates';
 
 const DOC_ACTIVE = '20000000-0000-0000-0000-000000000001';
 const DOC_TRASHED = '20000000-0000-0000-0000-000000000002';
@@ -50,6 +51,24 @@ describe('todayTitle', () => {
         // next map to different day-strings regardless of the runner's timezone.
         expect(todayTitle(new Date(2026, 2, 14, 23, 59))).toBe('2026-03-14');
         expect(todayTitle(new Date(2026, 2, 15, 0, 1))).toBe('2026-03-15');
+    });
+});
+
+describe('applyTemplateSubstitutions', () => {
+    const now = new Date(2026, 6, 4); // -> 2026-07-04
+
+    it('replaces every {{date}} token with today\'s local date', () => {
+        expect(applyTemplateSubstitutions('# {{date}}\n\nLogged {{date}}', now)).toBe(
+            '# 2026-07-04\n\nLogged 2026-07-04',
+        );
+    });
+
+    it('leaves content without the token unchanged', () => {
+        expect(applyTemplateSubstitutions('Meeting notes\n\n- ', now)).toBe('Meeting notes\n\n- ');
+    });
+
+    it('returns an empty string for empty content', () => {
+        expect(applyTemplateSubstitutions('', now)).toBe('');
     });
 });
 
