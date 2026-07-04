@@ -8,12 +8,47 @@ import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRec
 const ACTIVE_NOTES_FILTER = `COALESCE((metadata->>'archivalStatus')::int, 0) = 0`;
 
 export type NoteListRow = { doc_id: string; title: string; preview: string; metadata: DocumentMetadata };
-export const toNoteListEntry = (row: NoteListRow): NoteListEntry => ({
-    docId: row.doc_id,
-    title: row.title,
-    preview: row.preview || '',
-    metadata: row.metadata,
-});
+
+// Stable-identity mapping for note-list rows. PGlite re-runs the whole query on
+// every write and returns fresh row objects, so a naive mapper would hand
+// NoteItem a brand-new object for every row on every emission — defeating its
+// React.memo so the entire list reconciles. Cache each produced entry by a
+// signature over every field it copies (title, preview, and the full metadata —
+// not just the modified timestamp, since archival/pin writes mutate metadata
+// without bumping it): while a row's observable content is unchanged, return the
+// SAME entry reference so memo holds; any change yields a new reference. Bounded
+// by an LRU cap and reset via clearNoteListEntryCache() (see clearAllLocalData).
+const NOTE_ENTRY_CACHE_LIMIT = 2000;
+const noteEntryCache = new Map<string, { sig: string; entry: NoteListEntry }>();
+
+export const toNoteListEntry = (row: NoteListRow): NoteListEntry => {
+    const preview = row.preview || '';
+    const sig = JSON.stringify([row.title, preview, row.metadata]);
+    const cached = noteEntryCache.get(row.doc_id);
+    if (cached && cached.sig === sig) {
+        // Unchanged row: refresh LRU position, return the identical reference.
+        noteEntryCache.delete(row.doc_id);
+        noteEntryCache.set(row.doc_id, cached);
+        return cached.entry;
+    }
+    const entry: NoteListEntry = {
+        docId: row.doc_id,
+        title: row.title,
+        preview,
+        metadata: row.metadata,
+    };
+    noteEntryCache.set(row.doc_id, { sig, entry });
+    if (noteEntryCache.size > NOTE_ENTRY_CACHE_LIMIT) {
+        const oldest = noteEntryCache.keys().next().value as string;
+        noteEntryCache.delete(oldest);
+    }
+    return entry;
+};
+
+/** Reset the note-list entry identity cache — call whenever local data is wiped. */
+export function clearNoteListEntryCache(): void {
+    noteEntryCache.clear();
+}
 
 export const toFolder = (row: { id: string; name: string; created_at: Date }): Folder => ({
     id: row.id,
@@ -907,6 +942,9 @@ export async function clearAllLocalData(): Promise<void> {
         -- Clear app state (session, last sync time, etc.)
         DELETE FROM app_state;
     `);
+
+    // Drop cached row identities so a re-login can't serve entries for wiped notes.
+    clearNoteListEntryCache();
 
     console.log('[clearAllLocalData] All local data cleared successfully');
 }
