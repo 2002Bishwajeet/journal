@@ -16,6 +16,9 @@ export interface ToolbarState {
     isHeading1: boolean;
     isHeading2: boolean;
     isHeading3: boolean;
+    isHeading4: boolean;
+    isHeading5: boolean;
+    isHeading6: boolean;
     isBulletList: boolean;
     isOrderedList: boolean;
     isTaskList: boolean;
@@ -34,6 +37,9 @@ const defaultState: ToolbarState = {
     isHeading1: false,
     isHeading2: false,
     isHeading3: false,
+    isHeading4: false,
+    isHeading5: false,
+    isHeading6: false,
     isBulletList: false,
     isOrderedList: false,
     isTaskList: false,
@@ -64,6 +70,9 @@ export function useToolbarState(editor: Editor): ToolbarState {
                 isHeading1: ed.isActive('heading', { level: 1 }),
                 isHeading2: ed.isActive('heading', { level: 2 }),
                 isHeading3: ed.isActive('heading', { level: 3 }),
+                isHeading4: ed.isActive('heading', { level: 4 }),
+                isHeading5: ed.isActive('heading', { level: 5 }),
+                isHeading6: ed.isActive('heading', { level: 6 }),
                 isBulletList: ed.isActive('bulletList'),
                 isOrderedList: ed.isActive('orderedList'),
                 isTaskList: ed.isActive('taskList'),

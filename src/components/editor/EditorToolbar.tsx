@@ -19,6 +19,9 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Heading4,
+  Heading5,
+  Heading6,
   Quote,
   Minus,
   Link as LinkIcon,
@@ -166,6 +169,27 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
         title="Heading 3"
       >
         <Heading3 size={iconSize} />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => safeEditorCommand(editor, () => editor.chain().focus().toggleHeading({ level: 4 }).run())}
+        isActive={state.isHeading4}
+        title="Heading 4"
+      >
+        <Heading4 size={iconSize} />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => safeEditorCommand(editor, () => editor.chain().focus().toggleHeading({ level: 5 }).run())}
+        isActive={state.isHeading5}
+        title="Heading 5"
+      >
+        <Heading5 size={iconSize} />
+      </ToolbarButton>
+      <ToolbarButton
+        onClick={() => safeEditorCommand(editor, () => editor.chain().focus().toggleHeading({ level: 6 }).run())}
+        isActive={state.isHeading6}
+        title="Heading 6"
+      >
+        <Heading6 size={iconSize} />
       </ToolbarButton>
 
       <ToolbarDivider />
