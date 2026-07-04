@@ -433,6 +433,12 @@ export class NotesDriveProvider {
             accessControlList,
         };
 
+        // A peer update is addressed by globalTransitId, not fileId; without it the
+        // SDK would send `undefined` and patch the wrong (or no) file.
+        if (isPeer && !globalTransitId) {
+            throw new Error(`Peer update requires globalTransitId for ${uniqueId}`);
+        }
+
         const updateInstructions: UpdateInstructionSet = isPeer
             ? {
                 locale: 'peer' as const,
