@@ -7,6 +7,7 @@ import {
 } from '@/lib/db/queries';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader } from '@/lib/utils';
+import { documentBroadcast } from '@/lib/broadcast';
 import type { OnlineContextType } from '@/contexts/OnlineContext';
 import type { DocumentMetadata, SyncRecord } from '@/types';
 import * as Y from 'yjs';
@@ -207,6 +208,36 @@ describe('SyncService.pushNote', () => {
         expect(after?.versionTag).toBe('v-merged');
         expect(after?.syncStatus).toBe('synced');
         expect(after?.contentHash).toBe(await computeContentHash(metadata, mergedBlob));
+    });
+
+    it('flushes active providers before reading the push blob', async () => {
+        // Plan 004 Step 4: syncNote must await requestFlushAndWait BEFORE pushNote reads
+        // document_updates. We stand in for an active provider with a flush handler that
+        // only writes its in-memory edit when the flush is acknowledged — and does so
+        // slowly, so a pre-fix (no flush / blind sleep) syncNote would read an empty doc.
+        await seedNote({
+            updates: [], plainText: '', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+        mockUpdateNote.mockResolvedValue({ versionTag: 'v2' });
+
+        const pending = textUpdate('typed-but-not-yet-persisted');
+        const unsub = documentBroadcast.subscribe(async (message) => {
+            if (message.type !== 'flush') return;
+            if (message.docId && message.docId !== DOC_ID) return;
+            await new Promise((r) => setTimeout(r, 100)); // slow provider flush
+            await saveDocumentUpdate(DOC_ID, pending);      // provider drains to DB
+        });
+
+        try {
+            await svc.syncNote(DOC_ID);
+        } finally {
+            unsub();
+        }
+
+        expect(mockUpdateNote).toHaveBeenCalledTimes(1);
+        const blob = mockUpdateNote.mock.calls[0][6] as Uint8Array;
+        expect(bodyOf(blob)).toContain('typed-but-not-yet-persisted');
     });
 
     it('uploads a metadata-only pin toggle because the hash covers isPinned', async () => {

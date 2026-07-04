@@ -1149,6 +1149,10 @@ export class SyncService {
      * Sync a single note immediately (for debounced saves).
      */
     async syncNote(docId: string): Promise<void> {
+        // Flush the active editor's in-memory Yjs updates to the DB (acknowledged,
+        // not blind-timed) so pushNote reads the latest content and records a hash
+        // that matches what is actually uploaded.
+        await documentBroadcast.requestFlushAndWait(docId);
         const record = await getSyncRecord(docId);
         if (record) {
             await this.pushNote(record);
