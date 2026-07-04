@@ -29,7 +29,9 @@ import {
   Undo,
   Redo,
   Sigma,
+  ListTree,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { ToolbarButton, ToolbarDivider, ToolbarPopover, useToolbarState, safeEditorCommand } from './shared';
 import { undo, redo } from './plugins/collaboration';
 import { EmojiPicker } from './EmojiPicker';
@@ -38,9 +40,12 @@ import { TextAlignPicker } from './TextAlignPicker';
 
 interface EditorToolbarProps {
   editor: Editor;
+  /** When provided, renders a desktop-only Table-of-contents toggle button. */
+  onToggleToc?: () => void;
+  tocOpen?: boolean;
 }
 
-export default function EditorToolbar({ editor }: EditorToolbarProps) {
+export default function EditorToolbar({ editor, onToggleToc, tocOpen = false }: EditorToolbarProps) {
   const iconSize = 18;
   const state = useToolbarState(editor);
 
@@ -259,6 +264,26 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
 
       {/* Text Alignment */}
       <TextAlignPicker editor={editor} currentAlign={state.textAlign} />
+
+      {/* Table of contents toggle (desktop-only; provided by EditorPage) */}
+      {onToggleToc && (
+        <>
+          <ToolbarDivider />
+          <button
+            type="button"
+            onClick={onToggleToc}
+            aria-pressed={tocOpen}
+            aria-label="Table of contents"
+            title="Table of contents"
+            className={cn(
+              'p-2 rounded-md transition-colors hover:bg-muted',
+              tocOpen && 'bg-accent text-accent-foreground'
+            )}
+          >
+            <ListTree size={iconSize} />
+          </button>
+        </>
+      )}
     </div>
   );
 }
