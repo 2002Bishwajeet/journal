@@ -272,6 +272,37 @@ export async function getArchivedNotes(): Promise<NoteListEntry[]> {
     return result.rows.map(toNoteListEntry);
 }
 
+/**
+ * Find a single ACTIVE (not archived/trashed) note by its exact title.
+ * Backs the daily-note find-or-create flow: returns the most recently modified
+ * match when several share a title, and null when none is active (so a trashed
+ * note with today's title does not block creating a fresh one). Also returns the
+ * note's plain-text content, reused as the "markdown" body for the daily template.
+ */
+export async function getActiveNoteByTitle(
+    title: string,
+): Promise<{ docId: string; folderId: string; content: string } | null> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        doc_id: string;
+        folder_id: string;
+        plain_text_content: string;
+    }>(
+        `SELECT doc_id,
+                metadata->>'folderId' AS folder_id,
+                plain_text_content
+         FROM search_index
+         WHERE title = $1
+           AND ${ACTIVE_NOTES_FILTER}
+         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST
+         LIMIT 1`,
+        [title],
+    );
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return { docId: row.doc_id, folderId: row.folder_id, content: row.plain_text_content };
+}
+
 export async function getDocumentsByFolder(folderId: string): Promise<SearchIndexEntry[]> {
     const db = await getDatabase();
     const result = await db.query<{
@@ -390,6 +421,22 @@ export async function getFolderById(id: string): Promise<Folder | null> {
         name: row.name,
         createdAt: row.created_at,
     };
+}
+
+/**
+ * Find a folder by exact name, returning the first-created match when several
+ * share a name (folder names are not unique — see the find-or-create-folder
+ * conventions for `Daily` and `Templates`).
+ */
+export async function getFolderByName(name: string): Promise<Folder | null> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        id: string;
+        name: string;
+        created_at: Date;
+    }>('SELECT id, name, created_at FROM folders WHERE name = $1 ORDER BY created_at ASC LIMIT 1', [name]);
+    if (result.rows.length === 0) return null;
+    return toFolder(result.rows[0]);
 }
 
 export async function createFolder(id: string, name: string): Promise<void> {
