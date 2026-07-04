@@ -80,6 +80,22 @@ export default defineConfig(({ mode }) => ({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,wasm,data,gz}'],
+        globIgnores: [
+          // WebLLM runtime (~12 MB) — mobile can never run AI, desktop loads it
+          // on demand. Cached on first use via the webllm-runtime route in sw.ts.
+          '**/web-llm-*.js',
+          '**/worker-*.js',
+          // Retired PGlite v0.3 engine — loaded lazily only to migrate a leftover
+          // v0.3 database (see pglite-migrate.ts). Never on the boot path.
+          '**/pglite-v3-*.js',
+          // v0.3 WASM + data. Excluded by EXACT hashed name: the live v0.4 engine
+          // shares the pglite-*.{wasm,data} prefix and MUST stay precached for
+          // offline use, so a wildcard here would break the DB. These two files
+          // are referenced solely by the pglite-v3-*.js chunk; the hashes change
+          // if the pglite-v3 dependency is updated.
+          '**/pglite-BdRI_ZYT.wasm',
+          '**/pglite-COscPi1Y.data',
+        ],
         maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15 MB for large WASM files
       },
       devOptions: {
@@ -113,6 +129,7 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes('pglite-v3')) return 'pglite-v3';
           if (id.includes('@mlc-ai/web-llm')) return 'web-llm';
           if (id.includes('@electric-sql/pglite')) return 'pglite';
           if (id.includes('@tiptap/')) return 'tiptap';

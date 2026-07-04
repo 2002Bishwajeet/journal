@@ -18,6 +18,24 @@ precacheAndRoute(self.__WB_MANIFEST);
 // Cleanup old caches
 cleanupOutdatedCaches();
 
+// WebLLM runtime chunks (web-llm-*.js + its worker-*.js, ~12 MB) are no longer
+// precached — AI is desktop-only and mobile can never run them. Cache them on
+// first use in a small dedicated cache. Registered BEFORE the generic
+// static-resources route below (Workbox: first matching route wins) so these
+// large chunks land here, bounded to 4 entries, instead of consuming the shared
+// static-resources budget. Trade-off: offline AI now requires having loaded AI
+// once while online.
+registerRoute(
+    ({ url, sameOrigin }) =>
+        sameOrigin && /\/assets\/(web-llm|worker)-.*\.js$/.test(url.pathname),
+    new CacheFirst({
+        cacheName: 'webllm-runtime',
+        plugins: [
+            new ExpirationPlugin({ maxEntries: 4 }),
+        ],
+    })
+);
+
 // Cache same-origin static assets (JS, CSS, workers)
 registerRoute(
     ({ request, sameOrigin }) =>
