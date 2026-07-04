@@ -14,6 +14,7 @@ import {
     getDocumentUpdates,
     saveDocumentUpdate,
     deleteDocumentUpdates,
+    replaceDocumentUpdates,
     getSyncRecord,
     upsertSyncRecord,
     getPendingSyncRecords,
@@ -243,8 +244,7 @@ export class SyncService {
         if (!remoteBlob) return 'skipped';
 
         const mergedBlob = await this.mergeYjsDocuments(docId, remoteBlob);
-        await deleteDocumentUpdates(docId);
-        await saveDocumentUpdate(docId, mergedBlob);
+        await replaceDocumentUpdates(docId, mergedBlob);
         await upsertSyncRecord({
             localId: docId,
             entityType: 'note',
@@ -718,9 +718,8 @@ export class SyncService {
             let mergedBlob: Uint8Array | undefined;
             if (remoteBlob) {
                 mergedBlob = await this.mergeYjsDocuments(uniqueId, remoteBlob);
-                // Clear old updates and save merged state
-                await deleteDocumentUpdates(uniqueId);
-                await saveDocumentUpdate(uniqueId, mergedBlob);
+                // Atomically swap old updates for the merged state
+                await replaceDocumentUpdates(uniqueId, mergedBlob);
                 // Extract plain text content from the merged Yjs blob for the note list display
                 plainTextContent = await extractPreviewTextFromYjs(uniqueId, mergedBlob);
 
@@ -958,8 +957,7 @@ export class SyncService {
                     }
 
                     if (mergedBlob) {
-                        await deleteDocumentUpdates(record.localId);
-                        await saveDocumentUpdate(record.localId, mergedBlob);
+                        await replaceDocumentUpdates(record.localId, mergedBlob);
                     }
                     const result = await this.#notesProvider.updateNote(
                         record.localId,
@@ -1136,8 +1134,7 @@ export class SyncService {
         if (found) {
             // Save updated state
             const newUpdate = Y.encodeStateAsUpdate(ydoc);
-            await deleteDocumentUpdates(docId);
-            await saveDocumentUpdate(docId, newUpdate);
+            await replaceDocumentUpdates(docId, newUpdate);
 
             // Notify the editor that the document was updated
             documentBroadcast.notifyDocumentUpdated(docId);

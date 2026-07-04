@@ -113,6 +113,19 @@ export async function deleteDocumentUpdates(docId: string): Promise<void> {
     await db.query('DELETE FROM document_updates WHERE doc_id = $1', [docId]);
 }
 
+// Atomically replace all of a doc's updates with a single compacted blob. The
+// delete and insert run in ONE statement (a data-modifying CTE), so a crash or
+// error between them can never leave the note with zero rows — the note's local
+// history survives intact. Replaces the old non-atomic delete→save pairs.
+export async function replaceDocumentUpdates(docId: string, blob: Uint8Array): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `WITH del AS (DELETE FROM document_updates WHERE doc_id = $1)
+         INSERT INTO document_updates (doc_id, update_blob) VALUES ($1, $2)`,
+        [docId, blob]
+    );
+}
+
 // Search Index
 export async function upsertSearchIndex(entry: SearchIndexEntry): Promise<void> {
     const db = await getDatabase();

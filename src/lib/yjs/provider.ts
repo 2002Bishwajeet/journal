@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { saveDocumentUpdate, getDocumentUpdates, deleteDocumentUpdates } from '@/lib/db';
+import { saveDocumentUpdate, getDocumentUpdates, replaceDocumentUpdates } from '@/lib/db';
 import { documentBroadcast, type DocumentBroadcastMessage } from '@/lib/broadcast';
 
 /**
@@ -172,11 +172,8 @@ export class PGliteProvider {
             // Get the full merged state
             const mergedState = Y.encodeStateAsUpdate(this.doc);
 
-            // Delete all existing updates
-            await deleteDocumentUpdates(this.docId);
-
-            // Save the single compacted update
-            await saveDocumentUpdate(this.docId, mergedState);
+            // Atomically swap all existing updates for the single compacted blob
+            await replaceDocumentUpdates(this.docId, mergedState);
 
             this.updateCount = 1;
             console.log(`[PGliteProvider] Compacted updates for doc ${this.docId}`);

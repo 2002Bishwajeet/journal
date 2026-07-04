@@ -24,7 +24,7 @@ vi.mock('@/lib/db', async (importActual) => {
         },
     };
 });
-import { saveDocumentUpdate, getDocumentUpdates } from '@/lib/db';
+import { saveDocumentUpdate, getDocumentUpdates, replaceDocumentUpdates } from '@/lib/db';
 import { PGliteProvider } from '@/lib/yjs/provider';
 
 const DOC_ID = '11111111-1111-1111-1111-111111111111';
@@ -133,6 +133,38 @@ describe('PGliteProvider.compact', () => {
         // The single compacted row still carries the full 50-char state.
         const stored = await getDocumentUpdates(DOC_ID);
         expect(bodyOf(stored[0]).length).toBe(50);
+    });
+});
+
+describe('replaceDocumentUpdates', () => {
+    it('replaces prior rows with a single compacted blob', async () => {
+        const { updates } = authorUpdates(['One', 'Two', 'Three']);
+        for (const u of updates) await saveDocumentUpdate(DOC_ID, u);
+        expect(await docRowCount(DOC_ID)).toBe(3);
+
+        const { updates: fresh, fullText } = authorUpdates(['Merged']);
+        const merged = fresh[0];
+        await replaceDocumentUpdates(DOC_ID, merged);
+
+        expect(await docRowCount(DOC_ID)).toBe(1);
+        expect(bodyOf((await getDocumentUpdates(DOC_ID))[0])).toBe(fullText);
+    });
+
+    it('is atomic: a failed insert leaves the existing rows untouched', async () => {
+        // update_blob is NOT NULL, so passing null makes the INSERT half of the CTE
+        // fail. Because the delete + insert are ONE statement, the delete must roll
+        // back too — the pre-existing rows survive. If PGlite treated the CTE as two
+        // separate statements this would wipe the note's history (plan 004 STOP check).
+        const { updates } = authorUpdates(['keep', 'this']);
+        for (const u of updates) await saveDocumentUpdate(DOC_ID, u);
+        expect(await docRowCount(DOC_ID)).toBe(2);
+
+        await expect(
+            replaceDocumentUpdates(DOC_ID, null as unknown as Uint8Array)
+        ).rejects.toThrow();
+
+        // Delete rolled back with the failed insert — both original rows remain.
+        expect(await docRowCount(DOC_ID)).toBe(2);
     });
 });
 
