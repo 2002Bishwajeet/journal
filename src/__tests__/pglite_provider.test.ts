@@ -176,11 +176,10 @@ describe('PGliteProvider.destroy', () => {
     });
 });
 
-describe('PGliteProvider stranded-update gap', () => {
-    // Pins the current (buggy) behavior fixed by plan 004: an update that arrives while a
-    // prior save is in flight is NOT auto-persisted — it strands in memory until the next
-    // local update or an explicit flush(). See provider.ts handleUpdate (isSaving guard).
-    it('leaves an update stranded in memory while a save is in flight, until flush()', async () => {
+describe('PGliteProvider re-drain of in-flight queue', () => {
+    // Plan 004: an update that arrives while a prior save is in flight must be
+    // auto-persisted by the drain loop — no further edit or explicit flush needed.
+    it('drains an update queued during an in-flight save without an explicit flush', async () => {
         const doc = new Y.Doc();
         const provider = new PGliteProvider(DOC_ID, doc);
         await provider.load();
@@ -189,13 +188,11 @@ describe('PGliteProvider stranded-update gap', () => {
         doc.getText('body').insert(0, 'A'); // update A: microtask begins, save A is delayed
         await tick(5);                       // A's save is still in flight
         doc.getText('body').insert(1, 'B'); // update B pushed while isSaving === true
-        await tick(80);                      // A's save completes; no further edits fire
 
-        // Only A was persisted; B is stranded in pendingUpdates (current behavior — plan 004).
-        expect(await docRowCount(DOC_ID)).toBe(1);
-        expect(bodyOf((await getDocumentUpdates(DOC_ID))[0])).toBe('A');
-
-        await provider.flush(); // flush drains the stranded update
+        // Wait for the drain loop to persist BOTH A and B. Polling docRowCount is a
+        // read, not an edit, so it never itself triggers a save — the second row can
+        // only appear because handleUpdate's microtask re-drained the queue.
+        for (let i = 0; i < 60 && (await docRowCount(DOC_ID)) < 2; i++) await tick(10);
 
         expect(await docRowCount(DOC_ID)).toBe(2);
         const doc2 = new Y.Doc();

@@ -113,13 +113,19 @@ export class PGliteProvider {
             // Use microtask to batch multiple updates
             queueMicrotask(async () => {
                 try {
-                    const updates = [...this.pendingUpdates];
-                    this.pendingUpdates = [];
+                    // Re-drain: updates queued while an earlier batch was awaiting its
+                    // save would otherwise strand in memory (isSaving stays true, so no
+                    // new microtask is scheduled). Loop until the queue is empty so the
+                    // last keystrokes of a burst are always persisted.
+                    while (this.pendingUpdates.length > 0) {
+                        const updates = this.pendingUpdates;
+                        this.pendingUpdates = [];
 
-                    // Save each update to the database
-                    for (const u of updates) {
-                        await saveDocumentUpdate(this.docId, u);
-                        this.updateCount++;
+                        // Save each update to the database
+                        for (const u of updates) {
+                            await saveDocumentUpdate(this.docId, u);
+                            this.updateCount++;
+                        }
                     }
 
                     // Auto-compact if threshold reached
@@ -216,6 +222,10 @@ export class PGliteProvider {
         // Unsubscribe from broadcast messages
         this.unsubscribe?.();
         this.unsubscribe = null;
+
+        // Persist any pending/in-flight updates first so they survive teardown even
+        // when the note has <= 1 stored update (below the compaction threshold).
+        await this.flush();
 
         // Compact on destroy to save memory for next load
         if (this.updateCount > 1) {
