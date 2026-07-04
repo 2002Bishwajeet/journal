@@ -104,6 +104,17 @@ export async function createTestDatabase(): Promise<PGlite> {
     CREATE INDEX IF NOT EXISTS idx_pending_uploads_status ON pending_image_uploads(status);
     CREATE INDEX IF NOT EXISTS idx_pending_uploads_note ON pending_image_uploads(note_doc_id);
 
+    -- Create pending_image_deletions table (mirrors pglite.ts; needed by pushNote's
+    -- getPendingImageDeletions). Minimal additive DDL per plan 002; plan 012 unifies schema.
+    CREATE TABLE IF NOT EXISTS pending_image_deletions (
+      id SERIAL PRIMARY KEY,
+      note_doc_id UUID NOT NULL,
+      payload_key TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(note_doc_id, payload_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pending_deletions_note ON pending_image_deletions(note_doc_id);
+
     -- Insert Main folder if not exists
     INSERT INTO folders (id, name)
     VALUES ('${MAIN_FOLDER_ID}', 'Main')
@@ -146,6 +157,7 @@ export async function resetTestDatabase(): Promise<void> {
     DELETE FROM app_state;
     DELETE FROM sync_records;
     DELETE FROM pending_image_uploads;
+    DELETE FROM pending_image_deletions;
     DELETE FROM folders WHERE id != '${MAIN_FOLDER_ID}';
   `);
 }
