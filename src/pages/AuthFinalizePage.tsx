@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useYouAuthAuthorization } from "@/hooks/auth/useYouAuthAuthorization";
+import { sanitizeReturnUrl } from "@/lib/utils";
 
 export default function AuthFinalizePage() {
   const isRunning = useRef(false);
@@ -37,9 +38,11 @@ export default function AuthFinalizePage() {
     if (hasRedirected.current) return;
 
     hasRedirected.current = true;
-    const targetUrl = returnUrl || "/";
+    // The `state` param is attacker-controllable — validate it to a safe
+    // same-origin path before navigating (guards the open redirect, SEC-07).
+    const safeTarget = sanitizeReturnUrl(returnUrl || "/", window.location.origin);
     // Use a full navigation instead of client-side routing when auth completes.
-    window.location.assign(targetUrl);
+    window.location.assign(safeTarget);
   }, [finalizeState, returnUrl]);
 
   if (!identity || !publicKey || !salt) {
