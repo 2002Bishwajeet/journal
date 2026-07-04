@@ -16,7 +16,6 @@ import {
     type ThumbnailFile,
     type EncryptedKeyHeader,
     reUploadFile,
-    type PayloadDescriptor,
     ScheduleOptions,
     PriorityOptions,
     SendContents,
@@ -495,14 +494,21 @@ export class NotesDriveProvider {
         if (!existingHeader) {
             throw new Error(`Cannot add image: note with uniqueId ${uniqueId} not found`);
         }
-        const payloadCount = existingHeader?.fileMetadata.payloads?.filter(
-            (p: PayloadDescriptor) => p.key.startsWith('jrnl_img')
-        ).length || 0;
+        // Derive the next image key from the MAX existing index, not the count:
+        // after a deletion (jrnl_img0, jrnl_img2) the count would collide with an
+        // existing key and silently overwrite that image.
+        const imgKeys = (existingHeader.fileMetadata.payloads ?? [])
+            .map(p => p.key)
+            .filter(k => k.startsWith(PAYLOAD_KEY_IMAGE_PREFIX));
+        const nextIdx = 1 + imgKeys.reduce((max, k) => {
+            const n = parseInt(k.slice(PAYLOAD_KEY_IMAGE_PREFIX.length), 10);
+            return Number.isFinite(n) ? Math.max(max, n) : max;
+        }, -1);
 
         const fileId = existingHeader.fileId;
         const appData = existingHeader.fileMetadata.appData
 
-        const payloadKey = `${PAYLOAD_KEY_IMAGE_PREFIX}${payloadCount}`;
+        const payloadKey = `${PAYLOAD_KEY_IMAGE_PREFIX}${nextIdx}`;
         const payloads: PayloadFile[] = [];
         const thumbnails: ThumbnailFile[] = [];
 
