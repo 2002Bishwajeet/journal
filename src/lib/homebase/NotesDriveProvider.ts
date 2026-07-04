@@ -477,7 +477,9 @@ export class NotesDriveProvider {
      * Add an image to an existing note using patchFile.
      * Uses uniqueId to look up the file, ensuring consistency with how notes are tracked.
      */
-    //TODO: This corrupts the previous note data
+    // Payload keys are max-index-derived (never reused) and encryption/ACL/key
+    // header mirror the existing file, so adding an image can't corrupt an image
+    // or re-scope the note (was a corruption TODO).
     async addImageToNote(
         uniqueId: string,
         versionTag: string,
@@ -533,17 +535,36 @@ export class NotesDriveProvider {
             });
         }
 
+        // Mirror the existing file's visibility so adding an image never re-encrypts
+        // a public note or strips a collaborative note's circle ACL. Content may come
+        // back as a string or an already-parsed object (see makeNotePublic).
+        const isEncrypted = existingHeader.fileMetadata.isEncrypted;
+        const existingContent: NoteFileContent =
+            (typeof appData.content === 'string'
+                ? tryJsonParse<NoteFileContent>(appData.content)
+                : appData.content) ?? ({} as NoteFileContent);
+        const accessControlList = existingContent.isPublic
+            ? {
+                requiredSecurityGroup: SecurityGroupType.Anonymous,
+            }
+            : existingContent.isCollaborative && existingContent.circleIds?.length
+            ? {
+                requiredSecurityGroup: SecurityGroupType.Connected,
+                circleIdList: existingContent.circleIds,
+            }
+            : {
+                requiredSecurityGroup: SecurityGroupType.Owner,
+            };
+
         const uploadMetadata: UploadFileMetadata = {
             versionTag: existingHeader.fileMetadata.versionTag,
             allowDistribution: false,
             appData: {
                 ...appData,
-                content: JSON.stringify(appData.content),
+                content: JSON.stringify(existingContent),
             },
-            isEncrypted: true,
-            accessControlList: {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            },
+            isEncrypted,
+            accessControlList,
         };
 
         // UpdateLocalInstructionSet for patchFile
@@ -555,7 +576,9 @@ export class NotesDriveProvider {
 
         const result = await patchFile(
             this.#dotYouClient,
-            existingHeader?.sharedSecretEncryptedKeyHeader,
+            // Only an encrypted file has a key header; passing one for a public
+            // (unencrypted) note would make the SDK encrypt the payload.
+            isEncrypted ? existingHeader.sharedSecretEncryptedKeyHeader : undefined,
             updateInstructions,
             uploadMetadata,
             payloads,
