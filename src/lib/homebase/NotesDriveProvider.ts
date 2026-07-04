@@ -386,6 +386,17 @@ export class NotesDriveProvider {
             recipients: metadata.recipients,
             lastEditedBy: metadata.lastEditedBy,
         };
+        // A public note's content is stored unencrypted (world-readable). Project
+        // it to a minimal, non-sensitive subset so the owner's social graph
+        // (circleIds/recipients) and lastEditedBy never leak into plaintext. The
+        // private branch keeps the full object, so making a note private restores it.
+        const serializedContent = metadata.isPublic
+            ? JSON.stringify({
+                title: metadata.title,
+                tags: metadata?.tags || [],
+                isPublic: true,
+            })
+            : JSON.stringify(noteContent);
         // A public note is stored unencrypted; the server rejects a payload IV
         // (invalidUpload) when the file header isn't encrypted. Keep the IV and
         // isEncrypted below driven by this one flag so they can't diverge.
@@ -426,7 +437,7 @@ export class NotesDriveProvider {
                 dataType: JOURNAL_DATA_TYPE,
                 userDate: Date.now(),
                 tags: (metadata.tags || []).map(tag => toGuidId(tag)),
-                content: JSON.stringify(noteContent),
+                content: serializedContent,
                 archivalStatus: metadata.archivalStatus ?? 0,
             },
             isEncrypted,
@@ -634,7 +645,13 @@ export class NotesDriveProvider {
             (typeof existingAppData.content === 'string'
                 ? tryJsonParse<NoteFileContent>(existingAppData.content)
                 : existingAppData.content) ?? ({} as NoteFileContent);
-        const content = JSON.stringify({ ...existingContent, isPublic: true });
+        // A public note's content is world-readable plaintext; project to a minimal,
+        // non-sensitive subset so circleIds/recipients/lastEditedBy never leak.
+        const content = JSON.stringify({
+            title: existingContent.title,
+            tags: existingContent.tags,
+            isPublic: true,
+        });
 
         // Update metadata with Anonymous access control, preserving note content.
         const uploadMetadata: UploadFileMetadata = {
