@@ -6,6 +6,7 @@ interface KeyboardShortcutsConfig {
     onSave?: () => void;
     onKeyboardHelp?: () => void;
     onFocusMode?: () => void;
+    onDailyNote?: () => void;
 }
 
 /**
@@ -15,6 +16,7 @@ interface KeyboardShortcutsConfig {
  * - Cmd/Ctrl+N: Create new note
  * - Cmd/Ctrl+S: Save current note
  * - Cmd/Ctrl+/: Keyboard shortcuts help
+ * - Cmd/Ctrl+Shift+T: Open today's daily note
  */
 export function useKeyboardShortcuts({
     onSearch,
@@ -22,6 +24,7 @@ export function useKeyboardShortcuts({
     onSave,
     onKeyboardHelp,
     onFocusMode,
+    onDailyNote,
 }: KeyboardShortcutsConfig) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -60,10 +63,16 @@ export function useKeyboardShortcuts({
                         onFocusMode();
                     }
                     break;
+                case 't':
+                    if (e.shiftKey && onDailyNote) {
+                        e.preventDefault();
+                        onDailyNote();
+                    }
+                    break;
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onSearch, onNewNote, onSave, onKeyboardHelp, onFocusMode]);
+    }, [onSearch, onNewNote, onSave, onKeyboardHelp, onFocusMode, onDailyNote]);
 }

@@ -32,6 +32,74 @@ interface CreateNoteResult {
     folderId: string;
 }
 
+interface CreateNoteWithContentParams {
+    title: string;
+    content: string; // markdown / plain text
+    folderId: string;
+}
+
+/**
+ * Create a note with initial markdown/plain-text content — the battle-tested
+ * path shared by the PWA share target, daily notes, and templates. Extracted
+ * from the mutation below so non-list hooks can reuse it directly without each
+ * spinning up a redundant active-notes live subscription.
+ */
+export async function createNoteWithContentInDb({
+    title,
+    content,
+    folderId,
+}: CreateNoteWithContentParams): Promise<CreateNoteResult> {
+    const docId = formatGuidId(getNewId());
+    const now = new Date().toISOString();
+
+    const metadata: DocumentMetadata = {
+        title: title || 'Untitled',
+        folderId: folderId || MAIN_FOLDER_ID,
+        tags: [],
+        timestamps: { created: now, modified: now },
+        excludeFromAI: false,
+        isPinned: false,
+    };
+
+    // 1. Create YJS Document with Content
+    const ydoc = new Y.Doc();
+    const fragment = ydoc.getXmlFragment('prosemirror');
+
+    // Create Tiptap JSON structure equivalent for a paragraph
+    // But YJS manipulation is lower level.
+    // We need to create XML elements.
+    const paragraph = new Y.XmlElement('paragraph');
+    if (content) {
+        const text = new Y.XmlText(content);
+        paragraph.push([text]);
+    }
+    fragment.push([paragraph]);
+
+    const updateBlob = Y.encodeStateAsUpdate(ydoc);
+
+    // 2. Save YJS Update
+    await saveDocumentUpdate(docId, updateBlob);
+
+    // 3. Save Search Index
+    await upsertSearchIndex({
+        docId,
+        title: metadata.title,
+        plainTextContent: content,
+        metadata,
+    });
+
+    // 4. Create Sync Record
+    await upsertSyncRecord({
+        localId: docId,
+        entityType: 'note',
+        syncStatus: 'pending',
+    });
+
+    ydoc.destroy();
+
+    return { docId, folderId: metadata.folderId };
+}
+
 interface UpdateMetadataParams {
     docId: string;
     metadata: DocumentMetadata;
@@ -189,58 +257,8 @@ export function useNotes() {
         },
     });
 
-    const createNoteWithContentMutation = useMutation<CreateNoteResult, Error, { title: string; content: string; folderId: string }>({
-        mutationFn: async ({ title, content, folderId }) => {
-            const docId = formatGuidId(getNewId());
-            const now = new Date().toISOString();
-
-            const metadata: DocumentMetadata = {
-                title: title || 'Untitled',
-                folderId: folderId || MAIN_FOLDER_ID,
-                tags: [],
-                timestamps: { created: now, modified: now },
-                excludeFromAI: false,
-                isPinned: false,
-            };
-
-            // 1. Create YJS Document with Content
-            const ydoc = new Y.Doc();
-            const fragment = ydoc.getXmlFragment('prosemirror');
-
-            // Create Tiptap JSON structure equivalent for a paragraph
-            // But YJS manipulation is lower level.
-            // We need to create XML elements.
-            const paragraph = new Y.XmlElement('paragraph');
-            if (content) {
-                const text = new Y.XmlText(content);
-                paragraph.push([text]);
-            }
-            fragment.push([paragraph]);
-
-            const updateBlob = Y.encodeStateAsUpdate(ydoc);
-
-            // 2. Save YJS Update
-            await saveDocumentUpdate(docId, updateBlob);
-
-            // 3. Save Search Index
-            await upsertSearchIndex({
-                docId,
-                title: metadata.title,
-                plainTextContent: content,
-                metadata,
-            });
-
-            // 4. Create Sync Record
-            await upsertSyncRecord({
-                localId: docId,
-                entityType: 'note',
-                syncStatus: 'pending',
-            });
-
-            ydoc.destroy();
-
-            return { docId, folderId: metadata.folderId };
-        },
+    const createNoteWithContentMutation = useMutation<CreateNoteResult, Error, CreateNoteWithContentParams>({
+        mutationFn: createNoteWithContentInDb,
     });
 
     // Soft delete — move a note to Trash (Homebase archivalStatus 2).
