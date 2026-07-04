@@ -71,19 +71,26 @@ class DocumentBroadcast {
         };
     }
 
-    private dispatchLocal(message: DocumentBroadcastMessage): void {
+    /**
+     * Invoke every local handler synchronously and return the promises for any
+     * async handlers so callers can await acknowledgement. Errors are logged and
+     * swallowed so one failing handler never rejects the whole flush.
+     */
+    private dispatchLocal(message: DocumentBroadcastMessage): Promise<void>[] {
+        const acks: Promise<void>[] = [];
         for (const handler of this.handlers) {
             try {
                 const result = handler(message);
                 if (result instanceof Promise) {
-                    result.catch((error) => {
+                    acks.push(result.catch((error) => {
                         console.error('[DocumentBroadcast] Handler error:', error);
-                    });
+                    }));
                 }
             } catch (error) {
                 console.error('[DocumentBroadcast] Handler error:', error);
             }
         }
+        return acks;
     }
 
     /**
@@ -119,11 +126,28 @@ class DocumentBroadcast {
     /**
      * Request flush and wait for providers to complete.
      * Use this before sync operations.
+     *
+     * Same-tab providers are where the active editor lives, so their flush is
+     * AWAITED (acknowledged) rather than blind-timed. Other tabs are notified over
+     * the channel and given a small grace to flush — cross-tab acks are overkill.
      */
-    async requestFlushAndWait(docId?: string, waitMs = 50): Promise<void> {
-        this.requestFlush(docId);
-        // Give providers time to flush (they run async)
-        await new Promise(resolve => setTimeout(resolve, waitMs));
+    async requestFlushAndWait(docId?: string, crossTabGraceMs = 250): Promise<void> {
+        const message: DocumentBroadcastMessage = { type: 'flush', docId };
+        console.debug('[DocumentBroadcast] requestFlushAndWait', { docId });
+
+        // (a) await all local handler promises
+        const localAcks = this.dispatchLocal(message);
+        const waits: Promise<unknown>[] = [Promise.all(localAcks)];
+
+        // (b) still post cross-tab and wait the small grace only for that
+        if (this.channel) {
+            this.channel.postMessage(message);
+            waits.push(new Promise(resolve => setTimeout(resolve, crossTabGraceMs)));
+        } else {
+            console.warn('[DocumentBroadcast] requestFlushAndWait called without channel', { docId });
+        }
+
+        await Promise.all(waits);
     }
 
     /**
