@@ -32,3 +32,8 @@ DESIGN-IS-*/
 .agents/skills/
 .claude/skills/
 skills-lock.json
+
+# local dev TLS certs — never commit (see plans/001)
+dev-dotyou-cloud.key
+dev-dotyou-cloud.crt
+*.key

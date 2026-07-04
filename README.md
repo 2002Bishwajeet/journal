@@ -36,6 +36,21 @@ A premium local-first journaling application designed for effortless writing and
 5. Open your browser and navigate to:
    http://dev.dotyou.cloud:5173
 
+### Dev HTTPS certs (optional)
+
+`dev.dotyou.cloud` publicly resolves to `127.0.0.1`, so the dev server can bind to it locally.
+HTTPS is opt-in and the certs are **never committed**. To serve `https://dev.dotyou.cloud:5173`,
+install [mkcert](https://github.com/FiloSottile/mkcert) and generate a locally-trusted cert:
+
+```bash
+mkcert -install          # one-time: trust the local CA
+mkcert dev.dotyou.cloud  # writes dev.dotyou.cloud.pem + dev.dotyou.cloud-key.pem
+```
+
+Rename the outputs to `dev-dotyou-cloud.crt` and `dev-dotyou-cloud.key` in the repo root
+(both are git-ignored). Without them, `npm run dev` serves plain HTTP — the COEP/COOP headers
+required by WebLLM/OPFS still apply either way.
+
 ## Build
 
 To create a production build, run:
