@@ -209,10 +209,10 @@ describe('SyncService.pushNote', () => {
         expect(after?.contentHash).toBe(await computeContentHash(metadata, mergedBlob));
     });
 
-    it('marks a metadata-only pin toggle as synced WITHOUT uploading', async () => {
-        // Pins BUG-06 (current behavior). computeContentHash ignores isPinned, so toggling the
-        // pin leaves the hash unchanged and pushNote takes the skip-upload path. Plan 003 flips
-        // this so metadata-only changes still sync — that plan updates this assertion.
+    it('uploads a metadata-only pin toggle because the hash covers isPinned', async () => {
+        // BUG-06 fix: computeContentHash now covers isPinned, so toggling the pin changes the
+        // hash and pushNote uploads instead of skipping. Previously the hash ignored isPinned,
+        // so a pin toggle was un-marked as synced without ever uploading.
         const updates = [textUpdate('body text')];
         // Stored hash reflects the pre-toggle content (isPinned: false); note is now pinned.
         const storedHash = await computeContentHash(META({ isPinned: false }), mergeBlob(updates));
@@ -220,12 +220,12 @@ describe('SyncService.pushNote', () => {
             updates, plainText: 'body text', metadata: META({ isPinned: true }),
             record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: storedHash, encryptedKeyHeader: VALID_KEY_HEADER },
         });
+        mockUpdateNote.mockResolvedValue({ versionTag: 'v2' });
 
         const record = await getSyncRecord(DOC_ID);
         await svc.pushNote(record!);
 
-        expect(mockUpdateNote).not.toHaveBeenCalled();
-        expect(mockCreateNote).not.toHaveBeenCalled();
+        expect(mockUpdateNote).toHaveBeenCalledTimes(1);
         expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('synced');
     });
 });
