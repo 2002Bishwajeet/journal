@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAISettings } from "@/hooks/useAISettings";
+import { useNavigate } from "react-router-dom";
 import { useEditor, type Editor } from "@tiptap/react";
 import * as Y from "yjs";
 import { ySyncPluginKey } from "y-prosemirror";
@@ -15,9 +16,15 @@ import { flushPendingSaveOnTeardown } from "@/lib/yjs/flushPendingSave";
 import { upsertSearchIndex, savePendingImageUpload, updateSyncStatus } from "@/lib/db";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
+import { NoteLinkContext, type NoteLinkContextValue } from "./NoteLinkContext";
 import { useSyncService } from "@/hooks/useSyncService";
+import { useNoteTitleMap } from "@/hooks/useNoteTitleMap";
+import { createNoteWithContentInDb } from "@/hooks/useNotes";
+import { extractNoteLinkIds } from "@/lib/editor/extractNoteLinkIds";
 import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
 import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
+import { NoteLink } from "./nodes/NoteLinkNode";
+import { NoteLinkExtension } from "./plugins/NoteLink";
 import {
   createBaseExtensions,
   createCollaborationExtension,
@@ -199,6 +206,40 @@ export function EditorProvider({
 
   useDocumentSubscription(docId, handleDocumentUpdate);
 
+  // --- Internal note links (`[[`) ---
+  const navigate = useNavigate();
+  const { map: noteTitleMap, isReady: titleMapReady } = useNoteTitleMap();
+  const noteFolderId = metadata.folderId;
+
+  // Handlers for the suggestion extension. EditorProvider remounts per note
+  // (key={noteId}), so docId/folderId are stable for this instance — close over
+  // them directly. createNoteWithContent is a plain fn (no list subscription).
+  const onCreateNoteLink = useCallback(
+    async (title: string) => {
+      const res = await createNoteWithContentInDb({
+        title,
+        content: "",
+        folderId: noteFolderId,
+      });
+      return res ? { docId: res.docId } : null;
+    },
+    [noteFolderId],
+  );
+  const getCurrentNoteId = useCallback(() => docId, [docId]);
+
+  // Live title/navigation resolver for note-link chips + backlinks.
+  const noteLinkValue = useMemo<NoteLinkContextValue>(
+    () => ({
+      resolve: (id) => noteTitleMap.get(id),
+      isReady: titleMapReady,
+      onNavigate: (id) => {
+        const r = noteTitleMap.get(id);
+        if (r) navigate(`/${r.folderId}/${id}`, { viewTransition: true });
+      },
+    }),
+    [noteTitleMap, titleMapReady, navigate],
+  );
+
   // Memoize extensions to avoid recreation on every render
   const extensions = useMemo(
     () => [
@@ -227,6 +268,12 @@ export function EditorProvider({
       }),
       // Slash commands (triggered by typing /)
       SlashCommandsExtension,
+      // Internal note links — `[[` suggestion + the noteLink node it inserts
+      NoteLink,
+      NoteLinkExtension.configure({
+        onCreateNote: onCreateNoteLink,
+        getCurrentNoteId,
+      }),
       // Grammar plugin — always included, checks getIsGrammarEnabled() at runtime
       // eslint-disable-next-line react-hooks/refs -- getters are called only within plugin execution, not during render
       GrammarPlugin.configure({
@@ -238,8 +285,13 @@ export function EditorProvider({
         debug: false,
       }),
     ],
-    // Only the Yjs fragment is a real input; everything else is read via refs so
-    // the editor is created once per note and undo/redo history survives.
+    // Only the Yjs fragment is a real input; everything else is read via refs
+    // (or is stable for this note's lifetime — the provider remounts per note)
+    // so the editor is created once per note and undo/redo history survives.
+    // onCreateNoteLink / getCurrentNoteId are intentionally omitted: including
+    // them would recreate the editor (and discard undo history) on any change,
+    // and both are stable for this note because the provider is keyed by noteId.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [yXmlFragment],
   );
 
@@ -302,6 +354,8 @@ export function EditorProvider({
         const currentMetadata = metadataRef.current;
         // Use passed plainText if available, otherwise fallback
         const plainText = plainTextContent ?? editorInstance.getText();
+        // Recompute outgoing internal links — powers the backlinks live query.
+        const linkedNoteIds = extractNoteLinkIds(editorInstance.getJSON());
 
         upsertSearchIndex({
           docId: currentDocId,
@@ -314,6 +368,7 @@ export function EditorProvider({
               ...currentMetadata.timestamps,
               modified: new Date().toISOString(),
             },
+            linkedNoteIds,
             lastEditedBy: currentMetadata.isCollaborative
               ? editorOdinId
               : currentMetadata.lastEditedBy,
@@ -402,6 +457,10 @@ export function EditorProvider({
   };
 
   return (
-    <EditorContext.Provider value={value}>{children}</EditorContext.Provider>
+    <EditorContext.Provider value={value}>
+      <NoteLinkContext.Provider value={noteLinkValue}>
+        {children}
+      </NoteLinkContext.Provider>
+    </EditorContext.Provider>
   );
 }

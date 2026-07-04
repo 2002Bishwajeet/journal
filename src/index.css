@@ -195,6 +195,34 @@ body {
   opacity: 0.7;
 }
 
+/* Internal note links ([[) — rendered as inline chips */
+.note-link-wrapper {
+  display: inline;
+  white-space: nowrap;
+}
+
+.note-link {
+  display: inline;
+  color: var(--primary);
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 0.25rem;
+  padding: 0 0.15rem;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.note-link:hover {
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.note-link--broken {
+  color: var(--muted-foreground);
+  background: color-mix(in srgb, var(--muted-foreground) 12%, transparent);
+  cursor: default;
+}
+
 .prose blockquote {
   border-left: 3px solid var(--border);
   padding-left: 1rem;

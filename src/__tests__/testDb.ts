@@ -34,6 +34,7 @@ export async function createTestDatabase(): Promise<PGlite> {
       title TEXT NOT NULL DEFAULT 'Untitled',
       plain_text_content TEXT DEFAULT '',
       metadata JSONB NOT NULL DEFAULT '{}',
+      search_vector tsvector,
       vector_embedding REAL[],
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
