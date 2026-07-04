@@ -7,6 +7,12 @@ import fs from 'fs'
 import path from 'path'
 import pkg from './package.json' with { type: 'json' }
 
+// Local dev TLS certs are opt-in and never committed (see plans/001). Enable
+// HTTPS only when both files are present; otherwise dev serves plain HTTP.
+const httpsConfig = fs.existsSync('./dev-dotyou-cloud.key') && fs.existsSync('./dev-dotyou-cloud.crt')
+  ? { key: fs.readFileSync('./dev-dotyou-cloud.key'), cert: fs.readFileSync('./dev-dotyou-cloud.crt') }
+  : undefined;
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   define: {
@@ -93,10 +99,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: 'dev.dotyou.cloud',
     port: 5173,
-    https: {
-      key: fs.readFileSync('./dev-dotyou-cloud.key'),
-      cert: fs.readFileSync('./dev-dotyou-cloud.crt'),
-    },
+    https: httpsConfig,
     headers: {
       // Required for OPFS/WebLLM and SharedArrayBuffer
       'Cross-Origin-Embedder-Policy': 'require-corp',
