@@ -13,7 +13,7 @@ import {
 const DATA_DIR = 'idb://journal-db';
 const PGLITE_VERSION = '0.4';
 // Bump whenever a new statement is added to runMigrations().
-const SCHEMA_VERSION = '1';
+const SCHEMA_VERSION = '2';
 
 let dbPromise: Promise<PGliteInterface> | null = null;
 
@@ -203,7 +203,8 @@ async function initializeSchema(database: PGliteInterface): Promise<void> {
       content_hash TEXT,
       encrypted_key_header TEXT,
       author_odin_id TEXT,
-      global_transit_id TEXT
+      global_transit_id TEXT,
+      dirty_generation INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE INDEX IF NOT EXISTS idx_sync_records_status ON sync_records(sync_status);
@@ -426,6 +427,17 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     console.log('[DB Migration] collaboration peer columns ensured');
   } catch (error) {
     console.warn('[DB Migration] Could not add collaboration peer columns:', error);
+  }
+
+  // Add dirty_generation column — autosave generation guard so a slow push cannot
+  // clobber a 'pending' status set by an edit made during the push (plan 004).
+  try {
+    await database.exec(`
+      ALTER TABLE sync_records ADD COLUMN IF NOT EXISTS dirty_generation INTEGER NOT NULL DEFAULT 0;
+    `);
+    console.log('[DB Migration] dirty_generation column ensured');
+  } catch (error) {
+    console.warn('[DB Migration] Could not add dirty_generation column:', error);
   }
 
   // Create pending_image_uploads if not exists (for existing dbs)

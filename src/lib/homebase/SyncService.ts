@@ -900,7 +900,7 @@ export class SyncService {
             // Only mark as synced if we have a valid remoteFileId and status indicates it needs updating
             if (record.syncStatus === 'pending' || record.syncStatus === 'error') {
                 if (record.remoteFileId) {
-                    await markSynced(record.localId, record.remoteFileId, record.versionTag || '', currentHash);
+                    await markSynced(record.localId, record.remoteFileId, record.versionTag || '', currentHash, undefined, undefined, undefined, record.dirtyGeneration);
                 } else {
                     // Edge case: hash matches but no remoteFileId - this shouldn't happen
                     // The note was never uploaded but somehow has matching content hash
@@ -1004,7 +1004,7 @@ export class SyncService {
                     ? serializeKeyHeader(finalKeyHeader)
                     : undefined;
 
-                await markSynced(record.localId, record.remoteFileId, finalVersionTag, finalHash, keyHeaderToCache);
+                await markSynced(record.localId, record.remoteFileId, finalVersionTag, finalHash, keyHeaderToCache, undefined, undefined, record.dirtyGeneration);
 
                 // Clear pending image deletions after successful sync
                 if (pendingDeletions.length > 0) {
@@ -1024,7 +1024,7 @@ export class SyncService {
                 encrypt: true,
             }
             );
-            await markSynced(record.localId, result.fileId, result.versionTag, currentHash);
+            await markSynced(record.localId, result.fileId, result.versionTag, currentHash, undefined, undefined, undefined, record.dirtyGeneration);
         }
     }
 

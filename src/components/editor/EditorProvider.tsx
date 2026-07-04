@@ -12,7 +12,7 @@ import * as Y from "yjs";
 import { ySyncPluginKey } from "y-prosemirror";
 import { PGliteProvider } from "@/lib/yjs";
 import { flushPendingSaveOnTeardown } from "@/lib/yjs/flushPendingSave";
-import { upsertSearchIndex, savePendingImageUpload } from "@/lib/db";
+import { upsertSearchIndex, savePendingImageUpload, updateSyncStatus } from "@/lib/db";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { useSyncService } from "@/hooks/useSyncService";
@@ -319,6 +319,11 @@ export function EditorProvider({
               : currentMetadata.lastEditedBy,
           },
         });
+
+        // Mark the note pending (bumps dirty_generation) on a real content edit so
+        // the periodic sync is a true safety net and a slow push can't clobber this
+        // edit back to 'synced' (plan 004).
+        void updateSyncStatus(currentDocId, "pending");
       }, 500);
     },
     [editorOdinId],

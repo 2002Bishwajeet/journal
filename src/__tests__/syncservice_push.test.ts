@@ -4,6 +4,7 @@ import type { DotYouClient, EncryptedKeyHeader } from '@homebase-id/js-lib/core'
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     saveDocumentUpdate, getDocumentUpdates, upsertSyncRecord, getSyncRecord, upsertSearchIndex,
+    updateSyncStatus,
 } from '@/lib/db/queries';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader } from '@/lib/utils';
@@ -238,6 +239,49 @@ describe('SyncService.pushNote', () => {
         expect(mockUpdateNote).toHaveBeenCalledTimes(1);
         const blob = mockUpdateNote.mock.calls[0][6] as Uint8Array;
         expect(bodyOf(blob)).toContain('typed-but-not-yet-persisted');
+    });
+
+    it('does not clobber a pending status set by an edit made during the push', async () => {
+        // Plan 004 Step 5: an edit that lands mid-push bumps dirty_generation and sets
+        // pending. pushNote snapshotted the OLD generation, so its markSynced must NOT
+        // overwrite pending->synced — but it must still record the server's versionTag.
+        const updates = [textUpdate('content')];
+        await seedNote({
+            updates, plainText: 'content', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+        const record = await getSyncRecord(DOC_ID);
+
+        // Simulate the edit landing DURING the network push: updateNote resolves, but
+        // first a content edit marks the note pending (incrementing the generation).
+        mockUpdateNote.mockImplementation(async () => {
+            await updateSyncStatus(DOC_ID, 'pending');
+            return { versionTag: 'v2' };
+        });
+
+        await svc.pushNote(record!);
+
+        const after = await getSyncRecord(DOC_ID);
+        expect(after?.versionTag).toBe('v2');       // server state still recorded
+        expect(after?.syncStatus).toBe('pending');  // NOT clobbered to synced
+    });
+
+    it('marks synced on a normal push with no intervening edit', async () => {
+        // Same path, but no edit during the push: the snapshot generation still matches,
+        // so markSynced promotes the note to synced.
+        const updates = [textUpdate('content')];
+        await seedNote({
+            updates, plainText: 'content', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+        const record = await getSyncRecord(DOC_ID);
+        mockUpdateNote.mockResolvedValue({ versionTag: 'v2' });
+
+        await svc.pushNote(record!);
+
+        const after = await getSyncRecord(DOC_ID);
+        expect(after?.versionTag).toBe('v2');
+        expect(after?.syncStatus).toBe('synced');
     });
 
     it('uploads a metadata-only pin toggle because the hash covers isPinned', async () => {
