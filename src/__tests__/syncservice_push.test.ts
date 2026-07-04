@@ -146,10 +146,11 @@ describe('SyncService.pushNote', () => {
         expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('synced');
     });
 
-    it('sends an EMPTY doc blob when plain text is empty even though updates exist', async () => {
-        // Pins BUG-01 (current behavior). Plan 003 will flip this to upload the merged blob —
-        // that plan updates this assertion.
-        const updates = [textUpdate('this real content is thrown away')];
+    it('uploads the merged Yjs blob when the plain-text preview is empty but updates exist', async () => {
+        // BUG-01 fix: an image-only note has an empty plain-text preview but real content in
+        // document_updates. pushNote must upload the MERGED blob, not throw the content away
+        // by replacing it with a fresh empty doc.
+        const updates = [textUpdate('this real content must be preserved')];
         await seedNote({
             updates, plainText: '', metadata: META(),
             record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
@@ -161,8 +162,7 @@ describe('SyncService.pushNote', () => {
 
         expect(mockUpdateNote).toHaveBeenCalledTimes(1);
         const blob = mockUpdateNote.mock.calls[0][6] as Uint8Array;
-        expect(blob.byteLength).toBe(2); // fresh empty Y.Doc encodes to [0, 0]
-        expect(bodyOf(blob)).toBe('');
+        expect(bodyOf(blob)).toContain('this real content must be preserved');
     });
 
     it('re-fetches, merges and re-uploads on a version conflict, then marks synced with the merged hash', async () => {

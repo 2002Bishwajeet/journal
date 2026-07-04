@@ -868,17 +868,17 @@ export class SyncService {
         const updates = await getDocumentUpdates(record.localId);
         let yjsBlob: Uint8Array | undefined;
 
-        // If content is completely empty, send a fresh empty YJS doc to ensure clean state
-        // This avoids issues with large deletion histories or invalid states
-        // If content is completely empty, send a fresh empty YJS doc to ensure clean state
-        // This avoids issues with large deletion histories or invalid states
-        if (!doc.plainTextContent || doc.plainTextContent.trim() === '') {
+        // Decide emptiness from the update log, not the plain-text preview: an image-only
+        // note has an empty preview (preview extraction ignores embeds) but real content in
+        // document_updates. Pushing a fresh empty doc over it would wipe the remote payload
+        // and the stored hash would prevent correction (BUG-01).
+        if (updates.length === 0) {
+            // Nothing locally — push a clean empty doc (preserves the original intent of
+            // avoiding stale/invalid remote state for truly empty notes).
             const emptyDoc = new Y.Doc();
             yjsBlob = Y.encodeStateAsUpdate(emptyDoc);
             emptyDoc.destroy();
-
-
-        } else if (updates.length > 0) {
+        } else {
             // Use try-finally to ensure Y.Doc cleanup even on exception
             const ydoc = new Y.Doc();
             try {
@@ -886,9 +886,6 @@ export class SyncService {
                     Y.applyUpdate(ydoc, update);
                 }
                 yjsBlob = Y.encodeStateAsUpdate(ydoc);
-
-
-
             } finally {
                 ydoc.destroy();
             }
