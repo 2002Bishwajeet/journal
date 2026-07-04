@@ -75,15 +75,19 @@ registerRoute(
     })
 );
 
-// Network-first for API requests with proper offline fallback
+// Network-first for SAME-ORIGIN API requests with proper offline fallback.
+// Scoped to sameOrigin so cross-origin identity-host /api/ responses (which come
+// back opaque, status 0) are never cached; and status 200 only, to drop opaque
+// responses entirely. Local data (PGlite) is the offline source of truth, so
+// dropping cross-origin API caching doesn't break offline note access.
 registerRoute(
-    ({ url }) => url.pathname.startsWith('/api/'),
+    ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/api/'),
     new NetworkFirst({
         cacheName: 'api-cache',
         networkTimeoutSeconds: 10, // Timeout after 10 seconds
         plugins: [
             new CacheableResponsePlugin({
-                statuses: [0, 200],
+                statuses: [200],
             }),
             new ExpirationPlugin({
                 maxEntries: 50,
