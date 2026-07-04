@@ -238,6 +238,11 @@ export class NotesDriveProvider {
             isPinned: metadata.isPinned,
             isPublic: metadata.isPublic,
         };
+        // A public note is stored unencrypted; the server rejects a payload IV
+        // (invalidUpload) when the file header isn't encrypted. Drive isEncrypted, the
+        // payload IV, and the ACL below off metadata.isPublic so they can't diverge
+        // (mirrors updateNote). Honor the encrypt option for non-public notes.
+        const isEncrypted = metadata.isPublic ? false : (options?.encrypt ?? true);
         const payloads: PayloadFile[] = [];
         const thumbnails: ThumbnailFile[] = [];
         const imagePayloadKeys: string[] = [];
@@ -249,7 +254,7 @@ export class NotesDriveProvider {
                 payload: new Blob([new Uint8Array(yjsBlob)], {
                     type: YJS_MIME_TYPE,
                 }),
-                iv: getRandom16ByteArray(),
+                iv: isEncrypted ? getRandom16ByteArray() : undefined,
             });
         }
 
@@ -294,10 +299,21 @@ export class NotesDriveProvider {
                 content: JSON.stringify(noteContent),
                 archivalStatus: metadata.archivalStatus ?? 0,
             },
-            isEncrypted: options?.encrypt || true,
-            accessControlList: {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            },
+            isEncrypted,
+            // A public note is stored Anonymous + unencrypted; a collaborative note is shared
+            // with its circles; everything else stays Owner-only (mirrors updateNote).
+            accessControlList: metadata.isPublic
+                ? {
+                    requiredSecurityGroup: SecurityGroupType.Anonymous,
+                }
+                : metadata.isCollaborative && metadata.circleIds?.length
+                ? {
+                    requiredSecurityGroup: SecurityGroupType.Connected,
+                    circleIdList: metadata.circleIds,
+                }
+                : {
+                    requiredSecurityGroup: SecurityGroupType.Owner,
+                },
         };
 
         const instructionSet: UploadInstructionSet = {
@@ -312,7 +328,7 @@ export class NotesDriveProvider {
             uploadMetadata,
             payloads,
             thumbnails,
-            options?.encrypt || true,
+            isEncrypted,
             options?.onversionConflict
         );
 
