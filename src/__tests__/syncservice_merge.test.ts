@@ -134,7 +134,7 @@ describe('SyncService.handleRemoteNote', () => {
         await saveDocumentUpdate(DOC_ID, textUpdate('AAA'));
         await upsertSearchIndex({
             docId: DOC_ID, title: 'T', plainTextContent: 'AAA',
-            metadata: { title: 'T', folderId: 'main', timestamps: { created: '2020-01-01T00:00:00.000Z' } },
+            metadata: { title: 'T', folderId: 'main', excludeFromAI: false, timestamps: { created: '2020-01-01T00:00:00.000Z', modified: '2020-01-01T00:00:00.000Z' } },
         });
         await upsertSyncRecord({
             localId: DOC_ID, entityType: 'note', remoteFileId: 'remote-file-1', versionTag: 'v1',
@@ -170,7 +170,7 @@ describe('SyncService.handleDeletedNote', () => {
         await saveDocumentUpdate(DOC_ID, textUpdate('doomed'));
         await upsertSearchIndex({
             docId: DOC_ID, title: 'Doomed', plainTextContent: 'doomed',
-            metadata: { title: 'Doomed', folderId: 'main' },
+            metadata: { title: 'Doomed', folderId: 'main', excludeFromAI: false, timestamps: { created: '2020-01-01T00:00:00.000Z', modified: '2020-01-01T00:00:00.000Z' } },
         });
         await upsertSyncRecord({
             localId: DOC_ID, entityType: 'note', remoteFileId: 'remote-file-1', versionTag: 'v1',
