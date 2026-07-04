@@ -376,11 +376,12 @@ export function EditorProvider({
         return;
       }
 
-      const plainText = editor.getText();
-
       // upsertSearchIndex (above) writes to PGlite; the note list live query
       // picks up the title/preview change with no manual invalidation.
-      updateSearchIndex(editor, plainText);
+      // Plain text is computed lazily inside the 500 ms debounce (updateSearchIndex's
+      // fallback) — at most once per window, instead of an O(document) getText() per
+      // keystroke.
+      updateSearchIndex(editor);
 
       if (providerRef.current) {
         debouncedSave(providerRef.current);
