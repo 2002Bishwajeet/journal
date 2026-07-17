@@ -4,6 +4,10 @@
 
 A premium local-first journaling application designed for effortless writing and privacy. Powered by [Homebase](https://homebase.id)
 
+> [!NOTE]
+> Want to try a quick demo? use `john.doe.demo.rocks` as the homebaseId. Password "a" without quotes ;
+
+
 ## Features
 
 - **Local-first Storage**: Built with PGlite (PostgreSQL in the browser) for speed and privacy.

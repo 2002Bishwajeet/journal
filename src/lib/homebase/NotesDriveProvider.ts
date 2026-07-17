@@ -371,17 +371,28 @@ export class NotesDriveProvider {
             recipients: metadata.recipients,
             lastEditedBy: metadata.lastEditedBy,
         };
+        // A public note is stored unencrypted; the server rejects a payload IV
+        // (invalidUpload) when the file header isn't encrypted. Keep the IV and
+        // isEncrypted below driven by this one flag so they can't diverge.
+        const isEncrypted = !metadata.isPublic;
         const payloads: PayloadFile[] = [];
 
         if (yjsBlob && yjsBlob.length > 0) {
             payloads.push({
                 key: PAYLOAD_KEY_CONTENT,
                 payload: new Blob([new Uint8Array(yjsBlob)], { type: YJS_MIME_TYPE }),
-                iv: getRandom16ByteArray(),
+                iv: isEncrypted ? getRandom16ByteArray() : undefined,
             });
         }
 
-        const accessControlList = metadata.isCollaborative && metadata.circleIds?.length
+        // A public note is stored Anonymous + unencrypted (see makeNotePublic).
+        // Editing one must NOT re-encrypt it or revert the ACL to Owner, or the
+        // share breaks and the SDK tries to encrypt with a key the file lacks.
+        const accessControlList = metadata.isPublic
+            ? {
+                requiredSecurityGroup: SecurityGroupType.Anonymous,
+            }
+            : metadata.isCollaborative && metadata.circleIds?.length
             ? {
                 requiredSecurityGroup: SecurityGroupType.Connected,
                 circleIdList: metadata.circleIds,
@@ -403,7 +414,7 @@ export class NotesDriveProvider {
                 content: JSON.stringify(noteContent),
                 archivalStatus: metadata.archivalStatus ?? 0,
             },
-            isEncrypted: true,
+            isEncrypted,
             accessControlList,
         };
 
@@ -426,7 +437,9 @@ export class NotesDriveProvider {
 
         const result = await patchFile(
             this.#dotYouClient,
-            cachedKeyHeader,
+            // No key header for a public note — it's stored unencrypted, so passing
+            // a cached (or empty) header would make the SDK encrypt the payload.
+            metadata.isPublic ? undefined : cachedKeyHeader,
             updateInstructions,
             uploadMetadata,
             payloads,
