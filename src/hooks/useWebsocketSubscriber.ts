@@ -132,6 +132,7 @@ export const useWebsocketSubscriber = (
                         reconnectCb,
                         undefined,
                         refId,
+                        true, // useV2: authenticate the upgrade via odin.bearer subprotocol (cross-site capable)
                     );
                 }
                 if (!cancelled) setIsConnected(true);
