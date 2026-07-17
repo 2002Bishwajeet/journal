@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { FEATURES } from "@/lib/featureFlags";
 import {
   Tooltip,
   TooltipContent,
@@ -171,23 +172,25 @@ export default function Sidebar({
 
         {/* Quick actions */}
         <div className="px-2 pb-2 space-y-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                aria-label="Open today's daily note"
-                className={cn(
-                  "w-full text-muted-foreground transition-all duration-200",
-                  isCollapsed ? "justify-center px-0" : "justify-start px-2"
-                )}
-                onClick={onOpenToday}
-              >
-                <CalendarDays className="h-4 w-4 shrink-0" />
-                {!isCollapsed && <span className="ml-2 text-sm">Today</span>}
-              </Button>
-            </TooltipTrigger>
-            {isCollapsed && <TooltipContent side="right">Today</TooltipContent>}
-          </Tooltip>
+          {FEATURES.dailyNotes && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  aria-label="Open today's daily note"
+                  className={cn(
+                    "w-full text-muted-foreground transition-all duration-200",
+                    isCollapsed ? "justify-center px-0" : "justify-start px-2"
+                  )}
+                  onClick={onOpenToday}
+                >
+                  <CalendarDays className="h-4 w-4 shrink-0" />
+                  {!isCollapsed && <span className="ml-2 text-sm">Today</span>}
+                </Button>
+              </TooltipTrigger>
+              {isCollapsed && <TooltipContent side="right">Today</TooltipContent>}
+            </Tooltip>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -208,7 +211,7 @@ export default function Sidebar({
                 <FilePlus className="h-4 w-4" />
                 Blank note
               </DropdownMenuItem>
-              {templates && templates.length > 0 && (
+              {FEATURES.templates && templates && templates.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
                   {templates.map((t) => (
@@ -222,11 +225,15 @@ export default function Sidebar({
                   ))}
                 </>
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onCreateTemplate}>
-                <Plus className="h-4 w-4" />
-                New template
-              </DropdownMenuItem>
+              {FEATURES.templates && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onCreateTemplate}>
+                    <Plus className="h-4 w-4" />
+                    New template
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
