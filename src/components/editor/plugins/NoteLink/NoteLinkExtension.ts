@@ -9,6 +9,7 @@
  */
 import { Extension } from '@tiptap/core';
 import type { Editor } from '@tiptap/core';
+import { PluginKey } from '@tiptap/pm/state';
 import Suggestion, { type SuggestionOptions } from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
@@ -56,6 +57,9 @@ export const NoteLinkExtension = Extension.create<NoteLinkOptions>({
         return [
             Suggestion<NoteLinkItem>({
                 editor: this.editor,
+                // Unique key — the default shared 'suggestion' PluginKey collides
+                // with the slash-command palette and crashes the editor.
+                pluginKey: new PluginKey('note-link-suggestion'),
                 char: '[[',
                 allowSpaces: true,
                 startOfLine: false,
