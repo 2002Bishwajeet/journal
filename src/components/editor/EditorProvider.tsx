@@ -209,22 +209,25 @@ export function EditorProvider({
   // --- Internal note links (`[[`) ---
   const navigate = useNavigate();
   const { map: noteTitleMap, isReady: titleMapReady } = useNoteTitleMap();
-  const noteFolderId = metadata.folderId;
 
   // Handlers for the suggestion extension. EditorProvider remounts per note
-  // (key={noteId}), so docId/folderId are stable for this instance — close over
-  // them directly. createNoteWithContent is a plain fn (no list subscription).
-  const onCreateNoteLink = useCallback(
-    async (title: string) => {
-      const res = await createNoteWithContentInDb({
-        title,
-        content: "",
-        folderId: noteFolderId,
-      });
-      return res ? { docId: res.docId } : null;
-    },
-    [noteFolderId],
-  );
+  // (key={noteId}), so docId is stable for this instance — but folderId is NOT:
+  // Mark/Revoke Collaborative mutates it on the open note without a remount, so
+  // read it via a ref (same pattern as handleImageDropRef; the react-hooks
+  // compiler lint forbids reusing metadataRef inside a useCallback) so
+  // `[[new note]]` lands in the note's CURRENT folder.
+  const noteFolderIdRef = useRef(metadata.folderId);
+  useEffect(() => {
+    noteFolderIdRef.current = metadata.folderId;
+  }, [metadata.folderId]);
+  const onCreateNoteLink = useCallback(async (title: string) => {
+    const res = await createNoteWithContentInDb({
+      title,
+      content: "",
+      folderId: noteFolderIdRef.current,
+    });
+    return res ? { docId: res.docId } : null;
+  }, []);
   const getCurrentNoteId = useCallback(() => docId, [docId]);
 
   // Live title/navigation resolver for note-link chips + backlinks.
@@ -270,6 +273,7 @@ export function EditorProvider({
       SlashCommandsExtension,
       // Internal note links — `[[` suggestion + the noteLink node it inserts
       NoteLink,
+      // eslint-disable-next-line react-hooks/refs -- folderId ref is read when a note is created, not during render
       NoteLinkExtension.configure({
         onCreateNote: onCreateNoteLink,
         getCurrentNoteId,
@@ -288,9 +292,9 @@ export function EditorProvider({
     // Only the Yjs fragment is a real input; everything else is read via refs
     // (or is stable for this note's lifetime — the provider remounts per note)
     // so the editor is created once per note and undo/redo history survives.
-    // onCreateNoteLink / getCurrentNoteId are intentionally omitted: including
-    // them would recreate the editor (and discard undo history) on any change,
-    // and both are stable for this note because the provider is keyed by noteId.
+    // onCreateNoteLink / getCurrentNoteId are intentionally omitted: both have
+    // stable identities ([] deps / keyed by noteId), and onCreateNoteLink reads
+    // the mutable folderId through a ref rather than closing over it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [yXmlFragment],
   );

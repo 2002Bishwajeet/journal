@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { createNoteWithContentInDb, useNotesByFolder } from './useNotes';
+import { DATE_TOKEN, createNoteFromTemplateInDb, createNoteWithContentInDb, useNotesByFolder } from './useNotes';
 import { useFolders, findOrCreateFolderByName } from './useFolders';
 import { getSearchIndexEntry } from '@/lib/db';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
@@ -11,10 +11,11 @@ export const TEMPLATES_FOLDER_NAME = 'Templates';
 
 /**
  * Replace `{{date}}` tokens with today's local date (YYYY-MM-DD). Pure — the
- * only template placeholder this app supports by design.
+ * only template placeholder this app supports by design (DATE_TOKEN is the
+ * single definition, shared with the Yjs body substitution in useNotes).
  */
 export function applyTemplateSubstitutions(content: string, now: Date = new Date()): string {
-    return content.replace(/\{\{date\}\}/g, todayTitle(now));
+    return content.split(DATE_TOKEN).join(todayTitle(now));
 }
 
 export interface TemplateSummary {
@@ -48,17 +49,21 @@ export function useTemplates() {
         [notes],
     );
 
-    // Spawn a note from a template: copy its content (and title) with {{date}}
-    // substituted. Lands in the Main folder — a template spawn is a global
-    // action, not scoped to the currently open folder.
+    // Spawn a note from a template: copy its Yjs document (title and body with
+    // {{date}} substituted). Lands in the Main folder — a template spawn is a
+    // global action, not scoped to the currently open folder.
     const createFromTemplate = async (
         templateDocId: string,
     ): Promise<{ docId: string; folderId: string }> => {
         const entry = await getSearchIndexEntry(templateDocId);
         const now = new Date();
         const title = applyTemplateSubstitutions(entry?.title || 'Untitled', now);
-        const content = applyTemplateSubstitutions(entry?.plainTextContent || '', now);
-        const { docId } = await createNoteWithContentInDb({ title, content, folderId: MAIN_FOLDER_ID });
+        const { docId } = await createNoteFromTemplateInDb({
+            templateDocId,
+            title,
+            folderId: MAIN_FOLDER_ID,
+            dateString: todayTitle(now),
+        });
         return { docId, folderId: MAIN_FOLDER_ID };
     };
 

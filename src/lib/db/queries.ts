@@ -304,21 +304,18 @@ export async function getArchivedNotes(): Promise<NoteListEntry[]> {
  * Find a single ACTIVE (not archived/trashed) note by its exact title.
  * Backs the daily-note find-or-create flow: returns the most recently modified
  * match when several share a title, and null when none is active (so a trashed
- * note with today's title does not block creating a fresh one). Also returns the
- * note's plain-text content, reused as the "markdown" body for the daily template.
+ * note with today's title does not block creating a fresh one).
  */
 export async function getActiveNoteByTitle(
     title: string,
-): Promise<{ docId: string; folderId: string; content: string } | null> {
+): Promise<{ docId: string; folderId: string } | null> {
     const db = await getDatabase();
     const result = await db.query<{
         doc_id: string;
         folder_id: string;
-        plain_text_content: string;
     }>(
         `SELECT doc_id,
-                metadata->>'folderId' AS folder_id,
-                plain_text_content
+                metadata->>'folderId' AS folder_id
          FROM search_index
          WHERE title = $1
            AND ${ACTIVE_NOTES_FILTER}
@@ -328,7 +325,7 @@ export async function getActiveNoteByTitle(
     );
     if (result.rows.length === 0) return null;
     const row = result.rows[0];
-    return { docId: row.doc_id, folderId: row.folder_id, content: row.plain_text_content };
+    return { docId: row.doc_id, folderId: row.folder_id };
 }
 
 export async function getDocumentsByFolder(folderId: string): Promise<SearchIndexEntry[]> {

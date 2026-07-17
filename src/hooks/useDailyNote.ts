@@ -1,4 +1,4 @@
-import { createNoteWithContentInDb } from './useNotes';
+import { createNoteFromTemplateInDb, createNoteWithContentInDb } from './useNotes';
 import { findOrCreateFolderByName } from './useFolders';
 import { getActiveNoteByTitle } from '@/lib/db';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
@@ -64,8 +64,16 @@ export function useDailyNote() {
                 folderId = MAIN_FOLDER_ID;
             }
             const template = await getActiveNoteByTitle(DAILY_TEMPLATE_TITLE);
-            const content = template ? template.content : `# ${title}\n\n`;
-            const res = await createNoteWithContentInDb({ title, content, folderId });
+            // Copy the template's Yjs document so its formatting survives; the
+            // plain-text fallback is only the templateless starter heading.
+            const res = template
+                ? await createNoteFromTemplateInDb({
+                      templateDocId: template.docId,
+                      title,
+                      folderId,
+                      dateString: title,
+                  })
+                : await createNoteWithContentInDb({ title, content: `# ${title}\n\n`, folderId });
             return { docId: res.docId, folderId };
         });
         return { docId, folderId };
