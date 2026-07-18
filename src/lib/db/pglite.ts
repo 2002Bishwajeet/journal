@@ -13,7 +13,7 @@ import {
 const DATA_DIR = 'idb://journal-db';
 const PGLITE_VERSION = '0.4';
 // Bump whenever a new statement is added to runMigrations().
-const SCHEMA_VERSION = '2';
+const SCHEMA_VERSION = '3';
 
 let dbPromise: Promise<PGliteInterface> | null = null;
 
@@ -327,6 +327,19 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     console.log('[DB Migration] Metadata folderId index ensured');
   } catch (error) {
     console.warn('[DB Migration] Could not create metadata folderId index:', error);
+  }
+
+  // BTREE expression index on the modified timestamp so MODIFIED_DESC note
+  // lists and the `[[` picker read in index order instead of seq-scan + sort.
+  // Indexes the raw ISO-8601 text; must match MODIFIED_DESC in queries.ts.
+  try {
+    await database.exec(`
+        CREATE INDEX IF NOT EXISTS idx_search_metadata_modified
+        ON search_index ((metadata->'timestamps'->>'modified') DESC NULLS LAST);
+    `);
+    console.log('[DB Migration] Metadata modified index ensured');
+  } catch (error) {
+    console.warn('[DB Migration] Could not create metadata modified index:', error);
   }
 
   // Populate search_vector for existing documents that don't have it

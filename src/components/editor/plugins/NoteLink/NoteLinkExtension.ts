@@ -86,21 +86,28 @@ export const NoteLinkExtension = Extension.create<NoteLinkOptions>({
 
                 ...options.suggestion,
 
-                items: ({ query }) => {
+                items: async ({ query }) => {
                     const seq = ++requestSeq;
-                    return searchNotesByTitle(query, options.getCurrentNoteId()).then((notes) => {
-                        // Stale result (a newer query started) — drop it instead of
-                        // overwriting fresher items. Never-resolving = no onUpdate.
+                    // Debounce typed queries: wait out the keystroke burst so only
+                    // the latest call hits the DB. An empty query (popup just
+                    // opened) skips the delay — it's one cheap indexed read and
+                    // the popup should appear immediately.
+                    if (query) {
+                        await new Promise((resolve) => setTimeout(resolve, 120));
                         if (seq !== requestSeq) return new Promise<NoteLinkItem[]>(() => {});
-                        const items: NoteLinkItem[] = notes.map((n) => ({
-                            type: 'note',
-                            docId: n.docId,
-                            title: n.title || 'Untitled',
-                        }));
-                        const q = query.trim();
-                        if (q) items.push({ type: 'create', title: q });
-                        return items;
-                    });
+                    }
+                    const notes = await searchNotesByTitle(query, options.getCurrentNoteId());
+                    // Stale result (a newer query started) — drop it instead of
+                    // overwriting fresher items. Never-resolving = no onUpdate.
+                    if (seq !== requestSeq) return new Promise<NoteLinkItem[]>(() => {});
+                    const items: NoteLinkItem[] = notes.map((n) => ({
+                        type: 'note',
+                        docId: n.docId,
+                        title: n.title || 'Untitled',
+                    }));
+                    const q = query.trim();
+                    if (q) items.push({ type: 'create', title: q });
+                    return items;
                 },
 
                 command: ({ editor, range, props }) => {
