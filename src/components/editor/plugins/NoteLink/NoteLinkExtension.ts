@@ -14,7 +14,7 @@ import Suggestion, { type SuggestionOptions } from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import { NoteLinkList, type NoteLinkListRef } from './NoteLinkList';
-import { advancedSearch, getFrequentlyLinkedNotes, searchNotesByTitle } from '@/lib/db';
+import { getFrequentlyLinkedNotes, searchNotesForPicker } from '@/lib/db';
 
 export type NoteLinkItem =
     | { type: 'note'; docId: string; title: string; section?: 'frequent' | 'recent' }
@@ -99,14 +99,16 @@ export const NoteLinkExtension = Extension.create<NoteLinkOptions>({
                         // only the latest call hits the DB.
                         await new Promise((resolve) => setTimeout(resolve, 120));
                         if (stale()) return dropped();
-                        // Same engine as the Cmd+K search modal — title, content
-                        // and fuzzy matches, not just title substrings.
-                        const results = await advancedSearch(query);
+                        // Cheap per-keystroke query (title + stemmed content
+                        // match) — NOT advancedSearch, whose ts_headline/pg_trgm
+                        // work stalls the single-threaded PGlite.
+                        const notes = await searchNotesForPicker(query, excludeId);
                         if (stale()) return dropped();
-                        const items: NoteLinkItem[] = results
-                            .filter((r) => r.docId !== excludeId && (r.metadata.archivalStatus ?? 0) === 0)
-                            .slice(0, 8)
-                            .map((r) => ({ type: 'note', docId: r.docId, title: r.title || 'Untitled' }));
+                        const items: NoteLinkItem[] = notes.map((n) => ({
+                            type: 'note',
+                            docId: n.docId,
+                            title: n.title || 'Untitled',
+                        }));
                         const q = query.trim();
                         if (q) items.push({ type: 'create', title: q });
                         return items;
@@ -116,7 +118,7 @@ export const NoteLinkExtension = Extension.create<NoteLinkOptions>({
                     // appear immediately): most-linked notes, then recent to fill.
                     const [frequent, recent] = await Promise.all([
                         getFrequentlyLinkedNotes(excludeId, 4),
-                        searchNotesByTitle('', excludeId, 8),
+                        searchNotesForPicker('', excludeId, 8),
                     ]);
                     if (stale()) return dropped();
                     const seen = new Set(frequent.map((n) => n.docId));

@@ -381,11 +381,15 @@ export async function getNotesForListByFolder(folderId: string): Promise<NoteLis
 }
 
 /**
- * Search active notes by title substring, for the `[[` note-link picker.
+ * Fast search for the `[[` note-link picker: title substring match plus
+ * stemmed full-text content match (search_vector), title hits first, then
+ * newest. Deliberately NOT advancedSearch — no ts_headline snippets, no
+ * pg_trgm similarity, no 50-row scan; this path runs per keystroke on the
+ * single-threaded PGlite and must stay cheap.
  * Excludes the current note (self-link) and archived/trashed notes. An empty
  * query returns the most-recently-modified active notes.
  */
-export async function searchNotesByTitle(
+export async function searchNotesForPicker(
     query: string,
     excludeId?: string,
     limit = 8,
@@ -396,10 +400,12 @@ export async function searchNotesByTitle(
     if (trimmed) {
         const result = await db.query<NoteListRow>(
             `${NOTE_LIST_SELECT}
-             WHERE title ILIKE '%' || $1 || '%'
+             WHERE (title ILIKE '%' || $1 || '%'
+                    OR search_vector @@ plainto_tsquery('english', $1))
                AND ${ACTIVE_NOTES_FILTER}
                AND ($2::uuid IS NULL OR doc_id <> $2)
-             ORDER BY title ASC
+             ORDER BY (title ILIKE '%' || $1 || '%') DESC,
+                      metadata->'timestamps'->>'modified' DESC NULLS LAST
              LIMIT $3`,
             [trimmed, excludeId ?? null, limit],
         );

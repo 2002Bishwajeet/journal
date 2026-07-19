@@ -13,7 +13,7 @@ vi.mock('@/lib/db/pglite', () => {
     };
 });
 import * as pgliteModule from '@/lib/db/pglite';
-import { upsertSearchIndex, searchNotesByTitle, getFrequentlyLinkedNotes, advancedSearch, updateSearchIndexMetadata, getSearchIndexEntry } from '@/lib/db/queries';
+import { upsertSearchIndex, searchNotesForPicker, getFrequentlyLinkedNotes, advancedSearch, updateSearchIndexMetadata, getSearchIndexEntry } from '@/lib/db/queries';
 
 const SELF = '50000000-0000-0000-0000-0000000000ff';
 const N1 = '50000000-0000-0000-0000-000000000001';
@@ -91,18 +91,18 @@ describe('updateSearchIndexMetadata preserves editor-owned linkedNoteIds', () =>
     });
 });
 
-describe('searchNotesByTitle', () => {
+describe('searchNotesForPicker', () => {
     it('matches notes by case-insensitive title substring', async () => {
         await addNote(N1, 'Project Roadmap');
         await addNote(N2, 'Grocery list');
-        const res = await searchNotesByTitle('road');
+        const res = await searchNotesForPicker('road');
         expect(res.map((n) => n.docId)).toEqual([N1]);
     });
 
     it('excludes the current note (self link)', async () => {
         await addNote(SELF, 'Daily Journal');
         await addNote(N1, 'Journal ideas');
-        const res = await searchNotesByTitle('journal', SELF);
+        const res = await searchNotesForPicker('journal', SELF);
         expect(res.map((n) => n.docId)).toEqual([N1]);
     });
 
@@ -110,7 +110,7 @@ describe('searchNotesByTitle', () => {
         await addNote(N1, 'Note alpha', 0);
         await addNote(N2, 'Note bravo', 1);
         await addNote(N3, 'Note charlie', 2);
-        const res = await searchNotesByTitle('note');
+        const res = await searchNotesForPicker('note');
         expect(res.map((n) => n.docId)).toEqual([N1]);
     });
 
@@ -118,14 +118,29 @@ describe('searchNotesByTitle', () => {
         await addNote(N1, 'One', 0, '2026-01-01T00:00:01.000Z');
         await addNote(N2, 'Two', 0, '2026-01-01T00:00:02.000Z');
         await addNote(N3, 'Three', 0, '2026-01-01T00:00:03.000Z');
-        const res = await searchNotesByTitle('', undefined, 2);
+        const res = await searchNotesForPicker('', undefined, 2);
         expect(res).toHaveLength(2);
         // most-recently-modified first
         expect(res[0].docId).toBe(N3);
     });
+
+    it('matches note content via stemmed full-text search, title hits first', async () => {
+        const now = new Date().toISOString();
+        // "running" reaches N2 only through FTS stemming (body says "runs").
+        await upsertSearchIndex({
+            docId: N2,
+            title: 'Morning routine',
+            plainTextContent: 'He runs every day',
+            metadata: { title: 'Morning routine', folderId: 'main', timestamps: { created: now, modified: now }, excludeFromAI: false },
+        });
+        await addNote(N1, 'Running shoes');
+        const res = await searchNotesForPicker('running');
+        // title substring match ranks above the content match
+        expect(res.map((n) => n.docId)).toEqual([N1, N2]);
+    });
 });
 
-describe('advancedSearch (used by the [[ picker for typed queries)', () => {
+describe('advancedSearch (the Cmd+K search engine)', () => {
     it('runs the FTS query without silently falling back to LIKE', async () => {
         const now = new Date().toISOString();
         // Stemmed content match: query "running" only matches "runs" via FTS —
