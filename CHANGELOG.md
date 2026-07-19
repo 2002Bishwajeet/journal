@@ -1,3 +1,15 @@
+# [2.1.0](https://github.com/2002Bishwajeet/journal/compare/v2.0.0...v2.1.0) (2026-07-19)
+
+
+### Bug Fixes
+
+* **ux:** boot progress bar was permanently invisible ([bb55eb0](https://github.com/2002Bishwajeet/journal/commit/bb55eb04064c99948c34a35dec6aa6b520550c19))
+
+
+### Features
+
+* **ux:** linear boot-progress bar on the splash screen ([cbada7c](https://github.com/2002Bishwajeet/journal/commit/cbada7cc412883cb868cfa28664f7f90a0d57287))
+* **ux:** rotating boot quips on the splash screen ([2e3de73](https://github.com/2002Bishwajeet/journal/commit/2e3de7345c736bcfdc314314519359092e5392c5))
 # [2.0.0](https://github.com/2002Bishwajeet/journal/compare/v1.1.8...v2.0.0) (2026-07-19)
 
 
