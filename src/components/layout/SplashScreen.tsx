@@ -55,7 +55,7 @@ export function SplashScreen({ className }: SplashScreenProps) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={progress}
-          className="mt-6 h-1 w-48 overflow-hidden rounded-full bg-muted animate-in fade-in duration-700 delay-200 fill-mode-forwards opacity-0"
+          className="mt-6 h-1 w-48 overflow-hidden rounded-full bg-muted"
         >
           <div
             className="h-full rounded-full bg-foreground/70 transition-[width] duration-500 ease-out"
