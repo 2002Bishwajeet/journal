@@ -1,3 +1,57 @@
+# [2.0.0](https://github.com/2002Bishwajeet/journal/compare/v1.1.8...v2.0.0) (2026-07-19)
+
+
+### Bug Fixes
+
+* **broadcast:** acknowledge same-tab flush instead of a blind 50ms sleep ([5adefe2](https://github.com/2002Bishwajeet/journal/commit/5adefe24d46859988d0af03f97ed608c6b713d72))
+* **db:** atomic replaceDocumentUpdates for compaction/merge ([0a27ca3](https://github.com/2002Bishwajeet/journal/commit/0a27ca367a1a1ec142331ec8ce3d699f0c5fbee1))
+* **deps:** clear npm audit advisories (lockfile refresh) ([d860bca](https://github.com/2002Bishwajeet/journal/commit/d860bcaf49bba6f7edf291e229fec917e83456ed))
+* **editor:** address code-review findings on internal note links ([0bca303](https://github.com/2002Bishwajeet/journal/commit/0bca303f16235d92ece8edae0ad4513d252e92b2))
+* **editor:** flush pending save on unmount so trailing edits reach the server ([2e03db3](https://github.com/2002Bishwajeet/journal/commit/2e03db362744ddc9f193c3972a7882830eec3d61))
+* **editor:** give slash-commands and note-link suggestions unique plugin keys ([ad13516](https://github.com/2002Bishwajeet/journal/commit/ad13516aac7f979ff55289fa1fd7ac68ae74dd58))
+* **editor:** save on first edit; skip only Yjs-origin transactions ([3039d32](https://github.com/2002Bishwajeet/journal/commit/3039d328acaaad81f288d8c07d8deabb4a318726))
+* **images:** use the matched server thumbnail size ([f132b4e](https://github.com/2002Bishwajeet/journal/commit/f132b4e7074ff8b0d5111d5b6ef1adea12dd3ff7))
+* **notes:** build real heading/paragraph blocks for created notes; copy template Yjs docs on spawn ([e39d598](https://github.com/2002Bishwajeet/journal/commit/e39d598145d987f525812ebecb89bf21ebc425aa))
+* **notes:** derive image payload key from max index, not count ([3471cf8](https://github.com/2002Bishwajeet/journal/commit/3471cf875ba31ab23b2b908210ba4137aea6554f))
+* **notes:** guard peer note update against missing globalTransitId ([43ddab4](https://github.com/2002Bishwajeet/journal/commit/43ddab4f20c952f24445a7e173eae7aa01b8e408))
+* **notes:** honor encrypt option (?? not ||) and isPublic ACL in createNote ([247114b](https://github.com/2002Bishwajeet/journal/commit/247114b32891aabeb5bb8eefd3a4799e171e0488))
+* **notes:** preserve encryption/ACL when adding images to public or shared notes ([2a827cf](https://github.com/2002Bishwajeet/journal/commit/2a827cfd79f3058ad5bd6c2ee6ecdace2f14fe85))
+* **notes:** stop [[ picker flashing "No notes found" while searching ([78b33c3](https://github.com/2002Bishwajeet/journal/commit/78b33c36872f3549ca30cd03ed973b72256e57ca))
+* **search:** advancedSearch always errored and fell back to LIKE ([a0608eb](https://github.com/2002Bishwajeet/journal/commit/a0608eb65b288c52d33ca5075ab732d33e419fb0))
+* **security:** project public note content to a minimal, non-sensitive subset ([fbae37d](https://github.com/2002Bishwajeet/journal/commit/fbae37db1b0fbfdca113fcb4bb75a5f0476ebd8f))
+* **security:** scope SW api-cache to same-origin and drop opaque responses ([7bab181](https://github.com/2002Bishwajeet/journal/commit/7bab181be09f79d3e4c0ac24b8a4ed21b2d2e6df))
+* **security:** validate the /auth/finalize redirect target ([4f3f9ef](https://github.com/2002Bishwajeet/journal/commit/4f3f9ef3197ddb3b678497024903455f242ff5ae))
+* **security:** wipe local data on every logout, not just manual logout ([33941c6](https://github.com/2002Bishwajeet/journal/commit/33941c69be4c9ad2a609ea25cf7ca3d00d010bf4))
+* **sync:** flush the active editor before reading a note's push blob ([f763c13](https://github.com/2002Bishwajeet/journal/commit/f763c13cdd4243dcc50197c4bf79b90ab4e3e5a1))
+* **sync:** generation guard so a slow push can't clobber a pending edit ([2478641](https://github.com/2002Bishwajeet/journal/commit/24786417ce91c63d51a411df52347cd960ce768a))
+* **sync:** hash all pushed metadata fields so pin/share changes sync ([ab60b02](https://github.com/2002Bishwajeet/journal/commit/ab60b021d898c45c547e0d28e4f2a783bd60dcee))
+* **sync:** never replace real Yjs content with an empty doc ([a0fe257](https://github.com/2002Bishwajeet/journal/commit/a0fe257ac76663dd7fefb53614a39dad94101f80))
+* **yjs:** drain updates queued during an in-flight save ([51ed17f](https://github.com/2002Bishwajeet/journal/commit/51ed17f303ee309d71a66d46e602ba565caa3296))
+
+
+### Features
+
+* **editor:** add a table-of-contents side panel ([950c188](https://github.com/2002Bishwajeet/journal/commit/950c1887106e4e62bd7237018ccf3033cfba149f))
+* **editor:** add H4–H6 heading buttons to the toolbar ([2a1f7cc](https://github.com/2002Bishwajeet/journal/commit/2a1f7cc65a0663e2bb3e8a98d18424e8819e976b))
+* **editor:** add heading extraction and reading-time helpers ([47a13e5](https://github.com/2002Bishwajeet/journal/commit/47a13e5959bb1498887cf0637316b52dde09a5df))
+* **editor:** internal note links [[ + backlinks ([16afb52](https://github.com/2002Bishwajeet/journal/commit/16afb52c9d06be7fc1594948d98acbf5a9a0d6d1))
+* **editor:** show reading time beside the word count ([c860131](https://github.com/2002Bishwajeet/journal/commit/c86013156998e9847270ebed85f04c74e85e0434))
+* **flags:** gate daily notes and templates UI behind boolean feature flags ([1de71a5](https://github.com/2002Bishwajeet/journal/commit/1de71a569d2fdef8c3a24ca60092a00e4d61b062))
+* **notes:** daily note — find-or-create today's note ([89d7c41](https://github.com/2002Bishwajeet/journal/commit/89d7c4106d6c8bf97548d7a330d98a716d4d6e3e))
+* **notes:** full search + frequent notes in the [[ link picker ([30c9328](https://github.com/2002Bishwajeet/journal/commit/30c9328c1e7752b0e1b70f060cad1eda5efd0853))
+* **notes:** note templates from a Templates folder ([aea0425](https://github.com/2002Bishwajeet/journal/commit/aea04256ac296e2bdd8d2ea917a7a2eeea53dec9))
+
+
+### Performance Improvements
+
+* **ai:** stop polling engine readiness once ready or disabled ([0172de0](https://github.com/2002Bishwajeet/journal/commit/0172de055f94f5070965c80a05ac51979fcc5f94))
+* **db:** load PGlite v3 only when a v3 database actually exists ([80ebce4](https://github.com/2002Bishwajeet/journal/commit/80ebce4ec471b4cd1d9aa86ac880d3c4430ff882))
+* **db:** park idle live queries; coalesce emissions ([2c31e46](https://github.com/2002Bishwajeet/journal/commit/2c31e46bcde91a1fecee121350bc91b91dd68278))
+* **editor:** compute plain text once per debounce window, not per keystroke ([6c68140](https://github.com/2002Bishwajeet/journal/commit/6c68140cb043bfe055abea44e96c6671f2e07d5a))
+* **notes:** fast dedicated query for [[ picker instead of advancedSearch ([fe3c387](https://github.com/2002Bishwajeet/journal/commit/fe3c38733fcec18393cf1f39a039c64bb145682d))
+* **notes:** index modified-timestamp sort + debounce [[ picker queries ([662ca21](https://github.com/2002Bishwajeet/journal/commit/662ca21c49899a86eafe10e18e8425135f28c9bb))
+* **notes:** stable note-list row identity so memo holds ([c9df839](https://github.com/2002Bishwajeet/journal/commit/c9df839ae7c3d70a6b91aaa4e45cd993273af0db))
+* **pwa:** stop precaching WebLLM runtime; cache on first use ([26cfa2d](https://github.com/2002Bishwajeet/journal/commit/26cfa2de9cafe8fdb4747a47ddc7bf8e546abab7))
 ## [1.1.7](https://github.com/2002Bishwajeet/journal/compare/v1.1.6...v1.1.7) (2026-06-04)
 
 
