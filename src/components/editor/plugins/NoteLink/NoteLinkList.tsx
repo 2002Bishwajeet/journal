@@ -2,7 +2,7 @@
  * Popup list for the `[[` note-link picker. Mirrors SlashCommandList: keyboard
  * navigation + click selection, driven by @tiptap/suggestion render props.
  */
-import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, Fragment } from 'react';
 import { FileText, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { NoteLinkItem } from './NoteLinkExtension';
@@ -71,9 +71,23 @@ export const NoteLinkList = forwardRef<NoteLinkListRef, NoteLinkListProps>(
                     const isSelected = index === selectedIndex;
                     const isCreate = item.type === 'create';
                     const Icon = isCreate ? Plus : FileText;
+                    // Section label ("Frequent" / "Recent") above the first item
+                    // of each group. Labels are plain <p>s, not list items, so
+                    // keyboard navigation indices are untouched.
+                    const section = item.type === 'note' ? item.section : undefined;
+                    const prev = items[index - 1];
+                    const prevSection = prev?.type === 'note' ? prev.section : undefined;
+                    const label = section !== undefined && section !== prevSection
+                        ? section === 'frequent' ? 'Frequent' : 'Recent'
+                        : null;
                     return (
+                        <Fragment key={isCreate ? '__create__' : item.docId}>
+                        {label && (
+                            <p className="px-2 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                {label}
+                            </p>
+                        )}
                         <button
-                            key={isCreate ? '__create__' : item.docId}
                             onClick={() => selectItem(index)}
                             onMouseEnter={() => setSelectedIndex(index)}
                             className={cn(
@@ -90,6 +104,7 @@ export const NoteLinkList = forwardRef<NoteLinkListRef, NoteLinkListProps>(
                                 )}
                             </span>
                         </button>
+                        </Fragment>
                     );
                 })}
             </div>

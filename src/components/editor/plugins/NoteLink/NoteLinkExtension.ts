@@ -14,10 +14,10 @@ import Suggestion, { type SuggestionOptions } from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import { NoteLinkList, type NoteLinkListRef } from './NoteLinkList';
-import { searchNotesByTitle } from '@/lib/db';
+import { advancedSearch, getFrequentlyLinkedNotes, searchNotesByTitle } from '@/lib/db';
 
 export type NoteLinkItem =
-    | { type: 'note'; docId: string; title: string }
+    | { type: 'note'; docId: string; title: string; section?: 'frequent' | 'recent' }
     | { type: 'create'; title: string };
 
 export interface NoteLinkOptions {
@@ -88,26 +88,49 @@ export const NoteLinkExtension = Extension.create<NoteLinkOptions>({
 
                 items: async ({ query }) => {
                     const seq = ++requestSeq;
-                    // Debounce typed queries: wait out the keystroke burst so only
-                    // the latest call hits the DB. An empty query (popup just
-                    // opened) skips the delay — it's one cheap indexed read and
-                    // the popup should appear immediately.
-                    if (query) {
-                        await new Promise((resolve) => setTimeout(resolve, 120));
-                        if (seq !== requestSeq) return new Promise<NoteLinkItem[]>(() => {});
-                    }
-                    const notes = await searchNotesByTitle(query, options.getCurrentNoteId());
                     // Stale result (a newer query started) — drop it instead of
                     // overwriting fresher items. Never-resolving = no onUpdate.
-                    if (seq !== requestSeq) return new Promise<NoteLinkItem[]>(() => {});
-                    const items: NoteLinkItem[] = notes.map((n) => ({
-                        type: 'note',
-                        docId: n.docId,
-                        title: n.title || 'Untitled',
-                    }));
-                    const q = query.trim();
-                    if (q) items.push({ type: 'create', title: q });
-                    return items;
+                    const stale = () => seq !== requestSeq;
+                    const dropped = () => new Promise<NoteLinkItem[]>(() => {});
+                    const excludeId = options.getCurrentNoteId();
+
+                    if (query) {
+                        // Debounce typed queries: wait out the keystroke burst so
+                        // only the latest call hits the DB.
+                        await new Promise((resolve) => setTimeout(resolve, 120));
+                        if (stale()) return dropped();
+                        // Same engine as the Cmd+K search modal — title, content
+                        // and fuzzy matches, not just title substrings.
+                        const results = await advancedSearch(query);
+                        if (stale()) return dropped();
+                        const items: NoteLinkItem[] = results
+                            .filter((r) => r.docId !== excludeId && (r.metadata.archivalStatus ?? 0) === 0)
+                            .slice(0, 8)
+                            .map((r) => ({ type: 'note', docId: r.docId, title: r.title || 'Untitled' }));
+                        const q = query.trim();
+                        if (q) items.push({ type: 'create', title: q });
+                        return items;
+                    }
+
+                    // Popup just opened (empty query, no debounce — it should
+                    // appear immediately): most-linked notes, then recent to fill.
+                    const [frequent, recent] = await Promise.all([
+                        getFrequentlyLinkedNotes(excludeId, 4),
+                        searchNotesByTitle('', excludeId, 8),
+                    ]);
+                    if (stale()) return dropped();
+                    const seen = new Set(frequent.map((n) => n.docId));
+                    const toItem =
+                        (section: 'frequent' | 'recent') =>
+                        (n: { docId: string; title: string }): NoteLinkItem =>
+                            ({ type: 'note', docId: n.docId, title: n.title || 'Untitled', section });
+                    return [
+                        ...frequent.map(toItem('frequent')),
+                        ...recent
+                            .filter((n) => !seen.has(n.docId))
+                            .slice(0, 8 - frequent.length)
+                            .map(toItem('recent')),
+                    ];
                 },
 
                 command: ({ editor, range, props }) => {

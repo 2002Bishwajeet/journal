@@ -7,14 +7,15 @@ vi.mock('@/lib/db/pglite', () => {
     return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
 });
 import * as pgliteModule from '@/lib/db/pglite';
-import { upsertSearchIndex, searchNotesByTitle, updateSearchIndexMetadata, getSearchIndexEntry } from '@/lib/db/queries';
+import { upsertSearchIndex, searchNotesByTitle, getFrequentlyLinkedNotes, updateSearchIndexMetadata, getSearchIndexEntry } from '@/lib/db/queries';
 
 const SELF = '50000000-0000-0000-0000-0000000000ff';
 const N1 = '50000000-0000-0000-0000-000000000001';
 const N2 = '50000000-0000-0000-0000-000000000002';
 const N3 = '50000000-0000-0000-0000-000000000003';
+const N4 = '50000000-0000-0000-0000-000000000004';
 
-async function addNote(docId: string, title: string, archivalStatus?: number, modified?: string) {
+async function addNote(docId: string, title: string, archivalStatus?: number, modified?: string, linkedNoteIds?: string[]) {
     const now = modified ?? new Date().toISOString();
     await upsertSearchIndex({
         docId,
@@ -26,6 +27,7 @@ async function addNote(docId: string, title: string, archivalStatus?: number, mo
             timestamps: { created: now, modified: now },
             excludeFromAI: false,
             ...(archivalStatus !== undefined ? { archivalStatus } : {}),
+            ...(linkedNoteIds ? { linkedNoteIds } : {}),
         },
     });
 }
@@ -114,5 +116,35 @@ describe('searchNotesByTitle', () => {
         expect(res).toHaveLength(2);
         // most-recently-modified first
         expect(res[0].docId).toBe(N3);
+    });
+});
+
+describe('getFrequentlyLinkedNotes', () => {
+    it('ranks notes by how many active notes link to them', async () => {
+        await addNote(N1, 'Popular');
+        await addNote(N2, 'Niche');
+        await addNote(N3, 'Source A', 0, undefined, [N1, N2]);
+        await addNote(N4, 'Source B', 0, undefined, [N1]);
+        const res = await getFrequentlyLinkedNotes();
+        expect(res.map((n) => n.docId)).toEqual([N1, N2]);
+    });
+
+    it('excludes the current note from results', async () => {
+        await addNote(SELF, 'Self');
+        await addNote(N1, 'Other');
+        await addNote(N2, 'Source', 0, undefined, [SELF, N1]);
+        const res = await getFrequentlyLinkedNotes(SELF);
+        expect(res.map((n) => n.docId)).toEqual([N1]);
+    });
+
+    it('ignores links from non-active notes and non-active targets', async () => {
+        // N1 is active but only linked from a trashed note; N2 is trashed but
+        // linked from an active note. Neither should surface.
+        await addNote(N1, 'Linked only by trashed source');
+        await addNote(N2, 'Trashed target', 2);
+        await addNote(N3, 'Active source', 0, undefined, [N2]);
+        await addNote(N4, 'Trashed source', 2, undefined, [N1]);
+        const res = await getFrequentlyLinkedNotes();
+        expect(res).toEqual([]);
     });
 });

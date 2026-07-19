@@ -417,6 +417,37 @@ export async function searchNotesByTitle(
     return result.rows.map(toNoteListEntry);
 }
 
+/**
+ * Notes most frequently linked TO, for the `[[` picker's "Frequent" section.
+ * Frequency = how many active notes list the target in metadata.linkedNoteIds
+ * (each linking note counts once — the array is deduped on save). This is the
+ * only usage signal stored locally; there is no note-open tracking.
+ * Excludes the current note and non-active targets.
+ */
+export async function getFrequentlyLinkedNotes(
+    excludeId?: string,
+    limit = 4,
+): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const result = await db.query<NoteListRow>(
+        `SELECT t.doc_id, t.title, LEFT(t.plain_text_content, 150) as preview, t.metadata
+         FROM (
+             SELECT linked.id AS target_id, COUNT(*) AS links
+             FROM search_index s,
+                  jsonb_array_elements_text(s.metadata->'linkedNoteIds') AS linked(id)
+             WHERE ${ACTIVE_NOTES_FILTER}
+             GROUP BY linked.id
+         ) freq
+         JOIN search_index t ON t.doc_id = freq.target_id::uuid
+         WHERE ${ACTIVE_NOTES_FILTER}
+           AND ($1::uuid IS NULL OR t.doc_id <> $1)
+         ORDER BY freq.links DESC, metadata->'timestamps'->>'modified' DESC NULLS LAST
+         LIMIT $2`,
+        [excludeId ?? null, limit],
+    );
+    return result.rows.map(toNoteListEntry);
+}
+
 export async function getCollaborativeNotesForList(): Promise<NoteListEntry[]> {
     const db = await getDatabase();
     const result = await db.query<{
