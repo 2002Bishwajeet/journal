@@ -642,11 +642,14 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
                 -- OR exact substring match (fallback)
                 OR LOWER(s.title) LIKE sp.like_pattern
                 OR LOWER(s.plain_text_content) LIKE sp.like_pattern
-            ORDER BY 
-                -- Prioritize: FTS rank, then title similarity, then content match
-                COALESCE(fts_rank, 0) DESC,
-                COALESCE(title_similarity, 0) DESC,
-                COALESCE(content_similarity, 0) DESC
+            ORDER BY
+                -- Prioritize: FTS rank, then title similarity, then content match.
+                -- Bare output aliases only — an alias inside an expression like
+                -- COALESCE(fts_rank, 0) is invalid in ORDER BY ("column does not
+                -- exist") and made this whole query silently fall back to LIKE.
+                fts_rank DESC NULLS LAST,
+                title_similarity DESC NULLS LAST,
+                content_similarity DESC NULLS LAST
             LIMIT 50
         `, [trimmedQuery, likePattern]);
 

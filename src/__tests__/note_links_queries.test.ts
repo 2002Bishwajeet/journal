@@ -4,10 +4,16 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 
 vi.mock('@/lib/db/pglite', () => {
     let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
+    return {
+        getDatabase: async () => testDb,
+        setTestDb: (db: PGlite) => { testDb = db; },
+        // Same effect as the real ensureTrigramSearch, minus its module-level
+        // once-per-load cache (each test file gets a fresh DB).
+        ensureTrigramSearch: async (db: PGlite) => { await db.exec('CREATE EXTENSION IF NOT EXISTS pg_trgm;'); },
+    };
 });
 import * as pgliteModule from '@/lib/db/pglite';
-import { upsertSearchIndex, searchNotesByTitle, getFrequentlyLinkedNotes, updateSearchIndexMetadata, getSearchIndexEntry } from '@/lib/db/queries';
+import { upsertSearchIndex, searchNotesByTitle, getFrequentlyLinkedNotes, advancedSearch, updateSearchIndexMetadata, getSearchIndexEntry } from '@/lib/db/queries';
 
 const SELF = '50000000-0000-0000-0000-0000000000ff';
 const N1 = '50000000-0000-0000-0000-000000000001';
@@ -116,6 +122,27 @@ describe('searchNotesByTitle', () => {
         expect(res).toHaveLength(2);
         // most-recently-modified first
         expect(res[0].docId).toBe(N3);
+    });
+});
+
+describe('advancedSearch (used by the [[ picker for typed queries)', () => {
+    it('runs the FTS query without silently falling back to LIKE', async () => {
+        const now = new Date().toISOString();
+        // Stemmed content match: query "running" only matches "runs" via FTS —
+        // the LIKE fallback can't find it. Before the ORDER BY alias fix, the
+        // main query always errored ("column fts_rank does not exist") and
+        // every search was served by the fallback.
+        await upsertSearchIndex({
+            docId: N1,
+            title: 'Exercise log',
+            plainTextContent: 'He runs every morning before work',
+            metadata: { title: 'Exercise log', folderId: 'main', timestamps: { created: now, modified: now }, excludeFromAI: false },
+        });
+        const errSpy = vi.spyOn(console, 'error');
+        const res = await advancedSearch('running');
+        expect(errSpy).not.toHaveBeenCalledWith('[advancedSearch] Error:', expect.anything());
+        errSpy.mockRestore();
+        expect(res.map((r) => r.docId)).toContain(N1);
     });
 });
 

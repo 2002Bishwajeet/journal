@@ -4,6 +4,7 @@
  */
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { PGlite } from '@electric-sql/pglite';
+import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 
 let testDb: PGlite | null = null;
 
@@ -12,8 +13,9 @@ let testDb: PGlite | null = null;
  * This avoids mocking and tests real database operations
  */
 export async function createTestDatabase(): Promise<PGlite> {
-  // Use in-memory database for tests
-  testDb = new PGlite();
+  // Use in-memory database for tests. pg_trgm is bundled so tests can run
+  // CREATE EXTENSION (advancedSearch's fuzzy path) like the app's worker does.
+  testDb = new PGlite({ extensions: { pg_trgm } });
 
   // Initialize schema (same as pglite.ts but without the singleton)
   await testDb.exec(`
