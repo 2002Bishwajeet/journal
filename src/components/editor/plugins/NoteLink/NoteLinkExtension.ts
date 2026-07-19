@@ -185,7 +185,13 @@ export const NoteLinkExtension = Extension.create<NoteLinkOptions>({
                         },
 
                         onUpdate: (props) => {
-                            component?.updateProps(props);
+                            // The suggestion plugin dispatches a synchronous
+                            // update with items: [] + loading: true on every
+                            // keystroke before the async fetch resolves. Don't
+                            // forward those — keep the previous results visible
+                            // so the popup never flashes "No notes found"
+                            // mid-search. Only reposition the popup.
+                            if (!props.loading) component?.updateProps(props);
                             if (!props.clientRect || !popup?.[0]) return;
                             popup[0].setProps({
                                 getReferenceClientRect: props.clientRect as () => DOMRect,
