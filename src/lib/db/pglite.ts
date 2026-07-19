@@ -3,6 +3,7 @@ import type { PGliteInterface } from '@electric-sql/pglite';
 import { live } from '@electric-sql/pglite/live';
 import type { PGliteWithLive } from '@electric-sql/pglite/live';
 import { MAIN_FOLDER_ID } from '../homebase';
+import { reportBootPhase } from '../bootProgress';
 import {
   migrateFromV3,
   deleteV3Database,
@@ -44,10 +45,16 @@ export function ensureTrigramSearch(db: PGliteInterface): Promise<void> {
 
 export function getDatabase(): Promise<PGliteInterface> {
   if (!dbPromise) {
-    dbPromise = initDatabase().catch((err) => {
-      dbPromise = null;
-      throw err;
-    });
+    reportBootPhase('db-start');
+    dbPromise = initDatabase()
+      .then((db) => {
+        reportBootPhase('db-ready');
+        return db;
+      })
+      .catch((err) => {
+        dbPromise = null;
+        throw err;
+      });
   }
   return dbPromise;
 }
@@ -72,7 +79,12 @@ function createWorkerInstance(loadDataDir?: Blob): Promise<PGliteInterface> {
   return PGliteWorker.create(
     new Worker(new URL('./pglite-worker.ts', import.meta.url), { type: 'module' }),
     options,
-  );
+  ).then((db) => {
+    // WASM fetched + compiled and the worker leader elected — the slowest
+    // step of a cold boot, reported for the splash progress bar.
+    reportBootPhase('db-worker');
+    return db;
+  });
 }
 
 async function initDatabase(): Promise<PGliteInterface> {
