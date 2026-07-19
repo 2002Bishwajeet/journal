@@ -4,6 +4,7 @@ import {
     createFolder,
     deleteFolder,
     getDocumentsByFolder,
+    getFolderByName,
     upsertSyncRecord,
     deleteSyncRecord,
     deleteSearchIndexEntry,
@@ -19,6 +20,27 @@ import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import { useLiveQuery } from './useLiveQuery';
 
 type FolderRow = { id: string; name: string; created_at: Date };
+
+/**
+ * Find a folder by name, creating it (with a pending sync record) if absent, and
+ * return its id. Mirrors the optimistic create pattern in `useFolders` but is a
+ * plain async function — safe to call from event handlers and other hooks (used
+ * by the `Daily` and `Templates` folder conventions). When names collide the
+ * first-created folder wins.
+ */
+export async function findOrCreateFolderByName(name: string): Promise<string> {
+    const existing = await getFolderByName(name);
+    if (existing) return existing.id;
+
+    const folderId = formatGuidId(getNewId());
+    await createFolder(folderId, name.trim());
+    await upsertSyncRecord({
+        localId: folderId,
+        entityType: 'folder',
+        syncStatus: 'pending',
+    });
+    return folderId;
+}
 
 /**
  * Combined hook for managing folders.

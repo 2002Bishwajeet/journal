@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   EditorToolbar,
@@ -7,11 +7,13 @@ import {
   useEditorContext,
   TipTapEditor,
 } from "@/components/editor";
+import { TocPanel } from "@/components/editor/TocPanel";
 import { FindReplaceBar } from "@/components/editor/FindReplaceBar";
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { CollaborativePopover } from '@/components/editor/CollaborativePopover';
+import { LinkedMentions } from "@/components/editor/LinkedMentions";
 import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
@@ -42,6 +44,7 @@ function EditorLayout({
   } = useNotes();
   const deviceType = useDeviceType();
   const isDesktop = deviceType === "desktop";
+  const [tocOpen, setTocOpen] = useState(false);
 
   // Find the selected note metadata from the notes list
   // We can trust specific noteId exists because parent checks it
@@ -103,32 +106,51 @@ function EditorLayout({
             : "hidden"
         }
       >
-        {editor && <EditorToolbar editor={editor} />}
+        {editor && (
+          <EditorToolbar
+            editor={editor}
+            tocOpen={tocOpen}
+            onToggleToc={() => setTocOpen((prev) => !prev)}
+          />
+        )}
         {editor && <AIMenu editor={editor} />}
         {collaborativePopover && (
           <div className="ml-auto px-3">{collaborativePopover}</div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto relative bg-background w-full">
-        <FindReplaceBar />
-        <TipTapEditor
-          noteId={noteId}
-          metadata={selectedNoteMetadata!}
-          onMetadataChange={(meta) =>
-            updateNoteMetadata({
-              docId: noteId,
-              metadata: meta,
-            })
-          }
-          hideToolbar={true}
-          className={cn(
-            "min-h-full py-8 px-6 mx-auto pb-24 md:pb-8",
-            focusMode
-              ? "max-w-2xl md:px-8 pt-12"
-              : "max-w-5xl md:px-12"
-          )}
-        />
+      <div className="flex-1 flex min-h-0 w-full overflow-hidden">
+        <div className="flex-1 overflow-y-auto relative bg-background w-full">
+          <FindReplaceBar />
+          <TipTapEditor
+            noteId={noteId}
+            metadata={selectedNoteMetadata!}
+            onMetadataChange={(meta) =>
+              updateNoteMetadata({
+                docId: noteId,
+                metadata: meta,
+              })
+            }
+            hideToolbar={true}
+            className={cn(
+              "min-h-full py-8 px-6 mx-auto pb-24 md:pb-8",
+              focusMode
+                ? "max-w-2xl md:px-8 pt-12"
+                : "max-w-5xl md:px-12"
+            )}
+          />
+          <div
+            className={cn(
+              "mx-auto px-6 pb-24 md:pb-8",
+              focusMode ? "max-w-2xl md:px-8" : "max-w-5xl md:px-12"
+            )}
+          >
+            <LinkedMentions noteId={noteId} />
+          </div>
+        </div>
+        {isDesktop && tocOpen && editor && (
+          <TocPanel editor={editor} onClose={() => setTocOpen(false)} />
+        )}
       </div>
     </div>
   );

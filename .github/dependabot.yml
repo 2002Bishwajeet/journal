@@ -9,3 +9,8 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    groups:
+      tiptap: { patterns: ["@tiptap/*"] }
+      radix: { patterns: ["@radix-ui/*", "radix-ui"] }
+      tanstack: { patterns: ["@tanstack/*"] }
+      dev-tooling: { patterns: ["eslint*", "typescript*", "vitest", "@vitest/*", "vite", "@vitejs/*"] }

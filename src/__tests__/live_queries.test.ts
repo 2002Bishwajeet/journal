@@ -3,9 +3,27 @@
  * progressively as rows are written. Uses a direct in-memory PGlite with the
  * live extension (the app wires the same extension through PGliteWorker).
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { live, type LiveNamespace } from '@electric-sql/pglite/live';
+
+// Mock the app DB module so acquireLiveQuery (below) resolves to a PGlite we
+// control per-test — the real one (a settable var) for parking, a fake capturing
+// one for coalescing. The existing tests above use `db` directly and are
+// unaffected (they never import from @/lib/db/pglite).
+vi.mock('@/lib/db/pglite', () => {
+  let mockDb: unknown = null;
+  return {
+    getLiveDatabase: async () => mockDb,
+    getDatabase: async () => mockDb,
+    __setMockDb: (d: unknown) => { mockDb = d; },
+  };
+});
+import * as pgliteModule from '@/lib/db/pglite';
+import { acquireLiveQuery } from '@/hooks/useLiveQuery';
+
+const setMockDb = (d: unknown) =>
+  (pgliteModule as unknown as { __setMockDb: (d: unknown) => void }).__setMockDb(d);
 
 type LiveDB = PGlite & { live: LiveNamespace };
 
@@ -128,5 +146,91 @@ describe('PGlite live.incrementalQuery — progressive-sync foundation', () => {
     await new Promise((r) => setTimeout(r, 150));
 
     expect(counts.length).toBe(seen); // no further emissions after unsubscribe
+  });
+});
+
+type Row = { doc_id: string; title: string; metadata: unknown };
+const titlesOf = (rows: unknown[]) => (rows as Row[]).map((r) => r.title);
+
+describe('acquireLiveQuery — parking (no-flash folder switch, no idle subscription)', () => {
+  beforeEach(() => setMockDb(db));
+
+  it('serves parked rows instantly on reacquire, holds no live subscription while parked, then refreshes', async () => {
+    await insertNote(ID1, 'Alpha');
+
+    const key = 'park::' + LIST_SQL;
+    const calls1: unknown[][] = [];
+    const h1 = acquireLiveQuery(key, LIST_SQL, [], (rows) => calls1.push(rows));
+
+    // First consumer: subscription lands with the initial row set.
+    await waitFor(() => calls1.length > 0);
+    expect(titlesOf(calls1.at(-1)!)).toEqual(['Alpha']);
+
+    // Last consumer leaves → entry parks (its PGlite subscription is torn down).
+    h1.release();
+
+    // Write while parked. A still-live subscription would fold this in; a parked
+    // one must not — its rows stay frozen at the last emission.
+    await insertNote(ID2, 'Bravo');
+    await new Promise((r) => setTimeout(r, 120));
+
+    // Reacquire: cached OLD rows served synchronously with ready:true (no loading
+    // flash). That they are OLD (1 row, not the current 2) proves the parked
+    // entry held no live subscription across the write.
+    const calls2: unknown[][] = [];
+    const h2 = acquireLiveQuery(key, LIST_SQL, [], (rows) => calls2.push(rows));
+    expect(h2.ready).toBe(true);
+    expect(titlesOf(h2.rows)).toEqual(['Alpha']);
+
+    // Then the fresh subscription lands with the CURRENT rows — two emissions
+    // (instant cached snapshot, then live refresh), never a loading state.
+    await waitFor(() => calls2.length > 0 && titlesOf(calls2.at(-1)!).length === 2);
+    expect(titlesOf(calls2.at(-1)!)).toEqual(['Alpha', 'Bravo']);
+
+    h2.release();
+  });
+});
+
+describe('acquireLiveQuery — coalescing burst emissions', () => {
+  it('collapses a burst of 5 emissions into <= 2 listener calls, last write wins', async () => {
+    // Fake DB captures the live-query callback so we can drive emissions directly
+    // and deterministically, independent of PGlite write latency.
+    let capturedCb: ((res: { rows: unknown[] }) => void) | null = null;
+    const fakeDb = {
+      live: {
+        query: async (
+          _sql: string,
+          _params: unknown[],
+          cb: (res: { rows: unknown[] }) => void,
+        ) => {
+          capturedCb = cb;
+          return { initialResults: { rows: [] as unknown[] }, unsubscribe: async () => {} };
+        },
+      },
+    };
+    setMockDb(fakeDb);
+
+    const key = 'coalesce::burst';
+    const calls: unknown[][] = [];
+    const h = acquireLiveQuery(key, 'SELECT 1', [], (rows) => calls.push(rows));
+
+    // Wait for the subscription to be established (and its initial [] emission).
+    await waitFor(() => capturedCb !== null);
+    const cb = capturedCb!;
+    calls.length = 0; // ignore the initial ready emission; measure only the burst
+
+    cb({ rows: [{ n: 1 }] });
+    cb({ rows: [{ n: 2 }] });
+    cb({ rows: [{ n: 3 }] });
+    cb({ rows: [{ n: 4 }] });
+    cb({ rows: [{ n: 5 }] });
+
+    // Let the trailing-debounce window (150ms) flush.
+    await new Promise((r) => setTimeout(r, 250));
+
+    expect(calls.length).toBeLessThanOrEqual(2);
+    expect(calls.at(-1)).toEqual([{ n: 5 }]); // the latest rows always land
+
+    h.release();
   });
 });

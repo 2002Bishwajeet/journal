@@ -9,6 +9,7 @@ export interface DocumentMetadata {
     excludeFromAI: boolean;
     isPinned?: boolean;
     isPublic?: boolean;      // Shared via public link (ACL = Anonymous)
+    linkedNoteIds?: string[]; // docIds this note links to via [[ internal links (powers backlinks)
     archivalStatus?: number; // Homebase ArchivalStatus: 0 active, 2 trashed (Removed)
     // Collaboration fields
     isCollaborative?: boolean;
@@ -108,6 +109,7 @@ export interface SyncRecord {
     encryptedKeyHeader?: string;
     authorOdinId?: string;
     globalTransitId?: string;
+    dirtyGeneration?: number;
 }
 
 // Image pending upload for retry queue

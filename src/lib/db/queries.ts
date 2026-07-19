@@ -8,12 +8,47 @@ import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRec
 const ACTIVE_NOTES_FILTER = `COALESCE((metadata->>'archivalStatus')::int, 0) = 0`;
 
 export type NoteListRow = { doc_id: string; title: string; preview: string; metadata: DocumentMetadata };
-export const toNoteListEntry = (row: NoteListRow): NoteListEntry => ({
-    docId: row.doc_id,
-    title: row.title,
-    preview: row.preview || '',
-    metadata: row.metadata,
-});
+
+// Stable-identity mapping for note-list rows. PGlite re-runs the whole query on
+// every write and returns fresh row objects, so a naive mapper would hand
+// NoteItem a brand-new object for every row on every emission — defeating its
+// React.memo so the entire list reconciles. Cache each produced entry by a
+// signature over every field it copies (title, preview, and the full metadata —
+// not just the modified timestamp, since archival/pin writes mutate metadata
+// without bumping it): while a row's observable content is unchanged, return the
+// SAME entry reference so memo holds; any change yields a new reference. Bounded
+// by an LRU cap and reset via clearNoteListEntryCache() (see clearAllLocalData).
+const NOTE_ENTRY_CACHE_LIMIT = 2000;
+const noteEntryCache = new Map<string, { sig: string; entry: NoteListEntry }>();
+
+export const toNoteListEntry = (row: NoteListRow): NoteListEntry => {
+    const preview = row.preview || '';
+    const sig = JSON.stringify([row.title, preview, row.metadata]);
+    const cached = noteEntryCache.get(row.doc_id);
+    if (cached && cached.sig === sig) {
+        // Unchanged row: refresh LRU position, return the identical reference.
+        noteEntryCache.delete(row.doc_id);
+        noteEntryCache.set(row.doc_id, cached);
+        return cached.entry;
+    }
+    const entry: NoteListEntry = {
+        docId: row.doc_id,
+        title: row.title,
+        preview,
+        metadata: row.metadata,
+    };
+    noteEntryCache.set(row.doc_id, { sig, entry });
+    if (noteEntryCache.size > NOTE_ENTRY_CACHE_LIMIT) {
+        const oldest = noteEntryCache.keys().next().value as string;
+        noteEntryCache.delete(oldest);
+    }
+    return entry;
+};
+
+/** Reset the note-list entry identity cache — call whenever local data is wiped. */
+export function clearNoteListEntryCache(): void {
+    noteEntryCache.clear();
+}
 
 export const toFolder = (row: { id: string; name: string; created_at: Date }): Folder => ({
     id: row.id,
@@ -24,7 +59,11 @@ export const toFolder = (row: { id: string; name: string; created_at: Date }): F
 // Shared SQL for note-list reads — used by both the imperative getters and the
 // live-query hooks so they never drift. Row key for note queries is 'doc_id'.
 const NOTE_LIST_SELECT = `SELECT doc_id, title, LEFT(plain_text_content, 150) as preview, metadata FROM search_index`;
-const MODIFIED_DESC = `ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`;
+// Text comparison, not ::timestamp — every writer stores toISOString() output,
+// where lexicographic order == chronological order, and sorting the raw text
+// lets idx_search_metadata_modified serve the sort (a text→timestamp cast
+// isn't IMMUTABLE, so it can't be indexed).
+const MODIFIED_DESC = `ORDER BY metadata->'timestamps'->>'modified' DESC NULLS LAST`;
 const PINNED_THEN_MODIFIED = `ORDER BY (metadata->>'isPinned')::boolean DESC NULLS LAST, (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`;
 
 export const NOTE_ROW_KEY = 'doc_id';
@@ -37,6 +76,9 @@ export const NOTE_LIST_SQL = {
     trashed: `${NOTE_LIST_SELECT} WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 2 ${MODIFIED_DESC}`,
     archived: `${NOTE_LIST_SELECT} WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 1 ${MODIFIED_DESC}`,
     byTag: `${NOTE_LIST_SELECT} WHERE metadata->'tags' ? $1 AND ${ACTIVE_NOTES_FILTER} ORDER BY (metadata->>'isPinned')::boolean DESC NULLS LAST, updated_at DESC`,
+    // Backlinks: active notes whose metadata.linkedNoteIds array contains $1.
+    // Uses the same jsonb `?` element-exists operator as the tag filter.
+    backlinks: `${NOTE_LIST_SELECT} WHERE metadata->'linkedNoteIds' ? $1 AND ${ACTIVE_NOTES_FILTER} ${MODIFIED_DESC}`,
 } as const;
 
 // Single-row counts for the sidebar badges (trash / archive / shared). One live
@@ -52,6 +94,11 @@ export const NOTE_COUNTS_SQL = `
 export type NoteCountsRow = { trashed: number; archived: number; collaborative: number };
 
 export const FOLDERS_SQL = `SELECT id, name, created_at FROM folders ORDER BY name ASC`;
+
+// Active notes' id → title/folder, for live-resolving internal-link titles.
+// Active-only: links to archived/trashed notes resolve as "broken" rather than
+// navigating to an editor route that can't load them.
+export const NOTE_TITLE_MAP_SQL = `SELECT doc_id, title, metadata->>'folderId' AS folder_id FROM search_index WHERE ${ACTIVE_NOTES_FILTER}`;
 
 
 
@@ -76,6 +123,19 @@ export async function getDocumentUpdates(docId: string): Promise<Uint8Array[]> {
 export async function deleteDocumentUpdates(docId: string): Promise<void> {
     const db = await getDatabase();
     await db.query('DELETE FROM document_updates WHERE doc_id = $1', [docId]);
+}
+
+// Atomically replace all of a doc's updates with a single compacted blob. The
+// delete and insert run in ONE statement (a data-modifying CTE), so a crash or
+// error between them can never leave the note with zero rows — the note's local
+// history survives intact. Replaces the old non-atomic delete→save pairs.
+export async function replaceDocumentUpdates(docId: string, blob: Uint8Array): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `WITH del AS (DELETE FROM document_updates WHERE doc_id = $1)
+         INSERT INTO document_updates (doc_id, update_blob) VALUES ($1, $2)`,
+        [docId, blob]
+    );
 }
 
 // Search Index
@@ -126,10 +186,17 @@ export async function updateSearchIndexMetadata(
     metadata: DocumentMetadata,
 ): Promise<void> {
     const db = await getDatabase();
+    // `linkedNoteIds` is editor-owned (written only by the content-save path).
+    // Metadata-only writes (title, pin, tags, collaboration) must not clobber it
+    // from a stale snapshot, so preserve the row's existing value via a jsonb overlay.
     await db.query(
         `UPDATE search_index
          SET title = $2,
-             metadata = $3,
+             metadata = CASE
+               WHEN metadata ? 'linkedNoteIds'
+               THEN $3::jsonb || jsonb_build_object('linkedNoteIds', metadata->'linkedNoteIds')
+               ELSE $3::jsonb
+             END,
              search_vector = setweight(to_tsvector('english', COALESCE($2, '')), 'A') ||
                              setweight(to_tsvector('english', COALESCE(plain_text_content, '')), 'B'),
              updated_at = CURRENT_TIMESTAMP
@@ -237,6 +304,34 @@ export async function getArchivedNotes(): Promise<NoteListEntry[]> {
     return result.rows.map(toNoteListEntry);
 }
 
+/**
+ * Find a single ACTIVE (not archived/trashed) note by its exact title.
+ * Backs the daily-note find-or-create flow: returns the most recently modified
+ * match when several share a title, and null when none is active (so a trashed
+ * note with today's title does not block creating a fresh one).
+ */
+export async function getActiveNoteByTitle(
+    title: string,
+): Promise<{ docId: string; folderId: string } | null> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        doc_id: string;
+        folder_id: string;
+    }>(
+        `SELECT doc_id,
+                metadata->>'folderId' AS folder_id
+         FROM search_index
+         WHERE title = $1
+           AND ${ACTIVE_NOTES_FILTER}
+         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST
+         LIMIT 1`,
+        [title],
+    );
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0];
+    return { docId: row.doc_id, folderId: row.folder_id };
+}
+
 export async function getDocumentsByFolder(folderId: string): Promise<SearchIndexEntry[]> {
     const db = await getDatabase();
     const result = await db.query<{
@@ -281,6 +376,80 @@ export async function getNotesForListByFolder(folderId: string): Promise<NoteLis
            AND ${ACTIVE_NOTES_FILTER}
          ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`,
         [folderId]
+    );
+    return result.rows.map(toNoteListEntry);
+}
+
+/**
+ * Fast search for the `[[` note-link picker: title substring match plus
+ * stemmed full-text content match (search_vector), title hits first, then
+ * newest. Deliberately NOT advancedSearch — no ts_headline snippets, no
+ * pg_trgm similarity, no 50-row scan; this path runs per keystroke on the
+ * single-threaded PGlite and must stay cheap.
+ * Excludes the current note (self-link) and archived/trashed notes. An empty
+ * query returns the most-recently-modified active notes.
+ */
+export async function searchNotesForPicker(
+    query: string,
+    excludeId?: string,
+    limit = 8,
+): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const trimmed = query.trim();
+
+    if (trimmed) {
+        const result = await db.query<NoteListRow>(
+            `${NOTE_LIST_SELECT}
+             WHERE (title ILIKE '%' || $1 || '%'
+                    OR search_vector @@ plainto_tsquery('english', $1))
+               AND ${ACTIVE_NOTES_FILTER}
+               AND ($2::uuid IS NULL OR doc_id <> $2)
+             ORDER BY (title ILIKE '%' || $1 || '%') DESC,
+                      metadata->'timestamps'->>'modified' DESC NULLS LAST
+             LIMIT $3`,
+            [trimmed, excludeId ?? null, limit],
+        );
+        return result.rows.map(toNoteListEntry);
+    }
+
+    const result = await db.query<NoteListRow>(
+        `${NOTE_LIST_SELECT}
+         WHERE ${ACTIVE_NOTES_FILTER}
+           AND ($1::uuid IS NULL OR doc_id <> $1)
+         ${MODIFIED_DESC}
+         LIMIT $2`,
+        [excludeId ?? null, limit],
+    );
+    return result.rows.map(toNoteListEntry);
+}
+
+/**
+ * Notes most frequently linked TO, for the `[[` picker's "Frequent" section.
+ * Frequency = how many active notes list the target in metadata.linkedNoteIds
+ * (each linking note counts once — the array is deduped on save). This is the
+ * only usage signal stored locally; there is no note-open tracking.
+ * Excludes the current note and non-active targets.
+ */
+export async function getFrequentlyLinkedNotes(
+    excludeId?: string,
+    limit = 4,
+): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const result = await db.query<NoteListRow>(
+        `SELECT t.doc_id, t.title, LEFT(t.plain_text_content, 150) as preview, t.metadata
+         FROM (
+             SELECT linked.id AS target_id, COUNT(*) AS links
+             FROM search_index s,
+                  jsonb_array_elements_text(s.metadata->'linkedNoteIds') AS linked(id)
+             WHERE ${ACTIVE_NOTES_FILTER}
+             GROUP BY linked.id
+         ) freq
+         JOIN search_index t ON t.doc_id = freq.target_id::uuid
+         WHERE ${ACTIVE_NOTES_FILTER}
+           AND ($1::uuid IS NULL OR t.doc_id <> $1)
+         ORDER BY freq.links DESC, metadata->'timestamps'->>'modified' DESC NULLS LAST
+         LIMIT $2`,
+        [excludeId ?? null, limit],
     );
     return result.rows.map(toNoteListEntry);
 }
@@ -355,6 +524,22 @@ export async function getFolderById(id: string): Promise<Folder | null> {
         name: row.name,
         createdAt: row.created_at,
     };
+}
+
+/**
+ * Find a folder by exact name, returning the first-created match when several
+ * share a name (folder names are not unique — see the find-or-create-folder
+ * conventions for `Daily` and `Templates`).
+ */
+export async function getFolderByName(name: string): Promise<Folder | null> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        id: string;
+        name: string;
+        created_at: Date;
+    }>('SELECT id, name, created_at FROM folders WHERE name = $1 ORDER BY created_at ASC LIMIT 1', [name]);
+    if (result.rows.length === 0) return null;
+    return toFolder(result.rows[0]);
 }
 
 export async function createFolder(id: string, name: string): Promise<void> {
@@ -463,11 +648,14 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
                 -- OR exact substring match (fallback)
                 OR LOWER(s.title) LIKE sp.like_pattern
                 OR LOWER(s.plain_text_content) LIKE sp.like_pattern
-            ORDER BY 
-                -- Prioritize: FTS rank, then title similarity, then content match
-                COALESCE(fts_rank, 0) DESC,
-                COALESCE(title_similarity, 0) DESC,
-                COALESCE(content_similarity, 0) DESC
+            ORDER BY
+                -- Prioritize: FTS rank, then title similarity, then content match.
+                -- Bare output aliases only — an alias inside an expression like
+                -- COALESCE(fts_rank, 0) is invalid in ORDER BY ("column does not
+                -- exist") and made this whole query silently fall back to LIKE.
+                fts_rank DESC NULLS LAST,
+                title_similarity DESC NULLS LAST,
+                content_similarity DESC NULLS LAST
             LIMIT 50
         `, [trimmedQuery, likePattern]);
 
@@ -657,8 +845,9 @@ export async function getSyncRecord(localId: string): Promise<SyncRecord | null>
         encrypted_key_header: string | null;
         author_odin_id: string | null;
         global_transit_id: string | null;
+        dirty_generation: number;
     }>(
-        'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id FROM sync_records WHERE local_id = $1',
+        'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id, dirty_generation FROM sync_records WHERE local_id = $1',
         [localId]
     );
     if (result.rows.length === 0) return null;
@@ -674,6 +863,7 @@ export async function getSyncRecord(localId: string): Promise<SyncRecord | null>
         encryptedKeyHeader: row.encrypted_key_header || undefined,
         authorOdinId: row.author_odin_id || undefined,
         globalTransitId: row.global_transit_id || undefined,
+        dirtyGeneration: row.dirty_generation ?? 0,
     };
 }
 
@@ -705,9 +895,9 @@ export async function getSyncRecordByRemoteId(remoteFileId: string): Promise<Syn
 export async function getPendingSyncRecords(entityType?: 'folder' | 'note'): Promise<SyncRecord[]> {
     const db = await getDatabase();
     const query = entityType
-        ? `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id
+        ? `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id, dirty_generation
            FROM sync_records WHERE sync_status = 'pending' AND entity_type = $1`
-        : `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id
+        : `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id, dirty_generation
            FROM sync_records WHERE sync_status = 'pending'`;
     const params = entityType ? [entityType] : [];
     const result = await db.query<{
@@ -721,6 +911,7 @@ export async function getPendingSyncRecords(entityType?: 'folder' | 'note'): Pro
         encrypted_key_header: string | null;
         author_odin_id: string | null;
         global_transit_id: string | null;
+        dirty_generation: number;
     }>(query, params);
     return result.rows.map(row => ({
         localId: row.local_id,
@@ -733,29 +924,43 @@ export async function getPendingSyncRecords(entityType?: 'folder' | 'note'): Pro
         encryptedKeyHeader: row.encrypted_key_header || undefined,
         authorOdinId: row.author_odin_id || undefined,
         globalTransitId: row.global_transit_id || undefined,
+        dirtyGeneration: row.dirty_generation ?? 0,
     }));
 }
 
-export async function markSynced(localId: string, remoteFileId: string, versionTag: string, contentHash?: string, encryptedKeyHeader?: string, authorOdinId?: string, globalTransitId?: string): Promise<void> {
+export async function markSynced(localId: string, remoteFileId: string, versionTag: string, contentHash?: string, encryptedKeyHeader?: string, authorOdinId?: string, globalTransitId?: string, expectedGeneration?: number): Promise<void> {
     const db = await getDatabase();
+    // Generation guard: when the caller snapshotted a dirty_generation (from the
+    // record it read before a slow push), only promote to 'synced' if no edit has
+    // bumped the generation since — otherwise an edit made DURING the push would be
+    // clobbered back to synced. version_tag/content_hash/key header are ALWAYS
+    // recorded so a superseded push still captures what the server now has.
     await db.query(
         `UPDATE sync_records SET
            remote_file_id = $2,
            version_tag = $3,
            last_synced_at = CURRENT_TIMESTAMP,
-           sync_status = 'synced',
+           sync_status = CASE WHEN $8::int IS NULL OR dirty_generation = $8::int THEN 'synced' ELSE sync_status END,
            content_hash = $4,
            encrypted_key_header = COALESCE($5, encrypted_key_header),
            author_odin_id = COALESCE($6, author_odin_id),
            global_transit_id = COALESCE($7, global_transit_id)
          WHERE local_id = $1`,
-        [localId, remoteFileId, versionTag, contentHash || null, encryptedKeyHeader || null, authorOdinId || null, globalTransitId || null]
+        [localId, remoteFileId, versionTag, contentHash || null, encryptedKeyHeader || null, authorOdinId || null, globalTransitId || null, expectedGeneration ?? null]
     );
 }
 
 export async function updateSyncStatus(localId: string, status: SyncRecord['syncStatus']): Promise<void> {
     const db = await getDatabase();
-    await db.query('UPDATE sync_records SET sync_status = $2 WHERE local_id = $1', [localId, status]);
+    // Every write that sets 'pending' bumps dirty_generation so a concurrent push's
+    // markSynced (which snapshotted the old generation) cannot clobber it.
+    await db.query(
+        `UPDATE sync_records SET
+           sync_status = $2,
+           dirty_generation = dirty_generation + CASE WHEN $2 = 'pending' THEN 1 ELSE 0 END
+         WHERE local_id = $1`,
+        [localId, status]
+    );
 }
 
 export async function deleteSyncRecord(localId: string): Promise<void> {
@@ -907,6 +1112,9 @@ export async function clearAllLocalData(): Promise<void> {
         -- Clear app state (session, last sync time, etc.)
         DELETE FROM app_state;
     `);
+
+    // Drop cached row identities so a re-login can't serve entries for wiped notes.
+    clearNoteListEntryCache();
 
     console.log('[clearAllLocalData] All local data cleared successfully');
 }

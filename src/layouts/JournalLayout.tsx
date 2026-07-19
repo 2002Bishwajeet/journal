@@ -56,8 +56,8 @@ import {
   useArchivedNotes,
 } from "@/hooks/useNotes";
 import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
+import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
-import { clearAllLocalData } from "@/lib/db";
 import { useAuth } from "@/hooks/auth";
 import { useFolders } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
@@ -80,12 +80,6 @@ export default function JournalLayout() {
 
   const { logout } = useAuth();
 
-  const handleLogout = async () => {
-    // Clear all local data to prevent mixing between identities
-    await clearAllLocalData();
-    await logout();
-  };
-
   const {
     get: { data: notes = [], isLoading: isNotesLoading },
     createNote: { mutateAsync: createNote },
@@ -103,6 +97,8 @@ export default function JournalLayout() {
     createFolder: { mutateAsync: createNewFolder },
     deleteFolder: { mutate: deleteFolder },
   } = useFolders();
+
+  const { openToday } = useDailyNote();
 
   // Tab management
   const {
@@ -226,12 +222,25 @@ export default function JournalLayout() {
   // no editor, so its effect is suppressed there (otherwise: blank screen).
   const inFocusMode = focusMode && !isManagementView;
 
+  // Daily notes ("Today"): open/create today's note, then route to it.
+  const handleOpenToday = useCallback(async () => {
+    try {
+      const { docId, folderId: dailyFolderId } = await openToday();
+      navigate(`/${dailyFolderId}/${docId}`, { viewTransition: true });
+    } catch {
+      toast.error("Couldn't open today's note");
+    }
+  }, [openToday, navigate]);
+
+  // New-note dropdown (sidebar): blank note goes to the current folder (falling
+  // back to Main for pseudo-folder routes like Trash/Archive/Shared).
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
     onSearch: () => setShowSearch(true),
     onKeyboardHelp: () => setShowKeyboardHelp(true),
     // No editor to focus in a management view — would just blank the screen.
     onFocusMode: () => setFocusMode((prev) => (isManagementView ? false : !prev)),
+    onDailyNote: handleOpenToday,
   });
 
   // Device type detection
@@ -394,6 +403,7 @@ export default function JournalLayout() {
           }}
           onCreateFolder={() => setShowCreateFolder(true)}
           onDeleteFolder={(id) => deleteFolder(id)}
+          onOpenToday={handleOpenToday}
           collaborativeCount={counts.collaborative}
           onSelectShared={() => navigate("/shared")}
           onSelectTrash={() => navigate("/trash")}
@@ -402,7 +412,7 @@ export default function JournalLayout() {
           archivedCount={counts.archived}
           onSearch={() => setShowSearch(true)}
           onSettings={() => setShowSettings(true)}
-          onLogout={handleLogout}
+          onLogout={logout}
           tags={tags}
           selectedTag={selectedTag}
           onSelectTag={(tag) => {

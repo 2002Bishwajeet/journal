@@ -13,7 +13,7 @@ import {
 const DATA_DIR = 'idb://journal-db';
 const PGLITE_VERSION = '0.4';
 // Bump whenever a new statement is added to runMigrations().
-const SCHEMA_VERSION = '1';
+const SCHEMA_VERSION = '3';
 
 let dbPromise: Promise<PGliteInterface> | null = null;
 
@@ -79,7 +79,19 @@ async function initDatabase(): Promise<PGliteInterface> {
   const storedVersion = getStoredPGliteVersion();
 
   if (!storedVersion) {
-    const dump = await migrateFromV3();
+    let dump: Blob | null;
+    try {
+      dump = await migrateFromV3();
+    } catch (err) {
+      // migrateFromV3 throws (V3MigrationError) only when a v0.3 database exists
+      // but its dump failed. Do NOT stamp the stored version here: leaving it
+      // unset makes the next launch retry the migration instead of stranding the
+      // user's v0.3 data behind the fresh empty database we boot below.
+      console.error('[DB] v0.3 → v0.4 migration failed; will retry next launch:', err);
+      const db = await createWorkerInstance();
+      await initializeSchema(db);
+      return db;
+    }
     if (dump) {
       await deleteV3Database();
       console.log('[DB] Creating PGlite v0.4 with migrated data...');
@@ -191,7 +203,8 @@ async function initializeSchema(database: PGliteInterface): Promise<void> {
       content_hash TEXT,
       encrypted_key_header TEXT,
       author_odin_id TEXT,
-      global_transit_id TEXT
+      global_transit_id TEXT,
+      dirty_generation INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE INDEX IF NOT EXISTS idx_sync_records_status ON sync_records(sync_status);
@@ -316,6 +329,19 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     console.warn('[DB Migration] Could not create metadata folderId index:', error);
   }
 
+  // BTREE expression index on the modified timestamp so MODIFIED_DESC note
+  // lists and the `[[` picker read in index order instead of seq-scan + sort.
+  // Indexes the raw ISO-8601 text; must match MODIFIED_DESC in queries.ts.
+  try {
+    await database.exec(`
+        CREATE INDEX IF NOT EXISTS idx_search_metadata_modified
+        ON search_index ((metadata->'timestamps'->>'modified') DESC NULLS LAST);
+    `);
+    console.log('[DB Migration] Metadata modified index ensured');
+  } catch (error) {
+    console.warn('[DB Migration] Could not create metadata modified index:', error);
+  }
+
   // Populate search_vector for existing documents that don't have it
   try {
     await database.exec(`
@@ -414,6 +440,17 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     console.log('[DB Migration] collaboration peer columns ensured');
   } catch (error) {
     console.warn('[DB Migration] Could not add collaboration peer columns:', error);
+  }
+
+  // Add dirty_generation column — autosave generation guard so a slow push cannot
+  // clobber a 'pending' status set by an edit made during the push (plan 004).
+  try {
+    await database.exec(`
+      ALTER TABLE sync_records ADD COLUMN IF NOT EXISTS dirty_generation INTEGER NOT NULL DEFAULT 0;
+    `);
+    console.log('[DB Migration] dirty_generation column ensured');
+  } catch (error) {
+    console.warn('[DB Migration] Could not add dirty_generation column:', error);
   }
 
   // Create pending_image_uploads if not exists (for existing dbs)

@@ -89,6 +89,23 @@ export function useAuth() {
             }
         }
 
+        // Wipe all local data on EVERY logout — including the auto-logout that fires
+        // when a device is revoked from the identity console. Otherwise decrypted
+        // notes (document_updates) and the full-text search_index survive in
+        // IndexedDB. Dynamic import keeps the heavy PGlite db module out of the auth
+        // hook's static graph (and avoids an import cycle).
+        try {
+            const { clearAllLocalData } = await import('@/lib/db');
+            await clearAllLocalData();
+        } catch (err) {
+            console.warn('[logout] Failed to clear local data:', err);
+        }
+        try {
+            await caches.delete('api-cache');
+        } catch {
+            // Ignore cache errors
+        }
+
         localStorage.removeItem(STORAGE_KEY_SHARED_SECRET);
         localStorage.removeItem(STORAGE_KEY_AUTH_TOKEN);
         localStorage.removeItem('identity');

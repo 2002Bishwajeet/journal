@@ -4,6 +4,7 @@
  */
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { PGlite } from '@electric-sql/pglite';
+import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 
 let testDb: PGlite | null = null;
 
@@ -12,8 +13,9 @@ let testDb: PGlite | null = null;
  * This avoids mocking and tests real database operations
  */
 export async function createTestDatabase(): Promise<PGlite> {
-  // Use in-memory database for tests
-  testDb = new PGlite();
+  // Use in-memory database for tests. pg_trgm is bundled so tests can run
+  // CREATE EXTENSION (advancedSearch's fuzzy path) like the app's worker does.
+  testDb = new PGlite({ extensions: { pg_trgm } });
 
   // Initialize schema (same as pglite.ts but without the singleton)
   await testDb.exec(`
@@ -34,6 +36,7 @@ export async function createTestDatabase(): Promise<PGlite> {
       title TEXT NOT NULL DEFAULT 'Untitled',
       plain_text_content TEXT DEFAULT '',
       metadata JSONB NOT NULL DEFAULT '{}',
+      search_vector tsvector,
       vector_embedding REAL[],
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
@@ -83,7 +86,8 @@ export async function createTestDatabase(): Promise<PGlite> {
       content_hash TEXT,
       encrypted_key_header TEXT,
       author_odin_id TEXT,
-      global_transit_id TEXT
+      global_transit_id TEXT,
+      dirty_generation INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE INDEX IF NOT EXISTS idx_sync_records_status ON sync_records(sync_status);
@@ -103,6 +107,17 @@ export async function createTestDatabase(): Promise<PGlite> {
 
     CREATE INDEX IF NOT EXISTS idx_pending_uploads_status ON pending_image_uploads(status);
     CREATE INDEX IF NOT EXISTS idx_pending_uploads_note ON pending_image_uploads(note_doc_id);
+
+    -- Create pending_image_deletions table (mirrors pglite.ts; needed by pushNote's
+    -- getPendingImageDeletions). Minimal additive DDL per plan 002; plan 012 unifies schema.
+    CREATE TABLE IF NOT EXISTS pending_image_deletions (
+      id SERIAL PRIMARY KEY,
+      note_doc_id UUID NOT NULL,
+      payload_key TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(note_doc_id, payload_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pending_deletions_note ON pending_image_deletions(note_doc_id);
 
     -- Insert Main folder if not exists
     INSERT INTO folders (id, name)
@@ -146,6 +161,7 @@ export async function resetTestDatabase(): Promise<void> {
     DELETE FROM app_state;
     DELETE FROM sync_records;
     DELETE FROM pending_image_uploads;
+    DELETE FROM pending_image_deletions;
     DELETE FROM folders WHERE id != '${MAIN_FOLDER_ID}';
   `);
 }

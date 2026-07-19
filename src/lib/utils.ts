@@ -14,6 +14,23 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Reduce a post-auth redirect target to a safe, same-origin path. Anything that
+ * isn't a same-origin http(s) URL — off-origin hosts, `javascript:` URIs,
+ * protocol-relative `//host` targets, garbage — collapses to '/'. Guards the
+ * /auth/finalize open redirect (SEC-07).
+ */
+export function sanitizeReturnUrl(raw: string, origin: string): string {
+  try {
+    const u = new URL(raw, origin);
+    return u.origin === origin && (u.protocol === 'https:' || u.protocol === 'http:')
+      ? u.pathname + u.search + u.hash
+      : '/';
+  } catch {
+    return '/';
+  }
+}
+
+/**
  * Serialize EncryptedKeyHeader to JSON string for database storage.
  * Converts Uint8Array fields to base64 strings.
  */

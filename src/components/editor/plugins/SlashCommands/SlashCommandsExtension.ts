@@ -6,6 +6,7 @@
  */
 
 import { Extension } from '@tiptap/core';
+import { PluginKey } from '@tiptap/pm/state';
 import Suggestion, { type SuggestionOptions } from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
@@ -38,6 +39,9 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
         return [
             Suggestion({
                 editor: this.editor,
+                // Unique key — the default shared 'suggestion' PluginKey collides
+                // with the note-link suggestion and crashes the editor.
+                pluginKey: new PluginKey('slash-commands'),
                 ...this.options.suggestion,
                 items: ({ query }) => {
                     // Filter items based on query

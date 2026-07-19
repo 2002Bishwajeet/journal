@@ -7,15 +7,24 @@ import {
   type ReactNode,
 } from "react";
 import { useAISettings } from "@/hooks/useAISettings";
+import { useNavigate } from "react-router-dom";
 import { useEditor, type Editor } from "@tiptap/react";
 import * as Y from "yjs";
+import { ySyncPluginKey } from "y-prosemirror";
 import { PGliteProvider } from "@/lib/yjs";
-import { upsertSearchIndex, savePendingImageUpload } from "@/lib/db";
+import { flushPendingSaveOnTeardown } from "@/lib/yjs/flushPendingSave";
+import { upsertSearchIndex, savePendingImageUpload, updateSyncStatus } from "@/lib/db";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
+import { NoteLinkContext, type NoteLinkContextValue } from "./NoteLinkContext";
 import { useSyncService } from "@/hooks/useSyncService";
+import { useNoteTitleMap } from "@/hooks/useNoteTitleMap";
+import { createNoteWithContentInDb } from "@/hooks/useNotes";
+import { extractNoteLinkIds } from "@/lib/editor/extractNoteLinkIds";
 import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
 import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
+import { NoteLink } from "./nodes/NoteLinkNode";
+import { NoteLinkExtension } from "./plugins/NoteLink";
 import {
   createBaseExtensions,
   createCollaborationExtension,
@@ -60,6 +69,10 @@ export function EditorProvider({
   // Use refs for cleanup to avoid stale closure issues
   const providerRef = useRef<PGliteProvider | null>(null);
   const editorRef = useRef<Editor | null>(null);
+  // Declared here (not next to debouncedSave) so the provider-init cleanup below
+  // can flush a still-pending save on unmount.
+  const onSaveRef = useRef(onSave);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Store AI ready state in ref for plugin access
   const isAIReadyRef = useRef(isAIReady);
@@ -117,8 +130,18 @@ export function EditorProvider({
 
     return () => {
       mounted = false;
-      providerRef.current?.destroy();
+      const provider = providerRef.current;
       providerRef.current = null;
+      if (!provider) return;
+      // A note switch unmounts this (it's keyed by noteId). If a debounced save
+      // is still pending, flush it so the last edits — already in PGlite — also
+      // reach the server instead of being dropped with the timer.
+      const hasPendingSave = saveTimeoutRef.current !== null;
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      flushPendingSaveOnTeardown(provider, hasPendingSave, onSaveRef.current);
     };
   }, [docId, yDoc]);
 
@@ -183,6 +206,43 @@ export function EditorProvider({
 
   useDocumentSubscription(docId, handleDocumentUpdate);
 
+  // --- Internal note links (`[[`) ---
+  const navigate = useNavigate();
+  const { map: noteTitleMap, isReady: titleMapReady } = useNoteTitleMap();
+
+  // Handlers for the suggestion extension. EditorProvider remounts per note
+  // (key={noteId}), so docId is stable for this instance — but folderId is NOT:
+  // Mark/Revoke Collaborative mutates it on the open note without a remount, so
+  // read it via a ref (same pattern as handleImageDropRef; the react-hooks
+  // compiler lint forbids reusing metadataRef inside a useCallback) so
+  // `[[new note]]` lands in the note's CURRENT folder.
+  const noteFolderIdRef = useRef(metadata.folderId);
+  useEffect(() => {
+    noteFolderIdRef.current = metadata.folderId;
+  }, [metadata.folderId]);
+  const onCreateNoteLink = useCallback(async (title: string) => {
+    const res = await createNoteWithContentInDb({
+      title,
+      content: "",
+      folderId: noteFolderIdRef.current,
+    });
+    return res ? { docId: res.docId } : null;
+  }, []);
+  const getCurrentNoteId = useCallback(() => docId, [docId]);
+
+  // Live title/navigation resolver for note-link chips + backlinks.
+  const noteLinkValue = useMemo<NoteLinkContextValue>(
+    () => ({
+      resolve: (id) => noteTitleMap.get(id),
+      isReady: titleMapReady,
+      onNavigate: (id) => {
+        const r = noteTitleMap.get(id);
+        if (r) navigate(`/${r.folderId}/${id}`, { viewTransition: true });
+      },
+    }),
+    [noteTitleMap, titleMapReady, navigate],
+  );
+
   // Memoize extensions to avoid recreation on every render
   const extensions = useMemo(
     () => [
@@ -211,6 +271,13 @@ export function EditorProvider({
       }),
       // Slash commands (triggered by typing /)
       SlashCommandsExtension,
+      // Internal note links — `[[` suggestion + the noteLink node it inserts
+      NoteLink,
+      // eslint-disable-next-line react-hooks/refs -- folderId ref is read when a note is created, not during render
+      NoteLinkExtension.configure({
+        onCreateNote: onCreateNoteLink,
+        getCurrentNoteId,
+      }),
       // Grammar plugin — always included, checks getIsGrammarEnabled() at runtime
       // eslint-disable-next-line react-hooks/refs -- getters are called only within plugin execution, not during render
       GrammarPlugin.configure({
@@ -222,8 +289,13 @@ export function EditorProvider({
         debug: false,
       }),
     ],
-    // Only the Yjs fragment is a real input; everything else is read via refs so
-    // the editor is created once per note and undo/redo history survives.
+    // Only the Yjs fragment is a real input; everything else is read via refs
+    // (or is stable for this note's lifetime — the provider remounts per note)
+    // so the editor is created once per note and undo/redo history survives.
+    // onCreateNoteLink / getCurrentNoteId are intentionally omitted: both have
+    // stable identities ([] deps / keyed by noteId), and onCreateNoteLink reads
+    // the mutable folderId through a ref rather than closing over it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [yXmlFragment],
   );
 
@@ -262,7 +334,6 @@ export function EditorProvider({
   // Refs for current values - avoids stale closures in debounced functions
   const docIdRef = useRef(docId);
   const metadataRef = useRef(metadata);
-  const onSaveRef = useRef(onSave);
 
   // Keep refs in sync with props
   useEffect(() => {
@@ -275,7 +346,6 @@ export function EditorProvider({
   const searchIndexTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateSearchIndex = useCallback(
     (editorInstance: Editor, plainTextContent?: string) => {
@@ -288,6 +358,8 @@ export function EditorProvider({
         const currentMetadata = metadataRef.current;
         // Use passed plainText if available, otherwise fallback
         const plainText = plainTextContent ?? editorInstance.getText();
+        // Recompute outgoing internal links — powers the backlinks live query.
+        const linkedNoteIds = extractNoteLinkIds(editorInstance.getJSON());
 
         upsertSearchIndex({
           docId: currentDocId,
@@ -300,11 +372,17 @@ export function EditorProvider({
               ...currentMetadata.timestamps,
               modified: new Date().toISOString(),
             },
+            linkedNoteIds,
             lastEditedBy: currentMetadata.isCollaborative
               ? editorOdinId
               : currentMetadata.lastEditedBy,
           },
         });
+
+        // Mark the note pending (bumps dirty_generation) on a real content edit so
+        // the periodic sync is a true safety net and a slow push can't clobber this
+        // edit back to 'synced' (plan 004).
+        void updateSyncStatus(currentDocId, "pending");
       }, 500);
     },
     [editorOdinId],
@@ -338,7 +416,6 @@ export function EditorProvider({
   useEffect(() => {
     if (!editor || !providerRef.current || isLoading) return;
 
-    let skipInitial = true;
     const handleUpdate = ({
       transaction,
     }: {
@@ -348,17 +425,22 @@ export function EditorProvider({
         return;
       }
 
-      // Skip the first docChanged after attaching — that's the Yjs initial content load
-      if (skipInitial) {
-        skipInitial = false;
+      // Skip Yjs-originated transactions (initial content load + remote sync);
+      // only genuine local user edits should trigger a save. y-prosemirror tags
+      // its own doc→editor sync transactions with isChangeOrigin. The previous
+      // one-shot "skip the first docChanged" dropped the user's FIRST edit — e.g.
+      // pasting into a fresh note never saved — because the initial-load update
+      // fires before this listener attaches (or not at all for an empty note).
+      if (transaction.getMeta(ySyncPluginKey)?.isChangeOrigin) {
         return;
       }
 
-      const plainText = editor.getText();
-
       // upsertSearchIndex (above) writes to PGlite; the note list live query
       // picks up the title/preview change with no manual invalidation.
-      updateSearchIndex(editor, plainText);
+      // Plain text is computed lazily inside the 500 ms debounce (updateSearchIndex's
+      // fallback) — at most once per window, instead of an O(document) getText() per
+      // keystroke.
+      updateSearchIndex(editor);
 
       if (providerRef.current) {
         debouncedSave(providerRef.current);
@@ -379,6 +461,10 @@ export function EditorProvider({
   };
 
   return (
-    <EditorContext.Provider value={value}>{children}</EditorContext.Provider>
+    <EditorContext.Provider value={value}>
+      <NoteLinkContext.Provider value={noteLinkValue}>
+        {children}
+      </NoteLinkContext.Provider>
+    </EditorContext.Provider>
   );
 }

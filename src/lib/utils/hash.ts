@@ -9,13 +9,24 @@ export async function computeContentHash(
     metadata: DocumentMetadata,
     yjsBlob?: Uint8Array
 ): Promise<string> {
-    // Combine metadata and blob into a single buffer
+    // Combine metadata and blob into a single buffer.
+    // Cover every field pushNote serializes into the remote note (see
+    // NotesDriveProvider.updateNote's noteContent + appData), in a stable key order, so a
+    // metadata-only change (pin/share/archive) actually re-uploads instead of being
+    // un-marked as synced by the hash early-exit (BUG-06).
     const metadataString = JSON.stringify({
         title: metadata.title,
         folderId: metadata.folderId,
         tags: metadata.tags ?? [],
         // Exclude timestamps as they change on every save even if content is same
         excludeFromAI: metadata.excludeFromAI,
+        isPinned: metadata.isPinned,
+        isPublic: metadata.isPublic,
+        isCollaborative: metadata.isCollaborative,
+        circleIds: metadata.circleIds ?? [],
+        recipients: metadata.recipients ?? [],
+        lastEditedBy: metadata.lastEditedBy,
+        archivalStatus: metadata.archivalStatus ?? 0,
     });
 
     const encoder = new TextEncoder();

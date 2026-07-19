@@ -9,6 +9,7 @@ import {
     deleteSyncRecord,
     updateSyncStatus,
     saveDocumentUpdate,
+    getDocumentUpdates,
     getTrashedNotes,
     getSearchIndexEntry,
     setNoteArchivalStatusLocal,
@@ -21,6 +22,7 @@ import {
 } from '@/lib/db';
 import * as Y from 'yjs';
 import { getNewId } from '@/lib/utils';
+import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import type { NoteListEntry, SearchIndexEntry, DocumentMetadata } from '@/types';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { useSyncService } from '@/hooks/useSyncService';
@@ -30,6 +32,183 @@ import { useLiveQuery } from './useLiveQuery';
 interface CreateNoteResult {
     docId: string;
     folderId: string;
+}
+
+interface CreateNoteWithContentParams {
+    title: string;
+    content: string; // markdown / plain text
+    folderId: string;
+}
+
+/**
+ * Build the new note's initial block structure from a content string. A
+ * ProseMirror text node cannot hold newlines or render markdown syntax — a
+ * single-paragraph dump shows "# Title\n\n" as literal text — so split into
+ * one block per line, with `# `–`###### ` lines becoming headings. That is
+ * the only markdown the in-app content strings use; everything else stays a
+ * plain paragraph.
+ */
+function pushContentBlocks(fragment: Y.XmlFragment, content: string): void {
+    const blocks: Y.XmlElement[] = [];
+    for (const line of content.split('\n')) {
+        if (!line.trim()) continue;
+        const heading = line.match(/^(#{1,6}) (.*)$/);
+        const el = new Y.XmlElement(heading ? 'heading' : 'paragraph');
+        // Level must be a number — TipTap's heading falls back to h1 otherwise
+        if (heading) el.setAttribute('level', heading[1].length as unknown as string);
+        const text = heading ? heading[2] : line;
+        if (text) el.push([new Y.XmlText(text)]);
+        blocks.push(el);
+    }
+    // The editor expects at least one block to place the cursor in, and a
+    // trailing heading needs an empty paragraph after it so typing starts as
+    // body text instead of extending the heading.
+    if (blocks.length === 0 || blocks[blocks.length - 1].nodeName === 'heading') {
+        blocks.push(new Y.XmlElement('paragraph'));
+    }
+    fragment.push(blocks);
+}
+
+/**
+ * Shared persistence tail: save the Yjs blob, index it (plain text derived
+ * from the blob itself so search/preview always match the rendered note),
+ * queue it for sync.
+ */
+async function persistNewNote({
+    title,
+    folderId,
+    updateBlob,
+}: {
+    title: string;
+    folderId: string;
+    updateBlob: Uint8Array;
+}): Promise<CreateNoteResult> {
+    const docId = formatGuidId(getNewId());
+    const now = new Date().toISOString();
+
+    const metadata: DocumentMetadata = {
+        title: title || 'Untitled',
+        folderId: folderId || MAIN_FOLDER_ID,
+        tags: [],
+        timestamps: { created: now, modified: now },
+        excludeFromAI: false,
+        isPinned: false,
+    };
+
+    const plainTextContent = await extractPreviewTextFromYjs(docId, updateBlob);
+
+    await saveDocumentUpdate(docId, updateBlob);
+
+    await upsertSearchIndex({
+        docId,
+        title: metadata.title,
+        plainTextContent,
+        metadata,
+    });
+
+    await upsertSyncRecord({
+        localId: docId,
+        entityType: 'note',
+        syncStatus: 'pending',
+    });
+
+    return { docId, folderId: metadata.folderId };
+}
+
+/**
+ * Create a note with initial markdown/plain-text content — the battle-tested
+ * path shared by the PWA share target, daily notes, and templates. Extracted
+ * from the mutation below so non-list hooks can reuse it directly without each
+ * spinning up a redundant active-notes live subscription.
+ */
+export async function createNoteWithContentInDb({
+    title,
+    content,
+    folderId,
+}: CreateNoteWithContentParams): Promise<CreateNoteResult> {
+    const ydoc = new Y.Doc();
+    pushContentBlocks(ydoc.getXmlFragment('prosemirror'), content);
+    const updateBlob = Y.encodeStateAsUpdate(ydoc);
+    ydoc.destroy();
+    return persistNewNote({ title, folderId, updateBlob });
+}
+
+// The single definition of the template placeholder token — body substitution
+// here and title substitution in useTemplates both consume it.
+export const DATE_TOKEN = '{{date}}';
+
+/**
+ * Replace {{date}} in one text run, preserving each run's marks. A token
+ * split across two differently-formatted runs is left alone — the token is
+ * always typed in one style.
+ */
+function replaceDateTokens(text: Y.XmlText, dateString: string): void {
+    for (;;) {
+        const delta = text.toDelta() as Array<{ insert?: unknown; attributes?: Record<string, unknown> }>;
+        let pos = 0;
+        let found = -1;
+        let attrs: Record<string, unknown> | undefined;
+        for (const op of delta) {
+            if (typeof op.insert !== 'string') {
+                pos += 1; // embeds count as length 1
+                continue;
+            }
+            const idx = op.insert.indexOf(DATE_TOKEN);
+            if (idx !== -1) {
+                found = pos + idx;
+                attrs = op.attributes;
+                break;
+            }
+            pos += op.insert.length;
+        }
+        if (found === -1) return;
+        text.delete(found, DATE_TOKEN.length);
+        text.insert(found, dateString, attrs);
+    }
+}
+
+function substituteDateTokens(node: Y.XmlFragment, dateString: string): void {
+    node.toArray().forEach((child) => {
+        if (child instanceof Y.XmlText) replaceDateTokens(child, dateString);
+        else if (child instanceof Y.XmlElement) substituteDateTokens(child, dateString);
+    });
+}
+
+interface CreateNoteFromTemplateParams {
+    templateDocId: string;
+    title: string;
+    folderId: string;
+    dateString: string; // replaces {{date}} tokens (local YYYY-MM-DD)
+}
+
+/**
+ * Spawn a note from a template note by copying its stored Yjs document —
+ * headings, lists, marks and all — with {{date}} substituted inside text
+ * runs. Copying the blob (not the search index's plain-text extract) is what
+ * preserves the template's formatting. Falls back to plain-content creation
+ * when the template has no local Yjs updates.
+ */
+export async function createNoteFromTemplateInDb({
+    templateDocId,
+    title,
+    folderId,
+    dateString,
+}: CreateNoteFromTemplateParams): Promise<CreateNoteResult> {
+    const updates = await getDocumentUpdates(templateDocId);
+    if (updates.length === 0) {
+        const entry = await getSearchIndexEntry(templateDocId);
+        const content = (entry?.plainTextContent || '').split(DATE_TOKEN).join(dateString);
+        return createNoteWithContentInDb({ title, content, folderId });
+    }
+
+    const ydoc = new Y.Doc();
+    for (const update of updates) {
+        Y.applyUpdate(ydoc, update);
+    }
+    substituteDateTokens(ydoc.getXmlFragment('prosemirror'), dateString);
+    const updateBlob = Y.encodeStateAsUpdate(ydoc);
+    ydoc.destroy();
+    return persistNewNote({ title, folderId, updateBlob });
 }
 
 interface UpdateMetadataParams {
@@ -189,58 +368,8 @@ export function useNotes() {
         },
     });
 
-    const createNoteWithContentMutation = useMutation<CreateNoteResult, Error, { title: string; content: string; folderId: string }>({
-        mutationFn: async ({ title, content, folderId }) => {
-            const docId = formatGuidId(getNewId());
-            const now = new Date().toISOString();
-
-            const metadata: DocumentMetadata = {
-                title: title || 'Untitled',
-                folderId: folderId || MAIN_FOLDER_ID,
-                tags: [],
-                timestamps: { created: now, modified: now },
-                excludeFromAI: false,
-                isPinned: false,
-            };
-
-            // 1. Create YJS Document with Content
-            const ydoc = new Y.Doc();
-            const fragment = ydoc.getXmlFragment('prosemirror');
-
-            // Create Tiptap JSON structure equivalent for a paragraph
-            // But YJS manipulation is lower level.
-            // We need to create XML elements.
-            const paragraph = new Y.XmlElement('paragraph');
-            if (content) {
-                const text = new Y.XmlText(content);
-                paragraph.push([text]);
-            }
-            fragment.push([paragraph]);
-
-            const updateBlob = Y.encodeStateAsUpdate(ydoc);
-
-            // 2. Save YJS Update
-            await saveDocumentUpdate(docId, updateBlob);
-
-            // 3. Save Search Index
-            await upsertSearchIndex({
-                docId,
-                title: metadata.title,
-                plainTextContent: content,
-                metadata,
-            });
-
-            // 4. Create Sync Record
-            await upsertSyncRecord({
-                localId: docId,
-                entityType: 'note',
-                syncStatus: 'pending',
-            });
-
-            ydoc.destroy();
-
-            return { docId, folderId: metadata.folderId };
-        },
+    const createNoteWithContentMutation = useMutation<CreateNoteResult, Error, CreateNoteWithContentParams>({
+        mutationFn: createNoteWithContentInDb,
     });
 
     // Soft delete — move a note to Trash (Homebase archivalStatus 2).
@@ -323,4 +452,12 @@ export function useNotesByFolder(folderId: string | undefined) {
 
 export function useCollaborativeNotes(enabled: boolean = true) {
     return useLiveNoteList(NOTE_LIST_SQL.collaborative, [], enabled);
+}
+
+/**
+ * Backlinks for the "Linked mentions" panel — active notes whose
+ * metadata.linkedNoteIds contains this note's id.
+ */
+export function useBacklinks(noteId: string | undefined) {
+    return useLiveNoteList(NOTE_LIST_SQL.backlinks, [noteId ?? ''], !!noteId);
 }

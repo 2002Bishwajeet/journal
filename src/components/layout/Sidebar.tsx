@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  CalendarDays,
   FolderOpen,
   Hash,
   Plus,
@@ -15,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { FEATURES } from "@/lib/featureFlags";
 import {
   Tooltip,
   TooltipContent,
@@ -40,6 +42,7 @@ interface SidebarProps {
   onSelectFolder: (folderId: string) => void;
   onCreateFolder: () => void;
   onDeleteFolder?: (id: string) => void;
+  onOpenToday?: () => void;
   collaborativeCount?: number;
   onSelectShared?: () => void;
   onSelectTrash?: () => void;
@@ -61,6 +64,7 @@ export default function Sidebar({
   onSelectFolder,
   onCreateFolder,
   onDeleteFolder,
+  onOpenToday,
   onSearch,
   onSettings,
   onLogout,
@@ -148,6 +152,29 @@ export default function Sidebar({
             {!isCollapsed && <span className="ml-2 text-sm">Search</span>}
           </Button>
         </div>
+
+        {/* Quick actions */}
+        {FEATURES.dailyNotes && (
+          <div className="px-2 pb-2 space-y-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  aria-label="Open today's daily note"
+                  className={cn(
+                    "w-full text-muted-foreground transition-all duration-200",
+                    isCollapsed ? "justify-center px-0" : "justify-start px-2"
+                  )}
+                  onClick={onOpenToday}
+                >
+                  <CalendarDays className="h-4 w-4 shrink-0" />
+                  {!isCollapsed && <span className="ml-2 text-sm">Today</span>}
+                </Button>
+              </TooltipTrigger>
+              {isCollapsed && <TooltipContent side="right">Today</TooltipContent>}
+            </Tooltip>
+          </div>
+        )}
 
         <Separator />
 

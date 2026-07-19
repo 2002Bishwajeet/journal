@@ -16,7 +16,6 @@ import {
     type ThumbnailFile,
     type EncryptedKeyHeader,
     reUploadFile,
-    type PayloadDescriptor,
     ScheduleOptions,
     PriorityOptions,
     SendContents,
@@ -238,6 +237,11 @@ export class NotesDriveProvider {
             isPinned: metadata.isPinned,
             isPublic: metadata.isPublic,
         };
+        // A public note is stored unencrypted; the server rejects a payload IV
+        // (invalidUpload) when the file header isn't encrypted. Drive isEncrypted, the
+        // payload IV, and the ACL below off metadata.isPublic so they can't diverge
+        // (mirrors updateNote). Honor the encrypt option for non-public notes.
+        const isEncrypted = metadata.isPublic ? false : (options?.encrypt ?? true);
         const payloads: PayloadFile[] = [];
         const thumbnails: ThumbnailFile[] = [];
         const imagePayloadKeys: string[] = [];
@@ -249,7 +253,7 @@ export class NotesDriveProvider {
                 payload: new Blob([new Uint8Array(yjsBlob)], {
                     type: YJS_MIME_TYPE,
                 }),
-                iv: getRandom16ByteArray(),
+                iv: isEncrypted ? getRandom16ByteArray() : undefined,
             });
         }
 
@@ -294,10 +298,21 @@ export class NotesDriveProvider {
                 content: JSON.stringify(noteContent),
                 archivalStatus: metadata.archivalStatus ?? 0,
             },
-            isEncrypted: options?.encrypt || true,
-            accessControlList: {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            },
+            isEncrypted,
+            // A public note is stored Anonymous + unencrypted; a collaborative note is shared
+            // with its circles; everything else stays Owner-only (mirrors updateNote).
+            accessControlList: metadata.isPublic
+                ? {
+                    requiredSecurityGroup: SecurityGroupType.Anonymous,
+                }
+                : metadata.isCollaborative && metadata.circleIds?.length
+                ? {
+                    requiredSecurityGroup: SecurityGroupType.Connected,
+                    circleIdList: metadata.circleIds,
+                }
+                : {
+                    requiredSecurityGroup: SecurityGroupType.Owner,
+                },
         };
 
         const instructionSet: UploadInstructionSet = {
@@ -312,7 +327,7 @@ export class NotesDriveProvider {
             uploadMetadata,
             payloads,
             thumbnails,
-            options?.encrypt || true,
+            isEncrypted,
             options?.onversionConflict
         );
 
@@ -371,6 +386,17 @@ export class NotesDriveProvider {
             recipients: metadata.recipients,
             lastEditedBy: metadata.lastEditedBy,
         };
+        // A public note's content is stored unencrypted (world-readable). Project
+        // it to a minimal, non-sensitive subset so the owner's social graph
+        // (circleIds/recipients) and lastEditedBy never leak into plaintext. The
+        // private branch keeps the full object, so making a note private restores it.
+        const serializedContent = metadata.isPublic
+            ? JSON.stringify({
+                title: metadata.title,
+                tags: metadata?.tags || [],
+                isPublic: true,
+            })
+            : JSON.stringify(noteContent);
         // A public note is stored unencrypted; the server rejects a payload IV
         // (invalidUpload) when the file header isn't encrypted. Keep the IV and
         // isEncrypted below driven by this one flag so they can't diverge.
@@ -411,12 +437,18 @@ export class NotesDriveProvider {
                 dataType: JOURNAL_DATA_TYPE,
                 userDate: Date.now(),
                 tags: (metadata.tags || []).map(tag => toGuidId(tag)),
-                content: JSON.stringify(noteContent),
+                content: serializedContent,
                 archivalStatus: metadata.archivalStatus ?? 0,
             },
             isEncrypted,
             accessControlList,
         };
+
+        // A peer update is addressed by globalTransitId, not fileId; without it the
+        // SDK would send `undefined` and patch the wrong (or no) file.
+        if (isPeer && !globalTransitId) {
+            throw new Error(`Peer update requires globalTransitId for ${uniqueId}`);
+        }
 
         const updateInstructions: UpdateInstructionSet = isPeer
             ? {
@@ -462,7 +494,9 @@ export class NotesDriveProvider {
      * Add an image to an existing note using patchFile.
      * Uses uniqueId to look up the file, ensuring consistency with how notes are tracked.
      */
-    //TODO: This corrupts the previous note data
+    // Payload keys are max-index-derived (never reused) and encryption/ACL/key
+    // header mirror the existing file, so adding an image can't corrupt an image
+    // or re-scope the note (was a corruption TODO).
     async addImageToNote(
         uniqueId: string,
         versionTag: string,
@@ -479,14 +513,21 @@ export class NotesDriveProvider {
         if (!existingHeader) {
             throw new Error(`Cannot add image: note with uniqueId ${uniqueId} not found`);
         }
-        const payloadCount = existingHeader?.fileMetadata.payloads?.filter(
-            (p: PayloadDescriptor) => p.key.startsWith('jrnl_img')
-        ).length || 0;
+        // Derive the next image key from the MAX existing index, not the count:
+        // after a deletion (jrnl_img0, jrnl_img2) the count would collide with an
+        // existing key and silently overwrite that image.
+        const imgKeys = (existingHeader.fileMetadata.payloads ?? [])
+            .map(p => p.key)
+            .filter(k => k.startsWith(PAYLOAD_KEY_IMAGE_PREFIX));
+        const nextIdx = 1 + imgKeys.reduce((max, k) => {
+            const n = parseInt(k.slice(PAYLOAD_KEY_IMAGE_PREFIX.length), 10);
+            return Number.isFinite(n) ? Math.max(max, n) : max;
+        }, -1);
 
         const fileId = existingHeader.fileId;
         const appData = existingHeader.fileMetadata.appData
 
-        const payloadKey = `${PAYLOAD_KEY_IMAGE_PREFIX}${payloadCount}`;
+        const payloadKey = `${PAYLOAD_KEY_IMAGE_PREFIX}${nextIdx}`;
         const payloads: PayloadFile[] = [];
         const thumbnails: ThumbnailFile[] = [];
 
@@ -511,17 +552,36 @@ export class NotesDriveProvider {
             });
         }
 
+        // Mirror the existing file's visibility so adding an image never re-encrypts
+        // a public note or strips a collaborative note's circle ACL. Content may come
+        // back as a string or an already-parsed object (see makeNotePublic).
+        const isEncrypted = existingHeader.fileMetadata.isEncrypted;
+        const existingContent: NoteFileContent =
+            (typeof appData.content === 'string'
+                ? tryJsonParse<NoteFileContent>(appData.content)
+                : appData.content) ?? ({} as NoteFileContent);
+        const accessControlList = existingContent.isPublic
+            ? {
+                requiredSecurityGroup: SecurityGroupType.Anonymous,
+            }
+            : existingContent.isCollaborative && existingContent.circleIds?.length
+            ? {
+                requiredSecurityGroup: SecurityGroupType.Connected,
+                circleIdList: existingContent.circleIds,
+            }
+            : {
+                requiredSecurityGroup: SecurityGroupType.Owner,
+            };
+
         const uploadMetadata: UploadFileMetadata = {
             versionTag: existingHeader.fileMetadata.versionTag,
             allowDistribution: false,
             appData: {
                 ...appData,
-                content: JSON.stringify(appData.content),
+                content: JSON.stringify(existingContent),
             },
-            isEncrypted: true,
-            accessControlList: {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            },
+            isEncrypted,
+            accessControlList,
         };
 
         // UpdateLocalInstructionSet for patchFile
@@ -533,7 +593,9 @@ export class NotesDriveProvider {
 
         const result = await patchFile(
             this.#dotYouClient,
-            existingHeader?.sharedSecretEncryptedKeyHeader,
+            // Only an encrypted file has a key header; passing one for a public
+            // (unencrypted) note would make the SDK encrypt the payload.
+            isEncrypted ? existingHeader.sharedSecretEncryptedKeyHeader : undefined,
             updateInstructions,
             uploadMetadata,
             payloads,
@@ -583,7 +645,13 @@ export class NotesDriveProvider {
             (typeof existingAppData.content === 'string'
                 ? tryJsonParse<NoteFileContent>(existingAppData.content)
                 : existingAppData.content) ?? ({} as NoteFileContent);
-        const content = JSON.stringify({ ...existingContent, isPublic: true });
+        // A public note's content is world-readable plaintext; project to a minimal,
+        // non-sensitive subset so circleIds/recipients/lastEditedBy never leak.
+        const content = JSON.stringify({
+            title: existingContent.title,
+            tags: existingContent.tags,
+            isPublic: true,
+        });
 
         // Update metadata with Anonymous access control, preserving note content.
         const uploadMetadata: UploadFileMetadata = {
