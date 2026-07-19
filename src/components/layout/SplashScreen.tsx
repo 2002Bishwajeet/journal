@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { cn } from '@/lib/utils';
+import { getBootProgress, subscribeBootProgress } from '@/lib/bootProgress';
 import logo from '@/assets/logo_withoutbg.png';
 
 interface SplashScreenProps {
@@ -8,6 +9,10 @@ interface SplashScreenProps {
 
 export function SplashScreen({ className }: SplashScreenProps) {
   const [show, setShow] = useState(false);
+  // Real boot milestones (bundle parsed → DB worker → DB ready) reported via
+  // reportBootPhase. The bar never hits 100% here — the app replacing the
+  // splash is the completion signal.
+  const progress = useSyncExternalStore(subscribeBootProgress, getBootProgress);
 
   useEffect(() => {
     // Small delay to ensure smooth transition
@@ -41,6 +46,21 @@ export function SplashScreen({ className }: SplashScreenProps) {
             <span className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]"></span>
             <span className="w-1 h-1 bg-muted-foreground rounded-full animate-bounce"></span>
           </span>
+        </div>
+
+        {/* Linear boot progress */}
+        <div
+          role="progressbar"
+          aria-label="Loading progress"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress}
+          className="mt-6 h-1 w-48 overflow-hidden rounded-full bg-muted animate-in fade-in duration-700 delay-200 fill-mode-forwards opacity-0"
+        >
+          <div
+            className="h-full rounded-full bg-foreground/70 transition-[width] duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </div>
     </div>
