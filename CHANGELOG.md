@@ -1,3 +1,10 @@
+## [2.1.1](https://github.com/2002Bishwajeet/journal/compare/v2.1.0...v2.1.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* **editor:** remove dead props.loading guard that broke the build ([555219c](https://github.com/2002Bishwajeet/journal/commit/555219cd1f0165077bfda67ab7db865743089e0d))
+* **sync:** drop undecryptable cached key headers so notes stop retrying forever ([a6f4c62](https://github.com/2002Bishwajeet/journal/commit/a6f4c62100e24886ea1e9ca190bc9a4139e85675))
 # [2.1.0](https://github.com/2002Bishwajeet/journal/compare/v2.0.0...v2.1.0) (2026-07-19)
 
 
