@@ -19,6 +19,7 @@ import {
     upsertSyncRecord,
     getPendingSyncRecords,
     markSynced,
+    clearCachedKeyHeader,
     deleteSyncRecord,
     getAppState,
     saveAppState,
@@ -1011,6 +1012,15 @@ export class SyncService {
                     await clearPendingImageDeletions(record.localId);
                 }
             } catch (error) {
+                // WebCrypto throws OperationError when the cached key header can't be
+                // decrypted with this session's shared secret. validateKeyHeader only checks
+                // shape, so such a header is re-used on every retry and the note never syncs
+                // again. Drop it so the next push re-fetches a fresh one from the server.
+                // (Duck-typed rather than `instanceof Error`: the real error is a
+                // DOMException, and this must not silently stop firing.)
+                if ((error as { name?: string } | undefined)?.name === 'OperationError') {
+                    await clearCachedKeyHeader(record.localId);
+                }
                 // If update fails (e.g., version conflict), try to re-fetch and retry
                 console.warn('[SyncService] Update failed, will retry on next sync:', error);
                 throw error;

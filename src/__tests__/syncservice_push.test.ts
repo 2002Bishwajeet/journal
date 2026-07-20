@@ -284,6 +284,55 @@ describe('SyncService.pushNote', () => {
         expect(after?.syncStatus).toBe('synced');
     });
 
+    it('drops a cached key header the session can no longer decrypt, so the next push re-fetches it', async () => {
+        // validateKeyHeader only checks SHAPE, so a key header encrypted under a previous
+        // session's shared secret passes it and is re-used on every retry — WebCrypto then
+        // throws OperationError forever ("Update failed, will retry on next sync" loop).
+        const updates = [textUpdate('content')];
+        await seedNote({
+            updates, plainText: 'content', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+
+        // The real failure is a DOMException from crypto.subtle.decrypt, not a plain Error.
+        mockUpdateNote.mockRejectedValueOnce(
+            new DOMException('The operation failed for an operation-specific reason', 'OperationError'),
+        );
+
+        const record = await getSyncRecord(DOC_ID);
+        await expect(svc.pushNote(record!)).rejects.toThrow();
+
+        // Cache dropped, so the next push takes the re-fetch branch instead of looping.
+        expect((await getSyncRecord(DOC_ID))?.encryptedKeyHeader).toBeUndefined();
+
+        mockGetNote.mockResolvedValue({
+            fileId: 'file-1',
+            sharedSecretEncryptedKeyHeader: { encryptionVersion: 1, type: 'aes', iv: 'Zm0=', encryptedAesKey: 'Zm0=' },
+            fileMetadata: { versionTag: 'v1', updated: 1700000002000, globalTransitId: 'g1' },
+        });
+        mockUpdateNote.mockResolvedValue({ versionTag: 'v2' });
+
+        await svc.pushNote((await getSyncRecord(DOC_ID))!);
+
+        expect(mockGetNote).toHaveBeenCalled(); // fresh header pulled from the server
+        expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('synced');
+    });
+
+    it('keeps the cached key header when a push fails for an unrelated reason', async () => {
+        // A network blip must NOT cost a header re-fetch — only a decrypt failure invalidates.
+        const updates = [textUpdate('content')];
+        await seedNote({
+            updates, plainText: 'content', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+        mockUpdateNote.mockRejectedValueOnce(new Error('Network request failed'));
+
+        const record = await getSyncRecord(DOC_ID);
+        await expect(svc.pushNote(record!)).rejects.toThrow();
+
+        expect((await getSyncRecord(DOC_ID))?.encryptedKeyHeader).toBe(VALID_KEY_HEADER);
+    });
+
     it('uploads a metadata-only pin toggle because the hash covers isPinned', async () => {
         // BUG-06 fix: computeContentHash now covers isPinned, so toggling the pin changes the
         // hash and pushNote uploads instead of skipping. Previously the hash ignored isPinned,

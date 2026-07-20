@@ -950,6 +950,17 @@ export async function markSynced(localId: string, remoteFileId: string, versionT
     );
 }
 
+/**
+ * Drop a cached key header the current session can no longer decrypt (its shared
+ * secret changed, or the file was re-keyed by a public/private toggle). markSynced
+ * COALESCEs the column, so it cannot null it — hence this dedicated write. The next
+ * push then takes the re-fetch branch in SyncService.pushNote.
+ */
+export async function clearCachedKeyHeader(localId: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(`UPDATE sync_records SET encrypted_key_header = NULL WHERE local_id = $1`, [localId]);
+}
+
 export async function updateSyncStatus(localId: string, status: SyncRecord['syncStatus']): Promise<void> {
     const db = await getDatabase();
     // Every write that sets 'pending' bumps dirty_generation so a concurrent push's
