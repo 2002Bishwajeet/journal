@@ -5,12 +5,8 @@ import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { get, set, del } from "idb-keyval";
-// Core editing path stays eager (imported from individual files to avoid the
-// pages barrel, which would pull every page into the main bundle).
 import EditorPage from "@/pages/EditorPage";
 import EmptyEditorPage from "@/pages/EmptyEditorPage";
-// Non-core / public routes are code-split. SharePage in particular keeps
-// react-markdown out of the authenticated app's main bundle.
 const SharePage = lazy(() => import("@/pages/SharePage"));
 const LandingPage = lazy(() => import("@/pages/Landing"));
 const AuthFinalizePage = lazy(() => import("@/pages/AuthFinalizePage"));
@@ -51,59 +47,73 @@ const persister = createAsyncStoragePersister({
 function App() {
   return (
     <MotionConfig reducedMotion="user">
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
-    >
-      <ErrorBoundary>
-        <BrowserRouter>
-          <OnlineProvider>
-            <DotYouClientProvider>
-              <Suspense fallback={<div className="min-h-screen bg-background" />}>
-              <Routes>
-                {/* Protected route */}
-                <Route
-                  element={
-                    <AuthGuard>
-                      <SyncProvider>
-                        <JournalLayout />
-                      </SyncProvider>
-                    </AuthGuard>
-                  }
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
+      >
+        <ErrorBoundary>
+          <BrowserRouter>
+            <OnlineProvider>
+              <DotYouClientProvider>
+                <Suspense
+                  fallback={<div className="min-h-screen bg-background" />}
                 >
-                  <Route index element={<RootRedirect />} />
-                  <Route path="/:folderId" element={<EmptyEditorPage />} />
-                  <Route path="/:folderId/:noteId" element={<EditorPage />} />
-                  <Route path="/:folderId/:noteId/chat" element={<ChatBotPage />} />
-                </Route>
+                  <Routes>
+                    {/* Protected route */}
+                    <Route
+                      element={
+                        <AuthGuard>
+                          <SyncProvider>
+                            <JournalLayout />
+                          </SyncProvider>
+                        </AuthGuard>
+                      }
+                    >
+                      <Route index element={<RootRedirect />} />
+                      <Route path="/:folderId" element={<EmptyEditorPage />} />
+                      <Route
+                        path="/:folderId/:noteId"
+                        element={<EditorPage />}
+                      />
+                      <Route
+                        path="/:folderId/:noteId/chat"
+                        element={<ChatBotPage />}
+                      />
+                    </Route>
 
-                {/* Secure Share Target Route - requires auth to save */}
-                <Route
-                  path="/share-target"
-                  element={
-                    <AuthGuard>
-                      <SyncProvider>
-                        <ShareTargetPage />
-                      </SyncProvider>
-                    </AuthGuard>
-                  }
-                />
+                    {/* Secure Share Target Route - requires auth to save */}
+                    <Route
+                      path="/share-target"
+                      element={
+                        <AuthGuard>
+                          <SyncProvider>
+                            <ShareTargetPage />
+                          </SyncProvider>
+                        </AuthGuard>
+                      }
+                    />
 
-                {/* Public routes */}
-                <Route path="/welcome" element={<LandingPage />} />
-                <Route path="/auth/finalize" element={<AuthFinalizePage />} />
-                <Route path="/share/:identity/:noteId" element={<SharePage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-              </Suspense>
-            </DotYouClientProvider>
-          </OnlineProvider>
-        </BrowserRouter>
+                    {/* Public routes */}
+                    <Route path="/welcome" element={<LandingPage />} />
+                    <Route
+                      path="/auth/finalize"
+                      element={<AuthFinalizePage />}
+                    />
+                    <Route
+                      path="/share/:identity/:noteId"
+                      element={<SharePage />}
+                    />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Suspense>
+              </DotYouClientProvider>
+            </OnlineProvider>
+          </BrowserRouter>
 
-        <Toaster />
-        <UpdatePrompt />
-      </ErrorBoundary>
-    </PersistQueryClientProvider>
+          <Toaster />
+          <UpdatePrompt />
+        </ErrorBoundary>
+      </PersistQueryClientProvider>
     </MotionConfig>
   );
 }
