@@ -71,14 +71,26 @@ export default function TipTapEditor({
     };
   }, [editor]);
 
+  // Refs for current values — the debounced fn below is created once, so reading
+  // `metadata` directly would freeze the first render's snapshot forever and any
+  // flag set afterwards (e.g. isPublic, from ShareDialog) would be written back
+  // as missing. Same pattern as EditorProvider's metadataRef.
+  const metadataRef = useRef(metadata);
+  const onMetadataChangeRef = useRef(onMetadataChange);
+  useEffect(() => {
+    metadataRef.current = metadata;
+    onMetadataChangeRef.current = onMetadataChange;
+  }, [metadata, onMetadataChange]);
+
   // Debounce metadata updates to prevent excessive sync calls
   const debouncedMetadataUpdate = useRef(
     debounce((newTitle: string) => {
-      onMetadataChange?.({
-        ...metadata,
+      const current = metadataRef.current;
+      onMetadataChangeRef.current?.({
+        ...current,
         title: newTitle,
         timestamps: {
-          ...metadata.timestamps,
+          ...current.timestamps,
           modified: new Date().toISOString(),
         },
       });
