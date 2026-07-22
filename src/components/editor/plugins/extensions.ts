@@ -177,6 +177,21 @@ const CustomImage = Image.extend({
                     return { 'data-pending-id': attributes['data-pending-id'] };
                 },
             },
+            // Rendered width in px, set by dragging the image's resize grabber.
+            // Lives on the node, so it persists in the Yjs doc like any other attr.
+            // Alignment needs no attribute: images are inline, so the existing
+            // paragraph TextAlign already positions them.
+            width: {
+                default: null,
+                parseHTML: element => {
+                    const w = parseInt(element.style.width || element.getAttribute('width') || '', 10);
+                    return Number.isFinite(w) ? w : null;
+                },
+                renderHTML: attributes => {
+                    if (!attributes.width) return {};
+                    return { style: `width: ${attributes.width}px` };
+                },
+            },
         };
     },
     addNodeView() {

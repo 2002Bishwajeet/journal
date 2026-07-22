@@ -7,15 +7,36 @@
  * - Regular URLs/base64: Standard img tag
  */
 
+import { useRef } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { JOURNAL_DRIVE } from "@/lib/homebase/config";
 import { useDotYouClientContext } from "@/components/auth";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
 
-export function ImageNodeView({ node }: NodeViewProps) {
+export function ImageNodeView({ node, updateAttributes }: NodeViewProps) {
   const dotYouClient = useDotYouClientContext();
   const src = node.attrs.src as string;
   const pendingId = node.attrs["data-pending-id"] as string | undefined;
+  const width = node.attrs.width as number | null;
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  // CSS `resize` gives us the browser's own grabber — no pointer math, no drag
+  // state. Commit the resulting width once on release so a resize is a single
+  // undo step rather than one per frame.
+  const commitWidth = () => {
+    const w = boxRef.current?.offsetWidth;
+    if (w && w !== width) updateAttributes({ width: w });
+  };
+  const resizeBox = {
+    ref: boxRef,
+    onPointerDown: () =>
+      document.addEventListener("pointerup", commitWidth, { once: true }),
+    style: { width: width ?? undefined },
+    className: "inline-block max-w-full resize-x overflow-hidden",
+  };
+  // Until a width is set the box shrink-wraps the image, so the image keeps its
+  // natural size (previous behaviour); once sized, it fills the box.
+  const imgClass = width ? "w-full h-auto" : "max-w-full";
 
   // Case 1: Still pending upload (local blob URL)
   if (pendingId || src.startsWith("blob:")) {
@@ -55,13 +76,15 @@ export function ImageNodeView({ node }: NodeViewProps) {
 
     return (
       <NodeViewWrapper className="image-node" data-drag-handle>
-        <OdinImage
-          dotYouClient={dotYouClient}
-          targetDrive={JOURNAL_DRIVE}
-          fileId={fileId}
-          fileKey={payloadKey}
-          className="max-w-full"
-        />
+        <div {...resizeBox}>
+          <OdinImage
+            dotYouClient={dotYouClient}
+            targetDrive={JOURNAL_DRIVE}
+            fileId={fileId}
+            fileKey={payloadKey}
+            className={imgClass}
+          />
+        </div>
       </NodeViewWrapper>
     );
   }
@@ -69,7 +92,9 @@ export function ImageNodeView({ node }: NodeViewProps) {
   // Case 3: Regular URL or base64
   return (
     <NodeViewWrapper className="image-node" data-drag-handle>
-      <img src={src} alt="" className="max-w-full" />
+      <div {...resizeBox}>
+        <img src={src} alt="" className={imgClass} />
+      </div>
     </NodeViewWrapper>
   );
 }
