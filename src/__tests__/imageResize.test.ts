@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
+import { resizeWidth, MIN_IMAGE_WIDTH } from '@/components/editor/nodes/ImageNode';
 
 function mkEditor(content: string) {
     const el = document.createElement('div');
@@ -22,6 +23,29 @@ function imageAttrs(e: Editor): Record<string, unknown> {
     const json = e.getJSON() as { content?: { content?: { attrs?: Record<string, unknown> }[] }[] };
     return json.content?.[0]?.content?.[0]?.attrs ?? {};
 }
+
+describe('resizeWidth — handle drag math', () => {
+    // start: 300px wide box, pointer grabbed at x=500, column is 700px wide.
+    const drag = (side: 'left' | 'right', clientX: number) =>
+        resizeWidth(side, 300, 500, clientX, 700);
+
+    it('grows the box when the right handle moves right', () => {
+        expect(drag('right', 560)).toBe(360);
+    });
+
+    it('mirrors the delta for the left handle, so it also grows outward', () => {
+        expect(drag('left', 440)).toBe(360);
+        expect(drag('left', 560)).toBe(240);
+    });
+
+    it('never shrinks below the minimum', () => {
+        expect(drag('right', 0)).toBe(MIN_IMAGE_WIDTH);
+    });
+
+    it('never grows past the column width', () => {
+        expect(drag('right', 9999)).toBe(700);
+    });
+});
 
 describe('image width attribute', () => {
     it('parses a width from the style and renders it back', () => {
