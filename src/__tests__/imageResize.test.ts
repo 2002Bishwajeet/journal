@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
-import { resizeWidth, MIN_IMAGE_WIDTH } from '@/components/editor/nodes/ImageNode';
+import { resizeWidth, MIN_IMAGE_WIDTH, ALIGN_STYLE } from '@/components/editor/nodes/ImageNode';
 
 function mkEditor(content: string) {
     const el = document.createElement('div');
@@ -72,5 +72,42 @@ describe('image width attribute', () => {
 
         expect(e.getHTML()).toContain('text-align: right');
         expect(e.getHTML()).toContain('width: 100px');
+    });
+});
+
+describe('image float alignment', () => {
+    it('round-trips an alignment through data-align', () => {
+        const e = mkEditor(`<p><img src="${IMG}" data-align="right"></p>`);
+
+        expect(imageAttrs(e).align).toBe('right');
+        expect(e.getHTML()).toContain('data-align="right"');
+        expect(e.getHTML()).toContain('float: right');
+    });
+
+    it('leaves align unset when the image has none', () => {
+        const e = mkEditor(`<p><img src="${IMG}"></p>`);
+
+        expect(imageAttrs(e).align).toBeNull();
+        expect(e.getHTML()).not.toContain('float');
+    });
+
+    // Both attributes render into the one `style` string, so a `width` in the
+    // align map would silently override the dragged size (or vice versa,
+    // depending on attribute order). Neither may declare the other's property.
+    it('keeps the dragged width when the image is also aligned', () => {
+        const e = mkEditor(`<p><img src="${IMG}" data-align="center" style="width: 250px"></p>`);
+
+        const html = e.getHTML();
+        expect(html).toContain('width: 250px');
+        expect(html).toMatch(/margin: 0(px)? auto/); // the DOM normalises 0 -> 0px
+        expect(html.match(/width:/g)).toHaveLength(1);
+    });
+
+    it('declares only single-word CSS properties, so the style string stays valid', () => {
+        for (const css of Object.values(ALIGN_STYLE)) {
+            for (const key of Object.keys(css)) {
+                expect(key).toMatch(/^[a-z]+$/);
+            }
+        }
     });
 });

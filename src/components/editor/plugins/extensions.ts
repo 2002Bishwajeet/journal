@@ -29,7 +29,7 @@ import { Mathematics } from '@tiptap/extension-mathematics';
 import { createLowlight } from 'lowlight';
 import { EmojiExtension } from './EmojiExtension';
 import { SearchAndReplace } from './SearchAndReplaceExtension';
-import { ImageNodeView } from '../nodes/ImageNode';
+import { ImageNodeView, ALIGN_STYLE, type ImageAlign } from '../nodes/ImageNode';
 
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';
@@ -177,10 +177,24 @@ const CustomImage = Image.extend({
                     return { 'data-pending-id': attributes['data-pending-id'] };
                 },
             },
-            // Rendered width in px, set by dragging the image's resize grabber.
-            // Lives on the node, so it persists in the Yjs doc like any other attr.
-            // Alignment needs no attribute: images are inline, so the existing
-            // paragraph TextAlign already positions them.
+            // Float alignment, set from the toolbar that appears on a selected
+            // image. Distinct from the paragraph's TextAlign, which only shifts
+            // the image within its line — a float lets the text wrap around it.
+            align: {
+                default: null,
+                parseHTML: element => element.getAttribute('data-align'),
+                renderHTML: attributes => {
+                    const css = ALIGN_STYLE[attributes.align as ImageAlign];
+                    if (!css) return {};
+                    return {
+                        'data-align': attributes.align,
+                        style: Object.entries(css).map(([k, v]) => `${k}: ${v}`).join('; '),
+                    };
+                },
+            },
+            // Rendered width in px, set by dragging one of the image's corner
+            // handles. Lives on the node, so it persists in the Yjs doc like any
+            // other attr. No height: leaving it auto keeps the aspect ratio.
             width: {
                 default: null,
                 parseHTML: element => {
