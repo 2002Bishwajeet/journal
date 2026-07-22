@@ -81,6 +81,16 @@ describe('NotesDriveProvider.makeNotePublic', () => {
         expect(metadata.accessControlList.requiredSecurityGroup).toBe(SecurityGroupType.Anonymous);
         expect(mockReUpload.mock.calls[0][3]).toBe(false); // encrypt flag
     });
+
+    // allowDistribution governs peer/feed distribution, not public readability —
+    // the Anonymous ACL is what makes the note world-readable.
+    it('does not flag the note for peer/feed distribution', async () => {
+        mockGetHeader.mockResolvedValue(ownerHeader());
+
+        await provider.makeNotePublic(NOTE_ID);
+
+        expect(mockReUpload.mock.calls[0][2].allowDistribution).toBe(false);
+    });
 });
 
 describe('NotesDriveProvider.makeNotePrivate', () => {

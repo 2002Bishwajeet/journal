@@ -13,6 +13,7 @@ import {
     getTrashedNotes,
     getSearchIndexEntry,
     setNoteArchivalStatusLocal,
+    clearCachedKeyHeader,
     NOTE_LIST_SQL,
     NOTE_ROW_KEY,
     NOTE_COUNTS_SQL,
@@ -365,6 +366,12 @@ export function useNotes() {
 
             const updatedMetadata = { ...current.metadata, isPublic };
             await updateSearchIndexMetadata(docId, current.title, updatedMetadata);
+            // Both makeNotePublic and makeNotePrivate re-upload the file, which re-keys
+            // it (public = no key header at all, private = a brand-new one). The cached
+            // header is now the WRONG key — validateKeyHeader only checks shape, so the
+            // next push would happily encrypt the payload with it and every later read
+            // would fail decryption ("OperationError" / "operation not permitted").
+            await clearCachedKeyHeader(docId);
         },
     });
 
