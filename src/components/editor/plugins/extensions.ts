@@ -30,6 +30,7 @@ import { createLowlight } from 'lowlight';
 import { EmojiExtension } from './EmojiExtension';
 import { SearchAndReplace } from './SearchAndReplaceExtension';
 import { ImageNodeView } from '../nodes/ImageNode';
+import { ALIGN_STYLE, type ImageAlign } from '../nodes/imageLayout';
 
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';
@@ -175,6 +176,35 @@ const CustomImage = Image.extend({
                 renderHTML: attributes => {
                     if (!attributes['data-pending-id']) return {};
                     return { 'data-pending-id': attributes['data-pending-id'] };
+                },
+            },
+            // Float alignment, set from the toolbar that appears on a selected
+            // image. Distinct from the paragraph's TextAlign, which only shifts
+            // the image within its line — a float lets the text wrap around it.
+            align: {
+                default: null,
+                parseHTML: element => element.getAttribute('data-align'),
+                renderHTML: attributes => {
+                    const css = ALIGN_STYLE[attributes.align as ImageAlign];
+                    if (!css) return {};
+                    return {
+                        'data-align': attributes.align,
+                        style: Object.entries(css).map(([k, v]) => `${k}: ${v}`).join('; '),
+                    };
+                },
+            },
+            // Rendered width in px, set by dragging one of the image's corner
+            // handles. Lives on the node, so it persists in the Yjs doc like any
+            // other attr. No height: leaving it auto keeps the aspect ratio.
+            width: {
+                default: null,
+                parseHTML: element => {
+                    const w = parseInt(element.style.width || element.getAttribute('width') || '', 10);
+                    return Number.isFinite(w) ? w : null;
+                },
+                renderHTML: attributes => {
+                    if (!attributes.width) return {};
+                    return { style: `width: ${attributes.width}px` };
                 },
             },
         };
