@@ -14,44 +14,12 @@ import { JOURNAL_DRIVE } from "@/lib/homebase/config";
 import { useDotYouClientContext } from "@/components/auth";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
 import { cn } from "@/lib/utils";
-
-export const MIN_IMAGE_WIDTH = 64;
-
-export type ImageAlign = "left" | "center" | "right";
-
-/**
- * Float styles for an aligned image. Left/right float so text wraps around the
- * image; center is a block with auto margins, which needs the explicit width the
- * resize handles set.
- *
- * ponytail: every key here must stay a single-word CSS property — extensions.ts
- * serialises this same map into the exported <img>'s style string, so a camelCase
- * key would come out as invalid CSS. Deliberately no `width`: it would fight the
- * pixel width in that same string.
- */
-export const ALIGN_STYLE: Record<ImageAlign, Record<string, string>> = {
-  left: { float: "left", margin: "0 1rem 0.5rem 0" },
-  right: { float: "right", margin: "0 0 0.5rem 1rem" },
-  center: { display: "block", margin: "0 auto" },
-};
-
-/**
- * Width a drag to `clientX` produces. Left-side handles mirror the delta so both
- * sides grow outward, and the result is clamped to the content column. Height is
- * never stored, so the aspect ratio is preserved by construction.
- */
-export function resizeWidth(
-  side: "left" | "right",
-  startWidth: number,
-  startX: number,
-  clientX: number,
-  maxWidth: number,
-): number {
-  const delta = side === "right" ? clientX - startX : startX - clientX;
-  return Math.round(
-    Math.min(Math.max(startWidth + delta, MIN_IMAGE_WIDTH), maxWidth),
-  );
-}
+import {
+  ALIGN_STYLE,
+  MIN_IMAGE_WIDTH,
+  resizeWidth,
+  type ImageAlign,
+} from "./imageLayout";
 
 // Corner, the edge it drags, and the diagonal cursor for it.
 const CORNERS = [

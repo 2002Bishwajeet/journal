@@ -29,7 +29,8 @@ import { Mathematics } from '@tiptap/extension-mathematics';
 import { createLowlight } from 'lowlight';
 import { EmojiExtension } from './EmojiExtension';
 import { SearchAndReplace } from './SearchAndReplaceExtension';
-import { ImageNodeView, ALIGN_STYLE, type ImageAlign } from '../nodes/ImageNode';
+import { ImageNodeView } from '../nodes/ImageNode';
+import { ALIGN_STYLE, type ImageAlign } from '../nodes/imageLayout';
 
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';

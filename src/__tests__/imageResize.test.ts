@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
-import { resizeWidth, MIN_IMAGE_WIDTH, ALIGN_STYLE } from '@/components/editor/nodes/ImageNode';
+import { resizeWidth, MIN_IMAGE_WIDTH, ALIGN_STYLE } from '@/components/editor/nodes/imageLayout';
 
 function mkEditor(content: string) {
     const el = document.createElement('div');
