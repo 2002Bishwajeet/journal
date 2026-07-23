@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "mcp": "vite-node -r dotenv/config mcp/server.ts dotenv_config_path=mcp/.env"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.4.4",
