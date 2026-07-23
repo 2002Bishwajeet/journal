@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
-import { resizeWidth, MIN_IMAGE_WIDTH, ALIGN_STYLE } from '@/components/editor/nodes/imageLayout';
+import { resizeWidth, MIN_IMAGE_WIDTH, ALIGN_STYLE, imageRenderMode } from '@/components/editor/nodes/imageLayout';
 
 function mkEditor(content: string) {
     const el = document.createElement('div');
@@ -109,5 +109,28 @@ describe('image float alignment', () => {
                 expect(key).toMatch(/^[a-z]+$/);
             }
         }
+    });
+});
+
+// `src` and `data-pending-id` are independent Yjs map keys, so a merge can leave a
+// node with a promoted `attachment://` src AND a stale pending marker. The scheme
+// must therefore be checked first: `attachment://` is an internal placeholder, and
+// handing it to a real <img> gets ERR_UNKNOWN_URL_SCHEME under a stuck spinner.
+describe('imageRenderMode — which branch the image node renders', () => {
+    it('renders a promoted attachment even when a stale pending id survives a merge', () => {
+        expect(imageRenderMode('attachment://f/k', 'some-pending-id')).toBe('attachment');
+    });
+
+    it('renders an attachment with no pending id', () => {
+        expect(imageRenderMode('attachment://f/k')).toBe('attachment');
+    });
+
+    it('keeps a genuine in-flight upload pending', () => {
+        expect(imageRenderMode('blob:http://x/y', 'pending-id')).toBe('pending');
+        expect(imageRenderMode('blob:http://x/y')).toBe('pending');
+    });
+
+    it('falls back to a plain img for an ordinary URL', () => {
+        expect(imageRenderMode('https://example.com/cat.png')).toBe('plain');
     });
 });
