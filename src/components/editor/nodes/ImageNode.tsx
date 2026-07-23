@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import {
   ALIGN_STYLE,
   MIN_IMAGE_WIDTH,
+  imageBoxWidth,
   imageRenderMode,
   resizeWidth,
   type ImageAlign,
@@ -147,6 +148,8 @@ export function ImageNodeView({
     </div>
   );
 
+  const mode = imageRenderMode(src, pendingId);
+
   // Until a width is set the box shrink-wraps the image, so the image keeps its
   // natural size (previous behaviour); once sized, it fills the box.
   const imgClass = width ? "w-full h-auto" : "max-w-full";
@@ -156,7 +159,7 @@ export function ImageNodeView({
       ref={boxRef}
       // width last: centering sets `display: block`, which would otherwise
       // stretch the box to the full column instead of hugging the image.
-      style={{ ...(align ? ALIGN_STYLE[align] : {}), width: width ?? "fit-content" }}
+      style={{ ...(align ? ALIGN_STYLE[align] : {}), width: imageBoxWidth(mode, width) }}
       className={cn(
         "group relative inline-block max-w-full",
         selected && "outline outline-2 outline-primary/60 rounded-sm",
@@ -167,8 +170,6 @@ export function ImageNodeView({
       {alignBar}
     </div>
   );
-
-  const mode = imageRenderMode(src, pendingId);
 
   // Mode "pending": still uploading (local blob URL)
   if (mode === "pending") {
