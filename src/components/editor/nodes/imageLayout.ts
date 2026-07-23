@@ -40,6 +40,24 @@ export function imageRenderMode(src: string, pendingId?: string | null) {
 }
 
 /**
+ * Width the resize box gets. Shrink-wrapping keeps the corner handles on the
+ * image rather than out at the column edge.
+ *
+ * ponytail: attachments are the exception and must stay a definite width.
+ * OdinImage is declaratively 100% wide and paints nothing in flow until it has
+ * chosen a thumbnail size — which it chooses by measuring this very box. Let the
+ * box shrink-wrap and that measurement is 0, so it never chooses a size, never
+ * renders, and the image silently disappears.
+ */
+export function imageBoxWidth(
+  mode: ReturnType<typeof imageRenderMode>,
+  width?: number | null,
+): number | string {
+  if (width) return width;
+  return mode === "attachment" ? "100%" : "fit-content";
+}
+
+/**
  * Width a drag to `clientX` produces. Left-side handles mirror the delta so both
  * sides grow outward, and the result is clamped to the content column. Height is
  * never stored, so the aspect ratio is preserved by construction.
