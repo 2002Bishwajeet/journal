@@ -12,7 +12,10 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowUpDown,
+  ExternalLink,
 } from "lucide-react";
+import { useDotYouClientContext } from "@/components/auth";
+import { ownerConsoleNoteUrl } from "@/lib/homebase";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -297,6 +300,7 @@ const NoteItem = memo(function NoteItem({
   onMarkCollaborative?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
 }) {
+  const dotYouClient = useDotYouClientContext();
   const touchStartRef = useRef<number | null>(null);
   const touchEndRef = useRef<number | null>(null);
   const [isSwiped, setIsSwiped] = useState(false);
@@ -386,6 +390,16 @@ const NoteItem = memo(function NoteItem({
             label: "Share",
             icon: Share2,
             action: () => onShareNote(note),
+          },
+          {
+            label: "Open in Owner Console",
+            icon: ExternalLink,
+            action: () =>
+              window.open(
+                ownerConsoleNoteUrl(dotYouClient.getRoot(), note.docId),
+                "_blank",
+                "noopener,noreferrer",
+              ),
           },
           {
             label: note.metadata.isCollaborative
