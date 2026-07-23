@@ -71,36 +71,31 @@ export default function TipTapEditor({
     };
   }, [editor]);
 
-  // Refs for current values — the debounced fn below is created once, so reading
-  // `metadata` directly would freeze the first render's snapshot forever and any
-  // flag set afterwards (e.g. isPublic, from ShareDialog) would be written back
-  // as missing. Same pattern as EditorProvider's metadataRef.
-  const metadataRef = useRef(metadata);
-  const onMetadataChangeRef = useRef(onMetadataChange);
-  useEffect(() => {
-    metadataRef.current = metadata;
-    onMetadataChangeRef.current = onMetadataChange;
-  }, [metadata, onMetadataChange]);
-
-  // Debounce metadata updates to prevent excessive sync calls
+  // Debounce metadata updates to prevent excessive sync calls. It is created
+  // once, so it debounces a thunk rather than a title: the payload is built in
+  // the keystroke handler, from that render's `metadata`. Closing over `metadata`
+  // here instead would freeze the first render's snapshot forever, and any flag
+  // set afterwards (e.g. isPublic, from ShareDialog) would be written back as
+  // missing — the bug this fixes.
+  // ponytail: a flip landing inside the 500ms window after the last keystroke
+  // still writes the pre-flip snapshot. Read it from a store if that matters.
   const debouncedMetadataUpdate = useRef(
-    debounce((newTitle: string) => {
-      const current = metadataRef.current;
-      onMetadataChangeRef.current?.({
-        ...current,
-        title: newTitle,
-        timestamps: {
-          ...current.timestamps,
-          modified: new Date().toISOString(),
-        },
-      });
-    }, 500)
+    debounce((run: () => void) => run(), 500)
   ).current;
 
   // Handle title changes
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
-    debouncedMetadataUpdate(newTitle);
+    debouncedMetadataUpdate(() =>
+      onMetadataChange?.({
+        ...metadata,
+        title: newTitle,
+        timestamps: {
+          ...metadata.timestamps,
+          modified: new Date().toISOString(),
+        },
+      })
+    );
   };
 
   if (isLoading) {
