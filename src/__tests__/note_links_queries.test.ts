@@ -91,6 +91,52 @@ describe('updateSearchIndexMetadata preserves editor-owned linkedNoteIds', () =>
     });
 });
 
+describe('updateSearchIndexMetadata preserves the remote-owned isPublic flag', () => {
+    const now = new Date().toISOString();
+    const base = {
+        title: 'Renamed',
+        folderId: 'main',
+        timestamps: { created: now, modified: now },
+        excludeFromAI: false,
+    };
+
+    async function addPublicNote() {
+        await upsertSearchIndex({
+            docId: N1,
+            title: 'Shared',
+            plainTextContent: 'body',
+            metadata: { ...base, title: 'Shared', isPublic: true },
+        });
+    }
+
+    // #79: a title edit carrying a pre-publish metadata snapshot used to drop
+    // isPublic, which made the next sync push re-encrypt the note and revoke the link.
+    it('keeps isPublic when a metadata-only write omits the key', async () => {
+        await addPublicNote();
+        await updateSearchIndexMetadata(N1, 'Renamed', base);
+
+        const entry = await getSearchIndexEntry(N1);
+        expect(entry?.title).toBe('Renamed');
+        expect(entry?.metadata.isPublic).toBe(true);
+    });
+
+    it('lets an explicit isPublic:false through (unshare still works)', async () => {
+        await addPublicNote();
+        await updateSearchIndexMetadata(N1, 'Renamed', { ...base, isPublic: false });
+
+        const entry = await getSearchIndexEntry(N1);
+        expect(entry?.metadata.isPublic).toBe(false);
+    });
+
+    it('does not invent isPublic for notes that were never shared', async () => {
+        await addNote(N1, 'Private');
+        await updateSearchIndexMetadata(N1, 'Renamed', base);
+
+        const entry = await getSearchIndexEntry(N1);
+        expect(entry?.metadata.isPublic).toBeUndefined();
+    });
+});
+
 describe('searchNotesForPicker', () => {
     it('matches notes by case-insensitive title substring', async () => {
         await addNote(N1, 'Project Roadmap');

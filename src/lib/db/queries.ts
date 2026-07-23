@@ -186,17 +186,23 @@ export async function updateSearchIndexMetadata(
     metadata: DocumentMetadata,
 ): Promise<void> {
     const db = await getDatabase();
-    // `linkedNoteIds` is editor-owned (written only by the content-save path).
-    // Metadata-only writes (title, pin, tags, collaboration) must not clobber it
-    // from a stale snapshot, so preserve the row's existing value via a jsonb overlay.
+    // Two keys are not owned by metadata-only writers, so a stale snapshot must not
+    // drop them (jsonb overlays on top of the incoming payload):
+    //  - `linkedNoteIds` is editor-owned (written only by the content-save path);
+    //    the row's value always wins.
+    //  - `isPublic` mirrors the remote ACL. Dropping it silently re-encrypts the note
+    //    and revokes the public share on the next push (#79), so it survives only when
+    //    the writer omitted the key entirely — an explicit value (incl. false) wins.
     await db.query(
         `UPDATE search_index
          SET title = $2,
-             metadata = CASE
-               WHEN metadata ? 'linkedNoteIds'
-               THEN $3::jsonb || jsonb_build_object('linkedNoteIds', metadata->'linkedNoteIds')
-               ELSE $3::jsonb
-             END,
+             metadata = $3::jsonb
+               || (CASE WHEN metadata ? 'linkedNoteIds'
+                        THEN jsonb_build_object('linkedNoteIds', metadata->'linkedNoteIds')
+                        ELSE '{}'::jsonb END)
+               || (CASE WHEN metadata ? 'isPublic' AND NOT ($3::jsonb ? 'isPublic')
+                        THEN jsonb_build_object('isPublic', metadata->'isPublic')
+                        ELSE '{}'::jsonb END),
              search_vector = setweight(to_tsvector('english', COALESCE($2, '')), 'A') ||
                              setweight(to_tsvector('english', COALESCE(plain_text_content, '')), 'B'),
              updated_at = CURRENT_TIMESTAMP

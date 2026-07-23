@@ -83,6 +83,19 @@ describe('NotesDriveProvider.setNoteArchivalStatus', () => {
         expect(mockPatchFile.mock.calls[0][3].appData.archivalStatus).toBe(0);
     });
 
+    // allowDistribution is peer/feed distribution, not readability: trashing a
+    // public (Anonymous) note must not flag it for distribution.
+    it('never flags the file for peer/feed distribution', async () => {
+        mockGetHeader.mockResolvedValue({
+            ...ownerHeader(),
+            serverMetadata: { accessControlList: { requiredSecurityGroup: SecurityGroupType.Anonymous } },
+        });
+
+        await provider.setNoteArchivalStatus(NOTE_ID, 2);
+
+        expect(mockPatchFile.mock.calls[0][3].allowDistribution).toBe(false);
+    });
+
     it('reads the header decrypted so the patched content stays valid', async () => {
         mockGetHeader.mockResolvedValue(ownerHeader());
 
