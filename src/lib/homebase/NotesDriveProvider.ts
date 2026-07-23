@@ -656,7 +656,10 @@ export class NotesDriveProvider {
         // Update metadata with Anonymous access control, preserving note content.
         const uploadMetadata: UploadFileMetadata = {
             versionTag,
-            allowDistribution: true, // Allow distribution for public access
+            // Peer/feed distribution only — unrelated to the Anonymous ACL that makes
+            // the note publicly readable. See FileSystemUpdateWriterBase ("AllowDistribution
+            // must be true when UpdateLocale is Peer") and FeedDriveDistributionRouter.
+            allowDistribution: false,
             appData: {
                 fileType: JOURNAL_FILE_TYPE,
                 dataType: JOURNAL_DATA_TYPE,
@@ -779,9 +782,10 @@ export class NotesDriveProvider {
 
         const uploadMetadata: UploadFileMetadata = {
             versionTag: existingHeader.fileMetadata.versionTag,
-            // Match the note's creation default: only public (Anonymous) notes distribute.
-            allowDistribution:
-                accessControlList.requiredSecurityGroup === SecurityGroupType.Anonymous,
+            // Peer/feed distribution only; an Anonymous ACL does not imply it. A fetched
+            // header omits serverMetadata.allowDistribution, so there is nothing to
+            // preserve — match every other local (non-peer) write and send false.
+            allowDistribution: false,
             appData: {
                 fileType: JOURNAL_FILE_TYPE,
                 dataType: JOURNAL_DATA_TYPE,
