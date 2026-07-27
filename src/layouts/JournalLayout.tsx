@@ -20,6 +20,7 @@ import {
   useKeyboardShortcuts,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
+import { isOnDeviceLLMAvailable } from "@/lib/featureFlags";
 import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback, Activity } from "react";
 import { ChevronLeft, Minimize2, Maximize2, ArchiveRestore, Trash2, Archive } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
@@ -675,7 +676,7 @@ export default function JournalLayout() {
       )}
 
       {/* Modals */}
-      {noteId ? <ChatBot activeNoteId={noteId} /> : null}
+      {noteId && isOnDeviceLLMAvailable() ? <ChatBot activeNoteId={noteId} /> : null}
 
       <SearchModal
         isOpen={showSearch}
