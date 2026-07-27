@@ -25,6 +25,21 @@ export const ALIGN_STYLE: Record<ImageAlign, Record<string, string>> = {
 };
 
 /**
+ * Which of the three image renderings a node gets.
+ *
+ * ponytail: the order is the whole point. `src` and `data-pending-id` are separate
+ * Yjs map keys, so a merge can leave a node with a promoted `attachment://` src AND
+ * a stale pending marker. Testing the scheme first means the promoted src always
+ * wins — `attachment://` is an internal placeholder, and handing it to a real <img>
+ * gets ERR_UNKNOWN_URL_SCHEME under a spinner that never stops.
+ */
+export function imageRenderMode(src: string, pendingId?: string | null) {
+  if (src.startsWith("attachment://")) return "attachment";
+  if (pendingId || src.startsWith("blob:")) return "pending";
+  return "plain";
+}
+
+/**
  * Width a drag to `clientX` produces. Left-side handles mirror the delta so both
  * sides grow outward, and the result is clamped to the content column. Height is
  * never stored, so the aspect ratio is preserved by construction.

@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import {
   ALIGN_STYLE,
   MIN_IMAGE_WIDTH,
+  imageRenderMode,
   resizeWidth,
   type ImageAlign,
 } from "./imageLayout";
@@ -167,8 +168,10 @@ export function ImageNodeView({
     </div>
   );
 
-  // Case 1: Still pending upload (local blob URL)
-  if (pendingId || src.startsWith("blob:")) {
+  const mode = imageRenderMode(src, pendingId);
+
+  // Mode "pending": still uploading (local blob URL)
+  if (mode === "pending") {
     return (
       <NodeViewWrapper className="image-node" data-drag-handle>
         <div className="relative inline-block">
@@ -199,8 +202,8 @@ export function ImageNodeView({
     );
   }
 
-  // Case 2: Remote image (attachment://fileId/payloadKey)
-  if (src.startsWith("attachment://")) {
+  // Mode "attachment": remote image (attachment://fileId/payloadKey)
+  if (mode === "attachment") {
     const [fileId, payloadKey] = src.replace("attachment://", "").split("/");
 
     return (
@@ -218,7 +221,7 @@ export function ImageNodeView({
     );
   }
 
-  // Case 3: Regular URL or base64
+  // Mode "plain": regular URL or base64
   return (
     <NodeViewWrapper className="image-node" data-drag-handle>
       {resizable(<img src={src} alt="" className={imgClass} />)}
