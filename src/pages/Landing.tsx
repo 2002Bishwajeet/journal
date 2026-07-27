@@ -149,6 +149,12 @@ export default function LandingPage() {
                   placeholder="johndoe.com"
                   disabled={isPending}
                   autoComplete="username"
+                  // A Homebase ID is a domain name: iOS otherwise autocapitalises
+                  // and autocorrects it (frodo.baggins.demo.rocks -> Frodo.baggins.demo.rockstar).
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  inputMode="url"
                   aria-autocomplete="list"
                   aria-label="Identity"
                   aria-describedby="identity-description"
