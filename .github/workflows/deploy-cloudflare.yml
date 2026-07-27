@@ -80,6 +80,18 @@ jobs:
         env:
           CI: true
 
+      # Pages 308s /index.html -> /, and a redirected response served to a
+      # navigation is a hard network error — every share link dies with "This
+      # site can't be reached". Guarded here because it only breaks on Pages.
+      - name: Verify service worker precaches the canonical shell URL
+        run: |
+          grep -q '"url":"/"' dist/sw.js \
+            || { echo "::error::sw.js must precache '/' — see manifestTransforms in vite.config.ts"; exit 1; }
+          if grep -q '"url":"index.html"' dist/sw.js; then
+            echo "::error::sw.js precaches index.html, which Cloudflare Pages 308s to /"
+            exit 1
+          fi
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
