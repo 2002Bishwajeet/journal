@@ -203,7 +203,12 @@ registerRoute(
 // SPA Navigation Fallback: Serve index.html for all navigation requests
 // This is essential for the PWA to work offline on non-root paths
 registerRoute(
-    new NavigationRoute(createHandlerBoundToURL('/index.html'), {
+    // '/' not '/index.html': Cloudflare Pages 308s /index.html -> /, and a
+    // redirected response served to a navigation is a network error. The
+    // precache manifest is rewritten to match by manifestTransforms in
+    // vite.config.ts — these two must change together, or this call throws at
+    // service-worker startup.
+    new NavigationRoute(createHandlerBoundToURL('/'), {
         denylist: [
             /^\/api\//, // Exclude API calls
             /^\/img\//, // Exclude images if needed
