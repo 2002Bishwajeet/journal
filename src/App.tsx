@@ -23,6 +23,7 @@ import {
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { OnlineProvider } from "@/components/providers/OnlineProvider";
 import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
+import { isPublicSharePath } from "@/lib/utils";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,7 +112,12 @@ function App() {
           </BrowserRouter>
 
           <Toaster />
-          <UpdatePrompt />
+          {/* Mounting this registers the service worker, which precaches the
+              whole ~18 MB app shell. A public share visitor reads one note and
+              leaves, so they neither need the offline shell nor an update
+              prompt. Evaluated once at mount: a share visitor who navigates
+              into the app gets the SW on their next full load. */}
+          {!isPublicSharePath() && <UpdatePrompt />}
         </ErrorBoundary>
       </PersistQueryClientProvider>
     </MotionConfig>

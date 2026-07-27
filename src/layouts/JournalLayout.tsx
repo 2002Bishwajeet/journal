@@ -20,6 +20,7 @@ import {
   useKeyboardShortcuts,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
+import { reportBootPhase } from "@/lib/bootProgress";
 import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback, Activity } from "react";
 import { ChevronLeft, Minimize2, Maximize2, ArchiveRestore, Trash2, Archive } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
@@ -115,6 +116,12 @@ export default function JournalLayout() {
 
   // Homebase sync - auto-syncs on mount and focus
   useSyncService();
+
+  // Last boot milestone: the first commit that renders the note list instead of
+  // the splash. Closes the db-start → first note measurement (bootProgress).
+  useEffect(() => {
+    if (!isNotesLoading && !isFolderLoading) reportBootPhase("notes-rendered");
+  }, [isNotesLoading, isFolderLoading]);
 
   const dotYouClient = useDotYouClientContext();
 
