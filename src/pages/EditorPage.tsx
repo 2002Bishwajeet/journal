@@ -27,6 +27,7 @@ import { useDotYouClientContext } from "@/components/auth";
 import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
 import { useAISettings } from "@/hooks/useAISettings";
+import { isOnDeviceLLMAvailable } from "@/lib/featureFlags";
 
 function EditorLayout({
   noteId,
@@ -113,7 +114,7 @@ function EditorLayout({
             onToggleToc={() => setTocOpen((prev) => !prev)}
           />
         )}
-        {editor && <AIMenu editor={editor} />}
+        {editor && isOnDeviceLLMAvailable() && <AIMenu editor={editor} />}
         {collaborativePopover && (
           <div className="ml-auto px-3">{collaborativePopover}</div>
         )}
@@ -230,6 +231,7 @@ export default function EditorPage({
   // AI callbacks
   const handleGetAutocompleteSuggestion = useCallback(
     async (text: string): Promise<string> => {
+      if (!isOnDeviceLLMAvailable()) return "";
       if (!aiSettings.autocompleteEnabled) return "";
       if (!isAIReady) return "";
       try {
@@ -245,6 +247,7 @@ export default function EditorPage({
 
   const handleCheckGrammar = useCallback(
     async (text: string): Promise<string[]> => {
+      if (!isOnDeviceLLMAvailable()) return [];
       if (!isAIReady) return [];
       try {
         const { checkGrammar } = await import("@/lib/webllm");

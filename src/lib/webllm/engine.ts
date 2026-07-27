@@ -1,4 +1,5 @@
 import type * as WebLLMTypes from '@mlc-ai/web-llm';
+import { isOnDeviceLLMAvailable } from '@/lib/featureFlags';
 import { DEFAULT_MODEL_ID } from './models';
 
 let webllmModule: typeof WebLLMTypes | null = null;
@@ -84,6 +85,12 @@ export async function initWebLLM(
     onProgress?: (progress: WebLLMTypes.InitProgressReport) => void,
     modelId?: string
 ): Promise<boolean> {
+    // Never fetch model weights on a platform that cannot run them.
+    if (!isOnDeviceLLMAvailable()) {
+        console.warn('[WebLLM] On-device AI is unavailable on this platform.');
+        return false;
+    }
+
     const targetModel = modelId || currentModelId;
 
     // If a different model is requested, unload current first

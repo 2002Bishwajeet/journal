@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useDeviceType } from './useDeviceType';
+import { isOnDeviceLLMAvailable } from '@/lib/featureFlags';
 import { useAISettings } from './useAISettings';
 
 // Re-export type for convenience (type-only import doesn't add to bundle)
@@ -57,8 +57,7 @@ export function useWebLLM(): UseWebLLMResult {
 
     const { settings } = useAISettings();
 
-    const deviceType = useDeviceType();
-    const isMobile = deviceType === 'mobile';
+    const llmAvailable = isOnDeviceLLMAvailable();
 
     // Debounce timer for grammar check
     const grammarDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -67,7 +66,7 @@ export function useWebLLM(): UseWebLLMResult {
     // With WebWorkerMLCEngine, heavy work runs off-thread, but we still defer briefly
     // to let the initial render complete before starting the module import.
     useEffect(() => {
-        if (isMobile) return;
+        if (!llmAvailable) return;
 
         if (!settings.enabled && !(webllmModule && webllmModule.isWebLLMReady())) return;
 
@@ -102,7 +101,7 @@ export function useWebLLM(): UseWebLLMResult {
         }, 500);
 
         return () => clearTimeout(timeoutId);
-    }, [isMobile, settings.enabled, settings.modelId]);
+    }, [llmAvailable, settings.enabled, settings.modelId]);
 
     // Sync isReady state from the module periodically so every hook consumer
     // observes readiness once any one of them initializes WebLLM.
@@ -114,7 +113,7 @@ export function useWebLLM(): UseWebLLMResult {
     // module directly, so availability is re-established on the next interaction
     // without a perpetual timer.
     useEffect(() => {
-        if (isMobile) return;
+        if (!llmAvailable) return;
         if (isReady || !settings.enabled) return;
 
         const syncInterval = setInterval(() => {
@@ -124,11 +123,11 @@ export function useWebLLM(): UseWebLLMResult {
         }, 500); // Check every 500ms
 
         return () => clearInterval(syncInterval);
-    }, [isReady, isMobile, settings.enabled]);
+    }, [isReady, llmAvailable, settings.enabled]);
 
     const initialize = useCallback(async (): Promise<boolean> => {
-        if (isMobile) {
-            console.warn('[WebLLM] AI execution is disabled on mobile devices.');
+        if (!llmAvailable) {
+            console.warn('[WebLLM] On-device AI is unavailable on this platform.');
             return false;
         }
 
@@ -168,10 +167,10 @@ export function useWebLLM(): UseWebLLMResult {
             setLoadingMessage('Failed to load AI');
             return false;
         }
-    }, [isMobile, settings.modelId]);
+    }, [llmAvailable, settings.modelId]);
 
     const switchModel = useCallback(async (modelId: string): Promise<boolean> => {
-        if (isMobile) return false;
+        if (!llmAvailable) return false;
         setIsLoading(true);
         setLoadingMessage('Switching model...');
         setLoadingProgress(0);
@@ -194,10 +193,10 @@ export function useWebLLM(): UseWebLLMResult {
             setIsLoading(false);
             return false;
         }
-    }, [isMobile]);
+    }, [llmAvailable]);
 
     const runGrammarCheck = useCallback(async (text: string) => {
-        if (isMobile) return;
+        if (!llmAvailable) return;
         if (!webllmModule || !webllmModule.isWebLLMReady()) return;
 
         // Debounce grammar check (2 seconds)
@@ -209,10 +208,10 @@ export function useWebLLM(): UseWebLLMResult {
             const errors = await webllmModule!.checkGrammar(text);
             setGrammarErrors(errors);
         }, 2000);
-    }, [isMobile]);
+    }, [llmAvailable]);
 
     const rewrite = useCallback(async (text: string, style: RewriteStyle): Promise<string> => {
-        if (isMobile) return text;
+        if (!llmAvailable) return text;
 
         // Ensure module is loaded and initialized
         if (!webllmModule || !webllmModule.isWebLLMReady()) {
@@ -220,16 +219,16 @@ export function useWebLLM(): UseWebLLMResult {
             if (!success) return text;
         }
         return webllmModule!.rewriteText(text, style);
-    }, [initialize, isMobile]);
+    }, [initialize, llmAvailable]);
 
     const getSuggestions = useCallback(async (text: string): Promise<string[]> => {
-        if (isMobile) return [];
+        if (!llmAvailable) return [];
         if (!webllmModule || !webllmModule.isWebLLMReady()) return [];
         return webllmModule.getActionSuggestions(text);
-    }, [isMobile]);
+    }, [llmAvailable]);
 
     const chat = useCallback(async (messages: ChatMessage[]): Promise<string> => {
-        if (isMobile) throw new Error('AI not supported on mobile');
+        if (!llmAvailable) throw new Error('AI is not available on this device');
 
         // Ensure module is loaded and initialized
         if (!webllmModule || !webllmModule.isWebLLMReady()) {
@@ -237,7 +236,7 @@ export function useWebLLM(): UseWebLLMResult {
             if (!success) throw new Error('Failed to initialize AI');
         }
         return webllmModule!.chat(messages);
-    }, [initialize, isMobile]);
+    }, [initialize, llmAvailable]);
 
     // Cleanup on unmount
     useEffect(() => {

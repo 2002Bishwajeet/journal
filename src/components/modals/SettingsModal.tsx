@@ -38,6 +38,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAISettings } from "@/hooks/useAISettings";
 import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
 import { useWebLLM } from "@/hooks/useWebLLM";
+import { isOnDeviceLLMAvailable } from "@/lib/featureFlags";
 import { AVAILABLE_MODELS, getModelInfo } from "@/lib/webllm";
 
 interface SettingsModalProps {
@@ -103,6 +104,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     switchModel,
   } = useWebLLM();
 
+  // On-device AI can't run on mobile/tablet or without WebGPU — drop the tab
+  // rather than offering controls that would fail.
+  const navItems = isOnDeviceLLMAvailable()
+    ? NAV_ITEMS
+    : NAV_ITEMS.filter((item) => item.id !== "ai");
+
   return (
     <Dialog
       open={isOpen}
@@ -148,7 +155,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
             {/* Nav items */}
             <div className="flex flex-row md:flex-col px-3 md:px-3 py-2 md:py-0 md:pb-6 gap-0.5 w-full">
-              {NAV_ITEMS.map((item) => {
+              {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 return (
