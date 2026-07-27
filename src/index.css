@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Self-hosted fonts: same-origin so they survive COEP and get precached. */
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/playfair-display";
+@import "@fontsource-variable/playfair-display/wght-italic.css";
+@import "@fontsource-variable/dancing-script";
+
 @custom-variant dark (&:is(.dark *));
 
 /* ANIMATION TIMING SCALE (redesign surfaces only)
@@ -16,9 +22,9 @@
 
 :root {
   /* Fonts */
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-serif: 'Playfair Display', serif;
-  --font-script: 'Great Vibes', cursive; /* or 'Dancing Script' */
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --font-serif: 'Playfair Display Variable', serif;
+  --font-script: 'Dancing Script Variable', cursive;
 
   /* Base - Light Mode (from JSON) */
   --background: #FDFCF8; /* Soft White Main */

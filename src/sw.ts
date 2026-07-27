@@ -182,24 +182,6 @@ registerRoute(
     ).handler
 );
 
-// Cache Google Fonts with CacheFirst (they rarely change)
-registerRoute(
-    ({ url }) => url.origin === 'https://fonts.googleapis.com' ||
-        url.origin === 'https://fonts.gstatic.com',
-    new CacheFirst({
-        cacheName: 'google-fonts',
-        plugins: [
-            new CacheableResponsePlugin({
-                statuses: [0, 200],
-            }),
-            new ExpirationPlugin({
-                maxEntries: 30,
-                maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
-            }),
-        ],
-    })
-);
-
 // SPA Navigation Fallback: Serve index.html for all navigation requests
 // This is essential for the PWA to work offline on non-root paths
 registerRoute(
@@ -225,7 +207,7 @@ self.addEventListener('activate', (event) => {
             const cacheNames = await caches.keys();
             await Promise.all(
                 cacheNames
-                    .filter((name) => !['static-resources', 'images', 'api-cache', 'proxied-images', 'google-fonts'].includes(name) && !name.startsWith('webllm') && !name.startsWith('workbox-'))
+                    .filter((name) => !['static-resources', 'images', 'api-cache', 'proxied-images'].includes(name) && !name.startsWith('webllm') && !name.startsWith('workbox-'))
                     .map((name) => caches.delete(name))
             );
 
