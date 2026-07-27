@@ -91,6 +91,22 @@ export default defineConfig(({ mode }) => ({
           '**/pglite-COscPi1Y.data',
         ],
         maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15 MB for large WASM files
+        // Cloudflare Pages canonicalizes /index.html -> / with a 308, so every
+        // fetch of the precached shell (install, and PrecacheStrategy's network
+        // fallback on a cache miss) comes back with response.redirected = true.
+        // Serving a redirected response to a navigation — whose redirect mode is
+        // "manual" — is a hard network error, i.e. "This site can't be reached"
+        // on any cold precache. Precaching the shell under its canonical URL
+        // keeps the response redirect-free. Must stay in sync with
+        // createHandlerBoundToURL('/') in src/sw.ts.
+        manifestTransforms: [
+          (entries) => ({
+            manifest: entries.map((e) =>
+              e.url === 'index.html' ? { ...e, url: '/' } : e
+            ),
+            warnings: [],
+          }),
+        ],
       },
       devOptions: {
         enabled: false, // Disable in dev to avoid cache errors
