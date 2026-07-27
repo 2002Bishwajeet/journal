@@ -22,6 +22,10 @@ e2e/.certs/
 .playwright-mcp/
 .wrangler/
 
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
