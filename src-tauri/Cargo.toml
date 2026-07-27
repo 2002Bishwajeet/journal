@@ -1,0 +1,33 @@
+[package]
+name = "journal"
+version = "2.1.2"
+description = "Journal"
+edition = "2021"
+rust-version = "1.77.2"
+
+# Mobile targets have no `main` — iOS/Android load the app as a library and call
+# the `#[tauri::mobile_entry_point]` symbol in lib.rs. staticlib is for iOS,
+# cdylib for Android, rlib so the desktop `main.rs` binary can link it.
+[lib]
+name = "journal_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tiny_http = "0.12"
+
+[features]
+# Enabled by the Tauri CLI for production builds. Turning it on flips
+# `tauri::is_dev()` to false and embeds `frontendDist` into the binary.
+# DO NOT REMOVE.
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

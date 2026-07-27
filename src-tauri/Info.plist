@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The window loads http://localhost:47821 (cleartext). App Transport
+	     Security is generally already lenient about loopback, but this makes it
+	     explicit so a future OS release can't break the app's own origin.
+	     NSAllowsArbitraryLoads is deliberately NOT set — loopback is all we need.
+
+	     This file is the single durable source for both Apple targets. The Tauri
+	     CLI auto-merges `src-tauri/Info.plist` (and `Info.ios.plist`, if present)
+	     into the generated `gen/apple/journal_iOS/Info.plist` on every
+	     `tauri ios build` / `tauri ios dev`, so editing the generated plist by
+	     hand is pointless — `gen/` is regenerated and git-ignored. Edit here. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>
