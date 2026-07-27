@@ -14,7 +14,13 @@ dist-ssr
 
 # Tauri
 src-tauri/target/
-src-tauri/gen/
+src-tauri/gen/apple/
+# gen/android IS tracked, deliberately. Tauri has no merge hook for the Android
+# manifest (unlike src-tauri/Info.plist for iOS), and the app needs a network
+# security config there to reach the http://localhost asset server -- without it
+# a *release* APK silently fails to load. `tauri android init` never overwrites
+# existing files, and the generated tree ships its own .gitignore files that
+# exclude build/, jniLibs/**/*.so and local.properties.
 
 # Editor directories and files
 .vscode/*

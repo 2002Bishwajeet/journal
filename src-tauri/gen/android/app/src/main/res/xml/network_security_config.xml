@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The shell serves the built frontend over a real HTTP origin on loopback
+  (http://localhost:47821 - see src-tauri/src/lib.rs). That is an ordinary TCP
+  socket, not an intercepted custom scheme, so it is subject to Android's
+  network security policy.
+
+  Android 9+ (API 28+) defaults cleartextTrafficPermitted to false, and the
+  implicit localhost exemption only landed in Android 17 (API 37). On the
+  API 30 target the webview would refuse to load the origin without this file.
+
+  Cleartext is opened for loopback ONLY. <base-config> is deliberately absent
+  so the platform default still applies to every other host (cleartext denied,
+  system trust anchors) - traffic to identity servers stays HTTPS-only.
+
+  This also neutralises the template's android:usesCleartextTraffic="true"
+  placeholder in debug builds: the platform ignores that attribute on API 24+
+  whenever a network security config is present, and minSdk here is 24.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>
