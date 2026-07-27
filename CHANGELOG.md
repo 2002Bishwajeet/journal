@@ -1,3 +1,21 @@
+## [2.1.2](https://github.com/2002Bishwajeet/journal/compare/v2.1.1...v2.1.2) (2026-07-27)
+
+
+### Bug Fixes
+
+* **editor:** debounce a thunk instead of reading refs during render ([1741ab9](https://github.com/2002Bishwajeet/journal/commit/1741ab9b15f9e69b7f2ab8725217e9bb8f851bd6))
+* **editor:** move image geometry out of the node view file ([3c433d7](https://github.com/2002Bishwajeet/journal/commit/3c433d70c5c76fc2bdb6fb3be61a2cac5df1c08f))
+* **editor:** stop title edits from revoking a note's public share ([507f0eb](https://github.com/2002Bishwajeet/journal/commit/507f0eb59aa1ee7139ba9a795f66057738a5a4c2)), closes [#79](https://github.com/2002Bishwajeet/journal/issues/79)
+* **sw:** precache the app shell as / so share links stop failing ([c973f87](https://github.com/2002Bishwajeet/journal/commit/c973f87d40ddb76b3e9302bb0f51f660d367e852)), closes [#105](https://github.com/2002Bishwajeet/journal/issues/105)
+* **sync:** drop the cached key header when a note's visibility flips ([d393597](https://github.com/2002Bishwajeet/journal/commit/d39359796938099e7e406ae1413396ce8ea8f9ee)), closes [#80](https://github.com/2002Bishwajeet/journal/issues/80)
+
+
+### Features
+
+* **editor:** corner resize handles and float alignment for images ([dd2a5c4](https://github.com/2002Bishwajeet/journal/commit/dd2a5c450d5c3f654ddb07b48921f77032141f29))
+* **editor:** let images be resized ([9302f5c](https://github.com/2002Bishwajeet/journal/commit/9302f5ce77c8182b64af14da1757b01d432db97b)), closes [#82](https://github.com/2002Bishwajeet/journal/issues/82)
+* **editor:** proper drag handles for image resize ([aee2632](https://github.com/2002Bishwajeet/journal/commit/aee263207f4c63b89e99e222c15038f17447c6e1))
+* **notes:** add "Open in Owner Console" to the note context menu ([ab28187](https://github.com/2002Bishwajeet/journal/commit/ab28187f7f4241a1e8bffeac2f4d7a609343e574)), closes [#81](https://github.com/2002Bishwajeet/journal/issues/81)
 ## [2.1.1](https://github.com/2002Bishwajeet/journal/compare/v2.1.0...v2.1.1) (2026-07-20)
 
 
