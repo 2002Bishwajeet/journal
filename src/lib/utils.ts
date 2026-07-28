@@ -96,3 +96,15 @@ export const toArrayBufferBackedView = (bytes: Uint8Array<ArrayBufferLike>): Uin
   copy.set(bytes);
   return copy;
 };
+
+/**
+ * A public share page is a one-shot anonymous read of someone else's note: it
+ * never touches the local DB and there is nothing worth keeping offline. Used
+ * to skip the app-scoped boot work (PGlite warm-start, persistent storage,
+ * service-worker install) for visitors who will never benefit from it.
+ *
+ * Matches `/share/:identity/:noteId` only — `/share-target` is an authenticated
+ * app route and must keep the full boot.
+ */
+export const isPublicSharePath = (pathname = location.pathname): boolean =>
+  pathname.startsWith('/share/');
