@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
-import { resizeWidth, MIN_IMAGE_WIDTH, ALIGN_STYLE, imageRenderMode } from '@/components/editor/nodes/imageLayout';
+import { resizeWidth, MIN_IMAGE_WIDTH, ALIGN_STYLE, imageRenderMode, imageBoxWidth } from '@/components/editor/nodes/imageLayout';
 
 function mkEditor(content: string) {
     const el = document.createElement('div');
@@ -132,5 +132,32 @@ describe('imageRenderMode — which branch the image node renders', () => {
 
     it('falls back to a plain img for an ordinary URL', () => {
         expect(imageRenderMode('https://example.com/cat.png')).toBe('plain');
+    });
+});
+
+// OdinImage is declaratively 100% wide and paints nothing in flow until it has
+// picked a thumbnail size — and it picks that size by measuring the box it sits
+// in. In a `fit-content` box that measurement is 0, so it never picks one and the
+// image never appears. Attachments therefore need a definite width to resolve
+// against; the branches with real intrinsic width keep shrink-wrapping.
+describe('imageBoxWidth — the width the resize box gets', () => {
+    it('gives an un-resized attachment a definite width so OdinImage can measure it', () => {
+        expect(imageBoxWidth('attachment')).toBe('100%');
+    });
+
+    it('shrink-wraps the branches that have an intrinsic width', () => {
+        expect(imageBoxWidth('pending')).toBe('fit-content');
+        expect(imageBoxWidth('plain')).toBe('fit-content');
+    });
+
+    it('honours an explicit resized width in every branch', () => {
+        expect(imageBoxWidth('attachment', 320)).toBe(320);
+        expect(imageBoxWidth('pending', 320)).toBe(320);
+        expect(imageBoxWidth('plain', 320)).toBe(320);
+    });
+
+    it('never collapses the box to zero', () => {
+        expect(imageBoxWidth('attachment', 0)).toBe('100%');
+        expect(imageBoxWidth('plain', 0)).toBe('fit-content');
     });
 });
