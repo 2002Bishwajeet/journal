@@ -142,11 +142,22 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // React MUST be claimed first. Without this it gets absorbed into
+          // whichever manual chunk happens to reach it (it was landing in
+          // 'tiptap'), which forces every chunk in the app to import the
+          // 750 KB editor bundle just to get jsx-runtime.
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react-vendor';
+          // These three names are matched by sw.ts globIgnores — renaming or
+          // removing a rule silently un-excludes its chunk from the precache
+          // (web-llm alone is ~6 MB). Keep the names in sync with sw.ts.
           if (id.includes('pglite-v3')) return 'pglite-v3';
           if (id.includes('@mlc-ai/web-llm')) return 'web-llm';
           if (id.includes('@electric-sql/pglite')) return 'pglite';
-          if (id.includes('@tiptap/')) return 'tiptap';
-          if (id.includes('@radix-ui/react-dialog') || id.includes('@radix-ui/react-dropdown-menu') || id.includes('@radix-ui/react-popover')) return 'ui-libs';
+          // Deliberately no 'tiptap' / 'ui-libs' rules. A manual chunk acts as
+          // an attractor for shared modules, so grouping TipTap dragged
+          // unrelated deps (React, then the Radix primitives) in with it —
+          // which put the 750 KB editor bundle on every route's import graph.
+          // Automatic splitting keeps the editor in the lazy EditorPage chunk.
         }
       }
     }

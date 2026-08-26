@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback, Activity } from "react";
 import { ChevronLeft, Minimize2, Maximize2, ArchiveRestore, Trash2, Archive } from "lucide-react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Kbd } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,7 +65,7 @@ import { useThemePreference } from "@/hooks/useThemePreference";
 import { useDotYouClientContext } from "@/components/auth";
 import { NotesDriveProvider } from "@/lib/homebase/NotesDriveProvider";
 import { toast } from "sonner";
-import EditorPage from "@/pages/EditorPage";
+import EditorPage, { prefetchEditorPage } from "@/pages/EditorPage.lazy";
 import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
 
 const BASE_DRIVES = [journalDriveRequest];
@@ -74,6 +75,21 @@ const NO_PERMISSIONS: [] = [];
 export default function JournalLayout() {
   // Initialize theme preference & system listener at root level
   useThemePreference();
+
+  // Warm the lazy editor chunk once the shell is idle. Desktop with restored
+  // tabs already triggers the import by rendering it; this covers mobile and
+  // the empty-tab case so the first note tap has nothing left to download.
+  useEffect(() => {
+    // Cancel with the canceller matching the scheduler actually used — Safari
+    // < 16.4 has no requestIdleCallback, and cancelIdleCallback?.() there is a
+    // no-op that would leave the timer to fire (and fetch ~1 MB) after unmount.
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(() => prefetchEditorPage());
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(() => prefetchEditorPage(), 1000);
+    return () => clearTimeout(id);
+  }, []);
 
   const { folderId, noteId } = useParams();
   const navigate = useNavigate();
@@ -625,6 +641,35 @@ export default function JournalLayout() {
         </div>
 
         <div className="flex-1 relative overflow-hidden">
+          {/* Local boundaries: the editor chunk is lazy, so both suspending and
+              failing here must stay inside the content pane. Without them a
+              slow chunk blanks the shell via App's route fallback, and a
+              rejected fetch (offline first visit, or a deploy rotating the
+              hashed filename under a long-open tab) replaces the entire app —
+              sidebar and note list included — with the crash screen. */}
+          <ErrorBoundary
+            fallback={
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background p-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  The editor failed to load.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.location.reload()}
+                >
+                  Reload
+                </Button>
+              </div>
+            }
+          >
+          <Suspense
+            fallback={
+              <div className="absolute inset-0 flex items-center justify-center bg-background">
+                <div className="w-8 h-8 border-4 border-foreground/30 border-t-foreground rounded-full animate-spin" />
+              </div>
+            }
+          >
           {isDesktop ? (
             /* Desktop DOM Keep-Alive implementation */
             openTabs.map((tab) => (
@@ -650,6 +695,8 @@ export default function JournalLayout() {
             /* Mobile keeps the simple Router Outlet behavior */
             <Outlet />
           )}
+          </Suspense>
+          </ErrorBoundary>
 
           {/* Show empty state when no tab is active on desktop */}
           {isDesktop && openTabs.length === 0 && (

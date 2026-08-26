@@ -5,14 +5,14 @@ import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { get, set, del } from "idb-keyval";
-import EditorPage from "@/pages/EditorPage";
-import EmptyEditorPage from "@/pages/EmptyEditorPage";
+import EditorPage from "@/pages/EditorPage.lazy";
+const EmptyEditorPage = lazy(() => import("@/pages/EmptyEditorPage"));
 const SharePage = lazy(() => import("@/pages/SharePage"));
 const LandingPage = lazy(() => import("@/pages/Landing"));
 const AuthFinalizePage = lazy(() => import("@/pages/AuthFinalizePage"));
 const ShareTargetPage = lazy(() => import("@/pages/ShareTargetPage"));
 const ChatBotPage = lazy(() => import("@/pages/ChatBotPage"));
-import JournalLayout from "@/layouts/JournalLayout";
+const JournalLayout = lazy(() => import("@/layouts/JournalLayout"));
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
