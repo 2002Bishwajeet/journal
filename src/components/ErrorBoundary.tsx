@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 
 interface Props {
   children?: ReactNode;
+  /** Scoped replacement for the full-screen crash card, for boundaries that
+      guard one region rather than the whole app. */
+  fallback?: ReactNode;
 }
 
 interface State {
@@ -31,6 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      if (this.props.fallback) return this.props.fallback;
       return (
         <div className="min-h-screen flex items-center justify-center bg-background p-4">
           <div className="w-full max-w-md border border-destructive/50 rounded-lg bg-card text-card-foreground shadow-sm">
