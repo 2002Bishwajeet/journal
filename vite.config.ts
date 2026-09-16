@@ -95,20 +95,18 @@ export default defineConfig(({ mode }) => ({
           // webllm-runtime route in sw.ts.
           '**/web-llm-*.js',
           '**/worker-*.js',
-          // Legacy engines: loaded only to upgrade a leftover v0.3/v0.4 database
-          // (see pglite-migrate.ts), never on the boot path.
-          '**/pglite-v3-*.js',
+          // Legacy engine: loaded only to upgrade a leftover v0.3/v0.4 database
+          // (see pglite-migrate.ts), never on the boot path. A v0.3 dir is read
+          // by this same v0.4 engine — both are Postgres 17.
           '**/pglite-v4-*.js',
           '**/pglite-tools-*.js',
           '**/pglite-engine-*.js',
           '**/pg_dump-*.wasm',
-          // Their wasm/data/initdb/pg_trgm, by EXACT hash: all three engines
-          // share the pglite-*, initdb-* and pg_trgm.tar-* prefixes, so a
-          // wildcard would also drop the live engine's copies and break offline
-          // boot. These hashes change whenever the pglite-v3/v4 deps are bumped;
-          // the deploy workflow fails the build if one drifts.
-          '**/pglite-BdRI_ZYT.wasm',    // v0.3
-          '**/pglite-COscPi1Y.data',    // v0.3
+          // Its wasm/data/initdb/pg_trgm, by EXACT hash: the live and legacy
+          // engines share the pglite-*, initdb-* and pg_trgm.tar-* prefixes, so
+          // a wildcard would also drop the live engine's copies and break
+          // offline boot. These hashes change whenever the pglite-v4 dep is
+          // bumped; the deploy workflow fails the build if one drifts.
           '**/pglite-Da2HFqb0.wasm',    // v0.4
           '**/pglite-D8goAydL.data',    // v0.4
           '**/initdb-Ctytb-lQ.wasm',    // v0.4
@@ -183,7 +181,6 @@ export default defineConfig(({ mode }) => ({
           if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react-vendor';
           // These names are matched by injectManifest.globIgnores above —
           // renaming a rule silently un-excludes its chunk. Keep both in sync.
-          if (id.includes('pglite-v3')) return 'pglite-v3';
           // Claimed before the '@electric-sql/pglite' rule below, which would
           // otherwise pull them into the boot-path chunk (pglite-tools' id
           // contains it).

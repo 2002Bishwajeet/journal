@@ -18,14 +18,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Import spies fire whenever a mocked module is imported, plus knobs per case.
 const mocks = {
-  v3Import: vi.fn(),
   v4Import: vi.fn(),
   pgDumpImport: vi.fn(),
   v4Create: vi.fn(),
   currentImport: vi.fn(),
   currentCreate: vi.fn(),
   pgDump: vi.fn(),
-  v3DumpFails: false,
   v4CreateError: null as Error | null,
   // Per database: public tables, rows in the app's data tables, and whether
   // those data tables exist at all (a v0.3-era schema may not have them).
@@ -55,18 +53,6 @@ function fakeQuery(database: string, sql: string) {
  */
 async function loadMigrate() {
   vi.resetModules();
-  vi.doMock('pglite-v3', () => {
-    mocks.v3Import();
-    class FakePGliteV3 {
-      waitReady = Promise.resolve();
-      async dumpDataDir(): Promise<Blob> {
-        if (mocks.v3DumpFails) throw new Error('simulated dump failure');
-        return new Blob(['v3-datadir']);
-      }
-      async close() {}
-    }
-    return { PGlite: FakePGliteV3 };
-  });
   vi.doMock('pglite-v4', () => {
     mocks.v4Import();
     class FakePGliteV4 {
@@ -193,7 +179,6 @@ function idbFallback(existing: string[] = []) {
 }
 
 beforeEach(() => {
-  mocks.v3Import.mockClear();
   mocks.v4Import.mockClear();
   mocks.pgDumpImport.mockClear();
   mocks.v4Create.mockClear();
@@ -201,7 +186,6 @@ beforeEach(() => {
   mocks.currentCreate.mockClear();
   mocks.pgDump.mockReset();
   mocks.pgDump.mockResolvedValue(new Blob(['-- dump sql']));
-  mocks.v3DumpFails = false;
   mocks.v4CreateError = null;
   // Default: an ordinary 0.4 user with notes in `postgres`.
   mocks.tableCounts = { postgres: 3, template1: 0 };
@@ -215,7 +199,6 @@ afterEach(() => {
 });
 
 function expectNoEngineImported() {
-  expect(mocks.v3Import).not.toHaveBeenCalled();
   expect(mocks.v4Import).not.toHaveBeenCalled();
   expect(mocks.pgDumpImport).not.toHaveBeenCalled();
   expect(mocks.currentImport).not.toHaveBeenCalled();
@@ -260,7 +243,6 @@ describe('dumpLegacyDatabase', () => {
     const result = await dumpLegacyDatabase('0.4');
 
     expect(result).toEqual({ sql: '-- dump sql', fromTemplate1: false });
-    expect(mocks.v3Import).not.toHaveBeenCalled();
     expect(mocks.v4Create).toHaveBeenCalledWith('idb://journal-db', {
       extensions: { pg_trgm: { name: 'pg_trgm-v4' } },
     });
@@ -308,7 +290,7 @@ describe('dumpLegacyDatabase', () => {
     expect(deleted).toEqual([]);
   });
 
-  it('dumps a v0.3 database through an in-memory v0.4 engine opened on template1', async () => {
+  it('dumps a v0.3 data dir with the v0.4 engine opened on template1', async () => {
     const { dumpLegacyDatabase } = await loadMigrate();
     vi.stubGlobal('indexedDB', idbWithDatabases(['/pglite/journal-db']).idb);
     // A v0.3 schema predates the app's current data tables.
@@ -318,10 +300,12 @@ describe('dumpLegacyDatabase', () => {
     const result = await dumpLegacyDatabase(null);
 
     expect(result).toEqual({ sql: '-- dump sql', fromTemplate1: true });
-    expect(mocks.v3Import).toHaveBeenCalledTimes(1);
-    // v0.3 stored user tables in template1; the v0.4 default is `postgres`.
+    // Both are Postgres 17, so the dir is opened in place — no v0.3 engine and
+    // no datadir tarball round trip. v0.3 stored user tables in template1,
+    // where the v0.4 default is `postgres`.
     expect(mocks.v4Create).toHaveBeenCalledWith(
-      expect.objectContaining({ loadDataDir: expect.any(Blob), database: 'template1' }),
+      'idb://journal-db',
+      expect.objectContaining({ database: 'template1' }),
     );
   });
 
@@ -340,11 +324,13 @@ describe('dumpLegacyDatabase', () => {
   it('throws a tagged LegacyMigrationError when a present v0.3 DB fails to dump', async () => {
     const { dumpLegacyDatabase, LegacyMigrationError } = await loadMigrate();
     vi.stubGlobal('indexedDB', idbWithDatabases(['journal-db']).idb);
-    mocks.v3DumpFails = true;
+    mocks.tableCounts = { postgres: 0, template1: 3 };
+    mocks.relationsPresent = { postgres: false, template1: false };
+    mocks.pgDump.mockRejectedValue(new Error('simulated dump failure'));
 
     await expect(dumpLegacyDatabase(null)).rejects.toBeInstanceOf(LegacyMigrationError);
     // The engine was in fact loaded (DB present), i.e. this is not the null path.
-    expect(mocks.v3Import).toHaveBeenCalledTimes(1);
+    expect(mocks.v4Import).toHaveBeenCalledTimes(1);
   });
 
   it('throws a tagged LegacyMigrationError when pg_dump fails on a present 0.4 DB', async () => {

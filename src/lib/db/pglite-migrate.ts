@@ -165,22 +165,11 @@ async function openWithLegacyEngines(dataDir: string, database?: string) {
  * Exported as a test seam; the app always passes the legacy IndexedDB dir.
  */
 export async function openLegacyDatabase(storedVersion: string | null, dataDir: string) {
-  if (storedVersion === null) {
-    // pg_dump can't drive the v0.3 engine (it lacks the streaming protocol API),
-    // but v0.3 and v0.4 are both Postgres 17: copy the data dir into an
-    // in-memory v0.4 engine. v0.3 kept user tables in `template1`, not in
-    // `postgres` (the v0.4 default), so open that database explicitly.
-    const { PGlite: PGliteV4 } = await import('pglite-v4');
-    const { pg_trgm } = await import('pglite-v4/contrib/pg_trgm');
-    const { PGlite: PGliteV3 } = await import('pglite-v3');
-    const v3Db = new PGliteV3(dataDir);
-    await v3Db.waitReady;
-    const tarball = await v3Db.dumpDataDir('none');
-    await v3Db.close();
-    return PGliteV4.create({ loadDataDir: tarball, database: 'template1', extensions: { pg_trgm } });
-  }
-
-  return openWithLegacyEngines(dataDir, undefined);
+  // v0.3 and v0.4 are both Postgres 17, so the v0.4 engine opens a v0.3 data dir
+  // directly and the v0.3 engine is never needed. v0.3 kept user tables in
+  // `template1` rather than `postgres` (the v0.4 default), so a dir it wrote —
+  // recognisable by the absent version stamp — is opened on that database.
+  return openWithLegacyEngines(dataDir, storedVersion === null ? 'template1' : undefined);
 }
 
 type LegacyDatabase = Awaited<ReturnType<typeof openLegacyDatabase>>;

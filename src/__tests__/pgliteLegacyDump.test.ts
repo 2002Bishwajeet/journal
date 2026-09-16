@@ -241,21 +241,30 @@ describe('legacy PGlite dump → PGlite 0.5 restore', () => {
     }
   });
 
-  it('round-trips a v0.3 database via an in-memory v0.4 engine on template1', async () => {
-    // Mirrors dumpLegacyDatabase(null): pg_dump can't drive v0.3 directly.
-    const v3 = await PGliteV3.create();
-    await v3.exec(`CREATE TABLE folders (id UUID PRIMARY KEY, name TEXT NOT NULL);
-      INSERT INTO folders VALUES ('00000000-0000-0000-0000-0000000000f1', 'From v0.3');`);
-    const dataDir = await v3.dumpDataDir('none');
-    await v3.close();
-    const legacy = await PGliteV4.create({ loadDataDir: dataDir, database: 'template1' });
-    const sql = await dumpSql(legacy);
-    await legacy.close();
+  it('opens a v0.3 data dir with the v0.4 engine, without the v0.3 engine', async () => {
+    // Both are Postgres 17, so openLegacyDatabase(null) reads a v0.3 dir
+    // directly — which is why the v0.3 engine no longer ships. It survives as a
+    // devDependency only to build this fixture. v0.3 kept user tables in
+    // template1, so an unstamped dir has to be opened on that database.
+    const dir = mkdtempSync(join(tmpdir(), 'journal-v3-'));
+    try {
+      const v3 = new PGliteV3(dir);
+      await v3.waitReady;
+      await v3.exec(`CREATE TABLE folders (id UUID PRIMARY KEY, name TEXT NOT NULL);
+        INSERT INTO folders VALUES ('00000000-0000-0000-0000-0000000000f1', 'From v0.3');`);
+      await v3.close();
 
-    const target = await newTarget();
-    await restore(target, sql);
-    const folders = await target.query<{ name: string }>(`SELECT name FROM folders`);
-    expect(folders.rows).toEqual([{ name: 'From v0.3' }]);
-    await target.close();
+      const legacy = await openLegacyDatabase(null, dir);
+      const sql = await dumpSql(legacy);
+      await legacy.close();
+
+      const target = await newTarget();
+      await restore(target, sql);
+      const folders = await target.query<{ name: string }>(`SELECT name FROM folders`);
+      expect(folders.rows).toEqual([{ name: 'From v0.3' }]);
+      await target.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
