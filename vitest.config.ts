@@ -24,6 +24,10 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),
+            // Supplied by vite-plugin-pwa at build time, so it does not resolve
+            // under vitest — and that failure happens in import analysis, before
+            // vi.mock can intercept it.
+            'virtual:pwa-register/react': path.resolve(__dirname, './src/__tests__/stubs/pwaRegister.ts'),
         },
     },
 });
