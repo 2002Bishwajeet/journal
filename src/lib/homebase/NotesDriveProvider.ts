@@ -47,6 +47,19 @@ export interface ImageUploadData {
 const YJS_MIME_TYPE = 'application/yjs';
 
 /**
+ * The note's real created time, for appData.userDate.
+ * Pushing Date.now() here would collapse every note's created date to its last push
+ * time whenever the local DB is wiped and rebuilt from the server (SyncService reads
+ * userDate back into timestamps.created for a note it doesn't have locally).
+ * Safe for incremental sync: the cursor is ordered by 'anyChangeDate', not userDate.
+ */
+const createdUserDate = (metadata: DocumentMetadata): number => {
+    const created = metadata.timestamps?.created;
+    const parsed = created ? new Date(created).getTime() : NaN;
+    return Number.isNaN(parsed) ? Date.now() : parsed;
+};
+
+/**
  * NotesDriveProvider handles all note operations with Homebase.
  * Notes are stored as files with JOURNAL_FILE_TYPE (605) and JOURNAL_DATA_TYPE (706).
  * Yjs content is stored as a payload with key PAYLOAD_KEY_CONTENT ('jrnl_txt').
@@ -293,7 +306,7 @@ export class NotesDriveProvider {
                 groupId: metadata.folderId, // Group by folder for easy querying
                 fileType: JOURNAL_FILE_TYPE,
                 dataType: JOURNAL_DATA_TYPE,
-                userDate: Date.now(),
+                userDate: createdUserDate(metadata),
                 tags: (metadata.tags || []).map(tag => toGuidId(tag)),
                 content: JSON.stringify(noteContent),
                 archivalStatus: metadata.archivalStatus ?? 0,
@@ -435,7 +448,7 @@ export class NotesDriveProvider {
                 groupId: metadata.folderId,
                 fileType: JOURNAL_FILE_TYPE,
                 dataType: JOURNAL_DATA_TYPE,
-                userDate: Date.now(),
+                userDate: createdUserDate(metadata),
                 tags: (metadata.tags || []).map(tag => toGuidId(tag)),
                 content: serializedContent,
                 archivalStatus: metadata.archivalStatus ?? 0,
