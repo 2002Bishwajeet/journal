@@ -92,6 +92,12 @@ jobs:
             exit 1
           fi
 
+      # The legacy v0.3/v0.4 engine assets are excluded by exact hash, which
+      # drifts when those deps are bumped. Nothing else catches it: the app
+      # still works, the precache just silently gains ~30 MB.
+      - name: Verify legacy PGlite engines stay out of the precache
+        run: node scripts/check-precache.mjs
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
