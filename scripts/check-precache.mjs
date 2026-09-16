@@ -4,7 +4,7 @@
  * vite.config.ts excludes the v0.3/v0.4 wasm/data/initdb by EXACT hash, because
  * all three engines share the `pglite-*`, `initdb-*` and `pg_trgm.tar-*`
  * prefixes and a wildcard would drop the live engine's copies too. Those hashes
- * drift whenever the pglite-v3/v4 deps are bumped, and nothing else notices: the
+ * drift whenever the pglite-v4 dep is bumped, and nothing else notices: the
  * app still works, the precache just silently gains ~30 MB.
  *
  * Reads the real references out of the built chunks, so it keeps working when
@@ -17,8 +17,8 @@ const ASSETS = 'dist/assets';
 const ASSET_REF = /[\w.]+-[\w-]{8}\.(?:wasm|data|gz)/g;
 // pglite-engine is the main-thread copy of the LIVE engine: it shares the
 // worker's wasm/data, which stay precached. Only the chunk itself is excluded.
-const LEGACY_ASSET_OWNER = /^(?:pglite-v3|pglite-v4|pglite-tools)-/;
-const EXCLUDED_CHUNK = /^(?:pglite-v3|pglite-v4|pglite-tools|pglite-engine)-.*\.js$/;
+const LEGACY_ASSET_OWNER = /^(?:pglite-v4|pglite-tools)-/;
+const EXCLUDED_CHUNK = /^(?:pglite-v4|pglite-tools|pglite-engine)-.*\.js$/;
 
 const refs = (file) =>
     [...fs.readFileSync(`${ASSETS}/${file}`, 'utf8').matchAll(ASSET_REF)].map((m) => m[0]);
