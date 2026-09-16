@@ -36,12 +36,30 @@ export function UpdatePrompt() {
     },
   });
 
-  // Periodically check for SW updates (every hour) with proper cleanup
+  // An open tab would otherwise sit on the old bundle until the hourly poll
+  // fires. Checking when the tab comes back to the foreground surfaces the
+  // prompt as soon as the user returns to it; the interval is just a backstop
+  // for a tab that stays visible for hours.
   useEffect(() => {
-    const id = setInterval(() => {
+    let lastCheck = 0;
+    const check = () => {
+      if (document.visibilityState !== 'visible') return;
+      // ponytail: fixed 60s floor so rapid tab switching can't spam the
+      // conditional GET for sw.js. Make it adaptive only if that shows up.
+      const now = Date.now();
+      if (now - lastCheck < 60 * 1000) return;
+      lastCheck = now;
       registrationRef.current?.update();
-    }, 60 * 60 * 1000);
-    return () => clearInterval(id);
+    };
+
+    document.addEventListener('visibilitychange', check);
+    window.addEventListener('focus', check);
+    const id = setInterval(check, 60 * 60 * 1000);
+    return () => {
+      document.removeEventListener('visibilitychange', check);
+      window.removeEventListener('focus', check);
+      clearInterval(id);
+    };
   }, []);
 
   return null;
