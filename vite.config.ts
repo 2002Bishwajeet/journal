@@ -89,6 +89,24 @@ export default defineConfig(({ mode }) => ({
           // if the pglite-v3 dependency is updated.
           '**/pglite-BdRI_ZYT.wasm',
           '**/pglite-COscPi1Y.data',
+          // PGlite v0.4 engine + pg_dump — loaded lazily only to dump a legacy
+          // Postgres 17 database for the 0.5 upgrade (see pglite-migrate.ts).
+          '**/pglite-v4-*.js',
+          '**/pglite-tools-*.js',
+          '**/pg_dump-*.wasm',
+          // v0.4 WASM, data, initdb and pg_trgm. EXACT hashed names for the same
+          // reason as v0.3 above: the live engine's pglite-*, initdb-* and
+          // pg_trgm.tar-* files share these prefixes and must stay precached.
+          // Referenced solely by the pglite-v4-*.js chunk; the hashes change if
+          // the pglite-v4 dependency is updated.
+          '**/pglite-Da2HFqb0.wasm',
+          '**/pglite-D8goAydL.data',
+          '**/initdb-Ctytb-lQ.wasm',
+          '**/pg_trgm.tar-3zayjqji.gz',
+          // Main-thread copy of the live engine's JS, loaded only by the legacy
+          // migration's Postgres 18 fallback (its wasm/data/initdb are the same
+          // files as the worker's, which stay precached).
+          '**/pglite-engine-*.js',
         ],
         maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15 MB for large WASM files
         // Cloudflare Pages canonicalizes /index.html -> / with a 308, so every
@@ -120,7 +138,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    exclude: ['@electric-sql/pglite'],
+    exclude: ['@electric-sql/pglite', 'pglite-v4', '@electric-sql/pglite-tools'],
   },
   server: {
     host: 'dev.dotyou.cloud',
@@ -141,16 +159,42 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks(id) {
+        manualChunks(id, { getModuleInfo }) {
+          // True when a module only ever loads through a dynamic import(): no
+          // chain of static importers reaches it from an entry. Cycles and
+          // unknown modules count as static, which keeps them in the boot chunk.
+          // NOTE: "only dynamically imported" is not the same as
+          // "migration-only" — if a React.lazy route ever became the sole
+          // importer of a PGlite module (e.g. /live), it would move into
+          // pglite-engine, which is excluded from the precache, breaking
+          // offline boot. Re-check this rule when boot-path imports change.
+          const lazyOnly = (moduleId: string, stack: Set<string>): boolean => {
+            const info = getModuleInfo(moduleId);
+            if (!info || info.isEntry || stack.has(moduleId)) return false;
+            stack.add(moduleId);
+            const lazy = info.importers.length === 0
+              ? info.dynamicImporters.length > 0
+              : info.importers.every((importer) => lazyOnly(importer, stack));
+            stack.delete(moduleId);
+            return lazy;
+          };
           // React MUST be claimed first. Without this it gets absorbed into
           // whichever manual chunk happens to reach it (it was landing in
           // 'tiptap'), which forces every chunk in the app to import the
           // 750 KB editor bundle just to get jsx-runtime.
           if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react-vendor';
-          // These three names are matched by sw.ts globIgnores — renaming or
-          // removing a rule silently un-excludes its chunk from the precache
-          // (web-llm alone is ~6 MB). Keep the names in sync with sw.ts.
+          // These chunk names are matched by injectManifest.globIgnores above —
+          // renaming or removing a rule silently un-excludes its chunk from the
+          // precache (web-llm alone is ~6 MB). Keep the two lists in sync.
           if (id.includes('pglite-v3')) return 'pglite-v3';
+          // Legacy-migration-only modules. Must be claimed before the
+          // '@electric-sql/pglite' rule below, which would otherwise pull them
+          // into the boot-path 'pglite' chunk (pglite-tools' id contains it).
+          if (id.includes('pglite-v4')) return 'pglite-v4';
+          if (id.includes('@electric-sql/pglite-tools')) return 'pglite-tools';
+          // The legacy migration's fallback imports the full engine on the main
+          // thread; without this it would land in the boot-path 'pglite' chunk.
+          if (id.includes('@electric-sql/pglite') && lazyOnly(id, new Set())) return 'pglite-engine';
           if (id.includes('@mlc-ai/web-llm')) return 'web-llm';
           if (id.includes('@electric-sql/pglite')) return 'pglite';
           // Deliberately no 'tiptap' / 'ui-libs' rules. A manual chunk acts as

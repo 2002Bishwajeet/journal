@@ -168,6 +168,10 @@ export default function EditorPage({
   const params = useParams();
   const noteId = overrideNoteId || params.noteId;
   const folderId = overrideFolderId || params.folderId;
+  // Desktop keeps every opened tab mounted (hidden), so effects that reach
+  // outside this note — window shortcuts, the peer socket — must belong to the
+  // tab the URL is actually on. Mobile renders one page, so it is always active.
+  const isActiveTab = !overrideNoteId || overrideNoteId === params.noteId;
   
   const navigate = useNavigate();
   const {
@@ -191,7 +195,7 @@ export default function EditorPage({
   usePeerNoteWebsocket({
       authorOdinId: selectedNoteMetadata?.authorOdinId,
       noteUniqueId: noteId,
-      isEnabled: isPeerNote,
+      isEnabled: isPeerNote && isActiveTab,
       syncService,
   });
 
@@ -202,13 +206,16 @@ export default function EditorPage({
     syncService,
   });
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts — only the active tab handles them, otherwise every open
+  // tab would preventDefault and handle the same Cmd+S.
   useKeyboardShortcuts({
-    onSave: () => {
-      // We can't access editor instance here easily to force save,
-      // but EditorProvider handles auto-save.
-      console.log("[Shortcuts] Manual save triggered (Editor)");
-    },
+    onSave: isActiveTab
+      ? () => {
+          // We can't access editor instance here easily to force save,
+          // but EditorProvider handles auto-save.
+          console.log("[Shortcuts] Manual save triggered (Editor)");
+        }
+      : undefined,
   });
 
   const handleSave = async () => {

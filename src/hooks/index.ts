@@ -5,6 +5,7 @@ export type { RewriteStyle } from './useWebLLM';
 export { useSessionPersistence } from './useSessionPersistence';
 export { useTabManager } from './useTabManager';
 export type { TabInfo } from './useTabManager';
+export { useMountedTabs } from './useMountedTabs';
 export { useThemePreference } from './useThemePreference';
 export type { ThemePreference } from './useThemePreference';
 export { useDeviceType } from './useDeviceType';

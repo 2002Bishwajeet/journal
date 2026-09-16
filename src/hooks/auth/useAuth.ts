@@ -109,6 +109,11 @@ export function useAuth() {
         localStorage.removeItem(STORAGE_KEY_SHARED_SECRET);
         localStorage.removeItem(STORAGE_KEY_AUTH_TOKEN);
         localStorage.removeItem('identity');
+        // Device-local UI state that used to be wiped with the app_state table.
+        // Literals (not the hooks' exported keys) so the heavy PGlite module those
+        // hooks import stays out of this hook's static graph.
+        localStorage.removeItem('journal-open-tabs');
+        localStorage.removeItem('journal-session-state');
 
         navigate('/welcome');
         window.location.reload();

@@ -14,13 +14,14 @@ import {
 } from "@/components/layout";
 import {
   useTabManager,
+  useMountedTabs,
   useSessionPersistence,
   useDeviceType,
   useSyncService,
   useKeyboardShortcuts,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback, Activity } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback } from "react";
 import { ChevronLeft, Minimize2, Maximize2, ArchiveRestore, Trash2, Archive } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Kbd } from "@/components/ui/kbd";
@@ -125,6 +126,9 @@ export default function JournalLayout() {
     switchTab,
     updateTabTitle,
   } = useTabManager();
+
+  // Desktop keep-alive: which tabs currently have a mounted editor.
+  const mountedTabs = useMountedTabs(openTabs, activeTabId);
 
   // Session persistence
   useSessionPersistence();
@@ -671,25 +675,25 @@ export default function JournalLayout() {
             }
           >
           {isDesktop ? (
-            /* Desktop DOM Keep-Alive implementation */
-            openTabs.map((tab) => (
-              <Activity
+            /* Desktop DOM keep-alive: a tab mounts on first activation and then
+               stays mounted, hidden with display:none. <Activity mode="hidden">
+               runs effect cleanups, so every switch tore down the note's Yjs
+               provider (flush + compaction rewrite) and its editor — losing undo
+               history and leaving the re-shown tab on a destroyed Y.Doc. */
+            mountedTabs.map((tab) => (
+              <div
                 key={tab.docId}
-                mode={tab.docId === activeTabId ? "visible" : "hidden"}
+                className={cn(
+                  "absolute inset-0 w-full h-full",
+                  tab.docId === activeTabId ? "z-10 bg-background" : "hidden",
+                )}
               >
-                <div
-                  className={cn(
-                    "absolute inset-0 w-full h-full",
-                    tab.docId === activeTabId && "z-10 bg-background",
-                  )}
-                >
-                  <EditorPage
-                    overrideNoteId={tab.docId}
-                    overrideFolderId={folderId}
-                    focusMode={focusMode}
-                  />
-                </div>
-              </Activity>
+                <EditorPage
+                  overrideNoteId={tab.docId}
+                  overrideFolderId={folderId}
+                  focusMode={focusMode}
+                />
+              </div>
             ))
           ) : (
             /* Mobile keeps the simple Router Outlet behavior */

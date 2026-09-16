@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { cn } from '@/lib/utils';
-import { getBootProgress, subscribeBootProgress } from '@/lib/bootProgress';
+import { getBootProgress, getBootError, getBootFailureCount, subscribeBootProgress } from '@/lib/bootProgress';
+import { Button } from '@/components/ui/button';
 import logo from '@/assets/logo_withoutbg.png';
 
 interface SplashScreenProps {
@@ -18,6 +19,79 @@ const BOOT_QUIPS = [
   'Straightening the margins…',
   'Hiding the key under the mat… kidding, encrypting.',
 ];
+
+/**
+ * Shown when the database can't be opened at all — most often a legacy
+ * migration that couldn't run (its engine is fetched on demand, so an offline
+ * first launch after the upgrade fails here). The app deliberately does not
+ * boot an empty database in that case, so this is a dead end until a retry
+ * succeeds. Nothing has been migrated or deleted; the old data is still there.
+ */
+export function BootErrorScreen() {
+  const error = useSyncExternalStore(subscribeBootProgress, getBootError);
+  const failures = useSyncExternalStore(subscribeBootProgress, getBootFailureCount);
+  const [busy, setBusy] = useState(false);
+
+  if (!error) return null;
+
+  const attempt = async (run: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await run();
+      // Reload rather than patch state: every query that failed needs re-running.
+      window.location.reload();
+    } catch {
+      // The new error is already published — stay on this screen.
+      setBusy(false);
+    }
+  };
+
+  // Imported lazily so the boot path's module graph stays unchanged. Retry must
+  // go through retryDatabase(): getDatabase() caches the rejection, so it would
+  // hand back the same failure without trying again.
+  const handleRetry = () =>
+    attempt(async () => {
+      const { retryDatabase } = await import('@/lib/db');
+      await retryDatabase();
+    });
+
+  const handleSkipLegacy = () =>
+    attempt(async () => {
+      const { bootWithoutLegacyData } = await import('@/lib/db');
+      await bootWithoutLegacyData();
+    });
+
+  return (
+    <div
+      role="alert"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background px-6 text-center"
+    >
+      <img src={logo} alt="" className="h-16 w-16 object-contain opacity-70" />
+      <div className="space-y-1">
+        <h1 className="text-base font-medium">Couldn't open your journal</h1>
+        <p className="max-w-xs text-xs text-muted-foreground">
+          Your notes are safe on this device. Reconnect and reload to finish opening them.
+        </p>
+        <p className="max-w-xs break-words font-mono text-xs text-muted-foreground/70">{error.message}</p>
+      </div>
+      <Button onClick={handleRetry} disabled={busy} size="sm">
+        {busy ? 'Retrying…' : 'Retry'}
+      </Button>
+      {/* Only after a repeat failure, and only as an explicit choice: this opens
+          an empty journal, so it must never happen on its own. */}
+      {failures >= 2 && (
+        <div className="space-y-1">
+          <Button onClick={handleSkipLegacy} disabled={busy} size="sm" variant="ghost">
+            Open without my old notes
+          </Button>
+          <p className="max-w-xs text-xs text-muted-foreground/70">
+            Starts an empty journal. Your old notes stay on this device and can still be recovered.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function SplashScreen({ className }: SplashScreenProps) {
   const [show, setShow] = useState(false);

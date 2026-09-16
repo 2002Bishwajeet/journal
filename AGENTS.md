@@ -246,23 +246,31 @@ src/
 
 ## PGlite Version Migration
 
-PGlite runs in a **Web Worker** (`pglite-worker.ts`) via `PGliteWorker` for off-main-thread DB operations. The version is tracked in `localStorage['journal-pglite-version']`.
+PGlite runs in a **Web Worker** (`pglite-worker.ts`) via `PGliteWorker` for off-main-thread DB operations. The engine version is stamped in `localStorage['journal-pglite-version']` (currently `'0.5'`; `null` = PGlite 0.3, `'0.4'` = PGlite 0.4).
 
-**IMPORTANT — When bumping PGlite minor versions (e.g. 0.4→0.5):**
+**Why a logical dump:** PGlite 0.5 runs Postgres 18; 0.3 and 0.4 ran Postgres 17. Postgres refuses a data dir written by another major version, and `dumpDataDir`/`loadDataDir` are physical copies, so they can't cross a major. Upgrades use `pg_dump` (from `@electric-sql/pglite-tools`) against the old engine and restore the SQL into the new one.
 
-1. Install the **old** version as an alias: `npm install pglite-v4@npm:@electric-sql/pglite@0.4.x`
-2. Update `pglite-migrate.ts`:
-   - Rename `migrateFromV3` → `migrateFromV4` (or add a new function)
-   - Import `PGlite` from the old alias (`pglite-v4`)
-   - Update `CURRENT_VERSION` to the new version
-3. Update `pglite.ts`: bump `PGLITE_VERSION` constant
-4. Update `pglite-worker.ts` if the worker API changed
-5. Test migration locally: verify existing IDB data survives the upgrade
-6. **After the next release is stable**, remove the old alias package (`pglite-v3`) from `package.json` — it's only needed during the transition window
+**Data dirs:** the live engine uses `idb://journal-db-pg18` (IndexedDB `/pglite/journal-db-pg18`). The legacy Postgres 17 DB lives at `idb://journal-db` (`/pglite/journal-db`) and is only deleted after its data has been restored into the new dir.
 
-Current state: `pglite-v3` (0.3.14) is installed for migrating users from 0.3→0.4. Remove it once all users have migrated.
+**Migration flow** (`initDatabase()` in `pglite.ts`, whenever the stamp ≠ `PGLITE_VERSION`):
 
-Migration flow: detect old IDB → `dumpDataDir('none')` with old PGlite → delete old IDB → `loadDataDir: dump` with new PGlite → `initializeSchema()`.
+1. `dumpLegacyDatabase(storedVersion)` in `pglite-migrate.ts`: a cheap IndexedDB existence check first (no engine is imported when there's nothing to migrate), an empty DB → `null`. Engine selection is in `openLegacyDatabase()`:
+   - `'0.4'`: open the legacy dir with `pglite-v4`. If that fails with `PGlite failed to initialize properly`, the dir is actually Postgres 18 (fresh installs made while 0.5.8 ran against the old dir, before this path existed) and is opened with the current engine instead. Any other error is not retried.
+   - `null` (0.3): `pg_dump` can't drive the 0.3 engine, so `pglite-v3` `dumpDataDir('none')` → in-memory `pglite-v4` with `loadDataDir`. 0.3 kept user tables in the **`template1`** database (0.4+ defaults to `postgres`), so it is opened with `database: 'template1'`.
+   - Dump with `PG_DUMP_ARGS` (`--clean --if-exists`).
+2. Restore into the new dir inside one `db.transaction()`, then `RESET search_path` — pg_dump output sets `search_path` to `''` session-wide, which would break every unqualified query in the worker session.
+3. Stamp `PGLITE_VERSION`, delete the legacy IndexedDB, run `initializeSchema()`.
+
+**Failures retry:** a dump failure throws `LegacyMigrationError`; a failed restore rolls back. Either way the version is not stamped, the legacy DB is kept, the app boots on the new dir, and the next launch retries. `--clean` makes that retry succeed even though the new dir already has `initializeSchema()`'s tables: the dumped tables are dropped and recreated (rows written to them during the failed session are replaced; tables not in the dump are left alone).
+
+**IMPORTANT — When bumping PGlite:**
+
+1. `@electric-sql/pglite` and `@electric-sql/pglite-tools` must move together: pglite-tools pins an **exact** pglite peer version (pglite-tools 0.4.8 ↔ pglite 0.5.8). Don't let Dependabot bump one without the other.
+2. If the Postgres major changes: install the outgoing engine as an alias (`npm install pglite-vN@npm:@electric-sql/pglite@0.N.x`), point `DATA_DIR` in `pglite.ts` at a new dir, bump `PGLITE_VERSION`, and teach `openLegacyDatabase()` the old stamp.
+3. In `vite.config.ts`, claim the alias's chunk in `manualChunks` before the `@electric-sql/pglite` rule and add its chunk plus hashed `.wasm`/`.data`/`initdb`/`pg_trgm` assets to `injectManifest.globIgnores` — by **exact** hashed name, since the live engine's files share those prefixes and must stay precached.
+4. `src/__tests__/pgliteLegacyDump.test.ts` runs the real engines end to end (dump → restore); it must pass.
+
+Current state: `pglite-v3` (0.3.x) and `pglite-v4` (0.4.x) are installed only for migration. Remove them (and their `vite.config.ts` rules) once all users have migrated.
 
 ## AI Integration
 

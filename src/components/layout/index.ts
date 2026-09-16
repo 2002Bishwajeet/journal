@@ -3,4 +3,4 @@ export { default as NoteList } from './NoteList';
 export { default as TabBar } from './TabBar';
 export { ChatBot } from './ChatBot';
 export { SyncStatus } from './SyncStatus';
-export { SplashScreen } from './SplashScreen';
+export { SplashScreen, BootErrorScreen } from './SplashScreen';
