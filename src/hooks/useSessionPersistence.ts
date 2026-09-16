@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAppState } from '@/lib/db';
-import { tryJsonParse } from '@/lib/utils';
+import { SESSION_STORAGE_KEY, readJson, writeJson } from '@/lib/storage';
 
 interface SessionState {
     lastNoteId: string | null;
@@ -17,29 +17,17 @@ const DEFAULT_SESSION_STATE: SessionState = {
     sidebarCollapsed: false,
 };
 
-// Device-local UI state, so it lives in localStorage rather than PGlite: an
-// app_state write costs a full IndexedDB flush, and this one fired on every
-// navigation — queued ahead of the note's content read when opening a note.
-export const SESSION_STORAGE_KEY = 'journal-session-state';
 const LEGACY_SESSION_KEY = 'session_state'; // app_state row written before the move
 const SAVE_DEBOUNCE_MS = 500;
 
 function loadSession(): SessionState | null {
-    try {
-        const raw = localStorage.getItem(SESSION_STORAGE_KEY);
-        // tryJsonParse yields {} for unparseable data, which the spread absorbs.
-        return raw ? { ...DEFAULT_SESSION_STATE, ...tryJsonParse<SessionState>(raw) } : null;
-    } catch {
-        return null; // private browsing
-    }
+    // Unparseable data reads back as {}, which the spread absorbs.
+    const parsed = readJson<SessionState>(SESSION_STORAGE_KEY);
+    return parsed ? { ...DEFAULT_SESSION_STATE, ...parsed } : null;
 }
 
 function persistSession(state: SessionState): void {
-    try {
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state));
-    } catch (error) {
-        console.error('Failed to save session state:', error);
-    }
+    writeJson(SESSION_STORAGE_KEY, state);
 }
 
 /**

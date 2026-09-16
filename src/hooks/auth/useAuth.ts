@@ -10,6 +10,7 @@ import {
     STORAGE_KEY_AUTH_TOKEN,
     STORAGE_KEY_SHARED_SECRET,
 } from '@/lib/homebase/config';
+import { SESSION_STORAGE_KEY, TABS_STORAGE_KEY } from '@/lib/storage';
 import { useVerifyToken } from './useVerifyToken';
 import { useOnlineContext } from '../useOnlineContext';
 
@@ -110,10 +111,8 @@ export function useAuth() {
         localStorage.removeItem(STORAGE_KEY_AUTH_TOKEN);
         localStorage.removeItem('identity');
         // Device-local UI state that used to be wiped with the app_state table.
-        // Literals (not the hooks' exported keys) so the heavy PGlite module those
-        // hooks import stays out of this hook's static graph.
-        localStorage.removeItem('journal-open-tabs');
-        localStorage.removeItem('journal-session-state');
+        localStorage.removeItem(TABS_STORAGE_KEY);
+        localStorage.removeItem(SESSION_STORAGE_KEY);
 
         navigate('/welcome');
         window.location.reload();

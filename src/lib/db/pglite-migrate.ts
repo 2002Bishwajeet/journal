@@ -309,9 +309,9 @@ export async function dumpLegacyDatabase(storedVersion: string | null): Promise<
  * migration has not copied. 'unknown' means the check itself failed — the
  * database is then kept, and checked again on a later launch.
  */
-async function checkTemplate1(dataDir: string): Promise<'has-tables' | 'empty' | 'unknown'> {
+async function checkTemplate1(): Promise<'has-tables' | 'empty' | 'unknown'> {
   try {
-    const db = await openWithLegacyEngines(dataDir, 'template1');
+    const db = await openWithLegacyEngines(LEGACY_DATA_DIR, 'template1');
     try {
       const result = await db.query(PUBLIC_TABLE_COUNT_SQL);
       return Number((result.rows[0] as { cnt: number }).cnt) > 0 ? 'has-tables' : 'empty';
@@ -335,7 +335,7 @@ async function checkTemplate1(dataDir: string): Promise<'has-tables' | 'empty' |
 export async function retireLegacyDatabase(storedVersion: string | null, dumpedTemplate1 = false): Promise<void> {
   if (isLegacyKept()) return;
   if (storedVersion !== null && !dumpedTemplate1) {
-    const template1 = await checkTemplate1(LEGACY_DATA_DIR);
+    const template1 = await checkTemplate1();
     if (template1 === 'has-tables') {
       console.warn(
         '[PGlite Migration] Keeping the legacy database: its template1 still holds v0.3-era tables that this migration does not copy',
@@ -364,7 +364,7 @@ export async function cleanUpLegacyDatabase(): Promise<void> {
   // A missing keep flag is not permission to delete — the write may have failed
   // — so the data itself decides. This is the only path that loads an engine
   // after migrating, and only while a leftover database is still around.
-  const template1 = await checkTemplate1(LEGACY_DATA_DIR);
+  const template1 = await checkTemplate1();
   if (template1 === 'has-tables') {
     preserveLegacyDatabase();
     return;

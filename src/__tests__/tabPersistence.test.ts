@@ -14,7 +14,8 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/db', () => mocks);
 
-import { useTabManager, TABS_STORAGE_KEY } from '@/hooks/useTabManager';
+import { useTabManager } from '@/hooks/useTabManager';
+import { TABS_STORAGE_KEY } from '@/lib/storage';
 
 type TabApi = ReturnType<typeof useTabManager>;
 

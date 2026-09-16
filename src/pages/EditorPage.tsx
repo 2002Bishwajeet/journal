@@ -28,14 +28,23 @@ import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
 import { useAISettings } from "@/hooks/useAISettings";
 
+// EditorProvider auto-saves, so Cmd+S only needs swallowing. A module constant
+// keeps the handler's identity stable: every mounted tab rebinds the window
+// listener when it changes.
+const swallowSave = () => {
+  console.log("[Shortcuts] Manual save triggered (Editor)");
+};
+
 function EditorLayout({
   noteId,
   onBack,
   focusMode = false,
+  isActive,
 }: {
   noteId: string;
   onBack: () => void;
   focusMode?: boolean;
+  isActive: boolean;
 }) {
   const { editor, isLoading } = useEditorContext();
   const {
@@ -145,7 +154,7 @@ function EditorLayout({
               focusMode ? "max-w-2xl md:px-8" : "max-w-5xl md:px-12"
             )}
           >
-            <LinkedMentions noteId={noteId} />
+            <LinkedMentions noteId={noteId} isActive={isActive} />
           </div>
         </div>
         {isDesktop && tocOpen && editor && (
@@ -209,13 +218,7 @@ export default function EditorPage({
   // Keyboard shortcuts — only the active tab handles them, otherwise every open
   // tab would preventDefault and handle the same Cmd+S.
   useKeyboardShortcuts({
-    onSave: isActiveTab
-      ? () => {
-          // We can't access editor instance here easily to force save,
-          // but EditorProvider handles auto-save.
-          console.log("[Shortcuts] Manual save triggered (Editor)");
-        }
-      : undefined,
+    onSave: isActiveTab ? swallowSave : undefined,
   });
 
   const handleSave = async () => {
@@ -310,7 +313,7 @@ export default function EditorPage({
       onGetAutocompleteSuggestion={handleGetAutocompleteSuggestion}
       onCheckGrammar={handleCheckGrammar}
     >
-      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} />
+      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} isActive={isActiveTab} />
     </EditorProvider>
   );
 }

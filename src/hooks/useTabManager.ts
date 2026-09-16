@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getAppState } from '@/lib/db';
-import { tryJsonParse } from '@/lib/utils';
+import { TABS_STORAGE_KEY, readJson, writeJson } from '@/lib/storage';
 
 export interface TabInfo {
     docId: string;
@@ -13,36 +13,22 @@ interface TabManagerState {
     activeTabId: string | null;
 }
 
-// Device-local UI state, so it lives in localStorage rather than PGlite: an
-// app_state write costs a full IndexedDB flush, and it was queued ahead of the
-// note's content read on every tab open.
-export const TABS_STORAGE_KEY = 'journal-open-tabs';
 const LEGACY_TABS_KEY = 'open_tabs'; // app_state row written before the move
 const MAX_TABS = 10;
 
-// tryJsonParse yields {} for unparseable data, and a legacy app_state row can
-// hold anything — only trust a value that is actually a tab state.
+// Unparseable data reads back as {}, and a legacy app_state row can hold
+// anything — only trust a value that is actually a tab state.
 function isTabState(value: unknown): value is TabManagerState {
     return Array.isArray((value as TabManagerState | null)?.openTabs);
 }
 
 function loadTabs(): TabManagerState | null {
-    try {
-        const raw = localStorage.getItem(TABS_STORAGE_KEY);
-        if (!raw) return null;
-        const parsed = tryJsonParse<TabManagerState>(raw);
-        return isTabState(parsed) ? parsed : null;
-    } catch {
-        return null; // private browsing
-    }
+    const parsed = readJson<TabManagerState>(TABS_STORAGE_KEY);
+    return isTabState(parsed) ? parsed : null;
 }
 
 function saveTabs(state: TabManagerState): void {
-    try {
-        localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(state));
-    } catch (error) {
-        console.error('Failed to save tabs:', error);
-    }
+    writeJson(TABS_STORAGE_KEY, state);
 }
 
 /**

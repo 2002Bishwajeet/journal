@@ -9,8 +9,16 @@ import { ChevronDown, ChevronRight, Link2 } from "lucide-react";
 import { useBacklinks } from "@/hooks/useNotes";
 import { cn } from "@/lib/utils";
 
-export function LinkedMentions({ noteId }: { noteId: string }) {
-  const { data: backlinks } = useBacklinks(noteId);
+export function LinkedMentions({
+  noteId,
+  isActive,
+}: {
+  noteId: string;
+  isActive: boolean;
+}) {
+  // Hidden tabs stay mounted, so without this every open tab would hold its own
+  // live query and re-run it on every write.
+  const { data: backlinks } = useBacklinks(noteId, isActive);
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
 

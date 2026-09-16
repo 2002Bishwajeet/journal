@@ -13,6 +13,7 @@ import {
   legacyMigrationSkipped,
   getStoredPGliteVersion,
   setStoredPGliteVersion,
+  type LegacyDump,
 } from './pglite-migrate';
 
 // PGlite 0.5 runs Postgres 18, which can't open the Postgres 17 data dir the
@@ -192,7 +193,7 @@ async function initDatabase(): Promise<PGliteInterface> {
   const skipped = legacyMigrationSkipped();
 
   if (storedVersion !== PGLITE_VERSION && !skipped) {
-    let dump: Awaited<ReturnType<typeof dumpLegacyDatabase>>;
+    let dump: LegacyDump | null;
     try {
       dump = await dumpLegacyDatabase(storedVersion);
     } catch (err) {

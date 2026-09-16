@@ -20,7 +20,8 @@ vi.mock('react-router-dom', () => ({
     useNavigate: () => mocks.navigate,
 }));
 
-import { useSessionPersistence, SESSION_STORAGE_KEY } from '@/hooks/useSessionPersistence';
+import { useSessionPersistence } from '@/hooks/useSessionPersistence';
+import { SESSION_STORAGE_KEY } from '@/lib/storage';
 
 beforeEach(() => {
     (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
