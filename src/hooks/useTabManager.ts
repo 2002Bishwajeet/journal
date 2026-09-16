@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { saveAppState, getAppState } from '@/lib/db';
+import { getAppState } from '@/lib/db';
+import { TABS_STORAGE_KEY, readJson, writeJson } from '@/lib/storage';
 
 export interface TabInfo {
     docId: string;
@@ -12,41 +13,55 @@ interface TabManagerState {
     activeTabId: string | null;
 }
 
-const TABS_KEY = 'open_tabs';
+const LEGACY_TABS_KEY = 'open_tabs'; // app_state row written before the move
 const MAX_TABS = 10;
+
+// Unparseable data reads back as {}, and a legacy app_state row can hold
+// anything — only trust a value that is actually a tab state.
+function isTabState(value: unknown): value is TabManagerState {
+    return Array.isArray((value as TabManagerState | null)?.openTabs);
+}
+
+function loadTabs(): TabManagerState | null {
+    const parsed = readJson<TabManagerState>(TABS_STORAGE_KEY);
+    return isTabState(parsed) ? parsed : null;
+}
+
+function saveTabs(state: TabManagerState): void {
+    writeJson(TABS_STORAGE_KEY, state);
+}
 
 /**
  * Hook for managing open note tabs
  */
 export function useTabManager() {
-    const [state, setState] = useState<TabManagerState>({
-        openTabs: [],
-        activeTabId: null,
-    });
+    const [state, setState] = useState<TabManagerState>(
+        () => loadTabs() ?? { openTabs: [], activeTabId: null },
+    );
 
-    // Load saved tabs on mount
+    // One-time read of the pre-move app_state row, for tabs saved by an older
+    // version. Nothing is written back — the next tab change persists locally.
     useEffect(() => {
-        const loadTabs = async () => {
+        if (loadTabs()) return;
+
+        const loadLegacyTabs = async () => {
             try {
-                const saved = await getAppState<TabManagerState>(TABS_KEY);
-                if (saved) {
-                    setState(saved);
-                }
+                const saved = await getAppState<TabManagerState>(LEGACY_TABS_KEY);
+                if (!isTabState(saved)) return;
+                setState(prev => {
+                    // This read waits on the whole database boot. A note opened
+                    // from the URL in the meantime wins — adopting the legacy row
+                    // here would switch the editor away from it.
+                    if (prev.openTabs.length > 0) return prev;
+                    saveTabs(saved);
+                    return saved;
+                });
             } catch (error) {
                 console.error('Failed to load tabs:', error);
             }
         };
 
-        loadTabs();
-    }, []);
-
-    // Save tabs whenever they change
-    const saveTabs = useCallback(async (newState: TabManagerState) => {
-        try {
-            await saveAppState(TABS_KEY, newState);
-        } catch (error) {
-            console.error('Failed to save tabs:', error);
-        }
+        loadLegacyTabs();
     }, []);
 
     // Open a new tab or switch to existing one
@@ -80,7 +95,7 @@ export function useTabManager() {
             saveTabs(newState);
             return newState;
         });
-    }, [saveTabs]);
+    }, []);
 
     // Close a tab
     const closeTab = useCallback((docId: string) => {
@@ -109,7 +124,7 @@ export function useTabManager() {
             saveTabs(newState);
             return newState;
         });
-    }, [saveTabs]);
+    }, []);
 
     // Switch to a tab
     const switchTab = useCallback((docId: string) => {
@@ -119,7 +134,7 @@ export function useTabManager() {
             saveTabs(newState);
             return newState;
         });
-    }, [saveTabs]);
+    }, []);
 
     // Update tab title
     const updateTabTitle = useCallback((docId: string, title: string) => {
@@ -133,7 +148,7 @@ export function useTabManager() {
             saveTabs(newState);
             return newState;
         });
-    }, [saveTabs]);
+    }, []);
 
     // Mark tab as dirty (unsaved changes)
     const markTabDirty = useCallback((docId: string, isDirty: boolean) => {
@@ -150,7 +165,7 @@ export function useTabManager() {
         const newState = { openTabs: [], activeTabId: null };
         setState(newState);
         saveTabs(newState);
-    }, [saveTabs]);
+    }, []);
 
     // Close other tabs (keep only active)
     const closeOtherTabs = useCallback(() => {
@@ -163,7 +178,7 @@ export function useTabManager() {
             saveTabs(newState);
             return newState;
         });
-    }, [saveTabs]);
+    }, []);
 
     return {
         openTabs: state.openTabs,

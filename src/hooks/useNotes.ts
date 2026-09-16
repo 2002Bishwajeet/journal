@@ -465,6 +465,6 @@ export function useCollaborativeNotes(enabled: boolean = true) {
  * Backlinks for the "Linked mentions" panel — active notes whose
  * metadata.linkedNoteIds contains this note's id.
  */
-export function useBacklinks(noteId: string | undefined) {
-    return useLiveNoteList(NOTE_LIST_SQL.backlinks, [noteId ?? ''], !!noteId);
+export function useBacklinks(noteId: string | undefined, enabled = true) {
+    return useLiveNoteList(NOTE_LIST_SQL.backlinks, [noteId ?? ''], !!noteId && enabled);
 }

@@ -2,6 +2,11 @@ import * as Y from 'yjs';
 import { saveDocumentUpdate, getDocumentUpdates, replaceDocumentUpdates } from '@/lib/db';
 import { documentBroadcast, type DocumentBroadcastMessage } from '@/lib/broadcast';
 
+// Origin tagged on updates that come FROM the database (load/reload). The update
+// handler skips it: replaying stored state is not a new edit, and persisting it
+// again cost one full-document INSERT plus a compaction rewrite on every open.
+const DB_ORIGIN = 'db';
+
 /**
  * Custom Yjs provider that persists to PGlite
  * Handles loading and saving Yjs updates to the local database
@@ -80,7 +85,7 @@ export class PGliteProvider {
 
             // Apply all stored updates to the document
             for (const update of updates) {
-                Y.applyUpdate(this.doc, update);
+                Y.applyUpdate(this.doc, update, DB_ORIGIN);
             }
 
             this.isLoaded = true;
@@ -100,8 +105,10 @@ export class PGliteProvider {
      * Handle Yjs document updates
      */
     private handleUpdate = async (update: Uint8Array, origin: unknown): Promise<void> => {
-        // Skip updates from remote (Homebase sync) to avoid duplication
-        if (origin === 'remote') return;
+        // Skip updates from remote (Homebase sync) to avoid duplication, and
+        // updates this provider just applied from the database (load/reload) —
+        // writing those back is pure amplification, not a new edit.
+        if (origin === 'remote' || origin === DB_ORIGIN) return;
 
         // Queue the update
         this.pendingUpdates.push(update);

@@ -23,6 +23,10 @@ import {
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { OnlineProvider } from "@/components/providers/OnlineProvider";
 import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
+// Direct module path, not the layout barrel: that barrel also exports Sidebar,
+// NoteList and friends, which would land in the main bundle instead of the
+// lazily loaded JournalLayout chunk.
+import { BootErrorScreen } from "@/components/layout/SplashScreen";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -112,6 +116,7 @@ function App() {
 
           <Toaster />
           <UpdatePrompt />
+          <BootErrorScreen />
         </ErrorBoundary>
       </PersistQueryClientProvider>
     </MotionConfig>

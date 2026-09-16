@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { saveAppState, getAppState } from '@/lib/db';
+import { getAppState } from '@/lib/db';
+import { SESSION_STORAGE_KEY, readJson, writeJson } from '@/lib/storage';
 
 interface SessionState {
     lastNoteId: string | null;
@@ -16,8 +17,18 @@ const DEFAULT_SESSION_STATE: SessionState = {
     sidebarCollapsed: false,
 };
 
-const SESSION_KEY = 'session_state';
+const LEGACY_SESSION_KEY = 'session_state'; // app_state row written before the move
 const SAVE_DEBOUNCE_MS = 500;
+
+function loadSession(): SessionState | null {
+    // Unparseable data reads back as {}, which the spread absorbs.
+    const parsed = readJson<SessionState>(SESSION_STORAGE_KEY);
+    return parsed ? { ...DEFAULT_SESSION_STATE, ...parsed } : null;
+}
+
+function persistSession(state: SessionState): void {
+    writeJson(SESSION_STORAGE_KEY, state);
+}
 
 /**
  * Hook for persisting and restoring the last viewed note and scroll position
@@ -28,21 +39,32 @@ export function useSessionPersistence() {
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const sessionStateRef = useRef<SessionState>(DEFAULT_SESSION_STATE);
     const hasRestoredRef = useRef(false);
+    const hasSavedRef = useRef(false);
 
-    // Load session state on mount
+    // Load session state on mount. The app_state row is only read for sessions
+    // saved before the move to localStorage.
     useEffect(() => {
-        const loadSession = async () => {
+        const local = loadSession();
+        if (local) {
+            sessionStateRef.current = local;
+            return;
+        }
+
+        const loadLegacySession = async () => {
             try {
-                const saved = await getAppState<SessionState>(SESSION_KEY);
-                if (saved) {
-                    sessionStateRef.current = { ...DEFAULT_SESSION_STATE, ...saved };
-                }
+                const saved = await getAppState<SessionState>(LEGACY_SESSION_KEY);
+                // This read waits on the whole database boot. If navigation has
+                // written the session in the meantime, adopting the legacy row
+                // would make the next debounced save persist a stale note.
+                if (!saved || hasSavedRef.current) return;
+                sessionStateRef.current = { ...DEFAULT_SESSION_STATE, ...saved };
+                persistSession(sessionStateRef.current);
             } catch (error) {
                 console.error('Failed to load session state:', error);
             }
         };
 
-        loadSession();
+        loadLegacySession();
     }, []);
 
     // Restore last viewed note on initial app load
@@ -52,7 +74,7 @@ export function useSessionPersistence() {
 
         const restoreSession = async () => {
             try {
-                const saved = await getAppState<SessionState>(SESSION_KEY);
+                const saved = loadSession() ?? await getAppState<SessionState>(LEGACY_SESSION_KEY);
                 if (saved?.lastNoteId && saved?.lastFolderId) {
                     navigate(`/${saved.lastFolderId}/${saved.lastNoteId}`, { replace: true });
                 } else if (saved?.lastFolderId) {
@@ -71,20 +93,17 @@ export function useSessionPersistence() {
     }, [location.pathname, navigate]);
 
     // Save current location to session
-    const saveSession = useCallback(async (state: Partial<SessionState>) => {
+    const saveSession = useCallback((state: Partial<SessionState>) => {
         sessionStateRef.current = { ...sessionStateRef.current, ...state };
+        hasSavedRef.current = true;
 
         // Debounce the save
         if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
         }
 
-        saveTimeoutRef.current = setTimeout(async () => {
-            try {
-                await saveAppState(SESSION_KEY, sessionStateRef.current);
-            } catch (error) {
-                console.error('Failed to save session state:', error);
-            }
+        saveTimeoutRef.current = setTimeout(() => {
+            persistSession(sessionStateRef.current);
         }, SAVE_DEBOUNCE_MS);
     }, []);
 

@@ -28,14 +28,23 @@ import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
 import { useAISettings } from "@/hooks/useAISettings";
 
+// EditorProvider auto-saves, so Cmd+S only needs swallowing. A module constant
+// keeps the handler's identity stable: every mounted tab rebinds the window
+// listener when it changes.
+const swallowSave = () => {
+  console.log("[Shortcuts] Manual save triggered (Editor)");
+};
+
 function EditorLayout({
   noteId,
   onBack,
   focusMode = false,
+  isActive,
 }: {
   noteId: string;
   onBack: () => void;
   focusMode?: boolean;
+  isActive: boolean;
 }) {
   const { editor, isLoading } = useEditorContext();
   const {
@@ -145,7 +154,7 @@ function EditorLayout({
               focusMode ? "max-w-2xl md:px-8" : "max-w-5xl md:px-12"
             )}
           >
-            <LinkedMentions noteId={noteId} />
+            <LinkedMentions noteId={noteId} isActive={isActive} />
           </div>
         </div>
         {isDesktop && tocOpen && editor && (
@@ -168,6 +177,10 @@ export default function EditorPage({
   const params = useParams();
   const noteId = overrideNoteId || params.noteId;
   const folderId = overrideFolderId || params.folderId;
+  // Desktop keeps every opened tab mounted (hidden), so effects that reach
+  // outside this note — window shortcuts, the peer socket — must belong to the
+  // tab the URL is actually on. Mobile renders one page, so it is always active.
+  const isActiveTab = !overrideNoteId || overrideNoteId === params.noteId;
   
   const navigate = useNavigate();
   const {
@@ -191,7 +204,7 @@ export default function EditorPage({
   usePeerNoteWebsocket({
       authorOdinId: selectedNoteMetadata?.authorOdinId,
       noteUniqueId: noteId,
-      isEnabled: isPeerNote,
+      isEnabled: isPeerNote && isActiveTab,
       syncService,
   });
 
@@ -202,13 +215,10 @@ export default function EditorPage({
     syncService,
   });
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts — only the active tab handles them, otherwise every open
+  // tab would preventDefault and handle the same Cmd+S.
   useKeyboardShortcuts({
-    onSave: () => {
-      // We can't access editor instance here easily to force save,
-      // but EditorProvider handles auto-save.
-      console.log("[Shortcuts] Manual save triggered (Editor)");
-    },
+    onSave: isActiveTab ? swallowSave : undefined,
   });
 
   const handleSave = async () => {
@@ -303,7 +313,7 @@ export default function EditorPage({
       onGetAutocompleteSuggestion={handleGetAutocompleteSuggestion}
       onCheckGrammar={handleCheckGrammar}
     >
-      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} />
+      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} isActive={isActiveTab} />
     </EditorProvider>
   );
 }

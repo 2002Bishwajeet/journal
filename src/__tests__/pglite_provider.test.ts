@@ -62,6 +62,22 @@ function bodyOf(blob: Uint8Array): string {
     return s;
 }
 
+/** Count the provider's writes by SQL shape until restore() is called. */
+function countWrites() {
+    const orig = db.query.bind(db);
+    const counts = {
+        inserts: 0,
+        compactions: 0,
+        restore: () => { db.query = orig; },
+    };
+    db.query = ((sql: string, params?: unknown[]) => {
+        if (/^\s*INSERT INTO document_updates/i.test(sql)) counts.inserts++;
+        if (/^\s*WITH del AS \(DELETE FROM document_updates/i.test(sql)) counts.compactions++;
+        return orig(sql, params);
+    }) as typeof db.query;
+    return counts;
+}
+
 async function docRowCount(docId: string): Promise<number> {
     const r = await db.query<{ c: number }>(
         'SELECT COUNT(*)::int as c FROM document_updates WHERE doc_id = $1', [docId]);
@@ -89,6 +105,38 @@ describe('PGliteProvider.load', () => {
         for (const u of stored) Y.applyUpdate(doc2, u);
         expect(doc2.getText('body').toString()).toBe(fullText);
     });
+
+    // load() applied the stored updates with no origin, so the provider's own
+    // update handler (which only skipped 'remote') saved the just-loaded state
+    // straight back: every note opened cost a full-document INSERT, which pushed
+    // the row count to 2 and made destroy() compact — a second full rewrite.
+    it('writes nothing to the database when a note is opened and closed unedited', async () => {
+        const { updates, fullText } = authorUpdates(['One', 'Two', 'Three']);
+        // A note in its normal stored shape: one compacted blob.
+        await saveDocumentUpdate(DOC_ID, Y.mergeUpdates(updates));
+
+        const writes = countWrites();
+        try {
+            const doc = new Y.Doc();
+            const provider = new PGliteProvider(DOC_ID, doc);
+            await provider.load();
+            await tick(); // a save would be queued on a microtask
+
+            expect(doc.getText('body').toString()).toBe(fullText);
+            expect(writes).toMatchObject({ inserts: 0, compactions: 0 });
+            expect(await docRowCount(DOC_ID)).toBe(1);
+
+            await provider.destroy();
+            await tick();
+
+            // Nothing was written, so there is nothing to compact on the way out.
+            expect(writes).toMatchObject({ inserts: 0, compactions: 0 });
+            expect(await docRowCount(DOC_ID)).toBe(1);
+            doc.destroy();
+        } finally {
+            writes.restore();
+        }
+    });
 });
 
 describe('PGliteProvider.compact', () => {
@@ -99,7 +147,7 @@ describe('PGliteProvider.compact', () => {
         const doc = new Y.Doc();
         const provider = new PGliteProvider(DOC_ID, doc);
         await provider.load();
-        await tick(); // let the load-time re-save microtask settle first
+        await tick(); // load() itself must write nothing back (see the no-write test below)
         await provider.compact();
 
         expect(await docRowCount(DOC_ID)).toBe(1);
