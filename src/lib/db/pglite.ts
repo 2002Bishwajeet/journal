@@ -9,6 +9,8 @@ import {
   retireLegacyDatabase,
   cleanUpLegacyDatabase,
   preserveLegacyDatabase,
+  skipLegacyMigration,
+  legacyMigrationSkipped,
   getStoredPGliteVersion,
   setStoredPGliteVersion,
 } from './pglite-migrate';
@@ -26,6 +28,8 @@ const MIGRATION_MARKER_TABLE = 'pglite_legacy_migrated';
 const SCHEMA_VERSION = '3';
 
 let dbPromise: Promise<PGliteInterface> | null = null;
+// In-flight retry, so concurrent Retry clicks share one attempt.
+let retryPromise: Promise<PGliteInterface> | null = null;
 
 // Lazily enabled the first time fuzzy search runs — see ensureTrigramSearch().
 let trigramSearchPromise: Promise<void> | null = null;
@@ -73,21 +77,46 @@ export function getDatabase(): Promise<PGliteInterface> {
   return dbPromise;
 }
 
-/** A fresh boot attempt — the boot error screen's Retry. */
+/**
+ * A fresh boot attempt — the boot error screen's Retry. Serialised, because two
+ * concurrent attempts would interleave their boot-error reports, and the
+ * previous attempt's worker is closed first: a boot that failed after the
+ * worker started leaves it running, and a second worker on the same dataDir
+ * would elect its own leader.
+ */
 export function retryDatabase(): Promise<PGliteInterface> {
-  dbPromise = null;
-  return getDatabase();
+  if (!retryPromise) {
+    const previous = dbPromise;
+    dbPromise = null;
+    retryPromise = (async () => {
+      if (previous) await previous.then((db) => db.close()).catch(() => {});
+      return getDatabase();
+    })().finally(() => {
+      retryPromise = null;
+    });
+  }
+  return retryPromise;
 }
 
 /**
- * Explicit opt-out offered after repeated boot failures: open the new (empty)
- * data dir and stop trying to migrate. The legacy database is deliberately kept
- * so its data stays recoverable later — never call this automatically.
+ * Explicit opt-out offered after repeated migration failures: open the new
+ * (empty) data dir and stop trying to migrate. Never call this automatically.
+ *
+ * The version is deliberately NOT stamped — that would be indistinguishable
+ * from a finished migration and would let the cleanup delete the legacy data.
+ * A separate skip flag keeps the old database, and the fact that it is still
+ * unmigrated, visible to a later launch.
  */
 export function bootWithoutLegacyData(): Promise<PGliteInterface> {
+  // Both records must survive: without the keep, a later cleanup could delete
+  // the data; without the skip, this launch fails the same way again. If either
+  // write fails, change nothing rather than act on a choice we can't remember.
+  if (!preserveLegacyDatabase() || !skipLegacyMigration()) {
+    return Promise.reject(
+      new Error("Couldn't save that choice — check your browser's storage settings, then try again"),
+    );
+  }
   console.warn('[DB] Opening without the legacy data at the user\'s request; the legacy database is kept');
-  preserveLegacyDatabase();
-  setStoredPGliteVersion(PGLITE_VERSION);
   return retryDatabase();
 }
 
@@ -158,9 +187,12 @@ export async function restoreLegacyDump(database: PGliteInterface, dump: string)
 
 async function initDatabase(): Promise<PGliteInterface> {
   const storedVersion = getStoredPGliteVersion();
+  // The user chose to open without their legacy data; it stays on disk,
+  // unmigrated, until a future launch can offer it back.
+  const skipped = legacyMigrationSkipped();
 
-  if (storedVersion !== PGLITE_VERSION) {
-    let dump: string | null;
+  if (storedVersion !== PGLITE_VERSION && !skipped) {
+    let dump: Awaited<ReturnType<typeof dumpLegacyDatabase>>;
     try {
       dump = await dumpLegacyDatabase(storedVersion);
     } catch (err) {
@@ -180,23 +212,25 @@ async function initDatabase(): Promise<PGliteInterface> {
       // claims the migration is done. Later launches run relaxed.
       const db = await createWorkerInstance(false);
       try {
-        const restored = await restoreLegacyDump(db, dump);
+        const restored = await restoreLegacyDump(db, dump.sql);
         setStoredPGliteVersion(PGLITE_VERSION);
-        await retireLegacyDatabase(storedVersion);
+        // The dump carries template1's contents when it came from there, which
+        // is the only case where deleting without re-checking is safe.
+        await retireLegacyDatabase(storedVersion, dump.fromTemplate1);
         console.log(
           restored
             ? '[DB] Migration complete, initializing schema...'
             : '[DB] Legacy data was already restored here, skipping restore',
         );
+        await initializeSchema(db);
       } catch (err) {
-        // The transaction rolled back, so this dir still has no legacy data and
-        // nothing was stamped or deleted. Close the worker so a retry can elect
-        // a fresh leader, and fail the boot instead of running on empty.
-        console.error('[DB] Legacy data restore failed; not booting:', err);
+        // A rolled-back restore leaves this dir without the legacy data, and
+        // nothing stamped or deleted. Close the worker (schema failures included)
+        // so a retry can elect a fresh leader, and fail instead of running empty.
+        console.error('[DB] Legacy migration failed; not booting:', err);
         await db.close().catch(() => {});
         throw err;
       }
-      await initializeSchema(db);
       return db;
     }
   }
@@ -210,11 +244,18 @@ async function initDatabase(): Promise<PGliteInterface> {
 
   console.log('[DB] Creating PGlite worker instance...');
   const db = await createWorkerInstance();
-  setStoredPGliteVersion(PGLITE_VERSION);
-  console.log('[DB] PGlite worker ready, initializing schema...');
-
-  await initializeSchema(db);
-  console.log('[DB] Schema initialized');
+  try {
+    // Leave the stamp alone for a skipped migration: the legacy data is still
+    // there, waiting, and must not look like it was migrated.
+    if (!skipped) setStoredPGliteVersion(PGLITE_VERSION);
+    console.log('[DB] PGlite worker ready, initializing schema...');
+    await initializeSchema(db);
+    console.log('[DB] Schema initialized');
+  } catch (err) {
+    // Don't leak the worker: a retry would add a second one on this dataDir.
+    await db.close().catch(() => {});
+    throw err;
+  }
 
   return db;
 }

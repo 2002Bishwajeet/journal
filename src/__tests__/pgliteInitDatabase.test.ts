@@ -1,21 +1,29 @@
 /**
- * Ordering contract of initDatabase's legacy-migration path (pglite.ts).
+ * Ordering and lifecycle contract of initDatabase's legacy-migration path
+ * (pglite.ts).
  *
- * The dangerous failure is stamping the PGlite version or deleting the legacy
- * database when the data did not actually land in the new data dir. These tests
- * drive initDatabase (via getDatabase) against a fake worker DB and a mocked
- * pglite-migrate, recording the order of the steps that matter.
+ * The dangerous failures are stamping the PGlite version or deleting the legacy
+ * database when the data did not actually land in the new data dir, and leaving
+ * workers running behind a failed boot. These tests drive initDatabase (via
+ * getDatabase) against a fake worker DB and a mocked pglite-migrate, recording
+ * the order of the steps that matter.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+type Dump = { sql: string; fromTemplate1: boolean } | null;
 
 const mocks = {
   events: [] as string[],
   workerOptions: [] as Array<Record<string, unknown>>,
   storedVersion: '0.4' as string | null,
-  dump: 'DUMP SQL' as string | null,
+  dump: { sql: 'DUMP SQL', fromTemplate1: false } as Dump,
   dumpError: null as Error | null,
   restoreError: null as Error | null,
+  schemaError: null as Error | null,
   markerPresent: false,
+  skipped: false,
+  preserveOk: true,
+  skipOk: true,
 };
 
 /** Fake PGliteWorker instance: records the steps the migration depends on. */
@@ -26,7 +34,7 @@ function fakeDb() {
       return { rows: [] };
     },
     exec: async (sql: string) => {
-      if (sql === mocks.dump) {
+      if (sql === mocks.dump?.sql) {
         mocks.events.push('restore');
         if (mocks.restoreError) throw mocks.restoreError;
       } else if (sql.includes('pglite_legacy_migrated')) {
@@ -39,10 +47,12 @@ function fakeDb() {
     transaction: async <T>(callback: (tx: unknown) => Promise<T>) => callback(tx),
     exec: async (sql: string) => {
       if (sql.includes('RESET search_path')) mocks.events.push('reset');
+      // initializeSchema's first statement — the seam for a post-worker failure.
+      if (sql.includes('schema_meta') && mocks.schemaError) throw mocks.schemaError;
       return [];
     },
     query: async () => ({ rows: [] }),
-    close: async () => {},
+    close: async () => void mocks.events.push('close'),
   };
 }
 
@@ -54,14 +64,24 @@ async function loadDatabaseModule() {
       if (mocks.dumpError) throw mocks.dumpError;
       return mocks.dump;
     },
-    retireLegacyDatabase: async () => void mocks.events.push('retire'),
+    retireLegacyDatabase: async (_stored: string | null, fromTemplate1 = false) =>
+      void mocks.events.push(`retire:${fromTemplate1}`),
     cleanUpLegacyDatabase: async () => void mocks.events.push('cleanup'),
-    preserveLegacyDatabase: () => void mocks.events.push('preserve'),
+    preserveLegacyDatabase: () => {
+      mocks.events.push('preserve');
+      return mocks.preserveOk;
+    },
+    skipLegacyMigration: () => {
+      mocks.events.push('skip');
+      return mocks.skipOk;
+    },
+    legacyMigrationSkipped: () => mocks.skipped,
     getStoredPGliteVersion: () => mocks.storedVersion,
     setStoredPGliteVersion: (version: string) => {
       // Mirrors the real helper: the next read sees the new stamp.
       mocks.storedVersion = version;
       mocks.events.push(`stamp:${version}`);
+      return true;
     },
   }));
   vi.doMock('@electric-sql/pglite/worker', () => ({
@@ -82,14 +102,21 @@ async function loadDatabaseModule() {
   return import('../lib/db/pglite');
 }
 
+const stamped = () => mocks.events.some((event) => event.startsWith('stamp'));
+const retired = () => mocks.events.some((event) => event.startsWith('retire'));
+
 beforeEach(() => {
   mocks.events = [];
   mocks.workerOptions = [];
   mocks.storedVersion = '0.4';
-  mocks.dump = 'DUMP SQL';
+  mocks.dump = { sql: 'DUMP SQL', fromTemplate1: false };
   mocks.dumpError = null;
   mocks.restoreError = null;
+  mocks.schemaError = null;
   mocks.markerPresent = false;
+  mocks.skipped = false;
+  mocks.preserveOk = true;
+  mocks.skipOk = true;
   // pglite.ts constructs a Worker before PGliteWorker.create sees it.
   vi.stubGlobal('Worker', class FakeWorker {});
 });
@@ -106,10 +133,20 @@ describe('initDatabase legacy migration', () => {
 
     expect(mocks.events).toContain('restore');
     expect(mocks.events.indexOf('restore')).toBeLessThan(mocks.events.indexOf('stamp:0.5'));
-    expect(mocks.events.indexOf('stamp:0.5')).toBeLessThan(mocks.events.indexOf('retire'));
+    expect(mocks.events.indexOf('stamp:0.5')).toBeLessThan(mocks.events.indexOf('retire:false'));
     // The marker is written inside the same transaction as the restore.
     expect(mocks.events.indexOf('marker')).toBeLessThan(mocks.events.indexOf('stamp:0.5'));
     expect(mocks.events).toContain('reset');
+  });
+
+  it('tells the retirement when the dump already carried template1', async () => {
+    mocks.dump = { sql: 'DUMP SQL', fromTemplate1: true };
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    // Without this the legacy DB would be kept forever for data just migrated.
+    expect(mocks.events).toContain('retire:true');
   });
 
   it('rejects instead of booting an empty database when the dump fails', async () => {
@@ -119,8 +156,8 @@ describe('initDatabase legacy migration', () => {
     await expect(getDatabase()).rejects.toThrow('simulated dump failure');
 
     expect(mocks.events).toContain('dump');
-    expect(mocks.events.some((e) => e.startsWith('stamp'))).toBe(false);
-    expect(mocks.events).not.toContain('retire');
+    expect(stamped()).toBe(false);
+    expect(retired()).toBe(false);
     // The failure is published for the boot error screen.
     expect(mocks.events).toContain('boot-error');
   });
@@ -132,8 +169,8 @@ describe('initDatabase legacy migration', () => {
     await expect(getDatabase()).rejects.toThrow('simulated restore failure');
 
     expect(mocks.events).toContain('restore');
-    expect(mocks.events.some((e) => e.startsWith('stamp'))).toBe(false);
-    expect(mocks.events).not.toContain('retire');
+    expect(stamped()).toBe(false);
+    expect(retired()).toBe(false);
     expect(mocks.events).toContain('boot-error');
   });
 
@@ -157,7 +194,7 @@ describe('initDatabase legacy migration', () => {
     expect(mocks.events).not.toContain('restore');
     // ...but the stamp and the legacy cleanup still get finished.
     expect(mocks.events).toContain('stamp:0.5');
-    expect(mocks.events).toContain('retire');
+    expect(retired()).toBe(true);
   });
 
   it('opens the restoring launch durably, and normal launches relaxed', async () => {
@@ -172,6 +209,18 @@ describe('initDatabase legacy migration', () => {
     expect(mocks.workerOptions.at(-1)?.relaxedDurability).toBe(true);
   });
 
+  it('retries the legacy delete on an already-migrated launch', async () => {
+    mocks.storedVersion = '0.5';
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    expect(mocks.events).toContain('cleanup');
+    expect(mocks.events).not.toContain('dump');
+  });
+});
+
+describe('failed boots', () => {
   it('caches a failed boot instead of re-running the migration for every caller', async () => {
     mocks.dumpError = new Error('simulated dump failure');
     const { getDatabase, retryDatabase } = await loadDatabaseModule();
@@ -189,26 +238,81 @@ describe('initDatabase legacy migration', () => {
     expect(mocks.events.filter((e) => e === 'dump')).toHaveLength(2);
   });
 
-  it('opens the empty dir and keeps the legacy database when the user opts out', async () => {
+  it('closes the worker when schema setup fails, instead of leaking it', async () => {
+    mocks.dump = null;
+    mocks.schemaError = new Error('simulated schema failure');
+    const { getDatabase } = await loadDatabaseModule();
+
+    await expect(getDatabase()).rejects.toThrow('simulated schema failure');
+
+    // A live worker would keep the leader lock and fight the next attempt.
+    expect(mocks.events).toContain('close');
+  });
+
+  it('closes the previous database before a retry opens another worker', async () => {
+    mocks.storedVersion = '0.5';
+    mocks.dump = null;
+    const { getDatabase, retryDatabase } = await loadDatabaseModule();
+    await getDatabase();
+    expect(mocks.events).not.toContain('close');
+
+    await retryDatabase();
+
+    expect(mocks.events).toContain('close');
+  });
+
+  it('shares one attempt between concurrent retries', async () => {
+    mocks.dumpError = new Error('simulated dump failure');
+    const { getDatabase, retryDatabase } = await loadDatabaseModule();
+    await expect(getDatabase()).rejects.toThrow('simulated dump failure');
+
+    const results = await Promise.allSettled([retryDatabase(), retryDatabase()]);
+
+    expect(results.every((r) => r.status === 'rejected')).toBe(true);
+    // One initial attempt plus one shared retry, not one per caller.
+    expect(mocks.events.filter((e) => e === 'dump')).toHaveLength(2);
+  });
+});
+
+describe('opting out of the legacy data', () => {
+  it('records the choice and boots empty without stamping the version', async () => {
     mocks.dumpError = new Error('corrupt legacy database');
     const { getDatabase, bootWithoutLegacyData } = await loadDatabaseModule();
     await expect(getDatabase()).rejects.toThrow('corrupt legacy database');
+    mocks.skipped = true; // the skip flag the real helper would have written
 
     await expect(bootWithoutLegacyData()).resolves.toBeDefined();
 
-    // Kept, never deleted: the data has to stay recoverable.
     expect(mocks.events).toContain('preserve');
-    expect(mocks.events).toContain('stamp:0.5');
-    expect(mocks.events).not.toContain('retire');
+    expect(mocks.events).toContain('skip');
+    // Stamping would make this look like a finished migration and let the
+    // cleanup delete the data we just promised to keep.
+    expect(stamped()).toBe(false);
+    expect(retired()).toBe(false);
   });
 
-  it('retries the legacy delete on an already-migrated launch', async () => {
-    mocks.storedVersion = '0.5';
+  it('changes nothing when the choice cannot be persisted', async () => {
+    mocks.dumpError = new Error('corrupt legacy database');
+    mocks.preserveOk = false;
+    const { getDatabase, bootWithoutLegacyData } = await loadDatabaseModule();
+    await expect(getDatabase()).rejects.toThrow('corrupt legacy database');
+
+    await expect(bootWithoutLegacyData()).rejects.toThrow(/storage settings/);
+
+    // Acting on a choice we can't remember would strand the data next launch.
+    expect(mocks.events).not.toContain('skip');
+    expect(stamped()).toBe(false);
+  });
+
+  it('boots straight past the migration once the skip is recorded', async () => {
+    mocks.skipped = true;
     const { getDatabase } = await loadDatabaseModule();
 
-    await getDatabase();
+    await expect(getDatabase()).resolves.toBeDefined();
 
-    expect(mocks.events).toContain('cleanup');
+    // No engine work, and the stamp stays at '0.4' so the legacy data is still
+    // recognisably unmigrated.
     expect(mocks.events).not.toContain('dump');
+    expect(stamped()).toBe(false);
   });
 });

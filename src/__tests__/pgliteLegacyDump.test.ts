@@ -39,6 +39,18 @@ const LEGACY_SEED = `
   );
 `;
 
+/**
+ * What the shipped 0.4 build left in `postgres`: initializeSchema's tables, with
+ * no notes in them. schema_meta carries a row, as it always does in the field.
+ */
+const EMPTY_SCHEMA = `
+  CREATE TABLE schema_meta (id INTEGER PRIMARY KEY, version TEXT NOT NULL);
+  INSERT INTO schema_meta VALUES (1, '3');
+  CREATE TABLE document_updates (id SERIAL PRIMARY KEY, doc_id UUID NOT NULL, update_blob BYTEA NOT NULL);
+  CREATE TABLE search_index (doc_id UUID PRIMARY KEY, title TEXT NOT NULL DEFAULT 'Untitled');
+  CREATE TABLE folders (id UUID PRIMARY KEY, name TEXT NOT NULL);
+`;
+
 type Dumpable = Parameters<typeof pgDump>[0]['pg'];
 
 async function dumpSql(db: unknown): Promise<string> {
@@ -156,23 +168,50 @@ describe('legacy PGlite dump → PGlite 0.5 restore', () => {
     await target.close();
   });
 
-  it('dumps template1 when a 0.4 dir left v0.3-era data stranded there', async () => {
-    // What the shipped physical 0.3→0.4 migration produced: user tables still in
-    // template1, `postgres` (the database 0.4 connects to) empty.
+  it('recovers a 0.4 dir whose schema is in postgres but whose data is in template1', async () => {
+    // The exact field state of the cohort this exists for: the shipped physical
+    // 0.3→0.4 migration never moved v0.3 data out of template1, and the 0.4
+    // build then created its empty schema in `postgres`. Gating the dump on
+    // "postgres has no tables" would find 4 tables here and migrate nothing.
     const dir = mkdtempSync(join(tmpdir(), 'journal-template1-'));
     try {
-      const legacy = await PGliteV4.create(dir, {
+      const postgres = await PGliteV4.create(dir, { extensions: { pg_trgm: pg_trgm_v4 } });
+      await postgres.exec(EMPTY_SCHEMA);
+      await postgres.close();
+
+      const template1 = await PGliteV4.create(dir, {
         database: 'template1',
         extensions: { pg_trgm: pg_trgm_v4 },
       });
-      await legacy.exec(LEGACY_SEED);
-      await legacy.close();
+      await template1.exec(LEGACY_SEED);
+      await template1.close();
 
-      const sql = await dumpLegacyDataDir('0.4', dir);
-      if (!sql) throw new Error('expected the stranded template1 data to be dumped');
+      const dump = await dumpLegacyDataDir('0.4', dir);
+      if (!dump) throw new Error('expected the stranded template1 data to be dumped');
+      expect(dump.fromTemplate1).toBe(true);
 
       const target = await newTarget();
-      await restore(target, sql);
+      await restore(target, dump.sql);
+      await expectLegacyData(target);
+      await target.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('dumps postgres, not template1, for an ordinary 0.4 user', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'journal-postgres-'));
+    try {
+      const postgres = await PGliteV4.create(dir, { extensions: { pg_trgm: pg_trgm_v4 } });
+      await postgres.exec(LEGACY_SEED);
+      await postgres.close();
+
+      const dump = await dumpLegacyDataDir('0.4', dir);
+      if (!dump) throw new Error('expected the postgres data to be dumped');
+      expect(dump.fromTemplate1).toBe(false);
+
+      const target = await newTarget();
+      await restore(target, dump.sql);
       await expectLegacyData(target);
       await target.close();
     } finally {

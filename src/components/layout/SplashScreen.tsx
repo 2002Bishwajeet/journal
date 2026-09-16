@@ -26,6 +26,9 @@ const BOOT_QUIPS = [
  * first launch after the upgrade fails here). The app deliberately does not
  * boot an empty database in that case, so this is a dead end until a retry
  * succeeds. Nothing has been migrated or deleted; the old data is still there.
+ *
+ * Retry stays in this session on purpose: the opt-out below appears only after
+ * a repeat failure, and telling the user to reload would reset that count.
  */
 export function BootErrorScreen() {
   const error = useSyncExternalStore(subscribeBootProgress, getBootError);
@@ -33,6 +36,10 @@ export function BootErrorScreen() {
   const [busy, setBusy] = useState(false);
 
   if (!error) return null;
+
+  // Only the migration's own failures are escapable — LegacyMigrationError is
+  // thrown solely when a legacy database exists and could not be dumped.
+  const isLegacyFailure = error.name === 'LegacyMigrationError';
 
   const attempt = async (run: () => Promise<unknown>) => {
     setBusy(true);
@@ -70,22 +77,26 @@ export function BootErrorScreen() {
       <div className="space-y-1">
         <h1 className="text-base font-medium">Couldn't open your journal</h1>
         <p className="max-w-xs text-xs text-muted-foreground">
-          Your notes are safe on this device. Reconnect and reload to finish opening them.
+          Your notes are safe on this device. Reconnect and try again to finish opening them.
         </p>
         <p className="max-w-xs break-words font-mono text-xs text-muted-foreground/70">{error.message}</p>
       </div>
       <Button onClick={handleRetry} disabled={busy} size="sm">
         {busy ? 'Retrying…' : 'Retry'}
       </Button>
-      {/* Only after a repeat failure, and only as an explicit choice: this opens
-          an empty journal, so it must never happen on its own. */}
-      {failures >= 2 && (
+      {/* Only for a failure of the legacy migration itself, only after it has
+          failed twice, and only as an explicit choice: this opens an empty
+          journal, so it must never happen on its own. An unrelated failure
+          (say the engine not downloading while offline) is not a reason to
+          leave someone's notes behind. */}
+      {isLegacyFailure && failures >= 2 && (
         <div className="space-y-1">
           <Button onClick={handleSkipLegacy} disabled={busy} size="sm" variant="ghost">
             Open without my old notes
           </Button>
           <p className="max-w-xs text-xs text-muted-foreground/70">
-            Starts an empty journal. Your old notes stay on this device and can still be recovered.
+            Starts an empty journal. Your old notes stay on this device untouched, but this app
+            won't show them until a future update can move them across.
           </p>
         </div>
       )}

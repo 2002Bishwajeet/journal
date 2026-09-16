@@ -1,11 +1,13 @@
 const VERSION_KEY = 'journal-pglite-version';
-// Whether the legacy database must outlive the migration.
-//   'kept'    — its template1 holds v0.3-era tables this migration didn't copy,
-//               or the user chose to boot without them: never delete it.
-//   'recheck' — the template1 check itself failed, so a later launch has to
-//               decide before deleting. A transient failure must not pin tens
-//               of MB of IndexedDB forever, nor license a blind delete.
+// Present when the legacy database must outlive the migration: its template1
+// holds v0.3-era tables this migration didn't copy, or the user chose to open
+// without them. Absent is NOT permission to delete — the write can simply have
+// failed — so every delete re-checks template1 first.
 const LEGACY_KEPT_KEY = 'journal-pglite-legacy-kept';
+// Present when the user chose to open without their legacy data. Deliberately
+// not the version stamp: the stamp would make this indistinguishable from a
+// completed migration, and a later launch could never offer recovery.
+const LEGACY_SKIP_KEY = 'journal-pglite-skip-legacy';
 // Data dir of the retired PGlite engines (v0.3 and v0.4, both Postgres 17). The
 // live engine (Postgres 18) uses a different dir — see DATA_DIR in pglite.ts.
 const LEGACY_DATA_DIR = 'idb://journal-db';
@@ -23,11 +25,20 @@ export const PG_DUMP_ARGS = ['--clean', '--if-exists'];
 // different major version.
 const INIT_FAILED_MESSAGE = 'PGlite failed to initialize properly';
 
-const PUBLIC_TABLE_COUNT_SQL = `SELECT COUNT(*) as cnt FROM information_schema.tables WHERE table_schema = 'public'`;
+const PUBLIC_TABLE_COUNT_SQL = `SELECT COUNT(*)::int as cnt FROM information_schema.tables WHERE table_schema = 'public'`;
 
-// Set when this launch's dump came out of `template1`: that data is being
-// migrated, so retireLegacyDatabase must not keep the database on its account.
-let dumpedTemplate1 = false;
+// The app's own data tables. A '0.4' stamp only proves initializeSchema ran
+// against `postgres` — the shipped 0.4 build created the full empty schema
+// there while v0.3 data stayed in template1 — so "is there anything here" has
+// to be answered with rows, never with table count.
+const DATA_TABLES = ['document_updates', 'search_index'];
+
+/** SQL dump of a legacy database, and which database it came out of. */
+export interface LegacyDump {
+  sql: string;
+  /** template1's contents are in this dump, so nothing is left there to protect. */
+  fromTemplate1: boolean;
+}
 
 /**
  * Thrown when a legacy database is present but dumping it failed. Signals the
@@ -41,6 +52,60 @@ export class LegacyMigrationError extends Error {
     this.name = 'LegacyMigrationError';
     (this as { cause?: unknown }).cause = cause;
   }
+}
+
+// localStorage throws in Safari private mode and on quota. These run before the
+// version is stamped, so an unguarded access fails the boot on every launch.
+function readLocal(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocal(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    console.warn(`[PGlite Migration] Could not persist ${key}:`, err);
+    return false;
+  }
+}
+
+function clearLocal(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Nothing to clean up if storage is unavailable.
+  }
+}
+
+export function getStoredPGliteVersion(): string | null {
+  return readLocal(VERSION_KEY);
+}
+
+export function setStoredPGliteVersion(version: string): boolean {
+  return writeLocal(VERSION_KEY, version);
+}
+
+function isLegacyKept(): boolean {
+  return readLocal(LEGACY_KEPT_KEY) !== null;
+}
+
+/** Keeps the legacy database indefinitely. Returns false if that didn't persist. */
+export function preserveLegacyDatabase(): boolean {
+  return writeLocal(LEGACY_KEPT_KEY, 'kept');
+}
+
+export function legacyMigrationSkipped(): boolean {
+  return readLocal(LEGACY_SKIP_KEY) !== null;
+}
+
+/** Records the user's choice to open without the legacy data. */
+export function skipLegacyMigration(): boolean {
+  return writeLocal(LEGACY_SKIP_KEY, 'skipped');
 }
 
 /**
@@ -73,39 +138,6 @@ async function legacyDatabaseExists(): Promise<boolean> {
     if (outcome === 'created') indexedDB.deleteDatabase(name);
   }
   return false;
-}
-
-export function getStoredPGliteVersion(): string | null {
-  return localStorage.getItem(VERSION_KEY);
-}
-
-export function setStoredPGliteVersion(version: string) {
-  localStorage.setItem(VERSION_KEY, version);
-}
-
-// localStorage throws in private mode and on quota; these run before the
-// version is stamped, so an unguarded write would fail the boot every launch.
-function readLegacyKeptState(): 'kept' | 'recheck' | null {
-  try {
-    const value = localStorage.getItem(LEGACY_KEPT_KEY);
-    return value === 'kept' || value === 'recheck' ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeLegacyKeptState(state: 'kept' | 'recheck' | null): void {
-  try {
-    if (state) localStorage.setItem(LEGACY_KEPT_KEY, state);
-    else localStorage.removeItem(LEGACY_KEPT_KEY);
-  } catch (err) {
-    console.warn('[PGlite Migration] Could not record the legacy database state:', err);
-  }
-}
-
-/** Keeps the legacy database indefinitely (the boot screen's opt-out uses this). */
-export function preserveLegacyDatabase(): void {
-  writeLegacyKeptState('kept');
 }
 
 /**
@@ -153,13 +185,33 @@ export async function openLegacyDatabase(storedVersion: string | null, dataDir: 
 
 type LegacyDatabase = Awaited<ReturnType<typeof openLegacyDatabase>>;
 
-/** Dumps `db`, or resolves null when it holds no user tables at all. */
-async function dumpIfPopulated(db: LegacyDatabase, database: string): Promise<string | null> {
-  const result = await db.query(PUBLIC_TABLE_COUNT_SQL);
-  const tableCount = Number((result.rows[0] as { cnt: number }).cnt);
-  if (tableCount === 0) return null;
+/**
+ * How much is in a database: `rows` counts the app's data tables and is null
+ * when none of them exist (a v0.3-era or foreign schema), where the table count
+ * is all we have to go on.
+ */
+async function probePopulation(db: LegacyDatabase): Promise<{ tables: number; rows: number | null }> {
+  const tableResult = await db.query(PUBLIC_TABLE_COUNT_SQL);
+  const tables = Number((tableResult.rows[0] as { cnt: number }).cnt);
 
-  console.log(`[PGlite Migration] Found ${tableCount} tables in ${database}, dumping data...`);
+  const present: string[] = [];
+  for (const table of DATA_TABLES) {
+    const exists = await db.query(`SELECT to_regclass('public.${table}') IS NOT NULL AS present`);
+    if ((exists.rows[0] as { present: boolean }).present) present.push(table);
+  }
+  if (present.length === 0) return { tables, rows: null };
+
+  const sum = present.map((table) => `(SELECT count(*) FROM public.${table})`).join(' + ');
+  const rowResult = await db.query(`SELECT (${sum})::int AS rows`);
+  return { tables, rows: Number((rowResult.rows[0] as { rows: number }).rows) };
+}
+
+function holdsUserData(population: { tables: number; rows: number | null }): boolean {
+  return population.rows !== null ? population.rows > 0 : population.tables > 0;
+}
+
+async function dumpDatabase(db: LegacyDatabase, database: string): Promise<string> {
+  console.log(`[PGlite Migration] Dumping ${database}...`);
   const { pgDump } = await import('@electric-sql/pglite-tools/pg_dump');
   // pglite-tools types `pg` as the live engine's class; the legacy class is a
   // distinct TS type but exposes the same protocol API pg_dump uses.
@@ -167,38 +219,55 @@ async function dumpIfPopulated(db: LegacyDatabase, database: string): Promise<st
   return file.text();
 }
 
+/** Opens a legacy database, reports whether it holds notes, and dumps it. */
+async function readDatabase(
+  storedVersion: string | null,
+  dataDir: string,
+  database: string,
+): Promise<{ hasData: boolean; dump: string | null }> {
+  const db = await openLegacyDatabase(storedVersion, dataDir);
+  try {
+    const population = await probePopulation(db);
+    return {
+      hasData: holdsUserData(population),
+      // Dump whenever there is anything at all, so a dir whose only content is
+      // folders or app_state still comes across.
+      dump: population.tables > 0 ? await dumpDatabase(db, database) : null,
+    };
+  } finally {
+    await db.close();
+  }
+}
+
 /**
  * SQL dump of a legacy data dir, or null when there is nothing in it.
  *
- * A '0.4' dir normally keeps user tables in `postgres`. When that database is
- * empty we also look in `template1`: PGlite 0.3 kept user tables there, and the
- * shipped physical 0.3→0.4 migration never copied them across, so for those
- * users the notes are still sitting in template1 and this is their only chance
- * to come along.
+ * `postgres` comes first, so an ordinary 0.4 user is unaffected. When it holds
+ * no notes we also look in `template1`: PGlite 0.3 kept user tables there, and
+ * the shipped physical 0.3→0.4 migration never copied them across — it only ran
+ * initializeSchema against `postgres`, which is why an empty schema there says
+ * nothing about whether the user has data.
  *
  * Exported as a test seam; the app always passes the legacy IndexedDB dir.
  */
-export async function dumpLegacyDataDir(storedVersion: string | null, dataDir: string): Promise<string | null> {
-  const oldDb = await openLegacyDatabase(storedVersion, dataDir);
-  let dump: string | null;
-  try {
-    dump = await dumpIfPopulated(oldDb, storedVersion === null ? 'template1' : 'postgres');
-  } finally {
-    await oldDb.close();
-  }
-  if (dump !== null || storedVersion === null) return dump;
+export async function dumpLegacyDataDir(storedVersion: string | null, dataDir: string): Promise<LegacyDump | null> {
+  const primary = await readDatabase(storedVersion, dataDir, storedVersion === null ? 'template1' : 'postgres');
 
-  const template1Db = await openWithLegacyEngines(dataDir, 'template1');
+  // A v0.3 stamp opened template1 itself, so this dump already covers it.
+  if (storedVersion === null) return primary.dump ? { sql: primary.dump, fromTemplate1: true } : null;
+  if (primary.hasData && primary.dump) return { sql: primary.dump, fromTemplate1: false };
+
+  const template1 = await openWithLegacyEngines(dataDir, 'template1');
   try {
-    dump = await dumpIfPopulated(template1Db, 'template1');
+    if (holdsUserData(await probePopulation(template1))) {
+      console.warn('[PGlite Migration] Recovering v0.3-era data stranded in template1');
+      return { sql: await dumpDatabase(template1, 'template1'), fromTemplate1: true };
+    }
   } finally {
-    await template1Db.close();
+    await template1.close();
   }
-  if (dump !== null) {
-    console.warn('[PGlite Migration] Recovered v0.3-era data stranded in template1');
-    dumpedTemplate1 = true;
-  }
-  return dump;
+
+  return primary.dump ? { sql: primary.dump, fromTemplate1: false } : null;
 }
 
 /**
@@ -207,7 +276,7 @@ export async function dumpLegacyDataDir(storedVersion: string | null, dataDir: s
  * `storedVersion` null means the v0.3 engine wrote it, '0.4' the v0.4 engine.
  * Resolves null when there is nothing to migrate.
  */
-export async function dumpLegacyDatabase(storedVersion: string | null): Promise<string | null> {
+export async function dumpLegacyDatabase(storedVersion: string | null): Promise<LegacyDump | null> {
   // Detect without instantiating an engine. No leftover DB → nothing to migrate,
   // and none of the legacy engines (~10 MB WASM each) is imported on this path.
   if (!(await legacyDatabaseExists())) {
@@ -215,11 +284,11 @@ export async function dumpLegacyDatabase(storedVersion: string | null): Promise<
     return null;
   }
 
-  let dump: string | null;
+  let dump: LegacyDump | null;
   try {
     console.log(`[PGlite Migration] Legacy database detected (stored version ${storedVersion}), loading v0.4 engine...`);
     dump = await dumpLegacyDataDir(storedVersion, LEGACY_DATA_DIR);
-    if (dump !== null) console.log('[PGlite Migration] Dump complete');
+    if (dump) console.log('[PGlite Migration] Dump complete');
   } catch (err) {
     // A legacy DB is present but we couldn't dump it. Surface a tagged error so
     // the caller can skip version-stamping and retry next launch, rather than
@@ -231,14 +300,14 @@ export async function dumpLegacyDatabase(storedVersion: string | null): Promise<
   // Nothing to carry over, so retire it now rather than leave it for every
   // future launch to find. The engine is closed, so we don't block our own
   // delete.
-  if (dump === null) await retireLegacyDatabase(storedVersion);
+  if (dump === null) await retireLegacyDatabase(storedVersion, false);
   return dump;
 }
 
 /**
  * Whether the legacy dir still holds v0.3-era tables in `template1` that this
  * migration has not copied. 'unknown' means the check itself failed — the
- * database is then kept, but only provisionally.
+ * database is then kept, and checked again on a later launch.
  */
 async function checkTemplate1(dataDir: string): Promise<'has-tables' | 'empty' | 'unknown'> {
   try {
@@ -256,30 +325,30 @@ async function checkTemplate1(dataDir: string): Promise<'has-tables' | 'empty' |
 }
 
 /**
- * Deletes the legacy database now that its data has been carried over — unless
- * a '0.4' dir still holds v0.3-era tables in `template1` that this migration
- * did not dump, where it may be the only copy left.
+ * Deletes the legacy database now that its data has been carried over.
+ *
+ * `dumpedTemplate1` says the dump already contains template1's contents, the
+ * only case where deleting without checking is safe. Otherwise template1 is
+ * re-checked here: a '0.4' dir can still hold v0.3-era tables that no dump has
+ * taken, and that may be the only copy left.
  */
-export async function retireLegacyDatabase(storedVersion: string | null): Promise<void> {
-  // A v0.3 stamp dumps template1 itself, and so does the fallback above, so in
-  // both cases there is nothing left in template1 to protect.
+export async function retireLegacyDatabase(storedVersion: string | null, dumpedTemplate1 = false): Promise<void> {
+  if (isLegacyKept()) return;
   if (storedVersion !== null && !dumpedTemplate1) {
     const template1 = await checkTemplate1(LEGACY_DATA_DIR);
     if (template1 === 'has-tables') {
       console.warn(
         '[PGlite Migration] Keeping the legacy database: its template1 still holds v0.3-era tables that this migration does not copy',
       );
-      writeLegacyKeptState('kept');
+      preserveLegacyDatabase();
       return;
     }
     if (template1 === 'unknown') {
       console.warn('[PGlite Migration] Keeping the legacy database until template1 can be checked again');
-      writeLegacyKeptState('recheck');
       return;
     }
   }
   await deleteLegacyDatabase();
-  writeLegacyKeptState(null);
 }
 
 /**
@@ -289,25 +358,21 @@ export async function retireLegacyDatabase(storedVersion: string | null): Promis
  * survives the session; a later launch never opens it.
  */
 export async function cleanUpLegacyDatabase(): Promise<void> {
-  const state = readLegacyKeptState();
-  if (state === 'kept') return;
-  if (!(await legacyDatabaseExists())) {
-    if (state) writeLegacyKeptState(null);
+  if (isLegacyKept()) return;
+  if (!(await legacyDatabaseExists())) return;
+
+  // A missing keep flag is not permission to delete — the write may have failed
+  // — so the data itself decides. This is the only path that loads an engine
+  // after migrating, and only while a leftover database is still around.
+  const template1 = await checkTemplate1(LEGACY_DATA_DIR);
+  if (template1 === 'has-tables') {
+    preserveLegacyDatabase();
     return;
   }
-  if (state === 'recheck') {
-    // The migration couldn't check template1, so decide now instead of deleting
-    // data blind. This is the only path that loads an engine after migrating.
-    const template1 = await checkTemplate1(LEGACY_DATA_DIR);
-    if (template1 === 'has-tables') {
-      writeLegacyKeptState('kept');
-      return;
-    }
-    if (template1 === 'unknown') return;
-  }
+  if (template1 === 'unknown') return;
+
   console.log('[PGlite Migration] Deleting the legacy database left behind by an earlier migration');
   await deleteLegacyDatabase();
-  writeLegacyKeptState(null);
 }
 
 async function deleteLegacyDatabase(): Promise<void> {
@@ -326,4 +391,5 @@ async function deleteLegacyDatabase(): Promise<void> {
       // Database might not exist
     }
   }
+  clearLocal(LEGACY_KEPT_KEY);
 }
