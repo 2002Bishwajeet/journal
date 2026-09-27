@@ -177,6 +177,24 @@ describe('SyncService.processPendingImageUploads promotion', () => {
         expect(await getUploadRow()).toBeUndefined();
     });
 
+    it('gives up at once on a note shared with you instead of retrying forever', async () => {
+        await upsertSyncRecord({
+            localId: DOC_ID, entityType: 'note', remoteFileId: FILE_ID, versionTag: 'v1',
+            lastSyncedAt: new Date().toISOString(), syncStatus: 'synced', authorOdinId: 'alice.dotyou.cloud',
+        });
+        await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(makeDoc()));
+        await queueUpload();
+        // What addImageToNote does for a peer note: it looks the note up on the own drive
+        mockAddImageToNote.mockRejectedValue(new Error(`Cannot add image: note with uniqueId ${DOC_ID} not found`));
+
+        await svc.processPendingImageUploads();
+
+        const r = await db.query<{ status: string; next_retry_at: string | null }>(
+            'SELECT status, next_retry_at FROM pending_image_uploads WHERE id = $1', [UPLOAD_ID]);
+        expect(r.rows[0]).toEqual({ status: 'failed_permanent', next_retry_at: null });
+        expect(await getImageUploadsReadyForRetry()).toEqual([]);
+    });
+
     it('gives up as failed_permanent after the 5th failed promotion, keeping the bytes', async () => {
         await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(makeDoc()));
         await queueUpload(4);

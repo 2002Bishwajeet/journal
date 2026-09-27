@@ -1089,6 +1089,34 @@ export async function deletePendingImageUpload(id: string): Promise<void> {
     await db.query('DELETE FROM pending_image_uploads WHERE id = $1', [id]);
 }
 
+export async function getPendingImageUpload(
+    id: string,
+): Promise<Pick<PendingImageUpload, 'blobData' | 'contentType' | 'status'> | null> {
+    const db = await getDatabase();
+    const result = await db.query<{
+        blob_data: Uint8Array;
+        content_type: string;
+        status: PendingImageUpload['status'];
+    }>('SELECT blob_data, content_type, status FROM pending_image_uploads WHERE id = $1', [id]);
+    const row = result.rows[0];
+    return row ? { blobData: row.blob_data, contentType: row.content_type, status: row.status } : null;
+}
+
+/** Status only, without the image bytes: cheap enough to poll. */
+export async function getPendingImageUploadStatus(id: string): Promise<PendingImageUpload['status'] | null> {
+    const db = await getDatabase();
+    const result = await db.query<{ status: PendingImageUpload['status'] }>(
+        'SELECT status FROM pending_image_uploads WHERE id = $1', [id]);
+    return result.rows[0]?.status ?? null;
+}
+
+/** User-requested retry: due now, with a fresh attempt budget, even if it was given up on. */
+export async function retryPendingImageUploadNow(id: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `UPDATE pending_image_uploads SET next_retry_at = NULL, retry_count = 0, status = 'pending' WHERE id = $1`, [id]);
+}
+
 
 
 /**

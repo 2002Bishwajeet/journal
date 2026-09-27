@@ -1,11 +1,11 @@
 /**
  * FileHandler Extension
- * 
+ *
  * Handles file drops and pastes in the editor.
  * Validates images (size, type) and queues them for upload.
  */
 
-import { Extension } from '@tiptap/core';
+import { Extension, type Editor } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { toast } from 'sonner';
 import { getNewId } from '@homebase-id/js-lib/helpers';
@@ -17,6 +17,62 @@ export interface FileHandlerOptions {
     allowedTypes: string[];
     /** Callback when an image is dropped/pasted */
     onImageDrop: (file: File, pendingId: string) => Promise<void>;
+    /** True when images can't be added (a note shared with you: no peer upload yet) */
+    imagesReadOnly: boolean;
+}
+
+declare module '@tiptap/core' {
+    interface Commands<ReturnType> {
+        fileHandler: {
+            /** Validate, insert and queue image files — the same path as drop/paste. */
+            insertImageFiles: (files: File[]) => ReturnType;
+        };
+    }
+}
+
+async function processImageFile(editor: Editor, options: FileHandlerOptions, file: File): Promise<boolean> {
+    const { maxSizeMB, allowedTypes, onImageDrop, imagesReadOnly } = options;
+
+    // Otherwise the upload would be queued and could never succeed
+    if (imagesReadOnly) {
+        toast.error("Images can't be added to notes shared with you yet");
+        return false;
+    }
+
+    // Validate file type
+    if (!allowedTypes.includes(file.type)) {
+        toast.error(`Unsupported file type: ${file.type}`);
+        return false;
+    }
+
+    // Validate file size
+    if (file.size > maxSizeMB * 1024 * 1024) {
+        toast.error(`File too large. Maximum size is ${maxSizeMB}MB`);
+        return false;
+    }
+
+    const pendingId = getNewId();
+
+    // Queue before inserting: the node renders from the queued bytes, and a node
+    // without its queue row reads as another device's upload.
+    try {
+        await onImageDrop(file, pendingId);
+    } catch (error) {
+        console.error('[FileHandler] Failed to queue image:', error);
+        toast.error('Failed to queue image for upload');
+        return false;
+    }
+    if (editor.isDestroyed) return false;
+
+    editor.chain().focus().insertContent({
+        type: 'image',
+        attrs: {
+            src: URL.createObjectURL(file),
+            'data-pending-id': pendingId,
+        },
+    }).run();
+
+    return true;
 }
 
 export const FileHandler = Extension.create<FileHandlerOptions>({
@@ -27,50 +83,24 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
             maxSizeMB: 20,
             allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
             onImageDrop: async () => { },
+            imagesReadOnly: false,
+        };
+    },
+
+    addCommands() {
+        return {
+            // Each insert lands after its queue write, outside this command's transaction.
+            insertImageFiles: (files: File[]) => () => {
+                for (const file of files) void processImageFile(this.editor, this.options, file);
+                return true;
+            },
         };
     },
 
     addProseMirrorPlugins() {
-        const { maxSizeMB, allowedTypes, onImageDrop } = this.options;
-        const allowedTypesSet = new Set(allowedTypes);
+        const allowedTypesSet = new Set(this.options.allowedTypes);
         const editor = this.editor;
-
-        const processFile = async (file: File): Promise<boolean> => {
-            // Validate file type
-            if (!allowedTypesSet.has(file.type)) {
-                toast.error(`Unsupported file type: ${file.type}`);
-                return false;
-            }
-
-            // Validate file size
-            if (file.size > maxSizeMB * 1024 * 1024) {
-                toast.error(`File too large. Maximum size is ${maxSizeMB}MB`);
-                return false;
-            }
-
-            const pendingId = getNewId();
-            const blobUrl = URL.createObjectURL(file);
-
-            // Insert image with pending marker
-            editor.chain().focus().insertContent({
-                type: 'image',
-                attrs: {
-                    src: blobUrl,
-                    'data-pending-id': pendingId,
-                },
-            }).run();
-
-            // Queue for upload
-            try {
-                await onImageDrop(file, pendingId);
-                toast.success('Image added - will sync shortly');
-            } catch (error) {
-                console.error('[FileHandler] Failed to queue image:', error);
-                toast.error('Failed to queue image for upload');
-            }
-
-            return true;
-        };
+        const options = this.options;
 
         return [
             new Plugin({
@@ -94,7 +124,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
 
                         // Process each image file
                         for (const file of imageFiles) {
-                            processFile(file);
+                            processImageFile(editor, options, file);
                         }
 
                         return true;
@@ -115,7 +145,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
                         for (const item of imageItems) {
                             const file = item.getAsFile();
                             if (file) {
-                                processFile(file);
+                                processImageFile(editor, options, file);
                             }
                         }
 
