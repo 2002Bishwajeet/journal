@@ -22,8 +22,9 @@ const shot = (name) => page.screenshot({ path: `${OUT}/${name}.png`, fullPage: t
 
 try {
   // 1. Owner first run. Preconfigured dev domains accept any first-run token
-  //    (OwnerSecretService.SetNewPasswordAsync: `|| tenantContext.IsPreconfigured`).
-  await page.goto(`https://${IDENTITY}/owner/firstrun?frt=spike`);
+  //    (OwnerSecretService.SetNewPasswordAsync: `|| tenantContext.IsPreconfigured`),
+  //    but it must parse as a Guid (PasswordReply.FirstRunToken is Guid?) or the API 400s.
+  await page.goto(`https://${IDENTITY}/owner/firstrun?frt=${crypto.randomUUID()}`);
   await page.locator('#password').fill(PASSWORD);
   await page.locator('#retypePassword').fill(PASSWORD);
   await shot('01-firstrun');
