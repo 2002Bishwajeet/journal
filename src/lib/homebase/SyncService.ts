@@ -1053,27 +1053,44 @@ export class SyncService {
                     continue;
                 }
 
-                await updateImageUploadStatus(upload.id, 'uploading');
+                // payloadKey set => the bytes reached the server on an earlier attempt;
+                // only promotion is left, never upload twice.
+                let payloadKey = upload.payloadKey;
+                if (!payloadKey) {
+                    await updateImageUploadStatus(upload.id, 'uploading');
 
-                const result = await this.#notesProvider.addImageToNote(
-                    upload.noteDocId, // uniqueId - consistent with how notes are tracked
-                    syncRecord.versionTag,
-                    { file: new Blob([new Uint8Array(upload.blobData)], { type: upload.contentType }) },
-                );
+                    const result = await this.#notesProvider.addImageToNote(
+                        upload.noteDocId, // uniqueId - consistent with how notes are tracked
+                        syncRecord.versionTag,
+                        { file: new Blob([new Uint8Array(upload.blobData)], { type: upload.contentType }) },
+                    );
+                    payloadKey = result.payloadKey;
+
+                    // Record the upload before promotion so a crash or failed promotion never re-uploads
+                    await updateImageUploadStatus(upload.id, 'uploading', payloadKey);
+                    await markSynced(upload.noteDocId, syncRecord.remoteFileId, result.versionTag);
+                    console.log(`[SyncService] Image ${upload.id} uploaded as ${payloadKey}`);
+                }
 
                 // Update the Yjs document to replace pending reference with permanent one
-                await this.updateImageReference(
+                const promoted = await this.updateImageReference(
                     upload.noteDocId,
                     upload.id, // data-pending-id
                     syncRecord.remoteFileId,
-                    result.payloadKey
+                    payloadKey
                 );
 
-                // Success - update sync record and remove pending upload
-                await markSynced(upload.noteDocId, syncRecord.remoteFileId, result.versionTag);
-                await deletePendingImageUpload(upload.id);
-
-                console.log(`[SyncService] Image ${upload.id} uploaded as ${result.payloadKey}`);
+                if (promoted) {
+                    await deletePendingImageUpload(upload.id);
+                } else if (upload.retryCount + 1 >= 5) {
+                    // Give up retrying but keep the bytes (cleared at logout)
+                    await updateImageUploadStatus(upload.id, 'failed_permanent');
+                    console.warn(`[SyncService] Image ${upload.id} could not be promoted; giving up`);
+                } else {
+                    await incrementImageRetryCount(upload.id);
+                    await updateImageUploadStatus(upload.id, 'failed');
+                    await updateImageRetryAt(upload.id, calculateNextRetryAt(upload.retryCount));
+                }
             } catch (error) {
                 console.error(`[SyncService] Image upload failed:`, error);
 
@@ -1097,14 +1114,15 @@ export class SyncService {
         pendingId: string,
         fileId: string,
         payloadKey: string
-    ): Promise<void> {
+    ): Promise<boolean> {
         const updates = await getDocumentUpdates(docId);
-        if (!updates.length) return;
+        if (!updates.length) return false;
 
         const ydoc = new Y.Doc();
         for (const update of updates) {
             Y.applyUpdate(ydoc, update);
         }
+        const before = Y.encodeStateVector(ydoc);
 
         const fragment = ydoc.getXmlFragment('prosemirror');
         let found = false;
@@ -1139,12 +1157,11 @@ export class SyncService {
             }
         };
 
-        replaceInFragment(fragment);
+        ydoc.transact(() => replaceInFragment(fragment));
 
         if (found) {
-            // Save updated state
-            const newUpdate = Y.encodeStateAsUpdate(ydoc);
-            await replaceDocumentUpdates(docId, newUpdate);
+            // Append only the delta so rows the editor saved concurrently are never deleted
+            await saveDocumentUpdate(docId, Y.encodeStateAsUpdate(ydoc, before));
 
             // Notify the editor that the document was updated
             documentBroadcast.notifyDocumentUpdated(docId);
@@ -1153,6 +1170,7 @@ export class SyncService {
         }
 
         ydoc.destroy();
+        return found;
     }
 
     /**

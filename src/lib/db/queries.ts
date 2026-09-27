@@ -1013,16 +1013,16 @@ export async function getPendingImageUploads(noteDocId?: string): Promise<Pendin
     const db = await getDatabase();
     const query = noteDocId
         ? `SELECT id, note_doc_id, blob_data, content_type, status, retry_count, payload_key, created_at 
-           FROM pending_image_uploads WHERE note_doc_id = $1 AND status != 'synced' ORDER BY created_at ASC`
+           FROM pending_image_uploads WHERE note_doc_id = $1 AND status NOT IN ('synced', 'failed_permanent') ORDER BY created_at ASC`
         : `SELECT id, note_doc_id, blob_data, content_type, status, retry_count, payload_key, created_at 
-           FROM pending_image_uploads WHERE status != 'synced' ORDER BY created_at ASC`;
+           FROM pending_image_uploads WHERE status NOT IN ('synced', 'failed_permanent') ORDER BY created_at ASC`;
     const params = noteDocId ? [noteDocId] : [];
     const result = await db.query<{
         id: string;
         note_doc_id: string;
         blob_data: Uint8Array;
         content_type: string;
-        status: 'pending' | 'uploading' | 'failed';
+        status: 'pending' | 'uploading' | 'failed' | 'failed_permanent';
         retry_count: number;
         payload_key: string | null;
         created_at: string;
@@ -1075,7 +1075,7 @@ export async function getPendingSyncCount(): Promise<{ notes: number; folders: n
     );
 
     const imagesResult = await db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM pending_image_uploads WHERE status != 'synced'`
+        `SELECT COUNT(*) as count FROM pending_image_uploads WHERE status NOT IN ('synced', 'failed_permanent')`
     );
 
     return {
@@ -1336,7 +1336,7 @@ export async function getImageUploadsReadyForRetry(): Promise<PendingImageUpload
         note_doc_id: string;
         blob_data: Uint8Array;
         content_type: string;
-        status: 'pending' | 'uploading' | 'failed';
+        status: 'pending' | 'uploading' | 'failed' | 'failed_permanent';
         retry_count: number;
         payload_key: string | null;
         next_retry_at: string | null;
@@ -1344,7 +1344,7 @@ export async function getImageUploadsReadyForRetry(): Promise<PendingImageUpload
     }>(
         `SELECT id, note_doc_id, blob_data, content_type, status, retry_count, payload_key, next_retry_at, created_at 
          FROM pending_image_uploads 
-         WHERE status != 'synced' 
+         WHERE status NOT IN ('synced', 'failed_permanent')
          AND (next_retry_at IS NULL OR next_retry_at <= CURRENT_TIMESTAMP)
          ORDER BY created_at ASC`
     );
