@@ -7,7 +7,9 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
-import { NOTE_COUNTS_SQL, type NoteCountsRow } from '@/lib/db';
+import { NOTE_COUNTS_SQL, NOTE_LIST_SQL, type NoteCountsRow } from '@/lib/db';
+
+const HOST = 'host.example';
 
 function generateTestId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -17,10 +19,19 @@ function generateTestId(): string {
   });
 }
 
-async function insertNote(db: PGlite, metadata: Record<string, unknown>) {
+async function insertNote(db: PGlite, metadata: Record<string, unknown>): Promise<string> {
+  const id = generateTestId();
   await db.query(
     `INSERT INTO search_index (doc_id, title, plain_text_content, metadata) VALUES ($1, 'T', '', $2)`,
-    [generateTestId(), JSON.stringify(metadata)],
+    [id, JSON.stringify(metadata)],
+  );
+  return id;
+}
+
+async function insertSyncRecord(db: PGlite, localId: string, authorOdinId: string) {
+  await db.query(
+    `INSERT INTO sync_records (local_id, entity_type, author_odin_id) VALUES ($1, 'note', $2)`,
+    [localId, authorOdinId],
   );
 }
 
@@ -38,7 +49,7 @@ describe('NOTE_COUNTS_SQL', () => {
   });
 
   it('returns zeros on an empty table', async () => {
-    const res = await db.query<NoteCountsRow>(NOTE_COUNTS_SQL);
+    const res = await db.query<NoteCountsRow>(NOTE_COUNTS_SQL, [HOST]);
     expect(res.rows[0]).toEqual({ trashed: 0, archived: 0, collaborative: 0 });
   });
 
@@ -47,11 +58,33 @@ describe('NOTE_COUNTS_SQL', () => {
     await insertNote(db, { folderId: 'main', archivalStatus: 2 }); // trashed
     await insertNote(db, { folderId: 'main', archivalStatus: 2 }); // trashed
     await insertNote(db, { folderId: 'main', archivalStatus: 1 }); // archived
-    await insertNote(db, { folderId: 'main', isCollaborative: true }); // collaborative (active)
-    // collaborative but trashed → counts as trashed, NOT as collaborative
-    await insertNote(db, { folderId: 'main', isCollaborative: true, archivalStatus: 2 });
+    // shared with me (active)
+    await insertNote(db, { folderId: 'main', isCollaborative: true, authorOdinId: 'peer.example' });
+    // shared with me but trashed → counts as trashed, NOT as collaborative
+    await insertNote(db, { folderId: 'main', isCollaborative: true, authorOdinId: 'peer.example', archivalStatus: 2 });
 
-    const res = await db.query<NoteCountsRow>(NOTE_COUNTS_SQL);
+    const res = await db.query<NoteCountsRow>(NOTE_COUNTS_SQL, [HOST]);
     expect(res.rows[0]).toEqual({ trashed: 3, archived: 1, collaborative: 1 });
+  });
+
+  it('counts and lists only notes shared by another identity', async () => {
+    await insertNote(db, { folderId: 'main', archivalStatus: 2 }); // trashed
+    await insertNote(db, { folderId: 'main', archivalStatus: 1 }); // archived
+    // A: peer author in metadata
+    const a = await insertNote(db, { folderId: 'main', isCollaborative: true, authorOdinId: 'peer.example' });
+    // B: author only in sync_records
+    const b = await insertNote(db, { folderId: 'main', isCollaborative: true });
+    await insertSyncRecord(db, b, 'peer2.example');
+    // C: no author anywhere — shared by you
+    await insertNote(db, { folderId: 'main', isCollaborative: true });
+    // D: sync_records author is the host itself
+    const d = await insertNote(db, { folderId: 'main', isCollaborative: true });
+    await insertSyncRecord(db, d, HOST);
+
+    const counts = await db.query<NoteCountsRow>(NOTE_COUNTS_SQL, [HOST]);
+    expect(counts.rows[0]).toEqual({ trashed: 1, archived: 1, collaborative: 2 });
+
+    const list = await db.query<{ doc_id: string }>(NOTE_LIST_SQL.collaborative, [HOST]);
+    expect(list.rows.map((r) => r.doc_id).sort()).toEqual([a, b].sort());
   });
 });
