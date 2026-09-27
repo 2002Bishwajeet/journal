@@ -35,5 +35,8 @@ export default defineConfig({
       use: { ...use, storageState: 'e2e/.auth/live.json' },
     },
     { name: 'live-setup', testMatch: '**/auth.setup.ts', use },
+    // CI-only (#203): non-interactive counterpart to 'live-setup', for a
+    // freshly booted identity with no human to approve consent.
+    { name: 'live-ci-setup', testMatch: '**/ci-bootstrap.ts', use },
   ],
 });

@@ -1,0 +1,152 @@
+name: E2E live
+
+# Layer 3 (#203, per #240's spike findings comment — the source of truth for
+# every step below): boots the published Homebase image with a per-run
+# throwaway CA and a freshly seeded dev identity, then runs the same
+# `*.live.spec.ts` specs #204 runs locally against a real identity, replay
+# off. Never a required check — see e2e/README.md's "Layer 3 — live" section.
+
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+  # TEMPORARY, for CI iteration on this branch only — remove before merging
+  # (see #203): `gh workflow run --ref` only works once the workflow file
+  # exists on main, so `push` is how this branch's own runs are triggered.
+  push:
+    branches: [ci/203-e2e-live-docker]
+
+jobs:
+  e2e-live:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'e2e-live'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      IMAGE: ghcr.io/homebase-id/odin-core@sha256:ee63bcd309cf4c90450354697764db38640a6b6d76d07da797fb0425c7a84061
+      E2E_LIVE_IDENTITY: frodo.dotyou.cloud
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Authenticate to Github packages
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+
+      - name: Install dependencies
+        run: npm ci --include=optional --no-audit --no-fund
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate per-run CA + ECDSA leaf certificate (never committed)
+        run: |
+          CERTS="$RUNNER_TEMP/certs"
+          mkdir -p "$CERTS"
+          cd "$CERTS"
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.crt -days 2 \
+            -subj "/CN=Journal e2e-live throwaway CA ${GITHUB_RUN_ID}" \
+            -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign"
+          # odin-core's preconfigured dev identities. CertificateStore requires
+          # an ECDSA leaf (GetECDsaPrivateKey() crashes the host on an RSA
+          # one), and DevEnvironmentSetup exits if ANY of these is missing a
+          # cert, even ones this run never talks to.
+          DOMAINS="frodo sam merry pippin tom collab"
+          SAN="DNS:dotyou.cloud,DNS:*.dotyou.cloud"
+          for d in $DOMAINS; do SAN="$SAN,DNS:*.$d.dotyou.cloud"; done
+          openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout leaf.key -out leaf.csr -subj "/CN=*.dotyou.cloud"
+          printf 'subjectAltName=%s\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n' "$SAN" > leaf.ext
+          openssl x509 -req -in leaf.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out leaf.crt -days 30 -extfile leaf.ext
+          # <SslSourcePath>/<domain>/{certificate.crt,private.key}, per the
+          # host's own layout.
+          for d in $DOMAINS admin provisioning; do
+            mkdir -p "https/$d.dotyou.cloud"
+            cp leaf.crt "https/$d.dotyou.cloud/certificate.crt"
+            cp leaf.key "https/$d.dotyou.cloud/private.key"
+          done
+          # e2e/support/make-cert.mjs serves the app with this same leaf.
+          mkdir -p app && cp leaf.crt app/e2e.crt && cp leaf.key app/e2e.key
+          {
+            echo "CERTS=$CERTS"
+            echo "E2E_CERT_DIR=$CERTS/app"
+          } >> "$GITHUB_ENV"
+
+      - name: Map hostnames to 127.0.0.1
+        run: |
+          # The host answers TLS only for the apex, capi. and file. (api./www.
+          # refuse the handshake) — map only what this run actually visits,
+          # not public DNS or a Docker network alias.
+          echo "127.0.0.1 ${E2E_LIVE_IDENTITY} capi.${E2E_LIVE_IDENTITY} file.${E2E_LIVE_IDENTITY} e2e.dotyou.cloud" | sudo tee -a /etc/hosts
+
+      - name: Trust the per-run CA in Chromium's NSS DB
+        run: |
+          sudo apt-get install -yq libnss3-tools
+          mkdir -p "$HOME/.pki/nssdb"
+          certutil -d "sql:$HOME/.pki/nssdb" -N --empty-password
+          certutil -d "sql:$HOME/.pki/nssdb" -A -t "C,," -n journal-e2e-live-ca -i "$CERTS/ca.crt"
+
+      - name: Start Homebase identity host
+        run: |
+          # ASPNETCORE_ENVIRONMENT=development proxies /owner, /apps/* etc. to
+          # dev.dotyou.cloud:300x Vite dev servers that don't exist in CI, so
+          # every page 500s. Dev seeding depends on the config section
+          # existing, not the environment name, so run a custom env name whose
+          # settings file is the image's own development config: bundled SPAs
+          # + seeded identities, without the broken proxy.
+          docker run --rm --entrypoint cat "$IMAGE" /app/web/appsettings.development.json > "$RUNNER_TEMP/appsettings.e2e.json"
+          docker run -d --name identity-host \
+            -e ASPNETCORE_ENVIRONMENT=e2e \
+            -e Development__SslSourcePath=/certs/https/ \
+            -v "$RUNNER_TEMP/appsettings.e2e.json:/app/web/appsettings.e2e.json:ro" \
+            -v "$CERTS/https:/certs/https:ro" \
+            -p 80:80 -p 443:443 \
+            "$IMAGE"
+
+      - name: Wait for verifyToken probe
+        run: |
+          ok=false
+          for i in $(seq 1 90); do
+            out=$(curl -sS --cacert "$CERTS/ca.crt" "https://${E2E_LIVE_IDENTITY}/api/owner/v1/authentication/verifyToken" 2>&1) && { ok=true; break; }
+            sleep 2
+          done
+          echo "verifyToken -> $out"
+          if [ "$ok" != true ] || [ "$out" != "false" ]; then
+            echo "::error::verifyToken probe did not return false within 3 minutes"
+            docker logs identity-host 2>&1 | tail -n 300
+            exit 1
+          fi
+
+      - name: Bootstrap owner identity and authorise Journal
+        run: npx playwright test -c playwright.live.config.ts --project=live-ci-setup
+        env:
+          CI: true
+
+      - name: Run live e2e suite
+        run: npm run e2e:live
+        env:
+          CI: true
+
+      - name: Save identity-host container logs
+        if: always()
+        run: docker logs identity-host > "$RUNNER_TEMP/identity-host.log" 2>&1 || true
+
+      - name: Upload evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-live-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+            ${{ runner.temp }}/identity-host.log
+          retention-days: 14
