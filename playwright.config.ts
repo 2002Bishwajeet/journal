@@ -25,7 +25,9 @@ export default defineConfig({
   webServer: {
     command: webServerCommand,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    // Only the HMR dev server stays current when reused. Reusing whatever is on
+    // 4173 would skip the build and test a stale (or foreign) bundle.
+    reuseExistingServer: isDevServer && !process.env.CI,
     timeout: 300_000,
   },
   projects: [
