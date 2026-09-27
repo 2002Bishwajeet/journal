@@ -1141,25 +1141,44 @@ export async function clearAllLocalData(): Promise<void> {
 // ============================================
 
 /**
- * Save a sync error for tracking and retry
+ * Record a sync failure. Upserts against the single active (unresolved) row for
+ * this (entity_id, operation) instead of appending a new row per failure, and
+ * backs off the next retry exponentially (5s * 2^retryCount, capped at 5 minutes).
+ * The exponent is capped too: 5s * 2^41 overflows a Postgres interval, which would
+ * make every later failure for this entity throw and abort sync().
+ * Mirrors calculateNextRetryAt's curve below — computed in SQL (not by calling it)
+ * so the backoff uses the row's current retry_count atomically; keep both in sync.
  */
-export async function saveSyncError(error: Omit<SyncError, 'id' | 'createdAt'>): Promise<number> {
+export async function recordSyncError(
+    entityId: string,
+    entityType: 'folder' | 'note' | 'image',
+    operation: 'push' | 'pull' | 'upload',
+    errorMessage: string,
+): Promise<void> {
     const db = await getDatabase();
-    const result = await db.query<{ id: number }>(
-        `INSERT INTO sync_errors (entity_id, entity_type, operation, error_message, error_code, retry_count, next_retry_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING id`,
-        [
-            error.entityId,
-            error.entityType,
-            error.operation,
-            error.errorMessage,
-            error.errorCode || null,
-            error.retryCount,
-            error.nextRetryAt || null,
-        ]
+    await db.query(
+        `INSERT INTO sync_errors (entity_id, entity_type, operation, error_message, retry_count, next_retry_at)
+         VALUES ($1, $2, $3, $4, 1, CURRENT_TIMESTAMP + INTERVAL '5 seconds')
+         ON CONFLICT (entity_id, operation) WHERE resolved_at IS NULL
+         DO UPDATE SET retry_count = sync_errors.retry_count + 1,
+                       next_retry_at = CURRENT_TIMESTAMP + LEAST(INTERVAL '5 seconds' * power(2, LEAST(sync_errors.retry_count, 6)), INTERVAL '5 minutes'),
+                       error_message = EXCLUDED.error_message`,
+        [entityId, entityType, operation, errorMessage]
     );
-    return result.rows[0].id;
+}
+
+/**
+ * Entity ids currently backing off from a failed operation (next_retry_at is
+ * still in the future), so callers can skip retrying them this sync pass.
+ */
+export async function getEntityIdsInBackoff(operation: 'push' | 'pull'): Promise<Set<string>> {
+    const db = await getDatabase();
+    const result = await db.query<{ entity_id: string }>(
+        `SELECT entity_id FROM sync_errors
+         WHERE resolved_at IS NULL AND operation = $1 AND next_retry_at > CURRENT_TIMESTAMP`,
+        [operation]
+    );
+    return new Set(result.rows.map(row => row.entity_id));
 }
 
 /**

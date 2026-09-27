@@ -5,6 +5,7 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 import {
     saveDocumentUpdate, getDocumentUpdates, upsertSyncRecord, getSyncRecord, upsertSearchIndex,
     updateSyncStatus, savePendingImageDeletion, getPendingImageDeletions,
+    recordSyncError, getUnresolvedSyncErrors,
 } from '@/lib/db/queries';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader } from '@/lib/utils';
@@ -387,5 +388,69 @@ describe('SyncService.pushNote', () => {
         const options = mockUpdateNote.mock.calls[0][8] as { toDeletePayloads?: { key: string }[] };
         expect(options.toDeletePayloads).toEqual([{ key: 'jrnl_img1' }]);
         expect(await getPendingImageDeletions(DOC_ID)).toEqual(['jrnl_img1']);
+    });
+});
+
+describe('SyncService.pushChanges backoff filtering (#146)', () => {
+    const NOTE_OK = '33333333-3333-3333-3333-333333333333';
+    const NOTE_BACKOFF = '44444444-4444-4444-4444-444444444444';
+
+    let svc: SyncService;
+    beforeEach(async () => {
+        await resetTestDatabase();
+        vi.clearAllMocks();
+        svc = new SyncService(fakeDotYouClient, fakeOnline);
+    });
+
+    it('does not pass a pending note whose id is in push backoff to pushNote, but pushes one that is not', async () => {
+        await upsertSyncRecord({ localId: NOTE_OK, entityType: 'note', syncStatus: 'pending' } as SyncRecord);
+        await upsertSyncRecord({ localId: NOTE_BACKOFF, entityType: 'note', syncStatus: 'pending' } as SyncRecord);
+        await recordSyncError(NOTE_BACKOFF, 'note', 'push', 'previous failure');
+
+        const pushNoteSpy = vi.spyOn(svc, 'pushNote').mockResolvedValue(undefined);
+
+        await svc.pushChanges();
+
+        const pushedIds = pushNoteSpy.mock.calls.map((call) => call[0].localId);
+        expect(pushedIds).toContain(NOTE_OK);
+        expect(pushedIds).not.toContain(NOTE_BACKOFF);
+    });
+});
+
+describe('SyncService.syncNote clears push backoff on success (#146)', () => {
+    let svc: SyncService;
+    beforeEach(async () => {
+        await resetTestDatabase();
+        vi.clearAllMocks();
+        svc = new SyncService(fakeDotYouClient, fakeOnline);
+    });
+
+    it('resolves the active push error once an immediate save pushes the note', async () => {
+        await upsertSyncRecord({ localId: DOC_ID, entityType: 'note', syncStatus: 'pending' } as SyncRecord);
+        await recordSyncError(DOC_ID, 'note', 'push', 'previous failure');
+        vi.spyOn(documentBroadcast, 'requestFlushAndWait').mockResolvedValue(undefined);
+        vi.spyOn(svc, 'pushNote').mockResolvedValue(undefined);
+
+        await svc.syncNote(DOC_ID);
+
+        expect(await getUnresolvedSyncErrors()).toEqual([]);
+    });
+});
+
+describe('SyncService.logSyncError', () => {
+    let svc: SyncService;
+    beforeEach(async () => {
+        await resetTestDatabase();
+        vi.clearAllMocks();
+        svc = new SyncService(fakeDotYouClient, fakeOnline);
+    });
+
+    it('writes nothing and does not throw when entityId is empty', async () => {
+        const logSyncError = (svc as unknown as {
+            logSyncError: (entityId: string, entityType: 'folder' | 'note' | 'image', operation: 'push' | 'pull' | 'upload', error: unknown) => Promise<void>;
+        }).logSyncError;
+
+        await expect(logSyncError.call(svc, '', 'note', 'pull', new Error('boom'))).resolves.toBeUndefined();
+        expect(await getUnresolvedSyncErrors()).toEqual([]);
     });
 });

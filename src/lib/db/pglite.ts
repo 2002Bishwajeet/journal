@@ -15,6 +15,7 @@ import {
   setStoredPGliteVersion,
   type LegacyDump,
 } from './pglite-migrate';
+import { SYNC_ERRORS_ACTIVE_INDEX_SQL } from './syncErrorsSchema';
 
 // PGlite 0.5 runs Postgres 18, which can't open the Postgres 17 data dir the
 // older engines left at 'idb://journal-db'. Using a new dir lets the legacy DB
@@ -26,7 +27,7 @@ const PGLITE_VERSION = '0.5';
 // tabs racing) would otherwise --clean a stale dump over the migrated data.
 const MIGRATION_MARKER_TABLE = 'pglite_legacy_migrated';
 // Bump whenever a new statement is added to runMigrations().
-const SCHEMA_VERSION = '3';
+const SCHEMA_VERSION = '4';
 
 let dbPromise: Promise<PGliteInterface> | null = null;
 // In-flight retry, so concurrent Retry clicks share one attempt.
@@ -650,6 +651,15 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     `);
   } catch {
     // Table might already exist
+  }
+
+  // Dedupe existing unresolved sync_errors rows and enforce one active row per
+  // (entity_id, operation) going forward, so recordSyncError can upsert with backoff (#146).
+  try {
+    await database.exec(SYNC_ERRORS_ACTIVE_INDEX_SQL);
+    console.log('[DB Migration] sync_errors active index ensured');
+  } catch (error) {
+    console.warn('[DB Migration] Could not create sync_errors active index:', error);
   }
 
   // Create pending_image_deletions if not exists (for existing dbs)
