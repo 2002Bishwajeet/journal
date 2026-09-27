@@ -217,7 +217,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Delete a note from remote
   const deleteNoteRemote = useCallback(
     async (docId: string) => {
-      if (!syncService) return;
+      // Signed out: nothing to delete remotely, so drop the note's sync record
+      if (!syncService) return deleteSyncRecord(docId);
       try {
         await syncService.deleteNoteRemote(docId);
       } catch (error) {

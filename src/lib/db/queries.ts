@@ -1137,7 +1137,7 @@ export async function getPendingSyncCount(): Promise<{ notes: number; folders: n
     const db = await getDatabase();
 
     const notesResult = await db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM sync_records WHERE entity_type = 'note' AND sync_status = 'pending'`
+        `SELECT COUNT(*) as count FROM sync_records WHERE entity_type = 'note' AND sync_status IN ('pending', 'pending_delete')`
     );
 
     const foldersResult = await db.query<{ count: string }>(

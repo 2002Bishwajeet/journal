@@ -417,16 +417,20 @@ export class SyncService {
 
         // Skip records currently backing off from a recent failure (#146). These three
         // reads are independent, so fetch them concurrently instead of sequentially.
-        const [inBackoff, allPendingFolders, allPendingNotes, folderDeletes] = await Promise.all([
+        const [inBackoff, allPendingFolders, allPendingNotes, folderDeletes, noteDeletes] = await Promise.all([
             getEntityIdsInBackoff('push'),
             getPendingSyncRecords('folder'),
             getPendingSyncRecords('note'),
             getPendingSyncRecords('folder', 'pending_delete'),
+            getPendingSyncRecords('note', 'pending_delete'),
         ]);
 
-        // Retry remote folder deletes that failed earlier (#258)
+        // Retry remote folder and note deletes that failed earlier (#258, #265)
         for (const record of folderDeletes) {
             if (!inBackoff.has(record.localId)) await this.deleteFolderRemote(record.localId);
+        }
+        for (const record of noteDeletes) {
+            if (!inBackoff.has(record.localId)) await this.deleteNoteRemote(record.localId);
         }
 
         // Push pending folders first (sequential - usually few folders)
@@ -671,6 +675,8 @@ export class SyncService {
         }
         const noteTitle = content?.title || 'Untitled';
         const existingRecord = await getSyncRecord(uniqueId);
+        // Deleted here; the remote delete is still being retried (#265)
+        if (existingRecord?.syncStatus === 'pending_delete') return;
 
         if (stringGuidsEqual(remoteFile.fileMetadata.versionTag, existingRecord?.versionTag)) {
             return;
@@ -1269,14 +1275,24 @@ export class SyncService {
      */
     async deleteNoteRemote(docId: string): Promise<void> {
         const record = await getSyncRecord(docId);
-        if (record?.remoteFileId) {
-            try {
+        try {
+            if (record?.remoteFileId) {
                 await this.#notesProvider.deleteNote(record.remoteFileId);
                 console.log(`[SyncService] Deleted remote note: ${docId}`);
-            } catch (error) {
-                console.error(`[SyncService] Failed to delete remote note ${docId}:`, error);
-                // Don't throw - local delete should still proceed
             }
+            await deleteSyncRecord(docId);
+            await resolveSyncErrorsForEntity(docId);
+        } catch (error) {
+            console.error(`[SyncService] Failed to delete remote note ${docId}:`, error);
+            // Don't throw - local delete should still proceed. Keep the sync record as
+            // 'pending_delete' so pushChanges retries the remote delete (#265).
+            await upsertSyncRecord({
+                localId: docId,
+                entityType: 'note',
+                remoteFileId: record?.remoteFileId,
+                syncStatus: 'pending_delete',
+            });
+            await this.logSyncError(docId, 'note', 'push', error);
         }
     }
 
