@@ -29,8 +29,7 @@ export function useChatSession(activeNoteId: string | undefined) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Search consent state
-  const [showSearchConsent, setShowSearchConsent] = useState(false);
+  // Search consent state - the dialog is open whenever there's a pending query
   const [pendingSearchQuery, setPendingSearchQuery] = useState<string | null>(null);
 
   // Command Auto-complete state
@@ -155,15 +154,14 @@ INSTRUCTIONS:
 
   const confirmSearch = () => {
     writeString(SEARCH_CONSENT_KEY, "true");
-    setShowSearchConsent(false);
     if (pendingSearchQuery) {
       performSearch(pendingSearchQuery);
-      setPendingSearchQuery(null);
     }
+    setPendingSearchQuery(null);
   };
 
   const cancelSearch = () => {
-    setShowSearchConsent(false);
+    setPendingSearchQuery(null);
   };
 
   const send = async () => {
@@ -197,7 +195,6 @@ INSTRUCTIONS:
         const hasConsent = readString(SEARCH_CONSENT_KEY) === "true";
         if (!hasConsent) {
           setPendingSearchQuery(args);
-          setShowSearchConsent(true);
           return;
         }
 
@@ -353,7 +350,7 @@ RULES:
       setSelectedIndex,
     },
     consent: {
-      open: showSearchConsent,
+      open: pendingSearchQuery !== null,
       query: pendingSearchQuery,
       confirm: confirmSearch,
       cancel: cancelSearch,
