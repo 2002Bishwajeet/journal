@@ -87,6 +87,16 @@ describe('SyncService.deleteFolderRemote', () => {
         expect(mockDeleteFile).toHaveBeenCalledWith(fakeClient, expect.anything(), 'file-1');
         expect(mockDeleteByGroup).toHaveBeenCalledWith(fakeClient, expect.anything(), [FOLDER_ID]);
     });
+
+    it('still group-deletes the notes when the folder file itself was never uploaded', async () => {
+        // Folder push failed (or not reached yet) but its notes were pushed with groupId = folderId
+        await upsertSyncRecord({ localId: FOLDER_ID, entityType: 'folder', syncStatus: 'pending' });
+
+        await new SyncService(fakeClient, fakeOnline).deleteFolderRemote(FOLDER_ID);
+
+        expect(mockDeleteFile).not.toHaveBeenCalled();
+        expect(mockDeleteByGroup).toHaveBeenCalledWith(fakeClient, expect.anything(), [FOLDER_ID]);
+    });
 });
 
 describe('folder delete sweeps trashed and archived notes', () => {

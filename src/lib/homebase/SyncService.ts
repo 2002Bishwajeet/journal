@@ -1262,14 +1262,12 @@ export class SyncService {
      */
     async deleteFolderRemote(folderId: string): Promise<void> {
         const record = await getSyncRecord(folderId);
-        if (record?.remoteFileId) {
-            try {
-                await this.#folderProvider.deleteFolder(record.remoteFileId, folderId);
-                console.log(`[SyncService] Deleted remote folder: ${folderId}`);
-            } catch (error) {
-                console.error(`[SyncService] Failed to delete remote folder ${folderId}:`, error);
-                // Don't throw - local delete should still proceed
-            }
+        try {
+            await this.#folderProvider.deleteFolder(record?.remoteFileId, folderId);
+            console.log(`[SyncService] Deleted remote folder: ${folderId}`);
+        } catch (error) {
+            console.error(`[SyncService] Failed to delete remote folder ${folderId}:`, error);
+            // Don't throw - local delete should still proceed
         }
     }
 }
