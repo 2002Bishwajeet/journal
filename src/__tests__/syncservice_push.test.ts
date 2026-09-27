@@ -4,7 +4,7 @@ import type { DotYouClient, EncryptedKeyHeader } from '@homebase-id/js-lib/core'
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     saveDocumentUpdate, getDocumentUpdates, upsertSyncRecord, getSyncRecord, upsertSearchIndex,
-    updateSyncStatus,
+    updateSyncStatus, savePendingImageDeletion, getPendingImageDeletions,
 } from '@/lib/db/queries';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader } from '@/lib/utils';
@@ -74,6 +74,19 @@ function mergeBlob(updates: Uint8Array[]): Uint8Array {
     const blob = Y.encodeStateAsUpdate(d);
     d.destroy();
     return blob;
+}
+
+/** A prosemirror doc update holding one image node per src. */
+function imagesUpdate(srcs: string[]): Uint8Array {
+    const d = new Y.Doc();
+    d.getXmlFragment('prosemirror').insert(0, srcs.map((src) => {
+        const el = new Y.XmlElement('image');
+        el.setAttribute('src', src);
+        return el;
+    }));
+    const u = Y.encodeStateAsUpdate(d);
+    d.destroy();
+    return u;
 }
 
 const META = (extra: Partial<DocumentMetadata> = {}): DocumentMetadata =>
@@ -351,5 +364,28 @@ describe('SyncService.pushNote', () => {
 
         expect(mockUpdateNote).toHaveBeenCalledTimes(1);
         expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('synced');
+    });
+
+    it('never deletes a pending payload the doc still references on this note\'s file, and drops its row', async () => {
+        // #174: the tracker queued jrnl_img0 and jrnl_img1, then the user undid the jrnl_img0
+        // deletion after the 2s timer (it is back in the doc on this note's file-1). jrnl_img1
+        // is only referenced through ANOTHER note's file, so it is still safe to delete here.
+        await seedNote({
+            updates: [imagesUpdate(['attachment://file-1/jrnl_img0', 'attachment://other-file/jrnl_img1'])],
+            plainText: '', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+        await savePendingImageDeletion(DOC_ID, 'jrnl_img0');
+        await savePendingImageDeletion(DOC_ID, 'jrnl_img1');
+        // Fail the upload so the only way jrnl_img0's row disappears is the pre-push check,
+        // not the clear-all that follows a successful sync.
+        mockUpdateNote.mockRejectedValueOnce(new Error('Network request failed'));
+
+        const record = await getSyncRecord(DOC_ID);
+        await expect(svc.pushNote(record!)).rejects.toThrow();
+
+        const options = mockUpdateNote.mock.calls[0][8] as { toDeletePayloads?: { key: string }[] };
+        expect(options.toDeletePayloads).toEqual([{ key: 'jrnl_img1' }]);
+        expect(await getPendingImageDeletions(DOC_ID)).toEqual(['jrnl_img1']);
     });
 });
