@@ -1107,6 +1107,14 @@ export class SyncService {
                     continue;
                 }
 
+                // A note shared with you lives on the author's drive, which the own-drive
+                // upload can never reach; retrying would loop forever
+                if (syncRecord.authorOdinId && syncRecord.authorOdinId !== this.#hostIdentity) {
+                    await updateImageUploadStatus(upload.id, 'failed_permanent');
+                    console.warn(`[SyncService] Image ${upload.id} is in a peer note; images can't be uploaded there`);
+                    continue;
+                }
+
                 // payloadKey set => the bytes reached the server on an earlier attempt;
                 // only promotion is left, never upload twice.
                 let payloadKey = upload.payloadKey;

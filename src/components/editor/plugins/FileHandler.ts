@@ -17,6 +17,8 @@ export interface FileHandlerOptions {
     allowedTypes: string[];
     /** Callback when an image is dropped/pasted */
     onImageDrop: (file: File, pendingId: string) => Promise<void>;
+    /** True when images can't be added (a note shared with you: no peer upload yet) */
+    isReadOnlyForImages: () => boolean;
 }
 
 declare module '@tiptap/core' {
@@ -29,7 +31,13 @@ declare module '@tiptap/core' {
 }
 
 async function processImageFile(editor: Editor, options: FileHandlerOptions, file: File): Promise<boolean> {
-    const { maxSizeMB, allowedTypes, onImageDrop } = options;
+    const { maxSizeMB, allowedTypes, onImageDrop, isReadOnlyForImages } = options;
+
+    // Otherwise the upload would be queued and could never succeed
+    if (isReadOnlyForImages()) {
+        toast.error("Images can't be added to notes shared with you yet");
+        return false;
+    }
 
     // Validate file type
     if (!allowedTypes.includes(file.type)) {
@@ -75,6 +83,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
             maxSizeMB: 20,
             allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
             onImageDrop: async () => { },
+            isReadOnlyForImages: () => false,
         };
     },
 

@@ -17,6 +17,7 @@ import { upsertSearchIndex, savePendingImageUpload, updateSyncStatus } from "@/l
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { NoteLinkContext, type NoteLinkContextValue } from "./NoteLinkContext";
+import { ImageOwnerContext } from "./nodes/imageOwnerContext";
 import { useSyncService } from "@/hooks/useSyncService";
 import { useNoteTitleMap } from "@/hooks/useNoteTitleMap";
 import { createNoteWithContentInDb } from "@/hooks/useNotes";
@@ -152,6 +153,10 @@ export function EditorProvider({
     };
   }, [yDoc]);
 
+  // A note shared with you: its images live on the author's drive and can't be
+  // uploaded to yet.
+  const isPeerNote = !!metadata.authorOdinId && metadata.authorOdinId !== editorOdinId;
+
   // Track image deletions with cancellable timeouts and sync trigger
   useImageDeletionTracker({ docId, yXmlFragment });
 
@@ -257,6 +262,8 @@ export function EditorProvider({
         maxSizeMB: 5,
         allowedTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
         onImageDrop: (file: File, pendingId: string) => handleImageDropRef.current(file, pendingId),
+        // Stable for the provider's lifetime: it remounts per note.
+        isReadOnlyForImages: () => isPeerNote,
       }),
       // AI-powered plugins (conditionally active). All inputs are read via refs
       // at call time so the editor (and its undo history) is never recreated when
@@ -463,7 +470,9 @@ export function EditorProvider({
   return (
     <EditorContext.Provider value={value}>
       <NoteLinkContext.Provider value={noteLinkValue}>
-        {children}
+        <ImageOwnerContext.Provider value={metadata.authorOdinId}>
+          {children}
+        </ImageOwnerContext.Provider>
       </NoteLinkContext.Provider>
     </EditorContext.Provider>
   );

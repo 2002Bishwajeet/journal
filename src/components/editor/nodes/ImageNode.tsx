@@ -7,7 +7,7 @@
  * - Regular URLs/base64: Standard img tag
  */
 
-import { useRef, type ReactNode } from "react";
+import { useContext, useRef, type ReactNode } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { AlignCenter, AlignLeft, AlignRight } from "lucide-react";
 import { JOURNAL_DRIVE } from "@/lib/homebase/config";
@@ -22,6 +22,7 @@ import {
   resizeWidth,
   type ImageAlign,
 } from "./imageLayout";
+import { ImageOwnerContext } from "./imageOwnerContext";
 
 // Corner, the edge it drags, and the diagonal cursor for it.
 const CORNERS = [
@@ -43,6 +44,7 @@ export function ImageNodeView({
   selected,
 }: NodeViewProps) {
   const dotYouClient = useDotYouClientContext();
+  const owner = useContext(ImageOwnerContext);
   const src = node.attrs.src as string;
   const pendingId = node.attrs["data-pending-id"] as string | undefined;
   const width = node.attrs.width as number | null;
@@ -206,12 +208,16 @@ export function ImageNodeView({
   // Mode "attachment": remote image (attachment://fileId/payloadKey)
   if (mode === "attachment") {
     const [fileId, payloadKey] = src.replace("attachment://", "").split("/");
+    // A note shared with you keeps its payloads on the author's drive.
+    const peerOwner =
+      owner && owner !== dotYouClient.getHostIdentity() ? owner : undefined;
 
     return (
       <NodeViewWrapper className="image-node" data-drag-handle>
         {resizable(
           <OdinImage
             dotYouClient={dotYouClient}
+            odinId={peerOwner}
             targetDrive={JOURNAL_DRIVE}
             fileId={fileId}
             fileKey={payloadKey}
