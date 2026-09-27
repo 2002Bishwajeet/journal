@@ -316,8 +316,13 @@ export function EditorProvider({
             "prose prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[calc(100vh-200px)] px-4 py-4 md:px-8",
         },
       },
-      // Performance optimization: render immediately
-      immediatelyRender: true,
+      // Create the editor after mount, not during render. With
+      // immediatelyRender: true, useEditor builds it in render and destroys it
+      // on the next tick unless the component has mounted by then; a render
+      // that yields before committing (slow CPU, a suspending sibling) commits
+      // that destroyed editor, and children's effects crash on it. Nothing is
+      // lost: the pane shows "Loading document..." until PGlite loads anyway.
+      immediatelyRender: false,
       shouldRerenderOnTransaction: false,
       onCreate: ({ editor: ed }) => {
         editorRef.current = ed;
