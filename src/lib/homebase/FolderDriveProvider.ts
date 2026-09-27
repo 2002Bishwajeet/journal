@@ -197,9 +197,10 @@ export class FolderDriveProvider {
     /**
      * Delete a folder from Homebase
      */
-    async deleteFolder(fileId: string): Promise<void> {
+    async deleteFolder(fileId: string, uniqueId: string): Promise<void> {
         await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, fileId);
-        await deleteFilesByGroupId(this.#dotYouClient, JOURNAL_DRIVE, [fileId]);
+        // Notes are uploaded with groupId = the folder's uniqueId, not its fileId
+        await deleteFilesByGroupId(this.#dotYouClient, JOURNAL_DRIVE, [uniqueId]);
     }
 
 

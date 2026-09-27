@@ -8,7 +8,7 @@ import {
     createFolder as createLocalFolder,
     deleteFolder as deleteLocalFolder,
     getSearchIndexEntry,
-    getDocumentsByFolder,
+    getAllDocIdsByFolder,
     upsertSearchIndex,
     deleteSearchIndexEntry,
     getDocumentUpdates,
@@ -502,15 +502,15 @@ export class SyncService {
         if (!uniqueId || uniqueId === MAIN_FOLDER_ID) return; // Never delete Main folder
 
         // Delete all notes in this folder locally - use indexed query instead of fetching all
-        const notesInFolder = await getDocumentsByFolder(uniqueId);
+        const notesInFolder = await getAllDocIdsByFolder(uniqueId);
 
-        for (const note of notesInFolder) {
+        for (const docId of notesInFolder) {
             try {
-                await deleteSearchIndexEntry(note.docId);
-                await deleteDocumentUpdates(note.docId);
-                await deleteSyncRecord(note.docId);
+                await deleteSearchIndexEntry(docId);
+                await deleteDocumentUpdates(docId);
+                await deleteSyncRecord(docId);
             } catch (error) {
-                console.warn(`[SyncService] Failed to delete local note ${note.docId} from deleted folder:`, error);
+                console.warn(`[SyncService] Failed to delete local note ${docId} from deleted folder:`, error);
             }
         }
 
@@ -1264,7 +1264,7 @@ export class SyncService {
         const record = await getSyncRecord(folderId);
         if (record?.remoteFileId) {
             try {
-                await this.#folderProvider.deleteFolder(record.remoteFileId);
+                await this.#folderProvider.deleteFolder(record.remoteFileId, folderId);
                 console.log(`[SyncService] Deleted remote folder: ${folderId}`);
             } catch (error) {
                 console.error(`[SyncService] Failed to delete remote folder ${folderId}:`, error);

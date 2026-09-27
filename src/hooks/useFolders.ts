@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import {
     createFolder,
     deleteFolder,
-    getDocumentsByFolder,
+    getAllDocIdsByFolder,
     getFolderByName,
     upsertSyncRecord,
     deleteSyncRecord,
@@ -118,13 +118,13 @@ export function useFolders() {
             await deleteFolderRemote(folderId);
 
             // Delete all notes in the folder locally (matching remote deletion via deleteFilesByGroupId)
-            const notesInFolder = await getDocumentsByFolder(folderId);
+            const notesInFolder = await getAllDocIdsByFolder(folderId);
             await Promise.all(
-                notesInFolder.map((note) =>
+                notesInFolder.map((docId) =>
                     Promise.all([
-                        deleteSearchIndexEntry(note.docId),
-                        deleteDocumentUpdates(note.docId),
-                        deleteSyncRecord(note.docId),
+                        deleteSearchIndexEntry(docId),
+                        deleteDocumentUpdates(docId),
+                        deleteSyncRecord(docId),
                     ])
                 )
             );

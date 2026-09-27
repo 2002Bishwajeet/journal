@@ -360,6 +360,15 @@ export async function getDocumentsByFolder(folderId: string): Promise<SearchInde
     }));
 }
 
+/** Every note in a folder, including archived and trashed ones (for folder deletion). */
+export async function getAllDocIdsByFolder(folderId: string): Promise<string[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ doc_id: string }>(
+        `SELECT doc_id FROM search_index WHERE metadata->>'folderId' = $1`,
+        [folderId]
+    );
+    return result.rows.map(row => row.doc_id);
+}
 
 
 /**
