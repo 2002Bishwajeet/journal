@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@0.0.82",
+        "--isolated",
+        "--browser",
+        "chromium",
+        "--allowed-origins",
+        "http://127.0.0.1:4173;http://127.0.0.1:5174",
+        "--storage-state",
+        "e2e/fixtures/hermetic-auth.json",
+        "--output-dir",
+        ".playwright-mcp"
+      ]
+    }
+  }
+}

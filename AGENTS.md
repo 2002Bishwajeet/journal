@@ -332,7 +332,7 @@ Enforced minimums for all UI components. Do not go below these:
 
 ## Testing Requirements — Test-Driven Development (TDD)
 
-> **MANDATORY**: This project follows **TDD**. Write failing tests FIRST, then implement code to make them pass. No exceptions.
+> **MANDATORY**: This project follows **TDD**. Write failing tests FIRST, then implement code to make them pass.
 
 ### TDD Workflow
 
@@ -343,7 +343,6 @@ Enforced minimums for all UI components. Do not go below these:
 ### Rules
 
 - **Tests before code**: Every new feature, bug fix, and refactoring MUST start with a failing test
-- **No untested code**: If it doesn't have a test, it doesn't ship
 - **Regression tests for bugs**: Every bug fix starts with a test that reproduces the bug
 - **Run tests before committing**: `npm run test` must pass with zero failures before any commit
 - **Test naming**: Describe behavior, not implementation (e.g., "should return only collaborative notes sorted by modified desc" not "test getCollaborativeNotesForList")
@@ -367,17 +366,16 @@ Enforced minimums for all UI components. Do not go below these:
 | `importexport.test.ts` | Markdown/ZIP export/import |
 | `aiSettings.test.ts` | AI configuration persistence |
 
-### When to Add Tests
+### Testing policy
 
-| Change Type | Test Required? |
-|-------------|----------------|
-| New utility/helper module | Yes — unit tests |
-| New singleton/service class | Yes — unit tests |
-| New database query function | Yes — unit tests |
-| New hook with logic | Yes — unit tests |
-| Bug fix | Yes — regression test that reproduces the bug first |
-| UI component | Yes — at minimum test props/state logic; prefer E2E for interactions |
-| Refactoring | Yes — ensure existing tests cover the code before refactoring; add tests if coverage is missing |
+- **Integration first.** The default verification is an integration test: Vitest in Node (`src/__tests__/`), real PGlite + real Yjs, no server. Drive/network calls are stubbed at the app's provider boundary with per-test canned values. This carries most coverage: DB/SQL, sync bookkeeping, image queues, Yjs merging, routing/URL logic, parsers. Runs on every PR.
+- **E2E only for core flows.** Layer 2 (`*.recorded.spec.ts`, replaying committed HAR recordings of a real identity, every PR) covers session restore, create, edit, add image, share, open `/share` link, plus the backend-free local-first specs. Change a core flow → extend its spec and re-record (`npm run e2e:record`). Realtime/websocket/second-device → layer 3 `*.live.spec.ts` (real Homebase; nightly in CI, `npm run e2e:live` locally).
+- **No behavioural fakes of Homebase.** Never add an in-memory/stateful imitation of the drive; stub only at the provider boundary in integration tests, or use recordings/real backends in E2E.
+- Bug fixes: regression test at the lowest layer that reproduces the bug.
+
+### End-to-end tests
+
+Playwright specs in `e2e/` cover core flows (layer 2) and realtime (layer 3). See `e2e/README.md` for conventions, the agent loop, and how to add a spec.
 
 ## Performance and Best Practices
 

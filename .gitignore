@@ -38,5 +38,6 @@ docs/
 HANDOFF.md
 DESIGN-IS-*/
 .agents/skills/
-.claude/skills/
+.claude/skills/*
+!.claude/skills/e2e-verify/
 skills-lock.json
