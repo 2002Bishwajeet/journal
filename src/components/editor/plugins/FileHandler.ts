@@ -31,7 +31,7 @@ declare module '@tiptap/core' {
     }
 }
 
-async function processImageFile(editor: Editor, options: FileHandlerOptions, file: File): Promise<boolean> {
+async function processImageFile(editor: Editor, options: FileHandlerOptions, file: File, pos?: number): Promise<boolean> {
     const { maxSizeMB, allowedTypes, onImageDrop, imagesReadOnly } = options;
 
     // Otherwise the upload would be queued and could never succeed
@@ -79,13 +79,19 @@ async function processImageFile(editor: Editor, options: FileHandlerOptions, fil
     }
     if (editor.isDestroyed) return false;
 
-    editor.chain().focus().insertContent({
+    const content = {
         type: 'image',
         attrs: {
             src: URL.createObjectURL(processed),
             'data-pending-id': pendingId,
         },
-    }).run();
+    };
+
+    if (pos !== undefined) {
+        editor.chain().focus().insertContentAt(pos, content).run();
+    } else {
+        editor.chain().focus().insertContent(content).run();
+    }
 
     return true;
 }
@@ -121,7 +127,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
             new Plugin({
                 key: new PluginKey('fileHandler'),
                 props: {
-                    handleDrop: (_view, event, _slice, moved) => {
+                    handleDrop: (view, event, _slice, moved) => {
                         // Ignore if it's a move within the editor
                         if (moved) return false;
 
@@ -140,10 +146,17 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
                             return true;
                         }
 
-                        // Process each image file
-                        for (const file of imageFiles) {
-                            processImageFile(editor, options, file);
-                        }
+                        // Insert at the drop point, not wherever the cursor happens to be
+                        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+
+                        // Await each insert in turn, so with several files they land in drop order
+                        void (async () => {
+                            let insertAt = pos;
+                            for (const file of imageFiles) {
+                                const inserted = await processImageFile(editor, options, file, insertAt);
+                                if (inserted && insertAt !== undefined) insertAt = editor.state.selection.to;
+                            }
+                        })();
 
                         return true;
                     },
