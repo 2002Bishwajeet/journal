@@ -59,7 +59,6 @@ export const PAYLOAD_KEY_IMAGE_PREFIX = 'jrnl_img';
 export const PAYLOAD_KEY_LINK_PREVIEW_PREFIX = 'jrnl_lnk';
 
 // Storage keys
-export const STORAGE_KEY_IDENTITY = 'IDENTITY';
 export const STORAGE_KEY_AUTH_TOKEN = 'BX0900';
 export const STORAGE_KEY_SHARED_SECRET = 'APSS';
 export const STORAGE_KEY_LAST_SYNC = 'LAST_SYNC';

@@ -12,7 +12,6 @@ export type { ThemePreference } from './useThemePreference';
 export { useDeviceType } from './useDeviceType';
 export type { DeviceType } from './useDeviceType';
 export { useSyncService } from './useSyncService';
-export { useDocumentCache } from './useDocumentCache';
 export { useJournalWebsocket } from './useJournalWebsocket';
 export { useAIPreferences } from './useAIPreferences';
 export type { UseAIPreferencesReturn } from './useAIPreferences';

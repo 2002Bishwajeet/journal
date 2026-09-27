@@ -60,7 +60,6 @@ src/
 │   │   └── TabBar.tsx          # Desktop multi-tab editing
 │   ├── modals/
 │   │   ├── ConfirmDialog.tsx
-│   │   ├── ConflictModal.tsx
 │   │   ├── CreateFolderModal.tsx
 │   │   ├── ExtendPermissionDialog.tsx
 │   │   ├── SearchModal.tsx     # Cmd+K full-text + fuzzy search
@@ -77,7 +76,6 @@ src/
 │   ├── auth/                   # useAuth, useVerifyToken, useYouAuthAuthorization
 │   ├── useAISettings.ts        # AI feature toggles (localStorage, cross-tab sync)
 │   ├── useDeviceType.ts        # mobile | tablet | desktop detection
-│   ├── useDocumentCache.ts     # LRU cache (max 10 docs)
 │   ├── useDocumentSubscription.ts  # BroadcastChannel listener for remote updates
 │   ├── useFolders.ts           # Folder CRUD with optimistic updates
 │   ├── useKeyboardShortcuts.ts
@@ -106,8 +104,7 @@ src/
 │   │   └── InboxProcessor.ts   # Remote change processing
 │   ├── importexport/
 │   │   ├── ExportService.ts    # .md/.zip with YAML frontmatter
-│   │   ├── ImportService.ts
-│   │   └── notionImport.ts
+│   │   └── ImportService.ts
 │   ├── search/
 │   │   └── searchService.ts    # Web search via SearXNG
 │   ├── utils/
@@ -120,9 +117,6 @@ src/
 │   │   ├── engine.ts           # Grammar, autocomplete, rewrite, chat
 │   │   ├── models.ts           # Model registry (Qwen2.5-1.5B, SmolLM2-360M, etc.)
 │   │   └── index.ts
-│   ├── workers/
-│   │   ├── jobQueue.ts         # Background job queue
-│   │   └── jobQueueWorker.ts
 │   ├── yjs/
 │   │   └── provider.ts         # PGliteProvider — Yjs persistence + auto-compaction
 │   └── utils.ts                # Re-exports from Homebase SDK + UI helpers
@@ -132,8 +126,7 @@ src/
 │   ├── EditorPage.tsx          # Main editor with toolbar
 │   ├── EmptyEditorPage.tsx     # No-note-selected state
 │   ├── SharePage.tsx           # Public read-only note
-│   ├── ShareTargetPage.tsx     # PWA share target receiver
-│   └── index.ts
+│   └── ShareTargetPage.tsx     # PWA share target receiver
 ├── helpers/
 │   └── dateGrouping.ts         # Today, Yesterday, Last Week, etc.
 ├── types/
@@ -318,6 +311,7 @@ npm run test:ui  # visual dashboard
 - **Lazy loading**: Dynamic imports for heavy modules (WebLLM ~7MB, ImportService, ExportService)
 - **Avoid over-optimization**: No `useCallback`/`useMemo` unless profiling shows need
 - **No `any` type**: Always use proper types. Use library-provided types (e.g. `CommandProps` from `@tiptap/core`), module augmentation (`declare global`/`declare module`), or generics instead of `any`. If there is genuinely no way to avoid `any`, stop and explain why to the user before proceeding.
+- Every `eslint-disable*` needs `-- <reason>`; `@ts-ignore`/`@ts-nocheck` are banned; `@ts-expect-error` needs a description (tests only).
 
 ### UI Floors & Motion
 

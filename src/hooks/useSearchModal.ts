@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useDeferredValue } from "react";
 import { advancedSearch, getAllDocuments } from "@/lib/db";
-import { isIndexingInProgress } from "@/lib/workers";
 import type { SearchIndexEntry, AdvancedSearchResult } from "@/types";
 
 // Type for results - either basic search index entry or advanced result with highlights
@@ -22,8 +21,6 @@ export interface UseSearchModalReturn {
     results: SearchResult[];
     selectedIndex: number;
     isLoading: boolean;
-    isIndexing: boolean;
-    trimmedQuery: string;
     inputRef: React.RefObject<HTMLInputElement | null>;
 
     // Handlers
@@ -43,7 +40,6 @@ export function useSearchModal({
     const [results, setResults] = useState<SearchResult[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [pendingQuery, setPendingQuery] = useState<string | null>(null);
-    const [isIndexing, setIsIndexing] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const requestSeqRef = useRef(0);
 
@@ -74,32 +70,6 @@ export function useSearchModal({
         setQuery(value);
         setSelectedIndex(0);
     }, []);
-
-    // Check indexing status
-    useEffect(() => {
-        if (!isOpen) return;
-
-        let cancelled = false;
-
-        const checkIndexing = async () => {
-            try {
-                const indexing = await isIndexingInProgress();
-                if (!cancelled) {
-                    setIsIndexing(indexing);
-                }
-            } catch {
-                // Ignore errors during indexing check
-            }
-        };
-
-        checkIndexing();
-        const interval = setInterval(checkIndexing, 2000);
-
-        return () => {
-            cancelled = true;
-            clearInterval(interval);
-        };
-    }, [isOpen]);
 
     // Focus input when modal opens
     useEffect(() => {
@@ -220,8 +190,6 @@ export function useSearchModal({
         results: deferredResults,
         selectedIndex,
         isLoading,
-        isIndexing,
-        trimmedQuery,
         inputRef,
         handleQueryChange,
         handleKeyDown,

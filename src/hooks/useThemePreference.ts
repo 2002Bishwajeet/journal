@@ -41,7 +41,7 @@ export function useThemePreference() {
     // Apply theme on initial mount
     useEffect(() => {
         applyTheme(theme);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps -- apply the stored theme once on mount; later changes go through setTheme
 
     // Listen for system preference changes (only when theme is 'system')
     useEffect(() => {
