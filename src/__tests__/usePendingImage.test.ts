@@ -17,6 +17,7 @@ vi.mock('@/lib/db/pglite', () => {
 import * as pgliteModule from '@/lib/db/pglite';
 import {
     savePendingImageUpload, updateImageUploadStatus, updateImageRetryAt, getPendingImageUpload,
+    getPendingImageUploadStatus, incrementImageRetryCount, deletePendingImageUpload,
     retryPendingImageUploadNow, getImageUploadsReadyForRetry,
 } from '@/lib/db/queries';
 import { OnlineContext } from '@/contexts/OnlineContext';
@@ -48,8 +49,9 @@ describe('pending image queries', () => {
         expect(await getPendingImageUpload(ID)).toBeNull();
         await queue();
         expect(await getPendingImageUpload(ID)).toEqual({
-            blobData: new Uint8Array([1, 2, 3]), contentType: 'image/png', status: 'pending', retryCount: 0,
+            blobData: new Uint8Array([1, 2, 3]), contentType: 'image/png', status: 'pending',
         });
+        expect(await getPendingImageUploadStatus(ID)).toBe('pending');
     });
 
     it('retry-now makes a failed row due immediately', async () => {
@@ -62,6 +64,14 @@ describe('pending image queries', () => {
 
         expect((await getImageUploadsReadyForRetry()).map(u => u.id)).toEqual([ID]);
         expect((await getPendingImageUpload(ID))?.status).toBe('pending');
+    });
+
+    it('retry-now gives a fresh attempt budget', async () => {
+        await queue();
+        await incrementImageRetryCount(ID);
+        await retryPendingImageUploadNow(ID);
+
+        expect((await getImageUploadsReadyForRetry())[0].retryCount).toBe(0);
     });
 });
 
@@ -123,6 +133,30 @@ describe('usePendingImage', () => {
         await act(async () => { vi.advanceTimersByTime(5000); });
 
         await vi.waitFor(() => expect(result?.state).toBe('failed'));
+        await act(async () => root.unmount());
+    });
+
+    it('reads the bytes once and stops polling when the row is gone', async () => {
+        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+        await queue();
+        await mount();
+        await vi.waitFor(() => expect(result?.state).toBe('uploading'));
+        expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+
+        await deletePendingImageUpload(ID);
+        await act(async () => { vi.advanceTimersByTime(5000); });
+        await vi.waitFor(() => expect(vi.getTimerCount()).toBe(0));
+
+        expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+        expect(result?.state).toBe('uploading');
+        await act(async () => root.unmount());
+    });
+
+    it('does not poll without a local row', async () => {
+        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+        await mount();
+        await vi.waitFor(() => expect(result?.state).toBe('remote'));
+        expect(vi.getTimerCount()).toBe(0);
         await act(async () => root.unmount());
     });
 

@@ -52,24 +52,25 @@ async function processImageFile(editor: Editor, options: FileHandlerOptions, fil
     }
 
     const pendingId = getNewId();
-    const blobUrl = URL.createObjectURL(file);
 
-    // Insert image with pending marker
-    editor.chain().focus().insertContent({
-        type: 'image',
-        attrs: {
-            src: blobUrl,
-            'data-pending-id': pendingId,
-        },
-    }).run();
-
-    // Queue for upload
+    // Queue before inserting: the node renders from the queued bytes, and a node
+    // without its queue row reads as another device's upload.
     try {
         await onImageDrop(file, pendingId);
     } catch (error) {
         console.error('[FileHandler] Failed to queue image:', error);
         toast.error('Failed to queue image for upload');
+        return false;
     }
+    if (editor.isDestroyed) return false;
+
+    editor.chain().focus().insertContent({
+        type: 'image',
+        attrs: {
+            src: URL.createObjectURL(file),
+            'data-pending-id': pendingId,
+        },
+    }).run();
 
     return true;
 }
@@ -88,12 +89,9 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
 
     addCommands() {
         return {
+            // Each insert lands after its queue write, outside this command's transaction.
             insertImageFiles: (files: File[]) => () => {
-                // Deferred: processImageFile dispatches its own transaction, which
-                // must not run inside this command's.
-                void Promise.resolve().then(async () => {
-                    for (const file of files) await processImageFile(this.editor, this.options, file);
-                });
+                for (const file of files) void processImageFile(this.editor, this.options, file);
                 return true;
             },
         };

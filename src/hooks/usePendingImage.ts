@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getPendingImageUpload } from '@/lib/db';
+import { getPendingImageUpload, getPendingImageUploadStatus } from '@/lib/db';
 import { useOnlineContext } from '@/hooks/useOnlineContext';
 import type { PendingImageUpload } from '@/types';
 
@@ -9,9 +9,11 @@ const POLL_MS = 5000;
 
 /**
  * A not-yet-uploaded image, shown from the bytes queued on this device (the
- * node's blob: src dies with the tab). No local row means another device added
- * it and hasn't uploaded it yet. Polls the row, since the sync service updates
- * it without notifying the editor.
+ * node's blob: src dies with the tab). FileHandler queues the row before it
+ * inserts the node, so no local row means another device added the image. The
+ * bytes are read once; after that only the status is polled, since the sync
+ * service updates it without notifying the editor. Polling stops once the row
+ * is gone: the upload was promoted or removed, and the node changes with it.
  */
 export function usePendingImage(pendingId: string): { url: string | undefined; state: PendingImageState } {
     const { isOnline } = useOnlineContext();
@@ -22,17 +24,20 @@ export function usePendingImage(pendingId: string): { url: string | undefined; s
     useEffect(() => {
         let alive = true;
         let objectUrl: string | undefined;
-        const load = async () => {
-            const row = await getPendingImageUpload(pendingId);
+        let timer: ReturnType<typeof setInterval> | undefined;
+        void getPendingImageUpload(pendingId).then((row) => {
             if (!alive) return;
-            if (row && !objectUrl) {
-                objectUrl = URL.createObjectURL(new Blob([new Uint8Array(row.blobData)], { type: row.contentType }));
-                setUrl(objectUrl);
-            }
             setStatus(row ? row.status : null);
-        };
-        void load();
-        const timer = setInterval(load, POLL_MS);
+            if (!row) return;
+            objectUrl = URL.createObjectURL(new Blob([new Uint8Array(row.blobData)], { type: row.contentType }));
+            setUrl(objectUrl);
+            timer = setInterval(async () => {
+                const next = await getPendingImageUploadStatus(pendingId);
+                if (!alive) return;
+                if (next === null) clearInterval(timer);
+                else setStatus(next);
+            }, POLL_MS);
+        });
         return () => {
             alive = false;
             clearInterval(timer);

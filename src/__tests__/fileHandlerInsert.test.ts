@@ -57,7 +57,7 @@ describe('FileHandler insertImageFiles command (toolbar insert)', () => {
         const png = file('image/png');
         e.commands.insertImageFiles([png]);
 
-        await vi.waitFor(() => expect(onImageDrop).toHaveBeenCalledTimes(1));
+        await vi.waitFor(() => expect(images(e)).toHaveLength(1));
         const [img] = images(e);
         expect(img.src).toBe('blob:test');
         expect(img['data-pending-id']).toBeTruthy();
@@ -65,6 +65,21 @@ describe('FileHandler insertImageFiles command (toolbar insert)', () => {
         // #177: the node shows its own upload state; no success toast
         await Promise.resolve();
         expect(toast.success).not.toHaveBeenCalled();
+    });
+
+    it('queues before inserting, so the node never exists without its row', async () => {
+        onImageDrop.mockImplementationOnce(async () => { expect(images(e)).toEqual([]); });
+        e.commands.insertImageFiles([file('image/png')]);
+
+        await vi.waitFor(() => expect(images(e)).toHaveLength(1));
+    });
+
+    it('inserts nothing when queueing fails', async () => {
+        onImageDrop.mockRejectedValueOnce(new Error('db'));
+        e.commands.insertImageFiles([file('image/png')]);
+
+        await vi.waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to queue image for upload'));
+        expect(images(e)).toEqual([]);
     });
 
     it('rejects a file over the size cap', async () => {
