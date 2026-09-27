@@ -11,7 +11,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "e2e": "playwright test --project=hermetic",
+    "e2e:dev": "E2E_SERVER=dev playwright test --project=hermetic",
+    "e2e:report": "playwright show-report"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -80,6 +83,7 @@
   "devDependencies": {
     "@babel/core": "^8.0.5",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.63.0",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.5.1",
