@@ -15,7 +15,13 @@ import { isChunkLoadError, reloadOnceForChunkError } from './chunkReload';
 const MAX_RELOADS = 3;
 const RELOAD_KEY = 'sw_safety_reload_count';
 const RELOAD_RESET_TIMEOUT = 10000; // 10 seconds
-const STALE_REACT_ERROR = /Cannot read properties of null \(reading 'use(?:[A-Z]\w*)?'\)|Minified React error #321;/;
+// A null hooks dispatcher, as worded by Chrome, Safari and Firefox, or #321.
+const STALE_REACT_ERROR = new RegExp([
+    String.raw`Cannot read properties of null \(reading 'use(?:[A-Z]\w*)?'\)`,
+    String.raw`null is not an object \(evaluating '[\w$.]*\buse(?:[A-Z]\w*)?'\)`,
+    String.raw`can't access property "use(?:[A-Z]\w*)?", [\w$.]+ is null`,
+    String.raw`Minified React error #321;`,
+].join('|'));
 
 function getReloadCount(): number {
     return parseInt(localStorage.getItem(RELOAD_KEY) || '0', 10);
@@ -35,8 +41,8 @@ setTimeout(() => {
     resetReloadCount();
 }, RELOAD_RESET_TIMEOUT);
 
-function handleFatalError(error: Error | string) {
-    const errorMsg = typeof error === 'string' ? error : error.message || '';
+function handleFatalError(error: Error | string | undefined) {
+    const errorMsg = typeof error === 'string' ? error : error?.message || '';
 
     // Only duplicate/mismatched-React symptoms (a null hooks dispatcher, or #321
     // invalid hook call) point at a stale bundle. Other React errors are app bugs

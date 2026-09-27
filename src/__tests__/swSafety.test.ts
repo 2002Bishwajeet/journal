@@ -54,6 +54,21 @@ describe('sw-safety fatal error handler', () => {
         expect(reloadSpy).toHaveBeenCalledTimes(1);
     });
 
+    it.each([
+        "null is not an object (evaluating 'n.useState')",
+        'can\'t access property "useEffect", dispatcher is null',
+    ])('still reloads for the Safari/Firefox form of the hook crash: %s', (message) => {
+        fireWindowError(new TypeError(message));
+        expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores a promise rejected with no reason', () => {
+        const event = new Event('unhandledrejection') as PromiseRejectionEvent;
+        Object.defineProperty(event, 'reason', { value: undefined });
+        expect(() => window.dispatchEvent(event)).not.toThrow();
+        expect(reloadSpy).not.toHaveBeenCalled();
+    });
+
     it('still reloads for an invalid hook call (#321, duplicate React)', () => {
         fireWindowError(new Error('Minified React error #321; visit https://react.dev/errors/321 for the full message'));
         expect(reloadSpy).toHaveBeenCalledTimes(1);
