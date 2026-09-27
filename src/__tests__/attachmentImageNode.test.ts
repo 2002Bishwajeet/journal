@@ -9,7 +9,7 @@ import { createElement as h, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { NodeViewProps } from '@tiptap/react';
 
-const m = vi.hoisted(() => ({ local: null as string | null }));
+const m = vi.hoisted(() => ({ local: null as string | null | undefined }));
 vi.mock('@/hooks/image/useLocalImage', () => ({ useLocalImage: () => m.local }));
 vi.mock('@/hooks/usePendingImage', () => ({ usePendingImage: () => ({ url: undefined, state: 'remote' as const }) }));
 vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ sync: async () => {} }) }));
@@ -51,6 +51,13 @@ describe('ImageNodeView attachment image', () => {
         expect(img?.getAttribute('src')).toBe('blob:local');
         expect(img?.getAttribute('alt')).toBe('kite');
         expect(el.querySelector('[data-testid="odin"]')).toBeNull();
+    });
+
+    it('fetches nothing from the server while the local lookup is pending', async () => {
+        m.local = undefined;
+        await render();
+        expect(el.querySelector('[data-testid="odin"]')).toBeNull();
+        expect(el.querySelector('img')).toBeNull();
     });
 
     it('falls back to the server image otherwise', async () => {

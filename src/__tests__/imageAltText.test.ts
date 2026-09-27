@@ -15,6 +15,8 @@ const { odinImageProps } = vi.hoisted(() => ({ odinImageProps: [] as Record<stri
 vi.mock('@/components/OdinImage/OdinImage', () => ({
     OdinImage: (props: Record<string, unknown>) => { odinImageProps.push(props); return null; },
 }));
+// No local copy (#179): the node falls back to OdinImage
+vi.mock('@/hooks/image/useLocalImage', () => ({ useLocalImage: () => null }));
 
 import { ImageNodeView } from '@/components/editor/nodes/ImageNode';
 import { OdinPreviewImage } from '@/components/OdinImage/OdinPreviewImage';

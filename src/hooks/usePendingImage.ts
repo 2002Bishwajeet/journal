@@ -49,8 +49,8 @@ export function usePendingImage(pendingId: string): { url: string | undefined; s
     let state: PendingImageState;
     if (status === null) state = 'remote';
     else if (!isOnline) state = 'offline';
-    else if (status === undefined || status === 'pending' || status === 'uploading' || status === 'synced') state = 'uploading';
-    else state = 'failed';
+    else if (status === 'failed' || status === 'failed_permanent') state = 'failed';
+    else state = 'uploading';
 
     return { url, state };
 }

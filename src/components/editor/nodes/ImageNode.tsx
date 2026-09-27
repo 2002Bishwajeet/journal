@@ -67,6 +67,8 @@ function AttachmentImage({
   children: ReactNode;
 }) {
   const url = useLocalImage(fileId, payloadKey);
+  // Still looking: mounting the server image now would start a fetch the local copy may make useless
+  if (url === undefined) return null;
   return url ? <img src={url} alt={alt} className={imgClass} /> : children;
 }
 

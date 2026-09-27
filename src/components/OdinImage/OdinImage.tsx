@@ -9,6 +9,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import type { ImageSize } from "@homebase-id/js-lib/core";
 
 import { useIntersection } from "@/hooks/useIntersection";
+import { useOnlineContext } from "@/hooks/useOnlineContext";
 import type { ThumbnailMeta } from "@homebase-id/js-lib/media";
 
 export interface OdinImageProps
@@ -251,13 +252,16 @@ const TinyThumbLoader = ({ isTinyLoaded }: { isTinyLoaded: boolean }) => (
   </div>
 );
 
-export const FatalError = () => (
-  <div
-    className={`absolute inset-0 flex items-center justify-center bg-white/75 dark:bg-black/75`}
-  >
-    <AlertCircle className="mr-2 h-6 w-6 text-destructive" />{" "}
-    <p className="text-sm">
-      {navigator.onLine ? "Something went wrong" : "Image available when online"}
-    </p>
-  </div>
-);
+export const FatalError = () => {
+  const { isOnline } = useOnlineContext();
+  return (
+    <div
+      className={`absolute inset-0 flex items-center justify-center bg-white/75 dark:bg-black/75`}
+    >
+      <AlertCircle className="mr-2 h-6 w-6 text-destructive" />{" "}
+      <p className="text-sm">
+        {isOnline ? "Something went wrong" : "Image available when online"}
+      </p>
+    </div>
+  );
+};

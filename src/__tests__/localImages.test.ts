@@ -84,8 +84,8 @@ describe('local image queries', () => {
 describe('useLocalImage', () => {
     beforeEach(async () => { await resetTestDatabase(); });
 
-    async function render(fileId: string, key: string): Promise<{ url: () => string | null; unmount: () => void }> {
-        let url: string | null = null;
+    async function render(fileId: string, key: string): Promise<{ url: () => string | null | undefined; unmount: () => void }> {
+        let url: string | null | undefined;
         const Probe = () => { url = useLocalImage(fileId, key); return null; };
         const root = createRoot(document.createElement('div'));
         await act(async () => { root.render(h(Probe)); });
