@@ -7,9 +7,9 @@
  * - Regular URLs/base64: Standard img tag
  */
 
-import { useContext, useRef, type ReactNode } from "react";
+import { useContext, useRef, useState, type ReactNode } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { AlignCenter, AlignLeft, AlignRight, Loader2 } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Loader2, Maximize2 } from "lucide-react";
 import { JOURNAL_DRIVE } from "@/lib/homebase/config";
 import { useDotYouClientContext } from "@/components/auth";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
@@ -17,15 +17,19 @@ import { cn } from "@/lib/utils";
 import { deletePendingImageUpload, retryPendingImageUploadNow } from "@/lib/db";
 import { usePendingImage } from "@/hooks/usePendingImage";
 import { useSyncService } from "@/hooks/useSyncService";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 import {
   ALIGN_STYLE,
   MIN_IMAGE_WIDTH,
+  canZoom,
   imageBoxWidth,
   imageRenderMode,
   resizeWidth,
   type ImageAlign,
 } from "./imageLayout";
 import { ImageOwnerContext } from "./imageOwnerContext";
+import { ImageLightbox } from "./ImageLightbox";
 
 // Corner, the edge it drags, and the diagonal cursor for it.
 const CORNERS = [
@@ -50,10 +54,12 @@ const PENDING_LABEL = {
 function PendingImage({
   pendingId,
   imgClass,
+  alt,
   onRemove,
 }: {
   pendingId: string;
   imgClass: string;
+  alt: string;
   onRemove: () => void;
 }) {
   const { url, state } = usePendingImage(pendingId);
@@ -79,7 +85,7 @@ function PendingImage({
 
   return (
     <>
-      {url && <img src={url} alt="" className={cn(imgClass, "opacity-70")} />}
+      {url && <img src={url} alt={alt} className={cn(imgClass, "opacity-70")} />}
       <div
         contentEditable={false}
         // Clicking Retry/Remove must not move the selection onto the image.
@@ -117,7 +123,11 @@ export function ImageNodeView({
   const pendingId = node.attrs["data-pending-id"] as string | undefined;
   const width = node.attrs.width as number | null;
   const align = node.attrs.align as ImageAlign | null;
+  const alt = (node.attrs.alt as string | null) ?? "";
+  const mode = imageRenderMode(src, pendingId);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const saveAlt = (value: string) => updateAttributes({ alt: value.trim() || null });
 
   // The column the image sits in — the widest it may become.
   const maxWidth = () => boxRef.current?.parentElement?.offsetWidth ?? Infinity;
@@ -188,8 +198,12 @@ export function ImageNodeView({
   const alignBar = (
     <div
       contentEditable={false}
-      // Clicking a control must not move the selection off the image.
-      onMouseDown={(e) => e.preventDefault()}
+      // Clicking a control must not move the selection off the image — but
+      // only a control: the ALT popover below has a real text input, which
+      // needs mousedown's default focus behaviour to work.
+      onMouseDown={(e) => {
+        if ((e.target as HTMLElement).closest("button")) e.preventDefault();
+      }}
       className={cn(
         "absolute -top-9 left-1/2 z-10 flex -translate-x-1/2 gap-0.5",
         "rounded-md border bg-popover p-0.5 shadow-md",
@@ -215,10 +229,49 @@ export function ImageNodeView({
           <Icon className="h-4 w-4" />
         </button>
       ))}
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label="Alt text"
+            aria-pressed={!!alt}
+            className={cn(
+              "rounded p-1 text-xs font-semibold hover:bg-accent hover:text-accent-foreground",
+              alt && "bg-accent text-accent-foreground",
+            )}
+          >
+            ALT
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-2">
+          <Input
+            defaultValue={alt}
+            placeholder="Describe this image"
+            aria-label="Alt text"
+            // Keystrokes must not leak into ProseMirror's own shortcuts.
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") {
+                e.preventDefault();
+                saveAlt(e.currentTarget.value);
+              }
+            }}
+            onBlur={(e) => saveAlt(e.currentTarget.value)}
+          />
+        </PopoverContent>
+      </Popover>
+      {canZoom(mode) && (
+        <button
+          type="button"
+          aria-label="View full size"
+          onClick={() => setLightboxOpen(true)}
+          className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
-
-  const mode = imageRenderMode(src, pendingId);
 
   // Until a width is set the box shrink-wraps the image, so the image keeps its
   // natural size (previous behaviour); once sized, it fills the box.
@@ -234,10 +287,18 @@ export function ImageNodeView({
         "group relative inline-block max-w-full",
         selected && "outline outline-2 outline-primary/60 rounded-sm",
       )}
+      // A resize handle or an alignBar control (both buttons) already has its
+      // own click behaviour; don't also pop the lightbox open under it.
+      onDoubleClick={(e) => {
+        if (!canZoom(mode)) return;
+        if ((e.target as HTMLElement).closest("button")) return;
+        setLightboxOpen(true);
+      }}
     >
       {children}
       {CORNERS.map(corner)}
       {alignBar}
+      <ImageLightbox open={lightboxOpen} onOpenChange={setLightboxOpen} src={src} alt={alt} />
     </div>
   );
 
@@ -250,6 +311,7 @@ export function ImageNodeView({
           <PendingImage
             pendingId={pendingId}
             imgClass={imgClass}
+            alt={alt}
             onRemove={deleteNode}
           />,
         )}
@@ -270,6 +332,7 @@ export function ImageNodeView({
             targetDrive={JOURNAL_DRIVE}
             fileId={fileId}
             fileKey={payloadKey}
+            alt={alt}
             className={imgClass}
           />,
         )}
@@ -280,8 +343,7 @@ export function ImageNodeView({
   // Mode "plain": regular URL or base64
   return (
     <NodeViewWrapper className="image-node" data-drag-handle>
-      {resizable(<img src={src} alt="" className={imgClass} />)}
+      {resizable(<img src={src} alt={alt} className={imgClass} />)}
     </NodeViewWrapper>
   );
 }
-
