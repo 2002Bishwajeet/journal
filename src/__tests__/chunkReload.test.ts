@@ -67,7 +67,7 @@ describe('reloadOnceForChunkError', () => {
     });
 
     it('returns false when storage access throws (private mode)', () => {
-        vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        vi.spyOn(sessionStorage, 'getItem').mockImplementation(() => {
             throw new Error('SecurityError');
         });
         expect(reloadOnceForChunkError()).toBe(false);
