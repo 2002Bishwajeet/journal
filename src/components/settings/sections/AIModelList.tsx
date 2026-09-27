@@ -1,8 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Cpu, Download, HardDrive, CheckCircle2 } from "lucide-react";
-import { motion } from "framer-motion";
 import { AVAILABLE_MODELS } from "@/lib/webllm";
-import { staggerItem } from "../motion";
 
 export default function AIModelList({
   selectedModelId,
@@ -13,14 +11,12 @@ export default function AIModelList({
 }) {
   return (
     <div className="space-y-2.5">
-      {AVAILABLE_MODELS.map((model, i) => (
-        <motion.button
+      {AVAILABLE_MODELS.map((model) => (
+        <button
           key={model.id}
-          variants={staggerItem}
-          custom={i}
           onClick={() => onSelect(model.id)}
           className={cn(
-            "w-full text-left p-4 rounded-xl border transition-all duration-200 group",
+            "w-full text-left p-4 rounded-xl border transition-colors group",
             selectedModelId === model.id
               ? "border-[#B8860B]/30 bg-[#B8860B]/[0.04]"
               : "border-border/60 bg-card hover:border-border hover:shadow-sm"
@@ -80,12 +76,10 @@ export default function AIModelList({
               </div>
             </div>
             {selectedModelId === model.id && (
-              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                <CheckCircle2 className="h-5 w-5 text-[#B8860B] shrink-0 mt-1" />
-              </motion.div>
+              <CheckCircle2 className="h-5 w-5 text-[#B8860B] shrink-0 mt-1" />
             )}
           </div>
-        </motion.button>
+        </button>
       ))}
     </div>
   );
