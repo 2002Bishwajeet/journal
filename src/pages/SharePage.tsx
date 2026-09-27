@@ -2,24 +2,15 @@ import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSharePage } from '@/hooks/useSharePage';
-import Markdown from 'react-markdown';
+import Markdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeRaw from 'rehype-raw';
 import rehypeKatex from 'rehype-katex';
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import rehypeSanitize from 'rehype-sanitize';
+import { PublicNoteImage } from '@/components/share/PublicNoteImage';
+import { sanitizeSchema } from '@/lib/utils/shareSanitizeSchema';
 import 'katex/dist/katex.min.css';
-
-// The serializer emits author-controlled raw HTML (<u>/<sub>/<sup> marks) on top
-// of `$...$` math. On a PUBLIC page that HTML must be sanitized to prevent XSS,
-// so the rehype order is: parse raw HTML -> sanitize -> render math. KaTeX runs
-// LAST so its (trusted) markup isn't stripped. We only widen the default schema
-// to allow the three formatting tags; remark-math's class markers ride on <code>,
-// which the default schema already permits, so KaTeX still finds the math.
-const sanitizeSchema = {
-    ...defaultSchema,
-    tagNames: [...(defaultSchema.tagNames ?? []), 'u', 'sub', 'sup'],
-};
 
 /**
  * Public page to display a shared note.
@@ -38,7 +29,7 @@ export default function SharePage() {
         );
     }
 
-    if (error || !note) {
+    if (error || !note || !identity) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="text-center space-y-4">
@@ -86,6 +77,25 @@ export default function SharePage() {
                     <Markdown
                         remarkPlugins={[remarkGfm, remarkMath]}
                         rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeKatex]}
+                        urlTransform={(url) => (url.startsWith('attachment://') ? url : defaultUrlTransform(url))}
+                        components={{
+                            img: ({ src, alt, node, ...rest }) => {
+                                // `node` is react-markdown's own extra prop, not a DOM attribute —
+                                // exclude it before spreading the rest (title, etc.) onto <img>.
+                                void node;
+                                return src?.startsWith('attachment://') ? (
+                                    <PublicNoteImage
+                                        key={src}
+                                        identity={decodeURIComponent(identity)}
+                                        noteFileId={note.fileId}
+                                        src={src}
+                                        alt={alt}
+                                    />
+                                ) : (
+                                    <img src={src} alt={alt} loading="lazy" {...rest} />
+                                );
+                            },
+                        }}
                     >
                         {note.content}
                     </Markdown>

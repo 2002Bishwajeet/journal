@@ -56,6 +56,15 @@ describe('ShareProvider.getPublicNote', () => {
         expect(note!.content).toContain('Hello');
     });
 
+    it('includes the fileId, so an attachment:// image ref can be scoped to this note', async () => {
+        mockGetHeader.mockResolvedValue(header());
+        mockGetPayload.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]) });
+
+        const note = await shareProvider.getPublicNote(IDENTITY, NOTE_ID);
+
+        expect(note!.fileId).toBe('file-xyz');
+    });
+
     it('reads via an anonymous Guest client pointed at the author, without decryption', async () => {
         mockGetHeader.mockResolvedValue(header());
         mockGetPayload.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]) });
