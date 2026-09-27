@@ -37,9 +37,15 @@ setTimeout(() => {
 function handleFatalError(error: Error | string) {
     const errorMsg = typeof error === 'string' ? error : error.message || '';
 
+    // React 19 reports errors it already recovered from (a concurrent render that
+    // succeeded on a synchronous retry) through window `error` as #520. The page
+    // is fine, so reloading would only loop (#247).
+    const isRecoveredReactError = errorMsg.includes("Minified React error #520;");
+
     // Check for known "death loop" errors caused by stale caching
-    const isReactSyncError = errorMsg.includes("Cannot read properties of null (reading 'useState')") ||
-        errorMsg.includes("Minified React error");
+    const isReactSyncError = !isRecoveredReactError &&
+        (errorMsg.includes("Cannot read properties of null (reading 'useState')") ||
+            errorMsg.includes("Minified React error"));
 
     if (isChunkLoadError(errorMsg)) {
         // A stale/missing lazy chunk just needs a single reload to fetch the new
