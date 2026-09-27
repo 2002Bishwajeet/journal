@@ -1390,6 +1390,17 @@ export async function getPendingImageDeletions(noteDocId: string): Promise<strin
 }
 
 /**
+ * Drop one pending image deletion (the payload is referenced by the note again, e.g. after undo)
+ */
+export async function removePendingImageDeletion(noteDocId: string, payloadKey: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        'DELETE FROM pending_image_deletions WHERE note_doc_id = $1 AND payload_key = $2',
+        [noteDocId, payloadKey]
+    );
+}
+
+/**
  * Clear pending image deletions for a note (after successful sync)
  */
 export async function clearPendingImageDeletions(noteDocId: string): Promise<void> {

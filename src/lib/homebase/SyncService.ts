@@ -33,10 +33,12 @@ import {
     calculateNextRetryAt,
     getPendingImageDeletions,
     clearPendingImageDeletions,
+    removePendingImageDeletion,
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader, tryJsonParse, validateKeyHeader } from '@/lib/utils';
 import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
+import { collectImageRefs } from '@/lib/yjs/imageRefs';
 import { MAIN_FOLDER_ID, COLLABORATIVE_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
 import type { FolderFile, SyncRecord, SyncProgress, CollaborationInviteContent } from '@/types';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
@@ -928,8 +930,30 @@ export class SyncService {
                     cachedKeyHeader = (await this.#notesProvider.getNote(record.localId, record.authorOdinId))?.sharedSecretEncryptedKeyHeader;
                 }
 
-                // Get pending image deletions for this note
-                const pendingDeletions = await getPendingImageDeletions(record.localId);
+                // Get pending image deletions for this note, minus any payload the doc still
+                // shows on this note's file (e.g. undone after the tracker's 2s timer, #174)
+                const referencedDoc = new Y.Doc();
+                let referencedKeys: Set<string>;
+                try {
+                    for (const update of await getDocumentUpdates(record.localId)) {
+                        Y.applyUpdate(referencedDoc, update);
+                    }
+                    referencedKeys = new Set(
+                        collectImageRefs(referencedDoc.getXmlFragment('prosemirror'))
+                            .filter(ref => ref.fileId === record.remoteFileId)
+                            .map(ref => ref.payloadKey)
+                    );
+                } finally {
+                    referencedDoc.destroy();
+                }
+                const pendingDeletions: string[] = [];
+                for (const payloadKey of await getPendingImageDeletions(record.localId)) {
+                    if (referencedKeys.has(payloadKey)) {
+                        await removePendingImageDeletion(record.localId, payloadKey);
+                    } else {
+                        pendingDeletions.push(payloadKey);
+                    }
+                }
                 const toDeletePayloads = pendingDeletions.length > 0
                     ? pendingDeletions.map(key => ({ key }))
                     : undefined;
