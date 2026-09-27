@@ -67,13 +67,13 @@ setup('bootstrap a fresh dev identity non-interactively and save storage state',
                 return;
             }
             if (url.hostname === IDENTITY) {
-                for (const name of [/^Allow$/, /^Next$/, /^Login$/]) {
-                    const button = page.getByRole('button', { name });
-                    if (await button.first().isVisible().catch(() => false)) {
-                        await button.first().click();
-                        await page.waitForTimeout(1_000);
-                        break;
-                    }
+                // Exactly one of these is ever visible at a time (the current
+                // consent page), so one alternation locator covers all three.
+                const button = page.getByRole('button', { name: /^(Allow|Next|Login)$/ });
+                if (await button.first().isVisible().catch(() => false)) {
+                    await button.first().click();
+                    await page.waitForTimeout(1_000);
+                    continue;
                 }
             }
             await page.waitForTimeout(500);
