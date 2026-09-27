@@ -55,6 +55,7 @@ export function MarkCollaborativeDialog({
   const {
     get: { data: notes = [] },
     updateNote: { mutateAsync: updateNoteMetadata },
+    setNotePublic: { mutateAsync: setNotePublic },
   } = useNotes();
   const { fetch: circlesFetch } = useCircles(true);
   const [selectedCircles, setSelectedCircles] = useState<SelectedCircle[]>([]);
@@ -126,10 +127,17 @@ export function MarkCollaborativeDialog({
 
       const existingNote = notes.find((n) => n.docId === noteId);
       if (existingNote) {
+        if (existingNote.metadata.isPublic) {
+          // makeNoteCollaborative re-uploaded the public note encrypted, which re-keys
+          // it: drop the public flag and the now-stale cached key header (#161)
+          await setNotePublic({ docId: noteId, isPublic: false });
+        }
         await updateNoteMetadata({
           docId: noteId,
           metadata: {
             ...existingNote.metadata,
+            // Without this the next push re-publishes the note unencrypted (#161)
+            isPublic: false,
             folderId: COLLABORATIVE_FOLDER_ID,
             isCollaborative: true,
             circleIds,

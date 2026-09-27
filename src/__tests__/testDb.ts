@@ -102,6 +102,7 @@ export async function createTestDatabase(): Promise<PGlite> {
       status TEXT NOT NULL DEFAULT 'pending',
       retry_count INTEGER DEFAULT 0,
       payload_key TEXT,
+      next_retry_at TIMESTAMP WITH TIME ZONE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
 

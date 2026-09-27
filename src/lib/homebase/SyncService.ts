@@ -16,6 +16,7 @@ import {
     deleteDocumentUpdates,
     replaceDocumentUpdates,
     getSyncRecord,
+    updateSyncStatus,
     upsertSyncRecord,
     getPendingSyncRecords,
     markSynced,
@@ -33,10 +34,12 @@ import {
     calculateNextRetryAt,
     getPendingImageDeletions,
     clearPendingImageDeletions,
+    removePendingImageDeletion,
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader, tryJsonParse, validateKeyHeader } from '@/lib/utils';
 import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
+import { collectImageRefs } from '@/lib/yjs/imageRefs';
 import { MAIN_FOLDER_ID, COLLABORATIVE_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
 import type { FolderFile, SyncRecord, SyncProgress, CollaborationInviteContent } from '@/types';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
@@ -90,6 +93,9 @@ type ConflictResolutionResult = {
 // real content. (revalidatePeerNote covers the rarer "accumulated-then-emptied"
 // case, so a cheap byte-sum is enough here — no need to build a Y.Doc.)
 const EMPTY_YDOC_BYTES = 2;
+
+// An uploaded image whose pending node never shows up is marked failed_permanent after this many tries
+const MAX_IMAGE_PROMOTION_ATTEMPTS = 5;
 
 function totalUpdateBytes(updates: Uint8Array[]): number {
     let total = 0;
@@ -928,8 +934,29 @@ export class SyncService {
                     cachedKeyHeader = (await this.#notesProvider.getNote(record.localId, record.authorOdinId))?.sharedSecretEncryptedKeyHeader;
                 }
 
-                // Get pending image deletions for this note
-                const pendingDeletions = await getPendingImageDeletions(record.localId);
+                // Get pending image deletions for this note, minus any payload the doc still
+                // shows on this note's file (e.g. undone after the tracker's 2s timer, #174)
+                const pendingDeletions: string[] = [];
+                const queuedDeletions = await getPendingImageDeletions(record.localId);
+                const referencedKeys = new Set<string>();
+                if (queuedDeletions.length > 0) {
+                    const referencedDoc = new Y.Doc();
+                    try {
+                        Y.applyUpdate(referencedDoc, yjsBlob);
+                        for (const ref of collectImageRefs(referencedDoc.getXmlFragment('prosemirror'))) {
+                            if (ref.fileId === record.remoteFileId) referencedKeys.add(ref.payloadKey);
+                        }
+                    } finally {
+                        referencedDoc.destroy();
+                    }
+                }
+                for (const payloadKey of queuedDeletions) {
+                    if (referencedKeys.has(payloadKey)) {
+                        await removePendingImageDeletion(record.localId, payloadKey);
+                    } else {
+                        pendingDeletions.push(payloadKey);
+                    }
+                }
                 const toDeletePayloads = pendingDeletions.length > 0
                     ? pendingDeletions.map(key => ({ key }))
                     : undefined;
@@ -1053,27 +1080,46 @@ export class SyncService {
                     continue;
                 }
 
-                await updateImageUploadStatus(upload.id, 'uploading');
+                // payloadKey set => the bytes reached the server on an earlier attempt;
+                // only promotion is left, never upload twice.
+                let payloadKey = upload.payloadKey;
+                if (!payloadKey) {
+                    await updateImageUploadStatus(upload.id, 'uploading');
 
-                const result = await this.#notesProvider.addImageToNote(
-                    upload.noteDocId, // uniqueId - consistent with how notes are tracked
-                    syncRecord.versionTag,
-                    { file: new Blob([new Uint8Array(upload.blobData)], { type: upload.contentType }) },
-                );
+                    const result = await this.#notesProvider.addImageToNote(
+                        upload.noteDocId, // uniqueId - consistent with how notes are tracked
+                        syncRecord.versionTag,
+                        { file: new Blob([new Uint8Array(upload.blobData)], { type: upload.contentType }) },
+                    );
+                    payloadKey = result.payloadKey;
+
+                    // Record the upload before promotion so a crash or failed promotion never re-uploads
+                    await updateImageUploadStatus(upload.id, 'uploading', payloadKey);
+                    // Generation guard: an edit made during the upload must stay pending
+                    await markSynced(upload.noteDocId, syncRecord.remoteFileId, result.versionTag, undefined, undefined, undefined, undefined, syncRecord.dirtyGeneration);
+                    console.log(`[SyncService] Image ${upload.id} uploaded as ${payloadKey}`);
+                }
 
                 // Update the Yjs document to replace pending reference with permanent one
-                await this.updateImageReference(
+                const promoted = await this.updateImageReference(
                     upload.noteDocId,
                     upload.id, // data-pending-id
                     syncRecord.remoteFileId,
-                    result.payloadKey
+                    payloadKey
                 );
 
-                // Success - update sync record and remove pending upload
-                await markSynced(upload.noteDocId, syncRecord.remoteFileId, result.versionTag);
-                await deletePendingImageUpload(upload.id);
-
-                console.log(`[SyncService] Image ${upload.id} uploaded as ${result.payloadKey}`);
+                if (promoted) {
+                    // The editor applies the promotion as a remote update and never saves it,
+                    // so mark the note pending or the new src never reaches the server
+                    await updateSyncStatus(upload.noteDocId, 'pending');
+                    await deletePendingImageUpload(upload.id);
+                } else if (upload.retryCount + 1 >= MAX_IMAGE_PROMOTION_ATTEMPTS) {
+                    // Give up retrying but keep the bytes (cleared at logout)
+                    await updateImageUploadStatus(upload.id, 'failed_permanent');
+                    console.warn(`[SyncService] Image ${upload.id} could not be promoted; giving up`);
+                } else {
+                    throw new Error(`Pending image node ${upload.id} not found in note ${upload.noteDocId}`);
+                }
             } catch (error) {
                 console.error(`[SyncService] Image upload failed:`, error);
 
@@ -1097,14 +1143,15 @@ export class SyncService {
         pendingId: string,
         fileId: string,
         payloadKey: string
-    ): Promise<void> {
+    ): Promise<boolean> {
         const updates = await getDocumentUpdates(docId);
-        if (!updates.length) return;
+        if (!updates.length) return false;
 
         const ydoc = new Y.Doc();
         for (const update of updates) {
             Y.applyUpdate(ydoc, update);
         }
+        const before = Y.encodeStateVector(ydoc);
 
         const fragment = ydoc.getXmlFragment('prosemirror');
         let found = false;
@@ -1139,12 +1186,11 @@ export class SyncService {
             }
         };
 
-        replaceInFragment(fragment);
+        ydoc.transact(() => replaceInFragment(fragment));
 
         if (found) {
-            // Save updated state
-            const newUpdate = Y.encodeStateAsUpdate(ydoc);
-            await replaceDocumentUpdates(docId, newUpdate);
+            // Append only the delta so rows the editor saved concurrently are never deleted
+            await saveDocumentUpdate(docId, Y.encodeStateAsUpdate(ydoc, before));
 
             // Notify the editor that the document was updated
             documentBroadcast.notifyDocumentUpdated(docId);
@@ -1153,6 +1199,7 @@ export class SyncService {
         }
 
         ydoc.destroy();
+        return found;
     }
 
     /**

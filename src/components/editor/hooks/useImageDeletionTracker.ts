@@ -8,7 +8,8 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import * as Y from 'yjs';
-import { savePendingImageDeletion } from '@/lib/db';
+import { getSyncRecord, savePendingImageDeletion } from '@/lib/db';
+import { collectImageRefs } from '@/lib/yjs/imageRefs';
 import { useSyncService } from '@/hooks/useSyncService';
 
 // Delay before persisting deletion (allows undo)
@@ -33,43 +34,9 @@ export function useImageDeletionTracker({ docId, yXmlFragment }: UseImageDeletio
         syncNoteRef.current = syncNote;
     }, [syncNote]);
 
-    // Scan document for current image payloads
+    // Scan document for current image refs, keyed "<fileId>/<payloadKey>"
     const scanForImagePayloads = useCallback(() => {
-        const currentPayloads = new Set<string>();
-
-        const walkNode = (node: Y.XmlElement | Y.XmlFragment | Y.XmlText) => {
-            if (node instanceof Y.XmlElement) {
-                if (node.nodeName === 'image') {
-                    try {
-                        const src = node.getAttribute('src');
-                        if (src && typeof src === 'string' && src.startsWith('attachment://')) {
-                            const parts = src.replace('attachment://', '').split('/');
-                            if (parts.length >= 2) {
-                                currentPayloads.add(parts[1]);
-                            }
-                        }
-                    } catch {
-                        // Ignore errors
-                    }
-                }
-                for (let i = 0; i < node.length; i++) {
-                    const child = node.get(i);
-                    if (child instanceof Y.XmlElement || child instanceof Y.XmlFragment) {
-                        walkNode(child);
-                    }
-                }
-            } else if (node instanceof Y.XmlFragment) {
-                for (let i = 0; i < node.length; i++) {
-                    const child = node.get(i);
-                    if (child instanceof Y.XmlElement || child instanceof Y.XmlFragment) {
-                        walkNode(child);
-                    }
-                }
-            }
-        };
-
-        walkNode(yXmlFragment);
-        return currentPayloads;
+        return new Set(collectImageRefs(yXmlFragment).map(({ fileId, payloadKey }) => `${fileId}/${payloadKey}`));
     }, [yXmlFragment]);
 
     // Initialize known payloads on mount
@@ -121,37 +88,43 @@ export function useImageDeletionTracker({ docId, yXmlFragment }: UseImageDeletio
 
             // Check for deletions (only if image node was deleted)
             if (imageDeleted) {
-                knownPayloads.forEach(payloadKey => {
-                    if (!currentPayloads.has(payloadKey)) {
+                knownPayloads.forEach(ref => {
+                    if (!currentPayloads.has(ref)) {
                         // Check if already pending
-                        if (!pendingDeletionsRef.current.has(payloadKey)) {
-                            console.log(`[useImageDeletionTracker] Image removed, scheduling deletion in ${DELETION_DELAY_MS}ms: ${payloadKey}`);
+                        if (!pendingDeletionsRef.current.has(ref)) {
+                            console.log(`[useImageDeletionTracker] Image removed, scheduling deletion in ${DELETION_DELAY_MS}ms: ${ref}`);
+                            const [fileId, payloadKey] = ref.split('/');
 
                             // Schedule deletion with delay (allows undo)
                             const timeout = setTimeout(async () => {
-                                console.log(`[useImageDeletionTracker] Persisting image deletion: ${payloadKey}`);
                                 try {
-                                    await savePendingImageDeletion(docId, payloadKey);
-                                    // Trigger sync for this note to send deletion to server
-                                    syncNoteRef.current?.(docId);
+                                    // Only this note's own payloads may be deleted: a pasted image
+                                    // points at another note's file (#174)
+                                    const syncRecord = await getSyncRecord(docId);
+                                    if (syncRecord?.remoteFileId && fileId === syncRecord.remoteFileId) {
+                                        console.log(`[useImageDeletionTracker] Persisting image deletion: ${payloadKey}`);
+                                        await savePendingImageDeletion(docId, payloadKey);
+                                        // Trigger sync for this note to send deletion to server
+                                        syncNoteRef.current?.(docId);
+                                    }
                                 } catch (err) {
                                     console.error('[useImageDeletionTracker] Failed to save pending deletion:', err);
                                 }
-                                pendingDeletionsRef.current.delete(payloadKey);
+                                pendingDeletionsRef.current.delete(ref);
                             }, DELETION_DELAY_MS);
 
-                            pendingDeletionsRef.current.set(payloadKey, timeout);
+                            pendingDeletionsRef.current.set(ref, timeout);
                         }
                     }
                 });
             }
 
             // Check for re-appearances (undo) - cancel pending deletions
-            currentPayloads.forEach(payloadKey => {
-                if (pendingDeletionsRef.current.has(payloadKey)) {
-                    console.log(`[useImageDeletionTracker] Image re-appeared (undo?), cancelling deletion: ${payloadKey}`);
-                    clearTimeout(pendingDeletionsRef.current.get(payloadKey));
-                    pendingDeletionsRef.current.delete(payloadKey);
+            currentPayloads.forEach(ref => {
+                if (pendingDeletionsRef.current.has(ref)) {
+                    console.log(`[useImageDeletionTracker] Image re-appeared (undo?), cancelling deletion: ${ref}`);
+                    clearTimeout(pendingDeletionsRef.current.get(ref));
+                    pendingDeletionsRef.current.delete(ref);
                 }
             });
 
