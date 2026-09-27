@@ -2,6 +2,7 @@ import './lib/utils/initLogging';
 import './lib/utils/sw-safety';
 import { reloadOnceForChunkError } from './lib/utils/chunkReload';
 import { reportBootPhase } from './lib/bootProgress';
+import { isPublicSharePath } from './lib/sharePath';
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -19,8 +20,11 @@ window.addEventListener('vite:preloadError', (event) => {
 // Import memory monitor for dev debugging (exposes window.memoryMonitor)
 import './lib/utils/memoryMonitor'
 
-// Request persistent storage so the browser won't evict IndexedDB/Cache under storage pressure
-navigator.storage?.persist?.();
+// Request persistent storage so the browser won't evict IndexedDB/Cache under storage pressure.
+// A public share page never touches IndexedDB, so skip it there.
+if (!isPublicSharePath(location.pathname)) {
+  navigator.storage?.persist?.();
+}
 
 // Main bundle parsed and executing — first boot milestone for the splash bar.
 reportBootPhase('react');

@@ -26,6 +26,12 @@ import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 // NoteList and friends, which would land in the main bundle instead of the
 // lazily loaded JournalLayout chunk.
 import { BootErrorScreen } from "@/components/layout/SplashScreen";
+import { isPublicSharePath } from "@/lib/sharePath";
+
+// Computed once at boot, not per route: UpdatePrompt sits outside BrowserRouter.
+// A visitor who clicks from a share page into the app gets the SW registered
+// on the next full load, which is fine.
+const isShareBoot = isPublicSharePath(window.location.pathname);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -110,7 +116,7 @@ function App() {
           </BrowserRouter>
 
           <Toaster />
-          <UpdatePrompt />
+          {!isShareBoot && <UpdatePrompt />}
           <BootErrorScreen />
         </ErrorBoundary>
       </PersistQueryClientProvider>
