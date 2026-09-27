@@ -21,15 +21,17 @@ const FORBIDDEN_PATTERNS = [
 ];
 
 describe('Settings motion removal', () => {
-  const files = listFiles(SETTINGS_DIR);
+  const files = listFiles(SETTINGS_DIR).map((file) => ({
+    file,
+    content: fs.readFileSync(file, 'utf-8'),
+  }));
 
   it('finds settings files to check', () => {
     expect(files.length).toBeGreaterThan(0);
   });
 
   it.each(FORBIDDEN_PATTERNS)('contains no "%s"', (pattern) => {
-    for (const file of files) {
-      const content = fs.readFileSync(file, 'utf-8');
+    for (const { file, content } of files) {
       expect(content, `${file} still contains "${pattern}"`).not.toContain(pattern);
     }
   });
