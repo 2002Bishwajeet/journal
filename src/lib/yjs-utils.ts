@@ -261,8 +261,7 @@ export async function extractPreviewTextFromYjs(noteId: string, yjsBlob?: Uint8A
     if (node instanceof Y.XmlText) {
       // Use toDelta() to reliably get plain text without XML tags/attributes
       const delta = node.toDelta();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return delta.map((op: any) => {
+      return (delta as Array<{ insert?: unknown }>).map((op) => {
         if (typeof op.insert === 'string') {
           return op.insert;
         }

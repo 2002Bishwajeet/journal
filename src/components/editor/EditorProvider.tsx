@@ -302,7 +302,7 @@ export function EditorProvider({
     // onCreateNoteLink / getCurrentNoteId are intentionally omitted: both have
     // stable identities ([] deps / keyed by noteId), and onCreateNoteLink reads
     // the mutable folderId through a ref rather than closing over it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only yXmlFragment is a real input; everything else is read via refs so undo history survives (see comment above)
     [yXmlFragment],
   );
 

@@ -318,6 +318,7 @@ npm run test:ui  # visual dashboard
 - **Lazy loading**: Dynamic imports for heavy modules (WebLLM ~7MB, ImportService, ExportService)
 - **Avoid over-optimization**: No `useCallback`/`useMemo` unless profiling shows need
 - **No `any` type**: Always use proper types. Use library-provided types (e.g. `CommandProps` from `@tiptap/core`), module augmentation (`declare global`/`declare module`), or generics instead of `any`. If there is genuinely no way to avoid `any`, stop and explain why to the user before proceeding.
+- Every `eslint-disable*` needs `-- <reason>`; `@ts-ignore`/`@ts-nocheck` are banned; `@ts-expect-error` needs a description (tests only).
 
 ### UI Floors & Motion
 

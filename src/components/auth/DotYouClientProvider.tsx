@@ -11,8 +11,8 @@ export function DotYouClientProvider({ children }: DotYouClientProviderProps) {
 
   const dotYouClient = useMemo(
     () => getDotYouClient(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isAuthenticated]
+    // isAuthenticated: rebuild the client after login/logout; getDotYouClient itself is stable
+    [getDotYouClient, isAuthenticated]
   );
 
   return (
