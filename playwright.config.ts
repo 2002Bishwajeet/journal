@@ -35,7 +35,9 @@ export default defineConfig({
       name: 'hermetic',
       testIgnore: ['**/*.live.spec.ts', 'edge/**'],
       grepInvert: /@quarantine/,
-      use: { ...devices['Desktop Chrome'] },
+      // Service-worker fetches can bypass context.route(), which would let them
+      // slip past the network fence. SW behaviour belongs in the live layer.
+      use: { ...devices['Desktop Chrome'], serviceWorkers: 'block' },
     },
   ],
 });
