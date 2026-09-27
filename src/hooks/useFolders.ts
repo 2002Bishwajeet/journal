@@ -129,9 +129,8 @@ export function useFolders() {
                 )
             );
 
-            // Delete the folder itself
+            // Delete the folder itself (deleteFolderRemote owns its sync record, #258)
             await deleteFolder(folderId);
-            await deleteSyncRecord(folderId);
         },
     });
 

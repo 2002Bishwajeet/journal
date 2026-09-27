@@ -191,7 +191,7 @@ describe('SyncService.pushNote', () => {
         mockGetNote.mockResolvedValue({
             fileId: 'fresh-file-1',
             sharedSecretEncryptedKeyHeader: { encryptionVersion: 1, type: 'aes', iv: 'aXY=', encryptedAesKey: 'aXY=' },
-            fileMetadata: { versionTag: 'v-remote', updated: 1700000002000, globalTransitId: 'g2' },
+            fileMetadata: { versionTag: 'v-remote', updated: 1700000002000, globalTransitId: 'g2', appData: { groupId: 'main' } },
         });
         mockGetNotePayload.mockResolvedValue(textUpdate('Remote'));
         // First (outer) call triggers the conflict callback; the inner retry returns the final tag.

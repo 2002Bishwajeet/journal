@@ -510,6 +510,19 @@ export async function setNoteArchivalStatusLocal(docId: string, status: number):
     );
 }
 
+/** Set a note's folderId locally, preserving every other metadata field. */
+export async function setNoteFolderLocal(docId: string, folderId: string, expectedFolderId: string): Promise<void> {
+    const db = await getDatabase();
+    // Only if the folder is still expectedFolderId, so a concurrent local move wins
+    await db.query(
+        `UPDATE search_index
+         SET metadata = jsonb_set(metadata, '{folderId}', to_jsonb($2::text)),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE doc_id = $1 AND metadata->>'folderId' = $3`,
+        [docId, folderId, expectedFolderId]
+    );
+}
+
 // Folders
 export async function getAllFolders(): Promise<Folder[]> {
     const db = await getDatabase();
@@ -864,7 +877,7 @@ export async function getSyncRecord(localId: string): Promise<SyncRecord | null>
         remote_file_id: string | null;
         version_tag: string | null;
         last_synced_at: string | null;
-        sync_status: 'pending' | 'synced' | 'conflict' | 'error';
+        sync_status: SyncRecord['syncStatus'];
         content_hash: string | null;
         encrypted_key_header: string | null;
         author_odin_id: string | null;
@@ -899,7 +912,7 @@ export async function getSyncRecordByRemoteId(remoteFileId: string): Promise<Syn
         remote_file_id: string | null;
         version_tag: string | null;
         last_synced_at: string | null;
-        sync_status: 'pending' | 'synced' | 'conflict' | 'error';
+        sync_status: SyncRecord['syncStatus'];
     }>(
         'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash FROM sync_records WHERE remote_file_id = $1',
         [remoteFileId]
@@ -916,21 +929,21 @@ export async function getSyncRecordByRemoteId(remoteFileId: string): Promise<Syn
     };
 }
 
-export async function getPendingSyncRecords(entityType?: 'folder' | 'note'): Promise<SyncRecord[]> {
+export async function getPendingSyncRecords(entityType?: 'folder' | 'note', status: 'pending' | 'pending_delete' = 'pending'): Promise<SyncRecord[]> {
     const db = await getDatabase();
     const query = entityType
         ? `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id, dirty_generation
-           FROM sync_records WHERE sync_status = 'pending' AND entity_type = $1`
+           FROM sync_records WHERE sync_status = $1 AND entity_type = $2`
         : `SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash, encrypted_key_header, author_odin_id, global_transit_id, dirty_generation
-           FROM sync_records WHERE sync_status = 'pending'`;
-    const params = entityType ? [entityType] : [];
+           FROM sync_records WHERE sync_status = $1`;
+    const params = entityType ? [status, entityType] : [status];
     const result = await db.query<{
         local_id: string;
         entity_type: 'folder' | 'note';
         remote_file_id: string | null;
         version_tag: string | null;
         last_synced_at: string | null;
-        sync_status: 'pending' | 'synced' | 'conflict' | 'error';
+        sync_status: SyncRecord['syncStatus'];
         content_hash: string | null;
         encrypted_key_header: string | null;
         author_odin_id: string | null;
@@ -1089,7 +1102,7 @@ export async function getPendingSyncCount(): Promise<{ notes: number; folders: n
     );
 
     const foldersResult = await db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM sync_records WHERE entity_type = 'folder' AND sync_status = 'pending'`
+        `SELECT COUNT(*) as count FROM sync_records WHERE entity_type = 'folder' AND sync_status IN ('pending', 'pending_delete')`
     );
 
     const imagesResult = await db.query<{ count: string }>(

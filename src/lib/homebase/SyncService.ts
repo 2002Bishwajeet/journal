@@ -37,6 +37,7 @@ import {
     getPendingImageDeletions,
     clearPendingImageDeletions,
     removePendingImageDeletion,
+    setNoteFolderLocal,
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader, tryJsonParse, validateKeyHeader } from '@/lib/utils';
@@ -416,11 +417,17 @@ export class SyncService {
 
         // Skip records currently backing off from a recent failure (#146). These three
         // reads are independent, so fetch them concurrently instead of sequentially.
-        const [inBackoff, allPendingFolders, allPendingNotes] = await Promise.all([
+        const [inBackoff, allPendingFolders, allPendingNotes, folderDeletes] = await Promise.all([
             getEntityIdsInBackoff('push'),
             getPendingSyncRecords('folder'),
             getPendingSyncRecords('note'),
+            getPendingSyncRecords('folder', 'pending_delete'),
         ]);
+
+        // Retry remote folder deletes that failed earlier (#258)
+        for (const record of folderDeletes) {
+            if (!inBackoff.has(record.localId)) await this.deleteFolderRemote(record.localId);
+        }
 
         // Push pending folders first (sequential - usually few folders)
         const pendingFolders = allPendingFolders.filter(r => !inBackoff.has(r.localId));
@@ -482,6 +489,8 @@ export class SyncService {
         const folderName = content?.name || 'Untitled Folder';
 
         const existingRecord = await getSyncRecord(uniqueId);
+        // Deleted here; the remote delete is still being retried (#258)
+        if (existingRecord?.syncStatus === 'pending_delete') return;
 
         if (!existingRecord) {
             // New folder from remote
@@ -996,11 +1005,15 @@ export class SyncService {
                     if (mergedBlob) {
                         await replaceDocumentUpdates(record.localId, mergedBlob);
                     }
+                    // Merge only the content: keep the server's folder (#257). A missing
+                    // groupId means Main, as on pull (handleRemoteNote).
+                    const serverFolderId = freshFile.fileMetadata.appData?.groupId || MAIN_FOLDER_ID;
+                    const mergedMetadata = { ...doc.metadata, folderId: serverFolderId };
                     const result = await this.#notesProvider.updateNote(
                         record.localId,
                         freshFile.fileId,
                         freshFile.fileMetadata.versionTag,
-                        doc.metadata,
+                        mergedMetadata,
                         record.authorOdinId,
                         freshFile.fileMetadata.globalTransitId,
                         mergedBlob,
@@ -1008,9 +1021,14 @@ export class SyncService {
                         { toDeletePayloads }
                     );
 
+                    // Mirror the server's folder locally so the next push doesn't revert it
+                    if (serverFolderId !== doc.metadata.folderId) {
+                        await setNoteFolderLocal(record.localId, serverFolderId, doc.metadata.folderId);
+                    }
+
                     // Compute hash for the merged blob
                     const mergedHash = mergedBlob
-                        ? await computeContentHash(doc.metadata, mergedBlob)
+                        ? await computeContentHash(mergedMetadata, mergedBlob)
                         : currentHash;
 
                     // Store result for use after the call returns
@@ -1276,9 +1294,19 @@ export class SyncService {
         try {
             await this.#folderProvider.deleteFolder(record?.remoteFileId, folderId);
             console.log(`[SyncService] Deleted remote folder: ${folderId}`);
+            await deleteSyncRecord(folderId);
+            await resolveSyncErrorsForEntity(folderId);
         } catch (error) {
             console.error(`[SyncService] Failed to delete remote folder ${folderId}:`, error);
-            // Don't throw - local delete should still proceed
+            // Don't throw - local delete should still proceed. Keep the sync record as
+            // 'pending_delete' so pushChanges retries the remote delete (#258).
+            await upsertSyncRecord({
+                localId: folderId,
+                entityType: 'folder',
+                remoteFileId: record?.remoteFileId,
+                syncStatus: 'pending_delete',
+            });
+            await this.logSyncError(folderId, 'folder', 'push', error);
         }
     }
 }

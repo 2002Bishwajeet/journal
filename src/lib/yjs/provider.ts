@@ -119,6 +119,7 @@ export class PGliteProvider {
 
             // Use microtask to batch multiple updates
             queueMicrotask(async () => {
+                let saved = false;
                 try {
                     // Re-drain: updates queued while an earlier batch was awaiting its
                     // save would otherwise strand in memory (isSaving stays true, so no
@@ -133,7 +134,13 @@ export class PGliteProvider {
                             await saveDocumentUpdate(this.docId, u);
                             this.updateCount++;
                         }
+                        saved = true;
                     }
+
+                    // One announcement per drained burst, so another tab open on
+                    // this note reloads it. Its reload applies with origin 'remote',
+                    // which the guard above skips, so it is never re-announced.
+                    if (saved) documentBroadcast.notifyOtherTabs(this.docId);
 
                     // Auto-compact if threshold reached
                     if (this.updateCount >= PGliteProvider.COMPACTION_THRESHOLD) {
@@ -162,6 +169,9 @@ export class PGliteProvider {
                 await saveDocumentUpdate(this.docId, u);
                 this.updateCount++;
             }
+            // These were taken before handleUpdate's microtask could save (and
+            // announce) them, so announce here instead.
+            documentBroadcast.notifyOtherTabs(this.docId);
         }
 
         // Wait for any in-progress save to complete

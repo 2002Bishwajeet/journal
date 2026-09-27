@@ -2,13 +2,7 @@ import { test, expect, waitForAppReady } from '../fixtures';
 import { activeEditor, createNote, typeInEditor } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
-// Real app bug, not a test flake: PGliteProvider.handleUpdate persists local
-// Yjs updates but never calls documentBroadcast.notifyDocumentUpdated, so a
-// second tab open on the same note never hears about a local (non-synced)
-// edit. See https://github.com/2002Bishwajeet/journal/issues/256.
-test('typing in one tab shows up in another tab open on the same note @quarantine', async ({ app }) => {
-  test.fixme(true, 'https://github.com/2002Bishwajeet/journal/issues/256');
-
+test('typing in one tab shows up in another tab open on the same note', async ({ app }) => {
   const title = `Two tabs ${Date.now()}`;
   await createNote(app, { title, body: 'Shared note.' });
   const noteUrl = app.url();

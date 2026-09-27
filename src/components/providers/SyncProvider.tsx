@@ -18,6 +18,7 @@ import {
   needsSyncMigration,
   getPendingSyncCount,
   getAppState,
+  deleteSyncRecord,
 } from "@/lib/db";
 import { STORAGE_KEY_LAST_SYNC } from "@/lib/homebase";
 import { SyncContext, type SyncContextType } from "@/hooks/useSyncService";
@@ -240,7 +241,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Delete a folder from remote
   const deleteFolderRemote = useCallback(
     async (folderId: string) => {
-      if (!syncService) return;
+      // Signed out: nothing to delete remotely, so drop the folder's sync record
+      if (!syncService) return deleteSyncRecord(folderId);
       try {
         await syncService.deleteFolderRemote(folderId);
       } catch (error) {
