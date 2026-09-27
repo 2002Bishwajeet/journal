@@ -11,6 +11,7 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 import {
     upsertSyncRecord, getSyncRecord, upsertSearchIndex, getSearchIndexEntry,
     deleteSearchIndexEntry, deleteDocumentUpdates, getUnresolvedSyncErrors, getPendingSyncCount,
+    markSynced, markPendingDelete,
 } from '@/lib/db/queries';
 import type { OnlineContextType } from '@/contexts/OnlineContext';
 import type { DocumentMetadata } from '@/types';
@@ -133,5 +134,50 @@ describe('note delete when the server delete fails (#265)', () => {
         expect(payloadSpy).not.toHaveBeenCalled();
         expect(await getSearchIndexEntry(NOTE_ID)).toBeNull();
         expect((await getSyncRecord(NOTE_ID))?.syncStatus).toBe('pending_delete');
+    });
+
+    it('keeps pending_delete when a push that was in flight during the delete finishes', async () => {
+        const before = await getSyncRecord(NOTE_ID);
+        mockDeleteFile.mockRejectedValueOnce(new Error('offline'));
+        await deleteNoteLikeTheUi();
+
+        // The push snapshotted the record before the delete and now records its result
+        await markSynced(NOTE_ID, 'file-1', 'v2', 'hash', undefined, undefined, undefined, before!.dirtyGeneration);
+
+        expect((await getSyncRecord(NOTE_ID))?.syncStatus).toBe('pending_delete');
+    });
+
+    it('keeps the author and transit id on the pending-delete record', async () => {
+        await upsertSyncRecord({
+            localId: NOTE_ID, entityType: 'note', syncStatus: 'synced', remoteFileId: 'file-1',
+            versionTag: 'v1', authorOdinId: 'me.dotyou.cloud', globalTransitId: 'gt-1',
+        });
+        mockDeleteFile.mockRejectedValueOnce(new Error('offline'));
+
+        await deleteNoteLikeTheUi();
+
+        const pending = await getSyncRecord(NOTE_ID);
+        expect(pending?.syncStatus).toBe('pending_delete');
+        expect(pending?.authorOdinId).toBe('me.dotyou.cloud');
+        expect(pending?.globalTransitId).toBe('gt-1');
+    });
+});
+
+describe('markPendingDelete (delete while the sync service is not ready)', () => {
+    it('queues the remote delete of a record that reached the server, keeping its fields', async () => {
+        await markPendingDelete(NOTE_ID);
+
+        const pending = await getSyncRecord(NOTE_ID);
+        expect(pending?.syncStatus).toBe('pending_delete');
+        expect(pending?.remoteFileId).toBe('file-1');
+        expect(pending?.versionTag).toBe('v1');
+    });
+
+    it('drops a record that never reached the server', async () => {
+        await upsertSyncRecord({ localId: NOTE_ID, entityType: 'note', syncStatus: 'pending' });
+
+        await markPendingDelete(NOTE_ID);
+
+        expect(await getSyncRecord(NOTE_ID)).toBeNull();
     });
 });

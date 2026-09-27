@@ -31,6 +31,7 @@ import {
     resolveSyncErrorsForEntity,
     getEntityIdsInBackoff,
     getNextPushRetryAt,
+    markPendingDelete,
     clearOldSyncErrors,
     getImageUploadsReadyForRetry,
     updateImageRetryAt,
@@ -1292,12 +1293,7 @@ export class SyncService {
             console.error(`[SyncService] Failed to delete remote note ${docId}:`, error);
             // Don't throw - local delete should still proceed. Keep the sync record as
             // 'pending_delete' so pushChanges retries the remote delete (#265).
-            await upsertSyncRecord({
-                localId: docId,
-                entityType: 'note',
-                remoteFileId: record?.remoteFileId,
-                syncStatus: 'pending_delete',
-            });
+            await markPendingDelete(docId);
             await this.logSyncError(docId, 'note', 'push', error);
         }
     }

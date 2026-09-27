@@ -983,12 +983,14 @@ export async function markSynced(localId: string, remoteFileId: string, versionT
     // bumped the generation since — otherwise an edit made DURING the push would be
     // clobbered back to synced. version_tag/content_hash/key header are ALWAYS
     // recorded so a superseded push still captures what the server now has.
+    // A record deleted during the push stays 'pending_delete' so its remote delete is retried.
     await db.query(
         `UPDATE sync_records SET
            remote_file_id = $2,
            version_tag = $3,
            last_synced_at = CURRENT_TIMESTAMP,
-           sync_status = CASE WHEN $8::int IS NULL OR dirty_generation = $8::int THEN 'synced' ELSE sync_status END,
+           sync_status = CASE WHEN sync_status = 'pending_delete' THEN sync_status
+                              WHEN $8::int IS NULL OR dirty_generation = $8::int THEN 'synced' ELSE sync_status END,
            content_hash = $4,
            encrypted_key_header = COALESCE($5, encrypted_key_header),
            author_odin_id = COALESCE($6, author_odin_id),
@@ -996,6 +998,20 @@ export async function markSynced(localId: string, remoteFileId: string, versionT
          WHERE local_id = $1`,
         [localId, remoteFileId, versionTag, contentHash || null, encryptedKeyHeader || null, authorOdinId || null, globalTransitId || null, expectedGeneration ?? null]
     );
+}
+
+/**
+ * A note or folder was deleted locally: keep its sync record as 'pending_delete' (all
+ * other fields intact) so the next sync deletes it remotely, or drop the record if it
+ * never reached the server (#265).
+ */
+export async function markPendingDelete(localId: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `UPDATE sync_records SET sync_status = 'pending_delete' WHERE local_id = $1 AND remote_file_id IS NOT NULL`,
+        [localId]
+    );
+    await db.query('DELETE FROM sync_records WHERE local_id = $1 AND remote_file_id IS NULL', [localId]);
 }
 
 /**

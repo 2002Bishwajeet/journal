@@ -18,7 +18,7 @@ import {
   needsSyncMigration,
   getPendingSyncCount,
   getAppState,
-  deleteSyncRecord,
+  markPendingDelete,
 } from "@/lib/db";
 import { STORAGE_KEY_LAST_SYNC } from "@/lib/homebase";
 import { SyncContext, type SyncContextType } from "@/hooks/useSyncService";
@@ -102,6 +102,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   // Schedule a retry using ref to avoid circular dependency
   const scheduleRetry = useCallback((delayMs = RETRY_BACKOFF_MS) => {
+    if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
     retryTimeoutRef.current = setTimeout(() => {
       if (navigator.onLine && syncFnRef.current) {
         syncFnRef.current();
@@ -221,8 +222,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Delete a note from remote
   const deleteNoteRemote = useCallback(
     async (docId: string) => {
-      // Signed out: nothing to delete remotely, so drop the note's sync record
-      if (!syncService) return deleteSyncRecord(docId);
+      // Sync service not ready (starting up or signed out): queue the remote delete
+      if (!syncService) return markPendingDelete(docId);
       try {
         await syncService.deleteNoteRemote(docId);
       } catch (error) {
@@ -246,8 +247,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Delete a folder from remote
   const deleteFolderRemote = useCallback(
     async (folderId: string) => {
-      // Signed out: nothing to delete remotely, so drop the folder's sync record
-      if (!syncService) return deleteSyncRecord(folderId);
+      // Sync service not ready (starting up or signed out): queue the remote delete
+      if (!syncService) return markPendingDelete(folderId);
       try {
         await syncService.deleteFolderRemote(folderId);
       } catch (error) {
