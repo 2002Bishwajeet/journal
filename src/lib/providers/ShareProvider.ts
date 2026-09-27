@@ -13,6 +13,7 @@ import { JOURNAL_DRIVE, PAYLOAD_KEY_CONTENT } from '@/lib/homebase/config';
 export interface SharedNoteData {
     title: string;
     content: string; // Markdown
+    fileId: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -90,6 +91,7 @@ export class ShareProvider {
         return {
             title,
             content: markdown,
+            fileId: header.fileId,
             createdAt: new Date(header.fileMetadata.appData.userDate || Date.now()).toISOString(),
             updatedAt: new Date(header.fileMetadata.transitUpdated || Date.now()).toISOString(),
         };
