@@ -867,7 +867,7 @@ export class NotesDriveProvider {
         editorOdinId: string
     ): Promise<{ versionTag: string }> {
         // Fetch existing file header
-        const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
+        let existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
             this.#dotYouClient,
             JOURNAL_DRIVE,
             uniqueId,
@@ -878,15 +878,31 @@ export class NotesDriveProvider {
             throw new Error(`Note with uniqueId ${uniqueId} not found`);
         }
 
-        // Get existing content to preserve it
-        const existingContent = existingHeader.fileMetadata.appData.content as NoteFileContent | undefined;
+        // Collaborative notes must be encrypted, and a header-only patch can't encrypt
+        // an existing plaintext (public) payload — re-upload it encrypted first.
+        if (existingHeader.fileMetadata.isEncrypted === false) {
+            await this.makeNotePrivate(uniqueId);
+            existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
+                this.#dotYouClient,
+                JOURNAL_DRIVE,
+                uniqueId,
+                { decrypt: true }
+            );
+            if (!existingHeader) {
+                throw new Error(`Note with uniqueId ${uniqueId} not found`);
+            }
+        }
+
+        const existingAppData = existingHeader.fileMetadata.appData;
+        const existingContent: NoteFileContent =
+            (typeof existingAppData.content === 'string'
+                ? tryJsonParse<NoteFileContent>(existingAppData.content)
+                : existingAppData.content) ?? ({} as NoteFileContent);
 
         // Build updated note content with collaborative metadata
         const noteContent: NoteFileContent = {
-            title: existingContent?.title || '',
-            tags: existingContent?.tags || [],
-            excludeFromAI: existingContent?.excludeFromAI || false,
-            isPinned: existingContent?.isPinned || false,
+            ...existingContent,
+            isPublic: false,
             isCollaborative: true,
             circleIds,
             recipients,
@@ -904,6 +920,8 @@ export class NotesDriveProvider {
                 dataType: JOURNAL_DATA_TYPE,
                 uniqueId,
                 groupId: COLLABORATIVE_FOLDER_ID, // Move to collaborative folder
+                userDate: existingAppData.userDate,
+                tags: existingAppData.tags,
                 content: JSON.stringify(noteContent),
             },
             isEncrypted: true,
@@ -966,15 +984,16 @@ export class NotesDriveProvider {
             throw new Error(`Note with uniqueId ${uniqueId} not found`);
         }
 
-        // Get existing content to preserve it
-        const existingContent = existingHeader.fileMetadata.appData.content as NoteFileContent | undefined;
+        const existingAppData = existingHeader.fileMetadata.appData;
+        const existingContent: NoteFileContent =
+            (typeof existingAppData.content === 'string'
+                ? tryJsonParse<NoteFileContent>(existingAppData.content)
+                : existingAppData.content) ?? ({} as NoteFileContent);
 
         // Build updated note content - remove collaborative metadata
         const noteContent: NoteFileContent = {
-            title: existingContent?.title || '',
-            tags: existingContent?.tags || [],
-            excludeFromAI: existingContent?.excludeFromAI || false,
-            isPinned: existingContent?.isPinned || false,
+            ...existingContent,
+            isPublic: false,
             isCollaborative: false,
             circleIds: undefined,
             recipients: undefined,
@@ -990,6 +1009,8 @@ export class NotesDriveProvider {
                 dataType: JOURNAL_DATA_TYPE,
                 uniqueId,
                 groupId: MAIN_FOLDER_ID, // Move back to main folder
+                userDate: existingAppData.userDate,
+                tags: existingAppData.tags,
                 content: JSON.stringify(noteContent),
             },
             isEncrypted: true, // Private notes should be encrypted

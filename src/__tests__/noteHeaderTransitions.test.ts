@@ -178,10 +178,10 @@ describe('note header transitions (#161)', () => {
             });
         });
 
-        // BUG #161: makeNoteCollaborative casts appData.content without parsing it and
-        // hand-lists 8 fields, so today it writes appData without userDate/tags, drops
-        // isPublic, and (for string content) wipes the title to ''.
-        it.fails('makeNoteCollaborative keeps title, tags, userDate and writes isPublic: false', async () => {
+        // Regression #161: makeNoteCollaborative used to cast appData.content without
+        // parsing it and hand-list 8 fields, dropping userDate/tags/isPublic and (for
+        // string content) wiping the title to ''.
+        it('makeNoteCollaborative keeps title, tags, userDate and writes isPublic: false', async () => {
             serveNote(noteHeader(shape));
 
             await expect(
@@ -214,9 +214,9 @@ describe('note header transitions (#161)', () => {
             expect(JSON.parse(mockUploadFile.mock.calls[0][2].appData.content).noteTitle).toBe('Dated Note');
         });
 
-        // BUG #161: same cast as makeNoteCollaborative — userDate, tags and isPublic
-        // are dropped, and string content loses its title.
-        it.fails('revokeNoteCollaboration keeps title, tags, userDate and writes isPublic: false', async () => {
+        // Regression #161: same cast as makeNoteCollaborative — userDate, tags and
+        // isPublic were dropped, and string content lost its title.
+        it('revokeNoteCollaboration keeps title, tags, userDate and writes isPublic: false', async () => {
             serveNote(noteHeader(shape, {
                 acl: { requiredSecurityGroup: SecurityGroupType.Connected, circleIdList: ['circle-1'] },
             }));
@@ -243,10 +243,10 @@ describe('note header transitions (#161)', () => {
         });
     });
 
-    // BUG #161: a header-only patch can't encrypt an existing plaintext payload, so a
-    // public note made collaborative must be re-uploaded encrypted first. Today it is
-    // only patched to isEncrypted: true, leaving the payload plaintext.
-    it.fails('makeNoteCollaborative on a public note re-uploads it encrypted before patching', async () => {
+    // Regression #161: a header-only patch can't encrypt an existing plaintext payload,
+    // so a public note made collaborative must be re-uploaded encrypted first. It used
+    // to be only patched to isEncrypted: true, leaving the payload plaintext.
+    it('makeNoteCollaborative on a public note re-uploads it encrypted before patching', async () => {
         const publicHeader = noteHeader('string', {
             isEncrypted: false,
             acl: { requiredSecurityGroup: SecurityGroupType.Anonymous },
