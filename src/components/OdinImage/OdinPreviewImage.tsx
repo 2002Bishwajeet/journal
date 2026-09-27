@@ -157,6 +157,8 @@ export const OdinPreviewImage = forwardRef(
           .filter(Boolean)
           .join(" ")}
         {...props}
+        alt=""
+        aria-hidden="true"
       />
     );
   }
