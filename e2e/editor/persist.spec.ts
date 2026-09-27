@@ -8,7 +8,7 @@ test('created note persists across a reload', async ({ app }) => {
   await app.reload();
   await waitForAppReady(app);
 
-  await expect(app.getByRole('button').filter({ hasText: title })).toBeVisible();
+  await expect(app.getByRole('button').filter({ hasText: title }).first()).toBeVisible();
   await expect(activeEditor(app)).toContainText('First paragraph.');
   await expect(activeEditor(app)).toContainText('Second paragraph.');
 });
@@ -23,7 +23,7 @@ test('edited note survives a reload', async ({ app }) => {
   await app.reload();
   await waitForAppReady(app);
 
-  await expect(app.getByRole('button').filter({ hasText: title })).toBeVisible();
+  await expect(app.getByRole('button').filter({ hasText: title }).first()).toBeVisible();
   await expect(activeEditor(app)).toContainText('Original text.');
   await expect(activeEditor(app)).toContainText('Appended text.');
 });
