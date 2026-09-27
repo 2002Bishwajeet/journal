@@ -1,8 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { shareProvider, type SharedNoteData } from '@/lib/providers/ShareProvider';
 
+// 'v2': SharedNoteData gained a required `fileId` (#175) — versioned so a
+// pre-existing IndexedDB-persisted cache entry (shaped without it, maxAge 7
+// days) is never read as this shape; a stale entry would hide every image on
+// the page until it happened to be refetched.
 export const publicNoteQueryKey = (identity: string, noteId: string) =>
-    ['public-note', identity, noteId] as const;
+    ['public-note-v2', identity, noteId] as const;
 
 /**
  * Query hook to fetch a publicly shared note.
