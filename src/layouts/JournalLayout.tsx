@@ -59,6 +59,7 @@ import {
   useArchivedNotes,
 } from "@/hooks/useNotes";
 import { staleTabIds } from "@/hooks/useTabManager";
+import { getMobilePane } from "@/layouts/mobilePane";
 import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
@@ -404,8 +405,7 @@ export default function JournalLayout() {
     }
   };
 
-  const isNoteSelected = !!noteId;
-  const isFolderSelected = !!folderId;
+  const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
 
   if (isNotesLoading || isFolderLoading) {
     return <SplashScreen />;
@@ -429,9 +429,9 @@ export default function JournalLayout() {
           "h-full border-r bg-muted/10 transition-all duration-300 ease-in-out pb-[env(safe-area-inset-bottom)]",
           // Desktop: Always visible
           isDesktop ? "flex static" : "hidden",
-          // Mobile: Visible only when no folder selected (root)
+          // Mobile: Visible only at the root (no folder, tag or note)
           !isDesktop &&
-            !isFolderSelected &&
+            mobilePane === "sidebar" &&
             "flex absolute inset-0 z-30 w-full bg-background",
           inFocusMode && "hidden!",
         )}
@@ -488,10 +488,9 @@ export default function JournalLayout() {
               ? "flex flex-1 static"
               : "flex w-64 static shrink-0"
             : "hidden",
-          // Mobile: Visible when folder selected but no note selected (Absolute covering screen)
+          // Mobile: Visible for a folder or tag with no note selected (Absolute covering screen)
           !isDesktop &&
-            isFolderSelected &&
-            !isNoteSelected &&
+            mobilePane === "list" &&
             "flex absolute inset-0 z-20 w-full",
           inFocusMode && "hidden!",
         )}
@@ -515,11 +514,13 @@ export default function JournalLayout() {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <h2 className="text-sm font-medium truncate flex-1 leading-none">
-              {folderId === "trash"
-                ? "Trash"
-                : folderId === "archive"
-                  ? "Archive"
-                  : folders.find((f) => f.id === folderId)?.name || "Notes"}
+              {selectedTag
+                ? `#${selectedTag}`
+                : folderId === "trash"
+                  ? "Trash"
+                  : folderId === "archive"
+                    ? "Archive"
+                    : folders.find((f) => f.id === folderId)?.name || "Notes"}
             </h2>
             <SyncStatus />
           </div>
@@ -643,7 +644,7 @@ export default function JournalLayout() {
           isDesktop && !isManagementView ? "flex" : "hidden",
           // Mobile: Visible only when note is selected
           !isDesktop &&
-            isNoteSelected &&
+            mobilePane === "editor" &&
             "flex absolute inset-0 z-10 w-full h-full",
         )}
       >
