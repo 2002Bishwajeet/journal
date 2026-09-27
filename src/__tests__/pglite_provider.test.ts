@@ -186,13 +186,11 @@ describe('PGliteProvider.compact', () => {
 
 describe('replaceDocumentUpdates', () => {
     it('replaces prior rows with a single compacted blob', async () => {
-        const { updates } = authorUpdates(['One', 'Two', 'Three']);
+        const { updates, fullText } = authorUpdates(['One', 'Two', 'Three']);
         for (const u of updates) await saveDocumentUpdate(DOC_ID, u);
         expect(await docRowCount(DOC_ID)).toBe(3);
 
-        const { updates: fresh, fullText } = authorUpdates(['Merged']);
-        const merged = fresh[0];
-        await replaceDocumentUpdates(DOC_ID, merged);
+        await replaceDocumentUpdates(DOC_ID, Y.mergeUpdates(updates));
 
         expect(await docRowCount(DOC_ID)).toBe(1);
         expect(bodyOf((await getDocumentUpdates(DOC_ID))[0])).toBe(fullText);

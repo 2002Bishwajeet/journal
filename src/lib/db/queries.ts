@@ -1,3 +1,4 @@
+import * as Y from 'yjs';
 import { MAIN_FOLDER_ID } from '../homebase';
 import { getDatabase, ensureTrigramSearch } from './pglite';
 import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRecord, PendingImageUpload, SyncError, AdvancedSearchResult } from '@/types';
@@ -129,13 +130,23 @@ export async function deleteDocumentUpdates(docId: string): Promise<void> {
 // delete and insert run in ONE statement (a data-modifying CTE), so a crash or
 // error between them can never leave the note with zero rows — the note's local
 // history survives intact. Replaces the old non-atomic delete→save pairs.
+// The stored rows are merged into the blob and only those rows are deleted, so
+// an update another tab saved after the caller built `blob` is never lost (#264).
 export async function replaceDocumentUpdates(docId: string, blob: Uint8Array): Promise<void> {
     const db = await getDatabase();
-    await db.query(
-        `WITH del AS (DELETE FROM document_updates WHERE doc_id = $1)
-         INSERT INTO document_updates (doc_id, update_blob) VALUES ($1, $2)`,
-        [docId, blob]
+    const stored = await db.query<{ id: number; update_blob: Uint8Array }>(
+        'SELECT id, update_blob FROM document_updates WHERE doc_id = $1',
+        [docId]
     );
+    const merged = new Y.Doc();
+    for (const row of stored.rows) Y.applyUpdate(merged, row.update_blob);
+    Y.applyUpdate(merged, blob);
+    await db.query(
+        `WITH del AS (DELETE FROM document_updates WHERE doc_id = $1 AND id = ANY($3::int[]))
+         INSERT INTO document_updates (doc_id, update_blob) VALUES ($1, $2)`,
+        [docId, Y.encodeStateAsUpdate(merged), stored.rows.map(row => row.id)]
+    );
+    merged.destroy();
 }
 
 // Search Index
