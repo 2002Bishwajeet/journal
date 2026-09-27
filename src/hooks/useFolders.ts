@@ -71,10 +71,7 @@ export function isUnknownFolderRoute(
     return (
         !!folderId &&
         !noteId &&
-        folderId !== 'trash' &&
-        folderId !== 'archive' &&
-        folderId !== 'shared' &&
-        folderId !== COLLABORATIVE_FOLDER_ID &&
+        !['trash', 'archive', 'shared', COLLABORATIVE_FOLDER_ID].includes(folderId) &&
         !folders.some((f) => f.id === folderId)
     );
 }

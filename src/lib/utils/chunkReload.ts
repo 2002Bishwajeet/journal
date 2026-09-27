@@ -1,15 +1,7 @@
 /**
- * Detects a stale/missing lazy-chunk load failure and recovers with a single
- * reload, once per 10 seconds, instead of letting it fall through to the
- * crash screen.
- *
- * Vite and browsers word this error differently depending on how the chunk
- * fetch failed (network 404, or a MIME-type/HTML fallback from SPA hosting):
- * Chromium says "Failed to fetch dynamically imported module", Firefox says
- * "error loading dynamically imported module", Safari says "Importing a
- * module script failed", and a MIME mismatch says "is not a valid JavaScript
- * MIME type" / "Expected a JavaScript module script". The legacy webpack
- * strings ("Loading chunk" / "ChunkLoadError") are kept for compatibility.
+ * Detects a stale/missing lazy-chunk load failure (Vite/browser wordings, a
+ * MIME error from the SPA HTML fallback, and legacy webpack strings) and
+ * recovers with at most one reload per 10 seconds.
  */
 const CHUNK_ERROR_PATTERNS = [
     'failed to fetch dynamically imported module',
@@ -22,12 +14,9 @@ const CHUNK_ERROR_PATTERNS = [
 ];
 
 function toMessage(err: unknown): string {
-    if (err instanceof Error) return err.message;
     if (typeof err === 'string') return err;
-    if (err && typeof (err as { message?: unknown }).message === 'string') {
-        return (err as { message: string }).message;
-    }
-    return '';
+    const message = (err as { message?: unknown } | null | undefined)?.message;
+    return typeof message === 'string' ? message : '';
 }
 
 export function isChunkLoadError(err: unknown): boolean {

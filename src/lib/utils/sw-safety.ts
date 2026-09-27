@@ -38,11 +38,10 @@ function handleFatalError(error: Error | string) {
     const errorMsg = typeof error === 'string' ? error : error.message || '';
 
     // Check for known "death loop" errors caused by stale caching
-    const isChunkError = isChunkLoadError(error);
     const isReactSyncError = errorMsg.includes("Cannot read properties of null (reading 'useState')") ||
         errorMsg.includes("Minified React error");
 
-    if (isChunkError) {
+    if (isChunkLoadError(errorMsg)) {
         // A stale/missing lazy chunk just needs a single reload to fetch the new
         // bundle — touching the SW registration or clearing caches here would also
         // wipe offline support and the api-cache for an error that isn't caused by them.
