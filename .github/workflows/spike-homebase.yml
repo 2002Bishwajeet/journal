@@ -1,0 +1,143 @@
+# Throwaway spike for #240 — never merge. Boots the published Homebase image with a
+# per-run CA, seeds the dev identity's owner, authorises the Journal app and syncs a note.
+name: Spike Homebase Docker
+
+on:
+  push:
+    branches: [spike/240-homebase-docker]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  spike:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      IMAGE: ghcr.io/homebase-id/odin-core:latest
+      IDENTITY: frodo.dotyou.cloud
+      APP_ORIGIN: https://e2e.dotyou.cloud:4443
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Runner baseline
+        run: |
+          nproc; free -m; df -h / | tail -1; docker version --format '{{.Server.Version}}'
+          sudo ss -ltnp | grep -E ':(80|443|4443) ' || echo "ports 80/443/4443 free"
+          echo "public DNS: $(getent hosts frodo.dotyou.cloud || echo none)"
+          { echo "T_START=$(date +%s)"; echo "CERTS=$RUNNER_TEMP/certs"; echo "OUT_DIR=$RUNNER_TEMP/spike"; } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/spike"
+
+      - name: Pull image
+        run: |
+          s=$(date +%s)
+          docker pull "$IMAGE"
+          echo "pull: $(( $(date +%s) - s ))s"
+          docker inspect --format 'digest={{index .RepoDigests 0}} created={{.Created}} size={{.Size}}' "$IMAGE"
+          docker run --rm --entrypoint cat "$IMAGE" /app/web/appsettings.development.json | sed -n '1,20p'
+          docker run --rm --entrypoint ls "$IMAGE" /app/web/https /app/web/client || true
+
+      - name: Generate per-run CA + leaf (never committed)
+        run: |
+          mkdir -p "$CERTS" && cd "$CERTS"
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.crt -days 2 \
+            -subj "/CN=Journal spike throwaway CA ${GITHUB_RUN_ID}" \
+            -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign"
+          HOSTS="frodo sam merry pippin tom collab"
+          SAN="DNS:dotyou.cloud,DNS:*.dotyou.cloud"
+          for h in $HOSTS; do SAN="$SAN,DNS:*.$h.dotyou.cloud"; done
+          openssl req -newkey rsa:2048 -nodes -keyout leaf.key -out leaf.csr -subj "/CN=*.dotyou.cloud"
+          printf 'subjectAltName=%s\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n' "$SAN" > leaf.ext
+          openssl x509 -req -in leaf.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out leaf.crt -days 30 -extfile leaf.ext
+          openssl x509 -in leaf.crt -noout -subject -issuer -enddate -ext subjectAltName
+          # Tree the host reads via Development:SslSourcePath/<domain>/{certificate.crt,private.key}
+          for d in $HOSTS admin provisioning anon dominion; do
+            mkdir -p "https/$d.dotyou.cloud"
+            cp leaf.crt "https/$d.dotyou.cloud/certificate.crt"
+            cp leaf.key "https/$d.dotyou.cloud/private.key"
+          done
+          chmod -R a+rX https
+
+      - name: Map hostnames to 127.0.0.1
+        run: |
+          echo "127.0.0.1 frodo.dotyou.cloud sam.dotyou.cloud admin.dotyou.cloud provisioning.dotyou.cloud e2e.dotyou.cloud" | sudo tee -a /etc/hosts
+          getent hosts frodo.dotyou.cloud e2e.dotyou.cloud
+
+      - name: Start identity host
+        run: |
+          echo "T_BOOT=$(date +%s)" >> "$GITHUB_ENV"
+          docker run -d --name identity-host \
+            -e ASPNETCORE_ENVIRONMENT=development \
+            -e Development__SslSourcePath=/certs/https/ \
+            -v "$CERTS/https:/certs/https:ro" \
+            -p 80:80 -p 443:443 \
+            "$IMAGE"
+
+      - name: Wait for verifyToken probe (per-run CA, no -k)
+        run: |
+          for i in $(seq 1 90); do
+            out=$(curl -sS --cacert "$CERTS/ca.crt" https://frodo.dotyou.cloud/api/owner/v1/authentication/verifyToken 2>&1) && break
+            sleep 2
+          done
+          echo "verifyToken -> $out (after $(( $(date +%s) - T_BOOT ))s)"
+          test "$out" = "false"
+          curl -sS --cacert "$CERTS/ca.crt" https://frodo.dotyou.cloud/api/guest/v1/auth/ident; echo
+          echo | openssl s_client -connect 127.0.0.1:443 -servername frodo.dotyou.cloud 2>/dev/null | openssl x509 -noout -issuer -subject
+          docker stats --no-stream identity-host; free -m
+
+      - name: Build Journal app (production mode)
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+          s=$(date +%s)
+          npm ci --include=optional --no-audit --no-fund
+          npx vite build --outDir dist-e2e
+          echo "app build: $(( $(date +%s) - s ))s"
+
+      - name: Serve app on e2e.dotyou.cloud:4443 with the leaf cert
+        run: |
+          nohup node spike/homebase/serve.mjs dist-e2e "$CERTS/leaf.crt" "$CERTS/leaf.key" 4443 > "$OUT_DIR/serve.log" 2>&1 &
+          sleep 1
+          curl -sS --cacert "$CERTS/ca.crt" -o /dev/null -w '%{http_code}\n' "$APP_ORIGIN/"
+
+      - name: Install Playwright + trust CA in Chromium's NSS DB
+        run: |
+          s=$(date +%s)
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y > /dev/null && npm i --no-audit --no-fund playwright > /dev/null
+          npx playwright install --with-deps chromium > /dev/null
+          sudo apt-get install -yq libnss3-tools > /dev/null
+          mkdir -p "$HOME/.pki/nssdb"
+          certutil -d "sql:$HOME/.pki/nssdb" -N --empty-password 2>/dev/null || true
+          certutil -d "sql:$HOME/.pki/nssdb" -A -t "C,," -n journal-spike-ca -i "$CERTS/ca.crt"
+          certutil -d "sql:$HOME/.pki/nssdb" -L
+          npx playwright --version
+          echo "playwright install: $(( $(date +%s) - s ))s"
+
+      - name: Seed owner, authorise Journal, sync a note
+        run: |
+          s=$(date +%s)
+          cp spike/homebase/drive.mjs "$RUNNER_TEMP/pw/"
+          cd "$RUNNER_TEMP/pw" && node drive.mjs
+          echo "seed+auth+smoke: $(( $(date +%s) - s ))s"
+
+      - name: Timings and memory
+        if: always()
+        run: |
+          echo "total job so far: $(( $(date +%s) - T_START ))s"
+          docker stats --no-stream identity-host || true
+          free -m
+
+      - name: Container logs
+        if: always()
+        run: docker logs identity-host 2>&1 | tail -n 300 || true
+
+      - name: Upload screenshots (no storage state, no keys)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spike-screenshots-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/spike/*.png
+          retention-days: 7
+          if-no-files-found: ignore
