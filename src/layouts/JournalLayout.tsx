@@ -58,6 +58,8 @@ import {
   useTrashedNotes,
   useArchivedNotes,
 } from "@/hooks/useNotes";
+import { staleTabIds, nextActiveTabId } from "@/hooks/useTabManager";
+import { getMobilePane } from "@/layouts/mobilePane";
 import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
@@ -302,12 +304,6 @@ export default function JournalLayout() {
   const handleEmptyTrash = useCallback(() => {
     emptyTrash().catch(() => toast.error("Couldn't empty Trash"));
   }, [emptyTrash]);
-  const handleArchive = useCallback(
-    (note: NoteListEntry) => {
-      archiveNote(note.docId).catch(() => toast.error("Couldn't archive note"));
-    },
-    [archiveNote],
-  );
   const handleUnarchive = useCallback(
     (id: string) => {
       unarchiveNote(id).catch(() => toast.error("Couldn't unarchive note"));
@@ -341,6 +337,17 @@ export default function JournalLayout() {
     }
   }, [noteId, openTab]);
 
+  // Once, at boot: drop restored tabs whose note is gone (archived, trashed or
+  // deleted on another device). One-shot on purpose — running on every notes
+  // change would close a just-created note before the live query includes it.
+  const hasPrunedTabsRef = useRef(false);
+  useEffect(() => {
+    if (isNotesLoading || hasPrunedTabsRef.current) return;
+    hasPrunedTabsRef.current = true;
+    const liveIds = new Set(notes.map((n) => n.docId));
+    staleTabIds(openTabs, liveIds, noteId).forEach(closeTab);
+  }, [isNotesLoading, notes, openTabs, noteId, closeTab]);
+
   // Sync tab titles when notes data changes
   useEffect(() => {
     if (activeTabId) {
@@ -361,28 +368,42 @@ export default function JournalLayout() {
   };
 
   // Handle tab close
-  const handleTabClose = (docId: string) => {
-    closeTab(docId);
+  // Reads notesRef rather than notes so handleArchive, which every memoized
+  // NoteItem receives, doesn't change identity on each note edit.
+  const handleTabClose = useCallback(
+    (docId: string) => {
+      // Same tab closeTab activates, so the URL effect doesn't mount another one.
+      const nextId = nextActiveTabId(openTabs, docId, activeTabId);
+      closeTab(docId);
 
-    // If closing the active tab, navigate to another open tab or folder
-    if (docId === noteId) {
-      const remainingTabs = openTabs.filter((t) => t.docId !== docId);
-      if (remainingTabs.length > 0) {
-        const nextTab = remainingTabs[remainingTabs.length - 1];
-        const note = notes.find((n) => n.docId === nextTab.docId);
+      // If closing the active tab, navigate to the next tab's note or the folder
+      if (docId === noteId) {
+        const note = nextId
+          ? notesRef.current.find((n) => n.docId === nextId)
+          : undefined;
         if (note) {
-          navigate(`/${note.metadata.folderId}/${nextTab.docId}`, {
+          navigate(`/${note.metadata.folderId}/${nextId}`, {
             viewTransition: true,
           });
+        } else {
+          navigate(folderId ? `/${folderId}` : "/", { viewTransition: true });
         }
-      } else if (folderId) {
-        navigate(`/${folderId}`, { viewTransition: true });
       }
-    }
-  };
+    },
+    [openTabs, activeTabId, closeTab, noteId, folderId, navigate],
+  );
 
-  const isNoteSelected = !!noteId;
-  const isFolderSelected = !!folderId;
+  const handleArchive = useCallback(
+    (note: NoteListEntry) => {
+      // Archived notes leave the active list, so an open tab would flip to
+      // "Note not found" — close it (and leave it, if it's the open note).
+      handleTabClose(note.docId);
+      archiveNote(note.docId).catch(() => toast.error("Couldn't archive note"));
+    },
+    [archiveNote, handleTabClose],
+  );
+
+  const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
 
   if (isNotesLoading || isFolderLoading) {
     return <SplashScreen />;
@@ -406,9 +427,9 @@ export default function JournalLayout() {
           "h-full border-r bg-muted/10 transition-all duration-300 ease-in-out pb-[env(safe-area-inset-bottom)]",
           // Desktop: Always visible
           isDesktop ? "flex static" : "hidden",
-          // Mobile: Visible only when no folder selected (root)
+          // Mobile: Visible only at the root (no folder, tag or note)
           !isDesktop &&
-            !isFolderSelected &&
+            mobilePane === "sidebar" &&
             "flex absolute inset-0 z-30 w-full bg-background",
           inFocusMode && "hidden!",
         )}
@@ -465,10 +486,9 @@ export default function JournalLayout() {
               ? "flex flex-1 static"
               : "flex w-64 static shrink-0"
             : "hidden",
-          // Mobile: Visible when folder selected but no note selected (Absolute covering screen)
+          // Mobile: Visible for a folder or tag with no note selected (Absolute covering screen)
           !isDesktop &&
-            isFolderSelected &&
-            !isNoteSelected &&
+            mobilePane === "list" &&
             "flex absolute inset-0 z-20 w-full",
           inFocusMode && "hidden!",
         )}
@@ -492,11 +512,13 @@ export default function JournalLayout() {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <h2 className="text-sm font-medium truncate flex-1 leading-none">
-              {folderId === "trash"
-                ? "Trash"
-                : folderId === "archive"
-                  ? "Archive"
-                  : folders.find((f) => f.id === folderId)?.name || "Notes"}
+              {selectedTag
+                ? `#${selectedTag}`
+                : folderId === "trash"
+                  ? "Trash"
+                  : folderId === "archive"
+                    ? "Archive"
+                    : folders.find((f) => f.id === folderId)?.name || "Notes"}
             </h2>
             <SyncStatus />
           </div>
@@ -620,7 +642,7 @@ export default function JournalLayout() {
           isDesktop && !isManagementView ? "flex" : "hidden",
           // Mobile: Visible only when note is selected
           !isDesktop &&
-            isNoteSelected &&
+            mobilePane === "editor" &&
             "flex absolute inset-0 z-10 w-full h-full",
         )}
       >
@@ -702,6 +724,7 @@ export default function JournalLayout() {
                   overrideNoteId={tab.docId}
                   overrideFolderId={folderId}
                   focusMode={focusMode}
+                  onCloseMissing={() => handleTabClose(tab.docId)}
                 />
               </div>
             ))

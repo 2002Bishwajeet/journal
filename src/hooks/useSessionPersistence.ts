@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getAppState } from '@/lib/db';
+import { getAppState, getSearchIndexEntry } from '@/lib/db';
 import { SESSION_STORAGE_KEY, readJson, writeJson } from '@/lib/storage';
 
 interface SessionState {
@@ -76,7 +76,14 @@ export function useSessionPersistence() {
             try {
                 const saved = loadSession() ?? await getAppState<SessionState>(LEGACY_SESSION_KEY);
                 if (saved?.lastNoteId && saved?.lastFolderId) {
-                    navigate(`/${saved.lastFolderId}/${saved.lastNoteId}`, { replace: true });
+                    // The note may have been archived, trashed or deleted since —
+                    // land on its folder instead of "Note not found".
+                    const entry = await getSearchIndexEntry(saved.lastNoteId);
+                    const isActive = !!entry && !entry.metadata.archivalStatus;
+                    navigate(
+                        isActive ? `/${saved.lastFolderId}/${saved.lastNoteId}` : `/${saved.lastFolderId}`,
+                        { replace: true },
+                    );
                 } else if (saved?.lastFolderId) {
                     navigate(`/${saved.lastFolderId}`, { replace: true });
                 }

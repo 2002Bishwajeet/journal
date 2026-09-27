@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/db', () => mocks);
 
-import { useTabManager } from '@/hooks/useTabManager';
+import { useTabManager, staleTabIds, nextActiveTabId } from '@/hooks/useTabManager';
 import { TABS_STORAGE_KEY } from '@/lib/storage';
 
 type TabApi = ReturnType<typeof useTabManager>;
@@ -148,6 +148,65 @@ describe('useTabManager persistence', () => {
 
         expect(t.api.openTabs).toEqual([]);
         expect(t.api.activeTabId).toBeNull();
+
+        await t.unmount();
+    });
+});
+
+describe('staleTabIds', () => {
+    const tabs = (...ids: string[]) => ids.map((docId) => ({ docId, title: docId }));
+
+    it('returns open tabs whose note is not live, except the kept one', () => {
+        expect(staleTabIds(tabs('a', 'b', 'c'), new Set(['a']), 'c')).toEqual(['b']);
+    });
+
+    it('returns nothing when every tab is live', () => {
+        expect(staleTabIds(tabs('a', 'b'), new Set(['a', 'b']))).toEqual([]);
+    });
+
+    it('returns every missing tab when no id is kept', () => {
+        expect(staleTabIds(tabs('a', 'b', 'c'), new Set(['b']))).toEqual(['a', 'c']);
+    });
+});
+
+describe('nextActiveTabId', () => {
+    const abc = ['a', 'b', 'c'].map((docId) => ({ docId, title: docId }));
+
+    it('activates the right neighbour when closing a middle active tab', () => {
+        expect(nextActiveTabId(abc, 'b', 'b')).toBe('c');
+    });
+
+    it('activates the right neighbour when closing the first active tab', () => {
+        expect(nextActiveTabId(abc, 'a', 'a')).toBe('b');
+    });
+
+    it('activates the left neighbour when closing the last active tab', () => {
+        expect(nextActiveTabId(abc, 'c', 'c')).toBe('b');
+    });
+
+    it('returns null when closing the only tab', () => {
+        expect(nextActiveTabId([{ docId: 'a', title: 'a' }], 'a', 'a')).toBeNull();
+    });
+
+    it('keeps the active tab when closing a different one', () => {
+        expect(nextActiveTabId(abc, 'a', 'c')).toBe('c');
+    });
+});
+
+describe('closeTab', () => {
+    it('activates the neighbour chosen by nextActiveTabId', async () => {
+        const t = await mountTabManager();
+        await t.act(() => {
+            t.api.openTab('a', 'A');
+            t.api.openTab('b', 'B');
+            t.api.openTab('c', 'C');
+            t.api.switchTab('b');
+        });
+
+        await t.act(() => t.api.closeTab('b'));
+
+        expect(t.api.openTabs.map((tab) => tab.docId)).toEqual(['a', 'c']);
+        expect(t.api.activeTabId).toBe('c');
 
         await t.unmount();
     });

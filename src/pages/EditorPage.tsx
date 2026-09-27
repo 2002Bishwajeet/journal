@@ -169,10 +169,13 @@ export default function EditorPage({
   overrideNoteId,
   overrideFolderId,
   focusMode = false,
+  onCloseMissing,
 }: {
   overrideNoteId?: string;
   overrideFolderId?: string;
   focusMode?: boolean;
+  /** Desktop tabs: closes this tab — "Back to list" wouldn't change the active tab. */
+  onCloseMissing?: () => void;
 } = {}) {
   const params = useParams();
   const noteId = overrideNoteId || params.noteId;
@@ -275,8 +278,8 @@ export default function EditorPage({
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
         <p className="text-sm font-medium mb-3">Note not found</p>
-        <Button variant="outline" size="sm" onClick={handleBackToNotes}>
-          Back to list
+        <Button variant="outline" size="sm" onClick={onCloseMissing ?? handleBackToNotes}>
+          {onCloseMissing ? "Close tab" : "Back to list"}
         </Button>
       </div>
     );
