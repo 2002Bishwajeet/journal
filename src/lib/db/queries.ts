@@ -844,12 +844,6 @@ export async function getAppState<T>(key: string): Promise<T | null> {
     return result.rows[0].value;
 }
 
-export async function deleteAppState(key: string): Promise<void> {
-    const db = await getDatabase();
-    await db.query('DELETE FROM app_state WHERE key = $1', [key]);
-}
-
-
 export async function upsertSyncRecord(record: SyncRecord): Promise<void> {
     const db = await getDatabase();
     await db.query(
@@ -912,31 +906,6 @@ export async function getSyncRecord(localId: string): Promise<SyncRecord | null>
         authorOdinId: row.author_odin_id || undefined,
         globalTransitId: row.global_transit_id || undefined,
         dirtyGeneration: row.dirty_generation ?? 0,
-    };
-}
-
-export async function getSyncRecordByRemoteId(remoteFileId: string): Promise<SyncRecord | null> {
-    const db = await getDatabase();
-    const result = await db.query<{
-        local_id: string;
-        entity_type: 'folder' | 'note';
-        remote_file_id: string | null;
-        version_tag: string | null;
-        last_synced_at: string | null;
-        sync_status: SyncRecord['syncStatus'];
-    }>(
-        'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash FROM sync_records WHERE remote_file_id = $1',
-        [remoteFileId]
-    );
-    if (result.rows.length === 0) return null;
-    const row = result.rows[0];
-    return {
-        localId: row.local_id,
-        entityType: row.entity_type,
-        remoteFileId: row.remote_file_id || undefined,
-        versionTag: row.version_tag || undefined,
-        lastSyncedAt: row.last_synced_at || undefined,
-        syncStatus: row.sync_status,
     };
 }
 
@@ -1174,15 +1143,6 @@ export async function getPendingSyncCount(): Promise<{ notes: number; folders: n
 // ============================================
 // Logout: Clear all local data
 // ============================================
-
-/**
- * Check if there are any pending (unsynced) changes.
- * Use this to warn the user before logout.
- */
-export async function hasPendingChanges(): Promise<boolean> {
-    const counts = await getPendingSyncCount();
-    return counts.notes > 0 || counts.folders > 0 || counts.images > 0;
-}
 
 /**
  * Clear ALL local data. Call this on logout to prevent

@@ -141,8 +141,6 @@ export default function SearchModal({
     results,
     selectedIndex,
     isLoading,
-    isIndexing,
-    trimmedQuery,
     inputRef,
     handleQueryChange,
     handleKeyDown,
@@ -181,16 +179,6 @@ export default function SearchModal({
             <Kbd>Esc</Kbd>
           </div>
         </div>
-
-        {/* Indexing indicator */}
-        {isIndexing && trimmedQuery && (
-          <div className="px-4 py-2 bg-amber-500/5 border-b border-amber-500/10 flex items-center gap-2 shrink-0">
-            <Loader2 className="h-3 w-3 animate-spin text-amber-500" />
-            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-              Indexing in progress... results may be incomplete
-            </span>
-          </div>
-        )}
 
         {/* Results */}
         <div className="flex-1 overflow-y-auto min-h-0 py-2">
