@@ -20,6 +20,7 @@ import {
   useDeviceType,
   useSyncService,
   useKeyboardShortcuts,
+  useDocumentTitle,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback } from "react";
@@ -404,6 +405,22 @@ export default function JournalLayout() {
   );
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
+
+  // Tab/window title: open note > pseudo-folder > tag > folder name.
+  const openNoteId = isDesktop ? activeTabId : noteId;
+  useDocumentTitle(
+    openNoteId
+      ? notes.find((n) => n.docId === openNoteId)?.title || "Untitled"
+      : folderId === "trash"
+        ? "Trash"
+        : folderId === "archive"
+          ? "Archive"
+          : folderId === "shared"
+            ? "Shared"
+            : selectedTag
+              ? `#${selectedTag}`
+              : folders.find((f) => f.id === folderId)?.name || null,
+  );
 
   if (isNotesLoading || isFolderLoading) {
     return <SplashScreen />;

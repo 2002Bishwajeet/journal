@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { useYouAuthAuthorization } from "@/hooks/auth/useYouAuthAuthorization";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { sanitizeReturnUrl } from "@/lib/utils";
 import logo from "@/assets/logo_withoutbg.png";
 
 export default function LandingPage() {
+  useDocumentTitle("Sign in");
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { getAuthorizationParameters, getAuthUrl, checkIdentity } =

@@ -3,6 +3,7 @@ export { useKeyboardShortcuts } from './useKeyboardShortcuts';
 export { useWebLLM } from './useWebLLM';
 export type { RewriteStyle } from './useWebLLM';
 export { useSessionPersistence } from './useSessionPersistence';
+export { useDocumentTitle } from './useDocumentTitle';
 export { useTabManager } from './useTabManager';
 export type { TabInfo } from './useTabManager';
 export { useMountedTabs } from './useMountedTabs';
