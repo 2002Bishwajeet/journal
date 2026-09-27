@@ -14,12 +14,17 @@ import { createRoot } from 'react-dom/client';
 const mocks = vi.hoisted(() => ({
     update: vi.fn<() => Promise<void>>(async () => { }),
     onRegisteredSW: undefined as ((url: string, r: unknown) => void) | undefined,
+    onNeedRefresh: undefined as (() => void) | undefined,
     toast: { info: vi.fn(), success: vi.fn() },
 }));
 
 vi.mock('virtual:pwa-register/react', () => ({
-    useRegisterSW: (opts: { onRegisteredSW?: (url: string, r: unknown) => void }) => {
+    useRegisterSW: (opts: {
+        onRegisteredSW?: (url: string, r: unknown) => void;
+        onNeedRefresh?: () => void;
+    }) => {
         mocks.onRegisteredSW = opts.onRegisteredSW;
+        mocks.onNeedRefresh = opts.onNeedRefresh;
         return {
             needRefresh: [false, vi.fn()],
             offlineReady: [false, vi.fn()],
@@ -119,5 +124,22 @@ describe('UpdatePrompt — when it checks for a waiting service worker', () => {
         await foreground();
 
         expect(mocks.update).not.toHaveBeenCalled();
+    });
+});
+
+describe('UpdatePrompt — toast deduplication', () => {
+    it('uses a stable id to deduplicate update toasts', async () => {
+        const p = await mountPrompt();
+
+        mocks.onNeedRefresh?.();
+        mocks.onNeedRefresh?.();
+
+        expect(mocks.toast.info).toHaveBeenCalledTimes(2);
+        expect(mocks.toast.info).toHaveBeenCalledWith(
+            'New version available',
+            expect.objectContaining({ id: 'sw-update' }),
+        );
+
+        await p.unmount();
     });
 });

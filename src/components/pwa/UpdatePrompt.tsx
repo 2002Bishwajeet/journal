@@ -17,6 +17,7 @@ export function UpdatePrompt() {
     },
     onNeedRefresh() {
       toast.info("New version available", {
+        id: "sw-update",
         description: "A new version of the app is available. Click to update.",
         duration: Infinity,
         action: {
