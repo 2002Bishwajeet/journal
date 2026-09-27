@@ -131,7 +131,6 @@ src/
 │   ├── AuthFinalizePage.tsx    # OAuth callback
 │   ├── EditorPage.tsx          # Main editor with toolbar
 │   ├── EmptyEditorPage.tsx     # No-note-selected state
-│   ├── ChatBotPage.tsx         # Full-screen AI chat
 │   ├── SharePage.tsx           # Public read-only note
 │   ├── ShareTargetPage.tsx     # PWA share target receiver
 │   └── index.ts
@@ -431,7 +430,6 @@ const unsub = documentBroadcast.subscribe(handler);   // Listen for messages
 | `/` | RootRedirect | Yes |
 | `/:folderId` | EmptyEditorPage | Yes |
 | `/:folderId/:noteId` | EditorPage | Yes |
-| `/:folderId/:noteId/chat` | ChatBotPage | Yes |
 | `/share-target` | ShareTargetPage | Yes |
 | `/welcome` | Landing | No |
 | `/auth/finalize` | AuthFinalizePage | No |
