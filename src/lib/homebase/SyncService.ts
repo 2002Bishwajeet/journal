@@ -16,6 +16,7 @@ import {
     deleteDocumentUpdates,
     replaceDocumentUpdates,
     getSyncRecord,
+    updateSyncStatus,
     upsertSyncRecord,
     getPendingSyncRecords,
     markSynced,
@@ -1094,7 +1095,8 @@ export class SyncService {
 
                     // Record the upload before promotion so a crash or failed promotion never re-uploads
                     await updateImageUploadStatus(upload.id, 'uploading', payloadKey);
-                    await markSynced(upload.noteDocId, syncRecord.remoteFileId, result.versionTag);
+                    // Generation guard: an edit made during the upload must stay pending
+                    await markSynced(upload.noteDocId, syncRecord.remoteFileId, result.versionTag, undefined, undefined, undefined, undefined, syncRecord.dirtyGeneration);
                     console.log(`[SyncService] Image ${upload.id} uploaded as ${payloadKey}`);
                 }
 
@@ -1107,6 +1109,9 @@ export class SyncService {
                 );
 
                 if (promoted) {
+                    // The editor applies the promotion as a remote update and never saves it,
+                    // so mark the note pending or the new src never reaches the server
+                    await updateSyncStatus(upload.noteDocId, 'pending');
                     await deletePendingImageUpload(upload.id);
                 } else if (upload.retryCount + 1 >= MAX_IMAGE_PROMOTION_ATTEMPTS) {
                     // Give up retrying but keep the bytes (cleared at logout)

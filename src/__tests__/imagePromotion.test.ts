@@ -4,7 +4,7 @@ import type { DotYouClient } from '@homebase-id/js-lib/core';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     saveDocumentUpdate, getDocumentUpdates, upsertSyncRecord, savePendingImageUpload,
-    getImageUploadsReadyForRetry, getPendingSyncCount,
+    getImageUploadsReadyForRetry, getPendingSyncCount, getSyncRecord, updateSyncStatus,
 } from '@/lib/db/queries';
 import type { OnlineContextType } from '@/contexts/OnlineContext';
 import * as Y from 'yjs';
@@ -125,6 +125,30 @@ describe('SyncService.processPendingImageUploads promotion', () => {
         const after = await getDocumentUpdates(DOC_ID);
         expect(after.length).toBe(before.length + 1);
         before.forEach((u, i) => expect(after[i]).toEqual(u));
+    });
+
+    it('marks the note pending after promotion so the new src reaches the server', async () => {
+        const ydoc = makeDoc();
+        await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(ydoc));
+        await saveDocumentUpdate(DOC_ID, insertPendingImage(ydoc));
+        await queueUpload();
+
+        await svc.processPendingImageUploads();
+
+        expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('pending');
+    });
+
+    it('keeps an edit made during the upload pending', async () => {
+        await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(makeDoc()));
+        await queueUpload();
+        mockAddImageToNote.mockImplementationOnce(async () => {
+            await updateSyncStatus(DOC_ID, 'pending'); // the user types while the bytes upload
+            return { payloadKey: 'jrnl_img0', versionTag: 'v2' };
+        });
+
+        await svc.processPendingImageUploads();
+
+        expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('pending');
     });
 
     it('keeps the row with the payload key when the node is absent', async () => {
