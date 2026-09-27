@@ -58,6 +58,7 @@ import {
   useTrashedNotes,
   useArchivedNotes,
 } from "@/hooks/useNotes";
+import { staleTabIds } from "@/hooks/useTabManager";
 import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
@@ -303,10 +304,21 @@ export default function JournalLayout() {
     emptyTrash().catch(() => toast.error("Couldn't empty Trash"));
   }, [emptyTrash]);
   const handleArchive = useCallback(
-    (note: NoteListEntry) => {
-      archiveNote(note.docId).catch(() => toast.error("Couldn't archive note"));
+    async (note: NoteListEntry) => {
+      // Archived notes leave the active list, so an open tab would flip to
+      // "Note not found" — close it like trash/delete do.
+      closeTab(note.docId);
+      try {
+        await archiveNote(note.docId);
+      } catch {
+        toast.error("Couldn't archive note");
+        return;
+      }
+      if (note.docId === noteId) {
+        navigate(`/${folderId}`, { viewTransition: true });
+      }
     },
-    [archiveNote],
+    [archiveNote, closeTab, noteId, folderId, navigate],
   );
   const handleUnarchive = useCallback(
     (id: string) => {
@@ -340,6 +352,17 @@ export default function JournalLayout() {
       openTab(noteId, note?.title || "Untitled");
     }
   }, [noteId, openTab]);
+
+  // Once, at boot: drop restored tabs whose note is gone (archived, trashed or
+  // deleted on another device). One-shot on purpose — running on every notes
+  // change would close a just-created note before the live query includes it.
+  const hasPrunedTabsRef = useRef(false);
+  useEffect(() => {
+    if (isNotesLoading || hasPrunedTabsRef.current) return;
+    hasPrunedTabsRef.current = true;
+    const liveIds = new Set(notes.map((n) => n.docId));
+    staleTabIds(openTabs, liveIds, noteId).forEach(closeTab);
+  }, [isNotesLoading, notes, openTabs, noteId, closeTab]);
 
   // Sync tab titles when notes data changes
   useEffect(() => {
@@ -702,6 +725,7 @@ export default function JournalLayout() {
                   overrideNoteId={tab.docId}
                   overrideFolderId={folderId}
                   focusMode={focusMode}
+                  onCloseMissing={() => handleTabClose(tab.docId)}
                 />
               </div>
             ))

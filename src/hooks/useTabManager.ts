@@ -32,6 +32,20 @@ function saveTabs(state: TabManagerState): void {
 }
 
 /**
+ * Open tabs whose note is no longer live (archived, trashed, deleted elsewhere,
+ * or a bogus deep link) — except `keepId`, the note the URL is on right now.
+ */
+export function staleTabIds(
+    openTabs: TabInfo[],
+    liveIds: ReadonlySet<string>,
+    keepId?: string,
+): string[] {
+    return openTabs
+        .map((t) => t.docId)
+        .filter((id) => id !== keepId && !liveIds.has(id));
+}
+
+/**
  * Hook for managing open note tabs
  */
 export function useTabManager() {
