@@ -61,8 +61,12 @@ jobs:
 
       - name: Map hostnames to 127.0.0.1
         run: |
-          echo "127.0.0.1 frodo.dotyou.cloud sam.dotyou.cloud admin.dotyou.cloud provisioning.dotyou.cloud e2e.dotyou.cloud" | sudo tee -a /etc/hosts
-          getent hosts frodo.dotyou.cloud e2e.dotyou.cloud
+          # Public DNS answers 127.0.0.1 for the apex dev names only (not api./capi./file./www.),
+          # so map every name explicitly, as odin-core's README does for local dev.
+          names="admin.dotyou.cloud provisioning.dotyou.cloud e2e.dotyou.cloud"
+          for h in frodo sam; do for p in "" api. capi. file. www.; do names="$names $p$h.dotyou.cloud"; done; done
+          echo "127.0.0.1 $names" | sudo tee -a /etc/hosts
+          getent hosts frodo.dotyou.cloud api.frodo.dotyou.cloud e2e.dotyou.cloud
 
       - name: Start identity host
         run: |
@@ -89,6 +93,7 @@ jobs:
           echo "verifyToken -> $out (after $(( $(date +%s) - T_BOOT ))s)"
           test "$out" = "false"
           curl -sS --cacert "$CERTS/ca.crt" https://frodo.dotyou.cloud/api/guest/v1/auth/ident; echo
+          curl -sS --cacert "$CERTS/ca.crt" -o /dev/null -w 'api.frodo -> %{http_code}\n' https://api.frodo.dotyou.cloud/api/guest/v1/auth/ident
           echo | openssl s_client -connect 127.0.0.1:443 -servername frodo.dotyou.cloud 2>/dev/null | openssl x509 -noout -issuer -subject
           docker stats --no-stream identity-host; free -m
 
