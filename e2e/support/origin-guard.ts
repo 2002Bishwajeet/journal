@@ -10,11 +10,15 @@ export const TEST_ORIGINS = [
   'https://e2e.dotyou.cloud:4443',
 ];
 
-export async function assertTestOrigin(page: Page): Promise<void> {
-  const origin = new URL(page.url()).origin;
-  if (!TEST_ORIGINS.includes(origin)) {
+export function assertAllowedOrigin(origin: string | undefined): void {
+  if (!origin || !TEST_ORIGINS.includes(origin)) {
     throw new Error(`Refusing to run on ${origin}`);
   }
+}
+
+export async function assertTestOrigin(page: Page): Promise<void> {
+  const origin = new URL(page.url()).origin;
+  assertAllowedOrigin(origin);
 
   const inPageOrigin = await page.evaluate(() => location.origin);
   if (inPageOrigin !== origin) {

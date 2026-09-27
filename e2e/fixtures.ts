@@ -1,5 +1,5 @@
 import { test as base, expect } from '@playwright/test';
-import { TEST_ORIGINS } from './support/origin-guard';
+import { assertAllowedOrigin } from './support/origin-guard';
 
 export { expect };
 
@@ -9,9 +9,7 @@ export { expect };
 export const test = base.extend<{ assertBaseUrlIsTestOrigin: void }>({
   assertBaseUrlIsTestOrigin: [
     async ({ baseURL }, use) => {
-      if (!baseURL || !TEST_ORIGINS.includes(baseURL)) {
-        throw new Error(`Refusing to run on ${baseURL}`);
-      }
+      assertAllowedOrigin(baseURL);
       await use();
     },
     { auto: true },
