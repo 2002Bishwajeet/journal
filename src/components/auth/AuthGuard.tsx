@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/auth/useAuth";
 
 interface AuthGuardProps {
@@ -8,6 +8,7 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const { isAuthenticated, authenticationState } = useAuth();
+  const location = useLocation();
 
   if (authenticationState === "unknown") {
     return (
@@ -24,7 +25,10 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   if (!isAuthenticated) {
     console.debug("[AuthGuard] Not authenticated, redirecting to /welcome");
-    return <Navigate to="/welcome" replace />;
+    const target = location.pathname + location.search + location.hash;
+    const returnUrlParam =
+      target === "/" ? "" : `?returnUrl=${encodeURIComponent(target)}`;
+    return <Navigate to={`/welcome${returnUrlParam}`} replace />;
   }
 
   return <>{children}</>;

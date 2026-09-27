@@ -10,6 +10,8 @@
  * to recover the user automatically.
  */
 
+import { isChunkLoadError, reloadOnceForChunkError } from './chunkReload';
+
 const MAX_RELOADS = 3;
 const RELOAD_KEY = 'sw_safety_reload_count';
 const RELOAD_RESET_TIMEOUT = 10000; // 10 seconds
@@ -36,11 +38,19 @@ function handleFatalError(error: Error | string) {
     const errorMsg = typeof error === 'string' ? error : error.message || '';
 
     // Check for known "death loop" errors caused by stale caching
-    const isChunkError = errorMsg.includes('Loading chunk') || errorMsg.includes('ChunkLoadError');
     const isReactSyncError = errorMsg.includes("Cannot read properties of null (reading 'useState')") ||
         errorMsg.includes("Minified React error");
 
-    if (isChunkError || isReactSyncError) {
+    if (isChunkLoadError(errorMsg)) {
+        // A stale/missing lazy chunk just needs a single reload to fetch the new
+        // bundle — touching the SW registration or clearing caches here would also
+        // wipe offline support and the api-cache for an error that isn't caused by them.
+        console.error('[SW Safety] Chunk load error detected. Attempting recovery...');
+        reloadOnceForChunkError();
+        return;
+    }
+
+    if (isReactSyncError) {
         console.error('[SW Safety] Fatal error detected. Attempting recovery...');
 
         const count = getReloadCount();

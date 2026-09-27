@@ -1,9 +1,10 @@
 import { useState, useRef, useTransition, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { useYouAuthAuthorization } from "@/hooks/auth/useYouAuthAuthorization";
+import { sanitizeReturnUrl } from "@/lib/utils";
 import logo from "@/assets/logo_withoutbg.png";
 
 export default function LandingPage() {
@@ -11,17 +12,26 @@ export default function LandingPage() {
   const { isAuthenticated } = useAuth();
   const { getAuthorizationParameters, getAuthUrl, checkIdentity } =
     useYouAuthAuthorization();
+  const [searchParams] = useSearchParams();
+  const target = sanitizeReturnUrl(
+    searchParams.get("returnUrl") ?? "/",
+    window.location.origin
+  );
   const [identity, setIdentity] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    searchParams.get("error") === "auth_failed"
+      ? "Sign-in failed. Please try again."
+      : null
+  );
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/");
+      navigate(target, { replace: true });
     }
     inputRef.current?.focus();
-  }, [navigate, isAuthenticated]);
+  }, [navigate, isAuthenticated, target]);
 
   const handleLogin = () => {
     if (!identity.trim()) {
@@ -41,7 +51,7 @@ export default function LandingPage() {
         }
 
         const authParams = await getAuthorizationParameters(
-          window.location.origin
+          window.location.origin + target
         );
         const fullAuthUrl = getAuthUrl(identity.trim(), authParams);
         window.location.href = fullAuthUrl;
