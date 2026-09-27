@@ -27,8 +27,10 @@ import {
     updateImageUploadStatus,
     incrementImageRetryCount,
     deletePendingImageUpload,
-    saveSyncError,
+    recordSyncError,
     resolveSyncErrorsForEntity,
+    getEntityIdsInBackoff,
+    clearOldSyncErrors,
     getImageUploadsReadyForRetry,
     updateImageRetryAt,
     calculateNextRetryAt,
@@ -290,6 +292,7 @@ export class SyncService {
         try {
             // 0. Flush all active editors to ensure pending updates are saved to DB
             await this.flushAllProviders();
+            await clearOldSyncErrors();
 
             // 1. Pull remote changes
             const pullResult = await this.pullChanges(onProgress);
@@ -348,7 +351,7 @@ export class SyncService {
             } catch (error) {
                 console.error('[SyncService] Error processing remote folder:', error);
                 // Track error in database
-                const id = remoteFolderOrDeleted.fileMetadata?.appData?.uniqueId || 'unknown';
+                const id = remoteFolderOrDeleted.fileMetadata?.appData?.uniqueId ?? '';
                 await this.logSyncError(id, 'folder', 'pull', error);
             }
         }
@@ -369,7 +372,7 @@ export class SyncService {
                 if (id) await resolveSyncErrorsForEntity(id);
             } catch (error) {
                 console.error('[SyncService] Error processing remote note:', error);
-                const id = remoteNoteOrDeleted.fileMetadata?.appData?.uniqueId || 'unknown';
+                const id = remoteNoteOrDeleted.fileMetadata?.appData?.uniqueId ?? '';
                 await this.logSyncError(id, 'note', 'pull', error);
             }
         }
@@ -396,14 +399,12 @@ export class SyncService {
      * Log sync error to database for tracking.
      */
     private async logSyncError(entityId: string, entityType: 'folder' | 'note' | 'image', operation: 'push' | 'pull' | 'upload', error: unknown): Promise<void> {
+        if (!entityId) {
+            console.error('[SyncService] logSyncError called with an empty entityId; not writing a sync_errors row');
+            return;
+        }
         const errorMessage = error instanceof Error ? error.message : String(error);
-        await saveSyncError({
-            entityId,
-            entityType,
-            operation,
-            errorMessage,
-            retryCount: 0,
-        });
+        await recordSyncError(entityId, entityType, operation, errorMessage);
     }
 
     /**
@@ -413,9 +414,17 @@ export class SyncService {
         let folderCount = 0;
         let noteCount = 0;
 
+        // Skip records currently backing off from a recent failure (#146). These three
+        // reads are independent, so fetch them concurrently instead of sequentially.
+        const [inBackoff, allPendingFolders, allPendingNotes] = await Promise.all([
+            getEntityIdsInBackoff('push'),
+            getPendingSyncRecords('folder'),
+            getPendingSyncRecords('note'),
+        ]);
+
         // Push pending folders first (sequential - usually few folders)
-        const pendingFolders = await getPendingSyncRecords('folder');
-        const pendingNotes = await getPendingSyncRecords('note');
+        const pendingFolders = allPendingFolders.filter(r => !inBackoff.has(r.localId));
+        const pendingNotes = allPendingNotes.filter(r => !inBackoff.has(r.localId));
         const total = pendingFolders.length + pendingNotes.length;
         let current = 0;
 

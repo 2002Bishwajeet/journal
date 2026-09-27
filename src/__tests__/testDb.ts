@@ -5,6 +5,7 @@
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { PGlite } from '@electric-sql/pglite';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { SYNC_ERRORS_ACTIVE_INDEX_SQL } from '@/lib/db/syncErrorsSchema';
 
 let testDb: PGlite | null = null;
 
@@ -109,6 +110,23 @@ export async function createTestDatabase(): Promise<PGlite> {
     CREATE INDEX IF NOT EXISTS idx_pending_uploads_status ON pending_image_uploads(status);
     CREATE INDEX IF NOT EXISTS idx_pending_uploads_note ON pending_image_uploads(note_doc_id);
 
+    -- Create sync_errors table for tracking sync failures (mirrors pglite.ts)
+    CREATE TABLE IF NOT EXISTS sync_errors (
+      id SERIAL PRIMARY KEY,
+      entity_id UUID NOT NULL,
+      entity_type TEXT NOT NULL,
+      operation TEXT NOT NULL,
+      error_message TEXT NOT NULL,
+      error_code TEXT,
+      retry_count INTEGER DEFAULT 0,
+      next_retry_at TIMESTAMP WITH TIME ZONE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      resolved_at TIMESTAMP WITH TIME ZONE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sync_errors_entity ON sync_errors(entity_id);
+    CREATE INDEX IF NOT EXISTS idx_sync_errors_unresolved ON sync_errors(resolved_at) WHERE resolved_at IS NULL;
+
     -- Create pending_image_deletions table (mirrors pglite.ts; needed by pushNote's
     -- getPendingImageDeletions). Minimal additive DDL per plan 002; plan 012 unifies schema.
     CREATE TABLE IF NOT EXISTS pending_image_deletions (
@@ -125,6 +143,8 @@ export async function createTestDatabase(): Promise<PGlite> {
     VALUES ('${MAIN_FOLDER_ID}', 'Main')
     ON CONFLICT (id) DO NOTHING;
   `);
+
+  await testDb.exec(SYNC_ERRORS_ACTIVE_INDEX_SQL);
 
   return testDb;
 }
@@ -163,6 +183,7 @@ export async function resetTestDatabase(): Promise<void> {
     DELETE FROM sync_records;
     DELETE FROM pending_image_uploads;
     DELETE FROM pending_image_deletions;
+    DELETE FROM sync_errors;
     DELETE FROM folders WHERE id != '${MAIN_FOLDER_ID}';
   `);
 }
