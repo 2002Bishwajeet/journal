@@ -9,24 +9,15 @@ import { type DocumentMetadata } from '@/types';
 import { PGlite } from '@electric-sql/pglite';
 
 // We need to mock getDatabase to use the test instance
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return {
-        getDatabase: async () => testDb,
-        setTestDb: (db: PGlite) => { testDb = db; }
-    };
-});
-
-// Import the mocked module to set the DB
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 
 describe('Sync Optimization (Content Hashing)', () => {
     let db: PGlite;
 
     beforeAll(async () => {
         db = await createTestDatabase();
-        // @ts-expect-error Accessing private test method
-        pgliteModule.setTestDb(db);
+        setTestDb(db);
     });
 
     afterAll(async () => {

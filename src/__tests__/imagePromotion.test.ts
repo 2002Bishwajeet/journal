@@ -1,19 +1,15 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     saveDocumentUpdate, getDocumentUpdates, upsertSyncRecord, savePendingImageUpload,
     getImageUploadsReadyForRetry, getPendingSyncCount, getSyncRecord, updateSyncStatus,
 } from '@/lib/db/queries';
-import type { OnlineContextType } from '@/contexts/OnlineContext';
+import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 import * as Y from 'yjs';
 
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
-});
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 
 const { mockAddImageToNote } = vi.hoisted(() => ({ mockAddImageToNote: vi.fn() }));
 vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
@@ -36,14 +32,13 @@ const DOC_ID = '11111111-1111-1111-1111-111111111111';
 const UPLOAD_ID = '22222222-2222-2222-2222-222222222222';
 const FILE_ID = 'remote-file-1';
 
-const fakeDotYouClient = { getHostIdentity: () => 'sam.dotyou.cloud' } as unknown as DotYouClient;
-const fakeOnline = { isOnline: true } as unknown as OnlineContextType;
+const dotYouClient = fakeDotYouClient('sam.dotyou.cloud');
+const fakeOnline = fakeOnlineContext();
 
 let db: PGlite;
 beforeAll(async () => {
     db = await createTestDatabase();
-    // @ts-expect-error test-only setter
-    pgliteModule.setTestDb(db);
+    setTestDb(db);
 });
 afterAll(async () => { await closeTestDatabase(); });
 
@@ -105,7 +100,7 @@ describe('SyncService.processPendingImageUploads promotion', () => {
             localId: DOC_ID, entityType: 'note', remoteFileId: FILE_ID, versionTag: 'v1',
             lastSyncedAt: new Date().toISOString(), syncStatus: 'synced',
         });
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('promotes a present node, keeps the row as synced for offline display (#179) and appends (not replaces) document updates', async () => {

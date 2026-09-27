@@ -4,11 +4,8 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 import * as Y from 'yjs';
 
 // Real DB, mocked at the pglite singleton boundary — same pattern as peer_note_fetch.test.ts.
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
-});
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 
 // saveDocumentUpdate wrapper with a controllable delay so we can interleave updates
 // and pin the stranded-update gap (see the last test). Delay defaults to 0, so every
@@ -32,8 +29,7 @@ const DOC_ID = '11111111-1111-1111-1111-111111111111';
 let db: PGlite;
 beforeAll(async () => {
     db = await createTestDatabase();
-    // @ts-expect-error test-only setter
-    pgliteModule.setTestDb(db);
+    setTestDb(db);
 });
 afterAll(async () => { await closeTestDatabase(); });
 beforeEach(async () => {

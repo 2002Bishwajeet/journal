@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
+import { fakeDotYouClient } from './fakes';
 import { SecurityGroupType } from '@homebase-id/js-lib/core';
 
 // Mock only the two SDK calls makeNotePublic/makeNotePrivate use; keep the real
@@ -16,7 +16,7 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 
 const NOTE_ID = '11111111-1111-1111-1111-111111111111';
-const fakeClient = { getHostIdentity: () => 'me.dotyou.cloud' } as unknown as DotYouClient;
+const fakeClient = fakeDotYouClient();
 
 // Header as returned by a decrypted owner fetch: appData.content is the parsed object.
 function ownerHeader() {

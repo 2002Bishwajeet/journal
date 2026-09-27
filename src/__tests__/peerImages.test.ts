@@ -8,7 +8,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vite
 import { createElement as h, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { NodeViewProps } from '@tiptap/react';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
+import { fakeDotYouClient } from './fakes';
 import { Editor } from '@tiptap/core';
 import { toast } from 'sonner';
 
@@ -28,7 +28,7 @@ import { FileHandler } from '@/components/editor/plugins/FileHandler';
 
 const HOST = 'bob.dotyou.cloud';
 const AUTHOR = 'alice.dotyou.cloud';
-const client = { getHostIdentity: () => HOST } as unknown as DotYouClient;
+const client = fakeDotYouClient(HOST);
 
 beforeAll(() => {
     (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

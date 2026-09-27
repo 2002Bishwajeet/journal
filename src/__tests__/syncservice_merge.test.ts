@@ -1,19 +1,15 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     saveDocumentUpdate, getDocumentUpdates, upsertSyncRecord, getSyncRecord,
     getSearchIndexEntry, upsertSearchIndex,
 } from '@/lib/db/queries';
-import type { OnlineContextType } from '@/contexts/OnlineContext';
+import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 import * as Y from 'yjs';
 
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
-});
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 
 const { mockGetNote, mockGetNotePayload, mockDsr } = vi.hoisted(() => ({
     mockGetNote: vi.fn(),
@@ -42,8 +38,8 @@ const HOST = 'sam.dotyou.cloud';
 const FRODO = 'frodo.dotyou.cloud';
 const DOC_ID = '11111111-1111-1111-1111-111111111111';
 
-const fakeDotYouClient = { getHostIdentity: () => HOST } as unknown as DotYouClient;
-const fakeOnline = { isOnline: true } as unknown as OnlineContextType;
+const dotYouClient = fakeDotYouClient(HOST);
+const fakeOnline = fakeOnlineContext();
 
 /** A full-state Yjs update whose Y.Text 'body' holds `text`. */
 function textUpdate(text: string): Uint8Array {
@@ -64,8 +60,7 @@ function bodyOf(blob: Uint8Array): string {
 let db: PGlite;
 beforeAll(async () => {
     db = await createTestDatabase();
-    // @ts-expect-error test-only setter
-    pgliteModule.setTestDb(db);
+    setTestDb(db);
 });
 afterAll(async () => { await closeTestDatabase(); });
 
@@ -92,7 +87,7 @@ describe('SyncService.handleRemoteNote', () => {
         await resetTestDatabase();
         vi.clearAllMocks();
         broadcastSpy = vi.spyOn(documentBroadcast, 'notifyDocumentUpdated').mockImplementation(() => {});
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('creates search_index, sync_records and the stored blob for a brand-new remote note', async () => {
@@ -163,7 +158,7 @@ describe('SyncService.handleDeletedNote', () => {
         await resetTestDatabase();
         vi.clearAllMocks();
         vi.spyOn(documentBroadcast, 'notifyDocumentUpdated').mockImplementation(() => {});
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('removes the local search_index, document_updates and sync_record', async () => {
@@ -190,7 +185,7 @@ describe('SyncService.mergeYjsDocuments', () => {
     beforeEach(async () => {
         await resetTestDatabase();
         vi.clearAllMocks();
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('merges two divergent docs into a superset and is idempotent', async () => {

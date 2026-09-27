@@ -6,21 +6,18 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
-import type { DotYouClient, EncryptedKeyHeader } from '@homebase-id/js-lib/core';
+import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     saveDocumentUpdate, upsertSyncRecord, getSyncRecord, upsertSearchIndex, getSearchIndexEntry,
 } from '@/lib/db/queries';
 import { serializeKeyHeader } from '@/lib/utils';
-import type { OnlineContextType } from '@/contexts/OnlineContext';
+import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 import type { DocumentMetadata, SyncRecord } from '@/types';
 import * as Y from 'yjs';
 
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
-});
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 
 const { mockGetNote, mockGetNotePayload, mockUpdateNote } = vi.hoisted(() => ({
     mockGetNote: vi.fn(),
@@ -47,8 +44,8 @@ import { SyncService } from '@/lib/homebase/SyncService';
 const DOC_ID = '11111111-1111-1111-1111-111111111111';
 const FOLDER_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const FOLDER_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
-const fakeClient = { getHostIdentity: () => 'sam.dotyou.cloud' } as unknown as DotYouClient;
-const fakeOnline = { isOnline: true } as unknown as OnlineContextType;
+const fakeClient = fakeDotYouClient('sam.dotyou.cloud');
+const fakeOnline = fakeOnlineContext();
 const KEY_HEADER = { encryptionVersion: 1, type: 'aes', iv: 'aXY=', encryptedAesKey: 'aXY=' } as unknown as EncryptedKeyHeader;
 
 function textUpdate(text: string): Uint8Array {
@@ -62,8 +59,7 @@ function textUpdate(text: string): Uint8Array {
 let db: PGlite;
 beforeAll(async () => {
     db = await createTestDatabase();
-    // @ts-expect-error test-only setter
-    pgliteModule.setTestDb(db);
+    setTestDb(db);
 });
 afterAll(async () => { await closeTestDatabase(); });
 

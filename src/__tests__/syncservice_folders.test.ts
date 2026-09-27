@@ -5,18 +5,14 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     createFolder, upsertFolder, getFolderById, upsertSyncRecord, getSyncRecord,
 } from '@/lib/db/queries';
-import type { OnlineContextType } from '@/contexts/OnlineContext';
+import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
-});
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 
 const { mockDsr } = vi.hoisted(() => ({ mockDsr: vi.fn() }));
 vi.mock('@/lib/homebase/FolderDriveProvider', () => ({
@@ -35,8 +31,8 @@ vi.mock('@/lib/homebase/InboxProcessor', () => ({
 import { SyncService } from '@/lib/homebase/SyncService';
 
 const F = '44444444-4444-4444-4444-444444444444';
-const fakeClient = { getHostIdentity: () => 'me.dotyou.cloud' } as unknown as DotYouClient;
-const fakeOnline = { isOnline: true } as unknown as OnlineContextType;
+const fakeClient = fakeDotYouClient();
+const fakeOnline = fakeOnlineContext();
 
 function remoteFolder(versionTag: string) {
     return {
@@ -49,8 +45,7 @@ function remoteFolder(versionTag: string) {
 let db: PGlite;
 beforeAll(async () => {
     db = await createTestDatabase();
-    // @ts-expect-error test-only setter
-    pgliteModule.setTestDb(db);
+    setTestDb(db);
 });
 afterAll(async () => { await closeTestDatabase(); });
 

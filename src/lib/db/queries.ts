@@ -268,19 +268,7 @@ export async function getAllDocuments(): Promise<SearchIndexEntry[]> {
  */
 export async function getNotesForList(): Promise<NoteListEntry[]> {
     const db = await getDatabase();
-    const result = await db.query<{
-        doc_id: string;
-        title: string;
-        preview: string;
-        metadata: DocumentMetadata;
-    }>(
-        `SELECT doc_id, title,
-                LEFT(plain_text_content, 150) as preview,
-                metadata
-         FROM search_index
-         WHERE ${ACTIVE_NOTES_FILTER}
-         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
-    );
+    const result = await db.query<NoteListRow>(NOTE_LIST_SQL.active);
     return result.rows.map(toNoteListEntry);
 }
 
@@ -289,19 +277,7 @@ export async function getNotesForList(): Promise<NoteListEntry[]> {
  */
 export async function getTrashedNotes(): Promise<NoteListEntry[]> {
     const db = await getDatabase();
-    const result = await db.query<{
-        doc_id: string;
-        title: string;
-        preview: string;
-        metadata: DocumentMetadata;
-    }>(
-        `SELECT doc_id, title,
-                LEFT(plain_text_content, 150) as preview,
-                metadata
-         FROM search_index
-         WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 2
-         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
-    );
+    const result = await db.query<NoteListRow>(NOTE_LIST_SQL.trashed);
     return result.rows.map(toNoteListEntry);
 }
 
@@ -310,14 +286,7 @@ export async function getTrashedNotes(): Promise<NoteListEntry[]> {
  */
 export async function getArchivedNotes(): Promise<NoteListEntry[]> {
     const db = await getDatabase();
-    const result = await db.query<NoteListRow>(
-        `SELECT doc_id, title,
-                LEFT(plain_text_content, 150) as preview,
-                metadata
-         FROM search_index
-         WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 1
-         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
-    );
+    const result = await db.query<NoteListRow>(NOTE_LIST_SQL.archived);
     return result.rows.map(toNoteListEntry);
 }
 
@@ -388,21 +357,7 @@ export async function getAllDocIdsByFolder(folderId: string): Promise<string[]> 
  */
 export async function getNotesForListByFolder(folderId: string): Promise<NoteListEntry[]> {
     const db = await getDatabase();
-    const result = await db.query<{
-        doc_id: string;
-        title: string;
-        preview: string;
-        metadata: DocumentMetadata;
-    }>(
-        `SELECT doc_id, title,
-                LEFT(plain_text_content, 150) as preview,
-                metadata
-         FROM search_index
-         WHERE metadata->>'folderId' = $1
-           AND ${ACTIVE_NOTES_FILTER}
-         ORDER BY (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`,
-        [folderId]
-    );
+    const result = await db.query<NoteListRow>(NOTE_LIST_SQL.byFolder, [folderId]);
     return result.rows.map(toNoteListEntry);
 }
 
@@ -482,22 +437,7 @@ export async function getFrequentlyLinkedNotes(
 
 export async function getCollaborativeNotesForList(): Promise<NoteListEntry[]> {
     const db = await getDatabase();
-    const result = await db.query<{
-        doc_id: string;
-        title: string;
-        preview: string;
-        metadata: DocumentMetadata;
-    }>(
-        `SELECT doc_id, title,
-                LEFT(plain_text_content, 150) as preview,
-                metadata
-         FROM search_index
-         WHERE (metadata->>'isCollaborative')::boolean = true
-           AND ${ACTIVE_NOTES_FILTER}
-         ORDER BY
-            (metadata->>'isPinned')::boolean DESC NULLS LAST,
-            (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`
-    );
+    const result = await db.query<NoteListRow>(NOTE_LIST_SQL.collaborative);
     return result.rows.map(toNoteListEntry);
 }
 
@@ -1541,22 +1481,6 @@ export async function getAllTags(): Promise<string[]> {
  */
 export async function getNotesForListByTag(tag: string): Promise<NoteListEntry[]> {
     const db = await getDatabase();
-    const result = await db.query<{
-        doc_id: string;
-        title: string;
-        preview: string;
-        metadata: DocumentMetadata;
-    }>(
-        `SELECT doc_id, title,
-                LEFT(plain_text_content, 150) as preview,
-                metadata
-         FROM search_index
-         WHERE metadata->'tags' ? $1
-           AND ${ACTIVE_NOTES_FILTER}
-         ORDER BY
-            (metadata->>'isPinned')::boolean DESC NULLS LAST,
-            updated_at DESC`,
-        [tag]
-    );
+    const result = await db.query<NoteListRow>(NOTE_LIST_SQL.byTag, [tag]);
     return result.rows.map(toNoteListEntry);
 }

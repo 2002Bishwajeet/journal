@@ -6,7 +6,7 @@
  * path must mirror makeNotePublic: Anonymous ACL, isEncrypted:false, no key header.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
+import { fakeDotYouClient } from './fakes';
 import { SecurityGroupType } from '@homebase-id/js-lib/core';
 import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import type { DocumentMetadata } from '@/types';
@@ -20,7 +20,7 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 
 const NOTE_ID = '11111111-1111-1111-1111-111111111111';
-const fakeClient = { getHostIdentity: () => 'me.dotyou.cloud' } as unknown as DotYouClient;
+const fakeClient = fakeDotYouClient();
 const fakeKeyHeader = { encryptionVersion: 1 } as unknown as EncryptedKeyHeader;
 
 function meta(over: Partial<DocumentMetadata>): DocumentMetadata {

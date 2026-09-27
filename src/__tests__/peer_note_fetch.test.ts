@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import { saveDocumentUpdate, getDocumentUpdates, getSyncRecord, upsertSyncRecord } from '@/lib/db/queries';
-import type { OnlineContextType } from '@/contexts/OnlineContext';
+import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 import * as Y from 'yjs';
 
 function yjsUpdateWithContent(text = 'hello'): Uint8Array {
@@ -20,11 +19,8 @@ function emptyYjsUpdate(): Uint8Array {
     return u;
 }
 
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
-});
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 
 const { mockGetNote, mockGetNotePayload, mockDsr } = vi.hoisted(() => ({
     mockGetNote: vi.fn(),
@@ -53,15 +49,14 @@ const HOST = 'sam.dotyou.cloud';
 const FRODO = 'frodo.dotyou.cloud';
 const DOC_ID = '11111111-1111-1111-1111-111111111111';
 
-const fakeDotYouClient = { getHostIdentity: () => HOST } as unknown as DotYouClient;
-const fakeOnline = { isOnline: true } as unknown as OnlineContextType;
+const dotYouClient = fakeDotYouClient(HOST);
+const fakeOnline = fakeOnlineContext();
 
 // File-level DB lifecycle shared by all describe blocks
 let db: PGlite;
 beforeAll(async () => {
     db = await createTestDatabase();
-    // @ts-expect-error test-only setter
-    pgliteModule.setTestDb(db);
+    setTestDb(db);
 });
 afterAll(async () => { await closeTestDatabase(); });
 
@@ -81,7 +76,7 @@ describe('SyncService.ensurePeerNoteContent', () => {
         await resetTestDatabase();
         vi.clearAllMocks();
         broadcastSpy = vi.spyOn(documentBroadcast, 'notifyDocumentUpdated').mockImplementation(() => {});
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('returns local without fetching when content already exists', async () => {
@@ -160,7 +155,7 @@ describe('SyncService.revalidatePeerNote', () => {
         await resetTestDatabase();
         vi.clearAllMocks();
         vi.spyOn(documentBroadcast, 'notifyDocumentUpdated').mockImplementation(() => {});
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('returns unchanged and does not fetch the payload when versionTag matches', async () => {
@@ -216,7 +211,7 @@ describe('SyncService.handleRemoteNote author identity', () => {
         await resetTestDatabase();
         vi.clearAllMocks();
         vi.spyOn(documentBroadcast, 'notifyDocumentUpdated').mockImplementation(() => {});
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('uses the stored sync record authorOdinId over senderOdinId', async () => {
