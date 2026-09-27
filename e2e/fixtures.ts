@@ -4,6 +4,13 @@ import { installNetworkFence, assertNoFenceViolations } from './support/network-
 
 export { expect };
 
+// The hooks module is dynamically imported, so it may not be installed yet
+// right after a navigation or reload.
+export async function waitForAppReady(page: Page): Promise<void> {
+  await page.waitForFunction(() => window.__journalE2E !== undefined);
+  await page.evaluate(() => window.__journalE2E!.ready());
+}
+
 // e2e/fixtures/hermetic-auth.json's IDENTITY/BX0900/APSS values are fake by
 // construction (a `.test` identity and fixed bytes, not real credentials) —
 // see that file and the "no fake drive" policy in issue #196.
@@ -50,8 +57,7 @@ export const test = base.extend<{
 
       await page.goto('/');
       await assertTestOrigin(page);
-      await page.waitForFunction(() => typeof window.__journalE2E !== 'undefined');
-      await page.evaluate(() => window.__journalE2E!.ready());
+      await waitForAppReady(page);
 
       await use(page);
 
