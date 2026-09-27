@@ -5,10 +5,7 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 import { DOC_BROADCAST_CHANNEL, type DocumentBroadcastMessage } from '@/lib/broadcast/DocumentBroadcast';
 
 // Real DB, mocked at the pglite singleton boundary — same pattern as pglite_provider.test.ts.
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
-});
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 
 /**
  * Two browser tabs open on the same note (issue #256). Each tab has its own
@@ -30,8 +27,10 @@ const tabs: Tab[] = [];
 
 async function openTab(): Promise<Tab> {
     vi.resetModules();
-    const pglite = await import('@/lib/db/pglite');
-    // @ts-expect-error test-only setter
+    // Must go through '@/lib/db/pglite' (not a direct import of './pgliteMock') so this
+    // resolves to the SAME fresh mock instance PGliteProvider's own import gets below —
+    // vi.resetModules() re-invokes the vi.mock factory per module graph, keyed by that path.
+    const pglite = await import('@/lib/db/pglite') as unknown as typeof import('./pgliteMock');
     pglite.setTestDb(db);
     const { PGliteProvider } = await import('@/lib/yjs/provider');
     const { documentBroadcast } = await import('@/lib/broadcast/DocumentBroadcast');

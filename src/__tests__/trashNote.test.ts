@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
 import { SecurityGroupType } from '@homebase-id/js-lib/core';
 import type { DocumentMetadata } from '@/types';
+import { fakeDotYouClient } from './fakes';
 
 const { mockGetHeader, mockPatchFile, mockUploadFile } = vi.hoisted(() => ({
     mockGetHeader: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 
 const NOTE_ID = '22222222-2222-2222-2222-222222222222';
-const fakeClient = { getHostIdentity: () => 'me.dotyou.cloud' } as unknown as DotYouClient;
+const fakeClient = fakeDotYouClient();
 
 function ownerHeader() {
     return {

@@ -7,8 +7,8 @@
  * so making a note private again restores those fields.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
 import type { DocumentMetadata } from '@/types';
+import { fakeDotYouClient } from './fakes';
 
 const { mockPatch, mockGetHeader, mockReUpload } = vi.hoisted(() => ({
     mockPatch: vi.fn(),
@@ -28,7 +28,7 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 
 const NOTE_ID = '11111111-1111-1111-1111-111111111111';
-const fakeClient = { getHostIdentity: () => 'me.dotyou.cloud' } as unknown as DotYouClient;
+const fakeClient = fakeDotYouClient();
 
 function meta(over: Partial<DocumentMetadata>): DocumentMetadata {
     return { title: 'Note', tags: [], ...over } as DocumentMetadata;

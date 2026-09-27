@@ -11,19 +11,13 @@ import { live, type LiveNamespace } from '@electric-sql/pglite/live';
 // control per-test — the real one (a settable var) for parking, a fake capturing
 // one for coalescing. The existing tests above use `db` directly and are
 // unaffected (they never import from @/lib/db/pglite).
-vi.mock('@/lib/db/pglite', () => {
-  let mockDb: unknown = null;
-  return {
-    getLiveDatabase: async () => mockDb,
-    getDatabase: async () => mockDb,
-    __setMockDb: (d: unknown) => { mockDb = d; },
-  };
-});
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 import { acquireLiveQuery } from '@/hooks/useLiveQuery';
 
-const setMockDb = (d: unknown) =>
-  (pgliteModule as unknown as { __setMockDb: (d: unknown) => void }).__setMockDb(d);
+// The coalescing test below sets a minimal fake (just a `live.query` capture),
+// not a real PGlite, so the cast is narrowed from `unknown` right here.
+const setMockDb = (d: unknown) => setTestDb(d as PGlite);
 
 type LiveDB = PGlite & { live: LiveNamespace };
 

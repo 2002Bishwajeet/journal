@@ -11,7 +11,8 @@
  *      encryption/ACL/keyHeader must mirror the existing file header.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { DotYouClient, HomebaseFile, EncryptedKeyHeader } from '@homebase-id/js-lib/core';
+import type { HomebaseFile, EncryptedKeyHeader } from '@homebase-id/js-lib/core';
+import { fakeDotYouClient } from './fakes';
 import { SecurityGroupType } from '@homebase-id/js-lib/core';
 import type { NoteFileContent } from '@/types';
 
@@ -33,7 +34,7 @@ vi.mock('@homebase-id/js-lib/media', async (importOriginal) => {
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 
 const NOTE_ID = '11111111-1111-1111-1111-111111111111';
-const fakeClient = { getHostIdentity: () => 'me.dotyou.cloud' } as unknown as DotYouClient;
+const fakeClient = fakeDotYouClient();
 const fakeKeyHeader = { encryptionVersion: 1 } as unknown as EncryptedKeyHeader;
 
 // patchFile args: (client, keyHeader, instructions, uploadMetadata, payloads, thumbnails)

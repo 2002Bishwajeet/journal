@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
-import type { DotYouClient, EncryptedKeyHeader } from '@homebase-id/js-lib/core';
+import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     saveDocumentUpdate, getDocumentUpdates, upsertSyncRecord, getSyncRecord, upsertSearchIndex,
@@ -11,15 +11,12 @@ import {
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader } from '@/lib/utils';
 import { documentBroadcast } from '@/lib/broadcast';
-import type { OnlineContextType } from '@/contexts/OnlineContext';
+import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 import type { DocumentMetadata, SyncRecord } from '@/types';
 import * as Y from 'yjs';
 
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
-});
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 
 const { mockGetNote, mockGetNotePayload, mockUpdateNote, mockCreateNote } = vi.hoisted(() => ({
     mockGetNote: vi.fn(),
@@ -48,8 +45,8 @@ import { SyncService } from '@/lib/homebase/SyncService';
 const HOST = 'sam.dotyou.cloud';
 const DOC_ID = '11111111-1111-1111-1111-111111111111';
 
-const fakeDotYouClient = { getHostIdentity: () => HOST } as unknown as DotYouClient;
-const fakeOnline = { isOnline: true } as unknown as OnlineContextType;
+const dotYouClient = fakeDotYouClient(HOST);
+const fakeOnline = fakeOnlineContext();
 
 const VALID_KEY_HEADER = serializeKeyHeader(
     { encryptionVersion: 1, type: 'aes', iv: 'aXY=', encryptedAesKey: 'aXY=' } as unknown as EncryptedKeyHeader,
@@ -111,8 +108,7 @@ async function seedNote(opts: {
 let db: PGlite;
 beforeAll(async () => {
     db = await createTestDatabase();
-    // @ts-expect-error test-only setter
-    pgliteModule.setTestDb(db);
+    setTestDb(db);
 });
 afterAll(async () => { await closeTestDatabase(); });
 
@@ -121,7 +117,7 @@ describe('SyncService.pushNote', () => {
     beforeEach(async () => {
         await resetTestDatabase();
         vi.clearAllMocks();
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('uploads the merged Yjs blob and records the returned versionTag when content changed', async () => {
@@ -443,7 +439,7 @@ describe('SyncService.pushChanges backoff filtering (#146)', () => {
     beforeEach(async () => {
         await resetTestDatabase();
         vi.clearAllMocks();
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('does not pass a pending note whose id is in push backoff to pushNote, but pushes one that is not', async () => {
@@ -466,7 +462,7 @@ describe('SyncService.syncNote clears push backoff on success (#146)', () => {
     beforeEach(async () => {
         await resetTestDatabase();
         vi.clearAllMocks();
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('resolves the active push error once an immediate save pushes the note', async () => {
@@ -486,7 +482,7 @@ describe('SyncService.logSyncError', () => {
     beforeEach(async () => {
         await resetTestDatabase();
         vi.clearAllMocks();
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('writes nothing and does not throw when entityId is empty', async () => {

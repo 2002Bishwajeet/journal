@@ -9,7 +9,7 @@ import { createElement as h, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { NodeViewProps } from '@tiptap/react';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
+import { fakeDotYouClient } from './fakes';
 
 const { odinImageProps } = vi.hoisted(() => ({ odinImageProps: [] as Record<string, unknown>[] }));
 vi.mock('@/components/OdinImage/OdinImage', () => ({
@@ -122,7 +122,7 @@ describe('ImageNodeView alt text — attachment (remote) image', () => {
 describe('OdinPreviewImage — blurred placeholder stays decorative', () => {
     async function renderPlaceholder(alt: string) {
         const client = new QueryClient();
-        const dotYouClient = { getHostIdentity: () => 'me.dotyou.cloud' } as unknown as DotYouClient;
+        const dotYouClient = fakeDotYouClient();
         const el = document.createElement('div');
         const root = createRoot(el);
         await act(async () => {

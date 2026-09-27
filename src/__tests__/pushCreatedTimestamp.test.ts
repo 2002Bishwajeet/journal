@@ -1,20 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     saveDocumentUpdate, upsertSearchIndex, upsertSyncRecord, getSyncRecord, getSearchIndexEntry,
 } from '@/lib/db/queries';
 import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
-import type { OnlineContextType } from '@/contexts/OnlineContext';
+import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 import type { DocumentMetadata, SyncRecord } from '@/types';
 import * as Y from 'yjs';
 
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
-});
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 
 const { mockUploadFile, mockPatchFile, mockGetPayloadBytes, mockGetContent } = vi.hoisted(() => ({
     mockUploadFile: vi.fn(),
@@ -50,8 +46,8 @@ const CREATED = '2020-03-15T10:30:00.000Z';
 /** ...but it is only pushed to the server today. */
 const PUSH_TIME = Date.parse('2026-09-16T12:00:00.000Z');
 
-const fakeDotYouClient = { getHostIdentity: () => 'sam.dotyou.cloud' } as unknown as DotYouClient;
-const fakeOnline = { isOnline: true } as unknown as OnlineContextType;
+const dotYouClient = fakeDotYouClient('sam.dotyou.cloud');
+const fakeOnline = fakeOnlineContext();
 
 const META = (extra: Partial<DocumentMetadata> = {}): DocumentMetadata => ({
     title: 'Old Note',
@@ -73,8 +69,7 @@ function textUpdate(text: string): Uint8Array {
 let db: PGlite;
 beforeAll(async () => {
     db = await createTestDatabase();
-    // @ts-expect-error test-only setter
-    pgliteModule.setTestDb(db);
+    setTestDb(db);
 });
 afterAll(async () => { await closeTestDatabase(); });
 
@@ -84,7 +79,7 @@ describe('NotesDriveProvider pushes the real created timestamp as userDate', () 
         vi.clearAllMocks();
         mockUploadFile.mockResolvedValue({ file: { fileId: 'remote-file-1' }, newVersionTag: 'v1' });
         mockPatchFile.mockResolvedValue({ newVersionTag: 'v2' });
-        provider = new NotesDriveProvider(fakeDotYouClient);
+        provider = new NotesDriveProvider(dotYouClient);
     });
 
     it('createNote sends the note created date, not the moment of the push', async () => {
@@ -120,7 +115,7 @@ describe('created timestamp round-trip through the server', () => {
         await resetTestDatabase();
         vi.clearAllMocks();
         mockUploadFile.mockResolvedValue({ file: { fileId: 'remote-file-1' }, newVersionTag: 'v1' });
-        svc = new SyncService(fakeDotYouClient, fakeOnline);
+        svc = new SyncService(dotYouClient, fakeOnline);
     });
 
     it('keeps a note created long ago from collapsing to its push time when the local DB is wiped and rebuilt', async () => {

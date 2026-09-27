@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
+import { fakeDotYouClient } from './fakes';
 import { SecurityGroupType } from '@homebase-id/js-lib/core';
 
 // Characterization tests for the five note header transitions (#161). Only the
@@ -35,7 +35,7 @@ import {
 const NOTE_ID = '33333333-3333-3333-3333-333333333333';
 const USER_DATE = 1690000000000;
 const KEY_HEADER = { encryptionVersion: 1, type: 'aes', iv: 'aXY=', encryptedAesKey: 'aXY=' };
-const fakeClient = { getHostIdentity: () => 'me.dotyou.cloud' } as unknown as DotYouClient;
+const fakeClient = fakeDotYouClient();
 
 const CONTENT = {
     title: 'Dated Note',

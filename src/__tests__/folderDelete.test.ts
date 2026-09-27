@@ -6,19 +6,15 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
-import type { DotYouClient } from '@homebase-id/js-lib/core';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     upsertSearchIndex, upsertSyncRecord, getSyncRecord, getSearchIndexEntry,
     createFolder, getAllDocIdsByFolder,
 } from '@/lib/db/queries';
-import type { OnlineContextType } from '@/contexts/OnlineContext';
+import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
-});
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 
 const { mockDeleteFile, mockDeleteByGroup } = vi.hoisted(() => ({
     mockDeleteFile: vi.fn(),
@@ -38,14 +34,13 @@ const ACTIVE = 'aaaaaaaa-0000-0000-0000-000000000001';
 const ARCHIVED = 'aaaaaaaa-0000-0000-0000-000000000002';
 const TRASHED = 'aaaaaaaa-0000-0000-0000-000000000003';
 const OTHER = 'bbbbbbbb-0000-0000-0000-000000000001';
-const fakeClient = { getHostIdentity: () => 'me.dotyou.cloud' } as unknown as DotYouClient;
-const fakeOnline = { isOnline: true } as unknown as OnlineContextType;
+const fakeClient = fakeDotYouClient();
+const fakeOnline = fakeOnlineContext();
 
 let db: PGlite;
 beforeAll(async () => {
     db = await createTestDatabase();
-    // @ts-expect-error test-only setter
-    pgliteModule.setTestDb(db);
+    setTestDb(db);
 });
 afterAll(async () => { await closeTestDatabase(); });
 
