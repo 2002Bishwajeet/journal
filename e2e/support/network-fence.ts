@@ -28,6 +28,22 @@ export async function installNetworkFence(context: BrowserContext): Promise<{ vi
         return route.abort('internetdisconnected');
     });
 
+    // context.route() never sees WebSockets, so fence them separately. An
+    // unconnected route is a mock: nothing reaches the network.
+    await context.routeWebSocket(/./, (ws) => {
+        const url = new URL(ws.url());
+        const httpOrigin = url.origin.replace(/^ws/, 'http');
+
+        if (TEST_ORIGINS.includes(httpOrigin)) {
+            return ws.connectToServer();
+        }
+
+        if (!url.hostname.endsWith('.homebase.test')) {
+            violations.push(url.href);
+        }
+        return ws.close();
+    });
+
     return { violations };
 }
 
