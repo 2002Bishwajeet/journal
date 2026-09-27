@@ -11,9 +11,10 @@
  */
 
 import { isChunkLoadError, reloadOnceForChunkError } from './chunkReload';
+import { SW_RELOAD_COUNT_KEY, readString, writeString, removeKey } from '@/lib/storage';
 
 const MAX_RELOADS = 3;
-const RELOAD_KEY = 'sw_safety_reload_count';
+const RELOAD_KEY = SW_RELOAD_COUNT_KEY;
 const RELOAD_RESET_TIMEOUT = 10000; // 10 seconds
 // A null hooks dispatcher, as worded by Chrome, Safari and Firefox, or #321.
 const STALE_REACT_ERROR = new RegExp([
@@ -24,16 +25,16 @@ const STALE_REACT_ERROR = new RegExp([
 ].join('|'));
 
 function getReloadCount(): number {
-    return parseInt(localStorage.getItem(RELOAD_KEY) || '0', 10);
+    return parseInt(readString(RELOAD_KEY) || '0', 10);
 }
 
 function incrementReloadCount() {
     const count = getReloadCount();
-    localStorage.setItem(RELOAD_KEY, (count + 1).toString());
+    writeString(RELOAD_KEY, (count + 1).toString());
 }
 
 function resetReloadCount() {
-    localStorage.removeItem(RELOAD_KEY);
+    removeKey(RELOAD_KEY);
 }
 
 // Reset the counter if the app stays alive for a while (successful load)
