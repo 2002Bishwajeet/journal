@@ -23,7 +23,7 @@ Name the integration test(s) first in every issue's Verification. Add an E2E spe
 | Imports in specs | `import { test, expect } from '../fixtures';` — never from `@playwright/test` directly |
 | Fixtures | `app` (signed-in page, booted), `anonPage` (signed-out), `liveRun` (run-scoped folder on a real identity) |
 | Helpers | `e2e/support/actions.ts`: `createNote`, `openNote`, `typeInEditor`, `waitForSyncIdle`; `e2e/support/origin-guard.ts`: `assertTestOrigin` |
-| Scripts | `npm run e2e` (backend-free) · `npm run e2e:dev` · `npm run e2e:recorded` (HAR check + replay) · `npm run e2e:record` (re-record from a real identity) · `npm run e2e:login` · `npm run e2e:live` · `npm run e2e:edge` · `npm run e2e:report` |
+| Scripts | `npm run e2e` (backend-free) · `npm run e2e:dev` · `npm run e2e:quarantine` (`@quarantine` specs, informational) · `npm run e2e:recorded` (HAR check + replay) · `npm run e2e:record` (re-record from a real identity) · `npm run e2e:login` · `npm run e2e:live` · `npm run e2e:edge` · `npm run e2e:report` |
 | One spec / one test | `npm run e2e -- e2e/editor/persist.spec.ts -g "survives reload"` |
 | Debug | `npm run e2e:dev -- <spec> --headed` · `--ui` · `--trace on` |
 | Evidence | `playwright-report/` + `test-results/` (gitignored); attach the report summary and failing-step screenshots/traces to the PR |
@@ -31,7 +31,13 @@ Name the integration test(s) first in every issue's Verification. Add an E2E spe
 | Flaky | tag the title `@quarantine` + open a bug; never add sleeps |
 | Build output | `vite build --mode e2e --outDir dist-e2e` (never touches `dist/`) |
 
-This is the full epic contract (#196) — other issues rely on these names, so don't rename them here. Only some of it is built today: `hermetic`, `live` and `live-setup` are the only projects (no `recorded`/`edge` yet), and `npm run e2e`, `npm run e2e:dev`, `npm run e2e:live`, `npm run e2e:login`, `npm run e2e:report` exist in `package.json`. The rest (`recorded`/`edge` projects, HAR recordings, `waitForSyncIdle`, and the other scripts) land with their own issues (#199, #200, #202, #205) — check `package.json` and this directory's contents before assuming a script or helper exists.
+This is the full epic contract (#196) — other issues rely on these names, so don't rename them here. Only some of it is built today: `hermetic`, `quarantine`, `live` and `live-setup` are the only projects (no `recorded`/`edge` yet), and `npm run e2e`, `npm run e2e:dev`, `npm run e2e:quarantine`, `npm run e2e:live`, `npm run e2e:login`, `npm run e2e:report` exist in `package.json`. The rest (`recorded`/`edge` projects, HAR recordings, `waitForSyncIdle`, and the other scripts) land with their own issues (#202, #205) — check `package.json` and this directory's contents before assuming a script or helper exists.
+
+## CI
+
+The `E2E` GitHub Actions check (`.github/workflows/e2e.yml`) runs the `hermetic` project (the same `npm run e2e`) on every push/PR to `main`, with 2 retries. It also runs `npm run e2e:quarantine` as a following, `continue-on-error` step — its result is informational only and never blocks the check.
+
+On failure, the job uploads `playwright-report/` and `test-results/` (traces, screenshots, videos) as an artifact named `playwright-report-<run attempt>`, kept for 14 days. Download it from the failed run's Summary page (Artifacts section), unzip, then open `index.html` for the report or run `npx playwright show-trace <trace.zip>` for a specific trace.
 
 ## Agent loop
 
