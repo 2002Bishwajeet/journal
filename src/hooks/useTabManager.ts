@@ -46,6 +46,20 @@ export function staleTabIds(
 }
 
 /**
+ * The tab that is active after closing `closingId`: unchanged when closing a
+ * non-active tab, else the right neighbour, else the left, else none.
+ */
+export function nextActiveTabId(
+    openTabs: TabInfo[],
+    closingId: string,
+    activeId: string | null,
+): string | null {
+    if (activeId !== closingId) return activeId;
+    const index = openTabs.findIndex((t) => t.docId === closingId);
+    return (openTabs[index + 1] ?? openTabs[index - 1])?.docId ?? null;
+}
+
+/**
  * Hook for managing open note tabs
  */
 export function useTabManager() {
@@ -117,23 +131,9 @@ export function useTabManager() {
             const index = prev.openTabs.findIndex(t => t.docId === docId);
             if (index === -1) return prev;
 
-            const newTabs = prev.openTabs.filter(t => t.docId !== docId);
-            let newActiveId = prev.activeTabId;
-
-            // If closing the active tab, switch to adjacent tab
-            if (prev.activeTabId === docId) {
-                if (newTabs.length === 0) {
-                    newActiveId = null;
-                } else if (index < newTabs.length) {
-                    newActiveId = newTabs[index].docId;
-                } else {
-                    newActiveId = newTabs[newTabs.length - 1].docId;
-                }
-            }
-
             const newState = {
-                openTabs: newTabs,
-                activeTabId: newActiveId,
+                openTabs: prev.openTabs.filter(t => t.docId !== docId),
+                activeTabId: nextActiveTabId(prev.openTabs, docId, prev.activeTabId),
             };
             saveTabs(newState);
             return newState;

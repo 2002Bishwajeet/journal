@@ -58,7 +58,7 @@ import {
   useTrashedNotes,
   useArchivedNotes,
 } from "@/hooks/useNotes";
-import { staleTabIds } from "@/hooks/useTabManager";
+import { staleTabIds, nextActiveTabId } from "@/hooks/useTabManager";
 import { getMobilePane } from "@/layouts/mobilePane";
 import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useDailyNote } from "@/hooks/useDailyNote";
@@ -386,21 +386,19 @@ export default function JournalLayout() {
 
   // Handle tab close
   const handleTabClose = (docId: string) => {
+    // Same tab closeTab activates, so the URL effect doesn't mount another one.
+    const nextId = nextActiveTabId(openTabs, docId, activeTabId);
     closeTab(docId);
 
-    // If closing the active tab, navigate to another open tab or folder
+    // If closing the active tab, navigate to the next tab's note or the folder
     if (docId === noteId) {
-      const remainingTabs = openTabs.filter((t) => t.docId !== docId);
-      if (remainingTabs.length > 0) {
-        const nextTab = remainingTabs[remainingTabs.length - 1];
-        const note = notes.find((n) => n.docId === nextTab.docId);
-        if (note) {
-          navigate(`/${note.metadata.folderId}/${nextTab.docId}`, {
-            viewTransition: true,
-          });
-        }
-      } else if (folderId) {
-        navigate(`/${folderId}`, { viewTransition: true });
+      const note = nextId ? notes.find((n) => n.docId === nextId) : undefined;
+      if (note) {
+        navigate(`/${note.metadata.folderId}/${nextId}`, {
+          viewTransition: true,
+        });
+      } else {
+        navigate(folderId ? `/${folderId}` : "/", { viewTransition: true });
       }
     }
   };
