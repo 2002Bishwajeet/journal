@@ -309,20 +309,28 @@ export const SearchAndReplace = Extension.create({
 
             replaceCurrentMatch:
                 (replaceTerm) =>
-                ({ editor }) => {
-                    const pluginState = searchPluginKey.getState(editor.state) as SearchPluginState | undefined;
+                ({ tr, dispatch, state, commands }) => {
+                    const pluginState = searchPluginKey.getState(state) as SearchPluginState | undefined;
                     if (!pluginState || pluginState.currentIndex < 0) return false;
 
                     const match = pluginState.results[pluginState.currentIndex];
                     if (!match) return false;
 
-                    editor.view.dispatch(
-                        editor.state.tr.insertText(replaceTerm, match.from, match.to),
-                    );
+                    if (dispatch) {
+                        tr.insertText(replaceTerm, match.from, match.to);
 
-                    const newState = searchPluginKey.getState(editor.state) as SearchPluginState | undefined;
-                    if (newState && newState.currentIndex >= 0 && newState.results[newState.currentIndex]) {
-                        editor.chain().setTextSelection(newState.results[newState.currentIndex].from).scrollIntoView().run();
+                        const newState = recalculate(
+                            tr.doc,
+                            pluginState.searchTerm,
+                            pluginState.caseSensitive,
+                            pluginState.wholeWord,
+                            pluginState.currentIndex,
+                        );
+                        const nextMatch = newState.results[newState.currentIndex];
+                        if (nextMatch) {
+                            commands.setTextSelection(nextMatch.from);
+                        }
+                        commands.scrollIntoView();
                     }
 
                     return true;
@@ -330,16 +338,16 @@ export const SearchAndReplace = Extension.create({
 
             replaceAllMatches:
                 (replaceTerm) =>
-                ({ editor }) => {
-                    const pluginState = searchPluginKey.getState(editor.state) as SearchPluginState | undefined;
+                ({ tr, dispatch, state }) => {
+                    const pluginState = searchPluginKey.getState(state) as SearchPluginState | undefined;
                     if (!pluginState || pluginState.results.length === 0) return false;
 
-                    const tr = editor.state.tr;
-                    const sorted = [...pluginState.results].sort((a, b) => b.from - a.from);
-                    for (const { from, to } of sorted) {
-                        tr.insertText(replaceTerm, from, to);
+                    if (dispatch) {
+                        const sorted = [...pluginState.results].sort((a, b) => b.from - a.from);
+                        for (const { from, to } of sorted) {
+                            tr.insertText(replaceTerm, from, to);
+                        }
                     }
-                    editor.view.dispatch(tr);
 
                     return true;
                 },
