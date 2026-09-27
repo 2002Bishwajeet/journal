@@ -78,6 +78,35 @@ export async function unloadWebLLM(): Promise<void> {
 }
 
 /**
+ * Delete cached model weights (Cache API + OPFS) after unloading the engine.
+ */
+export async function clearModelCache(): Promise<void> {
+    await unloadWebLLM();
+    try {
+        const cacheNames = await caches.keys();
+        for (const name of cacheNames) {
+            if (
+                name.includes("webllm") ||
+                name.includes("mlc")
+            ) {
+                await caches.delete(name);
+            }
+        }
+        const root = await navigator.storage.getDirectory();
+        for await (const [name] of (root as FileSystemDirectoryHandle & { entries(): AsyncIterable<[string, FileSystemHandle]> }).entries()) {
+            if (
+                name.includes("mlc") ||
+                name.includes("webllm")
+            ) {
+                await root.removeEntry(name, { recursive: true });
+            }
+        }
+    } catch {
+        // Ignore cleanup errors
+    }
+}
+
+/**
  * Initialize WebLLM engine with model stored in OPFS
  */
 export async function initWebLLM(

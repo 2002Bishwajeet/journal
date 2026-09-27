@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 
-export interface UseSettingsModalReturn {
+export interface UseImportExportReturn {
     // State
     isExporting: boolean;
     isImporting: boolean;
@@ -11,7 +11,7 @@ export interface UseSettingsModalReturn {
     handleImport: (files: FileList) => Promise<void>;
 }
 
-export function useSettingsModal(): UseSettingsModalReturn {
+export function useImportExport(): UseImportExportReturn {
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
 

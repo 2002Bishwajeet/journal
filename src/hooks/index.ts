@@ -14,12 +14,14 @@ export type { DeviceType } from './useDeviceType';
 export { useSyncService } from './useSyncService';
 export { useDocumentCache } from './useDocumentCache';
 export { useJournalWebsocket } from './useJournalWebsocket';
+export { useAIPreferences } from './useAIPreferences';
+export type { UseAIPreferencesReturn } from './useAIPreferences';
 
 // Modal hooks
 export { useSearchModal, isAdvancedResult } from './useSearchModal';
 export type { UseSearchModalOptions, UseSearchModalReturn, SearchResult } from './useSearchModal';
-export { useSettingsModal } from './useSettingsModal';
-export type { UseSettingsModalReturn } from './useSettingsModal';
+export { useImportExport } from './useImportExport';
+export type { UseImportExportReturn } from './useImportExport';
 
 // Page hooks
 export { useSharePage } from './useSharePage';
