@@ -7,66 +7,46 @@ import {
   Loader2,
   Lock,
 } from "lucide-react";
-import { motion } from "framer-motion";
 import { useImportExport } from "@/hooks/useImportExport";
 import { SectionHeader } from "../SectionHeader";
-import { contentVariants, staggerContainer, staggerItem } from "../motion";
 
 export default function DataSection() {
   const { isExporting, isImporting, handleExport, handleImport } =
     useImportExport();
 
   return (
-    <motion.div
-      variants={contentVariants}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-      className="p-8 space-y-10"
-    >
+    <div className="p-8 space-y-10">
       {/* Storage */}
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="space-y-6"
-      >
+      <div className="space-y-6">
         <SectionHeader subtitle="Where your journal lives">
           Storage
         </SectionHeader>
-        <motion.div variants={staggerItem}>
-          <div className="rounded-xl border border-border/60 p-5 bg-card">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center">
-                <Database className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <span className="font-semibold text-sm">
-                  Homebase Drive
-                </span>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Dedicated encrypted drive ·{" "}
-                  <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono">
-                    f4b63...
-                  </code>
-                </p>
-              </div>
+        <div className="rounded-xl border border-border/60 p-5 bg-card">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center">
+              <Database className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <span className="font-semibold text-sm">
+                Homebase Drive
+              </span>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Dedicated encrypted drive ·{" "}
+                <code className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono">
+                  f4b63...
+                </code>
+              </p>
             </div>
           </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* Import / Export */}
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="space-y-6"
-      >
+      <div className="space-y-6">
         <SectionHeader subtitle="Move data in and out of your journal">
           Data Portability
         </SectionHeader>
-        <motion.div variants={staggerItem} className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           {/* Import */}
           <div className="relative flex-1">
             <input
@@ -124,56 +104,49 @@ export default function DataSection() {
               Download your data
             </p>
           </button>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* Security */}
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="space-y-6"
-      >
+      <div className="space-y-6">
         <SectionHeader subtitle="How your data is protected">
           Security
         </SectionHeader>
-        <motion.div variants={staggerItem}>
-          <div
-            className="rounded-xl p-5 space-y-4 relative overflow-hidden"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(16, 185, 129, 0.04) 0%, rgba(16, 185, 129, 0.01) 100%)",
-              border: "1px solid rgba(16, 185, 129, 0.15)",
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30 flex items-center justify-center">
-                <Lock className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <span className="font-semibold text-sm text-emerald-700 dark:text-emerald-400">
-                  End-to-End Encrypted
-                </span>
-                <p className="text-xs text-emerald-600/70 dark:text-emerald-400/60 mt-0.5">
-                  Only you hold the keys
-                </p>
-              </div>
+        <div
+          className="rounded-xl p-5 space-y-4 relative overflow-hidden"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(16, 185, 129, 0.04) 0%, rgba(16, 185, 129, 0.01) 100%)",
+            border: "1px solid rgba(16, 185, 129, 0.15)",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30 flex items-center justify-center">
+              <Lock className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <div className="pl-[52px]">
-              <ul className="text-sm text-emerald-800/70 dark:text-emerald-400/70 space-y-1.5">
-                <li className="flex items-center gap-2">
-                  <Shield className="h-3 w-3 shrink-0" />
-                  All sync traffic is fully encrypted
-                </li>
-                <li className="flex items-center gap-2">
-                  <Shield className="h-3 w-3 shrink-0" />
-                  Cryptographic keys never leave your device
-                </li>
-              </ul>
+            <div>
+              <span className="font-semibold text-sm text-emerald-700 dark:text-emerald-400">
+                End-to-End Encrypted
+              </span>
+              <p className="text-xs text-emerald-600/70 dark:text-emerald-400/60 mt-0.5">
+                Only you hold the keys
+              </p>
             </div>
           </div>
-        </motion.div>
-      </motion.div>
-    </motion.div>
+          <div className="pl-[52px]">
+            <ul className="text-sm text-emerald-800/70 dark:text-emerald-400/70 space-y-1.5">
+              <li className="flex items-center gap-2">
+                <Shield className="h-3 w-3 shrink-0" />
+                All sync traffic is fully encrypted
+              </li>
+              <li className="flex items-center gap-2">
+                <Shield className="h-3 w-3 shrink-0" />
+                Cryptographic keys never leave your device
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

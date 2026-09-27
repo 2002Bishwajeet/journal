@@ -1,8 +1,6 @@
 import logo from "@/assets/logo_withoutbg.png";
 import { Database, Cpu, Lock, Shield, Keyboard } from "lucide-react";
-import { motion } from "framer-motion";
 import { SectionHeader } from "../SectionHeader";
-import { contentVariants, staggerContainer, staggerItem } from "../motion";
 
 export default function AboutSection({
   onOpenShortcuts,
@@ -10,21 +8,10 @@ export default function AboutSection({
   onOpenShortcuts: () => void;
 }) {
   return (
-    <motion.div
-      variants={contentVariants}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-      className="p-8 space-y-10"
-    >
+    <div className="p-8 space-y-10">
       {/* Brand */}
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="space-y-6"
-      >
-        <motion.div variants={staggerItem} className="text-center py-6">
+      <div className="space-y-6">
+        <div className="text-center py-6">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/5 mb-4">
             <img src={logo} alt="Journal" className="h-10 w-10 object-contain" />
           </div>
@@ -50,8 +37,8 @@ export default function AboutSection({
             <Keyboard className="h-4 w-4" />
             View keyboard shortcuts
           </button>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* Decorative divider */}
       <div className="flex items-center gap-4 px-8">
@@ -64,56 +51,49 @@ export default function AboutSection({
       </div>
 
       {/* Privacy */}
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="space-y-6"
-      >
+      <div className="space-y-6">
         <SectionHeader subtitle="Built with privacy as a foundation">
           Privacy Promise
         </SectionHeader>
-        <motion.div variants={staggerItem}>
-          <div
-            className="rounded-xl p-5 relative overflow-hidden"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(16, 185, 129, 0.04) 0%, rgba(16, 185, 129, 0.01) 100%)",
-              border: "1px solid rgba(16, 185, 129, 0.15)",
-            }}
-          >
-            <ul className="space-y-3">
-              {[
-                {
-                  icon: Database,
-                  text: "All notes stored locally in your browser",
-                },
-                {
-                  icon: Cpu,
-                  text: "AI runs entirely on-device via WebLLM",
-                },
-                {
-                  icon: Lock,
-                  text: "Sync traffic is end-to-end encrypted",
-                },
-                {
-                  icon: Shield,
-                  text: "No data sent to external servers",
-                },
-              ].map((item, i) => (
-                <li key={i} className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100/80 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-                    <item.icon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <span className="text-sm text-emerald-800/80 dark:text-emerald-400/70">
-                    {item.text}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </motion.div>
-      </motion.div>
-    </motion.div>
+        <div
+          className="rounded-xl p-5 relative overflow-hidden"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(16, 185, 129, 0.04) 0%, rgba(16, 185, 129, 0.01) 100%)",
+            border: "1px solid rgba(16, 185, 129, 0.15)",
+          }}
+        >
+          <ul className="space-y-3">
+            {[
+              {
+                icon: Database,
+                text: "All notes stored locally in your browser",
+              },
+              {
+                icon: Cpu,
+                text: "AI runs entirely on-device via WebLLM",
+              },
+              {
+                icon: Lock,
+                text: "Sync traffic is end-to-end encrypted",
+              },
+              {
+                icon: Shield,
+                text: "No data sent to external servers",
+              },
+            ].map((item, i) => (
+              <li key={i} className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg bg-emerald-100/80 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+                  <item.icon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <span className="text-sm text-emerald-800/80 dark:text-emerald-400/70">
+                  {item.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
   );
 }

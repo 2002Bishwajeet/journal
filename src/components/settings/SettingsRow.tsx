@@ -14,7 +14,7 @@ export function SettingsRow({
   trailing: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between p-4 rounded-xl border border-border/60 bg-card hover:bg-accent/30 transition-colors">
+    <div className="flex items-center justify-between p-4 rounded-xl border border-border/60 bg-card">
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
           <Icon className="h-4 w-4 text-muted-foreground" />

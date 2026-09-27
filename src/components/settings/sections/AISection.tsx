@@ -10,12 +10,10 @@ import {
   Zap,
   SpellCheck,
 } from "lucide-react";
-import { motion } from "framer-motion";
 import { useAIPreferences } from "@/hooks/useAIPreferences";
 import { getModelInfo } from "@/lib/webllm";
 import { SectionHeader } from "../SectionHeader";
 import { SettingsRow } from "../SettingsRow";
-import { contentVariants, staggerContainer, staggerItem } from "../motion";
 import AIModelList from "./AIModelList";
 
 export default function AISection() {
@@ -33,20 +31,11 @@ export default function AISection() {
   } = useAIPreferences();
 
   return (
-    <motion.div
-      variants={contentVariants}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-      className="p-8 space-y-10"
-    >
+    <div className="p-8 space-y-10">
       {/* AI Status Banner */}
-      <motion.div
-        variants={staggerItem}
-        initial="hidden"
-        animate="visible"
+      <div
         className={cn(
-          "relative rounded-xl p-5 overflow-hidden",
+          "rounded-xl p-5",
           isAIReady
             ? "bg-emerald-50/60 dark:bg-emerald-950/20"
             : isAILoading
@@ -61,16 +50,7 @@ export default function AISection() {
               : "1px solid var(--border)",
         }}
       >
-        {/* Decorative glow */}
-        {(isAIReady || isAILoading) && (
-          <div
-            className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20 pointer-events-none"
-            style={{
-              background: isAIReady ? "#10B981" : "#B8860B",
-            }}
-          />
-        )}
-        <div className="relative flex items-center gap-4">
+        <div className="flex items-center gap-4">
           <div
             className={cn(
               "shrink-0 w-10 h-10 rounded-full flex items-center justify-center",
@@ -106,137 +86,112 @@ export default function AISection() {
             </p>
             {isAILoading && (
               <div className="mt-3 w-full bg-border/50 rounded-full h-1.5 overflow-hidden">
-                <motion.div
-                  className="h-full rounded-full"
-                  style={{ background: "#B8860B" }}
-                  initial={{ width: 0 }}
-                  animate={{
+                <div
+                  className="h-full rounded-full transition-[width] duration-200"
+                  style={{
+                    background: "#B8860B",
                     width: `${Math.round(loadingProgress * 100)}%`,
                   }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
                 />
               </div>
             )}
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Master Toggle */}
-      <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-6">
+      <div className="space-y-6">
         <SectionHeader subtitle="On-device intelligence for your writing">
           AI Assistant
         </SectionHeader>
-        <motion.div variants={staggerItem}>
-          <SettingsRow
-            icon={Sparkles}
-            label="Enable AI"
-            description="Run a local LLM for autocomplete, grammar, and chat"
-            trailing={
-              <Switch
-                id="ai-enabled"
-                checked={settings.enabled}
-                onCheckedChange={(checked) => setEnabled(checked)}
-              />
-            }
-          />
-        </motion.div>
-      </motion.div>
+        <SettingsRow
+          icon={Sparkles}
+          label="Enable AI"
+          description="Run a local LLM for autocomplete, grammar, and chat"
+          trailing={
+            <Switch
+              id="ai-enabled"
+              checked={settings.enabled}
+              onCheckedChange={(checked) => setEnabled(checked)}
+            />
+          }
+        />
+      </div>
 
       {/* Model Selection */}
       {settings.enabled && (
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="visible"
-          className="space-y-6"
-        >
+        <div className="space-y-6">
           <SectionHeader subtitle="Choose a model based on your device capabilities">
             Model
           </SectionHeader>
           <AIModelList selectedModelId={settings.modelId} onSelect={selectModel} />
-        </motion.div>
+        </div>
       )}
 
       {/* Feature Toggles */}
       {settings.enabled && (
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="visible"
-          className="space-y-6"
-        >
+        <div className="space-y-6">
           <SectionHeader subtitle="Fine-tune which AI capabilities are active">
             Features
           </SectionHeader>
-          <motion.div variants={staggerItem}>
-            <SettingsRow
-              icon={Zap}
-              label="Autocomplete"
-              description="Ghost text suggestions while typing"
-              trailing={
-                <Switch
-                  id="autocomplete-toggle"
-                  checked={settings.autocompleteEnabled}
-                  onCheckedChange={(checked) => setAutocomplete(checked)}
-                />
-              }
-            />
-          </motion.div>
-          <motion.div variants={staggerItem}>
-            <SettingsRow
-              icon={SpellCheck}
-              label="Grammar Check"
-              description="Highlight grammar and spelling errors"
-              trailing={
-                <Switch
-                  id="grammar-toggle"
-                  checked={settings.grammarEnabled}
-                  onCheckedChange={(checked) => setGrammar(checked)}
-                />
-              }
-            />
-          </motion.div>
-        </motion.div>
+          <SettingsRow
+            icon={Zap}
+            label="Autocomplete"
+            description="Ghost text suggestions while typing"
+            trailing={
+              <Switch
+                id="autocomplete-toggle"
+                checked={settings.autocompleteEnabled}
+                onCheckedChange={(checked) => setAutocomplete(checked)}
+              />
+            }
+          />
+          <SettingsRow
+            icon={SpellCheck}
+            label="Grammar Check"
+            description="Highlight grammar and spelling errors"
+            trailing={
+              <Switch
+                id="grammar-toggle"
+                checked={settings.grammarEnabled}
+                onCheckedChange={(checked) => setGrammar(checked)}
+              />
+            }
+          />
+        </div>
       )}
 
       {/* Cache Management */}
       {settings.enabled && (
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="visible"
-          className="space-y-6"
-        >
+        <div className="space-y-6">
           <SectionHeader subtitle="Manage cached model weights on your device">
             Storage
           </SectionHeader>
-          <motion.div variants={staggerItem}>
-            <div className="rounded-xl border border-border/60 p-5 bg-card space-y-4">
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Model weights are cached locally in your browser storage (OPFS)
-                for faster load times.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:text-destructive hover:bg-destructive/5 border-destructive/20"
-                onClick={async () => {
-                  if (
-                    confirm(
-                      "This will delete cached model weights. You will need to re-download them next time."
-                    )
-                  ) {
-                    await clearCache();
-                  }
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Clear Model Cache
-              </Button>
-            </div>
-          </motion.div>
-        </motion.div>
+          <div className="rounded-xl border border-border/60 p-5 bg-card space-y-4">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Model weights are cached locally in your browser storage (OPFS)
+              for faster load times.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:text-destructive hover:bg-destructive/5 border-destructive/20"
+              onClick={async () => {
+                if (
+                  confirm(
+                    "This will delete cached model weights. You will need to re-download them next time."
+                  )
+                ) {
+                  await clearCache();
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear Model Cache
+            </Button>
+          </div>
+        </div>
       )}
-    </motion.div>
+    </div>
   );
 }

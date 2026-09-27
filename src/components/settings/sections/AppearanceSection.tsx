@@ -1,9 +1,7 @@
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { cn } from "@/lib/utils";
 import { Moon, Sun, Monitor, CheckCircle2 } from "lucide-react";
-import { motion } from "framer-motion";
 import { SectionHeader } from "../SectionHeader";
-import { contentVariants, staggerContainer, staggerItem } from "../motion";
 
 export default function AppearanceSection() {
   const { theme, setTheme } = useThemePreference();
@@ -39,34 +37,22 @@ export default function AppearanceSection() {
   ] as const;
 
   return (
-    <motion.div
-      variants={contentVariants}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-      className="p-8 space-y-10"
-    >
+    <div className="p-8 space-y-10">
       <SectionHeader subtitle="Choose how your journal looks and feels">
         Appearance
       </SectionHeader>
 
       {/* Theme Previews */}
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        animate="visible"
-        className="grid grid-cols-3 gap-4"
-      >
+      <div className="grid grid-cols-3 gap-4">
         {themes.map((t) => {
           const Icon = t.icon;
           const isActive = theme === t.id;
           return (
-            <motion.button
+            <button
               key={t.id}
-              variants={staggerItem}
               onClick={() => setTheme(t.id)}
               className={cn(
-                "relative group rounded-xl overflow-hidden transition-all duration-300 text-left",
+                "relative group rounded-xl overflow-hidden transition-colors text-left",
                 isActive
                   ? "ring-2 ring-[#B8860B] ring-offset-2 ring-offset-background"
                   : "ring-1 ring-border hover:ring-border/80 hover:shadow-md"
@@ -141,19 +127,13 @@ export default function AppearanceSection() {
                   {t.label}
                 </span>
                 {isActive && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="ml-auto"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 text-[#B8860B]" />
-                  </motion.div>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#B8860B] ml-auto" />
                 )}
               </div>
-            </motion.button>
+            </button>
           );
         })}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
