@@ -93,7 +93,10 @@ jobs:
           echo "verifyToken -> $out (after $(( $(date +%s) - T_BOOT ))s)"
           test "$out" = "false"
           curl -sS --cacert "$CERTS/ca.crt" https://frodo.dotyou.cloud/api/guest/v1/auth/ident; echo
-          curl -sS --cacert "$CERTS/ca.crt" -o /dev/null -w 'api.frodo -> %{http_code}\n' https://api.frodo.dotyou.cloud/api/guest/v1/auth/ident
+          # Informational: the host only answers SNI for well-known prefixes (DnsConfigurationSet.WellknownPrefixes)
+          for p in capi file api www; do
+            curl -sS --cacert "$CERTS/ca.crt" -o /dev/null -w "$p.frodo -> %{http_code}\n" "https://$p.frodo.dotyou.cloud/api/guest/v1/auth/ident" || echo "$p.frodo -> TLS refused"
+          done
           echo | openssl s_client -connect 127.0.0.1:443 -servername frodo.dotyou.cloud 2>/dev/null | openssl x509 -noout -issuer -subject
           docker stats --no-stream identity-host; free -m
 
