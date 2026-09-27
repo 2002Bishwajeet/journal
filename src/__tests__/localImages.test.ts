@@ -7,14 +7,10 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { createElement as h, act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { PGlite } from '@electric-sql/pglite';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 
-vi.mock('@/lib/db/pglite', () => {
-    let testDb: PGlite | null = null;
-    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
-});
-import * as pgliteModule from '@/lib/db/pglite';
+vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
+import { setTestDb } from './pgliteMock';
 import {
     savePendingImageUpload, updateImageUploadStatus, upsertSyncRecord, getImageUploadsReadyForRetry,
     getPendingImageUploads, getPendingSyncCount, getLocalImageBytes, deleteLocalImagesByKeys,
@@ -28,8 +24,7 @@ const KEY = 'jrnl_img0';
 
 beforeAll(async () => {
     const db = await createTestDatabase();
-    // @ts-expect-error test-only setter
-    pgliteModule.setTestDb(db);
+    setTestDb(db);
     (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 afterAll(async () => { await closeTestDatabase(); });
