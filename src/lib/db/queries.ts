@@ -442,9 +442,9 @@ export async function getFrequentlyLinkedNotes(
     return result.rows.map(toNoteListEntry);
 }
 
-export async function getCollaborativeNotesForList(): Promise<NoteListEntry[]> {
+export async function getCollaborativeNotesForList(hostOdinId: string): Promise<NoteListEntry[]> {
     const db = await getDatabase();
-    const result = await db.query<NoteListRow>(NOTE_LIST_SQL.collaborative);
+    const result = await db.query<NoteListRow>(NOTE_LIST_SQL.collaborative, [hostOdinId]);
     return result.rows.map(toNoteListEntry);
 }
 
