@@ -1,11 +1,11 @@
 /**
  * FileHandler Extension
- * 
+ *
  * Handles file drops and pastes in the editor.
  * Validates images (size, type) and queues them for upload.
  */
 
-import { Extension } from '@tiptap/core';
+import { Extension, type Editor } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { toast } from 'sonner';
 import { getNewId } from '@homebase-id/js-lib/helpers';
@@ -19,6 +19,54 @@ export interface FileHandlerOptions {
     onImageDrop: (file: File, pendingId: string) => Promise<void>;
 }
 
+declare module '@tiptap/core' {
+    interface Commands<ReturnType> {
+        fileHandler: {
+            /** Validate, insert and queue image files — the same path as drop/paste. */
+            insertImageFiles: (files: File[]) => ReturnType;
+        };
+    }
+}
+
+async function processImageFile(editor: Editor, options: FileHandlerOptions, file: File): Promise<boolean> {
+    const { maxSizeMB, allowedTypes, onImageDrop } = options;
+
+    // Validate file type
+    if (!allowedTypes.includes(file.type)) {
+        toast.error(`Unsupported file type: ${file.type}`);
+        return false;
+    }
+
+    // Validate file size
+    if (file.size > maxSizeMB * 1024 * 1024) {
+        toast.error(`File too large. Maximum size is ${maxSizeMB}MB`);
+        return false;
+    }
+
+    const pendingId = getNewId();
+    const blobUrl = URL.createObjectURL(file);
+
+    // Insert image with pending marker
+    editor.chain().focus().insertContent({
+        type: 'image',
+        attrs: {
+            src: blobUrl,
+            'data-pending-id': pendingId,
+        },
+    }).run();
+
+    // Queue for upload
+    try {
+        await onImageDrop(file, pendingId);
+        toast.success('Image added - will sync shortly');
+    } catch (error) {
+        console.error('[FileHandler] Failed to queue image:', error);
+        toast.error('Failed to queue image for upload');
+    }
+
+    return true;
+}
+
 export const FileHandler = Extension.create<FileHandlerOptions>({
     name: 'fileHandler',
 
@@ -30,47 +78,23 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
         };
     },
 
-    addProseMirrorPlugins() {
-        const { maxSizeMB, allowedTypes, onImageDrop } = this.options;
-        const allowedTypesSet = new Set(allowedTypes);
-        const editor = this.editor;
-
-        const processFile = async (file: File): Promise<boolean> => {
-            // Validate file type
-            if (!allowedTypesSet.has(file.type)) {
-                toast.error(`Unsupported file type: ${file.type}`);
-                return false;
-            }
-
-            // Validate file size
-            if (file.size > maxSizeMB * 1024 * 1024) {
-                toast.error(`File too large. Maximum size is ${maxSizeMB}MB`);
-                return false;
-            }
-
-            const pendingId = getNewId();
-            const blobUrl = URL.createObjectURL(file);
-
-            // Insert image with pending marker
-            editor.chain().focus().insertContent({
-                type: 'image',
-                attrs: {
-                    src: blobUrl,
-                    'data-pending-id': pendingId,
-                },
-            }).run();
-
-            // Queue for upload
-            try {
-                await onImageDrop(file, pendingId);
-                toast.success('Image added - will sync shortly');
-            } catch (error) {
-                console.error('[FileHandler] Failed to queue image:', error);
-                toast.error('Failed to queue image for upload');
-            }
-
-            return true;
+    addCommands() {
+        return {
+            insertImageFiles: (files: File[]) => () => {
+                // Deferred: processImageFile dispatches its own transaction, which
+                // must not run inside this command's.
+                void Promise.resolve().then(async () => {
+                    for (const file of files) await processImageFile(this.editor, this.options, file);
+                });
+                return true;
+            },
         };
+    },
+
+    addProseMirrorPlugins() {
+        const allowedTypesSet = new Set(this.options.allowedTypes);
+        const editor = this.editor;
+        const options = this.options;
 
         return [
             new Plugin({
@@ -94,7 +118,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
 
                         // Process each image file
                         for (const file of imageFiles) {
-                            processFile(file);
+                            processImageFile(editor, options, file);
                         }
 
                         return true;
@@ -115,7 +139,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
                         for (const item of imageItems) {
                             const file = item.getAsFile();
                             if (file) {
-                                processFile(file);
+                                processImageFile(editor, options, file);
                             }
                         }
 

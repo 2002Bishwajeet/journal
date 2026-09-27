@@ -212,17 +212,9 @@ export default function MobileToolbar({
     input.type = "file";
     input.accept = "image/*";
     input.onchange = () => {
-      const file = input.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const src = e.target?.result as string;
-          safeEditorCommand(editor, () =>
-            editor.chain().focus().setImage({ src }).run(),
-          );
-        };
-        reader.readAsDataURL(file);
-      }
+      safeEditorCommand(editor, () =>
+        editor.commands.insertImageFiles(Array.from(input.files ?? [])),
+      );
     };
     input.click();
   }, [editor]);

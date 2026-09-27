@@ -53,20 +53,8 @@ export default function EditorToolbar({ editor, onToggleToc, tocOpen = false }: 
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const result = e.target?.result as string;
-          if (result) {
-            safeEditorCommand(editor, () => {
-              editor.chain().focus().setImage({ src: result }).run();
-            });
-          }
-        };
-        reader.readAsDataURL(file);
-      }
+    input.onchange = () => {
+      safeEditorCommand(editor, () => editor.commands.insertImageFiles(Array.from(input.files ?? [])));
     };
     input.click();
   };
