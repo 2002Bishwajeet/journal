@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/db', () => mocks);
 
-import { useTabManager } from '@/hooks/useTabManager';
+import { useTabManager, staleTabIds } from '@/hooks/useTabManager';
 import { TABS_STORAGE_KEY } from '@/lib/storage';
 
 type TabApi = ReturnType<typeof useTabManager>;
@@ -150,5 +150,21 @@ describe('useTabManager persistence', () => {
         expect(t.api.activeTabId).toBeNull();
 
         await t.unmount();
+    });
+});
+
+describe('staleTabIds', () => {
+    const tabs = (...ids: string[]) => ids.map((docId) => ({ docId, title: docId }));
+
+    it('returns open tabs whose note is not live, except the kept one', () => {
+        expect(staleTabIds(tabs('a', 'b', 'c'), new Set(['a']), 'c')).toEqual(['b']);
+    });
+
+    it('returns nothing when every tab is live', () => {
+        expect(staleTabIds(tabs('a', 'b'), new Set(['a', 'b']))).toEqual([]);
+    });
+
+    it('returns every missing tab when no id is kept', () => {
+        expect(staleTabIds(tabs('a', 'b', 'c'), new Set(['b']))).toEqual(['a', 'c']);
     });
 });

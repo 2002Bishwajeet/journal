@@ -11,10 +11,14 @@ import { createRoot } from 'react-dom/client';
 
 const mocks = vi.hoisted(() => ({
     getAppState: vi.fn<(key: string) => Promise<unknown>>(async () => null),
+    getSearchIndexEntry: vi.fn<(docId: string) => Promise<unknown>>(async () => null),
     navigate: vi.fn(),
     location: { pathname: '/' } as { pathname: string },
 }));
-vi.mock('@/lib/db', () => ({ getAppState: mocks.getAppState }));
+vi.mock('@/lib/db', () => ({
+    getAppState: mocks.getAppState,
+    getSearchIndexEntry: mocks.getSearchIndexEntry,
+}));
 vi.mock('react-router-dom', () => ({
     useLocation: () => mocks.location,
     useNavigate: () => mocks.navigate,
@@ -28,6 +32,7 @@ beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
     mocks.getAppState.mockResolvedValue(null);
+    mocks.getSearchIndexEntry.mockResolvedValue(null);
     mocks.location = { pathname: '/' };
 });
 
@@ -114,5 +119,52 @@ describe('useSessionPersistence', () => {
         expect(mocks.getAppState).not.toHaveBeenCalled();
 
         await s.unmount();
+    });
+
+    describe('restoring the last note on a cold start', () => {
+        beforeEach(() => {
+            localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+                lastFolderId: 'f1',
+                lastNoteId: 'n1',
+                scrollPositions: {},
+                sidebarCollapsed: false,
+            }));
+        });
+
+        it('lands on the folder when the last note no longer exists', async () => {
+            mocks.getSearchIndexEntry.mockResolvedValue(null);
+
+            const s = await mountSession();
+            await s.settle(200);
+
+            expect(mocks.getSearchIndexEntry).toHaveBeenCalledWith('n1');
+            expect(mocks.navigate).toHaveBeenCalledWith('/f1', { replace: true });
+            expect(mocks.navigate).not.toHaveBeenCalledWith('/f1/n1', expect.anything());
+
+            await s.unmount();
+        });
+
+        it('lands on the folder when the last note was archived', async () => {
+            mocks.getSearchIndexEntry.mockResolvedValue({ docId: 'n1', metadata: { archivalStatus: 1 } });
+
+            const s = await mountSession();
+            await s.settle(200);
+
+            expect(mocks.navigate).toHaveBeenCalledWith('/f1', { replace: true });
+            expect(mocks.navigate).not.toHaveBeenCalledWith('/f1/n1', expect.anything());
+
+            await s.unmount();
+        });
+
+        it('reopens the last note when it is still active', async () => {
+            mocks.getSearchIndexEntry.mockResolvedValue({ docId: 'n1', metadata: { archivalStatus: 0 } });
+
+            const s = await mountSession();
+            await s.settle(200);
+
+            expect(mocks.navigate).toHaveBeenCalledWith('/f1/n1', { replace: true });
+
+            await s.unmount();
+        });
     });
 });
