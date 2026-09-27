@@ -20,4 +20,13 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Playwright config + specs run under Node (the test runner), but specs
+    // also pass callbacks that execute inside the browser (page.evaluate), so
+    // both global sets are needed.
+    files: ['playwright.config.ts', 'e2e/**/*.ts'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
 ])

@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.node.json",
+  "compilerOptions": {
+    // DOM lib is needed here (not just "node"): page.evaluate() callbacks are
+    // typed in this same file but execute in the browser (e.g. `location`).
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "../playwright.config.ts"]
+}
