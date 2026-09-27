@@ -39,5 +39,11 @@ export default defineConfig({
       // slip past the network fence. SW behaviour belongs in the live layer.
       use: { ...devices['Desktop Chrome'], serviceWorkers: 'block' },
     },
+    {
+      name: 'quarantine',
+      testIgnore: ['**/*.live.spec.ts', 'edge/**'],
+      grep: /@quarantine/,
+      use: { ...devices['Desktop Chrome'], serviceWorkers: 'block' },
+    },
   ],
 });

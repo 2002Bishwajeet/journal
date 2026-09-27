@@ -16,6 +16,7 @@
     "e2e:dev": "E2E_SERVER=dev playwright test --project=hermetic",
     "e2e:live": "playwright test -c playwright.live.config.ts --project=live",
     "e2e:login": "playwright test -c playwright.live.config.ts --project=live-setup --headed",
+    "e2e:quarantine": "playwright test --project=quarantine --pass-with-no-tests",
     "e2e:report": "playwright show-report"
   },
   "dependencies": {
