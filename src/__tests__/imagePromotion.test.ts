@@ -108,7 +108,7 @@ describe('SyncService.processPendingImageUploads promotion', () => {
         svc = new SyncService(fakeDotYouClient, fakeOnline);
     });
 
-    it('promotes a present node, deletes the row and appends (not replaces) document updates', async () => {
+    it('promotes a present node, keeps the row as synced for offline display (#179) and appends (not replaces) document updates', async () => {
         const ydoc = makeDoc();
         await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(ydoc));
         await saveDocumentUpdate(DOC_ID, insertPendingImage(ydoc));
@@ -120,7 +120,8 @@ describe('SyncService.processPendingImageUploads promotion', () => {
         const attrs = await storedImageAttrs();
         expect(attrs?.src).toBe(`attachment://${FILE_ID}/jrnl_img0`);
         expect(attrs?.['data-pending-id']).toBeUndefined();
-        expect(await getUploadRow()).toBeUndefined();
+        expect(await getUploadRow()).toMatchObject({ status: 'synced', payload_key: 'jrnl_img0' });
+        expect(await getImageUploadsReadyForRetry()).toEqual([]);
 
         const after = await getDocumentUpdates(DOC_ID);
         expect(after.length).toBe(before.length + 1);
@@ -174,7 +175,7 @@ describe('SyncService.processPendingImageUploads promotion', () => {
 
         expect(mockAddImageToNote).toHaveBeenCalledTimes(1);
         expect((await storedImageAttrs())?.src).toBe(`attachment://${FILE_ID}/jrnl_img0`);
-        expect(await getUploadRow()).toBeUndefined();
+        expect((await getUploadRow())?.status).toBe('synced');
     });
 
     it('gives up at once on a note shared with you instead of retrying forever', async () => {

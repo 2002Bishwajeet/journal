@@ -1144,6 +1144,29 @@ export async function retryPendingImageUploadNow(id: string): Promise<void> {
         `UPDATE pending_image_uploads SET next_retry_at = NULL, retry_count = 0, status = 'pending' WHERE id = $1`, [id]);
 }
 
+/** Bytes of an image uploaded from this device, kept so it renders offline (#179). */
+export async function getLocalImageBytes(
+    remoteFileId: string,
+    payloadKey: string,
+): Promise<Pick<PendingImageUpload, 'blobData' | 'contentType'> | null> {
+    const db = await getDatabase();
+    const result = await db.query<{ blob_data: Uint8Array; content_type: string }>(
+        `SELECT p.blob_data, p.content_type FROM pending_image_uploads p
+         JOIN sync_records s ON s.local_id = p.note_doc_id
+         WHERE s.remote_file_id = $1 AND p.payload_key = $2 AND p.status = 'synced' LIMIT 1`,
+        [remoteFileId, payloadKey]);
+    const row = result.rows[0];
+    return row ? { blobData: row.blob_data, contentType: row.content_type } : null;
+}
+
+/** Drop the locally kept bytes of images removed from a note. */
+export async function deleteLocalImagesByKeys(noteDocId: string, payloadKeys: string[]): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        'DELETE FROM pending_image_uploads WHERE note_doc_id = $1 AND payload_key = ANY($2)',
+        [noteDocId, payloadKeys]);
+}
+
 
 
 /**

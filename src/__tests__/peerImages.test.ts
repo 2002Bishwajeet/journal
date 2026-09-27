@@ -16,6 +16,8 @@ const { odinImageProps } = vi.hoisted(() => ({ odinImageProps: [] as Record<stri
 vi.mock('@/components/OdinImage/OdinImage', () => ({
     OdinImage: (props: Record<string, unknown>) => { odinImageProps.push(props); return null; },
 }));
+// No local copy (#179): the node falls back to OdinImage
+vi.mock('@/hooks/image/useLocalImage', () => ({ useLocalImage: () => null }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 import { DotYouClientContext } from '@/components/auth/DotYouClientContext';

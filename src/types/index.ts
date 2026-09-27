@@ -118,7 +118,7 @@ export interface PendingImageUpload {
     noteDocId: string;
     blobData: Uint8Array;
     contentType: string;
-    status: 'pending' | 'uploading' | 'failed' | 'failed_permanent';
+    status: 'pending' | 'uploading' | 'failed' | 'failed_permanent' | 'synced';
     retryCount: number;
     payloadKey?: string; // Set after successful upload
     createdAt: string;
