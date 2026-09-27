@@ -20,6 +20,13 @@ describe('Slash Command Items', () => {
     expect(sup!.group).toBe('formatting');
   });
 
+  it('should include an Image command (#180)', () => {
+    const image = slashCommandItems.find(item => item.title === 'Image');
+    expect(image).toBeDefined();
+    expect(image!.description).toBe('Upload an image');
+    expect(image!.group).toBe('formatting');
+  });
+
   it('should include duplicate block', () => {
     const dup = slashCommandItems.find(item => item.title === 'Duplicate Block');
     expect(dup).toBeDefined();
