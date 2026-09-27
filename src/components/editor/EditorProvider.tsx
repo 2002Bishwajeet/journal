@@ -260,7 +260,7 @@ export function EditorProvider({
       // eslint-disable-next-line react-hooks/refs -- ref read happens on drop, not during render
       FileHandler.configure({
         maxSizeMB: 5,
-        allowedTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+        allowedTypes: ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"],
         onImageDrop: (file: File, pendingId: string) => handleImageDropRef.current(file, pendingId),
         // Stable for the provider's lifetime: it remounts per note.
         imagesReadOnly: isPeerNote,
