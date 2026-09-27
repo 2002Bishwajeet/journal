@@ -10,6 +10,7 @@ import {
     type TargetDriveAccessRequest,
 } from '@homebase-id/js-lib/auth';
 import { DrivePermissionType } from '@homebase-id/js-lib/core';
+import { AppPermissionType } from '@homebase-id/js-lib/network';
 import {
     JOURNAL_APP_ID,
     JOURNAL_APP_NAME,
@@ -72,7 +73,11 @@ export function useYouAuthAuthorization() {
             JOURNAL_APP_NAME,
             JOURNAL_APP_ID,
             JOURNAL_APP_SLUG,
-            undefined, // permissionKeys
+            // Journal needs no app permission keys, but an empty `p` makes the owner console
+            // register a null permission set, and odin-core then hides the app's drive grants
+            // from /security/context, so the app looks unauthorised (#246). `None` (0) is
+            // dropped by the owner console, which registers an empty set instead.
+            [AppPermissionType.None],
             undefined, // circlePermissionKeys
             [journalDriveRequest],
             [journalDriveRequest], // circleDrives
