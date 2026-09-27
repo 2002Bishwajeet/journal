@@ -18,9 +18,7 @@ export default function AIModelList({
           key={model.id}
           variants={staggerItem}
           custom={i}
-          onClick={async () => {
-            await onSelect(model.id);
-          }}
+          onClick={() => onSelect(model.id)}
           className={cn(
             "w-full text-left p-4 rounded-xl border transition-all duration-200 group",
             selectedModelId === model.id
