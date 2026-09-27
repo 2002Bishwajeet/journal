@@ -37,6 +37,7 @@ import {
     getPendingImageDeletions,
     clearPendingImageDeletions,
     removePendingImageDeletion,
+    setNoteFolderLocal,
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader, tryJsonParse, validateKeyHeader } from '@/lib/utils';
@@ -996,11 +997,15 @@ export class SyncService {
                     if (mergedBlob) {
                         await replaceDocumentUpdates(record.localId, mergedBlob);
                     }
+                    // Merge only the content: keep the server's folder (#257). A missing
+                    // groupId means Main, as on pull (handleRemoteNote).
+                    const serverFolderId = freshFile.fileMetadata.appData?.groupId || MAIN_FOLDER_ID;
+                    const mergedMetadata = { ...doc.metadata, folderId: serverFolderId };
                     const result = await this.#notesProvider.updateNote(
                         record.localId,
                         freshFile.fileId,
                         freshFile.fileMetadata.versionTag,
-                        doc.metadata,
+                        mergedMetadata,
                         record.authorOdinId,
                         freshFile.fileMetadata.globalTransitId,
                         mergedBlob,
@@ -1008,9 +1013,14 @@ export class SyncService {
                         { toDeletePayloads }
                     );
 
+                    // Mirror the server's folder locally so the next push doesn't revert it
+                    if (serverFolderId !== doc.metadata.folderId) {
+                        await setNoteFolderLocal(record.localId, serverFolderId);
+                    }
+
                     // Compute hash for the merged blob
                     const mergedHash = mergedBlob
-                        ? await computeContentHash(doc.metadata, mergedBlob)
+                        ? await computeContentHash(mergedMetadata, mergedBlob)
                         : currentHash;
 
                     // Store result for use after the call returns

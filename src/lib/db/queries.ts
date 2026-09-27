@@ -510,6 +510,18 @@ export async function setNoteArchivalStatusLocal(docId: string, status: number):
     );
 }
 
+/** Set a note's folderId locally, preserving every other metadata field. */
+export async function setNoteFolderLocal(docId: string, folderId: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `UPDATE search_index
+         SET metadata = jsonb_set(metadata, '{folderId}', to_jsonb($2::text)),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE doc_id = $1`,
+        [docId, folderId]
+    );
+}
+
 // Folders
 export async function getAllFolders(): Promise<Folder[]> {
     const db = await getDatabase();
