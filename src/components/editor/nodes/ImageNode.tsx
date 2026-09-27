@@ -260,16 +260,13 @@ export function ImageNodeView({
   // Mode "attachment": remote image (attachment://fileId/payloadKey)
   if (mode === "attachment") {
     const [fileId, payloadKey] = src.replace("attachment://", "").split("/");
-    // A note shared with you keeps its payloads on the author's drive.
-    const peerOwner =
-      owner && owner !== dotYouClient.getHostIdentity() ? owner : undefined;
 
     return (
       <NodeViewWrapper className="image-node" data-drag-handle>
         {resizable(
           <OdinImage
             dotYouClient={dotYouClient}
-            odinId={peerOwner}
+            odinId={owner}
             targetDrive={JOURNAL_DRIVE}
             fileId={fileId}
             fileKey={payloadKey}

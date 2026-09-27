@@ -263,7 +263,7 @@ export function EditorProvider({
         allowedTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
         onImageDrop: (file: File, pendingId: string) => handleImageDropRef.current(file, pendingId),
         // Stable for the provider's lifetime: it remounts per note.
-        isReadOnlyForImages: () => isPeerNote,
+        imagesReadOnly: isPeerNote,
       }),
       // AI-powered plugins (conditionally active). All inputs are read via refs
       // at call time so the editor (and its undo history) is never recreated when
@@ -470,7 +470,7 @@ export function EditorProvider({
   return (
     <EditorContext.Provider value={value}>
       <NoteLinkContext.Provider value={noteLinkValue}>
-        <ImageOwnerContext.Provider value={metadata.authorOdinId}>
+        <ImageOwnerContext.Provider value={isPeerNote ? metadata.authorOdinId : undefined}>
           {children}
         </ImageOwnerContext.Provider>
       </NoteLinkContext.Provider>

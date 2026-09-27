@@ -55,7 +55,6 @@ describe('ImageNodeView in a peer note', () => {
     });
 
     it('fetches from the own identity for an own note', async () => {
-        expect((await renderWithOwner(HOST))?.odinId).toBeUndefined();
         expect((await renderWithOwner(undefined))?.odinId).toBeUndefined();
     });
 });
@@ -70,7 +69,7 @@ describe('FileHandler in a peer note', () => {
             content: '<p></p>',
             extensions: [
                 ...createBaseExtensions(),
-                FileHandler.configure({ maxSizeMB: 5, onImageDrop, isReadOnlyForImages: () => true }),
+                FileHandler.configure({ maxSizeMB: 5, onImageDrop, imagesReadOnly: true }),
             ],
         });
         const file = new File([new Uint8Array(10)], 'x.png', { type: 'image/png' });
