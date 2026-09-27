@@ -62,6 +62,9 @@ describe('FileHandler insertImageFiles command (toolbar insert)', () => {
         expect(img.src).toBe('blob:test');
         expect(img['data-pending-id']).toBeTruthy();
         expect(onImageDrop).toHaveBeenCalledWith(png, img['data-pending-id']);
+        // #177: the node shows its own upload state; no success toast
+        await Promise.resolve();
+        expect(toast.success).not.toHaveBeenCalled();
     });
 
     it('rejects a file over the size cap', async () => {

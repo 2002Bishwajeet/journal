@@ -2,18 +2,21 @@
  * Custom Image Node View
  *
  * Renders images with different strategies based on source:
- * - Pending uploads: Show local blob with "Uploading..." overlay
+ * - Pending uploads: Show the locally queued bytes with an upload-state overlay
  * - Remote images: Use OdinImage with thumbnail loading
  * - Regular URLs/base64: Standard img tag
  */
 
 import { useContext, useRef, type ReactNode } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { AlignCenter, AlignLeft, AlignRight } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Loader2 } from "lucide-react";
 import { JOURNAL_DRIVE } from "@/lib/homebase/config";
 import { useDotYouClientContext } from "@/components/auth";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
 import { cn } from "@/lib/utils";
+import { deletePendingImageUpload, retryPendingImageUploadNow } from "@/lib/db";
+import { usePendingImage } from "@/hooks/usePendingImage";
+import { useSyncService } from "@/hooks/useSyncService";
 import {
   ALIGN_STYLE,
   MIN_IMAGE_WIDTH,
@@ -38,9 +41,74 @@ const ALIGN_BUTTONS = [
   { align: "right", icon: AlignRight, label: "Float right" },
 ] as const;
 
+const PENDING_LABEL = {
+  offline: "Waiting for connection",
+  uploading: "Uploading…",
+  failed: "Upload failed",
+} as const;
+
+function PendingImage({
+  pendingId,
+  imgClass,
+  onRemove,
+}: {
+  pendingId: string;
+  imgClass: string;
+  onRemove: () => void;
+}) {
+  const { url, state } = usePendingImage(pendingId);
+  const { sync } = useSyncService();
+
+  if (state === "remote") {
+    return (
+      <div className="flex h-32 w-64 max-w-full items-center justify-center rounded-sm bg-muted text-xs text-muted-foreground">
+        Uploading from another device…
+      </div>
+    );
+  }
+
+  const retry = async () => {
+    await retryPendingImageUploadNow(pendingId);
+    sync().catch((err) => console.error("[ImageNode] Retry sync failed:", err));
+  };
+  const remove = () => {
+    onRemove();
+    void deletePendingImageUpload(pendingId);
+  };
+  const actionClass = "rounded bg-white/20 px-1.5 hover:bg-white/30";
+
+  return (
+    <>
+      {url && <img src={url} alt="" className={cn(imgClass, "opacity-70")} />}
+      <div
+        contentEditable={false}
+        // Clicking Retry/Remove must not move the selection onto the image.
+        onMouseDown={(e) => e.preventDefault()}
+        className="absolute inset-0 flex items-center justify-center bg-black/20"
+      >
+        <span className="text-xs bg-black/60 text-white px-2 py-1 rounded flex items-center gap-1">
+          {state === "uploading" && <Loader2 className="h-3 w-3 animate-spin" />}
+          {PENDING_LABEL[state]}
+          {state === "failed" && (
+            <>
+              <button type="button" className={actionClass} onClick={retry}>
+                Retry
+              </button>
+              <button type="button" className={actionClass} onClick={remove}>
+                Remove
+              </button>
+            </>
+          )}
+        </span>
+      </div>
+    </>
+  );
+}
+
 export function ImageNodeView({
   node,
   updateAttributes,
+  deleteNode,
   selected,
 }: NodeViewProps) {
   const dotYouClient = useDotYouClientContext();
@@ -173,34 +241,18 @@ export function ImageNodeView({
     </div>
   );
 
-  // Mode "pending": still uploading (local blob URL)
-  if (mode === "pending") {
+  // Mode "pending": not uploaded yet. The blob: src dies with the tab, so the
+  // bytes come from the local upload queue instead.
+  if (mode === "pending" && pendingId) {
     return (
       <NodeViewWrapper className="image-node" data-drag-handle>
-        <div className="relative inline-block">
-          <img src={src} alt="" className="max-w-full opacity-70" />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-            <span className="text-xs bg-black/60 text-white px-2 py-1 rounded flex items-center gap-1">
-              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                  fill="none"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Uploading...
-            </span>
-          </div>
-        </div>
+        {resizable(
+          <PendingImage
+            pendingId={pendingId}
+            imgClass={imgClass}
+            onRemove={deleteNode}
+          />,
+        )}
       </NodeViewWrapper>
     );
   }

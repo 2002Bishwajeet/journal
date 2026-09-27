@@ -66,7 +66,6 @@ async function processImageFile(editor: Editor, options: FileHandlerOptions, fil
     // Queue for upload
     try {
         await onImageDrop(file, pendingId);
-        toast.success('Image added - will sync shortly');
     } catch (error) {
         console.error('[FileHandler] Failed to queue image:', error);
         toast.error('Failed to queue image for upload');
