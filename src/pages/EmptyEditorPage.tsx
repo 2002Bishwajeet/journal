@@ -4,16 +4,22 @@ import { Button } from "@/components/ui/button";
 import { FolderOpen, PenLine, PlusCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNotes } from "@/hooks/useNotes";
+import { useFolders, resolveNoteFolderId } from "@/hooks/useFolders";
 
 export default function EmptyEditorPage() {
   const {
     createNote: { mutateAsync: createNote },
   } = useNotes();
+  const {
+    get: { data: folders },
+  } = useFolders();
   const navigate = useNavigate();
   const { folderId } = useParams();
 
   const handleCreateNote = async () => {
-    const { docId, folderId: newFolderId } = await createNote(folderId);
+    const { docId, folderId: newFolderId } = await createNote(
+      resolveNoteFolderId(folderId, folders),
+    );
     if (docId) {
       navigate(`/${newFolderId}/${docId}`);
     }

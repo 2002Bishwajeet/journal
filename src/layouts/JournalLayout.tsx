@@ -3,6 +3,7 @@ import {
   useParams,
   useNavigate,
   useSearchParams,
+  Navigate,
 } from "react-router-dom";
 import {
   Sidebar,
@@ -45,6 +46,7 @@ import {
   JOURNAL_APP_ID,
   JOURNAL_APP_NAME,
   MAIN_FOLDER_ID,
+  COLLABORATIVE_FOLDER_ID,
   COLLABORATION_PERMISSIONS,
   CONTACT_TARGET_DRIVE_REQUEST,
 } from "@/lib/homebase/config";
@@ -61,7 +63,7 @@ import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
 import { useAuth } from "@/hooks/auth";
-import { useFolders } from "@/hooks/useFolders";
+import { useFolders, resolveNoteFolderId } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useDotYouClientContext } from "@/components/auth";
 import { NotesDriveProvider } from "@/lib/homebase/NotesDriveProvider";
@@ -191,7 +193,7 @@ export default function JournalLayout() {
       if (action === "search") {
         setShowSearch(true);
       } else if (action === "new") {
-        const targetFolderId = folderId || folders[0]?.id;
+        const targetFolderId = resolveNoteFolderId(folderId, folders);
         if (targetFolderId) {
           const { docId, folderId: newFolderId } =
             await createNote(targetFolderId);
@@ -252,8 +254,6 @@ export default function JournalLayout() {
     }
   }, [openToday, navigate]);
 
-  // New-note dropdown (sidebar): blank note goes to the current folder (falling
-  // back to Main for pseudo-folder routes like Trash/Archive/Shared).
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
     onSearch: () => setShowSearch(true),
@@ -383,6 +383,22 @@ export default function JournalLayout() {
 
   if (isNotesLoading || isFolderLoading) {
     return <SplashScreen />;
+  }
+
+  // A folder-only route whose folder doesn't exist (typo, deleted, or never
+  // synced) would otherwise render as an empty "Notes" folder. Note routes are
+  // exempt: a note can legitimately carry a folderId with no local folder row
+  // (peer notes, #148/#149).
+  if (
+    folderId &&
+    !noteId &&
+    folderId !== "trash" &&
+    folderId !== "archive" &&
+    folderId !== "shared" &&
+    folderId !== COLLABORATIVE_FOLDER_ID &&
+    !folders.some((f) => f.id === folderId)
+  ) {
+    return <Navigate to="/" replace />;
   }
 
   return (
@@ -540,8 +556,11 @@ export default function JournalLayout() {
               }
             }}
             onCreateNote={async () => {
-              const { docId, folderId: newFolderId } =
-                await createNote(folderId);
+              // Falls back to Main for pseudo-folder routes (Trash/Archive/Shared)
+              // and unknown folder ids — see resolveNoteFolderId.
+              const { docId, folderId: newFolderId } = await createNote(
+                resolveNoteFolderId(folderId, folders),
+              );
               if (docId)
                 navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
             }}

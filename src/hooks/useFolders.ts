@@ -43,6 +43,20 @@ export async function findOrCreateFolderByName(name: string): Promise<string> {
 }
 
 /**
+ * Resolve the folder a new note should be created in: `folderId` if it names
+ * a real folder, otherwise Main. Guards against pseudo-folder routes
+ * (Shared/Trash/Archive) and unknown/remotely-deleted folder ids being passed
+ * straight through to note creation, which would make the note invisible in
+ * every folder list (#185).
+ */
+export function resolveNoteFolderId(
+    folderId: string | undefined,
+    folders: ReadonlyArray<{ id: string }>
+): string {
+    return folderId && folders.some((f) => f.id === folderId) ? folderId : MAIN_FOLDER_ID;
+}
+
+/**
  * Combined hook for managing folders.
  *
  * The folder list is a PGlite live query; mutations are local-first (write to
