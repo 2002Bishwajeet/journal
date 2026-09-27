@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
-import { resizeWidth, MIN_IMAGE_WIDTH, ALIGN_STYLE, imageRenderMode, imageBoxWidth } from '@/components/editor/nodes/imageLayout';
+import { resizeWidth, MIN_IMAGE_WIDTH, ALIGN_STYLE, imageRenderMode, imageBoxWidth, canZoom } from '@/components/editor/nodes/imageLayout';
 
 function mkEditor(content: string) {
     const el = document.createElement('div');
@@ -159,5 +159,18 @@ describe('imageBoxWidth — the width the resize box gets', () => {
     it('never collapses the box to zero', () => {
         expect(imageBoxWidth('attachment', 0)).toBe('100%');
         expect(imageBoxWidth('plain', 0)).toBe('fit-content');
+    });
+});
+
+// A pending node's own src is a blob: URL that's already dead by the time it
+// could be clicked (it dies with the tab), so the lightbox can't open it.
+describe('canZoom — which modes may open the full-size lightbox', () => {
+    it('allows an uploaded attachment and a plain URL', () => {
+        expect(canZoom('attachment')).toBe(true);
+        expect(canZoom('plain')).toBe(true);
+    });
+
+    it('blocks a pending upload', () => {
+        expect(canZoom('pending')).toBe(false);
     });
 });

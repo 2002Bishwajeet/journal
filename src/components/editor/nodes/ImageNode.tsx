@@ -7,9 +7,9 @@
  * - Regular URLs/base64: Standard img tag
  */
 
-import { useContext, useRef, type ReactNode } from "react";
+import { useContext, useRef, useState, type ReactNode } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { AlignCenter, AlignLeft, AlignRight, Loader2 } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Loader2, Maximize2 } from "lucide-react";
 import { JOURNAL_DRIVE } from "@/lib/homebase/config";
 import { useDotYouClientContext } from "@/components/auth";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
@@ -22,12 +22,14 @@ import { Input } from "@/components/ui/input";
 import {
   ALIGN_STYLE,
   MIN_IMAGE_WIDTH,
+  canZoom,
   imageBoxWidth,
   imageRenderMode,
   resizeWidth,
   type ImageAlign,
 } from "./imageLayout";
 import { ImageOwnerContext } from "./imageOwnerContext";
+import { ImageLightbox } from "./ImageLightbox";
 
 // Corner, the edge it drags, and the diagonal cursor for it.
 const CORNERS = [
@@ -122,6 +124,8 @@ export function ImageNodeView({
   const width = node.attrs.width as number | null;
   const align = node.attrs.align as ImageAlign | null;
   const alt = (node.attrs.alt as string | null) ?? "";
+  const mode = imageRenderMode(src, pendingId);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const saveAlt = (value: string) => updateAttributes({ alt: value.trim() || null });
 
@@ -256,10 +260,18 @@ export function ImageNodeView({
           />
         </PopoverContent>
       </Popover>
+      {canZoom(mode) && (
+        <button
+          type="button"
+          aria-label="View full size"
+          onClick={() => setLightboxOpen(true)}
+          className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
-
-  const mode = imageRenderMode(src, pendingId);
 
   // Until a width is set the box shrink-wraps the image, so the image keeps its
   // natural size (previous behaviour); once sized, it fills the box.
@@ -275,10 +287,18 @@ export function ImageNodeView({
         "group relative inline-block max-w-full",
         selected && "outline outline-2 outline-primary/60 rounded-sm",
       )}
+      // A resize handle or an alignBar control (both buttons) already has its
+      // own click behaviour; don't also pop the lightbox open under it.
+      onDoubleClick={(e) => {
+        if (!canZoom(mode)) return;
+        if ((e.target as HTMLElement).closest("button")) return;
+        setLightboxOpen(true);
+      }}
     >
       {children}
       {CORNERS.map(corner)}
       {alignBar}
+      <ImageLightbox open={lightboxOpen} onOpenChange={setLightboxOpen} src={src} alt={alt} />
     </div>
   );
 

@@ -40,6 +40,15 @@ export function imageRenderMode(src: string, pendingId?: string | null) {
 }
 
 /**
+ * Whether the mode's src is stable enough to open in the full-size lightbox.
+ * Not "pending": the node's own src is a blob: URL that's already dead by the
+ * time it's clicked (it dies with the tab, per imageRenderMode above).
+ */
+export function canZoom(mode: ReturnType<typeof imageRenderMode>): boolean {
+  return mode !== "pending";
+}
+
+/**
  * Width the resize box gets. Shrink-wrapping keeps the corner handles on the
  * image rather than out at the column edge.
  *
