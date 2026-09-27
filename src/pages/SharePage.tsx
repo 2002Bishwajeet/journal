@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSharePage } from '@/hooks/useSharePage';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import Markdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -17,6 +18,7 @@ import 'katex/dist/katex.min.css';
  */
 export default function SharePage() {
     const { identity, note, isLoading, error } = useSharePage();
+    useDocumentTitle(note?.title ?? 'Shared note');
 
     if (isLoading) {
         return (

@@ -11,7 +11,6 @@ const SharePage = lazy(() => import("@/pages/SharePage"));
 const LandingPage = lazy(() => import("@/pages/Landing"));
 const AuthFinalizePage = lazy(() => import("@/pages/AuthFinalizePage"));
 const ShareTargetPage = lazy(() => import("@/pages/ShareTargetPage"));
-const ChatBotPage = lazy(() => import("@/pages/ChatBotPage"));
 const JournalLayout = lazy(() => import("@/layouts/JournalLayout"));
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -78,10 +77,6 @@ function App() {
                       <Route
                         path="/:folderId/:noteId"
                         element={<EditorPage />}
-                      />
-                      <Route
-                        path="/:folderId/:noteId/chat"
-                        element={<ChatBotPage />}
                       />
                     </Route>
 

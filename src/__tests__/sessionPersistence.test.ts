@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
     getAppState: vi.fn<(key: string) => Promise<unknown>>(async () => null),
     getSearchIndexEntry: vi.fn<(docId: string) => Promise<unknown>>(async () => null),
     navigate: vi.fn(),
-    location: { pathname: '/' } as { pathname: string },
+    location: { pathname: '/', search: '' } as { pathname: string; search: string },
 }));
 vi.mock('@/lib/db', () => ({
     getAppState: mocks.getAppState,
@@ -33,7 +33,7 @@ beforeEach(() => {
     vi.clearAllMocks();
     mocks.getAppState.mockResolvedValue(null);
     mocks.getSearchIndexEntry.mockResolvedValue(null);
-    mocks.location = { pathname: '/' };
+    mocks.location = { pathname: '/', search: '' };
 });
 
 function Probe() {
@@ -61,7 +61,7 @@ describe('useSessionPersistence', () => {
         mocks.getAppState.mockImplementation(
             () => new Promise((resolve) => { resolveLegacy = resolve; }),
         );
-        mocks.location = { pathname: '/folder-1/note-1' };
+        mocks.location = { pathname: '/folder-1/note-1', search: '' };
 
         const s = await mountSession();
 
@@ -111,7 +111,7 @@ describe('useSessionPersistence', () => {
             scrollPositions: {},
             sidebarCollapsed: false,
         }));
-        mocks.location = { pathname: '/folder-2/note-2' };
+        mocks.location = { pathname: '/folder-2/note-2', search: '' };
 
         const s = await mountSession();
         await s.settle();
@@ -163,6 +163,18 @@ describe('useSessionPersistence', () => {
             await s.settle(200);
 
             expect(mocks.navigate).toHaveBeenCalledWith('/f1/n1', { replace: true });
+
+            await s.unmount();
+        });
+
+        it.each(['?action=new', '?tag=x'])('does not restore when the URL has a query string (%s)', async (search) => {
+            mocks.getSearchIndexEntry.mockResolvedValue({ docId: 'n1', metadata: { archivalStatus: 0 } });
+            mocks.location = { pathname: '/', search };
+
+            const s = await mountSession();
+            await s.settle(200);
+
+            expect(mocks.navigate).not.toHaveBeenCalled();
 
             await s.unmount();
         });

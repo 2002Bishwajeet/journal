@@ -20,6 +20,7 @@ import {
   useDeviceType,
   useSyncService,
   useKeyboardShortcuts,
+  useDocumentTitle,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback } from "react";
@@ -190,22 +191,35 @@ export default function JournalLayout() {
     }
   }, [notes]);
 
+  // One note per ?action=new: the effect re-runs mid-await (folders/searchParams
+  // change, StrictMode). Reset once `action` clears.
+  const handledNewNoteRef = useRef(false);
+
   // Handle URL action params (PWA shortcuts, permission redirects)
   useEffect(() => {
-    if (!action) return;
+    if (!action) {
+      handledNewNoteRef.current = false;
+      return;
+    }
 
     const handleAction = async () => {
       if (action === "search") {
         setShowSearch(true);
       } else if (action === "new") {
+        // Cold start: wait for folders, or resolveNoteFolderId falls back to Main.
+        if (isFolderLoading || handledNewNoteRef.current) return;
+        handledNewNoteRef.current = true;
+
         const targetFolderId = resolveNoteFolderId(folderId, folders);
-        if (targetFolderId) {
-          const { docId, folderId: newFolderId } =
-            await createNote(targetFolderId);
-          if (docId) {
-            navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
-          }
-        }
+        const { docId, folderId: newFolderId } = await createNote(targetFolderId);
+        // The new URL has no ?action, so skip the setSearchParams cleanup
+        // below: it would resolve against the stale pathname and overwrite
+        // this entry, bouncing back to "/".
+        navigate(`/${newFolderId}/${docId}`, {
+          replace: true,
+          viewTransition: true,
+        });
+        return;
       } else if (action === "collaborate") {
         const collaborateNoteId = searchParams.get("noteId");
         if (collaborateNoteId) {
@@ -232,6 +246,7 @@ export default function JournalLayout() {
   }, [
     action,
     folders,
+    isFolderLoading,
     folderId,
     createNote,
     navigate,
@@ -319,6 +334,15 @@ export default function JournalLayout() {
   );
 
   const selectedTag = searchParams.get("tag");
+  const viewLabel = selectedTag
+    ? `#${selectedTag}`
+    : folderId === "trash"
+      ? "Trash"
+      : folderId === "archive"
+        ? "Archive"
+        : folderId === "shared"
+          ? "Shared"
+          : folders.find((f) => f.id === folderId)?.name;
   const { tags } = useTags();
   const { data: tagFilteredNotes } = useNotesByTag(selectedTag);
   const notesToShow = selectedTag
@@ -404,6 +428,15 @@ export default function JournalLayout() {
   );
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
+
+  // Tab/window title: the open note, else the current view. Trash/Archive hide
+  // the desktop editor, so an open tab there must not win.
+  const openNoteId = isManagementView ? null : isDesktop ? activeTabId : noteId;
+  useDocumentTitle(
+    openNoteId
+      ? notes.find((n) => n.docId === openNoteId)?.title || "Untitled"
+      : viewLabel,
+  );
 
   if (isNotesLoading || isFolderLoading) {
     return <SplashScreen />;
@@ -512,13 +545,7 @@ export default function JournalLayout() {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <h2 className="text-sm font-medium truncate flex-1 leading-none">
-              {selectedTag
-                ? `#${selectedTag}`
-                : folderId === "trash"
-                  ? "Trash"
-                  : folderId === "archive"
-                    ? "Archive"
-                    : folders.find((f) => f.id === folderId)?.name || "Notes"}
+              {viewLabel || "Notes"}
             </h2>
             <SyncStatus />
           </div>
