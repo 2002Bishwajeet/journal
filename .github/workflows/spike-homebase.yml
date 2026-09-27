@@ -67,9 +67,15 @@ jobs:
       - name: Start identity host
         run: |
           echo "T_BOOT=$(date +%s)" >> "$GITHUB_ENV"
+          # ASPNETCORE_ENVIRONMENT=development makes the host proxy /owner etc. to Vite dev servers
+          # (Startup.cs env.IsDevelopment()). Dev seeding keys off the *config section* instead
+          # (DevelopmentSection.Enabled = SectionExists("Development")), so run a custom env name
+          # whose settings file is the image's own development config: bundled SPAs + seeded identities.
+          docker run --rm --entrypoint cat "$IMAGE" /app/web/appsettings.development.json > "$RUNNER_TEMP/appsettings.e2e.json"
           docker run -d --name identity-host \
-            -e ASPNETCORE_ENVIRONMENT=development \
+            -e ASPNETCORE_ENVIRONMENT=e2e \
             -e Development__SslSourcePath=/certs/https/ \
+            -v "$RUNNER_TEMP/appsettings.e2e.json:/app/web/appsettings.e2e.json:ro" \
             -v "$CERTS/https:/certs/https:ro" \
             -p 80:80 -p 443:443 \
             "$IMAGE"
