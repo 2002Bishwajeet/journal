@@ -1,6 +1,7 @@
 export {
     initWebLLM,
     unloadWebLLM,
+    clearModelCache,
     checkGrammar,
     getAutocompleteSuggestion,
     getActionSuggestions,
