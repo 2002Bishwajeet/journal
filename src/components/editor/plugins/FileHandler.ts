@@ -9,6 +9,7 @@ import { Extension, type Editor } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { toast } from 'sonner';
 import { getNewId } from '@homebase-id/js-lib/helpers';
+import { prepareImageForUpload, UnsupportedImageError } from '@/lib/images/imageIngest';
 
 export interface FileHandlerOptions {
     /** Maximum file size in MB */
@@ -45,8 +46,22 @@ async function processImageFile(editor: Editor, options: FileHandlerOptions, fil
         return false;
     }
 
-    // Validate file size
-    if (file.size > maxSizeMB * 1024 * 1024) {
+    // Downscale, re-orient and strip EXIF before the file is sized, queued or shown
+    let processed: File;
+    try {
+        processed = await prepareImageForUpload(file);
+    } catch (error) {
+        if (error instanceof UnsupportedImageError) {
+            toast.error("This browser can't read HEIC images — export the photo as JPEG");
+        } else {
+            console.error('[FileHandler] Failed to process image:', error);
+            toast.error('Failed to process image');
+        }
+        return false;
+    }
+
+    // Validate file size (against the processed bytes)
+    if (processed.size > maxSizeMB * 1024 * 1024) {
         toast.error(`File too large. Maximum size is ${maxSizeMB}MB`);
         return false;
     }
@@ -56,7 +71,7 @@ async function processImageFile(editor: Editor, options: FileHandlerOptions, fil
     // Queue before inserting: the node renders from the queued bytes, and a node
     // without its queue row reads as another device's upload.
     try {
-        await onImageDrop(file, pendingId);
+        await onImageDrop(processed, pendingId);
     } catch (error) {
         console.error('[FileHandler] Failed to queue image:', error);
         toast.error('Failed to queue image for upload');
@@ -67,7 +82,7 @@ async function processImageFile(editor: Editor, options: FileHandlerOptions, fil
     editor.chain().focus().insertContent({
         type: 'image',
         attrs: {
-            src: URL.createObjectURL(file),
+            src: URL.createObjectURL(processed),
             'data-pending-id': pendingId,
         },
     }).run();
@@ -81,7 +96,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
     addOptions() {
         return {
             maxSizeMB: 20,
-            allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+            allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'],
             onImageDrop: async () => { },
             imagesReadOnly: false,
         };
@@ -113,14 +128,17 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
                         const files = event.dataTransfer?.files;
                         if (!files?.length) return false;
 
+                        event.preventDefault();
+
                         // Check if any file is an image
                         const imageFiles = Array.from(files).filter(f =>
                             allowedTypesSet.has(f.type)
                         );
 
-                        if (!imageFiles.length) return false;
-
-                        event.preventDefault();
+                        if (!imageFiles.length) {
+                            toast.error('Unsupported image type');
+                            return true;
+                        }
 
                         // Process each image file
                         for (const file of imageFiles) {
@@ -134,11 +152,19 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
                         const items = event.clipboardData?.items;
                         if (!items) return false;
 
-                        const imageItems = Array.from(items).filter(item =>
-                            item.kind === 'file' && allowedTypesSet.has(item.type)
-                        );
+                        let hasFile = false;
+                        const imageItems: DataTransferItem[] = [];
+                        for (const item of items) {
+                            if (item.kind !== 'file') continue;
+                            hasFile = true;
+                            if (allowedTypesSet.has(item.type)) imageItems.push(item);
+                        }
+                        if (!hasFile) return false;
 
-                        if (!imageItems.length) return false;
+                        if (!imageItems.length) {
+                            toast.error('Unsupported image type');
+                            return true;
+                        }
 
                         event.preventDefault();
 
