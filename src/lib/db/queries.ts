@@ -1252,6 +1252,22 @@ export async function getEntityIdsInBackoff(operation: 'push' | 'pull'): Promise
 }
 
 /**
+ * When the earliest push backoff of a record that still needs pushing ends (ms since
+ * epoch), or undefined if none is waiting. Lets the caller schedule the retry (#263).
+ */
+export async function getNextPushRetryAt(): Promise<number | undefined> {
+    const db = await getDatabase();
+    const result = await db.query<{ next_retry_at: string | Date | null }>(
+        `SELECT MIN(e.next_retry_at) AS next_retry_at FROM sync_errors e
+         JOIN sync_records r ON r.local_id = e.entity_id
+         WHERE e.resolved_at IS NULL AND e.operation = 'push' AND e.next_retry_at > CURRENT_TIMESTAMP
+           AND r.sync_status IN ('pending', 'pending_delete')`
+    );
+    const nextRetryAt = result.rows[0]?.next_retry_at;
+    return nextRetryAt ? new Date(nextRetryAt).getTime() : undefined;
+}
+
+/**
  * Get all unresolved sync errors
  */
 export async function getUnresolvedSyncErrors(): Promise<SyncError[]> {

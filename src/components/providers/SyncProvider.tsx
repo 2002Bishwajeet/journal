@@ -101,12 +101,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [refreshPendingCount]);
 
   // Schedule a retry using ref to avoid circular dependency
-  const scheduleRetry = useCallback(() => {
+  const scheduleRetry = useCallback((delayMs = RETRY_BACKOFF_MS) => {
     retryTimeoutRef.current = setTimeout(() => {
       if (navigator.onLine && syncFnRef.current) {
         syncFnRef.current();
       }
-    }, RETRY_BACKOFF_MS);
+    }, delayMs);
   }, []);
 
   // Full sync function with offline check
@@ -167,6 +167,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           result.errors,
         );
         scheduleRetry();
+      } else if (result.nextRetryAt) {
+        // Retry what this pass skipped for backoff once the backoff ends (#263).
+        // At least 1s so sync's debounce doesn't drop it.
+        scheduleRetry(Math.max(result.nextRetryAt - Date.now(), 1000));
       }
 
       await refreshPendingCount();

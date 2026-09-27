@@ -30,6 +30,7 @@ import {
     recordSyncError,
     resolveSyncErrorsForEntity,
     getEntityIdsInBackoff,
+    getNextPushRetryAt,
     clearOldSyncErrors,
     getImageUploadsReadyForRetry,
     updateImageRetryAt,
@@ -55,6 +56,8 @@ export interface SyncResult {
     pulled: { folders: number; notes: number };
     pushed: { folders: number; notes: number };
     errors: string[];
+    /** When records skipped for push backoff can be retried (ms since epoch), #263 */
+    nextRetryAt?: number;
 }
 
 export type EnsureNoteContentStatus =
@@ -308,6 +311,9 @@ export class SyncService {
 
             // 4. Save sync timestamp
             await saveAppState(STORAGE_KEY_LAST_SYNC, this.#inboxProcessor.getCurrentSyncTime());
+
+            // 5. Report when the pushes skipped for backoff can be retried (#263)
+            result.nextRetryAt = await getNextPushRetryAt();
 
             this.#status = 'idle';
         } catch (error) {
