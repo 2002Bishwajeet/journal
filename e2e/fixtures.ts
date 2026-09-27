@@ -37,7 +37,7 @@ export const test = base.extend<{
       await use(context);
       assertNoFenceViolations(violations);
     },
-    {},
+    { scope: 'test' },
   ],
 
   // A signed-in, fully booted app page. `app` opens its own context (rather
