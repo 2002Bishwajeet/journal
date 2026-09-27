@@ -417,6 +417,26 @@ describe('SyncService.pushChanges backoff filtering (#146)', () => {
     });
 });
 
+describe('SyncService.syncNote clears push backoff on success (#146)', () => {
+    let svc: SyncService;
+    beforeEach(async () => {
+        await resetTestDatabase();
+        vi.clearAllMocks();
+        svc = new SyncService(fakeDotYouClient, fakeOnline);
+    });
+
+    it('resolves the active push error once an immediate save pushes the note', async () => {
+        await upsertSyncRecord({ localId: DOC_ID, entityType: 'note', syncStatus: 'pending' } as SyncRecord);
+        await recordSyncError(DOC_ID, 'note', 'push', 'previous failure');
+        vi.spyOn(documentBroadcast, 'requestFlushAndWait').mockResolvedValue(undefined);
+        vi.spyOn(svc, 'pushNote').mockResolvedValue(undefined);
+
+        await svc.syncNote(DOC_ID);
+
+        expect(await getUnresolvedSyncErrors()).toEqual([]);
+    });
+});
+
 describe('SyncService.logSyncError', () => {
     let svc: SyncService;
     beforeEach(async () => {

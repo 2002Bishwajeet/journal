@@ -1222,6 +1222,7 @@ export class SyncService {
         const record = await getSyncRecord(docId);
         if (record) {
             await this.pushNote(record);
+            await resolveSyncErrorsForEntity(docId);
         }
     }
 
@@ -1232,6 +1233,7 @@ export class SyncService {
         const record = await getSyncRecord(folderId);
         if (record) {
             await this.pushFolder(record);
+            await resolveSyncErrorsForEntity(folderId);
         }
     }
 
