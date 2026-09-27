@@ -118,9 +118,9 @@ export function useFolders() {
             await deleteFolderRemote(folderId);
 
             // Delete all notes in the folder locally (matching remote deletion via deleteFilesByGroupId)
-            const notesInFolder = await getAllDocIdsByFolder(folderId);
+            const docIds = await getAllDocIdsByFolder(folderId);
             await Promise.all(
-                notesInFolder.map((docId) =>
+                docIds.map((docId) =>
                     Promise.all([
                         deleteSearchIndexEntry(docId),
                         deleteDocumentUpdates(docId),

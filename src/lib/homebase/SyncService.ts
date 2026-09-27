@@ -502,9 +502,9 @@ export class SyncService {
         if (!uniqueId || uniqueId === MAIN_FOLDER_ID) return; // Never delete Main folder
 
         // Delete all notes in this folder locally - use indexed query instead of fetching all
-        const notesInFolder = await getAllDocIdsByFolder(uniqueId);
+        const docIds = await getAllDocIdsByFolder(uniqueId);
 
-        for (const docId of notesInFolder) {
+        for (const docId of docIds) {
             try {
                 await deleteSearchIndexEntry(docId);
                 await deleteDocumentUpdates(docId);
