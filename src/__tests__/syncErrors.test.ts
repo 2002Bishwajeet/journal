@@ -56,6 +56,19 @@ describe('recordSyncError upsert with backoff', () => {
         expect(new Date(after3).getTime()).toBeGreaterThan(new Date(after2).getTime());
     });
 
+    it('keeps recording after many consecutive failures (backoff stays capped, no interval overflow)', async () => {
+        // A persistently failing entity (e.g. a remote note that never processes on
+        // pull, which has no backoff skip) accrues one failure per sync forever.
+        await recordSyncError(ENTITY_ID, 'note', 'pull', 'fail');
+        await db.query(`UPDATE sync_errors SET retry_count = 100 WHERE entity_id = $1`, [ENTITY_ID]);
+
+        await expect(recordSyncError(ENTITY_ID, 'note', 'pull', 'fail again')).resolves.toBeUndefined();
+
+        const [row] = await getUnresolvedSyncErrors();
+        expect(row.retryCount).toBe(101);
+        expect(new Date(row.nextRetryAt!).getTime() - Date.now()).toBeLessThanOrEqual(5 * 60 * 1000);
+    });
+
     it('starts a fresh row with retry_count 1 once the previous error is resolved', async () => {
         await recordSyncError(ENTITY_ID, 'note', 'push', 'fail 1');
         await recordSyncError(ENTITY_ID, 'note', 'push', 'fail 2');

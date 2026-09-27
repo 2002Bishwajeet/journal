@@ -1144,6 +1144,8 @@ export async function clearAllLocalData(): Promise<void> {
  * Record a sync failure. Upserts against the single active (unresolved) row for
  * this (entity_id, operation) instead of appending a new row per failure, and
  * backs off the next retry exponentially (5s * 2^retryCount, capped at 5 minutes).
+ * The exponent is capped too: 5s * 2^41 overflows a Postgres interval, which would
+ * make every later failure for this entity throw and abort sync().
  * Mirrors calculateNextRetryAt's curve below — computed in SQL (not by calling it)
  * so the backoff uses the row's current retry_count atomically; keep both in sync.
  */
@@ -1159,7 +1161,7 @@ export async function recordSyncError(
          VALUES ($1, $2, $3, $4, 1, CURRENT_TIMESTAMP + INTERVAL '5 seconds')
          ON CONFLICT (entity_id, operation) WHERE resolved_at IS NULL
          DO UPDATE SET retry_count = sync_errors.retry_count + 1,
-                       next_retry_at = CURRENT_TIMESTAMP + LEAST(INTERVAL '5 seconds' * power(2, sync_errors.retry_count), INTERVAL '5 minutes'),
+                       next_retry_at = CURRENT_TIMESTAMP + LEAST(INTERVAL '5 seconds' * power(2, LEAST(sync_errors.retry_count, 6)), INTERVAL '5 minutes'),
                        error_message = EXCLUDED.error_message`,
         [entityId, entityType, operation, errorMessage]
     );
