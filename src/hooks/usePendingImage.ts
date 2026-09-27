@@ -13,7 +13,7 @@ const POLL_MS = 5000;
  * inserts the node, so no local row means another device added the image. The
  * bytes are read once; after that only the status is polled, since the sync
  * service updates it without notifying the editor. Polling stops once the row
- * is gone: the upload was promoted or removed, and the node changes with it.
+ * is synced or gone: the upload was promoted or removed, and the node changes with it.
  */
 export function usePendingImage(pendingId: string): { url: string | undefined; state: PendingImageState } {
     const { isOnline } = useOnlineContext();
@@ -34,7 +34,8 @@ export function usePendingImage(pendingId: string): { url: string | undefined; s
             timer = setInterval(async () => {
                 const next = await getPendingImageUploadStatus(pendingId);
                 if (!alive) return;
-                if (next === null) clearInterval(timer);
+                // A synced row stays (kept for offline display, #179) but is done
+                if (next === null || next === 'synced') clearInterval(timer);
                 else setStatus(next);
             }, POLL_MS);
         });
@@ -48,7 +49,7 @@ export function usePendingImage(pendingId: string): { url: string | undefined; s
     let state: PendingImageState;
     if (status === null) state = 'remote';
     else if (!isOnline) state = 'offline';
-    else if (status === undefined || status === 'pending' || status === 'uploading') state = 'uploading';
+    else if (status === undefined || status === 'pending' || status === 'uploading' || status === 'synced') state = 'uploading';
     else state = 'failed';
 
     return { url, state };

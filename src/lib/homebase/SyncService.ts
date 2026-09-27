@@ -26,7 +26,6 @@ import {
     saveAppState,
     updateImageUploadStatus,
     incrementImageRetryCount,
-    deletePendingImageUpload,
     recordSyncError,
     resolveSyncErrorsForEntity,
     getEntityIdsInBackoff,
@@ -38,6 +37,7 @@ import {
     calculateNextRetryAt,
     getPendingImageDeletions,
     clearPendingImageDeletions,
+    deleteLocalImagesByKeys,
     removePendingImageDeletion,
     setNoteFolderLocal,
 } from '@/lib/db';
@@ -1077,6 +1077,7 @@ export class SyncService {
                 // Clear pending image deletions after successful sync
                 if (pendingDeletions.length > 0) {
                     await clearPendingImageDeletions(record.localId, pendingDeletions);
+                    await deleteLocalImagesByKeys(record.localId, pendingDeletions);
                 }
             } catch (error) {
                 // WebCrypto throws OperationError when the cached key header can't be
@@ -1160,7 +1161,8 @@ export class SyncService {
                     // The editor applies the promotion as a remote update and never saves it,
                     // so mark the note pending or the new src never reaches the server
                     await updateSyncStatus(upload.noteDocId, 'pending');
-                    await deletePendingImageUpload(upload.id);
+                    // Keep the bytes so the image still renders offline (#179); the queue skips synced rows
+                    await updateImageUploadStatus(upload.id, 'synced', payloadKey);
                 } else if (upload.retryCount + 1 >= MAX_IMAGE_PROMOTION_ATTEMPTS) {
                     // Give up retrying but keep the bytes (cleared at logout)
                     await updateImageUploadStatus(upload.id, 'failed_permanent');

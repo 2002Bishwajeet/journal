@@ -3,7 +3,7 @@
  *
  * Renders images with different strategies based on source:
  * - Pending uploads: Show the locally queued bytes with an upload-state overlay
- * - Remote images: Use OdinImage with thumbnail loading
+ * - Remote images: the bytes kept on this device if uploaded here, else OdinImage with thumbnail loading
  * - Regular URLs/base64: Standard img tag
  */
 
@@ -16,6 +16,7 @@ import { OdinImage } from "@/components/OdinImage/OdinImage";
 import { cn } from "@/lib/utils";
 import { deletePendingImageUpload, retryPendingImageUploadNow } from "@/lib/db";
 import { usePendingImage } from "@/hooks/usePendingImage";
+import { useLocalImage } from "@/hooks/image/useLocalImage";
 import { useSyncService } from "@/hooks/useSyncService";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,24 @@ const PENDING_LABEL = {
   uploading: "Uploading…",
   failed: "Upload failed",
 } as const;
+
+/** An uploaded image: from the bytes kept on this device if any (works offline), else the server. */
+function AttachmentImage({
+  fileId,
+  payloadKey,
+  imgClass,
+  alt,
+  children,
+}: {
+  fileId: string;
+  payloadKey: string;
+  imgClass: string;
+  alt: string;
+  children: ReactNode;
+}) {
+  const url = useLocalImage(fileId, payloadKey);
+  return url ? <img src={url} alt={alt} className={imgClass} /> : children;
+}
 
 function PendingImage({
   pendingId,
@@ -326,15 +345,17 @@ export function ImageNodeView({
     return (
       <NodeViewWrapper className="image-node" data-drag-handle>
         {resizable(
-          <OdinImage
-            dotYouClient={dotYouClient}
-            odinId={owner}
-            targetDrive={JOURNAL_DRIVE}
-            fileId={fileId}
-            fileKey={payloadKey}
-            alt={alt}
-            className={imgClass}
-          />,
+          <AttachmentImage fileId={fileId} payloadKey={payloadKey} imgClass={imgClass} alt={alt}>
+            <OdinImage
+              dotYouClient={dotYouClient}
+              odinId={owner}
+              targetDrive={JOURNAL_DRIVE}
+              fileId={fileId}
+              fileKey={payloadKey}
+              alt={alt}
+              className={imgClass}
+            />
+          </AttachmentImage>,
         )}
       </NodeViewWrapper>
     );

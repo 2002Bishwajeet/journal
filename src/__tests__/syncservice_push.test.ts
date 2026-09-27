@@ -5,6 +5,7 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 import {
     saveDocumentUpdate, getDocumentUpdates, upsertSyncRecord, getSyncRecord, upsertSearchIndex,
     updateSyncStatus, savePendingImageDeletion, getPendingImageDeletions,
+    savePendingImageUpload, updateImageUploadStatus, getLocalImageBytes,
     recordSyncError, getUnresolvedSyncErrors,
 } from '@/lib/db/queries';
 import { computeContentHash } from '@/lib/utils/hash';
@@ -408,6 +409,29 @@ describe('SyncService.pushNote', () => {
         const options = mockUpdateNote.mock.calls[0][8] as { toDeletePayloads?: { key: string }[] };
         expect(options.toDeletePayloads).toEqual([{ key: 'jrnl_img0' }]);
         expect(await getPendingImageDeletions(DOC_ID)).toEqual(['jrnl_img1']);
+    });
+
+    it('drops the locally kept bytes of an image whose payload deletion was pushed (#179)', async () => {
+        await seedNote({
+            updates: [textUpdate('content')], plainText: 'content', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+        const kept = [['33333333-3333-3333-3333-333333333333', 'jrnl_img0'], ['44444444-4444-4444-4444-444444444444', 'jrnl_img1']];
+        for (const [id, key] of kept) {
+            await savePendingImageUpload({
+                id, noteDocId: DOC_ID, blobData: new Uint8Array([1]), contentType: 'image/png',
+                status: 'pending', retryCount: 0, createdAt: new Date().toISOString(),
+            });
+            await updateImageUploadStatus(id, 'synced', key);
+        }
+        await savePendingImageDeletion(DOC_ID, 'jrnl_img0');
+        mockUpdateNote.mockResolvedValue({ versionTag: 'v2' });
+
+        const record = await getSyncRecord(DOC_ID);
+        await svc.pushNote(record!);
+
+        expect(await getLocalImageBytes('file-1', 'jrnl_img0')).toBeNull();
+        expect(await getLocalImageBytes('file-1', 'jrnl_img1')).not.toBeNull();
     });
 });
 

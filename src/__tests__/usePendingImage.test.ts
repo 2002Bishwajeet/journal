@@ -152,6 +152,20 @@ describe('usePendingImage', () => {
         await act(async () => root.unmount());
     });
 
+    it('stays uploading, not failed, and stops polling once the row is marked synced (#179)', async () => {
+        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+        await queue();
+        await mount();
+        await vi.waitFor(() => expect(result?.state).toBe('uploading'));
+
+        await updateImageUploadStatus(ID, 'synced', 'jrnl_img0');
+        await act(async () => { vi.advanceTimersByTime(5000); });
+        await vi.waitFor(() => expect(vi.getTimerCount()).toBe(0));
+
+        expect(result?.state).toBe('uploading');
+        await act(async () => root.unmount());
+    });
+
     it('does not poll without a local row', async () => {
         vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
         await mount();
