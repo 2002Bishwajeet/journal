@@ -52,5 +52,6 @@ test('an unknown route lands on a valid screen instead of an error boundary', as
   // renders its own "note not found" fallback instead of crashing.
   await expect(app.getByRole('complementary', { name: 'Sidebar' })).toBeVisible();
   await expect(app.getByText('Note not found')).toBeVisible();
-  await expect(app.getByRole('button', { name: 'Back to list' })).toBeVisible();
+  // Desktop offers "Close tab" (#188); mobile keeps "Back to list".
+  await expect(app.getByRole('button', { name: 'Close tab' })).toBeVisible();
 });
