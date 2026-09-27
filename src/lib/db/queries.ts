@@ -360,6 +360,15 @@ export async function getDocumentsByFolder(folderId: string): Promise<SearchInde
     }));
 }
 
+/** Every note in a folder, including archived and trashed ones (for folder deletion). */
+export async function getAllDocIdsByFolder(folderId: string): Promise<string[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ doc_id: string }>(
+        `SELECT doc_id FROM search_index WHERE metadata->>'folderId' = $1`,
+        [folderId]
+    );
+    return result.rows.map(row => row.doc_id);
+}
 
 
 /**
@@ -552,6 +561,15 @@ export async function createFolder(id: string, name: string): Promise<void> {
     const db = await getDatabase();
     await db.query(
         'INSERT INTO folders (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING',
+        [id, name]
+    );
+}
+
+/** Insert or rename a folder. Remote sync only — local creates use createFolder. */
+export async function upsertFolder(id: string, name: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        'INSERT INTO folders (id, name) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name',
         [id, name]
     );
 }
