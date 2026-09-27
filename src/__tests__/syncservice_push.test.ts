@@ -389,6 +389,26 @@ describe('SyncService.pushNote', () => {
         expect(options.toDeletePayloads).toEqual([{ key: 'jrnl_img1' }]);
         expect(await getPendingImageDeletions(DOC_ID)).toEqual(['jrnl_img1']);
     });
+
+    it('keeps an image deletion queued while the push was in flight (#242)', async () => {
+        await seedNote({
+            updates: [textUpdate('content')], plainText: 'content', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+        await savePendingImageDeletion(DOC_ID, 'jrnl_img0');
+        // The tracker queues another deletion while updateNote is still on the network
+        mockUpdateNote.mockImplementation(async () => {
+            await savePendingImageDeletion(DOC_ID, 'jrnl_img1');
+            return { versionTag: 'v2' };
+        });
+
+        const record = await getSyncRecord(DOC_ID);
+        await svc.pushNote(record!);
+
+        const options = mockUpdateNote.mock.calls[0][8] as { toDeletePayloads?: { key: string }[] };
+        expect(options.toDeletePayloads).toEqual([{ key: 'jrnl_img0' }]);
+        expect(await getPendingImageDeletions(DOC_ID)).toEqual(['jrnl_img1']);
+    });
 });
 
 describe('SyncService.pushChanges backoff filtering (#146)', () => {

@@ -6,7 +6,6 @@ import {
     deleteSearchIndexEntry,
     deleteDocumentUpdates,
     upsertSyncRecord,
-    deleteSyncRecord,
     updateSyncStatus,
     saveDocumentUpdate,
     getDocumentUpdates,
@@ -309,12 +308,12 @@ export function useNotes() {
     // the orphaned remote file resurface on the next pull.
     const deleteNoteMutation = useMutation<void, Error, string>({
         mutationFn: async (docId: string) => {
+            // deleteNoteRemote owns the note's sync record (#265)
             await deleteNoteRemote(docId);
 
             await Promise.all([
                 deleteSearchIndexEntry(docId),
                 deleteDocumentUpdates(docId),
-                deleteSyncRecord(docId),
             ]);
         },
     });
@@ -330,7 +329,6 @@ export function useNotes() {
                     await Promise.all([
                         deleteSearchIndexEntry(note.docId),
                         deleteDocumentUpdates(note.docId),
-                        deleteSyncRecord(note.docId),
                     ]);
                 })
             );

@@ -983,12 +983,14 @@ export async function markSynced(localId: string, remoteFileId: string, versionT
     // bumped the generation since — otherwise an edit made DURING the push would be
     // clobbered back to synced. version_tag/content_hash/key header are ALWAYS
     // recorded so a superseded push still captures what the server now has.
+    // A record deleted during the push stays 'pending_delete' so its remote delete is retried.
     await db.query(
         `UPDATE sync_records SET
            remote_file_id = $2,
            version_tag = $3,
            last_synced_at = CURRENT_TIMESTAMP,
-           sync_status = CASE WHEN $8::int IS NULL OR dirty_generation = $8::int THEN 'synced' ELSE sync_status END,
+           sync_status = CASE WHEN sync_status = 'pending_delete' THEN sync_status
+                              WHEN $8::int IS NULL OR dirty_generation = $8::int THEN 'synced' ELSE sync_status END,
            content_hash = $4,
            encrypted_key_header = COALESCE($5, encrypted_key_header),
            author_odin_id = COALESCE($6, author_odin_id),
@@ -996,6 +998,20 @@ export async function markSynced(localId: string, remoteFileId: string, versionT
          WHERE local_id = $1`,
         [localId, remoteFileId, versionTag, contentHash || null, encryptedKeyHeader || null, authorOdinId || null, globalTransitId || null, expectedGeneration ?? null]
     );
+}
+
+/**
+ * A note or folder was deleted locally: keep its sync record as 'pending_delete' (all
+ * other fields intact) so the next sync deletes it remotely, or drop the record if it
+ * never reached the server (#265).
+ */
+export async function markPendingDelete(localId: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `UPDATE sync_records SET sync_status = 'pending_delete' WHERE local_id = $1 AND remote_file_id IS NOT NULL`,
+        [localId]
+    );
+    await db.query('DELETE FROM sync_records WHERE local_id = $1 AND remote_file_id IS NULL', [localId]);
 }
 
 /**
@@ -1137,7 +1153,7 @@ export async function getPendingSyncCount(): Promise<{ notes: number; folders: n
     const db = await getDatabase();
 
     const notesResult = await db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM sync_records WHERE entity_type = 'note' AND sync_status = 'pending'`
+        `SELECT COUNT(*) as count FROM sync_records WHERE entity_type = 'note' AND sync_status IN ('pending', 'pending_delete')`
     );
 
     const foldersResult = await db.query<{ count: string }>(
@@ -1249,6 +1265,22 @@ export async function getEntityIdsInBackoff(operation: 'push' | 'pull'): Promise
         [operation]
     );
     return new Set(result.rows.map(row => row.entity_id));
+}
+
+/**
+ * When the earliest push backoff of a record that still needs pushing ends (ms since
+ * epoch), or undefined if none is waiting. Lets the caller schedule the retry (#263).
+ */
+export async function getNextPushRetryAt(): Promise<number | undefined> {
+    const db = await getDatabase();
+    const result = await db.query<{ next_retry_at: string | Date | null }>(
+        `SELECT MIN(e.next_retry_at) AS next_retry_at FROM sync_errors e
+         JOIN sync_records r ON r.local_id = e.entity_id
+         WHERE e.resolved_at IS NULL AND e.operation = 'push' AND e.next_retry_at > CURRENT_TIMESTAMP
+           AND r.sync_status IN ('pending', 'pending_delete')`
+    );
+    const nextRetryAt = result.rows[0]?.next_retry_at;
+    return nextRetryAt ? new Date(nextRetryAt).getTime() : undefined;
 }
 
 /**
@@ -1490,11 +1522,15 @@ export async function removePendingImageDeletion(noteDocId: string, payloadKey: 
 }
 
 /**
- * Clear pending image deletions for a note (after successful sync)
+ * Clear the given pending image deletions for a note (after they were sent in a successful sync).
+ * Rows queued after the push read them stay queued for the next push (#242).
  */
-export async function clearPendingImageDeletions(noteDocId: string): Promise<void> {
+export async function clearPendingImageDeletions(noteDocId: string, payloadKeys: string[]): Promise<void> {
     const db = await getDatabase();
-    await db.query('DELETE FROM pending_image_deletions WHERE note_doc_id = $1', [noteDocId]);
+    await db.query(
+        'DELETE FROM pending_image_deletions WHERE note_doc_id = $1 AND payload_key = ANY($2)',
+        [noteDocId, payloadKeys]
+    );
 }
 
 // ============================================

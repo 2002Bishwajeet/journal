@@ -10,7 +10,7 @@ import type { DotYouClient } from '@homebase-id/js-lib/core';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     upsertSyncRecord, getSyncRecord, createFolder, deleteFolder, getFolderById,
-    getUnresolvedSyncErrors, getPendingSyncCount,
+    getUnresolvedSyncErrors, getPendingSyncCount, markSynced,
 } from '@/lib/db/queries';
 import type { OnlineContextType } from '@/contexts/OnlineContext';
 
@@ -133,6 +133,15 @@ describe('folder delete when the server delete fails (#258)', () => {
         } as never);
 
         expect(await getFolderById(FOLDER_ID)).toBeNull();
+        expect((await getSyncRecord(FOLDER_ID))?.syncStatus).toBe('pending_delete');
+    });
+
+    it('keeps pending_delete when a folder push that was in flight during the delete finishes', async () => {
+        mockDeleteByGroup.mockRejectedValueOnce(new Error('offline'));
+        await deleteFolderLikeTheUi();
+
+        await markSynced(FOLDER_ID, 'file-1', 'v2'); // what pushFolder records on success
+
         expect((await getSyncRecord(FOLDER_ID))?.syncStatus).toBe('pending_delete');
     });
 });

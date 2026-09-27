@@ -30,6 +30,8 @@ import {
     recordSyncError,
     resolveSyncErrorsForEntity,
     getEntityIdsInBackoff,
+    getNextPushRetryAt,
+    markPendingDelete,
     clearOldSyncErrors,
     getImageUploadsReadyForRetry,
     updateImageRetryAt,
@@ -55,6 +57,8 @@ export interface SyncResult {
     pulled: { folders: number; notes: number };
     pushed: { folders: number; notes: number };
     errors: string[];
+    /** When records skipped for push backoff can be retried (ms since epoch), #263 */
+    nextRetryAt?: number;
 }
 
 export type EnsureNoteContentStatus =
@@ -309,6 +313,9 @@ export class SyncService {
             // 4. Save sync timestamp
             await saveAppState(STORAGE_KEY_LAST_SYNC, this.#inboxProcessor.getCurrentSyncTime());
 
+            // 5. Report when the pushes skipped for backoff can be retried (#263)
+            result.nextRetryAt = await getNextPushRetryAt();
+
             this.#status = 'idle';
         } catch (error) {
             this.#status = 'error';
@@ -417,16 +424,20 @@ export class SyncService {
 
         // Skip records currently backing off from a recent failure (#146). These three
         // reads are independent, so fetch them concurrently instead of sequentially.
-        const [inBackoff, allPendingFolders, allPendingNotes, folderDeletes] = await Promise.all([
+        const [inBackoff, allPendingFolders, allPendingNotes, folderDeletes, noteDeletes] = await Promise.all([
             getEntityIdsInBackoff('push'),
             getPendingSyncRecords('folder'),
             getPendingSyncRecords('note'),
             getPendingSyncRecords('folder', 'pending_delete'),
+            getPendingSyncRecords('note', 'pending_delete'),
         ]);
 
-        // Retry remote folder deletes that failed earlier (#258)
+        // Retry remote folder and note deletes that failed earlier (#258, #265)
         for (const record of folderDeletes) {
             if (!inBackoff.has(record.localId)) await this.deleteFolderRemote(record.localId);
+        }
+        for (const record of noteDeletes) {
+            if (!inBackoff.has(record.localId)) await this.deleteNoteRemote(record.localId);
         }
 
         // Push pending folders first (sequential - usually few folders)
@@ -671,6 +682,8 @@ export class SyncService {
         }
         const noteTitle = content?.title || 'Untitled';
         const existingRecord = await getSyncRecord(uniqueId);
+        // Deleted here; the remote delete is still being retried (#265)
+        if (existingRecord?.syncStatus === 'pending_delete') return;
 
         if (stringGuidsEqual(remoteFile.fileMetadata.versionTag, existingRecord?.versionTag)) {
             return;
@@ -1063,7 +1076,7 @@ export class SyncService {
 
                 // Clear pending image deletions after successful sync
                 if (pendingDeletions.length > 0) {
-                    await clearPendingImageDeletions(record.localId);
+                    await clearPendingImageDeletions(record.localId, pendingDeletions);
                 }
             } catch (error) {
                 // WebCrypto throws OperationError when the cached key header can't be
@@ -1269,14 +1282,19 @@ export class SyncService {
      */
     async deleteNoteRemote(docId: string): Promise<void> {
         const record = await getSyncRecord(docId);
-        if (record?.remoteFileId) {
-            try {
+        try {
+            if (record?.remoteFileId) {
                 await this.#notesProvider.deleteNote(record.remoteFileId);
                 console.log(`[SyncService] Deleted remote note: ${docId}`);
-            } catch (error) {
-                console.error(`[SyncService] Failed to delete remote note ${docId}:`, error);
-                // Don't throw - local delete should still proceed
             }
+            await deleteSyncRecord(docId);
+            await resolveSyncErrorsForEntity(docId);
+        } catch (error) {
+            console.error(`[SyncService] Failed to delete remote note ${docId}:`, error);
+            // Don't throw - local delete should still proceed. Keep the sync record as
+            // 'pending_delete' so pushChanges retries the remote delete (#265).
+            await markPendingDelete(docId);
+            await this.logSyncError(docId, 'note', 'push', error);
         }
     }
 
