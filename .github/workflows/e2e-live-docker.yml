@@ -12,11 +12,6 @@ on:
   workflow_dispatch:
   pull_request:
     types: [labeled]
-  # TEMPORARY, for CI iteration on this branch only — remove before merging
-  # (see #203): `gh workflow run --ref` only works once the workflow file
-  # exists on main, so `push` is how this branch's own runs are triggered.
-  push:
-    branches: [ci/203-e2e-live-docker]
 
 jobs:
   e2e-live:
