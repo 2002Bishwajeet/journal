@@ -37,4 +37,13 @@ describe('sanitizeReturnUrl', () => {
     it('rejects protocol-relative URLs pointing off-origin', () => {
         expect(sanitizeReturnUrl('//evil.example/path', ORIGIN)).toBe('/');
     });
+
+    it('rejects same-origin paths that normalise to a protocol-relative URL', () => {
+        // new URL() collapses these to the pathname "//evil.example", which
+        // location.replace / navigate would resolve off-origin.
+        expect(sanitizeReturnUrl('/.//evil.example', ORIGIN)).toBe('/');
+        expect(sanitizeReturnUrl('/..//evil.example', ORIGIN)).toBe('/');
+        expect(sanitizeReturnUrl('/./\\evil.example', ORIGIN)).toBe('/');
+        expect(sanitizeReturnUrl('https://journal.example//evil.example', ORIGIN)).toBe('/');
+    });
 });

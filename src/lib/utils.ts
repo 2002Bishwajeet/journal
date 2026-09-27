@@ -22,7 +22,11 @@ export function cn(...inputs: ClassValue[]) {
 export function sanitizeReturnUrl(raw: string, origin: string): string {
   try {
     const u = new URL(raw, origin);
-    return u.origin === origin && (u.protocol === 'https:' || u.protocol === 'http:')
+    // A pathname starting with "//" (e.g. from "/.//evil.example") would be
+    // read back as a protocol-relative URL by location.replace / navigate.
+    return u.origin === origin &&
+      (u.protocol === 'https:' || u.protocol === 'http:') &&
+      !u.pathname.startsWith('//')
       ? u.pathname + u.search + u.hash
       : '/';
   } catch {
