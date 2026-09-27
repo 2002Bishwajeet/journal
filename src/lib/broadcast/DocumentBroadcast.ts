@@ -109,6 +109,15 @@ class DocumentBroadcast {
     }
 
     /**
+     * Tell OTHER tabs that a document was updated in the database by a local
+     * edit. Unlike notifyDocumentUpdated, same-tab handlers are not invoked: the
+     * editing tab's provider already holds the change and must not reload it.
+     */
+    notifyOtherTabs(docId: string): void {
+        this.channel?.postMessage({ type: 'update', docId } satisfies DocumentBroadcastMessage);
+    }
+
+    /**
      * Request all providers to flush pending updates to the database.
      * @param docId - Optional. If provided, only that document's provider flushes.
      */
