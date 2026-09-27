@@ -4,19 +4,27 @@ import { TEST_ORIGINS } from './origin-guard';
 /**
  * Installs a network fence on `context`: only the allowlisted app origins are
  * reachable. `*.homebase.test` requests are aborted too (there is no fake
- * drive — see #196 — a future recorded-traffic replayer (#202) or live tier
- * (#204) would register their own handler here), but that's expected, so it
- * doesn't count as a violation. Anything else is aborted and recorded — call
- * `assertNoFenceViolations` during teardown so a stray request to an
- * unexpected origin fails the test instead of just disappearing.
+ * drive — see #196 — the recorded-traffic replayer (#202) would register its
+ * own handler here), but that's expected, so it doesn't count as a violation.
+ * Anything else is aborted and recorded — call `assertNoFenceViolations`
+ * during teardown so a stray request to an unexpected origin fails the test
+ * instead of just disappearing.
+ *
+ * `extraOrigins` widens the allowlist beyond `TEST_ORIGINS` — the live tier
+ * (#204) passes `https://${E2E_LIVE_IDENTITY}` there, since it talks to a
+ * real Homebase identity instead of a stubbed drive.
  */
-export async function installNetworkFence(context: BrowserContext): Promise<{ violations: string[] }> {
+export async function installNetworkFence(
+    context: BrowserContext,
+    extraOrigins: string[] = [],
+): Promise<{ violations: string[] }> {
     const violations: string[] = [];
+    const allowedOrigins = [...TEST_ORIGINS, ...extraOrigins];
 
     await context.route('**/*', (route) => {
         const url = new URL(route.request().url());
 
-        if (TEST_ORIGINS.includes(url.origin)) {
+        if (allowedOrigins.includes(url.origin)) {
             return route.continue();
         }
 
@@ -34,7 +42,7 @@ export async function installNetworkFence(context: BrowserContext): Promise<{ vi
         const url = new URL(ws.url());
         const httpOrigin = url.origin.replace(/^ws/, 'http');
 
-        if (TEST_ORIGINS.includes(httpOrigin)) {
+        if (allowedOrigins.includes(httpOrigin)) {
             return ws.connectToServer();
         }
 

@@ -57,3 +57,45 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
     // so a short settle wait is the practical fix.
     await page.waitForTimeout(1000);
 }
+
+/** The sidebar's folder list (used by the live tier's per-run isolation folder). */
+export function foldersNav(page: Page): Locator {
+    return page.getByRole('navigation', { name: 'Folders' });
+}
+
+/** Create a folder via the sidebar's "New folder" modal. */
+export async function createFolder(page: Page, name: string): Promise<void> {
+    await assertTestOrigin(page);
+    await page.getByRole('button', { name: 'New folder' }).click();
+    await page.getByPlaceholder('Folder Name').fill(name);
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
+    await expect(foldersNav(page).getByRole('button', { name, exact: true })).toBeVisible();
+}
+
+/** Select a folder in the sidebar — routes the active view to it. */
+export async function selectFolder(page: Page, name: string): Promise<void> {
+    await assertTestOrigin(page);
+    await foldersNav(page).getByRole('button', { name, exact: true }).click();
+}
+
+/** Delete a folder (and everything in it) via the sidebar's context menu. */
+export async function deleteFolder(page: Page, name: string): Promise<void> {
+    await assertTestOrigin(page);
+    await foldersNav(page).getByRole('button', { name, exact: true }).click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Delete Folder' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
+}
+
+/** Make a note public via the note list's "Share" context-menu item, returning its share URL. */
+export async function shareNotePublicly(page: Page, title: string): Promise<string> {
+    await assertTestOrigin(page);
+    await page.getByRole('button').filter({ hasText: title }).first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Share' }).click();
+    await page.getByRole('button', { name: 'Make Note Public' }).click();
+    // The real makeNotePublic() drive call happens here — give it real network time.
+    const urlInput = page.getByRole('dialog').getByRole('textbox');
+    await expect(urlInput).toBeVisible({ timeout: 15_000 });
+    const shareUrl = await urlInput.inputValue();
+    await page.keyboard.press('Escape');
+    return shareUrl;
+}

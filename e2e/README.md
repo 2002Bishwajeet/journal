@@ -31,7 +31,7 @@ Name the integration test(s) first in every issue's Verification. Add an E2E spe
 | Flaky | tag the title `@quarantine` + open a bug; never add sleeps |
 | Build output | `vite build --mode e2e --outDir dist-e2e` (never touches `dist/`) |
 
-This is the full epic contract (#196) — other issues rely on these names, so don't rename them here. Only some of it is built today: `hermetic` is the only project, `boot/` the only area, and only `npm run e2e`, `npm run e2e:dev`, `npm run e2e:report` exist in `package.json`. The rest (`recorded`/`live`/`edge` projects, HAR recordings, `waitForSyncIdle`, and the other scripts) land with their own issues (#199, #200, #202, #204, #205) — check `package.json` and this directory's contents before assuming a script or helper exists.
+This is the full epic contract (#196) — other issues rely on these names, so don't rename them here. Only some of it is built today: `hermetic`, `live` and `live-setup` are the only projects (no `recorded`/`edge` yet), and `npm run e2e`, `npm run e2e:dev`, `npm run e2e:live`, `npm run e2e:login`, `npm run e2e:report` exist in `package.json`. The rest (`recorded`/`edge` projects, HAR recordings, `waitForSyncIdle`, and the other scripts) land with their own issues (#199, #200, #202, #205) — check `package.json` and this directory's contents before assuming a script or helper exists.
 
 ## Agent loop
 
@@ -55,7 +55,7 @@ Paste the `list` reporter output, attach `playwright-report/` screenshots of the
 
 ## Safety rules
 
-- Test origins only: `http://127.0.0.1:4173`, `http://127.0.0.1:5174` (dev), and — once layer 2/3 land — `https://e2e.dotyou.cloud:4443`. Never `dev.dotyou.cloud:5173` or a real Homebase from this suite.
+- Test origins only: `http://127.0.0.1:4173`, `http://127.0.0.1:5174` (dev), and `https://e2e.dotyou.cloud:4443` (layer 3, live — see below). Never `dev.dotyou.cloud:5173` or a real Homebase from this suite.
 - Never drive this app with a tool attached to a real browser profile. Use Playwright's own fresh `BrowserContext` per test, or the isolated, origin-locked Playwright MCP session below — nothing else.
 - Call `assertTestOrigin(page)` before any mutating `page.evaluate()` or storage write. The `context` fixture already installs a network fence (`e2e/support/network-fence.ts`) that fails a test on any request outside the allowlist.
 
@@ -83,3 +83,27 @@ Every issue's Verification section names its integration test(s) first. Name an 
 - `editor/two-tabs.spec.ts` — typing in one tab shows up in another tab on the same note (`@quarantine`, see #256).
 - `routing/deep-links.spec.ts` — direct note links, back/forward, unknown routes.
 - `pwa/update-prompt.spec.ts` — a changed service worker surfaces the update prompt (preview build only, skipped under `E2E_SERVER=dev`; currently `@quarantine`, see #199's STOP comment on Chromium not exposing the SW update fetch to `context.route`).
+
+## Layer 3 — live
+
+Runs the three `*.live.spec.ts` specs against a real Homebase identity of your choice, on `https://e2e.dotyou.cloud:4443` (a self-signed cert for that host is generated on demand by `e2e/support/make-cert.mjs` into `e2e/.certs/`, gitignored). Local only — never a PR check.
+
+1. **Log in once** (headed, interactive — you approve the app's access request yourself):
+
+   ```bash
+   E2E_LIVE_IDENTITY=<identity> npm run e2e:login
+   ```
+
+   Use a throwaway identity — a local odin-core dev identity (e.g. `frodo.dotyou.cloud`, `sam.dotyou.cloud`, ...) or a hosted test identity — **never your real journal**. This opens `/welcome`, enters the identity, and waits up to 5 minutes for you to approve on the identity's own owner console. On success it writes `e2e/.auth/live.json` (gitignored — `git status` should stay clean).
+
+2. **Run the suite:**
+
+   ```bash
+   npm run e2e:live
+   ```
+
+   Runs serially (`workers: 1`, `retries: 1`). Each run creates its own `e2e-<ISO date>-<random>` folder through the UI and every spec creates notes only inside it; `e2e/live/global-teardown.ts` deletes that folder afterward and, as a safety sweep, any leftover `e2e-*` folder older than 24h (e.g. from a run that crashed before its own cleanup).
+
+3. **Re-running later:** `e2e/.auth/live.json` is reused until the identity revokes the app or the token expires — re-run step 1 if `npm run e2e:live` starts failing to sign in.
+
+**Hosted-identity fallback:** `.github/workflows/e2e-live-hosted.yml` runs this same suite nightly (03:00 UTC) and on `workflow_dispatch`, against a hosted identity — but stays dormant (prints a notice, exits 0) until the `E2E_LIVE_STORAGE_STATE` secret (a base64'd `live.json`, produced non-interactively — see #203) and the `E2E_LIVE_IDENTITY` repository variable are both set. Not a PR check.

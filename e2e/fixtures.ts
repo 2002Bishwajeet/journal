@@ -1,6 +1,7 @@
 import { test as base, expect, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
 import { assertAllowedOrigin, assertTestOrigin } from './support/origin-guard';
 import { installNetworkFence, assertNoFenceViolations } from './support/network-fence';
+import { createFolder, selectFolder } from './support/actions';
 
 export { expect };
 
@@ -17,9 +18,10 @@ async function withFencedPage(
   browser: Browser,
   options: BrowserContextOptions,
   body: (page: Page) => Promise<void>,
+  extraOrigins: string[] = [],
 ): Promise<void> {
   const context = await browser.newContext(options);
-  const { violations } = await installNetworkFence(context);
+  const { violations } = await installNetworkFence(context, extraOrigins);
   try {
     await body(await context.newPage());
   } finally {
@@ -39,6 +41,8 @@ export const test = base.extend<{
   assertBaseUrlIsTestOrigin: void;
   app: Page;
   anonPage: Page;
+}, {
+  liveRun: { page: Page; folderName: string };
 }>({
   assertBaseUrlIsTestOrigin: [
     async ({ baseURL }, use) => {
@@ -76,4 +80,38 @@ export const test = base.extend<{
 
   // A signed-out page: same origin allowlist and network fence, no storageState.
   anonPage: [async ({ browser }, use) => withFencedPage(browser, {}, use), {}],
+
+  // A signed-in page on the real identity (E2E_LIVE_IDENTITY), scoped to this
+  // run's own folder — named once by e2e/live/global-setup.ts (E2E_LIVE_RUN_FOLDER)
+  // so e2e/live/global-teardown.ts can find and delete it afterwards. Worker-scoped:
+  // the `live` project runs with workers: 1, so every live spec shares the same
+  // folder instead of each creating its own.
+  liveRun: [
+    async ({ browser }, use) => {
+      const identity = process.env.E2E_LIVE_IDENTITY;
+      if (!identity) {
+        throw new Error('E2E_LIVE_IDENTITY must be set to run the `live` project — see npm run e2e:login.');
+      }
+      const folderName = process.env.E2E_LIVE_RUN_FOLDER;
+      if (!folderName) {
+        throw new Error('E2E_LIVE_RUN_FOLDER is unset — e2e/live/global-setup.ts should have set it.');
+      }
+
+      const context = await browser.newContext({ storageState: 'e2e/.auth/live.json' });
+      const { violations } = await installNetworkFence(context, [`https://${identity}`]);
+      const page = await context.newPage();
+      await page.goto('/');
+      await assertTestOrigin(page);
+      await waitForAppReady(page);
+
+      await createFolder(page, folderName);
+      await selectFolder(page, folderName);
+
+      await use({ page, folderName });
+
+      await context.close();
+      assertNoFenceViolations(violations);
+    },
+    { scope: 'worker' },
+  ],
 });

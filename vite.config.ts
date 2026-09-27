@@ -207,5 +207,22 @@ export default defineConfig(({ mode }) => ({
       'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy': 'same-origin',
     },
+    // The `live`/`live-setup` projects preview the e2e build over HTTPS on
+    // e2e.dotyou.cloud:4443 (see e2e/support/make-cert.mjs); every other
+    // preview (hermetic e2e, `npm run preview`) stays plain HTTP.
+    ...(mode === 'e2e' && process.env.E2E_HTTPS === '1' ? {
+      https: {
+        key: fs.readFileSync(path.join(certDir(), 'e2e.key')),
+        cert: fs.readFileSync(path.join(certDir(), 'e2e.crt')),
+      },
+    } : {}),
   },
 }))
+
+// Mirrors e2e/support/make-cert.mjs's own resolution: E2E_CERT_DIR (CI, #203)
+// or the committed default e2e/.certs/.
+function certDir(): string {
+  return process.env.E2E_CERT_DIR
+    ? path.resolve(process.env.E2E_CERT_DIR)
+    : path.resolve(import.meta.dirname, 'e2e/.certs');
+}
