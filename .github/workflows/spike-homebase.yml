@@ -47,8 +47,8 @@ jobs:
           HOSTS="frodo sam merry pippin tom collab"
           SAN="DNS:dotyou.cloud,DNS:*.dotyou.cloud"
           for h in $HOSTS; do SAN="$SAN,DNS:*.$h.dotyou.cloud"; done
-          openssl req -newkey rsa:2048 -nodes -keyout leaf.key -out leaf.csr -subj "/CN=*.dotyou.cloud"
-          printf 'subjectAltName=%s\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n' "$SAN" > leaf.ext
+          openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout leaf.key -out leaf.csr -subj "/CN=*.dotyou.cloud"
+          printf 'subjectAltName=%s\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n' "$SAN" > leaf.ext
           openssl x509 -req -in leaf.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out leaf.crt -days 30 -extfile leaf.ext
           openssl x509 -in leaf.crt -noout -subject -issuer -enddate -ext subjectAltName
           # Tree the host reads via Development:SslSourcePath/<domain>/{certificate.crt,private.key}
