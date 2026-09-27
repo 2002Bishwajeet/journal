@@ -71,6 +71,13 @@ export function useSessionPersistence() {
     useEffect(() => {
         if (hasRestoredRef.current) return;
         if (location.pathname !== '/') return;
+        // A query string means the URL already carries intent (a PWA shortcut,
+        // a tag filter, a permission redirect) — restoring the last note would
+        // race with (and override) whatever is handling it.
+        if (location.search) {
+            hasRestoredRef.current = true;
+            return;
+        }
 
         const restoreSession = async () => {
             try {
@@ -97,7 +104,7 @@ export function useSessionPersistence() {
         // Small delay to let the app initialize
         const timeout = setTimeout(restoreSession, 100);
         return () => clearTimeout(timeout);
-    }, [location.pathname, navigate]);
+    }, [location.pathname, location.search, navigate]);
 
     // Save current location to session
     const saveSession = useCallback((state: Partial<SessionState>) => {

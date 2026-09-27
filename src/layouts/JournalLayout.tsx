@@ -191,22 +191,42 @@ export default function JournalLayout() {
     }
   }, [notes]);
 
+  // Guards the "new" branch below against creating a second note: this effect
+  // re-runs when folders/searchParams change mid-await, and twice under
+  // StrictMode in dev. Set synchronously before the `await createNote` below,
+  // so a re-entrant run sees it immediately. Reset once `action` clears.
+  const handledNewNoteRef = useRef(false);
+
   // Handle URL action params (PWA shortcuts, permission redirects)
   useEffect(() => {
-    if (!action) return;
+    if (!action) {
+      handledNewNoteRef.current = false;
+      return;
+    }
 
     const handleAction = async () => {
       if (action === "search") {
         setShowSearch(true);
       } else if (action === "new") {
+        // Folders are still loading (cold start) — resolveNoteFolderId would
+        // wrongly fall back to Main until they arrive. Wait; the effect
+        // re-runs once isFolderLoading flips.
+        if (isFolderLoading || handledNewNoteRef.current) return;
+        handledNewNoteRef.current = true;
+
         const targetFolderId = resolveNoteFolderId(folderId, folders);
-        if (targetFolderId) {
-          const { docId, folderId: newFolderId } =
-            await createNote(targetFolderId);
-          if (docId) {
-            navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
-          }
+        const { docId, folderId: newFolderId } = await createNote(targetFolderId);
+        if (docId) {
+          // Replace, not push: the new URL carries no ?action, so return
+          // before the setSearchParams cleanup below — calling it here would
+          // resolve "?" against this render's stale pathname and, with
+          // replace:true, overwrite the just-created note's history entry.
+          navigate(`/${newFolderId}/${docId}`, {
+            replace: true,
+            viewTransition: true,
+          });
         }
+        return;
       } else if (action === "collaborate") {
         const collaborateNoteId = searchParams.get("noteId");
         if (collaborateNoteId) {
@@ -233,6 +253,7 @@ export default function JournalLayout() {
   }, [
     action,
     folders,
+    isFolderLoading,
     folderId,
     createNote,
     navigate,
