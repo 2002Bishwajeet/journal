@@ -26,8 +26,10 @@ import {
     Sparkles,
     FileText,
     Wand2,
+    Image,
     type LucideIcon,
 } from 'lucide-react';
+import { safeEditorCommand } from '../../shared';
 
 export interface SlashCommandItem {
     title: string;
@@ -156,6 +158,23 @@ const formattingCommands: SlashCommandItem[] = [
         group: 'formatting',
         command: ({ editor, range }) => {
             editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+        },
+    },
+    {
+        title: 'Image',
+        description: 'Upload an image',
+        icon: Image,
+        group: 'formatting',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).run();
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.multiple = true;
+            input.onchange = () => {
+                safeEditorCommand(editor, () => editor.commands.insertImageFiles(Array.from(input.files ?? [])));
+            };
+            input.click();
         },
     },
     {
