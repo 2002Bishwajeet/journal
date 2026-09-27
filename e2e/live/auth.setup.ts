@@ -1,13 +1,13 @@
 // Deliberately imports from '@playwright/test' directly, not '../fixtures':
 // the whole point of this setup is to leave the app origin for the real
 // identity's own YouAuth authorize page, which the shared fixtures' network
-// fence would otherwise abort. Everything else in e2e/ keeps using
-// '../fixtures' — see e2e/README.md.
+// fence would otherwise abort (only the storage-state path constant comes
+// from there). Everything else in e2e/ keeps using '../fixtures'.
 import { test as setup, expect } from '@playwright/test';
 import { assertTestOrigin } from '../support/origin-guard';
+import { LIVE_STORAGE_STATE } from '../fixtures';
 
 const IDENTITY = process.env.E2E_LIVE_IDENTITY;
-const STORAGE_STATE_PATH = 'e2e/.auth/live.json';
 const APPROVAL_TIMEOUT_MS = 5 * 60_000;
 
 setup('log in to a real Homebase identity and save storage state', async ({ page }) => {
@@ -35,5 +35,5 @@ setup('log in to a real Homebase identity and save storage state', async ({ page
     // the signed-in app shell.
     await expect(page.getByRole('complementary', { name: 'Sidebar' })).toBeVisible({ timeout: 60_000 });
 
-    await page.context().storageState({ path: STORAGE_STATE_PATH });
+    await page.context().storageState({ path: LIVE_STORAGE_STATE });
 });

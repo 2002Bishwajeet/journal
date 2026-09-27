@@ -86,7 +86,7 @@ Every issue's Verification section names its integration test(s) first. Name an 
 
 ## Layer 3 — live
 
-Runs the three `*.live.spec.ts` specs against a real Homebase identity of your choice, on `https://e2e.dotyou.cloud:4443` (a self-signed cert for that host is generated on demand by `e2e/support/make-cert.mjs` into `e2e/.certs/`, gitignored). Local only — never a PR check.
+Runs the three `*.live.spec.ts` specs (config: `playwright.live.config.ts`, so `npm run e2e` never starts its HTTPS server or setup/teardown) against a real Homebase identity of your choice, on `https://e2e.dotyou.cloud:4443` (a self-signed cert for that host is generated on demand by `e2e/support/make-cert.mjs` into `e2e/.certs/`, gitignored). Local only — never a PR check.
 
 1. **Log in once** (headed, interactive — you approve the app's access request yourself):
 
@@ -102,7 +102,7 @@ Runs the three `*.live.spec.ts` specs against a real Homebase identity of your c
    npm run e2e:live
    ```
 
-   Runs serially (`workers: 1`, `retries: 1`). Each run creates its own `e2e-<ISO date>-<random>` folder through the UI and every spec creates notes only inside it; `e2e/live/global-teardown.ts` deletes that folder afterward and, as a safety sweep, any leftover `e2e-*` folder older than 24h (e.g. from a run that crashed before its own cleanup).
+   Runs serially (`workers: 1`, `retries: 1`). Each run creates its own `e2e-<ISO date>-<random>-w<worker>` folder through the UI and every spec creates notes only inside it; `e2e/live/global-teardown.ts` deletes that folder afterward and, as a safety sweep, any leftover `e2e-*` folder older than 24h (e.g. from a run that crashed before its own cleanup).
 
 3. **Re-running later:** `e2e/.auth/live.json` is reused until the identity revokes the app or the token expires — re-run step 1 if `npm run e2e:live` starts failing to sign in.
 

@@ -5,6 +5,16 @@ import { createFolder, selectFolder } from './support/actions';
 
 export { expect };
 
+export const LIVE_STORAGE_STATE = 'e2e/.auth/live.json';
+
+// The real identity the live tier may talk to, beyond the app origin.
+export function liveIdentityOrigin(): string {
+  if (!process.env.E2E_LIVE_IDENTITY) {
+    throw new Error('E2E_LIVE_IDENTITY must be set for the live tier — see npm run e2e:login.');
+  }
+  return `https://${process.env.E2E_LIVE_IDENTITY}`;
+}
+
 // The hooks module is dynamically imported, so it may not be installed yet
 // right after a navigation or reload.
 export async function waitForAppReady(page: Page): Promise<void> {
@@ -14,7 +24,7 @@ export async function waitForAppReady(page: Page): Promise<void> {
 
 // Runs `body` with a page in a new fenced context. The context is closed even
 // if `body` throws, so a failed boot doesn't leak it.
-async function withFencedPage(
+export async function withFencedPage(
   browser: Browser,
   options: BrowserContextOptions,
   body: (page: Page) => Promise<void>,
@@ -82,35 +92,20 @@ export const test = base.extend<{
   anonPage: [async ({ browser }, use) => withFencedPage(browser, {}, use), {}],
 
   // A signed-in page on the real identity (E2E_LIVE_IDENTITY), scoped to this
-  // run's own folder — named once by e2e/live/global-setup.ts (E2E_LIVE_RUN_FOLDER)
-  // so e2e/live/global-teardown.ts can find and delete it afterwards. Worker-scoped:
-  // the `live` project runs with workers: 1, so every live spec shares the same
-  // folder instead of each creating its own.
+  // run's own folder. Worker-scoped so the live specs share one folder; the
+  // worker suffix keeps a restarted worker (after a failure) from creating a
+  // duplicate name. e2e/live/global-teardown.ts deletes `${E2E_LIVE_RUN_FOLDER}-w*`.
   liveRun: [
-    async ({ browser }, use) => {
-      const identity = process.env.E2E_LIVE_IDENTITY;
-      if (!identity) {
-        throw new Error('E2E_LIVE_IDENTITY must be set to run the `live` project — see npm run e2e:login.');
-      }
-      const folderName = process.env.E2E_LIVE_RUN_FOLDER;
-      if (!folderName) {
-        throw new Error('E2E_LIVE_RUN_FOLDER is unset — e2e/live/global-setup.ts should have set it.');
-      }
-
-      const context = await browser.newContext({ storageState: 'e2e/.auth/live.json' });
-      const { violations } = await installNetworkFence(context, [`https://${identity}`]);
-      const page = await context.newPage();
-      await page.goto('/');
-      await assertTestOrigin(page);
-      await waitForAppReady(page);
-
-      await createFolder(page, folderName);
-      await selectFolder(page, folderName);
-
-      await use({ page, folderName });
-
-      await context.close();
-      assertNoFenceViolations(violations);
+    async ({ browser }, use, { workerIndex }) => {
+      const folderName = `${process.env.E2E_LIVE_RUN_FOLDER}-w${workerIndex}`;
+      await withFencedPage(browser, { storageState: LIVE_STORAGE_STATE }, async (page) => {
+        await page.goto('/');
+        await assertTestOrigin(page);
+        await waitForAppReady(page);
+        await createFolder(page, folderName);
+        await selectFolder(page, folderName);
+        await use({ page, folderName });
+      }, [liveIdentityOrigin()]);
     },
     { scope: 'worker' },
   ],
