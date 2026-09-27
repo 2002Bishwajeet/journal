@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'dist-e2e', 'playwright-report', 'test-results']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -18,6 +18,15 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+    },
+  },
+  {
+    // Playwright config + specs run under Node (the test runner), but specs
+    // also pass callbacks that execute inside the browser (page.evaluate), so
+    // both global sets are needed.
+    files: ['playwright.config.ts', 'e2e/**/*.ts'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
     },
   },
 ])
