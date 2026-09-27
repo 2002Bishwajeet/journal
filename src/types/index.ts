@@ -104,7 +104,7 @@ export interface SyncRecord {
     remoteFileId?: string;
     versionTag?: string;
     lastSyncedAt?: string;
-    syncStatus: 'pending' | 'synced' | 'conflict' | 'error';
+    syncStatus: 'pending' | 'synced' | 'conflict' | 'error' | 'pending_delete';
     contentHash?: string;
     encryptedKeyHeader?: string;
     authorOdinId?: string;

@@ -417,11 +417,17 @@ export class SyncService {
 
         // Skip records currently backing off from a recent failure (#146). These three
         // reads are independent, so fetch them concurrently instead of sequentially.
-        const [inBackoff, allPendingFolders, allPendingNotes] = await Promise.all([
+        const [inBackoff, allPendingFolders, allPendingNotes, folderDeletes] = await Promise.all([
             getEntityIdsInBackoff('push'),
             getPendingSyncRecords('folder'),
             getPendingSyncRecords('note'),
+            getPendingSyncRecords('folder', 'pending_delete'),
         ]);
+
+        // Retry remote folder deletes that failed earlier (#258)
+        for (const record of folderDeletes) {
+            if (!inBackoff.has(record.localId)) await this.deleteFolderRemote(record.localId);
+        }
 
         // Push pending folders first (sequential - usually few folders)
         const pendingFolders = allPendingFolders.filter(r => !inBackoff.has(r.localId));
@@ -483,6 +489,8 @@ export class SyncService {
         const folderName = content?.name || 'Untitled Folder';
 
         const existingRecord = await getSyncRecord(uniqueId);
+        // Deleted here; the remote delete is still being retried (#258)
+        if (existingRecord?.syncStatus === 'pending_delete') return;
 
         if (!existingRecord) {
             // New folder from remote
@@ -1286,9 +1294,19 @@ export class SyncService {
         try {
             await this.#folderProvider.deleteFolder(record?.remoteFileId, folderId);
             console.log(`[SyncService] Deleted remote folder: ${folderId}`);
+            await deleteSyncRecord(folderId);
+            await resolveSyncErrorsForEntity(folderId);
         } catch (error) {
             console.error(`[SyncService] Failed to delete remote folder ${folderId}:`, error);
-            // Don't throw - local delete should still proceed
+            // Don't throw - local delete should still proceed. Keep the sync record as
+            // 'pending_delete' so pushChanges retries the remote delete (#258).
+            await upsertSyncRecord({
+                localId: folderId,
+                entityType: 'folder',
+                remoteFileId: record?.remoteFileId,
+                syncStatus: 'pending_delete',
+            });
+            await this.logSyncError(folderId, 'folder', 'push', error);
         }
     }
 }
