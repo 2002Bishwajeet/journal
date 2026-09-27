@@ -34,9 +34,3 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
     // so a short settle wait is the practical fix.
     await page.waitForTimeout(1000);
 }
-
-/** Wait for SyncService to have no queued work left. */
-export async function waitForSyncIdle(page: Page): Promise<void> {
-    await assertTestOrigin(page);
-    await page.evaluate(() => window.__journalE2E!.syncIdle());
-}

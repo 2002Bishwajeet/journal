@@ -4,8 +4,6 @@ declare const __APP_VERSION__: string;
 interface JournalE2EHooks {
   /** Resolves once boot phase db-ready has fired and the boot splash has been replaced by the app UI. */
   ready(): Promise<void>;
-  /** Resolves once there is no queued sync work left (nothing pending to push or pull). */
-  syncIdle(): Promise<void>;
 }
 
 interface Window {

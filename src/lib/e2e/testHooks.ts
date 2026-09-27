@@ -4,11 +4,10 @@
  * module (and its `window.__journalE2E` global) never ships in the production
  * bundle. See src/globals.d.ts for the public type.
  *
- * Nothing here mutates app state — both hooks only read signals the app
- * already maintains (bootProgress, the DB's sync-queue tables).
+ * Nothing here mutates app state — the hook only reads signals the app
+ * already maintains (bootProgress and the boot splash).
  */
 import { getBootProgress, subscribeBootProgress } from '@/lib/bootProgress';
-import { getPendingSyncCount } from '@/lib/db';
 
 const E2E_ORIGINS = [
     'http://127.0.0.1:4173',
@@ -59,32 +58,9 @@ async function ready(): Promise<void> {
     await waitForSplashGone();
 }
 
-// SyncService's own status ('idle' | 'syncing' | 'error') is private and only
-// reachable through React context inside the signed-in component tree — there
-// is no way to read it from a plain module without adding new state to the
-// service or to a shared provider, and in this hermetic sandbox it spends
-// most of its time cycling 'syncing' -> 'error' (every remote call is aborted
-// by the network fence, then retried), so it would rarely settle on 'idle'
-// anyway. "No queued work" — the sync_records / pending_image_uploads rows
-// SyncService itself pushes and pulls against — is the signal that's both
-// derivable from existing state and actually observable in this environment.
-async function syncIdle(): Promise<void> {
-    const settleChecks = 3;
-    const pollMs = 150;
-    let stable = 0;
-    while (stable < settleChecks) {
-        const counts = await getPendingSyncCount();
-        const total = counts.notes + counts.folders + counts.images;
-        stable = total === 0 ? stable + 1 : 0;
-        if (stable < settleChecks) {
-            await new Promise((resolve) => setTimeout(resolve, pollMs));
-        }
-    }
-}
-
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, syncIdle }),
+        value: Object.freeze({ ready }),
         writable: false,
         configurable: false,
         enumerable: false,
