@@ -25,6 +25,12 @@ navigator.storage?.persist?.();
 // Main bundle parsed and executing — first boot milestone for the splash bar.
 reportBootPhase('react');
 
+// e2e-only readiness hooks (window.__journalE2E) — dynamic import keeps this
+// out of the production bundle entirely.
+if (import.meta.env.MODE === 'e2e') {
+  void import('./lib/e2e/testHooks');
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
