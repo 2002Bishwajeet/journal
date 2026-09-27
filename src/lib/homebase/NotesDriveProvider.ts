@@ -7,6 +7,7 @@ import {
     getPayloadBytes,
     getContentFromHeaderOrPayload,
     SecurityGroupType,
+    type AccessControlList,
     type DotYouClient,
     type HomebaseFile,
     type UploadFileMetadata,
@@ -633,23 +634,43 @@ export class NotesDriveProvider {
     }
 
     /**
-     * Update a note's access control to make it publicly accessible (Anonymous).
-     * This is used for the Share feature.
-     * @param uniqueId - The unique ID of the note
-     * @returns The new version tag after update
+     * Fetch a note's header (decrypted), rebuild its UploadFileMetadata and write it
+     * back. Shared by every sharing/archival transition so none of them can drop the
+     * note's title, tags, date or public flag (#161).
+     *
+     * - `content` maps the existing (parsed) content to the new content.
+     * - `acl`, `isEncrypted` and `groupId` default to the existing header's values.
+     * - `ensureEncrypted`: a header-only patch can't encrypt a plaintext payload, so
+     *   an unencrypted note is first re-uploaded encrypted via makeNotePrivate and its
+     *   header re-fetched.
      */
-    async makeNotePublic(uniqueId: string): Promise<{ versionTag: string }> {
-        // Fetch existing file header, decrypted, so we can re-store the note's
-        // metadata (title, tags, dates) as plaintext that anonymous readers can read.
-        const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
-            this.#dotYouClient,
-            JOURNAL_DRIVE,
-            uniqueId,
-            { decrypt: true }
-        );
+    async #rewriteNoteHeader(uniqueId: string, spec: {
+        mode: 'reupload' | 'patch';
+        content: (existing: NoteFileContent) => NoteFileContent | string;
+        acl?: AccessControlList;
+        isEncrypted?: boolean;
+        groupId?: string;
+        archivalStatus?: number;
+        ensureEncrypted?: boolean;
+        errorMessage: string;
+    }): Promise<{ versionTag: string }> {
+        const fetchHeader = async () => {
+            const header = await getFileHeaderByUniqueId<NoteFileContent>(
+                this.#dotYouClient,
+                JOURNAL_DRIVE,
+                uniqueId,
+                { decrypt: true }
+            );
+            if (!header) {
+                throw new Error(`Note with uniqueId ${uniqueId} not found`);
+            }
+            return header;
+        };
 
-        if (!existingHeader) {
-            throw new Error(`Note with uniqueId ${uniqueId} not found`);
+        let existingHeader = await fetchHeader();
+        if (spec.ensureEncrypted && existingHeader.fileMetadata.isEncrypted === false) {
+            await this.makeNotePrivate(uniqueId);
+            existingHeader = await fetchHeader();
         }
 
         const existingAppData = existingHeader.fileMetadata.appData;
@@ -658,109 +679,102 @@ export class NotesDriveProvider {
             (typeof existingAppData.content === 'string'
                 ? tryJsonParse<NoteFileContent>(existingAppData.content)
                 : existingAppData.content) ?? ({} as NoteFileContent);
-        // A public note's content is world-readable plaintext; project to a minimal,
-        // non-sensitive subset so circleIds/recipients/lastEditedBy never leak.
-        const content = JSON.stringify({
-            title: existingContent.title,
-            tags: existingContent.tags,
-            isPublic: true,
-        });
+        const newContent = spec.content(existingContent);
+        const isEncrypted = spec.isEncrypted ?? existingHeader.fileMetadata.isEncrypted ?? true;
 
-        // Update metadata with Anonymous access control, preserving note content.
         const uploadMetadata: UploadFileMetadata = {
             versionTag,
             // Peer/feed distribution only — unrelated to the Anonymous ACL that makes
-            // the note publicly readable. See FileSystemUpdateWriterBase ("AllowDistribution
+            // a note publicly readable. See FileSystemUpdateWriterBase ("AllowDistribution
             // must be true when UpdateLocale is Peer") and FeedDriveDistributionRouter.
+            // A fetched header omits serverMetadata.allowDistribution, so there is
+            // nothing to preserve — every local (non-peer) write sends false.
             allowDistribution: false,
             appData: {
                 fileType: JOURNAL_FILE_TYPE,
                 dataType: JOURNAL_DATA_TYPE,
                 uniqueId,
-                groupId: existingAppData.groupId,
+                groupId: spec.groupId ?? existingAppData.groupId,
                 userDate: existingAppData.userDate,
                 tags: existingAppData.tags,
-                content,
+                content: typeof newContent === 'string' ? newContent : JSON.stringify(newContent),
+                archivalStatus: spec.archivalStatus,
             },
-            isEncrypted: false, // Public notes should not be encrypted
-            accessControlList: {
-                requiredSecurityGroup: SecurityGroupType.Anonymous,
+            isEncrypted,
+            accessControlList: spec.acl ?? existingHeader.serverMetadata?.accessControlList ?? {
+                requiredSecurityGroup: SecurityGroupType.Owner,
             },
         };
-        const uploadInstructionSet: UploadInstructionSet = {
-            storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: existingHeader.fileId },
-            transferIv: getRandom16ByteArray(),
+
+        let result;
+        if (spec.mode === 'reupload') {
+            // Full re-upload: re-encrypts (or decrypts) the payloads to match isEncrypted.
+            const instructions: UploadInstructionSet = {
+                storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: existingHeader.fileId },
+                transferIv: getRandom16ByteArray(),
+            };
+            result = await reUploadFile(this.#dotYouClient, instructions, uploadMetadata, isEncrypted);
+        } else {
+            // Header-only patch — never changes payload encryption.
+            const instructions: UpdateInstructionSet = {
+                locale: 'local',
+                file: { fileId: existingHeader.fileId, targetDrive: JOURNAL_DRIVE },
+                versionTag,
+            };
+            result = await patchFile(
+                this.#dotYouClient,
+                existingHeader.sharedSecretEncryptedKeyHeader,
+                instructions,
+                uploadMetadata,
+                [],
+                undefined
+            );
         }
 
-        const result = await reUploadFile(this.#dotYouClient, uploadInstructionSet, uploadMetadata, false);
-
         if (!result) {
-            throw new Error('Failed to make note public');
+            throw new Error(spec.errorMessage);
         }
 
         return { versionTag: result.newVersionTag };
     }
 
     /**
+     * Update a note's access control to make it publicly accessible (Anonymous).
+     * This is used for the Share feature.
+     * @param uniqueId - The unique ID of the note
+     * @returns The new version tag after update
+     */
+    async makeNotePublic(uniqueId: string): Promise<{ versionTag: string }> {
+        return this.#rewriteNoteHeader(uniqueId, {
+            mode: 'reupload',
+            // A public note's content is world-readable plaintext; project to a minimal,
+            // non-sensitive subset so circleIds/recipients/lastEditedBy never leak.
+            content: (existing) => JSON.stringify({
+                title: existing.title,
+                tags: existing.tags,
+                isPublic: true,
+            }),
+            isEncrypted: false, // Public notes should not be encrypted
+            acl: { requiredSecurityGroup: SecurityGroupType.Anonymous },
+            errorMessage: 'Failed to make note public',
+        });
+    }
+
+    /**
      * Update a note's access control back to private (Owner only).
      * This revokes public sharing.
-     * 
+     *
      * @param uniqueId - The unique ID of the note
      * @returns The new version tag after update
      */
     async makeNotePrivate(uniqueId: string): Promise<{ versionTag: string }> {
-        // Fetch existing file header, decrypted, so the note's metadata survives
-        // the round-trip back to an encrypted, owner-only file.
-        const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
-            this.#dotYouClient,
-            JOURNAL_DRIVE,
-            uniqueId,
-            { decrypt: true }
-        );
-
-        if (!existingHeader) {
-            throw new Error(`Note with uniqueId ${uniqueId} not found`);
-        }
-
-        const existingAppData = existingHeader.fileMetadata.appData;
-        const versionTag = existingHeader.fileMetadata.versionTag;
-        const existingContent: NoteFileContent =
-            (typeof existingAppData.content === 'string'
-                ? tryJsonParse<NoteFileContent>(existingAppData.content)
-                : existingAppData.content) ?? ({} as NoteFileContent);
-        const content = JSON.stringify({ ...existingContent, isPublic: false });
-
-        // Update metadata with Owner access control, preserving note content.
-        const uploadMetadata: UploadFileMetadata = {
-            versionTag,
-            allowDistribution: false,
-            appData: {
-                fileType: JOURNAL_FILE_TYPE,
-                dataType: JOURNAL_DATA_TYPE,
-                uniqueId,
-                groupId: existingAppData.groupId,
-                userDate: existingAppData.userDate,
-                tags: existingAppData.tags,
-                content,
-            },
+        return this.#rewriteNoteHeader(uniqueId, {
+            mode: 'reupload',
+            content: (existing) => ({ ...existing, isPublic: false }),
             isEncrypted: true, // Private notes should be encrypted
-            accessControlList: {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            },
-        };
-
-        const updateInstructions: UploadInstructionSet = {
-            storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: existingHeader.fileId },
-            transferIv: getRandom16ByteArray(),
-        };
-
-        const result = await reUploadFile(this.#dotYouClient, updateInstructions, uploadMetadata, true);
-
-        if (!result) {
-            throw new Error('Failed to make note private');
-        }
-
-        return { versionTag: result.newVersionTag };
+            acl: { requiredSecurityGroup: SecurityGroupType.Owner },
+            errorMessage: 'Failed to make note private',
+        });
     }
 
     /**
@@ -773,68 +787,14 @@ export class NotesDriveProvider {
      * @returns The new version tag after update
      */
     async setNoteArchivalStatus(uniqueId: string, status: number): Promise<{ versionTag: string }> {
-        const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
-            this.#dotYouClient,
-            JOURNAL_DRIVE,
-            uniqueId,
-            { decrypt: true }
-        );
-
-        if (!existingHeader) {
-            throw new Error(`Note with uniqueId ${uniqueId} not found`);
-        }
-
-        const existingAppData = existingHeader.fileMetadata.appData;
-        const isEncrypted = existingHeader.fileMetadata.isEncrypted ?? true;
-        const accessControlList = existingHeader.serverMetadata?.accessControlList ?? {
-            requiredSecurityGroup: SecurityGroupType.Owner,
-        };
-        const content = typeof existingAppData.content === 'string'
-            ? existingAppData.content
-            : JSON.stringify(existingAppData.content);
-
-        const uploadMetadata: UploadFileMetadata = {
-            versionTag: existingHeader.fileMetadata.versionTag,
-            // Peer/feed distribution only; an Anonymous ACL does not imply it. A fetched
-            // header omits serverMetadata.allowDistribution, so there is nothing to
-            // preserve — match every other local (non-peer) write and send false.
-            allowDistribution: false,
-            appData: {
-                fileType: JOURNAL_FILE_TYPE,
-                dataType: JOURNAL_DATA_TYPE,
-                uniqueId,
-                groupId: existingAppData.groupId,
-                userDate: existingAppData.userDate,
-                tags: existingAppData.tags,
-                content,
-                archivalStatus: status,
-            },
-            isEncrypted,
-            accessControlList,
-        };
-
         // Header-only patch — flips archivalStatus without re-uploading payloads
         // (unlike makeNotePublic/Private, this never changes payload encryption).
-        const updateInstructions: UpdateInstructionSet = {
-            locale: 'local',
-            file: { fileId: existingHeader.fileId, targetDrive: JOURNAL_DRIVE },
-            versionTag: existingHeader.fileMetadata.versionTag,
-        };
-
-        const result = await patchFile(
-            this.#dotYouClient,
-            existingHeader.sharedSecretEncryptedKeyHeader,
-            updateInstructions,
-            uploadMetadata,
-            [],
-            undefined
-        );
-
-        if (!result) {
-            throw new Error('Failed to update note archival status');
-        }
-
-        return { versionTag: result.newVersionTag };
+        return this.#rewriteNoteHeader(uniqueId, {
+            mode: 'patch',
+            content: (existing) => existing,
+            archivalStatus: status,
+            errorMessage: 'Failed to update note archival status',
+        });
     }
 
     async dsrToNoteFileContent(dsr: HomebaseFile,
@@ -854,7 +814,7 @@ export class NotesDriveProvider {
     /**
      * Make a note collaborative, granting access to specified circles.
      * Changes ACL to Connected with circleIds and moves to COLLABORATIVE_FOLDER_ID.
-     * 
+     *
      * @param uniqueId - The unique ID of the note
      * @param circleIds - Array of circle IDs to grant access
      * @param editorOdinId - OdinId of the user making this change
@@ -866,104 +826,48 @@ export class NotesDriveProvider {
         recipients: string[],
         editorOdinId: string
     ): Promise<{ versionTag: string }> {
-        // Fetch existing file header
-        let existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
-            this.#dotYouClient,
-            JOURNAL_DRIVE,
-            uniqueId,
-            { decrypt: true }
-        );
-
-        if (!existingHeader) {
-            throw new Error(`Note with uniqueId ${uniqueId} not found`);
-        }
-
-        // Collaborative notes must be encrypted, and a header-only patch can't encrypt
-        // an existing plaintext (public) payload — re-upload it encrypted first.
-        if (existingHeader.fileMetadata.isEncrypted === false) {
-            await this.makeNotePrivate(uniqueId);
-            existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
-                this.#dotYouClient,
-                JOURNAL_DRIVE,
-                uniqueId,
-                { decrypt: true }
-            );
-            if (!existingHeader) {
-                throw new Error(`Note with uniqueId ${uniqueId} not found`);
-            }
-        }
-
-        const existingAppData = existingHeader.fileMetadata.appData;
-        const existingContent: NoteFileContent =
-            (typeof existingAppData.content === 'string'
-                ? tryJsonParse<NoteFileContent>(existingAppData.content)
-                : existingAppData.content) ?? ({} as NoteFileContent);
-
-        // Build updated note content with collaborative metadata
-        const noteContent: NoteFileContent = {
-            ...existingContent,
-            isPublic: false,
-            isCollaborative: true,
-            circleIds,
-            recipients,
-            lastEditedBy: editorOdinId,
-        };
-
-        const versionTag = existingHeader.fileMetadata.versionTag;
-
-        // Update metadata with Connected access control for circles
-        const uploadMetadata: UploadFileMetadata = {
-            versionTag,
-            allowDistribution: false,
-            appData: {
-                fileType: JOURNAL_FILE_TYPE,
-                dataType: JOURNAL_DATA_TYPE,
-                uniqueId,
-                groupId: COLLABORATIVE_FOLDER_ID, // Move to collaborative folder
-                userDate: existingAppData.userDate,
-                tags: existingAppData.tags,
-                content: JSON.stringify(noteContent),
+        let title = '';
+        const result = await this.#rewriteNoteHeader(uniqueId, {
+            mode: 'patch',
+            content: (existing) => {
+                title = existing.title || '';
+                return {
+                    ...existing,
+                    isPublic: false,
+                    isCollaborative: true,
+                    circleIds,
+                    recipients,
+                    lastEditedBy: editorOdinId,
+                };
             },
+            groupId: COLLABORATIVE_FOLDER_ID, // Move to collaborative folder
             isEncrypted: true,
-            accessControlList: {
+            acl: {
                 requiredSecurityGroup: SecurityGroupType.Connected,
                 circleIdList: circleIds,
             },
-        };
-
-        const updateInstructions: UpdateInstructionSet = {
-            locale: 'local',
-            file: { fileId: existingHeader.fileId, targetDrive: JOURNAL_DRIVE },
-            versionTag,
-        };
-
-        const result = await patchFile(
-            this.#dotYouClient,
-            existingHeader.sharedSecretEncryptedKeyHeader,
-            updateInstructions,
-            uploadMetadata,
-        );
-
-        if (!result) {
-            throw new Error('Failed to make note collaborative');
-        }
+            // Collaborative notes must be encrypted; a public note is re-uploaded
+            // encrypted first, since a header-only patch can't encrypt its payload.
+            ensureEncrypted: true,
+            errorMessage: 'Failed to make note collaborative',
+        });
 
         await this.createOrUpdateInvitation(
             uniqueId,
-            existingContent?.title || '',
+            title,
             '',
             circleIds,
             recipients,
             editorOdinId,
         );
 
-        return { versionTag: result.newVersionTag };
+        return result;
     }
 
     /**
      * Revoke collaboration, returning note to private (Owner only).
      * Moves note back to MAIN_FOLDER_ID.
-     * 
+     *
      * @param uniqueId - The unique ID of the note
      * @param editorOdinId - OdinId of the user making this change
      * @returns The new version tag after update
@@ -972,79 +876,25 @@ export class NotesDriveProvider {
         uniqueId: string,
         editorOdinId: string
     ): Promise<{ versionTag: string }> {
-        // Fetch existing file header
-        const existingHeader = await getFileHeaderByUniqueId<NoteFileContent>(
-            this.#dotYouClient,
-            JOURNAL_DRIVE,
-            uniqueId,
-            { decrypt: true }
-        );
-
-        if (!existingHeader) {
-            throw new Error(`Note with uniqueId ${uniqueId} not found`);
-        }
-
-        const existingAppData = existingHeader.fileMetadata.appData;
-        const existingContent: NoteFileContent =
-            (typeof existingAppData.content === 'string'
-                ? tryJsonParse<NoteFileContent>(existingAppData.content)
-                : existingAppData.content) ?? ({} as NoteFileContent);
-
-        // Build updated note content - remove collaborative metadata
-        const noteContent: NoteFileContent = {
-            ...existingContent,
-            isPublic: false,
-            isCollaborative: false,
-            circleIds: undefined,
-            recipients: undefined,
-            lastEditedBy: editorOdinId,
-        };
-
-        // Update metadata with Owner access control
-        const uploadMetadata: UploadFileMetadata = {
-            allowDistribution: false,
-            versionTag: existingHeader.fileMetadata.versionTag,
-            appData: {
-                fileType: JOURNAL_FILE_TYPE,
-                dataType: JOURNAL_DATA_TYPE,
-                uniqueId,
-                groupId: MAIN_FOLDER_ID, // Move back to main folder
-                userDate: existingAppData.userDate,
-                tags: existingAppData.tags,
-                content: JSON.stringify(noteContent),
-            },
+        const result = await this.#rewriteNoteHeader(uniqueId, {
+            mode: 'patch',
+            content: (existing) => ({
+                ...existing,
+                isPublic: false,
+                isCollaborative: false,
+                circleIds: undefined,
+                recipients: undefined,
+                lastEditedBy: editorOdinId,
+            }),
+            groupId: MAIN_FOLDER_ID, // Move back to main folder
             isEncrypted: true, // Private notes should be encrypted
-            accessControlList: {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            },
-        };
-
-
-        const versionTag = existingHeader.fileMetadata.versionTag;
-
-        const updateInstructions: UpdateInstructionSet = {
-            locale: 'local',
-            file: { fileId: existingHeader.fileId, targetDrive: JOURNAL_DRIVE },
-            versionTag,
-        };
-
-        const result = await patchFile(
-            this.#dotYouClient,
-            existingHeader.sharedSecretEncryptedKeyHeader,
-            updateInstructions,
-            uploadMetadata,
-            [], // no payloads to update
-            undefined, // no thumbnails
-            undefined, // no payloads to delete
-        );
-
-        if (!result) {
-            throw new Error('Failed to revoke note collaboration');
-        }
+            acl: { requiredSecurityGroup: SecurityGroupType.Owner },
+            errorMessage: 'Failed to revoke note collaboration',
+        });
 
         await this.deleteInvitation(uniqueId);
 
-        return { versionTag: result.newVersionTag };
+        return result;
     }
 
     async createOrUpdateInvitation(
