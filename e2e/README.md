@@ -73,3 +73,13 @@ Then drive it with the MCP browser tools, e.g. `browser_navigate` to `http://127
 ## Issue-writing rule
 
 Every issue's Verification section names its integration test(s) first. Name an E2E spec only if the change alters a core flow (extend the matching `*.recorded.spec.ts` and re-record) or needs realtime / a second device (`*.live.spec.ts`).
+
+## Smoke tests (`npm run e2e`)
+
+- `boot/origin-guard.spec.ts` — refuses to run on a non-allowlisted origin.
+- `boot/welcome.spec.ts` — signed-out root redirects to `/welcome`.
+- `boot/session-restore.spec.ts` — signed-in shell renders and survives a reload.
+- `editor/persist.spec.ts` — a created/edited note survives a reload.
+- `editor/two-tabs.spec.ts` — typing in one tab shows up in another tab on the same note (`@quarantine`, see #256).
+- `routing/deep-links.spec.ts` — direct note links, back/forward, unknown routes.
+- `pwa/update-prompt.spec.ts` — a changed service worker surfaces the update prompt (preview build only, skipped under `E2E_SERVER=dev`; currently `@quarantine`, see #199's STOP comment on Chromium not exposing the SW update fetch to `context.route`).

@@ -1,17 +1,34 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { assertTestOrigin } from './origin-guard';
+
+// Previously open notes stay mounted as background tabs (so switching tabs is
+// instant), each with its own title input and `.ProseMirror`. Both a
+// getByPlaceholder('Untitled') and a bare `.ProseMirror` locator can then
+// resolve to more than one element — scope every read/write to the visible
+// (active) tab. Exported so specs asserting on the title/editor do the same.
+
+/** The active tab's title input ("Untitled" is its placeholder, not its value). */
+export function activeTitleInput(page: Page): Locator {
+    return page.locator('input[placeholder="Untitled"]:visible');
+}
+
+/** The active tab's TipTap editor. */
+export function activeEditor(page: Page): Locator {
+    return page.locator('.ProseMirror:visible');
+}
 
 /** Create a note via the real UI (the notes list's "New" button), then fill title and body. */
 export async function createNote(page: Page, { title, body }: { title: string; body: string }): Promise<void> {
     await assertTestOrigin(page);
     const before = page.url();
     await page.getByRole('button', { name: 'New', exact: true }).click();
-    // Desktop keeps earlier tabs mounted (hidden): wait until the visible title
-    // is the new note's ("Untitled"), and type only into visible fields.
+    // Desktop keeps earlier tabs mounted (hidden), so wait for the new note's URL,
+    // then for the active title to read the new note's default "Untitled" — the
+    // assertion re-queries on every retry, riding out the tab transition.
     await page.waitForURL((url) => url.href !== before);
-    const titleInput = page.getByPlaceholder('Untitled').locator('visible=true');
-    await expect(titleInput).toHaveValue('Untitled');
-    await titleInput.fill(title);
+    const input = activeTitleInput(page);
+    await expect(input).toHaveValue('Untitled');
+    await input.fill(title);
     // A freshly created note's Yjs document is still settling right after the
     // title fill (its editor briefly loses focus/keystrokes if typed into
     // immediately — confirmed by typing "Hello" and seeing only "H" land).
@@ -30,7 +47,7 @@ export async function openNote(page: Page, title: string): Promise<void> {
 /** Type into the currently open note's TipTap editor. */
 export async function typeInEditor(page: Page, text: string): Promise<void> {
     await assertTestOrigin(page);
-    const editor = page.locator('.ProseMirror').locator('visible=true');
+    const editor = activeEditor(page);
     await editor.click();
     await editor.pressSequentially(text);
     // Local persistence of the Yjs update to PGlite is not synchronous with
