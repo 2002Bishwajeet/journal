@@ -9,6 +9,11 @@ import { tryJsonParse } from '@/lib/utils';
 export const TABS_STORAGE_KEY = 'journal-open-tabs';
 export const SESSION_STORAGE_KEY = 'journal-session-state';
 export const SEARCH_CONSENT_KEY = 'journal-search-consent';
+export const PENDING_COLLAB_NOTE_KEY = 'pendingCollaborativeNoteId';
+export const RECENT_EMOJIS_KEY = 'journal-recent-emojis';
+export const AI_SETTINGS_KEY = 'journal-ai-settings';
+export const LEGACY_WEBLLM_ENABLED_KEY = 'webllm-enabled';
+export const SW_RELOAD_COUNT_KEY = 'sw_safety_reload_count';
 
 /** Reads JSON, yielding null when there is nothing stored or storage throws (private browsing). */
 export function readJson<T>(key: string): T | null {
@@ -43,5 +48,13 @@ export function writeString(key: string, value: string): void {
         localStorage.setItem(key, value);
     } catch (error) {
         console.error(`Failed to save ${key}:`, error);
+    }
+}
+
+export function removeKey(key: string): void {
+    try {
+        localStorage.removeItem(key);
+    } catch (error) {
+        console.error(`Failed to remove ${key}:`, error);
     }
 }

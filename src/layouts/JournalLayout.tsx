@@ -23,6 +23,7 @@ import {
   useDocumentTitle,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
+import { PENDING_COLLAB_NOTE_KEY, readString, removeKey } from "@/lib/storage";
 import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback } from "react";
 import { ChevronLeft, Minimize2, Maximize2, ArchiveRestore, Trash2, Archive } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -179,16 +180,12 @@ export default function JournalLayout() {
   // Handle pending collaborative note from localStorage (after permission redirect)
   useEffect(() => {
     if (notes.length === 0) return;
-    try {
-      const pendingNoteId = localStorage.getItem("pendingCollaborativeNoteId");
-      if (!pendingNoteId) return;
-      const note = notes.find((n) => n.docId === pendingNoteId);
-      if (!note) return;
-      localStorage.removeItem("pendingCollaborativeNoteId");
-      queueMicrotask(() => setCollaborativeNote(note));
-    } catch {
-      /* private browsing */
-    }
+    const pendingNoteId = readString(PENDING_COLLAB_NOTE_KEY);
+    if (!pendingNoteId) return;
+    const note = notes.find((n) => n.docId === pendingNoteId);
+    if (!note) return;
+    removeKey(PENDING_COLLAB_NOTE_KEY);
+    queueMicrotask(() => setCollaborativeNote(note));
   }, [notes]);
 
   // One note per ?action=new: the effect re-runs mid-await (folders/searchParams

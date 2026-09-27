@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
+import { AI_SETTINGS_KEY, LEGACY_WEBLLM_ENABLED_KEY, readString, writeString, removeKey } from '@/lib/storage';
 
-const STORAGE_KEY = 'journal-ai-settings';
+const STORAGE_KEY = AI_SETTINGS_KEY;
 const CURRENT_VERSION = 2;
 
 export interface AISettings {
@@ -35,24 +36,24 @@ function migrateSettings(raw: Record<string, unknown>): AISettings {
 function loadSettings(): AISettings {
   if (typeof localStorage === 'undefined') return DEFAULT_SETTINGS;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readString(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Record<string, unknown>;
       const settings = migrateSettings(parsed);
       if (((parsed._v as number) ?? 0) < CURRENT_VERSION) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...settings, _v: CURRENT_VERSION }));
+        writeString(STORAGE_KEY, JSON.stringify({ ...settings, _v: CURRENT_VERSION }));
       }
       return settings;
     }
 
-    const wasEnabled = localStorage.getItem('webllm-enabled') === 'true';
+    const wasEnabled = readString(LEGACY_WEBLLM_ENABLED_KEY) === 'true';
     if (wasEnabled) {
       const migrated: AISettings = {
         ...DEFAULT_SETTINGS,
         enabled: true,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...migrated, _v: CURRENT_VERSION }));
-      localStorage.removeItem('webllm-enabled');
+      writeString(STORAGE_KEY, JSON.stringify({ ...migrated, _v: CURRENT_VERSION }));
+      removeKey(LEGACY_WEBLLM_ENABLED_KEY);
       return migrated;
     }
   } catch {
@@ -78,7 +79,7 @@ export function useAISettings() {
   const updateSettings = useCallback((patch: Partial<AISettings>) => {
     setSettingsState((prev) => {
       const next = { ...prev, ...patch };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...next, _v: CURRENT_VERSION }));
+      writeString(STORAGE_KEY, JSON.stringify({ ...next, _v: CURRENT_VERSION }));
       return next;
     });
   }, []);

@@ -25,6 +25,7 @@ import {
   CONTACT_TARGET_DRIVE_REQUEST,
 } from "@/lib/homebase/config";
 import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
+import { PENDING_COLLAB_NOTE_KEY, writeString } from "@/lib/storage";
 import { toast } from "sonner";
 import type { CircleDefinition } from "@homebase-id/js-lib/network";
 import { CircleOption } from "@/components/circles/CircleOption";
@@ -204,16 +205,7 @@ export function MarkCollaborativeDialog({
                 <a
                   href={extendPermissionUrl}
                   aria-label="Grant Permissions in Homebase (opens Homebase)"
-                  onClick={() => {
-                    try {
-                      localStorage.setItem(
-                        "pendingCollaborativeNoteId",
-                        noteId,
-                      );
-                    } catch {
-                      /* private browsing */
-                    }
-                  }}
+                  onClick={() => writeString(PENDING_COLLAB_NOTE_KEY, noteId)}
                   className="flex items-center gap-2"
                 >
                   Grant Permissions <ExternalLink className="h-4 w-4" />
