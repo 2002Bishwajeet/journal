@@ -1,9 +1,32 @@
+// @vitest-environment happy-dom
 /**
  * Import/Export Integration Tests
- * 
+ *
  * Tests the import parsing logic (not the file operations).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { PGlite } from '@electric-sql/pglite';
+import type { DotYouClient } from '@homebase-id/js-lib/core';
+import * as Y from 'yjs';
+import JSZip from 'jszip';
+import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
+import { saveDocumentUpdate, upsertSearchIndex } from '@/lib/db/queries';
+import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
+import type { DocumentMetadata } from '@/types';
+
+vi.mock('@/lib/db/pglite', () => {
+    let testDb: PGlite | null = null;
+    return { getDatabase: async () => testDb, setTestDb: (db: PGlite) => { testDb = db; } };
+});
+import * as pgliteModule from '@/lib/db/pglite';
+
+const { mockGetPayloadBytes } = vi.hoisted(() => ({ mockGetPayloadBytes: vi.fn() }));
+vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@homebase-id/js-lib/core')>();
+    return { ...actual, getPayloadBytes: mockGetPayloadBytes };
+});
+
+import { ExportService } from '@/lib/importexport/ExportService';
 
 // Since we can't import the actual module (it has browser dependencies),
 // we'll test the parsing functions directly
@@ -326,5 +349,93 @@ E,F`;
             expect(sanitizeFilename('My Note (2023)')).toBe('My Note (2023)');
             expect(sanitizeFilename('Notes-Archive_v2')).toBe('Notes-Archive_v2');
         });
+    });
+});
+
+// ============================================
+// ExportService.exportAllAsZip (real markdown + images)
+// ============================================
+describe('ExportService.exportAllAsZip', () => {
+    const DOC_ID = '11111111-1111-1111-1111-111111111111';
+    const fakeDotYouClient = {} as DotYouClient;
+
+    const META = (): DocumentMetadata => ({
+        title: 'My Note',
+        folderId: MAIN_FOLDER_ID,
+        tags: [],
+        timestamps: { created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z' },
+        excludeFromAI: false,
+    });
+
+    // A paragraph with bold text followed by an attachment:// image, stored as
+    // Yjs document_updates the same way extractMarkdownFromYjs reads them back.
+    function noteBlob(fileId: string, payloadKey: string): Uint8Array {
+        const doc = new Y.Doc();
+        const frag = doc.getXmlFragment('prosemirror');
+        const p = new Y.XmlElement('paragraph');
+        const t = new Y.XmlText();
+        t.insert(0, 'bold');
+        t.format(0, 4, { bold: true });
+        const img = new Y.XmlElement('image');
+        img.setAttribute('src', `attachment://${fileId}/${payloadKey}`);
+        img.setAttribute('alt', 'a');
+        p.insert(0, [t, img]);
+        frag.insert(0, [p]);
+        const update = Y.encodeStateAsUpdate(doc);
+        doc.destroy();
+        return update;
+    }
+
+    let db: PGlite;
+    beforeAll(async () => {
+        db = await createTestDatabase();
+        // @ts-expect-error test-only setter
+        pgliteModule.setTestDb(db);
+    });
+    afterAll(async () => { await closeTestDatabase(); });
+
+    let capturedBlob: Blob | undefined;
+    beforeEach(async () => {
+        await resetTestDatabase();
+        vi.clearAllMocks();
+        capturedBlob = undefined;
+        vi.spyOn(URL, 'createObjectURL').mockImplementation((obj: Blob | MediaSource) => {
+            capturedBlob = obj as Blob;
+            return 'blob:mock-url';
+        });
+        vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    });
+
+    async function exportedZip(dotYouClient: DotYouClient) {
+        const result = await ExportService.exportAllAsZip(dotYouClient);
+        const buffer = await capturedBlob!.arrayBuffer();
+        const zip = await JSZip.loadAsync(buffer);
+        return { result, zip };
+    }
+
+    it('exports real markdown and rewrites an attachment image to a relative asset path bundled in the zip', async () => {
+        await saveDocumentUpdate(DOC_ID, noteBlob('remote-file-1', 'jrnl_img0'));
+        await upsertSearchIndex({ docId: DOC_ID, title: 'My Note', plainTextContent: 'bold', metadata: META() });
+        mockGetPayloadBytes.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' });
+
+        const { result, zip } = await exportedZip(fakeDotYouClient);
+
+        expect(result.missingImages).toBe(0);
+        const md = await zip.file('My Note.md')!.async('string');
+        expect(md).toContain('**bold**');
+        expect(md).toContain('![a](assets/My Note-jrnl_img0.jpg)');
+        expect(zip.file('assets/My Note-jrnl_img0.jpg')).not.toBeNull();
+    });
+
+    it('keeps the attachment:// link and counts a missing image when the fetch fails', async () => {
+        await saveDocumentUpdate(DOC_ID, noteBlob('remote-file-1', 'jrnl_img0'));
+        await upsertSearchIndex({ docId: DOC_ID, title: 'My Note', plainTextContent: 'bold', metadata: META() });
+        mockGetPayloadBytes.mockRejectedValue(new Error('404'));
+
+        const { result, zip } = await exportedZip(fakeDotYouClient);
+
+        expect(result.missingImages).toBe(1);
+        const md = await zip.file('My Note.md')!.async('string');
+        expect(md).toContain('![a](attachment://remote-file-1/jrnl_img0)');
     });
 });

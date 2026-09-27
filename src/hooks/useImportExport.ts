@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
+import { useDotYouClientContext } from "@/components/auth";
 
 export interface UseImportExportReturn {
     // State
@@ -14,20 +15,24 @@ export interface UseImportExportReturn {
 export function useImportExport(): UseImportExportReturn {
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
+    const dotYouClient = useDotYouClientContext();
 
     const handleExport = useCallback(async () => {
         try {
             setIsExporting(true);
             const { ExportService } = await import("@/lib/importexport/ExportService");
-            const result = await ExportService.exportAllAsZip();
-            toast.success(`Exported ${result.count} items (${(result.size / 1024).toFixed(1)} KB)`);
+            const result = await ExportService.exportAllAsZip(dotYouClient);
+            const missingImagesNote = result.missingImages > 0
+                ? ` ${result.missingImages} images couldn't be exported (offline?)`
+                : "";
+            toast.success(`Exported ${result.count} items (${(result.size / 1024).toFixed(1)} KB).${missingImagesNote}`);
         } catch (error) {
             console.error("Export error:", error);
             toast.error("Failed to export data");
         } finally {
             setIsExporting(false);
         }
-    }, []);
+    }, [dotYouClient]);
 
     const handleImport = useCallback(async (files: FileList) => {
         try {
