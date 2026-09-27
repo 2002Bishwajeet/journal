@@ -10,7 +10,7 @@ export type BootPhase = 'react' | 'db-start' | 'db-worker' | 'db-ready';
 
 // Weights reflect real cost: PGlite's WASM fetch/compile (db-worker) is the
 // long pole of a cold boot; schema init and first data emit are quick.
-const PHASE_PROGRESS: Record<BootPhase, number> = {
+export const PHASE_PROGRESS: Record<BootPhase, number> = {
     react: 10,
     'db-start': 25,
     'db-worker': 65,

@@ -7,7 +7,7 @@
  * Nothing here mutates app state — the hook only reads signals the app
  * already maintains (bootProgress and the boot splash).
  */
-import { getBootProgress, subscribeBootProgress } from '@/lib/bootProgress';
+import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
 
 const E2E_ORIGINS = [
     'http://127.0.0.1:4173',
@@ -15,20 +15,19 @@ const E2E_ORIGINS = [
     'https://e2e.dotyou.cloud:4443',
 ];
 
-// The db-ready phase is bootProgress's last milestone (see PHASE_PROGRESS in
-// src/lib/bootProgress.ts) — progress is monotonic, so reaching this value
-// means db-ready has fired. Not exported by that module, so duplicated here.
-const DB_READY_PROGRESS = 85;
-
+// Progress is monotonic, so reaching db-ready's value means db-ready has fired.
+// A boot error rejects instead, so the fixture reports it rather than timing out.
 function waitForDbReady(): Promise<void> {
-    if (getBootProgress() >= DB_READY_PROGRESS) return Promise.resolve();
-    return new Promise((resolve) => {
-        const unsubscribe = subscribeBootProgress(() => {
-            if (getBootProgress() >= DB_READY_PROGRESS) {
-                unsubscribe();
-                resolve();
-            }
-        });
+    return new Promise((resolve, reject) => {
+        const settle = () => {
+            const error = getBootError();
+            if (!error && getBootProgress() < PHASE_PROGRESS['db-ready']) return;
+            unsubscribe();
+            if (error) reject(error);
+            else resolve();
+        };
+        const unsubscribe = subscribeBootProgress(settle);
+        settle();
     });
 }
 
