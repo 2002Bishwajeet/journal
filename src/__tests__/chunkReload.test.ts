@@ -33,13 +33,13 @@ describe('isChunkLoadError', () => {
 
 describe('reloadOnceForChunkError', () => {
     let now = 1_000_000;
-    let reloadSpy: ReturnType<typeof vi.fn>;
+    let reloadSpy: ReturnType<typeof vi.fn<() => void>>;
 
     beforeEach(() => {
         sessionStorage.clear();
         now = 1_000_000;
         vi.spyOn(Date, 'now').mockImplementation(() => now);
-        reloadSpy = vi.fn();
+        reloadSpy = vi.fn<() => void>();
         vi.spyOn(window.location, 'reload').mockImplementation(reloadSpy);
     });
 
