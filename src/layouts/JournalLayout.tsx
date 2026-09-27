@@ -304,23 +304,6 @@ export default function JournalLayout() {
   const handleEmptyTrash = useCallback(() => {
     emptyTrash().catch(() => toast.error("Couldn't empty Trash"));
   }, [emptyTrash]);
-  const handleArchive = useCallback(
-    async (note: NoteListEntry) => {
-      // Archived notes leave the active list, so an open tab would flip to
-      // "Note not found" — close it like trash/delete do.
-      closeTab(note.docId);
-      try {
-        await archiveNote(note.docId);
-      } catch {
-        toast.error("Couldn't archive note");
-        return;
-      }
-      if (note.docId === noteId) {
-        navigate(`/${folderId}`, { viewTransition: true });
-      }
-    },
-    [archiveNote, closeTab, noteId, folderId, navigate],
-  );
   const handleUnarchive = useCallback(
     (id: string) => {
       unarchiveNote(id).catch(() => toast.error("Couldn't unarchive note"));
@@ -385,23 +368,40 @@ export default function JournalLayout() {
   };
 
   // Handle tab close
-  const handleTabClose = (docId: string) => {
-    // Same tab closeTab activates, so the URL effect doesn't mount another one.
-    const nextId = nextActiveTabId(openTabs, docId, activeTabId);
-    closeTab(docId);
+  // Reads notesRef rather than notes so handleArchive, which every memoized
+  // NoteItem receives, doesn't change identity on each note edit.
+  const handleTabClose = useCallback(
+    (docId: string) => {
+      // Same tab closeTab activates, so the URL effect doesn't mount another one.
+      const nextId = nextActiveTabId(openTabs, docId, activeTabId);
+      closeTab(docId);
 
-    // If closing the active tab, navigate to the next tab's note or the folder
-    if (docId === noteId) {
-      const note = nextId ? notes.find((n) => n.docId === nextId) : undefined;
-      if (note) {
-        navigate(`/${note.metadata.folderId}/${nextId}`, {
-          viewTransition: true,
-        });
-      } else {
-        navigate(folderId ? `/${folderId}` : "/", { viewTransition: true });
+      // If closing the active tab, navigate to the next tab's note or the folder
+      if (docId === noteId) {
+        const note = nextId
+          ? notesRef.current.find((n) => n.docId === nextId)
+          : undefined;
+        if (note) {
+          navigate(`/${note.metadata.folderId}/${nextId}`, {
+            viewTransition: true,
+          });
+        } else {
+          navigate(folderId ? `/${folderId}` : "/", { viewTransition: true });
+        }
       }
-    }
-  };
+    },
+    [openTabs, activeTabId, closeTab, noteId, folderId, navigate],
+  );
+
+  const handleArchive = useCallback(
+    (note: NoteListEntry) => {
+      // Archived notes leave the active list, so an open tab would flip to
+      // "Note not found" — close it (and leave it, if it's the open note).
+      handleTabClose(note.docId);
+      archiveNote(note.docId).catch(() => toast.error("Couldn't archive note"));
+    },
+    [archiveNote, handleTabClose],
+  );
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
 
