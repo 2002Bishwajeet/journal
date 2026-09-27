@@ -1063,7 +1063,7 @@ export class SyncService {
 
                 // Clear pending image deletions after successful sync
                 if (pendingDeletions.length > 0) {
-                    await clearPendingImageDeletions(record.localId);
+                    await clearPendingImageDeletions(record.localId, pendingDeletions);
                 }
             } catch (error) {
                 // WebCrypto throws OperationError when the cached key header can't be

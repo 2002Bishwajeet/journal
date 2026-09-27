@@ -1490,11 +1490,15 @@ export async function removePendingImageDeletion(noteDocId: string, payloadKey: 
 }
 
 /**
- * Clear pending image deletions for a note (after successful sync)
+ * Clear the given pending image deletions for a note (after they were sent in a successful sync).
+ * Rows queued after the push read them stay queued for the next push (#242).
  */
-export async function clearPendingImageDeletions(noteDocId: string): Promise<void> {
+export async function clearPendingImageDeletions(noteDocId: string, payloadKeys: string[]): Promise<void> {
     const db = await getDatabase();
-    await db.query('DELETE FROM pending_image_deletions WHERE note_doc_id = $1', [noteDocId]);
+    await db.query(
+        'DELETE FROM pending_image_deletions WHERE note_doc_id = $1 AND payload_key = ANY($2)',
+        [noteDocId, payloadKeys]
+    );
 }
 
 // ============================================
