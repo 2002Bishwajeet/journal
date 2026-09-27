@@ -28,6 +28,7 @@ import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { useSyncService } from '@/hooks/useSyncService';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import { useLiveQuery } from './useLiveQuery';
+import { useDotYouClientContext } from '@/components/auth';
 
 interface CreateNoteResult {
     docId: string;
@@ -420,7 +421,8 @@ export function useNotes() {
  * on useTrashedNotes / useArchivedNotes / useCollaborativeNotes).
  */
 export function useNoteCounts(): NoteCountsRow {
-    const { data } = useLiveQuery<NoteCountsRow>(NOTE_COUNTS_SQL, [], 'note-counts');
+    const host = useDotYouClientContext().getHostIdentity();
+    const { data } = useLiveQuery<NoteCountsRow>(NOTE_COUNTS_SQL, [host], 'note-counts');
     const row = data[0];
     return {
         trashed: row?.trashed ?? 0,
@@ -456,7 +458,8 @@ export function useNotesByFolder(folderId: string | undefined) {
 }
 
 export function useCollaborativeNotes(enabled: boolean = true) {
-    return useLiveNoteList(NOTE_LIST_SQL.collaborative, [], enabled);
+    const host = useDotYouClientContext().getHostIdentity();
+    return useLiveNoteList(NOTE_LIST_SQL.collaborative, [host], enabled);
 }
 
 /**

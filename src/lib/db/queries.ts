@@ -66,6 +66,13 @@ const NOTE_LIST_SELECT = `SELECT doc_id, title, LEFT(plain_text_content, 150) as
 // isn't IMMUTABLE, so it can't be indexed).
 const MODIFIED_DESC = `ORDER BY metadata->'timestamps'->>'modified' DESC NULLS LAST`;
 const PINNED_THEN_MODIFIED = `ORDER BY (metadata->>'isPinned')::boolean DESC NULLS LAST, (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`;
+// "Shared with me": collaborative notes authored by someone other than the host ($1).
+// metadata.authorOdinId first (what EditorPage uses), sync_records as fallback
+// since handleRemoteNote can drop it from metadata. A NULL author (a note you
+// shared) compares as NULL, so it's excluded.
+const SHARED_WITH_ME_FILTER = `(metadata->>'isCollaborative')::boolean = true
+    AND COALESCE(metadata->>'authorOdinId',
+                 (SELECT sr.author_odin_id FROM sync_records sr WHERE sr.local_id = search_index.doc_id)) <> $1`;
 
 export const NOTE_ROW_KEY = 'doc_id';
 export const FOLDER_ROW_KEY = 'id';
@@ -73,7 +80,7 @@ export const FOLDER_ROW_KEY = 'id';
 export const NOTE_LIST_SQL = {
     active: `${NOTE_LIST_SELECT} WHERE ${ACTIVE_NOTES_FILTER} ${MODIFIED_DESC}`,
     byFolder: `${NOTE_LIST_SELECT} WHERE metadata->>'folderId' = $1 AND ${ACTIVE_NOTES_FILTER} ${MODIFIED_DESC}`,
-    collaborative: `${NOTE_LIST_SELECT} WHERE (metadata->>'isCollaborative')::boolean = true AND ${ACTIVE_NOTES_FILTER} ${PINNED_THEN_MODIFIED}`,
+    collaborative: `${NOTE_LIST_SELECT} WHERE ${SHARED_WITH_ME_FILTER} AND ${ACTIVE_NOTES_FILTER} ${PINNED_THEN_MODIFIED}`,
     trashed: `${NOTE_LIST_SELECT} WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 2 ${MODIFIED_DESC}`,
     archived: `${NOTE_LIST_SELECT} WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 1 ${MODIFIED_DESC}`,
     byTag: `${NOTE_LIST_SELECT} WHERE metadata->'tags' ? $1 AND ${ACTIVE_NOTES_FILTER} ORDER BY (metadata->>'isPinned')::boolean DESC NULLS LAST, updated_at DESC`,
@@ -89,7 +96,7 @@ export const NOTE_COUNTS_SQL = `
     SELECT
         (COUNT(*) FILTER (WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 2))::int AS trashed,
         (COUNT(*) FILTER (WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 1))::int AS archived,
-        (COUNT(*) FILTER (WHERE (metadata->>'isCollaborative')::boolean = true AND ${ACTIVE_NOTES_FILTER}))::int AS collaborative
+        (COUNT(*) FILTER (WHERE ${SHARED_WITH_ME_FILTER} AND ${ACTIVE_NOTES_FILTER}))::int AS collaborative
     FROM search_index`;
 
 export type NoteCountsRow = { trashed: number; archived: number; collaborative: number };
