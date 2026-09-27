@@ -5,7 +5,7 @@ import { NotesDriveProvider } from './NotesDriveProvider';
 import { InboxProcessor } from './InboxProcessor';
 import {
     getFolderById,
-    createFolder as createLocalFolder,
+    upsertFolder,
     deleteFolder as deleteLocalFolder,
     getSearchIndexEntry,
     getAllDocIdsByFolder,
@@ -476,7 +476,7 @@ export class SyncService {
 
         if (!existingRecord) {
             // New folder from remote
-            await createLocalFolder(uniqueId, folderName);
+            await upsertFolder(uniqueId, folderName);
             await upsertSyncRecord({
                 localId: uniqueId,
                 entityType: 'folder',
@@ -488,7 +488,7 @@ export class SyncService {
             });
         } else {
             // Update existing - remote wins for folders (simple content)
-            await createLocalFolder(uniqueId, folderName);
+            await upsertFolder(uniqueId, folderName);
             await markSynced(uniqueId, remoteFile.fileId, remoteFile.fileMetadata.versionTag, undefined, serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader));
         }
     }

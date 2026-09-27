@@ -565,6 +565,15 @@ export async function createFolder(id: string, name: string): Promise<void> {
     );
 }
 
+/** Insert or rename a folder. Remote sync only — local creates use createFolder. */
+export async function upsertFolder(id: string, name: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        'INSERT INTO folders (id, name) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name',
+        [id, name]
+    );
+}
+
 export async function deleteFolder(id: string): Promise<void> {
     // Prevent deleting the Main folder
     if (id === MAIN_FOLDER_ID) {
