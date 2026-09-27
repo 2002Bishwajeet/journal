@@ -46,7 +46,6 @@ import {
   JOURNAL_APP_ID,
   JOURNAL_APP_NAME,
   MAIN_FOLDER_ID,
-  COLLABORATIVE_FOLDER_ID,
   COLLABORATION_PERMISSIONS,
   CONTACT_TARGET_DRIVE_REQUEST,
 } from "@/lib/homebase/config";
@@ -63,7 +62,11 @@ import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags, useNotesByTag } from "@/hooks/useTags";
 import { useAuth } from "@/hooks/auth";
-import { useFolders, resolveNoteFolderId } from "@/hooks/useFolders";
+import {
+  useFolders,
+  resolveNoteFolderId,
+  isUnknownFolderRoute,
+} from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useDotYouClientContext } from "@/components/auth";
 import { NotesDriveProvider } from "@/lib/homebase/NotesDriveProvider";
@@ -385,19 +388,7 @@ export default function JournalLayout() {
     return <SplashScreen />;
   }
 
-  // A folder-only route whose folder doesn't exist (typo, deleted, or never
-  // synced) would otherwise render as an empty "Notes" folder. Note routes are
-  // exempt: a note can legitimately carry a folderId with no local folder row
-  // (peer notes, #148/#149).
-  if (
-    folderId &&
-    !noteId &&
-    folderId !== "trash" &&
-    folderId !== "archive" &&
-    folderId !== "shared" &&
-    folderId !== COLLABORATIVE_FOLDER_ID &&
-    !folders.some((f) => f.id === folderId)
-  ) {
+  if (isUnknownFolderRoute(folderId, noteId, folders)) {
     return <Navigate to="/" replace />;
   }
 

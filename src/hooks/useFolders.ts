@@ -14,7 +14,7 @@ import {
     toFolder,
 } from '@/lib/db';
 import { getNewId } from '@/lib/utils';
-import { MAIN_FOLDER_ID } from '@/lib/homebase';
+import { MAIN_FOLDER_ID, COLLABORATIVE_FOLDER_ID } from '@/lib/homebase';
 import { useSyncService } from '@/hooks/useSyncService';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import { useLiveQuery } from './useLiveQuery';
@@ -54,6 +54,29 @@ export function resolveNoteFolderId(
     folders: ReadonlyArray<{ id: string }>
 ): string {
     return folderId && folders.some((f) => f.id === folderId) ? folderId : MAIN_FOLDER_ID;
+}
+
+/**
+ * Whether a route names a folder that doesn't exist (typo, deleted, or never
+ * synced), so `JournalLayout` should redirect to `/` instead of rendering an
+ * empty "Notes" folder. Pseudo-folders and the collaborative folder are real
+ * views without a folder row. Note routes are exempt: a note can legitimately
+ * carry a folderId with no local folder row (peer notes, #148/#149).
+ */
+export function isUnknownFolderRoute(
+    folderId: string | undefined,
+    noteId: string | undefined,
+    folders: ReadonlyArray<{ id: string }>
+): boolean {
+    return (
+        !!folderId &&
+        !noteId &&
+        folderId !== 'trash' &&
+        folderId !== 'archive' &&
+        folderId !== 'shared' &&
+        folderId !== COLLABORATIVE_FOLDER_ID &&
+        !folders.some((f) => f.id === folderId)
+    );
 }
 
 /**
