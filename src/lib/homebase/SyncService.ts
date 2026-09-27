@@ -93,6 +93,9 @@ type ConflictResolutionResult = {
 // case, so a cheap byte-sum is enough here — no need to build a Y.Doc.)
 const EMPTY_YDOC_BYTES = 2;
 
+// An uploaded image whose pending node never shows up is marked failed_permanent after this many tries
+const MAX_IMAGE_PROMOTION_ATTEMPTS = 5;
+
 function totalUpdateBytes(updates: Uint8Array[]): number {
     let total = 0;
     for (const update of updates) total += update.byteLength;
@@ -932,22 +935,21 @@ export class SyncService {
 
                 // Get pending image deletions for this note, minus any payload the doc still
                 // shows on this note's file (e.g. undone after the tracker's 2s timer, #174)
-                const referencedDoc = new Y.Doc();
-                let referencedKeys: Set<string>;
-                try {
-                    for (const update of await getDocumentUpdates(record.localId)) {
-                        Y.applyUpdate(referencedDoc, update);
-                    }
-                    referencedKeys = new Set(
-                        collectImageRefs(referencedDoc.getXmlFragment('prosemirror'))
-                            .filter(ref => ref.fileId === record.remoteFileId)
-                            .map(ref => ref.payloadKey)
-                    );
-                } finally {
-                    referencedDoc.destroy();
-                }
                 const pendingDeletions: string[] = [];
-                for (const payloadKey of await getPendingImageDeletions(record.localId)) {
+                const queuedDeletions = await getPendingImageDeletions(record.localId);
+                const referencedKeys = new Set<string>();
+                if (queuedDeletions.length > 0) {
+                    const referencedDoc = new Y.Doc();
+                    try {
+                        Y.applyUpdate(referencedDoc, yjsBlob);
+                        for (const ref of collectImageRefs(referencedDoc.getXmlFragment('prosemirror'))) {
+                            if (ref.fileId === record.remoteFileId) referencedKeys.add(ref.payloadKey);
+                        }
+                    } finally {
+                        referencedDoc.destroy();
+                    }
+                }
+                for (const payloadKey of queuedDeletions) {
                     if (referencedKeys.has(payloadKey)) {
                         await removePendingImageDeletion(record.localId, payloadKey);
                     } else {
@@ -1106,14 +1108,12 @@ export class SyncService {
 
                 if (promoted) {
                     await deletePendingImageUpload(upload.id);
-                } else if (upload.retryCount + 1 >= 5) {
+                } else if (upload.retryCount + 1 >= MAX_IMAGE_PROMOTION_ATTEMPTS) {
                     // Give up retrying but keep the bytes (cleared at logout)
                     await updateImageUploadStatus(upload.id, 'failed_permanent');
                     console.warn(`[SyncService] Image ${upload.id} could not be promoted; giving up`);
                 } else {
-                    await incrementImageRetryCount(upload.id);
-                    await updateImageUploadStatus(upload.id, 'failed');
-                    await updateImageRetryAt(upload.id, calculateNextRetryAt(upload.retryCount));
+                    throw new Error(`Pending image node ${upload.id} not found in note ${upload.noteDocId}`);
                 }
             } catch (error) {
                 console.error(`[SyncService] Image upload failed:`, error);
