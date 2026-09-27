@@ -54,27 +54,41 @@ try {
   await page.goto(APP);
   await page.locator('#identity').fill(IDENTITY);
   await page.getByRole('button', { name: /^Continue$/ }).click();
-  const deadline = Date.now() + 120_000;
   let clicks = 0;
-  while (Date.now() < deadline) {
-    const url = new URL(page.url());
-    if (url.origin === APP && !url.pathname.startsWith('/auth')) {
-      const token = await page.evaluate(() => localStorage.getItem('BX0900'));
-      if (token) break;
-    }
-    if (url.hostname === IDENTITY) {
-      for (const name of [/^Allow$/, /^Next$/, /^Login$/]) {
-        const btn = page.getByRole('button', { name });
-        if (await btn.first().isVisible().catch(() => false)) {
-          await shot(`03-consent-${++clicks}`);
-          log('clicking', String(name), 'on', url.pathname);
-          await btn.first().click();
-          await page.waitForTimeout(1500);
-          break;
+  // Clicks through owner-app consent pages until the app origin is back and `done()` holds.
+  const consentUntil = async (done) => {
+    const deadline = Date.now() + 120_000;
+    while (Date.now() < deadline) {
+      const url = new URL(page.url());
+      if (url.origin === APP && !url.pathname.startsWith('/auth') && (await done().catch(() => false))) return;
+      if (url.hostname === IDENTITY) {
+        for (const name of [/^Allow$/, /^Next$/, /^Login$/]) {
+          const btn = page.getByRole('button', { name });
+          if (await btn.first().isVisible().catch(() => false)) {
+            await shot(`03-consent-${++clicks}`);
+            log('clicking', String(name), 'on', url.pathname);
+            await btn.first().click();
+            await page.waitForTimeout(1500);
+            break;
+          }
         }
       }
+      await page.waitForTimeout(500);
     }
-    await page.waitForTimeout(500);
+    throw new Error(`consent loop timed out at ${page.url().slice(0, 200)}`);
+  };
+  await consentUntil(() => page.evaluate(() => !!localStorage.getItem('BX0900')));
+
+  // 4b. On a fresh identity the app immediately asks for extra permissions
+  //     (ExtendPermissionDialog -> owner /owner/appupdate). Approve them too.
+  const extend = page.getByRole('link', { name: /Extend permissions/ });
+  if (await extend.waitFor({ timeout: 8_000 }).then(() => true, () => false)) {
+    log('app shows "Missing permissions"; extending');
+    await shot('04a-missing-permissions');
+    await extend.click();
+    await page.waitForURL((u) => u.hostname === IDENTITY, { timeout: 30_000 });
+    await consentUntil(async () => !(await extend.isVisible()) &&
+      (await page.getByRole('button', { name: /Create your first note|^New$/ }).first().isVisible()));
   }
   const hasToken = await page.evaluate(() => !!localStorage.getItem('BX0900') && !!localStorage.getItem('APSS'));
   await shot('04-app-after-auth');
