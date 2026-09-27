@@ -4,6 +4,7 @@
  * (production "Minified React error #520", a concurrent render that succeeded
  * on a synchronous retry) through window `error`. sw-safety treated every
  * minified React error as a stale-cache crash and reload-looped the page.
+ * Only duplicate/mismatched-React symptoms should trigger recovery.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 
@@ -38,8 +39,23 @@ describe('sw-safety fatal error handler', () => {
         expect(reloadSpy).not.toHaveBeenCalled();
     });
 
-    it('still reloads for the stale-bundle hook crash', () => {
-        fireWindowError(new TypeError("Cannot read properties of null (reading 'useState')"));
+    it.each([185, 418, 423])('does not reload for React error #%i (an app bug, not a stale cache)', (code) => {
+        fireWindowError(new Error(`Minified React error #${code}; visit https://react.dev/errors/${code} for the full message`));
+        expect(reloadSpy).not.toHaveBeenCalled();
+    });
+
+    it('does not reload for an unrelated null-property TypeError', () => {
+        fireWindowError(new TypeError("Cannot read properties of null (reading 'user')"));
+        expect(reloadSpy).not.toHaveBeenCalled();
+    });
+
+    it.each(['useState', 'useEffect', 'useContext'])('still reloads for the stale-bundle hook crash (%s)', (hook) => {
+        fireWindowError(new TypeError(`Cannot read properties of null (reading '${hook}')`));
+        expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('still reloads for an invalid hook call (#321, duplicate React)', () => {
+        fireWindowError(new Error('Minified React error #321; visit https://react.dev/errors/321 for the full message'));
         expect(reloadSpy).toHaveBeenCalledTimes(1);
     });
 });
