@@ -193,7 +193,7 @@ export function AISuggestionOverlay({ editor }: AISuggestionOverlayProps) {
       position: null,
       action: '',
     });
-    editor.commands.focus();
+    editor.chain().focus().run();
   }, [editor]);
 
   // Handle keyboard shortcuts

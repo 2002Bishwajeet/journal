@@ -4,6 +4,9 @@ import { useEditorContext } from "./EditorContext";
 import { searchPluginKey } from "./plugins/SearchAndReplaceExtension";
 
 export function FindReplaceBar() {
+  // Call commands through editor.chain(), never editor?.commands: the React
+  // Compiler turns `editor?.commands` into a render-time memo check, and that
+  // getter throws on an editor TipTap has already destroyed (#247).
   const { editor } = useEditorContext();
   const [isOpen, setIsOpen] = useState(false);
   const [isReplaceOpen, setIsReplaceOpen] = useState(false);
@@ -59,7 +62,7 @@ export function FindReplaceBar() {
       // <body>. Return focus to the editor so keyboard users aren't stranded.
       wasOpenRef.current = false;
       if (!document.activeElement || document.activeElement === document.body) {
-        editor?.commands.focus();
+        editor?.chain().focus().run();
       }
     }
   }, [isOpen, editor]);
@@ -72,24 +75,24 @@ export function FindReplaceBar() {
   const handleClose = () => {
     setSearchTerm("");
     setReplaceTerm("");
-    editor?.commands.closeSearch();
-    editor?.commands.focus();
+    editor?.chain().closeSearch().run();
+    editor?.chain().focus().run();
   };
 
   const handleNext = () => {
-    editor?.commands.goToNextMatch();
+    editor?.chain().goToNextMatch().run();
   };
 
   const handlePrev = () => {
-    editor?.commands.goToPrevMatch();
+    editor?.chain().goToPrevMatch().run();
   };
 
   const handleReplace = () => {
-    editor?.commands.replaceCurrentMatch(replaceTerm);
+    editor?.chain().replaceCurrentMatch(replaceTerm).run();
   };
 
   const handleReplaceAll = () => {
-    editor?.commands.replaceAllMatches(replaceTerm);
+    editor?.chain().replaceAllMatches(replaceTerm).run();
   };
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
