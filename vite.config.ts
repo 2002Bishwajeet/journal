@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     restorePgliteProcessGuard,
     react(),
-    ...(mode === 'production'
+    ...(mode === 'production' || mode === 'e2e'
       ? [babel({ presets: [reactCompilerPreset()] })]
       : []),
     tailwindcss(),
@@ -140,12 +140,16 @@ export default defineConfig(({ mode }) => ({
     exclude: ['@electric-sql/pglite', 'pglite-v4', '@electric-sql/pglite-tools'],
   },
   server: {
-    host: 'dev.dotyou.cloud',
-    port: 5173,
-    https: {
-      key: fs.readFileSync('./dev-dotyou-cloud.key'),
-      cert: fs.readFileSync('./dev-dotyou-cloud.crt'),
-    },
+    // e2e mode serves plain HTTP on 127.0.0.1 (set by the e2e script via
+    // --host/--port) and must not read the dev cert files or bind the dev host.
+    ...(mode === 'e2e' ? {} : {
+      host: 'dev.dotyou.cloud',
+      port: 5173,
+      https: {
+        key: fs.readFileSync('./dev-dotyou-cloud.key'),
+        cert: fs.readFileSync('./dev-dotyou-cloud.crt'),
+      },
+    }),
     headers: {
       // Required for OPFS/WebLLM and SharedArrayBuffer
       'Cross-Origin-Embedder-Policy': 'require-corp',
