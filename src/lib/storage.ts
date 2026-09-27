@@ -8,6 +8,7 @@ import { tryJsonParse } from '@/lib/utils';
 // them without importing those hooks — and with them, PGlite.
 export const TABS_STORAGE_KEY = 'journal-open-tabs';
 export const SESSION_STORAGE_KEY = 'journal-session-state';
+export const SEARCH_CONSENT_KEY = 'journal-search-consent';
 
 /** Reads JSON, yielding null when there is nothing stored or storage throws (private browsing). */
 export function readJson<T>(key: string): T | null {
@@ -23,6 +24,23 @@ export function readJson<T>(key: string): T | null {
 export function writeJson(key: string, value: unknown): void {
     try {
         localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+        console.error(`Failed to save ${key}:`, error);
+    }
+}
+
+/** Reads a raw string, yielding null when there is nothing stored or storage throws (private browsing). */
+export function readString(key: string): string | null {
+    try {
+        return localStorage.getItem(key);
+    } catch {
+        return null;
+    }
+}
+
+export function writeString(key: string, value: string): void {
+    try {
+        localStorage.setItem(key, value);
     } catch (error) {
         console.error(`Failed to save ${key}:`, error);
     }

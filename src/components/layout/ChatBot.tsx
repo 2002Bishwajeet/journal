@@ -1,68 +1,36 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useWebLLM, type ChatMessage } from "@/hooks/useWebLLM";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Send, Loader2, Bot, MessageCircle, ChevronLeft, Globe, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useNotes } from "@/hooks/useNotes";
-import { getSearchIndexEntry } from "@/lib/db";
-import { webSearch } from "@/lib/search/searchService";
+import { useChatSession } from "@/hooks/useChatSession";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ChatBotProps {
   activeNoteId?: string | null;
 }
 
-const COMMANDS = [
-  { label: "/summarize", description: "Summarize current note" },
-  { label: "/search", description: "Search the web" },
-  { label: "/clear", description: "Clear chat history" },
-  { label: "/help", description: "Show available commands" },
-];
-
 export function ChatBot({ activeNoteId }: ChatBotProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [input, setInput] = useState("");
-  // Per-note chat history - keyed by activeNoteId, session-based (lost on app close)
-  const [chatHistories, setChatHistories] = useState<Record<string, ChatMessage[]>>({});
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  
-  // Search consent state
-  const [showSearchConsent, setShowSearchConsent] = useState(false);
-  const [pendingSearchQuery, setPendingSearchQuery] = useState<string | null>(null);
-
-  // Derive current messages from chatHistories based on activeNoteId
-  const noteKey = activeNoteId ?? '__global__';
-  // Memoize messages to prevent dependency changes on every render
-  const messages = useMemo(() => chatHistories[noteKey] ?? [], [chatHistories, noteKey]);
-  
-  // Helper to update messages for current note
-  const setMessages = useCallback((updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
-    setChatHistories(prev => {
-      const currentMessages = prev[noteKey] ?? [];
-      const newMessages = typeof updater === 'function' ? updater(currentMessages) : updater;
-      return { ...prev, [noteKey]: newMessages };
-    });
-  }, [noteKey]);
-
-  // Command Auto-complete state
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [filteredCommands, setFilteredCommands] = useState(COMMANDS);
-  const [selectedIndex, setSelectedIndex] = useState(0);
 
   const {
-    chat,
+    messages,
+    input,
+    setInput,
+    isGenerating,
+    isSearching,
+    suggestions,
+    consent,
+    send,
+    selectCommand,
+    handleKeyDown,
     isReady,
-    initialize,
-    isLoading: isModelLoading,
+    isLoading,
     loadingProgress,
     loadingMessage,
-  } = useWebLLM();
-  const {
-    get: { data: notes = [] },
-  } = useNotes();
+    initialize,
+  } = useChatSession(activeNoteId ?? undefined);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -76,272 +44,8 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
     }
   }, [messages, isOpen, isGenerating, isSearching]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setInput(val);
-
-    if (val.startsWith("/")) {
-      const search = val.toLowerCase();
-      const matches = COMMANDS.filter((c) => c.label.startsWith(search));
-      setFilteredCommands(matches);
-      setShowSuggestions(matches.length > 0);
-      setSelectedIndex(0);
-    } else {
-      setShowSuggestions(false);
-    }
-  };
-
-  const selectCommand = (cmd: string) => {
-    setInput(cmd);
-    setShowSuggestions(false);
-    // Optional: auto-focus back to input if needed, but Input has focus
-  };
-  
-  const performSearch = async (query: string) => {
-    setIsSearching(true);
-    setMessages(prev => [...prev, { role: "assistant", content: "🔍 Searching the web..." }]);
-    
-    try {
-      const results = await webSearch(query);
-      
-      // Remove the "Searching..." message
-      setMessages(prev => {
-        const lastMsg = prev[prev.length - 1];
-        if (lastMsg && lastMsg.content === "🔍 Searching the web...") {
-          return prev.slice(0, -1);
-        }
-        return prev;
-      });
-      
-      if (results.length === 0) {
-        setMessages(prev => [...prev, { role: "assistant", content: "I couldn't find any results for that query." }]);
-        setIsSearching(false);
-        return;
-      }
-      
-      // Construct search context
-      const searchContext = results.map((r, i) => 
-        `[${i+1}] ${r.title} (${r.source})\nURL: ${r.url}\n${r.snippet}`
-      ).join("\n\n");
-      
-      const systemPrompt = `You are a helpful research assistant. Answer the user's question based ONLY on the search results below.
-      
-SEARCH RESULTS:
-${searchContext}
-
-INSTRUCTIONS:
-1. Synthesize the information to answer the query: "${query}"
-2. Cite your sources using [1], [2], etc.
-3. Be concise and factual.
-4. If the search results don't contain the answer, say so.
-`;
-
-      setIsGenerating(true);
-      const response = await chat([
-        { role: "system", content: systemPrompt },
-        { role: "user", content: "Please summarize what you found." }
-      ]);
-      
-      setMessages(prev => [...prev, { role: "assistant", content: response }]);
-      
-    } catch (error) {
-      console.error("Search failed:", error);
-      setMessages(prev => {
-        // Remove "Searching..." if distinct from prev
-        const msgs = prev[prev.length - 1].content === "🔍 Searching the web..." ? prev.slice(0, -1) : prev;
-        return [...msgs, { role: "assistant", content: "Sorry, the search failed. Please try again." }];
-      });
-    } finally {
-      setIsSearching(false);
-      setIsGenerating(false);
-    }
-  };
-
-  const confirmSearch = () => {
-    localStorage.setItem("journal-search-consent", "true");
-    setShowSearchConsent(false);
-    if (pendingSearchQuery) {
-      performSearch(pendingSearchQuery);
-      setPendingSearchQuery(null);
-    }
-  };
-
-  const handleSend = async () => {
-    const text = input.trim();
-    if (!text || isGenerating || isSearching) return;
-
-    setShowSuggestions(false);
-
-    // Command handling
-    if (text.startsWith("/")) {
-      setInput("");
-      const parts = text.split(" ");
-      const command = parts[0].toLowerCase();
-      // Combine all arguments into the query string
-      const args = parts.slice(1).join(" ");
-
-      if (command === "/clear") {
-        setMessages([]);
-        return;
-      }
-      
-      if (command === "/search") {
-        if (!args) {
-           setMessages(prev => [...prev, { role: "user", content: text }, { role: "assistant", content: "Please provide a search query. Example: /search latest AI news" }]);
-           return;
-        }
-        
-        setMessages(prev => [...prev, { role: "user", content: text }]);
-        
-        // Check consent
-        const hasConsent = localStorage.getItem("journal-search-consent") === "true";
-        if (!hasConsent) {
-          setPendingSearchQuery(args);
-          setShowSearchConsent(true);
-          return;
-        }
-        
-        performSearch(args);
-        return;
-      }
-
-      if (command === "/help") {
-        setMessages((prev) => [
-          ...prev,
-          { role: "user", content: text },
-          {
-            role: "assistant",
-            content:
-              "Available commands:\n\n/search <query> - Search the web\n/summarize - Summarize the current note\n/clear - Clear chat history\n/help - Show this help message",
-          },
-        ]);
-        return;
-      }
-
-      if (command === "/summarize" || command === "/summarise") {
-        // Let it fall through to AI processing but with a specific prompt
-        // We'll show the command as the user message
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: "user", content: text },
-          {
-            role: "assistant",
-            content: `Unknown command '${command}'. Type /help for available commands.`,
-          },
-        ]);
-        return;
-      }
-    }
-
-    const userMessage: ChatMessage = { role: "user", content: text };
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsGenerating(true);
-
-    try {
-      // Construct context — fetch full content from DB to avoid using truncated preview
-      const fullEntry = activeNoteId ? await getSearchIndexEntry(activeNoteId) : null;
-      const recentNotes = notes
-        .slice(0, 30)
-        .map((n) => `- ${n.title}`)
-        .join("\n");
-
-      const systemContext = `You are a helpful assistant for a personal journal app. Answer questions based ONLY on the provided context below. If you don't know or the information isn't in the context, say so honestly.
-
-${
-  fullEntry
-    ? `CURRENT NOTE:
-Title: ${fullEntry.title}
-Content:
-${fullEntry.plainTextContent?.slice(0, 2000) || "(empty)"}
-`
-    : "No note is currently open."
-}
-
-OTHER NOTES (titles only):
-${recentNotes || "(none)"}
-
-RULES:
-- Be concise and helpful.
-- Only use information from the context above.
-- If asked about something not in your context, say "I don't have that information in your notes."
-- Do not make up facts or content that isn't in the notes.
-`;
-
-      // Handle specific command overrides for the AI prompt
-      let finalPrompt = text;
-      if (
-        text.toLowerCase().startsWith("/summarize") ||
-        text.toLowerCase().startsWith("/summarise")
-      ) {
-        finalPrompt = "Please provide a concise summary of the current note.";
-      }
-
-      const conversationHistory: ChatMessage[] = [
-        { role: "system", content: systemContext },
-        ...messages,
-        // Use the interpreted prompt for the last message if it was a command, otherwise the original text
-        { role: "user", content: finalPrompt },
-      ];
-
-      const response = await chat(conversationHistory);
-
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: response },
-      ]);
-    } catch (error) {
-      console.error("Chat error:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
-        },
-      ]);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (showSuggestions) {
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((prev) =>
-          prev > 0 ? prev - 1 : filteredCommands.length - 1
-        );
-        return;
-      }
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((prev) =>
-          prev < filteredCommands.length - 1 ? prev + 1 : 0
-        );
-        return;
-      }
-      if (e.key === "Tab" || e.key === "Enter") {
-        e.preventDefault();
-        if (filteredCommands[selectedIndex]) {
-          selectCommand(filteredCommands[selectedIndex].label);
-        }
-        return;
-      }
-      if (e.key === "Escape") {
-        setShowSuggestions(false);
-        return;
-      }
-    }
-
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
   const toggleChat = () => {
-    if (!isOpen && !isReady && !isModelLoading) {
+    if (!isOpen && !isReady && !isLoading) {
       initialize();
     }
     setIsOpen(!isOpen);
@@ -363,12 +67,12 @@ RULES:
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            
+
             <div className="flex items-center gap-2 flex-1">
               <Bot className="w-5 h-5 text-primary" />
               <span className="font-medium text-sm">Assistant</span>
             </div>
-            
+
             {/* Desktop: X close button */}
             <Button
               variant="ghost"
@@ -386,7 +90,7 @@ RULES:
             <div className="flex flex-col gap-4 p-4 min-h-full">
               {!isReady && (
                 <div className="flex flex-col items-center justify-center flex-1 text-center space-y-4 py-8 text-muted-foreground">
-                  {isModelLoading ? (
+                  {isLoading ? (
                     <>
                       <Loader2 className="w-8 h-8 animate-spin text-primary" />
                       <div className="space-y-1">
@@ -461,18 +165,18 @@ RULES:
           {/* Input Area */}
           <div className="p-3 border-t bg-background shrink-0 relative pb-[max(12px,env(safe-area-inset-bottom))]">
             {/* Command Suggestions Popup */}
-            {showSuggestions && (
+            {suggestions.open && (
               <div className="absolute bottom-full left-3 w-64 mb-2 bg-popover text-popover-foreground border rounded-md shadow-lg overflow-hidden z-50">
                 <div className="py-1">
-                  {filteredCommands.map((cmd, index) => (
+                  {suggestions.items.map((cmd, index) => (
                     <div
                       key={cmd.label}
                       className={cn(
                         "px-3 py-2 text-sm cursor-pointer flex flex-col hover:bg-muted/50",
-                        index === selectedIndex && "bg-muted"
+                        index === suggestions.selectedIndex && "bg-muted"
                       )}
                       onClick={() => selectCommand(cmd.label)}
-                      onMouseEnter={() => setSelectedIndex(index)}
+                      onMouseEnter={() => suggestions.setSelectedIndex(index)}
                     >
                       <span className="font-medium">{cmd.label}</span>
                       <span className="text-xs text-muted-foreground">
@@ -487,7 +191,7 @@ RULES:
             <div className="flex gap-2">
               <Input
                 value={input}
-                onChange={handleInputChange}
+                onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={
                   isReady ? "Type a message or /help..." : "Waiting for AI..."
@@ -499,7 +203,7 @@ RULES:
                 size="icon"
                 aria-label="Send message"
                 className="h-9 w-9"
-                onClick={handleSend}
+                onClick={send}
                 disabled={!isReady || (isGenerating && !isSearching) || !input.trim()}
               >
                 <Send className="w-4 h-4" />
@@ -521,7 +225,7 @@ RULES:
         </div>
       )}
 
-      <Dialog open={showSearchConsent} onOpenChange={setShowSearchConsent}>
+      <Dialog open={consent.open} onOpenChange={(open) => !open && consent.cancel()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -534,15 +238,15 @@ RULES:
             <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-900/50 flex gap-2">
               <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 shrink-0" />
               <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                Your search query "{pendingSearchQuery}" will be sent to a public SearXNG instance.
+                Your search query "{consent.query}" will be sent to a public SearXNG instance.
               </p>
             </div>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowSearchConsent(false)}>
+            <Button variant="outline" onClick={consent.cancel}>
               Cancel
             </Button>
-            <Button onClick={confirmSearch}>
+            <Button onClick={consent.confirm}>
               I Understand, Continue
             </Button>
           </DialogFooter>
