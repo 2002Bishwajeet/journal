@@ -13,6 +13,7 @@ import { DrivePermissionType } from '@homebase-id/js-lib/core';
 import {
     JOURNAL_APP_ID,
     JOURNAL_APP_NAME,
+    JOURNAL_APP_SLUG,
     JOURNAL_DRIVE,
     STORAGE_KEY_AUTH_TOKEN,
     STORAGE_KEY_SHARED_SECRET,
@@ -33,7 +34,10 @@ export const journalDriveRequest: TargetDriveAccessRequest = {
     allowSubscriptions: true,
     attributes: {
         IsCollaborativeChannel: "true",
-    }
+    },
+    // Permanent address: /apps/{JOURNAL_APP_SLUG}/drives/notes
+    driveSlug: 'notes',
+    driveTypeSlug: 'notes',
 };
 
 /**
@@ -67,6 +71,7 @@ export function useYouAuthAuthorization() {
             finalizeUrl,
             JOURNAL_APP_NAME,
             JOURNAL_APP_ID,
+            JOURNAL_APP_SLUG,
             undefined, // permissionKeys
             undefined, // circlePermissionKeys
             [journalDriveRequest],

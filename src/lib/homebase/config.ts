@@ -16,10 +16,15 @@ export const CONTACT_TARGET_DRIVE_REQUEST: TargetDriveAccessRequest = {
     name: " ",
     description: ' ',
     permissions: [DrivePermissionType.Read],
+    // Owned by the built-in contacts app; slugs only apply if the drive doesn't exist yet
+    driveSlug: 'contacts',
+    driveTypeSlug: 'contacts',
 }
 
 // Homebase configuration constants
 export const JOURNAL_APP_ID = import.meta.env.PROD ? 'c762ee784274473480919d8080d7a825' : '38e160f1f815438a89eabc3a261e9952';
+// Permanent: the server never renames an app's slug, and it is first-come per identity
+export const JOURNAL_APP_SLUG = import.meta.env.PROD ? 'journal' : 'journal-dev';
 export const JOURNAL_APP_NAME = `Journal${import.meta.env.PROD ? '' : ' (Local Dev)'}`;
 
 // Drive constants per spec
