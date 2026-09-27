@@ -26,6 +26,8 @@ const PGLITE_VERSION = '0.5';
 // alone can't: anything that resets it (an old-build tab, a rollback, two new
 // tabs racing) would otherwise --clean a stale dump over the migrated data.
 const MIGRATION_MARKER_TABLE = 'pglite_legacy_migrated';
+// Web Lock serializing the legacy migration across tabs.
+const MIGRATION_LOCK = 'journal-db-migrate';
 // Bump whenever a new statement is added to runMigrations().
 const SCHEMA_VERSION = '4';
 
@@ -187,7 +189,11 @@ export async function restoreLegacyDump(database: PGliteInterface, dump: string)
   return restored;
 }
 
-async function initDatabase(): Promise<PGliteInterface> {
+/**
+ * Runs the legacy migration when this launch still needs it. Resolves the
+ * migrated database, or null to continue to the normal boot.
+ */
+async function migrateLegacyDatabase(): Promise<PGliteInterface | null> {
   const storedVersion = getStoredPGliteVersion();
   // The user chose to open without their legacy data; it stays on disk,
   // unmigrated, until a future launch can offer it back.
@@ -236,6 +242,23 @@ async function initDatabase(): Promise<PGliteInterface> {
       return db;
     }
   }
+  return null;
+}
+
+async function initDatabase(): Promise<PGliteInterface> {
+  // Two tabs booting on legacy data would each open the legacy dir with their
+  // own engine, and the first to finish would delete it under the other. The
+  // lock lets one migrate; the rest re-read the stamp inside it and fall
+  // through. Already-migrated boots never wait on it.
+  if (getStoredPGliteVersion() !== PGLITE_VERSION && !legacyMigrationSkipped()) {
+    const migrated = navigator.locks
+      ? await navigator.locks.request(MIGRATION_LOCK, migrateLegacyDatabase)
+      : await migrateLegacyDatabase();
+    if (migrated) return migrated;
+  }
+
+  const storedVersion = getStoredPGliteVersion();
+  const skipped = legacyMigrationSkipped();
 
   if (storedVersion === PGLITE_VERSION) {
     // The migration's own delete of the legacy DB is blocked by the tab's open

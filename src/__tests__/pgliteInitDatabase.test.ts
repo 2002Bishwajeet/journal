@@ -274,6 +274,70 @@ describe('failed boots', () => {
   });
 });
 
+/** Fake Web Locks API: one exclusive holder at a time, in request order. */
+function fakeLocks(beforeGrant: () => void = () => {}) {
+  let tail: Promise<unknown> = Promise.resolve();
+  const request = vi.fn((name: string, callback: () => Promise<unknown>) => {
+    mocks.events.push(`lock:${name}`);
+    const granted = tail.then(() => {
+      beforeGrant();
+      return callback();
+    });
+    tail = granted.catch(() => {});
+    return granted;
+  });
+  vi.stubGlobal('navigator', { locks: { request } });
+  return request;
+}
+
+describe('migrating with other tabs open', () => {
+  it('lets only one of two concurrently booting tabs run the migration', async () => {
+    fakeLocks();
+    // Two tabs: two module instances sharing one localStorage stamp.
+    const tabA = await loadDatabaseModule();
+    const tabB = await loadDatabaseModule();
+
+    await Promise.all([tabA.getDatabase(), tabB.getDatabase()]);
+
+    expect(mocks.events.filter((e) => e === 'dump')).toHaveLength(1);
+    expect(mocks.events.filter((e) => e.startsWith('retire'))).toHaveLength(1);
+  });
+
+  it('falls through to a normal boot when another tab migrated while it waited', async () => {
+    fakeLocks(() => {
+      mocks.storedVersion = '0.5';
+    });
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    expect(mocks.events).toContain('lock:journal-db-migrate');
+    expect(mocks.events).not.toContain('dump');
+    expect(mocks.workerOptions).toHaveLength(1);
+  });
+
+  it('migrates without a lock when the Web Locks API is unavailable', async () => {
+    vi.stubGlobal('navigator', {});
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    expect(mocks.events).toContain('dump');
+    expect(mocks.events).toContain('restore');
+    expect(mocks.events).toContain('stamp:0.5');
+  });
+
+  it('never waits on the lock on an already-migrated boot', async () => {
+    const request = fakeLocks();
+    mocks.storedVersion = '0.5';
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    expect(request).not.toHaveBeenCalled();
+  });
+});
+
 describe('opting out of the legacy data', () => {
   it('records the choice and boots empty without stamping the version', async () => {
     mocks.dumpError = new Error('corrupt legacy database');
