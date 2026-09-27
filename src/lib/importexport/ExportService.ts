@@ -64,7 +64,7 @@ export const ExportService = {
 
                 const sanitizedTitle = sanitizeFilename(note.title || 'Untitled');
                 const body = await extractMarkdownFromYjs(note.docId);
-                const images = await resolveNoteImages(body, dotYouClient, sanitizedTitle, zip, folderName);
+                const images = await resolveNoteImages(body, { dotYouClient, zip, sanitizedTitle, folderName });
                 missingImages += images.missingImages;
 
                 // Generate Markdown content
@@ -113,15 +113,19 @@ export const ExportService = {
  */
 async function resolveNoteImages(
     markdown: string,
-    dotYouClient: DotYouClient,
-    sanitizedTitle: string,
-    zip: JSZip,
-    folderName: string
+    { dotYouClient, zip, sanitizedTitle, folderName }: {
+        dotYouClient: DotYouClient;
+        zip: JSZip;
+        sanitizedTitle: string;
+        folderName: string;
+    }
 ): Promise<{ markdown: string; missingImages: number }> {
     const resolved = new Map<string, string | null>(); // "fileId/payloadKey" -> asset filename, or null if it failed
     let missingImages = 0;
 
-    for (const [, , fileId, payloadKey] of markdown.matchAll(ATTACHMENT_IMAGE_REGEX)) {
+    for (const match of markdown.matchAll(ATTACHMENT_IMAGE_REGEX)) {
+        const fileId = match[2];
+        const payloadKey = match[3];
         const cacheKey = `${fileId}/${payloadKey}`;
         if (resolved.has(cacheKey)) continue;
 
