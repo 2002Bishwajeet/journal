@@ -119,6 +119,21 @@ describe('SyncService.pushNote folder on version conflict (#257)', () => {
         expect(mockUpdateNote).not.toHaveBeenCalled();
     });
 
+    it('does not overwrite a local folder change made while the retry was in flight', async () => {
+        const FOLDER_C = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+        mockUpdateNote.mockImplementation(async (...args: unknown[]) => {
+            const options = args[8] as { onVersionConflict?: () => Promise<unknown> } | undefined;
+            if (options?.onVersionConflict) return await options.onVersionConflict();
+            const entry = (await getSearchIndexEntry(DOC_ID))!;
+            await upsertSearchIndex({ ...entry, metadata: { ...entry.metadata, folderId: FOLDER_C } });
+            return { versionTag: 'v-merged' };
+        });
+
+        await svc.pushNote((await getSyncRecord(DOC_ID))!);
+
+        expect((await getSearchIndexEntry(DOC_ID))?.metadata.folderId).toBe(FOLDER_C);
+    });
+
     it('sends the local folderId when there is no conflict', async () => {
         mockUpdateNote.mockResolvedValue({ versionTag: 'v2' });
 

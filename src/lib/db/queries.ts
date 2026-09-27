@@ -511,14 +511,15 @@ export async function setNoteArchivalStatusLocal(docId: string, status: number):
 }
 
 /** Set a note's folderId locally, preserving every other metadata field. */
-export async function setNoteFolderLocal(docId: string, folderId: string): Promise<void> {
+export async function setNoteFolderLocal(docId: string, folderId: string, expectedFolderId: string): Promise<void> {
     const db = await getDatabase();
+    // Only if the folder is still expectedFolderId, so a concurrent local move wins
     await db.query(
         `UPDATE search_index
          SET metadata = jsonb_set(metadata, '{folderId}', to_jsonb($2::text)),
              updated_at = CURRENT_TIMESTAMP
-         WHERE doc_id = $1`,
-        [docId, folderId]
+         WHERE doc_id = $1 AND metadata->>'folderId' = $3`,
+        [docId, folderId, expectedFolderId]
     );
 }
 
@@ -876,7 +877,7 @@ export async function getSyncRecord(localId: string): Promise<SyncRecord | null>
         remote_file_id: string | null;
         version_tag: string | null;
         last_synced_at: string | null;
-        sync_status: 'pending' | 'synced' | 'conflict' | 'error' | 'pending_delete';
+        sync_status: SyncRecord['syncStatus'];
         content_hash: string | null;
         encrypted_key_header: string | null;
         author_odin_id: string | null;
@@ -911,7 +912,7 @@ export async function getSyncRecordByRemoteId(remoteFileId: string): Promise<Syn
         remote_file_id: string | null;
         version_tag: string | null;
         last_synced_at: string | null;
-        sync_status: 'pending' | 'synced' | 'conflict' | 'error' | 'pending_delete';
+        sync_status: SyncRecord['syncStatus'];
     }>(
         'SELECT local_id, entity_type, remote_file_id, version_tag, last_synced_at, sync_status, content_hash FROM sync_records WHERE remote_file_id = $1',
         [remoteFileId]
@@ -942,7 +943,7 @@ export async function getPendingSyncRecords(entityType?: 'folder' | 'note', stat
         remote_file_id: string | null;
         version_tag: string | null;
         last_synced_at: string | null;
-        sync_status: 'pending' | 'synced' | 'conflict' | 'error' | 'pending_delete';
+        sync_status: SyncRecord['syncStatus'];
         content_hash: string | null;
         encrypted_key_header: string | null;
         author_odin_id: string | null;

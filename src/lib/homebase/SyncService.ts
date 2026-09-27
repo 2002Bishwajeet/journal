@@ -1023,7 +1023,7 @@ export class SyncService {
 
                     // Mirror the server's folder locally so the next push doesn't revert it
                     if (serverFolderId !== doc.metadata.folderId) {
-                        await setNoteFolderLocal(record.localId, serverFolderId);
+                        await setNoteFolderLocal(record.localId, serverFolderId, doc.metadata.folderId);
                     }
 
                     // Compute hash for the merged blob
