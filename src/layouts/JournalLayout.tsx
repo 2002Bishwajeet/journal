@@ -191,10 +191,8 @@ export default function JournalLayout() {
     }
   }, [notes]);
 
-  // Guards the "new" branch below against creating a second note: this effect
-  // re-runs when folders/searchParams change mid-await, and twice under
-  // StrictMode in dev. Set synchronously before the `await createNote` below,
-  // so a re-entrant run sees it immediately. Reset once `action` clears.
+  // One note per ?action=new: the effect re-runs mid-await (folders/searchParams
+  // change, StrictMode). Reset once `action` clears.
   const handledNewNoteRef = useRef(false);
 
   // Handle URL action params (PWA shortcuts, permission redirects)
@@ -208,24 +206,19 @@ export default function JournalLayout() {
       if (action === "search") {
         setShowSearch(true);
       } else if (action === "new") {
-        // Folders are still loading (cold start) — resolveNoteFolderId would
-        // wrongly fall back to Main until they arrive. Wait; the effect
-        // re-runs once isFolderLoading flips.
+        // Cold start: wait for folders, or resolveNoteFolderId falls back to Main.
         if (isFolderLoading || handledNewNoteRef.current) return;
         handledNewNoteRef.current = true;
 
         const targetFolderId = resolveNoteFolderId(folderId, folders);
         const { docId, folderId: newFolderId } = await createNote(targetFolderId);
-        if (docId) {
-          // Replace, not push: the new URL carries no ?action, so return
-          // before the setSearchParams cleanup below — calling it here would
-          // resolve "?" against this render's stale pathname and, with
-          // replace:true, overwrite the just-created note's history entry.
-          navigate(`/${newFolderId}/${docId}`, {
-            replace: true,
-            viewTransition: true,
-          });
-        }
+        // The new URL has no ?action, so skip the setSearchParams cleanup
+        // below: it would resolve against the stale pathname and overwrite
+        // this entry, bouncing back to "/".
+        navigate(`/${newFolderId}/${docId}`, {
+          replace: true,
+          viewTransition: true,
+        });
         return;
       } else if (action === "collaborate") {
         const collaborateNoteId = searchParams.get("noteId");
@@ -341,6 +334,15 @@ export default function JournalLayout() {
   );
 
   const selectedTag = searchParams.get("tag");
+  const viewLabel = selectedTag
+    ? `#${selectedTag}`
+    : folderId === "trash"
+      ? "Trash"
+      : folderId === "archive"
+        ? "Archive"
+        : folderId === "shared"
+          ? "Shared"
+          : folders.find((f) => f.id === folderId)?.name;
   const { tags } = useTags();
   const { data: tagFilteredNotes } = useNotesByTag(selectedTag);
   const notesToShow = selectedTag
@@ -427,20 +429,13 @@ export default function JournalLayout() {
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
 
-  // Tab/window title: open note > pseudo-folder > tag > folder name.
-  const openNoteId = isDesktop ? activeTabId : noteId;
+  // Tab/window title: the open note, else the current view. Trash/Archive hide
+  // the desktop editor, so an open tab there must not win.
+  const openNoteId = isManagementView ? null : isDesktop ? activeTabId : noteId;
   useDocumentTitle(
     openNoteId
       ? notes.find((n) => n.docId === openNoteId)?.title || "Untitled"
-      : folderId === "trash"
-        ? "Trash"
-        : folderId === "archive"
-          ? "Archive"
-          : folderId === "shared"
-            ? "Shared"
-            : selectedTag
-              ? `#${selectedTag}`
-              : folders.find((f) => f.id === folderId)?.name || null,
+      : viewLabel,
   );
 
   if (isNotesLoading || isFolderLoading) {
@@ -550,13 +545,7 @@ export default function JournalLayout() {
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <h2 className="text-sm font-medium truncate flex-1 leading-none">
-              {selectedTag
-                ? `#${selectedTag}`
-                : folderId === "trash"
-                  ? "Trash"
-                  : folderId === "archive"
-                    ? "Archive"
-                    : folders.find((f) => f.id === folderId)?.name || "Notes"}
+              {viewLabel || "Notes"}
             </h2>
             <SyncStatus />
           </div>

@@ -167,21 +167,9 @@ describe('useSessionPersistence', () => {
             await s.unmount();
         });
 
-        it('does not restore when the URL has a query string (?action=new)', async () => {
+        it.each(['?action=new', '?tag=x'])('does not restore when the URL has a query string (%s)', async (search) => {
             mocks.getSearchIndexEntry.mockResolvedValue({ docId: 'n1', metadata: { archivalStatus: 0 } });
-            mocks.location = { pathname: '/', search: '?action=new' };
-
-            const s = await mountSession();
-            await s.settle(200);
-
-            expect(mocks.navigate).not.toHaveBeenCalled();
-
-            await s.unmount();
-        });
-
-        it('does not restore when the URL has a query string (?tag=x)', async () => {
-            mocks.getSearchIndexEntry.mockResolvedValue({ docId: 'n1', metadata: { archivalStatus: 0 } });
-            mocks.location = { pathname: '/', search: '?tag=x' };
+            mocks.location = { pathname: '/', search };
 
             const s = await mountSession();
             await s.settle(200);

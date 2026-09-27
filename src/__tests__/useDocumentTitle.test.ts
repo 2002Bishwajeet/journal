@@ -34,16 +34,8 @@ describe('useDocumentTitle', () => {
         await s.unmount();
     });
 
-    it('falls back to "Journal" when the title is null', async () => {
-        const s = await mount(null);
-
-        expect(document.title).toBe('Journal');
-
-        await s.unmount();
-    });
-
-    it('falls back to "Journal" when the title is undefined', async () => {
-        const s = await mount(undefined);
+    it.each([null, undefined])('falls back to "Journal" when the title is %s', async (title) => {
+        const s = await mount(title);
 
         expect(document.title).toBe('Journal');
 
@@ -57,5 +49,12 @@ describe('useDocumentTitle', () => {
         expect(document.title).toBe('Shopping list · Journal');
 
         await s.unmount();
+    });
+
+    it('resets to "Journal" on unmount so pages without a title do not inherit a stale one', async () => {
+        const s = await mount('Groceries');
+        await s.unmount();
+
+        expect(document.title).toBe('Journal');
     });
 });
