@@ -276,4 +276,20 @@ describe('note header transitions (#161)', () => {
         expect(metadata.isEncrypted).toBe(true);
         expect(JSON.parse(metadata.appData.content).isPublic).toBe(false);
     });
+
+    it.each([
+        ['makeNotePublic', () => provider.makeNotePublic(NOTE_ID), mockReUpload],
+        ['makeNotePrivate', () => provider.makeNotePrivate(NOTE_ID), mockReUpload],
+        ['makeNoteCollaborative', () => provider.makeNoteCollaborative(NOTE_ID, ['circle-1'], ['friend.id'], 'me.id'), mockPatchFile],
+        ['revokeNoteCollaboration', () => provider.revokeNoteCollaboration(NOTE_ID, 'me.id'), mockPatchFile],
+    ] as const)('%s keeps a trashed note trashed', async (_name, run, writer) => {
+        const header = noteHeader('object');
+        (header.fileMetadata.appData as Record<string, unknown>).archivalStatus = 2;
+        serveNote(header);
+
+        await run();
+
+        const metadata = writer.mock.calls[0][writer === mockReUpload ? 2 : 3];
+        expect(metadata.appData.archivalStatus).toBe(2);
+    });
 });

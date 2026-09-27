@@ -698,7 +698,7 @@ export class NotesDriveProvider {
                 userDate: existingAppData.userDate,
                 tags: existingAppData.tags,
                 content: typeof newContent === 'string' ? newContent : JSON.stringify(newContent),
-                archivalStatus: spec.archivalStatus,
+                archivalStatus: spec.archivalStatus ?? existingAppData.archivalStatus,
             },
             isEncrypted,
             accessControlList: spec.acl ?? existingHeader.serverMetadata?.accessControlList ?? {
