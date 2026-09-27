@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
 import { assertAllowedOrigin, assertTestOrigin } from './support/origin-guard';
 import { installNetworkFence, assertNoFenceViolations } from './support/network-fence';
 
@@ -9,6 +9,23 @@ export { expect };
 export async function waitForAppReady(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__journalE2E !== undefined);
   await page.evaluate(() => window.__journalE2E!.ready());
+}
+
+// Runs `body` with a page in a new fenced context. The context is closed even
+// if `body` throws, so a failed boot doesn't leak it.
+async function withFencedPage(
+  browser: Browser,
+  options: BrowserContextOptions,
+  body: (page: Page) => Promise<void>,
+): Promise<void> {
+  const context = await browser.newContext(options);
+  const { violations } = await installNetworkFence(context);
+  try {
+    await body(await context.newPage());
+  } finally {
+    await context.close();
+  }
+  assertNoFenceViolations(violations);
 }
 
 // e2e/fixtures/hermetic-auth.json's IDENTITY/BX0900/APSS values are fake by
@@ -33,11 +50,8 @@ export const test = base.extend<{
 
   // Applies the network fence to the default `context` (and therefore the
   // default `page`) fixture every spec gets for free.
-  // Array form (matching assertBaseUrlIsTestOrigin above) sidesteps an
-  // eslint-plugin-react-hooks false positive: it infers a name for a function
-  // assigned directly to an object property and then flags that function's
-  // `use(...)` call as an invalid Hook call, since the inferred name ("context")
-  // doesn't start with "use".
+  // Fixtures use array form because react-hooks lint otherwise flags `use()`
+  // inside a function it names after the property (e.g. "context").
   context: [
     async ({ context }, use) => {
       const { violations } = await installNetworkFence(context);
@@ -47,38 +61,19 @@ export const test = base.extend<{
     { scope: 'test' },
   ],
 
-  // A signed-in, fully booted app page. `app` opens its own context (rather
-  // than reusing `context`) so it can supply the hermetic storageState.
+  // A signed-in, fully booted app page, in its own context so it can supply
+  // the hermetic storageState.
   app: [
-    async ({ browser }, use) => {
-      const context = await browser.newContext({ storageState: 'e2e/fixtures/hermetic-auth.json' });
-      const { violations } = await installNetworkFence(context);
-      const page = await context.newPage();
-
-      await page.goto('/');
-      await assertTestOrigin(page);
-      await waitForAppReady(page);
-
-      await use(page);
-
-      await context.close();
-      assertNoFenceViolations(violations);
-    },
+    async ({ browser }, use) =>
+      withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
+        await page.goto('/');
+        await assertTestOrigin(page);
+        await waitForAppReady(page);
+        await use(page);
+      }),
     {},
   ],
 
   // A signed-out page: same origin allowlist and network fence, no storageState.
-  anonPage: [
-    async ({ browser }, use) => {
-      const context = await browser.newContext();
-      const { violations } = await installNetworkFence(context);
-      const page = await context.newPage();
-
-      await use(page);
-
-      await context.close();
-      assertNoFenceViolations(violations);
-    },
-    {},
-  ],
+  anonPage: [async ({ browser }, use) => withFencedPage(browser, {}, use), {}],
 });
