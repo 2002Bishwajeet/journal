@@ -34,6 +34,9 @@ try {
   log('after first run:', page.url().slice(0, 120));
 
   // 2. Setup wizard: EULA then "Setup" (names default from the hostname).
+  //    The owner app sends the stored first-run token to system/initialize, which calls
+  //    MarkRegistrationComplete(frt) and 400s on our made-up one. Without a token it skips that.
+  await page.evaluate(() => localStorage.removeItem('first-run-token'));
   await page.locator('#eula').check();
   await page.getByRole('button', { name: /Confirm/i }).click();
   await page.getByRole('button', { name: /^Setup$/i }).click();
