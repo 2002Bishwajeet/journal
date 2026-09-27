@@ -186,30 +186,39 @@ describe('PGliteProvider.compact', () => {
 
 describe('replaceDocumentUpdates', () => {
     it('replaces prior rows with a single compacted blob', async () => {
-        const { updates } = authorUpdates(['One', 'Two', 'Three']);
+        const { updates, fullText } = authorUpdates(['One', 'Two', 'Three']);
         for (const u of updates) await saveDocumentUpdate(DOC_ID, u);
         expect(await docRowCount(DOC_ID)).toBe(3);
 
-        const { updates: fresh, fullText } = authorUpdates(['Merged']);
-        const merged = fresh[0];
-        await replaceDocumentUpdates(DOC_ID, merged);
+        await replaceDocumentUpdates(DOC_ID, Y.mergeUpdates(updates));
 
         expect(await docRowCount(DOC_ID)).toBe(1);
         expect(bodyOf((await getDocumentUpdates(DOC_ID))[0])).toBe(fullText);
     });
 
     it('is atomic: a failed insert leaves the existing rows untouched', async () => {
-        // update_blob is NOT NULL, so passing null makes the INSERT half of the CTE
-        // fail. Because the delete + insert are ONE statement, the delete must roll
-        // back too — the pre-existing rows survive. If PGlite treated the CTE as two
-        // separate statements this would wipe the note's history (plan 004 STOP check).
+        // A trigger makes the INSERT half of the CTE fail inside SQL, after the
+        // blob merged fine. Because the delete + insert are ONE statement, the
+        // delete must roll back too — the pre-existing rows survive. If PGlite
+        // treated the CTE as two separate statements this would wipe the note's
+        // history (plan 004 STOP check).
         const { updates } = authorUpdates(['keep', 'this']);
         for (const u of updates) await saveDocumentUpdate(DOC_ID, u);
         expect(await docRowCount(DOC_ID)).toBe(2);
 
-        await expect(
-            replaceDocumentUpdates(DOC_ID, null as unknown as Uint8Array)
-        ).rejects.toThrow();
+        await db.exec(`
+            CREATE FUNCTION fail_insert() RETURNS trigger LANGUAGE plpgsql AS
+                $$ BEGIN RAISE EXCEPTION 'insert blocked'; END $$;
+            CREATE TRIGGER fail_insert BEFORE INSERT ON document_updates
+                FOR EACH ROW EXECUTE FUNCTION fail_insert();
+        `);
+        try {
+            await expect(
+                replaceDocumentUpdates(DOC_ID, Y.mergeUpdates(updates))
+            ).rejects.toThrow('insert blocked');
+        } finally {
+            await db.exec('DROP TRIGGER fail_insert ON document_updates; DROP FUNCTION fail_insert();');
+        }
 
         // Delete rolled back with the failed insert — both original rows remain.
         expect(await docRowCount(DOC_ID)).toBe(2);

@@ -104,6 +104,32 @@ describe('PGliteProvider across two tabs on the same note', () => {
         }
     });
 
+    it('keeps tab B\'s saved edit when tab A compacts before reloading it (#264)', async () => {
+        const a = await openTab();
+        const b = await openTab();
+        a.broadcast.destroy(); // A never hears B's save, so it compacts without reloading
+
+        b.doc.getText('body').insert(0, 'From B.');
+        await b.provider.flush();
+        a.doc.getText('body').insert(0, 'From A.');
+        await a.provider.flush();
+
+        await a.provider.compact();
+
+        // B crashes: its in-memory copy is gone, only the database remains.
+        tabs.splice(tabs.indexOf(b), 1);
+        b.broadcast.destroy();
+        b.doc.destroy();
+
+        const { getDocumentUpdates } = await import('@/lib/db');
+        const fresh = new Y.Doc();
+        for (const u of await getDocumentUpdates(DOC_ID)) Y.applyUpdate(fresh, u);
+        const body = fresh.getText('body').toString();
+        fresh.destroy();
+        expect(body).toContain('From B.');
+        expect(body).toContain('From A.');
+    });
+
     it('does not announce an update applied from a remote source', async () => {
         const a = await openTab();
         const observer = new BroadcastChannel(DOC_BROADCAST_CHANNEL);
