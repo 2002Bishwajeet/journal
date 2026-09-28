@@ -101,6 +101,20 @@ export async function shareNotePublicly(page: Page, title: string): Promise<stri
     return shareUrl;
 }
 
+/** Grant a folder access to MCP agents via Settings -> Agent access (#168 UI). */
+export async function setFolderAgentAccess(
+    page: Page,
+    folderName: string,
+    access: 'none' | 'read' | 'write'
+): Promise<void> {
+    await assertTestOrigin(page);
+    await page.getByRole('button', { name: 'Settings' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('tab', { name: 'Agent access' }).click();
+    await dialog.getByLabel(`Agent access for ${folderName}`).selectOption(access);
+    await page.keyboard.press('Escape');
+}
+
 /** Make a public note private again via the note list's "Share" context-menu item. */
 export async function unshareNotePublicly(page: Page, title: string): Promise<void> {
     await assertTestOrigin(page);
