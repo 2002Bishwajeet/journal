@@ -670,6 +670,17 @@ export class SyncService {
     }
 
     /**
+     * Resolve a remote note's local folderId. Falls back to Main when groupId
+     * points at neither Main/Collaborative nor an existing local folder row —
+     * e.g. notes orphaned by the pre-#254 folder-delete bug (#259).
+     */
+    private async resolveNoteFolderId(groupId: string | undefined): Promise<string> {
+        const folderId = groupId || MAIN_FOLDER_ID;
+        if (folderId === MAIN_FOLDER_ID || folderId === COLLABORATIVE_FOLDER_ID) return folderId;
+        return (await getFolderById(folderId)) ? folderId : MAIN_FOLDER_ID;
+    }
+
+    /**
      * Handle a remote note (create, update, or merge).
      * Uses Yjs CRDT merge for conflict resolution.
      */
@@ -702,7 +713,7 @@ export class SyncService {
                 await saveDocumentUpdate(uniqueId, remoteBlob);
             }
             // Build local metadata from simplified content + groupId
-            const folderId = remoteFile.fileMetadata.appData.groupId || MAIN_FOLDER_ID;
+            const folderId = await this.resolveNoteFolderId(remoteFile.fileMetadata.appData.groupId);
             const remoteTimestamp = new Date(
                 remoteFile.fileMetadata.appData.userDate || Date.now()
             ).toISOString();
@@ -765,7 +776,7 @@ export class SyncService {
                 documentBroadcast.notifyDocumentUpdated(uniqueId);
             }
             // Build local metadata from simplified content + groupId
-            const folderId = remoteFile.fileMetadata.appData.groupId || MAIN_FOLDER_ID;
+            const folderId = await this.resolveNoteFolderId(remoteFile.fileMetadata.appData.groupId);
 
 
             // Get existing document to preserve the created timestamp (if available)
