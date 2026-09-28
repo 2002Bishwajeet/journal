@@ -92,7 +92,7 @@ Every issue's Verification section names its integration test(s) first. Name an 
 
 ## Layer 3 — live
 
-Runs the three `*.live.spec.ts` specs (config: `playwright.live.config.ts`, so `npm run e2e` never starts its HTTPS server or setup/teardown) against a real Homebase identity of your choice, on `https://e2e.dotyou.cloud:4443` (a self-signed cert for that host is generated on demand by `e2e/support/make-cert.mjs` into `e2e/.certs/`, gitignored). Local only — never a PR check.
+Runs the `*.live.spec.ts` specs (config: `playwright.live.config.ts`, so `npm run e2e` never starts its HTTPS server or setup/teardown) against a real Homebase identity of your choice, on `https://e2e.dotyou.cloud:4443` (a self-signed cert for that host is generated on demand by `e2e/support/make-cert.mjs` into `e2e/.certs/`, gitignored). Local only — never a PR check.
 
 1. **Log in once** (headed, interactive — you approve the app's access request yourself):
 
@@ -111,6 +111,20 @@ Runs the three `*.live.spec.ts` specs (config: `playwright.live.config.ts`, so `
    Runs serially (`workers: 1`, `retries: 1`). Each run creates its own `e2e-<ISO date>-<random>-w<worker>` folder through the UI and every spec creates notes only inside it; `e2e/live/global-teardown.ts` deletes that folder afterward and, as a safety sweep, any leftover `e2e-*` folder older than 24h (e.g. from a run that crashed before its own cleanup).
 
 3. **Re-running later:** `e2e/.auth/live.json` is reused until the identity revokes the app or the token expires — re-run step 1 if `npm run e2e:live` starts failing to sign in.
+
+**MCP live spec (#206):** `e2e/agent-access/mcp-edit.live.spec.ts` proves an edit from the real Journal MCP server (`mcp/`) reaches a note open in the app. It needs its own one-time login — the MCP server has its own Homebase app registration, separate from the app's (see `mcp/README.md`):
+
+```bash
+npm run mcp:login -- <identity>
+```
+
+Use the *same* identity as step 1 above, never your real journal — the spec checks the OS keychain's saved identity against `E2E_LIVE_IDENTITY` and skips rather than run against a mismatch. Then:
+
+```bash
+npm run e2e:live -- e2e/agent-access
+```
+
+The spec self-skips with a clear message if there's no MCP login yet, if the saved login is for a different identity, or if `CI` is set — there's no OS keychain in CI, and running the MCP server itself is out of scope for CI (epic #164), so this spec never runs in the Docker tier or GitHub Actions.
 
 **CI (Docker, #203):** `.github/workflows/e2e-live-docker.yml` ("E2E live") boots the published `ghcr.io/homebase-id/odin-core` image (pinned by digest) with a per-run throwaway CA and a freshly seeded dev identity — `e2e/live/ci-bootstrap.ts` is the non-interactive counterpart to `auth.setup.ts` above, clicking through owner first-run/setup/YouAuth consent with no human. No real certs or secrets beyond `GH_TOKEN` (npm registry, same as `tests.yml`). Runs nightly (02:30 UTC), on `workflow_dispatch`, and on a PR labelled `e2e-live` — never a required check. Trigger it: `gh workflow run e2e-live-docker.yml` (add `--ref <branch>` once the file exists on that branch's target). On failure it uploads `playwright-report/`, `test-results/` and the identity-host's container log as artifact `e2e-live-<run attempt>` (14-day retention, on the run's Summary page). Bump the pinned image digest deliberately — with its own green run — when the odin-core backend changes.
 

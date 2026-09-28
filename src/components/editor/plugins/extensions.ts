@@ -5,7 +5,7 @@
  * Add, remove, or modify extensions here to customize the editor.
  */
 
-import { Extension, type RawCommands, type CommandProps } from '@tiptap/core';
+import { Extension, type AnyExtension, type RawCommands, type CommandProps } from '@tiptap/core';
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
 import { Fragment, Slice, type Node as PMNode, type Schema } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
@@ -13,13 +13,11 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import Image from '@tiptap/extension-image';
 import Underline from '@tiptap/extension-underline';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import TextAlign from '@tiptap/extension-text-align';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-import { ReactNodeViewRenderer } from '@tiptap/react';
 
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -27,10 +25,9 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { Mathematics } from '@tiptap/extension-mathematics';
 import { createLowlight } from 'lowlight';
-import { EmojiExtension } from './EmojiExtension';
 import { SearchAndReplace } from './SearchAndReplaceExtension';
-import { ImageNodeView } from '../nodes/ImageNode';
-import { ALIGN_STYLE, type ImageAlign } from '../nodes/imageLayout';
+import { ImageSchema } from '../nodes/imageSchema';
+import { NoteLink } from '../nodes/NoteLinkNode';
 
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';
@@ -163,61 +160,6 @@ const CustomTextAlign = TextAlign.extend({
     },
 });
 
-/**
- * Custom Image extension with NodeView for handling pending uploads and remote images
- */
-const CustomImage = Image.extend({
-    addAttributes() {
-        return {
-            ...this.parent?.(),
-            'data-pending-id': {
-                default: null,
-                parseHTML: element => element.getAttribute('data-pending-id'),
-                renderHTML: attributes => {
-                    if (!attributes['data-pending-id']) return {};
-                    return { 'data-pending-id': attributes['data-pending-id'] };
-                },
-            },
-            // Float alignment, set from the toolbar that appears on a selected
-            // image. Distinct from the paragraph's TextAlign, which only shifts
-            // the image within its line — a float lets the text wrap around it.
-            align: {
-                default: null,
-                parseHTML: element => element.getAttribute('data-align'),
-                renderHTML: attributes => {
-                    const css = ALIGN_STYLE[attributes.align as ImageAlign];
-                    if (!css) return {};
-                    return {
-                        'data-align': attributes.align,
-                        style: Object.entries(css).map(([k, v]) => `${k}: ${v}`).join('; '),
-                    };
-                },
-            },
-            // Rendered width in px, set by dragging one of the image's corner
-            // handles. Lives on the node, so it persists in the Yjs doc like any
-            // other attr. No height: leaving it auto keeps the aspect ratio.
-            width: {
-                default: null,
-                parseHTML: element => {
-                    const w = parseInt(element.style.width || element.getAttribute('width') || '', 10);
-                    return Number.isFinite(w) ? w : null;
-                },
-                renderHTML: attributes => {
-                    if (!attributes.width) return {};
-                    return { style: `width: ${attributes.width}px` };
-                },
-            },
-        };
-    },
-    addNodeView() {
-        return ReactNodeViewRenderer(ImageNodeView);
-    },
-}).configure({
-    inline: true,
-    allowBase64: true,
-});
-
-
 function fragmentHasHardBreak(frag: Fragment): boolean {
     let found = false;
     frag.forEach(child => { if (child.type.name === 'hardBreak') found = true; });
@@ -292,10 +234,18 @@ const SplitHardBreaksOnPaste = Extension.create({
 export interface ExtensionOptions {
     placeholder?: string;
     linkClass?: string;
+    /** Image node; defaults to the headless ImageSchema (the editor passes one with a React node view). */
+    image?: typeof ImageSchema;
+    /** Note-link node; defaults to the headless NoteLink (the editor passes one with a React node view). */
+    noteLink?: typeof NoteLink;
+    /** UI-only extensions that add no schema (e.g. the emoji popup), placed after Mathematics. */
+    uiExtensions?: AnyExtension[];
 }
 
 /**
- * Creates base extensions with custom options
+ * Every extension that contributes a node or mark to the editor schema, plus
+ * editor behaviour. With no options it is headless (no React), so the agent
+ * edit engine (#316) and the editor share one schema and can't drift.
  */
 export function createBaseExtensions(options?: ExtensionOptions) {
     return [
@@ -328,7 +278,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
             nested: true,
         }),
 
-        CustomImage,
+        options?.image ?? ImageSchema,
 
         CodeBlockLowlight.configure({
             lowlight,
@@ -344,7 +294,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         TableHeader,
 
         Mathematics,
-        EmojiExtension,
+        ...(options?.uiExtensions ?? []),
 
         Underline,
         Subscript,
@@ -358,5 +308,6 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         DeleteEmptyLeadingBlock,
         SplitHardBreaksOnPaste,
         SearchAndReplace,
+        options?.noteLink ?? NoteLink,
     ];
 }

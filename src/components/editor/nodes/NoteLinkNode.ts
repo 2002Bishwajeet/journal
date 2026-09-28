@@ -1,5 +1,8 @@
 /**
- * Internal note-link node (`[[`).
+ * Internal note-link node (`[[`) — schema only (name, attrs, parseHTML/
+ * renderHTML). No node view: the editor layers one on top (see
+ * editorExtensions.ts) so headless code (the agent edit engine, #316) can
+ * build the schema without pulling in React.
  *
  * Inline atom carrying the stable target `noteId` plus a `label` snapshot
  * (used for plain-text/export and as the fallback when the target can't be
@@ -7,8 +10,6 @@
  * renaming a note updates every link to it.
  */
 import { Node, mergeAttributes } from "@tiptap/core";
-import { ReactNodeViewRenderer } from "@tiptap/react";
-import { NoteLinkNodeView } from "./NoteLinkNodeView";
 
 export interface NoteLinkAttributes {
   noteId: string | null;
@@ -59,9 +60,5 @@ export const NoteLink = Node.create({
 
   renderText({ node }) {
     return node.attrs.label || "";
-  },
-
-  addNodeView() {
-    return ReactNodeViewRenderer(NoteLinkNodeView);
   },
 });

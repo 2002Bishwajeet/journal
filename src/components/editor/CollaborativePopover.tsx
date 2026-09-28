@@ -7,6 +7,7 @@ import {
 import { useCircles } from '@/hooks/circles/useCircles';
 import { AuthorImage } from '@/components/author/AuthorImage';
 import { formatRelativeTime } from '@/lib/utils/index';
+import { agentDisplayName } from '@/lib/agent/attribution';
 
 interface CollaborativePopoverProps {
     circleIds?: string[];
@@ -94,7 +95,7 @@ export function CollaborativePopover({
                     <div className="border-t mt-3 pt-2 text-xs text-muted-foreground">
                         Last edited by{' '}
                         <span title={lastEditedBy} className="text-foreground">
-                            {lastEditedBy.split('.')[0]}
+                            {agentDisplayName(lastEditedBy) ?? lastEditedBy.split('.')[0]}
                         </span>
                         {formattedTime && (
                             <span className="ml-1">{formattedTime}</span>

@@ -54,7 +54,7 @@ test('mobile: full-screen list drills into a section and back returns to the lis
   await expect(dialog.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Close settings' })).toBeVisible();
 
-  await dialog.getByRole('button', { name: /\bAI\b/ }).click();
+  await dialog.getByRole('button', { name: /^AI\b/ }).click();
   await expect(dialog.getByRole('heading', { name: 'AI', exact: true })).toBeVisible();
   const backButton = dialog.getByRole('button', { name: 'Back to settings' });
   await expect(backButton).toBeVisible();

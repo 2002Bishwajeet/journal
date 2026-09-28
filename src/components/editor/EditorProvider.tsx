@@ -14,6 +14,7 @@ import { ySyncPluginKey } from "y-prosemirror";
 import { PGliteProvider } from "@/lib/yjs";
 import { flushPendingSaveOnTeardown } from "@/lib/yjs/flushPendingSave";
 import { upsertSearchIndex, savePendingImageUpload, updateSyncStatus } from "@/lib/db";
+import { isAgentEditor } from "@/lib/agent/attribution";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { NoteLinkContext, type NoteLinkContextValue } from "./NoteLinkContext";
@@ -24,10 +25,9 @@ import { createNoteWithContentInDb } from "@/hooks/useNotes";
 import { extractNoteLinkIds } from "@/lib/editor/extractNoteLinkIds";
 import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
 import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
-import { NoteLink } from "./nodes/NoteLinkNode";
+import { createEditorExtensions } from "./editorExtensions";
 import { NoteLinkExtension } from "./plugins/NoteLink";
 import {
-  createBaseExtensions,
   createCollaborationExtension,
   CustomShortcuts,
   AutocompletePlugin,
@@ -251,7 +251,7 @@ export function EditorProvider({
   // Memoize extensions to avoid recreation on every render
   const extensions = useMemo(
     () => [
-      ...createBaseExtensions(),
+      ...createEditorExtensions(),
       createCollaborationExtension(yXmlFragment),
       CustomShortcuts.configure({
         // Custom shortcuts can trigger actions here if needed
@@ -278,8 +278,7 @@ export function EditorProvider({
       }),
       // Slash commands (triggered by typing /)
       SlashCommandsExtension,
-      // Internal note links — `[[` suggestion + the noteLink node it inserts
-      NoteLink,
+      // Internal note links — `[[` suggestion (the noteLink node is in createBaseExtensions)
       // eslint-disable-next-line react-hooks/refs -- folderId ref is read when a note is created, not during render
       NoteLinkExtension.configure({
         onCreateNote: onCreateNoteLink,
@@ -387,7 +386,9 @@ export function EditorProvider({
             linkedNoteIds,
             lastEditedBy: currentMetadata.isCollaborative
               ? editorOdinId
-              : currentMetadata.lastEditedBy,
+              : isAgentEditor(currentMetadata.lastEditedBy)
+                ? undefined
+                : currentMetadata.lastEditedBy,
           },
         });
 

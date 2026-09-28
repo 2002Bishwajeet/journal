@@ -7,10 +7,11 @@ describe('SETTINGS_SECTIONS', () => {
         expect(new Set(ids).size).toBe(ids.length);
     });
 
-    it('is in the order appearance, ai, data, about', () => {
+    it('is in the order appearance, ai, agent-access, data, about', () => {
         expect(SETTINGS_SECTIONS.map((s) => s.id)).toEqual([
             'appearance',
             'ai',
+            'agent-access',
             'data',
             'about',
         ]);

@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ArrowUpDown,
   ExternalLink,
+  Bot,
 } from "lucide-react";
 import { useDotYouClientContext } from "@/components/auth";
 import { ownerConsoleNoteUrl } from "@/lib/homebase";
@@ -27,6 +28,7 @@ import {
 import { ConfirmDialog } from "@/components/modals";
 import { ContextMenuWrapper } from "@/components/ui/context-menu-wrapper";
 import { cn } from "@/lib/utils";
+import { agentDisplayName } from "@/lib/agent/attribution";
 import type { NoteListEntry } from "@/types";
 import { formatRelativeTime } from "@/lib/utils/index";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -308,6 +310,7 @@ const NoteItem = memo(function NoteItem({
 
   const minSwipeDistance = 50;
   const maxSwipeDistance = 80;
+  const agentName = agentDisplayName(note.metadata.lastEditedBy);
 
   const triggerHaptic = (duration = 10) => {
     if ("vibrate" in navigator) {
@@ -521,6 +524,13 @@ const NoteItem = memo(function NoteItem({
             )}
             <span className="text-xs text-muted-foreground/70 mt-1">
               {formatRelativeTime(note.metadata.timestamps.modified)}
+              {agentName && (
+                <>
+                  {" · "}
+                  <Bot className="inline size-3" aria-hidden />
+                  {" Edited by " + agentName}
+                </>
+              )}
             </span>
           </div>
         </div>
