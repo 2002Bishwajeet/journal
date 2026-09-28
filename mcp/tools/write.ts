@@ -12,7 +12,7 @@ import * as Y from 'yjs';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import { getNewId } from '@/lib/utils';
-import { folderAccess } from '@/lib/agent/grants';
+import { folderAccess, type AgentAccess } from '@/lib/agent/grants';
 import { agentEditor } from '@/lib/agent/attribution';
 import { appendMarkdown, replaceInNote as replaceInDoc, createDoc } from '@/lib/agent/editEngine';
 import type { DocumentMetadata } from '@/types';
@@ -48,6 +48,9 @@ export type WriteDeps = ReadDeps & {
     fetchNoteForEdit(id: string): Promise<NoteForEdit | null>;
     uploadNoteEdit(id: string, edit: NoteEdit): Promise<void>;
     createNote(uniqueId: string, metadata: DocumentMetadata, yjsBlob: Uint8Array): Promise<void>;
+    createFolder(uniqueId: string, name: string): Promise<void>;
+    /** Sets one folder's grant in the grants file, keeping every other grant. */
+    grantFolder(folderId: string, access: AgentAccess): Promise<void>;
     /** The MCP client's `clientInfo.name` from the initialize handshake ('' if absent). */
     clientName(): string;
 };
@@ -106,6 +109,21 @@ export async function createNote(
     };
     await deps.createNote(id, metadata, Y.encodeStateAsUpdate(createDoc(params.markdown)));
     return { id, title: metadata.title, folderId: metadata.folderId };
+}
+
+/**
+ * Creates a folder and grants the agent Read+write on it, so it can put notes there.
+ * The only grant an agent ever writes, and only for a folder it just created, so no
+ * existing note becomes visible. The owner can revoke it in Settings → Agent access.
+ */
+export async function createFolder(deps: WriteDeps, params: { name: string }): Promise<{ id: string; name: string }> {
+    const name = params.name.trim();
+    if (!name) throw new Error('Folder name is required');
+
+    const id = formatGuidId(getNewId());
+    await deps.createFolder(id, name);
+    await deps.grantFolder(id, 'write');
+    return { id, name };
 }
 
 export async function appendToNote(deps: WriteDeps, params: { id: string; markdown: string }): Promise<{ id: string }> {

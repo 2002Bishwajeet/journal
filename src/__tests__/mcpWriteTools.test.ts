@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
-import { appendToNote, replaceInNote, createNote, VersionConflictError, type WriteDeps } from '../../mcp/tools/write';
+import { appendToNote, replaceInNote, createNote, createFolder, VersionConflictError, type WriteDeps } from '../../mcp/tools/write';
 import type { NoteSummary } from '../../mcp/tools/read';
-import type { AgentGrants } from '@/lib/agent/grants';
+import type { AgentAccess, AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
 import { createDoc, appendMarkdown, toMarkdown } from '@/lib/agent/editEngine';
 
@@ -56,6 +56,8 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
     const store = new Map<string, StoredNote>();
     const uploads: Upload[] = [];
     const creates: { uniqueId: string; metadata: DocumentMetadata; yjsBlob: Uint8Array }[] = [];
+    const folderCreates: { uniqueId: string; name: string }[] = [];
+    const folderGrants: { folderId: string; access: AgentAccess }[] = [];
     let uploadAttempts = 0;
 
     function put(id: string, markdown: string, metadata: DocumentMetadata) {
@@ -100,10 +102,16 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
         createNote: async (uniqueId, metadata, yjsBlob) => {
             creates.push({ uniqueId, metadata, yjsBlob });
         },
+        createFolder: async (uniqueId, name) => {
+            folderCreates.push({ uniqueId, name });
+        },
+        grantFolder: async (folderId, access) => {
+            folderGrants.push({ folderId, access });
+        },
         clientName: () => opts.clientName ?? '',
     };
 
-    return { deps, store, uploads, creates, put };
+    return { deps, store, uploads, creates, folderCreates, folderGrants, put };
 }
 
 function markdownOf(blob: Uint8Array): string {
@@ -304,6 +312,25 @@ describe('write tools: metadata and attribution', () => {
         const { deps, creates } = makeDrive();
         await createNote(deps, { title: 'T', markdown: 'b', folderId: 'FW', tags: ['a', 'b'] });
         expect(creates[0].metadata.tags).toEqual(['a', 'b']);
+    });
+});
+
+describe('write tools: create_folder', () => {
+    it('creates the folder and grants the agent write on it, and only it', async () => {
+        const { deps, folderCreates, folderGrants } = makeDrive();
+
+        const result = await createFolder(deps, { name: '  Research  ' });
+
+        expect(folderCreates).toEqual([{ uniqueId: result.id, name: 'Research' }]);
+        expect(folderGrants).toEqual([{ folderId: result.id, access: 'write' }]);
+        expect(result.name).toBe('Research');
+    });
+
+    it('rejects a blank name without creating anything', async () => {
+        const { deps, folderCreates, folderGrants } = makeDrive();
+        await expect(createFolder(deps, { name: '   ' })).rejects.toThrow('Folder name is required');
+        expect(folderCreates).toHaveLength(0);
+        expect(folderGrants).toHaveLength(0);
     });
 });
 
