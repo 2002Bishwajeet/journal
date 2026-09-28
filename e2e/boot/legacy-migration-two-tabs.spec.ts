@@ -9,6 +9,11 @@ import { assertTestOrigin } from '../support/origin-guard';
 
 test.use({ storageState: 'e2e/fixtures/hermetic-auth.json' });
 
+// On a CI runner the seed, the dump, the restore and the second tab's boot
+// take ~30s before any assertion runs (~10s locally), so the 30s default
+// ends the test mid-way. Budget for the whole two-tab migration plus a reload.
+test.setTimeout(120_000);
+
 const PGLITE_V4_DIST = path.resolve('node_modules/pglite-v4/dist');
 const NOTE_TITLE = 'Legacy note e2e';
 const MIGRATION_LOG = '[PGlite Migration] Legacy database detected';
@@ -47,7 +52,8 @@ const SEED_HTML = `<!doctype html>
 // The note list is per folder; the seeded note lives in Main.
 async function expectLegacyNote(page: Page): Promise<void> {
   await selectFolder(page, 'Main');
-  await expect(page.getByText(NOTE_TITLE)).toBeVisible();
+  // The folder's live query can take a few seconds to settle after a migration on CI.
+  await expect(page.getByText(NOTE_TITLE)).toBeVisible({ timeout: 20_000 });
 }
 
 test('only one of two tabs opened at once migrates the legacy database', async ({ context }) => {
