@@ -25,14 +25,19 @@ function toNoteSummary(file: HomebaseFile<NoteFileContent>): NoteSummary | null 
     };
 }
 
-/** Follows `cursor` until the drive has no more pages, dropping null items. */
-async function collectPages<T>(
+/**
+ * Follows `cursor` until the drive returns an empty page, dropping null items. Homebase
+ * never returns an empty cursor: past the last result it keeps returning an empty page
+ * with the same cursor, so the empty page is the only end signal.
+ */
+export async function collectPages<T>(
     fetchPage: (cursor: string | undefined) => Promise<{ items: (T | null)[]; cursor: string }>
 ): Promise<T[]> {
     const all: T[] = [];
     let cursor: string | undefined;
     do {
         const page = await fetchPage(cursor);
+        if (page.items.length === 0) break;
         for (const item of page.items) if (item) all.push(item);
         cursor = page.cursor || undefined;
     } while (cursor);
