@@ -39,6 +39,7 @@ import {
     MAIN_FOLDER_ID,
 } from './config';
 import type { NoteFileContent, DocumentMetadata, CollaborationInviteContent } from '@/types';
+import { dedupeThumbnailsByDimensions } from '@/lib/utils';
 
 export interface ImageUploadData {
     file: Blob;
@@ -282,7 +283,7 @@ export class NotesDriveProvider {
                         images[i].file,
                         payloadKey
                     );
-                    thumbnails.push(...additionalThumbnails);
+                    thumbnails.push(...dedupeThumbnailsByDimensions(additionalThumbnails));
                     payloads.push({
                         key: payloadKey,
                         payload: images[i].file,
@@ -550,7 +551,7 @@ export class NotesDriveProvider {
                 image.file,
                 payloadKey
             );
-            thumbnails.push(...additionalThumbnails);
+            thumbnails.push(...dedupeThumbnailsByDimensions(additionalThumbnails));
             payloads.push({
                 key: payloadKey,
                 iv: existingHeader.fileMetadata.isEncrypted ? getRandom16ByteArray() : undefined,

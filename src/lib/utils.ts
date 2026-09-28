@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { EncryptedKeyHeader, HomebaseFile } from "@homebase-id/js-lib/core";
+import type { EncryptedKeyHeader, HomebaseFile, ThumbnailFile } from "@homebase-id/js-lib/core";
 import { compareAcl, jsonStringify64 } from "@homebase-id/js-lib/helpers";
 import type { Attribute } from "@homebase-id/js-lib/profile";
 
@@ -99,4 +99,21 @@ export const toArrayBufferBackedView = (bytes: Uint8Array<ArrayBufferLike>): Uin
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
   return copy;
+};
+
+/**
+ * createThumbnails can't upscale past the source image's natural size, so a
+ * source smaller than a thumbnail's target dimensions collapses multiple
+ * additionalThumbnails onto the same pixelWidth x pixelHeight. The server's
+ * dimension lookup then throws on the duplicate (#292). Keep the first
+ * thumbnail seen per dimension pair.
+ */
+export const dedupeThumbnailsByDimensions = (thumbnails: ThumbnailFile[]): ThumbnailFile[] => {
+  const seen = new Set<string>();
+  return thumbnails.filter(({ pixelWidth, pixelHeight }) => {
+    const key = `${pixelWidth}x${pixelHeight}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };

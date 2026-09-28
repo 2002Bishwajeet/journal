@@ -41,6 +41,7 @@ const fakeKeyHeader = { encryptionVersion: 1 } as unknown as EncryptedKeyHeader;
 const keyHeaderArg = () => mockPatch.mock.calls[0][1];
 const uploadMeta = () => mockPatch.mock.calls[0][3];
 const payloadsArg = () => mockPatch.mock.calls[0][4];
+const thumbnailsArg = () => mockPatch.mock.calls[0][5];
 
 const imageBlob = () => ({
     file: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }),
@@ -140,5 +141,31 @@ describe('NotesDriveProvider.addImageToNote', () => {
         expect(uploadMeta().isEncrypted).toBe(true);
         expect(uploadMeta().accessControlList.requiredSecurityGroup).toBe(SecurityGroupType.Owner);
         expect(keyHeaderArg()).toBe(fakeKeyHeader);
+    });
+
+    // #292: createThumbnails can't upscale past the source's natural size, so a
+    // tiny image (e.g. 16x16) yields several additionalThumbnails with identical
+    // pixelWidth x pixelHeight. The server's dimension lookup throws
+    // "Sequence contains more than one matching element" on the duplicate. They
+    // must be deduped by dimensions before patchFile is called.
+    it('dedupes additionalThumbnails with the same pixelWidth x pixelHeight before upload', async () => {
+        mockGetHeader.mockResolvedValue(
+            header({ payloadKeys: ['jrnl_img0'], isEncrypted: true, content: { title: 'x' } as NoteFileContent })
+        );
+        mockCreateThumbnails.mockResolvedValue({
+            additionalThumbnails: [
+                { pixelWidth: 16, pixelHeight: 16, contentType: 'image/webp', payload: new Blob(), key: 'jrnl_img1' },
+                { pixelWidth: 16, pixelHeight: 16, contentType: 'image/png', payload: new Blob(), key: 'jrnl_img1' },
+                { pixelWidth: 32, pixelHeight: 32, contentType: 'image/png', payload: new Blob(), key: 'jrnl_img1' },
+            ],
+            tinyThumb: { pixelWidth: 1, pixelHeight: 1, contentType: 'image/png' },
+        });
+
+        await provider.addImageToNote(NOTE_ID, 'v1', imageBlob());
+
+        const thumbs = thumbnailsArg();
+        expect(thumbs).toHaveLength(2);
+        expect(thumbs.map((t: { pixelWidth: number; pixelHeight: number }) => `${t.pixelWidth}x${t.pixelHeight}`))
+            .toEqual(['16x16', '32x32']);
     });
 });
