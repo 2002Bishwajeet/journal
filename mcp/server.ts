@@ -1,0 +1,134 @@
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { z } from 'zod';
+import * as readTools from './tools/read';
+import type { ReadDeps } from './tools/read';
+import { loadCredentials, deleteCredentials } from './credentials';
+
+const USAGE = `Usage: journal-mcp [login [identity] | logout | --help]
+
+  (no command)  Start the MCP server over stdio.
+  login [id]    Register the Journal MCP app on your identity and save credentials.
+  logout        Delete saved credentials from the OS keychain.
+  --help        Show this message.
+`;
+
+/**
+ * Builds the MCP server and wires its four read tools to `deps`. Exported (rather than
+ * only constructed in main()) so tests can connect it to an in-memory transport with a
+ * fake ReadDeps — no SDK/drive access needed for the real server to be exercised.
+ */
+export function createJournalMcpServer(deps: ReadDeps): McpServer {
+    const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' });
+
+    server.registerTool(
+        'list_folders',
+        {
+            title: 'List folders',
+            description: 'List the folders you have granted this agent access to, in Journal.',
+            inputSchema: {},
+        },
+        async () => {
+            const folders = await readTools.listFolders(deps);
+            return { content: [{ type: 'text', text: JSON.stringify(folders, null, 2) }] };
+        }
+    );
+
+    server.registerTool(
+        'list_notes',
+        {
+            title: 'List notes',
+            description: 'List granted Journal notes, newest first. Optionally scoped to one folder.',
+            inputSchema: {
+                folderId: z.string().optional(),
+                limit: z.number().int().min(1).max(200).optional(),
+            },
+        },
+        async ({ folderId, limit }) => {
+            const notes = await readTools.listNotes(deps, { folderId, limit });
+            return { content: [{ type: 'text', text: JSON.stringify(notes, null, 2) }] };
+        }
+    );
+
+    server.registerTool(
+        'get_note',
+        {
+            title: 'Get note',
+            description: 'Fetch one granted Journal note by id, with its body as markdown.',
+            inputSchema: { id: z.string() },
+        },
+        async ({ id }) => {
+            const note = await readTools.getNote(deps, { id });
+            return { content: [{ type: 'text', text: JSON.stringify(note, null, 2) }] };
+        }
+    );
+
+    server.registerTool(
+        'search_notes',
+        {
+            title: 'Search notes',
+            description: 'Case-insensitive substring search over the title, tags and body of granted notes.',
+            inputSchema: {
+                query: z.string(),
+                limit: z.number().int().min(1).optional(),
+            },
+        },
+        async ({ query, limit }) => {
+            const notes = await readTools.searchNotes(deps, { query, limit });
+            return { content: [{ type: 'text', text: JSON.stringify(notes, null, 2) }] };
+        }
+    );
+
+    return server;
+}
+
+async function main(): Promise<void> {
+    const [, , command, ...rest] = process.argv;
+
+    if (command === '--help' || command === '-h') {
+        console.error(USAGE);
+        process.exit(0);
+    }
+
+    if (command === 'login') {
+        const { login } = await import('./login');
+        await login(rest[0]);
+        return;
+    }
+
+    if (command === 'logout') {
+        deleteCredentials();
+        console.error('Logged out. Credentials removed from the OS keychain.');
+        return;
+    }
+
+    if (command) {
+        console.error(`Unknown command: ${command}\n\n${USAGE}`);
+        process.exit(1);
+    }
+
+    const creds = loadCredentials();
+    if (!creds) {
+        console.error('Not logged in. Run: npm run mcp:login');
+        process.exit(1);
+    }
+
+    // Deferred: pulls in the Homebase drive providers and Yjs markdown extraction, which
+    // --help/login/logout have no need for.
+    const { createDriveDeps } = await import('./drive');
+    const server = createJournalMcpServer(createDriveDeps(creds));
+    await server.connect(new StdioServerTransport());
+}
+
+// Only run the CLI when this file is executed as the entry script (vite-node
+// mcp/server.ts), not when it's imported as a module — e.g. by the test suite, which
+// connects createJournalMcpServer() to an in-memory transport instead. vite-node's CLI
+// doesn't preserve the script's own path in process.argv[1] (it stays the vite-node
+// binary), so the usual `import.meta.url === pathToFileURL(process.argv[1])` entry check
+// can't distinguish the two here; Vitest's own `process.env.VITEST` flag can.
+if (!process.env.VITEST) {
+    main().catch((err) => {
+        console.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+    });
+}
