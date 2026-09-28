@@ -10,7 +10,7 @@ function json(x: unknown) {
 }
 
 /**
- * Builds the MCP server and wires its four read tools and three write tools to `deps`.
+ * Builds the MCP server and wires its four read tools and four write tools to `deps`.
  * Lives outside mcp/server.ts (the CLI entry) so tests can connect it to an
  * in-memory transport with fake deps — no SDK/drive access needed for the real server to
  * be exercised. `clientName` comes from this server's own initialize handshake.
@@ -78,6 +78,16 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
             },
         },
         async ({ title, markdown, folderId, tags }) => json(await writeTools.createNote(deps, { title, markdown, folderId, tags }))
+    );
+
+    server.registerTool(
+        'create_folder',
+        {
+            title: 'Create folder',
+            description: 'Create a Journal folder. This agent gets Read+write access to it, so it can create notes there.',
+            inputSchema: { name: z.string() },
+        },
+        async ({ name }) => json(await writeTools.createFolder(deps, { name }))
     );
 
     server.registerTool(

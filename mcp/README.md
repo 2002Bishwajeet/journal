@@ -90,6 +90,9 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
   `folderId`, optional `tags`).
   Example: *"Create a note called Standup 2026-09-28 in my Work folder with today's
   summary."*
+- `create_folder` — create a folder (`name`). The agent gets Read+write on the new folder
+  so it can add notes to it; revoke that in Settings → Agent access like any other grant.
+  Example: *"Make a Research folder and save these notes in it."*
 - `append_to_note` — append markdown to the end of a note (`id`, `markdown`).
   Example: *"Append today's standup summary to my Work log."*
 - `replace_in_note` — replace one unique span of the note's markdown, as `get_note`

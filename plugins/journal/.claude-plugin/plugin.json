@@ -1,6 +1,6 @@
 {
   "name": "journal",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Read, search and edit the Journal notes you grant in Settings → Agent access",
   "author": { "name": "Bishwajeet Parhi" },
   "homepage": "https://github.com/2002Bishwajeet/journal/tree/main/mcp"

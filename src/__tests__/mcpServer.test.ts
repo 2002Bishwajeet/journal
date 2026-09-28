@@ -40,6 +40,8 @@ function makeFakeDeps(grants = GRANTS, uploads: DocumentMetadata[] = []): Server
             uploads.push(edit.metadata);
         },
         createNote: async () => {},
+        createFolder: async () => {},
+        grantFolder: async () => {},
     };
 }
 
@@ -52,11 +54,12 @@ async function connectedClient(deps: ServerDeps): Promise<Client> {
 }
 
 describe('createJournalMcpServer', () => {
-    it('registers exactly the four read tools and the three write tools', async () => {
+    it('registers exactly the four read tools and the four write tools', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
         expect(tools.map((tool) => tool.name).sort()).toEqual([
             'append_to_note',
+            'create_folder',
             'create_note',
             'get_note',
             'list_folders',

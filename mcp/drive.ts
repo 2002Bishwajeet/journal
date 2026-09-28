@@ -3,6 +3,7 @@ import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { FolderDriveProvider } from '@/lib/homebase/FolderDriveProvider';
 import { AgentGrantsDriveProvider } from '@/lib/homebase/AgentGrantsDriveProvider';
 import { toMarkdown } from '@/lib/agent/editEngine';
+import { setFolderAccess, type AgentAccess } from '@/lib/agent/grants';
 import type { HomebaseFile } from '@homebase-id/js-lib/core';
 import type { DocumentMetadata, NoteFileContent } from '@/types';
 import type { NoteSummary } from './tools/read';
@@ -153,5 +154,24 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         await notesProvider.createNote(uniqueId, metadata, yjsBlob);
     }
 
-    return { loadGrants, listFolders, listNotes, getNote, fetchNoteForEdit, uploadNoteEdit, createNote };
+    async function createFolder(uniqueId: string, name: string): Promise<void> {
+        // Same shape as the app's folder push (SyncService).
+        await folderProvider.createFolder(uniqueId, { name, isCollaborative: false, needsPassword: false });
+    }
+
+    async function grantFolder(folderId: string, access: AgentAccess): Promise<void> {
+        // Read-modify-write; on a conflict (the owner saved grants meanwhile) reload and reapply.
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const { grants, versionTag, fileId } = await grantsProvider.load();
+            try {
+                await grantsProvider.save(setFolderAccess(grants, folderId, access), versionTag, fileId);
+                return;
+            } catch (err) {
+                if (!(err instanceof Error && err.message === 'AGENT_GRANTS_CONFLICT')) throw err;
+            }
+        }
+        throw new Error('Agent grants changed too often; try again');
+    }
+
+    return { loadGrants, listFolders, listNotes, getNote, fetchNoteForEdit, uploadNoteEdit, createNote, createFolder, grantFolder };
 }

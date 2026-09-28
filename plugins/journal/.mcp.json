@@ -2,7 +2,7 @@
   "mcpServers": {
     "journal": {
       "command": "npx",
-      "args": ["-y", "https://github.com/2002Bishwajeet/journal/releases/download/mcp-v1.0.0/journal-mcp-1.0.0.tgz"]
+      "args": ["-y", "https://github.com/2002Bishwajeet/journal/releases/download/mcp-v1.1.0/journal-mcp-1.1.0.tgz"]
     }
   }
 }
