@@ -1,7 +1,7 @@
-import { test, expect, waitForAppReady } from '../fixtures';
+import { test, expect } from '../fixtures';
 
 // Settings section registry (#210): a left nav / vertical tablist on desktop,
-// a full-screen list -> drill-in sheet on mobile.
+// a horizontal nav strip on mobile.
 
 test('desktop: vertical tablist, arrow-key navigation, Tab into content', async ({ app }) => {
   await app.setViewportSize({ width: 1280, height: 800 });
@@ -34,33 +34,24 @@ test('desktop: vertical tablist, arrow-key navigation, Tab into content', async 
   await expect(dialog.getByRole('tabpanel')).toBeFocused();
 });
 
-test('mobile: full-screen list drills into a section and back returns to the list', async ({ app }) => {
-  // Land on the sidebar root (not a restored note) at a phone viewport.
-  await app.evaluate(() => localStorage.removeItem('journal-session-state'));
+test('mobile: nav strip switches sections and long content scrolls', async ({ app }) => {
   await app.setViewportSize({ width: 390, height: 844 });
-  await app.goto('/');
-  await waitForAppReady(app);
-
   await app.getByRole('button', { name: 'Settings' }).click();
 
   const dialog = app.getByRole('dialog');
-  await expect(dialog).toBeVisible();
+  await dialog.getByRole('tab', { name: 'Data & storage' }).click();
 
-  // Fills the viewport - no page visible around it. Poll instead of a single
-  // read since the dialog's open transition briefly renders it slightly smaller.
-  await expect.poll(async () => (await dialog.boundingBox())?.width).toBeGreaterThanOrEqual(385);
-  await expect.poll(async () => (await dialog.boundingBox())?.height).toBeGreaterThanOrEqual(800);
-
-  await expect(dialog.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Close settings' })).toBeVisible();
-
-  await dialog.getByRole('button', { name: /^AI\b/ }).click();
-  await expect(dialog.getByRole('heading', { name: 'AI', exact: true })).toBeVisible();
-  const backButton = dialog.getByRole('button', { name: 'Back to settings' });
-  await expect(backButton).toBeVisible();
-
-  await backButton.click();
-  await expect(dialog.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+  // Regression: the content pane must be height-bounded so overflow scrolls
+  // instead of being clipped by the dialog.
+  const panel = dialog.getByRole('tabpanel');
+  const scroller = panel.locator('..');
+  const { scrollHeight, clientHeight } = await scroller.evaluate((el) => ({
+    scrollHeight: el.scrollHeight,
+    clientHeight: el.clientHeight,
+  }));
+  expect(scrollHeight).toBeGreaterThan(clientHeight);
+  await scroller.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
 
   await app.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
