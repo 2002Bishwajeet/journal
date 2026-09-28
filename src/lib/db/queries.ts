@@ -1198,6 +1198,25 @@ export async function getEntityIdsInBackoff(operation: 'push' | 'pull'): Promise
 }
 
 /**
+ * Entity ids with an unresolved error for this (entityType, operation) pair —
+ * unlike getEntityIdsInBackoff, this includes ones already past their retry time
+ * (still failing, not yet resolved). Used to avoid treating an entity that failed
+ * to pull as confirmed gone (#259).
+ */
+export async function getEntityIdsWithUnresolvedError(
+    entityType: 'folder' | 'note' | 'image',
+    operation: 'push' | 'pull' | 'upload',
+): Promise<Set<string>> {
+    const db = await getDatabase();
+    const result = await db.query<{ entity_id: string }>(
+        `SELECT entity_id FROM sync_errors
+         WHERE resolved_at IS NULL AND entity_type = $1 AND operation = $2`,
+        [entityType, operation]
+    );
+    return new Set(result.rows.map(row => row.entity_id));
+}
+
+/**
  * When the earliest push backoff of a record that still needs pushing ends (ms since
  * epoch), or undefined if none is waiting. Lets the caller schedule the retry (#263).
  */
