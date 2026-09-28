@@ -31,7 +31,7 @@ import {
   getRandom16ByteArray,
   uint8ArrayToBase64,
 } from '@homebase-id/js-lib/helpers';
-import { toArrayBufferBackedView } from '@/lib/utils';
+import { toArrayBufferBackedView, dedupeThumbnailsByDimensions } from '@/lib/utils';
 
 
 //Handles management of Contacts
@@ -83,7 +83,7 @@ export const saveContact = async (
       CONTACT_PROFILE_IMAGE_KEY
     );
     previewThumb = tinyThumb;
-    thumbnails.push(...additionalThumbnails);
+    thumbnails.push(...dedupeThumbnailsByDimensions(additionalThumbnails));
 
     payloads.push({
       key: CONTACT_PROFILE_IMAGE_KEY,
