@@ -60,36 +60,15 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
-      - name: Generate per-run CA + ECDSA leaf certificate (never committed)
+      - name: Start identity host (e2e/live/docker.sh up)
         run: |
-          CERTS="$RUNNER_TEMP/certs"
-          mkdir -p "$CERTS"
-          cd "$CERTS"
-          openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.crt -days 2 \
-            -subj "/CN=Journal e2e-live throwaway CA ${GITHUB_RUN_ID}" \
-            -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign"
-          # odin-core's preconfigured dev identities. CertificateStore requires
-          # an ECDSA leaf (GetECDsaPrivateKey() crashes the host on an RSA
-          # one), and DevEnvironmentSetup exits if ANY of these is missing a
-          # cert, even ones this run never talks to.
-          DOMAINS="frodo sam merry pippin tom collab"
-          SAN="DNS:dotyou.cloud,DNS:*.dotyou.cloud"
-          for d in $DOMAINS; do SAN="$SAN,DNS:*.$d.dotyou.cloud"; done
-          openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout leaf.key -out leaf.csr -subj "/CN=*.dotyou.cloud"
-          printf 'subjectAltName=%s\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n' "$SAN" > leaf.ext
-          openssl x509 -req -in leaf.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out leaf.crt -days 30 -extfile leaf.ext
-          # <SslSourcePath>/<domain>/{certificate.crt,private.key}, per the
-          # host's own layout.
-          for d in $DOMAINS admin provisioning; do
-            mkdir -p "https/$d.dotyou.cloud"
-            cp leaf.crt "https/$d.dotyou.cloud/certificate.crt"
-            cp leaf.key "https/$d.dotyou.cloud/private.key"
-          done
-          # e2e/support/make-cert.mjs serves the app with this same leaf.
-          mkdir -p app && cp leaf.crt app/e2e.crt && cp leaf.key app/e2e.key
+          # Same script `npm run e2e:live:docker` uses locally (#203-local),
+          # so CI and local can't drift: generates the per-run CA + ECDSA
+          # leaf, starts the container, and waits for the verifyToken probe.
+          e2e/live/docker.sh up
           {
-            echo "CERTS=$CERTS"
-            echo "E2E_CERT_DIR=$CERTS/app"
+            echo "CERTS=$PWD/e2e/.certs/live-docker"
+            echo "E2E_CERT_DIR=$PWD/e2e/.certs/live-docker/app"
           } >> "$GITHUB_ENV"
 
       - name: Map hostnames to 127.0.0.1
@@ -106,37 +85,6 @@ jobs:
           certutil -d "sql:$HOME/.pki/nssdb" -N --empty-password
           certutil -d "sql:$HOME/.pki/nssdb" -A -t "C,," -n journal-e2e-live-ca -i "$CERTS/ca.crt"
 
-      - name: Start Homebase identity host
-        run: |
-          # ASPNETCORE_ENVIRONMENT=development proxies /owner, /apps/* etc. to
-          # dev.dotyou.cloud:300x Vite dev servers that don't exist in CI, so
-          # every page 500s. Dev seeding depends on the config section
-          # existing, not the environment name, so run a custom env name whose
-          # settings file is the image's own development config: bundled SPAs
-          # + seeded identities, without the broken proxy.
-          docker run --rm --entrypoint cat "$IMAGE" /app/web/appsettings.development.json > "$RUNNER_TEMP/appsettings.e2e.json"
-          docker run -d --name identity-host \
-            -e ASPNETCORE_ENVIRONMENT=e2e \
-            -e Development__SslSourcePath=/certs/https/ \
-            -v "$RUNNER_TEMP/appsettings.e2e.json:/app/web/appsettings.e2e.json:ro" \
-            -v "$CERTS/https:/certs/https:ro" \
-            -p 80:80 -p 443:443 \
-            "$IMAGE"
-
-      - name: Wait for verifyToken probe
-        run: |
-          ok=false
-          for i in $(seq 1 90); do
-            out=$(curl -sS --cacert "$CERTS/ca.crt" "https://${E2E_LIVE_IDENTITY}/api/owner/v1/authentication/verifyToken" 2>&1) && { ok=true; break; }
-            sleep 2
-          done
-          echo "verifyToken -> $out"
-          if [ "$ok" != true ] || [ "$out" != "false" ]; then
-            echo "::error::verifyToken probe did not return false within 3 minutes"
-            docker logs identity-host 2>&1 | tail -n 300
-            exit 1
-          fi
-
       - name: Bootstrap owner identity and authorise Journal
         run: npx playwright test -c playwright.live.config.ts --project=live-ci-setup
         env:
@@ -149,7 +97,7 @@ jobs:
 
       - name: Save identity-host container logs
         if: always()
-        run: docker logs identity-host > "$RUNNER_TEMP/identity-host.log" 2>&1 || true
+        run: docker logs journal-e2e-live-docker > "$RUNNER_TEMP/identity-host.log" 2>&1 || true
 
       - name: Upload evidence
         if: failure()
