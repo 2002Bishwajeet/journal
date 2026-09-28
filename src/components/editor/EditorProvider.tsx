@@ -14,6 +14,7 @@ import { ySyncPluginKey } from "y-prosemirror";
 import { PGliteProvider } from "@/lib/yjs";
 import { flushPendingSaveOnTeardown } from "@/lib/yjs/flushPendingSave";
 import { upsertSearchIndex, savePendingImageUpload, updateSyncStatus } from "@/lib/db";
+import { isAgentEditor } from "@/lib/agent/attribution";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
 import { NoteLinkContext, type NoteLinkContextValue } from "./NoteLinkContext";
@@ -385,7 +386,9 @@ export function EditorProvider({
             linkedNoteIds,
             lastEditedBy: currentMetadata.isCollaborative
               ? editorOdinId
-              : currentMetadata.lastEditedBy,
+              : isAgentEditor(currentMetadata.lastEditedBy)
+                ? undefined
+                : currentMetadata.lastEditedBy,
           },
         });
 
