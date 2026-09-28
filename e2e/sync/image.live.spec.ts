@@ -2,11 +2,13 @@ import { test, expect, waitForAppReady, withFencedPage, liveIdentityOrigin, LIVE
 import { assertTestOrigin } from '../support/origin-guard';
 import { createNote, openNote, selectFolder, activeEditor } from '../support/actions';
 
-// The smallest possible PNG (1x1, grayscale+alpha) — generated here rather than
-// a binary fixture file, and small enough to skip prepareImageForUpload's
-// re-encode path (see planImageIngest's PNG "keep" branch) for a fast upload.
+// A tiny (16x16, solid color) PNG — generated here rather than a binary
+// fixture file, and small enough to skip prepareImageForUpload's re-encode
+// path (see planImageIngest's PNG "keep" branch) for a fast upload. Not a 1x1
+// pixel: a real thumbnail-generation pipeline runs on the actual pixel size,
+// and a degenerate 1x1 source isn't representative of a real photo.
 const TINY_PNG_BASE64 =
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGM4YWREEmIY1TCqYfhqAAAUBCwQ4b89uwAAAABJRU5ErkJggg==';
 
 test('an image added to a note uploads and downloads on a second device', async ({ liveRun, browser }) => {
     // The default 30s test timeout is smaller than the two real-network waits
@@ -32,6 +34,10 @@ test('an image added to a note uploads and downloads on a second device', async 
     // never started, then wait for it to clear.
     await expect(pageA.getByText('Uploading…')).toBeVisible({ timeout: 10_000 });
     await expect(pageA.getByText('Uploading…')).toBeHidden({ timeout: 30_000 });
+    // "Uploading…" also disappears on a failed upload (replaced by "Upload
+    // failed") — fail here with a clear reason rather than timing out later
+    // waiting for an image that will never arrive on device B.
+    await expect(pageA.getByText('Upload failed')).not.toBeVisible();
 
     // Device B: a second context on the same real identity, opening the note
     // only after the upload above has settled — no realtime-image race to ride out.
