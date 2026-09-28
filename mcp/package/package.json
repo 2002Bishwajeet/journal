@@ -1,0 +1,12 @@
+{
+  "name": "journal-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Journal notes on your Homebase identity",
+  "type": "module",
+  "bin": { "journal-mcp": "dist/server.mjs" },
+  "files": ["dist"],
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@napi-rs/keyring": "2.1.0"
+  }
+}

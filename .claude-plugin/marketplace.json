@@ -1,0 +1,16 @@
+{
+  "name": "journal",
+  "owner": {
+    "name": "Bishwajeet Parhi"
+  },
+  "metadata": {
+    "description": "Journal, the local-first notes app on Homebase"
+  },
+  "plugins": [
+    {
+      "name": "journal",
+      "source": "./plugins/journal",
+      "description": "Read, search and edit your Journal notes from Claude Code"
+    }
+  ]
+}

@@ -42,3 +42,7 @@ DESIGN-IS-*/
 .claude/skills/*
 !.claude/skills/e2e-verify/
 skills-lock.json
+
+# MCP package build
+mcp/package/dist/
+mcp/*.tgz

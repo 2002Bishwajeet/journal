@@ -1,0 +1,58 @@
+name: Release MCP package
+
+# Builds journal-mcp and attaches it to an `mcp-v<version>` GitHub release; the Claude Code
+# plugin (plugins/journal/.mcp.json) runs that asset through npx. Bump the version in
+# mcp/package/package.json and in the plugin's URLs together, merge, then run this.
+# Releases made with GITHUB_TOKEN don't trigger the `release: published` deploy workflows.
+
+on:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check the plugin points at this version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./mcp/package/package.json').version")
+          grep -rq "mcp-v$VERSION/journal-mcp-$VERSION.tgz" plugins/journal \
+            || { echo "plugins/journal doesn't reference journal-mcp $VERSION"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Github packages
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and pack
+        run: npm run mcp:pack
+
+      - name: Smoke test the packed server
+        run: npx -y --package=file:$PWD/mcp/journal-mcp-${{ steps.version.outputs.version }}.tgz journal-mcp --help
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "mcp-v$VERSION" "mcp/journal-mcp-$VERSION.tgz" \
+            --title "Journal MCP $VERSION" --notes "Journal MCP server $VERSION for the Claude Code plugin." \
+            --target "$GITHUB_SHA" --latest=false

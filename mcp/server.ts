@@ -37,7 +37,7 @@ async function main(): Promise<void> {
 
     const creds = loadCredentials();
     if (!creds) {
-        console.error('Not logged in. Run: npm run mcp:login');
+        console.error('Not logged in. Run: journal-mcp login <identity> (Claude Code plugin: /journal:login)');
         process.exit(1);
     }
 
