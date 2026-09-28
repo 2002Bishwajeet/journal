@@ -139,8 +139,14 @@ export function fragmentToMarkdown(xmlFragment: Y.XmlFragment): string {
     if (rows.length === 0) return '';
     const cellsOf = (row: Y.XmlElement) =>
       row.toArray().filter((c): c is Y.XmlElement => c instanceof Y.XmlElement && (c.nodeName === 'tableCell' || c.nodeName === 'tableHeader'));
+    // Escape each `|` as `\|`, doubling any backslashes right before it — else a
+    // cell ending in `\` turns `\|` into `\\|` (escaped backslash + real column
+    // separator). Other backslashes stay as-is so inline code keeps its literal
+    // text; a `\` directly before `|` INSIDE inline code can't be represented in
+    // a GFM table (only `\|` is unescaped there), so that one case comes back doubled.
+    const escapeCell = (s: string) => s.replace(/\\*\|/g, (run) => run.slice(0, -1).replace(/\\/g, '\\\\') + '\\|');
     const renderRow = (row: Y.XmlElement) =>
-      '| ' + cellsOf(row).map((c) => serializeInline(c).replace(/\s*\n\s*/g, ' ').replace(/\|/g, '\\|').trim()).join(' | ') + ' |';
+      '| ' + cellsOf(row).map((c) => escapeCell(serializeInline(c).replace(/\s*\n\s*/g, ' ')).trim()).join(' | ') + ' |';
     const cols = cellsOf(rows[0]).length || 1;
     const separator = '| ' + Array.from({ length: cols }, () => '---').join(' | ') + ' |';
     return [renderRow(rows[0]), separator, ...rows.slice(1).map(renderRow)].join('\n') + '\n\n';

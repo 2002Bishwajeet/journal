@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
-import { updateYFragment } from 'y-prosemirror';
+import { updateYFragment, yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
 import {
   editorSchema,
   toMarkdown,
@@ -60,6 +60,44 @@ describe('round-trip createDoc -> toMarkdown', () => {
       expect(norm(toMarkdown(createDoc(md)))).toBe(norm(md));
     });
   }
+});
+
+describe('table cells round-trip', () => {
+  type Inline = { type: 'text'; text: string; marks?: { type: string }[] };
+  const cell = (type: string, content: Inline[]) => ({ type, content: [{ type: 'paragraph', content }] });
+  const tableDoc = (cells: Inline[][]) =>
+    docFromJSON({
+      type: 'doc',
+      content: [{
+        type: 'table',
+        content: [
+          { type: 'tableRow', content: cells.map(() => cell('tableHeader', [{ type: 'text', text: 'H' }])) },
+          { type: 'tableRow', content: cells.map((c) => cell('tableCell', c)) },
+        ],
+      }],
+    });
+  /** Serialize, re-parse, and return the body row's cell texts. */
+  const bodyCells = (doc: Y.Doc) => {
+    const back = yXmlFragmentToProseMirrorRootNode(frag(createDoc(toMarkdown(doc))), editorSchema);
+    const out: string[] = [];
+    back.child(0).child(1).forEach((c) => out.push(c.textContent));
+    return out;
+  };
+
+  it('keeps a backslash that precedes a pipe inside the cell', () => {
+    const doc = tableDoc([[{ type: 'text', text: 'a\\|b' }], [{ type: 'text', text: 'next' }]]);
+    expect(bodyCells(doc)).toEqual(['a\\|b', 'next']);
+  });
+
+  it('keeps plain backslashes and pipes in cell text', () => {
+    const doc = tableDoc([[{ type: 'text', text: 'a\\ b|c' }], [{ type: 'text', text: 'end\\' }]]);
+    expect(bodyCells(doc)).toEqual(['a\\ b|c', 'end\\']);
+  });
+
+  it('does not double a backslash inside an inline code span in a cell', () => {
+    const doc = tableDoc([[{ type: 'text', text: 'C:\\dir', marks: [{ type: 'code' }] }], [{ type: 'text', text: 'x' }]]);
+    expect(bodyCells(doc)).toEqual(['C:\\dir', 'x']);
+  });
 });
 
 describe('appendMarkdown', () => {
