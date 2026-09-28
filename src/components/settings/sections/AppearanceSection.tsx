@@ -1,7 +1,6 @@
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { cn } from "@/lib/utils";
 import { Moon, Sun, Monitor, CheckCircle2 } from "lucide-react";
-import { SectionHeader } from "../SectionHeader";
 
 export default function AppearanceSection() {
   const { theme, setTheme } = useThemePreference();
@@ -37,11 +36,7 @@ export default function AppearanceSection() {
   ] as const;
 
   return (
-    <div className="p-8 space-y-10">
-      <SectionHeader subtitle="Choose how your journal looks and feels">
-        Appearance
-      </SectionHeader>
-
+    <div className="space-y-10">
       {/* Theme Previews */}
       <div className="grid grid-cols-3 gap-4">
         {themes.map((t) => {

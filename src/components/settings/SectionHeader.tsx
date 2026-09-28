@@ -9,14 +9,11 @@ export function SectionHeader({
 }) {
   return (
     <div className="space-y-1">
-      <h3
-        className="text-xl tracking-tight text-foreground"
-        style={{ fontFamily: "var(--font-serif)" }}
-      >
+      <h3 className="text-sm font-medium text-muted-foreground">
         {children}
       </h3>
       {subtitle && (
-        <p className="text-sm text-muted-foreground">{subtitle}</p>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
       )}
     </div>
   );
