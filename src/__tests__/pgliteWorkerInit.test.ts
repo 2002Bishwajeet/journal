@@ -31,7 +31,7 @@ async function loadWorkerInit(): Promise<InitFn> {
     },
   }));
   // The real worker() wires up postMessage handlers; capture the callback instead.
-  vi.doMock('@electric-sql/pglite/worker', () => ({
+  vi.doMock('../lib/db/pgliteWorkerHost', () => ({
     worker: ({ init }: { init: InitFn }) => {
       captured = init;
     },
