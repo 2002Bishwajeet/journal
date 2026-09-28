@@ -29,6 +29,7 @@ import {
     recordSyncError,
     resolveSyncErrorsForEntity,
     getEntityIdsInBackoff,
+    getEntityIdsWithUnresolvedError,
     getNextPushRetryAt,
     markPendingDelete,
     clearOldSyncErrors,
@@ -672,12 +673,16 @@ export class SyncService {
     /**
      * Resolve a remote note's local folderId. Falls back to Main when groupId
      * points at neither Main/Collaborative nor an existing local folder row —
-     * e.g. notes orphaned by the pre-#254 folder-delete bug (#259).
+     * e.g. notes orphaned by the pre-#254 folder-delete bug (#259). Exception: a
+     * folder with an unresolved pull error (this batch, or a still-failing earlier
+     * one) isn't proven gone — keep the raw groupId rather than mis-file it to Main.
      */
     private async resolveNoteFolderId(groupId: string | undefined): Promise<string> {
         const folderId = groupId || MAIN_FOLDER_ID;
         if (folderId === MAIN_FOLDER_ID || folderId === COLLABORATIVE_FOLDER_ID) return folderId;
-        return (await getFolderById(folderId)) ? folderId : MAIN_FOLDER_ID;
+        if (await getFolderById(folderId)) return folderId;
+        const failedFolderPulls = await getEntityIdsWithUnresolvedError('folder', 'pull');
+        return failedFolderPulls.has(folderId) ? folderId : MAIN_FOLDER_ID;
     }
 
     /**

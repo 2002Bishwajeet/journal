@@ -12,9 +12,11 @@ import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
 
-const { mockDsr, mockGetNotePayload } = vi.hoisted(() => ({
+const { mockDsr, mockGetNotePayload, mockDsrFolder, mockProcessChanges } = vi.hoisted(() => ({
     mockDsr: vi.fn(),
     mockGetNotePayload: vi.fn(),
+    mockDsrFolder: vi.fn(),
+    mockProcessChanges: vi.fn(),
 }));
 vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
     NotesDriveProvider: class NotesDriveProvider {
@@ -24,10 +26,16 @@ vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
     },
 }));
 vi.mock('@/lib/homebase/FolderDriveProvider', () => ({
-    FolderDriveProvider: class FolderDriveProvider { constructor() {} },
+    FolderDriveProvider: class FolderDriveProvider {
+        dsrToFolderFileContent = mockDsrFolder;
+        constructor() {}
+    },
 }));
 vi.mock('@/lib/homebase/InboxProcessor', () => ({
-    InboxProcessor: class InboxProcessor { constructor() {} },
+    InboxProcessor: class InboxProcessor {
+        processChanges = mockProcessChanges;
+        constructor() {}
+    },
 }));
 
 import { SyncService } from '@/lib/homebase/SyncService';
@@ -110,5 +118,35 @@ describe('SyncService.handleRemoteNote orphaned folderId (#259)', () => {
 
         const entry = await getSearchIndexEntry(noteId);
         expect(entry?.metadata.folderId).toBe(MAIN_FOLDER_ID);
+    });
+});
+
+describe('SyncService.pullChanges keeps groupId when the folder pull failed this batch (#259)', () => {
+    beforeEach(async () => {
+        await resetTestDatabase();
+        vi.clearAllMocks();
+        mockDsr.mockResolvedValue({ title: 'T', tags: [] });
+        mockGetNotePayload.mockResolvedValue(null);
+    });
+
+    it('does not move the note to Main when its folder failed to pull in the same batch', async () => {
+        const failingFolderId = '99999999-9999-9999-9999-999999999999';
+        const noteId = '88888888-8888-8888-8888-888888888888';
+        // The folder pull throws (e.g. transient network/parse error) — its local
+        // row never gets created, but that's not proof the folder is gone.
+        mockDsrFolder.mockRejectedValue(new Error('boom'));
+        mockProcessChanges.mockResolvedValue({
+            folders: [{
+                fileId: 'folder-file-1',
+                fileMetadata: { versionTag: 'v1', appData: { uniqueId: failingFolderId } },
+            }],
+            notes: [remoteNote(noteId, failingFolderId)],
+            invitations: [],
+        });
+
+        await new SyncService(fakeClient, fakeOnline).pullChanges();
+
+        const entry = await getSearchIndexEntry(noteId);
+        expect(entry?.metadata.folderId).toBe(failingFolderId);
     });
 });
