@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import type { CircleDefinition } from "@homebase-id/js-lib/network";
 import { CircleOption } from "@/components/circles/CircleOption";
 import { useNotes } from "@/hooks/useNotes";
+import { getSyncRecord } from "@/lib/db";
 
 interface MarkCollaborativeDialogProps {
   isOpen: boolean;
@@ -119,11 +120,15 @@ export function MarkCollaborativeDialog({
         await syncService.flushAndSyncNote(noteId);
       }
 
+      // The note may have just been created by the flush above: pass its fileId,
+      // since a fresh note's uniqueId lookup can 404 (#293)
+      const record = await getSyncRecord(noteId);
       await provider.makeNoteCollaborative(
         noteId,
         circleIds,
         recipients,
         editorOdinId,
+        record?.remoteFileId,
       );
 
       const existingNote = notes.find((n) => n.docId === noteId);

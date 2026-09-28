@@ -92,27 +92,10 @@ export async function shareNotePublicly(page: Page, title: string): Promise<stri
     await page.getByRole('button').filter({ hasText: title }).first().click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Share' }).click();
 
-    // The real makeNotePublic() drive call happens here. On a just-created note
-    // it can fail once: makeNotePublic() looks the note up by uniqueId first,
-    // and that server-side lookup index can briefly 404 right after the note's
-    // own upload — confirmed via a trace showing GET .../query/specialized/
-    // cuid/header 404 seconds after createNote's upload had already succeeded.
-    // handleMakePublic() then just toasts an error and reverts to this same
-    // button, so retry the click rather than only waiting longer for a request
-    // that already failed.
-    const makePublicButton = page.getByRole('button', { name: 'Make Note Public' });
+    await page.getByRole('button', { name: 'Make Note Public' }).click();
+    // The real makeNotePublic() drive call happens here — give it real network time.
     const urlInput = page.getByRole('dialog').getByRole('textbox');
-    await makePublicButton.click();
-    for (let attempt = 1; ; attempt++) {
-        try {
-            await expect(urlInput).toBeVisible({ timeout: 5_000 });
-            break;
-        } catch (err) {
-            if (attempt === 3) throw err;
-            await makePublicButton.click();
-        }
-    }
-
+    await expect(urlInput).toBeVisible({ timeout: 15_000 });
     const shareUrl = await urlInput.inputValue();
     await page.keyboard.press('Escape');
     return shareUrl;

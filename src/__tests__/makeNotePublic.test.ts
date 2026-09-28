@@ -4,13 +4,19 @@ import { SecurityGroupType } from '@homebase-id/js-lib/core';
 
 // Mock only the two SDK calls makeNotePublic/makeNotePrivate use; keep the real
 // enums (SecurityGroupType) and everything else intact.
-const { mockGetHeader, mockReUpload } = vi.hoisted(() => ({
+const { mockGetHeader, mockGetHeaderByFileId, mockReUpload } = vi.hoisted(() => ({
     mockGetHeader: vi.fn(),
+    mockGetHeaderByFileId: vi.fn(),
     mockReUpload: vi.fn(),
 }));
 vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@homebase-id/js-lib/core')>();
-    return { ...actual, getFileHeaderByUniqueId: mockGetHeader, reUploadFile: mockReUpload };
+    return {
+        ...actual,
+        getFileHeaderByUniqueId: mockGetHeader,
+        getFileHeader: mockGetHeaderByFileId,
+        reUploadFile: mockReUpload,
+    };
 });
 
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
@@ -90,6 +96,41 @@ describe('NotesDriveProvider.makeNotePublic', () => {
         await provider.makeNotePublic(NOTE_ID);
 
         expect(mockReUpload.mock.calls[0][2].allowDistribution).toBe(false);
+    });
+
+    // #293: right after a note is created the server's uniqueId lookup can 404 for a
+    // few seconds, while the header is already readable by its fileId.
+    it('succeeds right after create by reading the header by its known fileId', async () => {
+        mockGetHeader.mockResolvedValue(null); // uniqueId lookup still 404s
+        mockGetHeaderByFileId.mockResolvedValue(ownerHeader());
+
+        await expect(provider.makeNotePublic(NOTE_ID, 'file-1')).resolves.toEqual({ versionTag: 'v2' });
+
+        expect(mockGetHeaderByFileId).toHaveBeenCalledWith(
+            fakeClient,
+            expect.anything(),
+            'file-1',
+            expect.objectContaining({ decrypt: true })
+        );
+        expect(mockReUpload.mock.calls[0][1].storageOptions.overwriteFileId).toBe('file-1');
+    });
+
+    it('falls back to the uniqueId lookup when no fileId is known', async () => {
+        mockGetHeader.mockResolvedValue(ownerHeader());
+
+        await provider.makeNotePublic(NOTE_ID);
+
+        expect(mockGetHeaderByFileId).not.toHaveBeenCalled();
+        expect(mockGetHeader).toHaveBeenCalled();
+    });
+
+    it('falls back to the uniqueId lookup when the fileId is not found', async () => {
+        mockGetHeaderByFileId.mockResolvedValue(null);
+        mockGetHeader.mockResolvedValue(ownerHeader());
+
+        await provider.makeNotePublic(NOTE_ID, 'stale-file');
+
+        expect(mockReUpload.mock.calls[0][1].storageOptions.overwriteFileId).toBe('file-1');
     });
 });
 
