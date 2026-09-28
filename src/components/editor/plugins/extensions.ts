@@ -13,13 +13,11 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import Image from '@tiptap/extension-image';
 import Underline from '@tiptap/extension-underline';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import TextAlign from '@tiptap/extension-text-align';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-import { ReactNodeViewRenderer } from '@tiptap/react';
 
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -27,10 +25,8 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { Mathematics } from '@tiptap/extension-mathematics';
 import { createLowlight } from 'lowlight';
-import { EmojiExtension } from './EmojiExtension';
 import { SearchAndReplace } from './SearchAndReplaceExtension';
-import { ImageNodeView } from '../nodes/ImageNode';
-import { ALIGN_STYLE, type ImageAlign } from '../nodes/imageLayout';
+import { ImageSchema } from '../nodes/imageSchema';
 
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';
@@ -164,59 +160,12 @@ const CustomTextAlign = TextAlign.extend({
 });
 
 /**
- * Custom Image extension with NodeView for handling pending uploads and remote images
+ * Schema-inert stand-in for the `:` emoji suggestion popup — its rendering is
+ * React-based (see EmojiExtension.ts), which headless code (the agent edit
+ * engine, #316) must not pull in. The editor swaps in the real extension (see
+ * editorExtensions.ts) at this same spot in the list.
  */
-const CustomImage = Image.extend({
-    addAttributes() {
-        return {
-            ...this.parent?.(),
-            'data-pending-id': {
-                default: null,
-                parseHTML: element => element.getAttribute('data-pending-id'),
-                renderHTML: attributes => {
-                    if (!attributes['data-pending-id']) return {};
-                    return { 'data-pending-id': attributes['data-pending-id'] };
-                },
-            },
-            // Float alignment, set from the toolbar that appears on a selected
-            // image. Distinct from the paragraph's TextAlign, which only shifts
-            // the image within its line — a float lets the text wrap around it.
-            align: {
-                default: null,
-                parseHTML: element => element.getAttribute('data-align'),
-                renderHTML: attributes => {
-                    const css = ALIGN_STYLE[attributes.align as ImageAlign];
-                    if (!css) return {};
-                    return {
-                        'data-align': attributes.align,
-                        style: Object.entries(css).map(([k, v]) => `${k}: ${v}`).join('; '),
-                    };
-                },
-            },
-            // Rendered width in px, set by dragging one of the image's corner
-            // handles. Lives on the node, so it persists in the Yjs doc like any
-            // other attr. No height: leaving it auto keeps the aspect ratio.
-            width: {
-                default: null,
-                parseHTML: element => {
-                    const w = parseInt(element.style.width || element.getAttribute('width') || '', 10);
-                    return Number.isFinite(w) ? w : null;
-                },
-                renderHTML: attributes => {
-                    if (!attributes.width) return {};
-                    return { style: `width: ${attributes.width}px` };
-                },
-            },
-        };
-    },
-    addNodeView() {
-        return ReactNodeViewRenderer(ImageNodeView);
-    },
-}).configure({
-    inline: true,
-    allowBase64: true,
-});
-
+const EmojiExtensionPlaceholder = Extension.create({ name: 'emojiExtension' });
 
 function fragmentHasHardBreak(frag: Fragment): boolean {
     let found = false;
@@ -328,7 +277,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
             nested: true,
         }),
 
-        CustomImage,
+        ImageSchema,
 
         CodeBlockLowlight.configure({
             lowlight,
@@ -344,7 +293,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         TableHeader,
 
         Mathematics,
-        EmojiExtension,
+        EmojiExtensionPlaceholder,
 
         Underline,
         Subscript,

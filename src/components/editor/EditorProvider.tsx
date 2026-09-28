@@ -25,7 +25,7 @@ import { createNoteWithContentInDb } from "@/hooks/useNotes";
 import { extractNoteLinkIds } from "@/lib/editor/extractNoteLinkIds";
 import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
 import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
-import { createSchemaExtensions } from "./schemaExtensions";
+import { createEditorExtensions } from "./editorExtensions";
 import { NoteLinkExtension } from "./plugins/NoteLink";
 import {
   createCollaborationExtension,
@@ -251,7 +251,7 @@ export function EditorProvider({
   // Memoize extensions to avoid recreation on every render
   const extensions = useMemo(
     () => [
-      ...createSchemaExtensions(),
+      ...createEditorExtensions(),
       createCollaborationExtension(yXmlFragment),
       CustomShortcuts.configure({
         // Custom shortcuts can trigger actions here if needed
