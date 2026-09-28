@@ -163,11 +163,19 @@ async function main(): Promise<void> {
         process.exit(1);
     }
 
+    // stdout is the MCP message stream. The edit engine's editor schema transitively loads
+    // app code that logs with console.debug (e.g. DocumentBroadcast), which Node writes to
+    // stdout and would corrupt the stream, so route non-error logging to stderr.
+    console.log = console.info = console.debug = console.error;
+
     // Deferred: pulls in the Homebase drive providers and Yjs markdown extraction, which
     // --help/login/logout have no need for.
     const { createDriveDeps } = await import('./drive');
     const server = createJournalMcpServer(createDriveDeps(creds));
     await server.connect(new StdioServerTransport());
+    // That same app code opens a BroadcastChannel that keeps Node alive, so exit when the
+    // client closes our stdin instead of lingering as an orphaned process.
+    process.stdin.on('end', () => process.exit(0));
 }
 
 // Only run the CLI when this file is executed as the entry script (vite-node
