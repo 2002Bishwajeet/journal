@@ -31,7 +31,7 @@ export default function AISection() {
   } = useAIPreferences();
 
   return (
-    <div className="p-8 space-y-10">
+    <div className="space-y-10">
       {/* AI Status Banner */}
       <div
         className={cn(

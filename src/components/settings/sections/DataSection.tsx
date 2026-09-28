@@ -15,7 +15,7 @@ export default function DataSection() {
     useImportExport();
 
   return (
-    <div className="p-8 space-y-10">
+    <div className="space-y-10">
       {/* Storage */}
       <div className="space-y-6">
         <SectionHeader subtitle="Where your journal lives">

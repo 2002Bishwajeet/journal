@@ -1,14 +1,14 @@
+import { useState } from "react";
 import logo from "@/assets/logo_withoutbg.png";
 import { Database, Cpu, Lock, Shield, Keyboard } from "lucide-react";
 import { SectionHeader } from "../SectionHeader";
+import KeyboardShortcutsModal from "@/components/modals/KeyboardShortcutsModal";
 
-export default function AboutSection({
-  onOpenShortcuts,
-}: {
-  onOpenShortcuts: () => void;
-}) {
+export default function AboutSection() {
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
   return (
-    <div className="p-8 space-y-10">
+    <div className="space-y-10">
       {/* Brand */}
       <div className="space-y-6">
         <div className="text-center py-6">
@@ -31,7 +31,7 @@ export default function AboutSection({
             v{__APP_VERSION__}
           </span>
           <button
-            onClick={onOpenShortcuts}
+            onClick={() => setShowShortcuts(true)}
             className="flex items-center gap-2 mx-auto mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <Keyboard className="h-4 w-4" />
@@ -94,6 +94,11 @@ export default function AboutSection({
           </ul>
         </div>
       </div>
+
+      <KeyboardShortcutsModal
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
     </div>
   );
 }
