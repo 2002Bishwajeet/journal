@@ -96,6 +96,11 @@ export async function login(identityArg?: string): Promise<void> {
                 if (!finalizeIdentity || !publicKey || !salt) {
                     throw new Error('Callback is missing identity, public_key or salt.');
                 }
+                // ponytail: the SDK's finalizeAuthentication derives the shared key via
+                // window.crypto.subtle (browser-only); Node has the same Web Crypto on
+                // globalThis.crypto. Drop this once the SDK uses globalThis.crypto.
+                const g = globalThis as { window?: { crypto?: Crypto } };
+                g.window ??= { crypto: globalThis.crypto };
                 const { clientAuthToken, sharedSecret } = await finalizeAuthentication(
                     finalizeIdentity,
                     eccKey.privateKey,
