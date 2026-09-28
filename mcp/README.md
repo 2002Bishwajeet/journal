@@ -7,7 +7,21 @@ Journal web app's session, so it can be revoked independently.
 Notes and folders are hidden from every tool until you grant them access in
 **Journal → Settings → Agent access**. Access defaults to **none**.
 
-## Setup
+## Claude Code plugin (one-click)
+
+```
+/plugin marketplace add 2002Bishwajeet/journal
+/plugin install journal@journal
+/journal:login you.dotyou.cloud
+```
+
+Then run `/mcp` to reconnect `journal`, and grant folders in **Journal → Settings → Agent access**.
+The plugin runs the packaged server from the `mcp-v*` GitHub release via `npx`; no checkout needed.
+
+To release a new server version: bump `mcp/package/package.json` and the URLs in
+`plugins/journal/`, merge, then run the **Release MCP package** workflow.
+
+## Setup (from a checkout)
 
 Log in once per identity. This registers a "Journal MCP" app on your identity (its own
 appId, Read+Write on the notes drive only) and saves the resulting credentials to your

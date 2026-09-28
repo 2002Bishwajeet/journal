@@ -15,6 +15,7 @@
     "mcp": "vite-node mcp/server.ts",
     "mcp:login": "vite-node mcp/server.ts login",
     "mcp:logout": "vite-node mcp/server.ts logout",
+    "mcp:pack": "vite build -c mcp/vite.config.ts && npm pack ./mcp/package --pack-destination mcp",
     "e2e": "playwright test --project=hermetic",
     "e2e:dev": "E2E_SERVER=dev playwright test --project=hermetic",
     "e2e:live": "playwright test -c playwright.live.config.ts --project=live",
