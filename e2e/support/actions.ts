@@ -99,3 +99,14 @@ export async function shareNotePublicly(page: Page, title: string): Promise<stri
     await page.keyboard.press('Escape');
     return shareUrl;
 }
+
+/** Make a public note private again via the note list's "Share" context-menu item. */
+export async function unshareNotePublicly(page: Page, title: string): Promise<void> {
+    await assertTestOrigin(page);
+    await page.getByRole('button').filter({ hasText: title }).first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Share' }).click();
+    await page.getByRole('button', { name: 'Stop sharing (make private)' }).click();
+    // The real makeNotePrivate() drive call happens here — give it real network time.
+    await expect(page.getByRole('button', { name: 'Make Note Public' })).toBeVisible({ timeout: 15_000 });
+    await page.keyboard.press('Escape');
+}
