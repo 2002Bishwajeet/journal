@@ -12,16 +12,18 @@ import { getSchema } from '@tiptap/core';
 import { MarkdownManager } from '@tiptap/markdown';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
 import { prosemirrorToYXmlFragment, updateYFragment, yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
-import { createSchemaExtensions } from '@/components/editor/schemaExtensions';
+import { createBaseExtensions } from '@/components/editor/plugins/extensions';
 import { fragmentToMarkdown } from '@/lib/yjs/fragmentToMarkdown';
 
 const FRAGMENT = 'prosemirror';
 
-export const editorSchema = getSchema(createSchemaExtensions());
+const extensions = createBaseExtensions();
 
-const md = new MarkdownManager({ extensions: createSchemaExtensions() });
+export const editorSchema = getSchema(extensions);
 
-export function parseMarkdown(markdown: string): PMNode {
+const md = new MarkdownManager({ extensions });
+
+function parseMarkdown(markdown: string): PMNode {
   return editorSchema.nodeFromJSON(md.parse(markdown));
 }
 
@@ -111,15 +113,11 @@ export function replaceInNote(doc: Y.Doc, oldText: string, newText: string): voi
 }
 
 /**
- * Overwrites the whole body from markdown. LOSSY for note links and image
- * layout — only for building a fresh doc (`createDoc`), never existing notes.
+ * A fresh doc built from markdown. LOSSY for note links and image layout, so
+ * only for new notes, never for rewriting existing ones.
  */
-export function replaceBody(doc: Y.Doc, markdown: string): void {
-  write(doc, parseMarkdown(markdown));
-}
-
 export function createDoc(markdown: string): Y.Doc {
   const doc = new Y.Doc();
-  replaceBody(doc, markdown);
+  write(doc, parseMarkdown(markdown));
   return doc;
 }

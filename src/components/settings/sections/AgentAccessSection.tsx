@@ -4,10 +4,10 @@ import { useFolders } from "@/hooks/useFolders";
 import { useNotesByFolder } from "@/hooks/useNotes";
 import {
   useAgentGrants,
-  buildAgentAccessRows,
+  buildNoteRows,
   type AgentAccessNoteRow,
 } from "@/hooks/useAgentGrants";
-import type { AgentAccess, AgentGrants } from "@/lib/agent/grants";
+import { folderAccess, type AgentAccess, type AgentGrants } from "@/lib/agent/grants";
 import type { Folder } from "@/types";
 import { SectionHeader } from "../SectionHeader";
 
@@ -16,20 +16,16 @@ const selectClass =
 
 function FolderAccessRow({
   folder,
-  access,
   grants,
   onSetFolder,
   onSetNote,
 }: {
   folder: Folder;
-  access: AgentAccess;
   grants: AgentGrants;
   onSetFolder: (folderId: string, access: AgentAccess) => void;
   onSetNote: (noteId: string, access: AgentAccess | null) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const { data: notes } = useNotesByFolder(folder.id);
-  const noteRows = buildAgentAccessRows(grants, [folder], { [folder.id]: notes })[0]?.notes ?? [];
 
   return (
     <div className="rounded-xl border border-border/60 bg-card">
@@ -47,7 +43,7 @@ function FolderAccessRow({
         </div>
         <select
           aria-label={`Agent access for ${folder.name}`}
-          value={access}
+          value={folderAccess(grants, folder.id)}
           onChange={(e) => onSetFolder(folder.id, e.target.value as AgentAccess)}
           className={selectClass}
         >
@@ -57,16 +53,32 @@ function FolderAccessRow({
         </select>
       </div>
 
-      {isOpen && (
-        <div className="space-y-3 border-t border-border/60 px-4 py-3">
-          {noteRows.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No notes in this folder.</p>
-          ) : (
-            noteRows.map((note) => (
-              <NoteAccessRow key={note.noteId} note={note} onSetNote={onSetNote} />
-            ))
-          )}
-        </div>
+      {isOpen && <FolderNotes folderId={folder.id} grants={grants} onSetNote={onSetNote} />}
+    </div>
+  );
+}
+
+/** Rendered only while the folder is expanded, so collapsed folders run no live query. */
+function FolderNotes({
+  folderId,
+  grants,
+  onSetNote,
+}: {
+  folderId: string;
+  grants: AgentGrants;
+  onSetNote: (noteId: string, access: AgentAccess | null) => void;
+}) {
+  const { data: notes } = useNotesByFolder(folderId);
+  const noteRows = buildNoteRows(grants, folderId, notes);
+
+  return (
+    <div className="space-y-3 border-t border-border/60 px-4 py-3">
+      {noteRows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No notes in this folder.</p>
+      ) : (
+        noteRows.map((note) => (
+          <NoteAccessRow key={note.noteId} note={note} onSetNote={onSetNote} />
+        ))
       )}
     </div>
   );
@@ -119,7 +131,7 @@ function NoteAccessRow({
 }
 
 export default function AgentAccessSection() {
-  const { grants, folderAccess, setFolder, setNote } = useAgentGrants();
+  const { grants, setFolder, setNote } = useAgentGrants();
   const { data: folders } = useFolders().get;
 
   return (
@@ -148,7 +160,6 @@ export default function AgentAccessSection() {
             <FolderAccessRow
               key={folder.id}
               folder={folder}
-              access={folderAccess(folder.id)}
               grants={grants}
               onSetFolder={setFolder}
               onSetNote={setNote}

@@ -17,6 +17,12 @@ export function isAgentEditor(lastEditedBy?: string): boolean {
     return lastEditedBy?.startsWith('agent:') === true;
 }
 
+/** `agent:<client name>`, lower-cased, non [a-z0-9-] chars -> '-', max 40 chars; never collides with an OdinId. */
+export function agentEditor(clientName: string): string {
+    const name = clientName.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 40);
+    return `agent:${name || 'agent'}`;
+}
+
 /** Display name for an agent-authored `lastEditedBy`, or null when it's a human editor. */
 export function agentDisplayName(lastEditedBy?: string): string | null {
     if (!isAgentEditor(lastEditedBy)) return null;

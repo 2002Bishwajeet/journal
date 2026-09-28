@@ -44,9 +44,15 @@ export interface NoteResult extends NoteListResult {
 const DEFAULT_LIST_NOTES_LIMIT = 50;
 const MAX_LIST_NOTES_LIMIT = 200;
 const DEFAULT_SEARCH_LIMIT = 20;
+/** Body fetches in flight at once while searching. */
+const SEARCH_CONCURRENCY = 8;
 
-function noteAccess(grants: AgentGrants, note: NoteSummary): AgentAccess {
+export function noteAccess(grants: AgentGrants, note: NoteSummary): AgentAccess {
     return resolveAccess(grants, { noteId: note.id, folderId: note.folderId, excludeFromAI: note.excludeFromAI });
+}
+
+function toListResult(note: NoteSummary, access: AgentAccess): NoteListResult {
+    return { id: note.id, title: note.title, folderId: note.folderId, modified: note.modified, tags: note.tags, access };
 }
 
 export async function listFolders(deps: ReadDeps): Promise<FolderResult[]> {
@@ -65,14 +71,7 @@ export async function listNotes(
 
     return notes
         .filter((note) => !params.folderId || note.folderId === params.folderId)
-        .map((note) => ({
-            id: note.id,
-            title: note.title,
-            folderId: note.folderId,
-            modified: note.modified,
-            tags: note.tags,
-            access: noteAccess(grants, note),
-        }))
+        .map((note) => toListResult(note, noteAccess(grants, note)))
         .filter((note) => note.access !== 'none')
         .sort((a, b) => b.modified.localeCompare(a.modified))
         .slice(0, limit);
@@ -85,15 +84,7 @@ export async function getNote(deps: ReadDeps, params: { id: string }): Promise<N
     const access = noteAccess(grants, result.summary);
     if (access === 'none') throw new Error(`Note not found: ${params.id}`);
 
-    return {
-        id: result.summary.id,
-        title: result.summary.title,
-        folderId: result.summary.folderId,
-        modified: result.summary.modified,
-        tags: result.summary.tags,
-        access,
-        markdown: result.markdown,
-    };
+    return { ...toListResult(result.summary, access), markdown: result.markdown };
 }
 
 export async function searchNotes(
@@ -104,31 +95,24 @@ export async function searchNotes(
     const query = params.query.toLowerCase();
     const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
 
-    const granted = notes
-        .map((note) => ({ note, access: noteAccess(grants, note) }))
-        .filter((entry): entry is { note: NoteSummary; access: AgentAccess } => entry.access !== 'none');
-
-    const results: NoteListResult[] = [];
-    for (const { note, access } of granted) {
-        if (results.length >= limit) break;
+    const matchOf = async (note: NoteSummary): Promise<NoteListResult | null> => {
+        const access = noteAccess(grants, note);
+        // Never fetch the body of an ungranted note.
+        if (access === 'none') return null;
 
         const titleOrTagHit =
             note.title.toLowerCase().includes(query) || note.tags.some((tag) => tag.toLowerCase().includes(query));
+        // Only fetch the body of a note that didn't already match by title/tag.
+        const hit =
+            titleOrTagHit || ((await deps.getNote(note.id))?.markdown ?? '').toLowerCase().includes(query);
+        return hit ? toListResult(note, access) : null;
+    };
 
-        // Never fetch the body of a note that didn't already match by title/tag unless
-        // needed — and never for an ungranted note (already filtered out above).
-        const bodyHit = titleOrTagHit ? false : ((await deps.getNote(note.id))?.markdown ?? '').toLowerCase().includes(query);
-
-        if (titleOrTagHit || bodyHit) {
-            results.push({
-                id: note.id,
-                title: note.title,
-                folderId: note.folderId,
-                modified: note.modified,
-                tags: note.tags,
-                access,
-            });
-        }
+    // SEARCH_CONCURRENCY notes at a time, in list order, until `limit` results.
+    const results: NoteListResult[] = [];
+    for (let i = 0; i < notes.length && results.length < limit; i += SEARCH_CONCURRENCY) {
+        const matches = await Promise.all(notes.slice(i, i + SEARCH_CONCURRENCY).map(matchOf));
+        for (const match of matches) if (match && results.length < limit) results.push(match);
     }
     return results;
 }

@@ -10,11 +10,13 @@
  */
 import * as Y from 'yjs';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
+import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import { getNewId } from '@/lib/utils';
-import { resolveAccess, folderAccess } from '@/lib/agent/grants';
+import { folderAccess } from '@/lib/agent/grants';
+import { agentEditor } from '@/lib/agent/attribution';
 import { appendMarkdown, replaceInNote as replaceInDoc, createDoc } from '@/lib/agent/editEngine';
 import type { DocumentMetadata } from '@/types';
-import type { ReadDeps, NoteSummary } from './read';
+import { noteAccess, type ReadDeps, type NoteSummary } from './read';
 
 /** Thrown by `uploadNoteEdit` when the note's versionTag is stale. */
 export class VersionConflictError extends Error {
@@ -29,15 +31,22 @@ export interface NoteForEdit {
     doc: Y.Doc;
     versionTag: string;
     fileId: string;
+    /** The fetched file's encrypted key header, handed back to `uploadNoteEdit`. */
+    keyHeader?: EncryptedKeyHeader;
     metadata: DocumentMetadata;
+}
+
+export interface NoteEdit {
+    fileId: string;
+    versionTag: string;
+    keyHeader?: EncryptedKeyHeader;
+    metadata: DocumentMetadata;
+    yjsBlob: Uint8Array;
 }
 
 export type WriteDeps = ReadDeps & {
     fetchNoteForEdit(id: string): Promise<NoteForEdit | null>;
-    uploadNoteEdit(
-        id: string,
-        edit: { fileId: string; versionTag: string; metadata: DocumentMetadata; yjsBlob: Uint8Array }
-    ): Promise<void>;
+    uploadNoteEdit(id: string, edit: NoteEdit): Promise<void>;
     createNote(uniqueId: string, metadata: DocumentMetadata, yjsBlob: Uint8Array): Promise<void>;
     /** The MCP client's `clientInfo.name` from the initialize handshake ('' if absent). */
     clientName(): string;
@@ -45,26 +54,14 @@ export type WriteDeps = ReadDeps & {
 
 const MAX_ATTEMPTS = 3;
 
-/** `agent:<client name>`, lower-cased, non [a-z0-9-] chars -> '-', max 40 chars; never collides with an OdinId. */
-function agentEditor(clientName: string): string {
-    const name = clientName.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 40);
-    return `agent:${name || 'agent'}`;
-}
-
 async function editWithRetry(deps: WriteDeps, id: string, apply: (doc: Y.Doc) => void): Promise<void> {
-    const grants = await deps.loadGrants();
     const lastEditedBy = agentEditor(deps.clientName());
+    const [grants, firstNote] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         // Access is re-checked on every fetch: a refetched note may have become excludeFromAI.
-        const note = await deps.fetchNoteForEdit(id);
-        const access = note
-            ? resolveAccess(grants, {
-                  noteId: note.summary.id,
-                  folderId: note.summary.folderId,
-                  excludeFromAI: note.summary.excludeFromAI,
-              })
-            : 'none';
+        const note = attempt === 0 ? firstNote : await deps.fetchNoteForEdit(id);
+        const access = note ? noteAccess(grants, note.summary) : 'none';
         if (!note || access === 'none') throw new Error(`Note not found: ${id}`);
         if (access === 'read') throw new Error(`Note is read-only for agents: ${id}`);
 
@@ -73,6 +70,7 @@ async function editWithRetry(deps: WriteDeps, id: string, apply: (doc: Y.Doc) =>
             await deps.uploadNoteEdit(id, {
                 fileId: note.fileId,
                 versionTag: note.versionTag,
+                keyHeader: note.keyHeader,
                 metadata: { ...note.metadata, lastEditedBy },
                 yjsBlob: Y.encodeStateAsUpdate(note.doc),
             });
@@ -88,11 +86,11 @@ export async function createNote(
     deps: WriteDeps,
     params: { title: string; markdown: string; folderId: string; tags?: string[] }
 ): Promise<{ id: string; title: string; folderId: string }> {
-    const [grants, folders] = await Promise.all([deps.loadGrants(), deps.listFolders()]);
-    const exists = folders.some((folder) => folder.id === params.folderId);
-    if (!exists || folderAccess(grants, params.folderId) !== 'write') {
-        throw new Error(`Folder not found: ${params.folderId}`);
-    }
+    const grants = await deps.loadGrants();
+    const writable =
+        folderAccess(grants, params.folderId) === 'write' &&
+        (await deps.listFolders()).some((folder) => folder.id === params.folderId);
+    if (!writable) throw new Error(`Folder not found: ${params.folderId}`);
 
     const id = formatGuidId(getNewId());
     const now = new Date().toISOString();

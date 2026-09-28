@@ -2,12 +2,11 @@ import * as Y from 'yjs';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { FolderDriveProvider } from '@/lib/homebase/FolderDriveProvider';
 import { AgentGrantsDriveProvider } from '@/lib/homebase/AgentGrantsDriveProvider';
-import { fragmentToMarkdown } from '@/lib/yjs/fragmentToMarkdown';
-import type { AgentGrants } from '@/lib/agent/grants';
-import type { EncryptedKeyHeader, HomebaseFile } from '@homebase-id/js-lib/core';
+import { toMarkdown } from '@/lib/agent/editEngine';
+import type { HomebaseFile } from '@homebase-id/js-lib/core';
 import type { DocumentMetadata, NoteFileContent } from '@/types';
 import type { NoteSummary } from './tools/read';
-import { VersionConflictError, type NoteForEdit, type WriteDeps } from './tools/write';
+import { VersionConflictError, type NoteEdit, type NoteForEdit, type WriteDeps } from './tools/write';
 import type { McpCredentials } from './credentials';
 import { createClient } from './client';
 
@@ -26,6 +25,20 @@ function toNoteSummary(file: HomebaseFile<NoteFileContent>): NoteSummary | null 
     };
 }
 
+/** Follows `cursor` until the drive has no more pages, dropping null items. */
+async function collectPages<T>(
+    fetchPage: (cursor: string | undefined) => Promise<{ items: (T | null)[]; cursor: string }>
+): Promise<T[]> {
+    const all: T[] = [];
+    let cursor: string | undefined;
+    do {
+        const page = await fetchPage(cursor);
+        for (const item of page.items) if (item) all.push(item);
+        cursor = page.cursor || undefined;
+    } while (cursor);
+    return all;
+}
+
 /**
  * Implements ReadDeps (mcp/tools/read.ts) and the drive half of WriteDeps
  * (mcp/tools/write.ts; `clientName` comes from the MCP server) against the real Homebase drive, using the same
@@ -38,70 +51,25 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
     const folderProvider = new FolderDriveProvider(client);
     const grantsProvider = new AgentGrantsDriveProvider(client);
 
-    // Grants are re-fetched from the drive on every call (so a revocation applies on the
-    // very next call); this only avoids re-parsing the payload when the versionTag hasn't
-    // changed since the last call.
-    let grantsCache: { versionTag: string; grants: AgentGrants } | null = null;
+    // Re-fetched from the drive on every call, so a revocation applies on the very next call.
+    const loadGrants = async () => (await grantsProvider.load()).grants;
 
-    async function loadGrants(): Promise<AgentGrants> {
-        const { grants, versionTag } = await grantsProvider.load();
-        if (versionTag) {
-            if (grantsCache?.versionTag === versionTag) return grantsCache.grants;
-            grantsCache = { versionTag, grants };
-        }
-        return grants;
-    }
-
-    async function listFolders(): Promise<{ id: string; name: string }[]> {
-        const folders: { id: string; name: string }[] = [];
-        let cursor: string | undefined;
-        do {
+    const listFolders = () =>
+        collectPages(async (cursor) => {
             const page = await folderProvider.queryFolders(cursor);
-            for (const file of page.folders) {
+            const items = page.folders.map((file) => {
                 const uniqueId = file.fileMetadata.appData.uniqueId;
                 const content = file.fileMetadata.appData.content;
-                if (uniqueId && content) folders.push({ id: uniqueId, name: content.name });
-            }
-            cursor = page.cursor || undefined;
-        } while (cursor);
-        return folders;
-    }
+                return uniqueId && content ? { id: uniqueId, name: content.name } : null;
+            });
+            return { items, cursor: page.cursor };
+        });
 
-    async function listNotes(): Promise<NoteSummary[]> {
-        const notes: NoteSummary[] = [];
-        let cursor: string | undefined;
-        do {
+    const listNotes = () =>
+        collectPages(async (cursor) => {
             const page = await notesProvider.queryNotes(cursor, 100);
-            for (const file of page.notes) {
-                const summary = toNoteSummary(file);
-                if (summary) notes.push(summary);
-            }
-            cursor = page.cursor || undefined;
-        } while (cursor);
-        return notes;
-    }
-
-    async function getNote(id: string): Promise<{ summary: NoteSummary; markdown: string } | null> {
-        const file = await notesProvider.getNote(id);
-        if (!file) return null;
-
-        const summary = toNoteSummary(file);
-        if (!summary) return null;
-
-        const payload = await notesProvider.getNotePayload(file.fileId);
-        let markdown = '';
-        if (payload && payload.length > 0) {
-            const ydoc = new Y.Doc();
-            Y.applyUpdate(ydoc, payload);
-            markdown = fragmentToMarkdown(ydoc.getXmlFragment('prosemirror'));
-        }
-
-        return { summary, markdown };
-    }
-
-    // The fetched file's key header, keyed by fileId, reused by the upload that follows
-    // (as SyncService caches it) so the payload is encrypted with the file's own key.
-    const keyHeaders = new Map<string, EncryptedKeyHeader | undefined>();
+            return { items: page.notes.map(toNoteSummary), cursor: page.cursor };
+        });
 
     async function fetchNoteForEdit(id: string): Promise<NoteForEdit | null> {
         const file = await notesProvider.getNote(id, undefined, { decrypt: false });
@@ -110,15 +78,17 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         // Fetched with decrypt:false so the header keeps its encrypted key header for the
         // upload; the content is still the encrypted string (getNote's type says otherwise)
         // and is decrypted separately.
-        const content = await notesProvider.dsrToNoteFileContent(file as unknown as HomebaseFile, true);
+        // Load the stored state, never a fresh doc, so the edit is causally after it.
+        const [content, payload] = await Promise.all([
+            notesProvider.dsrToNoteFileContent(file as unknown as HomebaseFile, true),
+            notesProvider.getNotePayload(file.fileId, undefined, file.fileMetadata.updated),
+        ]);
         if (!content) return null;
         const appData = { ...file.fileMetadata.appData, content };
         const summary = toNoteSummary({ ...file, fileMetadata: { ...file.fileMetadata, appData } });
         if (!summary) return null;
 
-        // Load the stored state, never a fresh doc, so the edit is causally after it.
         const doc = new Y.Doc();
-        const payload = await notesProvider.getNotePayload(file.fileId, undefined, file.fileMetadata.updated);
         if (payload && payload.length > 0) Y.applyUpdate(doc, payload);
 
         const metadata: DocumentMetadata = {
@@ -139,14 +109,24 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
             lastEditedBy: content.lastEditedBy,
         };
 
-        keyHeaders.set(file.fileId, file.sharedSecretEncryptedKeyHeader);
-        return { summary, doc, versionTag: file.fileMetadata.versionTag, fileId: file.fileId, metadata };
+        return {
+            summary,
+            doc,
+            versionTag: file.fileMetadata.versionTag,
+            fileId: file.fileId,
+            // Reused by the upload that follows (as SyncService caches it) so the payload is
+            // encrypted with the file's own key.
+            keyHeader: file.sharedSecretEncryptedKeyHeader,
+            metadata,
+        };
     }
 
-    async function uploadNoteEdit(
-        id: string,
-        edit: { fileId: string; versionTag: string; metadata: DocumentMetadata; yjsBlob: Uint8Array }
-    ): Promise<void> {
+    async function getNote(id: string): Promise<{ summary: NoteSummary; markdown: string } | null> {
+        const note = await fetchNoteForEdit(id);
+        return note ? { summary: note.summary, markdown: toMarkdown(note.doc) } : null;
+    }
+
+    async function uploadNoteEdit(id: string, edit: NoteEdit): Promise<void> {
         await notesProvider.updateNote(
             id,
             edit.fileId,
@@ -155,7 +135,7 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
             undefined,
             undefined,
             edit.yjsBlob,
-            keyHeaders.get(edit.fileId),
+            edit.keyHeader,
             {
                 onVersionConflict: () => {
                     throw new VersionConflictError();

@@ -6,12 +6,11 @@ import {
     type AgentAccess,
     type AgentGrants,
     EMPTY_GRANTS,
-    folderAccess as getFolderAccess,
     resolveAccess,
     setFolderAccess,
     setNoteAccess,
 } from '@/lib/agent/grants';
-import type { Folder, NoteListEntry } from '@/types';
+import type { NoteListEntry } from '@/types';
 
 export const AGENT_GRANTS_QUERY_KEY = ['agent-grants'] as const;
 
@@ -19,17 +18,6 @@ interface AgentGrantsQueryData {
     grants: AgentGrants;
     versionTag?: string;
     fileId?: string;
-}
-
-export type AgentAccessMutation =
-    | { type: 'folder'; folderId: string; access: AgentAccess }
-    | { type: 'note'; noteId: string; access: AgentAccess | null };
-
-/** Applies one grant change to `current`. Never mutates. Exported for tests. */
-export function nextGrantsFor(current: AgentGrants, mutation: AgentAccessMutation): AgentGrants {
-    return mutation.type === 'folder'
-        ? setFolderAccess(current, mutation.folderId, mutation.access)
-        : setNoteAccess(current, mutation.noteId, mutation.access);
 }
 
 export interface AgentAccessNoteRow {
@@ -40,39 +28,22 @@ export interface AgentAccessNoteRow {
     locked: boolean;
 }
 
-export interface AgentAccessFolderRow {
-    folderId: string;
-    name: string;
-    access: AgentAccess;
-    notes: AgentAccessNoteRow[];
-}
-
 /**
- * Pure view-model builder for the Agent access settings screen: one row per folder,
- * each carrying its effective access and (when notes are supplied) its notes' effective
- * access, override, and whether it's locked by excludeFromAI. Exported for tests
- * (src/__tests__/agentGrantsSettings.test.ts) and used by AgentAccessSection.
+ * Pure view-model for one folder's notes on the Agent access settings screen: each
+ * note's effective access, its override, and whether it's locked by excludeFromAI.
+ * Exported for tests (src/__tests__/agentGrantsSettings.test.ts).
  */
-export function buildAgentAccessRows(
+export function buildNoteRows(
     grants: AgentGrants,
-    folders: ReadonlyArray<Folder>,
-    notesByFolder: Record<string, ReadonlyArray<NoteListEntry>>
-): AgentAccessFolderRow[] {
-    return folders.map((folder) => ({
-        folderId: folder.id,
-        name: folder.name,
-        access: getFolderAccess(grants, folder.id),
-        notes: (notesByFolder[folder.id] ?? []).map((note) => ({
-            noteId: note.docId,
-            title: note.title,
-            access: resolveAccess(grants, {
-                noteId: note.docId,
-                folderId: folder.id,
-                excludeFromAI: note.metadata.excludeFromAI,
-            }),
-            override: grants.notes[note.docId] ?? null,
-            locked: note.metadata.excludeFromAI === true,
-        })),
+    folderId: string,
+    notes: ReadonlyArray<NoteListEntry>
+): AgentAccessNoteRow[] {
+    return notes.map((note) => ({
+        noteId: note.docId,
+        title: note.title,
+        access: resolveAccess(grants, { noteId: note.docId, folderId, excludeFromAI: note.metadata.excludeFromAI }),
+        override: grants.notes[note.docId] ?? null,
+        locked: note.metadata.excludeFromAI === true,
     }));
 }
 
@@ -84,7 +55,7 @@ export function useAgentGrants() {
     const client = useDotYouClientContext();
     const queryClient = useQueryClient();
 
-    const { data, isLoading } = useQuery<AgentGrantsQueryData>({
+    const { data } = useQuery<AgentGrantsQueryData>({
         queryKey: AGENT_GRANTS_QUERY_KEY,
         queryFn: () => new AgentGrantsDriveProvider(client).load(),
     });
@@ -94,22 +65,16 @@ export function useAgentGrants() {
     const mutation = useMutation<
         { versionTag: string; fileId: string },
         Error,
-        AgentAccessMutation,
+        AgentGrants,
         { previous: AgentGrantsQueryData | undefined }
     >({
-        mutationFn: async (input) => {
+        mutationFn: (next) => {
             const cached = queryClient.getQueryData<AgentGrantsQueryData>(AGENT_GRANTS_QUERY_KEY);
-            const next = nextGrantsFor(cached?.grants ?? EMPTY_GRANTS, input);
             return new AgentGrantsDriveProvider(client).save(next, cached?.versionTag, cached?.fileId);
         },
-        onMutate: (input) => {
+        onMutate: (next) => {
             const previous = queryClient.getQueryData<AgentGrantsQueryData>(AGENT_GRANTS_QUERY_KEY);
-            const next = nextGrantsFor(previous?.grants ?? EMPTY_GRANTS, input);
-            queryClient.setQueryData<AgentGrantsQueryData>(AGENT_GRANTS_QUERY_KEY, {
-                grants: next,
-                versionTag: previous?.versionTag,
-                fileId: previous?.fileId,
-            });
+            queryClient.setQueryData<AgentGrantsQueryData>(AGENT_GRANTS_QUERY_KEY, { ...previous, grants: next });
             return { previous };
         },
         onSuccess: (result) => {
@@ -117,31 +82,17 @@ export function useAgentGrants() {
                 current ? { ...current, versionTag: result.versionTag, fileId: result.fileId } : current
             );
         },
-        onError: (error, _input, context) => {
-            // setQueryData(key, undefined) is a no-op in React Query, so when there was no
-            // previous snapshot (e.g. the initial load itself failed), drop the optimistic
-            // entry outright instead of trying to "set" it back to nothing.
-            if (context?.previous) {
-                queryClient.setQueryData(AGENT_GRANTS_QUERY_KEY, context.previous);
-            } else {
-                queryClient.removeQueries({ queryKey: AGENT_GRANTS_QUERY_KEY, exact: true });
-            }
-            if (error.message === 'AGENT_GRANTS_CONFLICT') {
-                queryClient.invalidateQueries({ queryKey: AGENT_GRANTS_QUERY_KEY });
-            }
+        onError: (_error, _next, context) => {
+            if (context?.previous) queryClient.setQueryData(AGENT_GRANTS_QUERY_KEY, context.previous);
+            // Refetch so the screen ends up showing what the drive actually holds.
+            queryClient.invalidateQueries({ queryKey: AGENT_GRANTS_QUERY_KEY });
             toast.error("Couldn't save agent access. Try again.");
         },
     });
 
     return {
         grants,
-        isLoading,
-        folderAccess: (folderId: string) => getFolderAccess(grants, folderId),
-        noteOverride: (noteId: string): AgentAccess | null => grants.notes[noteId] ?? null,
-        setFolder: (folderId: string, access: AgentAccess) =>
-            mutation.mutate({ type: 'folder', folderId, access }),
-        setNote: (noteId: string, access: AgentAccess | null) =>
-            mutation.mutate({ type: 'note', noteId, access }),
-        isSaving: mutation.isPending,
+        setFolder: (folderId: string, access: AgentAccess) => mutation.mutate(setFolderAccess(grants, folderId, access)),
+        setNote: (noteId: string, access: AgentAccess | null) => mutation.mutate(setNoteAccess(grants, noteId, access)),
     };
 }

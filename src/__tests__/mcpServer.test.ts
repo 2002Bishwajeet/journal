@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { createJournalMcpServer } from '../../mcp/server';
+import { createJournalMcpServer } from '../../mcp/createServer';
 import type { NoteSummary } from '../../mcp/tools/read';
 import type { WriteDeps } from '../../mcp/tools/write';
 import type { AgentGrants } from '@/lib/agent/grants';

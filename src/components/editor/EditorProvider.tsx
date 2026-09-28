@@ -278,7 +278,7 @@ export function EditorProvider({
       }),
       // Slash commands (triggered by typing /)
       SlashCommandsExtension,
-      // Internal note links — `[[` suggestion (the noteLink node is in createSchemaExtensions)
+      // Internal note links — `[[` suggestion (the noteLink node is in createBaseExtensions)
       // eslint-disable-next-line react-hooks/refs -- folderId ref is read when a note is created, not during render
       NoteLinkExtension.configure({
         onCreateNote: onCreateNoteLink,

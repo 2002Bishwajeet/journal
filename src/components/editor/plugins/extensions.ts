@@ -5,7 +5,7 @@
  * Add, remove, or modify extensions here to customize the editor.
  */
 
-import { Extension, type RawCommands, type CommandProps } from '@tiptap/core';
+import { Extension, type AnyExtension, type RawCommands, type CommandProps } from '@tiptap/core';
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
 import { Fragment, Slice, type Node as PMNode, type Schema } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
@@ -27,6 +27,7 @@ import { Mathematics } from '@tiptap/extension-mathematics';
 import { createLowlight } from 'lowlight';
 import { SearchAndReplace } from './SearchAndReplaceExtension';
 import { ImageSchema } from '../nodes/imageSchema';
+import { NoteLink } from '../nodes/NoteLinkNode';
 
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';
@@ -159,14 +160,6 @@ const CustomTextAlign = TextAlign.extend({
     },
 });
 
-/**
- * Schema-inert stand-in for the `:` emoji suggestion popup — its rendering is
- * React-based (see EmojiExtension.ts), which headless code (the agent edit
- * engine, #316) must not pull in. The editor swaps in the real extension (see
- * editorExtensions.ts) at this same spot in the list.
- */
-const EmojiExtensionPlaceholder = Extension.create({ name: 'emojiExtension' });
-
 function fragmentHasHardBreak(frag: Fragment): boolean {
     let found = false;
     frag.forEach(child => { if (child.type.name === 'hardBreak') found = true; });
@@ -241,10 +234,18 @@ const SplitHardBreaksOnPaste = Extension.create({
 export interface ExtensionOptions {
     placeholder?: string;
     linkClass?: string;
+    /** Image node; defaults to the headless ImageSchema (the editor passes one with a React node view). */
+    image?: typeof ImageSchema;
+    /** Note-link node; defaults to the headless NoteLink (the editor passes one with a React node view). */
+    noteLink?: typeof NoteLink;
+    /** UI-only extensions that add no schema (e.g. the emoji popup), placed after Mathematics. */
+    uiExtensions?: AnyExtension[];
 }
 
 /**
- * Creates base extensions with custom options
+ * Every extension that contributes a node or mark to the editor schema, plus
+ * editor behaviour. With no options it is headless (no React), so the agent
+ * edit engine (#316) and the editor share one schema and can't drift.
  */
 export function createBaseExtensions(options?: ExtensionOptions) {
     return [
@@ -277,7 +278,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
             nested: true,
         }),
 
-        ImageSchema,
+        options?.image ?? ImageSchema,
 
         CodeBlockLowlight.configure({
             lowlight,
@@ -293,7 +294,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         TableHeader,
 
         Mathematics,
-        EmojiExtensionPlaceholder,
+        ...(options?.uiExtensions ?? []),
 
         Underline,
         Subscript,
@@ -307,5 +308,6 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         DeleteEmptyLeadingBlock,
         SplitHardBreaksOnPaste,
         SearchAndReplace,
+        options?.noteLink ?? NoteLink,
     ];
 }

@@ -1,5 +1,5 @@
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { createSchemaExtensions } from './schemaExtensions';
+import { createBaseExtensions } from './plugins/extensions';
 import { ImageSchema } from './nodes/imageSchema';
 import { ImageNodeView } from './nodes/ImageNode';
 import { NoteLink } from './nodes/NoteLinkNode';
@@ -21,19 +21,11 @@ const NoteLinkWithView = NoteLink.extend({
 });
 
 /**
- * The editor's full extension list (#316): createSchemaExtensions()'s headless
+ * The editor's full extension list (#316): createBaseExtensions()'s headless
  * schema with the React node views (image, noteLink) and the emoji suggestion
- * popup layered on top, in the same positions. Only the editor imports this —
- * headless code (the agent edit engine) stays on createSchemaExtensions() so
- * it never pulls in React.
+ * popup. Only the editor imports this — headless code (the agent edit engine)
+ * stays on createBaseExtensions() so it never pulls in React.
  */
 export function createEditorExtensions() {
-  return createSchemaExtensions().map((ext) => {
-    switch (ext.name) {
-      case 'image': return CustomImage;
-      case 'noteLink': return NoteLinkWithView;
-      case 'emojiExtension': return EmojiExtension;
-      default: return ext;
-    }
-  });
+  return createBaseExtensions({ image: CustomImage, noteLink: NoteLinkWithView, uiExtensions: [EmojiExtension] });
 }

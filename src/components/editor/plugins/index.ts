@@ -6,7 +6,7 @@
  */
 
 // Extension configurations
-export { createBaseExtensions, FileHandler } from './extensions';
+export { FileHandler } from './extensions';
 export type { ExtensionOptions } from './extensions';
 
 // Y.js collaboration

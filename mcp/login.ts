@@ -3,6 +3,7 @@ import * as os from 'node:os';
 import * as readline from 'node:readline';
 import { spawn } from 'node:child_process';
 import { createEccPair, finalizeAuthentication, getRegistrationParams } from '@homebase-id/js-lib/auth';
+import { getDomainFromUrl } from '@homebase-id/js-lib/helpers';
 import { JOURNAL_MCP_APP_ID, JOURNAL_MCP_APP_NAME, JOURNAL_MCP_APP_SLUG, mcpDriveRequest } from './config';
 import { saveCredentials } from './credentials';
 
@@ -10,15 +11,9 @@ import { saveCredentials } from './credentials';
 const IDENTITY_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]{2,25}(?::\d{1,5})?$/i;
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 
-function getDomainFromUrl(url: string): string {
-    let domain = url.replace(/^https?:\/\//, '');
-    domain = domain.split('/')[0];
-    return domain.toLowerCase().trim();
-}
-
 async function checkIdentity(odinId: string): Promise<boolean> {
     if (!odinId) return false;
-    const strippedIdentity = getDomainFromUrl(odinId);
+    const strippedIdentity = getDomainFromUrl(odinId) ?? '';
     if (!IDENTITY_REGEX.test(strippedIdentity)) return false;
 
     try {
@@ -60,7 +55,7 @@ function openBrowser(url: string): void {
  * redirect target. Saves the resulting credentials to the OS keychain on success.
  */
 export async function login(identityArg?: string): Promise<void> {
-    const identity = getDomainFromUrl(identityArg || (await promptForIdentity()));
+    const identity = getDomainFromUrl(identityArg || (await promptForIdentity())) ?? '';
 
     if (!(await checkIdentity(identity))) {
         throw new Error(`Not a valid Homebase identity: ${identity}`);

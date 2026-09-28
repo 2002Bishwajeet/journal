@@ -3,17 +3,12 @@
  * policy (integration first, no DOM rendering, no fake Homebase drive).
  */
 import { describe, it, expect } from 'vitest';
-import {
-    buildAgentAccessRows,
-    nextGrantsFor,
-} from '@/hooks/useAgentGrants';
-import { EMPTY_GRANTS, type AgentGrants } from '@/lib/agent/grants';
-import type { Folder, NoteListEntry } from '@/types';
+import { buildNoteRows } from '@/hooks/useAgentGrants';
+import { EMPTY_GRANTS, folderAccess, setFolderAccess, setNoteAccess, type AgentGrants } from '@/lib/agent/grants';
+import type { NoteListEntry } from '@/types';
 
 const FOLDER_ID = '22222222-2222-2222-2222-222222222222';
 const NOTE_ID = '11111111-1111-1111-1111-111111111111';
-
-const folder: Folder = { id: FOLDER_ID, name: 'Work', createdAt: new Date() };
 
 function note(overrides: Partial<NoteListEntry['metadata']> = {}): NoteListEntry {
     return {
@@ -30,14 +25,13 @@ function note(overrides: Partial<NoteListEntry['metadata']> = {}): NoteListEntry
     };
 }
 
-describe('buildAgentAccessRows', () => {
+describe('buildNoteRows', () => {
     it('folder write + no override: the note inherits write and has no override', () => {
         const grants: AgentGrants = { version: 1, folders: { [FOLDER_ID]: 'write' }, notes: {} };
-        const rows = buildAgentAccessRows(grants, [folder], { [FOLDER_ID]: [note()] });
+        const rows = buildNoteRows(grants, FOLDER_ID, [note()]);
 
-        expect(rows).toHaveLength(1);
-        expect(rows[0]).toMatchObject({ folderId: FOLDER_ID, name: 'Work', access: 'write' });
-        expect(rows[0].notes).toEqual([
+        expect(folderAccess(grants, FOLDER_ID)).toBe('write');
+        expect(rows).toEqual([
             { noteId: NOTE_ID, title: 'Standup notes', access: 'write', override: null, locked: false },
         ]);
     });
@@ -48,9 +42,9 @@ describe('buildAgentAccessRows', () => {
             folders: { [FOLDER_ID]: 'write' },
             notes: { [NOTE_ID]: 'none' },
         };
-        const rows = buildAgentAccessRows(grants, [folder], { [FOLDER_ID]: [note()] });
+        const rows = buildNoteRows(grants, FOLDER_ID, [note()]);
 
-        expect(rows[0].notes[0]).toEqual({
+        expect(rows[0]).toEqual({
             noteId: NOTE_ID,
             title: 'Standup notes',
             access: 'none',
@@ -61,10 +55,10 @@ describe('buildAgentAccessRows', () => {
 
     it('folder none + note read: the note override grants read on an ungranted folder', () => {
         const grants: AgentGrants = { version: 1, folders: {}, notes: { [NOTE_ID]: 'read' } };
-        const rows = buildAgentAccessRows(grants, [folder], { [FOLDER_ID]: [note()] });
+        const rows = buildNoteRows(grants, FOLDER_ID, [note()]);
 
-        expect(rows[0].access).toBe('none');
-        expect(rows[0].notes[0]).toEqual({
+        expect(folderAccess(grants, FOLDER_ID)).toBe('none');
+        expect(rows[0]).toEqual({
             noteId: NOTE_ID,
             title: 'Standup notes',
             access: 'read',
@@ -79,11 +73,9 @@ describe('buildAgentAccessRows', () => {
             folders: { [FOLDER_ID]: 'write' },
             notes: { [NOTE_ID]: 'write' },
         };
-        const rows = buildAgentAccessRows(grants, [folder], {
-            [FOLDER_ID]: [note({ excludeFromAI: true })],
-        });
+        const rows = buildNoteRows(grants, FOLDER_ID, [note({ excludeFromAI: true })]);
 
-        expect(rows[0].notes[0]).toEqual({
+        expect(rows[0]).toEqual({
             noteId: NOTE_ID,
             title: 'Standup notes',
             access: 'none',
@@ -92,32 +84,21 @@ describe('buildAgentAccessRows', () => {
         });
     });
 
-    it('folders with no notes passed in get an empty notes array', () => {
-        const rows = buildAgentAccessRows(EMPTY_GRANTS, [folder], {});
-        expect(rows[0].notes).toEqual([]);
+    it('a folder with no notes gets no rows', () => {
+        expect(buildNoteRows(EMPTY_GRANTS, FOLDER_ID, [])).toEqual([]);
     });
 });
 
-describe('nextGrantsFor', () => {
+// What useAgentGrants' setFolder/setNote hand to the save mutation. Null-removal and
+// no-mutation are covered in agentGrants.test.ts.
+describe('saved grants', () => {
     it('setting a folder to write saves folders[<id>] === "write"', () => {
-        const next = nextGrantsFor(EMPTY_GRANTS, { type: 'folder', folderId: FOLDER_ID, access: 'write' });
+        const next = setFolderAccess(EMPTY_GRANTS, FOLDER_ID, 'write');
         expect(next.folders[FOLDER_ID]).toBe('write');
     });
 
     it('setting a note to none saves notes[<id>] === "none"', () => {
-        const next = nextGrantsFor(EMPTY_GRANTS, { type: 'note', noteId: NOTE_ID, access: 'none' });
+        const next = setNoteAccess(EMPTY_GRANTS, NOTE_ID, 'none');
         expect(next.notes[NOTE_ID]).toBe('none');
-    });
-
-    it('setting a note to null (same as folder) removes the override', () => {
-        const grants: AgentGrants = { version: 1, folders: {}, notes: { [NOTE_ID]: 'read' } };
-        const next = nextGrantsFor(grants, { type: 'note', noteId: NOTE_ID, access: null });
-        expect(next.notes[NOTE_ID]).toBeUndefined();
-    });
-
-    it('does not mutate its input', () => {
-        const next = nextGrantsFor(EMPTY_GRANTS, { type: 'folder', folderId: FOLDER_ID, access: 'read' });
-        expect(EMPTY_GRANTS.folders).toEqual({});
-        expect(next).not.toBe(EMPTY_GRANTS);
     });
 });
