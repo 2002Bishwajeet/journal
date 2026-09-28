@@ -118,7 +118,14 @@ export function useAgentGrants() {
             );
         },
         onError: (error, _input, context) => {
-            queryClient.setQueryData(AGENT_GRANTS_QUERY_KEY, context?.previous);
+            // setQueryData(key, undefined) is a no-op in React Query, so when there was no
+            // previous snapshot (e.g. the initial load itself failed), drop the optimistic
+            // entry outright instead of trying to "set" it back to nothing.
+            if (context?.previous) {
+                queryClient.setQueryData(AGENT_GRANTS_QUERY_KEY, context.previous);
+            } else {
+                queryClient.removeQueries({ queryKey: AGENT_GRANTS_QUERY_KEY, exact: true });
+            }
             if (error.message === 'AGENT_GRANTS_CONFLICT') {
                 queryClient.invalidateQueries({ queryKey: AGENT_GRANTS_QUERY_KEY });
             }
