@@ -9,6 +9,10 @@ const TINY_PNG_BASE64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 
 test('an image added to a note uploads and downloads on a second device', async ({ liveRun, browser }) => {
+    // The default 30s test timeout is smaller than the two real-network waits
+    // below (upload settling, then the download on device B) combined.
+    test.setTimeout(90_000);
+
     const { page: pageA, folderName } = liveRun;
     const title = `Live image ${Date.now()}`;
     await createNote(pageA, { title, body: 'A note with an image.' });
