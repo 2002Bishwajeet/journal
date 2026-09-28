@@ -1,11 +1,12 @@
 import type { ComponentType } from "react";
-import { Monitor, Sparkles, Database, Info, type LucideIcon } from "lucide-react";
+import { Monitor, Sparkles, Bot, Database, Info, type LucideIcon } from "lucide-react";
 import AppearanceSection from "./sections/AppearanceSection";
 import AISection from "./sections/AISection";
+import AgentAccessSection from "./sections/AgentAccessSection";
 import DataSection from "./sections/DataSection";
 import AboutSection from "./sections/AboutSection";
 
-export type SettingsSectionId = "appearance" | "ai" | "data" | "about";
+export type SettingsSectionId = "appearance" | "ai" | "agent-access" | "data" | "about";
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -30,7 +31,13 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     icon: Sparkles,
     Component: AISection,
   },
-  // #168 Agent access goes here: { id: "agent-access", label: "Agent access", ... }
+  {
+    id: "agent-access",
+    label: "Agent access",
+    description: "Choose what AI agents can read or edit",
+    icon: Bot,
+    Component: AgentAccessSection,
+  },
   {
     id: "data",
     label: "Data & storage",
