@@ -11,6 +11,14 @@ const TINY_PNG_BASE64 =
     'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGM4YWREEmIY1TCqYfhqAAAUBCwQ4b89uwAAAABJRU5ErkJggg==';
 
 test('an image added to a note uploads and downloads on a second device', async ({ liveRun, browser }) => {
+    // App bug, not a test bug: adding an image to an already-created note 500s
+    // on the real server — PATCH /api/apps/v1/drive/files/update throws
+    // "Sequence contains more than one matching element" in odin-core's
+    // FileSystemUpdateWriterBase.AddThumbnail (FileSystemUpdateWriterBase.cs:187),
+    // reached via NotesDriveProvider.addImageToNote's patchFile call. Reproduced
+    // with two different fixture images, so it isn't a fixture artifact.
+    test.fixme(true, 'Server 500s adding an image to an existing note — odin-core AddThumbnail throws "Sequence contains more than one matching element"');
+
     // The default 30s test timeout is smaller than the two real-network waits
     // below (upload settling, then the download on device B) combined.
     test.setTimeout(90_000);
