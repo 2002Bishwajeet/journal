@@ -12,6 +12,7 @@ import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader } from '@/lib/utils';
 import { documentBroadcast } from '@/lib/broadcast';
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
+import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
 import type { DocumentMetadata, SyncRecord } from '@/types';
 import * as Y from 'yjs';
 
@@ -180,7 +181,10 @@ describe('SyncService.pushNote', () => {
 
     it('re-fetches, merges and re-uploads on a version conflict, then marks synced with the merged hash', async () => {
         const localUpdates = [textUpdate('Local')];
-        const metadata = META();
+        // Use the real Main folder id here (not the file's 'main' placeholder): the conflict
+        // path now resolves groupId through a local-folder existence check (#259), which only
+        // short-circuits for the real MAIN_FOLDER_ID/COLLABORATIVE_FOLDER_ID constants.
+        const metadata = META({ folderId: MAIN_FOLDER_ID });
         await seedNote({
             updates: localUpdates, plainText: 'Local', metadata,
             record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
@@ -188,7 +192,7 @@ describe('SyncService.pushNote', () => {
         mockGetNote.mockResolvedValue({
             fileId: 'fresh-file-1',
             sharedSecretEncryptedKeyHeader: { encryptionVersion: 1, type: 'aes', iv: 'aXY=', encryptedAesKey: 'aXY=' },
-            fileMetadata: { versionTag: 'v-remote', updated: 1700000002000, globalTransitId: 'g2', appData: { groupId: 'main' } },
+            fileMetadata: { versionTag: 'v-remote', updated: 1700000002000, globalTransitId: 'g2', appData: { groupId: MAIN_FOLDER_ID } },
         });
         mockGetNotePayload.mockResolvedValue(textUpdate('Remote'));
         // First (outer) call triggers the conflict callback; the inner retry returns the final tag.

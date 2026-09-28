@@ -9,10 +9,11 @@ import { PGlite } from '@electric-sql/pglite';
 import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
-    saveDocumentUpdate, upsertSyncRecord, getSyncRecord, upsertSearchIndex, getSearchIndexEntry,
+    saveDocumentUpdate, upsertSyncRecord, getSyncRecord, upsertSearchIndex, getSearchIndexEntry, createFolder,
 } from '@/lib/db/queries';
 import { serializeKeyHeader } from '@/lib/utils';
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
+import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
 import type { DocumentMetadata, SyncRecord } from '@/types';
 import * as Y from 'yjs';
 
@@ -72,6 +73,9 @@ beforeEach(async () => {
     const metadata = { title: 'Note', folderId: FOLDER_A, tags: [] } as unknown as DocumentMetadata;
     await saveDocumentUpdate(DOC_ID, textUpdate('Local'));
     await upsertSearchIndex({ docId: DOC_ID, title: 'Note', plainTextContent: 'Local', metadata });
+    // Folder B is a real folder a collaborator moved the note into (#259: it must exist
+    // locally, or the conflict resolution would now treat it as orphaned and fall back to Main)
+    await createFolder(FOLDER_B, 'Folder B');
     await upsertSyncRecord({
         localId: DOC_ID, entityType: 'note', syncStatus: 'pending', remoteFileId: 'file-1',
         versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: serializeKeyHeader(KEY_HEADER),
@@ -138,5 +142,22 @@ describe('SyncService.pushNote folder on version conflict (#257)', () => {
         expect(mockUpdateNote).toHaveBeenCalledTimes(1);
         expect((mockUpdateNote.mock.calls[0][3] as DocumentMetadata).folderId).toBe(FOLDER_A);
         expect(mockGetNote).not.toHaveBeenCalled();
+    });
+
+    it('falls back to Main when the conflict retry groupId has no local folder row (#259)', async () => {
+        const ORPHAN_FOLDER = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+        // The freshly re-fetched remote file points at a folder that was deleted
+        // (pre-#254 bug) and never existed locally in this test's fixtures.
+        mockGetNote.mockResolvedValue({
+            fileId: 'file-1',
+            sharedSecretEncryptedKeyHeader: KEY_HEADER,
+            fileMetadata: { versionTag: 'v-remote', updated: 1700000002000, appData: { groupId: ORPHAN_FOLDER } },
+        });
+        conflictOnFirstCall();
+
+        await svc.pushNote((await getSyncRecord(DOC_ID))!);
+
+        expect((mockUpdateNote.mock.calls[1][3] as DocumentMetadata).folderId).toBe(MAIN_FOLDER_ID);
+        expect((await getSearchIndexEntry(DOC_ID))?.metadata.folderId).toBe(MAIN_FOLDER_ID);
     });
 });

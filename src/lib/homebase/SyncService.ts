@@ -1029,9 +1029,9 @@ export class SyncService {
                     if (mergedBlob) {
                         await replaceDocumentUpdates(record.localId, mergedBlob);
                     }
-                    // Merge only the content: keep the server's folder (#257). A missing
-                    // groupId means Main, as on pull (handleRemoteNote).
-                    const serverFolderId = freshFile.fileMetadata.appData?.groupId || MAIN_FOLDER_ID;
+                    // Merge only the content: keep the server's folder (#257), unless that
+                    // folder no longer exists locally (#259, same orphan check as handleRemoteNote).
+                    const serverFolderId = await this.resolveNoteFolderId(freshFile.fileMetadata.appData?.groupId);
                     const mergedMetadata = { ...doc.metadata, folderId: serverFolderId };
                     const result = await this.#notesProvider.updateNote(
                         record.localId,
