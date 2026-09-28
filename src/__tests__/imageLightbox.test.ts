@@ -64,6 +64,17 @@ describe('ImageNodeView — click-to-zoom lightbox (plain image)', () => {
         expect(document.body.querySelector('[role="dialog"] img')?.getAttribute('src')).toBe(SRC);
     });
 
+    it('fills the viewport and shows the alt text as a caption', async () => {
+        await renderPlain();
+        const expandButton = el.querySelector('button[aria-label="View full size"]') as HTMLButtonElement;
+        await act(async () => { expandButton.click(); });
+
+        const dialog = document.body.querySelector('[role="dialog"]') as HTMLElement;
+        // The base DialogContent's sm:max-w-lg must not cap the lightbox at 32rem.
+        expect(dialog.className).toContain('sm:max-w-[95vw]');
+        expect(dialog.textContent).toContain('A red kite');
+    });
+
     it('closes on Escape', async () => {
         await renderPlain();
         const expandButton = el.querySelector('button[aria-label="View full size"]') as HTMLButtonElement;
