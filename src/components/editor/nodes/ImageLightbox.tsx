@@ -25,9 +25,16 @@ export function ImageLightbox({ open, onOpenChange, src, alt }: ImageLightboxPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* sm:max-w-[95vw] overrides the base DialogContent's sm:max-w-lg, which
+          otherwise caps the lightbox at 32rem. The fixed box also gives OdinImage
+          a large clientWidth to pick its thumbnail size from. */}
       <DialogContent
         aria-label={alt || "Image preview"}
-        className="max-w-[95vw] max-h-[95vh] p-0 bg-transparent border-0 shadow-none"
+        onClick={(e) => {
+          // The box covers the viewport, so treat clicks on the empty area as outside clicks.
+          if (e.target === e.currentTarget) onOpenChange(false);
+        }}
+        className="flex h-[95vh] w-[95vw] max-w-[95vw] sm:max-w-[95vw] flex-col items-center justify-center gap-3 p-0 bg-transparent border-0 shadow-none"
       >
         {isAttachment ? (
           <OdinImage
@@ -39,11 +46,12 @@ export function ImageLightbox({ open, onOpenChange, src, alt }: ImageLightboxPro
             alt={alt}
             lazyLoad={false}
             fit="contain"
-            className="max-h-[95vh]"
+            className="max-h-[calc(95vh-3rem)]"
           />
         ) : (
-          <img src={src} alt={alt} className="max-h-[95vh] max-w-[95vw] object-contain" />
+          <img src={src} alt={alt} className="max-h-[calc(95vh-3rem)] max-w-full object-contain" />
         )}
+        {alt && <p aria-hidden="true" className="text-center text-sm text-white/90">{alt}</p>}
       </DialogContent>
     </Dialog>
   );
