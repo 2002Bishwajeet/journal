@@ -131,7 +131,7 @@ function NoteAccessRow({
 }
 
 export default function AgentAccessSection() {
-  const { grants, setFolder, setNote } = useAgentGrants();
+  const { grants, isLoaded, setFolder, setNote } = useAgentGrants();
   const { data: folders } = useFolders().get;
 
   return (
@@ -156,7 +156,7 @@ export default function AgentAccessSection() {
           Folders
         </SectionHeader>
         <div className="space-y-3">
-          {folders.map((folder) => (
+          {isLoaded && folders.map((folder) => (
             <FolderAccessRow
               key={folder.id}
               folder={folder}

@@ -92,6 +92,9 @@ export function useAgentGrants() {
 
     return {
         grants,
+        // Until the grants file loads, `grants` is EMPTY_GRANTS with no fileId: saving then
+        // would drop every existing grant and collide with the file's fixed uniqueId.
+        isLoaded: data !== undefined,
         setFolder: (folderId: string, access: AgentAccess) => mutation.mutate(setFolderAccess(grants, folderId, access)),
         setNote: (noteId: string, access: AgentAccess | null) => mutation.mutate(setNoteAccess(grants, noteId, access)),
     };
