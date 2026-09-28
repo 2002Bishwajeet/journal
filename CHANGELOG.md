@@ -1,3 +1,18 @@
+# [2.3.0](https://github.com/2002Bishwajeet/journal/compare/v2.2.0...v2.3.0) (2026-09-28)
+
+
+### Bug Fixes
+
+* **images:** full-viewport lightbox with the alt text as a caption ([27c4b76](https://github.com/2002Bishwajeet/journal/commit/27c4b76329d50a1bfb2f2e607e2d321084bd82f8))
+* **settings:** restore the previous dialog design and make content scroll ([e12c957](https://github.com/2002Bishwajeet/journal/commit/e12c957ceccb9e780962ca24d27782cc6ed4f504))
+
+
+### Features
+
+* **mcp:** create_folder tool that grants the agent write on the new folder ([f7745a2](https://github.com/2002Bishwajeet/journal/commit/f7745a247267635a3e2399a8252d9c09367728e9))
+
+
+
 # [2.2.0](https://github.com/2002Bishwajeet/journal/compare/v2.1.2...v2.2.0) (2026-09-28)
 
 
