@@ -1,5 +1,6 @@
 import { PGlite } from '@electric-sql/pglite';
-import { worker } from '@electric-sql/pglite/worker';
+// Our copy of the leader loop, fixing a lock leak when a tab closes (see the file).
+import { worker } from './pgliteWorkerHost';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 import { live } from '@electric-sql/pglite/live';
 
