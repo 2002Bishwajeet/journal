@@ -2,7 +2,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import * as readTools from './tools/read';
-import type { ReadDeps } from './tools/read';
+import * as writeTools from './tools/write';
+import type { WriteDeps } from './tools/write';
 import { loadCredentials, deleteCredentials } from './credentials';
 
 const USAGE = `Usage: journal-mcp [login [identity] | logout | --help]
@@ -14,12 +15,14 @@ const USAGE = `Usage: journal-mcp [login [identity] | logout | --help]
 `;
 
 /**
- * Builds the MCP server and wires its four read tools to `deps`. Exported (rather than
- * only constructed in main()) so tests can connect it to an in-memory transport with a
- * fake ReadDeps — no SDK/drive access needed for the real server to be exercised.
+ * Builds the MCP server and wires its four read tools and three write tools to `deps`.
+ * Exported (rather than only constructed in main()) so tests can connect it to an
+ * in-memory transport with fake deps — no SDK/drive access needed for the real server to
+ * be exercised. `clientName` comes from this server's own initialize handshake.
  */
-export function createJournalMcpServer(deps: ReadDeps): McpServer {
+export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>): McpServer {
     const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' });
+    const deps: WriteDeps = { ...driveDeps, clientName: () => server.server.getClientVersion()?.name ?? '' };
 
     server.registerTool(
         'list_folders',
@@ -76,6 +79,53 @@ export function createJournalMcpServer(deps: ReadDeps): McpServer {
         async ({ query, limit }) => {
             const notes = await readTools.searchNotes(deps, { query, limit });
             return { content: [{ type: 'text', text: JSON.stringify(notes, null, 2) }] };
+        }
+    );
+
+    server.registerTool(
+        'create_note',
+        {
+            title: 'Create note',
+            description: 'Create a Journal note from markdown in a folder you have granted Read+write access to.',
+            inputSchema: {
+                title: z.string(),
+                markdown: z.string(),
+                folderId: z.string(),
+                tags: z.array(z.string()).optional(),
+            },
+        },
+        async ({ title, markdown, folderId, tags }) => {
+            const note = await writeTools.createNote(deps, { title, markdown, folderId, tags });
+            return { content: [{ type: 'text', text: JSON.stringify(note, null, 2) }] };
+        }
+    );
+
+    server.registerTool(
+        'append_to_note',
+        {
+            title: 'Append to note',
+            description:
+                'Append markdown to the end of a Journal note with Read+write access. Merges with concurrent edits.',
+            inputSchema: { id: z.string(), markdown: z.string() },
+        },
+        async ({ id, markdown }) => {
+            const result = await writeTools.appendToNote(deps, { id, markdown });
+            return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+        }
+    );
+
+    server.registerTool(
+        'replace_in_note',
+        {
+            title: 'Replace in note',
+            description:
+                "Replace one unique span of a Journal note's markdown (as returned by get_note) with new markdown. " +
+                'old_text must match exactly once; include surrounding text if it is ambiguous.',
+            inputSchema: { id: z.string(), old_text: z.string(), new_text: z.string() },
+        },
+        async ({ id, old_text, new_text }) => {
+            const result = await writeTools.replaceInNote(deps, { id, old_text, new_text });
+            return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
         }
     );
 
