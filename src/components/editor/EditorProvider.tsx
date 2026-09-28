@@ -24,10 +24,9 @@ import { createNoteWithContentInDb } from "@/hooks/useNotes";
 import { extractNoteLinkIds } from "@/lib/editor/extractNoteLinkIds";
 import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
 import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
-import { NoteLink } from "./nodes/NoteLinkNode";
+import { createSchemaExtensions } from "./schemaExtensions";
 import { NoteLinkExtension } from "./plugins/NoteLink";
 import {
-  createBaseExtensions,
   createCollaborationExtension,
   CustomShortcuts,
   AutocompletePlugin,
@@ -251,7 +250,7 @@ export function EditorProvider({
   // Memoize extensions to avoid recreation on every render
   const extensions = useMemo(
     () => [
-      ...createBaseExtensions(),
+      ...createSchemaExtensions(),
       createCollaborationExtension(yXmlFragment),
       CustomShortcuts.configure({
         // Custom shortcuts can trigger actions here if needed
@@ -278,8 +277,7 @@ export function EditorProvider({
       }),
       // Slash commands (triggered by typing /)
       SlashCommandsExtension,
-      // Internal note links — `[[` suggestion + the noteLink node it inserts
-      NoteLink,
+      // Internal note links — `[[` suggestion (the noteLink node is in createSchemaExtensions)
       // eslint-disable-next-line react-hooks/refs -- folderId ref is read when a note is created, not during render
       NoteLinkExtension.configure({
         onCreateNote: onCreateNoteLink,
