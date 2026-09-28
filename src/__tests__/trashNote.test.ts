@@ -3,8 +3,9 @@ import { SecurityGroupType } from '@homebase-id/js-lib/core';
 import type { DocumentMetadata } from '@/types';
 import { fakeDotYouClient } from './fakes';
 
-const { mockGetHeader, mockPatchFile, mockUploadFile } = vi.hoisted(() => ({
+const { mockGetHeader, mockGetHeaderByFileId, mockPatchFile, mockUploadFile } = vi.hoisted(() => ({
     mockGetHeader: vi.fn(),
+    mockGetHeaderByFileId: vi.fn(),
     mockPatchFile: vi.fn(),
     mockUploadFile: vi.fn(),
 }));
@@ -13,6 +14,7 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
     return {
         ...actual,
         getFileHeaderByUniqueId: mockGetHeader,
+        getFileHeader: mockGetHeaderByFileId,
         patchFile: mockPatchFile,
         uploadFile: mockUploadFile,
     };
@@ -73,6 +75,17 @@ describe('NotesDriveProvider.setNoteArchivalStatus', () => {
         expect(metadata.accessControlList.requiredSecurityGroup).toBe(SecurityGroupType.Owner);
         // header-only: nothing re-uploaded
         expect(payloads ?? []).toHaveLength(0);
+    });
+
+    // #293: trashing a just-created note — the uniqueId lookup can still 404.
+    it('trashes a just-created note by its known fileId when the uniqueId lookup 404s', async () => {
+        mockGetHeader.mockResolvedValue(null);
+        mockGetHeaderByFileId.mockResolvedValue(ownerHeader());
+
+        await provider.setNoteArchivalStatus(NOTE_ID, 2, 'file-1');
+
+        expect(mockPatchFile.mock.calls[0][2].file.fileId).toBe('file-1');
+        expect(mockPatchFile.mock.calls[0][3].appData.archivalStatus).toBe(2);
     });
 
     it('restores a note (archivalStatus 0)', async () => {

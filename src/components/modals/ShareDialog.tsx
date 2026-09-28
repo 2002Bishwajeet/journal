@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/auth';
 import { useDotYouClientContext } from '@/components/auth';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { useNotes } from '@/hooks/useNotes';
+import { getSyncRecord } from '@/lib/db';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
 import { toast } from 'sonner';
 
@@ -66,7 +67,9 @@ export default function ShareDialog({
         setIsMakingPublic(true);
         try {
             const provider = new NotesDriveProvider(dotYouClient);
-            await provider.makeNotePublic(noteId);
+            // Pass the synced fileId: a just-created note's uniqueId lookup can 404 (#293)
+            const record = await getSyncRecord(noteId);
+            await provider.makeNotePublic(noteId, record?.remoteFileId);
             setNotePublic.mutate({ docId: noteId, isPublic: true });
             toast.success('Note is now publicly accessible');
         } catch (err) {
@@ -86,7 +89,8 @@ export default function ShareDialog({
         setIsMakingPrivate(true);
         try {
             const provider = new NotesDriveProvider(dotYouClient);
-            await provider.makeNotePrivate(noteId);
+            const record = await getSyncRecord(noteId);
+            await provider.makeNotePrivate(noteId, record?.remoteFileId);
             setCopied(false);
             setNotePublic.mutate({ docId: noteId, isPublic: false });
             toast.success('Sharing stopped — this note is private again');

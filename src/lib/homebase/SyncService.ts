@@ -1308,7 +1308,7 @@ export class SyncService {
     async setNoteArchivalStatusRemote(docId: string, status: number): Promise<void> {
         const record = await getSyncRecord(docId);
         if (!record?.remoteFileId) return;
-        const { versionTag } = await this.#notesProvider.setNoteArchivalStatus(docId, status);
+        const { versionTag } = await this.#notesProvider.setNoteArchivalStatus(docId, status, record.remoteFileId);
         // Keep the cached versionTag fresh so later edits/deletes don't conflict.
         await upsertSyncRecord({ ...record, versionTag });
     }

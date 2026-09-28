@@ -3,6 +3,7 @@ import {
     patchFile,
     queryBatch,
     deleteFile,
+    getFileHeader,
     getFileHeaderByUniqueId,
     getPayloadBytes,
     getContentFromHeaderOrPayload,
@@ -644,8 +645,12 @@ export class NotesDriveProvider {
      * - `ensureEncrypted`: a header-only patch can't encrypt a plaintext payload, so
      *   an unencrypted note is first re-uploaded encrypted via makeNotePrivate and its
      *   header re-fetched.
+     * - `fileId`: the note's remote fileId, when known (sync record). The header is read
+     *   by fileId first: the server's uniqueId lookup can 404 for a few seconds right
+     *   after the note is created (#293). Falls back to the uniqueId lookup.
      */
     async #rewriteNoteHeader(uniqueId: string, spec: {
+        fileId?: string;
         mode: 'reupload' | 'patch';
         content: (existing: NoteFileContent) => NoteFileContent | string;
         acl?: AccessControlList;
@@ -656,12 +661,21 @@ export class NotesDriveProvider {
         errorMessage: string;
     }): Promise<{ versionTag: string }> {
         const fetchHeader = async () => {
-            const header = await getFileHeaderByUniqueId<NoteFileContent>(
-                this.#dotYouClient,
-                JOURNAL_DRIVE,
-                uniqueId,
-                { decrypt: true }
-            );
+            const header =
+                (spec.fileId
+                    ? await getFileHeader<NoteFileContent>(
+                        this.#dotYouClient,
+                        JOURNAL_DRIVE,
+                        spec.fileId,
+                        { decrypt: true }
+                    )
+                    : null) ??
+                (await getFileHeaderByUniqueId<NoteFileContent>(
+                    this.#dotYouClient,
+                    JOURNAL_DRIVE,
+                    uniqueId,
+                    { decrypt: true }
+                ));
             if (!header) {
                 throw new Error(`Note with uniqueId ${uniqueId} not found`);
             }
@@ -670,7 +684,7 @@ export class NotesDriveProvider {
 
         let existingHeader = await fetchHeader();
         if (spec.ensureEncrypted && existingHeader.fileMetadata.isEncrypted === false) {
-            await this.makeNotePrivate(uniqueId);
+            await this.makeNotePrivate(uniqueId, spec.fileId);
             existingHeader = await fetchHeader();
         }
 
@@ -743,10 +757,12 @@ export class NotesDriveProvider {
      * Update a note's access control to make it publicly accessible (Anonymous).
      * This is used for the Share feature.
      * @param uniqueId - The unique ID of the note
+     * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
      * @returns The new version tag after update
      */
-    async makeNotePublic(uniqueId: string): Promise<{ versionTag: string }> {
+    async makeNotePublic(uniqueId: string, fileId?: string): Promise<{ versionTag: string }> {
         return this.#rewriteNoteHeader(uniqueId, {
+            fileId,
             mode: 'reupload',
             // A public note's content is world-readable plaintext; project to a minimal,
             // non-sensitive subset so circleIds/recipients/lastEditedBy never leak.
@@ -766,10 +782,12 @@ export class NotesDriveProvider {
      * This revokes public sharing.
      *
      * @param uniqueId - The unique ID of the note
+     * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
      * @returns The new version tag after update
      */
-    async makeNotePrivate(uniqueId: string): Promise<{ versionTag: string }> {
+    async makeNotePrivate(uniqueId: string, fileId?: string): Promise<{ versionTag: string }> {
         return this.#rewriteNoteHeader(uniqueId, {
+            fileId,
             mode: 'reupload',
             content: (existing) => ({ ...existing, isPublic: false }),
             isEncrypted: true, // Private notes should be encrypted
@@ -785,12 +803,14 @@ export class NotesDriveProvider {
      *
      * @param uniqueId - The unique ID of the note
      * @param status - 0 to restore, 2 to move to trash
+     * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
      * @returns The new version tag after update
      */
-    async setNoteArchivalStatus(uniqueId: string, status: number): Promise<{ versionTag: string }> {
+    async setNoteArchivalStatus(uniqueId: string, status: number, fileId?: string): Promise<{ versionTag: string }> {
         // Header-only patch — flips archivalStatus without re-uploading payloads
         // (unlike makeNotePublic/Private, this never changes payload encryption).
         return this.#rewriteNoteHeader(uniqueId, {
+            fileId,
             mode: 'patch',
             content: (existing) => existing,
             archivalStatus: status,
@@ -819,16 +839,19 @@ export class NotesDriveProvider {
      * @param uniqueId - The unique ID of the note
      * @param circleIds - Array of circle IDs to grant access
      * @param editorOdinId - OdinId of the user making this change
+     * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
      * @returns The new version tag after update
      */
     async makeNoteCollaborative(
         uniqueId: string,
         circleIds: string[],
         recipients: string[],
-        editorOdinId: string
+        editorOdinId: string,
+        fileId?: string
     ): Promise<{ versionTag: string }> {
         let title = '';
         const result = await this.#rewriteNoteHeader(uniqueId, {
+            fileId,
             mode: 'patch',
             content: (existing) => {
                 title = existing.title || '';
