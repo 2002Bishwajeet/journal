@@ -168,7 +168,7 @@ describe('PGliteProvider.compact', () => {
         // 50 discrete edits, each flushed on its own microtask so updateCount climbs by 1.
         for (let i = 0; i < 50; i++) {
             doc.getText('body').insert(doc.getText('body').length, 'x');
-            await tick(0);
+            await provider.flush();
         }
 
         expect(await docRowCount(DOC_ID)).toBe(1);
@@ -228,9 +228,9 @@ describe('PGliteProvider.destroy', () => {
         await provider.load();
         // Two separate edits -> two saves -> updateCount === 2.
         doc.getText('body').insert(0, 'a');
-        await tick(0);
+        await provider.flush();
         doc.getText('body').insert(1, 'b');
-        await tick(0);
+        await provider.flush();
         expect(await docRowCount(DOC_ID)).toBe(2);
 
         await provider.destroy();
@@ -244,7 +244,7 @@ describe('PGliteProvider.destroy', () => {
         const provider = new PGliteProvider(DOC_ID, doc);
         await provider.load();
         doc.getText('body').insert(0, 'a'); // single edit -> updateCount === 1
-        await tick(0);
+        await provider.flush();
         expect(await docRowCount(DOC_ID)).toBe(1);
 
         // Overwrite the row so we can detect whether compact() ran (compact would rewrite it).
@@ -271,7 +271,7 @@ describe('PGliteProvider re-drain of in-flight queue', () => {
         saveControl.delayMs = 50; // make A's save slow enough to interleave B
 
         doc.getText('body').insert(0, 'A'); // update A: microtask begins, save A is delayed
-        await tick(5);                       // A's save is still in flight
+        await tick(310);                     // window fired; A's save is still in flight
         doc.getText('body').insert(1, 'B'); // update B pushed while isSaving === true
 
         // Wait for the drain loop to persist BOTH A and B. Polling docRowCount is a
@@ -283,5 +283,60 @@ describe('PGliteProvider re-drain of in-flight queue', () => {
         const doc2 = new Y.Doc();
         for (const u of await getDocumentUpdates(DOC_ID)) Y.applyUpdate(doc2, u);
         expect(doc2.getText('body').toString()).toBe('AB');
+    });
+});
+
+describe('PGliteProvider write batching', () => {
+    /** Apply one single-character local edit per char, synchronously (N separate Yjs updates). */
+    function type(doc: Y.Doc, chars: string) {
+        const text = doc.getText('body');
+        for (const ch of chars) text.insert(text.length, ch);
+    }
+
+    async function storedText(): Promise<string> {
+        const d = new Y.Doc();
+        for (const u of await getDocumentUpdates(DOC_ID)) Y.applyUpdate(d, u);
+        const s = d.getText('body').toString();
+        d.destroy();
+        return s;
+    }
+
+    it('writes 20 keystrokes as one merged row on flush', async () => {
+        const doc = new Y.Doc();
+        const provider = new PGliteProvider(DOC_ID, doc);
+        await provider.load();
+
+        type(doc, 'abcdefghijklmnopqrst');
+        await provider.flush();
+
+        expect(await docRowCount(DOC_ID)).toBe(1);
+        expect(await storedText()).toBe('abcdefghijklmnopqrst');
+        await provider.destroy();
+    });
+
+    it('persists every keystroke when destroyed immediately after typing', async () => {
+        const doc = new Y.Doc();
+        const provider = new PGliteProvider(DOC_ID, doc);
+        await provider.load();
+
+        type(doc, 'abcdefghijklmnopqrst');
+        await provider.destroy();
+
+        expect(await storedText()).toBe('abcdefghijklmnopqrst');
+    });
+
+    it('writes one row per 300 ms window', async () => {
+        const doc = new Y.Doc();
+        const provider = new PGliteProvider(DOC_ID, doc);
+        await provider.load();
+
+        type(doc, 'abcde');
+        await tick(350);
+        type(doc, 'fghij');
+        await provider.flush();
+
+        expect(await docRowCount(DOC_ID)).toBe(2);
+        expect(await storedText()).toBe('abcdefghij');
+        await provider.destroy();
     });
 });

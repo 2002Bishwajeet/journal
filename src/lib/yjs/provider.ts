@@ -18,8 +18,11 @@ export class PGliteProvider {
     private isLoaded: boolean = false;
     private isSaving: boolean = false;
     private pendingUpdates: Uint8Array[] = [];
+    private saveTimer: ReturnType<typeof setTimeout> | null = null;
     private updateCount: number = 0;
     private static readonly COMPACTION_THRESHOLD = 50; // Compact after 50 updates
+    // Trailing write window: keystrokes within it are merged into one row.
+    private static readonly WRITE_WINDOW_MS = 300;
     private unsubscribe: (() => void) | null = null;
 
     constructor(docId: string, doc: Y.Doc) {
@@ -31,7 +34,21 @@ export class PGliteProvider {
 
         // Subscribe to broadcast messages
         this.unsubscribe = documentBroadcast.subscribe(this.handleBroadcastMessage);
+
+        // Best-effort: persist the open write window when the tab is hidden or unloaded
+        if (typeof window !== 'undefined') {
+            window.addEventListener('pagehide', this.handlePageHide);
+            document.addEventListener('visibilitychange', this.handleVisibilityChange);
+        }
     }
+
+    private handlePageHide = (): void => {
+        void this.flush();
+    };
+
+    private handleVisibilityChange = (): void => {
+        if (document.visibilityState === 'hidden') void this.flush();
+    };
 
     /**
      * Handle broadcast messages from DocumentBroadcast singleton
@@ -104,7 +121,7 @@ export class PGliteProvider {
     /**
      * Handle Yjs document updates
      */
-    private handleUpdate = async (update: Uint8Array, origin: unknown): Promise<void> => {
+    private handleUpdate = (update: Uint8Array, origin: unknown): void => {
         // Skip updates from remote (Homebase sync) to avoid duplication, and
         // updates this provider just applied from the database (load/reload) —
         // writing those back is pure amplification, not a new edit.
@@ -113,71 +130,74 @@ export class PGliteProvider {
         // Queue the update
         this.pendingUpdates.push(update);
 
-        // Debounce save operations
-        if (!this.isSaving) {
-            this.isSaving = true;
-
-            // Use microtask to batch multiple updates
-            queueMicrotask(async () => {
-                let saved = false;
-                try {
-                    // Re-drain: updates queued while an earlier batch was awaiting its
-                    // save would otherwise strand in memory (isSaving stays true, so no
-                    // new microtask is scheduled). Loop until the queue is empty so the
-                    // last keystrokes of a burst are always persisted.
-                    while (this.pendingUpdates.length > 0) {
-                        const updates = this.pendingUpdates;
-                        this.pendingUpdates = [];
-
-                        // Save each update to the database
-                        for (const u of updates) {
-                            await saveDocumentUpdate(this.docId, u);
-                            this.updateCount++;
-                        }
-                        saved = true;
-                    }
-
-                    // One announcement per drained burst, so another tab open on
-                    // this note reloads it. Its reload applies with origin 'remote',
-                    // which the guard above skips, so it is never re-announced.
-                    if (saved) documentBroadcast.notifyOtherTabs(this.docId);
-
-                    // Auto-compact if threshold reached
-                    if (this.updateCount >= PGliteProvider.COMPACTION_THRESHOLD) {
-                        await this.compact();
-                    }
-                } catch (error) {
-                    console.error('[PGliteProvider] Failed to save update:', error);
-                } finally {
-                    this.isSaving = false;
-                }
-            });
+        // The first update of a burst opens the write window. While a save is in
+        // flight its drain loop picks the update up instead.
+        if (!this.isSaving && !this.saveTimer) {
+            this.saveTimer = setTimeout(() => void this.drain(), PGliteProvider.WRITE_WINDOW_MS);
         }
     };
+
+    /**
+     * Write everything queued as one merged row per pass.
+     */
+    private async drain(): Promise<void> {
+        if (this.saveTimer) {
+            clearTimeout(this.saveTimer);
+            this.saveTimer = null;
+        }
+        if (this.isSaving) return; // the in-flight drain loop will write the queue
+
+        this.isSaving = true;
+        let saved = false;
+        try {
+            // Re-drain: updates queued while an earlier batch was awaiting its
+            // save would otherwise strand in memory (isSaving stays true, so no
+            // new window is opened). Loop until the queue is empty so the
+            // last keystrokes of a burst are always persisted.
+            while (this.pendingUpdates.length > 0) {
+                const updates = this.pendingUpdates;
+                this.pendingUpdates = [];
+
+                await saveDocumentUpdate(this.docId, Y.mergeUpdates(updates));
+                this.updateCount++;
+                saved = true;
+            }
+
+            // One announcement per drained burst, so another tab open on
+            // this note reloads it. Its reload applies with origin 'remote',
+            // which the guard in handleUpdate skips, so it is never re-announced.
+            if (saved) documentBroadcast.notifyOtherTabs(this.docId);
+
+            // Auto-compact if threshold reached
+            if (this.updateCount >= PGliteProvider.COMPACTION_THRESHOLD) {
+                await this.compact();
+            }
+        } catch (error) {
+            console.error('[PGliteProvider] Failed to save update:', error);
+        } finally {
+            this.isSaving = false;
+            // Updates that arrived during compaction (or a failed save) open a new window
+            if (this.pendingUpdates.length > 0 && !this.saveTimer) {
+                this.saveTimer = setTimeout(() => void this.drain(), PGliteProvider.WRITE_WINDOW_MS);
+            }
+        }
+    }
 
     /**
      * Flush all pending updates to the database.
      * Call this before sync operations to ensure no updates are lost.
      */
     async flush(): Promise<void> {
-        // Save any pending updates immediately
-        if (this.pendingUpdates.length > 0) {
-            const updates = [...this.pendingUpdates];
-            this.pendingUpdates = [];
-
-            for (const u of updates) {
-                await saveDocumentUpdate(this.docId, u);
-                this.updateCount++;
-            }
-            // These were taken before handleUpdate's microtask could save (and
-            // announce) them, so announce here instead.
-            documentBroadcast.notifyOtherTabs(this.docId);
-        }
+        // Write the open window now instead of waiting for its timer
+        await this.drain();
 
         // Wait for any in-progress save to complete
         while (this.isSaving) {
             await new Promise(resolve => setTimeout(resolve, 10));
         }
+
+        // Updates that arrived while that save was compacting were not in its loop
+        if (this.pendingUpdates.length > 0) await this.drain();
     }
 
     /**
@@ -236,6 +256,11 @@ export class PGliteProvider {
         // Unsubscribe from broadcast messages
         this.unsubscribe?.();
         this.unsubscribe = null;
+
+        if (typeof window !== 'undefined') {
+            window.removeEventListener('pagehide', this.handlePageHide);
+            document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+        }
 
         // Persist any pending/in-flight updates first so they survive teardown even
         // when the note has <= 1 stored update (below the compaction threshold).
