@@ -302,6 +302,16 @@ npm run test:ui  # visual dashboard
 
 **Dev server requires**: Self-signed HTTPS cert (`dev-dotyou-cloud.crt/key`) and `Cross-Origin-Embedder-Policy: require-corp` header (for WebLLM/OPFS).
 
+## Agent harness
+
+`/implement <epic#|issue#…>` (`.claude/commands/implement.md`) works every unblocked `agent-ready` issue unattended:
+
+- `scripts/harness/select.mjs` picks issues: open, `agent-ready`, not `needs-design`/`blocked`, no open PR, and every issue on its `Depends on:` line closed. Epics expand to their sub-issues.
+- The `implement-epic` workflow (`.claude/workflows/implement-epic.js`) runs 2 issues at a time: an implementer in its own worktree (effort follows `Size:`), a fresh Sonnet verifier that runs the issue's `## Verification` (e2e first) and reviews the diff, 1 fix round, then a PR labelled `agent-harness` with `Closes #N` and the check table.
+- `--dry` prints the selection table and starts nothing. `--loop` waits for you to merge/close an `agent-harness` PR, then selects the next wave (stops when nothing is left, or after 12 h). `--max N` caps a wave (default 3). Start it from a fresh session to keep token use down.
+- A STOP condition or still-failing verification comments on the issue and adds `blocked`; remove the label to make it selectable again.
+- Heavy commands go through `scripts/harness/serial.sh` (one build/test/lint/e2e at a time). The owner is the only merge gate.
+
 ## Code Conventions
 
 - **Minimize useState**: Derive state during render when possible
