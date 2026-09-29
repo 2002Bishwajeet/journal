@@ -28,6 +28,7 @@ import {
     incrementImageRetryCount,
     recordSyncError,
     resolveSyncErrorsForEntity,
+    getSyncErrorCount,
     getEntityIdsInBackoff,
     getEntityIdsWithUnresolvedError,
     getNextPushRetryAt,
@@ -333,6 +334,8 @@ export class SyncService {
     async pullChanges(onProgress?: (progress: SyncProgress) => void): Promise<{ folders: number; notes: number }> {
         const lastSync = await getAppState<number>(STORAGE_KEY_LAST_SYNC);
         const { folders, notes, invitations } = await this.#inboxProcessor.processChanges(lastSync || undefined);
+        // One COUNT per pull instead of an UPDATE per handled entity when nothing is unresolved
+        const hadErrors = (await getSyncErrorCount()) > 0;
 
         let folderCount = 0;
         let noteCount = 0;
@@ -356,7 +359,7 @@ export class SyncService {
                 if (onProgress) onProgress({ phase: 'pull', current, total, message: `Processing folder ${folderCount}/${folders.length}` });
                 // Resolve any previous errors for this entity
                 const id = remoteFolderOrDeleted.fileMetadata?.appData?.uniqueId;
-                if (id) await resolveSyncErrorsForEntity(id);
+                if (hadErrors && id) await resolveSyncErrorsForEntity(id);
             } catch (error) {
                 console.error('[SyncService] Error processing remote folder:', error);
                 // Track error in database
@@ -365,24 +368,28 @@ export class SyncService {
             }
         }
 
-        // Process notes
-        for (const remoteNoteOrDeleted of notes) {
-            try {
-                if (remoteNoteOrDeleted.fileState === 'deleted') {
-                    await this.handleDeletedNote(remoteNoteOrDeleted as DeletedHomebaseFile);
+        // Process notes (parallel with concurrency limit, like pushChanges)
+        const PULL_CONCURRENCY = 5;
+        for (let i = 0; i < notes.length; i += PULL_CONCURRENCY) {
+            const batch = notes.slice(i, i + PULL_CONCURRENCY);
+            const results = await Promise.allSettled(batch.map(n => n.fileState === 'deleted'
+                ? this.handleDeletedNote(n as DeletedHomebaseFile)
+                : this.handleRemoteNote(n)));
+
+            for (let j = 0; j < results.length; j++) {
+                const result = results[j];
+                if (result.status === 'fulfilled') {
+                    noteCount++;
+                    current++;
+                    if (onProgress) onProgress({ phase: 'pull', current, total, message: `Processing note ${noteCount}/${notes.length}` });
+                    // Resolve any previous errors
+                    const id = batch[j].fileMetadata?.appData?.uniqueId;
+                    if (hadErrors && id) await resolveSyncErrorsForEntity(id);
                 } else {
-                    await this.handleRemoteNote(remoteNoteOrDeleted);
+                    console.error('[SyncService] Error processing remote note:', result.reason);
+                    const id = batch[j].fileMetadata?.appData?.uniqueId ?? '';
+                    await this.logSyncError(id, 'note', 'pull', result.reason);
                 }
-                noteCount++;
-                current++;
-                if (onProgress) onProgress({ phase: 'pull', current, total, message: `Processing note ${noteCount}/${notes.length}` });
-                // Resolve any previous errors
-                const id = remoteNoteOrDeleted.fileMetadata?.appData?.uniqueId;
-                if (id) await resolveSyncErrorsForEntity(id);
-            } catch (error) {
-                console.error('[SyncService] Error processing remote note:', error);
-                const id = remoteNoteOrDeleted.fileMetadata?.appData?.uniqueId ?? '';
-                await this.logSyncError(id, 'note', 'pull', error);
             }
         }
 
