@@ -74,15 +74,16 @@ function main(argv) {
     const ready = [];
     const skipped = [];
     const seen = new Set();
-    // One level of epic expansion: an epic argument is reported as skipped and its children are classified.
-    const queue = nums.map((n) => ({ n, expand: true }));
+    // Epics expand all the way down (a tracker's children are often epics too); each epic is
+    // reported as skipped and its children are classified. `seen` guards against cycles.
+    const queue = [...nums];
     while (queue.length) {
-        const { n, expand } = queue.shift();
+        const n = queue.shift();
         if (seen.has(n)) continue;
         seen.add(n);
         const issue = viewIssue(n);
         const subs = subIssues(n);
-        if (expand) queue.push(...subs.map((s) => ({ n: s, expand: false })));
+        queue.push(...subs);
         const deps = {};
         for (const d of parseDependsOn(issue.body) ?? []) deps[d] = viewIssue(d);
         const verdict = classify(issue, { subIssueCount: subs.length, openPrForIssue: openPr(n), deps });
