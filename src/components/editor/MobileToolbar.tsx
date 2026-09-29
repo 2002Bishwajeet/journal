@@ -10,7 +10,7 @@
  * - Comprehensive formatting options matching desktop
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Editor } from "@tiptap/react";
 import {
   Bold,
@@ -110,104 +110,104 @@ export default function MobileToolbar({
     "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
   // Action handlers using safeEditorCommand
-  const handleUndo = useCallback(() => {
+  const handleUndo = () => {
     safeEditorCommand(editor, () => {
       undo(editor.state);
       editor.view.focus();
     });
-  }, [editor]);
+  };
 
-  const handleRedo = useCallback(() => {
+  const handleRedo = () => {
     safeEditorCommand(editor, () => {
       redo(editor.state);
       editor.view.focus();
     });
-  }, [editor]);
+  };
 
-  const toggleBold = useCallback(() => {
+  const toggleBold = () => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleBold().run());
-  }, [editor]);
+  };
 
-  const toggleItalic = useCallback(() => {
+  const toggleItalic = () => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleItalic().run(),
     );
-  }, [editor]);
+  };
 
-  const toggleUnderline = useCallback(() => {
+  const toggleUnderline = () => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleUnderline().run(),
     );
-  }, [editor]);
+  };
 
-  const toggleStrike = useCallback(() => {
+  const toggleStrike = () => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleStrike().run(),
     );
-  }, [editor]);
+  };
 
-  const clearFormatting = useCallback(() => {
+  const clearFormatting = () => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().clearNodes().unsetAllMarks().run(),
     );
-  }, [editor]);
+  };
 
-  const toggleBulletList = useCallback(() => {
+  const toggleBulletList = () => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleBulletList().run(),
     );
-  }, [editor]);
+  };
 
-  const toggleOrderedList = useCallback(() => {
+  const toggleOrderedList = () => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleOrderedList().run(),
     );
-  }, [editor]);
+  };
 
-  const toggleTaskList = useCallback(() => {
+  const toggleTaskList = () => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleTaskList().run(),
     );
-  }, [editor]);
+  };
 
-  const toggleHeading1 = useCallback(() => {
+  const toggleHeading1 = () => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleHeading({ level: 1 }).run(),
     );
-  }, [editor]);
+  };
 
-  const toggleHeading2 = useCallback(() => {
+  const toggleHeading2 = () => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleHeading({ level: 2 }).run(),
     );
-  }, [editor]);
+  };
 
-  const toggleHeading3 = useCallback(() => {
+  const toggleHeading3 = () => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleHeading({ level: 3 }).run(),
     );
-  }, [editor]);
+  };
 
-  const toggleCode = useCallback(() => {
+  const toggleCode = () => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleCode().run());
-  }, [editor]);
+  };
 
-  const toggleBlockquote = useCallback(() => {
+  const toggleBlockquote = () => {
     safeEditorCommand(editor, () =>
       editor.chain().focus().toggleBlockquote().run(),
     );
-  }, [editor]);
+  };
 
-  const addLink = useCallback(() => {
+  const addLink = () => {
     const url = window.prompt("Enter URL:");
     if (url) {
       safeEditorCommand(editor, () =>
         editor.chain().focus().setLink({ href: url }).run(),
       );
     }
-  }, [editor]);
+  };
 
-  const addImage = useCallback(() => {
+  const addImage = () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
@@ -217,7 +217,7 @@ export default function MobileToolbar({
       );
     };
     input.click();
-  }, [editor]);
+  };
 
   // Don't render on non-touch devices or when keyboard is not visible
   if (!isTouchDevice || !isVisible) return null;

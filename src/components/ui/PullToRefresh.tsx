@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useRef, type ReactNode } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,7 +26,7 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
   const opacity = useTransform(y, [0, PULL_THRESHOLD], [0, 1]);
   const rotate = useTransform(y, [0, MAX_PULL], [0, 360]);
 
-  const getScrollableParent = useCallback((): HTMLElement | null => {
+  const getScrollableParent = (): HTMLElement | null => {
     if (!containerRef.current) return null;
 
     // Look for Radix ScrollArea viewport
@@ -46,15 +46,15 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
     }
 
     return null;
-  }, []);
+  };
 
-  const isAtTop = useCallback((): boolean => {
+  const isAtTop = (): boolean => {
     const scrollable = getScrollableParent();
     if (!scrollable) return true;
     return scrollable.scrollTop <= 0;
-  }, [getScrollableParent]);
+  };
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+  const handleTouchStart = (e: React.TouchEvent) => {
     if (isRefreshing) return;
     
     // Only start tracking if we're at the top
@@ -63,9 +63,9 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
       touchCurrentY.current = e.touches[0].clientY;
       isPulling.current = false;
     }
-  }, [isAtTop, isRefreshing]);
+  };
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+  const handleTouchMove = (e: React.TouchEvent) => {
     if (isRefreshing) return;
     if (touchStartY.current === 0) return;
 
@@ -86,9 +86,9 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
       const clampedDistance = Math.min(pullDistance, MAX_PULL);
       y.set(clampedDistance);
     }
-  }, [isAtTop, isRefreshing, y]);
+  };
 
-  const handleTouchEnd = useCallback(async () => {
+  const handleTouchEnd = async () => {
     if (isRefreshing) return;
     
     const pullDistance = y.get();
@@ -111,7 +111,7 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
     touchStartY.current = 0;
     touchCurrentY.current = 0;
     isPulling.current = false;
-  }, [isRefreshing, onRefresh, y]);
+  };
 
   return (
     <div 
