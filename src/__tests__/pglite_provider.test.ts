@@ -165,7 +165,7 @@ describe('PGliteProvider.compact', () => {
         const provider = new PGliteProvider(DOC_ID, doc);
         await provider.load();
 
-        // 50 discrete edits, each flushed on its own so updateCount climbs by 1.
+        // 50 discrete edits, each flushed on its own microtask so updateCount climbs by 1.
         for (let i = 0; i < 50; i++) {
             doc.getText('body').insert(doc.getText('body').length, 'x');
             await provider.flush();
@@ -270,13 +270,13 @@ describe('PGliteProvider re-drain of in-flight queue', () => {
         await provider.load();
         saveControl.delayMs = 50; // make A's save slow enough to interleave B
 
-        doc.getText('body').insert(0, 'A'); // update A: write window begins, save A is delayed
+        doc.getText('body').insert(0, 'A'); // update A: microtask begins, save A is delayed
         await tick(310);                     // window fired; A's save is still in flight
         doc.getText('body').insert(1, 'B'); // update B pushed while isSaving === true
 
         // Wait for the drain loop to persist BOTH A and B. Polling docRowCount is a
         // read, not an edit, so it never itself triggers a save — the second row can
-        // only appear because the drain loop re-drained the queue.
+        // only appear because handleUpdate's microtask re-drained the queue.
         for (let i = 0; i < 60 && (await docRowCount(DOC_ID)) < 2; i++) await tick(10);
 
         expect(await docRowCount(DOC_ID)).toBe(2);
