@@ -21,6 +21,8 @@ const seedFiles = () =>
   });
 
 test('note list renders 100 rows at a time and resets on sort change', async ({ app }) => {
+  // Importing 250 notes is one IndexedDB flush per note: ~5s locally, much longer on CI runners.
+  test.setTimeout(240_000);
   await app.setViewportSize({ width: 1280, height: 800 });
   await assertTestOrigin(app);
 
@@ -34,7 +36,7 @@ test('note list renders 100 rows at a time and resets on sort change', async ({ 
   // no-op on this element so the real importer sees the files.
   await input.evaluate((el) => Object.defineProperty(el, 'value', { set() {} }));
   await input.setInputFiles(seedFiles());
-  await expect(app.getByText(`Successfully imported ${COUNT} notes`)).toBeVisible({ timeout: 20_000 });
+  await expect(app.getByText(`Successfully imported ${COUNT} notes`)).toBeVisible({ timeout: 180_000 });
   await app.keyboard.press('Escape');
 
   await selectFolder(app, FOLDER);
