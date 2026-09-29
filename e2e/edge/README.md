@@ -26,6 +26,4 @@ Assert the other side too: the same URL with a browser UA returns the unchanged 
 Take the upstream base URL from an env binding (`--binding HOMEBASE_URL=…` on `wrangler pages dev`), never a hard-coded host. A spec then points it at either:
 
 - a static server replaying a recorded real response (layer 2, same scrubbed-HAR rules as the recorded layer, #202), or
-- a real identity (layer 3).
-
-Never a hand-written fake response.
+- a real identity (layer 3) — never a hand-written fake response.
