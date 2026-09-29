@@ -691,19 +691,25 @@ export class SyncService {
      */
     async handleRemoteNote(remoteFile: HomebaseFile<string>): Promise<void> {
         const uniqueId = remoteFile.fileMetadata.appData.uniqueId;
-        const content = await this.#notesProvider.dsrToNoteFileContent(remoteFile, true,);
-        if (!content || !uniqueId) {
+        if (!uniqueId) {
             console.error(`[SyncService] Failed to convert remote note ${remoteFile.fileId} to note file content`);
             return;
         }
-        const noteTitle = content?.title || 'Untitled';
         const existingRecord = await getSyncRecord(uniqueId);
         // Deleted here; the remote delete is still being retried (#265)
         if (existingRecord?.syncStatus === 'pending_delete') return;
 
+        // Unchanged note: skip decryption and payload fetch entirely
         if (stringGuidsEqual(remoteFile.fileMetadata.versionTag, existingRecord?.versionTag)) {
             return;
         }
+
+        const content = await this.#notesProvider.dsrToNoteFileContent(remoteFile, true,);
+        if (!content) {
+            console.error(`[SyncService] Failed to convert remote note ${remoteFile.fileId} to note file content`);
+            return;
+        }
+        const noteTitle = content?.title || 'Untitled';
 
         // Get remote Yjs blob — use senderOdinId for peer-based fetch when note is from another identity
         const lastModified = remoteFile.fileMetadata.updated;

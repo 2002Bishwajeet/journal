@@ -114,15 +114,30 @@ describe('SyncService.handleRemoteNote', () => {
             localId: DOC_ID, entityType: 'note', remoteFileId: 'remote-file-1', versionTag: 'v1',
             lastSyncedAt: new Date().toISOString(), syncStatus: 'synced', authorOdinId: FRODO,
         });
-        mockDsr.mockResolvedValue({ title: 'T', tags: [] });
 
         await svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v1' }));
 
-        // Same versionTag -> early return before any payload fetch or DB write.
+        // Same versionTag -> early return before any decryption, payload fetch or DB write.
+        expect(mockDsr).not.toHaveBeenCalled();
         expect(mockGetNotePayload).not.toHaveBeenCalled();
         expect((await getDocumentUpdates(DOC_ID)).length).toBe(0);
         expect(await getSearchIndexEntry(DOC_ID)).toBeNull();
         expect(broadcastSpy).not.toHaveBeenCalled();
+    });
+
+    it('returns without decrypting or writing when the remote note has no uniqueId', async () => {
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const remote = makeRemoteFile({ versionTag: 'v1' }) as { fileMetadata: { appData: { uniqueId?: string } } };
+        remote.fileMetadata.appData.uniqueId = undefined;
+
+        await svc.handleRemoteNote(remote as never);
+
+        expect(mockDsr).not.toHaveBeenCalled();
+        expect(mockGetNotePayload).not.toHaveBeenCalled();
+        expect(await getSyncRecord(DOC_ID)).toBeNull();
+        expect((await getDocumentUpdates(DOC_ID)).length).toBe(0);
+        expect(await getSearchIndexEntry(DOC_ID)).toBeNull();
+        errorSpy.mockRestore();
     });
 
     it('CRDT-merges local and remote edits without loss when the versionTag is new', async () => {
