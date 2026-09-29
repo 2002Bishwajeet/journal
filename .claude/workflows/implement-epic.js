@@ -67,7 +67,7 @@ const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g
 // The implementer's worktree may be auto-removed once its tree is clean; the branch survives.
 const cdInto = (impl) => `\`cd ${impl.worktreePath}\` first (if it no longer exists: \`git -C ${repoRoot} worktree add ${impl.worktreePath} ${impl.branch}\`, then cd)`
 
-const HEAVY = `Run every build/test/lint/e2e/vitest/tsc/npm ci command ONLY as \`${repoRoot}/scripts/harness/serial.sh <cmd> > /tmp/agent-<issue>-<step>.log 2>&1; echo exit=$?\` (machine-wide lock, 16 GB machine). Never let full output into your context: read only \`tail -40\` of the log, plus \`grep -nE 'FAIL|Error|error|✗|×' <log> | head -40\` when it failed.`
+const HEAVY = `Run every build/test/lint/e2e/vitest/tsc/npm ci command ONLY as \`${repoRoot}/scripts/harness/serial.sh <cmd> > /tmp/agent-<issue>-<step>.log 2>&1; echo exit=$?\` (machine-wide lock, 16 GB machine), in the foreground with a 600000 ms timeout — never run_in_background: you must see the exit code before you return. Never let full output into your context: read only \`tail -40\` of the log, plus \`grep -nE 'FAIL|Error|error|✗|×' <log> | head -40\` when it failed.`
 
 function implementPrompt(issue) {
   const branch = `agent/${issue.number}-${slug(issue.title)}`
