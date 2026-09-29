@@ -51,13 +51,13 @@ describe('AgentAccessSection — before the grants file has loaded', () => {
 
         expect(folderSelect()).toBeNull();
 
-        await act(async () => {
-            resolveLoad({ grants: EMPTY_GRANTS, versionTag: 'v1', fileId: 'file-1' });
-            // React Query batches its notification to a later macrotask.
-            await new Promise((resolve) => setTimeout(resolve, 0));
+        resolveLoad({ grants: EMPTY_GRANTS, versionTag: 'v1', fileId: 'file-1' });
+        // React Query notifies on a later macrotask, and under load one tick isn't enough:
+        // keep flushing inside act until the control appears.
+        await vi.waitFor(async () => {
+            await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+            expect(folderSelect()).not.toBeNull();
         });
-
-        expect(folderSelect()).not.toBeNull();
         await act(async () => root.unmount());
     });
 });
