@@ -1,4 +1,3 @@
-import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,38 +32,13 @@ export default function AISection() {
   return (
     <div className="space-y-10">
       {/* AI Status Banner */}
-      <div
-        className={cn(
-          "rounded-xl p-5",
-          isAIReady
-            ? "bg-emerald-50/60 dark:bg-emerald-950/20"
-            : isAILoading
-              ? "bg-amber-50/60 dark:bg-amber-950/20"
-              : "bg-muted/30"
-        )}
-        style={{
-          border: isAIReady
-            ? "1px solid rgba(16, 185, 129, 0.2)"
-            : isAILoading
-              ? "1px solid rgba(184, 134, 11, 0.2)"
-              : "1px solid var(--border)",
-        }}
-      >
+      <div className="rounded-xl border bg-muted/40 p-5">
         <div className="flex items-center gap-4">
-          <div
-            className={cn(
-              "shrink-0 w-10 h-10 rounded-full flex items-center justify-center",
-              isAIReady
-                ? "bg-emerald-100 dark:bg-emerald-900/40"
-                : isAILoading
-                  ? "bg-amber-100 dark:bg-amber-900/40"
-                  : "bg-muted"
-            )}
-          >
+          <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-muted">
             {isAIReady ? (
               <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             ) : isAILoading ? (
-              <Loader2 className="h-5 w-5 text-[#B8860B] animate-spin" />
+              <Loader2 className="h-5 w-5 text-primary animate-spin" />
             ) : (
               <AlertCircle className="h-5 w-5 text-muted-foreground" />
             )}
@@ -87,11 +61,8 @@ export default function AISection() {
             {isAILoading && (
               <div className="mt-3 w-full bg-border/50 rounded-full h-1.5 overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-[width] duration-200"
-                  style={{
-                    background: "#B8860B",
-                    width: `${Math.round(loadingProgress * 100)}%`,
-                  }}
+                  className="h-full rounded-full bg-primary transition-[width] duration-200"
+                  style={{ width: `${Math.round(loadingProgress * 100)}%` }}
                 />
               </div>
             )}
@@ -104,18 +75,20 @@ export default function AISection() {
         <SectionHeader subtitle="On-device intelligence for your writing">
           AI Assistant
         </SectionHeader>
-        <SettingsRow
-          icon={Sparkles}
-          label="Enable AI"
-          description="Run a local LLM for autocomplete, grammar, and chat"
-          trailing={
-            <Switch
-              id="ai-enabled"
-              checked={settings.enabled}
-              onCheckedChange={(checked) => setEnabled(checked)}
-            />
-          }
-        />
+        <div className="rounded-lg border">
+          <SettingsRow
+            id="ai-enabled"
+            icon={Sparkles}
+            label="Enable AI"
+            description="Run a local LLM for autocomplete, grammar, and chat"
+            control={
+              <Switch
+                checked={settings.enabled}
+                onCheckedChange={(checked) => setEnabled(checked)}
+              />
+            }
+          />
+        </div>
       </div>
 
       {/* Model Selection */}
@@ -134,30 +107,32 @@ export default function AISection() {
           <SectionHeader subtitle="Fine-tune which AI capabilities are active">
             Features
           </SectionHeader>
-          <SettingsRow
-            icon={Zap}
-            label="Autocomplete"
-            description="Ghost text suggestions while typing"
-            trailing={
-              <Switch
-                id="autocomplete-toggle"
-                checked={settings.autocompleteEnabled}
-                onCheckedChange={(checked) => setAutocomplete(checked)}
-              />
-            }
-          />
-          <SettingsRow
-            icon={SpellCheck}
-            label="Grammar Check"
-            description="Highlight grammar and spelling errors"
-            trailing={
-              <Switch
-                id="grammar-toggle"
-                checked={settings.grammarEnabled}
-                onCheckedChange={(checked) => setGrammar(checked)}
-              />
-            }
-          />
+          <div className="rounded-lg border">
+            <SettingsRow
+              id="autocomplete-toggle"
+              icon={Zap}
+              label="Autocomplete"
+              description="Ghost text suggestions while typing"
+              control={
+                <Switch
+                  checked={settings.autocompleteEnabled}
+                  onCheckedChange={(checked) => setAutocomplete(checked)}
+                />
+              }
+            />
+            <SettingsRow
+              id="grammar-toggle"
+              icon={SpellCheck}
+              label="Grammar Check"
+              description="Highlight grammar and spelling errors"
+              control={
+                <Switch
+                  checked={settings.grammarEnabled}
+                  onCheckedChange={(checked) => setGrammar(checked)}
+                />
+              }
+            />
+          </div>
         </div>
       )}
 
@@ -175,7 +150,7 @@ export default function AISection() {
             <Button
               variant="outline"
               size="sm"
-              className="text-destructive hover:text-destructive hover:bg-destructive/5 border-destructive/20"
+              className="h-11 md:h-8 text-destructive hover:text-destructive hover:bg-destructive/5 border-destructive/20"
               onClick={async () => {
                 if (
                   confirm(
