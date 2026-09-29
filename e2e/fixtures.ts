@@ -1,5 +1,5 @@
 import { test as base, expect, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
-import { assertAllowedOrigin, assertTestOrigin } from './support/origin-guard';
+import { assertAllowedOrigin, assertTestOrigin, isRemoteEdgeRun } from './support/origin-guard';
 import { installNetworkFence, assertNoFenceViolations } from './support/network-fence';
 import { createFolder, selectFolder } from './support/actions';
 
@@ -55,8 +55,8 @@ export const test = base.extend<{
   liveRun: { page: Page; folderName: string };
 }>({
   assertBaseUrlIsTestOrigin: [
-    async ({ baseURL }, use) => {
-      assertAllowedOrigin(baseURL);
+    async ({ baseURL }, use, testInfo) => {
+      if (!isRemoteEdgeRun(testInfo.project.name, baseURL)) assertAllowedOrigin(baseURL);
       await use();
     },
     { auto: true },
@@ -67,7 +67,8 @@ export const test = base.extend<{
   // Fixtures use array form because react-hooks lint otherwise flags `use()`
   // inside a function it names after the property (e.g. "context").
   context: [
-    async ({ context }, use) => {
+    async ({ context, baseURL }, use, testInfo) => {
+      testInfo.skip(isRemoteEdgeRun(testInfo.project.name, baseURL), 'browser tests never run against a deployed URL');
       const { violations } = await installNetworkFence(context);
       await use(context);
       assertNoFenceViolations(violations);

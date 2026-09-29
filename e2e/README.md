@@ -31,7 +31,7 @@ Name the integration test(s) first in every issue's Verification. Add an E2E spe
 | Flaky | tag the title `@quarantine` + open a bug; never add sleeps |
 | Build output | `vite build --mode e2e --outDir dist-e2e` (never touches `dist/`) |
 
-This is the full epic contract (#196) — other issues rely on these names, so don't rename them here. Only some of it is built today: `hermetic`, `quarantine`, `live` and `live-setup` are the only projects (no `recorded`/`edge` yet), and `npm run e2e`, `npm run e2e:dev`, `npm run e2e:quarantine`, `npm run e2e:live`, `npm run e2e:login`, `npm run e2e:report` exist in `package.json`. The rest (`recorded`/`edge` projects, HAR recordings, `waitForSyncIdle`, and the other scripts) land with their own issues (#202, #205) — check `package.json` and this directory's contents before assuming a script or helper exists.
+This is the full epic contract (#196) — other issues rely on these names, so don't rename them here. Only some of it is built today: `hermetic`, `quarantine`, `edge` (see `e2e/edge/README.md`), `live` and `live-setup` are the only projects (no `recorded` yet), and `npm run e2e`, `npm run e2e:dev`, `npm run e2e:quarantine`, `npm run e2e:edge`, `npm run e2e:live`, `npm run e2e:login`, `npm run e2e:report` exist in `package.json`. The rest (`recorded` project, HAR recordings, `waitForSyncIdle`, and the other scripts) land with their own issues (#202) — check `package.json` and this directory's contents before assuming a script or helper exists.
 
 ## CI
 
@@ -61,7 +61,7 @@ Paste the `list` reporter output, attach `playwright-report/` screenshots of the
 
 ## Safety rules
 
-- Test origins only: `http://127.0.0.1:4173`, `http://127.0.0.1:5174` (dev), and `https://e2e.dotyou.cloud:4443` (layer 3, live — see below). Never `dev.dotyou.cloud:5173` or a real Homebase from this suite.
+- Test origins only: `http://127.0.0.1:4173`, `http://127.0.0.1:5174` (dev), `http://127.0.0.1:8788` (edge, `wrangler pages dev`), and `https://e2e.dotyou.cloud:4443` (layer 3, live — see below). Never `dev.dotyou.cloud:5173` or a real Homebase from this suite.
 - Never drive this app with a tool attached to a real browser profile. Use Playwright's own fresh `BrowserContext` per test, or the isolated, origin-locked Playwright MCP session below — nothing else.
 - Call `assertTestOrigin(page)` before any mutating `page.evaluate()` or storage write. The `context` fixture already installs a network fence (`e2e/support/network-fence.ts`) that fails a test on any request outside the allowlist.
 

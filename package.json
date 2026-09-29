@@ -22,6 +22,7 @@
     "e2e:live:docker": "bash -c 'set -euo pipefail; export E2E_LIVE_IDENTITY=${E2E_LIVE_IDENTITY:-frodo.dotyou.cloud}; export E2E_CERT_DIR=e2e/.certs/live-docker/app; export E2E_LIVE_DOCKER=1; cleanup() { e2e/live/docker.sh down; rm -f e2e/.auth/live.json; }; trap cleanup EXIT; e2e/live/docker.sh up; npx playwright test -c playwright.live.config.ts --project=live-ci-setup; npx playwright test -c playwright.live.config.ts --project=live'",
     "e2e:login": "playwright test -c playwright.live.config.ts --project=live-setup --headed",
     "e2e:quarantine": "playwright test --project=quarantine --pass-with-no-tests",
+    "e2e:edge": "playwright test --project=edge",
     "e2e:report": "playwright show-report"
   },
   "dependencies": {

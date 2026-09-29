@@ -57,7 +57,8 @@ export default function DataSection() {
               multiple
               onChange={(e) => {
                 if (e.target.files && e.target.files.length > 0) {
-                  handleImport(e.target.files);
+                  // Snapshot: resetting the input empties the live FileList
+                  handleImport(Array.from(e.target.files));
                   e.target.value = "";
                 }
               }}

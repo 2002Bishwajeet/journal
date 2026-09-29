@@ -9,7 +9,7 @@ export interface UseImportExportReturn {
 
     // Handlers
     handleExport: () => Promise<void>;
-    handleImport: (files: FileList) => Promise<void>;
+    handleImport: (files: File[]) => Promise<void>;
 }
 
 export function useImportExport(): UseImportExportReturn {
@@ -34,7 +34,7 @@ export function useImportExport(): UseImportExportReturn {
         }
     }, [dotYouClient]);
 
-    const handleImport = useCallback(async (files: FileList) => {
+    const handleImport = useCallback(async (files: File[]) => {
         try {
             setIsImporting(true);
             const { ImportService } = await import("@/lib/importexport/ImportService");

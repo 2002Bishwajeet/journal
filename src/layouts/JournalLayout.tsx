@@ -579,6 +579,7 @@ export default function JournalLayout() {
           ) : (
           <NoteList
             notes={notesToShow}
+            viewKey={selectedTag ? `tag:${selectedTag}` : folderId}
             selectedNoteId={noteId || null}
             onSelectNote={(id) => {
               const note = notesToShow.find((n) => n.docId === id);

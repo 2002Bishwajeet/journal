@@ -35,6 +35,10 @@ import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
 import { useNotes } from "@/hooks/useNotes";
 import { getNoteGroup } from "@/helpers/dateGrouping";
+import { useIntersection } from "@/hooks/useIntersection";
+
+// Rows mounted per render step; the sentinel adds another page as it scrolls into view.
+const PAGE = 100;
 
 interface NoteListProps {
   notes: NoteListEntry[];
@@ -47,6 +51,8 @@ interface NoteListProps {
   onArchive?: (note: NoteListEntry) => void;
   isLoading?: boolean;
   className?: string;
+  /** Identifies the current view (folder or tag); changing it resets the render budget. */
+  viewKey?: string;
 }
 
 export default function NoteList({
@@ -60,6 +66,7 @@ export default function NoteList({
   onArchive,
   isLoading = false,
   className = "",
+  viewKey,
 }: NoteListProps) {
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"modified" | "created" | "title">(
@@ -70,6 +77,18 @@ export default function NoteList({
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     () => new Set(),
   );
+
+  // Render budget: reset to one page when the sort or the view changes
+  // (adjust-state-during-render, so collapsed groups are kept).
+  const [limit, setLimit] = useState(PAGE);
+  const limitKey = `${sortBy}::${viewKey ?? ""}`;
+  const [renderedLimitKey, setRenderedLimitKey] = useState(limitKey);
+  if (renderedLimitKey !== limitKey) {
+    setRenderedLimitKey(limitKey);
+    setLimit(PAGE);
+  }
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useIntersection(sentinelRef, () => setLimit((l) => l + PAGE), true);
 
   const handleRefresh = async () => {
     // The note list is a live query — a sync pull surfaces new notes automatically.
@@ -160,6 +179,17 @@ export default function NoteList({
     return groups;
   }, [notes, sortBy]);
 
+  // Spend the budget across groups in order (Pinned first); collapsed groups use none.
+  let budget = limit;
+  let hasMoreRows = false;
+  const visibleGroups = groupedNotes.map((group) => {
+    const collapsed = collapsedGroups.has(group.label);
+    const shown = collapsed ? [] : group.notes.slice(0, budget);
+    budget -= shown.length;
+    if (!collapsed && shown.length < group.notes.length) hasMoreRows = true;
+    return { ...group, collapsed, shown };
+  });
+
   return (
     <div
       className={cn(
@@ -222,14 +252,14 @@ export default function NoteList({
             </div>
           ) : (
             <div className="py-2 w-full space-y-4">
-              {groupedNotes.map((group) => (
+              {visibleGroups.map((group) => (
                 <div key={group.label} className="w-full">
                   <button
                     onClick={() => toggleGroup(group.label)}
-                    aria-expanded={!collapsedGroups.has(group.label)}
+                    aria-expanded={!group.collapsed}
                     className="flex items-center w-full px-3 py-1 hover:bg-muted/50 transition-colors group/header"
                   >
-                    {collapsedGroups.has(group.label) ? (
+                    {group.collapsed ? (
                       <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                     ) : (
                       <ChevronDown className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
@@ -242,9 +272,9 @@ export default function NoteList({
                     </span>
                   </button>
 
-                  {!collapsedGroups.has(group.label) && (
+                  {!group.collapsed && group.shown.length > 0 && (
                     <div className="space-y-0.5 mt-1">
-                      {group.notes.map((note) => (
+                      {group.shown.map((note) => (
                         <NoteItem
                           key={note.docId}
                           note={note}
@@ -261,6 +291,9 @@ export default function NoteList({
                   )}
                 </div>
               ))}
+              {hasMoreRows && (
+                <div ref={sentinelRef} aria-hidden className="h-8" />
+              )}
             </div>
           )}
         </PullToRefresh>
@@ -378,6 +411,7 @@ const NoteItem = memo(function NoteItem({
 
   return (
     <div
+      data-testid="note-row"
       className="relative overflow-hidden w-full select-none"
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 72px" }}
       onClick={isSwiped ? handleGlobalClick : undefined}
