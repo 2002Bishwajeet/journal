@@ -4,6 +4,7 @@ export const meta = {
   whenToUse: 'Run via /implement; args = { issues: [{number,title,size}], repoRoot }',
   phases: [
     { title: 'Implement', detail: 'one worktree per issue, 2 issues at a time' },
+    { title: 'Simplify', detail: 'fresh agent trims over-engineering in the diff before verify' },
     { title: 'Verify', detail: 'fresh-context verifier on Sonnet; 1 fix round' },
     { title: 'Publish', detail: 'PR on pass, STOP comment + blocked label otherwise', model: 'haiku' },
   ],
@@ -81,6 +82,15 @@ function implementPrompt(issue) {
 Return the worktree path, branch, summary, changed files.`
 }
 
+// Not the /simplify skill: its reviewer forks inherit the task and commit/push over the worktree.
+function simplifyPrompt(issue, impl) {
+  return `You are the simplifier for issue #${issue.number} of ${REPO}. The implementation is committed on branch ${impl.branch} in the worktree ${impl.worktreePath}. ${cdInto(impl)} and work only there. Do NOT invoke any skill and do NOT spawn subagents.
+
+Read \`git diff origin/main...HEAD\` and CLAUDE.md sections 2–3. Cut over-engineering in the lines this branch added: unrequested abstractions or options, single-use helpers, re-implemented stdlib/existing \`@/lib/utils\` helpers, needless useCallback/useMemo/useState, defensive code for impossible cases, dead code the branch introduced, verbose comments. Keep behaviour, tests, input validation and data-loss error handling. Don't touch lines the branch didn't change.
+If you changed anything: ${HEAVY} Run \`npm run build\`, \`npm run lint\` and \`npm run test\` that way; if any fails and you can't fix it quickly, \`git checkout -- .\` to drop your edits. Commit passing edits as \`refactor: simplify #${issue.number}\` (no attribution lines). Do not push.
+Return the same fields as the implementer (status "done"), with summary = what you removed (or "nothing to simplify").`
+}
+
 function verifyPrompt(issue, impl) {
   return `You are the verifier for issue #${issue.number} of ${REPO}. The implementation is committed on branch ${impl.branch} in the worktree ${impl.worktreePath}. ${cdInto(impl)} and work only there. You are READ-ONLY on source files: never edit, commit or push.
 
@@ -133,6 +143,13 @@ async function runIssue(issue) {
     label: `implement ${tag}`, phase: 'Implement', schema: IMPL_SCHEMA, isolation: 'worktree', effort,
   })
   if (!impl) return { issue: issue.number, result: 'stopped: implementer died' }
+
+  if (impl.status === 'done') {
+    const simp = await agent(simplifyPrompt(issue, impl), {
+      label: `simplify ${tag}`, phase: 'Simplify', schema: IMPL_SCHEMA, model: 'sonnet', effort: 'medium',
+    })
+    if (simp?.summary) log(`${tag}: simplify — ${simp.summary}`)
+  }
 
   let verdict = null
   for (let round = 0; impl.status === 'done'; round++) {
