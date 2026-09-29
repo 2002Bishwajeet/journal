@@ -19,7 +19,7 @@ export const ImportService = {
     /**
      * Import files (Markdown or Zip)
      */
-    async importFiles(fileList: FileList): Promise<ImportResult> {
+    async importFiles(fileList: Iterable<File>): Promise<ImportResult> {
         const result: ImportResult = { imported: 0, foldersCreated: 0, failed: 0, errors: [] };
 
         // Cache existing folders to avoid re-fetching
