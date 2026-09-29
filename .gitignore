@@ -20,6 +20,7 @@ playwright-report/
 e2e/.auth/
 e2e/.certs/
 .playwright-mcp/
+.wrangler/
 
 # Editor directories and files
 .vscode/*
