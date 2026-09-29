@@ -52,6 +52,7 @@ import type { FolderFile, SyncRecord, SyncProgress, CollaborationInviteContent }
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
 import { documentBroadcast } from '@/lib/broadcast';
 import type { OnlineContextType } from '@/contexts/OnlineContext';
+import { suspendLiveQueries } from '@/hooks/useLiveQuery';
 
 export type SyncStatus = 'idle' | 'syncing' | 'error';
 
@@ -105,6 +106,11 @@ const EMPTY_YDOC_BYTES = 2;
 
 // An uploaded image whose pending node never shows up is marked failed_permanent after this many tries
 const MAX_IMAGE_PROMOTION_ATTEMPTS = 5;
+
+// A pull at least this large suspends the live list queries until it finishes,
+// so PGlite doesn't re-run each one after every pulled row (#153). Smaller
+// (websocket-driven) pulls stay fully live.
+const BULK_PULL_THRESHOLD = 20;
 
 function totalUpdateBytes(updates: Uint8Array[]): number {
     let total = 0;
@@ -346,66 +352,71 @@ export class SyncService {
             onProgress({ phase: 'pull', current: 0, total, message: 'Fetching changes...' });
         }
 
-        // Process folders first (notes depend on folders via folderId)
-        for (const remoteFolderOrDeleted of folders) {
-            try {
-                if (remoteFolderOrDeleted.fileState === 'deleted') {
-                    await this.handleDeletedFolder(remoteFolderOrDeleted as DeletedHomebaseFile);
-                } else {
-                    await this.handleRemoteFolder(remoteFolderOrDeleted);
-                }
-                folderCount++;
-                current++;
-                if (onProgress) onProgress({ phase: 'pull', current, total, message: `Processing folder ${folderCount}/${folders.length}` });
-                // Resolve any previous errors for this entity
-                const id = remoteFolderOrDeleted.fileMetadata?.appData?.uniqueId;
-                if (hadErrors && id) await resolveSyncErrorsForEntity(id);
-            } catch (error) {
-                console.error('[SyncService] Error processing remote folder:', error);
-                // Track error in database
-                const id = remoteFolderOrDeleted.fileMetadata?.appData?.uniqueId ?? '';
-                await this.logSyncError(id, 'folder', 'pull', error);
-            }
-        }
-
-        // Process notes (parallel with concurrency limit, like pushChanges)
-        const PULL_CONCURRENCY = 5;
-        for (let i = 0; i < notes.length; i += PULL_CONCURRENCY) {
-            const batch = notes.slice(i, i + PULL_CONCURRENCY);
-            const results = await Promise.allSettled(batch.map(n => n.fileState === 'deleted'
-                ? this.handleDeletedNote(n as DeletedHomebaseFile)
-                : this.handleRemoteNote(n)));
-
-            for (let j = 0; j < results.length; j++) {
-                const result = results[j];
-                if (result.status === 'fulfilled') {
-                    noteCount++;
+        const resume = total >= BULK_PULL_THRESHOLD ? suspendLiveQueries() : null;
+        try {
+            // Process folders first (notes depend on folders via folderId)
+            for (const remoteFolderOrDeleted of folders) {
+                try {
+                    if (remoteFolderOrDeleted.fileState === 'deleted') {
+                        await this.handleDeletedFolder(remoteFolderOrDeleted as DeletedHomebaseFile);
+                    } else {
+                        await this.handleRemoteFolder(remoteFolderOrDeleted);
+                    }
+                    folderCount++;
                     current++;
-                    if (onProgress) onProgress({ phase: 'pull', current, total, message: `Processing note ${noteCount}/${notes.length}` });
-                    // Resolve any previous errors
-                    const id = batch[j].fileMetadata?.appData?.uniqueId;
+                    if (onProgress) onProgress({ phase: 'pull', current, total, message: `Processing folder ${folderCount}/${folders.length}` });
+                    // Resolve any previous errors for this entity
+                    const id = remoteFolderOrDeleted.fileMetadata?.appData?.uniqueId;
                     if (hadErrors && id) await resolveSyncErrorsForEntity(id);
-                } else {
-                    console.error('[SyncService] Error processing remote note:', result.reason);
-                    const id = batch[j].fileMetadata?.appData?.uniqueId ?? '';
-                    await this.logSyncError(id, 'note', 'pull', result.reason);
+                } catch (error) {
+                    console.error('[SyncService] Error processing remote folder:', error);
+                    // Track error in database
+                    const id = remoteFolderOrDeleted.fileMetadata?.appData?.uniqueId ?? '';
+                    await this.logSyncError(id, 'folder', 'pull', error);
                 }
             }
-        }
 
-        // Process invitations (collaboration sharing)
-        for (const invitationOrDeleted of invitations) {
-            try {
-                if (invitationOrDeleted.fileState === 'deleted') {
-                    await this.handleDeletedInvitation(invitationOrDeleted as DeletedHomebaseFile);
-                } else {
-                    await this.handleInvitation(invitationOrDeleted);
+            // Process notes (parallel with concurrency limit, like pushChanges)
+            const PULL_CONCURRENCY = 5;
+            for (let i = 0; i < notes.length; i += PULL_CONCURRENCY) {
+                const batch = notes.slice(i, i + PULL_CONCURRENCY);
+                const results = await Promise.allSettled(batch.map(n => n.fileState === 'deleted'
+                    ? this.handleDeletedNote(n as DeletedHomebaseFile)
+                    : this.handleRemoteNote(n)));
+
+                for (let j = 0; j < results.length; j++) {
+                    const result = results[j];
+                    if (result.status === 'fulfilled') {
+                        noteCount++;
+                        current++;
+                        if (onProgress) onProgress({ phase: 'pull', current, total, message: `Processing note ${noteCount}/${notes.length}` });
+                        // Resolve any previous errors
+                        const id = batch[j].fileMetadata?.appData?.uniqueId;
+                        if (hadErrors && id) await resolveSyncErrorsForEntity(id);
+                    } else {
+                        console.error('[SyncService] Error processing remote note:', result.reason);
+                        const id = batch[j].fileMetadata?.appData?.uniqueId ?? '';
+                        await this.logSyncError(id, 'note', 'pull', result.reason);
+                    }
                 }
-                current++;
-                if (onProgress) onProgress({ phase: 'pull', current, total, message: `Processing invitation` });
-            } catch (error) {
-                console.error('[SyncService] Error processing invitation:', error);
             }
+
+            // Process invitations (collaboration sharing)
+            for (const invitationOrDeleted of invitations) {
+                try {
+                    if (invitationOrDeleted.fileState === 'deleted') {
+                        await this.handleDeletedInvitation(invitationOrDeleted as DeletedHomebaseFile);
+                    } else {
+                        await this.handleInvitation(invitationOrDeleted);
+                    }
+                    current++;
+                    if (onProgress) onProgress({ phase: 'pull', current, total, message: `Processing invitation` });
+                } catch (error) {
+                    console.error('[SyncService] Error processing invitation:', error);
+                }
+            }
+        } finally {
+            resume?.();
         }
 
         return { folders: folderCount, notes: noteCount };

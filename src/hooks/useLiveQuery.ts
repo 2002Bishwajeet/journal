@@ -2,6 +2,10 @@ import { useEffect, useRef, useState, startTransition } from 'react';
 import { getLiveDatabase } from '@/lib/db/pglite';
 
 interface LiveEntry {
+  // The query this entry subscribes to, kept so a suspended entry can
+  // re-subscribe on resume (see suspendLiveQueries()).
+  sql: string;
+  params: ReadonlyArray<unknown>;
   refs: number;
   rows: unknown[];
   ready: boolean;
@@ -10,6 +14,9 @@ interface LiveEntry {
   // been torn down, but the entry and its last rows are retained (see park()).
   // A parked entry holds NO live subscription — it costs nothing on writes.
   parked: boolean;
+  // Suspended: a bulk write (sync pull) tore down the live subscription while
+  // consumers still hold the entry; it re-subscribes when the suspend ends.
+  suspended: boolean;
   // Generation token: bumped on park and on each new subscription so a stale
   // subscription's async callback/result can be fenced out even though the entry
   // object itself survives across park→reacquire.
@@ -40,6 +47,17 @@ const idleKeys = new Set<string>(); // insertion-ordered LRU of parked cacheKeys
 // the leading edge (immediate) so interactive changes stay instant; only the
 // follow-ups inside the window collapse into one trailing emission.
 const COALESCE_MS = 150;
+
+// Count of query results PGlite has produced (every live callback plus each
+// initial result), for measurement and tests — see getLiveQueryStats().
+let emissions = 0;
+
+// Nesting depth of suspendLiveQueries(); live subscriptions are off while > 0.
+let suspendDepth = 0;
+
+export function getLiveQueryStats(): { emissions: number } {
+  return { emissions };
+}
 
 function clearCoalesce(e: LiveEntry) {
   if (e.coalesceTimer !== undefined) {
@@ -115,6 +133,8 @@ function subscribe(
     try {
       const db = await getLiveDatabase();
       const lq = await db.live.query(sql, params as unknown[], (res) => {
+        // Counted before the fence so a leaked (superseded) subscription shows up.
+        emissions += 1;
         // Drop emissions from a subscription that has been superseded (the entry
         // was parked/replaced, or a newer subscription took over).
         if (registry.get(cacheKey) !== myEntry || myEntry.gen !== myGen) return;
@@ -130,6 +150,7 @@ function subscribe(
       myEntry.parked = false;
       myEntry.ready = true;
       // First fresh result: deliver immediately (leading edge via notify).
+      emissions += 1;
       notify(myEntry, lq.initialResults.rows);
     } catch (err) {
       console.error('[useLiveQuery] subscription failed:', err);
@@ -161,11 +182,14 @@ export function acquireLiveQuery(
   let entry = registry.get(cacheKey);
   if (!entry) {
     entry = {
+      sql,
+      params,
       refs: 0,
       rows: [],
       ready: false,
       subscribing: false,
       parked: false,
+      suspended: false,
       gen: 0,
       listeners: new Set(),
       hasPending: false,
@@ -194,6 +218,10 @@ export function acquireLiveQuery(
     queueMicrotask(() => {
       if (registry.get(cacheKey) === myEntry) listener(rows);
     });
+  } else if (suspendDepth > 0) {
+    // Suspended: serve whatever rows are cached and subscribe on resume.
+    entry.parked = false;
+    entry.suspended = true;
   } else if (entry.parked) {
     // Serve the parked rows now (ready), then resubscribe for fresh data. The
     // fresh subscription bumps gen, so any in-flight one from before orphans.
@@ -207,6 +235,43 @@ export function acquireLiveQuery(
   }
 
   return { rows: entry.rows, ready: entry.ready, release };
+}
+
+/**
+ * Suspend every live subscription for the duration of a bulk write (a sync pull),
+ * so PGlite doesn't re-run each subscribed query after every written row.
+ * Consumers keep their cached rows; entries acquired meanwhile subscribe later.
+ * Returns an idempotent resume; when the last nested suspend resumes, every
+ * suspended entry still in use re-subscribes once (its initial result is the
+ * single refresh).
+ */
+export function suspendLiveQueries(): () => void {
+  suspendDepth += 1;
+  if (suspendDepth === 1) {
+    for (const e of registry.values()) {
+      if (e.refs <= 0 || e.parked) continue;
+      clearCoalesce(e);
+      // Bumping gen fences emissions and orphans an in-flight subscribe().
+      e.gen += 1;
+      const unsub = e.unsubscribe;
+      e.unsubscribe = undefined;
+      void unsub?.()?.catch(() => {});
+      e.subscribing = false;
+      e.suspended = true;
+    }
+  }
+  let resumed = false;
+  return () => {
+    if (resumed) return;
+    resumed = true;
+    suspendDepth -= 1;
+    if (suspendDepth > 0) return;
+    for (const [cacheKey, e] of registry) {
+      if (!e.suspended) continue;
+      e.suspended = false;
+      if (e.refs > 0) subscribe(cacheKey, e, e.sql, e.params);
+    }
+  };
 }
 
 /**
