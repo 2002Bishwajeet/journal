@@ -9,7 +9,7 @@
  * which doesn't export a React component in v3.
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import { Bold, Italic, Underline, Code, Link as LinkIcon, Strikethrough, RemoveFormatting } from 'lucide-react';
 import { ToolbarButton, safeEditorCommand } from './shared';
@@ -83,31 +83,31 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
     };
   }, [editor]);
 
-  const toggleBold = useCallback(() => {
+  const toggleBold = () => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleBold().run());
-  }, [editor]);
+  };
 
-  const toggleItalic = useCallback(() => {
+  const toggleItalic = () => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleItalic().run());
-  }, [editor]);
+  };
 
-  const toggleUnderline = useCallback(() => {
+  const toggleUnderline = () => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleUnderline().run());
-  }, [editor]);
+  };
 
-  const toggleStrike = useCallback(() => {
+  const toggleStrike = () => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleStrike().run());
-  }, [editor]);
+  };
 
-  const clearFormatting = useCallback(() => {
+  const clearFormatting = () => {
     safeEditorCommand(editor, () => editor.chain().focus().clearNodes().unsetAllMarks().run());
-  }, [editor]);
+  };
 
-  const toggleCode = useCallback(() => {
+  const toggleCode = () => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleCode().run());
-  }, [editor]);
+  };
 
-  const addLink = useCallback(() => {
+  const addLink = () => {
     const previousUrl = editor.getAttributes('link').href;
     const url = window.prompt('Enter URL:', previousUrl);
     
@@ -118,7 +118,7 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
     } else {
       safeEditorCommand(editor, () => editor.chain().focus().setLink({ href: url }).run());
     }
-  }, [editor]);
+  };
 
   if (!isVisible || !isDesktop) return null;
 

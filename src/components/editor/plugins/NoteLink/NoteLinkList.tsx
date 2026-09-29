@@ -2,7 +2,7 @@
  * Popup list for the `[[` note-link picker. Mirrors SlashCommandList: keyboard
  * navigation + click selection, driven by @tiptap/suggestion render props.
  */
-import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, Fragment } from 'react';
+import { useState, useCallback, forwardRef, useImperativeHandle, Fragment } from 'react';
 import { FileText, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { NoteLinkItem } from './NoteLinkExtension';
@@ -21,9 +21,12 @@ export const NoteLinkList = forwardRef<NoteLinkListRef, NoteLinkListProps>(
     ({ items, command, query }, ref) => {
         const [selectedIndex, setSelectedIndex] = useState(0);
 
-        useEffect(() => {
+        // Reset selection when items change (adjust state during render)
+        const [prevItems, setPrevItems] = useState(items);
+        if (items !== prevItems) {
+            setPrevItems(items);
             setSelectedIndex(0);
-        }, [items]);
+        }
 
         const selectItem = useCallback(
             (index: number) => {

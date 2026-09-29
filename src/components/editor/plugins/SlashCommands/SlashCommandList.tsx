@@ -5,7 +5,7 @@
  * Supports keyboard navigation and search filtering.
  */
 
-import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { Editor } from '@tiptap/react';
 import { cn } from '@/lib/utils';
 import { slashCommandItems, filterCommands, type SlashCommandItem } from './slashCommandItems';
@@ -26,10 +26,12 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
     const [selectedIndex, setSelectedIndex] = useState(0);
     const filteredItems = filterCommands(slashCommandItems, query);
 
-    // Reset selection when query changes
-    useEffect(() => {
+    // Reset selection when query changes (adjust state during render)
+    const [prevQuery, setPrevQuery] = useState(query);
+    if (query !== prevQuery) {
+      setPrevQuery(query);
       setSelectedIndex(0);
-    }, [query]);
+    }
 
     const selectItem = useCallback(
       (index: number) => {

@@ -47,6 +47,7 @@ export default function ShareDialog({
     const identity = getIdentity() || 'unknown';
     const shareUrl = `${window.location.origin}/share/${encodeURIComponent(identity)}/${noteId}`;
 
+    // kept: passed to Radix Dialog's onOpenChange (third-party API)
     const handleOpenChange = useCallback((open: boolean) => {
         if (!open) {
             setCopied(false);
@@ -58,7 +59,7 @@ export default function ShareDialog({
         if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
     }, []);
 
-    const handleMakePublic = useCallback(async () => {
+    const handleMakePublic = async () => {
         if (!dotYouClient) {
             toast.error('Not authenticated');
             return;
@@ -78,9 +79,9 @@ export default function ShareDialog({
         } finally {
             setIsMakingPublic(false);
         }
-    }, [dotYouClient, noteId, setNotePublic]);
+    };
 
-    const handleMakePrivate = useCallback(async () => {
+    const handleMakePrivate = async () => {
         if (!dotYouClient) {
             toast.error('Not authenticated');
             return;
@@ -100,7 +101,7 @@ export default function ShareDialog({
         } finally {
             setIsMakingPrivate(false);
         }
-    }, [dotYouClient, noteId, setNotePublic]);
+    };
 
     const handleCopyLink = async () => {
         try {
