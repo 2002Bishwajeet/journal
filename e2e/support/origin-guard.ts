@@ -8,7 +8,17 @@ export const TEST_ORIGINS = [
   'http://127.0.0.1:4173',
   'http://127.0.0.1:5174',
   'https://e2e.dotyou.cloud:4443',
+  'http://127.0.0.1:8788',
 ];
+
+// The edge project may point E2E_EDGE_BASE_URL at a deployed Pages URL. Only
+// that project may, and then only `request` specs run — browser tests skip.
+export function isRemoteEdgeRun(projectName: string, baseURL: string | undefined): boolean {
+  return projectName === 'edge'
+    && !!baseURL
+    && baseURL === process.env.E2E_EDGE_BASE_URL
+    && !TEST_ORIGINS.includes(baseURL);
+}
 
 export function assertAllowedOrigin(origin: string | undefined): void {
   if (!origin || !TEST_ORIGINS.includes(origin)) {
