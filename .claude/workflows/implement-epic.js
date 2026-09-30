@@ -1,7 +1,7 @@
 export const meta = {
   name: 'implement-epic',
   description: 'Implement → verify → PR for agent-ready issues picked by scripts/harness/select.mjs',
-  whenToUse: 'Run via /implement; args = { issues: [{number,title,size}], repoRoot }',
+  whenToUse: 'Run via /implement; args = { issues: [{number,title,size,model?,effort?}], repoRoot }',
   phases: [
     { title: 'Implement', detail: 'one worktree per issue, 2 issues at a time' },
     { title: 'Simplify', detail: 'fresh agent trims over-engineering in the diff before verify' },
@@ -15,7 +15,8 @@ const MAX_FIX_ROUNDS = 1 // a second failure usually needs a human; each round r
 const LANES = 2 // 16 GB machine; heavy commands are serialised by serial.sh anyway
 const { issues = [], repoRoot } = args || {}
 
-// Implementer effort follows the issue's Size; unknown sizes get 'high'.
+// Implementer effort follows the issue's Size (unknown sizes get 'high') unless its Metadata has an `Effort:` line.
+// Implementer model comes from the `Model:` line (opus | sonnet); issues without one run on Opus.
 const EFFORT = { S: 'medium', M: 'high', L: 'xhigh' }
 
 const IMPL_SCHEMA = {
@@ -138,9 +139,10 @@ Owner-only: ${JSON.stringify(verdict.ownerOnly || [])}`
 
 async function runIssue(issue) {
   const tag = `#${issue.number}`
-  const effort = EFFORT[issue.size] || 'high'
+  const effort = issue.effort || EFFORT[issue.size] || 'high'
+  const model = issue.model || 'opus'
   let impl = await agent(implementPrompt(issue), {
-    label: `implement ${tag}`, phase: 'Implement', schema: IMPL_SCHEMA, isolation: 'worktree', effort,
+    label: `implement ${tag}`, phase: 'Implement', schema: IMPL_SCHEMA, isolation: 'worktree', model, effort,
   })
   if (!impl) return { issue: issue.number, result: 'stopped: implementer died' }
 
@@ -164,7 +166,7 @@ async function runIssue(issue) {
     }
     log(`${tag}: verify failed (${verdict.problems.length} problems), fix round ${round + 1}`)
     const fixed = await agent(fixPrompt(issue, impl, verdict), {
-      label: `fix ${tag} (round ${round + 1})`, phase: 'Implement', schema: IMPL_SCHEMA, effort,
+      label: `fix ${tag} (round ${round + 1})`, phase: 'Implement', schema: IMPL_SCHEMA, model, effort,
     })
     impl = fixed ? { ...impl, ...fixed, worktreePath: impl.worktreePath, branch: impl.branch } : { ...impl, status: 'stopped', condition: 'fixer died' }
   }

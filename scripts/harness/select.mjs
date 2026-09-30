@@ -36,6 +36,20 @@ export function parseVerification(body) {
     return lines.flatMap((l) => [...l.matchAll(/`([^`]+)`/g)].map((m) => m[1]));
 }
 
+const ROUTING = { model: ['opus', 'sonnet'], effort: ['low', 'medium', 'high', 'xhigh'] };
+
+/** Optional `Model:` / `Effort:` lines in `## Metadata`; a key is omitted when absent or not a known value. */
+export function parseRouting(body) {
+    const lines = section(body, 'Metadata') ?? [];
+    const out = {};
+    for (const [key, allowed] of Object.entries(ROUTING)) {
+        const prefix = `${key[0].toUpperCase()}${key.slice(1)}:`;
+        const value = lines.find((l) => l.startsWith(prefix))?.slice(prefix.length).trim().toLowerCase();
+        if (allowed.includes(value)) out[key] = value;
+    }
+    return out;
+}
+
 export function classify(issue, { subIssueCount, openPrForIssue, deps }) {
     const labels = issue.labels.map((l) => l.name ?? l);
     if (issue.state.toLowerCase() === 'closed') return { ready: false, reason: 'closed' };
@@ -88,7 +102,7 @@ function main(argv) {
         for (const d of parseDependsOn(issue.body) ?? []) deps[d] = viewIssue(d);
         const verdict = classify(issue, { subIssueCount: subs.length, openPrForIssue: openPr(n), deps });
         const size = section(issue.body, 'Metadata')?.find((l) => l.startsWith('Size:'))?.slice(5).trim();
-        const row = { number: n, title: issue.title, size };
+        const row = { number: n, title: issue.title, size, ...parseRouting(issue.body) };
         if (verdict.ready) ready.push(row);
         else skipped.push({ ...row, reason: verdict.reason });
     }
