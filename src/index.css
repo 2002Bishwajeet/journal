@@ -797,6 +797,14 @@ body {
   margin: 0 auto;
 }
 
+/* Mermaid measures a label outside the note, then draws it as html in a box of
+   that size. `.prose p` would give the label's paragraph a taller line than it
+   measured (1.7 against the 1.5 of the label's own box), so a wrapped label is
+   cut off at the bottom. The paragraph takes its line height from that box. */
+[data-live-block-preview='mermaid'] foreignObject p {
+  line-height: inherit;
+}
+
 /* A pie's slices are the chart palette, from near the text colour to near the
    background, so no one label colour reads on all of them. Each label gets a
    halo of the background around its glyphs instead. */
