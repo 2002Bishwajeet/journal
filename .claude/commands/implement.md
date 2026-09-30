@@ -4,7 +4,7 @@ argument-hint: <epic#|issue#…> [--dry] [--loop] [--max N]
 ---
 Run the agent harness on: $ARGUMENTS
 
-0. Clean up finished runs: for each worktree under `.claude/worktrees/` whose branch is `agent/<n>-…` and has no open PR (`gh pr list -R 2002Bishwajeet/journal --state open --head <branch> --json number`), run `git worktree remove --force <path>` and `git branch -D <branch>`. Pushed branches stay on the remote.
+0. Clean up finished runs: for each worktree under `.claude/worktrees/` whose branch is `agent/<n>-…` and has no open PR (`gh pr list -R 2002Bishwajeet/journal --state open --head <branch> --json number`), run `git worktree remove --force <path>` and `git branch -D <branch>` — but only while no `implement-epic` run or evidence agent is active, and skip any worktree with a dirty tree or commits not on `origin` (`git -C <path> status --porcelain`, `git -C <path> log @{u}.. 2>/dev/null` or no upstream): mid-wave, a worktree with no PR yet is an agent still working. Pushed branches stay on the remote.
 1. Run `node scripts/harness/select.mjs <the issue/epic numbers from the arguments> --json` and print the ready/skipped table (`issue | title | ready/skip reason`).
 2. If `--dry` was given, or nothing is ready, stop here (no Workflow run, no worktrees).
 3. Take at most N ready issues (`--max N`, default 3), lowest Size first (S, M, L, unknown); list the rest as "skipped: over --max". Run the saved workflow `implement-epic` with args `{ "issues": <the ready array, each {number,title,size}>, "repoRoot": "<absolute path of this checkout>" }`. Invoking this command is the owner's opt-in to that workflow.
