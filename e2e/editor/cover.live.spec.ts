@@ -15,6 +15,8 @@ const RED: [number, number, number] = [200, 50, 50];
 const BLUE: [number, number, number] = [40, 80, 200];
 
 const band = (page: Page) => page.getByRole('img', { name: 'Note cover' });
+// The role="img" layer is pointer-events-none; hover and drag its container instead.
+const bandFrame = (page: Page) => band(page).locator('..');
 
 // The cover's <img> as uploaded (OdinImage sets crossorigin; the pending blob <img> doesn't).
 const uploadedImg = (page: Page) => band(page).locator('img[crossorigin]').last();
@@ -100,9 +102,9 @@ test('cover image: add, reposition, change and remove survive reloads (#219)', a
         await expect(uploadedImg(page)).toBeAttached({ timeout: 30_000 });
 
         // Reposition: drag up a quarter of the band height, 50 -> 75.
-        await band(page).hover();
+        await bandFrame(page).hover();
         await page.getByRole('button', { name: 'Reposition cover' }).click();
-        const box = (await band(page).boundingBox())!;
+        const box = (await bandFrame(page).boundingBox())!;
         const x = box.x + box.width / 2;
         const y = box.y + box.height / 2;
         await page.mouse.move(x, y);
@@ -121,7 +123,7 @@ test('cover image: add, reposition, change and remove survive reloads (#219)', a
         await expect.poll(() => coverIs(page, RED)).toBe(true);
 
         // Change: the new image shows, uploads under a new key, and the old key is deleted on sync.
-        await band(page).hover();
+        await bandFrame(page).hover();
         await pickCover(page, page.getByRole('button', { name: 'Change cover' }), BLUE);
         await expect.poll(() => coverIs(page, BLUE), { timeout: 10_000 }).toBe(true);
         await expect.poll(uploadedKeys, { timeout: 120_000, message: 'new cover uploaded' }).toHaveLength(2);
@@ -145,7 +147,7 @@ test('cover image: add, reposition, change and remove survive reloads (#219)', a
                 await page.setViewportSize(viewport);
                 await expect(band(page)).toBeVisible();
                 await expect.poll(() => coverIs(page, BLUE), { timeout: 30_000 }).toBe(true);
-                await band(page).hover();
+                await bandFrame(page).hover();
                 await screenshot(page, testInfo, `cover-${label}-${colorScheme}`);
                 await page.getByRole('button', { name: 'Reposition cover' }).click();
                 await screenshot(page, testInfo, `cover-reposition-${label}-${colorScheme}`);
@@ -156,7 +158,7 @@ test('cover image: add, reposition, change and remove survive reloads (#219)', a
         await page.setViewportSize({ width: 1280, height: 720 });
 
         // Remove: gone now and after a reload.
-        await band(page).hover();
+        await bandFrame(page).hover();
         await page.getByRole('button', { name: 'Remove cover' }).click();
         await expect(band(page)).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Add cover' })).toBeAttached();
