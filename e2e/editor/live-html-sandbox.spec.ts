@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, pastePlainText } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #389: an `html` code block previews as a running page in a sandboxed frame
@@ -33,6 +33,56 @@ const TALL = [
   '<div id="tall"><h2>A page 900px tall</h2>',
   '<button onclick="tall.style.height = tall.offsetHeight + 400 + \'px\'">Grow by 400px</button></div>',
 ].join('');
+
+// #409: a block may also load scripts, styles and fonts from three CDN hosts. The same
+// source goes in every way a block can (typed, pasted bare, pasted as a fence; an agent's
+// write is in agentEditEngine.test.ts): a script from an allowlisted host, an inline
+// script that uses it, and a div it fills in.
+const CDN_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/probe.js';
+const OTHER_HOST_SCRIPT_URL = 'https://example.com/x.js';
+const CDN_SOURCE = [
+  '<div id="out">waiting for the CDN script</div>',
+  `<script src="${CDN_SCRIPT_URL}"></script>`,
+  '<script>',
+  "document.getElementById('out').textContent = window.cdnProbe();",
+  '</script>',
+].join('\n');
+
+// What the block's CSP still refuses: a script from any other host, and fetch even to an allowlisted one.
+const CDN_LIMITS = [
+  '<pre id="out"></pre>',
+  `<script src="${CDN_SCRIPT_URL}"></script>`,
+  `<script src="${OTHER_HOST_SCRIPT_URL}"></script>`,
+  '<script>',
+  "const report = (name, result) => { document.getElementById('out').textContent += name + ': ' + result + '\\n'; };",
+  "report('allowlisted host', window.cdnProbe ? window.cdnProbe() : 'did not run');",
+  "report('other host', window.otherHostRan ? 'ran' : 'did not run');",
+  `fetch('${CDN_SCRIPT_URL}').then(() => report('fetch', 'resolved'), () => report('fetch', 'rejected'));`,
+  '</script>',
+].join('\n');
+
+/**
+ * Answers both script URLs with a fake, and returns the requests that got that far, as
+ * `<resource type> <url>`. Routes added after the fixture's network fence run before it,
+ * so only these two URLs are answered and every other request still meets the fence.
+ * Each answer carries what the frame needs to use it (CORP for the COEP it inherits from
+ * the app, CORS for fetch), so whatever fails to run or resolve was refused by the CSP.
+ */
+async function serveFakeScripts(app: Page): Promise<string[]> {
+  const requests: string[] = [];
+  const serve = (url: string, body: string) =>
+    app.context().route(url, (route) => {
+      requests.push(`${route.request().resourceType()} ${url}`);
+      return route.fulfill({
+        contentType: 'text/javascript',
+        headers: { 'Cross-Origin-Resource-Policy': 'cross-origin', 'Access-Control-Allow-Origin': '*' },
+        body,
+      });
+    });
+  await serve(CDN_SCRIPT_URL, "window.cdnProbe = () => 'cdn script ran';");
+  await serve(OTHER_HOST_SCRIPT_URL, 'window.otherHostRan = true;');
+  return requests;
+}
 
 /** Creates a note with `source` as an `html` block, previews it, and returns its frame. */
 async function previewProbe(app: Page, source = PROBE) {
@@ -125,6 +175,48 @@ test('html block: an external image does not load', async ({ app }) => {
 
   await expect(frame.locator('#out')).toContainText('img: naturalWidth 0');
   await expect(frame.locator('#img')).toHaveJSProperty('naturalWidth', 0);
+});
+
+test('html block: typed, a script from an allowlisted CDN host runs', async ({ app }) => {
+  const requests = await serveFakeScripts(app);
+  const frame = await previewProbe(app, CDN_SOURCE);
+
+  await expect(frame.locator('#out')).toHaveText('cdn script ran');
+  expect(new Set(requests)).toEqual(new Set([`script ${CDN_SCRIPT_URL}`]));
+});
+
+for (const [how, pasted] of [
+  ['bare markup', CDN_SOURCE],
+  ['a whole html fence', '```html\n' + CDN_SOURCE + '\n```'],
+] as const) {
+  test(`html block: pasted as ${how}, it opens in Preview and the CDN script runs`, async ({ app }) => {
+    const requests = await serveFakeScripts(app);
+    await createNote(app, { title: `Html paste ${Date.now()}`, body: 'Intro' });
+    await app.keyboard.press('Enter');
+    await pastePlainText(app, pasted);
+
+    // Nobody clicked Preview: the pasted block opens in it.
+    const block = activeEditor(app).locator('[data-live-block="html"]');
+    await expect(block.getByRole('button', { name: 'Preview', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(block.frameLocator('iframe[title="HTML preview"]').locator('#out')).toHaveText('cdn script ran');
+    expect(new Set(requests)).toEqual(new Set([`script ${CDN_SCRIPT_URL}`]));
+    // The block holds the source as pasted; none of it was left behind as literal text.
+    expect(await block.locator('pre').textContent()).toBe(CDN_SOURCE);
+    await expect(activeEditor(app).locator('p', { hasText: '<' })).toHaveCount(0);
+    await expect(activeEditor(app)).not.toContainText('```');
+  });
+}
+
+test('html block: a script from any other host does not run, and fetch to an allowlisted host rejects', async ({ app }) => {
+  const requests = await serveFakeScripts(app);
+  const frame = await previewProbe(app, CDN_LIMITS);
+  const out = frame.locator('#out');
+
+  await expect(out).toContainText('allowlisted host: cdn script ran');
+  await expect(out).toContainText('other host: did not run');
+  await expect(out).toContainText('fetch: rejected');
+  // The CSP refused both before a request existed: the only one made was for the allowlisted script.
+  expect(new Set(requests)).toEqual(new Set([`script ${CDN_SCRIPT_URL}`]));
 });
 
 test('html block: is as tall as its content and grows with it, until the user resizes it', async ({ app }) => {

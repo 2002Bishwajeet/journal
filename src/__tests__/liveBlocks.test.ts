@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { LiveBlockPreview } from '@/components/liveBlocks/LiveBlockPreview';
-import { buildSrcdoc, frameHeightFromMessage, liveBlockKind, svgDataUri } from '@/lib/liveBlocks';
+import { HTML_BLOCK_CDN_HOSTS, buildSrcdoc, frameHeightFromMessage, liveBlockKind, svgDataUri } from '@/lib/liveBlocks';
 
 describe('liveBlockKind', () => {
   it('should recognise mermaid, svg and html languages', () => {
@@ -36,7 +36,10 @@ describe('svgDataUri', () => {
 });
 
 describe('buildSrcdoc', () => {
-  const CSP_META = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; form-action 'none'; base-uri 'none'">`;
+  // Written out, not built from HTML_BLOCK_CDN_HOSTS: a host added to that list must fail here.
+  const CDN = 'https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com';
+  const CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; style-src 'unsafe-inline' ${CDN}; img-src data: blob:; font-src data: ${CDN}; media-src data: blob:; form-action 'none'; base-uri 'none'`;
+  const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
   const HEIGHT_SCRIPT =
     "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) }, '*')).observe(document.documentElement)</script>";
 
@@ -46,6 +49,15 @@ describe('buildSrcdoc', () => {
     expect(srcdoc).toBe(`<!doctype html>${CSP_META}${source}${HEIGHT_SCRIPT}`);
     expect(srcdoc.indexOf('Content-Security-Policy')).toBeLessThan(srcdoc.indexOf(source));
     expect(srcdoc.indexOf(HEIGHT_SCRIPT)).toBe(srcdoc.indexOf(source) + source.length);
+  });
+
+  it('should allow scripts, styles and fonts from jsDelivr, cdnjs and unpkg, and from no other host (#409)', () => {
+    expect(HTML_BLOCK_CDN_HOSTS).toEqual(['https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://unpkg.com']);
+    const csp = buildSrcdoc('').match(/content="([^"]*)"/)![1];
+    expect(csp).toBe(CSP);
+    // No connect-src (so default-src 'none' keeps fetch blocked), and no host outside the three directives.
+    expect(csp).not.toContain('connect-src');
+    expect(csp.match(/https:[^ ;]*/g)).toHaveLength(9);
   });
 
   it('should add a script that only reports: it never listens for a message', () => {

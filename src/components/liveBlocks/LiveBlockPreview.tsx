@@ -11,7 +11,8 @@
  *   box. The source is untrusted (an LLM or a collaborator can write it):
  *   `sandbox="allow-scripts"` alone gives the frame an opaque origin, so it
  *   cannot reach the app's DOM, storage or cookies, and the CSP from
- *   buildSrcdoc keeps it off the network. Never add another sandbox token;
+ *   buildSrcdoc lets it load scripts, styles and fonts from three CDN hosts
+ *   and reach nothing else on the network. Never add another sandbox token;
  *   e2e/editor/live-html-sandbox.spec.ts holds the proof. The one thing that
  *   crosses the boundary is the frame's report of its content height (#412),
  *   and only outwards: nothing is ever posted into the frame.
