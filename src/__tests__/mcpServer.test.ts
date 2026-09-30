@@ -69,6 +69,15 @@ describe('createJournalMcpServer', () => {
         ]);
     });
 
+    it('tells agents about live blocks in the markdown write tools only', async () => {
+        const client = await connectedClient(makeFakeDeps());
+        const { tools } = await client.listTools();
+        for (const tool of tools) {
+            const mentions = ['mermaid', 'svg', 'html'].every((word) => tool.description?.includes(word));
+            expect(mentions).toBe(['create_note', 'append_to_note', 'replace_in_note'].includes(tool.name));
+        }
+    });
+
     it('attributes writes to the client name from the initialize handshake', async () => {
         const uploads: DocumentMetadata[] = [];
         const client = await connectedClient(makeFakeDeps(WRITE_GRANTS, uploads));
