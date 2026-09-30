@@ -79,14 +79,31 @@ describe('createJournalMcpServer', () => {
         }
     });
 
-    it('tells agents how an html block should look in the three markdown write tools (#420)', async () => {
+    it("tells agents that Journal's design comes first, in order, in the three markdown write tools (#424)", async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
-        const sentence =
-            " An `html` block inherits the note's font, text colour and transparent background, so it should not set a page background or font, " +
-            'should use `var(--foreground)`, `var(--muted)`, `var(--muted-foreground)`, `var(--border)`, `var(--accent)` and `var(--radius)` for anything it draws, ' +
-            'and should avoid gradients, shadows and badge rows; prefer a callout or a table when one would do.';
-        const told = tools.filter((tool) => tool.description?.includes(sentence)).map((tool) => tool.name);
+        const rules = [
+            "Journal's design system comes first.",
+            '(1) Prefer a native block (callout, table, toggle, task list, mermaid) whenever one can carry the content.',
+            "(2) An `html` block must use the note's font and colours, which it inherits, and the theme variables",
+            '`var(--chart-1)` to `var(--chart-5)` for data series',
+            "leave buttons, inputs and tables unstyled so they get Journal's look.",
+            '(3) Custom styling is allowed only where the content needs it (a chart, a diagram, a game board), and still built from those variables.',
+            '(4) No page background, gradients, shadows, badge rows, emoji headers or custom fonts.',
+            '(5) The block sizes itself to its content: do not set a fixed page height or design for a whole screen.',
+        ];
+        const described = tools.filter((tool) => ['create_note', 'append_to_note', 'replace_in_note'].includes(tool.name));
+        expect(described).toHaveLength(3);
+        for (const tool of described) {
+            const positions = rules.map((rule) => tool.description!.indexOf(rule));
+            expect(positions).not.toContain(-1);
+            expect(positions).toEqual([...positions].sort((a, b) => a - b));
+            for (const name of ['--foreground', '--muted', '--muted-foreground', '--border', '--accent', '--radius']) {
+                expect(tool.description).toContain(`\`var(${name})\``);
+            }
+        }
+        // Only the tools that take markdown carry it.
+        const told = tools.filter((tool) => tool.description?.includes(rules[0])).map((tool) => tool.name);
         expect(told.sort()).toEqual(['append_to_note', 'create_note', 'replace_in_note']);
     });
 
