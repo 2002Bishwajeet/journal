@@ -17,6 +17,8 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   variant?: 'default' | 'destructive';
+  /** Where focus goes once the dialog has closed (Radix default: back to the opener). */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 export default function ConfirmDialog({
@@ -28,10 +30,11 @@ export default function ConfirmDialog({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'destructive',
+  onCloseAutoFocus,
 }: ConfirmDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

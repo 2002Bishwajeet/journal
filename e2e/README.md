@@ -87,6 +87,8 @@ Every issue's Verification section names its integration test(s) first. Name an 
 - `boot/session-restore.spec.ts` — signed-in shell renders and survives a reload.
 - `editor/persist.spec.ts` — a created/edited note survives a reload.
 - `editor/two-tabs.spec.ts` — typing in one tab shows up in another tab on the same note.
+- `editor/toggle-callout.spec.ts` — `/toggle` and `/callout` blocks: title, collapse, variant switch, and reload.
+- `links/link-preview.spec.ts` — pasting a URL makes a preview card (extract endpoint mocked): convert to link, undo, and an offline paste that fills in once online.
 - `routing/deep-links.spec.ts` — direct note links, back/forward, unknown routes.
 - `pwa/update-prompt.spec.ts` — a changed service worker surfaces the update prompt (preview build only, skipped under `E2E_SERVER=dev`; currently `@quarantine`, see #199's STOP comment on Chromium not exposing the SW update fetch to `context.route`).
 

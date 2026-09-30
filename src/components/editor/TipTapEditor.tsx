@@ -21,6 +21,7 @@ import { AISuggestionOverlay } from "./AISuggestionOverlay";
 import { TableColumnMenu } from "./table/TableColumnMenu";
 import { TableRowMenu } from "./table/TableRowMenu";
 import { TagInput } from "./TagInput";
+import { NoteCover } from "./NoteCover";
 
 // Import KaTeX styles for math rendering
 import "katex/dist/katex.min.css";
@@ -108,16 +109,21 @@ export default function TipTapEditor({
 
   return (
     <div className={`flex flex-col ${className}`}>
-      {/* Title input */}
-      <div className="px-4 pt-4 pb-2">
-        <input
-          ref={titleInputRef}
-          type="text"
-          value={title}
-          onChange={(e) => handleTitleChange(e.target.value)}
-          placeholder="Untitled"
-          className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder:text-gray-400 dark:text-white"
-        />
+      {/* Header: "Add cover" shows on hover anywhere in it */}
+      <div className="group/header">
+        <NoteCover metadata={metadata} />
+
+        {/* Title input */}
+        <div className="px-4 pt-4 pb-2">
+          <input
+            ref={titleInputRef}
+            type="text"
+            value={title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            placeholder="Untitled"
+            className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder:text-gray-400 dark:text-white"
+          />
+        </div>
       </div>
 
       {/* Tag Input */}

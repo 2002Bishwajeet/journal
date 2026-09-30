@@ -29,7 +29,7 @@ const MIGRATION_MARKER_TABLE = 'pglite_legacy_migrated';
 // Web Lock serializing the legacy migration across tabs.
 const MIGRATION_LOCK = 'journal-db-migrate';
 // Bump whenever a new statement is added to runMigrations().
-const SCHEMA_VERSION = '4';
+const SCHEMA_VERSION = '5';
 
 let dbPromise: Promise<PGliteInterface> | null = null;
 // In-flight retry, so concurrent Retry clicks share one attempt.
@@ -699,6 +699,24 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     `);
   } catch {
     // Table might already exist
+  }
+
+  // Version history: full-state snapshots taken before compaction (#158). Local only.
+  try {
+    await database.exec(`
+      CREATE TABLE IF NOT EXISTS document_snapshots (
+        id SERIAL PRIMARY KEY,
+        doc_id UUID NOT NULL,
+        state_blob BYTEA NOT NULL,
+        state_vector BYTEA NOT NULL,
+        preview TEXT NOT NULL DEFAULT '',
+        word_count INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_snapshots_doc_created ON document_snapshots (doc_id, created_at DESC);
+    `);
+  } catch (error) {
+    console.warn('[DB Migration] Could not create document_snapshots table:', error);
   }
 }
 

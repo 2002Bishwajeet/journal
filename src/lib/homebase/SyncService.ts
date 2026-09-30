@@ -39,6 +39,7 @@ import {
     updateImageRetryAt,
     calculateNextRetryAt,
     getPendingImageDeletions,
+    getPendingImageUploads,
     clearPendingImageDeletions,
     deleteLocalImagesByKeys,
     removePendingImageDeletion,
@@ -1038,7 +1039,11 @@ export class SyncService {
                 // Get pending image deletions for this note, minus any payload the doc still
                 // shows on this note's file (e.g. undone after the tracker's 2s timer, #174)
                 const pendingDeletions: string[] = [];
-                const queuedDeletions = await getPendingImageDeletions(record.localId);
+                // Hold them while one of this note's images is still to upload: its key is
+                // the next index after the max existing one, so deleting first would hand it
+                // the deleted key (a changed cover always would) and a stale cached image.
+                const uploadsWaiting = (await getPendingImageUploads(record.localId)).some(u => !u.payloadKey);
+                const queuedDeletions = uploadsWaiting ? [] : await getPendingImageDeletions(record.localId);
                 const referencedKeys = new Set<string>();
                 if (queuedDeletions.length > 0) {
                     const referencedDoc = new Y.Doc();
