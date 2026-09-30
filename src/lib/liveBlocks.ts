@@ -1,10 +1,13 @@
 /** Code-block languages that render a live preview in the editor. */
-export type LiveBlockKind = 'mermaid' | 'svg' | 'html';
+export type LiveBlockKind = 'mermaid' | 'svg' | 'html' | 'react';
 
-/** The live-preview kind for a code block's language, or null for an ordinary code block. */
+/**
+ * The live-preview kind for a code block's language, or null for an ordinary code block.
+ * `jsx` and `tsx` stay ordinary code, so a code sample never runs.
+ */
 export function liveBlockKind(language: string | null): LiveBlockKind | null {
   const lang = language?.trim().toLowerCase();
-  return lang === 'mermaid' || lang === 'svg' || lang === 'html' ? lang : null;
+  return lang === 'mermaid' || lang === 'svg' || lang === 'html' || lang === 'react' ? lang : null;
 }
 
 /** SVG source as an `<img>`-safe data URI. Loaded as an image, scripts never run. */
@@ -101,7 +104,54 @@ export function buildSrcdoc(source: string, theme: FrameTheme): string {
   return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${source}${HEIGHT_REPORT_SCRIPT}`;
 }
 
-const MIN_FRAME_HEIGHT = 120;
+// A script's text ends at the first `</script`, and `<!--` can move that end. `\x3C` is `<`
+// in a string, a template or a regular expression, the places code can hold either.
+const inlineScript = (js: string) => `<script>${js.replace(/<(\/script|!--)/gi, '\\x3C$1')}</script>`;
+
+// Shows every error on the page, so a react block never goes blank: a render error (the error
+// boundary below passes it on), a syntax error the compiler let through, a missing App, an
+// error in an event handler. Its script runs before anything that can fail. It is laid out
+// like the app's error callout, in the theme variables the frame has.
+const REACT_ERROR_BOX =
+  '<div id="journal-react-error" role="alert" hidden style="margin:1rem;padding:0.5rem 0.75rem;border-left:4px solid var(--muted-foreground);border-radius:var(--radius);background:var(--muted);font-size:0.875rem">' +
+  '<div style="font-weight:500">Couldn’t run this component.</div>' +
+  '<pre style="margin:0.25rem 0 0;white-space:pre-wrap;font:0.75rem/1.5 ui-monospace,SFMono-Regular,Menlo,monospace"></pre></div>';
+const REACT_ERROR_SCRIPT =
+  "addEventListener('error', function (event) { var box = document.getElementById('journal-react-error'); box.hidden = false; box.lastChild.textContent = event.error ? String(event.error) : event.message; });";
+
+/** Hooks a react block can use without the `React.` prefix. */
+const BARE_HOOKS = ['useState', 'useEffect', 'useRef', 'useMemo', 'useReducer'];
+
+// Runs the compiled block in a scope of its own (so it may declare the same names as this
+// one) and renders the App it defines, or else its default export, inside an error boundary
+// that hands a render error to the error box.
+const componentScript = (code: string) =>
+  '(function () {' +
+  `var ${BARE_HOOKS.map((hook) => `${hook} = React.${hook}`).join(', ')};` +
+  'var module = { exports: {} }, exports = module.exports;' +
+  "function require(name) { if (name === 'react') return React; throw new Error('A react block can import only react, not ' + name + '.'); }" +
+  `var App = (function () {\n${code}\n;return typeof App === 'undefined' ? module.exports.default : App;\n})();` +
+  "if (App === undefined) throw new Error('Define a component named App, or export one as default.');" +
+  'class Boundary extends React.Component {' +
+  'state = { failed: false };' +
+  'static getDerivedStateFromError() { return { failed: true }; }' +
+  "componentDidCatch(error) { dispatchEvent(new ErrorEvent('error', { error: error, message: String(error) })); }" +
+  'render() { return this.state.failed ? null : this.props.children; }' +
+  '}' +
+  "ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Boundary, null, React.createElement(App)));" +
+  '})();';
+
+/**
+ * The page of a `react` block (#426), for buildSrcdoc to wrap: a root, the app's own React
+ * (`runtime`, a script that sets window.React and window.ReactDOM) and the block's `code`,
+ * compiled by compileReactBlock. Every script is inline, which the frame's CSP allows.
+ */
+export function reactBlockDocument(runtime: string, code: string): string {
+  return `<div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime)}${inlineScript(componentScript(code))}`;
+}
+
+/** The least height a framed (html or react) block's box is fitted to. */
+export const MIN_FRAME_HEIGHT = 120;
 const MAX_FRAME_HEIGHT = 1600;
 
 /**

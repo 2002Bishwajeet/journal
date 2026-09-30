@@ -1,6 +1,6 @@
 /**
  * React node view for code blocks. A non-live language renders the same
- * `pre > code` as the headless node. A `mermaid`, `svg` or `html` block puts it
+ * `pre > code` as the headless node. A `mermaid`, `svg`, `html` or `react` block puts it
  * in a LiveBlockFrame with a Preview / Code toggle; the toggle is view state
  * and is never stored in the document. The code stays mounted (hidden) in
  * Preview so ProseMirror keeps its content DOM.

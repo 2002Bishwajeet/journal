@@ -129,6 +129,29 @@ describe('createJournalMcpServer', () => {
         }
     });
 
+    it('tells agents how a react block works, and that the html design rules apply to it (#426)', async () => {
+        const client = await connectedClient(makeFakeDeps());
+        const { tools } = await client.listTools();
+        const described = tools.filter((tool) => ['create_note', 'append_to_note', 'replace_in_note'].includes(tool.name));
+        expect(described).toHaveLength(3);
+        for (const tool of described) {
+            for (const text of [
+                '`mermaid`, `svg`, `html` or `react`',
+                'defines a component named `App`',
+                'or exports one as default',
+                '`useState`, `useEffect`, `useRef`, `useMemo` and `useReducer`',
+                'State is lost on reload.',
+                'These rules apply to a `react` block unchanged.',
+            ]) {
+                expect(tool.description).toContain(text);
+            }
+            // The rules come before the sentence that applies them to react blocks.
+            expect(tool.description!.indexOf('(5) The block sizes itself')).toBeLessThan(tool.description!.indexOf('These rules apply to a `react` block'));
+        }
+        const told = tools.filter((tool) => tool.description?.includes('named `App`')).map((tool) => tool.name);
+        expect(told.sort()).toEqual(['append_to_note', 'create_note', 'replace_in_note']);
+    });
+
     it('attributes writes to the client name from the initialize handshake', async () => {
         const uploads: DocumentMetadata[] = [];
         const client = await connectedClient(makeFakeDeps(WRITE_GRANTS, uploads));

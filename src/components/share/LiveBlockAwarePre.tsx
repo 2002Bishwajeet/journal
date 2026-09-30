@@ -1,6 +1,6 @@
 /**
  * react-markdown `pre` override for the share page (#390). A fenced `mermaid`,
- * `svg` or `html` block renders as a preview by default, with a View source
+ * `svg`, `html` or `react` block renders as a preview by default, with a View source
  * toggle for the highlighted code; any other code block renders as a <pre> with
  * a Copy button (#408).
  *

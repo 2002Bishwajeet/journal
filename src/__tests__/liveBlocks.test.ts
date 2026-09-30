@@ -5,10 +5,17 @@ import { LiveBlockPreview } from '@/components/liveBlocks/LiveBlockPreview';
 import { HTML_BLOCK_CDN_HOSTS, buildSrcdoc, frameHeightFromMessage, liveBlockKind, svgDataUri, type FrameTheme } from '@/lib/liveBlocks';
 
 describe('liveBlockKind', () => {
-  it('should recognise mermaid, svg and html languages', () => {
+  it('should recognise mermaid, svg, html and react languages', () => {
     expect(liveBlockKind('mermaid')).toBe('mermaid');
     expect(liveBlockKind('svg')).toBe('svg');
     expect(liveBlockKind('html')).toBe('html');
+    expect(liveBlockKind('react')).toBe('react');
+    expect(liveBlockKind('React')).toBe('react');
+  });
+
+  it('should leave jsx and tsx as ordinary code blocks, so a code sample never runs (#426)', () => {
+    expect(liveBlockKind('jsx')).toBeNull();
+    expect(liveBlockKind('tsx')).toBeNull();
   });
 
   it('should ignore case and surrounding whitespace', () => {

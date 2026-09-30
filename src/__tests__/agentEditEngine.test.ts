@@ -121,6 +121,33 @@ describe('html live block that uses a CDN script (#409)', () => {
   });
 });
 
+// A react block made by an agent (#426): compiled from the code block's text, so the fence
+// reaches the note exactly as written. The same counter e2e/editor/live-react.spec.ts types and pastes.
+describe('createDoc with a react live block', () => {
+  const source = [
+    'function App() {',
+    '  const [count, setCount] = useState(0);',
+    '  return (',
+    '    <div>',
+    '      <p>Count: {count}</p>',
+    '      <button onClick={() => setCount(count + 1)}>Add one</button>',
+    '    </div>',
+    '  );',
+    '}',
+  ].join('\n');
+  const fence = '```react\n' + source + '\n```';
+
+  it('yields one react code block with the source byte for byte, and toMarkdown returns the fence', () => {
+    const doc = createDoc(fence);
+    const [block, ...rest] = topElements(doc);
+    expect(rest).toHaveLength(0);
+    expect(block.nodeName).toBe('codeBlock');
+    expect(block.getAttribute('language')).toBe('react');
+    expect(yXmlFragmentToProseMirrorRootNode(frag(doc), editorSchema).child(0).textContent).toBe(source);
+    expect(toMarkdown(doc)).toBe(fence);
+  });
+});
+
 describe('table cells round-trip', () => {
   type Inline = { type: 'text'; text: string; marks?: { type: string }[] };
   const cell = (type: string, content: Inline[]) => ({ type, content: [{ type: 'paragraph', content }] });

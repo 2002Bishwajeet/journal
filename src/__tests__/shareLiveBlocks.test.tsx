@@ -76,6 +76,23 @@ describe('share page live blocks', () => {
     }
   });
 
+  it('renders a react block as a live block with a View source toggle, and a jsx block as plain code (#426)', () => {
+    const react = render('```react\nfunction App() { return <p>hi</p>; }\n```');
+    expect(react).toMatch(/<div role="group" aria-label="React block"[^>]*><button type="button" aria-pressed="false"[^>]*><span[^>]*>View source<\/span><\/button>/);
+    expect(react).toContain('data-live-block-preview="react"');
+    const jsx = render('```jsx\nfunction App() { return <p>hi</p>; }\n```');
+    expect(jsx).not.toContain('data-live-block');
+    expect(jsx).toContain('hljs-keyword');
+  });
+
+  it("highlights a react block's source as JSX (#426)", () => {
+    const out = renderToStaticMarkup(
+      createElement(Markdown, { remarkPlugins: shareRemarkPlugins, rehypePlugins: shareRehypePlugins }, '```react\nfunction App() { return <p>hi</p>; }\n```'),
+    );
+    expect(out).toContain('hljs-keyword');
+    expect(out).toContain('hljs-tag');
+  });
+
   it('keeps ordinary code blocks as plain highlighted code', () => {
     const plain = render('```ts\nconst a = 1;\n```');
     expect(plain).toContain('hljs-keyword');
