@@ -88,6 +88,24 @@ export async function createNoteWithContentInDb({
     return persistNewNote({ title, folderId, updateBlob });
 }
 
+/**
+ * Create a note from markdown through the agent edit engine, so live blocks,
+ * callouts, toggles, tables and task lists come out as real nodes (the plain
+ * path above only knows headings and paragraphs). The engine is imported on
+ * demand: it carries the whole extension list.
+ */
+export async function createNoteFromMarkdownInDb({
+    title,
+    content,
+    folderId,
+}: CreateNoteWithContentParams): Promise<CreateNoteResult> {
+    const { createDoc } = await import('@/lib/agent/editEngine');
+    const ydoc = createDoc(content);
+    const updateBlob = Y.encodeStateAsUpdate(ydoc);
+    ydoc.destroy();
+    return persistNewNote({ title, folderId, updateBlob });
+}
+
 interface CreateNoteFromTemplateParams {
     templateDocId: string;
     title: string;

@@ -451,6 +451,7 @@ const unsub = documentBroadcast.subscribe(handler);   // Listen for messages
 | `/:folderId` | EmptyEditorPage | Yes |
 | `/:folderId/:noteId` | EditorPage | Yes |
 | `/share-target` | ShareTargetPage | Yes |
+| `/save-shared?identity=&file=` | SaveSharedPage (saves a copy of a shared note; logic in `useSaveSharedNote`) | Yes |
 | `/welcome` | Landing | No |
 | `/auth/finalize` | AuthFinalizePage | No |
 | `/share/:identity/:noteId` | SharePage | No |

@@ -16,7 +16,7 @@ import 'katex/dist/katex.min.css';
  * Public page to display a shared note.
  */
 export default function SharePage() {
-    const { identity, note, isLoading, error, author, readingMinutes } = useSharePage();
+    const { identity, noteId, note, isLoading, error, author, readingMinutes } = useSharePage();
     useDocumentTitle(note?.title ?? 'Shared note');
 
     if (isLoading) {
@@ -30,7 +30,7 @@ export default function SharePage() {
         );
     }
 
-    if (error || !note || !identity) {
+    if (error || !note || !identity || !noteId) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="text-center space-y-4">
@@ -58,11 +58,19 @@ export default function SharePage() {
                     <Link to="/" className="text-lg font-semibold tracking-tight">
                         Journal
                     </Link>
-                    <Button asChild variant="outline" size="sm">
-                        <Link to="/">
-                            Open Journal
-                        </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {/* Signed out, the app's guard sends the visitor through sign-in and back here. */}
+                        <Button asChild size="sm">
+                            <Link to={`/save-shared?${new URLSearchParams({ identity: decodeURIComponent(identity), file: noteId })}`}>
+                                Save a copy
+                            </Link>
+                        </Button>
+                        <Button asChild variant="outline" size="sm">
+                            <Link to="/">
+                                Open Journal
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
             </header>
 
@@ -154,6 +162,9 @@ export default function SharePage() {
             <footer className="border-t mt-16">
                 <div className="container max-w-4xl mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
                     <p>This note was shared via Journal</p>
+                    <p className="mt-1 text-xs text-muted-foreground/70">
+                        Published by {decodeURIComponent(identity)}. Content is the author's own and is not reviewed by Journal.
+                    </p>
                 </div>
             </footer>
         </div>
