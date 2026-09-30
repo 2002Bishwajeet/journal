@@ -2,15 +2,20 @@ import { cn } from "@/lib/utils";
 import { Cpu, Download, HardDrive, CheckCircle2 } from "lucide-react";
 import { AVAILABLE_MODELS } from "@/lib/webllm";
 
+const capabilityLabel = (capability: string) =>
+  capability[0].toUpperCase() + capability.slice(1);
+
 export default function AIModelList({
   selectedModelId,
   onSelect,
+  disabled,
 }: {
   selectedModelId: string;
   onSelect: (id: string) => Promise<void>;
+  disabled: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label="Model" className="space-y-2.5">
+    <div role="radiogroup" aria-label="Model" aria-disabled={disabled} className="space-y-2.5">
       {AVAILABLE_MODELS.map((model) => {
         const isSelected = selectedModelId === model.id;
         return (
@@ -20,7 +25,8 @@ export default function AIModelList({
               "relative block w-full cursor-pointer text-left p-4 rounded-xl border border-border/60 bg-card transition-colors group has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-6 has-[:focus-visible]:outline-ring",
               isSelected
                 ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
-                : "hover:border-border hover:shadow-sm"
+                : "hover:border-border hover:shadow-sm",
+              disabled && "cursor-not-allowed opacity-60"
             )}
           >
             <input
@@ -28,6 +34,7 @@ export default function AIModelList({
               name="model"
               value={model.id}
               checked={isSelected}
+              disabled={disabled}
               onChange={() => onSelect(model.id)}
               className="sr-only"
             />
@@ -71,6 +78,9 @@ export default function AIModelList({
                     {model.memoryUsage}
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  {model.capabilities.map(capabilityLabel).join(" · ")}
+                </p>
               </div>
               {isSelected && (
                 <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-1" />

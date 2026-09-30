@@ -1,6 +1,7 @@
+import { toast } from 'sonner';
 import { useAISettings, type AISettings } from './useAISettings';
 import { useWebLLM } from './useWebLLM';
-import { clearModelCache } from '@/lib/webllm';
+import { clearModelCache, getModelInfo, unloadWebLLM } from '@/lib/webllm';
 
 export interface UseAIPreferencesReturn {
     settings: AISettings;
@@ -8,30 +9,50 @@ export interface UseAIPreferencesReturn {
     isLoading: boolean;
     loadingProgress: number;
     loadingMessage: string;
-    setEnabled: (checked: boolean) => void;
+    error: string | null;
+    isSupported: boolean;
+    initialize: () => Promise<boolean>;
+    setEnabled: (checked: boolean) => Promise<void>;
     selectModel: (id: string) => Promise<void>;
     setAutocomplete: (checked: boolean) => void;
     setGrammar: (checked: boolean) => void;
     clearCache: () => Promise<void>;
 }
 
+const modelName = (id: string) => getModelInfo(id)?.name ?? id;
+
 export function useAIPreferences(): UseAIPreferencesReturn {
     const { settings, updateSettings } = useAISettings();
-    const { isReady, isLoading, loadingProgress, loadingMessage, initialize, switchModel } = useWebLLM();
+    const {
+        isReady,
+        isLoading,
+        loadingProgress,
+        loadingMessage,
+        error,
+        isSupported,
+        initialize,
+        switchModel,
+    } = useWebLLM();
 
-    const setEnabled = (checked: boolean) => {
+    const setEnabled = async (checked: boolean) => {
         updateSettings({ enabled: checked });
-        if (checked && !isReady && !isLoading) {
+        // Not gated on isReady: it stays true after an unload. initialize()
+        // itself returns early when the engine is already loaded.
+        if (checked && !isLoading) {
             initialize();
+        }
+        if (!checked && (isReady || isLoading)) {
+            await unloadWebLLM();
         }
     };
 
     const selectModel = async (id: string) => {
-        if (id !== settings.modelId) {
-            updateSettings({ modelId: id });
-            if (isReady) {
-                await switchModel(id);
-            }
+        if (isLoading || id === settings.modelId) return;
+        const previousId = settings.modelId;
+        updateSettings({ modelId: id });
+        if (isReady && !(await switchModel(id))) {
+            updateSettings({ modelId: previousId });
+            toast.error(`Couldn't switch to ${modelName(id)}. Kept ${modelName(previousId)}.`);
         }
     };
 
@@ -44,8 +65,10 @@ export function useAIPreferences(): UseAIPreferencesReturn {
     };
 
     const clearCache = async () => {
+        // Turn AI off first so auto-init doesn't immediately re-download the model
+        if (settings.enabled) updateSettings({ enabled: false });
         await clearModelCache();
-        window.location.reload();
+        toast.success("Model files removed. They'll download again next time AI loads.");
     };
 
     return {
@@ -54,6 +77,9 @@ export function useAIPreferences(): UseAIPreferencesReturn {
         isLoading,
         loadingProgress,
         loadingMessage,
+        error,
+        isSupported,
+        initialize,
         setEnabled,
         selectModel,
         setAutocomplete,
