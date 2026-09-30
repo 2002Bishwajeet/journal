@@ -4,6 +4,12 @@ import * as readTools from './tools/read';
 import * as writeTools from './tools/write';
 import type { WriteDeps } from './tools/write';
 
+/** Shared by the tools that take markdown: tells agents which fenced blocks render live in Journal. */
+const LIVE_BLOCKS =
+    ' Fenced code blocks with language `mermaid`, `svg` or `html` render live in Journal. ' +
+    'An `html` block must be one self-contained document with inline <script> and <style> only: ' +
+    'no network requests, no external scripts, styles, fonts or images (use `data:` URIs), and no storage.';
+
 /** A tool result carrying `x` as pretty-printed JSON text. */
 function json(x: unknown) {
     return { content: [{ type: 'text' as const, text: JSON.stringify(x, null, 2) }] };
@@ -69,7 +75,8 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
         'create_note',
         {
             title: 'Create note',
-            description: 'Create a Journal note from markdown in a folder you have granted Read+write access to.',
+            description:
+                'Create a Journal note from markdown in a folder you have granted Read+write access to.' + LIVE_BLOCKS,
             inputSchema: {
                 title: z.string(),
                 markdown: z.string(),
@@ -95,7 +102,8 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
         {
             title: 'Append to note',
             description:
-                'Append markdown to the end of a Journal note with Read+write access. Merges with concurrent edits.',
+                'Append markdown to the end of a Journal note with Read+write access. Merges with concurrent edits.' +
+                LIVE_BLOCKS,
             inputSchema: { id: z.string(), markdown: z.string() },
         },
         async ({ id, markdown }) => json(await writeTools.appendToNote(deps, { id, markdown }))
@@ -107,7 +115,8 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
             title: 'Replace in note',
             description:
                 "Replace one unique span of a Journal note's markdown (as returned by get_note) with new markdown. " +
-                'old_text must match exactly once; include surrounding text if it is ambiguous.',
+                'old_text must match exactly once; include surrounding text if it is ambiguous.' +
+                LIVE_BLOCKS,
             inputSchema: { id: z.string(), old_text: z.string(), new_text: z.string() },
         },
         async ({ id, old_text, new_text }) => json(await writeTools.replaceInNote(deps, { id, old_text, new_text }))
