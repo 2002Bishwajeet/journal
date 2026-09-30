@@ -20,7 +20,7 @@ async function openShareDialog(page: Page, title: string) {
     await page.getByRole('button').filter({ hasText: title }).first().click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Share' }).click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog.getByText('Link preview')).toBeVisible({ timeout: 15_000 });
+    await expect(dialog.getByText('Link preview', { exact: true })).toBeVisible({ timeout: 15_000 });
     return dialog;
 }
 
@@ -65,7 +65,7 @@ test('share dialog link card: preview, custom description, indexing (#222)', asy
         await expect(preview).toContainText(firstParagraph);
 
         // Custom description, saved on blur.
-        const description = dialog.getByLabel('Description');
+        const description = dialog.getByLabel('Description', { exact: true });
         await expect(description).toHaveAttribute('placeholder', firstParagraph);
         await description.fill(custom);
         await description.blur();
