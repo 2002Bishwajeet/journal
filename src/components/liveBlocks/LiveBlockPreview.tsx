@@ -105,9 +105,6 @@ function HtmlPreview({ source, onHeight }: Pick<LiveBlockPreviewProps, 'source' 
   );
 }
 
-// Pie slice tints in sixths of the range from the lightest to the strongest.
-const PIE_STEPS = [0, 2, 4, 6, 1, 3, 5];
-
 /**
  * Journal's theme tokens as variables for mermaid's `base` theme, which derives
  * the rest of its palette from them. Mermaid can only do that from hex, rgb or
@@ -119,8 +116,6 @@ function mermaidThemeVariables(dark: boolean) {
   // A diagram sits straight on the note (#420), so its surface is the note's background.
   const surface = token('--background');
   const text = token('--foreground');
-  // The strongest slice tint its label (in the text colour) still reads on, at 4.5:1.
-  const strongest = dark ? 36 : 50;
   return {
     darkMode: dark,
     fontFamily: token('--font-sans'),
@@ -136,11 +131,13 @@ function mermaidThemeVariables(dark: boolean) {
     noteBkgColor: token('--accent'),
     noteTextColor: text,
     noteBorderColor: token('--border'),
-    // Mermaid tells pie slices apart by rotating the hue of the colours above, which
-    // does nothing to neutrals. Shades of the text colour on the surface do: the first
-    // four a wide step apart, then the three between them, then over again.
+    // Slices are the theme's chart palette (#424). A pie of more than five goes round it
+    // again, each time fainter. Their labels get a halo: src/index.css ("Live blocks").
     ...Object.fromEntries(
-      Array.from({ length: 12 }, (_, i) => [`pie${i + 1}`, `color-mix(in srgb, ${text} ${Math.round(10 + (PIE_STEPS[i % PIE_STEPS.length] * (strongest - 10)) / 6)}%, ${surface})`]),
+      Array.from({ length: 12 }, (_, i) => {
+        const chart = token(`--chart-${(i % 5) + 1}`);
+        return [`pie${i + 1}`, i < 5 ? chart : `color-mix(in srgb, ${chart} ${i < 10 ? 60 : 35}%, ${surface})`];
+      }),
     ),
     pieTitleTextColor: text,
     pieSectionTextColor: text,

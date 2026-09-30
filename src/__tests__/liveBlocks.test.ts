@@ -55,7 +55,13 @@ describe('buildSrcdoc', () => {
       '--accent': '#2C2B29',
       '--secondary': '#2C2B29',
       '--primary': '#E6E4DD',
+      '--ring': '#8A8780',
       '--radius': '0.5rem',
+      '--chart-1': '#2C2B29',
+      '--chart-2': '#595752',
+      '--chart-3': '#8A8780',
+      '--chart-4': '#BDBBB5',
+      '--chart-5': '#E6E4DD',
     },
     fontFamily: '"Inter Variable", system-ui, sans-serif',
     lineHeight: '1.5',
@@ -104,9 +110,55 @@ describe('buildSrcdoc', () => {
     const style = head('<p>hi</p>');
     expect(style).toContain('*,*::before,*::after{box-sizing:border-box}');
     expect(style).toContain('a{color:inherit}');
-    expect(style).toContain('button,input,select,textarea{font:inherit}');
+    expect(style).toContain(':where(button,input,select,textarea){font:inherit}');
     expect(style).toContain('th,td{border:1px solid var(--border);');
     expect(style).toContain('img{max-width:100%}');
+  });
+
+  describe('form controls (#424)', () => {
+    const style = head('<button>Go</button>');
+    const BUTTONS = 'button,input:is([type=button],[type=submit],[type=reset])';
+    const FIELDS = 'input:not([type=button],[type=submit],[type=reset],[type=checkbox],[type=radio],[type=range],[type=color],[type=file],[type=image]),select';
+
+    it('should pass the chart palette with the other tokens', () => {
+      for (const name of ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5'] as const) expect(style).toContain(`${name}:${THEME.tokens[name]};`);
+    });
+
+    it("should draw buttons, fields and textareas with the theme's border and radius, on no fill, in the text colour", () => {
+      expect(style).toContain(
+        `:where(${BUTTONS},${FIELDS},textarea){border:1px solid var(--border);border-radius:var(--radius);background:transparent;color:var(--foreground)}`,
+      );
+    });
+
+    it("should give a button the app's size, a pointer and the muted fill on hover", () => {
+      expect(style).toContain(`:where(${BUTTONS}){height:2.25rem;padding:0 1rem;font-size:0.875rem;font-weight:500;cursor:pointer}`);
+      expect(style).toContain(`:where(${BUTTONS}):where(:hover:not(:disabled)){background:var(--muted)}`);
+    });
+
+    it("should give a field the app's size and a muted placeholder", () => {
+      expect(style).toContain(`:where(${FIELDS}){height:2.25rem;padding:0.25rem 0.75rem}`);
+      expect(style).toContain(':where(input,textarea)::placeholder{color:var(--muted-foreground);opacity:1}');
+    });
+
+    it('should take the accent colour of checkbox, radio, range and progress from the theme', () => {
+      expect(style).toContain(':where(input,progress){accent-color:var(--primary)}');
+    });
+
+    it('should fade a disabled control and ring a focused one', () => {
+      expect(style).toContain(':where(button,input,select,textarea):where(:disabled){opacity:0.5;cursor:not-allowed}');
+      expect(style).toContain(':where(button,input,select,textarea):where(:focus-visible){outline:2px solid var(--ring);outline-offset:2px}');
+    });
+
+    it('should keep every control rule at no specificity, so a rule of the block wins', () => {
+      const rules = style.slice(style.indexOf(':where(button'), style.indexOf('table{'));
+      const selectors = rules
+        .split('}')
+        .filter(Boolean)
+        .map((rule) => rule.slice(0, rule.indexOf('{')));
+      expect(selectors.length).toBeGreaterThan(5);
+      // Everything is inside `:where()`; the one exception is a pseudo-element, which cannot be.
+      for (const selector of selectors) expect(selector.replace(/:where\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)/g, '')).toMatch(/^(::placeholder)?$/);
+    });
   });
 
   it('should allow scripts, styles and fonts from jsDelivr, cdnjs and unpkg, and from no other host (#409)', () => {

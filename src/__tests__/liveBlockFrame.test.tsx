@@ -62,6 +62,25 @@ describe('LiveBlockFrame', () => {
     expect(classes.filter((name) => name === 'absolute' || name.includes('opacity'))).toEqual([]);
   });
 
+  it('should give an html block no control besides the toggles it was handed (#424)', () => {
+    const markup = renderToStaticMarkup(
+      <LiveBlockFrame
+        kind="html"
+        source="<p>hi</p>"
+        preview
+        toggles={
+          <LiveBlockToggle pressed={false} onClick={() => {}}>
+            View source
+          </LiveBlockToggle>
+        }
+      >
+        {null}
+      </LiveBlockFrame>,
+    );
+    expect(markup.match(/<button/g)).toHaveLength(1);
+    expect(markup).toMatch(/<button[^>]*><span[^>]*>View source<\/span><\/button>/);
+  });
+
   it('should outline the block when its node is selected, like an image', () => {
     expect(wrapperClasses(render()).filter((name) => name.startsWith('outline'))).toEqual([]);
     // `outline-2` draws the outline by itself: tailwind-merge drops the bare `outline` beside it.
@@ -70,7 +89,7 @@ describe('LiveBlockFrame', () => {
 });
 
 describe('LiveBlockPreview html, mounted', () => {
-  const LIGHT = { '--background': '#FDFCF8', '--foreground': '#2C2B29', '--muted': '#F2F0E9', '--muted-foreground': '#8A8780', '--border': '#E6E4DD', '--accent': '#F7F5F0', '--secondary': '#F2F0E9', '--primary': '#2C2B29', '--radius': '0.5rem' };
+  const LIGHT = { '--background': '#FDFCF8', '--foreground': '#2C2B29', '--muted': '#F2F0E9', '--muted-foreground': '#8A8780', '--border': '#E6E4DD', '--accent': '#F7F5F0', '--secondary': '#F2F0E9', '--primary': '#2C2B29', '--radius': '0.5rem', '--chart-1': '#2C2B29', '--chart-5': '#E6E4DD' };
   const DARK = { ...LIGHT, '--background': '#1C1B1A', '--foreground': '#E6E4DD', '--muted': '#2C2B29', '--border': '#3E3D3A' };
   const SOURCE = '<p>hi</p>';
 
