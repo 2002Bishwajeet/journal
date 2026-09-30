@@ -12,6 +12,10 @@ const SCREENSHOT_DIR = 'test-results/account-screenshots';
 
 async function screenshot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
     const path = `${SCREENSHOT_DIR}/${name}.png`;
+    // Let the dialog's fade/zoom-in finish (skipping endless ones like spinners).
+    await page.evaluate(() => Promise.all(document.getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => {}))));
     await page.screenshot({ path });
     await testInfo.attach(name, { path, contentType: 'image/png' });
 }
