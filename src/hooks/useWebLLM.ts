@@ -24,6 +24,8 @@ interface UseWebLLMResult {
     loadingProgress: number;
     loadingMessage: string;
     grammarErrors: string[];
+    error: string | null;
+    isSupported: boolean;
 
     // Actions
     initialize: () => Promise<boolean>;
@@ -36,6 +38,13 @@ interface UseWebLLMResult {
 
 // Lazy-loaded module reference
 let webllmModule: typeof import('@/lib/webllm') | null = null;
+
+const LOAD_ERROR = "Couldn't load the AI model.";
+
+/** initWebLLM returns false both on a real failure and when another caller's load is in flight. */
+function isLoadFailure(module: typeof import('@/lib/webllm'), success: boolean): boolean {
+    return !success && !module.isWebLLMLoading();
+}
 
 async function getWebLLMModule() {
     if (!webllmModule) {
@@ -54,6 +63,7 @@ export function useWebLLM(): UseWebLLMResult {
     const [loadingProgress, setLoadingProgress] = useState(0);
     const [loadingMessage, setLoadingMessage] = useState('');
     const [grammarErrors, setGrammarErrors] = useState<string[]>([]);
+    const [error, setError] = useState<string | null>(null);
 
     const { settings } = useAISettings();
 
@@ -80,6 +90,7 @@ export function useWebLLM(): UseWebLLMResult {
             }
             setIsLoading(true);
             setLoadingMessage('Restoring AI...');
+            setError(null);
             try {
                 const module = await getWebLLMModule();
                 if (module.isWebLLMReady()) {
@@ -95,9 +106,11 @@ export function useWebLLM(): UseWebLLMResult {
 
                 setIsLoading(false);
                 setIsReady(success);
+                if (isLoadFailure(module, success)) setError(LOAD_ERROR);
             } catch (error) {
                 console.error('[WebLLM] Auto-init failed:', error);
                 setIsLoading(false);
+                setError(LOAD_ERROR);
             }
         }, 500);
 
@@ -140,6 +153,7 @@ export function useWebLLM(): UseWebLLMResult {
 
         setIsLoading(true);
         setLoadingMessage('Loading AI module...');
+        setError(null);
 
         try {
             // Dynamically import the WebLLM module
@@ -160,12 +174,14 @@ export function useWebLLM(): UseWebLLMResult {
 
             setIsLoading(false);
             setIsReady(success);
+            if (isLoadFailure(module, success)) setError(LOAD_ERROR);
 
             return success;
         } catch (error) {
             console.error('[WebLLM] Failed to load module:', error);
             setIsLoading(false);
             setLoadingMessage('Failed to load AI');
+            setError(LOAD_ERROR);
             return false;
         }
     }, [isMobile, settings.modelId]);
@@ -175,6 +191,7 @@ export function useWebLLM(): UseWebLLMResult {
         setIsLoading(true);
         setLoadingMessage('Switching model...');
         setLoadingProgress(0);
+        setError(null);
 
         try {
             const module = await getWebLLMModule();
@@ -188,10 +205,12 @@ export function useWebLLM(): UseWebLLMResult {
 
             setIsLoading(false);
             setIsReady(success);
+            if (isLoadFailure(module, success)) setError(LOAD_ERROR);
             return success;
         } catch (error) {
             console.error('[WebLLM] Model switch failed:', error);
             setIsLoading(false);
+            setError(LOAD_ERROR);
             return false;
         }
     }, [isMobile]);
@@ -254,6 +273,8 @@ export function useWebLLM(): UseWebLLMResult {
         loadingProgress,
         loadingMessage,
         grammarErrors,
+        error,
+        isSupported: !isMobile,
         initialize,
         switchModel,
         runGrammarCheck,

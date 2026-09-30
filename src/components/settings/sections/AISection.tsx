@@ -1,14 +1,8 @@
+import { useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import {
-  Loader2,
-  Sparkles,
-  Trash2,
-  CheckCircle2,
-  AlertCircle,
-  Zap,
-  SpellCheck,
-} from "lucide-react";
+import { Sparkles, Trash2, Zap, SpellCheck } from "lucide-react";
+import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import { useAIPreferences } from "@/hooks/useAIPreferences";
 import { getModelInfo } from "@/lib/webllm";
 import { SectionHeader } from "../SectionHeader";
@@ -22,73 +16,89 @@ export default function AISection() {
     isLoading: isAILoading,
     loadingProgress,
     loadingMessage,
+    error,
+    isSupported,
+    retry,
     setEnabled,
     selectModel,
     setAutocomplete,
     setGrammar,
     clearCache,
   } = useAIPreferences();
+  const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
+  const percent = Math.round(loadingProgress * 100);
+
+  const enableRow = (
+    <div className="rounded-lg border">
+      <SettingsRow
+        id="ai-enabled"
+        icon={Sparkles}
+        label="Enable on-device AI"
+        description="Runs a language model in this browser for autocomplete and grammar. Nothing you write leaves your device."
+        control={
+          <Switch
+            checked={isSupported && settings.enabled}
+            disabled={!isSupported}
+            onCheckedChange={(checked) => setEnabled(checked)}
+          />
+        }
+      />
+    </div>
+  );
+
+  if (!isSupported) {
+    return (
+      <div className="space-y-6">
+        <p className="text-sm text-muted-foreground">
+          On-device AI needs a larger screen (768 px or wider) and isn't
+          available on phones.
+        </p>
+        {enableRow}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10">
-      {/* AI Status Banner */}
-      <div className="rounded-xl border bg-muted/40 p-5">
-        <div className="flex items-center gap-4">
-          <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-muted">
-            {isAIReady ? (
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            ) : isAILoading ? (
-              <Loader2 className="h-5 w-5 text-primary animate-spin" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-muted-foreground" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">
-              {isAIReady
-                ? `Model Active — ${getModelInfo(settings.modelId)?.name || settings.modelId}`
-                : isAILoading
-                  ? loadingMessage || "Loading model..."
-                  : "AI model not loaded"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {isAIReady
-                ? "Running entirely on your device"
-                : isAILoading
-                  ? `${Math.round(loadingProgress * 100)}% complete`
-                  : "Enable AI to get started"}
-            </p>
-            {isAILoading && (
-              <div className="mt-3 w-full bg-border/50 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-primary transition-[width] duration-200"
-                  style={{ width: `${Math.round(loadingProgress * 100)}%` }}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Master Toggle */}
+      {/* Master Toggle + Status */}
       <div className="space-y-6">
         <SectionHeader subtitle="On-device intelligence for your writing">
           AI Assistant
         </SectionHeader>
-        <div className="rounded-lg border">
-          <SettingsRow
-            id="ai-enabled"
-            icon={Sparkles}
-            label="Enable AI"
-            description="Run a local LLM for autocomplete, grammar, and chat"
-            control={
-              <Switch
-                checked={settings.enabled}
-                onCheckedChange={(checked) => setEnabled(checked)}
-              />
-            }
-          />
-        </div>
+        {enableRow}
+        {settings.enabled && (
+          <div role="status" aria-live="polite" className="text-sm">
+            {isAILoading ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="min-w-0 truncate">
+                    {loadingMessage || "Loading model..."}
+                  </p>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                    {percent}%
+                  </span>
+                </div>
+                <div className="w-full bg-border/50 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width] duration-200"
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-destructive">{error}</p>
+                <Button size="sm" variant="outline" onClick={() => retry()}>
+                  Retry
+                </Button>
+              </div>
+            ) : isAIReady ? (
+              <p className="text-muted-foreground">
+                Ready · {getModelInfo(settings.modelId)?.name || settings.modelId} · running on this device
+              </p>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* Model Selection */}
@@ -97,7 +107,11 @@ export default function AISection() {
           <SectionHeader subtitle="Choose a model based on your device capabilities">
             Model
           </SectionHeader>
-          <AIModelList selectedModelId={settings.modelId} onSelect={selectModel} />
+          <AIModelList
+            selectedModelId={settings.modelId}
+            onSelect={selectModel}
+            disabled={isAILoading}
+          />
         </div>
       )}
 
@@ -112,7 +126,7 @@ export default function AISection() {
               id="autocomplete-toggle"
               icon={Zap}
               label="Autocomplete"
-              description="Ghost text suggestions while typing"
+              description="Shows grey suggested text as you type. Press Tab to accept."
               control={
                 <Switch
                   checked={settings.autocompleteEnabled}
@@ -124,7 +138,7 @@ export default function AISection() {
               id="grammar-toggle"
               icon={SpellCheck}
               label="Grammar Check"
-              description="Highlight grammar and spelling errors"
+              description="Underlines likely grammar and spelling mistakes in the open note."
               control={
                 <Switch
                   checked={settings.grammarEnabled}
@@ -136,37 +150,29 @@ export default function AISection() {
         </div>
       )}
 
-      {/* Cache Management */}
-      {settings.enabled && (
-        <div className="space-y-6">
-          <SectionHeader subtitle="Manage cached model weights on your device">
-            Storage
-          </SectionHeader>
-          <div className="rounded-xl border border-border/60 p-5 bg-card space-y-4">
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Model weights are cached locally in your browser storage (OPFS)
-              for faster load times.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-11 md:h-8 text-destructive hover:text-destructive hover:bg-destructive/5 border-destructive/20"
-              onClick={async () => {
-                if (
-                  confirm(
-                    "This will delete cached model weights. You will need to re-download them next time."
-                  )
-                ) {
-                  await clearCache();
-                }
-              }}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Clear Model Cache
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Model files */}
+      <div className="space-y-6">
+        <SectionHeader subtitle="Downloaded models are stored in this browser so they load faster next time.">
+          Model files
+        </SectionHeader>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-11 md:h-8 text-destructive hover:text-destructive hover:bg-destructive/5 border-destructive/20"
+          onClick={() => setIsConfirmingRemove(true)}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Remove downloaded models
+        </Button>
+        <ConfirmDialog
+          isOpen={isConfirmingRemove}
+          onClose={() => setIsConfirmingRemove(false)}
+          onConfirm={() => clearCache()}
+          title="Remove downloaded models?"
+          description="This frees up space in this browser. AI will be turned off and the model will download again the next time you turn it on."
+          confirmText="Remove"
+        />
+      </div>
     </div>
   );
 }
