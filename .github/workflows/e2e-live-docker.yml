@@ -110,8 +110,8 @@ jobs:
             ${{ runner.temp }}/identity-host.log
           retention-days: 14
 
-      # PR evidence (#221, #219): share-article.live.spec.ts's and
-      # cover.live.spec.ts's light/dark, desktop/375px screenshots, kept on green runs too.
+      # PR evidence (#221, #219, #220): share-article.live.spec.ts's,
+      # cover.live.spec.ts's and share-cover.live.spec.ts's desktop/375px screenshots, kept on green runs too.
       - name: Upload share-article screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -120,5 +120,6 @@ jobs:
           path: |
             test-results/share-article-screenshots/
             test-results/cover-screenshots/
+            test-results/share-cover-screenshots/
           if-no-files-found: ignore
           retention-days: 14
