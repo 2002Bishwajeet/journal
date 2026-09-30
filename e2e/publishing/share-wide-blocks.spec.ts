@@ -10,8 +10,6 @@ import { assertTestOrigin } from '../support/origin-guard';
 
 const THEMES = ['light', 'dark'] as const;
 const VIEWPORTS = { desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844 } } as const;
-// `min(100vw - 2rem, 72rem)` in src/index.css ("Share page").
-const wideMeasure = (viewportWidth: number) => Math.min(viewportWidth - 32, 1152);
 // A sub-pixel of rounding between two measured boxes.
 const SLACK = 0.5;
 
@@ -182,11 +180,6 @@ function blocks(article: Locator) {
 }
 
 const box = async (locator: Locator) => (await locator.boundingBox())!;
-const centre = async (locator: Locator) => {
-  const { x, width } = await box(locator);
-  return x + width / 2;
-};
-
 /**
  * What a code block looks like on screen: its white-space, its visual line count,
  * whether every line starts at the same x, and whether it scrolls sideways.
@@ -229,7 +222,7 @@ async function shoot(page: Page, name: string): Promise<void> {
 }
 
 for (const theme of THEMES) {
-  test(`share page: wide blocks grow past the reading column, ${theme} theme`, async ({ anonPage }) => {
+  test(`share page: every block keeps the reading column and wide content scrolls inside it, ${theme} theme`, async ({ anonPage }) => {
     // The theme preference defaults to "system", which follows prefers-color-scheme.
     await anonPage.emulateMedia({ colorScheme: theme });
     await anonPage.setViewportSize(VIEWPORTS.desktop);
@@ -238,48 +231,20 @@ for (const theme of THEMES) {
     const b = blocks(article);
     const sourceLines = LONG_CODE.split('\n').length;
 
-    // Desktop, 1440px.
-    const wide = wideMeasure(VIEWPORTS.desktop.width);
+    // Desktop, 1440px. One column: nothing is wider than a paragraph (owner decision after #408).
     const column = await box(b.paragraph);
-    expect(column.width).toBeLessThan(wide);
 
-    // Code never wraps; a block with long lines is wider than a paragraph.
-    const longCode = await codeLayout(b.longCode);
-    expect(longCode.whiteSpace).toBe('pre');
-    expect(longCode.lines).toBe(sourceLines);
-    expect(longCode.aligned).toBe(true);
-    expect((await box(b.longCode)).width).toBeGreaterThan(column.width);
-
-    // What fits the column stays that width.
+    // Code never wraps; a block with long lines scrolls inside itself.
+    expect(await codeLayout(b.longCode)).toEqual({ whiteSpace: 'pre', lines: sourceLines, aligned: true, scrolls: true });
     expect((await codeLayout(b.shortCode)).whiteSpace).toBe('pre');
-    expect((await box(b.shortCode)).width).toBeLessThanOrEqual(column.width + SLACK);
-    expect((await box(b.smallTable)).width).toBeLessThanOrEqual(column.width + SLACK);
 
-    // What does not fit grows; an html block always has the wide measure.
-    expect((await box(b.wideTable)).width).toBeGreaterThan(column.width);
-    expect((await box(b.html)).width).toBeCloseTo(wide, 0);
-
-    // Mermaid and svg blocks are as wide as their drawing (plus the preview's 16px padding; no border since #420).
-    const chrome = 2 * 16;
-    const diagramWidth = await b.mermaid.locator('svg[id^="mermaid-"]').evaluate((svg: SVGSVGElement) => svg.viewBox.baseVal.width);
-    expect((await box(b.mermaid)).width).toBeCloseTo(Math.max(column.width, Math.min(diagramWidth + chrome, wide)), 0);
-    expect((await box(b.svg.locator('img'))).width).toBeCloseTo(SVG_WIDTH, 0);
-    expect((await box(b.svg)).width).toBeCloseTo(SVG_WIDTH + chrome, 0);
-
-    // An image that fits the column is where it always was; a bigger one grows to the wide measure.
-    const smallImage = await box(b.smallImage);
-    expect(smallImage.width).toBeCloseTo(IMAGES.jrnl_img_small.width, 0);
-    expect(smallImage.x).toBeCloseTo(column.x, 0);
-    expect((await box(b.wideImage)).width).toBeCloseTo(wide, 0);
-
-    // Every wide block is centred on the column, which is centred on the page, and is inside the page.
-    for (const block of [b.longCode, b.shortCode, b.smallTable, b.wideTable, b.mermaid, b.svg, b.html, b.wideImage]) {
-      expect(await centre(block)).toBeCloseTo(column.x + column.width / 2, 0);
+    for (const block of [b.longCode, b.shortCode, b.smallTable, b.wideTable, b.mermaid, b.svg, b.html, b.smallImage, b.wideImage]) {
       const { x, width } = await box(block);
-      expect(x).toBeGreaterThanOrEqual(0);
-      expect(x + width).toBeLessThanOrEqual(VIEWPORTS.desktop.width);
-      expect(width).toBeLessThanOrEqual(wide + SLACK);
+      expect(x).toBeGreaterThanOrEqual(column.x - SLACK);
+      expect(x + width).toBeLessThanOrEqual(column.x + column.width + SLACK);
     }
+    // A page in a frame has no width of its own: it takes the whole column.
+    expect((await box(b.html)).width).toBeCloseTo(column.width, 0);
     await expectNoSidewaysPageScroll(anonPage);
     await shoot(anonPage, `share-wide-blocks-${theme}-1440.png`);
 
