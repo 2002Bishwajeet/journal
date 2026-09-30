@@ -235,9 +235,9 @@ body {
   border-left: 3px solid var(--border);
   padding-left: 1rem;
   margin: 1.5rem 0;
-  color: var(--muted-foreground);
-  font-style: italic;
-  font-family: var(--font-serif);
+  /* Body font, upright: the display serif in italic was hard to read at text size. */
+  color: color-mix(in srgb, var(--foreground) 80%, transparent);
+  font-style: normal;
 }
 
 .prose code {
