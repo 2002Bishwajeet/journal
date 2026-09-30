@@ -10,7 +10,7 @@ import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/re
 import { LiveBlockFrame, LiveBlockToggle } from '@/components/liveBlocks/LiveBlockFrame';
 import { liveBlockKind } from '@/lib/liveBlocks';
 
-export function CodeBlockNodeView({ node }: NodeViewProps) {
+export function CodeBlockNodeView({ node, selected }: NodeViewProps) {
   const language = node.attrs.language as string | null;
   const kind = liveBlockKind(language);
   // Preview when the block has content at mount, Code when it is empty.
@@ -30,6 +30,8 @@ export function CodeBlockNodeView({ node }: NodeViewProps) {
           kind={kind}
           source={node.textContent}
           preview={preview}
+          selected={selected}
+          labelled
           toggles={
             <>
               <LiveBlockToggle pressed={preview} onClick={() => setShowPreview(true)}>

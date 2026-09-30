@@ -1,8 +1,8 @@
 /**
- * The box around a live block, shared by the editor and the share page so the
- * two look the same: a bar with the block's kind and its view toggles, above
- * either the preview or the code. Rules that have to beat the unlayered
- * `.prose` styles are in src/index.css ("Live blocks").
+ * A live block, shared by the editor and the share page so the two look the
+ * same: the preview or the code, straight on the note with no card and no bar
+ * (#420), and the view toggles over its top right corner. Rules that have to
+ * beat the unlayered `.prose` styles are in src/index.css ("Live blocks").
  */
 import { useRef, useSyncExternalStore, type ReactNode } from 'react';
 import type { LiveBlockKind } from '@/lib/liveBlocks';
@@ -16,18 +16,26 @@ interface LiveBlockFrameProps {
   source: string;
   /** Show the preview; otherwise the code in `children` is what is visible. */
   preview: boolean;
+  /** The block's node is selected in the editor. */
+  selected?: boolean;
+  /** While editing: name the kind and keep the toggles in view. A reader (the share page) gets neither until they hover. */
+  labelled?: boolean;
   /** The view toggles, as LiveBlockToggle buttons. */
   toggles: ReactNode;
   /** The code block's `<pre>`. */
   children: ReactNode;
 }
 
+// For the controls over a block (`group/block`): hidden until the block is hovered or holds focus.
+const REVEALED =
+  'opacity-0 transition-opacity duration-100 group-hover/block:opacity-100 group-focus-within/block:opacity-100 [@media(hover:none)]:opacity-100';
+
 function subscribeToFullscreen(onChange: () => void) {
   document.addEventListener('fullscreenchange', onChange);
   return () => document.removeEventListener('fullscreenchange', onChange);
 }
 
-export function LiveBlockFrame({ kind, source, preview, toggles, children }: LiveBlockFrameProps) {
+export function LiveBlockFrame({ kind, source, preview, selected, labelled, toggles, children }: LiveBlockFrameProps) {
   const block = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   // The inline height fitContent last gave the box.
@@ -50,24 +58,35 @@ export function LiveBlockFrame({ kind, source, preview, toggles, children }: Liv
     <div
       ref={block}
       data-live-block={kind}
-      className="my-4 overflow-hidden rounded-lg border bg-card text-card-foreground"
+      // `isolate` keeps the controls' z-index inside the block. The outline is the one a selected image gets (ImageNode).
+      className={cn('group/block relative isolate my-4', selected && 'rounded-sm outline-2 outline-primary/60')}
       // A browser leaves full screen on Esc by itself, before the page sees the key. This is for
       // where the key does reach the page: headless Chromium (the e2e suite) has no such browser UI.
       onKeyDown={(event) => {
         if (event.key === 'Escape' && fullscreen) void document.exitFullscreen();
       }}
     >
-      <div contentEditable={false} className="flex items-center justify-between border-b pl-3 pr-1 font-sans select-none">
-        <span className="text-xs font-medium text-muted-foreground">{LABELS[kind]}</span>
-        <div className="flex">
-          {toggles}
-          {/* The whole block goes full screen, not just its frame, so the bar and this button stay. */}
-          {kind === 'html' && document.fullscreenEnabled && (
-            <LiveBlockToggle pressed={fullscreen} onClick={() => void (fullscreen ? document.exitFullscreen() : block.current?.requestFullscreen())}>
-              Full screen
-            </LiveBlockToggle>
-          )}
-        </div>
+      {/* While editing, a plain row above the block: its kind, then the toggles. For a reader, only
+          the toggles, over the corner and out of sight until the block is hovered or has keyboard
+          focus (always there on a device that cannot hover). A full-screen block shows them as a
+          bar: src/index.css ("Live blocks"). */}
+      <div
+        role="group"
+        aria-label={`${LABELS[kind]} block`}
+        contentEditable={false}
+        className={cn(
+          'z-10 flex items-center justify-end font-sans select-none',
+          !labelled && cn('absolute right-0 top-0', REVEALED),
+        )}
+      >
+        {labelled && <span className="mr-auto text-xs font-medium text-muted-foreground">{LABELS[kind]}</span>}
+        {toggles}
+        {/* The whole block goes full screen, not just its frame, so this button stays. */}
+        {kind === 'html' && document.fullscreenEnabled && (
+          <LiveBlockToggle pressed={fullscreen} onClick={() => void (fullscreen ? document.exitFullscreen() : block.current?.requestFullscreen())}>
+            Full screen
+          </LiveBlockToggle>
+        )}
       </div>
       {/* An html block's preview and code share this box and its height (400px until the content
           reports its own, or the box is resized), so switching views does not move the page.
@@ -86,7 +105,10 @@ export function LiveBlockFrame({ kind, source, preview, toggles, children }: Liv
           <span
             aria-hidden
             contentEditable={false}
-            className="pointer-events-none absolute bottom-0 right-0 flex size-5 items-center justify-center rounded-tl-md border-l border-t bg-secondary text-muted-foreground pointer-coarse:hidden"
+            className={cn(
+              'pointer-events-none absolute bottom-0 right-0 flex size-5 items-center justify-center rounded-tl-md border-l border-t bg-secondary text-muted-foreground pointer-coarse:hidden',
+              REVEALED,
+            )}
           >
             <svg viewBox="0 0 10 10" className="size-2.5" fill="none" stroke="currentColor" strokeLinecap="round">
               <path d="M9 1 1 9M9 5 5 9" />
@@ -105,9 +127,9 @@ interface LiveBlockToggleProps {
 }
 
 /**
- * A view toggle for the frame's bar. The button is the full height of the bar
- * (44px, or 36px on a desktop with a mouse) so it is an easy target; the pill
- * inside it carries the hover, pressed and focus states.
+ * A view toggle over a live block. The button is 44px tall (36px on a desktop
+ * with a mouse) so it is an easy target; the pill inside it carries the look
+ * and the hover, pressed and focus states.
  */
 export function LiveBlockToggle({ pressed, onClick, children }: LiveBlockToggleProps) {
   return (
@@ -117,7 +139,7 @@ export function LiveBlockToggle({ pressed, onClick, children }: LiveBlockToggleP
       onClick={onClick}
       className="group/toggle flex h-11 touch-manipulation items-center px-1 outline-none md:pointer-fine:h-9"
     >
-      <span className="rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground group-hover/toggle:bg-accent group-hover/toggle:text-foreground group-focus-visible/toggle:ring-[3px] group-focus-visible/toggle:ring-ring/50 group-aria-pressed/toggle:bg-secondary group-aria-pressed/toggle:text-foreground">
+      <span className="rounded-md border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground group-hover/toggle:bg-accent group-hover/toggle:text-foreground group-focus-visible/toggle:ring-[3px] group-focus-visible/toggle:ring-ring/50 group-aria-pressed/toggle:bg-secondary group-aria-pressed/toggle:text-foreground">
         {children}
       </span>
     </button>

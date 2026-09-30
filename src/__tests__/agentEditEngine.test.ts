@@ -62,6 +62,65 @@ describe('round-trip createDoc -> toMarkdown', () => {
   }
 });
 
+// An html live block made by an agent (#420): the frame is built from the code block's text,
+// so the fence has to reach the note exactly as written. These are the two sources
+// e2e/editor/live-blocks-blend.spec.ts pastes and types.
+describe('createDoc with an html live block', () => {
+  const sources: Record<string, string> = {
+    'an unstyled fragment':
+      '<h3>Reading list</h3><p>Three books for the trip, from <a href="#">the shared list</a>.</p><table><tr><th>Title</th><th>Pages</th></tr><tr><td>The Overstory</td><td>502</td></tr></table><button>Mark all read</button>',
+    'a token-styled block':
+      '<div id="box" style="background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px"><strong>3 of 5 tasks done</strong><div style="color: var(--muted-foreground)">Two are waiting on review.</div></div>',
+  };
+  for (const [name, source] of Object.entries(sources)) {
+    it(`should keep the source of ${name} unchanged`, () => {
+      const markdown = 'Before.\n\n```html\n' + source + '\n```\n\nAfter.';
+      const doc = createDoc(markdown);
+      const block = yXmlFragmentToProseMirrorRootNode(frag(doc), editorSchema).child(1);
+      expect(block.type.name).toBe('codeBlock');
+      expect(block.attrs.language).toBe('html');
+      expect(block.textContent).toBe(source);
+      expect(norm(toMarkdown(doc))).toBe(markdown);
+    });
+  }
+});
+
+describe('html live block that uses a CDN script (#409)', () => {
+  // The same source the e2e types and pastes (CDN_SOURCE in e2e/editor/live-html-sandbox.spec.ts).
+  const source = [
+    '<div id="out">waiting for the CDN script</div>',
+    '<script src="https://cdn.jsdelivr.net/npm/probe.js"></script>',
+    '<script>',
+    "document.getElementById('out').textContent = window.cdnProbe();",
+    '</script>',
+  ].join('\n');
+  const fence = '```html\n' + source + '\n```';
+
+  const codeText = (el: Y.XmlElement) => (el.toArray() as Y.XmlText[]).map((t) => t.toString()).join('');
+
+  it('createDoc yields one html code block with the source byte for byte, and toMarkdown returns the fence', () => {
+    const doc = createDoc(fence);
+    const [block, ...rest] = topElements(doc);
+    expect(rest).toHaveLength(0);
+    expect(block.nodeName).toBe('codeBlock');
+    expect(block.getAttribute('language')).toBe('html');
+    expect(codeText(block)).toBe(source);
+    expect(toMarkdown(doc)).toBe(fence);
+  });
+
+  it('appendMarkdown yields the same block after the existing content, and toMarkdown returns the fence', () => {
+    const doc = createDoc('Intro');
+    appendMarkdown(doc, fence);
+    const [intro, block, ...rest] = topElements(doc);
+    expect(rest).toHaveLength(0);
+    expect(intro.nodeName).toBe('paragraph');
+    expect(block.nodeName).toBe('codeBlock');
+    expect(block.getAttribute('language')).toBe('html');
+    expect(codeText(block)).toBe(source);
+    expect(toMarkdown(doc)).toBe('Intro\n\n' + fence);
+  });
+});
+
 describe('table cells round-trip', () => {
   type Inline = { type: 'text'; text: string; marks?: { type: string }[] };
   const cell = (type: string, content: Inline[]) => ({ type, content: [{ type: 'paragraph', content }] });

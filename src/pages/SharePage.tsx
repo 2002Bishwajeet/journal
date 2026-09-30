@@ -90,7 +90,7 @@ export default function SharePage() {
                         />
                     </div>
                 )}
-                {/* `share-article`: its wide blocks grow past this column (src/index.css, "Share page"). */}
+                {/* `share-article`: see src/index.css, "Share page". */}
                 <article className="share-article prose prose-neutral dark:prose-invert max-w-none">
                     <h1>{note.title}</h1>
                     <div className="not-prose mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
@@ -123,7 +123,7 @@ export default function SharePage() {
                                 // exclude it before spreading the rest (title, etc.) onto <img>.
                                 void node;
                                 return (
-                                    // A wide block, so an image wider than the column grows past it.
+                                    // Kept in the column; `block` so the image sits on its own line.
                                     <span className="share-wide block">
                                         {src?.startsWith('attachment://') ? (
                                             <PublicNoteImage
@@ -139,8 +139,7 @@ export default function SharePage() {
                                     </span>
                                 );
                             },
-                            // A wide block: a table wider than the column grows past it, then scrolls
-                            // within its wrapper instead of widening the page.
+                            // A table wider than the column scrolls within its wrapper instead of widening the page.
                             table: ({ node, ...rest }) => {
                                 void node;
                                 return (
