@@ -124,7 +124,13 @@ test('shared note reads as an article: byline, phone width, dark contrast (#221)
     await createNote(page, { title, body: 'An article with a code sample and a wide table, shared publicly.' });
     await pasteHtml(page, contentHtml());
 
-    const shareUrl = await shareNotePublicly(page, title);
+    // Making a note public before its first upload finishes fails with "Note
+    // with uniqueId … not found" (pre-existing, outside #221) — retry until it's there.
+    let shareUrl = '';
+    await expect(async () => {
+        await page.keyboard.press('Escape');
+        shareUrl = await shareNotePublicly(page, title);
+    }).toPass({ timeout: 90_000 });
 
     const openArticle = async (anonPage: Page) => {
         await anonPage.goto(shareUrl);

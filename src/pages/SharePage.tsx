@@ -71,7 +71,7 @@ export default function SharePage() {
                     <div className="not-prose mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                         <Avatar className="h-8 w-8">
                             {author.avatarUrl && <AvatarImage src={author.avatarUrl} alt="" />}
-                            <AvatarFallback>{author.name.charAt(0).toUpperCase()}</AvatarFallback>
+                            <AvatarFallback className="text-foreground">{author.name.charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <span className="font-semibold text-foreground">{author.name}</span>
                         <span>

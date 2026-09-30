@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GetProfileCard, GetProfileImage } from '@homebase-id/js-lib/public';
+import { GetProfileCard } from '@homebase-id/js-lib/public';
 
 export interface PublicAuthor {
     name: string;
@@ -25,7 +25,11 @@ export function usePublicAuthor(identity: string | undefined): PublicAuthor {
         (async () => {
             const [card, image] = await Promise.all([
                 GetProfileCard(identity).catch(() => undefined),
-                GetProfileImage(identity).catch(() => undefined),
+                // Not js-lib's GetProfileImage: it builds the Blob with Node's `Buffer`,
+                // which doesn't exist in the browser, so it always fails there.
+                fetch(`https://${identity}/pub/image`)
+                    .then((r) => (r.ok ? r.blob() : undefined))
+                    .catch(() => undefined),
             ]);
             if (cancelled) return;
             if (image) url = URL.createObjectURL(image);
