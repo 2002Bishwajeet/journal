@@ -179,7 +179,7 @@ export default function Sidebar({
 
         <Separator />
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <PullToRefresh onRefresh={handleRefresh} className="min-h-full">
           {collaborativeCount != null && collaborativeCount > 0 && (
             <div className="px-2 pt-2 pb-1">
