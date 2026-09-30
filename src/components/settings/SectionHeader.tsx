@@ -9,11 +9,13 @@ export function SectionHeader({
 }) {
   return (
     <div className="space-y-1">
-      <h3 className="text-sm font-medium text-muted-foreground">
+      <h3 className="font-serif text-lg leading-snug tracking-tight">
         {children}
       </h3>
       {subtitle && (
-        <p className="text-xs text-muted-foreground">{subtitle}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
+          {subtitle}
+        </p>
       )}
     </div>
   );

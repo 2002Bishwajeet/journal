@@ -24,9 +24,9 @@ export default function DataSection() {
 
   return (
     <div className="space-y-10">
-      <div className="space-y-3">
+      <div className="space-y-4">
         <SectionHeader>Where your notes live</SectionHeader>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
           Notes are stored on this device and synced, end-to-end encrypted, to
           your Homebase (
           <span className="font-medium text-foreground wrap-anywhere">
@@ -37,14 +37,14 @@ export default function DataSection() {
       </div>
 
       {(usage !== null || persisted !== null) && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <SectionHeader>This device</SectionHeader>
-          <div className="rounded-lg border">
+          <div className="overflow-hidden rounded-xl border bg-card">
             {usage !== null && (
-              <div className="flex min-h-14 items-center gap-3 border-b px-4 py-3 last:border-b-0">
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <h4 className="text-sm font-semibold">Storage used</h4>
-                  <p className="text-xs text-muted-foreground">
+              <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3 last:border-b-0">
+                <div className="min-w-36 flex-1 space-y-0.5">
+                  <h4 className="text-sm leading-5 font-medium">Storage used</h4>
+                  <p className="text-xs leading-relaxed text-muted-foreground tabular-nums">
                     {formatBytes(usage)}
                     {quota !== null && ` of ${formatBytes(quota)} available`}
                   </p>
@@ -52,12 +52,12 @@ export default function DataSection() {
               </div>
             )}
             {persisted !== null && (
-              <div className="flex min-h-14 items-center gap-3 border-b px-4 py-3 last:border-b-0">
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <h4 className="text-sm font-semibold">
+              <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3 last:border-b-0">
+                <div className="min-w-36 flex-1 space-y-0.5">
+                  <h4 className="text-sm leading-5 font-medium">
                     Protected from browser cleanup
                   </h4>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
                     {persisted
                       ? "Yes"
                       : "No — the browser may clear local data when space is low"}
@@ -74,7 +74,7 @@ export default function DataSection() {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <SectionHeader subtitle="Add Markdown files (.md) or a ZIP of Markdown files. Imported notes are added alongside existing ones; folders in a ZIP are matched by name.">
           Import
         </SectionHeader>
@@ -106,7 +106,7 @@ export default function DataSection() {
         </Button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <SectionHeader subtitle="Download all notes as a ZIP of Markdown files, one folder per journal folder.">
           Export
         </SectionHeader>
