@@ -1,8 +1,9 @@
 /**
- * React node view for the link preview card (#173). An editable card without a
- * title fetches its preview once while online and writes it into the node's
- * attrs (so it syncs to other devices); read-only editors never fetch or write.
- * An offline card fills in on its next mount while online.
+ * React node view for the link preview card (#173). An editable card with no
+ * preview data (title, description or image) fetches its preview once while
+ * online and writes it into the node's attrs (so it syncs to other devices);
+ * read-only editors never fetch or write. An offline card fills in on its next
+ * mount while online.
  */
 import { useEffect, useState } from 'react';
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
@@ -27,7 +28,8 @@ export function LinkPreviewNodeView({ node, editor, updateAttributes, getPos, se
 
   const editable = editor.isEditable;
   const online = navigator.onLine;
-  const shouldFetch = !title && editable && online && isPreviewableUrl(url);
+  const hasPreview = Boolean(title || description || image);
+  const shouldFetch = !hasPreview && editable && online && isPreviewableUrl(url);
 
   useEffect(() => {
     if (!shouldFetch) return;
@@ -35,7 +37,8 @@ export function LinkPreviewNodeView({ node, editor, updateAttributes, getPos, se
     fetchLinkPreview(dotYouClient, url)
       .then((result) => {
         if (cancelled) return;
-        if (result) updateAttributes(result);
+        // A page can have only og:description/og:image (empty title); a result with nothing usable is a miss.
+        if (result && (result.title || result.description || result.image)) updateAttributes(result);
         else setFailed(true);
       })
       .catch(() => {
@@ -47,7 +50,7 @@ export function LinkPreviewNodeView({ node, editor, updateAttributes, getPos, se
   }, [shouldFetch, dotYouClient, url, updateAttributes]);
 
   const host = hostnameOf(url);
-  const state = title ? 'ready' : shouldFetch && !failed ? 'loading' : 'empty';
+  const state = hasPreview ? 'ready' : shouldFetch && !failed ? 'loading' : 'empty';
 
   const convert = () => {
     const pos = getPos();
@@ -80,11 +83,11 @@ export function LinkPreviewNodeView({ node, editor, updateAttributes, getPos, se
         <div className="min-w-0 flex-1">
           {state === 'ready' && (
             <>
-              <div className="truncate font-medium">{title}</div>
+              <div className="truncate font-medium">{title || host}</div>
               {description && (
                 <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{description}</p>
               )}
-              <div className="mt-1 truncate text-xs text-muted-foreground">{host}</div>
+              {title && <div className="mt-1 truncate text-xs text-muted-foreground">{host}</div>}
             </>
           )}
           {state === 'loading' && (

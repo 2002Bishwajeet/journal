@@ -8,7 +8,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Editor } from '@tiptap/core';
 import * as Y from 'yjs';
-import { createElement } from 'react';
+import { act, createElement, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import type { NodeViewProps } from '@tiptap/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import Markdown from 'react-markdown';
 import type { DotYouClient } from '@homebase-id/js-lib/core';
@@ -18,6 +20,9 @@ import { isPreviewableUrl, dataUriToBlob, previewToMarkdown, toPreviewAttrs } fr
 import { fetchLinkPreview } from '@/hooks/links/useLinkPreviewFetch';
 import { extractMarkdownFromYjs, extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
+import { LinkPreviewNodeView } from '@/components/editor/nodes/LinkPreviewNodeView';
+
+vi.mock('@/components/auth', () => ({ useDotYouClientContext: () => ({}) }));
 
 const media = vi.hoisted(() => ({
   getLinkPreview: vi.fn(),
@@ -267,5 +272,67 @@ describe('linkPreview in a collaborative (Yjs) editor', () => {
     expect(undo(editor.state)).toBe(true);
     expect(editor.getJSON().content?.[0]).toEqual(card);
     editor.destroy();
+  });
+});
+
+describe('LinkPreviewNodeView', () => {
+  let container: HTMLDivElement;
+  let root: ReturnType<typeof createRoot>;
+
+  beforeEach(() => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    media.getLinkPreview.mockReset();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  // Holds the node attrs in state so updateAttributes re-renders like TipTap does.
+  function Harness() {
+    const [attrs, setAttrs] = useState({
+      url: 'https://example.com/a',
+      title: '',
+      description: '',
+      image: null,
+      imageWidth: null,
+      imageHeight: null,
+    });
+    const props = {
+      node: { attrs },
+      editor: { isEditable: true },
+      updateAttributes: (a: object) => setAttrs((prev) => ({ ...prev, ...a })),
+      getPos: () => 0,
+      selected: false,
+    } as unknown as NodeViewProps;
+    return createElement(LinkPreviewNodeView, props);
+  }
+
+  async function renderCard() {
+    await act(async () => root.render(createElement(Harness)));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  }
+
+  const skeleton = () => container.querySelector('.animate-pulse');
+
+  it('shows a title-less preview (description only) instead of the loading skeleton', async () => {
+    media.getLinkPreview.mockResolvedValue({ url: 'https://example.com/a', title: '', description: 'Only a description' });
+    await renderCard();
+    expect(skeleton()).toBeNull();
+    expect(container.textContent).toContain('Only a description');
+    expect(container.textContent).toContain('example.com');
+  });
+
+  it('falls back to "No preview available" when the preview has nothing usable', async () => {
+    media.getLinkPreview.mockResolvedValue({ url: 'https://example.com/a', title: '', description: '' });
+    await renderCard();
+    expect(skeleton()).toBeNull();
+    expect(container.textContent).toContain('No preview available');
   });
 });
