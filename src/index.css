@@ -235,9 +235,9 @@ body {
   border-left: 3px solid var(--border);
   padding-left: 1rem;
   margin: 1.5rem 0;
-  color: var(--muted-foreground);
-  font-style: italic;
-  font-family: var(--font-serif);
+  /* Body font, upright: the display serif in italic was hard to read at text size. */
+  color: color-mix(in srgb, var(--foreground) 80%, transparent);
+  font-style: normal;
 }
 
 .prose code {
@@ -768,6 +768,27 @@ body {
 /* LiveBlockFrame draws its own grip over the native resize handle. */
 [data-live-block='html'] ::-webkit-resizer {
   background: transparent;
+}
+
+/* A full-screen html block: the bar stays on top and the box takes the rest of
+   the screen, whatever inline height its content or the resize handle gave it. */
+[data-live-block='html']:fullscreen {
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+}
+
+[data-live-block='html']:fullscreen > :last-child {
+  flex: 1;
+  min-height: 0;
+  height: auto !important;
+  resize: none;
+}
+
+/* Nothing to resize there, so no grip. */
+[data-live-block='html']:fullscreen > :last-child > [aria-hidden] {
+  display: none;
 }
 
 /* Centred, never wider than the column, and not so tall that an svg with no

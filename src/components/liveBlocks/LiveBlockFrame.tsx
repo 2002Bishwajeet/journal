@@ -4,7 +4,7 @@
  * either the preview or the code. Rules that have to beat the unlayered
  * `.prose` styles are in src/index.css ("Live blocks").
  */
-import type { ReactNode } from 'react';
+import { useRef, useSyncExternalStore, type ReactNode } from 'react';
 import type { LiveBlockKind } from '@/lib/liveBlocks';
 import { cn } from '@/lib/utils';
 import { LiveBlockPreview } from './LiveBlockPreview';
@@ -22,21 +22,63 @@ interface LiveBlockFrameProps {
   children: ReactNode;
 }
 
+function subscribeToFullscreen(onChange: () => void) {
+  document.addEventListener('fullscreenchange', onChange);
+  return () => document.removeEventListener('fullscreenchange', onChange);
+}
+
 export function LiveBlockFrame({ kind, source, preview, toggles, children }: LiveBlockFrameProps) {
+  const block = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  // The inline height fitContent last gave the box.
+  const fittedHeight = useRef('');
+  const fullscreen = useSyncExternalStore(
+    subscribeToFullscreen,
+    () => block.current !== null && document.fullscreenElement === block.current,
+    () => false,
+  );
+
+  // An html block is as tall as its content (#412) until the user drags the resize handle:
+  // the browser then writes an inline height that is not the fitted one, and that one stays.
+  const fitContent = (height: number) => {
+    const el = box.current;
+    if (!el || el.style.height !== fittedHeight.current) return;
+    el.style.height = fittedHeight.current = `${height}px`;
+  };
+
   return (
-    <div data-live-block={kind} className="my-4 overflow-hidden rounded-lg border bg-card text-card-foreground">
+    <div
+      ref={block}
+      data-live-block={kind}
+      className="my-4 overflow-hidden rounded-lg border bg-card text-card-foreground"
+      // A browser leaves full screen on Esc by itself, before the page sees the key. This is for
+      // where the key does reach the page: headless Chromium (the e2e suite) has no such browser UI.
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && fullscreen) void document.exitFullscreen();
+      }}
+    >
       <div contentEditable={false} className="flex items-center justify-between border-b pl-3 pr-1 font-sans select-none">
         <span className="text-xs font-medium text-muted-foreground">{LABELS[kind]}</span>
-        <div className="flex">{toggles}</div>
+        <div className="flex">
+          {toggles}
+          {/* The whole block goes full screen, not just its frame, so the bar and this button stay. */}
+          {kind === 'html' && document.fullscreenEnabled && (
+            <LiveBlockToggle pressed={fullscreen} onClick={() => void (fullscreen ? document.exitFullscreen() : block.current?.requestFullscreen())}>
+              Full screen
+            </LiveBlockToggle>
+          )}
+        </div>
       </div>
-      {/* An html block's preview and code share this box and its height (400px until resized),
-          so switching views does not move the page. `resize` needs a non-visible overflow. */}
+      {/* An html block's preview and code share this box and its height (400px until the content
+          reports its own, or the box is resized), so switching views does not move the page.
+          `resize` needs a non-visible overflow. Full screen: src/index.css ("Live blocks"). */}
       <div
+        ref={box}
         contentEditable={preview ? false : undefined}
         data-live-block-preview={preview ? kind : undefined}
         className={cn(kind === 'html' && 'relative h-[400px] resize-y overflow-hidden')}
       >
-        {preview && <LiveBlockPreview kind={kind} source={source} />}
+        {preview && <LiveBlockPreview kind={kind} source={source} onHeight={fitContent} />}
         {children}
         {kind === 'html' && (
           // Drawn over the native resize handle, which is hard to see on a page. Dragging it

@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { activeEditor, createNote } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
@@ -27,9 +27,16 @@ const PROBE = [
   '</script>',
 ].join('');
 
-/** Creates a note with the probe as an `html` block, previews it, and returns its frame. */
-async function previewProbe(app: Page) {
-  await createNote(app, { title: `Html ${Date.now()}`, body: '```html ' + PROBE });
+// #412: a page exactly 900px tall, with a button that makes it 400px taller. One line too.
+const TALL = [
+  '<style>body { margin: 0; font-family: system-ui; } #tall { box-sizing: border-box; height: 900px; padding: 24px; border: 4px dashed #999; }</style>',
+  '<div id="tall"><h2>A page 900px tall</h2>',
+  '<button onclick="tall.style.height = tall.offsetHeight + 400 + \'px\'">Grow by 400px</button></div>',
+].join('');
+
+/** Creates a note with `source` as an `html` block, previews it, and returns its frame. */
+async function previewProbe(app: Page, source = PROBE) {
+  await createNote(app, { title: `Html ${Date.now()}`, body: '```html ' + source });
   // Something on the app's origin for the frame to fail to read.
   await assertTestOrigin(app);
   await app.evaluate(() => {
@@ -38,6 +45,39 @@ async function previewProbe(app: Page) {
   });
   await app.getByRole('button', { name: 'Preview', exact: true }).click();
   return activeEditor(app).frameLocator('iframe[title="HTML preview"]');
+}
+
+/** The box an html block's frame fills: the element that carries the block's height. */
+const resizableBox = (app: Page) => activeEditor(app).locator('[data-live-block-preview="html"]');
+
+/** Drags the box's native resize handle (its bottom right corner) down by `dy` pixels. */
+async function dragResizeHandle(app: Page, resizable: Locator, dy: number): Promise<void> {
+  const box = (await resizable.boundingBox())!;
+  await app.mouse.move(box.x + box.width - 4, box.y + box.height - 4);
+  await app.mouse.down();
+  await app.mouse.move(box.x + box.width - 4, box.y + box.height - 4 + dy, { steps: 5 });
+  await app.mouse.up();
+}
+
+/**
+ * Starts listening on the app page for a height report of at least `min`, whoever
+ * sends it. The returned function resolves once one was delivered: by then the
+ * app's own handler has had the same message, so "nothing changed" is not a race.
+ */
+async function listenForHeightReport(app: Page, min: number): Promise<() => Promise<void>> {
+  const listening = await app.evaluateHandle(
+    (min) => ({
+      delivered: new Promise<void>((resolve) => {
+        window.addEventListener('message', function onMessage(event: MessageEvent<{ height?: number } | null>) {
+          if ((event.data?.height ?? 0) < min) return;
+          window.removeEventListener('message', onMessage);
+          resolve();
+        });
+      }),
+    }),
+    min,
+  );
+  return () => listening.evaluate(({ delivered }) => delivered);
 }
 
 test("html block: its inline script runs in the frame under the app's COEP headers", async ({ app }) => {
@@ -50,15 +90,15 @@ test("html block: its inline script runs in the frame under the app's COEP heade
   const iframe = activeEditor(app).locator('iframe[title="HTML preview"]');
   await expect(iframe).toHaveAttribute('sandbox', 'allow-scripts');
 
-  // 400px tall, and the native resize handle is reachable over the frame.
+  // As tall as its content (#412) once the probe has written all its lines, and the
+  // native resize handle is reachable over the frame.
+  await expect(frame.locator('#out')).toContainText('fetch: rejected');
+  await expect(frame.locator('#out')).toContainText('img: naturalWidth 0');
+  const fitted = await frame.locator('html').evaluate((html) => Math.ceil(html.getBoundingClientRect().height));
   const resizable = iframe.locator('..');
-  await expect(resizable).toHaveCSS('height', '400px');
-  const box = (await resizable.boundingBox())!;
-  await app.mouse.move(box.x + box.width - 4, box.y + box.height - 4);
-  await app.mouse.down();
-  await app.mouse.move(box.x + box.width - 4, box.y + box.height + 96, { steps: 5 });
-  await app.mouse.up();
-  await expect(resizable).toHaveCSS('height', '500px');
+  await expect(resizable).toHaveCSS('height', `${fitted}px`);
+  await dragResizeHandle(app, resizable, 100);
+  await expect(resizable).toHaveCSS('height', `${fitted + 100}px`);
 });
 
 test('html block: the frame cannot reach the network, storage, the parent document or cookies', async ({ app }) => {
@@ -86,6 +126,75 @@ test('html block: an external image does not load', async ({ app }) => {
   await expect(frame.locator('#out')).toContainText('img: naturalWidth 0');
   await expect(frame.locator('#img')).toHaveJSProperty('naturalWidth', 0);
 });
+
+test('html block: is as tall as its content and grows with it, until the user resizes it', async ({ app }) => {
+  // Tall enough that the resize handle of a grown block is on screen.
+  await app.setViewportSize({ width: 1280, height: 1800 });
+  const frame = await previewProbe(app, TALL);
+  const resizable = resizableBox(app);
+  const grow = frame.getByRole('button', { name: 'Grow by 400px' });
+
+  // Nobody resized it: the block took its content's height, and follows it.
+  await expect(resizable).toHaveCSS('height', '900px');
+  await expect(resizable.locator('iframe')).toHaveCSS('height', '900px');
+  await grow.click();
+  await expect(resizable).toHaveCSS('height', '1300px');
+
+  // A height the user drags the block to wins over what the content reports next.
+  await dragResizeHandle(app, resizable, -100);
+  await expect(resizable).toHaveCSS('height', '1200px');
+  const reported = await listenForHeightReport(app, 1700);
+  await grow.click();
+  await reported();
+  await expect(resizable).toHaveCSS('height', '1200px');
+});
+
+test('html block: a height report posted by the app page itself changes no block', async ({ app }) => {
+  await previewProbe(app, TALL);
+  const resizable = resizableBox(app);
+  await expect(resizable).toHaveCSS('height', '900px');
+
+  // The right marker and a number, but not from the block's frame.
+  const delivered = await listenForHeightReport(app, 5000);
+  await app.evaluate(() => window.postMessage({ journalLiveBlock: 1, height: 5000 }, '*'));
+  await delivered();
+  await expect(resizable).toHaveCSS('height', '900px');
+});
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`html block: Full screen shows the block full screen and Esc leaves it, ${colorScheme} theme`, async ({ app }) => {
+    await app.emulateMedia({ colorScheme });
+    // Tall enough to show the whole 900px block at its natural height.
+    await app.setViewportSize({ width: 1280, height: 1200 });
+
+    const frame = await previewProbe(app, TALL);
+    const block = activeEditor(app).locator('[data-live-block="html"]');
+    const resizable = resizableBox(app);
+    await expect(frame.getByRole('heading', { name: 'A page 900px tall' })).toBeVisible();
+    await expect(resizable).toHaveCSS('height', '900px');
+    await expect(app.locator('html')).toHaveClass(new RegExp(colorScheme));
+    await app.screenshot({ path: test.info().outputPath(`html-tall-${colorScheme}-desktop.png`) });
+
+    const isFullscreen = () => block.evaluate((el) => document.fullscreenElement === el);
+    const fullscreenButton = block.getByRole('button', { name: 'Full screen', exact: true });
+    await fullscreenButton.click();
+    await expect.poll(isFullscreen).toBe(true);
+    await expect(fullscreenButton).toHaveAttribute('aria-pressed', 'true');
+
+    // The bar stays on top; the frame takes the rest of the screen, not its 900px.
+    const viewport = app.viewportSize()!;
+    await expect.poll(() => block.boundingBox()).toEqual({ x: 0, y: 0, ...viewport });
+    const bar = (await block.locator('> div').first().boundingBox())!;
+    await expect.poll(() => resizable.locator('iframe').boundingBox()).toEqual({ x: 0, y: bar.height, width: viewport.width, height: viewport.height - bar.height });
+    await expect(frame.getByRole('heading', { name: 'A page 900px tall' })).toBeVisible();
+    await app.screenshot({ path: test.info().outputPath(`html-fullscreen-${colorScheme}-desktop.png`) });
+
+    await app.keyboard.press('Escape');
+    await expect.poll(() => app.evaluate(() => document.fullscreenElement === null)).toBe(true);
+    await expect(fullscreenButton).toHaveAttribute('aria-pressed', 'false');
+    await expect(resizable).toHaveCSS('height', '900px');
+  });
+}
 
 for (const colorScheme of ['light', 'dark'] as const) {
   test(`screenshot: running html block, ${colorScheme} theme`, async ({ app }) => {

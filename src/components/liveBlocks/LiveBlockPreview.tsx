@@ -12,24 +12,28 @@
  *   `sandbox="allow-scripts"` alone gives the frame an opaque origin, so it
  *   cannot reach the app's DOM, storage or cookies, and the CSP from
  *   buildSrcdoc keeps it off the network. Never add another sandbox token;
- *   e2e/editor/live-html-sandbox.spec.ts holds the proof.
+ *   e2e/editor/live-html-sandbox.spec.ts holds the proof. The one thing that
+ *   crosses the boundary is the frame's report of its content height (#412),
+ *   and only outwards: nothing is ever posted into the frame.
  */
-import { useEffect, useId, useState, useSyncExternalStore } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { CalloutIcon } from '@/components/editor/nodes/CalloutIcon';
 import { CALLOUT_CLASSES } from '@/components/editor/nodes/calloutVariants';
-import { buildSrcdoc, svgDataUri, type LiveBlockKind } from '@/lib/liveBlocks';
+import { buildSrcdoc, frameHeightFromMessage, svgDataUri, type LiveBlockKind } from '@/lib/liveBlocks';
 import { cn } from '@/lib/utils';
 
 interface LiveBlockPreviewProps {
   kind: LiveBlockKind;
   source: string;
+  /** An html block's frame reported how tall its content is. */
+  onHeight?: (height: number) => void;
 }
 
 type MermaidResult = { source: string; dark: boolean; svg: string } | { source: string; dark: boolean; error: string };
 
 let renderCount = 0;
 
-export function LiveBlockPreview({ kind, source }: LiveBlockPreviewProps) {
+export function LiveBlockPreview({ kind, source, onHeight }: LiveBlockPreviewProps) {
   if (kind === 'svg') {
     return (
       <div className="p-4">
@@ -37,20 +41,34 @@ export function LiveBlockPreview({ kind, source }: LiveBlockPreviewProps) {
       </div>
     );
   }
-  if (kind === 'html') {
-    // White like a browser tab in both themes: the page inside cannot see the app's theme.
-    return (
-      <iframe
-        sandbox="allow-scripts"
-        srcDoc={buildSrcdoc(source)}
-        referrerPolicy="no-referrer"
-        loading="lazy"
-        title="HTML preview"
-        className="block size-full bg-white"
-      />
-    );
-  }
+  if (kind === 'html') return <HtmlPreview source={source} onHeight={onHeight} />;
   return <MermaidPreview source={source} />;
+}
+
+function HtmlPreview({ source, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'onHeight'>) {
+  const frame = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent<unknown>) => {
+      const height = frameHeightFromMessage(event, frame.current?.contentWindow ?? null);
+      if (height !== null) onHeight?.(height);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [onHeight]);
+
+  // White like a browser tab in both themes: the page inside cannot see the app's theme.
+  return (
+    <iframe
+      ref={frame}
+      sandbox="allow-scripts"
+      srcDoc={buildSrcdoc(source)}
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      title="HTML preview"
+      className="block size-full bg-white"
+    />
+  );
 }
 
 // The theme is the `dark` class on <html> (useThemePreference).
