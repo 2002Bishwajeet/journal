@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { LiveBlockPreview } from '@/components/liveBlocks/LiveBlockPreview';
-import { HTML_BLOCK_CDN_HOSTS, buildSrcdoc, frameHeightFromMessage, liveBlockKind, svgDataUri } from '@/lib/liveBlocks';
+import { HTML_BLOCK_CDN_HOSTS, buildSrcdoc, frameHeightFromMessage, liveBlockKind, svgDataUri, type FrameTheme } from '@/lib/liveBlocks';
 
 describe('liveBlockKind', () => {
   it('should recognise mermaid, svg and html languages', () => {
@@ -43,17 +43,75 @@ describe('buildSrcdoc', () => {
   const HEIGHT_SCRIPT =
     "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) }, '*')).observe(document.documentElement)</script>";
 
-  it('should put the CSP meta first and the height script after the source', () => {
-    const source = '<p>hi</p><script>document.body.append("ran")</script>';
-    const srcdoc = buildSrcdoc(source);
-    expect(srcdoc).toBe(`<!doctype html>${CSP_META}${source}${HEIGHT_SCRIPT}`);
-    expect(srcdoc.indexOf('Content-Security-Policy')).toBeLessThan(srcdoc.indexOf(source));
-    expect(srcdoc.indexOf(HEIGHT_SCRIPT)).toBe(srcdoc.indexOf(source) + source.length);
+  // The dark theme's values in src/index.css.
+  const THEME: FrameTheme = {
+    colorScheme: 'dark',
+    tokens: {
+      '--background': '#1C1B1A',
+      '--foreground': '#E6E4DD',
+      '--muted': '#2C2B29',
+      '--muted-foreground': '#8A8780',
+      '--border': '#3E3D3A',
+      '--accent': '#2C2B29',
+      '--secondary': '#2C2B29',
+      '--primary': '#E6E4DD',
+      '--radius': '0.5rem',
+    },
+    fontFamily: '"Inter Variable", system-ui, sans-serif',
+    lineHeight: '1.5',
+  };
+  /** Everything buildSrcdoc puts before the source. */
+  const head = (source: string, theme = THEME) => {
+    const srcdoc = buildSrcdoc(source, theme);
+    return srcdoc.slice(0, srcdoc.length - source.length - HEIGHT_SCRIPT.length);
+  };
+
+  it('should put the CSP meta first, then one theme style, the source and the height script', () => {
+    const source = '<style>body{color:red}</style><p>hi</p><script>document.body.append("ran")</script>';
+    const srcdoc = buildSrcdoc(source, THEME);
+    expect(srcdoc.startsWith(`<!doctype html>${CSP_META}<style>`)).toBe(true);
+    expect(srcdoc.endsWith(`</style>${source}${HEIGHT_SCRIPT}`)).toBe(true);
+    // The block's own CSS comes after the one injected style, so it wins.
+    expect(head(source).match(/<style>/g)).toHaveLength(1);
+    expect(head(source).endsWith('</style>')).toBe(true);
+  });
+
+  it('should give the frame the theme tokens with the values passed in', () => {
+    const style = head('<p>hi</p>');
+    for (const [name, value] of Object.entries(THEME.tokens)) expect(style).toContain(`${name}:${value};`);
+
+    const changed = head('<p>hi</p>', { ...THEME, tokens: { ...THEME.tokens, '--foreground': '#2C2B29', '--radius': '0.25rem' } });
+    expect(changed).toContain('--foreground:#2C2B29;');
+    expect(changed).toContain('--radius:0.25rem;');
+    expect(changed).not.toContain('--foreground:#E6E4DD;');
+  });
+
+  it("should declare the app's colour scheme, which is what lets the frame be transparent", () => {
+    expect(head('')).toContain('color-scheme:dark}');
+    expect(head('', { ...THEME, colorScheme: 'light' })).toContain('color-scheme:light}');
+  });
+
+  it("should make the page transparent, in the note's text colour, font and line height", () => {
+    const style = head('<p>hi</p>');
+    expect(style).toContain('html,body{background:transparent}');
+    expect(style).toContain('body{margin:0;color:var(--foreground);font-family:"Inter Variable", system-ui, sans-serif;line-height:1.5}');
+    expect(head('', { ...THEME, fontFamily: 'ui-serif, Georgia, serif', lineHeight: 'normal' })).toContain(
+      'font-family:ui-serif, Georgia, serif;line-height:normal}',
+    );
+  });
+
+  it('should add base rules for box sizing, links, form controls, table cells and images', () => {
+    const style = head('<p>hi</p>');
+    expect(style).toContain('*,*::before,*::after{box-sizing:border-box}');
+    expect(style).toContain('a{color:inherit}');
+    expect(style).toContain('button,input,select,textarea{font:inherit}');
+    expect(style).toContain('th,td{border:1px solid var(--border);');
+    expect(style).toContain('img{max-width:100%}');
   });
 
   it('should allow scripts, styles and fonts from jsDelivr, cdnjs and unpkg, and from no other host (#409)', () => {
     expect(HTML_BLOCK_CDN_HOSTS).toEqual(['https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://unpkg.com']);
-    const csp = buildSrcdoc('').match(/content="([^"]*)"/)![1];
+    const csp = buildSrcdoc('', THEME).match(/content="([^"]*)"/)![1];
     expect(csp).toBe(CSP);
     // No connect-src (so default-src 'none' keeps fetch blocked), and no host outside the three directives.
     expect(csp).not.toContain('connect-src');
@@ -61,7 +119,7 @@ describe('buildSrcdoc', () => {
   });
 
   it('should add a script that only reports: it never listens for a message', () => {
-    expect(buildSrcdoc('')).not.toMatch(/addEventListener|onmessage/);
+    expect(buildSrcdoc('', THEME)).not.toMatch(/addEventListener|onmessage/);
   });
 });
 
@@ -109,10 +167,15 @@ describe('LiveBlockPreview html', () => {
     expect(render().match(/<iframe[^>]* sandbox="([^"]*)"/)?.[1]).toBe('allow-scripts');
   });
 
-  it('should load the source through srcdoc only, with no referrer', () => {
+  // The frame's document needs the theme of the page around it, so it is built once the
+  // frame is mounted: src/__tests__/liveBlockFrame.test.tsx.
+  it('should never load the frame from a URL, and send no referrer', () => {
     const markup = render();
-    expect(markup).toContain('srcDoc="&lt;!doctype html&gt;&lt;meta http-equiv=&quot;Content-Security-Policy&quot;');
     expect(markup).toContain('referrerPolicy="no-referrer"');
     expect(markup).not.toContain(' src=');
+  });
+
+  it('should leave the frame element transparent', () => {
+    expect(render()).not.toContain('bg-');
   });
 });

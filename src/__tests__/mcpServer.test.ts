@@ -79,6 +79,17 @@ describe('createJournalMcpServer', () => {
         }
     });
 
+    it('tells agents how an html block should look in the three markdown write tools (#420)', async () => {
+        const client = await connectedClient(makeFakeDeps());
+        const { tools } = await client.listTools();
+        const sentence =
+            " An `html` block inherits the note's font, text colour and transparent background, so it should not set a page background or font, " +
+            'should use `var(--foreground)`, `var(--muted)`, `var(--muted-foreground)`, `var(--border)`, `var(--accent)` and `var(--radius)` for anything it draws, ' +
+            'and should avoid gradients, shadows and badge rows; prefer a callout or a table when one would do.';
+        const told = tools.filter((tool) => tool.description?.includes(sentence)).map((tool) => tool.name);
+        expect(told.sort()).toEqual(['append_to_note', 'create_note', 'replace_in_note']);
+    });
+
     it('tells agents what an html block may load: scripts, styles and fonts from three CDN hosts (#409)', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();

@@ -8,7 +8,8 @@
  * - svg: shown through an <img> data URI, so the source is never injected into
  *   the DOM and its scripts never run.
  * - html: runs in a sandboxed srcdoc frame that fills the frame's resizable
- *   box. The source is untrusted (an LLM or a collaborator can write it):
+ *   box and takes the note's colours and font through buildSrcdoc (#420).
+ *   The source is untrusted (an LLM or a collaborator can write it):
  *   `sandbox="allow-scripts"` alone gives the frame an opaque origin, so it
  *   cannot reach the app's DOM, storage or cookies, and the CSP from
  *   buildSrcdoc lets it load scripts, styles and fonts from three CDN hosts
@@ -17,10 +18,10 @@
  *   crosses the boundary is the frame's report of its content height (#412),
  *   and only outwards: nothing is ever posted into the frame.
  */
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useId, useState, useSyncExternalStore } from 'react';
 import { CalloutIcon } from '@/components/editor/nodes/CalloutIcon';
 import { CALLOUT_CLASSES } from '@/components/editor/nodes/calloutVariants';
-import { buildSrcdoc, frameHeightFromMessage, svgDataUri, type LiveBlockKind } from '@/lib/liveBlocks';
+import { buildSrcdoc, frameHeightFromMessage, svgDataUri, FRAME_TOKENS, type FrameTheme, type LiveBlockKind } from '@/lib/liveBlocks';
 import { cn } from '@/lib/utils';
 
 interface LiveBlockPreviewProps {
@@ -46,40 +47,66 @@ export function LiveBlockPreview({ kind, source, onHeight }: LiveBlockPreviewPro
   return <MermaidPreview source={source} />;
 }
 
-function HtmlPreview({ source, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'onHeight'>) {
-  const frame = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    const onMessage = (event: MessageEvent<unknown>) => {
-      const height = frameHeightFromMessage(event, frame.current?.contentWindow ?? null);
-      if (height !== null) onHeight?.(height);
-    };
-    window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
-  }, [onHeight]);
-
-  // White like a browser tab in both themes: the page inside cannot see the app's theme.
-  return (
-    <iframe
-      ref={frame}
-      sandbox="allow-scripts"
-      srcDoc={buildSrcdoc(source)}
-      referrerPolicy="no-referrer"
-      loading="lazy"
-      title="HTML preview"
-      className="block size-full bg-white"
-    />
-  );
-}
-
-// The theme is the `dark` class on <html> (useThemePreference).
-function subscribeToTheme(onChange: () => void) {
+// The theme is the `dark` class on <html> (useThemePreference); the editor's font is an
+// attribute of <html> too (useEditorAppearance).
+function subscribeToRootAttributes(onChange: () => void) {
   const observer = new MutationObserver(onChange);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  observer.observe(document.documentElement, { attributes: true });
   return () => observer.disconnect();
 }
 
 const isDarkTheme = () => document.documentElement.classList.contains('dark');
+
+/** The look of the note around an html block's frame (#420), read where the frame sits. */
+function frameTheme(frame: HTMLIFrameElement): FrameTheme {
+  const root = getComputedStyle(document.documentElement);
+  // The frame element inherits the font of the content around it.
+  const { fontFamily, fontSize, lineHeight } = getComputedStyle(frame);
+  // The computed line height is in pixels: the page gets the ratio, for its own font sizes.
+  const ratio = parseFloat(lineHeight) / parseFloat(fontSize);
+  return {
+    colorScheme: isDarkTheme() ? 'dark' : 'light',
+    tokens: Object.fromEntries(FRAME_TOKENS.map((name) => [name, root.getPropertyValue(name).trim()])) as FrameTheme['tokens'],
+    fontFamily,
+    lineHeight: Number.isFinite(ratio) ? String(Math.round(ratio * 1000) / 1000) : 'normal',
+  };
+}
+
+function HtmlPreview({ source, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'onHeight'>) {
+  // State, not a ref: the frame's document takes its look from the mounted element.
+  const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
+  // Rebuilt when the look changes, which reloads the page in the frame. Nothing is posted into it.
+  const srcDoc = useSyncExternalStore(
+    subscribeToRootAttributes,
+    () => (frame ? buildSrcdoc(source, frameTheme(frame)) : undefined),
+    () => undefined,
+  );
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent<unknown>) => {
+      const height = frameHeightFromMessage(event, frame?.contentWindow ?? null);
+      if (height !== null) onHeight?.(height);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [frame, onHeight]);
+
+  // No background: the page inside is see-through, so the note shows behind it.
+  return (
+    <iframe
+      ref={setFrame}
+      sandbox="allow-scripts"
+      srcDoc={srcDoc}
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      title="HTML preview"
+      className="block size-full"
+    />
+  );
+}
+
+// Pie slice tints in sixths of the range from the lightest to the strongest.
+const PIE_STEPS = [0, 2, 4, 6, 1, 3, 5];
 
 /**
  * Journal's theme tokens as variables for mermaid's `base` theme, which derives
@@ -89,8 +116,11 @@ const isDarkTheme = () => document.documentElement.classList.contains('dark');
 function mermaidThemeVariables(dark: boolean) {
   const style = getComputedStyle(document.documentElement);
   const token = (name: string) => style.getPropertyValue(name).trim();
-  const surface = token('--card');
+  // A diagram sits straight on the note (#420), so its surface is the note's background.
+  const surface = token('--background');
   const text = token('--foreground');
+  // The strongest slice tint its label (in the text colour) still reads on, at 4.5:1.
+  const strongest = dark ? 36 : 50;
   return {
     darkMode: dark,
     fontFamily: token('--font-sans'),
@@ -107,8 +137,14 @@ function mermaidThemeVariables(dark: boolean) {
     noteTextColor: text,
     noteBorderColor: token('--border'),
     // Mermaid tells pie slices apart by rotating the hue of the colours above, which
-    // does nothing to neutrals. Shades of the text colour on the surface do.
-    ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`pie${i + 1}`, `color-mix(in srgb, ${text} ${8 + (i % 6) * 6}%, ${surface})`])),
+    // does nothing to neutrals. Shades of the text colour on the surface do: the first
+    // four a wide step apart, then the three between them, then over again.
+    ...Object.fromEntries(
+      Array.from({ length: 12 }, (_, i) => [`pie${i + 1}`, `color-mix(in srgb, ${text} ${Math.round(10 + (PIE_STEPS[i % PIE_STEPS.length] * (strongest - 10)) / 6)}%, ${surface})`]),
+    ),
+    pieTitleTextColor: text,
+    pieSectionTextColor: text,
+    pieLegendTextColor: text,
     pieOpacity: '1',
     pieStrokeColor: surface,
     pieOuterStrokeColor: token('--border'),
@@ -117,7 +153,7 @@ function mermaidThemeVariables(dark: boolean) {
 
 function MermaidPreview({ source }: { source: string }) {
   const baseId = `mermaid-${useId().replace(/:/g, '')}`;
-  const dark = useSyncExternalStore(subscribeToTheme, isDarkTheme, isDarkTheme);
+  const dark = useSyncExternalStore(subscribeToRootAttributes, isDarkTheme, isDarkTheme);
   const [result, setResult] = useState<MermaidResult | null>(null);
 
   useEffect(() => {

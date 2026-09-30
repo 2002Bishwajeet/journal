@@ -13,7 +13,10 @@ const LIVE_BLOCKS =
     'An `html` block is one self-contained document. Besides inline <script> and <style>, it may load ' +
     'scripts, styles and fonts only from cdn.jsdelivr.net, cdnjs.cloudflare.com and unpkg.com. ' +
     'Images must be `data:` URIs. There is no network access from script (fetch, XMLHttpRequest and WebSocket fail) and no storage. ' +
-    "Tailwind's CDN script does not work. React needs its UMD build, and JSX needs Babel standalone, both from those hosts.";
+    "Tailwind's CDN script does not work. React needs its UMD build, and JSX needs Babel standalone, both from those hosts." +
+    " An `html` block inherits the note's font, text colour and transparent background, so it should not set a page background or font, " +
+    'should use `var(--foreground)`, `var(--muted)`, `var(--muted-foreground)`, `var(--border)`, `var(--accent)` and `var(--radius)` for anything it draws, ' +
+    'and should avoid gradients, shadows and badge rows; prefer a callout or a table when one would do.';
 
 /** A tool result carrying `x` as pretty-printed JSON text. */
 function json(x: unknown) {
