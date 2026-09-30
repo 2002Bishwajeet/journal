@@ -80,7 +80,8 @@ async function routeSequenceFallback(
             return route.abort('failed');
         }
         const index = cursors.get(key) ?? 0;
-        cursors.set(key, index + 1);        return route.fulfill(fulfillment(recorded[Math.min(index, recorded.length - 1)]));
+        cursors.set(key, index + 1);
+        return route.fulfill(fulfillment(recorded[Math.min(index, recorded.length - 1)]));
     });
 }
 
