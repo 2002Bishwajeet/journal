@@ -1,5 +1,5 @@
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, typeInEditor } from '../support/actions';
 
 // #388: code blocks whose language is `mermaid` or `svg` get a Preview / Code toggle.
 
@@ -57,3 +57,31 @@ test('invalid mermaid: shows an error in the preview and the editor stays usable
   await app.keyboard.type(' edited');
   await expect(code).toContainText('this is not a diagram edited');
 });
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`screenshot: mermaid and svg blocks in preview, ${colorScheme} theme`, async ({ app }) => {
+    // The theme preference defaults to "system", which follows prefers-color-scheme.
+    await app.emulateMedia({ colorScheme });
+    // Tall enough that the svg block is not cut off in the screenshot.
+    await app.setViewportSize({ width: 1280, height: 960 });
+    await createNote(app, { title: `Shots ${colorScheme} ${Date.now()}`, body: '```mermaid graph TD; A-->B' });
+    // Enter three times leaves the code block; then start the svg block.
+    await app.keyboard.press('Enter');
+    await app.keyboard.press('Enter');
+    await app.keyboard.press('Enter');
+    await typeInEditor(
+      app,
+      '```svg <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><circle cx="40" cy="40" r="30" fill="orange"/></svg>'
+    );
+
+    // Each block has its own Preview/Code pair: mermaid is first, svg second.
+    await app.getByRole('button', { name: 'Preview', exact: true }).nth(0).click();
+    await app.getByRole('button', { name: 'Preview', exact: true }).nth(1).click();
+    const editor = activeEditor(app);
+    await expect(editor.locator('[data-live-block-preview] svg')).toBeVisible();
+    await expect(editor.locator('[data-live-block-preview] img')).toBeVisible();
+    await expect(app.locator('html')).toHaveClass(new RegExp(colorScheme));
+
+    await app.screenshot({ path: test.info().outputPath(`live-blocks-${colorScheme}.png`) });
+  });
+}
