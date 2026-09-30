@@ -71,6 +71,16 @@ describe('previewToMarkdown', () => {
     expect(md).not.toContain('data:');
   });
 
+  it('collapses whitespace in a multi-line title so metadata cannot add blocks', () => {
+    const md = previewToMarkdown({ url: 'https://a.com', title: 'a\n\n# b\n> c', description: '' });
+    expect(md).toBe('[a # b > c](https://a.com)');
+    expect(md).not.toContain('\n');
+  });
+
+  it('falls back to the URL for a whitespace-only title', () => {
+    expect(previewToMarkdown({ url: 'https://a.com', title: ' \n ', description: '' })).toBe('[https://a.com](https://a.com)');
+  });
+
   it('falls back to the URL as link text and omits an empty description', () => {
     expect(previewToMarkdown({ url: 'https://a.com', title: '', description: '' })).toBe('[https://a.com](https://a.com)');
   });

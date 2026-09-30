@@ -59,11 +59,15 @@ export function toPreviewAttrs(p: LinkPreview, image: string | null): LinkPrevie
 // as raw HTML on the share page (it renders with rehype-raw).
 const escapeMd = (s: string) => s.replace(/[\\[\]]/g, '\\$&').replace(/</g, '&lt;');
 
+// A newline in page metadata would split the link or quote and let it add its
+// own block (a heading, a quote) to the Markdown.
+const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
+
 /** `[title](url)` plus a `> description` quote. Never includes the image. */
 export function previewToMarkdown(attrs: Pick<LinkPreviewAttrs, 'url' | 'title' | 'description'>): string {
-  const { url, title, description } = attrs;
-  let md = `[${escapeMd(title || url)}](${url})`;
-  const desc = description.replace(/\s+/g, ' ').trim();
+  const { url } = attrs;
+  let md = `[${escapeMd(oneLine(attrs.title) || url)}](${url})`;
+  const desc = oneLine(attrs.description);
   if (desc) md += `\n\n> ${escapeMd(desc)}`;
   return md;
 }
