@@ -105,6 +105,10 @@ export default defineConfig(({ mode }) => ({
           // webllm-runtime route in sw.ts.
           '**/web-llm-*.js',
           '**/worker-*.js',
+          // Mermaid runtime (see manualChunks) — loaded only when a mermaid code
+          // block is previewed, cached on first use by the mermaid-runtime route
+          // in sw.ts.
+          '**/mermaid-*.js',
           // Legacy engine: loaded only to upgrade a leftover v0.3/v0.4 database
           // (see pglite-migrate.ts), never on the boot path. A v0.3 dir is read
           // by this same v0.4 engine — both are Postgres 17.
@@ -189,6 +193,18 @@ export default defineConfig(({ mode }) => ({
             stack.delete(moduleId);
             return lazy;
           };
+          // True for mermaid itself and for modules whose every importer is one
+          // (so shared deps such as katex, also used by the editor, stay out).
+          const onlyViaMermaid = (moduleId: string, stack: Set<string>): boolean => {
+            if (moduleId.includes('/node_modules/mermaid/')) return true;
+            const info = getModuleInfo(moduleId);
+            if (!info || info.isEntry || stack.has(moduleId) || !moduleId.includes('/node_modules/')) return false;
+            if (info.importers.length + info.dynamicImporters.length === 0) return false;
+            stack.add(moduleId);
+            const only = [...info.importers, ...info.dynamicImporters].every((importer) => onlyViaMermaid(importer, stack));
+            stack.delete(moduleId);
+            return only;
+          };
           // React MUST be claimed first, or it gets absorbed into whichever
           // chunk reaches it (it was landing in 'tiptap'), forcing every chunk
           // to import the 750 KB editor bundle just to get jsx-runtime.
@@ -203,6 +219,11 @@ export default defineConfig(({ mode }) => ({
           // The migration's fallback imports the full engine on the main thread.
           if (id.includes('@electric-sql/pglite') && lazyOnly(id, new Set())) return 'pglite-engine';
           if (id.includes('@mlc-ai/web-llm')) return 'web-llm';
+          // Mermaid and the modules only it pulls in (~100 lazy diagram/helper
+          // chunks otherwise). One chunk with a stable name so globIgnores and
+          // the mermaid-runtime route in sw.ts can match it. Loaded only through
+          // the dynamic import in LiveBlockPreview, so it is off the boot path.
+          if (onlyViaMermaid(id, new Set())) return 'mermaid';
           if (id.includes('@electric-sql/pglite')) return 'pglite';
           // Deliberately no 'tiptap' / 'ui-libs' rules: a manual chunk acts as
           // an attractor for shared modules, so grouping TipTap dragged React

@@ -36,6 +36,20 @@ registerRoute(
     })
 );
 
+// The mermaid runtime chunk (mermaid-*.js) is not precached either: it loads
+// only when a mermaid code block is previewed. Cached on first use, before the
+// generic static-resources route so it doesn't count against that budget.
+registerRoute(
+    ({ url, sameOrigin }) =>
+        sameOrigin && /\/assets\/mermaid-.*\.js$/.test(url.pathname),
+    new CacheFirst({
+        cacheName: 'mermaid-runtime',
+        plugins: [
+            new ExpirationPlugin({ maxEntries: 2 }),
+        ],
+    })
+);
+
 // Cache same-origin static assets (JS, CSS, workers)
 registerRoute(
     ({ request, sameOrigin }) =>
@@ -207,7 +221,7 @@ self.addEventListener('activate', (event) => {
             const cacheNames = await caches.keys();
             await Promise.all(
                 cacheNames
-                    .filter((name) => !['static-resources', 'images', 'api-cache', 'proxied-images'].includes(name) && !name.startsWith('webllm') && !name.startsWith('workbox-'))
+                    .filter((name) => !['static-resources', 'images', 'api-cache', 'proxied-images'].includes(name) && !name.startsWith('webllm') && !name.startsWith('mermaid') && !name.startsWith('workbox-'))
                     .map((name) => caches.delete(name))
             );
 
