@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { FEATURES } from "@/lib/featureFlags";
+import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import {
   Tooltip,
   TooltipContent,
@@ -185,11 +186,11 @@ export default function Sidebar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant={selectedFolderId === 'shared' ? "secondary" : "ghost"}
+                    variant={selectedFolderId === PSEUDO_FOLDERS.shared ? "secondary" : "ghost"}
                     className={cn(
                       "w-full h-10 group relative transition-all duration-200 flex items-center",
                       isCollapsed ? "justify-center px-0" : "justify-start px-2",
-                      selectedFolderId === 'shared' && "bg-accent text-accent-foreground font-medium hover:bg-accent"
+                      selectedFolderId === PSEUDO_FOLDERS.shared && "bg-accent text-accent-foreground font-medium hover:bg-accent"
                     )}
                     onClick={onSelectShared}
                   >
@@ -378,7 +379,7 @@ export default function Sidebar({
                   isCollapsed
                     ? "h-9 w-9 justify-center px-0"
                     : "w-full justify-start px-2 h-8 text-muted-foreground",
-                  selectedFolderId === 'archive' &&
+                  selectedFolderId === PSEUDO_FOLDERS.archive &&
                     "bg-accent text-accent-foreground font-medium hover:bg-accent"
                 )}
                 onClick={onSelectArchive}
@@ -412,7 +413,7 @@ export default function Sidebar({
                   isCollapsed
                     ? "h-9 w-9 justify-center px-0"
                     : "w-full justify-start px-2 h-8 text-muted-foreground",
-                  selectedFolderId === 'trash' &&
+                  selectedFolderId === PSEUDO_FOLDERS.trash &&
                     "bg-accent text-accent-foreground font-medium hover:bg-accent"
                 )}
                 onClick={onSelectTrash}

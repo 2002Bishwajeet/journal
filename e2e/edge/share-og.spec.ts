@@ -55,7 +55,11 @@ test.afterAll(async () => {
 function expectNoteMeta(html: string) {
   expect(html).toContain('property="og:title" content="Edge T"');
   expect(html).toContain('property="og:description" content="Edge D"');
-  expect(html).toMatch(/property="og:image" content="[^"]*payloadKey=jrnl_img0/);
+  // #220: a cover becomes the guest thumb URL on the author's identity.
+  expect(html).toMatch(
+    /property="og:image" content="https:\/\/edge\.example\.com\/api\/guest\/v1\/drive\/files\/thumb\?[^"]*payloadKey=jrnl_img0[^"]*"/,
+  );
+  expect(html).toMatch(/name="twitter:image" content="[^"]*\/api\/guest\/v1\/drive\/files\/thumb\?[^"]*payloadKey=jrnl_img0/);
   expect(html).toContain('name="twitter:card" content="summary_large_image"');
   expect(html).toContain('application/ld+json');
   expect(html).toContain('noindex');

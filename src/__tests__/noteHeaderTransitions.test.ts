@@ -115,7 +115,7 @@ describe('note header transitions (#161)', () => {
         it('makeNotePublic re-uploads unencrypted with the minimal public projection', async () => {
             serveNote(noteHeader(shape));
 
-            await expect(provider.makeNotePublic(NOTE_ID)).resolves.toEqual({ versionTag: 'v2' });
+            await expect(provider.makeNotePublic(NOTE_ID)).resolves.toEqual({ versionTag: 'v2', previousVersionTag: 'v1' });
 
             expect(mockPatchFile).not.toHaveBeenCalled();
             expect(mockReUpload).toHaveBeenCalledTimes(1);
@@ -140,7 +140,7 @@ describe('note header transitions (#161)', () => {
                 acl: { requiredSecurityGroup: SecurityGroupType.Anonymous },
             }));
 
-            await expect(provider.makeNotePrivate(NOTE_ID)).resolves.toEqual({ versionTag: 'v2' });
+            await expect(provider.makeNotePrivate(NOTE_ID)).resolves.toEqual({ versionTag: 'v2', previousVersionTag: 'v1' });
 
             expect(mockPatchFile).not.toHaveBeenCalled();
             const [, instructions, metadata, encrypt] = mockReUpload.mock.calls[0];
@@ -159,7 +159,7 @@ describe('note header transitions (#161)', () => {
         it('setNoteArchivalStatus patches the status and keeps content, ACL and encryption', async () => {
             serveNote(noteHeader(shape));
 
-            await expect(provider.setNoteArchivalStatus(NOTE_ID, 2)).resolves.toEqual({ versionTag: 'v3' });
+            await expect(provider.setNoteArchivalStatus(NOTE_ID, 2)).resolves.toEqual({ versionTag: 'v3', previousVersionTag: 'v1' });
 
             expect(mockReUpload).not.toHaveBeenCalled();
             const [, keyHeader, instructions, metadata] = mockPatchFile.mock.calls[0];
@@ -186,7 +186,7 @@ describe('note header transitions (#161)', () => {
 
             await expect(
                 provider.makeNoteCollaborative(NOTE_ID, ['circle-1'], ['friend.id'], 'me.id')
-            ).resolves.toEqual({ versionTag: 'v3' });
+            ).resolves.toEqual({ versionTag: 'v3', previousVersionTag: 'v1' });
 
             expect(mockReUpload).not.toHaveBeenCalled();
             const [, keyHeader, instructions, metadata] = mockPatchFile.mock.calls[0];
@@ -221,7 +221,7 @@ describe('note header transitions (#161)', () => {
                 acl: { requiredSecurityGroup: SecurityGroupType.Connected, circleIdList: ['circle-1'] },
             }));
 
-            await expect(provider.revokeNoteCollaboration(NOTE_ID, 'me.id')).resolves.toEqual({ versionTag: 'v3' });
+            await expect(provider.revokeNoteCollaboration(NOTE_ID, 'me.id')).resolves.toEqual({ versionTag: 'v3', previousVersionTag: 'v1' });
 
             expect(mockReUpload).not.toHaveBeenCalled();
             const [, keyHeader, instructions, metadata] = mockPatchFile.mock.calls[0];

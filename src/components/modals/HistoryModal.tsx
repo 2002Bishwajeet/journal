@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import ConfirmDialog from './ConfirmDialog';
 import { useVersionHistory } from '@/hooks/useVersionHistory';
-import { formatRelativeTime } from '@/lib/utils/index';
+import { formatRelativeTime } from '@/lib/utils';
 
 interface HistoryModalProps {
   open: boolean;

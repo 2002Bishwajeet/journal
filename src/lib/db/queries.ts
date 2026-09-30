@@ -997,6 +997,24 @@ export async function clearCachedKeyHeader(localId: string): Promise<void> {
     await db.query(`UPDATE sync_records SET encrypted_key_header = NULL WHERE local_id = $1`, [localId]);
 }
 
+/**
+ * A public/private toggle re-uploaded the note from `previousVersionTag` to `versionTag`.
+ * Clears the now-wrong key header (see clearCachedKeyHeader) and, if this device was at
+ * `previousVersionTag`, records `versionTag` so the upload's own websocket echo is skipped.
+ * Pulling it would overwrite metadata edited since, e.g. the share dialog's link card (#222).
+ * A device that was behind keeps its tag, so the pull still brings in the remote changes.
+ */
+export async function recordNoteRekey(localId: string, previousVersionTag: string, versionTag: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `UPDATE sync_records SET
+           encrypted_key_header = NULL,
+           version_tag = CASE WHEN version_tag = $2 THEN $3 ELSE version_tag END
+         WHERE local_id = $1`,
+        [localId, previousVersionTag, versionTag]
+    );
+}
+
 export async function updateSyncStatus(localId: string, status: SyncRecord['syncStatus']): Promise<void> {
     const db = await getDatabase();
     // Every write that sets 'pending' bumps dirty_generation so a concurrent push's
@@ -1560,17 +1578,18 @@ export async function clearPendingImageDeletions(noteDocId: string, payloadKeys:
 // Tags
 // ============================================
 
+/** All distinct tags across all notes, sorted alphabetically (live query for useTags). */
+export const TAGS_SQL = `SELECT DISTINCT jsonb_array_elements_text(metadata->'tags') AS tag
+         FROM search_index
+         WHERE jsonb_array_length(COALESCE(metadata->'tags', '[]'::jsonb)) > 0
+         ORDER BY tag`;
+
 /**
  * Get all distinct tags across all notes, sorted alphabetically.
  */
 export async function getAllTags(): Promise<string[]> {
     const db = await getDatabase();
-    const result = await db.query<{ tag: string }>(
-        `SELECT DISTINCT jsonb_array_elements_text(metadata->'tags') AS tag
-         FROM search_index
-         WHERE jsonb_array_length(COALESCE(metadata->'tags', '[]'::jsonb)) > 0
-         ORDER BY tag`
-    );
+    const result = await db.query<{ tag: string }>(TAGS_SQL);
     return result.rows.map(row => row.tag);
 }
 

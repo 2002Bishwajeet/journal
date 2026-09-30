@@ -67,6 +67,20 @@ export default function SharePage() {
 
             {/* Content */}
             <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+                {/* Outside the article so the global `.prose img` margin doesn't apply. */}
+                {note.cover && (
+                    <div className="mb-8 h-40 sm:h-56 w-full rounded-lg overflow-hidden">
+                        <PublicNoteImage
+                            key={note.cover.src}
+                            identity={decodeURIComponent(identity)}
+                            noteFileId={note.fileId}
+                            src={note.cover.src}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            style={{ objectPosition: `50% ${note.cover.positionY}%` }}
+                        />
+                    </div>
+                )}
                 <article className="prose prose-neutral dark:prose-invert max-w-none">
                     <h1>{note.title}</h1>
                     <div className="not-prose mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">

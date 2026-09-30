@@ -9,15 +9,23 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ShareCardPreview } from '@/components/share/ShareCardPreview';
+import { OdinImage } from '@/components/OdinImage/OdinImage';
 import { useAuth } from '@/hooks/auth';
 import { useDotYouClientContext } from '@/components/auth';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
+import { JOURNAL_DRIVE } from '@/lib/homebase/config';
 import { useNotes } from '@/hooks/useNotes';
+import { useSyncService } from '@/hooks/useSyncService';
+import { useShareCardPreview } from '@/hooks/useShareCardPreview';
 import * as Y from 'yjs';
 import { getDocumentUpdates, getSyncRecord } from '@/lib/db';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
-import { buildPublicCard } from '@/lib/share/publicCard';
+import { buildPublicCard, type ShareCardPatch } from '@/lib/share/publicCard';
 import { toast } from 'sonner';
 
 interface ShareDialogProps {
@@ -34,7 +42,9 @@ export default function ShareDialog({
 }: ShareDialogProps) {
     const { getIdentity } = useAuth();
     const dotYouClient = useDotYouClientContext();
-    const { get, setNotePublic } = useNotes();
+    const { get, setNotePublic, setShareCard } = useNotes();
+    const { syncNote } = useSyncService();
+    const cardPreview = useShareCardPreview(noteId);
     const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     const [copied, setCopied] = useState(false);
@@ -44,7 +54,9 @@ export default function ShareDialog({
 
     // Derived from the cached note metadata (kept current by make-public/private),
     // so the dialog matches the list badge without an extra network fetch.
-    const isPublic = !!get.data?.find((n) => n.docId === noteId)?.metadata.isPublic;
+    const noteMetadata = get.data?.find((n) => n.docId === noteId)?.metadata;
+    const isPublic = !!noteMetadata?.isPublic;
+    const shareDescription = noteMetadata?.shareDescription ?? '';
 
     const identity = getIdentity() || 'unknown';
     const shareUrl = `${window.location.origin}/share/${encodeURIComponent(identity)}/${noteId}`;
@@ -75,8 +87,8 @@ export default function ShareDialog({
             const updates = await getDocumentUpdates(noteId);
             const blob = updates.length > 0 ? Y.mergeUpdates(updates) : undefined;
             const metadata = get.data?.find((n) => n.docId === noteId)?.metadata;
-            await provider.makeNotePublic(noteId, record?.remoteFileId, buildPublicCard(blob, metadata ?? {}));
-            setNotePublic.mutate({ docId: noteId, isPublic: true });
+            const rekeyed = await provider.makeNotePublic(noteId, record?.remoteFileId, buildPublicCard(blob, metadata ?? {}));
+            setNotePublic.mutate({ docId: noteId, isPublic: true, rekeyed });
             toast.success('Note is now publicly accessible');
         } catch (err) {
             console.error('Failed to make note public:', err);
@@ -96,9 +108,9 @@ export default function ShareDialog({
         try {
             const provider = new NotesDriveProvider(dotYouClient);
             const record = await getSyncRecord(noteId);
-            await provider.makeNotePrivate(noteId, record?.remoteFileId);
+            const rekeyed = await provider.makeNotePrivate(noteId, record?.remoteFileId);
             setCopied(false);
-            setNotePublic.mutate({ docId: noteId, isPublic: false });
+            setNotePublic.mutate({ docId: noteId, isPublic: false, rekeyed });
             toast.success('Sharing stopped — this note is private again');
         } catch (err) {
             console.error('Failed to make note private:', err);
@@ -107,6 +119,24 @@ export default function ShareDialog({
             setIsMakingPrivate(false);
         }
     };
+
+    // The card fields ride on the note's metadata, so a normal push publishes them.
+    // Push this note directly: a full sync() is debounced and skipped while another runs.
+    const saveShareCard = async (patch: ShareCardPatch) => {
+        try {
+            await setShareCard.mutateAsync({ docId: noteId, ...patch });
+            void syncNote(noteId);
+        } catch (err) {
+            console.error('Failed to save link preview:', err);
+            toast.error('Failed to save link preview');
+        }
+    };
+
+    // Only an uploaded cover reaches the link card; a pending one previews as the logo.
+    const coverSrc = cardPreview.cover?.src;
+    const [coverFileId, coverPayloadKey] = coverSrc?.startsWith('attachment://')
+        ? coverSrc.replace('attachment://', '').split('/')
+        : [];
 
     const handleCopyLink = async () => {
         try {
@@ -143,7 +173,7 @@ export default function ShareDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Share Note</DialogTitle>
                     <DialogDescription>
@@ -224,6 +254,71 @@ export default function ShareDialog({
                                             <Copy className="h-4 w-4" />
                                         )}
                                     </Button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <h5 className="text-sm font-medium">Link preview</h5>
+                                    <ShareCardPreview
+                                        title={noteTitle || 'Untitled'}
+                                        description={cardPreview.description}
+                                        domain={window.location.host}
+                                        image={coverFileId ? (
+                                            <OdinImage
+                                                dotYouClient={dotYouClient}
+                                                targetDrive={JOURNAL_DRIVE}
+                                                fileId={coverFileId}
+                                                fileKey={coverPayloadKey}
+                                                alt=""
+                                                fit="cover"
+                                                className="h-full w-full"
+                                            />
+                                        ) : undefined}
+                                    />
+
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <Label htmlFor="share-description">Description</Label>
+                                            <Button
+                                                variant="link"
+                                                size="sm"
+                                                className="h-auto p-0"
+                                                disabled={!shareDescription}
+                                                onClick={() => saveShareCard({ shareDescription: '' })}
+                                            >
+                                                Use first paragraph
+                                            </Button>
+                                        </div>
+                                        {/* Uncontrolled and keyed on the saved value: typing doesn't
+                                            re-render the dialog, and a reset/remote change reloads it. */}
+                                        <Textarea
+                                            key={shareDescription}
+                                            id="share-description"
+                                            defaultValue={shareDescription}
+                                            placeholder={cardPreview.defaultDescription}
+                                            maxLength={300}
+                                            onBlur={(e) => {
+                                                if (e.target.value.trim() !== shareDescription) {
+                                                    void saveShareCard({ shareDescription: e.target.value });
+                                                }
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="space-y-1">
+                                            <Label htmlFor="share-indexable">
+                                                Allow search engines to index this page
+                                            </Label>
+                                            <p className="text-xs text-muted-foreground">
+                                                Link previews work either way.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            id="share-indexable"
+                                            checked={!!noteMetadata?.shareIndexable}
+                                            onCheckedChange={(checked) => saveShareCard({ shareIndexable: checked })}
+                                        />
+                                    </div>
                                 </div>
 
                                 <Button

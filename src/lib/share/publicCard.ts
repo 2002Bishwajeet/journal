@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import type { DocumentMetadata } from '@/types';
+import { coverPayloadKey, getCoverFromBlob } from '@/lib/editor/cover';
 
 /** Link-card data a public note publishes in its plaintext header content. */
 export interface PublicCard {
@@ -68,6 +69,38 @@ export function buildPublicCard(
         }
     }
 
+    if (yjsBlob) {
+        // Only an uploaded cover has a payload the guest thumb endpoint can serve.
+        const cover = getCoverFromBlob(yjsBlob);
+        const coverKey = cover && !cover.pendingId ? coverPayloadKey(cover.src) : null;
+        if (coverKey) card.coverKey = coverKey;
+    }
+
     if (meta.shareIndexable === true) card.indexable = true;
     return card;
+}
+
+/**
+ * The description a link card shows when the note has none of its own.
+ * Must stay in sync with fallbackShareDescription in functions/_lib/shareMeta.ts
+ * (the Pages Function passes the profile name where the dialog passes the identity).
+ */
+export function fallbackShareDescription(author: string): string {
+    return `A note by ${author}, shared with Journal`;
+}
+
+export interface ShareCardPatch {
+    shareDescription?: string;
+    shareIndexable?: boolean;
+}
+
+/** Apply a share-dialog edit to note metadata. A blank description is stored as undefined. */
+export function mergeShareCard<T extends Pick<DocumentMetadata, 'shareDescription' | 'shareIndexable'>>(
+    metadata: T,
+    patch: ShareCardPatch
+): T {
+    const next = { ...metadata };
+    if (patch.shareDescription !== undefined) next.shareDescription = patch.shareDescription.trim() || undefined;
+    if (patch.shareIndexable !== undefined) next.shareIndexable = patch.shareIndexable;
+    return next;
 }
