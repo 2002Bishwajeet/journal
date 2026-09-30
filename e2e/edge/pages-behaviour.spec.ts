@@ -29,6 +29,15 @@ test('hashed assets are cached as immutable', async ({ request }) => {
   expect(res.headers()['cache-control']).toContain('immutable');
 });
 
+// A missing chunk served as the SPA shell (200, immutable) got cached by the
+// zone for a year, so a chunk requested before its deploy stayed HTML after it.
+test('a missing /assets/ file is an uncacheable 404, not the shell', async ({ request }) => {
+  const res = await request.get(`/assets/does-not-exist-${Date.now()}.js`);
+  expect(res.status()).toBe(404);
+  expect(res.headers()['cache-control'] ?? '').not.toContain('immutable');
+  expect(await res.text()).not.toContain('id="root"');
+});
+
 // Pages 308s /index.html -> /, and a redirected response served to a
 // navigation is a hard network error, so the SW must precache '/'.
 test('the service worker precaches / and not index.html', async ({ request }) => {

@@ -184,8 +184,11 @@ test('signed in, opening the route directly saves the same copy as the button', 
   await app.goto(saveRoute);
   await assertTestOrigin(app);
   await waitForAppReady(app);
+  // The toast lasts a few seconds; on a slow runner opening the copy takes
+  // longer than that, so watch for it while the copy opens.
+  const toast = expect(app.getByText(`Saved "${COPY_TITLE}"`)).toBeVisible({ timeout: 15_000 });
   await expectSavedCopy(app);
-  await expect(app.getByText(`Saved "${COPY_TITLE}"`)).toBeVisible();
+  await toast;
 
   // Reloading the copy's own URL saves nothing more.
   await app.reload();
