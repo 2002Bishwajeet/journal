@@ -49,8 +49,10 @@ export function useThemePreference() {
 
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
+        // Re-read storage: another instance may have switched to Light/Dark
+        // while this one's state still says 'system'.
         const handleChange = () => {
-            applyTheme('system');
+            if (getStoredPreference() === 'system') applyTheme('system');
         };
 
         mediaQuery.addEventListener('change', handleChange);
