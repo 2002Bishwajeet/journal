@@ -58,6 +58,25 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
     await page.waitForTimeout(1000);
 }
 
+/**
+ * Push every local change: wait out any running sync, then press the sync
+ * popover's "Sync now" until the DB reports nothing pending. Edits alone never
+ * push (only a full sync does), so this is what uploads a new or edited note.
+ */
+export async function waitForSyncIdle(page: Page): Promise<void> {
+    await assertTestOrigin(page);
+    await page.getByRole('button', { name: 'Sync status' }).filter({ visible: true }).first().click();
+    const syncNow = page.getByRole('button', { name: 'Sync now' });
+    await expect(async () => {
+        await expect(syncNow).toBeEnabled({ timeout: 1_000 });
+        if ((await page.evaluate(() => window.__journalE2E!.pendingSyncCount())) === 0) return;
+        // A click within 1s of the last sync is debounced away — hence the retry.
+        await syncNow.click();
+        throw new Error('local changes still pending');
+    }).toPass({ timeout: 30_000 });
+    await page.keyboard.press('Escape');
+}
+
 /** The sidebar's folder list (used by the live tier's per-run isolation folder). */
 export function foldersNav(page: Page): Locator {
     return page.getByRole('navigation', { name: 'Folders' });

@@ -4,10 +4,11 @@
  * module (and its `window.__journalE2E` global) never ships in the production
  * bundle. See src/globals.d.ts for the public type.
  *
- * Nothing here mutates app state — the hook only reads signals the app
- * already maintains (bootProgress and the boot splash).
+ * Nothing here mutates app state — the hooks only read signals the app
+ * already maintains (bootProgress, the boot splash, and the sync queue).
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
+import { getPendingSyncCount } from '@/lib/db';
 
 const E2E_ORIGINS = [
     'http://127.0.0.1:4173',
@@ -57,9 +58,15 @@ async function ready(): Promise<void> {
     await waitForSplashGone();
 }
 
+// Read from the DB: the sync popover's pending count only refreshes after a sync.
+async function pendingSyncCount(): Promise<number> {
+    const { notes, folders, images } = await getPendingSyncCount();
+    return notes + folders + images;
+}
+
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready }),
+        value: Object.freeze({ ready, pendingSyncCount }),
         writable: false,
         configurable: false,
         enumerable: false,

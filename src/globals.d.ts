@@ -5,6 +5,8 @@ declare const __APP_BUILD__: string;
 interface JournalE2EHooks {
   /** Resolves once boot phase db-ready has fired and the boot splash has been replaced by the app UI. */
   ready(): Promise<void>;
+  /** Local notes, folders and images not yet pushed to Homebase. */
+  pendingSyncCount(): Promise<number>;
 }
 
 interface Window {
