@@ -48,14 +48,12 @@ const WIDTHS: { id: EditorWidth; label: string }[] = [
 
 /** Segmented radio group; native radios keep arrow-key navigation and labels. */
 function OptionGroup<T extends string>({
-  id,
   name,
   label,
   options,
   value,
   onChange,
 }: {
-  id?: string;
   name: string;
   label: string;
   options: { id: T; label: string }[];
@@ -64,7 +62,6 @@ function OptionGroup<T extends string>({
 }) {
   return (
     <div
-      id={id}
       role="radiogroup"
       aria-label={label}
       className="flex rounded-lg border p-0.5"
