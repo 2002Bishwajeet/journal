@@ -58,7 +58,8 @@ test('share page shows the cover, and its og:image is served anonymously (#220)'
             ogImage = /<meta property="og:image" content="([^"]+)"/.exec(tags)?.[1].replace(/&amp;/g, '&') ?? '';
             return ogImage;
         }, { timeout: 90_000, message: 'og:image is the guest thumb URL of the cover' })
-            .toMatch(new RegExp(`^https://${identity.replace(/\./g, '\\.')}/api/guest/v1/drive/files/thumb\\?.*payloadKey=jrnl_img\\d+`));
+            .toMatch(/\/api\/guest\/v1\/drive\/files\/thumb\?.*payloadKey=jrnl_img\d+/);
+        expect(ogImage.startsWith(`https://${identity}/`)).toBe(true);
 
         const thumb = await anon.get(ogImage, { failOnStatusCode: false });
         const contentType = thumb.headers()['content-type'] ?? '';
