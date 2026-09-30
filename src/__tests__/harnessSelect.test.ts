@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error -- plain ESM dev script, no type declarations
-import { parseDependsOn, parseVerification, classify } from '../../scripts/harness/select.mjs';
+import { parseDependsOn, parseVerification, parseRouting, classify } from '../../scripts/harness/select.mjs';
 
 const meta = (depLine: string) => `## Goal\nx\n\n## Metadata\n${depLine}\nSize: S\nArea: x\n`;
 
@@ -38,6 +38,21 @@ describe('parseVerification', () => {
     it('returns backticked commands in order', () => {
         const body = '## Verification\n- `npm run e2e -- e2e/a.spec.ts`\n- `npx vitest run x` then `npm run build`\n## Out of scope\n- `nope`\n';
         expect(parseVerification(body)).toEqual(['npm run e2e -- e2e/a.spec.ts', 'npx vitest run x', 'npm run build']);
+    });
+});
+
+describe('parseRouting', () => {
+    it('reads Model and Effort from Metadata, case-insensitively', () => {
+        expect(parseRouting(meta('Depends on: none\nModel: Sonnet\nEffort: xhigh'))).toEqual({
+            model: 'sonnet',
+            effort: 'xhigh',
+        });
+    });
+
+    it('leaves absent or unknown values undefined', () => {
+        expect(parseRouting(meta('Depends on: none'))).toEqual({});
+        expect(parseRouting(meta('Depends on: none\nModel: gpt\nEffort: extreme'))).toEqual({});
+        expect(parseRouting(`## Goal\nModel: sonnet\n`)).toEqual({});
     });
 });
 
