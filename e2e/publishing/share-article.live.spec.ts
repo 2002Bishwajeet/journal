@@ -167,7 +167,15 @@ test('shared note reads as an article: byline, phone width, dark contrast (#221)
         if (await avatar.count()) {
             const naturalWidth = await avatar.evaluate((img: HTMLImageElement) => img.complete ? img.naturalWidth : 0);
             expect.soft(naturalWidth, 'avatar image decoded').toBeGreaterThan(0);
+            const offset = await avatar.evaluate((img) =>
+                img.getBoundingClientRect().top - img.parentElement!.getBoundingClientRect().top);
+            expect.soft(Math.abs(offset), 'avatar image sits inside its circle').toBeLessThanOrEqual(1);
         }
+
+        // Wide cells must not be clipped or spill into their neighbours at desktop width.
+        const overflowingCells = await anonPage.evaluate(() =>
+            [...document.querySelectorAll('article th, article td')].filter((c) => c.scrollWidth > c.clientWidth + 1).length);
+        expect.soft(overflowingCells, 'table cells whose text overflows at 1280px').toBe(0);
 
         await screenshot(anonPage, testInfo, 'share-article-desktop-light');
 

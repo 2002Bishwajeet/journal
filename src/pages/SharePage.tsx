@@ -70,7 +70,8 @@ export default function SharePage() {
                     <h1>{note.title}</h1>
                     <div className="not-prose mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                         <Avatar className="h-8 w-8">
-                            {author.avatarUrl && <AvatarImage src={author.avatarUrl} alt="" />}
+                            {/* `!`: the global unlayered `.prose img` margin (1.5rem) would push the image out of its circle. */}
+                            {author.avatarUrl && <AvatarImage className="m-0!" src={author.avatarUrl} alt="" />}
                             <AvatarFallback className="text-foreground">{author.name.charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <span className="font-semibold text-foreground">{author.name}</span>
@@ -111,7 +112,9 @@ export default function SharePage() {
                                 void node;
                                 return (
                                     <div className="overflow-x-auto">
-                                        <table {...rest} />
+                                        {/* The editor's global `.prose table` is fixed-layout, which clips wide cells
+                                            at desktop width; auto layout lets the wrapper scroll instead. */}
+                                        <table {...rest} className="table-auto!" />
                                     </div>
                                 );
                             },
