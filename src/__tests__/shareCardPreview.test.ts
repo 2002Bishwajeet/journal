@@ -27,7 +27,7 @@ describe('ShareCardPreview', () => {
     });
 
     it('renders the image instead of the logo when given one', () => {
-        const html = render({ imageUrl: 'https://cdn.example/cover.jpg' });
+        const html = render({ image: createElement('img', { src: 'https://cdn.example/cover.jpg' }) });
         expect(html).toContain('https://cdn.example/cover.jpg');
         expect(html).not.toContain('/logo.webp');
     });
