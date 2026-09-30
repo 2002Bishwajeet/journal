@@ -816,3 +816,33 @@ body {
   width: 10000px;
   margin: 0 auto;
 }
+
+/* Share page (src/pages/SharePage.tsx, #408). Text keeps the reading column.
+   A wide block (a code block, table, image or live block directly in the
+   article) is as wide as its own content: the column when that fits, past it
+   up to the wide measure when it does not, and scrolling inside itself beyond
+   that. Below 768px there is one column and every wide block scrolls in it. */
+
+/* `.prose code` is the inline-code chip: its padding would push the first line
+   of a block out of line with the rest, which breaks an ASCII diagram. */
+.share-article pre code {
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .share-article > .share-wide,
+  .share-article > p > .share-wide,
+  .share-article > [data-live-block] {
+    width: max-content;
+    min-width: 100%;
+    max-width: min(100vw - 2rem, 72rem);
+    /* Centred on the column, and so on the page. */
+    margin-left: 50%;
+    translate: -50%;
+  }
+
+  /* A page in a frame has no width of its own, so it always gets the wide measure. */
+  .share-article > [data-live-block='html'] {
+    width: min(100vw - 2rem, 72rem);
+  }
+}

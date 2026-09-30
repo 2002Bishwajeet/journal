@@ -1,7 +1,8 @@
 /**
  * react-markdown `pre` override for the share page (#390). A fenced `mermaid`,
  * `svg` or `html` block renders as a preview by default, with a View source
- * toggle for the highlighted code; any other code block renders as a plain <pre>.
+ * toggle for the highlighted code; any other code block renders as a <pre> with
+ * a Copy button (#408).
  *
  * The preview is built from the code block's text, never from raw HTML in the
  * markdown: the sanitizer has already dropped iframes, scripts and styles.
@@ -11,6 +12,7 @@ import type { Element, ElementContent } from 'hast';
 import type { ExtraProps } from 'react-markdown';
 import { LiveBlockFrame, LiveBlockToggle } from '@/components/liveBlocks/LiveBlockFrame';
 import { liveBlockKind } from '@/lib/liveBlocks';
+import { CopyableCodeBlock } from './CopyableCodeBlock';
 
 function textOf(node: ElementContent): string {
   if (node.type === 'text') return node.value;
@@ -32,7 +34,15 @@ function liveBlockOf(node: Element | undefined) {
 export function LiveBlockAwarePre({ node, children, ...rest }: ComponentProps<'pre'> & ExtraProps) {
   const [showSource, setShowSource] = useState(false);
   const live = liveBlockOf(node);
-  if (!live) return <pre {...rest}>{children}</pre>;
+  if (!live) {
+    // The fence's text ends with a newline the author did not write.
+    const source = node ? textOf(node).replace(/\n$/, '') : '';
+    return (
+      <CopyableCodeBlock {...rest} source={source}>
+        {children}
+      </CopyableCodeBlock>
+    );
+  }
 
   return (
     <LiveBlockFrame

@@ -82,7 +82,8 @@ export default function SharePage() {
                         />
                     </div>
                 )}
-                <article className="prose prose-neutral dark:prose-invert max-w-none">
+                {/* `share-article`: its wide blocks grow past this column (src/index.css, "Share page"). */}
+                <article className="share-article prose prose-neutral dark:prose-invert max-w-none">
                     <h1>{note.title}</h1>
                     <div className="not-prose mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                         <Avatar className="h-8 w-8">
@@ -113,23 +114,29 @@ export default function SharePage() {
                                 // `node` is react-markdown's own extra prop, not a DOM attribute —
                                 // exclude it before spreading the rest (title, etc.) onto <img>.
                                 void node;
-                                return src?.startsWith('attachment://') ? (
-                                    <PublicNoteImage
-                                        key={src}
-                                        identity={decodeURIComponent(identity)}
-                                        noteFileId={note.fileId}
-                                        src={src}
-                                        alt={alt}
-                                    />
-                                ) : (
-                                    <img src={src} alt={alt} loading="lazy" {...rest} />
+                                return (
+                                    // A wide block, so an image wider than the column grows past it.
+                                    <span className="share-wide block">
+                                        {src?.startsWith('attachment://') ? (
+                                            <PublicNoteImage
+                                                key={src}
+                                                identity={decodeURIComponent(identity)}
+                                                noteFileId={note.fileId}
+                                                src={src}
+                                                alt={alt}
+                                            />
+                                        ) : (
+                                            <img src={src} alt={alt} loading="lazy" {...rest} />
+                                        )}
+                                    </span>
                                 );
                             },
-                            // Wide tables scroll within the column instead of widening the page on phones.
+                            // A wide block: a table wider than the column grows past it, then scrolls
+                            // within its wrapper instead of widening the page.
                             table: ({ node, ...rest }) => {
                                 void node;
                                 return (
-                                    <div className="overflow-x-auto">
+                                    <div className="share-wide overflow-x-auto">
                                         {/* The editor's global `.prose table` is fixed-layout, which clips wide cells
                                             at desktop width; auto layout lets the wrapper scroll instead. */}
                                         <table {...rest} className="table-auto!" />
