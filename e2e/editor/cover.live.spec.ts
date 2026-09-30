@@ -7,7 +7,7 @@ import { makeSolidPng } from '../support/png';
 // #219: the owner adds, repositions, changes and removes a note's cover on a
 // real identity; cover and position survive a reload, and changing the cover
 // queues the old payload for deletion (observable only as SyncService's
-// "Deleting payloads" console line). Screenshots land in SCREENSHOT_DIR, which
+// "Deleting payloads" console line, so the spec turns on the debug flag). Screenshots land in SCREENSHOT_DIR, which
 // the "E2E live" workflow uploads on every run.
 
 const SCREENSHOT_DIR = 'test-results/cover-screenshots';
@@ -47,6 +47,7 @@ async function coverIs(page: Page, rgb: [number, number, number]): Promise<boole
 
 async function screenshot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
     const path = `${SCREENSHOT_DIR}/${name}.png`;
+    await page.waitForTimeout(300); // let the toolbar's duration-200 hover fade finish
     await page.screenshot({ path });
     await testInfo.attach(name, { path, contentType: 'image/png' });
 }
@@ -78,10 +79,15 @@ test('cover image: add, reposition, change and remove survive reloads (#219)', a
     page.on('console', onConsole);
 
     try {
+        // Production builds silence console.log unless Homebase's debug flag is set (initLogging.ts).
+        await page.evaluate(() => localStorage.setItem('debug', '1'));
+        await reloadNote(page);
+        await selectFolder(page, folderName);
+
         const title = `Cover note ${Date.now()}`;
         await createNote(page, { title, body: 'A note with a cover image.' });
         await expect(band(page)).toHaveCount(0);
-        await activeTitleInput(page).hover();
+        await page.getByRole('button', { name: 'Add cover' }).hover();
         await screenshot(page, testInfo, 'cover-none-desktop-light');
 
         // Add: the local blob shows at once, then the upload promotes it to an attachment.
@@ -159,6 +165,7 @@ test('cover image: add, reposition, change and remove survive reloads (#219)', a
         await expect(band(page)).toHaveCount(0);
     } finally {
         page.off('console', onConsole);
+        await page.evaluate(() => localStorage.removeItem('debug')).catch(() => {});
         // liveRun's page is shared with later specs: leave it as the fixture made it.
         await page.emulateMedia({ colorScheme: 'light' });
         await page.setViewportSize({ width: 1280, height: 720 });
