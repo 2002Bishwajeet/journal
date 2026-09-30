@@ -152,9 +152,9 @@ export function AISuggestionOverlay({ editor }: AISuggestionOverlayProps) {
       }
     };
 
-    window.addEventListener('ai-slash-command', handleAICommand as unknown as EventListener);
+    window.addEventListener('ai-slash-command', handleAICommand);
     return () => {
-      window.removeEventListener('ai-slash-command', handleAICommand as unknown as EventListener);
+      window.removeEventListener('ai-slash-command', handleAICommand);
     };
   }, [editor, isReady, isModelLoading, initialize, rewrite, chat]);
 

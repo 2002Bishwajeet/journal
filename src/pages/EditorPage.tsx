@@ -64,13 +64,12 @@ function EditorLayout({
   const selectedNote = notes.find((n) => n.docId === noteId);
   const selectedNoteMetadata = selectedNote?.metadata;
 
-  const isCollaborative = !!selectedNoteMetadata?.isCollaborative;
-  const collaborativePopover = isCollaborative ? (
+  const collaborativePopover = selectedNoteMetadata?.isCollaborative ? (
     <CollaborativePopover
-      circleIds={selectedNoteMetadata!.circleIds}
-      recipients={selectedNoteMetadata!.recipients}
-      lastEditedBy={selectedNoteMetadata!.lastEditedBy}
-      lastEditedAt={selectedNoteMetadata!.timestamps?.modified}
+      circleIds={selectedNoteMetadata.circleIds}
+      recipients={selectedNoteMetadata.recipients}
+      lastEditedBy={selectedNoteMetadata.lastEditedBy}
+      lastEditedAt={selectedNoteMetadata.timestamps?.modified}
     />
   ) : null;
 

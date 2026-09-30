@@ -367,11 +367,11 @@ export class NotesDriveProvider {
             throw new Error(`Peer update requires globalTransitId for ${uniqueId}`);
         }
 
-        const updateInstructions: UpdateInstructionSet = isPeer
+        const updateInstructions: UpdateInstructionSet = isPeer && globalTransitId
             ? {
                 locale: 'peer' as const,
                 file: {
-                    globalTransitId: globalTransitId!,
+                    globalTransitId,
                     targetDrive: JOURNAL_DRIVE,
                 },
                 recipients: [authorOdinId],
@@ -695,10 +695,11 @@ export class NotesDriveProvider {
         });
     }
 
-    async dsrToNoteFileContent(dsr: HomebaseFile,
-        includeMetadataHeader: boolean): Promise<NoteFileContent | null> {
+    async dsrToContent<T = NoteFileContent>(dsr: HomebaseFile<unknown>,
+        includeMetadataHeader: boolean): Promise<T | null> {
         try {
-            const noteFileContent = await getContentFromHeaderOrPayload<NoteFileContent>(this.#dotYouClient, JOURNAL_DRIVE, dsr, includeMetadataHeader);
+            // The SDK types appData.content as string; it only forwards the header, so the content type is irrelevant here.
+            const noteFileContent = await getContentFromHeaderOrPayload<T>(this.#dotYouClient, JOURNAL_DRIVE, dsr as HomebaseFile, includeMetadataHeader);
             if (!noteFileContent) {
                 return null;
             }

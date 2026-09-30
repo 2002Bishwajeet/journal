@@ -118,7 +118,7 @@ describe('note delete when the server delete fails (#265)', () => {
     it('does not resurrect a pending-delete note when the pull sees it again', async () => {
         mockDeleteFile.mockRejectedValue(new Error('offline'));
         await deleteNoteLikeTheUi();
-        vi.spyOn(NotesDriveProvider.prototype, 'dsrToNoteFileContent').mockResolvedValue({ title: 'Doomed' } as never);
+        vi.spyOn(NotesDriveProvider.prototype, 'dsrToContent').mockResolvedValue({ title: 'Doomed' } as never);
         const payloadSpy = vi.spyOn(NotesDriveProvider.prototype, 'getNotePayload').mockResolvedValue(undefined as never);
 
         await svc.handleRemoteNote({

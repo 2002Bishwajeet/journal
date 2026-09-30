@@ -11,6 +11,7 @@ import { getCoverFromBlob } from '@/lib/editor/cover';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import type { NoteFileContent } from '@/types';
 import { JOURNAL_DRIVE, PAYLOAD_KEY_CONTENT } from '@/lib/homebase/config';
+import { httpStatus } from '@/lib/homebase/httpStatus';
 
 export interface SharedNoteData {
     title: string;
@@ -40,9 +41,9 @@ export class ShareProvider {
     async getPublicNote(identity: string, noteId: string): Promise<SharedNoteData | null> {
         const client = new DotYouClient({ hostIdentity: identity, api: ApiType.Guest });
 
-        let header: HomebaseFile<NoteFileContent> | null;
+        let header: HomebaseFile | null;
         try {
-            header = await getFileHeaderByUniqueId<NoteFileContent>(
+            header = await getFileHeaderByUniqueId(
                 client,
                 JOURNAL_DRIVE,
                 noteId,
@@ -51,7 +52,7 @@ export class ShareProvider {
         } catch (err) {
             // The SDK returns null for a 404; a 401/403 means the note exists but
             // isn't publicly shared.
-            const status = (err as { response?: { status?: number } })?.response?.status;
+            const status = httpStatus(err);
             if (status === 401 || status === 403) {
                 // Tagged so the query hook can skip retrying a definitive result.
                 const forbidden = new Error('This note is not shared publicly.') as Error & {
@@ -74,7 +75,7 @@ export class ShareProvider {
         const content = await getContentFromHeaderOrPayload<NoteFileContent>(
             client,
             JOURNAL_DRIVE,
-            header as unknown as HomebaseFile<string>,
+            header,
             false // don't decrypt
         );
         const title = content?.title || 'Untitled';

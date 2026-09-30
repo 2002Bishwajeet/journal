@@ -95,7 +95,7 @@ export function logMemorySnapshot(): void {
 // Auto-start in development mode
 if (import.meta.env.DEV) {
     // Expose to window for manual debugging
-    (window as unknown as Record<string, unknown>).memoryMonitor = {
+    window.memoryMonitor = {
         start: startMemoryMonitor,
         stop: stopMemoryMonitor,
         snapshot: logMemorySnapshot,

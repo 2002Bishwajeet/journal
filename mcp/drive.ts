@@ -86,7 +86,7 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         // and is decrypted separately.
         // Load the stored state, never a fresh doc, so the edit is causally after it.
         const [content, payload] = await Promise.all([
-            notesProvider.dsrToNoteFileContent(file as unknown as HomebaseFile, true),
+            notesProvider.dsrToContent(file, true),
             notesProvider.getNotePayload(file.fileId, undefined, file.fileMetadata.updated),
         ]);
         if (!content) return null;

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect } from 'react';
-import type { DotYouClient, TypedConnectionNotification, NotificationType, TargetDrive, DeletedHomebaseFile, HomebaseFile } from '@homebase-id/js-lib/core';
+import type { DotYouClient, TypedConnectionNotification, NotificationType, TargetDrive } from '@homebase-id/js-lib/core';
 import { drivesEqual } from '@homebase-id/js-lib/helpers';
 import { useWebsocketSubscriber } from './useWebsocketSubscriber';
 import { JOURNAL_DRIVE, JOURNAL_FILE_TYPE } from '@/lib/homebase';
@@ -60,7 +60,7 @@ export const usePeerNoteWebsocket = ({
                     console.error('[PeerNoteWebsocket] handleRemoteNote failed:', error);
                 }
             } else {
-                await syncServiceRef.current.handleDeletedNote(notification.header as unknown as DeletedHomebaseFile);
+                await syncServiceRef.current.handleDeletedNote(notification.header);
                 toast('This shared note has been deleted by the author');
             }
         },
@@ -79,7 +79,7 @@ export const usePeerNoteWebsocket = ({
                 noteUniqueIdRef.current, authorOdinIdRef.current, { decrypt: false },
             );
             if (freshFile) {
-                await syncServiceRef.current.handleRemoteNote(freshFile as unknown as HomebaseFile<string>);
+                await syncServiceRef.current.handleRemoteNote(freshFile);
             }
         } catch (error) {
             console.error('[PeerNoteWebsocket] Reconnect sync failed:', error);

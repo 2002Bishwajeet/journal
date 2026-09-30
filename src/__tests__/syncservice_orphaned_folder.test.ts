@@ -20,7 +20,7 @@ const { mockDsr, mockGetNotePayload, mockDsrFolder, mockProcessChanges } = vi.ho
 }));
 vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
     NotesDriveProvider: class NotesDriveProvider {
-        dsrToNoteFileContent = mockDsr;
+        dsrToContent = mockDsr;
         getNotePayload = mockGetNotePayload;
         constructor() {}
     },

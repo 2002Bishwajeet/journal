@@ -217,7 +217,8 @@ export function useWebLLM(): UseWebLLMResult {
 
     const runGrammarCheck = useCallback(async (text: string) => {
         if (isMobile) return;
-        if (!webllmModule || !webllmModule.isWebLLMReady()) return;
+        const mod = webllmModule;
+        if (!mod || !mod.isWebLLMReady()) return;
 
         // Debounce grammar check (2 seconds)
         if (grammarDebounceRef.current) {
@@ -225,7 +226,7 @@ export function useWebLLM(): UseWebLLMResult {
         }
 
         grammarDebounceRef.current = setTimeout(async () => {
-            const errors = await webllmModule!.checkGrammar(text);
+            const errors = await mod.checkGrammar(text);
             setGrammarErrors(errors);
         }, 2000);
     }, [isMobile]);
@@ -238,7 +239,9 @@ export function useWebLLM(): UseWebLLMResult {
             const success = await initialize();
             if (!success) return text;
         }
-        return webllmModule!.rewriteText(text, style);
+        const mod = webllmModule;
+        if (!mod) return text;
+        return mod.rewriteText(text, style);
     }, [initialize, isMobile]);
 
     const getSuggestions = useCallback(async (text: string): Promise<string[]> => {
@@ -255,7 +258,9 @@ export function useWebLLM(): UseWebLLMResult {
             const success = await initialize();
             if (!success) throw new Error('Failed to initialize AI');
         }
-        return webllmModule!.chat(messages);
+        const mod = webllmModule;
+        if (!mod) throw new Error('Failed to initialize AI');
+        return mod.chat(messages);
     }, [initialize, isMobile]);
 
     // Cleanup on unmount
