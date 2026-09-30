@@ -43,7 +43,7 @@ export default function ShareDialog({
     const { getIdentity } = useAuth();
     const dotYouClient = useDotYouClientContext();
     const { get, setNotePublic, setShareCard } = useNotes();
-    const { sync } = useSyncService();
+    const { syncNote } = useSyncService();
     const cardPreview = useShareCardPreview(noteId);
     const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -121,10 +121,11 @@ export default function ShareDialog({
     };
 
     // The card fields ride on the note's metadata, so a normal push publishes them.
+    // Push this note directly: a full sync() is debounced and skipped while another runs.
     const saveShareCard = async (patch: ShareCardPatch) => {
         try {
             await setShareCard.mutateAsync({ docId: noteId, ...patch });
-            sync().catch((err) => console.error('[ShareDialog] Sync after link preview edit failed:', err));
+            void syncNote(noteId);
         } catch (err) {
             console.error('Failed to save link preview:', err);
             toast.error('Failed to save link preview');
