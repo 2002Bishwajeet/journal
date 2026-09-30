@@ -176,7 +176,14 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks(id, { getModuleInfo }) {
+        // Groups rather than `manualChunks`: a group pulls in its modules'
+        // dependencies, and with one function Vite's dynamic-import helper (used
+        // by every lazy chunk, and by mermaid's own lazy diagrams) landed in
+        // 'mermaid', putting that 4.8 MB chunk on the boot path. A separate,
+        // higher-priority group keeps the helper in a tiny chunk of its own.
+        codeSplitting: { groups: [{ name: 'preload-helper', test: /vite\/preload-helper/, priority: 10 }, {
+          name(id, ctx) {
+          const getModuleInfo = (moduleId: string) => ctx.getModuleInfo(moduleId);
           // True when no chain of static importers reaches the module from an
           // entry, i.e. it only ever loads through a dynamic import(). Cycles
           // and unknown modules count as static, keeping them in the boot chunk.
@@ -229,7 +236,8 @@ export default defineConfig(({ mode }) => ({
           // an attractor for shared modules, so grouping TipTap dragged React
           // and the Radix primitives in with it, putting the 750 KB editor on
           // every route's import graph. Automatic splitting keeps it lazy.
-        }
+          },
+        }] },
       }
     }
   },
