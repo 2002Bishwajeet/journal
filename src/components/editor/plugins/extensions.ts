@@ -38,6 +38,8 @@ export { FileHandler } from './FileHandler';
 // Initialize lowlight for code syntax highlighting
 import { common } from 'lowlight';
 const lowlight = createLowlight(common);
+// A `react` live block's code is JSX, which the javascript grammar highlights (#426).
+lowlight.registerAlias({ javascript: ['react'] });
 
 declare module '@tiptap/core' {
     interface Commands<ReturnType> {

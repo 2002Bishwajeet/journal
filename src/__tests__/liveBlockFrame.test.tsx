@@ -88,6 +88,51 @@ describe('LiveBlockFrame', () => {
   });
 });
 
+describe('LiveBlockPreview react, mounted (#426)', () => {
+  const COUNTER = 'function App() { const [count, setCount] = useState(0); return <button onClick={() => setCount(count + 1)}>Count: {count}</button>; }';
+
+  let root: Root;
+  let note: HTMLDivElement;
+
+  /** Mounts the preview and waits for the compiler and the runtime, which are dynamic imports. */
+  async function mount(source: string): Promise<void> {
+    note = document.body.appendChild(document.createElement('div'));
+    root = createRoot(note);
+    await act(async () => root.render(<LiveBlockPreview kind="react" source={source} />));
+    for (let i = 0; i < 200 && note.querySelector('[role="status"]'); i++) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+    }
+  }
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    note.remove();
+  });
+
+  it('should run the compiled component on the runtime, in the frame an html block gets', async () => {
+    await mount(COUNTER);
+    const frame = note.querySelector('iframe')!;
+    expect(frame.getAttribute('title')).toBe('React preview');
+    expect(frame.getAttribute('sandbox')).toBe('allow-scripts');
+    const srcdoc = frame.getAttribute('srcdoc')!;
+    expect(srcdoc.startsWith('<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src \'none\';')).toBe(true);
+    expect(srcdoc).not.toContain('unsafe-eval');
+    // The stub stands in for the runtime vite.config.ts builds (src/__tests__/stubs/reactBlockRuntime.ts).
+    expect(srcdoc).toContain('<script>/* react-block-runtime stub */</script>');
+    expect(srcdoc).toContain("React.createElement('button'");
+  });
+
+  it('should show a syntax error with its line, as text in place of the frame', async () => {
+    await mount('function App() { return <div>; }');
+    expect(note.querySelector('iframe')).toBeNull();
+    const alert = note.querySelector('[role="alert"]')!;
+    expect(alert.textContent).toContain('Couldn’t compile this component.');
+    expect(alert.textContent).toContain('Line 1: Unterminated JSX contents');
+  });
+});
+
 describe('LiveBlockPreview html, mounted', () => {
   const LIGHT = { '--background': '#FDFCF8', '--foreground': '#2C2B29', '--muted': '#F2F0E9', '--muted-foreground': '#8A8780', '--border': '#E6E4DD', '--accent': '#F7F5F0', '--secondary': '#F2F0E9', '--primary': '#2C2B29', '--radius': '0.5rem', '--chart-1': '#2C2B29', '--chart-5': '#E6E4DD' };
   const DARK = { ...LIGHT, '--background': '#1C1B1A', '--foreground': '#E6E4DD', '--muted': '#2C2B29', '--border': '#3E3D3A' };

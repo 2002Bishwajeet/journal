@@ -741,7 +741,7 @@ body {
   --input: #3E3D3A;
 }
 
-/* Live blocks: mermaid, svg and html code blocks (src/components/liveBlocks).
+/* Live blocks: mermaid, svg, html and react code blocks (src/components/liveBlocks).
    These rules are the ones that have to beat the unlayered `.prose` styles
    above; the rest of the look is utility classes in LiveBlockFrame. */
 
@@ -759,14 +759,14 @@ body {
   padding: 0;
 }
 
-/* An html block's code fills the frame's resizable box and scrolls inside it. */
-[data-live-block='html'] pre {
+/* An html or react block's code fills the frame's resizable box and scrolls inside it. */
+:is([data-live-block='html'], [data-live-block='react']) pre {
   height: 100%;
   overflow: auto;
 }
 
 /* LiveBlockFrame draws its own grip over the native resize handle. */
-[data-live-block='html'] ::-webkit-resizer {
+:is([data-live-block='html'], [data-live-block='react']) ::-webkit-resizer {
   background: transparent;
 }
 

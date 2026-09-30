@@ -109,7 +109,7 @@ tables, links, code), these render as richer blocks in Journal:
   or `> [!error]`.
 - **Toggle** — `<details>` with a `<summary>` line, then a blank line, the body, a blank
   line and `</details>`.
-- **Live blocks** — a fenced code block whose language is `mermaid`, `svg` or `html`.
+- **Live blocks** — a fenced code block whose language is `mermaid`, `svg`, `html` or `react`.
   Journal shows a preview with a Code / Preview toggle, in the editor and on the note's
   public share page.
 
@@ -123,6 +123,7 @@ Not available through these tools: uploading images or a cover image, link-previ
 | `mermaid` | a diagram, coloured to match the light or dark theme | no |
 | `svg` | an image; scripts and external references inside the SVG are ignored | no |
 | `html` | a running page in a sandboxed frame | yes, isolated |
+| `react` | a React component, run on Journal's own React in the same frame as `html` | yes, isolated |
 
 Example: *"Add a mermaid flowchart of the release process and a small HTML tip calculator
 to my Notes folder."*
@@ -156,6 +157,36 @@ roughly 650px and let the layout stretch.
 
 Planned, not available yet: scripts from an allowlisted CDN, and saved state stored in the
 note.
+
+### How a `react` block works
+
+A `react` block is JSX that defines a component named `App`, or exports one as default.
+Journal compiles it and renders `App` on its own copy of React, the version the app itself
+runs, in the same sandboxed frame as an `html` block: everything above about the frame
+applies, and no CDN script is needed. `jsx` and `tsx` blocks stay ordinary code.
+
+- Hooks are on `React` (`React.useState`, `React.useCallback`, …), and `useState`,
+  `useEffect`, `useRef`, `useMemo` and `useReducer` also work without the prefix.
+- It can import only from `react`. TypeScript is not supported.
+- State lives in the component and is lost on reload.
+- A syntax error is shown with its line in place of the component; an error while
+  rendering is shown inside the frame.
+
+````markdown
+```react
+function App() {
+  const [count, setCount] = useState(0);
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>Add one</button>
+    </div>
+  );
+}
+```
+````
+
+The design rules for `html` blocks below apply to a `react` block unchanged.
 
 ### Designing an `html` block
 

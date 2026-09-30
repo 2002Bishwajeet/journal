@@ -9,6 +9,8 @@ import rehypeSanitize from 'rehype-sanitize';
 import { sanitizeSchema } from '@/lib/utils/shareSanitizeSchema';
 
 const lowlight = createLowlight(common);
+// A `react` live block's code is JSX, which the javascript grammar highlights (#426).
+lowlight.registerAlias({ javascript: ['react'] });
 
 function textOf(node: ElementContent): string {
     if (node.type === 'text') return node.value;
