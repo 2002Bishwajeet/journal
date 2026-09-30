@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect } from 'react';
-import type { DotYouClient, TypedConnectionNotification, DeletedHomebaseFile, ClientFileNotification } from '@homebase-id/js-lib/core';
+import type { DotYouClient, TypedConnectionNotification, ClientFileNotification } from '@homebase-id/js-lib/core';
 import { drivesEqual } from '@homebase-id/js-lib/helpers';
 import { useWebsocketSubscriber } from './useWebsocketSubscriber';
 import { toast } from 'sonner';
@@ -67,17 +67,11 @@ export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: Use
             } else if (notification.notificationType === 'fileDeleted') {
                 const fileType = notification.header?.fileMetadata?.appData?.fileType;
                 if (fileType === JOURNAL_FILE_TYPE) {
-                    await syncService.handleDeletedNote(
-                        notification.header as unknown as DeletedHomebaseFile,
-                    );
+                    await syncService.handleDeletedNote(notification.header);
                 } else if (fileType === FOLDER_FILE_TYPE) {
-                    await syncService.handleDeletedFolder(
-                        notification.header as unknown as DeletedHomebaseFile,
-                    );
+                    await syncService.handleDeletedFolder(notification.header);
                 } else if (fileType === COLLABORATION_INVITE_FILE_TYPE) {
-                    await syncService.handleDeletedInvitation(
-                        notification.header as unknown as DeletedHomebaseFile,
-                    );
+                    await syncService.handleDeletedInvitation(notification.header);
                 }
             }
         } catch (error) {

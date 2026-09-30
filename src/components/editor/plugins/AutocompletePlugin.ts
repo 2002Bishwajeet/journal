@@ -253,7 +253,7 @@ export const AutocompletePlugin = Extension.create<AutocompletePluginOptions>({
                         );
 
                         // Need minimum context
-                        if (textBefore.trim().length < options.minCharsBeforeTrigger!) {
+                        if (textBefore.trim().length < (options.minCharsBeforeTrigger ?? 20)) {
                             log(`Skipping: Text too short (${textBefore.trim().length} chars)`);
                             return;
                         }

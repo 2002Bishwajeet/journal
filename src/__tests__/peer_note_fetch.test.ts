@@ -31,7 +31,7 @@ vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
     NotesDriveProvider: class NotesDriveProvider {
         getNote = mockGetNote;
         getNotePayload = mockGetNotePayload;
-        dsrToNoteFileContent = mockDsr;
+        dsrToContent = mockDsr;
         constructor() {}
     },
 }));

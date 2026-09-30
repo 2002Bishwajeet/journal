@@ -112,10 +112,10 @@ export const useWebsocketSubscriber = (
             };
 
             try {
-                if (isPeer && peerMod) {
+                if (isPeer && peerMod && odinId) {
                     await peerMod.SubscribeOverPeer(
                         dotYouClient,
-                        odinId!,
+                        odinId,
                         drives,
                         localHandler,
                         disconnectCb,

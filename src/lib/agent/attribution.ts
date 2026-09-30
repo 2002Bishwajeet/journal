@@ -25,9 +25,9 @@ export function agentEditor(clientName: string): string {
 
 /** Display name for an agent-authored `lastEditedBy`, or null when it's a human editor. */
 export function agentDisplayName(lastEditedBy?: string): string | null {
-    if (!isAgentEditor(lastEditedBy)) return null;
+    if (!lastEditedBy || !isAgentEditor(lastEditedBy)) return null;
 
-    const name = lastEditedBy!.slice('agent:'.length);
+    const name = lastEditedBy.slice('agent:'.length);
     if (name in KNOWN_AGENTS) return KNOWN_AGENTS[name];
 
     return name

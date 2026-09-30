@@ -82,8 +82,9 @@ async function importZip(
             // Check if we need to create it
             const normalizedName = folderName.toLowerCase();
 
-            if (folderNameMap.has(normalizedName)) {
-                folderId = folderNameMap.get(normalizedName)!;
+            const existingFolderId = folderNameMap.get(normalizedName);
+            if (existingFolderId) {
+                folderId = existingFolderId;
             } else {
                 // Create new folder
                 const newFolderId = getNewId();

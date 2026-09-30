@@ -50,6 +50,7 @@ import { serializeKeyHeader, tryJsonParse, validateKeyHeader } from '@/lib/utils
 import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import { collectImageRefs } from '@/lib/yjs/imageRefs';
 import { MAIN_FOLDER_ID, COLLABORATIVE_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
+import { httpStatus } from './httpStatus';
 import type { FolderFile, SyncRecord, SyncProgress, CollaborationInviteContent } from '@/types';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
 import { getCover, setCover } from '@/lib/editor/cover';
@@ -78,12 +79,15 @@ export interface EnsureNoteContentResult {
 export function classifyPeerFetchError(err: unknown): Extract<
     EnsureNoteContentStatus, 'forbidden' | 'notfound' | 'offline' | 'error'
 > {
-    const status = (err as { response?: { status?: number } })?.response?.status;
+    const status = httpStatus(err);
     if (status === 403) return 'forbidden';
     if (status === 404) return 'notfound';
     if (status === undefined) return 'offline';
     return 'error';
 }
+
+/** The part of a deleted file the handleDeleted* methods read; websocket headers satisfy it too. */
+type DeletedFileRef = { fileMetadata: { appData: { uniqueId?: string } } };
 
 /** Internal type for tracking conflict resolution state in pushNote */
 type ConflictResolutionResult = {
@@ -417,7 +421,7 @@ export class SyncService {
                         await resolveSyncErrorsForEntity(id);
                         continue;
                     }
-                    await this.handleRemoteNote(header as unknown as HomebaseFile<string>);
+                    await this.handleRemoteNote(header);
                     await resolveSyncErrorsForEntity(id);
                     noteCount++;
                 } catch (error) {
@@ -570,7 +574,7 @@ export class SyncService {
      * Handle a deleted folder from remote.
      * Also deletes all notes in that folder locally.
      */
-    async handleDeletedFolder(deleted: DeletedHomebaseFile): Promise<void> {
+    async handleDeletedFolder(deleted: DeletedFileRef): Promise<void> {
         const uniqueId = deleted.fileMetadata.appData.uniqueId;
         if (!uniqueId || uniqueId === MAIN_FOLDER_ID) return; // Never delete Main folder
 
@@ -597,7 +601,7 @@ export class SyncService {
     }
 
     async handleInvitation(remoteFile: HomebaseFile<string>): Promise<void> {
-        const content = await this.#notesProvider.dsrToNoteFileContent(remoteFile, true) as unknown as CollaborationInviteContent | null;
+        const content = await this.#notesProvider.dsrToContent<CollaborationInviteContent>(remoteFile, true);
         if (!content || !content.noteUniqueId) {
             console.error('[SyncService] Invalid invitation file', remoteFile.fileId);
             return;
@@ -646,7 +650,7 @@ export class SyncService {
 
         const lastModified = peerNote.fileMetadata.updated;
         const [content, remoteBlob] = await Promise.all([
-            this.#notesProvider.dsrToNoteFileContent(peerNote as unknown as HomebaseFile<string>, true),
+            this.#notesProvider.dsrToContent(peerNote, true),
             this.#notesProvider.getNotePayload(peerNote.fileId, authorOdinId, lastModified),
         ]);
         const noteTitle = content?.title || inviteTitle || 'Untitled';
@@ -703,7 +707,7 @@ export class SyncService {
         ]);
     }
 
-    async handleDeletedInvitation(deleted: DeletedHomebaseFile): Promise<void> {
+    async handleDeletedInvitation(deleted: DeletedFileRef): Promise<void> {
         const uniqueId = deleted.fileMetadata.appData.uniqueId;
         if (!uniqueId) return;
 
@@ -734,7 +738,7 @@ export class SyncService {
      * Handle a remote note (create, update, or merge).
      * Uses Yjs CRDT merge for conflict resolution.
      */
-    async handleRemoteNote(remoteFile: HomebaseFile<string>): Promise<void> {
+    async handleRemoteNote(remoteFile: HomebaseFile<unknown>): Promise<void> {
         const uniqueId = remoteFile.fileMetadata.appData.uniqueId;
         if (!uniqueId) {
             console.error(`[SyncService] Failed to convert remote note ${remoteFile.fileId} to note file content`);
@@ -749,7 +753,7 @@ export class SyncService {
             return;
         }
 
-        const content = await this.#notesProvider.dsrToNoteFileContent(remoteFile, true,);
+        const content = await this.#notesProvider.dsrToContent(remoteFile, true,);
         if (!content) {
             // Throw so the pull loop records a sync error and retries this note (#147)
             throw new Error('Could not read remote note content');
@@ -880,7 +884,7 @@ export class SyncService {
     /**
      * Handle a deleted note from remote.
      */
-    async handleDeletedNote(deleted: DeletedHomebaseFile): Promise<void> {
+    async handleDeletedNote(deleted: DeletedFileRef): Promise<void> {
         const uniqueId = deleted.fileMetadata.appData.uniqueId;
         if (!uniqueId) return;
 
