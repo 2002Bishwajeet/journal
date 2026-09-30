@@ -24,6 +24,7 @@ import {
     type CreateNoteResult,
     type CreateNoteWithContentParams,
 } from '@/lib/notes/createNote';
+import { mergeShareCard, type ShareCardPatch } from '@/lib/share/publicCard';
 import type { NoteListEntry, SearchIndexEntry, DocumentMetadata } from '@/types';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { useSyncService } from '@/hooks/useSyncService';
@@ -193,6 +194,18 @@ export function useNotes() {
         },
     });
 
+    // Link-card edits from the share dialog. Unlike isPublic these live only in the
+    // note's metadata, so mark the note pending: the next push re-uploads the card.
+    const setShareCardMutation = useMutation<void, Error, { docId: string } & ShareCardPatch>({
+        mutationFn: async ({ docId, ...patch }) => {
+            const current = await getSearchIndexEntry(docId);
+            if (!current) return;
+
+            await updateSearchIndexMetadata(docId, current.title, mergeShareCard(current.metadata, patch));
+            await updateSyncStatus(docId, 'pending');
+        },
+    });
+
     const createNoteWithContentMutation = useMutation<CreateNoteResult, Error, CreateNoteWithContentParams>({
         mutationFn: createNoteWithContentInDb,
     });
@@ -225,6 +238,7 @@ export function useNotes() {
         updateNote: updateMetadataMutation,
         togglePin: togglePinMutation,
         setNotePublic: setNotePublicMutation,
+        setShareCard: setShareCardMutation,
         trashNote: trashNoteMutation,
         restoreNote: restoreNoteMutation,
         archiveNote: archiveNoteMutation,

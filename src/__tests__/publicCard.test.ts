@@ -5,7 +5,14 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import * as Y from 'yjs';
-import { buildPublicCard, firstParagraphText, truncateAtWord } from '@/lib/share/publicCard';
+import {
+    buildPublicCard,
+    fallbackShareDescription,
+    firstParagraphText,
+    mergeShareCard,
+    truncateAtWord,
+} from '@/lib/share/publicCard';
+import { fallbackShareDescription as functionFallback } from '../../functions/_lib/shareMeta';
 
 function block(name: string, text: string): Y.XmlElement {
     const el = new Y.XmlElement(name);
@@ -91,5 +98,40 @@ describe('buildPublicCard', () => {
         expect(buildPublicCard(undefined, { shareIndexable: true })).toEqual({ indexable: true });
         expect(buildPublicCard(undefined, { shareIndexable: false })).toEqual({});
         expect(buildPublicCard(undefined, {})).not.toHaveProperty('indexable');
+    });
+});
+
+describe('fallbackShareDescription', () => {
+    it('matches the Pages Function fallback exactly', () => {
+        expect(fallbackShareDescription('X')).toBe(functionFallback('X'));
+    });
+});
+
+describe('mergeShareCard', () => {
+    const base = { title: 'Note', tags: [], shareDescription: 'Old' };
+
+    it('stores an empty description as undefined', () => {
+        const merged = mergeShareCard(base, { shareDescription: '' });
+        expect(merged.shareDescription).toBeUndefined();
+        expect(JSON.parse(JSON.stringify(merged))).not.toHaveProperty('shareDescription');
+    });
+
+    it('stores a whitespace-only description as undefined', () => {
+        expect(mergeShareCard(base, { shareDescription: '   ' }).shareDescription).toBeUndefined();
+    });
+
+    it('sets a custom description and keeps the other metadata', () => {
+        expect(mergeShareCard(base, { shareDescription: 'Custom text' }))
+            .toEqual({ title: 'Note', tags: [], shareDescription: 'Custom text' });
+    });
+
+    it('persists shareIndexable: true without touching the description', () => {
+        expect(mergeShareCard(base, { shareIndexable: true }))
+            .toEqual({ ...base, shareIndexable: true });
+    });
+
+    it('leaves fields that are not in the patch unchanged', () => {
+        const withIndex = { ...base, shareIndexable: true };
+        expect(mergeShareCard(withIndex, { shareDescription: 'New' }).shareIndexable).toBe(true);
     });
 });
