@@ -58,6 +58,13 @@ export const ownerConsoleNoteUrl = (root: string, docId: string) =>
 export const MAIN_FOLDER_ID = '06cf9262-4eae-4276-b0d1-8ca3cf5be6f4';
 export const COLLABORATIVE_FOLDER_ID = 'fc360190-4e23-b870-0ea4-ef233aad98ad'; // For shared/collaborative notes V2
 
+// Folder ids for views that aren't real folders
+export const PSEUDO_FOLDERS = { trash: 'trash', archive: 'archive', shared: 'shared' } as const;
+
+export function isPseudoFolder(id: string | undefined | null): boolean {
+    return id === PSEUDO_FOLDERS.trash || id === PSEUDO_FOLDERS.archive || id === PSEUDO_FOLDERS.shared;
+}
+
 // Payload keys
 export const PAYLOAD_KEY_CONTENT = 'jrnl_txt'; // Yjs binary blob
 export const PAYLOAD_KEY_IMAGE_PREFIX = 'jrnl_img';

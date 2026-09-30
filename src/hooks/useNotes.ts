@@ -25,7 +25,7 @@ import {
     type CreateNoteWithContentParams,
 } from '@/lib/notes/createNote';
 import type { NoteListEntry, SearchIndexEntry, DocumentMetadata } from '@/types';
-import { MAIN_FOLDER_ID } from '@/lib/homebase';
+import { MAIN_FOLDER_ID, isPseudoFolder } from '@/lib/homebase';
 import { useSyncService } from '@/hooks/useSyncService';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import { useLiveQuery } from './useLiveQuery';
@@ -272,7 +272,7 @@ export function useArchivedNotes(enabled: boolean = true) {
  */
 export function useNotesByFolder(folderId: string | undefined) {
     // 'trash', 'shared' and 'archive' are pseudo-folders with their own views — skip the query.
-    const enabled = !!folderId && folderId !== 'trash' && folderId !== 'shared' && folderId !== 'archive';
+    const enabled = !!folderId && !isPseudoFolder(folderId);
     return useLiveNoteList(NOTE_LIST_SQL.byFolder, [folderId ?? ''], enabled);
 }
 
