@@ -13,6 +13,7 @@ import {
     truncateAtWord,
 } from '@/lib/share/publicCard';
 import { fallbackShareDescription as functionFallback } from '../../functions/_lib/shareMeta';
+import { setCover } from '@/lib/editor/cover';
 
 function block(name: string, text: string): Y.XmlElement {
     const el = new Y.XmlElement(name);
@@ -98,6 +99,23 @@ describe('buildPublicCard', () => {
         expect(buildPublicCard(undefined, { shareIndexable: true })).toEqual({ indexable: true });
         expect(buildPublicCard(undefined, { shareIndexable: false })).toEqual({});
         expect(buildPublicCard(undefined, {})).not.toHaveProperty('indexable');
+    });
+
+    it('sets coverKey from an uploaded attachment:// cover', () => {
+        const doc = buildDoc([block('paragraph', 'Hello')]);
+        setCover(doc, { src: 'attachment://F/jrnl_img4', positionY: 30 });
+        expect(buildPublicCard(toBlob(doc), {}).coverKey).toBe('jrnl_img4');
+    });
+
+    it('omits coverKey while the cover upload is pending', () => {
+        const doc = buildDoc([block('paragraph', 'Hello')]);
+        setCover(doc, { src: 'attachment://F/jrnl_img4', pendingId: 'q1', positionY: 30 });
+        expect(buildPublicCard(toBlob(doc), {})).not.toHaveProperty('coverKey');
+    });
+
+    it('omits coverKey when the note has no cover', () => {
+        const doc = buildDoc([block('paragraph', 'Hello')]);
+        expect(buildPublicCard(toBlob(doc), {})).not.toHaveProperty('coverKey');
     });
 });
 

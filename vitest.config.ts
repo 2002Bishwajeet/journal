@@ -21,8 +21,8 @@ export default defineConfig({
             shuffle: false,
         },
 
-        // Single threaded to avoid database conflicts
-        fileParallelism: false,
+        fileParallelism: true,
+        maxWorkers: 4,
     },
 
     resolve: {
