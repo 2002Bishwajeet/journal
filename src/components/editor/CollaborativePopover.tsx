@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/popover';
 import { useCircles } from '@/hooks/circles/useCircles';
 import { AuthorImage } from '@/components/author/AuthorImage';
-import { formatRelativeTime } from '@/lib/utils/index';
+import { formatRelativeTime } from '@/lib/utils';
 import { agentDisplayName } from '@/lib/agent/attribution';
 
 interface CollaborativePopoverProps {

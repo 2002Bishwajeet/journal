@@ -30,7 +30,7 @@ import { ContextMenuWrapper } from "@/components/ui/context-menu-wrapper";
 import { cn } from "@/lib/utils";
 import { agentDisplayName } from "@/lib/agent/attribution";
 import type { NoteListEntry } from "@/types";
-import { formatRelativeTime } from "@/lib/utils/index";
+import { formatRelativeTime } from "@/lib/utils";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
 import { useNotes } from "@/hooks/useNotes";

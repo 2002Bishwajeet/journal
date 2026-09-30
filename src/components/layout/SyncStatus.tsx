@@ -16,7 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { formatRelativeTime } from "@/lib/utils/index";
+import { formatRelativeTime } from "@/lib/utils";
 
 interface SyncStatusProps {
   className?: string;
