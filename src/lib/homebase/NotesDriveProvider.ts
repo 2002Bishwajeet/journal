@@ -18,50 +18,31 @@ import {
     type ThumbnailFile,
     type EncryptedKeyHeader,
     reUploadFile,
-    ScheduleOptions,
-    PriorityOptions,
-    SendContents,
 } from '@homebase-id/js-lib/core';
 import {
     getFileHeaderOverPeerByUniqueId,
     getPayloadBytesOverPeer,
 } from '@homebase-id/js-lib/peer';
-import { getRandom16ByteArray, toGuidId, tryJsonParse } from '@homebase-id/js-lib/helpers';
-import { createThumbnails } from '@homebase-id/js-lib/media';
+import { getRandom16ByteArray, tryJsonParse } from '@homebase-id/js-lib/helpers';
 import {
     JOURNAL_DRIVE,
     JOURNAL_FILE_TYPE,
     JOURNAL_DATA_TYPE,
     PAYLOAD_KEY_CONTENT,
     PAYLOAD_KEY_IMAGE_PREFIX,
-    COLLABORATION_INVITE_FILE_TYPE,
-    COLLABORATION_INVITE_DATA_TYPE,
     COLLABORATIVE_FOLDER_ID,
     MAIN_FOLDER_ID,
 } from './config';
-import type { NoteFileContent, DocumentMetadata, CollaborationInviteContent } from '@/types';
-import { dedupeThumbnailsByDimensions } from '@/lib/utils';
+import type { NoteFileContent, DocumentMetadata } from '@/types';
 import { buildPublicCard, type PublicCard } from '@/lib/share/publicCard';
+import { noteAcl, noteAppData, noteFileContent } from './noteUploadMetadata';
+import { buildContentPayloads, buildImagePayload } from './noteImagePayloads';
+import { InvitationDriveProvider } from './InvitationDriveProvider';
 
 export interface ImageUploadData {
     file: Blob;
     filename?: string;
 }
-
-const YJS_MIME_TYPE = 'application/yjs';
-
-/**
- * The note's real created time, for appData.userDate.
- * Pushing Date.now() here would collapse every note's created date to its last push
- * time whenever the local DB is wiped and rebuilt from the server (SyncService reads
- * userDate back into timestamps.created for a note it doesn't have locally).
- * Safe for incremental sync: the cursor is ordered by 'anyChangeDate', not userDate.
- */
-const createdUserDate = (metadata: DocumentMetadata): number => {
-    const created = metadata.timestamps?.created;
-    const parsed = created ? new Date(created).getTime() : NaN;
-    return Number.isNaN(parsed) ? Date.now() : parsed;
-};
 
 /** A card with no keys is left out of the public header content entirely. */
 const nonEmptyCard = (card: PublicCard): PublicCard | undefined =>
@@ -75,9 +56,11 @@ const nonEmptyCard = (card: PublicCard): PublicCard | undefined =>
  */
 export class NotesDriveProvider {
     #dotYouClient: DotYouClient;
+    #invitations: InvitationDriveProvider;
 
     constructor(dotYouClient: DotYouClient) {
         this.#dotYouClient = dotYouClient;
+        this.#invitations = new InvitationDriveProvider(dotYouClient);
     }
 
     /**
@@ -251,91 +234,31 @@ export class NotesDriveProvider {
             onversionConflict?: () => void;
         }
     ): Promise<{ fileId: string; versionTag: string; imagePayloadKeys: string[] }> {
-        const noteContent: NoteFileContent = {
-            title: metadata.title,
-            tags: metadata?.tags || [],
-            excludeFromAI: metadata.excludeFromAI,
-            isPinned: metadata.isPinned,
-            isPublic: metadata.isPublic,
-            shareDescription: metadata.shareDescription,
-            shareIndexable: metadata.shareIndexable,
-        };
         // A public note is stored unencrypted; the server rejects a payload IV
         // (invalidUpload) when the file header isn't encrypted. Drive isEncrypted, the
         // payload IV, and the ACL below off metadata.isPublic so they can't diverge
         // (mirrors updateNote). Honor the encrypt option for non-public notes.
         const isEncrypted = metadata.isPublic ? false : (options?.encrypt ?? true);
-        const payloads: PayloadFile[] = [];
+        const payloads: PayloadFile[] = buildContentPayloads(yjsBlob, isEncrypted);
         const thumbnails: ThumbnailFile[] = [];
         const imagePayloadKeys: string[] = [];
-
-        // Add Yjs content payload
-        if (yjsBlob && yjsBlob.length > 0) {
-            payloads.push({
-                key: PAYLOAD_KEY_CONTENT,
-                payload: new Blob([new Uint8Array(yjsBlob)], {
-                    type: YJS_MIME_TYPE,
-                }),
-                iv: isEncrypted ? getRandom16ByteArray() : undefined,
-            });
-        }
 
         // Process images
         if (images) {
             for (let i = 0; i < images.length; i++) {
                 const payloadKey = `${PAYLOAD_KEY_IMAGE_PREFIX}${i}`;
                 imagePayloadKeys.push(payloadKey);
-
-                if (images[i].file.type.startsWith('image/')) {
-                    const { additionalThumbnails, tinyThumb } = await createThumbnails(
-                        images[i].file,
-                        payloadKey
-                    );
-                    thumbnails.push(...dedupeThumbnailsByDimensions(additionalThumbnails));
-                    payloads.push({
-                        key: payloadKey,
-                        payload: images[i].file,
-                        previewThumbnail: tinyThumb,
-                        descriptorContent: images[i].filename || images[i].file.type,
-                    });
-                } else {
-                    payloads.push({
-                        key: payloadKey,
-                        payload: images[i].file,
-                        descriptorContent: images[i].filename || images[i].file.type,
-                    });
-                }
+                const image = await buildImagePayload(images[i].file, images[i].filename, payloadKey);
+                payloads.push(image.payload);
+                thumbnails.push(...image.thumbnails);
             }
         }
 
-
         const uploadMetadata: UploadFileMetadata = {
             allowDistribution: false,
-            appData: {
-                uniqueId,
-                groupId: metadata.folderId, // Group by folder for easy querying
-                fileType: JOURNAL_FILE_TYPE,
-                dataType: JOURNAL_DATA_TYPE,
-                userDate: createdUserDate(metadata),
-                tags: (metadata.tags || []).map(tag => toGuidId(tag)),
-                content: JSON.stringify(noteContent),
-                archivalStatus: metadata.archivalStatus ?? 0,
-            },
+            appData: noteAppData(uniqueId, metadata, JSON.stringify(noteFileContent(metadata))),
             isEncrypted,
-            // A public note is stored Anonymous + unencrypted; a collaborative note is shared
-            // with its circles; everything else stays Owner-only (mirrors updateNote).
-            accessControlList: metadata.isPublic
-                ? {
-                    requiredSecurityGroup: SecurityGroupType.Anonymous,
-                }
-                : metadata.isCollaborative && metadata.circleIds?.length
-                ? {
-                    requiredSecurityGroup: SecurityGroupType.Connected,
-                    circleIdList: metadata.circleIds,
-                }
-                : {
-                    requiredSecurityGroup: SecurityGroupType.Owner,
-                },
+            accessControlList: noteAcl(metadata),
         };
 
         const instructionSet: UploadInstructionSet = {
@@ -399,13 +322,7 @@ export class NotesDriveProvider {
         const isPeer = authorOdinId && authorOdinId !== hostIdentity;
 
         const noteContent: NoteFileContent = {
-            title: metadata.title,
-            tags: metadata?.tags || [],
-            excludeFromAI: metadata.excludeFromAI,
-            isPinned: metadata.isPinned,
-            isPublic: metadata.isPublic,
-            shareDescription: metadata.shareDescription,
-            shareIndexable: metadata.shareIndexable,
+            ...noteFileContent(metadata),
             isCollaborative: metadata.isCollaborative,
             circleIds: metadata.circleIds,
             recipients: metadata.recipients,
@@ -431,47 +348,17 @@ export class NotesDriveProvider {
         // (invalidUpload) when the file header isn't encrypted. Keep the IV and
         // isEncrypted below driven by this one flag so they can't diverge.
         const isEncrypted = !metadata.isPublic;
-        const payloads: PayloadFile[] = [];
-
-        if (yjsBlob && yjsBlob.length > 0) {
-            payloads.push({
-                key: PAYLOAD_KEY_CONTENT,
-                payload: new Blob([new Uint8Array(yjsBlob)], { type: YJS_MIME_TYPE }),
-                iv: isEncrypted ? getRandom16ByteArray() : undefined,
-            });
-        }
-
-        // A public note is stored Anonymous + unencrypted (see makeNotePublic).
-        // Editing one must NOT re-encrypt it or revert the ACL to Owner, or the
-        // share breaks and the SDK tries to encrypt with a key the file lacks.
-        const accessControlList = metadata.isPublic
-            ? {
-                requiredSecurityGroup: SecurityGroupType.Anonymous,
-            }
-            : metadata.isCollaborative && metadata.circleIds?.length
-            ? {
-                requiredSecurityGroup: SecurityGroupType.Connected,
-                circleIdList: metadata.circleIds,
-            }
-            : {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            };
+        const payloads = buildContentPayloads(yjsBlob, isEncrypted);
 
         const uploadMetadata: UploadFileMetadata = {
             versionTag,
             allowDistribution: isPeer ? true : false,
-            appData: {
-                uniqueId,
-                groupId: metadata.folderId,
-                fileType: JOURNAL_FILE_TYPE,
-                dataType: JOURNAL_DATA_TYPE,
-                userDate: createdUserDate(metadata),
-                tags: (metadata.tags || []).map(tag => toGuidId(tag)),
-                content: serializedContent,
-                archivalStatus: metadata.archivalStatus ?? 0,
-            },
+            appData: noteAppData(uniqueId, metadata, serializedContent),
             isEncrypted,
-            accessControlList,
+            // A public note is stored Anonymous + unencrypted (see makeNotePublic).
+            // Editing one must NOT re-encrypt it or revert the ACL to Owner, or the
+            // share breaks and the SDK tries to encrypt with a key the file lacks.
+            accessControlList: noteAcl(metadata),
         };
 
         // A peer update is addressed by globalTransitId, not fileId; without it the
@@ -495,7 +382,6 @@ export class NotesDriveProvider {
                 file: { fileId, targetDrive: JOURNAL_DRIVE },
                 versionTag,
             };
-
 
         const result = await patchFile(
             this.#dotYouClient,
@@ -539,7 +425,6 @@ export class NotesDriveProvider {
             { decrypt: true }
         );
 
-
         if (!existingHeader) {
             throw new Error(`Cannot add image: note with uniqueId ${uniqueId} not found`);
         }
@@ -558,29 +443,12 @@ export class NotesDriveProvider {
         const appData = existingHeader.fileMetadata.appData
 
         const payloadKey = `${PAYLOAD_KEY_IMAGE_PREFIX}${nextIdx}`;
-        const payloads: PayloadFile[] = [];
-        const thumbnails: ThumbnailFile[] = [];
-
-        if (image.file.type.startsWith('image/')) {
-            const { additionalThumbnails, tinyThumb } = await createThumbnails(
-                image.file,
-                payloadKey
-            );
-            thumbnails.push(...dedupeThumbnailsByDimensions(additionalThumbnails));
-            payloads.push({
-                key: payloadKey,
-                iv: existingHeader.fileMetadata.isEncrypted ? getRandom16ByteArray() : undefined,
-                payload: image.file,
-                previewThumbnail: tinyThumb,
-                descriptorContent: image.filename || image.file.type,
-            });
-        } else {
-            payloads.push({
-                key: payloadKey,
-                payload: image.file,
-                descriptorContent: image.filename || image.file.type,
-            });
-        }
+        const { payload, thumbnails } = await buildImagePayload(
+            image.file,
+            image.filename,
+            payloadKey,
+            existingHeader.fileMetadata.isEncrypted ? getRandom16ByteArray() : undefined
+        );
 
         // Mirror the existing file's visibility so adding an image never re-encrypts
         // a public note or strips a collaborative note's circle ACL. Content may come
@@ -590,19 +458,6 @@ export class NotesDriveProvider {
             (typeof appData.content === 'string'
                 ? tryJsonParse<NoteFileContent>(appData.content)
                 : appData.content) ?? ({} as NoteFileContent);
-        const accessControlList = existingContent.isPublic
-            ? {
-                requiredSecurityGroup: SecurityGroupType.Anonymous,
-            }
-            : existingContent.isCollaborative && existingContent.circleIds?.length
-            ? {
-                requiredSecurityGroup: SecurityGroupType.Connected,
-                circleIdList: existingContent.circleIds,
-            }
-            : {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            };
-
         const uploadMetadata: UploadFileMetadata = {
             versionTag: existingHeader.fileMetadata.versionTag,
             allowDistribution: false,
@@ -611,7 +466,7 @@ export class NotesDriveProvider {
                 content: JSON.stringify(existingContent),
             },
             isEncrypted,
-            accessControlList,
+            accessControlList: noteAcl(existingContent),
         };
 
         // UpdateLocalInstructionSet for patchFile
@@ -628,7 +483,7 @@ export class NotesDriveProvider {
             isEncrypted ? existingHeader.sharedSecretEncryptedKeyHeader : undefined,
             updateInstructions,
             uploadMetadata,
-            payloads,
+            [payload],
             thumbnails
         );
 
@@ -898,7 +753,7 @@ export class NotesDriveProvider {
             errorMessage: 'Failed to make note collaborative',
         });
 
-        await this.createOrUpdateInvitation(
+        await this.#invitations.createOrUpdateInvitation(
             uniqueId,
             title,
             '',
@@ -938,116 +793,8 @@ export class NotesDriveProvider {
             errorMessage: 'Failed to revoke note collaboration',
         });
 
-        await this.deleteInvitation(uniqueId);
+        await this.#invitations.deleteInvitation(uniqueId);
 
         return result;
-    }
-
-    async createOrUpdateInvitation(
-        noteUniqueId: string,
-        noteTitle: string,
-        notePreview: string,
-        circleIds: string[],
-        recipients: string[],
-        authorOdinId: string,
-    ): Promise<void> {
-        const inviteUniqueId = toGuidId(`collab-invite-${noteUniqueId}`);
-        const inviteContent: CollaborationInviteContent = {
-            authorOdinId,
-            noteUniqueId,
-            noteTitle,
-            notePreview: notePreview.slice(0, 150),
-            sharedAt: new Date().toISOString(),
-        };
-
-        const existingInvite = await getFileHeaderByUniqueId(
-            this.#dotYouClient,
-            JOURNAL_DRIVE,
-            inviteUniqueId,
-            { decrypt: false }
-        );
-
-        if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
-            const uploadMetadata: UploadFileMetadata = {
-                versionTag: existingInvite.fileMetadata.versionTag,
-                allowDistribution: true,
-                appData: {
-                    fileType: COLLABORATION_INVITE_FILE_TYPE,
-                    dataType: COLLABORATION_INVITE_DATA_TYPE,
-                    uniqueId: inviteUniqueId,
-                    groupId: COLLABORATIVE_FOLDER_ID,
-                    content: JSON.stringify(inviteContent),
-                },
-                isEncrypted: true,
-                accessControlList: {
-                    requiredSecurityGroup: SecurityGroupType.Connected,
-                    circleIdList: circleIds,
-                },
-            };
-
-            const updateInstructions: UpdateInstructionSet = {
-                locale: 'local',
-                file: { fileId: existingInvite.fileId, targetDrive: JOURNAL_DRIVE },
-                versionTag: existingInvite.fileMetadata.versionTag,
-                recipients,
-            };
-
-            await patchFile(
-                this.#dotYouClient,
-                existingInvite.sharedSecretEncryptedKeyHeader,
-                updateInstructions,
-                uploadMetadata,
-            );
-        } else {
-            const uploadMetadata: UploadFileMetadata = {
-                allowDistribution: true,
-                appData: {
-                    fileType: COLLABORATION_INVITE_FILE_TYPE,
-                    dataType: COLLABORATION_INVITE_DATA_TYPE,
-                    uniqueId: inviteUniqueId,
-                    groupId: COLLABORATIVE_FOLDER_ID,
-                    content: JSON.stringify(inviteContent),
-                },
-                isEncrypted: true,
-                accessControlList: {
-                    requiredSecurityGroup: SecurityGroupType.Connected,
-                    circleIdList: circleIds,
-                },
-            };
-
-            const instructionSet: UploadInstructionSet = {
-                transferIv: getRandom16ByteArray(),
-                storageOptions: { drive: JOURNAL_DRIVE },
-                transitOptions: {
-                    recipients,
-                    schedule: ScheduleOptions.SendLater,
-                    priority: PriorityOptions.High,
-                    sendContents: SendContents.All,
-                },
-            };
-
-            await uploadFile(
-                this.#dotYouClient,
-                instructionSet,
-                uploadMetadata,
-                [],
-                [],
-                true,
-            );
-        }
-    }
-
-    async deleteInvitation(noteUniqueId: string): Promise<void> {
-        const inviteUniqueId = toGuidId(`collab-invite-${noteUniqueId}`);
-        const existingInvite = await getFileHeaderByUniqueId(
-            this.#dotYouClient,
-            JOURNAL_DRIVE,
-            inviteUniqueId,
-            { decrypt: false }
-        );
-
-        if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
-            await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, existingInvite.fileId);
-        }
     }
 }
