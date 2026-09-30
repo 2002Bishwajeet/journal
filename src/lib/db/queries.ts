@@ -1567,6 +1567,15 @@ export const TAGS_SQL = `SELECT DISTINCT jsonb_array_elements_text(metadata->'ta
          ORDER BY tag`;
 
 /**
+ * Get all distinct tags across all notes, sorted alphabetically.
+ */
+export async function getAllTags(): Promise<string[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ tag: string }>(TAGS_SQL);
+    return result.rows.map(row => row.tag);
+}
+
+/**
  * Lightweight query for the note list sidebar, filtered by tag.
  * Returns only title, a short preview, and metadata — NOT full content.
  * Pinned notes appear first, then sorted by updated_at descending.
