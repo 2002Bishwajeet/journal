@@ -9,6 +9,7 @@ import {
     JOURNAL_DRIVE_ALIAS,
     JOURNAL_DRIVE_TYPE,
     buildHeadTags,
+    fallbackShareDescription,
     fetchShareMeta,
     injectShareMeta,
     parseSharePath,
@@ -155,6 +156,12 @@ describe('buildHeadTags', () => {
         const url = 'https://j.test/share/x';
         expect(buildHeadTags(meta(), url, 'https://j.test')).toContain('name="robots" content="noindex"');
         expect(buildHeadTags(meta({ indexable: true }), url, 'https://j.test')).not.toContain('noindex');
+    });
+
+    it('should use the fallback description when the note has none', () => {
+        expect(fallbackShareDescription('Frodo')).toBe('A note by Frodo, shared with Journal');
+        const tags = buildHeadTags(meta(), 'https://j.test/share/x', 'https://j.test');
+        expect(tags).toContain('name="description" content="A note by Frodo, shared with Journal"');
     });
 });
 

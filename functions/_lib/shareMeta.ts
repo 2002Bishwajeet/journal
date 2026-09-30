@@ -40,6 +40,10 @@ export function parseSharePath(pathname: string): { identity: string; noteId: st
     return { identity, noteId };
 }
 
+export function fallbackShareDescription(author: string): string {
+    return `A note by ${author}, shared with Journal`;
+}
+
 function isoDate(value: unknown): string | undefined {
     if (typeof value !== 'number' && typeof value !== 'string') return undefined;
     const date = new Date(value);
@@ -149,7 +153,7 @@ function escapeHtml(value: string): string {
 }
 
 export function buildHeadTags(meta: ShareMeta, pageUrl: string, origin: string): string {
-    const description = meta.description ?? `A note by ${meta.authorName}, shared with Journal`;
+    const description = meta.description ?? fallbackShareDescription(meta.authorName);
     const authorUrl = `https://${meta.identity}`;
     const image = meta.coverKey
         ? `${authorUrl}/api/guest/v1/drive/files/thumb?${new URLSearchParams({
