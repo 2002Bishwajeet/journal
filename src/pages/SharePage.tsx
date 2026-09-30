@@ -83,7 +83,7 @@ export default function SharePage() {
                         urlTransform={(url) => (url.startsWith('attachment://') ? url : defaultUrlTransform(url))}
                         components={{
                             blockquote: CalloutAwareBlockquote,
-                            img:({ src, alt, node, ...rest }) => {
+                            img: ({ src, alt, node, ...rest }) => {
                                 // `node` is react-markdown's own extra prop, not a DOM attribute —
                                 // exclude it before spreading the rest (title, etc.) onto <img>.
                                 void node;
