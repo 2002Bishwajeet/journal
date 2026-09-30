@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Markdown, { defaultUrlTransform } from 'react-markdown';
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
+import { LiveBlockAwarePre } from '@/components/share/LiveBlockAwarePre';
 import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
 import { formatShareDate, showUpdated } from '@/lib/share/articleMeta';
 import 'katex/dist/katex.min.css';
@@ -107,6 +108,7 @@ export default function SharePage() {
                         urlTransform={(url) => (url.startsWith('attachment://') ? url : defaultUrlTransform(url))}
                         components={{
                             blockquote: CalloutAwareBlockquote,
+                            pre: LiveBlockAwarePre,
                             img: ({ src, alt, node, ...rest }) => {
                                 // `node` is react-markdown's own extra prop, not a DOM attribute —
                                 // exclude it before spreading the rest (title, etc.) onto <img>.
