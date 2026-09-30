@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
-import { MAIN_FOLDER_ID } from '../homebase';
-import { getDatabase, ensureTrigramSearch } from './pglite';
+import { MAIN_FOLDER_ID } from '../../homebase';
+import { getDatabase, ensureTrigramSearch } from '../pglite';
 import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRecord, PendingImageUpload, SyncError, AdvancedSearchResult, SnapshotMeta } from '@/types';
 
 // Notes with archivalStatus 2 (Homebase "Removed") live in the Trash — exclude them
