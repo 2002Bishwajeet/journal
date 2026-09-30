@@ -27,6 +27,8 @@ import {
     FileText,
     Wand2,
     Image,
+    ListCollapse,
+    MessageSquareWarning,
     type LucideIcon,
 } from 'lucide-react';
 import { safeEditorCommand } from '../../shared';
@@ -140,6 +142,24 @@ const formattingCommands: SlashCommandItem[] = [
         group: 'formatting',
         command: ({ editor, range }) => {
             editor.chain().focus().deleteRange(range).toggleBlockquote().run();
+        },
+    },
+    {
+        title: 'Toggle',
+        description: 'Collapsible section',
+        icon: ListCollapse,
+        group: 'formatting',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).insertContent({ type: 'toggle', content: [{ type: 'paragraph' }] }).run();
+        },
+    },
+    {
+        title: 'Callout',
+        description: 'Highlighted info, tip, warning or error box',
+        icon: MessageSquareWarning,
+        group: 'formatting',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).insertContent({ type: 'callout', content: [{ type: 'paragraph' }] }).run();
         },
     },
     {

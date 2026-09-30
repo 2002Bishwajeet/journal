@@ -1,4 +1,8 @@
 import * as Y from 'yjs';
+import { toCalloutVariant } from '@/components/editor/nodes/calloutVariants';
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /**
  * Serializes a TipTap Y.XmlFragment to markdown. Lossy: noteLink atoms and
@@ -161,6 +165,16 @@ export function fragmentToMarkdown(xmlFragment: Y.XmlFragment): string {
     return out;
   }
 
+  function quote(body: string): string {
+    return (
+      body
+        .trim()
+        .split('\n')
+        .map((l) => (l ? '> ' + l : '>'))
+        .join('\n') + '\n\n'
+    );
+  }
+
   function serializeBlock(node: Y.XmlElement, depth: number): string {
     switch (node.nodeName) {
       case 'heading': {
@@ -185,13 +199,15 @@ export function fragmentToMarkdown(xmlFragment: Y.XmlFragment): string {
         return fence + lang + '\n' + code + '\n' + fence + '\n\n';
       }
       case 'blockquote':
-        return (
-          serializeChildren(node, depth)
-            .trim()
-            .split('\n')
-            .map((l) => (l ? '> ' + l : '>'))
-            .join('\n') + '\n\n'
-        );
+        return quote(serializeChildren(node, depth));
+      case 'callout':
+        // Obsidian-style callout; the share page renders it as an aside.
+        return `> [!${toCalloutVariant(node.getAttribute('variant'))}]\n` + quote(serializeChildren(node, depth));
+      case 'toggle': {
+        // Blank lines around the body so the markdown inside <details> renders.
+        const summary = escapeHtml(String(node.getAttribute('summary') ?? ''));
+        return `<details>\n<summary>${summary}</summary>\n\n${serializeChildren(node, depth).trim()}\n\n</details>\n\n`;
+      }
       case 'horizontalRule':
         return '---\n\n';
       case 'blockMath': {

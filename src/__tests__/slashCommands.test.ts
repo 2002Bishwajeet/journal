@@ -27,6 +27,17 @@ describe('Slash Command Items', () => {
     expect(image!.group).toBe('formatting');
   });
 
+  it('should include Toggle and Callout blocks (#159)', () => {
+    const toggle = slashCommandItems.find(item => item.title === 'Toggle');
+    const callout = slashCommandItems.find(item => item.title === 'Callout');
+    expect(toggle).toBeDefined();
+    expect(callout).toBeDefined();
+    expect(toggle!.group).toBe('formatting');
+    expect(callout!.group).toBe('formatting');
+    expect(filterCommands(slashCommandItems, 'toggle').map(r => r.title)).toContain('Toggle');
+    expect(filterCommands(slashCommandItems, 'callout').map(r => r.title)).toContain('Callout');
+  });
+
   it('should include duplicate block', () => {
     const dup = slashCommandItems.find(item => item.title === 'Duplicate Block');
     expect(dup).toBeDefined();

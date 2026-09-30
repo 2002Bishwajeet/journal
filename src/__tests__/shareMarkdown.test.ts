@@ -6,13 +6,42 @@
  */
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
-import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import Markdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+import { extractMarkdownFromYjs, extractPreviewTextFromYjs } from '@/lib/yjs-utils';
+import { sanitizeSchema } from '@/lib/utils/shareSanitizeSchema';
+import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
 
 function buildBlob(build: (frag: Y.XmlFragment) => void): Uint8Array {
   const doc = new Y.Doc();
   const frag = doc.getXmlFragment('prosemirror');
   build(frag);
   return Y.encodeStateAsUpdate(doc);
+}
+
+function para(text: string): Y.XmlElement {
+  const p = new Y.XmlElement('paragraph');
+  const t = new Y.XmlText();
+  t.insert(0, text);
+  p.insert(0, [t]);
+  return p;
+}
+
+function toggle(summary: string, children: Y.XmlElement[]): Y.XmlElement {
+  const el = new Y.XmlElement('toggle');
+  el.setAttribute('summary', summary);
+  el.insert(0, children);
+  return el;
+}
+
+function callout(variant: string, children: Y.XmlElement[]): Y.XmlElement {
+  const el = new Y.XmlElement('callout');
+  el.setAttribute('variant', variant);
+  el.insert(0, children);
+  return el;
 }
 
 describe('extractMarkdownFromYjs', () => {
@@ -261,4 +290,104 @@ describe('extractMarkdownFromYjs', () => {
     });
     expect(await extractMarkdownFromYjs('x', blockBlob)).toBe('$$\nE=mc^2\n$$');
   });
+
+  it('serializes a toggle as <details> with an escaped <summary>', async () => {
+    const blob = buildBlob((frag) => {
+      frag.insert(0, [toggle('A <b>', [para('inner')])]);
+    });
+
+    const md = await extractMarkdownFromYjs('x', blob);
+
+    expect(md).toBe('<details>\n<summary>A &lt;b&gt;</summary>\n\ninner\n\n</details>');
+  });
+
+  it('serializes a callout as an Obsidian-style [!variant] blockquote', async () => {
+    const blob = buildBlob((frag) => {
+      frag.insert(0, [callout('warning', [para('inner')])]);
+    });
+
+    const md = await extractMarkdownFromYjs('x', blob);
+
+    expect(md).toBe('> [!warning]\n> inner');
+  });
+
+  it('falls back to info for an unknown callout variant', async () => {
+    const blob = buildBlob((frag) => {
+      frag.insert(0, [callout('<script>', [para('inner')])]);
+    });
+
+    expect(await extractMarkdownFromYjs('x', blob)).toBe('> [!info]\n> inner');
+  });
+
+  it('keeps the markdown of a list nested inside a callout', async () => {
+    const blob = buildBlob((frag) => {
+      const ul = new Y.XmlElement('bulletList');
+      const items = ['one', 'two'].map((text) => {
+        const li = new Y.XmlElement('listItem');
+        li.insert(0, [para(text)]);
+        return li;
+      });
+      ul.insert(0, items);
+      frag.insert(0, [callout('tip', [para('Heads up'), ul])]);
+    });
+
+    const md = await extractMarkdownFromYjs('x', blob);
+
+    expect(md).toBe('> [!tip]\n> Heads up\n>\n> - one\n> - two');
+  });
 });
+
+describe('share page rendering of toggles and callouts', () => {
+  function render(md: string): string {
+    return renderToStaticMarkup(
+      createElement(Markdown, {
+        rehypePlugins: [rehypeRaw, [rehypeSanitize, sanitizeSchema]],
+        components: { blockquote: CalloutAwareBlockquote },
+        children: md,
+      }),
+    );
+  }
+
+  it('keeps <details>/<summary> through sanitization and renders the inner markdown', async () => {
+    const blob = buildBlob((frag) => {
+      frag.insert(0, [toggle('A <b>', [para('**inner**')])]);
+    });
+
+    const html = render(await extractMarkdownFromYjs('x', blob));
+
+    expect(html).toContain('<details>');
+    expect(html).toContain('<summary>A &lt;b&gt;</summary>');
+    expect(html).toContain('<strong>inner</strong>');
+  });
+
+  it('renders a [!variant] blockquote as a callout aside without the marker', async () => {
+    const blob = buildBlob((frag) => {
+      frag.insert(0, [callout('warning', [para('inner')])]);
+    });
+
+    const html = render(await extractMarkdownFromYjs('x', blob));
+
+    expect(html).toMatch(/<aside[^>]*role="note"[^>]*data-variant="warning"/);
+    expect(html).toContain('inner');
+    expect(html).not.toContain('[!warning]');
+    expect(html).not.toContain('<blockquote');
+  });
+
+  it('renders an ordinary blockquote unchanged', () => {
+    const html = render('> just a quote');
+
+    expect(html).toContain('<blockquote>');
+    expect(html).not.toContain('<aside');
+  });
+});
+
+describe('extractPreviewTextFromYjs', () => {
+  it('includes a toggle summary and its inner text', async () => {
+    const blob = buildBlob((frag) => {
+      frag.insert(0, [toggle('Title', [para('inner')]), callout('info', [para('boxed')]), para('after')]);
+    });
+
+    expect(await extractPreviewTextFromYjs('x', blob)).toBe('Title inner boxed after');
+  });
+});
+

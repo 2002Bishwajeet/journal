@@ -10,6 +10,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeKatex from 'rehype-katex';
 import rehypeSanitize from 'rehype-sanitize';
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
+import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
 import { sanitizeSchema } from '@/lib/utils/shareSanitizeSchema';
 import 'katex/dist/katex.min.css';
 
@@ -81,7 +82,8 @@ export default function SharePage() {
                         rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeKatex]}
                         urlTransform={(url) => (url.startsWith('attachment://') ? url : defaultUrlTransform(url))}
                         components={{
-                            img: ({ src, alt, node, ...rest }) => {
+                            blockquote: CalloutAwareBlockquote,
+                            img:({ src, alt, node, ...rest }) => {
                                 // `node` is react-markdown's own extra prop, not a DOM attribute —
                                 // exclude it before spreading the rest (title, etc.) onto <img>.
                                 void node;
