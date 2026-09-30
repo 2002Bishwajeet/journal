@@ -7,6 +7,7 @@
  * so making a note private again restores those fields.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import * as Y from 'yjs';
 import type { DocumentMetadata } from '@/types';
 import { fakeDotYouClient } from './fakes';
 
@@ -39,6 +40,16 @@ const SOCIAL = {
     recipients: ['friend.dotyou.cloud'],
     lastEditedBy: 'friend.dotyou.cloud',
 };
+
+function paragraphBlob(text: string): Uint8Array {
+    const doc = new Y.Doc();
+    const p = new Y.XmlElement('paragraph');
+    doc.getXmlFragment('prosemirror').insert(0, [p]);
+    const t = new Y.XmlText();
+    p.insert(0, [t]);
+    t.insert(0, text);
+    return Y.encodeStateAsUpdate(doc);
+}
 
 // patchFile args: (client, keyHeader, instructions, uploadMetadata, payloads, ...)
 const updateContent = () => JSON.parse(mockPatch.mock.calls[0][3].appData.content);
@@ -80,6 +91,32 @@ describe('NotesDriveProvider.updateNote — public content projection (SEC-02)',
         expect(content.recipients).toEqual(['friend.dotyou.cloud']);
         expect(content.circleIds).toEqual(['circle-1']);
         expect(content.lastEditedBy).toBe('friend.dotyou.cloud');
+    });
+
+    it('publishes a link card description for a PUBLIC note without leaking the social graph', async () => {
+        await provider.updateNote(
+            NOTE_ID, 'file-1', 'v1',
+            meta({ isPublic: true, ...SOCIAL }),
+            undefined, undefined, paragraphBlob('First paragraph text')
+        );
+
+        const content = updateContent();
+        expect(content.card.description).toBe('First paragraph text');
+        expect(content).not.toHaveProperty('circleIds');
+        expect(content).not.toHaveProperty('recipients');
+        expect(content).not.toHaveProperty('lastEditedBy');
+    });
+
+    it('never adds a card to a PRIVATE note content', async () => {
+        await provider.updateNote(
+            NOTE_ID, 'file-1', 'v1',
+            meta({ isPublic: false, shareDescription: 'Blurb', ...SOCIAL }),
+            undefined, undefined, paragraphBlob('First paragraph text')
+        );
+
+        const content = updateContent();
+        expect(content).not.toHaveProperty('card');
+        expect(content.shareDescription).toBe('Blurb');
     });
 });
 

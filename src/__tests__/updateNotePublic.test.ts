@@ -88,6 +88,38 @@ describe('NotesDriveProvider.updateNote — encryption/ACL by visibility', () =>
     });
 });
 
+// A public note's plaintext header carries the owner-authored share fields so a
+// second device can round-trip them, plus the derived link card.
+describe('NotesDriveProvider.updateNote — public share card fields', () => {
+    let provider: NotesDriveProvider;
+    const publicContent = () => JSON.parse(uploadMeta().appData.content);
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockPatch.mockResolvedValue({ newVersionTag: 'v2' });
+        provider = new NotesDriveProvider(fakeClient);
+    });
+
+    it('keeps shareDescription/shareIndexable and derives the card from them', async () => {
+        await provider.updateNote(NOTE_ID, 'file-1', 'v1',
+            meta({ isPublic: true, shareDescription: 'My blurb', shareIndexable: true }));
+
+        expect(publicContent()).toEqual({
+            title: 'Note',
+            tags: [],
+            isPublic: true,
+            shareDescription: 'My blurb',
+            shareIndexable: true,
+            card: { description: 'My blurb', indexable: true },
+        });
+    });
+
+    it('omits the share fields and the card when there is nothing to publish', async () => {
+        await provider.updateNote(NOTE_ID, 'file-1', 'v1', meta({ isPublic: true }));
+
+        expect(publicContent()).toEqual({ title: 'Note', tags: [], isPublic: true });
+    });
+});
+
 // Regression: createNote hardcoded Owner ACL + `options?.encrypt || true` (always true),
 // so if a public note's remote file was ever recreated it came back encrypted/Owner —
 // breaking the share. createNote must mirror updateNote's visibility-driven ACL/encryption.

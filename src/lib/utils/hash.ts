@@ -22,6 +22,8 @@ export async function computeContentHash(
         excludeFromAI: metadata.excludeFromAI,
         isPinned: metadata.isPinned,
         isPublic: metadata.isPublic,
+        shareDescription: metadata.shareDescription ?? '',
+        shareIndexable: metadata.shareIndexable ?? false,
         isCollaborative: metadata.isCollaborative,
         circleIds: metadata.circleIds ?? [],
         recipients: metadata.recipients ?? [],

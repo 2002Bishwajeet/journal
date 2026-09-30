@@ -41,6 +41,7 @@ import {
 } from './config';
 import type { NoteFileContent, DocumentMetadata, CollaborationInviteContent } from '@/types';
 import { dedupeThumbnailsByDimensions } from '@/lib/utils';
+import { buildPublicCard, type PublicCard } from '@/lib/share/publicCard';
 
 export interface ImageUploadData {
     file: Blob;
@@ -61,6 +62,10 @@ const createdUserDate = (metadata: DocumentMetadata): number => {
     const parsed = created ? new Date(created).getTime() : NaN;
     return Number.isNaN(parsed) ? Date.now() : parsed;
 };
+
+/** A card with no keys is left out of the public header content entirely. */
+const nonEmptyCard = (card: PublicCard): PublicCard | undefined =>
+    Object.keys(card).length > 0 ? card : undefined;
 
 /**
  * NotesDriveProvider handles all note operations with Homebase.
@@ -252,6 +257,8 @@ export class NotesDriveProvider {
             excludeFromAI: metadata.excludeFromAI,
             isPinned: metadata.isPinned,
             isPublic: metadata.isPublic,
+            shareDescription: metadata.shareDescription,
+            shareIndexable: metadata.shareIndexable,
         };
         // A public note is stored unencrypted; the server rejects a payload IV
         // (invalidUpload) when the file header isn't encrypted. Drive isEncrypted, the
@@ -397,6 +404,8 @@ export class NotesDriveProvider {
             excludeFromAI: metadata.excludeFromAI,
             isPinned: metadata.isPinned,
             isPublic: metadata.isPublic,
+            shareDescription: metadata.shareDescription,
+            shareIndexable: metadata.shareIndexable,
             isCollaborative: metadata.isCollaborative,
             circleIds: metadata.circleIds,
             recipients: metadata.recipients,
@@ -406,11 +415,16 @@ export class NotesDriveProvider {
         // it to a minimal, non-sensitive subset so the owner's social graph
         // (circleIds/recipients) and lastEditedBy never leak into plaintext. The
         // private branch keeps the full object, so making a note private restores it.
+        // The owner-authored share fields are meant to be public; undefined ones (and
+        // an empty link card) are dropped by JSON.stringify.
         const serializedContent = metadata.isPublic
             ? JSON.stringify({
                 title: metadata.title,
                 tags: metadata?.tags || [],
                 isPublic: true,
+                shareDescription: metadata.shareDescription,
+                shareIndexable: metadata.shareIndexable,
+                card: nonEmptyCard(buildPublicCard(yjsBlob, metadata)),
             })
             : JSON.stringify(noteContent);
         // A public note is stored unencrypted; the server rejects a payload IV
@@ -758,9 +772,10 @@ export class NotesDriveProvider {
      * This is used for the Share feature.
      * @param uniqueId - The unique ID of the note
      * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
+     * @param card - Link-card data to publish in the header (see buildPublicCard)
      * @returns The new version tag after update
      */
-    async makeNotePublic(uniqueId: string, fileId?: string): Promise<{ versionTag: string }> {
+    async makeNotePublic(uniqueId: string, fileId?: string, card?: PublicCard): Promise<{ versionTag: string }> {
         return this.#rewriteNoteHeader(uniqueId, {
             fileId,
             mode: 'reupload',
@@ -770,6 +785,9 @@ export class NotesDriveProvider {
                 title: existing.title,
                 tags: existing.tags,
                 isPublic: true,
+                shareDescription: existing.shareDescription,
+                shareIndexable: existing.shareIndexable,
+                card: card && nonEmptyCard(card),
             }),
             isEncrypted: false, // Public notes should not be encrypted
             acl: { requiredSecurityGroup: SecurityGroupType.Anonymous },
@@ -789,7 +807,11 @@ export class NotesDriveProvider {
         return this.#rewriteNoteHeader(uniqueId, {
             fileId,
             mode: 'reupload',
-            content: (existing) => ({ ...existing, isPublic: false }),
+            // The link card is only meaningful while public; drop it before re-encrypting.
+            content: (existing) => {
+                const { card: _card, ...rest } = existing as NoteFileContent & { card?: unknown };
+                return { ...rest, isPublic: false };
+            },
             isEncrypted: true, // Private notes should be encrypted
             acl: { requiredSecurityGroup: SecurityGroupType.Owner },
             errorMessage: 'Failed to make note private',
