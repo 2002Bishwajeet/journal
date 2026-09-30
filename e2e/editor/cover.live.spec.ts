@@ -130,16 +130,17 @@ test('cover image: add, reposition, change and remove survive reloads (#219)', a
         // A reused key would keep showing the old image from every client's image cache.
         const [, secondKey] = await uploadedKeys();
         expect(secondKey).not.toBe(firstKey);
+        await expect(uploadedImg(page)).toBeAttached({ timeout: 30_000 });
+        await expect.poll(() => coverIs(page, BLUE), { timeout: 30_000 }).toBe(true);
+
+        // The promoted doc (and the held deletion) goes out on the next sync; a reload runs one.
+        await reloadNote(page);
         await expect.poll(
             async () => !!(await logged((args) =>
                 String(args[0]).startsWith('[SyncService] Deleting payloads')
                 && Array.isArray(args[1]) && args[1].includes(firstKey))),
-            { timeout: 120_000, message: `old cover payload ${firstKey} deleted on sync` },
+            { timeout: 60_000, message: `old cover payload ${firstKey} deleted on sync` },
         ).toBe(true);
-        await expect(uploadedImg(page)).toBeAttached({ timeout: 30_000 });
-        await expect.poll(() => coverIs(page, BLUE), { timeout: 30_000 }).toBe(true);
-        // ...and it's the new image that persisted, not deleted along with the old key.
-        await reloadNote(page);
         await expect(band(page)).toBeVisible({ timeout: 15_000 });
         await expect.poll(() => uploadedImg(page).evaluate((i: HTMLImageElement) => i.naturalWidth), { timeout: 30_000 })
             .toBeGreaterThan(0);
