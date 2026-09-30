@@ -1,4 +1,6 @@
 import { ReactNodeViewRenderer } from '@tiptap/react';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { CodeBlockNodeView } from './nodes/CodeBlockNodeView';
 import { createBaseExtensions } from './plugins/extensions';
 import { ImageSchema } from './nodes/imageSchema';
 import { ImageNodeView } from './nodes/ImageNode';
@@ -47,14 +49,21 @@ const CalloutWithView = Callout.extend({
   },
 });
 
+/** The headless code block plus the React node view (CodeBlockNodeView.tsx). */
+const CodeBlockWithView = CodeBlockLowlight.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(CodeBlockNodeView);
+  },
+});
+
 /**
  * The editor's full extension list (#316): createBaseExtensions()'s headless
- * schema with the React node views (image, noteLink, linkPreview, toggle, callout) and the
- * emoji suggestion popup. Only the editor imports this — headless code (the
- * agent edit engine) stays on createBaseExtensions() so it never pulls in React.
+ * schema with the React node views (image, noteLink, linkPreview, toggle, callout,
+ * codeBlock) and the emoji suggestion popup. Only the editor imports this — headless
+ * code (the agent edit engine) stays on createBaseExtensions() so it never pulls in React.
  */
 export function createEditorExtensions() {
-  return createBaseExtensions({
+  const extensions = createBaseExtensions({
     image: CustomImage,
     noteLink: NoteLinkWithView,
     linkPreview: LinkPreviewWithView,
@@ -62,4 +71,7 @@ export function createEditorExtensions() {
     callout: CalloutWithView,
     uiExtensions: [EmojiExtension],
   });
+  // The headless code block is configured in plugins/extensions.ts (shared with
+  // the edit engine); extend it in place so its lowlight options carry over.
+  return extensions.map((ext) => (ext.name === CodeBlockLowlight.name ? CodeBlockWithView.configure(ext.options) : ext));
 }
