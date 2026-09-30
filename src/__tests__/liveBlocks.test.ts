@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { LiveBlockPreview } from '@/components/liveBlocks/LiveBlockPreview';
-import { buildSrcdoc, liveBlockKind, svgDataUri } from '@/lib/liveBlocks';
+import { buildSrcdoc, frameHeightFromMessage, liveBlockKind, svgDataUri } from '@/lib/liveBlocks';
 
 describe('liveBlockKind', () => {
   it('should recognise mermaid, svg and html languages', () => {
@@ -36,13 +36,57 @@ describe('svgDataUri', () => {
 });
 
 describe('buildSrcdoc', () => {
-  it('should put the CSP meta before the source', () => {
+  const CSP_META = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; form-action 'none'; base-uri 'none'">`;
+  const HEIGHT_SCRIPT =
+    "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) }, '*')).observe(document.documentElement)</script>";
+
+  it('should put the CSP meta first and the height script after the source', () => {
     const source = '<p>hi</p><script>document.body.append("ran")</script>';
     const srcdoc = buildSrcdoc(source);
-    expect(srcdoc).toBe(
-      `<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; form-action 'none'; base-uri 'none'">${source}`
-    );
+    expect(srcdoc).toBe(`<!doctype html>${CSP_META}${source}${HEIGHT_SCRIPT}`);
     expect(srcdoc.indexOf('Content-Security-Policy')).toBeLessThan(srcdoc.indexOf(source));
+    expect(srcdoc.indexOf(HEIGHT_SCRIPT)).toBe(srcdoc.indexOf(source) + source.length);
+  });
+
+  it('should add a script that only reports: it never listens for a message', () => {
+    expect(buildSrcdoc('')).not.toMatch(/addEventListener|onmessage/);
+  });
+});
+
+describe('frameHeightFromMessage', () => {
+  // Stand-ins for two windows: only their identity matters.
+  const frame = {} as Window;
+  const otherWindow = {} as Window;
+  const report = (height: unknown) => ({ journalLiveBlock: 1, height });
+
+  it('should return the height its own frame reported', () => {
+    expect(frameHeightFromMessage({ source: frame, data: report(900) }, frame)).toBe(900);
+  });
+
+  it('should clamp the height to 120–1600px', () => {
+    expect(frameHeightFromMessage({ source: frame, data: report(0) }, frame)).toBe(120);
+    expect(frameHeightFromMessage({ source: frame, data: report(5000) }, frame)).toBe(1600);
+  });
+
+  it('should ignore a message from another window', () => {
+    expect(frameHeightFromMessage({ source: otherWindow, data: report(900) }, frame)).toBeNull();
+    expect(frameHeightFromMessage({ source: null, data: report(900) }, frame)).toBeNull();
+  });
+
+  it('should ignore every message while the frame has no window', () => {
+    expect(frameHeightFromMessage({ source: null, data: report(900) }, null)).toBeNull();
+  });
+
+  it('should ignore a height that is not a finite number', () => {
+    for (const height of ['900', NaN, Infinity, null, undefined, { valueOf: () => 900 }]) {
+      expect(frameHeightFromMessage({ source: frame, data: report(height) }, frame)).toBeNull();
+    }
+  });
+
+  it('should ignore a message without the marker', () => {
+    for (const data of [{ height: 900 }, { journalLiveBlock: '1', height: 900 }, { journalLiveBlock: true, height: 900 }, 'height: 900', 900, null, undefined]) {
+      expect(frameHeightFromMessage({ source: frame, data }, frame)).toBeNull();
+    }
   });
 });
 

@@ -770,6 +770,27 @@ body {
   background: transparent;
 }
 
+/* A full-screen html block: the bar stays on top and the box takes the rest of
+   the screen, whatever inline height its content or the resize handle gave it. */
+[data-live-block='html']:fullscreen {
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+}
+
+[data-live-block='html']:fullscreen > :last-child {
+  flex: 1;
+  min-height: 0;
+  height: auto !important;
+  resize: none;
+}
+
+/* Nothing to resize there, so no grip. */
+[data-live-block='html']:fullscreen > :last-child > [aria-hidden] {
+  display: none;
+}
+
 /* Centred, never wider than the column, and not so tall that an svg with no
    size of its own (which would fill the column) takes over the page. */
 [data-live-block-preview='svg'] img {
