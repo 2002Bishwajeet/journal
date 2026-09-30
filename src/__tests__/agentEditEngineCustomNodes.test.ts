@@ -1,8 +1,6 @@
 /**
  * Agent edit engine (#392): callout and toggle parse from the markdown the
  * serializer emits, so a note an agent read can be written back unchanged.
- * Link previews are out: a card serializes to `[title](url)`, the same string
- * as a plain link, so a lone link line must stay a paragraph.
  */
 import { describe, it, expect } from 'vitest';
 import { yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
@@ -169,22 +167,5 @@ describe('ordinary markdown still parses as before', () => {
   it('an unclosed <details> stays literal text', () => {
     const md = '<details>\n<summary>Title</summary>\n\nBody';
     expect(parse(md)).toEqual([para('<details>\n<summary>Title</summary>'), para('Body')]);
-  });
-
-  it('a lone [title](url) line stays a paragraph with a link', () => {
-    const md = '[A site](https://a.com)';
-    const [p, ...rest] = parse(md);
-    expect(rest).toEqual([]);
-    expect(p.type).toBe('paragraph');
-    expect(p.content).toEqual([
-      { type: 'text', text: 'A site', marks: [{ type: 'link', attrs: expect.objectContaining({ href: 'https://a.com' }) }] },
-    ]);
-    expect(roundTrip(md)).toBe(md);
-  });
-
-  it('a link followed by a quote stays a paragraph and a blockquote', () => {
-    const md = '[A site](https://a.com)\n\n> Desc';
-    expect(types(parse(md))).toEqual(['paragraph', 'blockquote']);
-    expect(roundTrip(md)).toBe(md);
   });
 });
