@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
-import { Monitor, Sparkles, Bot, Database, Keyboard, Info, type LucideIcon } from "lucide-react";
+import { UserRound, Monitor, Sparkles, Bot, Database, Keyboard, Info, type LucideIcon } from "lucide-react";
+import AccountSection from "./sections/AccountSection";
 import AppearanceSection from "./sections/AppearanceSection";
 import AISection from "./sections/AISection";
 import AgentAccessSection from "./sections/AgentAccessSection";
@@ -7,7 +8,7 @@ import DataSection from "./sections/DataSection";
 import ShortcutsSection from "./sections/ShortcutsSection";
 import AboutSection from "./sections/AboutSection";
 
-export type SettingsSectionId = "appearance" | "ai" | "agent-access" | "data" | "shortcuts" | "about";
+export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "data" | "shortcuts" | "about";
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -20,6 +21,13 @@ export interface SettingsSection {
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
+  {
+    id: "account",
+    label: "Account",
+    description: "Identity, sync and sign out",
+    icon: UserRound,
+    Component: AccountSection,
+  },
   {
     id: "appearance",
     label: "Appearance",

@@ -37,6 +37,7 @@ test('keyboard: theme radios, switches, and Import/Export focus rings', async ({
   await seedAIEnabled(app);
   await app.getByRole('button', { name: 'Settings' }).click();
   const dialog = app.getByRole('dialog');
+  await dialog.getByRole('tab', { name: 'Appearance' }).click();
 
   // Theme: Tab enters the group on the checked radio; ArrowRight picks the next
   // theme immediately.
@@ -90,7 +91,7 @@ test('mobile: every Settings control is at least 44 x 44 px', async ({ app }) =>
   await app.getByRole('button', { name: 'Settings' }).click();
   const dialog = app.getByRole('dialog');
 
-  const sections = ['Appearance', 'AI', 'Agent access', 'Data & storage', 'About'];
+  const sections = ['Account', 'Appearance', 'AI', 'Agent access', 'Data & storage', 'About'];
   for (const section of sections) {
     await dialog.getByRole('tab', { name: section, exact: true }).click();
     const panel = dialog.getByRole('tabpanel');
