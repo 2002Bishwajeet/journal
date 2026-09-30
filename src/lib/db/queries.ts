@@ -997,6 +997,24 @@ export async function clearCachedKeyHeader(localId: string): Promise<void> {
     await db.query(`UPDATE sync_records SET encrypted_key_header = NULL WHERE local_id = $1`, [localId]);
 }
 
+/**
+ * A public/private toggle re-uploaded the note from `previousVersionTag` to `versionTag`.
+ * Clears the now-wrong key header (see clearCachedKeyHeader) and, if this device was at
+ * `previousVersionTag`, records `versionTag` so the upload's own websocket echo is skipped.
+ * Pulling it would overwrite metadata edited since, e.g. the share dialog's link card (#222).
+ * A device that was behind keeps its tag, so the pull still brings in the remote changes.
+ */
+export async function recordNoteRekey(localId: string, previousVersionTag: string, versionTag: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `UPDATE sync_records SET
+           encrypted_key_header = NULL,
+           version_tag = CASE WHEN version_tag = $2 THEN $3 ELSE version_tag END
+         WHERE local_id = $1`,
+        [localId, previousVersionTag, versionTag]
+    );
+}
+
 export async function updateSyncStatus(localId: string, status: SyncRecord['syncStatus']): Promise<void> {
     const db = await getDatabase();
     // Every write that sets 'pending' bumps dirty_generation so a concurrent push's

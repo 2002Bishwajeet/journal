@@ -104,7 +104,7 @@ describe('NotesDriveProvider.makeNotePublic', () => {
         mockGetHeader.mockResolvedValue(null); // uniqueId lookup still 404s
         mockGetHeaderByFileId.mockResolvedValue(ownerHeader());
 
-        await expect(provider.makeNotePublic(NOTE_ID, 'file-1')).resolves.toEqual({ versionTag: 'v2' });
+        await expect(provider.makeNotePublic(NOTE_ID, 'file-1')).resolves.toEqual({ versionTag: 'v2', previousVersionTag: 'v1' });
 
         expect(mockGetHeaderByFileId).toHaveBeenCalledWith(
             fakeClient,

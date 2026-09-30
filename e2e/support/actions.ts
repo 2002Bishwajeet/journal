@@ -94,7 +94,8 @@ export async function shareNotePublicly(page: Page, title: string): Promise<stri
 
     await page.getByRole('button', { name: 'Make Note Public' }).click();
     // The real makeNotePublic() drive call happens here — give it real network time.
-    const urlInput = page.getByRole('dialog').getByRole('textbox');
+    // The read-only URL row; the public branch also has the link-card Description textarea (#222).
+    const urlInput = page.getByRole('dialog').locator('input[readonly]');
     await expect(urlInput).toBeVisible({ timeout: 15_000 });
     const shareUrl = await urlInput.inputValue();
     await page.keyboard.press('Escape');
