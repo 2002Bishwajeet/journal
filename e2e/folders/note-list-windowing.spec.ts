@@ -29,13 +29,7 @@ test('note list renders 100 rows at a time and resets on sort change', async ({ 
   await app.getByRole('button', { name: 'Settings' }).click();
   const dialog = app.getByRole('dialog');
   await dialog.getByRole('tab', { name: 'Data & storage' }).click();
-  const input = dialog.locator('input[type="file"]');
-  // DataSection resets `value` right after calling handleImport, which empties
-  // the live FileList before ImportService (dynamically imported) reads it —
-  // every UI import currently imports 0 notes in Chromium. Make the reset a
-  // no-op on this element so the real importer sees the files.
-  await input.evaluate((el) => Object.defineProperty(el, 'value', { set() {} }));
-  await input.setInputFiles(seedFiles());
+  await dialog.locator('input[type="file"]').setInputFiles(seedFiles());
   await expect(app.getByText(`Successfully imported ${COUNT} notes`)).toBeVisible({ timeout: 180_000 });
   await app.keyboard.press('Escape');
 

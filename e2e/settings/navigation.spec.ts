@@ -35,7 +35,9 @@ test('desktop: vertical tablist, arrow-key navigation, Tab into content', async 
 });
 
 test('mobile: nav strip switches sections and long content scrolls', async ({ app }) => {
-  await app.setViewportSize({ width: 390, height: 844 });
+  // A short phone viewport (e.g. browser chrome or keyboard showing): no
+  // section overflows a full 390x844 screen, so the scroll check needs less height.
+  await app.setViewportSize({ width: 390, height: 560 });
   await app.getByRole('button', { name: 'Settings' }).click();
 
   const dialog = app.getByRole('dialog');

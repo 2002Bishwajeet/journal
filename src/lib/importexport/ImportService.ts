@@ -9,7 +9,7 @@ export interface ImportResult {
     imported: number;
     foldersCreated: number;
     failed: number;
-    errors: string[];
+    errors: { file: string; message: string }[];
 }
 
 /**
@@ -35,12 +35,13 @@ export const ImportService = {
                     await importMarkdown(file, MAIN_FOLDER_ID, result);
                 } else {
                     // Skip unsupported files without erroring the whole batch
-                    console.warn(`Skipping unsupported file: ${file.name}`);
+                    result.failed++;
+                    result.errors.push({ file: file.name, message: 'Unsupported file type' });
                 }
             } catch (error) {
                 console.error(`Error importing ${file.name}:`, error);
                 result.failed++;
-                result.errors.push(`Failed to import ${file.name}: ${error instanceof Error ? error.message : String(error)}`);
+                result.errors.push({ file: file.name, message: error instanceof Error ? error.message : String(error) });
             }
         }
 
