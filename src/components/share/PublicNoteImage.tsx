@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { DotYouClient, ApiType, getPayloadBytes } from '@homebase-id/js-lib/core';
 import { JOURNAL_DRIVE } from '@/lib/homebase/config';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
@@ -8,6 +8,8 @@ export interface PublicNoteImageProps {
     noteFileId: string;
     src: string;
     alt?: string;
+    className?: string;
+    style?: CSSProperties;
 }
 
 /**
@@ -22,7 +24,7 @@ export interface PublicNoteImageProps {
  * this instance's state (a stale/revoked object URL, or a stale failure)
  * instead of loading the new image.
  */
-export function PublicNoteImage({ identity, noteFileId, src, alt }: PublicNoteImageProps) {
+export function PublicNoteImage({ identity, noteFileId, src, alt, className, style }: PublicNoteImageProps) {
     const ref = parseAttachmentSrc(src, noteFileId);
     const fileId = ref?.fileId;
     const payloadKey = ref?.payloadKey;
@@ -65,5 +67,5 @@ export function PublicNoteImage({ identity, noteFileId, src, alt }: PublicNoteIm
         return <span className="block h-48 w-full rounded bg-muted animate-pulse" aria-hidden="true" />;
     }
 
-    return <img src={objectUrl} alt={alt} loading="lazy" />;
+    return <img src={objectUrl} alt={alt} loading="lazy" className={className} style={style} />;
 }

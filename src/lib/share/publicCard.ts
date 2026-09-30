@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import type { DocumentMetadata } from '@/types';
+import { coverPayloadKey, getCoverFromBlob } from '@/lib/editor/cover';
 
 /** Link-card data a public note publishes in its plaintext header content. */
 export interface PublicCard {
@@ -66,6 +67,13 @@ export function buildPublicCard(
         } finally {
             doc.destroy();
         }
+    }
+
+    if (yjsBlob) {
+        // Only an uploaded cover has a payload the guest thumb endpoint can serve.
+        const cover = getCoverFromBlob(yjsBlob);
+        const coverKey = cover && !cover.pendingId ? coverPayloadKey(cover.src) : null;
+        if (coverKey) card.coverKey = coverKey;
     }
 
     if (meta.shareIndexable === true) card.indexable = true;

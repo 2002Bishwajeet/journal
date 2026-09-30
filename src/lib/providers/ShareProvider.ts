@@ -7,6 +7,8 @@ import {
     type HomebaseFile,
 } from '@homebase-id/js-lib/core';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
+import { getCoverFromBlob } from '@/lib/editor/cover';
+import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import type { NoteFileContent } from '@/types';
 import { JOURNAL_DRIVE, PAYLOAD_KEY_CONTENT } from '@/lib/homebase/config';
 
@@ -14,6 +16,8 @@ export interface SharedNoteData {
     title: string;
     content: string; // Markdown
     fileId: string;
+    /** Uploaded cover image of this note (never a ref to another file). */
+    cover?: { src: string; positionY: number };
     createdAt: string;
     updatedAt: string;
 }
@@ -77,12 +81,17 @@ export class ShareProvider {
 
         // A missing payload is not fatal — render the titled note with an empty body.
         let markdown = '';
+        let cover: SharedNoteData['cover'];
         try {
             const yjs = await getPayloadBytes(client, JOURNAL_DRIVE, header.fileId, PAYLOAD_KEY_CONTENT, {
                 decrypt: false,
             });
             if (yjs?.bytes && yjs.bytes.length > 0) {
                 markdown = await extractMarkdownFromYjs(noteId, yjs.bytes);
+                const c = getCoverFromBlob(yjs.bytes);
+                if (c && parseAttachmentSrc(c.src, header.fileId)) {
+                    cover = { src: c.src, positionY: c.positionY };
+                }
             }
         } catch (err) {
             console.warn('[ShareProvider] Failed to fetch shared note payload:', err);
@@ -92,6 +101,7 @@ export class ShareProvider {
             title,
             content: markdown,
             fileId: header.fileId,
+            ...(cover ? { cover } : {}),
             createdAt: new Date(header.fileMetadata.appData.userDate || Date.now()).toISOString(),
             // `updated` is the file's modified time; `transitUpdated` is only set for
             // files received over transit, never for the owner's own notes.
