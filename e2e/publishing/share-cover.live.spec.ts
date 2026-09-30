@@ -1,7 +1,7 @@
 import { request, type Page, type TestInfo } from '@playwright/test';
-import { test, expect, withFencedPage, liveIdentityOrigin, waitForAppReady } from '../fixtures';
+import { test, expect, withFencedPage, liveIdentityOrigin } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
-import { createNote, selectFolder, shareNotePublicly } from '../support/actions';
+import { createNote, shareNotePublicly } from '../support/actions';
 import { makeSolidPng } from '../support/png';
 import { buildHeadTags, fetchShareMeta } from '../../functions/_lib/shareMeta';
 
@@ -21,7 +21,7 @@ async function screenshot(page: Page, testInfo: TestInfo, name: string): Promise
 
 test('share page shows the cover, and its og:image is served anonymously (#220)', async ({ liveRun, browser }, testInfo) => {
     test.setTimeout(300_000);
-    const { page, folderName } = liveRun;
+    const { page } = liveRun;
     const identity = new URL(liveIdentityOrigin()).hostname;
     const title = `Cover share note ${Date.now()}`;
     await createNote(page, { title, body: 'A shared note with a cover image.' });
@@ -33,12 +33,6 @@ test('share page shows the cover, and its og:image is served anonymously (#220)'
     await (await chooser).setFiles({ name: 'cover.png', mimeType: 'image/png', buffer: makeSolidPng(800, 600, RED) });
     const band = page.getByRole('img', { name: 'Note cover' });
     await expect(band.locator('img[crossorigin]').last()).toBeAttached({ timeout: 120_000 });
-    // The promoted (attachment://) cover goes out on the next sync; a reload runs one.
-    await page.waitForTimeout(1500);
-    await page.reload();
-    await assertTestOrigin(page);
-    await waitForAppReady(page);
-    await selectFolder(page, folderName);
 
     // Making a note public before its upload lands fails with "Note with uniqueId … not found" (#361) — retry.
     let shareUrl = '';
@@ -79,7 +73,8 @@ test('share page shows the cover, and its og:image is served anonymously (#220)'
     }
 
     await withFencedPage(browser, { viewport: { width: 1280, height: 800 } }, async (anonPage) => {
-        // The cover sits above the article, outside it. Reload until the synced content has it.
+        // The cover sits above the article, outside it. The promoted (attachment://) cover
+        // reaches the server's content payload on the sync after its upload: reload until it's there.
         const cover = anonPage.locator('main > div img.object-cover');
         await expect(async () => {
             await anonPage.goto(shareUrl);
