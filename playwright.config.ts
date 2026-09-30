@@ -55,7 +55,7 @@ export default defineConfig({
       ? [{
           // Pinned to the deploy's wranglerVersion (deploy-cloudflare.yml). Not a
           // package.json dependency: its workerd binaries would churn the lockfile.
-          command: `${edgeBuildsItself ? `${buildCommand} && ` : ''}npx --yes wrangler@3.90.0 pages dev dist-e2e --ip 127.0.0.1 --port 8788`,
+          command: `${edgeBuildsItself ? `${buildCommand} && ` : ''}npx --yes wrangler@3.90.0 pages dev dist-e2e --ip 127.0.0.1 --port 8788 --binding HOMEBASE_UPSTREAM_OVERRIDE=http://127.0.0.1:8799`,
           url: edgeBaseURL,
           reuseExistingServer: false,
           timeout: 300_000,
