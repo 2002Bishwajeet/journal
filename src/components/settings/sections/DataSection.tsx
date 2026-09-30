@@ -29,7 +29,7 @@ export default function DataSection() {
         <p className="text-sm text-muted-foreground">
           Notes are stored on this device and synced, end-to-end encrypted, to
           your Homebase (
-          <span className="font-medium text-foreground break-all">
+          <span className="font-medium text-foreground wrap-anywhere">
             {getIdentity()}
           </span>
           ).
