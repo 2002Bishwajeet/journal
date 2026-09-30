@@ -11,7 +11,7 @@ export default defineConfig({
         environment: 'node',
 
         // Include test files
-        include: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
+        include: ['src/**/*.test.{ts,tsx}', 'src/**/*.spec.ts'],
 
         // Global test timeout (some DB operations may take time)
         testTimeout: 30000,
