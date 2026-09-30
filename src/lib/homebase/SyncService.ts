@@ -51,6 +51,7 @@ import { collectImageRefs } from '@/lib/yjs/imageRefs';
 import { MAIN_FOLDER_ID, COLLABORATIVE_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from './config';
 import type { FolderFile, SyncRecord, SyncProgress, CollaborationInviteContent } from '@/types';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
+import { getCover, setCover } from '@/lib/editor/cover';
 import { documentBroadcast } from '@/lib/broadcast';
 import type { OnlineContextType } from '@/contexts/OnlineContext';
 import { suspendLiveQueries } from '@/hooks/useLiveQuery';
@@ -1305,7 +1306,16 @@ export class SyncService {
             }
         };
 
-        ydoc.transact(() => replaceInFragment(fragment));
+        ydoc.transact(() => {
+            replaceInFragment(fragment);
+
+            // The cover lives outside the fragment, in the journalMeta map
+            const cover = getCover(ydoc);
+            if (cover?.pendingId && stringGuidsEqual(cover.pendingId, pendingId)) {
+                setCover(ydoc, { src: `attachment://${fileId}/${payloadKey}`, positionY: cover.positionY });
+                found = true;
+            }
+        });
 
         if (found) {
             // Append only the delta so rows the editor saved concurrently are never deleted
