@@ -220,6 +220,10 @@ async function shoot(page: Page, name: string): Promise<void> {
   const viewport = page.viewportSize()!;
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
   await page.setViewportSize({ width: viewport.width, height });
+  // The frame paints again a moment after the resize: a screenshot taken before that shows it blank.
+  const frame = page.locator('[data-live-block="html"] iframe').contentFrame();
+  await expect(frame.getByRole('heading', { name: 'Counter' })).toBeVisible();
+  await frame.locator('body').evaluate(() => new Promise<void>((painted) => requestAnimationFrame(() => requestAnimationFrame(() => painted()))));
   await page.screenshot({ path: test.info().outputPath(name) });
   await page.setViewportSize(viewport);
 }
