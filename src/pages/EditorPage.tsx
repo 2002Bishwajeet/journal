@@ -41,11 +41,13 @@ function EditorLayout({
   onBack,
   focusMode = false,
   isActive,
+  isPeerNote,
 }: {
   noteId: string;
   onBack: () => void;
   focusMode?: boolean;
   isActive: boolean;
+  isPeerNote: boolean;
 }) {
   const { editor, isLoading } = useEditorContext();
   const {
@@ -122,7 +124,9 @@ function EditorLayout({
             editor={editor}
             tocOpen={tocOpen}
             onToggleToc={() => setTocOpen((prev) => !prev)}
-            onOpenHistory={() => setHistoryOpen(true)}
+            // Version history is for your own notes: a restore on a peer note
+            // would push a whole-document replacement into someone else's note.
+            onOpenHistory={isPeerNote ? undefined : () => setHistoryOpen(true)}
           />
         )}
         {editor && <AIMenu editor={editor} />}
@@ -165,7 +169,7 @@ function EditorLayout({
         )}
       </div>
 
-      {editor && (
+      {editor && !isPeerNote && (
         <HistoryModal
           open={historyOpen}
           onOpenChange={setHistoryOpen}
@@ -328,7 +332,7 @@ export default function EditorPage({
       onGetAutocompleteSuggestion={handleGetAutocompleteSuggestion}
       onCheckGrammar={handleCheckGrammar}
     >
-      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} isActive={isActiveTab} />
+      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} isActive={isActiveTab} isPeerNote={isPeerNote} />
     </EditorProvider>
   );
 }

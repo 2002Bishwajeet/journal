@@ -10,6 +10,7 @@ import {
     getSnapshotBlob,
     getLatestSnapshotVector,
     deleteSnapshots,
+    clearAllLocalData,
 } from '@/lib/db';
 
 const DOC_A = '20000000-0000-0000-0000-00000000000a';
@@ -97,5 +98,15 @@ describe('snapshot queries', () => {
         await deleteSnapshots([]);
 
         expect((await getSnapshots(DOC_A)).map((s) => s.wordCount)).toEqual([2]);
+    });
+
+    it('clearAllLocalData wipes version history on logout', async () => {
+        await saveSnapshot(DOC_A, snapshot(1));
+        await saveSnapshot(DOC_B, snapshot(2));
+
+        await clearAllLocalData();
+
+        expect(await getSnapshots(DOC_A)).toEqual([]);
+        expect(await getSnapshots(DOC_B)).toEqual([]);
     });
 });
