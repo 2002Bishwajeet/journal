@@ -64,7 +64,7 @@ export default function DataSection() {
                   </p>
                 </div>
                 {!persisted && (
-                  <Button size="sm" variant="outline" onClick={protect}>
+                  <Button size="sm" variant="outline" className="h-11 md:h-8" onClick={protect}>
                     Protect
                   </Button>
                 )}

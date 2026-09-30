@@ -41,10 +41,10 @@ export function useImportExport(): UseImportExportReturn {
             const result = await ImportService.importFiles(files);
 
             if (result.failed > 0) {
-                const files = result.failed === 1 ? "file" : "files";
+                const noun = result.failed === 1 ? "file" : "files";
                 const example = result.errors[0] ? ` (e.g. ${result.errors[0].file})` : "";
                 toast.warning(
-                    `Imported ${result.imported} notes. ${result.failed} ${files} couldn't be imported${example}.`
+                    `Imported ${result.imported} notes. ${result.failed} ${noun} couldn't be imported${example}.`
                 );
             } else {
                 toast.success(
