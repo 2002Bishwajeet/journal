@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Trash2, Zap, SpellCheck } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import { useAIPreferences } from "@/hooks/useAIPreferences";
 import { getModelInfo } from "@/lib/webllm";
@@ -29,10 +29,9 @@ export default function AISection() {
   const percent = Math.round(loadingProgress * 100);
 
   const enableRow = (
-    <div className="rounded-lg border">
+    <div className="overflow-hidden rounded-xl border bg-card">
       <SettingsRow
         id="ai-enabled"
-        icon={Sparkles}
         label="Enable on-device AI"
         description="Runs a language model in this browser for autocomplete and grammar. Nothing you write leaves your device."
         control={
@@ -48,8 +47,8 @@ export default function AISection() {
 
   if (!isSupported) {
     return (
-      <div className="space-y-6">
-        <p className="text-sm text-muted-foreground">
+      <div className="space-y-4">
+        <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
           On-device AI needs a larger screen (768 px or wider) and isn't
           available on phones.
         </p>
@@ -61,7 +60,7 @@ export default function AISection() {
   return (
     <div className="space-y-10">
       {/* Master Toggle + Status */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         <SectionHeader subtitle="On-device intelligence for your writing">
           AI Assistant
         </SectionHeader>
@@ -87,7 +86,7 @@ export default function AISection() {
               </div>
             ) : error ? (
               <div className="flex items-center justify-between gap-3">
-                <p className="text-destructive">{error}</p>
+                <p className="text-destructive dark:text-red-400">{error}</p>
                 <Button size="sm" variant="outline" onClick={() => retry()}>
                   Retry
                 </Button>
@@ -103,7 +102,7 @@ export default function AISection() {
 
       {/* Model Selection */}
       {settings.enabled && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <SectionHeader subtitle="Choose a model based on your device capabilities">
             Model
           </SectionHeader>
@@ -117,14 +116,13 @@ export default function AISection() {
 
       {/* Feature Toggles */}
       {settings.enabled && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <SectionHeader subtitle="Fine-tune which AI capabilities are active">
             Features
           </SectionHeader>
-          <div className="rounded-lg border">
+          <div className="overflow-hidden rounded-xl border bg-card">
             <SettingsRow
               id="autocomplete-toggle"
-              icon={Zap}
               label="Autocomplete"
               description="Shows grey suggested text as you type. Press Tab to accept."
               control={
@@ -136,7 +134,6 @@ export default function AISection() {
             />
             <SettingsRow
               id="grammar-toggle"
-              icon={SpellCheck}
               label="Grammar Check"
               description="Underlines likely grammar and spelling mistakes in the open note."
               control={
@@ -151,14 +148,14 @@ export default function AISection() {
       )}
 
       {/* Model files */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         <SectionHeader subtitle="Downloaded models are stored in this browser so they load faster next time.">
           Model files
         </SectionHeader>
         <Button
           variant="outline"
           size="sm"
-          className="h-11 md:h-8 text-destructive hover:text-destructive hover:bg-destructive/5 border-destructive/20"
+          className="h-11 md:h-8 text-destructive hover:text-destructive hover:bg-destructive/5 border-destructive/20 dark:text-red-400 dark:hover:text-red-400"
           onClick={() => setIsConfirmingRemove(true)}
         >
           <Trash2 className="h-4 w-4 mr-2" />

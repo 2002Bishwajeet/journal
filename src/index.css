@@ -24,6 +24,9 @@
   --font-sans: 'Inter Variable', system-ui, sans-serif;
   --font-serif: 'Playfair Display Variable', serif;
   --font-script: cursive;
+  /* Editor font choices (system stacks), also drawn by the Settings previews. */
+  --font-editor-serif: ui-serif, Georgia, 'Times New Roman', serif;
+  --font-editor-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Base - Light Mode (from JSON) */
   --background: #FDFCF8; /* Soft White Main */
@@ -714,14 +717,26 @@ body {
    max-w-5xl cap (cover, title, tags, content); focus mode does not carry
    `.editor-column`, so it keeps its own cap. */
 [data-editor-font='serif'] .ProseMirror {
-  font-family: ui-serif, Georgia, 'Times New Roman', serif;
+  font-family: var(--font-editor-serif);
 }
 [data-editor-font='mono'] .ProseMirror {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-editor-mono);
 }
 [data-editor-width='narrow'] .editor-column {
   max-width: 65ch;
 }
 [data-editor-width='full'] .editor-column {
   max-width: none;
+}
+
+/* Settings dialog: its 12px help text sits on the dialog and on cards, where the
+   app-wide --muted-foreground is under WCAG AA (3.5:1 light, 4.4:1 on a dark
+   card). These reach 5.4:1 and 5.9:1. The dark --input equals --card, which
+   would hide outline buttons and unchecked switches on the dialog's cards. */
+.settings-dialog {
+  --muted-foreground: #6B6862;
+}
+.dark .settings-dialog {
+  --muted-foreground: #A19E96;
+  --input: #3E3D3A;
 }

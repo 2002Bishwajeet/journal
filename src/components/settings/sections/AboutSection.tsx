@@ -20,10 +20,10 @@ export default function AboutSection() {
   };
 
   return (
-    <div className="rounded-lg border">
-      <div className="flex min-h-14 items-center gap-3 border-b px-4 py-3">
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <h3 className="text-sm font-semibold">Version</h3>
+    <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3">
+        <div className="min-w-36 flex-1 space-y-0.5">
+          <h3 className="text-sm leading-5 font-medium">Version</h3>
           <p className="font-mono text-xs text-muted-foreground">{version}</p>
         </div>
         <Button variant="ghost" size="sm" className="min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={copyVersion}>
@@ -32,8 +32,8 @@ export default function AboutSection() {
       </div>
 
       <div className="space-y-0.5 border-b px-4 py-3">
-        <h3 className="text-sm font-semibold">Privacy</h3>
-        <p className="text-xs text-muted-foreground leading-relaxed">
+        <h3 className="text-sm leading-5 font-medium">Privacy</h3>
+        <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
           Your notes are stored on this device and synced end-to-end encrypted
           to your own Homebase. On-device AI runs in this browser; model files
           are downloaded once from a public model host. Journal has no
@@ -42,7 +42,7 @@ export default function AboutSection() {
       </div>
 
       <div className="space-y-1 px-4 py-3">
-        <h3 className="text-sm font-semibold">Links</h3>
+        <h3 className="text-sm leading-5 font-medium">Links</h3>
         <ul className="space-y-1">
           {links.map((link) => (
             <li key={link.href}>
@@ -50,7 +50,7 @@ export default function AboutSection() {
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-11 items-center gap-1.5 text-sm text-primary underline-offset-4 hover:underline"
+                className="inline-flex min-h-11 items-center gap-1.5 text-sm text-primary underline decoration-muted-foreground/70 underline-offset-4 hover:decoration-current md:min-h-8"
               >
                 {link.label}
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />

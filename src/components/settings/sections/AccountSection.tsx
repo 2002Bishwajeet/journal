@@ -27,7 +27,7 @@ export default function AccountSection() {
   }
 
   return (
-    <div className="rounded-lg border">
+    <div className="overflow-hidden rounded-xl border bg-card">
       <SettingsRow
         id="account-identity"
         label="Signed in as"
