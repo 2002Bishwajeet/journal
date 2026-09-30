@@ -32,7 +32,7 @@ import { NoteLinkContext, type NoteLinkContextValue } from "./NoteLinkContext";
 import { ImageOwnerContext } from "./nodes/imageOwnerContext";
 import { useSyncService } from "@/hooks/useSyncService";
 import { useNoteTitleMap } from "@/hooks/useNoteTitleMap";
-import { createNoteWithContentInDb } from "@/hooks/useNotes";
+import { createNoteWithContentInDb } from "@/lib/notes/createNote";
 import { extractNoteLinkIds } from "@/lib/editor/extractNoteLinkIds";
 import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
 import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
