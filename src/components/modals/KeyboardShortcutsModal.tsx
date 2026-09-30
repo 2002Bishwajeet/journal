@@ -5,6 +5,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
+import { cn } from "@/lib/utils";
 
 declare global {
   interface Navigator {
@@ -27,7 +28,8 @@ const isMac = (navigator.userAgentData?.platform ?? navigator.platform)?.include
 const mod = isMac ? "⌘" : "Ctrl";
 const shift = isMac ? "⇧" : "Shift";
 
-const shortcutGroups: ShortcutGroup[] = [
+// eslint-disable-next-line react-refresh/only-export-components -- shared shortcut data (#215)
+export const shortcutGroups: ShortcutGroup[] = [
   {
     title: "General",
     shortcuts: [
@@ -90,6 +92,44 @@ const shortcutGroups: ShortcutGroup[] = [
   },
 ];
 
+export function ShortcutList({ className }: { className?: string }) {
+  return (
+    <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-6", className)}>
+      {shortcutGroups.map((group) => (
+        <div key={group.title}>
+          <h3 className="text-sm font-semibold text-foreground mb-2">
+            {group.title}
+          </h3>
+          <div className="space-y-1.5">
+            {group.shortcuts.map((shortcut) => (
+              <div
+                key={shortcut.description}
+                className="flex items-center justify-between gap-4"
+              >
+                <span className="text-sm text-muted-foreground">
+                  {shortcut.description}
+                </span>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {shortcut.keys.map((key, i) => (
+                    <span key={i} className="flex items-center gap-0.5">
+                      {i > 0 && (
+                        <span className="text-[10px] text-muted-foreground/50 mx-0.5">
+                          +
+                        </span>
+                      )}
+                      <Kbd>{key}</Kbd>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -106,39 +146,7 @@ export default function KeyboardShortcutsModal({
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-2">
-          {shortcutGroups.map((group) => (
-            <div key={group.title}>
-              <h3 className="text-sm font-semibold text-foreground mb-2">
-                {group.title}
-              </h3>
-              <div className="space-y-1.5">
-                {group.shortcuts.map((shortcut) => (
-                  <div
-                    key={shortcut.description}
-                    className="flex items-center justify-between gap-4"
-                  >
-                    <span className="text-sm text-muted-foreground">
-                      {shortcut.description}
-                    </span>
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {shortcut.keys.map((key, i) => (
-                        <span key={i} className="flex items-center gap-0.5">
-                          {i > 0 && (
-                            <span className="text-[10px] text-muted-foreground/50 mx-0.5">
-                              +
-                            </span>
-                          )}
-                          <Kbd>{key}</Kbd>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <ShortcutList className="mt-2" />
 
         <div className="mt-4 pt-3 border-t text-center">
           <p className="text-xs text-muted-foreground">

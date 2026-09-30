@@ -2,6 +2,10 @@ import { defineConfig } from 'vitest/config';
 import path from 'path';
 
 export default defineConfig({
+    define: {
+        __APP_BUILD__: '"test"',
+    },
+
     test: {
         // Use Node environment for database tests (PGlite runs in Node)
         environment: 'node',

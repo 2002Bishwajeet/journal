@@ -1,12 +1,13 @@
 import type { ComponentType } from "react";
-import { Monitor, Sparkles, Bot, Database, Info, type LucideIcon } from "lucide-react";
+import { Monitor, Sparkles, Bot, Database, Keyboard, Info, type LucideIcon } from "lucide-react";
 import AppearanceSection from "./sections/AppearanceSection";
 import AISection from "./sections/AISection";
 import AgentAccessSection from "./sections/AgentAccessSection";
 import DataSection from "./sections/DataSection";
+import ShortcutsSection from "./sections/ShortcutsSection";
 import AboutSection from "./sections/AboutSection";
 
-export type SettingsSectionId = "appearance" | "ai" | "agent-access" | "data" | "about";
+export type SettingsSectionId = "appearance" | "ai" | "agent-access" | "data" | "shortcuts" | "about";
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -14,6 +15,8 @@ export interface SettingsSection {
   description: string;
   icon: LucideIcon;
   Component: ComponentType;
+  /** Hidden on phones (e.g. keyboard shortcuts — phones have no keyboard). */
+  desktopOnly?: boolean;
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
@@ -46,9 +49,17 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     Component: DataSection,
   },
   {
+    id: "shortcuts",
+    label: "Keyboard shortcuts",
+    description: "Every shortcut in one place",
+    icon: Keyboard,
+    Component: ShortcutsSection,
+    desktopOnly: true,
+  },
+  {
     id: "about",
     label: "About",
-    description: "Version, privacy, and keyboard shortcuts",
+    description: "Version, privacy, and links",
     icon: Info,
     Component: AboutSection,
   },

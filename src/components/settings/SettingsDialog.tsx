@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ChevronRight } from "lucide-react";
+import { useDeviceType } from "@/hooks";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "./sections";
 
 interface SettingsDialogProps {
@@ -20,6 +21,12 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(
     SETTINGS_SECTIONS[0].id
   );
+  const isMobile = useDeviceType() === "mobile";
+  const sections = SETTINGS_SECTIONS.filter((s) => !(isMobile && s.desktopOnly));
+  // A desktop-only section picked before shrinking to phone width falls back to the first.
+  const currentSection = sections.some((s) => s.id === activeSection)
+    ? activeSection
+    : sections[0].id;
 
   return (
     <Dialog
@@ -36,7 +43,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
         {/* Fixed height lives here, not on DialogContent: DialogContent is a
             grid, so an h-full child would grow with its content and never scroll. */}
         <Tabs
-          value={activeSection}
+          value={currentSection}
           onValueChange={(value) => setActiveSection(value as SettingsSectionId)}
           orientation="vertical"
           activationMode="automatic"
@@ -52,7 +59,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
             </div>
 
             <TabsList className="h-auto w-full flex-row md:flex-col items-stretch justify-start gap-0.5 rounded-none bg-transparent px-3 py-2 md:py-0 md:pb-6">
-              {SETTINGS_SECTIONS.map((section) => {
+              {sections.map((section) => {
                 const Icon = section.icon;
                 return (
                   <TabsTrigger
@@ -71,7 +78,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
 
           {/* ── Content Area ── */}
           <div className="min-h-0 flex-1 overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
-            {SETTINGS_SECTIONS.map((section) => (
+            {sections.map((section) => (
               <TabsContent key={section.id} value={section.id} className="p-6 md:p-8 outline-none">
                 <h2 className="mb-8 text-lg font-semibold">{section.label}</h2>
                 <section.Component />
