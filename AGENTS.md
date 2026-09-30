@@ -369,7 +369,7 @@ Enforced minimums for all UI components. Do not go below these:
 ### Test Setup
 
 - **Location**: `src/__tests__/`
-- **Framework**: Vitest (30s timeout, serial execution)
+- **Framework**: Vitest (30s timeout, files run in parallel on up to 4 workers)
 - **Naming**: `<feature>.test.ts`
 - **Run**: `npm run test` (all) or `npx vitest run src/__tests__/<file>.test.ts` (single)
 
