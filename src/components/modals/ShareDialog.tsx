@@ -14,8 +14,10 @@ import { useAuth } from '@/hooks/auth';
 import { useDotYouClientContext } from '@/components/auth';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { useNotes } from '@/hooks/useNotes';
-import { getSyncRecord } from '@/lib/db';
+import * as Y from 'yjs';
+import { getDocumentUpdates, getSyncRecord } from '@/lib/db';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
+import { buildPublicCard } from '@/lib/share/publicCard';
 import { toast } from 'sonner';
 
 interface ShareDialogProps {
@@ -70,7 +72,10 @@ export default function ShareDialog({
             const provider = new NotesDriveProvider(dotYouClient);
             // Pass the synced fileId: a just-created note's uniqueId lookup can 404 (#293)
             const record = await getSyncRecord(noteId);
-            await provider.makeNotePublic(noteId, record?.remoteFileId);
+            const updates = await getDocumentUpdates(noteId);
+            const blob = updates.length > 0 ? Y.mergeUpdates(updates) : undefined;
+            const metadata = get.data?.find((n) => n.docId === noteId)?.metadata;
+            await provider.makeNotePublic(noteId, record?.remoteFileId, buildPublicCard(blob, metadata ?? {}));
             setNotePublic.mutate({ docId: noteId, isPublic: true });
             toast.success('Note is now publicly accessible');
         } catch (err) {

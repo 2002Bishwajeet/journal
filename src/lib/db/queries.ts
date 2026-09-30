@@ -1184,6 +1184,21 @@ export async function recordSyncError(
 }
 
 /**
+ * Note ids whose pull failed and are due for a retry (#147). Rows at
+ * maxAttempts stop being selected but stay unresolved.
+ */
+export async function getPullRetriesDue(maxAttempts = 5): Promise<string[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ entity_id: string }>(
+        `SELECT entity_id FROM sync_errors
+         WHERE resolved_at IS NULL AND operation = 'pull' AND entity_type = 'note' AND retry_count < $1
+           AND (next_retry_at IS NULL OR next_retry_at <= CURRENT_TIMESTAMP)`,
+        [maxAttempts]
+    );
+    return result.rows.map(row => row.entity_id);
+}
+
+/**
  * Entity ids currently backing off from a failed operation (next_retry_at is
  * still in the future), so callers can skip retrying them this sync pass.
  */

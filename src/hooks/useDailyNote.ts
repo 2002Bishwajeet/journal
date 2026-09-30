@@ -1,4 +1,4 @@
-import { createNoteFromTemplateInDb, createNoteWithContentInDb } from './useNotes';
+import { createNoteFromTemplateInDb, createNoteWithContentInDb } from '@/lib/notes/createNote';
 import { findOrCreateFolderByName } from './useFolders';
 import { getActiveNoteByTitle } from '@/lib/db';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';

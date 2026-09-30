@@ -13,7 +13,18 @@ import * as Y from "yjs";
 import { ySyncPluginKey } from "y-prosemirror";
 import { PGliteProvider } from "@/lib/yjs";
 import { flushPendingSaveOnTeardown } from "@/lib/yjs/flushPendingSave";
-import { upsertSearchIndex, savePendingImageUpload, updateSyncStatus } from "@/lib/db";
+import { upsertSearchIndex, savePendingImageUpload, savePendingImageDeletion, updateSyncStatus } from "@/lib/db";
+import { getNewId } from "@/lib/utils";
+import { formatGuidId } from "@homebase-id/js-lib/helpers";
+import {
+  COVER_MAP,
+  getCover,
+  setCover,
+  clearCover,
+  setCoverPosition as setCoverPositionInDoc,
+  coverPayloadKey,
+  type NoteCover,
+} from "@/lib/editor/cover";
 import { isAgentEditor } from "@/lib/agent/attribution";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
@@ -21,7 +32,7 @@ import { NoteLinkContext, type NoteLinkContextValue } from "./NoteLinkContext";
 import { ImageOwnerContext } from "./nodes/imageOwnerContext";
 import { useSyncService } from "@/hooks/useSyncService";
 import { useNoteTitleMap } from "@/hooks/useNoteTitleMap";
-import { createNoteWithContentInDb } from "@/hooks/useNotes";
+import { createNoteWithContentInDb } from "@/lib/notes/createNote";
 import { extractNoteLinkIds } from "@/lib/editor/extractNoteLinkIds";
 import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
 import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
@@ -37,6 +48,9 @@ import {
 } from "./plugins";
 
 import "katex/dist/katex.min.css";
+
+// Shared by in-note images and the cover
+const MAX_IMAGE_SIZE_MB = 5;
 
 interface EditorProviderProps {
   docId: string;
@@ -197,6 +211,47 @@ export function EditorProvider({
     handleImageDropRef.current = handleImageDrop;
   }, [handleImageDrop]);
 
+  // --- Cover image (stored in the Yjs doc's journalMeta map) ---
+  const [cover, setCoverState] = useState<NoteCover | null>(() => getCover(yDoc));
+  useEffect(() => {
+    const map = yDoc.getMap(COVER_MAP);
+    const onChange = () => setCoverState(getCover(yDoc));
+    map.observe(onChange);
+    return () => map.unobserve(onChange);
+  }, [yDoc]);
+
+  const queueOldCoverDeletion = async () => {
+    const old = getCover(yDoc);
+    const oldKey = old && coverPayloadKey(old.src);
+    if (oldKey) await savePendingImageDeletion(docId, oldKey);
+  };
+
+  const setCoverFromFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      throw new Error(`Unsupported file type: ${file.type}`);
+    }
+    if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+      throw new Error(`File too large. Maximum size is ${MAX_IMAGE_SIZE_MB}MB`);
+    }
+    const pendingId = formatGuidId(getNewId());
+    await queueOldCoverDeletion();
+    setCover(yDoc, { src: URL.createObjectURL(file), pendingId, positionY: 50 });
+    await handleImageDrop(file, pendingId);
+  };
+
+  // Cover edits aren't editor transactions, so mark the note pending here
+  // (as a body edit does) or the change never reaches the server.
+  const removeCover = async () => {
+    await queueOldCoverDeletion();
+    clearCover(yDoc);
+    void updateSyncStatus(docId, "pending");
+  };
+
+  const setCoverPosition = (y: number) => {
+    setCoverPositionInDoc(yDoc, y);
+    void updateSyncStatus(docId, "pending");
+  };
+
   // Handle document updates from broadcast (sync service)
   const handleDocumentUpdate = useCallback(async () => {
     console.log("[EditorProvider] Document updated remotely, reloading...");
@@ -259,7 +314,7 @@ export function EditorProvider({
       // File handler for image drag/drop/paste
       // eslint-disable-next-line react-hooks/refs -- ref read happens on drop, not during render
       FileHandler.configure({
-        maxSizeMB: 5,
+        maxSizeMB: MAX_IMAGE_SIZE_MB,
         allowedTypes: ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"],
         onImageDrop: (file: File, pendingId: string) => handleImageDropRef.current(file, pendingId),
         // Stable for the provider's lifetime: it remounts per note.
@@ -471,6 +526,10 @@ export function EditorProvider({
     isReady: !isLoading && !!editor,
     isLoading,
     isAIReady,
+    cover,
+    setCoverFromFile,
+    removeCover,
+    setCoverPosition,
   };
 
   return (

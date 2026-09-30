@@ -6,15 +6,11 @@ import { SESSION_STORAGE_KEY, readJson, writeJson } from '@/lib/storage';
 interface SessionState {
     lastNoteId: string | null;
     lastFolderId: string | null;
-    scrollPositions: Record<string, number>;
-    sidebarCollapsed: boolean;
 }
 
 const DEFAULT_SESSION_STATE: SessionState = {
     lastNoteId: null,
     lastFolderId: null,
-    scrollPositions: {},
-    sidebarCollapsed: false,
 };
 
 const LEGACY_SESSION_KEY = 'session_state'; // app_state row written before the move
@@ -31,9 +27,9 @@ function persistSession(state: SessionState): void {
 }
 
 /**
- * Hook for persisting and restoring the last viewed note and scroll position
+ * Hook for persisting and restoring the last viewed note
  */
-export function useSessionPersistence() {
+export function useSessionPersistence(): void {
     const location = useLocation();
     const navigate = useNavigate();
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -134,36 +130,4 @@ export function useSessionPersistence() {
             });
         }
     }, [location.pathname, saveSession]);
-
-    // Save scroll position for a specific note
-    const saveScrollPosition = useCallback((noteId: string, scrollTop: number) => {
-        saveSession({
-            scrollPositions: {
-                ...sessionStateRef.current.scrollPositions,
-                [noteId]: scrollTop,
-            },
-        });
-    }, [saveSession]);
-
-    // Get saved scroll position for a note
-    const getScrollPosition = useCallback((noteId: string): number => {
-        return sessionStateRef.current.scrollPositions[noteId] || 0;
-    }, []);
-
-    // Save sidebar collapsed state
-    const saveSidebarState = useCallback((collapsed: boolean) => {
-        saveSession({ sidebarCollapsed: collapsed });
-    }, [saveSession]);
-
-    // Get sidebar collapsed state
-    const getSidebarState = useCallback((): boolean => {
-        return sessionStateRef.current.sidebarCollapsed;
-    }, []);
-
-    return {
-        saveScrollPosition,
-        getScrollPosition,
-        saveSidebarState,
-        getSidebarState,
-    };
 }

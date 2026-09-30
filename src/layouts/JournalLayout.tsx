@@ -14,8 +14,8 @@ import {
   SplashScreen,
 } from "@/components/layout";
 import {
-  useTabManager,
-  useMountedTabs,
+  useTabRouting,
+  useLayoutUrlActions,
   useSessionPersistence,
   useDeviceType,
   useSyncService,
@@ -23,8 +23,7 @@ import {
   useDocumentTitle,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
-import { PENDING_COLLAB_NOTE_KEY, readString, removeKey } from "@/lib/storage";
-import { useState, useEffect, useRef, lazy, Suspense, useMemo, useCallback } from "react";
+import { useState, useEffect, lazy, Suspense, useMemo, useCallback } from "react";
 import { ChevronLeft, Minimize2, Maximize2, ArchiveRestore, Trash2, Archive } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Kbd } from "@/components/ui/kbd";
@@ -60,7 +59,6 @@ import {
   useTrashedNotes,
   useArchivedNotes,
 } from "@/hooks/useNotes";
-import { staleTabIds, nextActiveTabId } from "@/hooks/useTabManager";
 import { getMobilePane } from "@/layouts/mobilePane";
 import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useDailyNote } from "@/hooks/useDailyNote";
@@ -126,18 +124,15 @@ export default function JournalLayout() {
 
   const { openToday } = useDailyNote();
 
-  // Tab management
+  // Tab management, kept in sync with the URL
   const {
     openTabs,
     activeTabId,
-    openTab,
+    mountedTabs,
     closeTab,
-    switchTab,
-    updateTabTitle,
-  } = useTabManager();
-
-  // Desktop keep-alive: which tabs currently have a mounted editor.
-  const mountedTabs = useMountedTabs(openTabs, activeTabId);
+    handleTabClick,
+    handleTabClose,
+  } = useTabRouting({ noteId, folderId, notes, isNotesLoading });
 
   // Session persistence
   useSessionPersistence();
@@ -160,14 +155,7 @@ export default function JournalLayout() {
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [shareNote, setShareNote] = useState<NoteListEntry | null>(null);
 
-  // Handle App Shortcuts (PWA)
-  const [searchParams, setSearchParams] = useSearchParams();
-  const action = searchParams.get("action");
-
-  const notesRef = useRef(notes);
-  useEffect(() => {
-    notesRef.current = notes;
-  }, [notes]);
+  const [searchParams] = useSearchParams();
 
   const collaborativeTabIds = useMemo(
     () =>
@@ -177,79 +165,16 @@ export default function JournalLayout() {
     [notes],
   );
 
-  // Handle pending collaborative note from localStorage (after permission redirect)
-  useEffect(() => {
-    if (notes.length === 0) return;
-    const pendingNoteId = readString(PENDING_COLLAB_NOTE_KEY);
-    if (!pendingNoteId) return;
-    const note = notes.find((n) => n.docId === pendingNoteId);
-    if (!note) return;
-    removeKey(PENDING_COLLAB_NOTE_KEY);
-    queueMicrotask(() => setCollaborativeNote(note));
-  }, [notes]);
-
-  // One note per ?action=new: the effect re-runs mid-await (folders/searchParams
-  // change, StrictMode). Reset once `action` clears.
-  const handledNewNoteRef = useRef(false);
-
-  // Handle URL action params (PWA shortcuts, permission redirects)
-  useEffect(() => {
-    if (!action) {
-      handledNewNoteRef.current = false;
-      return;
-    }
-
-    const handleAction = async () => {
-      if (action === "search") {
-        setShowSearch(true);
-      } else if (action === "new") {
-        // Cold start: wait for folders, or resolveNoteFolderId falls back to Main.
-        if (isFolderLoading || handledNewNoteRef.current) return;
-        handledNewNoteRef.current = true;
-
-        const targetFolderId = resolveNoteFolderId(folderId, folders);
-        const { docId, folderId: newFolderId } = await createNote(targetFolderId);
-        // The new URL has no ?action, so skip the setSearchParams cleanup
-        // below: it would resolve against the stale pathname and overwrite
-        // this entry, bouncing back to "/".
-        navigate(`/${newFolderId}/${docId}`, {
-          replace: true,
-          viewTransition: true,
-        });
-        return;
-      } else if (action === "collaborate") {
-        const collaborateNoteId = searchParams.get("noteId");
-        if (collaborateNoteId) {
-          const currentNotes = notesRef.current;
-          if (currentNotes.length === 0) return;
-          const note = currentNotes.find((n) => n.docId === collaborateNoteId);
-          if (note) {
-            setCollaborativeNote(note);
-          }
-        }
-      }
-
-      setSearchParams(
-        (params: URLSearchParams) => {
-          params.delete("action");
-          params.delete("noteId");
-          return params;
-        },
-        { replace: true },
-      );
-    };
-
-    handleAction();
-  }, [
-    action,
+  // Handle App Shortcuts (PWA) and permission redirects
+  useLayoutUrlActions({
     folders,
     isFolderLoading,
     folderId,
+    notes,
     createNote,
-    navigate,
-    setSearchParams,
-    searchParams,
-  ]);
+    openSearch: setShowSearch,
+    openCollaborate: setCollaborativeNote,
+  });
 
   // Trash/Archive are read-only management lists — their notes can't be opened
   // in the editor, so on desktop the list takes the full width and the editor
@@ -349,70 +274,6 @@ export default function JournalLayout() {
       : filteredNotes;
   const isNotesToShowLoading =
     folderId === "shared" ? isCollaborativeLoading : isFilteredNotesLoading;
-
-  // Open tab when noteId changes (URL navigation, back/forward)
-  useEffect(() => {
-    if (noteId) {
-      const note = notesRef.current.find((n) => n.docId === noteId);
-      openTab(noteId, note?.title || "Untitled");
-    }
-  }, [noteId, openTab]);
-
-  // Once, at boot: drop restored tabs whose note is gone (archived, trashed or
-  // deleted on another device). One-shot on purpose — running on every notes
-  // change would close a just-created note before the live query includes it.
-  const hasPrunedTabsRef = useRef(false);
-  useEffect(() => {
-    if (isNotesLoading || hasPrunedTabsRef.current) return;
-    hasPrunedTabsRef.current = true;
-    const liveIds = new Set(notes.map((n) => n.docId));
-    staleTabIds(openTabs, liveIds, noteId).forEach(closeTab);
-  }, [isNotesLoading, notes, openTabs, noteId, closeTab]);
-
-  // Sync tab titles when notes data changes
-  useEffect(() => {
-    if (activeTabId) {
-      const note = notes.find((n) => n.docId === activeTabId);
-      if (note) {
-        updateTabTitle(activeTabId, note.title || "Untitled");
-      }
-    }
-  }, [notes, activeTabId, updateTabTitle]);
-
-  // Handle tab click - navigate to the note
-  const handleTabClick = (docId: string) => {
-    const note = notes.find((n) => n.docId === docId);
-    if (note) {
-      navigate(`/${note.metadata.folderId}/${docId}`, { viewTransition: true });
-      switchTab(docId);
-    }
-  };
-
-  // Handle tab close
-  // Reads notesRef rather than notes so handleArchive, which every memoized
-  // NoteItem receives, doesn't change identity on each note edit.
-  const handleTabClose = useCallback(
-    (docId: string) => {
-      // Same tab closeTab activates, so the URL effect doesn't mount another one.
-      const nextId = nextActiveTabId(openTabs, docId, activeTabId);
-      closeTab(docId);
-
-      // If closing the active tab, navigate to the next tab's note or the folder
-      if (docId === noteId) {
-        const note = nextId
-          ? notesRef.current.find((n) => n.docId === nextId)
-          : undefined;
-        if (note) {
-          navigate(`/${note.metadata.folderId}/${nextId}`, {
-            viewTransition: true,
-          });
-        } else {
-          navigate(folderId ? `/${folderId}` : "/", { viewTransition: true });
-        }
-      }
-    },
-    [openTabs, activeTabId, closeTab, noteId, folderId, navigate],
-  );
 
   const handleArchive = useCallback(
     (note: NoteListEntry) => {

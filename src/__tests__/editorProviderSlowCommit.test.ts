@@ -40,7 +40,7 @@ vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ sync: vi.fn(
 vi.mock('@/hooks/useNoteTitleMap', () => ({
   useNoteTitleMap: () => ({ map: new Map(), isReady: true }),
 }));
-vi.mock('@/hooks/useNotes', () => ({ createNoteWithContentInDb: vi.fn() }));
+vi.mock('@/lib/notes/createNote', () => ({ createNoteWithContentInDb: vi.fn() }));
 vi.mock('@/hooks/useDocumentSubscription', () => ({ useDocumentSubscription: vi.fn() }));
 vi.mock('@/components/editor/hooks/useImageDeletionTracker', () => ({
   useImageDeletionTracker: vi.fn(),

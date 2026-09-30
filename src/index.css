@@ -371,6 +371,11 @@ body {
   color: var(--muted-foreground);
 }
 
+/* muted-foreground on muted is 3.9:1 in dark mode — below WCAG AA (#221). */
+.dark .prose th {
+  color: var(--foreground);
+}
+
 /* Selected Cell (Tiptap Table Extension) */
 .prose .selectedCell:after {
   content: "";

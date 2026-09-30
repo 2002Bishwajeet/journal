@@ -9,10 +9,8 @@ import * as Y from 'yjs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import Markdown from 'react-markdown';
-import rehypeRaw from 'rehype-raw';
-import rehypeSanitize from 'rehype-sanitize';
 import { extractMarkdownFromYjs, extractPreviewTextFromYjs } from '@/lib/yjs-utils';
-import { sanitizeSchema } from '@/lib/utils/shareSanitizeSchema';
+import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
 
 function buildBlob(build: (frag: Y.XmlFragment) => void): Uint8Array {
@@ -341,7 +339,8 @@ describe('share page rendering of toggles and callouts', () => {
   function render(md: string): string {
     return renderToStaticMarkup(
       createElement(Markdown, {
-        rehypePlugins: [rehypeRaw, [rehypeSanitize, sanitizeSchema]],
+        remarkPlugins: shareRemarkPlugins,
+        rehypePlugins: shareRehypePlugins,
         components: { blockquote: CalloutAwareBlockquote },
         children: md,
       }),
@@ -391,3 +390,42 @@ describe('extractPreviewTextFromYjs', () => {
   });
 });
 
+describe('share page markdown pipeline', () => {
+  const render = (md: string) =>
+    renderToStaticMarkup(
+      createElement(Markdown, { remarkPlugins: shareRemarkPlugins, rehypePlugins: shareRehypePlugins }, md)
+    );
+
+  it('syntax-highlights a fenced code block with a known language', () => {
+    const html = render('```ts\nconst x: number = 1;\n```');
+
+    expect(html).toContain('class="hljs-keyword"');
+  });
+
+  it('keeps <script> inside a code block as escaped text', () => {
+    const html = render('```ts\nconst s = "<script>alert(1)</script>";\n```');
+
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('leaves a code block in an unknown language unhighlighted', () => {
+    const html = render('```nosuchlang\nconst x = 1;\n```');
+
+    expect(html).not.toContain('hljs-');
+    expect(html).toContain('const x = 1;');
+  });
+
+  it('still renders inline and block math with KaTeX', () => {
+    const html = render('mass $E=mc^2$\n\n$$\nx^2\n$$');
+
+    expect(html).toContain('class="katex"');
+    expect(html).toContain('katex-display');
+  });
+
+  it('still strips raw <script> outside code blocks', () => {
+    const html = render('hi <script>alert(1)</script>');
+
+    expect(html).not.toContain('<script');
+  });
+});

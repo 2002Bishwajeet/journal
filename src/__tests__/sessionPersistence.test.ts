@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /**
- * Session state (last note/folder, scroll positions) is device-local UI state
+ * Session state (last note/folder) is device-local UI state
  * kept in localStorage. The app_state row is only read for sessions saved before
  * that move — and that read waits on the whole database boot, so it must never
  * overwrite where the user has navigated to in the meantime.

@@ -75,7 +75,7 @@
 /* Dark Mode Overrides (Atom One Dark inspired) */
 .dark .hljs-comment,
 .dark .hljs-quote {
-  color: #5c6370;
+  color: #949aa5; /* 5:1 on the dark code-block surface (#221); Atom's #5c6370 was 2.3:1 */
 }
 
 .dark .hljs-doctag,

@@ -1,104 +1,65 @@
-import { useState } from "react";
-import logo from "@/assets/logo_withoutbg.png";
-import { Database, Cpu, Lock, Shield, Keyboard } from "lucide-react";
-import { SectionHeader } from "../SectionHeader";
-import KeyboardShortcutsModal from "@/components/modals/KeyboardShortcutsModal";
+import { ExternalLink } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+
+const links = [
+  { label: "Source code", href: "https://github.com/2002Bishwajeet/journal" },
+  { label: "Report a problem", href: "https://github.com/2002Bishwajeet/journal/issues/new" },
+];
 
 export default function AboutSection() {
-  const [showShortcuts, setShowShortcuts] = useState(false);
+  const version = `v${__APP_VERSION__} (build ${__APP_BUILD__})`;
+
+  const copyVersion = async () => {
+    try {
+      await navigator.clipboard.writeText(`Journal ${version} · ${navigator.userAgent}`);
+      toast.success("Copied");
+    } catch {
+      toast.error("Couldn't copy to clipboard");
+    }
+  };
 
   return (
-    <div className="space-y-10">
-      {/* Brand */}
-      <div className="space-y-6">
-        <div className="text-center py-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/5 mb-4">
-            <img src={logo} alt="Journal" className="h-10 w-10 object-contain" />
-          </div>
-          <h2
-            className="text-3xl tracking-tight"
-            style={{ fontFamily: "var(--font-serif)" }}
-          >
-            Journal
-          </h2>
-          <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto leading-relaxed">
-            A local-first, end-to-end encrypted personal journal with on-device
-            AI.
-          </p>
-          <span
-            className="inline-block mt-3 text-[11px] font-mono text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-md"
-          >
-            v{__APP_VERSION__}
-          </span>
-          <button
-            onClick={() => setShowShortcuts(true)}
-            className="flex items-center gap-2 mx-auto mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Keyboard className="h-4 w-4" />
-            View keyboard shortcuts
-          </button>
+    <div className="rounded-lg border">
+      <div className="flex min-h-14 items-center gap-3 border-b px-4 py-3">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <h3 className="text-sm font-semibold">Version</h3>
+          <p className="font-mono text-xs text-muted-foreground">{version}</p>
         </div>
+        <Button variant="ghost" size="sm" className="min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={copyVersion}>
+          Copy
+        </Button>
       </div>
 
-      {/* Decorative divider */}
-      <div className="flex items-center gap-4 px-8">
-        <div className="flex-1 h-px bg-border/60" />
-        <div
-          className="w-1.5 h-1.5 rounded-full"
-          style={{ background: "#B8860B" }}
-        />
-        <div className="flex-1 h-px bg-border/60" />
+      <div className="space-y-0.5 border-b px-4 py-3">
+        <h3 className="text-sm font-semibold">Privacy</h3>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Your notes are stored on this device and synced end-to-end encrypted
+          to your own Homebase. On-device AI runs in this browser; model files
+          are downloaded once from a public model host. Journal has no
+          analytics.
+        </p>
       </div>
 
-      {/* Privacy */}
-      <div className="space-y-6">
-        <SectionHeader subtitle="Built with privacy as a foundation">
-          Privacy Promise
-        </SectionHeader>
-        <div
-          className="rounded-xl p-5 relative overflow-hidden"
-          style={{
-            background:
-              "linear-gradient(135deg, rgba(16, 185, 129, 0.04) 0%, rgba(16, 185, 129, 0.01) 100%)",
-            border: "1px solid rgba(16, 185, 129, 0.15)",
-          }}
-        >
-          <ul className="space-y-3">
-            {[
-              {
-                icon: Database,
-                text: "All notes stored locally in your browser",
-              },
-              {
-                icon: Cpu,
-                text: "AI runs entirely on-device via WebLLM",
-              },
-              {
-                icon: Lock,
-                text: "Sync traffic is end-to-end encrypted",
-              },
-              {
-                icon: Shield,
-                text: "No data sent to external servers",
-              },
-            ].map((item, i) => (
-              <li key={i} className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-emerald-100/80 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-                  <item.icon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <span className="text-sm text-emerald-800/80 dark:text-emerald-400/70">
-                  {item.text}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div className="space-y-1 px-4 py-3">
+        <h3 className="text-sm font-semibold">Links</h3>
+        <ul className="space-y-1">
+          {links.map((link) => (
+            <li key={link.href}>
+              <a
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-11 items-center gap-1.5 text-sm text-primary underline-offset-4 hover:underline"
+              >
+                {link.label}
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="sr-only">(opens in new tab)</span>
+              </a>
+            </li>
+          ))}
+        </ul>
       </div>
-
-      <KeyboardShortcutsModal
-        isOpen={showShortcuts}
-        onClose={() => setShowShortcuts(false)}
-      />
     </div>
   );
 }

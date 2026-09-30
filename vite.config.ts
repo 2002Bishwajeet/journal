@@ -3,6 +3,7 @@ import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import pkg from './package.json' with { type: 'json' }
@@ -22,10 +23,19 @@ const restorePgliteProcessGuard = {
   },
 };
 
+function gitShortSha(): string | undefined {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return undefined;
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_BUILD__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? gitShortSha() ?? 'dev'),
   },
   plugins: [
     restorePgliteProcessGuard,

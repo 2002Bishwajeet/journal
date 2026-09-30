@@ -100,6 +100,9 @@ src/
 │   │   ├── config.ts           # App IDs, drive, file/data types, payload keys
 │   │   ├── FolderDriveProvider.ts
 │   │   ├── NotesDriveProvider.ts
+│   │   ├── noteUploadMetadata.ts   # Note ACL / appData / header-content builders
+│   │   ├── noteImagePayloads.ts    # Yjs content + image payload/thumbnail builders
+│   │   ├── InvitationDriveProvider.ts # Collaboration invite files
 │   │   ├── SyncService.ts      # Pull/push orchestration
 │   │   └── InboxProcessor.ts   # Remote change processing
 │   ├── importexport/
@@ -148,7 +151,9 @@ src/
 | `src/hooks/useAISettings.ts` | AI feature toggles, model selection |
 | `src/hooks/useWebLLM.ts` | Lazy-loaded WebLLM with idle GC |
 | `src/hooks/useTabManager.ts` | Multi-tab editing state |
-| `src/hooks/useSessionPersistence.ts` | Last note, scroll positions |
+| `src/hooks/useTabRouting.ts` | Tabs kept in sync with the URL (open, click, close) |
+| `src/hooks/useLayoutUrlActions.ts` | `?action=search\|new\|collaborate` URL params |
+| `src/hooks/useSessionPersistence.ts` | Last note and folder |
 | `src/hooks/useSyncService.ts` | Sync context consumer |
 | `src/components/providers/SyncProvider.tsx` | Sync state + auto-sync interval |
 | `src/components/editor/EditorProvider.tsx` | Y.js doc init, extensions, image upload |

@@ -140,6 +140,16 @@ describe('SyncService.handleRemoteNote', () => {
         errorSpy.mockRestore();
     });
 
+    it('rejects when the remote note content cannot be read, so the pull records a retry (#147)', async () => {
+        mockDsr.mockResolvedValue(null);
+
+        await expect(svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v1' })))
+            .rejects.toThrow('Could not read remote note content');
+
+        expect(mockGetNotePayload).not.toHaveBeenCalled();
+        expect(await getSyncRecord(DOC_ID)).toBeNull();
+    });
+
     it('CRDT-merges local and remote edits without loss when the versionTag is new', async () => {
         await saveDocumentUpdate(DOC_ID, textUpdate('AAA'));
         await upsertSearchIndex({

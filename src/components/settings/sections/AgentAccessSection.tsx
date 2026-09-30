@@ -12,7 +12,7 @@ import type { Folder } from "@/types";
 import { SectionHeader } from "../SectionHeader";
 
 const selectClass =
-  "rounded-md border border-border bg-background text-sm px-2 py-1.5 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed";
+  "min-h-11 md:min-h-0 rounded-md border border-border bg-background text-sm px-2 py-1.5 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed";
 
 function FolderAccessRow({
   folder,
@@ -35,7 +35,7 @@ function FolderAccessRow({
             type="button"
             aria-expanded={isOpen}
             onClick={() => setIsOpen((v) => !v)}
-            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="shrink-0 min-h-11 md:min-h-0 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             Notes
           </button>

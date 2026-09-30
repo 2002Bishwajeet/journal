@@ -33,6 +33,18 @@ describe('computeContentHash', () => {
         expect(pinned).not.toBe(unpinned);
     });
 
+    it('changes when shareDescription changes', async () => {
+        const before = await computeContentHash(meta(), blob);
+        const after = await computeContentHash(meta({ shareDescription: 'A blurb' }), blob);
+        expect(after).not.toBe(before);
+    });
+
+    it('changes when shareIndexable flips', async () => {
+        const before = await computeContentHash(meta({ shareIndexable: false }), blob);
+        const after = await computeContentHash(meta({ shareIndexable: true }), blob);
+        expect(after).not.toBe(before);
+    });
+
     it('does NOT change when only the timestamps change', async () => {
         const original = await computeContentHash(meta(), blob);
         const laterTimestamps = await computeContentHash(

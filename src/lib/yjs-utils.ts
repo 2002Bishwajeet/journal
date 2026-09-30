@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
-import { getDocumentUpdates } from '@/lib/db';
 import { fragmentToMarkdown } from '@/lib/yjs/fragmentToMarkdown';
+import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 
 /**
  * Extracts markdown from a Yjs document's TipTap content.
@@ -9,18 +9,15 @@ import { fragmentToMarkdown } from '@/lib/yjs/fragmentToMarkdown';
  * @param yjsBlob - Optional Yjs blob (for remote/shared notes)
  */
 export async function extractMarkdownFromYjs(noteId: string, yjsBlob?: Uint8Array): Promise<string> {
-  const ydoc = new Y.Doc();
+  let ydoc: Y.Doc | null;
 
   if (yjsBlob) {
+    ydoc = new Y.Doc();
     Y.applyUpdate(ydoc, yjsBlob);
   } else {
     // Local extraction using PGlite updates
-    const updates = await getDocumentUpdates(noteId);
-    if (updates.length === 0) return '';
-
-    for (const update of updates) {
-      Y.applyUpdate(ydoc, update);
-    }
+    ydoc = await loadLocalYDoc(noteId);
+    if (!ydoc) return '';
   }
 
   // TipTap stores content in a Y.XmlFragment named 'prosemirror'
@@ -34,9 +31,10 @@ export async function extractMarkdownFromYjs(noteId: string, yjsBlob?: Uint8Arra
  * Removes markdown syntax and extra whitespace.
  */
 export async function extractPreviewTextFromYjs(noteId: string, yjsBlob?: Uint8Array): Promise<string> {
-  const ydoc = new Y.Doc();
+  let ydoc: Y.Doc | null;
 
   if (yjsBlob) {
+    ydoc = new Y.Doc();
     try {
       Y.applyUpdate(ydoc, yjsBlob);
     } catch (e) {
@@ -45,12 +43,8 @@ export async function extractPreviewTextFromYjs(noteId: string, yjsBlob?: Uint8A
     }
   } else {
     // Local extraction using PGlite updates
-    const updates = await getDocumentUpdates(noteId);
-    if (updates.length === 0) return '';
-
-    for (const update of updates) {
-      Y.applyUpdate(ydoc, update);
-    }
+    ydoc = await loadLocalYDoc(noteId);
+    if (!ydoc) return '';
   }
 
   // TipTap stores content in a Y.XmlFragment named 'prosemirror'
