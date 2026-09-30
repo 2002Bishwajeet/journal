@@ -32,6 +32,7 @@ import {
     getEntityIdsInBackoff,
     getEntityIdsWithUnresolvedError,
     getNextPushRetryAt,
+    getPullRetriesDue,
     markPendingDelete,
     clearOldSyncErrors,
     getImageUploadsReadyForRetry,
@@ -401,6 +402,28 @@ export class SyncService {
                 }
             }
 
+            // Retry notes whose pull failed on an earlier sync; they won't be in `notes`
+            // again unless modified remotely (#147). Ids handled above are skipped.
+            const seen = new Set(notes.map(n => n.fileMetadata?.appData?.uniqueId).filter(Boolean));
+            for (const id of await getPullRetriesDue()) {
+                if (seen.has(id)) continue;
+                try {
+                    const record = await getSyncRecord(id);
+                    const header = await this.#notesProvider.getNote(id, record?.authorOdinId, { decrypt: false });
+                    if (!header) {
+                        // Gone remotely; its deletion arrives through the normal pull
+                        await resolveSyncErrorsForEntity(id);
+                        continue;
+                    }
+                    await this.handleRemoteNote(header as unknown as HomebaseFile<string>);
+                    await resolveSyncErrorsForEntity(id);
+                    noteCount++;
+                } catch (error) {
+                    console.error('[SyncService] Error retrying remote note pull:', error);
+                    await this.logSyncError(id, 'note', 'pull', error);
+                }
+            }
+
             // Process invitations (collaboration sharing)
             for (const invitationOrDeleted of invitations) {
                 try {
@@ -726,8 +749,8 @@ export class SyncService {
 
         const content = await this.#notesProvider.dsrToNoteFileContent(remoteFile, true,);
         if (!content) {
-            console.error(`[SyncService] Failed to convert remote note ${remoteFile.fileId} to note file content`);
-            return;
+            // Throw so the pull loop records a sync error and retries this note (#147)
+            throw new Error('Could not read remote note content');
         }
         const noteTitle = content?.title || 'Untitled';
 
