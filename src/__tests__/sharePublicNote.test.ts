@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ApiType } from '@homebase-id/js-lib/core';
+import * as Y from 'yjs';
+import { setCover } from '@/lib/editor/cover';
 
 // Mock the three SDK reads the public-note path uses; keep the real DotYouClient
 // and ApiType so we can assert the anonymous Guest client is used.
@@ -25,6 +27,12 @@ import { shareProvider } from '@/lib/providers/ShareProvider';
 
 const IDENTITY = 'alice.dotyou.cloud';
 const NOTE_ID = 'note-abc';
+
+function blobWithCover(src: string): Uint8Array {
+    const doc = new Y.Doc();
+    setCover(doc, { src, positionY: 40 });
+    return Y.encodeStateAsUpdate(doc);
+}
 
 function header() {
     return {
@@ -152,5 +160,23 @@ describe('ShareProvider.getPublicNote', () => {
         const note = await shareProvider.getPublicNote(IDENTITY, NOTE_ID);
 
         expect(note).toBeNull();
+    });
+
+    it('includes the cover when it is an uploaded payload of this note', async () => {
+        mockGetHeader.mockResolvedValue(header());
+        mockGetPayload.mockResolvedValue({ bytes: blobWithCover('attachment://file-xyz/jrnl_img4') });
+
+        const note = await shareProvider.getPublicNote(IDENTITY, NOTE_ID);
+
+        expect(note!.cover).toEqual({ src: 'attachment://file-xyz/jrnl_img4', positionY: 40 });
+    });
+
+    it('drops a cover that points at another file', async () => {
+        mockGetHeader.mockResolvedValue(header());
+        mockGetPayload.mockResolvedValue({ bytes: blobWithCover('attachment://other-file/jrnl_img4') });
+
+        const note = await shareProvider.getPublicNote(IDENTITY, NOTE_ID);
+
+        expect(note!.cover).toBeUndefined();
     });
 });
