@@ -1578,17 +1578,18 @@ export async function clearPendingImageDeletions(noteDocId: string, payloadKeys:
 // Tags
 // ============================================
 
+/** All distinct tags across all notes, sorted alphabetically (live query for useTags). */
+export const TAGS_SQL = `SELECT DISTINCT jsonb_array_elements_text(metadata->'tags') AS tag
+         FROM search_index
+         WHERE jsonb_array_length(COALESCE(metadata->'tags', '[]'::jsonb)) > 0
+         ORDER BY tag`;
+
 /**
  * Get all distinct tags across all notes, sorted alphabetically.
  */
 export async function getAllTags(): Promise<string[]> {
     const db = await getDatabase();
-    const result = await db.query<{ tag: string }>(
-        `SELECT DISTINCT jsonb_array_elements_text(metadata->'tags') AS tag
-         FROM search_index
-         WHERE jsonb_array_length(COALESCE(metadata->'tags', '[]'::jsonb)) > 0
-         ORDER BY tag`
-    );
+    const result = await db.query<{ tag: string }>(TAGS_SQL);
     return result.rows.map(row => row.tag);
 }
 

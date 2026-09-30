@@ -19,10 +19,10 @@ import {
 
 
 import { useDotYouClientContext } from '@/components/auth';
-import { fetchConnectionInfo, fetchDataFromPublic } from '@/components/providers/ContactSourceProvider';
+import { fetchConnectionInfo, fetchDataFromPublic } from '@/lib/providers/ContactSourceProvider';
 import { useHasWriteAccess } from './securityContext/useHasWriteAccess';
 import { useHasReadAccess } from './securityContext/useHasReadAccess';
-import { saveContact } from '@/components/providers/ContactProvider';
+import { saveContact } from '@/lib/providers/ContactProvider';
 
 export const useContact = ({
     odinId,

@@ -49,6 +49,7 @@ import {
   MAIN_FOLDER_ID,
   COLLABORATION_PERMISSIONS,
   CONTACT_TARGET_DRIVE_REQUEST,
+  PSEUDO_FOLDERS,
 } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
 import {
@@ -180,7 +181,7 @@ export default function JournalLayout() {
   // in the editor, so on desktop the list takes the full width and the editor
   // panel is hidden (otherwise the list is crammed into the 256px note column
   // with a dead editor beside it).
-  const isManagementView = folderId === "trash" || folderId === "archive";
+  const isManagementView = folderId === PSEUDO_FOLDERS.trash || folderId === PSEUDO_FOLDERS.archive;
 
   // Focus mode hides all chrome to spotlight the editor; management views have
   // no editor, so its effect is suppressed there (otherwise: blank screen).
@@ -217,11 +218,11 @@ export default function JournalLayout() {
   // they don't each spin up a live subscription at boot.
   const counts = useNoteCounts();
   const { data: collaborativeNotes = [], isLoading: isCollaborativeLoading } =
-    useCollaborativeNotes(folderId === "shared");
+    useCollaborativeNotes(folderId === PSEUDO_FOLDERS.shared);
   const { data: trashedNotes = [], isLoading: isTrashLoading } =
-    useTrashedNotes(folderId === "trash");
+    useTrashedNotes(folderId === PSEUDO_FOLDERS.trash);
   const { data: archivedNotes = [], isLoading: isArchivedLoading } =
-    useArchivedNotes(folderId === "archive");
+    useArchivedNotes(folderId === PSEUDO_FOLDERS.archive);
 
   // Trash / Archive actions — stable handlers with user-visible error feedback.
   const handleRestoreFromTrash = useCallback(
@@ -258,22 +259,22 @@ export default function JournalLayout() {
   const selectedTag = searchParams.get("tag");
   const viewLabel = selectedTag
     ? `#${selectedTag}`
-    : folderId === "trash"
+    : folderId === PSEUDO_FOLDERS.trash
       ? "Trash"
-      : folderId === "archive"
+      : folderId === PSEUDO_FOLDERS.archive
         ? "Archive"
-        : folderId === "shared"
+        : folderId === PSEUDO_FOLDERS.shared
           ? "Shared"
           : folders.find((f) => f.id === folderId)?.name;
   const { tags } = useTags();
   const { data: tagFilteredNotes } = useNotesByTag(selectedTag);
   const notesToShow = selectedTag
     ? (tagFilteredNotes ?? [])
-    : folderId === "shared"
+    : folderId === PSEUDO_FOLDERS.shared
       ? collaborativeNotes
       : filteredNotes;
   const isNotesToShowLoading =
-    folderId === "shared" ? isCollaborativeLoading : isFilteredNotesLoading;
+    folderId === PSEUDO_FOLDERS.shared ? isCollaborativeLoading : isFilteredNotesLoading;
 
   const handleArchive = useCallback(
     (note: NoteListEntry) => {
@@ -408,7 +409,7 @@ export default function JournalLayout() {
             <SyncStatus />
           </div>
 
-          {folderId === "trash" ? (
+          {folderId === PSEUDO_FOLDERS.trash ? (
             <HiddenNotesView
               title="Trash"
               notes={trashedNotes}
@@ -423,7 +424,7 @@ export default function JournalLayout() {
               onBack={isDesktop ? undefined : () => navigate("/")}
               className="flex-1"
             />
-          ) : folderId === "archive" ? (
+          ) : folderId === PSEUDO_FOLDERS.archive ? (
             <HiddenNotesView
               title="Archive"
               notes={archivedNotes}
