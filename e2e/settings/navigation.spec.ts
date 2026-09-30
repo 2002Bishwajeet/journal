@@ -11,31 +11,33 @@ test('desktop: vertical tablist, arrow-key navigation, Tab into content', async 
   const tablist = dialog.getByRole('tablist');
   await expect(tablist).toHaveAttribute('aria-orientation', 'vertical');
 
+  const accountTab = dialog.getByRole('tab', { name: 'Account' });
   const appearanceTab = dialog.getByRole('tab', { name: 'Appearance' });
-  const aiTab = dialog.getByRole('tab', { name: 'AI', exact: true });
 
-  await expect(appearanceTab).toHaveAttribute('aria-selected', 'true');
-  await expect(dialog.getByRole('tabpanel')).toContainText('Appearance');
+  await expect(accountTab).toHaveAttribute('aria-selected', 'true');
+  await expect(dialog.getByRole('tabpanel')).toContainText('Account');
 
-  await appearanceTab.focus();
+  await accountTab.focus();
   await app.keyboard.press('ArrowDown');
-  await expect(aiTab).toHaveAttribute('aria-selected', 'true');
-  await expect(aiTab).toBeFocused();
-  await expect(dialog.getByRole('tabpanel')).toContainText('AI');
-
-  await app.keyboard.press('ArrowUp');
   await expect(appearanceTab).toHaveAttribute('aria-selected', 'true');
   await expect(appearanceTab).toBeFocused();
+  await expect(dialog.getByRole('tabpanel')).toContainText('Appearance');
+
+  await app.keyboard.press('ArrowUp');
+  await expect(accountTab).toHaveAttribute('aria-selected', 'true');
+  await expect(accountTab).toBeFocused();
 
   // Tab moves focus out of the tablist and into the active panel's content
   // (the panel itself is the next stop in the roving-tabindex tab order).
   await app.keyboard.press('Tab');
-  await expect(appearanceTab).not.toBeFocused();
+  await expect(accountTab).not.toBeFocused();
   await expect(dialog.getByRole('tabpanel')).toBeFocused();
 });
 
 test('mobile: nav strip switches sections and long content scrolls', async ({ app }) => {
-  await app.setViewportSize({ width: 390, height: 844 });
+  // A short phone viewport (e.g. browser chrome or keyboard showing): no
+  // section overflows a full 390x844 screen, so the scroll check needs less height.
+  await app.setViewportSize({ width: 390, height: 560 });
   await app.getByRole('button', { name: 'Settings' }).click();
 
   const dialog = app.getByRole('dialog');

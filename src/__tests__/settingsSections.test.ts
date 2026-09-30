@@ -7,8 +7,13 @@ describe('SETTINGS_SECTIONS', () => {
         expect(new Set(ids).size).toBe(ids.length);
     });
 
-    it('is in the order appearance, ai, agent-access, data, shortcuts, about', () => {
+    it('opens on the account section', () => {
+        expect(SETTINGS_SECTIONS[0].id).toBe('account');
+    });
+
+    it('is in the order account, appearance, ai, agent-access, data, shortcuts, about', () => {
         expect(SETTINGS_SECTIONS.map((s) => s.id)).toEqual([
+            'account',
             'appearance',
             'ai',
             'agent-access',

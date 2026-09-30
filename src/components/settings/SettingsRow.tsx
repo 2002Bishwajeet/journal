@@ -22,7 +22,7 @@ export function SettingsRow({
 }: {
   id: string;
   label: string;
-  description?: string;
+  description?: ReactNode;
   control: ReactNode;
   icon?: LucideIcon;
 }) {

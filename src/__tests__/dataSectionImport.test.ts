@@ -15,6 +15,10 @@ vi.mock('@/hooks/useImportExport', () => ({
     }),
 }));
 
+vi.mock('@/hooks/auth', () => ({
+    useAuth: () => ({ getIdentity: () => 'frodo.example.com' }),
+}));
+
 import DataSection from '@/components/settings/sections/DataSection';
 
 describe('DataSection import', () => {

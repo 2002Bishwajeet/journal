@@ -185,7 +185,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Sync a single note (for debounced saves)
   const syncNote = useCallback(
     async (docId: string) => {
-      if (!syncService || !navigator.onLine) return;
+      if (!syncService || !navigator.onLine) {
+        // An offline edit is still waiting to sync — keep the count current so
+        // sign-out warns it would be lost (#213).
+        await refreshPendingCount();
+        return;
+      }
       try {
         await syncService.syncNote(docId);
         await refreshPendingCount();
