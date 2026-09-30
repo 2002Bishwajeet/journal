@@ -12,9 +12,19 @@ export function svgDataUri(source: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(source)}`;
 }
 
-// Inline script and style only: no network, no external subresources, no form posts.
-const HTML_BLOCK_CSP =
-  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; form-action 'none'; base-uri 'none'";
+/**
+ * The only hosts an `html` block may load scripts, styles and fonts from (#409).
+ * Each sends `Cross-Origin-Resource-Policy: cross-origin`, which the app's COEP
+ * (inherited by the frame) requires of a cross-origin subresource.
+ */
+export const HTML_BLOCK_CDN_HOSTS = ['https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://unpkg.com'];
+
+const CDN = HTML_BLOCK_CDN_HOSTS.join(' ');
+
+// Inline script and style, plus scripts, styles and fonts from the CDN hosts. Nothing else
+// is reachable: no connect-src, so script has no network (fetch, XHR, WebSocket), and no
+// external images, media or form posts.
+const HTML_BLOCK_CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; style-src 'unsafe-inline' ${CDN}; img-src data: blob:; font-src data: ${CDN}; media-src data: blob:; form-action 'none'; base-uri 'none'`;
 
 // The one thing a frame tells the app: how tall its document is, whenever that changes (#412).
 // It reads nothing else and listens to nothing; the app never sends anything into a frame.

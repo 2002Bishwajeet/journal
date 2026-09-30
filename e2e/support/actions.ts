@@ -58,6 +58,16 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
     await page.waitForTimeout(1000);
 }
 
+/** Paste `text` as plain text at the editor's cursor, through a synthetic paste event. */
+export async function pastePlainText(page: Page, text: string): Promise<void> {
+    await assertTestOrigin(page);
+    await activeEditor(page).evaluate((el, value) => {
+        const data = new DataTransfer();
+        data.setData('text/plain', value);
+        el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    }, text);
+}
+
 /** The sidebar's folder list (used by the live tier's per-run isolation folder). */
 export function foldersNav(page: Page): Locator {
     return page.getByRole('navigation', { name: 'Folders' });

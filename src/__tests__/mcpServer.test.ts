@@ -7,6 +7,7 @@ import type { WriteDeps } from '../../mcp/tools/write';
 import type { AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
 import { createDoc } from '@/lib/agent/editEngine';
+import { HTML_BLOCK_CDN_HOSTS } from '@/lib/liveBlocks';
 
 const GRANTS: AgentGrants = { version: 1, folders: { F1: 'read' }, notes: {} };
 const WRITE_GRANTS: AgentGrants = { version: 1, folders: { F1: 'write' }, notes: {} };
@@ -75,6 +76,28 @@ describe('createJournalMcpServer', () => {
         for (const tool of tools) {
             const mentions = ['mermaid', 'svg', 'html'].every((word) => tool.description?.includes(word));
             expect(mentions).toBe(['create_note', 'append_to_note', 'replace_in_note'].includes(tool.name));
+        }
+    });
+
+    it('tells agents what an html block may load: scripts, styles and fonts from three CDN hosts (#409)', async () => {
+        const client = await connectedClient(makeFakeDeps());
+        const { tools } = await client.listTools();
+        const described = tools.filter((tool) => ['create_note', 'append_to_note', 'replace_in_note'].includes(tool.name));
+        expect(described).toHaveLength(3);
+        for (const tool of described) {
+            for (const text of [
+                'scripts, styles and fonts only from cdn.jsdelivr.net, cdnjs.cloudflare.com and unpkg.com',
+                'Images must be `data:` URIs',
+                'no network access from script',
+                "Tailwind's CDN script does not work",
+                'React needs its UMD build',
+                'Babel standalone',
+            ]) {
+                expect(tool.description).toContain(text);
+            }
+            // Every host the block's CSP allows, and no other.
+            expect(tool.description?.match(/[\w.-]+\.(?:net|com|org|io)\b/g)).toEqual(HTML_BLOCK_CDN_HOSTS.map((host) => new URL(host).host));
+            expect(tool.description).not.toContain('no external scripts');
         }
     });
 
