@@ -53,6 +53,17 @@ export function setCoverPosition(ydoc: Y.Doc, y: number): void {
     setCover(ydoc, { ...cover, positionY: Math.min(100, Math.max(0, Math.round(y))) });
 }
 
+/**
+ * The focal point after dragging the cover by `deltaPx` (positive = down) on a
+ * band `bandHeightPx` tall. Dragging the image down reveals more of its top, so
+ * the focal point moves up; a full band height spans the whole 0–100 range.
+ */
+export function dragToPositionY(startY: number, deltaPx: number, bandHeightPx: number): number {
+    if (bandHeightPx <= 0) return startY;
+    const y = startY - (deltaPx / bandHeightPx) * 100;
+    return Math.min(100, Math.max(0, Math.round(y)));
+}
+
 /** The payload key of an uploaded cover's `attachment://<fileId>/<key>` src, else null. */
 export function coverPayloadKey(src: string): string | null {
     return ATTACHMENT_SRC.exec(src)?.[2] ?? null;
