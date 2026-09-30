@@ -30,6 +30,7 @@ import {
   Redo,
   Sigma,
   ListTree,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolbarButton, ToolbarDivider, ToolbarPopover, useToolbarState, safeEditorCommand } from './shared';
@@ -43,9 +44,11 @@ interface EditorToolbarProps {
   /** When provided, renders a desktop-only Table-of-contents toggle button. */
   onToggleToc?: () => void;
   tocOpen?: boolean;
+  /** When provided, renders a Version history button. */
+  onOpenHistory?: () => void;
 }
 
-export default function EditorToolbar({ editor, onToggleToc, tocOpen = false }: EditorToolbarProps) {
+export default function EditorToolbar({ editor, onToggleToc, tocOpen = false, onOpenHistory }: EditorToolbarProps) {
   const iconSize = 18;
   const state = useToolbarState(editor);
 
@@ -82,6 +85,11 @@ export default function EditorToolbar({ editor, onToggleToc, tocOpen = false }: 
       >
         <Redo size={iconSize} />
       </ToolbarButton>
+      {onOpenHistory && (
+        <ToolbarButton onClick={onOpenHistory} title="Version history">
+          <History size={iconSize} />
+        </ToolbarButton>
+      )}
 
       <ToolbarDivider />
 

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { CollaborativePopover } from '@/components/editor/CollaborativePopover';
 import { LinkedMentions } from "@/components/editor/LinkedMentions";
+import HistoryModal from "@/components/modals/HistoryModal";
 import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
@@ -54,6 +55,7 @@ function EditorLayout({
   const deviceType = useDeviceType();
   const isDesktop = deviceType === "desktop";
   const [tocOpen, setTocOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Find the selected note metadata from the notes list
   // We can trust specific noteId exists because parent checks it
@@ -120,6 +122,7 @@ function EditorLayout({
             editor={editor}
             tocOpen={tocOpen}
             onToggleToc={() => setTocOpen((prev) => !prev)}
+            onOpenHistory={() => setHistoryOpen(true)}
           />
         )}
         {editor && <AIMenu editor={editor} />}
@@ -161,6 +164,15 @@ function EditorLayout({
           <TocPanel editor={editor} onClose={() => setTocOpen(false)} />
         )}
       </div>
+
+      {editor && (
+        <HistoryModal
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          editor={editor}
+          docId={noteId}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { MAIN_FOLDER_ID } from '../homebase';
 import { getDatabase, ensureTrigramSearch } from './pglite';
-import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRecord, PendingImageUpload, SyncError, AdvancedSearchResult } from '@/types';
+import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata, SyncRecord, PendingImageUpload, SyncError, AdvancedSearchResult, SnapshotMeta } from '@/types';
 
 // Notes with archivalStatus 2 (Homebase "Removed") live in the Trash — exclude them
 // from every active-note list. Single source of truth for the filter.
@@ -154,6 +154,62 @@ export async function replaceDocumentUpdates(docId: string, blob: Uint8Array): P
         [docId, Y.encodeStateAsUpdate(merged), stored.rows.map(row => row.id)]
     );
     merged.destroy();
+}
+
+// Version history snapshots (local only, never synced)
+export async function saveSnapshot(
+    docId: string,
+    snap: { stateBlob: Uint8Array; stateVector: Uint8Array; preview: string; wordCount: number }
+): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `INSERT INTO document_snapshots (doc_id, state_blob, state_vector, preview, word_count)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [docId, snap.stateBlob, snap.stateVector, snap.preview, snap.wordCount]
+    );
+}
+
+export async function getSnapshots(docId: string): Promise<SnapshotMeta[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ id: number; preview: string; word_count: number; created_at: Date }>(
+        `SELECT id, preview, word_count, created_at FROM document_snapshots
+         WHERE doc_id = $1 ORDER BY created_at DESC, id DESC`,
+        [docId]
+    );
+    return result.rows.map(row => ({
+        id: row.id,
+        preview: row.preview,
+        wordCount: row.word_count,
+        createdAt: row.created_at,
+    }));
+}
+
+export async function getLatestSnapshotVector(
+    docId: string
+): Promise<{ createdAt: Date; stateVector: Uint8Array } | null> {
+    const db = await getDatabase();
+    const result = await db.query<{ created_at: Date; state_vector: Uint8Array }>(
+        `SELECT created_at, state_vector FROM document_snapshots
+         WHERE doc_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1`,
+        [docId]
+    );
+    const row = result.rows[0];
+    return row ? { createdAt: row.created_at, stateVector: row.state_vector } : null;
+}
+
+export async function getSnapshotBlob(id: number): Promise<Uint8Array | null> {
+    const db = await getDatabase();
+    const result = await db.query<{ state_blob: Uint8Array }>(
+        'SELECT state_blob FROM document_snapshots WHERE id = $1',
+        [id]
+    );
+    return result.rows[0]?.state_blob ?? null;
+}
+
+export async function deleteSnapshots(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    const db = await getDatabase();
+    await db.query('DELETE FROM document_snapshots WHERE id = ANY($1::int[])', [ids]);
 }
 
 // Search Index
@@ -1138,6 +1194,9 @@ export async function clearAllLocalData(): Promise<void> {
         DELETE FROM pending_image_uploads;
         DELETE FROM pending_image_deletions;
         DELETE FROM sync_errors;
+
+        -- Clear version history
+        DELETE FROM document_snapshots;
         
         -- Clear job queue
         DELETE FROM job_queue;
