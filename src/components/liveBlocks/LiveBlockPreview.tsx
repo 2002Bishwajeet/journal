@@ -202,6 +202,11 @@ function mermaidThemeVariables(dark: boolean) {
   // A diagram sits straight on the note (#420), so its surface is the note's background.
   const surface = token('--background');
   const text = token('--foreground');
+  const chart = [1, 2, 3, 4, 5].map((n) => token(`--chart-${n}`));
+  // Every chart colour has at least 3:1 contrast with the background (src/__tests__/chartPalette.test.ts),
+  // so the background is the label colour that reads on every one of them, in both themes.
+  const slots = (prefix: string, from: number, count: number, value: (i: number) => string) =>
+    Object.fromEntries(Array.from({ length: count }, (_, i) => [`${prefix}${i + from}`, value(i)]));
   return {
     darkMode: dark,
     fontFamily: token('--font-sans'),
@@ -217,20 +222,33 @@ function mermaidThemeVariables(dark: boolean) {
     noteBkgColor: token('--accent'),
     noteTextColor: text,
     noteBorderColor: token('--border'),
-    // Slices are the theme's chart palette (#424). A pie of more than five goes round it
-    // again, each time fainter. Their labels get a halo: src/index.css ("Live blocks").
-    ...Object.fromEntries(
-      Array.from({ length: 12 }, (_, i) => {
-        const chart = token(`--chart-${(i % 5) + 1}`);
-        return [`pie${i + 1}`, i < 5 ? chart : `color-mix(in srgb, ${chart} ${i < 10 ? 60 : 35}%, ${surface})`];
-      }),
-    ),
+    // Slices are the theme's chart palette (#424, #430). A pie of more than five goes round
+    // it again, each time nearer the text colour, so the labels still read on every slice.
+    ...slots('pie', 1, 12, (i) => (i < 5 ? chart[i] : `color-mix(in srgb, ${chart[i % 5]} ${i < 10 ? 60 : 35}%, ${text})`)),
     pieTitleTextColor: text,
-    pieSectionTextColor: text,
+    pieSectionTextColor: surface,
     pieLegendTextColor: text,
     pieOpacity: '1',
     pieStrokeColor: surface,
     pieOuterStrokeColor: token('--border'),
+    // The other diagrams with a colour per series or section: timeline, radar and treemap
+    // (cScale, which mindmap and kanban share), gitGraph branches and xychart plots.
+    ...slots('cScale', 0, 12, (i) => chart[i % 5]),
+    ...slots('cScaleLabel', 0, 12, () => surface),
+    ...slots('git', 0, 8, (i) => chart[i % 5]),
+    ...slots('gitBranchLabel', 0, 8, () => surface),
+    // Setting xyChart replaces mermaid's whole object, so it repeats the colours the base
+    // theme would give the rest of it.
+    xyChart: {
+      backgroundColor: surface,
+      plotColorPalette: chart.join(','),
+      ...Object.fromEntries(
+        ['title', 'dataLabel', 'legendText', 'xAxisTitle', 'xAxisLabel', 'xAxisTick', 'xAxisLine', 'yAxisTitle', 'yAxisLabel', 'yAxisTick', 'yAxisLine'].map((slot) => [
+          `${slot}Color`,
+          text,
+        ]),
+      ),
+    },
   };
 }
 

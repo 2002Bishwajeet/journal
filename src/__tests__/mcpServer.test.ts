@@ -89,6 +89,7 @@ describe('createJournalMcpServer', () => {
             '`var(--chart-1)` to `var(--chart-5)` for data series',
             "leave buttons, inputs and tables unstyled so they get Journal's look.",
             '(3) Custom styling is allowed only where the content needs it (a chart, a diagram, a game board), and still built from those variables.',
+            'Use `--chart-1` … `--chart-5` in that order for data series, never raw colours.',
             '(4) No page background, gradients, shadows, badge rows, emoji headers or custom fonts.',
             '(5) The block sizes itself to its content: do not set a fixed page height or design for a whole screen.',
         ];

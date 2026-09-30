@@ -229,6 +229,18 @@ image. These variables hold the theme's current values:
 | `--ring` | a focus ring |
 | `--chart-1` … `--chart-5` | data series in a chart, in this order; a mermaid pie uses the same five |
 
+The chart palette is five muted inks. Use them in order for data series, and never raw
+colours: the first is the one used most, so it is the calmest. Each has at least 3:1
+contrast with the note's background, so the background reads as a label on any of them.
+
+| Variable | Role | Light | Dark |
+|---|---|---|---|
+| `--chart-1` | Ink: the main series | `#39362E` | `#DBD9D2` |
+| `--chart-2` | Clay | `#8A5344` | `#CCABA1` |
+| `--chart-3` | Sage | `#718968` | `#86977D` |
+| `--chart-4` | Ochre | `#9D7F42` | `#BF9F68` |
+| `--chart-5` | Slate | `#4F7A96` | `#7FA1B7` |
+
 Good: no styling for the controls, and the one thing drawn (a bar) is built from the
 variables.
 
