@@ -62,6 +62,7 @@ src/
 │   │   ├── ConfirmDialog.tsx
 │   │   ├── CreateFolderModal.tsx
 │   │   ├── ExtendPermissionDialog.tsx
+│   │   ├── HistoryModal.tsx    # Version history list + restore (desktop toolbar, own notes only)
 │   │   ├── SearchModal.tsx     # Cmd+K full-text + fuzzy search
 │   │   ├── SettingsModal.tsx   # General, AI & Models, Data, About tabs
 │   │   └── ShareDialog.tsx
@@ -87,15 +88,20 @@ src/
 │   ├── useTabManager.ts        # Multi-tab state (max 10, persisted)
 │   ├── useThemePreference.ts   # light | dark | system
 │   ├── useSyncService.ts       # SyncContext consumer
+│   ├── useVersionHistory.ts    # Snapshot list + restore for HistoryModal
 │   └── useWebLLM.ts            # Lazy-loaded AI engine with idle GC
 ├── lib/
 │   ├── broadcast/
 │   │   └── DocumentBroadcast.ts  # Singleton, BroadcastChannel API
 │   ├── db/
-│   │   ├── pglite.ts           # PGlite worker singleton + schema (9 tables)
+│   │   ├── pglite.ts           # PGlite worker singleton + schema (10 tables)
 │   │   ├── pglite-worker.ts    # Web Worker entry — runs PGlite off main thread
 │   │   ├── pglite-migrate.ts   # Version migration (v0.3→v0.4 dump/restore)
 │   │   └── queries.ts          # All SQL queries (~50 functions)
+│   ├── history/                # Version history (local only, never synced)
+│   │   ├── snapshot.ts         # captureSnapshot — called by PGliteProvider.compact()
+│   │   ├── retention.ts        # selectSnapshotsToPrune — pure retention policy
+│   │   └── restore.ts          # restoreSnapshot — setContent through the editor (undoable, syncs)
 │   ├── homebase/
 │   │   ├── config.ts           # App IDs, drive, file/data types, payload keys
 │   │   ├── FolderDriveProvider.ts
@@ -208,7 +214,7 @@ src/
 | Content Payload Key | `jrnl_txt` | same |
 | Image Payload Prefix | `jrnl_img` | same |
 
-## Database Schema (PGlite — 9 Tables)
+## Database Schema (PGlite — 10 Tables)
 
 ### `document_updates` — Yjs source of truth
 - `id` SERIAL PK, `doc_id` UUID, `update_blob` BYTEA, `created_at` TIMESTAMPTZ
@@ -240,6 +246,11 @@ src/
 
 ### `app_state` — Session persistence (key-value)
 - `key` TEXT PK, `value` JSONB, `updated_at` TIMESTAMPTZ
+
+### `document_snapshots` — Version history (this device only, never synced)
+- `id` SERIAL PK, `doc_id` UUID, `state_blob` BYTEA, `state_vector` BYTEA, `preview` TEXT, `word_count` INT, `created_at` TIMESTAMPTZ
+- Index: `idx_snapshots_doc_created` on (doc_id, created_at DESC)
+- Written by `PGliteProvider.compact()` before the update log is replaced (skipped if the newest snapshot is under 5 min old or has the same state vector); pruned by `selectSnapshotsToPrune` (all < 24 h, one per UTC day to 30 days, one per ISO week after, max 50)
 
 ## PGlite Version Migration
 

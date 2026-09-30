@@ -152,6 +152,14 @@ export interface SyncError {
     resolvedAt?: string;
 }
 
+// Version history snapshot, without its blobs (#158)
+export interface SnapshotMeta {
+    id: number;
+    preview: string;
+    wordCount: number;
+    createdAt: Date;
+}
+
 // Progress tracking for sync operations
 export interface SyncProgress {
     phase: 'pull' | 'push' | 'images';

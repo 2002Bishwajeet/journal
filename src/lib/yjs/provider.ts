@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import { saveDocumentUpdate, getDocumentUpdates, replaceDocumentUpdates } from '@/lib/db';
 import { documentBroadcast, type DocumentBroadcastMessage } from '@/lib/broadcast';
+import { captureSnapshot } from '@/lib/history/snapshot';
 
 // Origin tagged on updates that come FROM the database (load/reload). The update
 // handler skips it: replaying stored state is not a new edit, and persisting it
@@ -208,6 +209,14 @@ export class PGliteProvider {
         try {
             // Get the full merged state
             const mergedState = Y.encodeStateAsUpdate(this.doc);
+
+            // Version history: keep the pre-compaction state restorable. A
+            // snapshot failure must never block compaction.
+            try {
+                await captureSnapshot(this.docId, this.doc, { throttle: true });
+            } catch (error) {
+                console.warn('[PGliteProvider] Failed to save version snapshot:', error);
+            }
 
             // Atomically swap all existing updates for the single compacted blob
             await replaceDocumentUpdates(this.docId, mergedState);

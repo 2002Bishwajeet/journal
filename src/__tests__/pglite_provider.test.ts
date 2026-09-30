@@ -10,7 +10,7 @@ import { setTestDb } from './pgliteMock';
 // saveDocumentUpdate wrapper with a controllable delay so we can interleave updates
 // and pin the stranded-update gap (see the last test). Delay defaults to 0, so every
 // other test uses the real, un-delayed persistence path.
-const saveControl = { delayMs: 0 };
+const saveControl = { delayMs: 0, failSnapshot: false };
 vi.mock('@/lib/db', async (importActual) => {
     const actual = await importActual<typeof import('@/lib/db')>();
     return {
@@ -18,6 +18,10 @@ vi.mock('@/lib/db', async (importActual) => {
         saveDocumentUpdate: async (docId: string, blob: Uint8Array) => {
             if (saveControl.delayMs > 0) await new Promise(r => setTimeout(r, saveControl.delayMs));
             return actual.saveDocumentUpdate(docId, blob);
+        },
+        saveSnapshot: async (...args: Parameters<typeof actual.saveSnapshot>) => {
+            if (saveControl.failSnapshot) throw new Error('snapshot write failed');
+            return actual.saveSnapshot(...args);
         },
     };
 });
@@ -35,6 +39,7 @@ afterAll(async () => { await closeTestDatabase(); });
 beforeEach(async () => {
     await resetTestDatabase();
     saveControl.delayMs = 0;
+    saveControl.failSnapshot = false;
     vi.clearAllMocks();
 });
 
@@ -177,6 +182,86 @@ describe('PGliteProvider.compact', () => {
         // The single compacted row still carries the full 50-char state.
         const stored = await getDocumentUpdates(DOC_ID);
         expect(bodyOf(stored[0]).length).toBe(50);
+    });
+});
+
+describe('PGliteProvider.compact version snapshots', () => {
+    /** Append a paragraph to the editor fragment, as TipTap would store it. */
+    function addParagraph(doc: Y.Doc, text: string) {
+        const p = new Y.XmlElement('paragraph');
+        p.insert(0, [new Y.XmlText(text)]);
+        const fragment = doc.getXmlFragment('prosemirror');
+        fragment.insert(fragment.length, [p]);
+    }
+
+    async function snapshotRows() {
+        const r = await db.query<{ preview: string; word_count: number }>(
+            'SELECT preview, word_count FROM document_snapshots WHERE doc_id = $1', [DOC_ID]);
+        return r.rows;
+    }
+
+    async function openProvider() {
+        const doc = new Y.Doc();
+        const provider = new PGliteProvider(DOC_ID, doc);
+        await provider.load();
+        return { doc, provider };
+    }
+
+    it('writes one snapshot with preview and word count when a changed doc compacts', async () => {
+        const { doc, provider } = await openProvider();
+        addParagraph(doc, 'Dear diary, today was long');
+        await provider.flush();
+
+        await provider.compact();
+
+        expect(await snapshotRows()).toEqual([{ preview: 'Dear diary, today was long', word_count: 5 }]);
+        await provider.destroy();
+    });
+
+    it('writes no second snapshot when compacting again within 5 minutes', async () => {
+        const { doc, provider } = await openProvider();
+        addParagraph(doc, 'first');
+        await provider.compact();
+        addParagraph(doc, 'second');
+        await provider.compact();
+
+        expect(await snapshotRows()).toHaveLength(1);
+        await provider.destroy();
+    });
+
+    it('writes no snapshot when the state vector is unchanged since the last one', async () => {
+        const { doc, provider } = await openProvider();
+        addParagraph(doc, 'unchanged');
+        await provider.compact();
+        // Age the snapshot past the throttle so only the vector check can skip.
+        await db.query(`UPDATE document_snapshots SET created_at = now() - interval '10 minutes'`);
+
+        await provider.compact();
+
+        expect(await snapshotRows()).toHaveLength(1);
+        await provider.destroy();
+    });
+
+    it('still compacts when saving the snapshot fails', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+            const { doc, provider } = await openProvider();
+            addParagraph(doc, 'a');
+            await provider.flush();
+            addParagraph(doc, 'b');
+            await provider.flush();
+            expect(await docRowCount(DOC_ID)).toBe(2);
+            saveControl.failSnapshot = true;
+
+            await provider.compact();
+
+            expect(await docRowCount(DOC_ID)).toBe(1);
+            expect(await snapshotRows()).toHaveLength(0);
+            expect(warn).toHaveBeenCalled();
+            await provider.destroy();
+        } finally {
+            warn.mockRestore();
+        }
     });
 });
 
