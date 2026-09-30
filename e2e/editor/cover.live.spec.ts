@@ -127,8 +127,9 @@ test('cover image: add, reposition, change and remove survive reloads (#219)', a
         await pickCover(page, page.getByRole('button', { name: 'Change cover' }), BLUE);
         await expect.poll(() => coverIs(page, BLUE), { timeout: 10_000 }).toBe(true);
         await expect.poll(uploadedKeys, { timeout: 120_000, message: 'new cover uploaded' }).toHaveLength(2);
+        // The old payload is deleted before the new upload, so the new cover may reuse its key.
         const [, secondKey] = await uploadedKeys();
-        expect(secondKey).not.toBe(firstKey);
+        testInfo.annotations.push({ type: 'cover payload keys', description: `${firstKey} -> ${secondKey}` });
         await expect.poll(
             async () => !!(await logged((args) =>
                 String(args[0]).startsWith('[SyncService] Deleting payloads')
@@ -136,6 +137,12 @@ test('cover image: add, reposition, change and remove survive reloads (#219)', a
             { timeout: 120_000, message: `old cover payload ${firstKey} deleted on sync` },
         ).toBe(true);
         await expect(uploadedImg(page)).toBeAttached({ timeout: 30_000 });
+        await expect.poll(() => coverIs(page, BLUE), { timeout: 30_000 }).toBe(true);
+        // ...and it's the new image that persisted, not deleted along with the old key.
+        await reloadNote(page);
+        await expect(band(page)).toBeVisible({ timeout: 15_000 });
+        await expect.poll(() => uploadedImg(page).evaluate((i: HTMLImageElement) => i.naturalWidth), { timeout: 30_000 })
+            .toBeGreaterThan(0);
         await expect.poll(() => coverIs(page, BLUE), { timeout: 30_000 }).toBe(true);
 
         // Evidence: cover and reposition mode, light/dark, desktop/375px.
