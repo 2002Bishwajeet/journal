@@ -708,3 +708,20 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Editor appearance (Settings → Appearance), set on <html> by useEditorAppearance.
+   Font applies to the editor content only. Width overrides the note column's
+   max-w-5xl cap (cover, title, tags, content); focus mode does not carry
+   `.editor-column`, so it keeps its own cap. */
+[data-editor-font='serif'] .ProseMirror {
+  font-family: ui-serif, Georgia, 'Times New Roman', serif;
+}
+[data-editor-font='mono'] .ProseMirror {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+[data-editor-width='narrow'] .editor-column {
+  max-width: 65ch;
+}
+[data-editor-width='full'] .editor-column {
+  max-width: none;
+}

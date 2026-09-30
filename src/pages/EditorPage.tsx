@@ -151,13 +151,13 @@ function EditorLayout({
               "min-h-full py-8 px-6 mx-auto pb-24 md:pb-8",
               focusMode
                 ? "max-w-2xl md:px-8 pt-12"
-                : "max-w-5xl md:px-12"
+                : "editor-column max-w-5xl md:px-12"
             )}
           />
           <div
             className={cn(
               "mx-auto px-6 pb-24 md:pb-8",
-              focusMode ? "max-w-2xl md:px-8" : "max-w-5xl md:px-12"
+              focusMode ? "max-w-2xl md:px-8" : "editor-column max-w-5xl md:px-12"
             )}
           >
             <LinkedMentions noteId={noteId} isActive={isActive} />
