@@ -11,6 +11,11 @@ describe('codeBlockFromPaste', () => {
         expect(codeBlockFromPaste('```\nplain\n```')).toEqual({ language: null, code: 'plain' });
     });
 
+    it('should turn a fenced react block into a react code block, JSX and all (#426)', () => {
+        const code = 'function App() {\n  const [count, setCount] = useState(0);\n  return <button onClick={() => setCount(count + 1)}>{count}</button>;\n}';
+        expect(codeBlockFromPaste('```react\n' + code + '\n```')).toEqual({ language: 'react', code });
+    });
+
     it('should leave several fenced blocks alone', () => {
         expect(codeBlockFromPaste('```js\na\n```\ntext\n```js\nb\n```')).toBeNull();
     });

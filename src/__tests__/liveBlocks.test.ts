@@ -5,10 +5,17 @@ import { LiveBlockPreview } from '@/components/liveBlocks/LiveBlockPreview';
 import { HTML_BLOCK_CDN_HOSTS, buildSrcdoc, frameHeightFromMessage, liveBlockKind, svgDataUri, type FrameTheme } from '@/lib/liveBlocks';
 
 describe('liveBlockKind', () => {
-  it('should recognise mermaid, svg and html languages', () => {
+  it('should recognise mermaid, svg, html and react languages', () => {
     expect(liveBlockKind('mermaid')).toBe('mermaid');
     expect(liveBlockKind('svg')).toBe('svg');
     expect(liveBlockKind('html')).toBe('html');
+    expect(liveBlockKind('react')).toBe('react');
+    expect(liveBlockKind('React')).toBe('react');
+  });
+
+  it('should leave jsx and tsx as ordinary code blocks, so a code sample never runs (#426)', () => {
+    expect(liveBlockKind('jsx')).toBeNull();
+    expect(liveBlockKind('tsx')).toBeNull();
   });
 
   it('should ignore case and surrounding whitespace', () => {
@@ -57,11 +64,11 @@ describe('buildSrcdoc', () => {
       '--primary': '#E6E4DD',
       '--ring': '#8A8780',
       '--radius': '0.5rem',
-      '--chart-1': '#2C2B29',
-      '--chart-2': '#595752',
-      '--chart-3': '#8A8780',
-      '--chart-4': '#BDBBB5',
-      '--chart-5': '#E6E4DD',
+      '--chart-1': '#DBD9D2',
+      '--chart-2': '#CCABA1',
+      '--chart-3': '#86977D',
+      '--chart-4': '#BF9F68',
+      '--chart-5': '#7FA1B7',
     },
     fontFamily: '"Inter Variable", system-ui, sans-serif',
     lineHeight: '1.5',

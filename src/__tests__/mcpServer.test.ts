@@ -89,6 +89,7 @@ describe('createJournalMcpServer', () => {
             '`var(--chart-1)` to `var(--chart-5)` for data series',
             "leave buttons, inputs and tables unstyled so they get Journal's look.",
             '(3) Custom styling is allowed only where the content needs it (a chart, a diagram, a game board), and still built from those variables.',
+            'Use `--chart-1` … `--chart-5` in that order for data series, never raw colours.',
             '(4) No page background, gradients, shadows, badge rows, emoji headers or custom fonts.',
             '(5) The block sizes itself to its content: do not set a fixed page height or design for a whole screen.',
         ];
@@ -127,6 +128,29 @@ describe('createJournalMcpServer', () => {
             expect(tool.description?.match(/[\w.-]+\.(?:net|com|org|io)\b/g)).toEqual(HTML_BLOCK_CDN_HOSTS.map((host) => new URL(host).host));
             expect(tool.description).not.toContain('no external scripts');
         }
+    });
+
+    it('tells agents how a react block works, and that the html design rules apply to it (#426)', async () => {
+        const client = await connectedClient(makeFakeDeps());
+        const { tools } = await client.listTools();
+        const described = tools.filter((tool) => ['create_note', 'append_to_note', 'replace_in_note'].includes(tool.name));
+        expect(described).toHaveLength(3);
+        for (const tool of described) {
+            for (const text of [
+                '`mermaid`, `svg`, `html` or `react`',
+                'defines a component named `App`',
+                'or exports one as default',
+                '`useState`, `useEffect`, `useRef`, `useMemo` and `useReducer`',
+                'State is lost on reload.',
+                'These rules apply to a `react` block unchanged.',
+            ]) {
+                expect(tool.description).toContain(text);
+            }
+            // The rules come before the sentence that applies them to react blocks.
+            expect(tool.description!.indexOf('(5) The block sizes itself')).toBeLessThan(tool.description!.indexOf('These rules apply to a `react` block'));
+        }
+        const told = tools.filter((tool) => tool.description?.includes('named `App`')).map((tool) => tool.name);
+        expect(told.sort()).toEqual(['append_to_note', 'create_note', 'replace_in_note']);
     });
 
     it('attributes writes to the client name from the initialize handshake', async () => {

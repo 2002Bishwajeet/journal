@@ -9,7 +9,7 @@ import type { LiveBlockKind } from '@/lib/liveBlocks';
 import { cn } from '@/lib/utils';
 import { LiveBlockPreview } from './LiveBlockPreview';
 
-const LABELS: Record<LiveBlockKind, string> = { mermaid: 'Mermaid', svg: 'SVG', html: 'HTML' };
+const LABELS: Record<LiveBlockKind, string> = { mermaid: 'Mermaid', svg: 'SVG', html: 'HTML', react: 'React' };
 
 interface LiveBlockFrameProps {
   kind: LiveBlockKind;
@@ -34,6 +34,8 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, togg
   const box = useRef<HTMLDivElement>(null);
   // The inline height fitContent last gave the box.
   const fittedHeight = useRef('');
+  // A react block runs in the same frame as an html block (#426), so it gets the same box.
+  const framed = kind === 'html' || kind === 'react';
 
   // An html block is as tall as its content (#412) until the user drags the resize handle:
   // the browser then writes an inline height that is not the fitted one, and that one stays.
@@ -71,11 +73,11 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, togg
         ref={box}
         contentEditable={preview ? false : undefined}
         data-live-block-preview={preview ? kind : undefined}
-        className={cn(kind === 'html' && 'relative h-[400px] resize-y overflow-hidden')}
+        className={cn(framed && 'relative h-[400px] resize-y overflow-hidden')}
       >
         {preview && <LiveBlockPreview kind={kind} source={source} onHeight={fitContent} />}
         {children}
-        {kind === 'html' && (
+        {framed && (
           // Drawn over the native resize handle, which is hard to see on a page. Dragging it
           // needs a mouse, so touch devices do not get the hint.
           <span

@@ -50,6 +50,20 @@ registerRoute(
     })
 );
 
+// A react block's React runtime and JSX compiler (#426) are not precached either: they load
+// only when a react block is previewed, and are cached on first use so the block renders
+// offline from then on. Chunk names: injectManifest.globIgnores in vite.config.ts.
+registerRoute(
+    ({ url, sameOrigin }) =>
+        sameOrigin && /\/assets\/(_virtual_react-block-runtime|reactBlockCompiler)-.*\.js$/.test(url.pathname),
+    new CacheFirst({
+        cacheName: 'react-block',
+        plugins: [
+            new ExpirationPlugin({ maxEntries: 4 }),
+        ],
+    })
+);
+
 // Cache same-origin static assets (JS, CSS, workers)
 registerRoute(
     ({ request, sameOrigin }) =>
@@ -221,7 +235,7 @@ self.addEventListener('activate', (event) => {
             const cacheNames = await caches.keys();
             await Promise.all(
                 cacheNames
-                    .filter((name) => !['static-resources', 'images', 'api-cache', 'proxied-images'].includes(name) && !name.startsWith('webllm') && !name.startsWith('mermaid') && !name.startsWith('workbox-'))
+                    .filter((name) => !['static-resources', 'images', 'api-cache', 'proxied-images'].includes(name) && !name.startsWith('webllm') && !name.startsWith('mermaid') && name !== 'react-block' && !name.startsWith('workbox-'))
                     .map((name) => caches.delete(name))
             );
 

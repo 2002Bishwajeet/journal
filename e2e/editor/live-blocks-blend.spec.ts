@@ -11,6 +11,8 @@ import { assertTestOrigin } from '../support/origin-guard';
 // and on the share page, light and dark, at 1280px and 390px.
 // #424: unstyled form controls take Journal's look, a pie's slices are the theme's
 // chart palette, and no block has a Full screen control.
+// #430: the chart palette reads on the page in both themes, and an html chart drawn with it
+// changes with the theme.
 
 const THEMES = ['light', 'dark'] as const;
 const VIEWPORTS = { 1280: { width: 1280, height: 900 }, 390: { width: 390, height: 844 } } as const;
@@ -145,13 +147,32 @@ async function expectNoChrome(page: Page, scope: Locator, editing: boolean): Pro
   }
 }
 
-/** A pie of five slices has five fills, the theme's `--chart-1` to `--chart-5`, and its legend is in the note's text colour. */
+/** WCAG contrast ratio of two computed colours (`rgb(r, g, b)`). */
+function contrast(a: string, b: string): number {
+  const luminance = (css: string) => {
+    const [r, g, b] = css.match(/[\d.]+/g)!.slice(0, 3).map((c) => {
+      const s = Number(c) / 255;
+      return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+const chartTokens = (page: Page) => Promise.all([1, 2, 3, 4, 5].map((n) => token(page, `--chart-${n}`)));
+
+/**
+ * A pie of five slices has five fills, the theme's `--chart-1` to `--chart-5`, each with at
+ * least 3:1 contrast with the page, and its legend is in the note's text colour.
+ */
 async function expectPie(page: Page, scope: Locator): Promise<void> {
   const pie = scope.locator('[data-live-block="mermaid"]').nth(1);
   const fills = await pie.locator('path.pieCircle').evaluateAll((slices) => slices.map((slice) => getComputedStyle(slice).fill));
   expect(new Set(fills).size).toBe(5);
-  const chart = await Promise.all([1, 2, 3, 4, 5].map((n) => token(page, `--chart-${n}`)));
-  expect([...fills].sort()).toEqual([...chart].sort());
+  expect([...fills].sort()).toEqual([...(await chartTokens(page))].sort());
+  const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  for (const fill of fills) expect(contrast(fill, background), `${fill} on ${background}`).toBeGreaterThanOrEqual(3);
   await expect(pie.locator('.legend text').first()).toHaveCSS('fill', await token(page, '--foreground'));
 }
 
@@ -321,6 +342,87 @@ for (const theme of THEMES) {
     await app.setViewportSize(VIEWPORTS[1280]);
     await expectJournalControls(app, htmlFrame(editor, 2), editor.getByText(PARAGRAPH));
     await shootFormAndPie(app, editor, 'editor', theme);
+  });
+}
+
+// #430: a chart drawn with the palette, and a strip of the palette's five colours with the
+// values the block was given.
+const BARS =
+  '<div id="bars" style="display: flex; align-items: flex-end; gap: 8px; height: 120px">' +
+  [90, 70, 55, 40, 25].map((height, i) => `<div style="flex: 1; height: ${height}%; background: var(--chart-${i + 1}); border-radius: var(--radius) var(--radius) 0 0"></div>`).join('') +
+  '</div>';
+const SWATCHES =
+  '<div id="swatches" style="display: flex; gap: 8px"></div><script>for (let n = 1; n <= 5; n++) { const value = getComputedStyle(document.documentElement).getPropertyValue(`--chart-${n}`).trim(); swatches.insertAdjacentHTML("beforeend", `<div style="flex: 1"><div style="height: 48px; background: var(--chart-${n}); border-radius: var(--radius)"></div><div style="margin-top: 4px; font: 12px ui-monospace, monospace">--chart-${n}<br>${value}</div></div>`) }</script>';
+
+/** Screenshots one live block once its frame (if any) has painted. */
+async function shootBlock(block: Locator, name: string): Promise<void> {
+  await block.page().mouse.move(0, 0);
+  await block.scrollIntoViewIfNeeded();
+  const frame = block.locator('iframe');
+  if (await frame.count()) {
+    await frame
+      .contentFrame()
+      .locator('body')
+      .evaluate(() => new Promise<void>((painted) => requestAnimationFrame(() => requestAnimationFrame(() => painted()))));
+  }
+  await block.screenshot({ path: test.info().outputPath(name) });
+}
+
+for (const theme of THEMES) {
+  test(`editor: an html chart drawn with the chart palette has five colours that follow the theme, ${theme} theme`, async ({ app }) => {
+    await app.emulateMedia({ colorScheme: theme });
+    await app.setViewportSize(VIEWPORTS[1280]);
+    await createNote(app, { title: `Chart palette ${theme} ${Date.now()}`, body: PARAGRAPH });
+    const editor = activeEditor(app);
+    await app.keyboard.press('Enter');
+    await assertTestOrigin(app);
+    await editor.evaluate(
+      (el, pasted) => {
+        const data = new DataTransfer();
+        data.setData('text/html', pasted);
+        data.setData('text/plain', '');
+        el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+      },
+      [
+        ['html', BARS],
+        ['html', SWATCHES],
+        ['mermaid', FLOWCHART],
+      ]
+        .map(([language, code]) => `<pre><code class="language-${language}">${escapeHtml(code)}</code></pre>`)
+        .join(''),
+    );
+    await expect(app.locator('html')).toHaveClass(new RegExp(theme));
+
+    const bars = htmlFrame(editor, 0).locator('#bars > div');
+    await editor.locator('[data-live-block="html"] iframe').first().scrollIntoViewIfNeeded();
+    await expect(bars).toHaveCount(5);
+    const chart = await chartTokens(app);
+    expect(new Set(chart).size).toBe(5);
+    for (const [i, colour] of chart.entries()) await expect(bars.nth(i)).toHaveCSS('background-color', colour);
+
+    const swatches = htmlFrame(editor, 1).locator('#swatches > div');
+    await editor.locator('[data-live-block="html"] iframe').nth(1).scrollIntoViewIfNeeded();
+    await expect(swatches).toHaveCount(5);
+    const flowchart = editor.locator('[data-live-block="mermaid"]');
+    await expect(flowchart.locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
+    // The flowchart keeps the theme's own colours: its nodes are filled with `--secondary`.
+    await expect(flowchart.locator('.node rect').first()).toHaveCSS('fill', await token(app, '--secondary'));
+
+    const blocks = editor.locator('[data-live-block]');
+    await shootBlock(blocks.nth(0), `bars-editor-${theme}-1280.png`);
+    await shootBlock(blocks.nth(1), `swatches-editor-${theme}-1280.png`);
+    await shootBlock(blocks.nth(2), `flowchart-editor-${theme}-1280.png`);
+
+    // The frame is rebuilt in the other theme's palette: five colours again, each a new one.
+    const other = theme === 'light' ? 'dark' : 'light';
+    await app.emulateMedia({ colorScheme: other });
+    await expect(app.locator('html')).toHaveClass(new RegExp(other));
+    const otherChart = await chartTokens(app);
+    expect(new Set(otherChart).size).toBe(5);
+    for (const [i, colour] of otherChart.entries()) {
+      expect(colour).not.toBe(chart[i]);
+      await expect(bars.nth(i)).toHaveCSS('background-color', colour);
+    }
   });
 }
 

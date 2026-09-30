@@ -109,7 +109,7 @@ tables, links, code), these render as richer blocks in Journal:
   or `> [!error]`.
 - **Toggle** — `<details>` with a `<summary>` line, then a blank line, the body, a blank
   line and `</details>`.
-- **Live blocks** — a fenced code block whose language is `mermaid`, `svg` or `html`.
+- **Live blocks** — a fenced code block whose language is `mermaid`, `svg`, `html` or `react`.
   Journal shows a preview with a Code / Preview toggle, in the editor and on the note's
   public share page.
 
@@ -123,6 +123,7 @@ Not available through these tools: uploading images or a cover image, link-previ
 | `mermaid` | a diagram, coloured to match the light or dark theme | no |
 | `svg` | an image; scripts and external references inside the SVG are ignored | no |
 | `html` | a running page in a sandboxed frame | yes, isolated |
+| `react` | a React component, run on Journal's own React in the same frame as `html` | yes, isolated |
 
 Example: *"Add a mermaid flowchart of the release process and a small HTML tip calculator
 to my Notes folder."*
@@ -156,6 +157,36 @@ roughly 650px and let the layout stretch.
 
 Planned, not available yet: scripts from an allowlisted CDN, and saved state stored in the
 note.
+
+### How a `react` block works
+
+A `react` block is JSX that defines a component named `App`, or exports one as default.
+Journal compiles it and renders `App` on its own copy of React, the version the app itself
+runs, in the same sandboxed frame as an `html` block: everything above about the frame
+applies, and no CDN script is needed. `jsx` and `tsx` blocks stay ordinary code.
+
+- Hooks are on `React` (`React.useState`, `React.useCallback`, …), and `useState`,
+  `useEffect`, `useRef`, `useMemo` and `useReducer` also work without the prefix.
+- It can import only from `react`. TypeScript is not supported.
+- State lives in the component and is lost on reload.
+- A syntax error is shown with its line in place of the component; an error while
+  rendering is shown inside the frame.
+
+````markdown
+```react
+function App() {
+  const [count, setCount] = useState(0);
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>Add one</button>
+    </div>
+  );
+}
+```
+````
+
+The design rules for `html` blocks below apply to a `react` block unchanged.
 
 ### Designing an `html` block
 
@@ -197,6 +228,18 @@ image. These variables hold the theme's current values:
 | `--secondary`, `--primary` | a button's fill: quiet, or the one strong action |
 | `--ring` | a focus ring |
 | `--chart-1` … `--chart-5` | data series in a chart, in this order; a mermaid pie uses the same five |
+
+The chart palette is five muted inks. Use them in order for data series, and never raw
+colours: the first is the one used most, so it is the calmest. Each has at least 3:1
+contrast with the note's background, so the background reads as a label on any of them.
+
+| Variable | Role | Light | Dark |
+|---|---|---|---|
+| `--chart-1` | Ink: the main series | `#39362E` | `#DBD9D2` |
+| `--chart-2` | Clay | `#8A5344` | `#CCABA1` |
+| `--chart-3` | Sage | `#718968` | `#86977D` |
+| `--chart-4` | Ochre | `#9D7F42` | `#BF9F68` |
+| `--chart-5` | Slate | `#4F7A96` | `#7FA1B7` |
 
 Good: no styling for the controls, and the one thing drawn (a bar) is built from the
 variables.

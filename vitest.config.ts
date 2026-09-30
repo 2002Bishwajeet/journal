@@ -32,6 +32,8 @@ export default defineConfig({
             // under vitest — and that failure happens in import analysis, before
             // vi.mock can intercept it.
             'virtual:pwa-register/react': path.resolve(import.meta.dirname, './src/__tests__/stubs/pwaRegister.ts'),
+            // Built by a plugin in vite.config.ts, which vitest does not load.
+            'virtual:react-block-runtime': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockRuntime.ts'),
         },
     },
 });
