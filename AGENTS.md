@@ -100,6 +100,9 @@ src/
 │   │   ├── config.ts           # App IDs, drive, file/data types, payload keys
 │   │   ├── FolderDriveProvider.ts
 │   │   ├── NotesDriveProvider.ts
+│   │   ├── noteUploadMetadata.ts   # Note ACL / appData / header-content builders
+│   │   ├── noteImagePayloads.ts    # Yjs content + image payload/thumbnail builders
+│   │   ├── InvitationDriveProvider.ts # Collaboration invite files
 │   │   ├── SyncService.ts      # Pull/push orchestration
 │   │   └── InboxProcessor.ts   # Remote change processing
 │   ├── importexport/
