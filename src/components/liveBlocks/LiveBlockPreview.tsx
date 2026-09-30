@@ -1,14 +1,19 @@
 /**
- * Renders the preview of a live block (code block whose language is `mermaid`
- * or `svg`). Standalone so the share page can reuse it.
+ * Renders the preview of a live block (code block whose language is `mermaid`,
+ * `svg` or `html`). Standalone so the share page can reuse it.
  *
  * - mermaid: rendered by the lazily imported mermaid runtime in strict mode.
  *   A parse or load error is shown as text; it never throws to the caller.
  * - svg: shown through an <img> data URI, so the source is never injected into
  *   the DOM and its scripts never run.
+ * - html: runs in a sandboxed srcdoc frame. The source is untrusted (an LLM or
+ *   a collaborator can write it): `sandbox="allow-scripts"` alone gives the
+ *   frame an opaque origin, so it cannot reach the app's DOM, storage or
+ *   cookies, and the CSP from buildSrcdoc keeps it off the network. Never add
+ *   another sandbox token; e2e/editor/live-html-sandbox.spec.ts holds the proof.
  */
 import { useEffect, useId, useState } from 'react';
-import { svgDataUri, type LiveBlockKind } from '@/lib/liveBlocks';
+import { buildSrcdoc, svgDataUri, type LiveBlockKind } from '@/lib/liveBlocks';
 
 interface LiveBlockPreviewProps {
   kind: LiveBlockKind;
@@ -22,6 +27,21 @@ let renderCount = 0;
 export function LiveBlockPreview({ kind, source }: LiveBlockPreviewProps) {
   if (kind === 'svg') {
     return <img alt="SVG preview" src={svgDataUri(source)} className="mx-auto max-w-full" />;
+  }
+  if (kind === 'html') {
+    // The wrapper carries the native resize handle: `resize` needs a non-visible overflow.
+    return (
+      <div className="h-[400px] resize-y overflow-hidden">
+        <iframe
+          sandbox="allow-scripts"
+          srcDoc={buildSrcdoc(source)}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          title="HTML preview"
+          className="size-full"
+        />
+      </div>
+    );
   }
   return <MermaidPreview source={source} />;
 }
