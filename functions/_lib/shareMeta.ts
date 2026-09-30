@@ -40,15 +40,6 @@ export function parseSharePath(pathname: string): { identity: string; noteId: st
     return { identity, noteId };
 }
 
-/** `override` is HOMEBASE_UPSTREAM_OVERRIDE, set only by the e2e edge harness. */
-export function upstreamBase(identity: string, override?: string): string {
-    return override ? override.replace(/\/+$/, '') : `https://${identity}`;
-}
-
-export function fallbackShareDescription(author: string): string {
-    return `A note by ${author}, shared with Journal`;
-}
-
 function isoDate(value: unknown): string | undefined {
     if (typeof value !== 'number' && typeof value !== 'string') return undefined;
     const date = new Date(value);
@@ -89,7 +80,8 @@ export async function fetchShareMeta(
     override?: string,
 ): Promise<ShareMeta | null> {
     try {
-        const base = upstreamBase(identity, override);
+        // `override` is HOMEBASE_UPSTREAM_OVERRIDE, set only by the e2e edge harness.
+        const base = override ? override.replace(/\/+$/, '') : `https://${identity}`;
         const query = new URLSearchParams({
             alias: JOURNAL_DRIVE_ALIAS,
             type: JOURNAL_DRIVE_TYPE,
@@ -157,7 +149,7 @@ function escapeHtml(value: string): string {
 }
 
 export function buildHeadTags(meta: ShareMeta, pageUrl: string, origin: string): string {
-    const description = meta.description ?? fallbackShareDescription(meta.authorName);
+    const description = meta.description ?? `A note by ${meta.authorName}, shared with Journal`;
     const authorUrl = `https://${meta.identity}`;
     const image = meta.coverKey
         ? `${authorUrl}/api/guest/v1/drive/files/thumb?${new URLSearchParams({
