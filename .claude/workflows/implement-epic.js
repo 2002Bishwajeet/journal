@@ -70,6 +70,9 @@ const cdInto = (impl) => `\`cd ${impl.worktreePath}\` first (if it no longer exi
 
 const HEAVY = `Run every build/test/lint/e2e/vitest/tsc/npm ci command ONLY as \`${repoRoot}/scripts/harness/serial.sh <cmd> > /tmp/agent-<issue>-<step>.log 2>&1; echo exit=$?\` (machine-wide lock, 16 GB machine), in the foreground with a 600000 ms timeout — never run_in_background: you must see the exit code before you return. Never let full output into your context: read only \`tail -40\` of the log, plus \`grep -nE 'FAIL|Error|error|✗|×' <log> | head -40\` when it failed.`
 
+// playwright.config.ts only screenshots failures, so a passing run has no pictures unless the spec takes them.
+const SHOTS = `If the issue asks for screenshots, its e2e spec must take them itself: \`await page.screenshot({ path: test.info().outputPath('<what>-<theme>-<viewport>.png') })\` for every state the issue lists (theme via \`page.emulateMedia({ colorScheme })\`, viewport via \`page.setViewportSize\`). Hermetic origin only — never dev.dotyou.cloud or a real identity.`
+
 function implementPrompt(issue) {
   const branch = `agent/${issue.number}-${slug(issue.title)}`
   return `You are implementing GitHub issue #${issue.number} of ${REPO}: "${issue.title}".
@@ -78,7 +81,8 @@ function implementPrompt(issue) {
 2. Read the issue: \`gh issue view ${issue.number} -R ${REPO} --comments\`. Read AGENTS.md. Follow the issue exactly, including its STOP conditions. If a STOP condition applies, stop and return status "stopped" with the condition and details — do not improvise around it.
 3. ${HEAVY}
 4. Stay inside this worktree — never edit files under ${repoRoot} itself. Stay inside the issue's Scope.
-5. Commit your work on the branch (conventional commit message referencing #${issue.number}; no Co-Authored-By or other attribution lines). Do NOT push, do NOT open a PR — a later stage does that.
+5. ${SHOTS}
+6. Commit your work on the branch (conventional commit message referencing #${issue.number}; no Co-Authored-By or other attribution lines). Do NOT push, do NOT open a PR — a later stage does that.
 
 Return the worktree path, branch, summary, changed files.`
 }
@@ -99,6 +103,7 @@ function verifyPrompt(issue, impl) {
 - Run the commands in the issue's \`## Verification\` section in order, but e2e ones (\`npm run e2e…\`) first. ${HEAVY}
 - Never run \`npm run e2e:live\` — record it as exitCode "owner-run". If the section says e2e is blocked on #196 and \`playwright.config.ts\` is missing, run its interim checks instead.
 - Check each \`## Acceptance criteria\` box you can check by command; list the ones only the owner can do (real identity, e2e:live) in ownerOnly.
+- Screenshots the issue asks for are yours to check, not the owner's: after the e2e run, find them with \`find test-results -name '*.png'\`, open each with the Read tool, and confirm it shows what the issue describes (right state, nothing blank, clipped, overlapping or unreadable in that theme). Put their absolute paths — images only, no logs — in evidence. A missing or bad screenshot is an entry in problems (the fix: the spec takes it, see "${SHOTS}"). Only a judgement of taste ("visual review before merge") stays in ownerOnly.
 - Review \`git diff origin/main...HEAD\` adversarially: look for real bugs and for files changed outside the issue's Scope. Each becomes a concrete, actionable entry in problems.
 - verdict = "pass" only if every command you ran exited 0 and problems is empty.
 Implementer summary: ${impl.summary}`
@@ -111,7 +116,7 @@ ${verdict.problems.map((p) => `- ${p}`).join('\n')}
 Failed checks:
 ${verdict.checks.filter((c) => c.exitCode !== '0' && c.exitCode !== 'owner-run').map((c) => `$ ${c.command} (exit ${c.exitCode})\n${c.tail}`).join('\n\n') || '(none)'}
 
-Fix them within the issue's Scope, re-run the failing commands, and commit. ${HEAVY} If fixing would require going outside the Scope or a STOP condition now applies, return status "stopped". Do not push.`
+Fix them within the issue's Scope, re-run the failing commands, and commit. ${SHOTS} ${HEAVY} If fixing would require going outside the Scope or a STOP condition now applies, return status "stopped". Do not push.`
 }
 
 function publishPrompt(issue, impl, verdict) {
