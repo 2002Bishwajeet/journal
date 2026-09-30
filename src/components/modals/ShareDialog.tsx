@@ -87,8 +87,8 @@ export default function ShareDialog({
             const updates = await getDocumentUpdates(noteId);
             const blob = updates.length > 0 ? Y.mergeUpdates(updates) : undefined;
             const metadata = get.data?.find((n) => n.docId === noteId)?.metadata;
-            await provider.makeNotePublic(noteId, record?.remoteFileId, buildPublicCard(blob, metadata ?? {}));
-            setNotePublic.mutate({ docId: noteId, isPublic: true });
+            const rekeyed = await provider.makeNotePublic(noteId, record?.remoteFileId, buildPublicCard(blob, metadata ?? {}));
+            setNotePublic.mutate({ docId: noteId, isPublic: true, rekeyed });
             toast.success('Note is now publicly accessible');
         } catch (err) {
             console.error('Failed to make note public:', err);
@@ -108,9 +108,9 @@ export default function ShareDialog({
         try {
             const provider = new NotesDriveProvider(dotYouClient);
             const record = await getSyncRecord(noteId);
-            await provider.makeNotePrivate(noteId, record?.remoteFileId);
+            const rekeyed = await provider.makeNotePrivate(noteId, record?.remoteFileId);
             setCopied(false);
-            setNotePublic.mutate({ docId: noteId, isPublic: false });
+            setNotePublic.mutate({ docId: noteId, isPublic: false, rekeyed });
             toast.success('Sharing stopped — this note is private again');
         } catch (err) {
             console.error('Failed to make note private:', err);

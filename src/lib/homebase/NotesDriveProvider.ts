@@ -528,7 +528,7 @@ export class NotesDriveProvider {
         archivalStatus?: number;
         ensureEncrypted?: boolean;
         errorMessage: string;
-    }): Promise<{ versionTag: string }> {
+    }): Promise<{ versionTag: string; previousVersionTag: string }> {
         const fetchHeader = async () => {
             const header =
                 (spec.fileId
@@ -619,7 +619,7 @@ export class NotesDriveProvider {
             throw new Error(spec.errorMessage);
         }
 
-        return { versionTag: result.newVersionTag };
+        return { versionTag: result.newVersionTag, previousVersionTag: versionTag };
     }
 
     /**
@@ -628,9 +628,9 @@ export class NotesDriveProvider {
      * @param uniqueId - The unique ID of the note
      * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
      * @param card - Link-card data to publish in the header (see buildPublicCard)
-     * @returns The new version tag after update
+     * @returns The new version tag, and the one it replaced
      */
-    async makeNotePublic(uniqueId: string, fileId?: string, card?: PublicCard): Promise<{ versionTag: string }> {
+    async makeNotePublic(uniqueId: string, fileId?: string, card?: PublicCard): Promise<{ versionTag: string; previousVersionTag: string }> {
         return this.#rewriteNoteHeader(uniqueId, {
             fileId,
             mode: 'reupload',
@@ -656,9 +656,9 @@ export class NotesDriveProvider {
      *
      * @param uniqueId - The unique ID of the note
      * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
-     * @returns The new version tag after update
+     * @returns The new version tag, and the one it replaced
      */
-    async makeNotePrivate(uniqueId: string, fileId?: string): Promise<{ versionTag: string }> {
+    async makeNotePrivate(uniqueId: string, fileId?: string): Promise<{ versionTag: string; previousVersionTag: string }> {
         return this.#rewriteNoteHeader(uniqueId, {
             fileId,
             mode: 'reupload',

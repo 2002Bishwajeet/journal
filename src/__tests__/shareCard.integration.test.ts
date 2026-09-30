@@ -10,7 +10,7 @@ import * as Y from 'yjs';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
     saveDocumentUpdate, getDocumentUpdates, upsertSearchIndex, upsertSyncRecord, getSyncRecord,
-    getSearchIndexEntry, updateSearchIndexMetadata, updateSyncStatus, clearCachedKeyHeader,
+    getSearchIndexEntry, updateSearchIndexMetadata, updateSyncStatus, recordNoteRekey,
 } from '@/lib/db/queries';
 import { buildPublicCard, mergeShareCard, type ShareCardPatch } from '@/lib/share/publicCard';
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
@@ -74,10 +74,10 @@ async function makePublic(): Promise<void> {
     const record = await getSyncRecord(DOC_ID);
     const blob = Y.mergeUpdates(await getDocumentUpdates(DOC_ID));
     const metadata = (await getSearchIndexEntry(DOC_ID))!.metadata;
-    await new NotesDriveProvider(client).makeNotePublic(DOC_ID, record?.remoteFileId, buildPublicCard(blob, metadata));
+    const rekeyed = await new NotesDriveProvider(client).makeNotePublic(DOC_ID, record?.remoteFileId, buildPublicCard(blob, metadata));
+    await recordNoteRekey(DOC_ID, rekeyed.previousVersionTag, rekeyed.versionTag);
     const current = (await getSearchIndexEntry(DOC_ID))!;
     await updateSearchIndexMetadata(DOC_ID, current.title, { ...current.metadata, isPublic: true });
-    await clearCachedKeyHeader(DOC_ID);
 }
 
 /** What useNotes().setShareCard does, followed by the sync push. */
@@ -148,5 +148,36 @@ describe('share card: dialog edits reach the uploaded header', () => {
         await setShareCardAndPush(svc, { shareDescription: '' });
         expect(patchedCard()).toEqual({ description: 'Hello world', indexable: true });
         expect((await getSearchIndexEntry(DOC_ID))?.metadata).not.toHaveProperty('shareDescription');
+    });
+
+    it("keeps a description typed before the make-public upload's websocket echo is pulled", async () => {
+        await makePublic();
+        const current = (await getSearchIndexEntry(DOC_ID))!;
+        await updateSearchIndexMetadata(DOC_ID, current.title, mergeShareCard(current.metadata, { shareDescription: 'Custom text' }));
+        await updateSyncStatus(DOC_ID, 'pending');
+
+        // The re-upload comes back over the websocket: v2, public projection, no description yet.
+        await svc.handleRemoteNote({
+            fileId: 'file-1',
+            fileMetadata: {
+                versionTag: 'v2',
+                isEncrypted: false,
+                appData: { uniqueId: DOC_ID, groupId: 'main', content: JSON.stringify({ title: 'Note', isPublic: true }) },
+            },
+        } as unknown as Parameters<SyncService['handleRemoteNote']>[0]);
+
+        expect((await getSearchIndexEntry(DOC_ID))?.metadata.shareDescription).toBe('Custom text');
+        mockPatch.mockClear();
+        await svc.pushNote((await getSyncRecord(DOC_ID))!);
+        expect(patchedCard().description).toBe('Custom text');
+    });
+
+    it('keeps the old version tag when this device was behind the re-uploaded version', async () => {
+        await upsertSyncRecord({
+            localId: DOC_ID, entityType: 'note', remoteFileId: 'file-1', versionTag: 'v0',
+            syncStatus: 'synced', contentHash: 'old',
+        } as SyncRecord);
+        await makePublic();
+        expect((await getSyncRecord(DOC_ID))?.versionTag).toBe('v0');
     });
 });

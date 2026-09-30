@@ -11,6 +11,7 @@ import {
     getSearchIndexEntry,
     setNoteArchivalStatusLocal,
     clearCachedKeyHeader,
+    recordNoteRekey,
     NOTE_LIST_SQL,
     NOTE_ROW_KEY,
     NOTE_COUNTS_SQL,
@@ -178,19 +179,27 @@ export function useNotes() {
     // persisted remotely by makeNotePublic/makeNotePrivate, so this is a LOCAL-only
     // update — we intentionally do NOT mark the note 'pending' (a normal sync push
     // could disturb the Anonymous ACL).
-    const setNotePublicMutation = useMutation<void, Error, { docId: string; isPublic: boolean }>({
-        mutationFn: async ({ docId, isPublic }) => {
+    const setNotePublicMutation = useMutation<void, Error, {
+        docId: string;
+        isPublic: boolean;
+        /** makeNotePublic/makeNotePrivate's result, when this toggle re-uploaded the file. */
+        rekeyed?: { versionTag: string; previousVersionTag: string };
+    }>({
+        mutationFn: async ({ docId, isPublic, rekeyed }) => {
             const current = await getSearchIndexEntry(docId);
             if (!current) return;
 
-            const updatedMetadata = { ...current.metadata, isPublic };
-            await updateSearchIndexMetadata(docId, current.title, updatedMetadata);
             // Both makeNotePublic and makeNotePrivate re-upload the file, which re-keys
             // it (public = no key header at all, private = a brand-new one). The cached
             // header is now the WRONG key — validateKeyHeader only checks shape, so the
             // next push would happily encrypt the payload with it and every later read
             // would fail decryption ("OperationError" / "operation not permitted").
-            await clearCachedKeyHeader(docId);
+            // Written first: the re-upload's websocket echo follows within about a second.
+            if (rekeyed) await recordNoteRekey(docId, rekeyed.previousVersionTag, rekeyed.versionTag);
+            else await clearCachedKeyHeader(docId);
+
+            const updatedMetadata = { ...current.metadata, isPublic };
+            await updateSearchIndexMetadata(docId, current.title, updatedMetadata);
         },
     });
 
