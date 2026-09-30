@@ -65,7 +65,7 @@ test('keyboard: theme radios, switches, and Import/Export focus rings', async ({
 
   // AI: Tab reaches each Switch and Space toggles it.
   await dialog.getByRole('tab', { name: 'AI', exact: true }).click();
-  for (const name of ['Autocomplete', 'Grammar Check', 'Enable AI']) {
+  for (const name of ['Autocomplete', 'Grammar Check', 'Enable on-device AI']) {
     const toggle = dialog.getByRole('switch', { name });
     const before = await toggle.getAttribute('aria-checked');
     await dialog.getByRole('tab', { name: 'AI', exact: true }).focus();

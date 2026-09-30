@@ -165,9 +165,24 @@ describe('useAIPreferences on a supported (desktop) screen', () => {
         expect(harness.get().isReady).toBe(false);
         expect(harness.get().error).toBe("Couldn't load the AI model.");
 
-        await act(async () => { await harness.get().initialize(); });
+        await act(async () => { await harness.get().retry(); });
 
         expect(harness.get().error).toBeNull();
+        expect(harness.get().isReady).toBe(true);
+
+        await harness.cleanup();
+    });
+
+    it('retry after a failed load loads the model picked since, not the one that failed', async () => {
+        vi.mocked(webllm.initWebLLM).mockResolvedValueOnce(false);
+        const harness = renderAIPreferences();
+        await harness.mount();
+        await wait(600);
+
+        await act(async () => { await harness.get().selectModel('SmolLM2-360M-Instruct-q4f16_1-MLC'); });
+        await act(async () => { await harness.get().retry(); });
+
+        expect(vi.mocked(webllm.initWebLLM).mock.lastCall?.[1]).toBe('SmolLM2-360M-Instruct-q4f16_1-MLC');
         expect(harness.get().isReady).toBe(true);
 
         await harness.cleanup();

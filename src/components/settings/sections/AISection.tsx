@@ -18,7 +18,7 @@ export default function AISection() {
     loadingMessage,
     error,
     isSupported,
-    initialize,
+    retry,
     setEnabled,
     selectModel,
     setAutocomplete,
@@ -88,7 +88,7 @@ export default function AISection() {
             ) : error ? (
               <div className="flex items-center justify-between gap-3">
                 <p className="text-destructive">{error}</p>
-                <Button size="sm" variant="outline" onClick={() => initialize()}>
+                <Button size="sm" variant="outline" onClick={() => retry()}>
                   Retry
                 </Button>
               </div>

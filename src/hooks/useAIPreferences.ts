@@ -11,7 +11,7 @@ export interface UseAIPreferencesReturn {
     loadingMessage: string;
     error: string | null;
     isSupported: boolean;
-    initialize: () => Promise<boolean>;
+    retry: () => Promise<boolean>;
     setEnabled: (checked: boolean) => Promise<void>;
     selectModel: (id: string) => Promise<void>;
     setAutocomplete: (checked: boolean) => void;
@@ -56,6 +56,10 @@ export function useAIPreferences(): UseAIPreferencesReturn {
         }
     };
 
+    // Loads the model this panel has selected: useWebLLM's own copy of the
+    // settings misses a model picked in this tab after a failed load.
+    const retry = () => switchModel(settings.modelId);
+
     const setAutocomplete = (checked: boolean) => {
         updateSettings({ autocompleteEnabled: checked });
     };
@@ -79,7 +83,7 @@ export function useAIPreferences(): UseAIPreferencesReturn {
         loadingMessage,
         error,
         isSupported,
-        initialize,
+        retry,
         setEnabled,
         selectModel,
         setAutocomplete,
