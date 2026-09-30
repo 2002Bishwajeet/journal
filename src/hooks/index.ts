@@ -11,6 +11,8 @@ export type { TabInfo } from './useTabManager';
 export { useMountedTabs } from './useMountedTabs';
 export { useTabRouting } from './useTabRouting';
 export { useLayoutUrlActions } from './useLayoutUrlActions';
+export { useNoteListView } from './useNoteListView';
+export { useNoteActions } from './useNoteActions';
 export { useThemePreference } from './useThemePreference';
 export type { ThemePreference } from './useThemePreference';
 export { useDeviceType } from './useDeviceType';

@@ -16,6 +16,8 @@ import {
 import {
   useTabRouting,
   useLayoutUrlActions,
+  useNoteListView,
+  useNoteActions,
   useSessionPersistence,
   useDeviceType,
   useSyncService,
@@ -46,33 +48,19 @@ const MarkCollaborativeDialog = lazy(() =>
 import {
   JOURNAL_APP_ID,
   JOURNAL_APP_NAME,
-  MAIN_FOLDER_ID,
   COLLABORATION_PERMISSIONS,
   CONTACT_TARGET_DRIVE_REQUEST,
   PSEUDO_FOLDERS,
 } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
-import {
-  useNotes,
-  useNotesByFolder,
-  useNoteCounts,
-  useCollaborativeNotes,
-  useTrashedNotes,
-  useArchivedNotes,
-} from "@/hooks/useNotes";
+import { useNotes } from "@/hooks/useNotes";
 import { getMobilePane } from "@/layouts/mobilePane";
 import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useDailyNote } from "@/hooks/useDailyNote";
-import { useTags, useNotesByTag } from "@/hooks/useTags";
+import { useTags } from "@/hooks/useTags";
 import { useAuth } from "@/hooks/auth";
-import {
-  useFolders,
-  resolveNoteFolderId,
-  isUnknownFolderRoute,
-} from "@/hooks/useFolders";
+import { useFolders, isUnknownFolderRoute } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
-import { useDotYouClientContext } from "@/components/auth";
-import { NotesDriveProvider } from "@/lib/homebase/NotesDriveProvider";
 import { toast } from "sonner";
 import EditorPage, { prefetchEditorPage } from "@/pages/EditorPage.lazy";
 import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
@@ -108,13 +96,6 @@ export default function JournalLayout() {
   const {
     get: { data: notes = [], isLoading: isNotesLoading },
     createNote: { mutateAsync: createNote },
-    deleteNote: { mutateAsync: deleteNote },
-    trashNote: { mutateAsync: trashNote },
-    restoreNote: { mutateAsync: restoreNote },
-    archiveNote: { mutateAsync: archiveNote },
-    unarchiveNote: { mutateAsync: unarchiveNote },
-    emptyTrash: { mutateAsync: emptyTrash },
-    updateNote: { mutateAsync: updateNoteMetadata },
   } = useNotes();
 
   const {
@@ -140,8 +121,6 @@ export default function JournalLayout() {
 
   // Homebase sync - auto-syncs on mount and focus
   useSyncService();
-
-  const dotYouClient = useDotYouClientContext();
 
   // Focus / Zen mode state
   const [focusMode, setFocusMode] = useState(false);
@@ -177,11 +156,22 @@ export default function JournalLayout() {
     openCollaborate: setCollaborativeNote,
   });
 
-  // Trash/Archive are read-only management lists — their notes can't be opened
-  // in the editor, so on desktop the list takes the full width and the editor
-  // panel is hidden (otherwise the list is crammed into the 256px note column
-  // with a dead editor beside it).
-  const isManagementView = folderId === PSEUDO_FOLDERS.trash || folderId === PSEUDO_FOLDERS.archive;
+  const selectedTag = searchParams.get("tag");
+  const {
+    notes: listNotes,
+    isLoading: isListLoading,
+    isManagementView,
+    counts,
+  } = useNoteListView({ folderId, selectedTag });
+  const noteActions = useNoteActions({
+    folderId,
+    noteId,
+    selectedTag,
+    notes: listNotes,
+    folders,
+    closeTab,
+    handleTabClose,
+  });
 
   // Focus mode hides all chrome to spotlight the editor; management views have
   // no editor, so its effect is suppressed there (otherwise: blank screen).
@@ -211,52 +201,6 @@ export default function JournalLayout() {
   const isDesktop = deviceType === "desktop";
   // If not desktop (so mobile or tablet), treat as mobile layout
 
-  const { data: filteredNotes = [], isLoading: isFilteredNotesLoading } =
-    useNotesByFolder(folderId);
-  // Sidebar badge counts come from one lightweight live query. The full
-  // trash/archive/shared lists are only subscribed when their view is open, so
-  // they don't each spin up a live subscription at boot.
-  const counts = useNoteCounts();
-  const { data: collaborativeNotes = [], isLoading: isCollaborativeLoading } =
-    useCollaborativeNotes(folderId === PSEUDO_FOLDERS.shared);
-  const { data: trashedNotes = [], isLoading: isTrashLoading } =
-    useTrashedNotes(folderId === PSEUDO_FOLDERS.trash);
-  const { data: archivedNotes = [], isLoading: isArchivedLoading } =
-    useArchivedNotes(folderId === PSEUDO_FOLDERS.archive);
-
-  // Trash / Archive actions — stable handlers with user-visible error feedback.
-  const handleRestoreFromTrash = useCallback(
-    (id: string) => {
-      restoreNote(id).catch(() => toast.error("Couldn't restore note"));
-    },
-    [restoreNote],
-  );
-  const handleDeleteForever = useCallback(
-    (id: string) => {
-      // Close any open tab first so the editor can't resurrect the note via a debounced save.
-      closeTab(id);
-      deleteNote(id).catch(() => toast.error("Couldn't delete note"));
-    },
-    [deleteNote, closeTab],
-  );
-  const handleEmptyTrash = useCallback(() => {
-    emptyTrash().catch(() => toast.error("Couldn't empty Trash"));
-  }, [emptyTrash]);
-  const handleUnarchive = useCallback(
-    (id: string) => {
-      unarchiveNote(id).catch(() => toast.error("Couldn't unarchive note"));
-    },
-    [unarchiveNote],
-  );
-  const handleMoveArchivedToTrash = useCallback(
-    (id: string) => {
-      closeTab(id);
-      trashNote(id).catch(() => toast.error("Couldn't move note to Trash"));
-    },
-    [trashNote, closeTab],
-  );
-
-  const selectedTag = searchParams.get("tag");
   const viewLabel = selectedTag
     ? `#${selectedTag}`
     : folderId === PSEUDO_FOLDERS.trash
@@ -267,24 +211,6 @@ export default function JournalLayout() {
           ? "Shared"
           : folders.find((f) => f.id === folderId)?.name;
   const { tags } = useTags();
-  const { data: tagFilteredNotes } = useNotesByTag(selectedTag);
-  const notesToShow = selectedTag
-    ? (tagFilteredNotes ?? [])
-    : folderId === PSEUDO_FOLDERS.shared
-      ? collaborativeNotes
-      : filteredNotes;
-  const isNotesToShowLoading =
-    folderId === PSEUDO_FOLDERS.shared ? isCollaborativeLoading : isFilteredNotesLoading;
-
-  const handleArchive = useCallback(
-    (note: NoteListEntry) => {
-      // Archived notes leave the active list, so an open tab would flip to
-      // "Note not found" — close it (and leave it, if it's the open note).
-      handleTabClose(note.docId);
-      archiveNote(note.docId).catch(() => toast.error("Couldn't archive note"));
-    },
-    [archiveNote, handleTabClose],
-  );
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
 
@@ -412,94 +338,40 @@ export default function JournalLayout() {
           {folderId === PSEUDO_FOLDERS.trash ? (
             <HiddenNotesView
               title="Trash"
-              notes={trashedNotes}
-              isLoading={isTrashLoading}
+              notes={listNotes}
+              isLoading={isListLoading}
               emptyIcon={Trash2}
               emptyLabel="Trash is empty"
               rowActions={[
-                { icon: ArchiveRestore, label: "Restore note", onClick: handleRestoreFromTrash },
-                { icon: Trash2, label: "Delete forever", onClick: handleDeleteForever, destructive: true },
+                { icon: ArchiveRestore, label: "Restore note", onClick: noteActions.restoreFromTrash },
+                { icon: Trash2, label: "Delete forever", onClick: noteActions.deleteForever, destructive: true },
               ]}
-              headerAction={{ label: "Empty Trash", onClick: handleEmptyTrash }}
+              headerAction={{ label: "Empty Trash", onClick: noteActions.emptyTrash }}
               onBack={isDesktop ? undefined : () => navigate("/")}
               className="flex-1"
             />
           ) : folderId === PSEUDO_FOLDERS.archive ? (
             <HiddenNotesView
               title="Archive"
-              notes={archivedNotes}
-              isLoading={isArchivedLoading}
+              notes={listNotes}
+              isLoading={isListLoading}
               emptyIcon={Archive}
               emptyLabel="No archived notes"
               rowActions={[
-                { icon: ArchiveRestore, label: "Unarchive note", onClick: handleUnarchive },
-                { icon: Trash2, label: "Move to Trash", onClick: handleMoveArchivedToTrash, destructive: true },
+                { icon: ArchiveRestore, label: "Unarchive note", onClick: noteActions.unarchive },
+                { icon: Trash2, label: "Move to Trash", onClick: noteActions.moveArchivedToTrash, destructive: true },
               ]}
               onBack={isDesktop ? undefined : () => navigate("/")}
               className="flex-1"
             />
           ) : (
           <NoteList
-            notes={notesToShow}
+            notes={listNotes}
             viewKey={selectedTag ? `tag:${selectedTag}` : folderId}
             selectedNoteId={noteId || null}
-            onSelectNote={(id) => {
-              const note = notesToShow.find((n) => n.docId === id);
-              const targetFolder = note?.metadata.folderId || folderId;
-              if (selectedTag) {
-                navigate(
-                  `/${targetFolder}/${id}?tag=${encodeURIComponent(selectedTag)}`,
-                  { viewTransition: true },
-                );
-              } else {
-                navigate(`/${folderId}/${id}`, { viewTransition: true });
-              }
-            }}
-            onCreateNote={async () => {
-              // Falls back to Main for pseudo-folder routes (Trash/Archive/Shared)
-              // and unknown folder ids — see resolveNoteFolderId.
-              const { docId, folderId: newFolderId } = await createNote(
-                resolveNoteFolderId(folderId, folders),
-              );
-              if (docId)
-                navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
-            }}
-            onDeleteNote={async (id) => {
-              // Find the next note to select
-              const currentIndex = notesToShow.findIndex((n) => n.docId === id);
-              let nextNoteId: string | null = null;
-
-              if (currentIndex !== -1 && notesToShow.length > 1) {
-                if (currentIndex < notesToShow.length - 1) {
-                  // Select next note
-                  nextNoteId = notesToShow[currentIndex + 1].docId;
-                } else {
-                  // Select previous note if we are deleting the last one
-                  nextNoteId = notesToShow[currentIndex - 1].docId;
-                }
-              }
-
-              // Also close the tab if it's open
-              closeTab(id);
-
-              try {
-                await trashNote(id);
-              } catch {
-                toast.error("Couldn't move note to Trash");
-                return;
-              }
-
-              // If the deleted note is the one currently open, navigate to next note or folder
-              if (noteId === id) {
-                if (nextNoteId) {
-                  navigate(`/${folderId}/${nextNoteId}`, {
-                    viewTransition: true,
-                  });
-                } else {
-                  navigate(`/${folderId}`, { viewTransition: true });
-                }
-              }
-            }}
+            onSelectNote={noteActions.selectNote}
+            onCreateNote={() => noteActions.createAndOpen(folderId)}
+            onDeleteNote={noteActions.deleteAndSelectNeighbour}
             onShareNote={(note) => setShareNote(note)}
             onMarkCollaborative={(note) => {
               if (note.metadata.isCollaborative) {
@@ -508,8 +380,8 @@ export default function JournalLayout() {
                 setCollaborativeNote(note);
               }
             }}
-            onArchive={handleArchive}
-            isLoading={isNotesToShowLoading}
+            onArchive={noteActions.archive}
+            isLoading={isListLoading}
             className="flex-1 w-full border-r-0"
           />
           )}
@@ -711,32 +583,7 @@ export default function JournalLayout() {
         description={`This will remove circle access to "${revokeNote?.title || "Untitled"}" and move it out of the shared folder — it will no longer be accessible to collaborators.`}
         confirmText="Revoke"
         variant="destructive"
-        onConfirm={async () => {
-          if (!revokeNote || !dotYouClient) return;
-          try {
-            const provider = new NotesDriveProvider(dotYouClient);
-            const editorOdinId = dotYouClient.getHostIdentity() || "";
-            await provider.revokeNoteCollaboration(
-              revokeNote.docId,
-              editorOdinId,
-            );
-            await updateNoteMetadata({
-              docId: revokeNote.docId,
-              metadata: {
-                ...revokeNote.metadata,
-                folderId: MAIN_FOLDER_ID,
-                isCollaborative: false,
-                circleIds: undefined,
-                recipients: undefined,
-                lastEditedBy: editorOdinId,
-              },
-            });
-            toast.success("Collaboration revoked");
-          } catch (err) {
-            console.error("Failed to revoke collaboration:", err);
-            toast.error("Failed to revoke collaboration");
-          }
-        }}
+        onConfirm={() => noteActions.revokeCollaboration(revokeNote)}
       />
       <KeyboardShortcutsModal
         isOpen={showKeyboardHelp}
