@@ -5,20 +5,23 @@
  * scripts in the markdown body stay stripped by the sanitizer.
  */
 import { describe, it, expect } from 'vitest';
-import { createElement } from 'react';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import Markdown from 'react-markdown';
 import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
 import { LiveBlockAwarePre } from '@/components/share/LiveBlockAwarePre';
 
-function render(markdown: string): string {
-  return renderToStaticMarkup(
-    createElement(
-      Markdown,
-      { remarkPlugins: shareRemarkPlugins, rehypePlugins: shareRehypePlugins, components: { pre: LiveBlockAwarePre } },
-      markdown,
-    ),
+function markdownElement(markdown: string) {
+  return createElement(
+    Markdown,
+    { remarkPlugins: shareRemarkPlugins, rehypePlugins: shareRehypePlugins, components: { pre: LiveBlockAwarePre } },
+    markdown,
   );
+}
+
+function render(markdown: string): string {
+  return renderToStaticMarkup(markdownElement(markdown));
 }
 
 const LIVE = [
@@ -44,7 +47,16 @@ describe('share page live blocks', () => {
 
   it('renders an html block in a sandboxed iframe', () => {
     expect(html).toMatch(/<iframe[^>]*sandbox="allow-scripts"/);
-    expect(html).toContain('Hello live');
+  });
+
+  it("builds an html block's frame from the code text, once the frame is mounted", async () => {
+    (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const article = document.body.appendChild(document.createElement('article'));
+    const root = createRoot(article);
+    await act(async () => root.render(markdownElement('```html\n<h1>Hello live</h1>\n```')));
+    expect(article.querySelector('iframe')?.getAttribute('srcdoc')).toContain('<h1>Hello live</h1>');
+    await act(async () => root.unmount());
+    article.remove();
   });
 
   it('renders a mermaid block into a preview container', () => {
@@ -55,9 +67,12 @@ describe('share page live blocks', () => {
     expect(html).toMatch(/<div role="status"[^>]*>Rendering diagram…<\/div>/);
   });
 
-  it('frames each live block under a bar with its kind and a View source toggle', () => {
+  it('gives each live block a View source toggle in a group named after its kind, and no header bar (#420)', () => {
     for (const label of ['Mermaid', 'SVG', 'HTML']) {
-      expect(html).toMatch(new RegExp(`<span[^>]*>${label}</span>.*?<button type="button" aria-pressed="false"[^>]*><span[^>]*>View source</span></button>`));
+      expect(html).toMatch(
+        new RegExp(`<div role="group" aria-label="${label} block"[^>]*><button type="button" aria-pressed="false"[^>]*><span[^>]*>View source</span></button>`),
+      );
+      expect(html).not.toMatch(new RegExp(`<span[^>]*>${label}</span>`));
     }
   });
 

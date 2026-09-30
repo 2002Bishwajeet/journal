@@ -62,6 +62,29 @@ describe('round-trip createDoc -> toMarkdown', () => {
   }
 });
 
+// An html live block made by an agent (#420): the frame is built from the code block's text,
+// so the fence has to reach the note exactly as written. These are the two sources
+// e2e/editor/live-blocks-blend.spec.ts pastes and types.
+describe('createDoc with an html live block', () => {
+  const sources: Record<string, string> = {
+    'an unstyled fragment':
+      '<h3>Reading list</h3><p>Three books for the trip, from <a href="#">the shared list</a>.</p><table><tr><th>Title</th><th>Pages</th></tr><tr><td>The Overstory</td><td>502</td></tr></table><button>Mark all read</button>',
+    'a token-styled block':
+      '<div id="box" style="background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px"><strong>3 of 5 tasks done</strong><div style="color: var(--muted-foreground)">Two are waiting on review.</div></div>',
+  };
+  for (const [name, source] of Object.entries(sources)) {
+    it(`should keep the source of ${name} unchanged`, () => {
+      const markdown = 'Before.\n\n```html\n' + source + '\n```\n\nAfter.';
+      const doc = createDoc(markdown);
+      const block = yXmlFragmentToProseMirrorRootNode(frag(doc), editorSchema).child(1);
+      expect(block.type.name).toBe('codeBlock');
+      expect(block.attrs.language).toBe('html');
+      expect(block.textContent).toBe(source);
+      expect(norm(toMarkdown(doc))).toBe(markdown);
+    });
+  }
+});
+
 describe('table cells round-trip', () => {
   type Inline = { type: 'text'; text: string; marks?: { type: string }[] };
   const cell = (type: string, content: Inline[]) => ({ type, content: [{ type: 'paragraph', content }] });

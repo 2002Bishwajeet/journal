@@ -156,6 +156,48 @@ note column, so design for roughly 650px and let the layout stretch.
 Planned, not available yet: automatic height and fullscreen, scripts from an allowlisted
 CDN, and saved state stored in the note.
 
+### Designing an `html` block
+
+A live block has no card or header around it: it sits on the note like a table or an
+image. The page in the frame starts with the note's look, in the light and the dark
+theme: a transparent background, the note's text colour, font and line height, no body
+margin, and table cells with the note's border. These variables hold the theme's current
+values:
+
+| Variable | Use it for |
+|---|---|
+| `--foreground` | text, and lines that should be as strong as text |
+| `--muted-foreground` | secondary text: captions, labels, axis ticks |
+| `--muted` | the fill of a box, a table header or a bar |
+| `--accent` | a hover or selected fill |
+| `--border` | borders and rules |
+| `--radius` | corner radius |
+| `--background` | the note's own background, for something drawn on top of a fill |
+| `--secondary`, `--primary` | a button's fill: quiet, or the one strong action |
+
+Rules:
+
+- **Do not set a page background or a font.** The block inherits both, so it matches the
+  note in either theme; a white page is a bright box in the dark theme.
+- **Draw with the variables, not with colours of your own.** A fixed colour is right in
+  one theme at most, and the variables follow the reader's theme.
+- **No gradients, shadows or rows of badges.** The note is flat and quiet, and decoration
+  is what makes a block read as a widget dropped into it.
+- **Prefer a callout or a table when one would do.** They are the note's own blocks: the
+  reader can edit them in place and they stay readable as markdown. Keep `html` for what
+  needs script or a layout markdown cannot make.
+
+Example:
+
+````markdown
+```html
+<div style="background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px">
+  <strong>3 of 5 tasks done</strong>
+  <div style="color: var(--muted-foreground)">Two are waiting on review.</div>
+</div>
+```
+````
+
 In the app itself, pasting bare markup or a fenced block into an empty line of a note
 creates the same live block.
 

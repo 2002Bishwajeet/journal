@@ -745,11 +745,11 @@ body {
    These rules are the ones that have to beat the unlayered `.prose` styles
    above; the rest of the look is utility classes in LiveBlockFrame. */
 
-/* The frame draws the box, so the code inside gives up its own. */
+/* The block carries the margin; its code looks like any other code block,
+   with room on top for the controls over its corner. */
 [data-live-block] pre {
   margin: 0;
-  border: 0;
-  border-radius: 0;
+  padding-top: 2.75rem;
 }
 
 /* `.prose code` is the inline-code chip. Around the editor's block-level
@@ -770,13 +770,19 @@ body {
   background: transparent;
 }
 
-/* A full-screen html block: the bar stays on top and the box takes the rest of
-   the screen, whatever inline height its content or the resize handle gave it. */
+/* A full-screen html block is off the note, so it gets the note's background
+   itself. Its controls are a bar on top and the box takes the rest of the
+   screen, whatever inline height its content or the resize handle gave it. */
 [data-live-block='html']:fullscreen {
   display: flex;
   flex-direction: column;
-  border: 0;
-  border-radius: 0;
+  background: var(--background);
+}
+
+[data-live-block='html']:fullscreen > [role='group'] {
+  position: static;
+  opacity: 1;
+  border-bottom: 1px solid var(--border);
 }
 
 [data-live-block='html']:fullscreen > :last-child {
@@ -804,6 +810,7 @@ body {
    sits on light paper (the theme's own off-white) so it stays visible. */
 .dark [data-live-block-preview='svg'] {
   background: var(--foreground);
+  border-radius: var(--radius);
 }
 
 /* Mermaid sizes its svg as width: 100% with an inline max-width of the

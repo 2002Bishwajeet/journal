@@ -259,8 +259,8 @@ for (const theme of THEMES) {
     expect((await box(b.wideTable)).width).toBeGreaterThan(column.width);
     expect((await box(b.html)).width).toBeCloseTo(wide, 0);
 
-    // Mermaid and svg blocks are as wide as their drawing (plus the frame's 16px padding and 1px border).
-    const chrome = 2 * (16 + 1);
+    // Mermaid and svg blocks are as wide as their drawing (plus the preview's 16px padding; no border since #420).
+    const chrome = 2 * 16;
     const diagramWidth = await b.mermaid.locator('svg[id^="mermaid-"]').evaluate((svg: SVGSVGElement) => svg.viewBox.baseVal.width);
     expect((await box(b.mermaid)).width).toBeCloseTo(Math.max(column.width, Math.min(diagramWidth + chrome, wide)), 0);
     expect((await box(b.svg.locator('img'))).width).toBeCloseTo(SVG_WIDTH, 0);

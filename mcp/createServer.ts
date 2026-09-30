@@ -8,7 +8,10 @@ import type { WriteDeps } from './tools/write';
 const LIVE_BLOCKS =
     ' Fenced code blocks with language `mermaid`, `svg` or `html` render live in Journal. ' +
     'An `html` block must be one self-contained document with inline <script> and <style> only: ' +
-    'no network requests, no external scripts, styles, fonts or images (use `data:` URIs), and no storage.';
+    'no network requests, no external scripts, styles, fonts or images (use `data:` URIs), and no storage.' +
+    " An `html` block inherits the note's font, text colour and transparent background, so it should not set a page background or font, " +
+    'should use `var(--foreground)`, `var(--muted)`, `var(--muted-foreground)`, `var(--border)`, `var(--accent)` and `var(--radius)` for anything it draws, ' +
+    'and should avoid gradients, shadows and badge rows; prefer a callout or a table when one would do.';
 
 /** A tool result carrying `x` as pretty-printed JSON text. */
 function json(x: unknown) {
