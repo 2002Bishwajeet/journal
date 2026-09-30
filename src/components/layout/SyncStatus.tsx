@@ -64,6 +64,7 @@ export function SyncStatus({ className }: SyncStatusProps) {
       <PopoverTrigger asChild>
         <button
           type="button"
+          aria-label="Sync status"
           className={cn(
             "group flex items-center justify-center rounded-md p-2 transition-colors hover:bg-muted/50 focus-visible:outline-none",
             className,

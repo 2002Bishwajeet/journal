@@ -57,6 +57,12 @@ jobs:
         env:
           CI: true
 
+      # Layer 2 (#202): scrub check + replay of the committed HAR recordings (e2e/har/).
+      - name: Run E2E (recorded)
+        run: npm run e2e:recorded
+        env:
+          CI: true
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4

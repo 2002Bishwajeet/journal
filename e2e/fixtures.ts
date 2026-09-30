@@ -1,7 +1,8 @@
-import { test as base, expect, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
+import { test as base, expect, type Browser, type BrowserContext, type BrowserContextOptions, type Page } from '@playwright/test';
 import { assertAllowedOrigin, assertTestOrigin, isRemoteEdgeRun } from './support/origin-guard';
 import { installNetworkFence, assertNoFenceViolations } from './support/network-fence';
-import { createFolder, selectFolder } from './support/actions';
+import { createFolder, selectFolder, waitForSyncIdle } from './support/actions';
+import { recordedTraffic, type RecordedTraffic } from './support/har';
 
 export { expect };
 
@@ -23,15 +24,18 @@ export async function waitForAppReady(page: Page): Promise<void> {
 }
 
 // Runs `body` with a page in a new fenced context. The context is closed even
-// if `body` throws, so a failed boot doesn't leak it.
+// if `body` throws, so a failed boot doesn't leak it. `prepare` runs on the
+// context after the fence and before the page opens.
 export async function withFencedPage(
   browser: Browser,
   options: BrowserContextOptions,
   body: (page: Page) => Promise<void>,
   extraOrigins: string[] = [],
+  prepare?: (context: BrowserContext) => Promise<void>,
 ): Promise<void> {
   const context = await browser.newContext(options);
   const { violations } = await installNetworkFence(context, extraOrigins);
+  await prepare?.(context);
   try {
     await body(await context.newPage());
   } finally {
@@ -49,6 +53,7 @@ export async function withFencedPage(
 // run (e.g. E2E_SERVER pointed somewhere else) before it can touch a page.
 export const test = base.extend<{
   assertBaseUrlIsTestOrigin: void;
+  recordedTraffic: RecordedTraffic | null;
   app: Page;
   anonPage: Page;
 }, {
@@ -76,21 +81,43 @@ export const test = base.extend<{
     { scope: 'test' },
   ],
 
+  // Layer 2 (#202): in the `recorded` project, routes the `app`/`anonPage`
+  // contexts through this spec's HAR (e2e/support/har.ts); null elsewhere.
+  recordedTraffic: [
+    async ({ baseURL }, use, testInfo) => {
+      if (testInfo.project.name !== 'recorded') return use(null);
+      await recordedTraffic(testInfo, baseURL!, use);
+    },
+    { auto: true },
+  ],
+
   // A signed-in, fully booted app page, in its own context so it can supply
-  // the hermetic storageState.
+  // the hermetic storageState (or the recorded session's). In the `recorded`
+  // project it works inside its own folder, so a recording never touches
+  // anything else on the identity.
   app: [
-    async ({ browser }, use) =>
-      withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
+    async ({ browser, recordedTraffic }, use) =>
+      withFencedPage(browser, { storageState: recordedTraffic?.storageState ?? 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
         await page.goto('/');
         await assertTestOrigin(page);
         await waitForAppReady(page);
+        if (recordedTraffic) {
+          await waitForSyncIdle(page);
+          await createFolder(page, recordedTraffic.folderName);
+          await selectFolder(page, recordedTraffic.folderName);
+        }
         await use(page);
-      }),
+      }, recordedTraffic?.origins, recordedTraffic?.attach),
     {},
   ],
 
-  // A signed-out page: same origin allowlist and network fence, no storageState.
-  anonPage: [async ({ browser }, use) => withFencedPage(browser, {}, use), {}],
+  // A signed-out page: same origin allowlist and network fence, no storageState
+  // (explicitly — a project's storageState would otherwise apply here too).
+  anonPage: [
+    async ({ browser, recordedTraffic }, use) =>
+      withFencedPage(browser, { storageState: undefined }, use, recordedTraffic?.origins, recordedTraffic?.attach),
+    {},
+  ],
 
   // A signed-in page on the real identity (E2E_LIVE_IDENTITY), scoped to this
   // run's own folder. Worker-scoped so the live specs share one folder; the

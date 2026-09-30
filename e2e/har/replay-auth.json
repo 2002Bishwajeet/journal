@@ -1,0 +1,26 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "https://e2e.dotyou.cloud:4443",
+      "localStorage": [
+        {
+          "name": "BX0900",
+          "value": "Gg8C0AHgAPwGJg/WhgLvRQSo+V/68pLi29HQsma1SP4G"
+        },
+        {
+          "name": "APSS",
+          "value": "Iw92ArGXgccZhpqM7+y0Iw=="
+        },
+        {
+          "name": "identity",
+          "value": "frodo.dotyou.cloud"
+        },
+        {
+          "name": "journal-pglite-version",
+          "value": "0.5"
+        }
+      ]
+    }
+  ]
+}

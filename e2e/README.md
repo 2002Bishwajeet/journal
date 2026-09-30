@@ -31,7 +31,7 @@ Name the integration test(s) first in every issue's Verification. Add an E2E spe
 | Flaky | tag the title `@quarantine` + open a bug; never add sleeps |
 | Build output | `vite build --mode e2e --outDir dist-e2e` (never touches `dist/`) |
 
-This is the full epic contract (#196) — other issues rely on these names, so don't rename them here. Only some of it is built today: `hermetic`, `quarantine`, `edge` (see `e2e/edge/README.md`), `live` and `live-setup` are the only projects (no `recorded` yet), and `npm run e2e`, `npm run e2e:dev`, `npm run e2e:quarantine`, `npm run e2e:edge`, `npm run e2e:live`, `npm run e2e:login`, `npm run e2e:report` exist in `package.json`. The rest (`recorded` project, HAR recordings, `waitForSyncIdle`, and the other scripts) land with their own issues (#202) — check `package.json` and this directory's contents before assuming a script or helper exists.
+This is the full epic contract (#196) — other issues rely on these names, so don't rename them here. All of it exists as of #202, except that layer 2 covers less than the table says: create/edit and add image can't be replayed, so they run in layer 3 (see Layer 2 below).
 
 ## CI
 
@@ -89,6 +89,15 @@ Every issue's Verification section names its integration test(s) first. Name an 
 - `editor/two-tabs.spec.ts` — typing in one tab shows up in another tab on the same note.
 - `routing/deep-links.spec.ts` — direct note links, back/forward, unknown routes.
 - `pwa/update-prompt.spec.ts` — a changed service worker surfaces the update prompt (preview build only, skipped under `E2E_SERVER=dev`; currently `@quarantine`, see #199's STOP comment on Chromium not exposing the SW update fetch to `context.route`).
+
+## Layer 2 — recorded
+
+`npm run e2e:recorded` runs the `*.recorded.spec.ts` specs (project `recorded`, `https://e2e.dotyou.cloud:4443`, the origin the recordings were made on) against committed HAR recordings of a real, throwaway Homebase identity. It needs no server and makes no network calls to the identity. First it runs `e2e/support/check-har.mjs`, the scrub check, and CI runs the same script after the hermetic step. Recording, re-recording, secret handling and the check are covered in [`e2e/har/README.md`](har/README.md).
+
+- `boot/session.recorded.spec.ts`: the signed-in shell renders, the token-verify call is answered from the recording, and a reload stays signed in.
+- `publishing/share.recorded.spec.ts`: a note is made public in the UI and its `/share` link renders in a signed-out page.
+
+Specs use the usual `app`/`anonPage` fixtures, which route through the spec's HAR in this project. Use fixed titles and bodies, not `Date.now()`, because a replay returns what the recording uploaded. A flow that pulls back a note it just created can't be replayed: the note gets a new random uniqueId on every run, so the replay fetches a payload the recording never did (`HAR_UNMATCHED`). Such a flow belongs in layer 3, like `editor/create-edit.live.spec.ts` and `images/add-image.live.spec.ts`.
 
 ## Layer 3 — live
 
