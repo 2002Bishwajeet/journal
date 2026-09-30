@@ -31,6 +31,9 @@ const outlineOf = (el: Element) => getComputedStyle(el).outlineStyle;
 
 test('keyboard: theme radios, switches, and Import/Export focus rings', async ({ app }) => {
   await app.setViewportSize({ width: 1280, height: 800 });
+  // AI on starts a WebLLM model fetch; abort it here (page routes run before the
+  // context-level network fence) so the test doesn't depend on its timing.
+  await app.route('https://huggingface.co/**', (route) => route.abort());
   await seedAIEnabled(app);
   await app.getByRole('button', { name: 'Settings' }).click();
   const dialog = app.getByRole('dialog');
