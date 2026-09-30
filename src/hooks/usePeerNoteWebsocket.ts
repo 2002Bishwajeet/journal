@@ -54,7 +54,11 @@ export const usePeerNoteWebsocket = ({
 
             if (notification.notificationType === 'fileAdded' || notification.notificationType === 'fileModified') {
                 // handleRemoteNote writes to PGlite; the note list live query picks it up.
-                await syncServiceRef.current.handleRemoteNote(notification.header);
+                try {
+                    await syncServiceRef.current.handleRemoteNote(notification.header);
+                } catch (error) {
+                    console.error('[PeerNoteWebsocket] handleRemoteNote failed:', error);
+                }
             } else {
                 await syncServiceRef.current.handleDeletedNote(notification.header as unknown as DeletedHomebaseFile);
                 toast('This shared note has been deleted by the author');

@@ -13,9 +13,12 @@ vi.mock('@/lib/db', async (importOriginal) => {
 });
 import { resolveSyncErrorsForEntity } from '@/lib/db';
 
-const { mockProcessChanges } = vi.hoisted(() => ({ mockProcessChanges: vi.fn() }));
+const { mockProcessChanges, mockGetNote } = vi.hoisted(() => ({ mockProcessChanges: vi.fn(), mockGetNote: vi.fn() }));
 vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
-    NotesDriveProvider: class NotesDriveProvider { constructor() {} },
+    NotesDriveProvider: class NotesDriveProvider {
+        getNote = mockGetNote;
+        constructor() {}
+    },
 }));
 vi.mock('@/lib/homebase/FolderDriveProvider', () => ({
     FolderDriveProvider: class FolderDriveProvider { constructor() {} },
@@ -138,5 +141,89 @@ describe('SyncService.pullChanges', () => {
         await svc.pullChanges();
 
         expect(resolveSyncErrorsForEntity).not.toHaveBeenCalled();
+    });
+
+    describe('retrying notes whose pull failed (#147)', () => {
+        async function insertPullError(id: string, retryCount: number) {
+            await db.query(
+                `INSERT INTO sync_errors (entity_id, entity_type, operation, error_message, retry_count, next_retry_at)
+                 VALUES ($1, 'note', 'pull', 'boom', $2, CURRENT_TIMESTAMP - INTERVAL '1 minute')`,
+                [id, retryCount],
+            );
+        }
+        async function pullRows(id: string) {
+            const rows = await db.query<{ resolved_at: Date | null; retry_count: number }>(
+                `SELECT resolved_at, retry_count FROM sync_errors WHERE entity_id = $1 AND operation = 'pull'`, [id],
+            );
+            return rows.rows;
+        }
+
+        it('retries a failed note on the next sync via getNote and resolves its error', async () => {
+            vi.spyOn(console, 'error').mockImplementation(() => {});
+            const id = uuid(3);
+            setRemote([], [remoteFile(3)]);
+            const spy = vi.spyOn(SyncService.prototype, 'handleRemoteNote').mockRejectedValueOnce(new Error('boom'));
+
+            await svc.pullChanges();
+            expect(await pullRows(id)).toEqual([{ resolved_at: null, retry_count: 1 }]);
+
+            await db.query(`UPDATE sync_errors SET next_retry_at = CURRENT_TIMESTAMP - INTERVAL '1 minute'`);
+            setRemote([], []);
+            const header = remoteFile(3);
+            mockGetNote.mockResolvedValue(header);
+            spy.mockResolvedValue();
+
+            const result = await svc.pullChanges();
+
+            expect(mockGetNote).toHaveBeenCalledWith(id, undefined, { decrypt: false });
+            expect(spy).toHaveBeenLastCalledWith(header);
+            expect(result.notes).toBe(1);
+            const rows = await pullRows(id);
+            expect(rows).toHaveLength(1);
+            expect(rows[0].resolved_at).not.toBeNull();
+        });
+
+        it('does not fetch a note that already failed 5 times', async () => {
+            const id = uuid(3);
+            await insertPullError(id, 5);
+            setRemote([], []);
+            const spy = vi.spyOn(SyncService.prototype, 'handleRemoteNote').mockResolvedValue();
+
+            const result = await svc.pullChanges();
+
+            expect(mockGetNote).not.toHaveBeenCalled();
+            expect(spy).not.toHaveBeenCalled();
+            expect(result.notes).toBe(0);
+            expect(await pullRows(id)).toEqual([{ resolved_at: null, retry_count: 5 }]);
+        });
+
+        it('handles a retry id that is also in this pull once, not twice', async () => {
+            const id = uuid(3);
+            await insertPullError(id, 1);
+            setRemote([], [remoteFile(3)]);
+            const spy = vi.spyOn(SyncService.prototype, 'handleRemoteNote').mockResolvedValue();
+
+            const result = await svc.pullChanges();
+
+            expect(spy).toHaveBeenCalledTimes(1);
+            expect(mockGetNote).not.toHaveBeenCalled();
+            expect(result.notes).toBe(1);
+            expect((await pullRows(id))[0].resolved_at).not.toBeNull();
+        });
+
+        it('resolves the error without handling the note when getNote returns null', async () => {
+            const id = uuid(3);
+            await insertPullError(id, 1);
+            setRemote([], []);
+            mockGetNote.mockResolvedValue(null);
+            const spy = vi.spyOn(SyncService.prototype, 'handleRemoteNote').mockResolvedValue();
+
+            const result = await svc.pullChanges();
+
+            expect(mockGetNote).toHaveBeenCalledWith(id, undefined, { decrypt: false });
+            expect(spy).not.toHaveBeenCalled();
+            expect(result.notes).toBe(0);
+            expect((await pullRows(id))[0].resolved_at).not.toBeNull();
+        });
     });
 });
