@@ -61,7 +61,8 @@ test('Account: live identity, Sync now, offline edit warns on both sign-outs (#2
 
         panel = await openAccount(page);
         await expect(panel.getByRole('status')).toContainText('Offline');
-        await expect(panel.getByRole('status')).toContainText('waiting');
+        // The editor's 2s debounced save is what refreshes the pending count.
+        await expect(panel.getByRole('status')).toContainText('waiting', { timeout: 10_000 });
         await panel.getByRole('button', { name: 'Sign out' }).click();
         confirm = page.getByRole('dialog', { name: 'Sign out?' });
         const warning = confirm.getByText(/synced yet and will be lost/);
