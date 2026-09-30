@@ -804,6 +804,14 @@ body {
   margin: 0 auto;
 }
 
+/* Mermaid measures a label outside the note, then draws it as html in a box of
+   that size. `.prose p` would give the label's paragraph a taller line than it
+   measured (1.7 against the 1.5 of the label's own box), so a wrapped label is
+   cut off at the bottom. The paragraph takes its line height from that box. */
+[data-live-block-preview='mermaid'] foreignObject p {
+  line-height: inherit;
+}
+
 /* Share page (src/pages/SharePage.tsx). Every block keeps the reading column:
    a code block, table or live block wider than it scrolls inside itself, and
    code never wraps. (#408 let wide blocks grow past the column; the owner
