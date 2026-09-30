@@ -28,6 +28,8 @@ import { createLowlight } from 'lowlight';
 import { SearchAndReplace } from './SearchAndReplaceExtension';
 import { ImageSchema } from '../nodes/imageSchema';
 import { NoteLink } from '../nodes/NoteLinkNode';
+import { Toggle } from '../nodes/ToggleNode';
+import { Callout } from '../nodes/CalloutNode';
 
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';
@@ -238,6 +240,10 @@ export interface ExtensionOptions {
     image?: typeof ImageSchema;
     /** Note-link node; defaults to the headless NoteLink (the editor passes one with a React node view). */
     noteLink?: typeof NoteLink;
+    /** Toggle node; defaults to the headless Toggle (the editor passes one with a React node view). */
+    toggle?: typeof Toggle;
+    /** Callout node; defaults to the headless Callout (the editor passes one with a React node view). */
+    callout?: typeof Callout;
     /** UI-only extensions that add no schema (e.g. the emoji popup), placed after Mathematics. */
     uiExtensions?: AnyExtension[];
 }
@@ -309,5 +315,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         SplitHardBreaksOnPaste,
         SearchAndReplace,
         options?.noteLink ?? NoteLink,
+        options?.toggle ?? Toggle,
+        options?.callout ?? Callout,
     ];
 }

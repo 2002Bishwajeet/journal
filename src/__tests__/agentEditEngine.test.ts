@@ -235,7 +235,7 @@ describe('replaceInNote', () => {
     });
     const before = Y.encodeStateAsUpdate(doc);
     expect(() => replaceInNote(doc, 'link to', 'x')).toThrow(
-      'replace_in_note: the matched text is in a block with a note link or image; edit a different span',
+      'replace_in_note: the matched text is in a block with a note link, image, toggle or callout; edit a different span',
     );
     expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
   });
@@ -245,6 +245,27 @@ describe('replaceInNote', () => {
       type: 'doc',
       content: [{ type: 'paragraph', content: [{ type: 'text', text: 'pic ' }, { type: 'image', attrs: { src: 'attachment://f/jrnl_img0' } }] }],
     });
-    expect(() => replaceInNote(doc, 'pic', 'x')).toThrow('note link or image');
+    expect(() => replaceInNote(doc, 'pic', 'x')).toThrow('note link, image, toggle or callout');
+  });
+
+  it.each([
+    ['toggle', { summary: 'Title' }],
+    ['callout', { variant: 'warning' }],
+  ])('refuses to edit text inside a %s (markdown re-parse would drop it)', (type, attrs) => {
+    const doc = docFromJSON({
+      type: 'doc',
+      content: [
+        { type, attrs, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'inside' }] }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'outside' }] },
+      ],
+    });
+    const before = Y.encodeStateAsUpdate(doc);
+    expect(() => replaceInNote(doc, 'inside', 'x')).toThrow('note link, image, toggle or callout');
+    expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
+
+    replaceInNote(doc, 'outside', 'changed');
+    const first = yXmlFragmentToProseMirrorRootNode(frag(doc), editorSchema).firstChild;
+    expect(first?.type.name).toBe(type);
+    expect(first?.attrs).toMatchObject(attrs);
   });
 });
