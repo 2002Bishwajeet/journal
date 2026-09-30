@@ -2,8 +2,15 @@ import {
   useThemePreference,
   type ThemePreference,
 } from "@/hooks/useThemePreference";
+import {
+  useEditorAppearance,
+  type EditorFont,
+  type EditorWidth,
+} from "@/hooks/useEditorAppearance";
 import { cn } from "@/lib/utils";
-import { Moon, Sun, Monitor, CheckCircle2 } from "lucide-react";
+import { Moon, Sun, Monitor, CheckCircle2, Type, MoveHorizontal } from "lucide-react";
+import { SectionHeader } from "../SectionHeader";
+import { SettingsRow } from "../SettingsRow";
 
 /**
  * Mini-preview colours, copied from the light (`:root`) and `.dark` tokens in
@@ -27,8 +34,69 @@ const THEMES: { id: ThemePreference; label: string; icon: typeof Sun }[] = [
   { id: "system", label: "System", icon: Monitor },
 ];
 
+const FONTS: { id: EditorFont; label: string }[] = [
+  { id: "sans", label: "Sans" },
+  { id: "serif", label: "Serif" },
+  { id: "mono", label: "Mono" },
+];
+
+const WIDTHS: { id: EditorWidth; label: string }[] = [
+  { id: "narrow", label: "Narrow" },
+  { id: "default", label: "Default" },
+  { id: "full", label: "Full" },
+];
+
+/** Segmented radio group; native radios keep arrow-key navigation and labels. */
+function OptionGroup<T extends string>({
+  id,
+  name,
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  id?: string;
+  name: string;
+  label: string;
+  options: { id: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div
+      id={id}
+      role="radiogroup"
+      aria-label={label}
+      className="flex rounded-lg border p-0.5"
+    >
+      {options.map((o) => (
+        <label
+          key={o.id}
+          className={cn(
+            "flex min-h-11 cursor-pointer items-center rounded-md px-3 text-xs font-medium transition-colors md:min-h-8 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring",
+            value === o.id
+              ? "bg-accent text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <input
+            type="radio"
+            name={name}
+            value={o.id}
+            checked={value === o.id}
+            onChange={() => onChange(o.id)}
+            className="sr-only"
+          />
+          {o.label}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 export default function AppearanceSection() {
   const { theme, setTheme } = useThemePreference();
+  const { font, setFont, width, setWidth } = useEditorAppearance();
 
   return (
     <div className="space-y-10">
@@ -133,6 +201,44 @@ export default function AppearanceSection() {
             </label>
           );
         })}
+      </div>
+
+      <div className="space-y-4">
+        <SectionHeader subtitle="How notes look while you write">
+          Editor
+        </SectionHeader>
+        <div className="rounded-lg border">
+          <SettingsRow
+            id="editor-font"
+            icon={Type}
+            label="Font"
+            description="The typeface of your note text"
+            control={
+              <OptionGroup
+                name="editor-font"
+                label="Editor font"
+                options={FONTS}
+                value={font}
+                onChange={setFont}
+              />
+            }
+          />
+          <SettingsRow
+            id="editor-width"
+            icon={MoveHorizontal}
+            label="Width"
+            description="How wide the note column is"
+            control={
+              <OptionGroup
+                name="editor-width"
+                label="Editor width"
+                options={WIDTHS}
+                value={width}
+                onChange={setWidth}
+              />
+            }
+          />
+        </div>
       </div>
     </div>
   );

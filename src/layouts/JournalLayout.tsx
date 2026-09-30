@@ -61,6 +61,7 @@ import { useTags } from "@/hooks/useTags";
 import { useAuth } from "@/hooks/auth";
 import { useFolders, isUnknownFolderRoute } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
+import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { toast } from "sonner";
 import EditorPage, { prefetchEditorPage } from "@/pages/EditorPage.lazy";
 import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
@@ -72,6 +73,8 @@ const NO_PERMISSIONS: [] = [];
 export default function JournalLayout() {
   // Initialize theme preference & system listener at root level
   useThemePreference();
+  // Apply the stored editor font/width attributes at root level
+  useEditorAppearance();
 
   // Warm the lazy editor chunk once the shell is idle. Desktop with restored
   // tabs already triggers the import by rendering it; this covers mobile and
