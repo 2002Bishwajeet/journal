@@ -14,6 +14,7 @@
  *   vi.mock('@/lib/db/pglite', async () => ({ ...(await import('./pgliteMock')), extra }));
  */
 import type { PGlite } from '@electric-sql/pglite';
+import { TRIGRAM_SEARCH_SQL } from '@/lib/db/schema';
 
 let testDb: PGlite | null = null;
 
@@ -28,15 +29,6 @@ export async function getDatabase(): Promise<PGlite | null> {
 export async function getLiveDatabase(): Promise<PGlite | null> {
   return testDb;
 }
-
-// Mirrors the SQL in the real `ensureTrigramSearch` (src/lib/db/pglite.ts).
-// Once #157 extracts that into `src/lib/db/schema.ts` as `TRIGRAM_SEARCH_SQL`,
-// this should import it from there instead of duplicating the text.
-const TRIGRAM_SEARCH_SQL = `
-  CREATE EXTENSION IF NOT EXISTS pg_trgm;
-  CREATE INDEX IF NOT EXISTS idx_search_title_trgm ON search_index USING GIN(title gin_trgm_ops);
-  CREATE INDEX IF NOT EXISTS idx_search_content_trgm ON search_index USING GIN(plain_text_content gin_trgm_ops);
-`;
 
 export async function ensureTrigramSearch(db: PGlite): Promise<void> {
   await db.exec(TRIGRAM_SEARCH_SQL);
