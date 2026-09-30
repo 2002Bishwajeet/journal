@@ -1,17 +1,10 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAllTags, updateSearchIndexMetadata, updateSyncStatus, NOTE_LIST_SQL } from '@/lib/db';
+import { TAGS_SQL, updateSearchIndexMetadata, updateSyncStatus, NOTE_LIST_SQL } from '@/lib/db';
 import { useLiveNoteList } from './useNotes';
+import { useLiveQuery } from './useLiveQuery';
 import type { DocumentMetadata } from '@/types';
 
-export const tagsQueryKey = ['tags'] as const;
-
 export function useTags() {
-    const queryClient = useQueryClient();
-
-    const tagsQuery = useQuery<string[]>({
-        queryKey: tagsQueryKey,
-        queryFn: getAllTags,
-    });
+    const { data, isLoading } = useLiveQuery<{ tag: string }>(TAGS_SQL, [], 'tag');
 
     const addTag = async (docId: string, tag: string, currentMetadata: DocumentMetadata) => {
         const normalizedTag = tag.toLowerCase().trim().replace(/^#/, '');
@@ -28,10 +21,6 @@ export function useTags() {
             updateSearchIndexMetadata(docId, updatedMetadata.title, updatedMetadata),
             updateSyncStatus(docId, 'pending'),
         ]);
-
-        // The note list is a live query (auto-updates); only the derived tag list
-        // still needs a manual refresh.
-        queryClient.invalidateQueries({ queryKey: tagsQueryKey });
     };
 
     const removeTag = async (docId: string, tag: string, currentMetadata: DocumentMetadata) => {
@@ -45,11 +34,9 @@ export function useTags() {
             updateSearchIndexMetadata(docId, updatedMetadata.title, updatedMetadata),
             updateSyncStatus(docId, 'pending'),
         ]);
-
-        queryClient.invalidateQueries({ queryKey: tagsQueryKey });
     };
 
-    return { tags: tagsQuery.data ?? [], isLoading: tagsQuery.isLoading, addTag, removeTag };
+    return { tags: data.map(row => row.tag), isLoading, addTag, removeTag };
 }
 
 export function useNotesByTag(tag: string | null) {

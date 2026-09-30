@@ -6,7 +6,6 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useDotYouClientContext } from "@/components/auth";
 import {
   SyncService,
@@ -22,7 +21,6 @@ import {
 } from "@/lib/db";
 import { STORAGE_KEY_LAST_SYNC } from "@/lib/homebase";
 import { SyncContext, type SyncContextType } from "@/hooks/useSyncService";
-import { tagsQueryKey } from "@/hooks/useTags";
 import type { SyncProgress } from "@/types";
 import { useOnlineContext } from "@/hooks/useOnlineContext";
 import { useJournalWebsocket } from "@/hooks/useJournalWebsocket";
@@ -38,7 +36,6 @@ const RETRY_BACKOFF_MS = 5000; // 5 seconds between retry attempts
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const dotYouClient = useDotYouClientContext();
-  const queryClient = useQueryClient();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const onlineContext = useOnlineContext();
   const [pendingCount, setPendingCount] = useState<PendingCount>({
@@ -156,12 +153,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
       setSyncStatus("idle");
 
-      // Notes and folders are live queries — pulled writes surface automatically.
-      // Only the derived tag list still needs a manual refresh.
-      if (result.pulled.notes > 0) {
-        await queryClient.invalidateQueries({ queryKey: tagsQueryKey });
-      }
-
       if (result.errors.length > 0) {
         console.warn(
           "[SyncProvider] Sync completed with errors:",
@@ -181,7 +172,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setSyncStatus("error");
       scheduleRetry();
     }
-  }, [syncService, refreshPendingCount, scheduleRetry, queryClient]);
+  }, [syncService, refreshPendingCount, scheduleRetry]);
 
   // WebSocket for real-time updates — active when sync service is ready
   useJournalWebsocket({ isEnabled: !!syncService, syncService, onReconnect: sync });
