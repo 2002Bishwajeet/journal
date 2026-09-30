@@ -4,11 +4,16 @@ import * as readTools from './tools/read';
 import * as writeTools from './tools/write';
 import type { WriteDeps } from './tools/write';
 
-/** Shared by the tools that take markdown: tells agents which fenced blocks render live in Journal. */
+/**
+ * Shared by the tools that take markdown: tells agents which fenced blocks render live in Journal.
+ * The hosts are HTML_BLOCK_CDN_HOSTS in src/lib/liveBlocks.ts (mcpServer.test.ts holds the two together).
+ */
 const LIVE_BLOCKS =
     ' Fenced code blocks with language `mermaid`, `svg` or `html` render live in Journal. ' +
-    'An `html` block must be one self-contained document with inline <script> and <style> only: ' +
-    'no network requests, no external scripts, styles, fonts or images (use `data:` URIs), and no storage.' +
+    'An `html` block is one self-contained document. Besides inline <script> and <style>, it may load ' +
+    'scripts, styles and fonts only from cdn.jsdelivr.net, cdnjs.cloudflare.com and unpkg.com. ' +
+    'Images must be `data:` URIs. There is no network access from script (fetch, XMLHttpRequest and WebSocket fail) and no storage. ' +
+    "Tailwind's CDN script does not work. React needs its UMD build, and JSX needs Babel standalone, both from those hosts." +
     " An `html` block inherits the note's font, text colour and transparent background, so it should not set a page background or font, " +
     'should use `var(--foreground)`, `var(--muted)`, `var(--muted-foreground)`, `var(--border)`, `var(--accent)` and `var(--radius)` for anything it draws, ' +
     'and should avoid gradients, shadows and badge rows; prefer a callout or a table when one would do.';

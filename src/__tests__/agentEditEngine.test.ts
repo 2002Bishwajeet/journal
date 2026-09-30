@@ -85,6 +85,42 @@ describe('createDoc with an html live block', () => {
   }
 });
 
+describe('html live block that uses a CDN script (#409)', () => {
+  // The same source the e2e types and pastes (CDN_SOURCE in e2e/editor/live-html-sandbox.spec.ts).
+  const source = [
+    '<div id="out">waiting for the CDN script</div>',
+    '<script src="https://cdn.jsdelivr.net/npm/probe.js"></script>',
+    '<script>',
+    "document.getElementById('out').textContent = window.cdnProbe();",
+    '</script>',
+  ].join('\n');
+  const fence = '```html\n' + source + '\n```';
+
+  const codeText = (el: Y.XmlElement) => (el.toArray() as Y.XmlText[]).map((t) => t.toString()).join('');
+
+  it('createDoc yields one html code block with the source byte for byte, and toMarkdown returns the fence', () => {
+    const doc = createDoc(fence);
+    const [block, ...rest] = topElements(doc);
+    expect(rest).toHaveLength(0);
+    expect(block.nodeName).toBe('codeBlock');
+    expect(block.getAttribute('language')).toBe('html');
+    expect(codeText(block)).toBe(source);
+    expect(toMarkdown(doc)).toBe(fence);
+  });
+
+  it('appendMarkdown yields the same block after the existing content, and toMarkdown returns the fence', () => {
+    const doc = createDoc('Intro');
+    appendMarkdown(doc, fence);
+    const [intro, block, ...rest] = topElements(doc);
+    expect(rest).toHaveLength(0);
+    expect(intro.nodeName).toBe('paragraph');
+    expect(block.nodeName).toBe('codeBlock');
+    expect(block.getAttribute('language')).toBe('html');
+    expect(codeText(block)).toBe(source);
+    expect(toMarkdown(doc)).toBe('Intro\n\n' + fence);
+  });
+});
+
 describe('table cells round-trip', () => {
   type Inline = { type: 'text'; text: string; marks?: { type: string }[] };
   const cell = (type: string, content: Inline[]) => ({ type, content: [{ type: 'paragraph', content }] });

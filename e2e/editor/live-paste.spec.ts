@@ -1,17 +1,9 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, pastePlainText } from '../support/actions';
 
 // Pasting markup or a fenced block into an empty paragraph makes a live block,
 // instead of leaving the source as literal text.
-
-async function pastePlainText(app: Page, text: string) {
-  await activeEditor(app).evaluate((el, value) => {
-    const data = new DataTransfer();
-    data.setData('text/plain', value);
-    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
-  }, text);
-}
 
 async function noteWithEmptyLine(app: Page, title: string) {
   await createNote(app, { title: `${title} ${Date.now()}`, body: 'Intro' });
