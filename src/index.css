@@ -62,12 +62,12 @@
 
   --radius: 0.5rem;
   
-  /* Chart Colors (Monochromatic approximations) */
-  --chart-1: #2C2B29;
-  --chart-2: #595752;
-  --chart-3: #8A8780;
-  --chart-4: #BDBBB5;
-  --chart-5: #E6E4DD;
+  /* Chart Colors: muted inks, in order of use (#430). Checked by src/__tests__/chartPalette.test.ts. */
+  --chart-1: #39362E; /* Ink */
+  --chart-2: #8A5344; /* Clay */
+  --chart-3: #718968; /* Sage */
+  --chart-4: #9D7F42; /* Ochre */
+  --chart-5: #4F7A96; /* Slate */
   
   /* Sidebar (Matches Secondary) */
   --sidebar: #F2F0E9;
@@ -112,7 +112,14 @@
   --border: #3E3D3A; /* Dark Border */
   --input: #242321;
   --ring: #8A8780;
-  
+
+  /* Chart Colors: the same inks, lighter and softer */
+  --chart-1: #DBD9D2; /* Ink */
+  --chart-2: #CCABA1; /* Clay */
+  --chart-3: #86977D; /* Sage */
+  --chart-4: #BF9F68; /* Ochre */
+  --chart-5: #7FA1B7; /* Slate */
+
   /* Sidebar Dark */
   --sidebar: #161514; /* Slightly darker than bg */
   --sidebar-foreground: #E6E4DD;
@@ -797,14 +804,12 @@ body {
   margin: 0 auto;
 }
 
-/* A pie's slices are the chart palette, from near the text colour to near the
-   background, so no one label colour reads on all of them. Each label gets a
-   halo of the background around its glyphs instead. */
-[data-live-block-preview='mermaid'] text.slice {
-  paint-order: stroke;
-  stroke: var(--background);
-  stroke-width: 3px;
-  stroke-linejoin: round;
+/* Mermaid measures a label outside the note, then draws it as html in a box of
+   that size. `.prose p` would give the label's paragraph a taller line than it
+   measured (1.7 against the 1.5 of the label's own box), so a wrapped label is
+   cut off at the bottom. The paragraph takes its line height from that box. */
+[data-live-block-preview='mermaid'] foreignObject p {
+  line-height: inherit;
 }
 
 /* Share page (src/pages/SharePage.tsx). Every block keeps the reading column:
