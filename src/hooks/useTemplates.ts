@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
-import { DATE_TOKEN, createNoteFromTemplateInDb, createNoteWithContentInDb, useNotesByFolder } from './useNotes';
+import { useNotesByFolder } from './useNotes';
+import { createNoteFromTemplateInDb, createNoteWithContentInDb } from '@/lib/notes/createNote';
+import { DATE_TOKEN } from '@/lib/yjs/noteContent';
 import { useFolders, findOrCreateFolderByName } from './useFolders';
 import { getSearchIndexEntry } from '@/lib/db';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
@@ -12,7 +14,7 @@ export const TEMPLATES_FOLDER_NAME = 'Templates';
 /**
  * Replace `{{date}}` tokens with today's local date (YYYY-MM-DD). Pure — the
  * only template placeholder this app supports by design (DATE_TOKEN is the
- * single definition, shared with the Yjs body substitution in useNotes).
+ * single definition, shared with the Yjs body substitution in lib/yjs/noteContent).
  */
 export function applyTemplateSubstitutions(content: string, now: Date = new Date()): string {
     return content.split(DATE_TOKEN).join(todayTitle(now));

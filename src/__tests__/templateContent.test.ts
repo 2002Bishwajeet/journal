@@ -6,7 +6,7 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
 import { getDocumentUpdates, saveDocumentUpdate, upsertSearchIndex, getSearchIndexEntry } from '@/lib/db/queries';
-import { createNoteWithContentInDb, createNoteFromTemplateInDb } from '@/hooks/useNotes';
+import { createNoteWithContentInDb, createNoteFromTemplateInDb } from '@/lib/notes/createNote';
 
 let db: PGlite;
 beforeAll(async () => {
