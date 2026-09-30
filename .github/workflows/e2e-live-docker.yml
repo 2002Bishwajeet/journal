@@ -109,3 +109,14 @@ jobs:
             test-results/
             ${{ runner.temp }}/identity-host.log
           retention-days: 14
+
+      # PR evidence (#221): share-article.live.spec.ts's light/dark, desktop/375px
+      # screenshots, kept on green runs too.
+      - name: Upload share-article screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: share-article-screenshots-${{ github.run_attempt }}
+          path: test-results/share-article-screenshots/
+          if-no-files-found: ignore
+          retention-days: 14

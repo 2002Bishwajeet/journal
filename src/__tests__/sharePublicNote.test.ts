@@ -65,6 +65,20 @@ describe('ShareProvider.getPublicNote', () => {
         expect(note!.fileId).toBe('file-xyz');
     });
 
+    it('uses the file modified time as updatedAt for an owner note (no transitUpdated)', async () => {
+        const updated = 1710000000000;
+        const h = header();
+        mockGetHeader.mockResolvedValue({
+            ...h,
+            fileMetadata: { updated, appData: h.fileMetadata.appData },
+        });
+        mockGetPayload.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]) });
+
+        const note = await shareProvider.getPublicNote(IDENTITY, NOTE_ID);
+
+        expect(note!.updatedAt).toBe(new Date(updated).toISOString());
+    });
+
     it('reads via an anonymous Guest client pointed at the author, without decryption', async () => {
         mockGetHeader.mockResolvedValue(header());
         mockGetPayload.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]) });

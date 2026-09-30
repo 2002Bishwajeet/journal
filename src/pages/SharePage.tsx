@@ -3,21 +3,18 @@ import { FileText, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSharePage } from '@/hooks/useSharePage';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Markdown, { defaultUrlTransform } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeRaw from 'rehype-raw';
-import rehypeKatex from 'rehype-katex';
-import rehypeSanitize from 'rehype-sanitize';
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
-import { sanitizeSchema } from '@/lib/utils/shareSanitizeSchema';
+import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
+import { formatShareDate, showUpdated } from '@/lib/share/articleMeta';
 import 'katex/dist/katex.min.css';
 
 /**
  * Public page to display a shared note.
  */
 export default function SharePage() {
-    const { identity, note, isLoading, error } = useSharePage();
+    const { identity, note, isLoading, error, author, readingMinutes } = useSharePage();
     useDocumentTitle(note?.title ?? 'Shared note');
 
     if (isLoading) {
@@ -55,11 +52,10 @@ export default function SharePage() {
         <div className="min-h-screen bg-background">
             {/* Header */}
             <header className="border-b bg-muted/30">
-                <div className="container max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <FileText className="h-6 w-6 text-primary" />
-                        <span className="font-semibold">Shared Note</span>
-                    </div>
+                <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+                    <Link to="/" className="text-lg font-semibold tracking-tight">
+                        Journal
+                    </Link>
                     <Button asChild variant="outline" size="sm">
                         <Link to="/">
                             Open Journal
@@ -69,16 +65,30 @@ export default function SharePage() {
             </header>
 
             {/* Content */}
-            <main className="container max-w-4xl mx-auto px-4 py-8">
+            <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
                 <article className="prose prose-neutral dark:prose-invert max-w-none">
                     <h1>{note.title}</h1>
-                    <div className="text-sm text-muted-foreground mb-8">
-                        Shared by: {identity}
+                    <div className="not-prose mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                        <Avatar className="h-8 w-8">
+                            {/* `!`: the global unlayered `.prose img` margin (1.5rem) would push the image out of its circle. */}
+                            {author.avatarUrl && <AvatarImage className="m-0!" src={author.avatarUrl} alt="" />}
+                            <AvatarFallback className="text-foreground">{author.name.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-semibold text-foreground">{author.name}</span>
+                        <span>
+                            · Published <time dateTime={note.createdAt}>{formatShareDate(note.createdAt)}</time>
+                        </span>
+                        {showUpdated(note.createdAt, note.updatedAt) && (
+                            <span>
+                                · Updated <time dateTime={note.updatedAt}>{formatShareDate(note.updatedAt)}</time>
+                            </span>
+                        )}
+                        {readingMinutes > 0 && <span>· {readingMinutes} min read</span>}
                     </div>
-                    
+
                     <Markdown
-                        remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeKatex]}
+                        remarkPlugins={shareRemarkPlugins}
+                        rehypePlugins={shareRehypePlugins}
                         urlTransform={(url) => (url.startsWith('attachment://') ? url : defaultUrlTransform(url))}
                         components={{
                             img: ({ src, alt, node, ...rest }) => {
@@ -95,6 +105,17 @@ export default function SharePage() {
                                     />
                                 ) : (
                                     <img src={src} alt={alt} loading="lazy" {...rest} />
+                                );
+                            },
+                            // Wide tables scroll within the column instead of widening the page on phones.
+                            table: ({ node, ...rest }) => {
+                                void node;
+                                return (
+                                    <div className="overflow-x-auto">
+                                        {/* The editor's global `.prose table` is fixed-layout, which clips wide cells
+                                            at desktop width; auto layout lets the wrapper scroll instead. */}
+                                        <table {...rest} className="table-auto!" />
+                                    </div>
                                 );
                             },
                         }}

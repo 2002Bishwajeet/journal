@@ -6,7 +6,11 @@
  */
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import Markdown from 'react-markdown';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
+import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
 
 function buildBlob(build: (frag: Y.XmlFragment) => void): Uint8Array {
   const doc = new Y.Doc();
@@ -260,5 +264,45 @@ describe('extractMarkdownFromYjs', () => {
       frag.insert(0, [bm]);
     });
     expect(await extractMarkdownFromYjs('x', blockBlob)).toBe('$$\nE=mc^2\n$$');
+  });
+});
+
+describe('share page markdown pipeline', () => {
+  const render = (md: string) =>
+    renderToStaticMarkup(
+      createElement(Markdown, { remarkPlugins: shareRemarkPlugins, rehypePlugins: shareRehypePlugins }, md)
+    );
+
+  it('syntax-highlights a fenced code block with a known language', () => {
+    const html = render('```ts\nconst x: number = 1;\n```');
+
+    expect(html).toContain('class="hljs-keyword"');
+  });
+
+  it('keeps <script> inside a code block as escaped text', () => {
+    const html = render('```ts\nconst s = "<script>alert(1)</script>";\n```');
+
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('leaves a code block in an unknown language unhighlighted', () => {
+    const html = render('```nosuchlang\nconst x = 1;\n```');
+
+    expect(html).not.toContain('hljs-');
+    expect(html).toContain('const x = 1;');
+  });
+
+  it('still renders inline and block math with KaTeX', () => {
+    const html = render('mass $E=mc^2$\n\n$$\nx^2\n$$');
+
+    expect(html).toContain('class="katex"');
+    expect(html).toContain('katex-display');
+  });
+
+  it('still strips raw <script> outside code blocks', () => {
+    const html = render('hi <script>alert(1)</script>');
+
+    expect(html).not.toContain('<script');
   });
 });

@@ -93,7 +93,11 @@ export class ShareProvider {
             content: markdown,
             fileId: header.fileId,
             createdAt: new Date(header.fileMetadata.appData.userDate || Date.now()).toISOString(),
-            updatedAt: new Date(header.fileMetadata.transitUpdated || Date.now()).toISOString(),
+            // `updated` is the file's modified time; `transitUpdated` is only set for
+            // files received over transit, never for the owner's own notes.
+            updatedAt: new Date(
+                header.fileMetadata.updated || header.fileMetadata.appData.userDate || Date.now()
+            ).toISOString(),
         };
     }
 
