@@ -40,21 +40,15 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
           onValueChange={(value) => setActiveSection(value as SettingsSectionId)}
           orientation="vertical"
           activationMode="automatic"
-          className="flex flex-col md:flex-row gap-0 h-[min(640px,85dvh)]"
+          className="flex flex-col md:flex-row gap-0 h-[min(640px,85dvh)] min-w-0"
         >
           {/* ── Navigation Sidebar ── */}
           <nav className="shrink-0 w-full md:w-56 border-b md:border-b-0 md:border-r border-border/60 flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto bg-muted/30">
             <div className="hidden md:block px-6 pt-7 pb-5">
-              <DialogTitle
-                className="text-2xl font-normal tracking-tight text-foreground"
-                style={{ fontFamily: "var(--font-serif)" }}
-              >
+              <DialogTitle className="text-2xl font-serif font-normal tracking-tight text-foreground">
                 Settings
               </DialogTitle>
-              <div
-                className="mt-2 w-8 h-[2px] rounded-full"
-                style={{ background: "#B8860B" }}
-              />
+              <div className="mt-2 w-8 h-[2px] rounded-full bg-primary" />
             </div>
 
             <TabsList className="h-auto w-full flex-row md:flex-col items-stretch justify-start gap-0.5 rounded-none bg-transparent px-3 py-2 md:py-0 md:pb-6">
@@ -64,11 +58,11 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                   <TabsTrigger
                     key={section.id}
                     value={section.id}
-                    className="group h-auto md:w-full flex-none justify-start gap-3 rounded-lg border-0 px-4 py-2.5 text-left text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground data-[state=active]:bg-accent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    className="group h-auto min-h-11 md:min-h-0 md:w-full flex-none justify-start gap-3 rounded-lg border-0 px-4 py-2.5 text-left text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground data-[state=active]:bg-accent data-[state=active]:text-foreground data-[state=active]:shadow-none"
                   >
-                    <Icon className="h-4 w-4 shrink-0 group-data-[state=active]:text-[#B8860B]" />
+                    <Icon className="h-4 w-4 shrink-0 group-data-[state=active]:text-primary" />
                     {section.label}
-                    <ChevronRight className="ml-auto hidden h-3 w-3 text-[#B8860B] md:group-data-[state=active]:block" />
+                    <ChevronRight className="ml-auto hidden h-3 w-3 text-primary md:group-data-[state=active]:block" />
                   </TabsTrigger>
                 );
               })}
