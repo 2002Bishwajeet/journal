@@ -17,7 +17,7 @@ export default function AIModelList({
           <label
             key={model.id}
             className={cn(
-              "relative block w-full cursor-pointer text-left p-4 rounded-xl border border-border/60 bg-card transition-colors group has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
+              "relative block w-full cursor-pointer text-left p-4 rounded-xl border border-border/60 bg-card transition-colors group has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-6 has-[:focus-visible]:outline-ring",
               isSelected
                 ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
                 : "hover:border-border hover:shadow-sm"

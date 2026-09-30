@@ -46,7 +46,7 @@ export default function AppearanceSection() {
             <label
               key={t.id}
               className={cn(
-                "relative group cursor-pointer rounded-xl overflow-hidden transition-colors text-left has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
+                "relative group cursor-pointer rounded-xl overflow-hidden transition-colors text-left has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-6 has-[:focus-visible]:outline-ring",
                 isActive
                   ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
                   : "ring-1 ring-border hover:ring-border/80 hover:shadow-md"
