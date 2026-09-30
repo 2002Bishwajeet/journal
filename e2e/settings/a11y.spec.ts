@@ -91,6 +91,8 @@ test('mobile: every Settings control is at least 44 x 44 px', async ({ app }) =>
   for (const section of sections) {
     await dialog.getByRole('tab', { name: section, exact: true }).click();
     const panel = dialog.getByRole('tabpanel');
+    // The panel must fit the dialog: a wide nav strip must not widen the grid column.
+    expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth), `${section}: horizontal overflow`).toBe(true);
     // A radio or switch is operated through its card / row label, which is the
     // touch target. Links inline in a sentence are exempt (WCAG 2.5.5 "Inline").
     const sizes = await panel.evaluate((root) => {

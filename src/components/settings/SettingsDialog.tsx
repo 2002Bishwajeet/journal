@@ -40,7 +40,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
           onValueChange={(value) => setActiveSection(value as SettingsSectionId)}
           orientation="vertical"
           activationMode="automatic"
-          className="flex flex-col md:flex-row gap-0 h-[min(640px,85dvh)]"
+          className="flex flex-col md:flex-row gap-0 h-[min(640px,85dvh)] min-w-0"
         >
           {/* ── Navigation Sidebar ── */}
           <nav className="shrink-0 w-full md:w-56 border-b md:border-b-0 md:border-r border-border/60 flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto bg-muted/30">
