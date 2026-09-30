@@ -374,7 +374,7 @@ Enforced minimums for all UI components. Do not go below these:
 ### Testing policy
 
 - **Integration first.** The default verification is an integration test: Vitest in Node (`src/__tests__/`), real PGlite + real Yjs, no server. Drive/network calls are stubbed at the app's provider boundary with per-test canned values. This carries most coverage: DB/SQL, sync bookkeeping, image queues, Yjs merging, routing/URL logic, parsers. Runs on every PR.
-- **E2E only for core flows.** Layer 2 (`*.recorded.spec.ts`, replaying committed HAR recordings of a real identity, every PR) covers session restore, create, edit, add image, share, open `/share` link, plus the backend-free local-first specs. Change a core flow → extend its spec and re-record (`npm run e2e:record`). Realtime/websocket/second-device → layer 3 `*.live.spec.ts` (real Homebase; nightly in CI, `npm run e2e:live` locally).
+- **E2E only for core flows.** Layer 2 (`*.recorded.spec.ts`, replaying committed HAR recordings of a real identity, every PR) covers session restore, share, open `/share` link, plus the backend-free local-first specs. Create/edit and add image live in layer 3 until note ids are replay-stable (#202). Change a core flow → extend its spec and re-record (`npm run e2e:record`). Realtime/websocket/second-device → layer 3 `*.live.spec.ts` (real Homebase; nightly in CI, `npm run e2e:live` locally).
 - **No behavioural fakes of Homebase.** Never add an in-memory/stateful imitation of the drive; stub only at the provider boundary in integration tests, or use recordings/real backends in E2E.
 - Bug fixes: regression test at the lowest layer that reproduces the bug.
 
