@@ -127,9 +127,9 @@ test('cover image: add, reposition, change and remove survive reloads (#219)', a
         await pickCover(page, page.getByRole('button', { name: 'Change cover' }), BLUE);
         await expect.poll(() => coverIs(page, BLUE), { timeout: 10_000 }).toBe(true);
         await expect.poll(uploadedKeys, { timeout: 120_000, message: 'new cover uploaded' }).toHaveLength(2);
-        // The old payload is deleted before the new upload, so the new cover may reuse its key.
+        // A reused key would keep showing the old image from every client's image cache.
         const [, secondKey] = await uploadedKeys();
-        testInfo.annotations.push({ type: 'cover payload keys', description: `${firstKey} -> ${secondKey}` });
+        expect(secondKey).not.toBe(firstKey);
         await expect.poll(
             async () => !!(await logged((args) =>
                 String(args[0]).startsWith('[SyncService] Deleting payloads')

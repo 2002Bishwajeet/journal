@@ -261,6 +261,30 @@ describe('note cover in the editor (real PGlite + Yjs, drive stubbed)', () => {
         expect(await getPendingImageDeletions(DOC_ID)).toEqual(['jrnl_img0']);
     });
 
+    it('changing the cover keeps the old payload until the new one has uploaded, so its key is not reused', async () => {
+        await seedCover({ src: UPLOADED, positionY: 50 });
+        const editor = await openNote();
+
+        await act(() => editor.setCoverFromFile(new File([new Uint8Array([4])], 'b.png', { type: 'image/png' })));
+        await waitFor(async () => !!(await storedCover())?.pendingId);
+
+        // The note syncs before the new image uploads: the old payload must survive it,
+        // or the upload (next index after the max existing key) takes the old key back.
+        await svc.pushNote((await getSyncRecord(DOC_ID))!);
+        const first = mockUpdateNote.mock.calls.at(-1)?.[8] as { toDeletePayloads?: { key: string }[] } | undefined;
+        expect(first?.toDeletePayloads).toBeUndefined();
+        expect(await getPendingImageDeletions(DOC_ID)).toEqual(['jrnl_img0']);
+
+        mockAddImageToNote.mockResolvedValueOnce({ payloadKey: 'jrnl_img1', versionTag: 'v2' });
+        await svc.processPendingImageUploads();
+        expect(await storedCover()).toEqual({ src: `attachment://${FILE_ID}/jrnl_img1`, positionY: 50 });
+
+        await svc.pushNote((await getSyncRecord(DOC_ID))!);
+        const second = mockUpdateNote.mock.calls.at(-1)?.[8] as { toDeletePayloads?: { key: string }[] };
+        expect(second.toDeletePayloads).toEqual([{ key: 'jrnl_img0' }]);
+        expect(await getPendingImageDeletions(DOC_ID)).toEqual([]);
+    });
+
     it('removing the cover deletes its payload on the next sync', async () => {
         await seedCover({ src: UPLOADED, positionY: 50 });
         const editor = await openNote();
