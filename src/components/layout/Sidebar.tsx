@@ -30,7 +30,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { ConfirmDialog } from "@/components/modals";
+import { ConfirmDialog, SignOutConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
 import type { Folder } from "@/types";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -83,7 +83,7 @@ export default function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const { sync } = useSyncService();
+  const { sync, pendingCount } = useSyncService();
 
   const handleRefresh = async () => {
     // The folder list is a live query — a sync pull surfaces new folders automatically.
@@ -349,13 +349,11 @@ export default function Sidebar({
           confirmText="Delete"
         />
 
-        <ConfirmDialog
+        <SignOutConfirmDialog
           isOpen={showLogoutConfirm}
           onClose={() => setShowLogoutConfirm(false)}
           onConfirm={onLogout}
-          title="Log out?"
-          description="Are you sure you want to log out of your account?"
-          confirmText="Log out"
+          pendingTotal={pendingCount.total}
         />
 
         {/* Spacer when collapsed to push footer down if ScrollArea is hidden */}
