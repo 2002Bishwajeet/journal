@@ -232,6 +232,58 @@ const SplitHardBreaksOnPaste = Extension.create({
 });
 
 /**
+ * Pasted plain text that should become a code block: one whole fenced block
+ * (```lang … ```), or bare markup that starts with a tag and ends with one
+ * (`svg` when the root is `<svg>`, otherwise `html`). Null for anything else.
+ */
+export function codeBlockFromPaste(text: string): { language: string | null; code: string } | null {
+    const trimmed = text.replace(/\r\n?/g, '\n').trim();
+    const fence = trimmed.match(/^```([\w-]*)[^\n]*\n([\s\S]*?)\n?```$/);
+    // A fence line inside the body means several blocks were pasted; leave those alone.
+    if (fence) return /^```/m.test(fence[2]) ? null : { language: fence[1] || null, code: fence[2] };
+    // Lower-case tag names only, so pasted JSX (<Component>) stays text.
+    if (/^<(!doctype html|[a-z][\w-]*)[\s>]/i.test(trimmed) && !/^<[A-Z]/.test(trimmed) && /<\/[a-z][\w-]*>$/.test(trimmed)) {
+        return { language: /^<svg[\s>]/.test(trimmed) ? 'svg' : 'html', code: trimmed };
+    }
+    return null;
+}
+
+/**
+ * Pasting a fenced block or bare markup into an empty paragraph makes a code
+ * block of it, so an ```html / ```mermaid / <div>… paste previews as a live block
+ * instead of landing as literal text.
+ */
+const PasteAsCodeBlock = Extension.create({
+    name: 'pasteAsCodeBlock',
+    addProseMirrorPlugins() {
+        return [
+            new Plugin({
+                key: new PluginKey('pasteAsCodeBlock'),
+                props: {
+                    handlePaste(view, event) {
+                        const data = event.clipboardData;
+                        // VS Code pastes are handled by the code block extension, which knows the language.
+                        if (!data || data.types.includes('vscode-editor-data')) return false;
+                        const { $from, empty } = view.state.selection;
+                        const codeBlock = view.state.schema.nodes.codeBlock;
+                        if (!empty || $from.parent.type.name !== 'paragraph' || $from.parent.content.size > 0) return false;
+                        if (!$from.node(-1).canReplaceWith($from.index(-1), $from.indexAfter(-1), codeBlock)) return false;
+                        const block = codeBlockFromPaste(data.getData('text/plain'));
+                        if (!block) return false;
+                        const node = codeBlock.create(
+                            { language: block.language },
+                            block.code ? view.state.schema.text(block.code) : undefined,
+                        );
+                        view.dispatch(view.state.tr.replaceRangeWith($from.before(), $from.after(), node));
+                        return true;
+                    },
+                },
+            }),
+        ];
+    },
+});
+
+/**
  * Type for extension configuration options
  */
 export interface ExtensionOptions {
@@ -315,6 +367,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         DuplicateBlock,
         IndentExtension,
         DeleteEmptyLeadingBlock,
+        PasteAsCodeBlock,
         SplitHardBreaksOnPaste,
         SearchAndReplace,
         options?.noteLink ?? NoteLink,

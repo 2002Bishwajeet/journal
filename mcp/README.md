@@ -100,6 +100,65 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
   times the tool returns an error, so the agent can retry with more context.
   Example: *"In my Trip plan note, change the flight time from 9:40 to 10:15."*
 
+## What the markdown can contain
+
+The write tools take markdown. Besides ordinary markdown (headings, lists, task lists,
+tables, links, code), these render as richer blocks in Journal:
+
+- **Callout** — a blockquote whose first line is `> [!info]`, `> [!tip]`, `> [!warning]`
+  or `> [!error]`.
+- **Toggle** — `<details>` with a `<summary>` line, then a blank line, the body, a blank
+  line and `</details>`.
+- **Live blocks** — a fenced code block whose language is `mermaid`, `svg` or `html`.
+  Journal shows a preview with a Code / Preview toggle, in the editor and on the note's
+  public share page.
+
+Not available through these tools: uploading images or a cover image, link-preview cards
+(a link on its own line stays a plain link) and note-to-note links.
+
+### Live blocks
+
+| Language | Renders as | Runs script |
+|---|---|---|
+| `mermaid` | a diagram, coloured to match the light or dark theme | no |
+| `svg` | an image; scripts and external references inside the SVG are ignored | no |
+| `html` | a running page in a sandboxed frame | yes, isolated |
+
+Example: *"Add a mermaid flowchart of the release process and a small HTML tip calculator
+to my Notes folder."*
+
+### How an `html` block works
+
+The block's source is loaded into an `<iframe sandbox="allow-scripts">` with a strict
+Content-Security-Policy. The frame has its own throwaway origin, so the page cannot see
+the note, the app, or anything stored by Journal.
+
+An `html` block **can** contain:
+
+- A full document or just a fragment. A lone `<div>…</div>` is fine; `<html>` and
+  `<body>` are optional.
+- Inline `<style>` and inline `<script>`, including event handlers, timers, `<canvas>`,
+  inline `<svg>`, CSS animations and form controls handled by script.
+- Images, fonts and media as `data:` URIs.
+
+It **cannot**:
+
+- Make network requests: `fetch`, `XMLHttpRequest` and `WebSocket` all fail.
+- Load anything external: no `<script src>`, no stylesheet links, no web fonts, no
+  `https://` images. That rules out CDN libraries such as React, Tailwind or Chart.js.
+- Use storage. `localStorage`, `sessionStorage`, `indexedDB` and `document.cookie` throw
+  a `SecurityError`, so wrap any such call in `try`/`catch`. State is lost on reload.
+- Open popups, submit forms to a URL, navigate the app, or start downloads.
+
+The frame is 400px tall by default and the reader can drag it taller. It is as wide as the
+note column, so design for roughly 650px and let the layout stretch.
+
+Planned, not available yet: automatic height and fullscreen, scripts from an allowlisted
+CDN, and saved state stored in the note.
+
+In the app itself, pasting bare markup or a fenced block into an empty line of a note
+creates the same live block.
+
 ## Why vite-node
 
 `src/lib/homebase/config.ts` and friends use Vite's `import.meta.env` and the `@/` import
