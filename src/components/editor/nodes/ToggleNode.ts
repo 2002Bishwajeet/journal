@@ -3,7 +3,7 @@
  * (ToggleNodeView) is layered on in editorExtensions.ts so headless code keeps
  * a React-free schema. Open/closed is view-local state and never stored.
  */
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, getTextBetween, getTextSerializersFromSchema, mergeAttributes } from '@tiptap/core';
 
 const isSummary = (n: ChildNode) => n.nodeName === 'SUMMARY';
 
@@ -39,6 +39,15 @@ export const Toggle = Node.create({
         },
       },
     ];
+  },
+
+  // editor.getText() (live note-list preview + search index) would otherwise
+  // skip the title, since it's an attribute.
+  renderText({ node }) {
+    const body = getTextBetween(node, { from: 0, to: node.content.size }, {
+      textSerializers: getTextSerializersFromSchema(node.type.schema),
+    });
+    return [node.attrs.summary, body].filter(Boolean).join('\n\n');
   },
 
   renderHTML({ HTMLAttributes }) {

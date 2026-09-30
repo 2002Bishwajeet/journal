@@ -104,3 +104,28 @@ describe.each([
     expect(editor.state.doc.child(index - 1).textContent).toBe('inner');
   });
 });
+
+describe('toggle plain text', () => {
+  it('includes the summary and body (incl. note links) in editor.getText()', () => {
+    const editor = makeEditor(new Y.Doc().getXmlFragment('prosemirror'));
+    editor.commands.setContent({
+      type: 'doc',
+      content: [
+        {
+          type: 'toggle',
+          attrs: { summary: 'Title' },
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'inner' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'see ' }, { type: 'noteLink', attrs: { noteId: 'n1', label: 'Other' } }] },
+          ],
+        },
+        { type: 'paragraph', content: [{ type: 'text', text: 'after' }] },
+      ],
+    });
+
+    const text = editor.getText();
+    expect(text).toContain('Title');
+    expect(text).toMatch(/Title[\s\S]*inner[\s\S]*see Other[\s\S]*after/);
+    editor.destroy();
+  });
+});
