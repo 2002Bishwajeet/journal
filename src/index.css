@@ -740,3 +740,58 @@ body {
   --muted-foreground: #A19E96;
   --input: #3E3D3A;
 }
+
+/* Live blocks: mermaid, svg and html code blocks (src/components/liveBlocks).
+   These rules are the ones that have to beat the unlayered `.prose` styles
+   above; the rest of the look is utility classes in LiveBlockFrame. */
+
+/* The frame draws the box, so the code inside gives up its own. */
+[data-live-block] pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+/* `.prose code` is the inline-code chip. Around the editor's block-level
+   content it would add an empty line above and below the code. */
+[data-live-block] pre code {
+  display: block;
+  padding: 0;
+}
+
+/* An html block's code fills the frame's resizable box and scrolls inside it. */
+[data-live-block='html'] pre {
+  height: 100%;
+  overflow: auto;
+}
+
+/* LiveBlockFrame draws its own grip over the native resize handle. */
+[data-live-block='html'] ::-webkit-resizer {
+  background: transparent;
+}
+
+/* Centred, never wider than the column, and not so tall that an svg with no
+   size of its own (which would fill the column) takes over the page. */
+[data-live-block-preview='svg'] img {
+  margin: 0 auto;
+  max-width: 100%;
+  max-height: 32rem;
+  border-radius: 0;
+}
+
+/* Svg art is usually dark on a transparent background: in the dark theme it
+   sits on light paper (the theme's own off-white) so it stays visible. */
+.dark [data-live-block-preview='svg'] {
+  background: var(--foreground);
+}
+
+/* Mermaid sizes its svg as width: 100% with an inline max-width of the
+   diagram's natural width, which shrinks a wide diagram until it is
+   unreadable. Asking for more width than any column has leaves that max-width
+   in charge, so the diagram keeps its natural size: centred when it fits,
+   scrolled sideways in its wrapper when it does not. */
+[data-live-block-preview='mermaid'] svg[style*='max-width'] {
+  flex: none;
+  width: 10000px;
+  margin: 0 auto;
+}

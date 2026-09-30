@@ -9,7 +9,7 @@
 import { useState, type ComponentProps } from 'react';
 import type { Element, ElementContent } from 'hast';
 import type { ExtraProps } from 'react-markdown';
-import { LiveBlockPreview } from '@/components/liveBlocks/LiveBlockPreview';
+import { LiveBlockFrame, LiveBlockToggle } from '@/components/liveBlocks/LiveBlockFrame';
 import { liveBlockKind } from '@/lib/liveBlocks';
 
 function textOf(node: ElementContent): string {
@@ -35,24 +35,17 @@ export function LiveBlockAwarePre({ node, children, ...rest }: ComponentProps<'p
   if (!live) return <pre {...rest}>{children}</pre>;
 
   return (
-    <div data-live-block={live.kind}>
-      <div className="mb-1 flex justify-end">
-        <button
-          type="button"
-          aria-pressed={showSource}
-          onClick={() => setShowSource((v) => !v)}
-          className="rounded-sm px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent aria-pressed:bg-accent aria-pressed:text-foreground"
-        >
+    <LiveBlockFrame
+      kind={live.kind}
+      source={live.source}
+      preview={!showSource}
+      toggles={
+        <LiveBlockToggle pressed={showSource} onClick={() => setShowSource((v) => !v)}>
           View source
-        </button>
-      </div>
-      {showSource ? (
-        <pre {...rest}>{children}</pre>
-      ) : (
-        <div data-live-block-preview={live.kind} className="not-prose my-2 rounded-md border bg-secondary p-4">
-          <LiveBlockPreview kind={live.kind} source={live.source} />
-        </div>
-      )}
-    </div>
+        </LiveBlockToggle>
+      }
+    >
+      {showSource && <pre {...rest}>{children}</pre>}
+    </LiveBlockFrame>
   );
 }

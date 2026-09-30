@@ -51,6 +51,16 @@ describe('share page live blocks', () => {
     expect(html).toContain('data-live-block-preview="mermaid"');
   });
 
+  it('shows a loading status for a mermaid block until its diagram is rendered', () => {
+    expect(html).toMatch(/<div role="status"[^>]*>Rendering diagram…<\/div>/);
+  });
+
+  it('frames each live block under a bar with its kind and a View source toggle', () => {
+    for (const label of ['Mermaid', 'SVG', 'HTML']) {
+      expect(html).toMatch(new RegExp(`<span[^>]*>${label}</span>.*?<button type="button" aria-pressed="false"[^>]*><span[^>]*>View source</span></button>`));
+    }
+  });
+
   it('keeps ordinary code blocks as plain highlighted code', () => {
     const plain = render('```ts\nconst a = 1;\n```');
     expect(plain).toContain('hljs-keyword');
