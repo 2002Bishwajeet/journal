@@ -97,7 +97,7 @@ src/
 │   │   ├── pglite.ts           # PGlite worker singleton + schema (10 tables)
 │   │   ├── pglite-worker.ts    # Web Worker entry — runs PGlite off main thread
 │   │   ├── pglite-migrate.ts   # Version migration (v0.3→v0.4 dump/restore)
-│   │   └── queries.ts          # All SQL queries (~50 functions)
+│   │   └── queries/            # All SQL queries, one module per table (index.ts re-exports)
 │   ├── history/                # Version history (local only, never synced)
 │   │   ├── snapshot.ts         # captureSnapshot — called by PGliteProvider.compact()
 │   │   ├── retention.ts        # selectSnapshotsToPrune — pure retention policy
@@ -170,7 +170,7 @@ src/
 | `src/components/modals/SearchModal.tsx` | Cmd+K search |
 | `src/lib/broadcast/DocumentBroadcast.ts` | Cross-tab messaging singleton |
 | `src/lib/db/pglite.ts` | PGlite singleton + schema + migrations |
-| `src/lib/db/queries.ts` | All SQL queries (~50 functions) |
+| `src/lib/db/queries/` | All SQL queries, one module per table (`@/lib/db/queries`) |
 | `src/lib/homebase/config.ts` | App IDs, drive config, payload keys |
 | `src/lib/homebase/SyncService.ts` | Bidirectional Homebase sync |
 | `src/lib/yjs/provider.ts` | PGlite Yjs persistence + auto-compaction |
