@@ -64,3 +64,42 @@ test('editor width: Narrow is narrower and Full wider than Default; sidebar unch
   await expect.poll(editorWidth).toBeGreaterThan(defaultWidth + 50);
   expect(await sidebarWidth()).toBe(defaultSidebar);
 });
+
+// Screenshot evidence for the PR (#394). Written to test-results/ via outputPath.
+const SHOT_BODY =
+  'The morning light came through the window and settled on the desk, where a half-finished cup of tea had gone cold. I wrote down everything I could remember about the walk to the station, the smell of rain on the pavement, and the way the street lamps flickered on one by one.\n' +
+  'Later that evening I reread the pages and noticed how much of the day had already blurred together. Small details like these are the reason I keep a journal at all, so that a quiet Tuesday does not disappear without a trace.';
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`screenshots: appearance and editor typography (${colorScheme})`, async ({ app }) => {
+    test.setTimeout(90_000);
+    await app.setViewportSize({ width: 1920, height: 1080 });
+    await app.emulateMedia({ colorScheme });
+    const shot = (name: string) => app.screenshot({ path: test.info().outputPath(name) });
+
+    await createNote(app, { title: 'A quiet Tuesday', body: SHOT_BODY });
+    const pick = async (font: string, width: string) => {
+      const d = await openAppearance(app);
+      await d.getByRole('radiogroup', { name: 'Editor font' }).getByText(font, { exact: true }).click();
+      await d.getByRole('radiogroup', { name: 'Editor width' }).getByText(width, { exact: true }).click();
+      await closeSettings(app);
+    };
+
+    const dialog = await openAppearance(app);
+    await expect(dialog.getByRole('radiogroup', { name: 'Editor font' })).toBeVisible();
+    await expect(dialog.getByRole('radiogroup', { name: 'Editor width' })).toBeVisible();
+    await shot(`appearance-section-${colorScheme}.png`);
+    await closeSettings(app);
+    await shot(`editor-default-${colorScheme}.png`);
+
+    await pick('Serif', 'Narrow');
+    await expect.poll(() => activeEditor(app).evaluate(fontOf)).toMatch(/Georgia/);
+    await shot(`editor-serif-narrow-${colorScheme}.png`);
+
+    if (colorScheme === 'light') {
+      await pick('Mono', 'Full');
+      await expect.poll(() => activeEditor(app).evaluate(fontOf)).toMatch(/mono/i);
+      await shot('editor-mono-full-light.png');
+    }
+  });
+}
