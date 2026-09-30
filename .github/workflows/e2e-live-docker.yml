@@ -120,5 +120,6 @@ jobs:
           path: |
             test-results/share-article-screenshots/
             test-results/cover-screenshots/
+            test-results/account-screenshots/
           if-no-files-found: ignore
           retention-days: 14

@@ -40,7 +40,7 @@ export default function AccountSection() {
           <span
             role="status"
             aria-live="polite"
-            className={cn(syncStatus === "error" && "text-destructive")}
+            className={cn(syncStatus === "error" && "text-destructive dark:text-red-400")}
           >
             {statusText}
           </span>
@@ -66,7 +66,8 @@ export default function AccountSection() {
         control={
           <Button
             variant="outline"
-            className="min-h-11 md:min-h-0 text-destructive hover:text-destructive"
+            // The dark --destructive token (#7f1d1d) is ~1.7:1 on the dialog; red-400 reads.
+            className="min-h-11 md:min-h-0 text-destructive hover:text-destructive dark:text-red-400 dark:hover:text-red-400"
             onClick={() => setConfirmOpen(true)}
           >
             Sign out
