@@ -11,8 +11,12 @@ export default function AboutSection() {
   const version = `v${__APP_VERSION__} (build ${__APP_BUILD__})`;
 
   const copyVersion = async () => {
-    await navigator.clipboard.writeText(`Journal ${version} · ${navigator.userAgent}`);
-    toast.success("Copied");
+    try {
+      await navigator.clipboard.writeText(`Journal ${version} · ${navigator.userAgent}`);
+      toast.success("Copied");
+    } catch {
+      toast.error("Couldn't copy to clipboard");
+    }
   };
 
   return (
@@ -22,7 +26,7 @@ export default function AboutSection() {
           <h3 className="text-sm font-semibold">Version</h3>
           <p className="font-mono text-xs text-muted-foreground">{version}</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={copyVersion}>
+        <Button variant="ghost" size="sm" className="min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={copyVersion}>
           Copy
         </Button>
       </div>
