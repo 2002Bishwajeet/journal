@@ -18,6 +18,8 @@ interface LiveBlockFrameProps {
   preview: boolean;
   /** The block's node is selected in the editor. */
   selected?: boolean;
+  /** While editing: name the kind and keep the toggles in view. A reader (the share page) gets neither until they hover. */
+  labelled?: boolean;
   /** The view toggles, as LiveBlockToggle buttons. */
   toggles: ReactNode;
   /** The code block's `<pre>`. */
@@ -33,7 +35,7 @@ function subscribeToFullscreen(onChange: () => void) {
   return () => document.removeEventListener('fullscreenchange', onChange);
 }
 
-export function LiveBlockFrame({ kind, source, preview, selected, toggles, children }: LiveBlockFrameProps) {
+export function LiveBlockFrame({ kind, source, preview, selected, labelled, toggles, children }: LiveBlockFrameProps) {
   const block = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   // The inline height fitContent last gave the box.
@@ -64,14 +66,20 @@ export function LiveBlockFrame({ kind, source, preview, selected, toggles, child
         if (event.key === 'Escape' && fullscreen) void document.exitFullscreen();
       }}
     >
-      {/* Out of sight until the block is hovered or has keyboard focus; always there on a device
-          that cannot hover. A full-screen block shows them as a bar: src/index.css ("Live blocks"). */}
+      {/* While editing, a plain row above the block: its kind, then the toggles. For a reader, only
+          the toggles, over the corner and out of sight until the block is hovered or has keyboard
+          focus (always there on a device that cannot hover). A full-screen block shows them as a
+          bar: src/index.css ("Live blocks"). */}
       <div
         role="group"
         aria-label={`${LABELS[kind]} block`}
         contentEditable={false}
-        className={cn('absolute right-0 top-0 z-10 flex justify-end font-sans select-none', REVEALED)}
+        className={cn(
+          'z-10 flex items-center justify-end font-sans select-none',
+          !labelled && cn('absolute right-0 top-0', REVEALED),
+        )}
       >
+        {labelled && <span className="mr-auto text-xs font-medium text-muted-foreground">{LABELS[kind]}</span>}
         {toggles}
         {/* The whole block goes full screen, not just its frame, so this button stays. */}
         {kind === 'html' && document.fullscreenEnabled && (

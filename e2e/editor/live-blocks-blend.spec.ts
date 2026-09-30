@@ -88,8 +88,12 @@ async function expectDrawn(scope: Locator): Promise<void> {
   }
 }
 
-/** No block has a card or a header bar: it is as tall as its content, on a transparent background. */
-async function expectNoChrome(page: Page, scope: Locator): Promise<void> {
+/**
+ * No block has a card: a transparent background and no border. A reader (the share page) sees
+ * nothing but the content until they hover; while editing, a plain row above the block names
+ * its kind and holds the toggles.
+ */
+async function expectNoChrome(page: Page, scope: Locator, editing: boolean): Promise<void> {
   // Off every block, so none is hovered.
   await page.mouse.move(0, 0);
   const blocks = scope.locator('[data-live-block]');
@@ -97,10 +101,22 @@ async function expectNoChrome(page: Page, scope: Locator): Promise<void> {
   for (const block of await blocks.all()) {
     await expect(block).toHaveCSS('background-color', TRANSPARENT);
     await expect(block).toHaveCSS('border-top-width', '0px');
-    await expect(controlsOf(block)).toHaveCSS('position', 'absolute');
-    await expect(controlsOf(block)).toHaveCSS('opacity', '0');
+    const controls = controlsOf(block);
+    await expect(controls).toHaveCSS('background-color', TRANSPARENT);
+    await expect(controls).toHaveCSS('border-top-width', '0px');
     const content = block.locator('> div').nth(1);
-    expect((await block.boundingBox())!.height).toBe((await content.boundingBox())!.height);
+    const contentHeight = (await content.boundingBox())!.height;
+    if (editing) {
+      await expect(controls).toHaveCSS('position', 'static');
+      await expect(controls).toHaveCSS('opacity', '1');
+      await expect(controls.locator('> span')).toHaveText(/^(Mermaid|SVG|HTML)$/);
+      expect((await block.boundingBox())!.height).toBe((await controls.boundingBox())!.height + contentHeight);
+    } else {
+      await expect(controls).toHaveCSS('position', 'absolute');
+      await expect(controls).toHaveCSS('opacity', '0');
+      await expect(controls.locator('> span')).toHaveCount(0);
+      expect((await block.boundingBox())!.height).toBe(contentHeight);
+    }
   }
 }
 
@@ -197,7 +213,7 @@ for (const theme of THEMES) {
   }
 }
 
-test('editor: the view toggle is out of sight until the block is hovered or has keyboard focus', async ({ app }) => {
+test('editor: the block is labelled and its toggles stay in view, with the pointer and focus elsewhere', async ({ app }) => {
   await noteWithHtmlBlock(app, 'pasted', TOKEN_STYLED);
   const block = activeEditor(app).locator('[data-live-block="html"]');
   const controls = controlsOf(block);
@@ -205,23 +221,15 @@ test('editor: the view toggle is out of sight until the block is hovered or has 
 
   // Pointer and focus both off the block.
   await activeTitleInput(app).click();
-  await expect(controls).toHaveCSS('opacity', '0');
-
-  await block.hover();
   await expect(controls).toHaveCSS('opacity', '1');
-  await activeTitleInput(app).hover();
-  await expect(controls).toHaveCSS('opacity', '0');
+  await expect(controls.getByText('HTML', { exact: true })).toBeVisible();
+  await expect(block.getByRole('button', { name: 'Preview', exact: true })).toBeVisible();
 
-  // Focus in the block keeps the controls there with the pointer away, and the Tab key moves between them.
+  // The Tab key moves between the toggles.
   await block.getByRole('button', { name: 'Code', exact: true }).click();
-  await activeTitleInput(app).hover();
   await app.keyboard.press('Shift+Tab');
   await expect(block.getByRole('button', { name: 'Preview', exact: true })).toBeFocused();
-  await expect(controls).toHaveCSS('opacity', '1');
   await app.screenshot({ path: test.info().outputPath('toggle-focus-editor-light-1280.png') });
-
-  await activeTitleInput(app).click();
-  await expect(controls).toHaveCSS('opacity', '0');
 });
 
 for (const theme of THEMES) {
@@ -254,7 +262,7 @@ for (const theme of THEMES) {
     for (const width of [1280, 390] as const) {
       await app.setViewportSize(VIEWPORTS[width]);
       await expectDrawn(editor);
-      await expectNoChrome(app, editor);
+      await expectNoChrome(app, editor, true);
       await expectPie(app, editor);
       await shoot(app, editor, activeTitleInput(app), `note-editor-${theme}-${width}.png`);
     }
@@ -334,7 +342,7 @@ for (const theme of THEMES) {
     for (const width of [1280, 390] as const) {
       await anonPage.setViewportSize(VIEWPORTS[width]);
       await expectDrawn(article);
-      await expectNoChrome(anonPage, article);
+      await expectNoChrome(anonPage, article, false);
       await expectPie(anonPage, article);
       await expectNoteLook(htmlFrame(article, 0), article.getByText(PARAGRAPH));
       await expectTokenColours(anonPage, htmlFrame(article, 1));

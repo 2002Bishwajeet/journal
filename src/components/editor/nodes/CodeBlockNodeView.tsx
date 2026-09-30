@@ -31,6 +31,7 @@ export function CodeBlockNodeView({ node, selected }: NodeViewProps) {
           source={node.textContent}
           preview={preview}
           selected={selected}
+          labelled
           toggles={
             <>
               <LiveBlockToggle pressed={preview} onClick={() => setShowPreview(true)}>

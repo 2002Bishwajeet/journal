@@ -16,13 +16,14 @@ beforeAll(() => {
 });
 
 describe('LiveBlockFrame', () => {
-  const render = (selected = false) =>
+  const render = (selected = false, labelled = false) =>
     renderToStaticMarkup(
       <LiveBlockFrame
         kind="svg"
         source="<svg xmlns='http://www.w3.org/2000/svg'/>"
         preview
         selected={selected}
+        labelled={labelled}
         toggles={
           <LiveBlockToggle pressed={false} onClick={() => {}}>
             View source
@@ -52,6 +53,13 @@ describe('LiveBlockFrame', () => {
       expect.arrayContaining(['absolute', 'opacity-0', 'group-hover/block:opacity-100', 'group-focus-within/block:opacity-100', '[@media(hover:none)]:opacity-100']),
     );
     expect(wrapperClasses(render())).toContain('group/block');
+  });
+
+  it('should name the kind and keep the toggles in view while editing (labelled)', () => {
+    const markup = render(false, true);
+    expect(markup).toMatch(/<div role="group" aria-label="SVG block"[^>]*>\s*<span[^>]*>SVG<\/span>\s*<button type="button"/);
+    const classes = markup.match(/<div role="group"[^>]* class="([^"]*)"/)?.[1].split(' ') ?? [];
+    expect(classes.filter((name) => name === 'absolute' || name.includes('opacity'))).toEqual([]);
   });
 
   it('should outline the block when its node is selected, like an image', () => {
