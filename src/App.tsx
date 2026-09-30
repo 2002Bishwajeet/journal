@@ -11,6 +11,7 @@ const SharePage = lazy(() => import("@/pages/SharePage"));
 const LandingPage = lazy(() => import("@/pages/Landing"));
 const AuthFinalizePage = lazy(() => import("@/pages/AuthFinalizePage"));
 const ShareTargetPage = lazy(() => import("@/pages/ShareTargetPage"));
+const SaveSharedPage = lazy(() => import("@/pages/SaveSharedPage"));
 const JournalLayout = lazy(() => import("@/layouts/JournalLayout"));
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -93,6 +94,18 @@ function App() {
                         <AuthGuard>
                           <SyncProvider>
                             <ShareTargetPage />
+                          </SyncProvider>
+                        </AuthGuard>
+                      }
+                    />
+
+                    {/* Save a copy of a shared note - requires auth; sign-in returns here with the query intact */}
+                    <Route
+                      path="/save-shared"
+                      element={
+                        <AuthGuard>
+                          <SyncProvider>
+                            <SaveSharedPage />
                           </SyncProvider>
                         </AuthGuard>
                       }
