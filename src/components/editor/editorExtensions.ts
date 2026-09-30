@@ -4,6 +4,8 @@ import { ImageSchema } from './nodes/imageSchema';
 import { ImageNodeView } from './nodes/ImageNode';
 import { NoteLink } from './nodes/NoteLinkNode';
 import { NoteLinkNodeView } from './nodes/NoteLinkNodeView';
+import { LinkPreview } from './nodes/LinkPreviewNode';
+import { LinkPreviewNodeView } from './nodes/LinkPreviewNodeView';
 import { Toggle } from './nodes/ToggleNode';
 import { ToggleNodeView } from './nodes/ToggleNodeView';
 import { Callout } from './nodes/CalloutNode';
@@ -24,6 +26,13 @@ const NoteLinkWithView = NoteLink.extend({
   },
 });
 
+/** LinkPreview's schema plus the React node view (LinkPreviewNodeView.tsx). */
+const LinkPreviewWithView = LinkPreview.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(LinkPreviewNodeView);
+  },
+});
+
 /** Toggle's schema plus the React node view (ToggleNodeView.tsx). */
 const ToggleWithView = Toggle.extend({
   addNodeView() {
@@ -40,7 +49,7 @@ const CalloutWithView = Callout.extend({
 
 /**
  * The editor's full extension list (#316): createBaseExtensions()'s headless
- * schema with the React node views (image, noteLink, toggle, callout) and the
+ * schema with the React node views (image, noteLink, linkPreview, toggle, callout) and the
  * emoji suggestion popup. Only the editor imports this — headless code (the
  * agent edit engine) stays on createBaseExtensions() so it never pulls in React.
  */
@@ -48,6 +57,7 @@ export function createEditorExtensions() {
   return createBaseExtensions({
     image: CustomImage,
     noteLink: NoteLinkWithView,
+    linkPreview: LinkPreviewWithView,
     toggle: ToggleWithView,
     callout: CalloutWithView,
     uiExtensions: [EmojiExtension],

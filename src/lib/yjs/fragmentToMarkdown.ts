@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import { toCalloutVariant } from '@/components/editor/nodes/calloutVariants';
+import { previewToMarkdown } from '@/lib/editor/linkPreview';
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -207,6 +208,11 @@ export function fragmentToMarkdown(xmlFragment: Y.XmlFragment): string {
         // Blank lines around the body so the markdown inside <details> renders.
         const summary = escapeHtml(String(node.getAttribute('summary') ?? ''));
         return `<details>\n<summary>${summary}</summary>\n\n${serializeChildren(node, depth).trim()}\n\n</details>\n\n`;
+      }
+      case 'linkPreview': {
+        // Title link + description quote; the image (a data URI) is never exported.
+        const attr = (name: string) => String(node.getAttribute(name) ?? '');
+        return previewToMarkdown({ url: attr('url'), title: attr('title'), description: attr('description') }) + '\n\n';
       }
       case 'horizontalRule':
         return '---\n\n';

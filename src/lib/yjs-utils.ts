@@ -87,6 +87,8 @@ export async function extractPreviewTextFromYjs(noteId: string, yjsBlob?: Uint8A
       case 'toggle':
         // The summary is an attribute, so it isn't part of the child text.
         return (node.getAttribute('summary') ?? '') + ' ' + content + ' ';
+      case 'linkPreview':
+        return `${node.getAttribute('title') ?? ''} ${node.getAttribute('url') ?? ''} `;
       case 'hardBreak':
         return ' ';
       default:

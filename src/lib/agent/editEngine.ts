@@ -56,7 +56,7 @@ function blockToMarkdown(block: PMNode): string {
 
 // Nodes the markdown parser can't rebuild: re-parsing drops them (or, for
 // toggle/callout, their summary/variant).
-const LOSSY_NODES = new Set(['noteLink', 'image', 'toggle', 'callout']);
+const LOSSY_NODES = new Set(['noteLink', 'image', 'toggle', 'callout', 'linkPreview']);
 
 const hasLossyNode = (block: PMNode) => {
   let found = LOSSY_NODES.has(block.type.name);
