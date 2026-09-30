@@ -21,7 +21,7 @@ export function ShareHeader({ saveHref }: ShareHeaderProps) {
                 scrolled ? 'border-border' : 'border-transparent',
             )}
         >
-            <div className="max-w-2xl mx-auto h-14 px-4 sm:px-6 flex items-center justify-between gap-3">
+            <div className="max-w-4xl mx-auto h-14 px-4 sm:px-6 flex items-center justify-between gap-3">
                 <Link
                     to="/"
                     className="flex items-center gap-2 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"

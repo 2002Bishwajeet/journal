@@ -61,7 +61,7 @@ export default function SharePage() {
             />
 
             {/* Content */}
-            <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+            <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
                 {/* Outside the article so the global `.prose img` margin doesn't apply. */}
                 {note.cover && (
                     <div className="mb-8 h-40 sm:h-56 w-full rounded-lg overflow-hidden">

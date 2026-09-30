@@ -9,7 +9,7 @@ interface ShareFooterProps {
 export function ShareFooter({ identity }: ShareFooterProps) {
     return (
         <footer className="border-t mt-16">
-            <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex gap-3 text-sm text-muted-foreground">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 flex gap-3 text-sm text-muted-foreground">
                 <span className="mt-0.5 size-5 shrink-0 overflow-hidden rounded">
                     <img src="/logo.webp" alt="" className="size-full scale-[1.6]" />
                 </span>
