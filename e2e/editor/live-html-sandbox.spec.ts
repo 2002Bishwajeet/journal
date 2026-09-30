@@ -254,7 +254,8 @@ test('html block: a height report posted by the app page itself changes no block
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
-  test(`html block: Full screen shows the block full screen and Esc leaves it, ${colorScheme} theme`, async ({ app }) => {
+  // #424: no full screen. The block is as tall as its content and lives in the note.
+  test(`html block: a 900px page gets a frame of its height and no Full screen control, ${colorScheme} theme`, async ({ app }) => {
     await app.emulateMedia({ colorScheme });
     // Tall enough to show the whole 900px block at its natural height.
     await app.setViewportSize({ width: 1280, height: 1200 });
@@ -264,27 +265,12 @@ for (const colorScheme of ['light', 'dark'] as const) {
     const resizable = resizableBox(app);
     await expect(frame.getByRole('heading', { name: 'A page 900px tall' })).toBeVisible();
     await expect(resizable).toHaveCSS('height', '900px');
+    // Nothing scrolls inside the frame.
+    expect(await frame.locator('html').evaluate((el) => el.scrollHeight - el.clientHeight)).toBe(0);
+    await block.hover();
+    await expect(block.getByRole('button', { name: /full ?screen/i })).toHaveCount(0);
     await expect(app.locator('html')).toHaveClass(new RegExp(colorScheme));
     await app.screenshot({ path: test.info().outputPath(`html-tall-${colorScheme}-desktop.png`) });
-
-    const isFullscreen = () => block.evaluate((el) => document.fullscreenElement === el);
-    const fullscreenButton = block.getByRole('button', { name: 'Full screen', exact: true });
-    await fullscreenButton.click();
-    await expect.poll(isFullscreen).toBe(true);
-    await expect(fullscreenButton).toHaveAttribute('aria-pressed', 'true');
-
-    // The bar stays on top; the frame takes the rest of the screen, not its 900px.
-    const viewport = app.viewportSize()!;
-    await expect.poll(() => block.boundingBox()).toEqual({ x: 0, y: 0, ...viewport });
-    const bar = (await block.locator('> div').first().boundingBox())!;
-    await expect.poll(() => resizable.locator('iframe').boundingBox()).toEqual({ x: 0, y: bar.height, width: viewport.width, height: viewport.height - bar.height });
-    await expect(frame.getByRole('heading', { name: 'A page 900px tall' })).toBeVisible();
-    await app.screenshot({ path: test.info().outputPath(`html-fullscreen-${colorScheme}-desktop.png`) });
-
-    await app.keyboard.press('Escape');
-    await expect.poll(() => app.evaluate(() => document.fullscreenElement === null)).toBe(true);
-    await expect(fullscreenButton).toHaveAttribute('aria-pressed', 'false');
-    await expect(resizable).toHaveCSS('height', '900px');
   });
 }
 

@@ -770,33 +770,6 @@ body {
   background: transparent;
 }
 
-/* A full-screen html block is off the note, so it gets the note's background
-   itself. Its controls are a bar on top and the box takes the rest of the
-   screen, whatever inline height its content or the resize handle gave it. */
-[data-live-block='html']:fullscreen {
-  display: flex;
-  flex-direction: column;
-  background: var(--background);
-}
-
-[data-live-block='html']:fullscreen > [role='group'] {
-  position: static;
-  opacity: 1;
-  border-bottom: 1px solid var(--border);
-}
-
-[data-live-block='html']:fullscreen > :last-child {
-  flex: 1;
-  min-height: 0;
-  height: auto !important;
-  resize: none;
-}
-
-/* Nothing to resize there, so no grip. */
-[data-live-block='html']:fullscreen > :last-child > [aria-hidden] {
-  display: none;
-}
-
 /* Centred, never wider than the column, and not so tall that an svg with no
    size of its own (which would fill the column) takes over the page. */
 [data-live-block-preview='svg'] img {
@@ -822,6 +795,16 @@ body {
   flex: none;
   width: 10000px;
   margin: 0 auto;
+}
+
+/* A pie's slices are the chart palette, from near the text colour to near the
+   background, so no one label colour reads on all of them. Each label gets a
+   halo of the background around its glyphs instead. */
+[data-live-block-preview='mermaid'] text.slice {
+  paint-order: stroke;
+  stroke: var(--background);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 /* Share page (src/pages/SharePage.tsx). Every block keeps the reading column:

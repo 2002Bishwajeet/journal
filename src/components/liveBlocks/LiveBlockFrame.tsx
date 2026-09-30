@@ -4,7 +4,7 @@
  * (#420), and the view toggles over its top right corner. Rules that have to
  * beat the unlayered `.prose` styles are in src/index.css ("Live blocks").
  */
-import { useRef, useSyncExternalStore, type ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import type { LiveBlockKind } from '@/lib/liveBlocks';
 import { cn } from '@/lib/utils';
 import { LiveBlockPreview } from './LiveBlockPreview';
@@ -30,21 +30,10 @@ interface LiveBlockFrameProps {
 const REVEALED =
   'opacity-0 transition-opacity duration-100 group-hover/block:opacity-100 group-focus-within/block:opacity-100 [@media(hover:none)]:opacity-100';
 
-function subscribeToFullscreen(onChange: () => void) {
-  document.addEventListener('fullscreenchange', onChange);
-  return () => document.removeEventListener('fullscreenchange', onChange);
-}
-
 export function LiveBlockFrame({ kind, source, preview, selected, labelled, toggles, children }: LiveBlockFrameProps) {
-  const block = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   // The inline height fitContent last gave the box.
   const fittedHeight = useRef('');
-  const fullscreen = useSyncExternalStore(
-    subscribeToFullscreen,
-    () => block.current !== null && document.fullscreenElement === block.current,
-    () => false,
-  );
 
   // An html block is as tall as its content (#412) until the user drags the resize handle:
   // the browser then writes an inline height that is not the fitted one, and that one stays.
@@ -56,20 +45,13 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, togg
 
   return (
     <div
-      ref={block}
       data-live-block={kind}
       // `isolate` keeps the controls' z-index inside the block. The outline is the one a selected image gets (ImageNode).
       className={cn('group/block relative isolate my-4', selected && 'rounded-sm outline-2 outline-primary/60')}
-      // A browser leaves full screen on Esc by itself, before the page sees the key. This is for
-      // where the key does reach the page: headless Chromium (the e2e suite) has no such browser UI.
-      onKeyDown={(event) => {
-        if (event.key === 'Escape' && fullscreen) void document.exitFullscreen();
-      }}
     >
       {/* While editing, a plain row above the block: its kind, then the toggles. For a reader, only
           the toggles, over the corner and out of sight until the block is hovered or has keyboard
-          focus (always there on a device that cannot hover). A full-screen block shows them as a
-          bar: src/index.css ("Live blocks"). */}
+          focus (always there on a device that cannot hover). */}
       <div
         role="group"
         aria-label={`${LABELS[kind]} block`}
@@ -81,16 +63,10 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, togg
       >
         {labelled && <span className="mr-auto text-xs font-medium text-muted-foreground">{LABELS[kind]}</span>}
         {toggles}
-        {/* The whole block goes full screen, not just its frame, so this button stays. */}
-        {kind === 'html' && document.fullscreenEnabled && (
-          <LiveBlockToggle pressed={fullscreen} onClick={() => void (fullscreen ? document.exitFullscreen() : block.current?.requestFullscreen())}>
-            Full screen
-          </LiveBlockToggle>
-        )}
       </div>
       {/* An html block's preview and code share this box and its height (400px until the content
           reports its own, or the box is resized), so switching views does not move the page.
-          `resize` needs a non-visible overflow. Full screen: src/index.css ("Live blocks"). */}
+          `resize` needs a non-visible overflow. */}
       <div
         ref={box}
         contentEditable={preview ? false : undefined}

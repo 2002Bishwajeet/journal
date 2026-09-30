@@ -9,6 +9,8 @@ import { assertTestOrigin } from '../support/origin-guard';
 // stays out of sight until the block is hovered or has keyboard focus. Takes the
 // screenshots the issue asks for: one note of every kind of block, in the editor
 // and on the share page, light and dark, at 1280px and 390px.
+// #424: unstyled form controls take Journal's look, a pie's slices are the theme's
+// chart palette, and no block has a Full screen control.
 
 const THEMES = ['light', 'dark'] as const;
 const VIEWPORTS = { 1280: { width: 1280, height: 900 }, 390: { width: 390, height: 844 } } as const;
@@ -27,6 +29,11 @@ const UNSTYLED =
   '<h3>Reading list</h3><p>Three books for the trip, from <a href="#">the shared list</a>.</p><table><tr><th>Title</th><th>Pages</th></tr><tr><td>The Overstory</td><td>502</td></tr></table><button>Mark all read</button>';
 const TOKEN_STYLED =
   '<div id="box" style="background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px"><strong>3 of 5 tasks done</strong><div style="color: var(--muted-foreground)">Two are waiting on review.</div></div>';
+// #424: unstyled controls, and a block that styles its own button. It ends on a closing
+// tag, which bare markup must to be pasted as a block.
+const FORM =
+  '<input placeholder="Your name"> <select><option>Weekly</option><option>Daily</option></select> <label><input type="checkbox" checked> Remind me</label> <input type="range" value="60"> <button>Save</button>';
+const RED_BUTTON = '<style>button { background: rgb(255, 0, 0) }</style><button>Red</button>';
 
 const FLOWCHART = [
   'graph LR',
@@ -34,14 +41,15 @@ const FLOWCHART = [
   '  Review -->|Yes| Publish[Publish the note]',
   '  Review -->|Not yet| Draft',
 ].join('\n');
-const PIE = ['pie title Where the week went', '  "Writing" : 40', '  "Editing" : 25', '  "Review" : 20', '  "Publishing" : 15'].join('\n');
+const PIE = ['pie title Where the week went', '  "Writing" : 40', '  "Editing" : 25', '  "Review" : 20', '  "Publishing" : 10', '  "Admin" : 5'].join('\n');
 const SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120" fill="none" stroke="black" stroke-width="4"><rect x="10" y="10" width="100" height="100" rx="12"/><circle cx="180" cy="60" r="48"/><path d="M30 80l30-40 30 40"/></svg>';
 
-// The live blocks of the note, in order: two html, two mermaid, one svg.
+// The live blocks of the note, in order: three html, two mermaid, one svg.
 const LIVE_BLOCKS: [language: string, code: string][] = [
   ['html', UNSTYLED],
   ['html', TOKEN_STYLED],
+  ['html', FORM],
   ['mermaid', FLOWCHART],
   ['mermaid', PIE],
   ['svg', SVG],
@@ -74,11 +82,27 @@ async function expectTokenColours(page: Page, frame: FrameLocator): Promise<void
   await expect(box).toHaveCSS('border-top-color', await token(page, '--border'));
 }
 
+/**
+ * The unstyled controls of FORM are drawn like the app's own: the button in the outline look
+ * (the theme's border, no fill, rounded, the note's text colour), the fields with the border.
+ */
+async function expectJournalControls(page: Page, frame: FrameLocator, paragraph: Locator): Promise<void> {
+  const border = await token(page, '--border');
+  const button = frame.getByRole('button', { name: 'Save' });
+  await expect(button).toHaveCSS('border-top-color', border);
+  await expect(button).toHaveCSS('background-color', TRANSPARENT);
+  await expect(button).not.toHaveCSS('border-top-left-radius', '0px');
+  await expect(button).toHaveCSS('color', await paragraph.evaluate((p) => getComputedStyle(p).color));
+  await expect(frame.getByPlaceholder('Your name')).toHaveCSS('border-top-color', border);
+  await expect(frame.getByRole('combobox')).toHaveCSS('border-top-color', border);
+}
+
 /** Every block of the note has drawn, and each html block has taken its content's height. */
 async function expectDrawn(scope: Locator): Promise<void> {
   await expect(scope.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]')).toHaveCount(2, { timeout: 30_000 });
   await expect(scope.locator('[data-live-block="svg"] img')).toBeVisible();
-  for (const [nth, content] of [htmlFrame(scope, 0).getByRole('heading', { name: 'Reading list' }), htmlFrame(scope, 1).locator('#box')].entries()) {
+  const contents = [htmlFrame(scope, 0).getByRole('heading', { name: 'Reading list' }), htmlFrame(scope, 1).locator('#box'), htmlFrame(scope, 2).getByRole('button', { name: 'Save' })];
+  for (const [nth, content] of contents.entries()) {
     // A frame is lazy: it loads once it is near the viewport.
     const frame = scope.locator('[data-live-block="html"] iframe').nth(nth);
     await frame.scrollIntoViewIfNeeded();
@@ -102,6 +126,7 @@ async function expectNoChrome(page: Page, scope: Locator, editing: boolean): Pro
     await expect(block).toHaveCSS('background-color', TRANSPARENT);
     await expect(block).toHaveCSS('border-top-width', '0px');
     const controls = controlsOf(block);
+    await expect(block.getByRole('button', { name: /full ?screen/i })).toHaveCount(0);
     await expect(controls).toHaveCSS('background-color', TRANSPARENT);
     await expect(controls).toHaveCSS('border-top-width', '0px');
     const content = block.locator('> div').nth(1);
@@ -120,12 +145,13 @@ async function expectNoChrome(page: Page, scope: Locator, editing: boolean): Pro
   }
 }
 
-/** A pie of four slices has four fills, and its legend is in the note's text colour. */
+/** A pie of five slices has five fills, the theme's `--chart-1` to `--chart-5`, and its legend is in the note's text colour. */
 async function expectPie(page: Page, scope: Locator): Promise<void> {
   const pie = scope.locator('[data-live-block="mermaid"]').nth(1);
   const fills = await pie.locator('path.pieCircle').evaluateAll((slices) => slices.map((slice) => getComputedStyle(slice).fill));
-  expect(fills).toHaveLength(4);
-  expect(new Set(fills).size).toBe(4);
+  expect(new Set(fills).size).toBe(5);
+  const chart = await Promise.all([1, 2, 3, 4, 5].map((n) => token(page, `--chart-${n}`)));
+  expect([...fills].sort()).toEqual([...chart].sort());
   await expect(pie.locator('.legend text').first()).toHaveCSS('fill', await token(page, '--foreground'));
 }
 
@@ -146,13 +172,27 @@ async function shoot(page: Page, scope: Locator, top: Locator, name: string): Pr
   await page.setViewportSize({ width: viewport.width, height: viewport.height + Math.max(scrolledOut, 0) });
   await top.scrollIntoViewIfNeeded();
   // A frame paints again a moment after the resize: a screenshot taken before that shows it blank.
-  for (const nth of [0, 1]) {
+  for (const nth of [0, 1, 2]) {
     const body = htmlFrame(scope, nth).locator('body');
     await expect(body).toBeVisible();
     await body.evaluate(() => new Promise<void>((painted) => requestAnimationFrame(() => requestAnimationFrame(() => painted()))));
   }
   await page.screenshot({ path: test.info().outputPath(name) });
   await page.setViewportSize(viewport);
+}
+
+/** Screenshots of the FORM block and the pie alone, as `<what>-<where>-<theme>-1280.png`. */
+async function shootFormAndPie(page: Page, scope: Locator, where: string, theme: string): Promise<void> {
+  await page.mouse.move(0, 0);
+  const form = scope.locator('[data-live-block="html"]').nth(2);
+  await form.scrollIntoViewIfNeeded();
+  await htmlFrame(scope, 2)
+    .locator('body')
+    .evaluate(() => new Promise<void>((painted) => requestAnimationFrame(() => requestAnimationFrame(() => painted()))));
+  await form.screenshot({ path: test.info().outputPath(`form-${where}-${theme}-1280.png`) });
+  const pie = scope.locator('[data-live-block="mermaid"]').nth(1);
+  await pie.scrollIntoViewIfNeeded();
+  await pie.screenshot({ path: test.info().outputPath(`pie-${where}-${theme}-1280.png`) });
 }
 
 // The synthetic paste of e2e/editor/live-paste.spec.ts: plain text into the empty line the caret is on.
@@ -210,8 +250,20 @@ for (const theme of THEMES) {
       await expectTokenColours(app, styled);
       await expect(styled.locator('body')).toHaveCSS('color', await token(app, '--foreground'));
     });
+
+    test(`editor: unstyled form controls ${entry} into a note look like Journal's, ${theme} theme`, async ({ app }) => {
+      await app.emulateMedia({ colorScheme: theme });
+      await expect(app.locator('html')).toHaveClass(new RegExp(theme));
+      const frame = await noteWithHtmlBlock(app, entry, FORM);
+      await expectJournalControls(app, frame, activeEditor(app).getByText(PARAGRAPH));
+    });
   }
 }
+
+test("editor: a block's own button style wins over Journal's (#424)", async ({ app }) => {
+  const frame = await noteWithHtmlBlock(app, 'pasted', RED_BUTTON);
+  await expect(frame.getByRole('button', { name: 'Red' })).toHaveCSS('background-color', 'rgb(255, 0, 0)');
+});
 
 test('editor: the block is labelled and its toggles stay in view, with the pointer and focus elsewhere', async ({ app }) => {
   await noteWithHtmlBlock(app, 'pasted', TOKEN_STYLED);
@@ -266,6 +318,9 @@ for (const theme of THEMES) {
       await expectPie(app, editor);
       await shoot(app, editor, activeTitleInput(app), `note-editor-${theme}-${width}.png`);
     }
+    await app.setViewportSize(VIEWPORTS[1280]);
+    await expectJournalControls(app, htmlFrame(editor, 2), editor.getByText(PARAGRAPH));
+    await shootFormAndPie(app, editor, 'editor', theme);
   });
 }
 
@@ -348,6 +403,9 @@ for (const theme of THEMES) {
       await expectTokenColours(anonPage, htmlFrame(article, 1));
       await shoot(anonPage, article, article.getByRole('heading', { level: 1 }), `note-share-${theme}-${width}.png`);
     }
+    await anonPage.setViewportSize(VIEWPORTS[1280]);
+    await expectJournalControls(anonPage, htmlFrame(article, 2), article.getByText(PARAGRAPH));
+    await shootFormAndPie(anonPage, article, 'share', theme);
 
     // The toggle: out of sight, there on hover, and there when the Tab key reaches it.
     await anonPage.setViewportSize(VIEWPORTS[1280]);

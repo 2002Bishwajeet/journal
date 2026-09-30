@@ -32,7 +32,41 @@ const HEIGHT_REPORT_SCRIPT =
   "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) }, '*')).observe(document.documentElement)</script>";
 
 /** The theme tokens an `html` block's frame gets as `:root` variables, under the app's own names. */
-export const FRAME_TOKENS = ['--background', '--foreground', '--muted', '--muted-foreground', '--border', '--accent', '--secondary', '--primary', '--radius'] as const;
+export const FRAME_TOKENS = [
+  '--background',
+  '--foreground',
+  '--muted',
+  '--muted-foreground',
+  '--border',
+  '--accent',
+  '--secondary',
+  '--primary',
+  '--ring',
+  '--radius',
+  '--chart-1',
+  '--chart-2',
+  '--chart-3',
+  '--chart-4',
+  '--chart-5',
+] as const;
+
+// Form controls the way the app draws its own (#424): the outline button of
+// src/components/ui/button.tsx and the field of src/components/ui/input.tsx. Every
+// selector is inside `:where()`, so it has no specificity and any rule of the block wins.
+const BUTTONS = 'button,input:is([type=button],[type=submit],[type=reset])';
+const FIELDS = 'input:not([type=button],[type=submit],[type=reset],[type=checkbox],[type=radio],[type=range],[type=color],[type=file],[type=image]),select';
+const CONTROL_STYLE =
+  ':where(button,input,select,textarea){font:inherit}' +
+  `:where(${BUTTONS},${FIELDS},textarea){border:1px solid var(--border);border-radius:var(--radius);background:transparent;color:var(--foreground)}` +
+  `:where(${BUTTONS}){height:2.25rem;padding:0 1rem;font-size:0.875rem;font-weight:500;cursor:pointer}` +
+  `:where(${BUTTONS}):where(:hover:not(:disabled)){background:var(--muted)}` +
+  `:where(${FIELDS}){height:2.25rem;padding:0.25rem 0.75rem}` +
+  ':where(textarea){padding:0.5rem 0.75rem}' +
+  ':where(input,textarea)::placeholder{color:var(--muted-foreground);opacity:1}' +
+  // Checkbox, radio, range and progress.
+  ':where(input,progress){accent-color:var(--primary)}' +
+  ':where(button,input,select,textarea):where(:disabled){opacity:0.5;cursor:not-allowed}' +
+  ':where(button,input,select,textarea):where(:focus-visible){outline:2px solid var(--ring);outline-offset:2px}';
 
 /** The look an `html` block's frame takes from the note around it (#420). */
 export interface FrameTheme {
@@ -59,7 +93,7 @@ export function buildSrcdoc(source: string, theme: FrameTheme): string {
     'html,body{background:transparent}' +
     `body{margin:0;color:var(--foreground);font-family:${theme.fontFamily};line-height:${theme.lineHeight}}` +
     'a{color:inherit}' +
-    'button,input,select,textarea{font:inherit}' +
+    CONTROL_STYLE +
     // A table like the note's own (`.prose table` in src/index.css).
     'table{border-collapse:collapse}' +
     'th,td{border:1px solid var(--border);padding:0.5rem 0.75rem;text-align:left}' +

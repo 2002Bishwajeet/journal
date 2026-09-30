@@ -150,19 +150,40 @@ It **cannot**:
   a `SecurityError`, so wrap any such call in `try`/`catch`. State is lost on reload.
 - Open popups, submit forms to a URL, navigate the app, or start downloads.
 
-The frame is 400px tall by default and the reader can drag it taller. It is as wide as the
-note column, so design for roughly 650px and let the layout stretch.
+The frame is as tall as its content, up to 1600px (taller content scrolls inside it), and
+the reader can drag it to another height. It is as wide as the note column, so design for
+roughly 650px and let the layout stretch.
 
-Planned, not available yet: automatic height and fullscreen, scripts from an allowlisted
-CDN, and saved state stored in the note.
+Planned, not available yet: scripts from an allowlisted CDN, and saved state stored in the
+note.
 
 ### Designing an `html` block
 
+Journal's theme and design system come first. A block brings styling of its own only
+where its content needs it, never as a default. In order:
+
+1. **Prefer a native block whenever one can carry the content**: a callout, a table, a
+   toggle, a task list or a mermaid diagram. They are the note's own blocks: the reader
+   can edit them in place and they stay readable as markdown. Keep `html` for what needs
+   script or a layout markdown cannot make.
+2. **An `html` block uses the note's font, colours and the theme variables, and leaves
+   buttons, inputs and tables unstyled.** The page inherits the note's font, text colour,
+   line height and transparent background, and an unstyled `<button>`, `<input>`,
+   `<select>`, `<textarea>`, checkbox, radio, range, `<progress>` or `<table>` is drawn
+   like Journal's own, in the light and the dark theme. Styling them again is how a block
+   stops matching.
+3. **Custom styling only where the content needs it**: a chart, a diagram, a game board.
+   Build it from the theme variables below. A fixed colour is right in one theme at most;
+   the variables follow the reader's theme.
+4. **No page background, gradients, shadows, badge rows, emoji headers or custom fonts.**
+   The note is flat and quiet, and decoration is what makes a block read as a widget
+   dropped into it. A white page is a bright box in the dark theme.
+5. **The block sizes itself to its content.** Do not set a fixed page height (`100vh`, a
+   tall `min-height`) or lay the block out as if it had a whole screen: it is one part of
+   a note, as wide as the text column.
+
 A live block has no card or header around it: it sits on the note like a table or an
-image. The page in the frame starts with the note's look, in the light and the dark
-theme: a transparent background, the note's text colour, font and line height, no body
-margin, and table cells with the note's border. These variables hold the theme's current
-values:
+image. These variables hold the theme's current values:
 
 | Variable | Use it for |
 |---|---|
@@ -174,27 +195,35 @@ values:
 | `--radius` | corner radius |
 | `--background` | the note's own background, for something drawn on top of a fill |
 | `--secondary`, `--primary` | a button's fill: quiet, or the one strong action |
+| `--ring` | a focus ring |
+| `--chart-1` … `--chart-5` | data series in a chart, in this order; a mermaid pie uses the same five |
 
-Rules:
-
-- **Do not set a page background or a font.** The block inherits both, so it matches the
-  note in either theme; a white page is a bright box in the dark theme.
-- **Draw with the variables, not with colours of your own.** A fixed colour is right in
-  one theme at most, and the variables follow the reader's theme.
-- **No gradients, shadows or rows of badges.** The note is flat and quiet, and decoration
-  is what makes a block read as a widget dropped into it.
-- **Prefer a callout or a table when one would do.** They are the note's own blocks: the
-  reader can edit them in place and they stay readable as markdown. Keep `html` for what
-  needs script or a layout markdown cannot make.
-
-Example:
+Good: no styling for the controls, and the one thing drawn (a bar) is built from the
+variables.
 
 ````markdown
 ```html
-<div style="background: var(--muted); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px">
-  <strong>3 of 5 tasks done</strong>
-  <div style="color: var(--muted-foreground)">Two are waiting on review.</div>
+<label>Bill <input id="bill" type="number" value="40"></label>
+<label>Tip <input id="tip" type="range" min="0" max="30" value="15"></label>
+<button onclick="out.textContent = (bill.value * (1 + tip.value / 100)).toFixed(2)">Work it out</button>
+<p>Total: <strong id="out">46.00</strong></p>
+<div style="height: 8px; background: var(--muted); border-radius: var(--radius)">
+  <div style="width: 60%; height: 100%; background: var(--chart-1); border-radius: var(--radius)"></div>
 </div>
+```
+````
+
+Bad: a page of its own. It has a background, a font, a gradient, a shadow, an emoji
+header, a restyled button and a fixed height, and it is wrong in the dark theme.
+
+````markdown
+```html
+<style>
+  body { background: #fff; font-family: Poppins, sans-serif; min-height: 100vh; }
+  .card { background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+  button { background: #4f46e5; color: #fff; border: none; border-radius: 999px; }
+</style>
+<div class="card"><h2>💸 Tip calculator</h2><button>Calculate</button></div>
 ```
 ````
 
