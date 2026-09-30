@@ -138,6 +138,18 @@ export async function createTestDatabase(): Promise<PGlite> {
     );
     CREATE INDEX IF NOT EXISTS idx_pending_deletions_note ON pending_image_deletions(note_doc_id);
 
+    -- Version history snapshots (mirrors runMigrations in pglite.ts)
+    CREATE TABLE IF NOT EXISTS document_snapshots (
+      id SERIAL PRIMARY KEY,
+      doc_id UUID NOT NULL,
+      state_blob BYTEA NOT NULL,
+      state_vector BYTEA NOT NULL,
+      preview TEXT NOT NULL DEFAULT '',
+      word_count INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_snapshots_doc_created ON document_snapshots (doc_id, created_at DESC);
+
     -- Insert Main folder if not exists
     INSERT INTO folders (id, name)
     VALUES ('${MAIN_FOLDER_ID}', 'Main')
@@ -184,6 +196,7 @@ export async function resetTestDatabase(): Promise<void> {
     DELETE FROM pending_image_uploads;
     DELETE FROM pending_image_deletions;
     DELETE FROM sync_errors;
+    DELETE FROM document_snapshots;
     DELETE FROM folders WHERE id != '${MAIN_FOLDER_ID}';
   `);
 }

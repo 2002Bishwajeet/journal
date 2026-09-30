@@ -28,6 +28,7 @@ import { createLowlight } from 'lowlight';
 import { SearchAndReplace } from './SearchAndReplaceExtension';
 import { ImageSchema } from '../nodes/imageSchema';
 import { NoteLink } from '../nodes/NoteLinkNode';
+import { LinkPreview } from '../nodes/LinkPreviewNode';
 import { Toggle } from '../nodes/ToggleNode';
 import { Callout } from '../nodes/CalloutNode';
 
@@ -240,6 +241,8 @@ export interface ExtensionOptions {
     image?: typeof ImageSchema;
     /** Note-link node; defaults to the headless NoteLink (the editor passes one with a React node view). */
     noteLink?: typeof NoteLink;
+    /** Link preview card; defaults to the headless LinkPreview (the editor passes one with a React node view). */
+    linkPreview?: typeof LinkPreview;
     /** Toggle node; defaults to the headless Toggle (the editor passes one with a React node view). */
     toggle?: typeof Toggle;
     /** Callout node; defaults to the headless Callout (the editor passes one with a React node view). */
@@ -315,6 +318,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         SplitHardBreaksOnPaste,
         SearchAndReplace,
         options?.noteLink ?? NoteLink,
+        options?.linkPreview ?? LinkPreview,
         options?.toggle ?? Toggle,
         options?.callout ?? Callout,
     ];

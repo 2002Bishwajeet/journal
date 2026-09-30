@@ -56,7 +56,7 @@ function blockToMarkdown(block: PMNode): string {
 
 // Nodes the markdown parser can't rebuild: re-parsing drops them (or, for
 // toggle/callout, their summary/variant).
-const LOSSY_NODES = new Set(['noteLink', 'image', 'toggle', 'callout']);
+const LOSSY_NODES = new Set(['noteLink', 'image', 'toggle', 'callout', 'linkPreview']);
 
 const hasLossyNode = (block: PMNode) => {
   let found = LOSSY_NODES.has(block.type.name);
@@ -105,7 +105,7 @@ export function replaceInNote(doc: Y.Doc, oldText: string, newText: string): voi
   });
 
   if (blocks.slice(from, to + 1).some(hasLossyNode)) {
-    throw new Error('replace_in_note: the matched text is in a block with a note link, image, toggle or callout; edit a different span');
+    throw new Error('replace_in_note: the matched text is in a block with a note link, image, toggle, callout or link preview; edit a different span');
   }
 
   const rangeMd = joined.slice(rangeStart, rangeEnd);

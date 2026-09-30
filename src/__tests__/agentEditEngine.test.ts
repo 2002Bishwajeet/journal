@@ -235,7 +235,7 @@ describe('replaceInNote', () => {
     });
     const before = Y.encodeStateAsUpdate(doc);
     expect(() => replaceInNote(doc, 'link to', 'x')).toThrow(
-      'replace_in_note: the matched text is in a block with a note link, image, toggle or callout; edit a different span',
+      'replace_in_note: the matched text is in a block with a note link, image, toggle, callout or link preview; edit a different span',
     );
     expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
   });
@@ -245,7 +245,7 @@ describe('replaceInNote', () => {
       type: 'doc',
       content: [{ type: 'paragraph', content: [{ type: 'text', text: 'pic ' }, { type: 'image', attrs: { src: 'attachment://f/jrnl_img0' } }] }],
     });
-    expect(() => replaceInNote(doc, 'pic', 'x')).toThrow('note link, image, toggle or callout');
+    expect(() => replaceInNote(doc, 'pic', 'x')).toThrow('note link, image, toggle, callout or link preview');
   });
 
   it.each([
@@ -260,7 +260,7 @@ describe('replaceInNote', () => {
       ],
     });
     const before = Y.encodeStateAsUpdate(doc);
-    expect(() => replaceInNote(doc, 'inside', 'x')).toThrow('note link, image, toggle or callout');
+    expect(() => replaceInNote(doc, 'inside', 'x')).toThrow('note link, image, toggle, callout or link preview');
     expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
 
     replaceInNote(doc, 'outside', 'changed');
