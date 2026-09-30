@@ -132,6 +132,28 @@ describe('NotesDriveProvider.makeNotePublic', () => {
 
         expect(mockReUpload.mock.calls[0][1].storageOptions.overwriteFileId).toBe('file-1');
     });
+
+    it('publishes the given link card in the content', async () => {
+        mockGetHeader.mockResolvedValue(ownerHeader());
+
+        await provider.makeNotePublic(NOTE_ID, undefined, { description: 'D' });
+
+        const content = JSON.parse(mockReUpload.mock.calls[0][2].appData.content);
+        expect(content.card.description).toBe('D');
+    });
+
+    it('omits an empty card and carries the owner share fields', async () => {
+        const header = ownerHeader();
+        Object.assign(header.fileMetadata.appData.content, { shareDescription: 'Blurb', shareIndexable: true });
+        mockGetHeader.mockResolvedValue(header);
+
+        await provider.makeNotePublic(NOTE_ID, undefined, {});
+
+        const content = JSON.parse(mockReUpload.mock.calls[0][2].appData.content);
+        expect(content).not.toHaveProperty('card');
+        expect(content.shareDescription).toBe('Blurb');
+        expect(content.shareIndexable).toBe(true);
+    });
 });
 
 describe('NotesDriveProvider.makeNotePrivate', () => {
@@ -155,5 +177,21 @@ describe('NotesDriveProvider.makeNotePrivate', () => {
         expect(metadata.isEncrypted).toBe(true);
         expect(metadata.accessControlList.requiredSecurityGroup).toBe(SecurityGroupType.Owner);
         expect(mockReUpload.mock.calls[0][3]).toBe(true); // encrypt flag
+    });
+
+    it('drops the public link card when going private', async () => {
+        const header = ownerHeader();
+        Object.assign(header.fileMetadata.appData.content, {
+            isPublic: true,
+            shareDescription: 'Blurb',
+            card: { description: 'Blurb' },
+        });
+        mockGetHeader.mockResolvedValue(header);
+
+        await provider.makeNotePrivate(NOTE_ID);
+
+        const content = JSON.parse(mockReUpload.mock.calls[0][2].appData.content);
+        expect(content).not.toHaveProperty('card');
+        expect(content.shareDescription).toBe('Blurb');
     });
 });
