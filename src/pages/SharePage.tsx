@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSharePage } from '@/hooks/useSharePage';
+import { ShareHeader } from '@/components/share/ShareHeader';
+import { ShareFooter } from '@/components/share/ShareFooter';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Markdown, { defaultUrlTransform } from 'react-markdown';
@@ -32,8 +34,10 @@ export default function SharePage() {
 
     if (error || !note || !identity || !noteId) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="text-center space-y-4">
+            <div className="min-h-screen bg-background flex flex-col">
+                <ShareHeader />
+                {/* `m-auto`: centred in the space below the header. */}
+                <div className="m-auto px-4 py-16 text-center space-y-4">
                     <FileText className="h-16 w-16 text-muted-foreground/50 mx-auto" />
                     <h1 className="text-2xl font-semibold">Note Not Found</h1>
                     <p className="text-muted-foreground">
@@ -52,27 +56,9 @@ export default function SharePage() {
 
     return (
         <div className="min-h-screen bg-background">
-            {/* Header */}
-            <header className="border-b bg-muted/30">
-                <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-                    <Link to="/" className="text-lg font-semibold tracking-tight">
-                        Journal
-                    </Link>
-                    <div className="flex items-center gap-2">
-                        {/* Signed out, the app's guard sends the visitor through sign-in and back here. */}
-                        <Button asChild size="sm">
-                            <Link to={`/save-shared?${new URLSearchParams({ identity: decodeURIComponent(identity), file: noteId })}`}>
-                                Save a copy
-                            </Link>
-                        </Button>
-                        <Button asChild variant="outline" size="sm">
-                            <Link to="/">
-                                Open Journal
-                            </Link>
-                        </Button>
-                    </div>
-                </div>
-            </header>
+            <ShareHeader
+                saveHref={`/save-shared?${new URLSearchParams({ identity: decodeURIComponent(identity), file: noteId })}`}
+            />
 
             {/* Content */}
             <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
@@ -157,15 +143,7 @@ export default function SharePage() {
                 </article>
             </main>
 
-            {/* Footer */}
-            <footer className="border-t mt-16">
-                <div className="container max-w-4xl mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
-                    <p>This note was shared via Journal</p>
-                    <p className="mt-1 text-xs text-muted-foreground/70">
-                        Published by {decodeURIComponent(identity)}. Content is the author's own and is not reviewed by Journal.
-                    </p>
-                </div>
-            </footer>
+            <ShareFooter identity={decodeURIComponent(identity)} />
         </div>
     );
 }
