@@ -253,6 +253,38 @@ describe('write tools: conflict-safe upload', () => {
         expect(final).not.toContain('draft');
         expect(final).toContain('Human line');
     });
+
+    // #439: the upload is saved but answered with a conflict, so the retry's refetch already holds the edit.
+    function committedThenConflict(drive: ReturnType<typeof makeDrive>) {
+        const upload = drive.deps.uploadNoteEdit;
+        let calls = 0;
+        drive.deps.uploadNoteEdit = async (id, edit) => {
+            await upload(id, edit);
+            if (++calls === 1) throw new VersionConflictError();
+        };
+    }
+
+    it('replace_in_note succeeds when the conflicting upload had already been saved', async () => {
+        const drive = makeDrive();
+        drive.put('nw', 'Plain paragraph', metadataFor('FW'));
+        committedThenConflict(drive);
+
+        await replaceInNote(drive.deps, { id: 'nw', old_text: 'Plain paragraph', new_text: '> [!info]\n> Plain paragraph' });
+
+        expect(drive.uploads).toHaveLength(1);
+        expect(markdownOf(drive.store.get('nw')!.blob)).toContain('[!info]');
+    });
+
+    it('append_to_note does not append twice when the conflicting upload had already been saved', async () => {
+        const drive = makeDrive();
+        drive.put('nw', 'Original line', metadataFor('FW'));
+        committedThenConflict(drive);
+
+        await appendToNote(drive.deps, { id: 'nw', markdown: 'Agent line' });
+
+        expect(drive.uploads).toHaveLength(1);
+        expect(markdownOf(drive.store.get('nw')!.blob).split('Agent line')).toHaveLength(2);
+    });
 });
 
 describe('write tools: metadata and attribution', () => {
