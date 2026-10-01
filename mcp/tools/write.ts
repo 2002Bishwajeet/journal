@@ -60,6 +60,7 @@ const MAX_ATTEMPTS = 3;
 async function editWithRetry(deps: WriteDeps, id: string, apply: (doc: Y.Doc) => void): Promise<void> {
     const lastEditedBy = agentEditor(deps.clientName());
     const [grants, firstNote] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
+    let sent: { client: number; clock: number } | undefined;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         // Access is re-checked on every fetch: a refetched note may have become excludeFromAI.
@@ -68,7 +69,12 @@ async function editWithRetry(deps: WriteDeps, id: string, apply: (doc: Y.Doc) =>
         if (!note || access === 'none') throw new Error(`Note not found: ${id}`);
         if (access === 'read') throw new Error(`Note is read-only for agents: ${id}`);
 
+        // A conflicting upload can still have been saved (#439). If the refetched doc already
+        // holds its ops, the edit is in: re-applying it would duplicate it or fail on it.
+        if (sent && Y.getState(note.doc.store, sent.client) >= sent.clock) return;
+
         apply(note.doc);
+        sent = { client: note.doc.clientID, clock: Y.getState(note.doc.store, note.doc.clientID) };
         try {
             await deps.uploadNoteEdit(id, {
                 fileId: note.fileId,
