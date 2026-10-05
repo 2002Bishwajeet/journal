@@ -21,7 +21,7 @@ test('tags and folders sections collapse and stay collapsed after reload', async
   for (const scheme of ['light', 'dark'] as const) {
     await app.emulateMedia({ colorScheme: scheme });
     await expect(tagsNav).toBeVisible();
-    await sidebar.screenshot({ path: test.info().outputPath(`sidebar-tags-expanded-${scheme}-desktop.png`) });
+    await sidebar.screenshot({ path: test.info().outputPath(`sidebar-tags-expanded-${scheme}-desktop.png`), animations: 'disabled' });
   }
 
   await tagsNav.getByRole('button', { name: 'work' }).click();
@@ -40,7 +40,7 @@ test('tags and folders sections collapse and stay collapsed after reload', async
 
   for (const scheme of ['light', 'dark'] as const) {
     await app.emulateMedia({ colorScheme: scheme });
-    await sidebar.screenshot({ path: test.info().outputPath(`sidebar-tags-collapsed-${scheme}-desktop.png`) });
+    await sidebar.screenshot({ path: test.info().outputPath(`sidebar-tags-collapsed-${scheme}-desktop.png`), animations: 'disabled' });
   }
 
   await app.reload();
@@ -48,6 +48,8 @@ test('tags and folders sections collapse and stay collapsed after reload', async
   await expect(sidebar.getByRole('navigation', { name: 'Tags' })).toBeHidden();
   await expect(sidebar.getByRole('navigation', { name: 'Folders' })).toBeHidden();
 
-  await sidebar.getByRole('button', { name: /^Tags/ }).click();
+  // Enter also toggles.
+  await sidebar.getByRole('button', { name: /^Tags/ }).focus();
+  await app.keyboard.press('Enter');
   await expect(sidebar.getByRole('navigation', { name: 'Tags' }).getByRole('button', { name: 'work' })).toBeVisible();
 });
