@@ -208,6 +208,15 @@ describe('forceReencode', () => {
     expect(planImageIngest({ ...small, type: 'image/webp', forceReencode: true }).action).toBe('reencode');
   });
 
+  it('re-encodes other image types (AVIF, TIFF, BMP) to JPEG only when forced', () => {
+    for (const type of ['image/avif', 'image/tiff', 'image/bmp']) {
+      const input = { type, size: 1024, width: 800, height: 600 };
+      expect(planImageIngest(input).action).toBe('keep');
+      expect(planImageIngest({ ...input, forceReencode: true })).toMatchObject({ action: 'reencode', outType: 'image/jpeg' });
+    }
+    expect(planImageIngest({ type: 'image/gif', size: 1, width: 1, height: 1, forceReencode: true }).action).toBe('keep');
+  });
+
   it('still passes GIFs through when forced', async () => {
     const file = new File([new Uint8Array([1])], 'a.gif', { type: 'image/gif' });
     expect(await prepareImageForUpload(file, { forceReencode: true })).toBe(file);

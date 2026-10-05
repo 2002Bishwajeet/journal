@@ -51,6 +51,11 @@ export function planImageIngest({ type, size, width, height, forceReencode }: Im
         return { action, outType: 'image/png', maxEdge: MAX_EDGE, quality: QUALITY };
     }
 
+    // Covers go out publicly: AVIF/TIFF/BMP etc. can carry EXIF too, so re-encode them.
+    if (forceReencode && type !== 'image/gif') {
+        return { action: 'reencode', outType: 'image/jpeg', maxEdge: MAX_EDGE, quality: QUALITY };
+    }
+
     // image/gif (preserve animation) and anything else: leave untouched.
     return { action: 'keep', outType: 'image/png', maxEdge: MAX_EDGE, quality: QUALITY };
 }
