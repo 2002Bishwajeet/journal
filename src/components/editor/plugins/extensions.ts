@@ -38,6 +38,16 @@ export { FileHandler } from './FileHandler';
 // Initialize lowlight for code syntax highlighting
 import { common } from 'lowlight';
 const lowlight = createLowlight(common);
+
+// GFM has no headerless table, so an all-empty header line means "no header row" (#446).
+const baseTableParseMarkdown = Table.config.parseMarkdown;
+const HeaderlessAwareTable = Table.extend({
+    parseMarkdown: (token, helpers) => {
+        const header = token.header as { text?: string }[] | undefined;
+        const emptyHeader = !!header && header.every((cell) => !cell.text?.trim());
+        return baseTableParseMarkdown!(emptyHeader ? { ...token, header: undefined } : token, helpers);
+    },
+});
 // A `react` live block's code is JSX, which the javascript grammar highlights (#426).
 lowlight.registerAlias({ javascript: ['react'] });
 
@@ -347,7 +357,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
             lowlight,
         }),
 
-        Table.configure({
+        HeaderlessAwareTable.configure({
             resizable: true,
             lastColumnResizable: true,
         }),

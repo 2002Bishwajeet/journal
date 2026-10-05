@@ -51,6 +51,21 @@ export function rehypeLowlight() {
     };
 }
 
+/** Drops a `<thead>` whose cells are all empty: GFM's stand-in for "no header row" (#446). */
+export function rehypeDropEmptyThead() {
+    return (tree: Root) => {
+        const walk = (parent: Root | Element) => {
+            parent.children = parent.children.filter((child) => {
+                if (child.type !== 'element') return true;
+                if (child.tagName === 'thead' && textOf(child).trim() === '') return false;
+                walk(child);
+                return true;
+            });
+        };
+        walk(tree);
+    };
+}
+
 export const shareRemarkPlugins: Options['remarkPlugins'] = [remarkGfm, remarkMath];
 
 // Order: parse raw HTML -> sanitize -> highlight code -> render math. Highlighting
@@ -58,6 +73,7 @@ export const shareRemarkPlugins: Options['remarkPlugins'] = [remarkGfm, remarkMa
 export const shareRehypePlugins: Options['rehypePlugins'] = [
     rehypeRaw,
     [rehypeSanitize, sanitizeSchema],
+    rehypeDropEmptyThead,
     rehypeLowlight,
     rehypeKatex,
 ];
