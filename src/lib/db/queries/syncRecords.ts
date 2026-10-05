@@ -1,3 +1,4 @@
+import type { Transaction } from '@electric-sql/pglite';
 import { getDatabase } from '../pglite';
 import type { SyncRecord } from '@/types';
 import { clearNoteListEntryCache } from './noteList';
@@ -170,8 +171,8 @@ export async function recordNoteRekey(localId: string, previousVersionTag: strin
     );
 }
 
-export async function updateSyncStatus(localId: string, status: SyncRecord['syncStatus']): Promise<void> {
-    const db = await getDatabase();
+export async function updateSyncStatus(localId: string, status: SyncRecord['syncStatus'], tx?: Transaction): Promise<void> {
+    const db = tx ?? await getDatabase();
     // Every write that sets 'pending' bumps dirty_generation so a concurrent push's
     // markSynced (which snapshotted the old generation) cannot clobber it.
     await db.query(

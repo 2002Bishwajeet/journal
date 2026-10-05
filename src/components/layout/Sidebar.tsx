@@ -54,8 +54,11 @@ interface SidebarProps {
   onSettings: () => void;
   onLogout: () => void;
   tags?: string[];
+  /** Number of notes (trashed and archived included) carrying each tag. */
+  tagCounts?: Record<string, number>;
   selectedTag?: string | null;
   onSelectTag?: (tag: string | null) => void;
+  onDeleteTag?: (tag: string) => void;
   className?: string;
 }
 
@@ -76,12 +79,16 @@ export default function Sidebar({
   onSelectArchive,
   archivedCount,
   tags,
+  tagCounts,
   selectedTag,
   onSelectTag,
+  onDeleteTag,
   className = "",
 }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+  const [tagToDelete, setTagToDelete] = useState<string | null>(null);
+  const tagToDeleteCount = tagToDelete ? tagCounts?.[tagToDelete] ?? 0 : 0;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { sync, pendingCount } = useSyncService();
 
@@ -316,18 +323,33 @@ export default function Sidebar({
                 </div>
                 <nav aria-label="Tags" className="space-y-0.5">
                   {tags.map(tag => (
-                    <Button
-                      key={tag}
-                      variant={selectedTag === tag ? "secondary" : "ghost"}
-                      className={cn(
-                        "w-full h-8 justify-start px-2 text-sm",
-                        selectedTag === tag && "bg-accent text-accent-foreground font-medium"
-                      )}
-                      onClick={() => onSelectTag?.(selectedTag === tag ? null : tag)}
-                    >
-                      <Hash className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-                      <span className="truncate">{tag}</span>
-                    </Button>
+                    <ContextMenu key={tag}>
+                      <ContextMenuTrigger asChild>
+                        <Button
+                          variant={selectedTag === tag ? "secondary" : "ghost"}
+                          className={cn(
+                            "w-full h-8 justify-start px-2 text-sm",
+                            selectedTag === tag && "bg-accent text-accent-foreground font-medium"
+                          )}
+                          onClick={() => onSelectTag?.(selectedTag === tag ? null : tag)}
+                        >
+                          <Hash className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                          <span className="truncate">{tag}</span>
+                        </Button>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent>
+                        <ContextMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTagToDelete(tag);
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete tag
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
                   ))}
                 </nav>
               </div>
@@ -346,6 +368,21 @@ export default function Sidebar({
           }}
           title="Delete Folder?"
           description="Are you sure you want to delete this folder? All notes in this folder will also be permanently deleted. This action cannot be undone."
+          confirmText="Delete"
+        />
+
+        <ConfirmDialog
+          isOpen={!!tagToDelete}
+          onClose={() => setTagToDelete(null)}
+          onConfirm={() => {
+            if (!tagToDelete) return;
+            if (selectedTag === tagToDelete) onSelectTag?.(null);
+            onDeleteTag?.(tagToDelete);
+          }}
+          title="Delete tag?"
+          description={tagToDelete
+            ? `Remove #${tagToDelete} from ${tagToDeleteCount} ${tagToDeleteCount === 1 ? "note" : "notes"}? The notes themselves are kept.`
+            : ""}
           confirmText="Delete"
         />
 
