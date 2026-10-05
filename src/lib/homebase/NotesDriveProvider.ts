@@ -6,6 +6,7 @@ import {
     getFileHeader,
     getFileHeaderByUniqueId,
     getPayloadBytes,
+    getThumbBytes,
     getContentFromHeaderOrPayload,
     SecurityGroupType,
     type AccessControlList,
@@ -17,7 +18,6 @@ import {
     type PayloadFile,
     type ThumbnailFile,
     type EncryptedKeyHeader,
-    reUploadFile,
 } from '@homebase-id/js-lib/core';
 import {
     getFileHeaderOverPeerByUniqueId,
@@ -597,7 +597,8 @@ export class NotesDriveProvider {
                 storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: existingHeader.fileId },
                 transferIv: getRandom16ByteArray(),
             };
-            result = await reUploadFile(this.#dotYouClient, instructions, uploadMetadata, isEncrypted);
+            const { payloads, thumbnails } = await this.#readAllPayloads(existingHeader);
+            result = await uploadFile(this.#dotYouClient, instructions, uploadMetadata, payloads, thumbnails, isEncrypted);
         } else {
             // Header-only patch — never changes payload encryption.
             const instructions: UpdateInstructionSet = {
@@ -620,6 +621,27 @@ export class NotesDriveProvider {
         }
 
         return { versionTag: result.newVersionTag, previousVersionTag: versionTag };
+    }
+
+    /**
+     * Read every payload and thumbnail of a note, for a full re-upload. Not the SDK's
+     * reUploadFile: it reads them without lastModified, the only cache-buster on these
+     * GETs, and Homebase serves them with a year-long max-age. The browser could then
+     * hand back a stale jrnl_txt and the re-upload would overwrite newer edits (#451).
+     */
+    async #readAllPayloads(header: HomebaseFile<NoteFileContent>): Promise<{ payloads: PayloadFile[]; thumbnails: ThumbnailFile[] }> {
+        const payloads: PayloadFile[] = [];
+        const thumbnails: ThumbnailFile[] = [];
+        for (const { key, contentType, lastModified, thumbnails: thumbs } of header.fileMetadata.payloads ?? []) {
+            const data = await getPayloadBytes(this.#dotYouClient, JOURNAL_DRIVE, header.fileId, key, { decrypt: true, lastModified });
+            if (!data) continue;
+            payloads.push({ key, payload: new Blob([new Uint8Array(data.bytes)], { type: contentType }) });
+            for (const { pixelWidth, pixelHeight, contentType: thumbType } of thumbs ?? []) {
+                const thumb = await getThumbBytes(this.#dotYouClient, JOURNAL_DRIVE, header.fileId, key, pixelWidth, pixelHeight, { lastModified });
+                if (thumb) thumbnails.push({ key, payload: new Blob([new Uint8Array(thumb.bytes)], { type: thumbType }), pixelWidth, pixelHeight });
+            }
+        }
+        return { payloads, thumbnails };
     }
 
     /**

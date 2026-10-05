@@ -15,7 +15,9 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
         ...actual,
         getFileHeaderByUniqueId: mockGetHeader,
         getFileHeader: mockGetHeaderByFileId,
-        reUploadFile: mockReUpload,
+        // Make public/private re-upload via uploadFile (#451); keep reUploadFile's
+        // (client, instructions, metadata, encrypt) shape for the assertions below.
+        uploadFile: (...args: unknown[]) => mockReUpload(args[0], args[1], args[2], args[5]),
     };
 });
 

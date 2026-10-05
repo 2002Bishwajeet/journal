@@ -16,9 +16,14 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
     return {
         ...actual,
         getFileHeaderByUniqueId: mockGetHeader,
-        reUploadFile: mockReUpload,
         patchFile: mockPatchFile,
-        uploadFile: mockUploadFile,
+        // A note re-upload (make public/private, #451) overwrites the note's file; route it
+        // to mockReUpload in reUploadFile's (client, instructions, metadata, encrypt) shape.
+        // Invitation uploads create a new file and stay on mockUploadFile.
+        uploadFile: (...args: unknown[]) =>
+            (args[1] as { storageOptions?: { overwriteFileId?: string } }).storageOptions?.overwriteFileId
+                ? mockReUpload(args[0], args[1], args[2], args[5])
+                : mockUploadFile(...args),
         deleteFile: mockDeleteFile,
     };
 });
