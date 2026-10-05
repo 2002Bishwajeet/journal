@@ -1,9 +1,13 @@
 name: Build and Deploy (Netlify)
 
+# Production only: called by manual-release.yml with the version it just tagged.
 on:
-  workflow_dispatch:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      version:
+        description: "Released version without the v; deploys tag v<version>"
+        required: true
+        type: string
 
 jobs:
   deploy:
@@ -14,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
@@ -38,7 +44,7 @@ jobs:
         run: npm install --global netlify-cli@17.36.1
 
       - name: Deploy to Netlify
-        run: netlify deploy --dir=dist --prod --build false --message "GitHub Actions deploy ${{ github.sha }}"
+        run: netlify deploy --dir=dist --prod --build false --message "GitHub Actions deploy v${{ inputs.version }}"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
