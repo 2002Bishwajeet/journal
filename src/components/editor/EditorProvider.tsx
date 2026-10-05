@@ -15,6 +15,7 @@ import { PGliteProvider } from "@/lib/yjs";
 import { flushPendingSaveOnTeardown } from "@/lib/yjs/flushPendingSave";
 import { upsertSearchIndex, savePendingImageUpload, savePendingImageDeletion, updateSyncStatus } from "@/lib/db";
 import { getNewId } from "@/lib/utils";
+import { prepareImageForUpload, UnsupportedImageError } from "@/lib/images/imageIngest";
 import { formatGuidId } from "@homebase-id/js-lib/helpers";
 import {
   COVER_MAP,
@@ -230,13 +231,24 @@ export function EditorProvider({
     if (!file.type.startsWith("image/")) {
       throw new Error(`Unsupported file type: ${file.type}`);
     }
-    if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+    // Covers are served anonymously on public notes: strip EXIF (GPS) before anything is queued.
+    let processed: File;
+    try {
+      processed = await prepareImageForUpload(file, { forceReencode: true });
+    } catch (error) {
+      if (error instanceof UnsupportedImageError) {
+        throw new Error("This browser can't read HEIC images — export the photo as JPEG", { cause: error });
+      }
+      console.error("[EditorProvider] Failed to process cover image:", error);
+      throw new Error("Failed to process image", { cause: error });
+    }
+    if (processed.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
       throw new Error(`File too large. Maximum size is ${MAX_IMAGE_SIZE_MB}MB`);
     }
     const pendingId = formatGuidId(getNewId());
     await queueOldCoverDeletion();
-    setCover(yDoc, { src: URL.createObjectURL(file), pendingId, positionY: 50 });
-    await handleImageDrop(file, pendingId);
+    setCover(yDoc, { src: URL.createObjectURL(processed), pendingId, positionY: 50 });
+    await handleImageDrop(processed, pendingId);
   };
 
   // Cover edits aren't editor transactions, so mark the note pending here

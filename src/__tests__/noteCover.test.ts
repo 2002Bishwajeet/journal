@@ -13,6 +13,11 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 import type { DocumentMetadata, SyncRecord } from '@/types';
 
+// happy-dom has no createImageBitmap/canvas; ingest itself is covered by coverExifStrip.test.ts.
+vi.mock('@/lib/images/imageIngest', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/lib/images/imageIngest')>()),
+    prepareImageForUpload: async (file: File) => file,
+}));
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
 

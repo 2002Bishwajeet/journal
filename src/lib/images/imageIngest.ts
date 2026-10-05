@@ -21,6 +21,8 @@ export interface ImageIngestInput {
     size: number;
     width: number;
     height: number;
+    /** Re-encode PNG/WebP even when small, to strip EXIF (used for public-facing covers). */
+    forceReencode?: boolean;
 }
 
 export interface ImageIngestPlan {
@@ -36,7 +38,7 @@ export const QUALITY = 0.85;
 const PNG_WEBP_REENCODE_THRESHOLD_BYTES = 2 * 1024 * 1024;
 
 /** Pure — no DOM APIs, so it needs no mocking to test. */
-export function planImageIngest({ type, size, width, height }: ImageIngestInput): ImageIngestPlan {
+export function planImageIngest({ type, size, width, height, forceReencode }: ImageIngestInput): ImageIngestPlan {
     if (type === 'image/jpeg' || type === 'image/heic' || type === 'image/heif') {
         // Always re-encoded, even when already small, to strip EXIF (GPS, device).
         return { action: 'reencode', outType: 'image/jpeg', maxEdge: MAX_EDGE, quality: QUALITY };
@@ -44,9 +46,14 @@ export function planImageIngest({ type, size, width, height }: ImageIngestInput)
 
     if (type === 'image/png' || type === 'image/webp') {
         const longEdge = Math.max(width, height);
-        const action = longEdge > MAX_EDGE || size > PNG_WEBP_REENCODE_THRESHOLD_BYTES ? 'reencode' : 'keep';
+        const action = forceReencode || longEdge > MAX_EDGE || size > PNG_WEBP_REENCODE_THRESHOLD_BYTES ? 'reencode' : 'keep';
         // Not WebP: Safari's canvas.toBlob('image/webp') silently returns PNG.
         return { action, outType: 'image/png', maxEdge: MAX_EDGE, quality: QUALITY };
+    }
+
+    // Covers go out publicly: AVIF/TIFF/BMP etc. can carry EXIF too, so re-encode them.
+    if (forceReencode && type !== 'image/gif') {
+        return { action: 'reencode', outType: 'image/jpeg', maxEdge: MAX_EDGE, quality: QUALITY };
     }
 
     // image/gif (preserve animation) and anything else: leave untouched.
@@ -105,8 +112,9 @@ async function encodeToBlob(
  * Downscales, re-orients and strips EXIF from `file`. GIFs pass through untouched
  * (animation). Small PNG/WebP pass through untouched. Everything else is decoded
  * with orientation baked in and re-encoded, which drops the remaining EXIF.
+ * `forceReencode` also re-encodes small PNG/WebP so their EXIF is stripped too.
  */
-export async function prepareImageForUpload(file: File): Promise<File> {
+export async function prepareImageForUpload(file: File, { forceReencode = false } = {}): Promise<File> {
     if (file.type === 'image/gif') return file;
 
     let bitmap: ImageBitmap;
@@ -125,6 +133,7 @@ export async function prepareImageForUpload(file: File): Promise<File> {
             size: file.size,
             width: bitmap.width,
             height: bitmap.height,
+            forceReencode,
         });
 
         if (plan.action === 'keep') return file;
