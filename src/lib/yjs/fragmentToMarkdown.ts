@@ -154,7 +154,13 @@ export function fragmentToMarkdown(xmlFragment: Y.XmlFragment): string {
       '| ' + cellsOf(row).map((c) => escapeCell(serializeInline(c).replace(/\s*\n\s*/g, ' ')).trim()).join(' | ') + ' |';
     const cols = cellsOf(rows[0]).length || 1;
     const separator = '| ' + Array.from({ length: cols }, () => '---').join(' | ') + ' |';
-    return [renderRow(rows[0]), separator, ...rows.slice(1).map(renderRow)].join('\n') + '\n\n';
+    // GFM needs a header line: a table with no header row gets an empty one (#446).
+    const hasHeader = cellsOf(rows[0]).some((c) => c.nodeName === 'tableHeader');
+    const emptyHeader = '| ' + Array.from({ length: cols }, () => '').join(' | ') + ' |';
+    return (hasHeader
+      ? [renderRow(rows[0]), separator, ...rows.slice(1).map(renderRow)]
+      : [emptyHeader, separator, ...rows.map(renderRow)]
+    ).join('\n') + '\n\n';
   }
 
   function serializeChildren(node: Y.XmlElement, depth: number): string {

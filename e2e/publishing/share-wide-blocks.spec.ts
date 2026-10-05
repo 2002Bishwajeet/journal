@@ -93,6 +93,14 @@ const table = (rows: string[][]) =>
     rows.map((cells, r) => element('tableRow', cells.map((cell) => element(r === 0 ? 'tableHeader' : 'tableCell', [paragraph(cell)])))),
   );
 
+// A table with no header row (#446): every cell is a tableCell.
+const KEY_VALUE_TABLE = [
+  ['Topic', 'Thesis plan'],
+  ['Status', 'Drafting'],
+];
+const headerlessTable = (rows: string[][]) =>
+  element('table', rows.map((cells) => element('tableRow', cells.map((cell) => element('tableCell', [paragraph(cell)])))));
+
 function noteContent(): Buffer {
   const doc = new Y.Doc();
   doc.getXmlFragment('prosemirror').push([
@@ -102,6 +110,7 @@ function noteContent(): Buffer {
     codeBlock('', LONG_CODE),
     table(SMALL_TABLE),
     table(WIDE_TABLE),
+    headerlessTable(KEY_VALUE_TABLE),
     codeBlock('mermaid', MERMAID),
     codeBlock('svg', SVG),
     codeBlock('html', HTML),
@@ -261,6 +270,15 @@ for (const theme of THEMES) {
     await shoot(anonPage, `share-wide-blocks-${theme}-390.png`);
   });
 }
+
+test('share page: a table with no header row shows no blank row on top (#446)', async ({ anonPage }) => {
+  await anonPage.setViewportSize(VIEWPORTS.desktop);
+  const article = await openNote(anonPage);
+  const table = article.getByRole('table').nth(2);
+  await expect(table.getByRole('cell', { name: 'Thesis plan' })).toBeVisible();
+  await expect(table.locator('thead')).toHaveCount(0);
+  await expect(table.getByRole('row').first()).toContainText('Topic');
+});
 
 test('share page: Copy puts a code block’s exact text on the clipboard', async ({ anonPage }) => {
   await anonPage.context().grantPermissions(['clipboard-read', 'clipboard-write']);

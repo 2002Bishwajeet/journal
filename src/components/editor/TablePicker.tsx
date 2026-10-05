@@ -19,7 +19,7 @@ export function TablePicker({ editor }: TablePickerProps) {
 
   const insertTable = (rows: number, cols: number) => {
     safeEditorCommand(editor, () => {
-      editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
+      editor.chain().focus().insertTable({ rows, cols, withHeaderRow: false }).run();
     });
     setOpen(false);
     setHoveredCell(null);
