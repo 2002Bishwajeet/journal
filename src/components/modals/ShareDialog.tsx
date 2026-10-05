@@ -83,7 +83,12 @@ export default function ShareDialog({
         try {
             const provider = new NotesDriveProvider(dotYouClient);
             // Pass the synced fileId: a just-created note's uniqueId lookup can 404 (#293)
-            const record = await getSyncRecord(noteId);
+            let record = await getSyncRecord(noteId);
+            // A note shared within its debounced save window isn't on the server yet: push it first.
+            if (!record?.remoteFileId) {
+                await syncNote(noteId);
+                record = await getSyncRecord(noteId);
+            }
             const updates = await getDocumentUpdates(noteId);
             const blob = updates.length > 0 ? Y.mergeUpdates(updates) : undefined;
             const metadata = get.data?.find((n) => n.docId === noteId)?.metadata;
