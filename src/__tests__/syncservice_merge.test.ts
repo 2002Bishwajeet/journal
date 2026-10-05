@@ -6,21 +6,25 @@ import {
     getSearchIndexEntry, upsertSearchIndex,
 } from '@/lib/db/queries';
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
+import { computeContentHash } from '@/lib/utils/hash';
+import { setCover, getCoverFromBlob } from '@/lib/editor/cover';
 import * as Y from 'yjs';
 
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
 
-const { mockGetNote, mockGetNotePayload, mockDsr } = vi.hoisted(() => ({
+const { mockGetNote, mockGetNotePayload, mockDsr, mockUpdateNote } = vi.hoisted(() => ({
     mockGetNote: vi.fn(),
     mockGetNotePayload: vi.fn(),
     mockDsr: vi.fn(),
+    mockUpdateNote: vi.fn(),
 }));
 vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
     NotesDriveProvider: class NotesDriveProvider {
         getNote = mockGetNote;
         getNotePayload = mockGetNotePayload;
         dsrToContent = mockDsr;
+        updateNote = mockUpdateNote;
         constructor() {}
     },
 }));
@@ -174,6 +178,111 @@ describe('SyncService.handleRemoteNote', () => {
         const record = await getSyncRecord(DOC_ID);
         expect(record?.versionTag).toBe('v2');
         expect(broadcastSpy).toHaveBeenCalledWith(DOC_ID);
+    });
+});
+
+/** Apply `edit` to a doc holding `base`, as a separate client, and return the full state. */
+function editedFrom(base: Uint8Array, edit: (d: Y.Doc) => void): Uint8Array {
+    const d = new Y.Doc();
+    Y.applyUpdate(d, base);
+    edit(d);
+    const u = Y.encodeStateAsUpdate(d);
+    d.destroy();
+    return u;
+}
+
+const COVER = { src: 'attachment://remote-file-1/jrnl_img0', positionY: 50 };
+const LOCAL_META = { title: 'T', folderId: 'main', excludeFromAI: false, timestamps: { created: '2020-01-01T00:00:00.000Z', modified: '2020-01-01T00:00:00.000Z' } };
+
+describe('SyncService.handleRemoteNote with unpushed local edits (#442)', () => {
+    let svc: SyncService;
+
+    beforeEach(async () => {
+        await resetTestDatabase();
+        vi.clearAllMocks();
+        vi.spyOn(documentBroadcast, 'notifyDocumentUpdated').mockImplementation(() => {});
+        svc = new SyncService(dotYouClient, fakeOnline);
+        mockDsr.mockResolvedValue({ title: 'T', tags: [] });
+        mockUpdateNote.mockResolvedValue({ versionTag: 'v3' });
+    });
+
+    async function seedLocal(blob: Uint8Array, syncStatus: 'pending' | 'synced') {
+        await saveDocumentUpdate(DOC_ID, blob);
+        await upsertSearchIndex({ docId: DOC_ID, title: 'T', plainTextContent: '', metadata: LOCAL_META });
+        await upsertSyncRecord({
+            localId: DOC_ID, entityType: 'note', remoteFileId: 'remote-file-1', versionTag: 'v1',
+            lastSyncedAt: new Date().toISOString(), syncStatus, authorOdinId: FRODO,
+        });
+    }
+
+    async function hashOfLocalState(): Promise<string> {
+        const [merged] = await getDocumentUpdates(DOC_ID);
+        const idx = await getSearchIndexEntry(DOC_ID);
+        return computeContentHash(idx!.metadata, merged);
+    }
+
+    it('keeps a pending local cover pending through a pull of a cover-less remote edit, and the next push uploads it', async () => {
+        const base = textUpdate('base');
+        await seedLocal(editedFrom(base, d => setCover(d, COVER)), 'pending');
+        // An agent edit lands on the server before this device pushed the cover
+        mockGetNotePayload.mockResolvedValue(editedFrom(base, d => d.getText('body').insert(4, ' agent')));
+
+        await svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v2' }));
+
+        const record = await getSyncRecord(DOC_ID);
+        expect(record?.syncStatus).toBe('pending');
+        expect(record?.versionTag).toBe('v2');
+        // The stored hash is the server's state, not the merged local one, so the push can't skip it
+        expect(record?.contentHash).not.toBe(await hashOfLocalState());
+
+        await svc.pushNote(record!);
+
+        expect(mockUpdateNote).toHaveBeenCalledTimes(1);
+        const pushedBlob = mockUpdateNote.mock.calls[0][6] as Uint8Array;
+        expect(getCoverFromBlob(pushedBlob)).toEqual(COVER);
+        expect(bodyOf(pushedBlob)).toBe('base agent');
+        expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('synced');
+    });
+
+    it('marks a note pending when local holds a text edit the server lacks, even if the record says synced', async () => {
+        const base = textUpdate('base');
+        await seedLocal(editedFrom(base, d => d.getText('body').insert(0, 'local ')), 'synced');
+        mockGetNotePayload.mockResolvedValue(editedFrom(base, d => d.getText('body').insert(4, ' agent')));
+
+        await svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v2' }));
+
+        const record = await getSyncRecord(DOC_ID);
+        expect(record?.syncStatus).toBe('pending');
+
+        await svc.pushNote(record!);
+
+        expect(mockUpdateNote).toHaveBeenCalledTimes(1);
+        expect(bodyOf(mockUpdateNote.mock.calls[0][6] as Uint8Array)).toBe('local base agent');
+    });
+
+    it('marks a note pending when local holds a delete the server lacks', async () => {
+        const base = textUpdate('base text');
+        await seedLocal(editedFrom(base, d => d.getText('body').delete(4, 5)), 'synced');
+        mockGetNotePayload.mockResolvedValue(base);
+
+        await svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v2' }));
+
+        expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('pending');
+    });
+
+    it('marks a synced note synced when the server already has everything local has, deletes included', async () => {
+        const base = textUpdate('base text');
+        await seedLocal(base, 'synced');
+        const remote = editedFrom(base, d => d.getText('body').delete(4, 5));
+        mockGetNotePayload.mockResolvedValue(remote);
+
+        await svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v2' }));
+
+        const record = await getSyncRecord(DOC_ID);
+        expect(record?.syncStatus).toBe('synced');
+        const idx = await getSearchIndexEntry(DOC_ID);
+        expect(record?.contentHash).toBe(await computeContentHash(idx!.metadata, remote));
+        expect(bodyOf((await getDocumentUpdates(DOC_ID))[0])).toBe('base');
     });
 });
 

@@ -12,6 +12,7 @@ import {
     getSyncRecord,
     upsertSyncRecord,
     markSynced,
+    updateSyncStatus,
     deleteSyncRecord,
     getAppState,
     resolveSyncErrorsForEntity,
@@ -28,7 +29,7 @@ import { documentBroadcast } from '@/lib/broadcast';
 import { suspendLiveQueries } from '@/hooks/useLiveQuery';
 import type { SyncService } from '../SyncService';
 import type { SyncContext } from './context';
-import { mergeYjsDocuments, resolveNoteFolderId } from './merge';
+import { hasChangesMissingFrom, mergeYjsDocuments, resolveNoteFolderId } from './merge';
 
 /** The part of a deleted file the handleDeleted* methods read; websocket headers satisfy it too. */
 export type DeletedFileRef = { fileMetadata: { appData: { uniqueId?: string } } };
@@ -357,7 +358,12 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             lastEditedBy: content?.lastEditedBy,
         };
 
-        const contentHash = mergedBlob ? await computeContentHash(updatedMetadata, mergedBlob) : undefined;
+        // Hash what the server holds, not the merged state: a merge that kept unpushed
+        // local edits must not match the push's hash early-exit (#442).
+        const contentHash = remoteBlob ? await computeContentHash(updatedMetadata, remoteBlob) : undefined;
+        // Local edits the server lacks keep the note pending so the next push uploads them.
+        const localAhead = existingRecord.syncStatus !== 'synced'
+            || (!!mergedBlob && !!remoteBlob && hasChangesMissingFrom(mergedBlob, remoteBlob));
 
         await upsertSearchIndex({
             docId: uniqueId,
@@ -365,7 +371,11 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             plainTextContent,
             metadata: updatedMetadata
         });
-        await markSynced(uniqueId, remoteFile.fileId, remoteFile.fileMetadata.versionTag, contentHash, serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader), authorOdinId, remoteFile.fileMetadata.globalTransitId);
+        // Setting 'pending' bumps dirty_generation, so the guarded markSynced below records
+        // the new versionTag/hash but leaves the status alone. Otherwise the guard still
+        // keeps an edit made during this pull pending.
+        if (localAhead) await updateSyncStatus(uniqueId, 'pending');
+        await markSynced(uniqueId, remoteFile.fileId, remoteFile.fileMetadata.versionTag, contentHash, serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader), authorOdinId, remoteFile.fileMetadata.globalTransitId, existingRecord.dirtyGeneration ?? 0);
     }
 }
 
