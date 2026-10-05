@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { useSidebarCollapse } from "@/hooks/useSidebarCollapse";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CalendarDays,
@@ -59,6 +61,14 @@ interface SidebarProps {
   className?: string;
 }
 
+function SectionChevron({ collapsed }: { collapsed: boolean }) {
+  return (
+    <ChevronDown
+      className={cn("h-3 w-3 shrink-0 transition-transform", collapsed && "-rotate-90")}
+    />
+  );
+}
+
 export default function Sidebar({
   folders,
   selectedFolderId,
@@ -80,7 +90,8 @@ export default function Sidebar({
   onSelectTag,
   className = "",
 }: SidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { collapsed, toggle } = useSidebarCollapse();
+  const isCollapsed = collapsed.sidebar;
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { sync, pendingCount } = useSyncService();
@@ -124,7 +135,7 @@ export default function Sidebar({
                 size="icon"
                 aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 className={cn("h-7 w-7", isCollapsed ? "flex" : "md:flex")}
-                onClick={() => setIsCollapsed(!isCollapsed)}
+                onClick={() => toggle("sidebar")}
               >
                 {isCollapsed ? (
                   <ChevronRight className="h-4 w-4" />
@@ -226,9 +237,16 @@ export default function Sidebar({
               )}
             >
               {!isCollapsed && (
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                  aria-expanded={!collapsed.folders}
+                  aria-controls="sidebar-folders"
+                  onClick={() => toggle("folders")}
+                >
+                  <SectionChevron collapsed={collapsed.folders} />
                   Folders
-                </span>
+                </button>
               )}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -246,7 +264,12 @@ export default function Sidebar({
               </Tooltip>
             </div>
 
-            <nav aria-label="Folders" className="space-y-0.5">
+            <nav
+              id="sidebar-folders"
+              aria-label="Folders"
+              hidden={!isCollapsed && collapsed.folders}
+              className="space-y-0.5"
+            >
               {folders.map((folder) => {
                 const isSelected = selectedFolderId === folder.id;
                 return (
@@ -310,11 +333,25 @@ export default function Sidebar({
               <Separator className="my-2" />
               <div className="px-2 py-2">
                 <div className="flex items-center justify-between px-2 mb-1">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Tags
-                  </span>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 min-w-0 text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                    aria-expanded={!collapsed.tags}
+                    aria-controls="sidebar-tags"
+                    onClick={() => toggle("tags")}
+                  >
+                    <SectionChevron collapsed={collapsed.tags} />
+                    <span className="truncate">
+                      Tags{collapsed.tags && selectedTag ? ` · #${selectedTag}` : ""}
+                    </span>
+                  </button>
                 </div>
-                <nav aria-label="Tags" className="space-y-0.5">
+                <nav
+                  id="sidebar-tags"
+                  aria-label="Tags"
+                  hidden={collapsed.tags}
+                  className="space-y-0.5"
+                >
                   {tags.map(tag => (
                     <Button
                       key={tag}
