@@ -51,13 +51,22 @@ export function rehypeLowlight() {
     };
 }
 
+const PLAIN_TABLE_TAGS = new Set(['thead', 'tr', 'th', 'td']);
+
+/** True when the node has no text and nothing but plain table wrappers (an image or link still counts as content). */
+function isEmptyHead(node: ElementContent): boolean {
+    if (node.type === 'text') return node.value.trim() === '';
+    if (node.type !== 'element') return true;
+    return PLAIN_TABLE_TAGS.has(node.tagName) && node.children.every(isEmptyHead);
+}
+
 /** Drops a `<thead>` whose cells are all empty: GFM's stand-in for "no header row" (#446). */
 export function rehypeDropEmptyThead() {
     return (tree: Root) => {
         const walk = (parent: Root | Element) => {
             parent.children = parent.children.filter((child) => {
                 if (child.type !== 'element') return true;
-                if (child.tagName === 'thead' && textOf(child).trim() === '') return false;
+                if (child.tagName === 'thead' && isEmptyHead(child)) return false;
                 walk(child);
                 return true;
             });

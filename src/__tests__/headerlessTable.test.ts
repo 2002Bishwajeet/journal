@@ -45,4 +45,11 @@ describe('headerless tables', () => {
     expect(html).not.toContain('<thead');
     expect(render('| A | B |\n| --- | --- |\n| 1 | 2 |')).toContain('<thead');
   });
+
+  it('share pipeline keeps a header whose cells hold only an image', () => {
+    const html = renderToStaticMarkup(
+      createElement(Markdown, { remarkPlugins: shareRemarkPlugins, rehypePlugins: shareRehypePlugins }, '| ![logo](https://x.test/a.png) |  |\n| --- | --- |\n| 1 | 2 |'),
+    );
+    expect(html).toContain('<thead');
+  });
 });
