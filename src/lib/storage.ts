@@ -11,6 +11,7 @@ export const SESSION_STORAGE_KEY = 'journal-session-state';
 export const SEARCH_CONSENT_KEY = 'journal-search-consent';
 export const PENDING_COLLAB_NOTE_KEY = 'pendingCollaborativeNoteId';
 export const RECENT_EMOJIS_KEY = 'journal-recent-emojis';
+export const SIDEBAR_COLLAPSE_KEY = 'journal-sidebar-collapse';
 export const AI_SETTINGS_KEY = 'journal-ai-settings';
 export const LEGACY_WEBLLM_ENABLED_KEY = 'webllm-enabled';
 export const SW_RELOAD_COUNT_KEY = 'sw_safety_reload_count';
