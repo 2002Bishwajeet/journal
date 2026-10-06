@@ -13,6 +13,11 @@ export interface EditorContextValue {
   removeCover: () => Promise<void>;
   /** Vertical focal point, clamped to 0–100. */
   setCoverPosition: (y: number) => void;
+  /** The saved state of the note's html and react blocks (#410), as JSON text per block id. */
+  blockState: {
+    get: (id: string) => string | undefined;
+    set: (id: string, json: string) => void;
+  };
 }
 
 export const EditorContext = createContext<EditorContextValue | null>(null);

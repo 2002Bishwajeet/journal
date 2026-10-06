@@ -10,6 +10,7 @@ import Markdown, { defaultUrlTransform } from 'react-markdown';
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
 import { LiveBlockAwarePre } from '@/components/share/LiveBlockAwarePre';
+import { LiveBlockStatesContext } from '@/components/share/liveBlockStatesContext';
 import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
 import { formatShareDate, showUpdated } from '@/lib/share/articleMeta';
 import 'katex/dist/katex.min.css';
@@ -97,47 +98,49 @@ export default function SharePage() {
                         {readingMinutes > 0 && <span>· {readingMinutes} min read</span>}
                     </div>
 
-                    <Markdown
-                        remarkPlugins={shareRemarkPlugins}
-                        rehypePlugins={shareRehypePlugins}
-                        urlTransform={(url) => (url.startsWith('attachment://') ? url : defaultUrlTransform(url))}
-                        components={{
-                            blockquote: CalloutAwareBlockquote,
-                            pre: LiveBlockAwarePre,
-                            img: ({ src, alt, node, ...rest }) => {
-                                // `node` is react-markdown's own extra prop, not a DOM attribute —
-                                // exclude it before spreading the rest (title, etc.) onto <img>.
-                                void node;
-                                return (
-                                    // Kept in the column; `block` so the image sits on its own line.
-                                    <span className="share-wide block">
-                                        {src?.startsWith('attachment://') ? (
-                                            <PublicNoteImage
-                                                key={src}
-                                                identity={decodeURIComponent(identity)}
-                                                noteFileId={note.fileId}
-                                                src={src}
-                                                alt={alt}
-                                            />
-                                        ) : (
-                                            <img src={src} alt={alt} loading="lazy" {...rest} />
-                                        )}
-                                    </span>
-                                );
-                            },
-                            // Same wrapper as the editor's (`.tableWrapper`): a table wider than the column scrolls inside it.
-                            table: ({ node, ...rest }) => {
-                                void node;
-                                return (
-                                    <div className="tableWrapper">
-                                        <table {...rest} />
-                                    </div>
-                                );
-                            },
-                        }}
-                    >
-                        {note.content}
-                    </Markdown>
+                    <LiveBlockStatesContext.Provider value={note.blockStates ?? {}}>
+                        <Markdown
+                            remarkPlugins={shareRemarkPlugins}
+                            rehypePlugins={shareRehypePlugins}
+                            urlTransform={(url) => (url.startsWith('attachment://') ? url : defaultUrlTransform(url))}
+                            components={{
+                                blockquote: CalloutAwareBlockquote,
+                                pre: LiveBlockAwarePre,
+                                img: ({ src, alt, node, ...rest }) => {
+                                    // `node` is react-markdown's own extra prop, not a DOM attribute —
+                                    // exclude it before spreading the rest (title, etc.) onto <img>.
+                                    void node;
+                                    return (
+                                        // Kept in the column; `block` so the image sits on its own line.
+                                        <span className="share-wide block">
+                                            {src?.startsWith('attachment://') ? (
+                                                <PublicNoteImage
+                                                    key={src}
+                                                    identity={decodeURIComponent(identity)}
+                                                    noteFileId={note.fileId}
+                                                    src={src}
+                                                    alt={alt}
+                                                />
+                                            ) : (
+                                                <img src={src} alt={alt} loading="lazy" {...rest} />
+                                            )}
+                                        </span>
+                                    );
+                                },
+                                // Same wrapper as the editor's (`.tableWrapper`): a table wider than the column scrolls inside it.
+                                table: ({ node, ...rest }) => {
+                                    void node;
+                                    return (
+                                        <div className="tableWrapper">
+                                            <table {...rest} />
+                                        </div>
+                                    );
+                                },
+                            }}
+                        >
+                            {note.content}
+                        </Markdown>
+                    </LiveBlockStatesContext.Provider>
                 </article>
             </main>
 

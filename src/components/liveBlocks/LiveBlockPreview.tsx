@@ -14,9 +14,10 @@
  *   cannot reach the app's DOM, storage or cookies, and the CSP from
  *   buildSrcdoc lets it load scripts, styles and fonts from three CDN hosts
  *   and reach nothing else on the network. Never add another sandbox token;
- *   e2e/editor/live-html-sandbox.spec.ts holds the proof. The one thing that
- *   crosses the boundary is the frame's report of its content height (#412),
- *   and only outwards: nothing is ever posted into the frame.
+ *   e2e/editor/live-html-sandbox.spec.ts holds the proof. Two things cross the
+ *   boundary: the frame's report of its content height (#412), and the block's
+ *   `journal.storage` requests for its own saved state (#410), which the app
+ *   answers from `store`. Only the frame's own window is ever answered.
  * - react: the JSX is compiled in the app by the lazily imported
  *   reactBlockCompiler, then runs in the same frame as an html block, on the
  *   app's own React: vite.config.ts builds it into a script that is inlined in
@@ -37,11 +38,14 @@ import {
   type FrameTheme,
   type LiveBlockKind,
 } from '@/lib/liveBlocks';
+import { createBlockStateSession, memoryBlockStateStore, replyToStorageMessage, type BlockStateStore } from '@/lib/liveBlockState';
 import { cn } from '@/lib/utils';
 
 interface LiveBlockPreviewProps {
   kind: LiveBlockKind;
   source: string;
+  /** Where an html or react block's saved state is kept; without one it lasts while the preview is shown. */
+  store?: BlockStateStore;
   /** An html or react block's preview reported how tall its content is. */
   onHeight?: (height: number) => void;
 }
@@ -51,7 +55,7 @@ type ReactResult = { source: string; page: string } | { source: string; title: s
 
 let renderCount = 0;
 
-export function LiveBlockPreview({ kind, source, onHeight }: LiveBlockPreviewProps) {
+export function LiveBlockPreview({ kind, source, store, onHeight }: LiveBlockPreviewProps) {
   if (kind === 'svg') {
     return (
       <div className="p-4">
@@ -59,8 +63,8 @@ export function LiveBlockPreview({ kind, source, onHeight }: LiveBlockPreviewPro
       </div>
     );
   }
-  if (kind === 'html') return <HtmlPreview source={source} title="HTML preview" onHeight={onHeight} />;
-  if (kind === 'react') return <ReactPreview source={source} onHeight={onHeight} />;
+  if (kind === 'html') return <HtmlPreview source={source} title="HTML preview" store={store} onHeight={onHeight} />;
+  if (kind === 'react') return <ReactPreview source={source} store={store} onHeight={onHeight} />;
   return <MermaidPreview source={source} />;
 }
 
@@ -89,24 +93,34 @@ function frameTheme(frame: HTMLIFrameElement): FrameTheme {
   };
 }
 
-function HtmlPreview({ source, title, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'onHeight'> & { title: string }) {
+function HtmlPreview({ source, title, store, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight'> & { title: string }) {
   // State, not a ref: the frame's document takes its look from the mounted element.
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
-  // Rebuilt when the look changes, which reloads the page in the frame. Nothing is posted into it.
+  // Rebuilt when the look changes, which reloads the page in the frame.
   const srcDoc = useSyncExternalStore(
     subscribeToRootAttributes,
     () => (frame ? buildSrcdoc(source, frameTheme(frame)) : undefined),
     () => undefined,
   );
 
+  // The block's saved state is kept by the app, not the frame, so a reload of the frame keeps it.
+  const [session] = useState(createBlockStateSession);
+  const [memoryStore] = useState(() => memoryBlockStateStore(undefined));
+  const blockStore = store ?? memoryStore;
+  useEffect(() => () => session.flush(), [session]);
+
   useEffect(() => {
     const onMessage = (event: MessageEvent<unknown>) => {
-      const height = frameHeightFromMessage(event, frame?.contentWindow ?? null);
+      const frameWindow = frame?.contentWindow ?? null;
+      const height = frameHeightFromMessage(event, frameWindow);
       if (height !== null) onHeight?.(height);
+      const reply = replyToStorageMessage(event, frameWindow, session, blockStore);
+      // The frame's origin is opaque, so there is no origin to name.
+      if (reply) frameWindow?.postMessage(reply, '*');
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [frame, onHeight]);
+  }, [frame, onHeight, session, blockStore]);
 
   // No background: the page inside is see-through, so the note shows behind it.
   return (
@@ -127,7 +141,7 @@ function HtmlPreview({ source, title, onHeight }: Pick<LiveBlockPreviewProps, 's
  * shown, a library on the first block that imports it (#427); all are cached for offline use
  * by src/sw.ts.
  */
-function ReactPreview({ source, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'onHeight'>) {
+function ReactPreview({ source, store, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight'>) {
   const [result, setResult] = useState<ReactResult | null>(null);
 
   useEffect(() => {
@@ -184,7 +198,7 @@ function ReactPreview({ source, onHeight }: Pick<LiveBlockPreviewProps, 'source'
       </div>
     );
   }
-  return <HtmlPreview source={current.page} title="React preview" onHeight={onHeight} />;
+  return <HtmlPreview source={current.page} title="React preview" store={store} onHeight={onHeight} />;
 }
 
 /** A preview that could not be made, as the app's error callout. */

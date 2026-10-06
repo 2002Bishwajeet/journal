@@ -145,7 +145,10 @@ describe('createJournalMcpServer', () => {
                 'It can import only from `react`, `recharts` and `lucide-react`.',
                 "`className` takes Tailwind classes drawn in Journal's theme",
                 'Recharts charts take the theme without colour props',
-                'State is lost on reload.',
+                'State is lost on reload',
+                // #410
+                '`journal.storage.get(key)` and `journal.storage.set(key, value)`',
+                'keep that id when rewriting a block',
                 'These rules apply to a `react` block unchanged.',
             ]) {
                 expect(tool.description).toContain(text);
