@@ -86,10 +86,10 @@ describe('createJournalMcpServer', () => {
             "Journal's design system comes first.",
             '(1) Prefer a native block (callout, table, toggle, task list, mermaid) whenever one can carry the content.',
             "(2) An `html` block must use the note's font and colours, which it inherits, and the theme variables",
-            '`var(--chart-1)` to `var(--chart-5)` for data series',
+            '`var(--chart-2)` to `var(--chart-5)` for data series',
             "leave buttons, inputs and tables unstyled so they get Journal's look.",
             '(3) Custom styling is allowed only where the content needs it (a chart, a diagram, a game board), and still built from those variables.',
-            'Use `--chart-1` … `--chart-5` in that order for data series, never raw colours.',
+            'Use `--chart-2` … `--chart-5` in that order for data series, never raw colours (`--chart-1` is nearly the text colour).',
             '(4) No page background, gradients, shadows, badge rows, emoji headers or custom fonts.',
             '(5) The block sizes itself to its content: do not set a fixed page height or design for a whole screen.',
         ];
@@ -141,7 +141,14 @@ describe('createJournalMcpServer', () => {
                 'defines a component named `App`',
                 'or exports one as default',
                 '`useState`, `useEffect`, `useRef`, `useMemo` and `useReducer`',
-                'State is lost on reload.',
+                // #427
+                'It can import only from `react`, `recharts` and `lucide-react`.',
+                "`className` takes Tailwind classes drawn in Journal's theme",
+                'Recharts charts take the theme without colour props',
+                'State is lost on reload',
+                // #410
+                '`journal.storage.get(key)` and `journal.storage.set(key, value)`',
+                'keep that id when rewriting a block',
                 'These rules apply to a `react` block unchanged.',
             ]) {
                 expect(tool.description).toContain(text);

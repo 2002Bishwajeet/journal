@@ -7,13 +7,14 @@
  */
 import { describe, it, expect } from 'vitest';
 import { Editor } from '@tiptap/core';
+import { createTrackedEditor } from './trackedEditor';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
 import { resizeWidth, MIN_IMAGE_WIDTH, ALIGN_STYLE, imageRenderMode, imageBoxWidth, canZoom } from '@/components/editor/nodes/imageLayout';
 
 function mkEditor(content: string) {
     const el = document.createElement('div');
     document.body.appendChild(el);
-    return new Editor({ element: el, extensions: createBaseExtensions(), content });
+    return createTrackedEditor({ element: el, extensions: createBaseExtensions(), content });
 }
 
 const IMG = 'https://example.com/cat.png';

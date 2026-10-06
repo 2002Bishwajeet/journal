@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Class names for a react block's own Tailwind sheet (#427), and the docs and tests that
+   name them: not the app's. */
+@source not "./lib/reactBlockTailwind.ts";
+@source not "./__tests__/reactBlockTailwind.test.ts";
+@source not "../mcp/README.md";
+@source not "../mcp/createServer.ts";
+@source not "../e2e/editor/live-react-artifact.spec.ts";
+
 /* Self-hosted fonts: same-origin so they survive COEP and get precached. */
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/playfair-display";

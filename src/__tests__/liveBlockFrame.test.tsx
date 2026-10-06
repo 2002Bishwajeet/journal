@@ -124,6 +124,30 @@ describe('LiveBlockPreview react, mounted (#426)', () => {
     expect(srcdoc).toContain("React.createElement('button'");
   });
 
+  // The stubs stand in for what vite.config.ts builds (src/__tests__/stubs/).
+  it('should give a block that imports only react the Tailwind sheet, and no Recharts or lucide-react code (#427)', async () => {
+    await mount("import { useState } from 'react';\n" + COUNTER);
+    const srcdoc = note.querySelector('iframe')!.getAttribute('srcdoc')!;
+    expect(srcdoc).toContain('<style>/* react-block-tailwind stub */</style>');
+    expect(srcdoc).not.toContain('react-block-recharts stub');
+    expect(srcdoc).not.toContain('react-block-lucide stub');
+  });
+
+  it('should give a block each library it imports, behind the same CSP, in a frame that only allows scripts (#427)', async () => {
+    await mount("import { LineChart } from 'recharts';\nimport { Heart } from 'lucide-react';\nfunction App() { return <Heart />; }");
+    const frame = note.querySelector('iframe')!;
+    expect(frame.getAttribute('sandbox')).toBe('allow-scripts');
+    const srcdoc = frame.getAttribute('srcdoc')!;
+    // Written out: the CSP of an html block (liveBlocks.test.ts), unchanged.
+    const CDN = 'https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com';
+    const CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; style-src 'unsafe-inline' ${CDN}; img-src data: blob:; font-src data: ${CDN}; media-src data: blob:; form-action 'none'; base-uri 'none'`;
+    expect(srcdoc.startsWith(`<!doctype html><meta http-equiv="Content-Security-Policy" content="${CSP}">`)).toBe(true);
+    expect(srcdoc).not.toContain('unsafe-eval');
+    expect(srcdoc).toContain('<script>/* react-block-recharts stub */</script>');
+    expect(srcdoc).toContain('<script>/* react-block-lucide stub */</script>');
+    expect(srcdoc).toContain('<style>/* react-block-tailwind stub */</style>');
+  });
+
   it('should show a syntax error with its line, as text in place of the frame', async () => {
     await mount('function App() { return <div>; }');
     expect(note.querySelector('iframe')).toBeNull();

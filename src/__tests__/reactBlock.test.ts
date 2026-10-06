@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import * as React from 'react';
 import { act } from 'react';
 import * as ReactDOMClient from 'react-dom/client';
-import { compileReactBlock } from '@/lib/reactBlockCompiler';
+import { compileReactBlock, reactBlockImports } from '@/lib/reactBlockCompiler';
 import { reactBlockDocument } from '@/lib/liveBlocks';
 
 // The same counter the e2e spec types, pastes and publishes.
@@ -28,8 +28,12 @@ const COUNTER = [
 
 /** What the runtime script does: set the globals the component runs on. */
 const RUNTIME = 'window.React = window.__testReact; window.ReactDOM = window.__testReactDOM;';
+/** Stands in for the Tailwind sheet vite.config.ts builds. */
+const SHEET = '.marker-utility{color:red}';
+/** Stands in for lucide-react: one icon, drawn as an svg with a title. */
+const LUCIDE = "window.LucideReact = { Heart: function (props) { return React.createElement('svg', { 'data-icon': 'heart', className: props.className }); } };";
 
-type TestWindow = Window & { __testReact?: unknown; __testReactDOM?: unknown; React?: unknown; ReactDOM?: unknown };
+type TestWindow = Window & { __testReact?: unknown; __testReactDOM?: unknown; React?: unknown; ReactDOM?: unknown; LucideReact?: unknown };
 
 function compiled(source: string): string {
   const result = compileReactBlock(source);
@@ -80,9 +84,32 @@ describe('compileReactBlock', () => {
   });
 });
 
+describe('reactBlockImports (#427)', () => {
+  it('should list each module the block imports, once, in order', () => {
+    const code = compiled(
+      [
+        "import React, { useState } from 'react';",
+        'import { Heart } from "lucide-react";',
+        "import * as Charts from 'recharts';",
+        "import { Star } from 'lucide-react';",
+        'function App() { return <Heart />; }',
+      ].join('\n'),
+    );
+    expect(reactBlockImports(code)).toEqual(['react', 'lucide-react', 'recharts']);
+  });
+
+  it('should list a module that is not allowed, and one imported for its side effects or dynamically', () => {
+    expect(reactBlockImports(compiled("import x from 'd3';\nimport 'left-pad';\nconst later = import('lodash');"))).toEqual(['d3', 'left-pad', 'lodash']);
+  });
+
+  it('should list nothing for a block without imports', () => {
+    expect(reactBlockImports(compiled(COUNTER))).toEqual([]);
+  });
+});
+
 describe('reactBlockDocument', () => {
   it('should hold a root, then the runtime and the component, each in an inline script', () => {
-    const html = reactBlockDocument(RUNTIME, 'var marker = 1;');
+    const html = reactBlockDocument({ react: RUNTIME, tailwind: SHEET }, 'var marker = 1;');
     const parsed = new DOMParser().parseFromString(html, 'text/html');
     expect(parsed.getElementById('root')).not.toBeNull();
     const scripts = [...parsed.querySelectorAll('script')];
@@ -94,10 +121,28 @@ describe('reactBlockDocument', () => {
     expect(componentAt).toBeGreaterThan(runtimeAt);
   });
 
+  it('should start with the Tailwind sheet as one style, before the root and every script (#427)', () => {
+    const html = reactBlockDocument({ react: RUNTIME, tailwind: SHEET }, 'var marker = 1;');
+    expect(html.startsWith(`<style>${SHEET}</style><div id="root"></div>`)).toBe(true);
+    expect(html.match(/<style>/g)).toHaveLength(1);
+  });
+
+  it('should hold Recharts and lucide-react only when they are passed, between React and the component (#427)', () => {
+    const RECHARTS = 'window.Recharts = {};';
+    const scripts = (html: string) => [...new DOMParser().parseFromString(html, 'text/html').querySelectorAll('script')].map((script) => script.textContent ?? '');
+    expect(scripts(reactBlockDocument({ react: RUNTIME, tailwind: SHEET }, 'var marker = 1;')).filter((text) => /Recharts =|LucideReact =/.test(text))).toEqual([]);
+
+    const texts = scripts(reactBlockDocument({ react: RUNTIME, tailwind: SHEET, recharts: RECHARTS, lucide: LUCIDE }, 'var marker = 1;'));
+    const at = (needle: string) => texts.findIndex((text) => text.includes(needle));
+    expect(at(RUNTIME)).toBeLessThan(at(RECHARTS));
+    expect(at(RECHARTS)).toBeLessThan(at(LUCIDE));
+    expect(at(LUCIDE)).toBeLessThan(at('var marker = 1;'));
+  });
+
   it('should keep a closing script tag in the runtime or the component from ending its script', () => {
     const runtime = `${RUNTIME} window.runtimeText = "</script><p id=injected>";`;
     const code = 'window.componentText = "</SCRIPT>" + "<!--";';
-    const parsed = new DOMParser().parseFromString(reactBlockDocument(runtime, code), 'text/html');
+    const parsed = new DOMParser().parseFromString(reactBlockDocument({ react: runtime, tailwind: SHEET }, code), 'text/html');
     expect(parsed.getElementById('injected')).toBeNull();
     const texts = [...parsed.querySelectorAll('script')].map((script) => script.textContent ?? '');
     expect(texts.some((text) => text.includes('window.runtimeText = "\\x3C/script>'))).toBe(true);
@@ -126,7 +171,7 @@ describe('reactBlockDocument', () => {
 
     // Each page's error listener stays on the shared test window, but only writes into its own
     // page's error box, which the next page replaces.
-    const run = (source: string) => act(async () => load(reactBlockDocument(RUNTIME, compiled(source))));
+    const run = (source: string) => act(async () => load(reactBlockDocument({ react: RUNTIME, tailwind: SHEET }, compiled(source))));
 
     it('should render App with the hooks available bare, and update on a click', async () => {
       await run(COUNTER);
@@ -159,6 +204,20 @@ describe('reactBlockDocument', () => {
     it('should say what is missing when the source defines no App and exports nothing', async () => {
       await run('function Counter() { return <p>hi</p>; }');
       expect(alertText()).toContain('Define a component named App');
+    });
+
+    it('should render an icon imported from lucide-react, when the page holds it (#427)', async () => {
+      const source = "import { Heart } from 'lucide-react';\nfunction App() { return <p><Heart className=\"size-4\" /> Liked</p>; }";
+      await act(async () => load(reactBlockDocument({ react: RUNTIME, tailwind: SHEET, lucide: LUCIDE }, compiled(source))));
+      expect(document.querySelector('#root svg[data-icon="heart"]')?.getAttribute('class')).toBe('size-4');
+      expect(alertText()).toBeNull();
+      delete win.LucideReact;
+    });
+
+    it('should name the module and the allowed ones when a block imports anything else (#427)', async () => {
+      await run("import * as d3 from 'd3';\nfunction App() { return <p>{d3.version}</p>; }");
+      expect(alertText()).toContain('A react block can import only react, recharts and lucide-react, not d3.');
+      expect(rootText()).toBe('');
     });
   });
 });

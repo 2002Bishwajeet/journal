@@ -56,12 +56,22 @@ describe('buildSrcdoc', () => {
     tokens: {
       '--background': '#1C1B1A',
       '--foreground': '#E6E4DD',
+      '--card': '#242321',
+      '--card-foreground': '#E6E4DD',
+      '--popover': '#242321',
+      '--popover-foreground': '#E6E4DD',
       '--muted': '#2C2B29',
       '--muted-foreground': '#8A8780',
       '--border': '#3E3D3A',
+      '--input': '#242321',
       '--accent': '#2C2B29',
+      '--accent-foreground': '#E6E4DD',
       '--secondary': '#2C2B29',
+      '--secondary-foreground': '#E6E4DD',
       '--primary': '#E6E4DD',
+      '--primary-foreground': '#1C1B1A',
+      '--destructive': '#7f1d1d',
+      '--destructive-foreground': '#E6E4DD',
       '--ring': '#8A8780',
       '--radius': '0.5rem',
       '--chart-1': '#DBD9D2',
@@ -98,6 +108,10 @@ describe('buildSrcdoc', () => {
     expect(changed).toContain('--foreground:#2C2B29;');
     expect(changed).toContain('--radius:0.25rem;');
     expect(changed).not.toContain('--foreground:#E6E4DD;');
+  });
+
+  it("should give the frame the note's font as --font-sans too, for a react block's font-sans (#427)", () => {
+    expect(head('')).toContain('--font-sans:"Inter Variable", system-ui, sans-serif;');
   });
 
   it("should declare the app's colour scheme, which is what lets the frame be transparent", () => {

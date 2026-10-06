@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Editor } from '@tiptap/core';
+import { createTrackedEditor } from './trackedEditor';
 import * as Y from 'yjs';
 import { act, createElement, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -174,7 +175,7 @@ describe('linkPreview node', () => {
   beforeEach(() => {
     const element = document.createElement('div');
     document.body.appendChild(element);
-    editor = new Editor({ element, extensions: createBaseExtensions(), content: '<p></p>' });
+    editor = createTrackedEditor({ element, extensions: createBaseExtensions(), content: '<p></p>' });
   });
 
   afterEach(() => editor.destroy());
@@ -244,7 +245,7 @@ describe('linkPreview in a collaborative (Yjs) editor', () => {
 
   function makeEditor(fragment: Y.XmlFragment) {
     const element = document.createElement('div');
-    return new Editor({ element, extensions: [...createBaseExtensions(), createCollaborationExtension(fragment)] });
+    return createTrackedEditor({ element, extensions: [...createBaseExtensions(), createCollaborationExtension(fragment)] });
   }
 
   it('round-trips its attrs through a Yjs update into a fresh editor', () => {

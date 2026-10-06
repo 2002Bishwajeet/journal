@@ -10,6 +10,7 @@ import {
     recordSyncError,
     resolveSyncErrorsForEntity,
     getNextPushRetryAt,
+    getNextImageRetryAt,
     markPendingDelete,
     clearOldSyncErrors,
 } from '@/lib/db';
@@ -144,14 +145,18 @@ export class SyncService {
             const pushResult = await this.pushChanges(onProgress);
             result.pushed = pushResult;
 
-            // 3. Process pending image uploads
-            await this.processPendingImageUploads();
+            // 3. Process pending image uploads. A promoted src is a local edit made
+            // after step 2, so push it now or it waits for some later sync.
+            if (await this.processPendingImageUploads() > 0) {
+                result.pushed.notes += (await this.pushChanges(onProgress)).notes;
+            }
 
             // 4. Save sync timestamp
             await saveAppState(STORAGE_KEY_LAST_SYNC, this.#ctx.inboxProcessor.getCurrentSyncTime());
 
-            // 5. Report when the pushes skipped for backoff can be retried (#263)
-            result.nextRetryAt = await getNextPushRetryAt();
+            // 5. Report when the pushes and image uploads skipped for backoff can be retried (#263, #374)
+            const retryTimes = (await Promise.all([getNextPushRetryAt(), getNextImageRetryAt()])).filter((t) => t !== undefined);
+            result.nextRetryAt = retryTimes.length > 0 ? Math.min(...retryTimes) : undefined;
 
             this.#status = 'idle';
         } catch (error) {
@@ -219,7 +224,7 @@ export class SyncService {
         return push.pushNote(this.#ctx, record);
     }
 
-    async processPendingImageUploads(): Promise<void> {
+    async processPendingImageUploads(): Promise<number> {
         return images.processPendingImageUploads(this.#ctx, {
             updateImageReference: (...args) => this.updateImageReference(...args),
         });

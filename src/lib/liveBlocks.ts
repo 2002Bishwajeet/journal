@@ -81,12 +81,22 @@ const STORAGE_SCRIPT =
 export const FRAME_TOKENS = [
   '--background',
   '--foreground',
+  '--card',
+  '--card-foreground',
+  '--popover',
+  '--popover-foreground',
   '--muted',
   '--muted-foreground',
   '--border',
+  '--input',
   '--accent',
+  '--accent-foreground',
   '--secondary',
+  '--secondary-foreground',
   '--primary',
+  '--primary-foreground',
+  '--destructive',
+  '--destructive-foreground',
   '--ring',
   '--radius',
   '--chart-1',
@@ -135,7 +145,8 @@ export interface FrameTheme {
 export function buildSrcdoc(source: string, theme: FrameTheme): string {
   const tokens = FRAME_TOKENS.map((name) => `${name}:${theme.tokens[name]};`).join('');
   const style =
-    `:root{${tokens}color-scheme:${theme.colorScheme}}` +
+    // The font is also a variable, for a react block's `font-sans` (#427).
+    `:root{${tokens}--font-sans:${theme.fontFamily};color-scheme:${theme.colorScheme}}` +
     '*,*::before,*::after{box-sizing:border-box}' +
     'html,body{background:transparent}' +
     `body{margin:0;color:var(--foreground);font-family:${theme.fontFamily};line-height:${theme.lineHeight}}` +
@@ -173,7 +184,12 @@ const componentScript = (code: string) =>
   '(function () {' +
   `var ${BARE_HOOKS.map((hook) => `${hook} = React.${hook}`).join(', ')};` +
   'var module = { exports: {} }, exports = module.exports;' +
-  "function require(name) { if (name === 'react') return React; throw new Error('A react block can import only react, not ' + name + '.'); }" +
+  // The allow-list (#427). Each library is on the page only when the block imports it.
+  'function require(name) {' +
+  "if (name === 'react') return React;" +
+  "if (name === 'recharts' && window.Recharts) return window.Recharts;" +
+  "if (name === 'lucide-react' && window.LucideReact) return window.LucideReact;" +
+  "throw new Error('A react block can import only react, recharts and lucide-react, not ' + name + '.'); }" +
   `var App = (function () {\n${code}\n;return typeof App === 'undefined' ? module.exports.default : App;\n})();` +
   "if (App === undefined) throw new Error('Define a component named App, or export one as default.');" +
   'class Boundary extends React.Component {' +
@@ -185,13 +201,26 @@ const componentScript = (code: string) =>
   "ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Boundary, null, React.createElement(App)));" +
   '})();';
 
+/** What a react block's page is made of, besides its own code; each is built in vite.config.ts. */
+export interface ReactBlockRuntime {
+  /** The app's own React: a script that sets window.React and window.ReactDOM (#426). */
+  react: string;
+  /** The Tailwind stylesheet in Journal's theme (#427). */
+  tailwind: string;
+  /** Recharts in the theme, a script that sets window.Recharts. Only for a block that imports it. */
+  recharts?: string;
+  /** lucide-react, a script that sets window.LucideReact. Only for a block that imports it. */
+  lucide?: string;
+}
+
 /**
- * The page of a `react` block (#426), for buildSrcdoc to wrap: a root, the app's own React
- * (`runtime`, a script that sets window.React and window.ReactDOM) and the block's `code`,
- * compiled by compileReactBlock. Every script is inline, which the frame's CSP allows.
+ * The page of a `react` block (#426), for buildSrcdoc to wrap: the Tailwind sheet (right after
+ * buildSrcdoc's theme style, before anything the block renders), a root, the runtime and the
+ * block's `code`, compiled by compileReactBlock. Everything is inline, which the frame's CSP allows.
  */
-export function reactBlockDocument(runtime: string, code: string): string {
-  return `<div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime)}${inlineScript(componentScript(code))}`;
+export function reactBlockDocument(runtime: ReactBlockRuntime, code: string): string {
+  const libraries = [runtime.recharts, runtime.lucide].filter((library): library is string => !!library).map(inlineScript).join('');
+  return `<style>${runtime.tailwind}</style><div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime.react)}${libraries}${inlineScript(componentScript(code))}`;
 }
 
 /** The least height a framed (html or react) block's box is fitted to. */

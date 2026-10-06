@@ -34,6 +34,9 @@ export default defineConfig({
             'virtual:pwa-register/react': path.resolve(import.meta.dirname, './src/__tests__/stubs/pwaRegister.ts'),
             // Built by a plugin in vite.config.ts, which vitest does not load.
             'virtual:react-block-runtime': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockRuntime.ts'),
+            'virtual:react-block-tailwind': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockTailwind.ts'),
+            'virtual:react-block-lucide': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockLucide.ts'),
+            'virtual:react-block-recharts': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockRecharts.ts'),
         },
     },
 });
