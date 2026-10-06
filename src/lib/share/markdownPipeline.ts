@@ -105,8 +105,9 @@ function rehypeRestoreCodeMeta() {
     return (tree: Root, file: object) => {
         const metas = metaByFile.get(file);
         metaByFile.delete(file);
+        if (!metas?.size) return;
         eachCode(tree, (code) => {
-            const meta = metas?.get(code.position?.start.offset ?? -1);
+            const meta = metas.get(code.position?.start.offset ?? -1);
             if (meta) code.data = { ...code.data, meta };
         });
     };

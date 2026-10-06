@@ -93,12 +93,15 @@ function isJson(value: unknown): boolean {
 
 function isSerialisable(value: unknown): boolean {
   try {
-    // Throws on a cycle; undefined for undefined.
-    return JSON.stringify(value) !== undefined && isJson(value);
+    return isJson(value);
   } catch {
+    // A cycle overflows the stack.
     return false;
   }
 }
+
+const isKey = (key: unknown): key is string => typeof key === 'string' && key.length <= MAX_KEY_LENGTH;
+const KEY_ERROR = { error: 'journal.storage: a key is a string of at most 256 characters.' };
 
 export type StorageReply = { value?: unknown } | { error: string };
 
@@ -115,7 +118,7 @@ export type StorageReply = { value?: unknown } | { error: string };
  */
 export function createBlockStateSession() {
   // Set, and not written to its store yet.
-  let pending: { state: State; store: BlockStateStore } | null = null;
+  let pending: { state: State; json: string; store: BlockStateStore } | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let lastWrite = -Infinity;
 
@@ -123,24 +126,25 @@ export function createBlockStateSession() {
   const write = () => {
     timer = null;
     if (!pending) return;
-    const { state, store } = pending;
+    const { json, store } = pending;
     pending = null;
     lastWrite = Date.now();
-    store.write(JSON.stringify(state));
+    store.write(json);
   };
 
   return {
     get(store: BlockStateStore, key: unknown): StorageReply {
-      if (typeof key !== 'string' || key.length > MAX_KEY_LENGTH) return { error: 'journal.storage: a key is a string of at most 256 characters.' };
+      if (!isKey(key)) return KEY_ERROR;
       const saved = current(store);
       return { value: Object.hasOwn(saved, key) ? saved[key] : undefined };
     },
     set(store: BlockStateStore, key: unknown, value: unknown): StorageReply {
-      if (typeof key !== 'string' || key.length > MAX_KEY_LENGTH) return { error: 'journal.storage: a key is a string of at most 256 characters.' };
+      if (!isKey(key)) return KEY_ERROR;
       if (!isSerialisable(value)) return { error: 'journal.storage: a value must be JSON: a string, a finite number, true, false, null, or an array or plain object of those.' };
       const state = { ...current(store), [key]: value };
-      if (utf8Length(JSON.stringify(state)) > MAX_BLOCK_STATE_BYTES) return { error: 'journal.storage: a block can save at most 64 KB, and this value would take it over.' };
-      pending = { state, store };
+      const json = JSON.stringify(state);
+      if (utf8Length(json) > MAX_BLOCK_STATE_BYTES) return { error: 'journal.storage: a block can save at most 64 KB, and this value would take it over.' };
+      pending = { state, json, store };
       if (!timer) timer = setTimeout(write, Math.max(0, lastWrite + BLOCK_STATE_WRITE_INTERVAL_MS - Date.now()));
       return {};
     },

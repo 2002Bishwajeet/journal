@@ -270,6 +270,7 @@ export function EditorProvider({
   const blockState = {
     get: (id: string) => getBlockState(yDoc, id),
     set: (id: string, json: string) => {
+      if (getBlockState(yDoc, id) === json) return;
       setBlockState(yDoc, id, json);
       void updateSyncStatus(docId, "pending");
     },
