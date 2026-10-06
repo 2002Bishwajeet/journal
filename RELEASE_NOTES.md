@@ -19,6 +19,20 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - A React code block can show charts and icons. They work offline.
 - The styles of a React code block use the colours and font of your light or dark theme.
+- An HTML or React code block can save its state in the note. The state syncs to your other devices.
+- On a public note, readers see the saved state of a block. Their changes are not saved.
+
+### Changed
+
+- The app opens faster.
+- Shared notes open faster.
+
+### Fixed
+
+- On a new device, a note that changed during the first sync goes to its correct folder.
+- A cover image upload does not fail when you edit the note at the same time.
+- After you delete an image and add a new one, the note does not show the old image.
+- If an image upload fails, the app tries again without a new edit.
 
 ## 2.4.0 (2026-10-06)
 
