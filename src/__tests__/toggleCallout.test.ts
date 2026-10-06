@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Editor } from '@tiptap/core';
+import { createTrackedEditor } from './trackedEditor';
 import * as Y from 'yjs';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
 import { createCollaborationExtension, undo, redo } from '@/components/editor/plugins/collaboration';
@@ -13,7 +14,7 @@ import { slashCommandItems } from '@/components/editor/plugins/SlashCommands/sla
 
 function makeEditor(fragment: Y.XmlFragment) {
   const element = document.createElement('div');
-  return new Editor({ element, extensions: [...createBaseExtensions(), createCollaborationExtension(fragment)] });
+  return createTrackedEditor({ element, extensions: [...createBaseExtensions(), createCollaborationExtension(fragment)] });
 }
 
 /** Types `/<query>` into the empty doc and runs the slash item over it. */

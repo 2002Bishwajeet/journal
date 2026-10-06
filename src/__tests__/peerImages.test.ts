@@ -9,7 +9,7 @@ import { createElement as h, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { NodeViewProps } from '@tiptap/react';
 import { fakeDotYouClient } from './fakes';
-import { Editor } from '@tiptap/core';
+import { createTrackedEditor } from './trackedEditor';
 import { toast } from 'sonner';
 
 const { odinImageProps } = vi.hoisted(() => ({ odinImageProps: [] as Record<string, unknown>[] }));
@@ -66,7 +66,7 @@ describe('FileHandler in a peer note', () => {
         const onImageDrop = vi.fn(async () => {});
         const el = document.createElement('div');
         document.body.appendChild(el);
-        const editor = new Editor({
+        const editor = createTrackedEditor({
             element: el,
             content: '<p></p>',
             extensions: [
