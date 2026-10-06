@@ -208,10 +208,11 @@ test('react block: after one render, it still renders offline after a reload', a
     await createNote(page, { title: `React offline ${Date.now()}`, body: '```react ' + COUNTER_LINE });
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
     await expect(reactFrame(reactBlocks(page)).getByText('Count: 0')).toBeVisible();
-    // The first render cached the runtime and the compiler (the react-block route in sw.ts).
+    // The first render cached the runtime, the Tailwind sheet and the compiler (the react-block
+    // route in sw.ts), and no library: the counter imports none (#427).
     await expect
       .poll(() => page.evaluate(async () => ((await caches.has('react-block')) ? (await (await caches.open('react-block')).keys()).length : 0)))
-      .toBe(2);
+      .toBe(3);
 
     await page.context().setOffline(true);
     try {
