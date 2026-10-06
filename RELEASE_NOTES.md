@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.5.1 (2026-10-06)
+
 ### Changed
 
 - On a public note, readers do not see the source of HTML and React blocks.

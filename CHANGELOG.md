@@ -1,3 +1,9 @@
+## [2.5.1](https://github.com/2002Bishwajeet/journal/compare/v2.5.0...v2.5.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **share:** hide View source on html and react blocks of a public note ([cdd8f31](https://github.com/2002Bishwajeet/journal/commit/cdd8f3124bf0ae7899f4915f0c5b3e9343bd48ec))
 # [2.5.0](https://github.com/2002Bishwajeet/journal/compare/v2.4.0...v2.5.0) (2026-10-06)
 
 
