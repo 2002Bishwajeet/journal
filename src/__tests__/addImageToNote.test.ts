@@ -189,4 +189,36 @@ describe('NotesDriveProvider.addImageToNote', () => {
         expect(thumbs.map((t: { pixelWidth: number; pixelHeight: number }) => `${t.pixelWidth}x${t.pixelHeight}`))
             .toEqual(['16x16', '32x32']);
     });
+    // #469: a content save on the same note can land between the header fetch and
+    // the patch. The image upload must refetch the header and retry once.
+    it('refetches the header and retries once on VersionTagMismatch', async () => {
+        const stale = header({ payloadKeys: ['jrnl_img0'] });
+        const fresh = header({ payloadKeys: ['jrnl_img0', 'jrnl_img1'] });
+        fresh.fileMetadata.versionTag = 'v-fresh';
+        mockGetHeader.mockResolvedValueOnce(stale).mockResolvedValueOnce(fresh);
+        // patchFile args[7] is onVersionConflict; the SDK returns its result on a mismatch
+        mockPatch
+            .mockImplementationOnce((...args) => args[7]())
+            .mockResolvedValueOnce({ newVersionTag: 'v3' });
+
+        const result = await provider.addImageToNote(NOTE_ID, 'v1', imageBlob());
+
+        expect(mockPatch).toHaveBeenCalledTimes(2);
+        expect(mockPatch.mock.calls[1][2].versionTag).toBe('v-fresh');
+        expect(mockPatch.mock.calls[1][3].versionTag).toBe('v-fresh');
+        expect(result).toEqual({ versionTag: 'v3', payloadKey: 'jrnl_img2' });
+    });
+
+    it('keeps the minIndex floor on the VersionTagMismatch retry', async () => {
+        mockGetHeader
+            .mockResolvedValueOnce(header({ payloadKeys: ['jrnl_img0'] }))
+            .mockResolvedValueOnce(header({ payloadKeys: ['jrnl_img0'] }));
+        mockPatch
+            .mockImplementationOnce((...args) => args[7]())
+            .mockResolvedValueOnce({ newVersionTag: 'v3' });
+
+        const result = await provider.addImageToNote(NOTE_ID, 'v1', imageBlob(), 5);
+
+        expect(result).toEqual({ versionTag: 'v3', payloadKey: 'jrnl_img5' });
+    });
 });
