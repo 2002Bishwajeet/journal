@@ -290,3 +290,99 @@ test('share page: Copy puts a code block’s exact text on the clipboard', async
   await expect(copyShort).toHaveText('Copied');
   expect(await clipboard()).toBe(SHORT_CODE);
 });
+
+// #447: a table sizes its columns to content, its cells are compact, and a wide
+// table scrolls inside its wrapper. The editor asserts the same numbers
+// (e2e/editor/table-layout.spec.ts), so the two places look alike.
+
+// One-line row: 0.5rem 0.75rem of padding, a 14px font on a 24px line, a 1px collapsed border.
+const CELL_PADDING = '8px 12px';
+const ROW_HEIGHT = 41;
+
+const INTRO = 'Tables take only the room their text needs.';
+const KEY_VALUE = [
+  ['Key', 'Value'],
+  ['Supervisor', 'Dr. Rao reviews each chapter draft before it goes to the second reader, usually within two weeks'],
+  ['Deadline', 'Submit to the graduate office by the last working day of March'],
+];
+// A word that cannot wrap is wider than a phone column on its own, so the three
+// columns together are wider than any column and the wrapper has to scroll.
+const THREE_COLUMNS = [
+  ['Chapter', 'Method', 'Evidence'],
+  ['Introduction', 'Literature review', 'peer_reviewed_articles_2019_to_2025.pdf'],
+  ['Analysis', 'Interviews', 'anonymised_transcripts_twelve_participants.pdf'],
+];
+const TABLE_VIEWPORTS = { desktop: { width: 1280, height: 900 }, mobile: VIEWPORTS.mobile } as const;
+
+/** Opens a note of a line of text and the two tables, in the same order as the editor spec. */
+async function openTableNote(page: Page): Promise<Locator> {
+  await mockPublicNote(page);
+  const doc = new Y.Doc();
+  doc.getXmlFragment('prosemirror').push([paragraph(INTRO), table(THREE_COLUMNS), table(KEY_VALUE)]);
+  const content = Buffer.from(Y.encodeStateAsUpdate(doc));
+  // Registered after mockPublicNote's, so it answers first; the note's header still comes from that one.
+  await page.route(`https://${AUTHOR}/api/guest/v1/drive/**`, (route) => {
+    if (!new URL(route.request().url()).pathname.endsWith('/payload')) return route.fallback();
+    return route.fulfill({
+      contentType: 'application/octet-stream',
+      headers: { 'access-control-allow-origin': new URL(page.url()).origin, 'access-control-allow-credentials': 'true' },
+      body: content,
+    });
+  });
+  await page.goto(`/share/${AUTHOR}/${NOTE_ID}`);
+  await assertTestOrigin(page);
+  const article = page.getByRole('article');
+  await expect(article.getByRole('table')).toHaveCount(2, { timeout: 15_000 });
+  return article;
+}
+
+for (const theme of THEMES) {
+  test(`share page: tables size to content, are compact and scroll inside themselves, ${theme} theme`, async ({ anonPage }) => {
+    await anonPage.emulateMedia({ colorScheme: theme });
+    await anonPage.setViewportSize(TABLE_VIEWPORTS.desktop);
+    const article = await openTableNote(anonPage);
+    await expect(anonPage.locator('html')).toHaveClass(new RegExp(theme));
+    const threeColumns = article.getByRole('table').first();
+    const keyValue = article.getByRole('table').nth(1);
+    const wrapperOf = (t: Locator) => t.locator('xpath=..');
+
+    for (const viewport of ['desktop', 'mobile'] as const) {
+      await anonPage.setViewportSize(TABLE_VIEWPORTS[viewport]);
+      const column = await box(article.getByText(INTRO));
+
+      for (const t of [keyValue, threeColumns]) {
+        // Lines up with the text and is never wider than the text column.
+        const wrapper = await box(wrapperOf(t));
+        expect(Math.abs(wrapper.x - column.x)).toBeLessThanOrEqual(SLACK);
+        expect(wrapper.x + wrapper.width).toBeLessThanOrEqual(column.x + column.width + SLACK);
+        expect((await box(t)).x).toBeCloseTo(wrapper.x, 0);
+
+        // The same cell padding and row height as in the editor.
+        const cell = t.locator('td').first();
+        expect(
+          await cell.evaluate((el) => {
+            const { paddingTop, paddingRight, paddingBottom, paddingLeft } = getComputedStyle(el);
+            return paddingTop === paddingBottom && paddingLeft === paddingRight ? `${paddingTop} ${paddingLeft}` : 'uneven';
+          }),
+        ).toBe(CELL_PADDING);
+        expect((await box(t.locator('tr').first())).height).toBeCloseTo(ROW_HEIGHT, 0);
+      }
+
+      // A key column is narrower than its value column.
+      expect((await box(keyValue.locator('th').first())).width).toBeLessThan((await box(keyValue.locator('th').last())).width);
+
+      // The wide table scrolls inside its wrapper, not the page.
+      expect(await wrapperOf(threeColumns).evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(viewport === 'mobile');
+      await expectNoSidewaysPageScroll(anonPage);
+
+      for (const [name, t] of [['key-value', keyValue], ['three-columns', threeColumns]] as const) {
+        await wrapperOf(t).evaluate((el) => el.scrollIntoView({ block: 'center' }));
+        const frame = await box(wrapperOf(t));
+        await anonPage.screenshot({
+          path: test.info().outputPath(`table-${name}-share-${theme}-${viewport}.png`),
+          clip: { x: Math.max(0, frame.x - 16), y: frame.y - 16, width: Math.min(frame.width + 32, TABLE_VIEWPORTS[viewport].width), height: frame.height + 32 },
+        });
+      }
+    }
+  });
+}

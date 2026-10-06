@@ -125,14 +125,12 @@ export default function SharePage() {
                                     </span>
                                 );
                             },
-                            // A table wider than the column scrolls within its wrapper instead of widening the page.
+                            // Same wrapper as the editor's (`.tableWrapper`): a table wider than the column scrolls inside it.
                             table: ({ node, ...rest }) => {
                                 void node;
                                 return (
-                                    <div className="share-wide overflow-x-auto">
-                                        {/* The editor's global `.prose table` is fixed-layout, which clips wide cells
-                                            at desktop width; auto layout lets the wrapper scroll instead. */}
-                                        <table {...rest} className="table-auto!" />
+                                    <div className="tableWrapper">
+                                        <table {...rest} />
                                     </div>
                                 );
                             },
