@@ -335,15 +335,16 @@ image. These variables hold the theme's current values:
 | `--background` | the note's own background, for something drawn on top of a fill |
 | `--secondary`, `--primary` | a button's fill: quiet, or the one strong action |
 | `--ring` | a focus ring |
-| `--chart-1` … `--chart-5` | data series in a chart, in this order; a mermaid pie uses the same five |
+| `--chart-2` … `--chart-5` | data series in a chart, in this order; a mermaid pie uses all five, from `--chart-1` |
 
-The chart palette is five muted inks. Use them in order for data series, and never raw
-colours: the first is the one used most, so it is the calmest. Each has at least 3:1
+The chart palette is five muted inks. Use `--chart-2` … `--chart-5` in order for data
+series, and never raw colours. Skip `--chart-1`: it is nearly the text colour, so a series
+drawn in it reads as black (white in the dark theme). Each has at least 3:1
 contrast with the note's background, so the background reads as a label on any of them.
 
 | Variable | Role | Light | Dark |
 |---|---|---|---|
-| `--chart-1` | Ink: the main series | `#39362E` | `#DBD9D2` |
+| `--chart-1` | Ink: nearly the text colour, not for a series | `#39362E` | `#DBD9D2` |
 | `--chart-2` | Clay | `#8A5344` | `#CCABA1` |
 | `--chart-3` | Sage | `#718968` | `#86977D` |
 | `--chart-4` | Ochre | `#9D7F42` | `#BF9F68` |
@@ -359,7 +360,7 @@ variables.
 <button onclick="out.textContent = (bill.value * (1 + tip.value / 100)).toFixed(2)">Work it out</button>
 <p>Total: <strong id="out">46.00</strong></p>
 <div style="height: 8px; background: var(--muted); border-radius: var(--radius)">
-  <div style="width: 60%; height: 100%; background: var(--chart-1); border-radius: var(--radius)"></div>
+  <div style="width: 60%; height: 100%; background: var(--chart-2); border-radius: var(--radius)"></div>
 </div>
 ```
 ````
