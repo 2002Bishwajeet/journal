@@ -15,6 +15,11 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- After an update, the app shows what is new in that version.
+- In Settings, About, you can see what changed in recent versions.
+
 ## 2.3.1 (2026-10-06)
 
 ### New
@@ -31,7 +36,6 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - In Settings, Appearance, you can select the editor font and the page width.
 - A reader of a shared note can save a copy to their own Journal.
 - The share dialog shows the link preview. You can write a description and stop search engines from showing the note.
-- After an update, the app shows what is new in that version.
 
 ### Changed
 
