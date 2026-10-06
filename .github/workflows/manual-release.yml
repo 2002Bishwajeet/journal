@@ -1,6 +1,6 @@
 name: Manual Release
 
-# Bumps, tags and releases with github.token, then deploys that tag to production.
+# Bumps, tags (pushed with the RELEASE_DEPLOY_KEY deploy key) and releases, then deploys that tag to production.
 # Releases made with github.token don't fire `release: published`, so the deploys
 # are called here instead.
 on:
@@ -28,6 +28,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Pushes the release commit and tag over SSH: the deploy key is the
+          # main ruleset's bypass actor; github.token can't bypass it on a personal repo.
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
