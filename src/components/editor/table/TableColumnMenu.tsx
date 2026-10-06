@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { GripHorizontal, ArrowLeft, ArrowRight, Trash2 } from 'lucide-react';
 import { useTableState } from './hooks';
+import { TABLE_DESTRUCTIVE_CLASS, TABLE_HANDLE_CLASS, TABLE_MENU_CLASS } from './styles';
 import {
   Popover,
   PopoverContent,
@@ -60,17 +61,18 @@ export function TableColumnMenu({ editor }: TableColumnMenuProps) {
 
     if (!tableRect) return null;
 
+    // The table's top edge over this column; the handle sits just above it, centred on the column.
     return {
       getBoundingClientRect: () => {
         return {
             width: rect.width,
-            height: 20, // arbitrary height for the handle area
+            height: 0,
             x: rect.x,
-            y: tableRect.y - 12 - 5, // Position explicitly above the table
-            top: tableRect.top - 12 - 5,
+            y: tableRect.top,
+            top: tableRect.top,
             left: rect.left,
             right: rect.right,
-            bottom: tableRect.top - 5,
+            bottom: tableRect.top,
         };
       },
       contextElement: node
@@ -88,8 +90,8 @@ export function TableColumnMenu({ editor }: TableColumnMenuProps) {
     open: isOpen,
     placement: 'top',
     middleware: [
-        offset(0), 
-        shift(), 
+        offset(2),
+        shift(),
     ],
     whileElementsMounted: autoUpdate,
   });
@@ -115,22 +117,21 @@ export function TableColumnMenu({ editor }: TableColumnMenuProps) {
                 variant="ghost" 
                 size="icon" 
                 aria-label="Column options"
-                className="h-6 w-full rounded-none hover:bg-muted active:bg-muted-foreground/20 transition-colors"
-                // Match width to column roughly, or just be a small pill centered
+                className={TABLE_HANDLE_CLASS + ' h-4 w-6'}
             >
-                <GripHorizontal className="h-4 w-4 text-muted-foreground/50 hover:text-foreground" />
+                <GripHorizontal />
            </Button>
          </PopoverTrigger>
-         <PopoverContent className="w-auto p-1 flex gap-1 z-9999" side="top" align="center">
-             <Button variant="ghost" size="icon" aria-label="Insert column left" className="h-7 w-7" onClick={() => editor.chain().focus().addColumnBefore().run()}>
-                <ArrowLeft className="w-4 h-4" />
+         <PopoverContent className={TABLE_MENU_CLASS} side="top" align="center">
+             <Button variant="ghost" size="icon" aria-label="Insert column left" title="Insert column left" className="h-7 w-7" onClick={() => editor.chain().focus().addColumnBefore().run()}>
+                <ArrowLeft />
              </Button>
-             <Button variant="ghost" size="icon" aria-label="Insert column right" className="h-7 w-7" onClick={() => editor.chain().focus().addColumnAfter().run()}>
-                <ArrowRight className="w-4 h-4" />
+             <Button variant="ghost" size="icon" aria-label="Insert column right" title="Insert column right" className="h-7 w-7" onClick={() => editor.chain().focus().addColumnAfter().run()}>
+                <ArrowRight />
              </Button>
              <Separator orientation="vertical" className="h-4 my-auto" />
-             <Button variant="ghost" size="icon" aria-label="Delete column" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => editor.chain().focus().deleteColumn().run()}>
-                <Trash2 className="w-4 h-4" />
+             <Button variant="ghost" size="icon" aria-label="Delete column" title="Delete column" className={TABLE_DESTRUCTIVE_CLASS} onClick={() => editor.chain().focus().deleteColumn().run()}>
+                <Trash2 />
              </Button>
          </PopoverContent>
        </Popover>

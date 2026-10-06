@@ -29,7 +29,9 @@ function pngChunk(type: string, data: Buffer): Buffer {
     return Buffer.concat([len, typeBuf, data, crc]);
 }
 
-export function makeSolidPng(width: number, height: number, rgb: [number, number, number]): Buffer {
+type Rgb = [number, number, number];
+
+function encodePng(width: number, height: number, pixel: (x: number) => Rgb): Buffer {
     const ihdr = Buffer.alloc(13);
     ihdr.writeUInt32BE(width, 0);
     ihdr.writeUInt32BE(height, 4);
@@ -41,6 +43,7 @@ export function makeSolidPng(width: number, height: number, rgb: [number, number
     for (let y = 0; y < height; y++) {
         const rowStart = y * rowLen + 1;
         for (let x = 0; x < width; x++) {
+            const rgb = pixel(x);
             raw[rowStart + x * 3] = rgb[0];
             raw[rowStart + x * 3 + 1] = rgb[1];
             raw[rowStart + x * 3 + 2] = rgb[2];
@@ -53,4 +56,17 @@ export function makeSolidPng(width: number, height: number, rgb: [number, number
         pngChunk('IDAT', deflateSync(raw)),
         pngChunk('IEND', Buffer.alloc(0)),
     ]);
+}
+
+export function makeSolidPng(width: number, height: number, rgb: Rgb): Buffer {
+    return encodePng(width, height, () => rgb);
+}
+
+/**
+ * A wide banner whose outer 10% columns on each side are `edge` and the rest `middle`,
+ * standing in for a banner with text at both edges: a side crop loses the `edge` colour.
+ */
+export function makeBannerPng(width: number, height: number, edge: Rgb, middle: Rgb): Buffer {
+    const band = Math.round(width * 0.1);
+    return encodePng(width, height, (x) => (x < band || x >= width - band ? edge : middle));
 }
