@@ -355,17 +355,32 @@ body {
   margin: 0;
 }
 
-/* Tables - Scrollable on Mobile */
-/* Tables - Modern & Notion-like */
-.prose table {
-  width: 100%;
-  border-collapse: collapse;
+/* Tables - Modern & Notion-like. One set of rules for the editor and the share
+   page (#447). The editor wraps its table in TipTap's `.tableWrapper`; the share
+   page gives its own wrapper the same class. A table wider than the text column
+   scrolls inside that wrapper, so the wrapper is never wider than the column. */
+.prose .tableWrapper {
+  max-width: 100%;
+  overflow-x: auto;
   margin: 1rem 0;
-  table-layout: fixed; /* Important for resizing */
-  overflow: hidden;
 }
 
-/* Container wrapper handled by mobile responsive below */
+/* No saved column widths: size the columns to their content, up to the column. */
+.prose table {
+  width: auto;
+  max-width: none;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+/* TipTap writes a `width` on a `<col>` once a column is resized (a `<col>` that
+   has none gets `min-width` only). Resizing needs a fixed layout, and a fixed
+   layout needs a table width: the full column, or the sum of the widths that
+   TipTap writes inline on the table once every column has one. */
+.prose table:has(> colgroup > col[style*="width"]:not([style*="min-width"])) {
+  table-layout: fixed;
+  width: 100%;
+}
 
 .prose th, .prose td {
   border: 1px solid var(--border);
@@ -379,6 +394,20 @@ body {
   background: var(--muted);
   font-weight: 600;
   color: var(--muted-foreground);
+}
+
+/* A cell's paragraph carries no margin of its own: the cell's padding is the only
+   space, as on the share page where a cell holds bare text. Two paragraphs in one
+   cell keep the gap between them. */
+.prose th > p,
+.prose td > p {
+  margin: 0;
+  line-height: inherit;
+}
+
+.prose th > p + p,
+.prose td > p + p {
+  margin-top: 0.75rem;
 }
 
 /* muted-foreground on muted is 3.9:1 in dark mode — below WCAG AA (#221). */
@@ -664,30 +693,6 @@ body {
 /* Mobile Slide Animations applied via classes if needed, 
    but for now we'll stick to a smooth crossfade which feels 
    native enough without complex route direction logic */
-
-/* Mobile table scroll - wrap table in block container */
-@media (max-width: 768px) {
-  .prose table {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    max-width: 100%;
-  }
-  
-  .prose tbody {
-    display: table;
-    width: 100%;
-    min-width: 500px; /* Minimum width to prevent compaction */
-  }
-  
-  .prose thead {
-    display: table-header-group;
-  }
-  
-  .prose tr {
-    display: table-row;
-  }
-}
 
 /* Find & Replace highlights */
 .search-highlight {

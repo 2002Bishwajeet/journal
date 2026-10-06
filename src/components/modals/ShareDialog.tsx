@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Copy, Download, ExternalLink, AlertTriangle, Check, Loader2, Globe, Lock } from 'lucide-react';
+import { Copy, ExternalLink, AlertTriangle, Check, Loader2, Globe, Lock } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -23,7 +23,6 @@ import { useShareCardPreview } from '@/hooks/useShareCardPreview';
 import { useShareCardImage } from '@/hooks/useShareCardImage';
 import * as Y from 'yjs';
 import { getDocumentUpdates, getSyncRecord } from '@/lib/db';
-import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
 import { buildPublicCard, type ShareCardPatch } from '@/lib/share/publicCard';
 import { toast } from 'sonner';
 
@@ -47,7 +46,6 @@ export default function ShareDialog({
     const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     const [copied, setCopied] = useState(false);
-    const [isExporting, setIsExporting] = useState(false);
     const [isMakingPublic, setIsMakingPublic] = useState(false);
     const [isMakingPrivate, setIsMakingPrivate] = useState(false);
 
@@ -148,124 +146,93 @@ export default function ShareDialog({
         }
     };
 
-    const handleExportMarkdown = async () => {
-        setIsExporting(true);
-        try {
-            const markdown = await extractMarkdownFromYjs(noteId);
-            const fullContent = `# ${noteTitle || 'Untitled'}\n\n${markdown}`;
-            
-            const blob = new Blob([fullContent], { type: 'text/markdown' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${noteTitle || 'untitled'}.md`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        } catch (err) {
-            console.error('Failed to export:', err);
-        } finally {
-            setIsExporting(false);
-        }
-    };
+    const previewSection = (
+        <div className="w-full max-w-[500px] space-y-3">
+            <h5 className="text-sm font-medium">Link preview</h5>
+            <ShareCardPreview
+                title={noteTitle || 'Untitled'}
+                description={cardPreview.description}
+                domain={window.location.host}
+                image={cardImage ? (
+                    <img src={cardImage} alt="" className="h-full w-full object-cover" />
+                ) : undefined}
+            />
+        </div>
+    );
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-            <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Share Note</DialogTitle>
-                    <DialogDescription>
-                        Export or share "{noteTitle || 'Untitled'}"
-                    </DialogDescription>
-                </DialogHeader>
+            {/* A full-screen sheet below sm, a wide dialog from sm. The fixed height lives on the
+                inner wrapper, not here: DialogContent is a grid, so a child sized to its content
+                would never scroll. The close button gets a 44px target on phones. */}
+            <DialogContent className="gap-0 overflow-hidden p-0 max-sm:h-dvh max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:border-0 sm:max-w-[min(960px,calc(100vw-2rem))] max-sm:[&>[data-slot=dialog-close]]:top-1.5 max-sm:[&>[data-slot=dialog-close]]:right-1.5 max-sm:[&>[data-slot=dialog-close]]:p-3.5">
+                <div className="flex h-dvh min-w-0 flex-col sm:h-[min(640px,90dvh)]">
+                    <DialogHeader className="shrink-0 border-b px-6 py-4 pr-14">
+                        <DialogTitle>Share Note</DialogTitle>
+                        <DialogDescription className="truncate">
+                            Share "{noteTitle || 'Untitled'}" with a public link
+                        </DialogDescription>
+                    </DialogHeader>
 
-                <div className="space-y-6 py-4">
-                    {/* Export Section */}
-                    <div className="space-y-3">
-                        <h4 className="text-sm font-medium">Export</h4>
-                        <Button
-                            variant="outline"
-                            className="w-full justify-start"
-                            onClick={handleExportMarkdown}
-                            disabled={isExporting}
-                        >
-                            <Download className="mr-2 h-4 w-4" />
-                            {isExporting ? 'Exporting...' : 'Export to Markdown'}
-                        </Button>
-                    </div>
+                    {/* One scroll area below 880px; from 880px two columns that each scroll alone. */}
+                    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden min-[880px]:flex-row min-[880px]:overflow-hidden">
+                        {/* Controls (left from 880px). Below that the preview is stacked above them. */}
+                        <div className="flex min-w-0 flex-col gap-4 p-6 min-[880px]:min-h-0 min-[880px]:flex-1 min-[880px]:overflow-y-auto">
+                            {!isPublic ? (
+                                <>
+                                    <Alert variant="destructive">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertDescription>
+                                            Making this note public will allow anyone with the link to view it.
+                                        </AlertDescription>
+                                    </Alert>
 
-                    {/* Share Link Section */}
-                    <div className="space-y-3">
-                        <h4 className="text-sm font-medium">Share via Link</h4>
-                        
-                        {!isPublic ? (
-                            <>
-                                <Alert variant="destructive">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    <AlertDescription>
-                                        Making this note public will allow anyone with the link to view it.
-                                    </AlertDescription>
-                                </Alert>
-
-                                <Button
-                                    className="w-full"
-                                    onClick={handleMakePublic}
-                                    disabled={isMakingPublic}
-                                >
-                                    {isMakingPublic ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Making public...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Globe className="mr-2 h-4 w-4" />
-                                            Make Note Public
-                                        </>
-                                    )}
-                                </Button>
-                            </>
-                        ) : (
-                            <>
-                                <Alert>
-                                    <Globe className="h-4 w-4" />
-                                    <AlertDescription>
-                                        This note is now public. Anyone with the link below can view it.
-                                    </AlertDescription>
-                                </Alert>
-
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        readOnly
-                                        value={shareUrl}
-                                        className="flex-1 text-xs"
-                                    />
                                     <Button
-                                        size="icon"
-                                        variant="outline"
-                                        aria-label="Copy link"
-                                        onClick={handleCopyLink}
+                                        className="w-full"
+                                        onClick={handleMakePublic}
+                                        disabled={isMakingPublic}
                                     >
-                                        {copied ? (
-                                            <Check className="h-4 w-4 text-green-500" />
+                                        {isMakingPublic ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Making public...
+                                            </>
                                         ) : (
-                                            <Copy className="h-4 w-4" />
+                                            <>
+                                                <Globe className="mr-2 h-4 w-4" />
+                                                Make Note Public
+                                            </>
                                         )}
                                     </Button>
-                                </div>
+                                </>
+                            ) : (
+                                <>
+                                    <Alert>
+                                        <Globe className="h-4 w-4" />
+                                        <AlertDescription>
+                                            This note is now public. Anyone with the link below can view it.
+                                        </AlertDescription>
+                                    </Alert>
 
-                                <div className="space-y-3">
-                                    <h5 className="text-sm font-medium">Link preview</h5>
-                                    <ShareCardPreview
-                                        title={noteTitle || 'Untitled'}
-                                        description={cardPreview.description}
-                                        domain={window.location.host}
-                                        image={cardImage ? (
-                                            <img src={cardImage} alt="" className="h-full w-full object-cover" />
-                                        ) : undefined}
-                                    />
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            readOnly
+                                            value={shareUrl}
+                                            className="min-w-0 flex-1 text-xs"
+                                        />
+                                        <Button
+                                            size="icon"
+                                            variant="outline"
+                                            aria-label="Copy link"
+                                            onClick={handleCopyLink}
+                                        >
+                                            {copied ? (
+                                                <Check className="h-4 w-4 text-green-500" />
+                                            ) : (
+                                                <Copy className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </div>
 
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between gap-2">
@@ -311,37 +278,44 @@ export default function ShareDialog({
                                             onCheckedChange={(checked) => saveShareCard({ shareIndexable: checked })}
                                         />
                                     </div>
-                                </div>
 
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-start"
-                                    onClick={() => window.open(shareUrl, '_blank')}
-                                >
-                                    <ExternalLink className="mr-2 h-4 w-4" />
-                                    Open in New Tab
-                                </Button>
+                                    <div className="mt-auto space-y-2 pt-2">
+                                        <Button
+                                            variant="outline"
+                                            className="w-full justify-start"
+                                            onClick={() => window.open(shareUrl, '_blank')}
+                                        >
+                                            <ExternalLink className="mr-2 h-4 w-4" />
+                                            Open in New Tab
+                                        </Button>
 
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-start text-destructive hover:text-destructive"
-                                    onClick={handleMakePrivate}
-                                    disabled={isMakingPrivate}
-                                >
-                                    {isMakingPrivate ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Stopping…
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Lock className="mr-2 h-4 w-4" />
-                                            Stop sharing (make private)
-                                        </>
-                                    )}
-                                </Button>
-                            </>
-                        )}
+                                        <Button
+                                            variant="outline"
+                                            className="w-full justify-start text-destructive hover:text-destructive"
+                                            onClick={handleMakePrivate}
+                                            disabled={isMakingPrivate}
+                                        >
+                                            {isMakingPrivate ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Stopping…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Lock className="mr-2 h-4 w-4" />
+                                                    Stop sharing (make private)
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Preview: above the controls below 880px, a right column from 880px. */}
+                        <div className="order-first flex min-w-0 shrink-0 flex-col p-6 pb-0 min-[880px]:order-last min-[880px]:w-[548px] min-[880px]:overflow-y-auto min-[880px]:border-l min-[880px]:bg-muted/30 min-[880px]:pb-6">
+                            {previewSection}
+                        </div>
                     </div>
                 </div>
             </DialogContent>

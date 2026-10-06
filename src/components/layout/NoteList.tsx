@@ -4,6 +4,7 @@ import {
   FileText,
   Trash2,
   Share2,
+  Download,
   Users,
   Archive,
   Globe,
@@ -427,6 +428,14 @@ const NoteItem = memo(function NoteItem({
             label: "Share",
             icon: Share2,
             action: () => onShareNote(note),
+          },
+          {
+            label: "Export to Markdown",
+            icon: Download,
+            action: () =>
+              void import("@/lib/importexport/exportNoteMarkdown").then((m) =>
+                m.exportNoteAsMarkdown(note.docId, note.title || "Untitled"),
+              ),
           },
           {
             label: "Open in Owner Console",
