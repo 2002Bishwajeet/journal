@@ -1,6 +1,8 @@
 import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
+import { useLatestWhatsNew } from "@/hooks/useWhatsNew";
 
 const links = [
   { label: "Source code", href: "https://github.com/2002Bishwajeet/journal" },
@@ -8,6 +10,7 @@ const links = [
 ];
 
 export default function AboutSection() {
+  const whatsNew = useLatestWhatsNew();
   const version = `v${__APP_VERSION__} (build ${__APP_BUILD__})`;
 
   const copyVersion = async () => {
@@ -28,6 +31,18 @@ export default function AboutSection() {
         </div>
         <Button variant="ghost" size="sm" className="min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={copyVersion}>
           Copy
+        </Button>
+      </div>
+
+      <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3">
+        <div className="min-w-36 flex-1 space-y-0.5">
+          <h3 className="text-sm leading-5 font-medium">What's new</h3>
+          <p className="text-xs text-muted-foreground">
+            {whatsNew.failed ? "Couldn't load the changelog" : "See what changed in recent versions"}
+          </p>
+        </div>
+        <Button variant="ghost" size="sm" className="min-h-11 min-w-11 md:min-h-0 md:min-w-0" onClick={whatsNew.open}>
+          View
         </Button>
       </div>
 
@@ -60,6 +75,7 @@ export default function AboutSection() {
           ))}
         </ul>
       </div>
+      <WhatsNewDialog entries={whatsNew.entries} onClose={whatsNew.close} />
     </div>
   );
 }
