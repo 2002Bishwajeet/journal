@@ -23,11 +23,17 @@ const MAX_IMAGE_PROMOTION_ATTEMPTS = 5;
 // The next jrnl_img index, kept in the note's doc so a deleted top key is never reused (#373)
 const NEXT_IMAGE_INDEX = 'nextImageIndex';
 
+function readNextImageIndex(ydoc: Y.Doc): number {
+    const value = ydoc.getMap(COVER_MAP).get(NEXT_IMAGE_INDEX);
+    return typeof value === 'number' ? value : 0;
+}
+
 async function getNextImageIndex(docId: string): Promise<number> {
     const ydoc = await loadLocalYDoc(docId);
-    const value = ydoc?.getMap(COVER_MAP).get(NEXT_IMAGE_INDEX);
-    ydoc?.destroy();
-    return typeof value === 'number' ? value : 0;
+    if (!ydoc) return 0;
+    const next = readNextImageIndex(ydoc);
+    ydoc.destroy();
+    return next;
 }
 
 /** SyncService's (private) updateImageReference, called on the instance as before the split. */
@@ -177,10 +183,8 @@ export async function updateImageReference(
             found = true;
         }
 
-        const meta = ydoc.getMap(COVER_MAP);
         const next = parseInt(payloadKey.slice(PAYLOAD_KEY_IMAGE_PREFIX.length), 10) + 1;
-        const current = meta.get(NEXT_IMAGE_INDEX);
-        if (found && next > (typeof current === 'number' ? current : 0)) meta.set(NEXT_IMAGE_INDEX, next);
+        if (found && next > readNextImageIndex(ydoc)) ydoc.getMap(COVER_MAP).set(NEXT_IMAGE_INDEX, next);
     });
 
     if (found) {

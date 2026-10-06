@@ -519,10 +519,10 @@ export class NotesDriveProvider {
         const imgKeys = (existingHeader.fileMetadata.payloads ?? [])
             .map(p => p.key)
             .filter(k => k.startsWith(PAYLOAD_KEY_IMAGE_PREFIX));
-        const nextIdx = Math.max(minIndex, 1 + imgKeys.reduce((max, k) => {
+        const nextIdx = 1 + imgKeys.reduce((max, k) => {
             const n = parseInt(k.slice(PAYLOAD_KEY_IMAGE_PREFIX.length), 10);
             return Number.isFinite(n) ? Math.max(max, n) : max;
-        }, -1));
+        }, minIndex - 1);
 
         const fileId = existingHeader.fileId;
         const appData = existingHeader.fileMetadata.appData

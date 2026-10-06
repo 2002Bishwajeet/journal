@@ -155,7 +155,7 @@ export class SyncService {
             await saveAppState(STORAGE_KEY_LAST_SYNC, this.#ctx.inboxProcessor.getCurrentSyncTime());
 
             // 5. Report when the pushes and image uploads skipped for backoff can be retried (#263, #374)
-            const retryTimes = [await getNextPushRetryAt(), await getNextImageRetryAt()].filter((t) => t !== undefined);
+            const retryTimes = (await Promise.all([getNextPushRetryAt(), getNextImageRetryAt()])).filter((t) => t !== undefined);
             result.nextRetryAt = retryTimes.length > 0 ? Math.min(...retryTimes) : undefined;
 
             this.#status = 'idle';
