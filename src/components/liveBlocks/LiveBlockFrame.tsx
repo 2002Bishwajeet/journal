@@ -6,6 +6,7 @@
  */
 import { useRef, type ReactNode } from 'react';
 import type { LiveBlockKind } from '@/lib/liveBlocks';
+import type { BlockStateStore } from '@/lib/liveBlockState';
 import { cn } from '@/lib/utils';
 import { LiveBlockPreview } from './LiveBlockPreview';
 
@@ -20,6 +21,8 @@ interface LiveBlockFrameProps {
   selected?: boolean;
   /** While editing: name the kind and keep the toggles in view. A reader (the share page) gets neither until they hover. */
   labelled?: boolean;
+  /** Where an html or react block's `journal.storage` keeps its state (#410). */
+  store?: BlockStateStore;
   /** The view toggles, as LiveBlockToggle buttons. */
   toggles: ReactNode;
   /** The code block's `<pre>`. */
@@ -30,7 +33,7 @@ interface LiveBlockFrameProps {
 const REVEALED =
   'opacity-0 transition-opacity duration-100 group-hover/block:opacity-100 group-focus-within/block:opacity-100 [@media(hover:none)]:opacity-100';
 
-export function LiveBlockFrame({ kind, source, preview, selected, labelled, toggles, children }: LiveBlockFrameProps) {
+export function LiveBlockFrame({ kind, source, preview, selected, labelled, store, toggles, children }: LiveBlockFrameProps) {
   const box = useRef<HTMLDivElement>(null);
   // The inline height fitContent last gave the box.
   const fittedHeight = useRef('');
@@ -75,7 +78,7 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, togg
         data-live-block-preview={preview ? kind : undefined}
         className={cn(framed && 'relative h-[400px] resize-y overflow-hidden')}
       >
-        {preview && <LiveBlockPreview kind={kind} source={source} onHeight={fitContent} />}
+        {preview && <LiveBlockPreview kind={kind} source={source} store={store} onHeight={fitContent} />}
         {children}
         {framed && (
           // Drawn over the native resize handle, which is hard to see on a page. Dragging it

@@ -12,7 +12,9 @@ const LIVE_BLOCKS =
     ' Fenced code blocks with language `mermaid`, `svg`, `html` or `react` render live in Journal. ' +
     'An `html` block is one self-contained document. Besides inline <script> and <style>, it may load ' +
     'scripts, styles and fonts only from cdn.jsdelivr.net, cdnjs.cloudflare.com and unpkg.com. ' +
-    'Images must be `data:` URIs. There is no network access from script (fetch, XMLHttpRequest and WebSocket fail) and no storage. ' +
+    'Images must be `data:` URIs. There is no network access from script (fetch, XMLHttpRequest and WebSocket fail) and no browser storage. ' +
+    'To keep state in the note, an `html` or `react` block calls `journal.storage.get(key)` and `journal.storage.set(key, value)` ' +
+    '(promises; JSON values; at most 64 KB per block), keyed by the `id=…` in its fence (```html id=k3f9): keep that id when rewriting a block. ' +
     "Tailwind's CDN script does not work. React needs its UMD build, and JSX needs Babel standalone, both from those hosts." +
     ' A `react` block is JSX that defines a component named `App`, or exports one as default. ' +
     "Journal compiles it and runs it on the app's own React, in the same sandbox as an `html` block, with no CDN script. " +
@@ -21,7 +23,7 @@ const LIVE_BLOCKS =
     "`className` takes Tailwind classes drawn in Journal's theme, in light and dark with no `dark:` variant: " +
     'prefer the theme names (`bg-muted`, `text-muted-foreground`, `border`); palette names such as `bg-blue-500` map to the theme too. ' +
     'Recharts charts take the theme without colour props: series use `--chart-2` … `--chart-5` in order, grid and axes the border and muted text colours. ' +
-    'State is lost on reload.' +
+    'State is lost on reload unless kept with `journal.storage`.' +
     " Journal's design system comes first. " +
     '(1) Prefer a native block (callout, table, toggle, task list, mermaid) whenever one can carry the content. ' +
     "(2) An `html` block must use the note's font and colours, which it inherits, and the theme variables " +

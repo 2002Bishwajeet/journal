@@ -1,12 +1,30 @@
 /** Code-block languages that render a live preview in the editor. */
 export type LiveBlockKind = 'mermaid' | 'svg' | 'html' | 'react';
 
+const BLOCK_ID_TOKEN = /^id=[a-z0-9]{4,12}$/;
+
 /**
- * The live-preview kind for a code block's language, or null for an ordinary code block.
- * `jsx` and `tsx` stay ordinary code, so a code sample never runs.
+ * A code block's `language` attribute holds the fence's whole info string, so an html
+ * block's id rides in it (```html id=k3f9, #410) through export, import and agent edits.
+ * This splits it: the language is the first word, the id an `id=<4–12 of a-z0-9>` word.
+ */
+export function parseCodeInfo(info: string | null): { language: string | null; id: string | null } {
+  const [language, ...rest] = (info ?? '').trim().split(/\s+/);
+  const token = rest.find((word) => BLOCK_ID_TOKEN.test(word));
+  return { language: language || null, id: token ? token.slice('id='.length) : null };
+}
+
+/** The info string with an id added, for a block that saves its state the first time. */
+export function withBlockId(info: string, id: string): string {
+  return `${info.trim()} id=${id}`;
+}
+
+/**
+ * The live-preview kind for a code block's language (the info string's first word), or
+ * null for an ordinary code block. `jsx` and `tsx` stay ordinary code, so a code sample never runs.
  */
 export function liveBlockKind(language: string | null): LiveBlockKind | null {
-  const lang = language?.trim().toLowerCase();
+  const lang = parseCodeInfo(language).language?.toLowerCase();
   return lang === 'mermaid' || lang === 'svg' || lang === 'html' || lang === 'react' ? lang : null;
 }
 
@@ -29,10 +47,35 @@ const CDN = HTML_BLOCK_CDN_HOSTS.join(' ');
 // external images, media or form posts.
 const HTML_BLOCK_CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; style-src 'unsafe-inline' ${CDN}; img-src data: blob:; font-src data: ${CDN}; media-src data: blob:; form-action 'none'; base-uri 'none'`;
 
-// The one thing a frame tells the app: how tall its document is, whenever that changes (#412).
-// It reads nothing else and listens to nothing; the app never sends anything into a frame.
+// What a frame tells the app unasked: how tall its document is, whenever that changes (#412).
 const HEIGHT_REPORT_SCRIPT =
   "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) }, '*')).observe(document.documentElement)</script>";
+
+// `journal.storage` (#410): get and set ask the app for this block's saved state over the
+// same bridge, and the app answers each request by its number. The app decides everything
+// (which block, the limits); the frame only matches replies to its own requests. It comes
+// before the source, so the source can use it as it loads.
+const STORAGE_SCRIPT =
+  '<script>(function () {' +
+  'var next = 0, waiting = {};' +
+  "addEventListener('message', function (event) {" +
+  'var data = event.data, wait = waiting[data && data.reply];' +
+  'if (!wait || event.source !== parent || data.journalLiveBlock !== 1) return;' +
+  'delete waiting[data.reply];' +
+  'if (data.error !== undefined) wait.reject(new Error(data.error)); else wait.resolve(data.value);' +
+  '});' +
+  'function ask(storage, key, value) {' +
+  'return new Promise(function (resolve, reject) {' +
+  'var request = ++next;' +
+  'waiting[request] = { resolve: resolve, reject: reject };' +
+  "parent.postMessage({ journalLiveBlock: 1, storage: storage, request: request, key: key, value: value }, '*');" +
+  '});' +
+  '}' +
+  'window.journal = { storage: {' +
+  "get: function (key) { return ask('get', key); }," +
+  "set: function (key, value) { return ask('set', key, value); }" +
+  '} };' +
+  '})();</script>';
 
 /** The theme tokens an `html` block's frame gets as `:root` variables, under the app's own names. */
 export const FRAME_TOKENS = [
@@ -93,7 +136,8 @@ export interface FrameTheme {
  * The document for an `html` block's sandboxed frame. The CSP meta comes first,
  * so it is in force before anything in the (untrusted) source is parsed. Then
  * one style gives the page the note's look; it comes before the source, so the
- * block's own CSS wins. The height report comes last.
+ * block's own CSS wins. Then `journal.storage`, so the source can use it as it
+ * loads. The height report comes last.
  *
  * The page is only see-through while its colour scheme is that of the app
  * around it: a browser paints a frame of the other scheme opaque.
@@ -112,7 +156,7 @@ export function buildSrcdoc(source: string, theme: FrameTheme): string {
     'table{border-collapse:collapse}' +
     'th,td{border:1px solid var(--border);padding:0.5rem 0.75rem;text-align:left}' +
     'img{max-width:100%}';
-  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${source}${HEIGHT_REPORT_SCRIPT}`;
+  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${STORAGE_SCRIPT}${source}${HEIGHT_REPORT_SCRIPT}`;
 }
 
 // A script's text ends at the first `</script`, and `<!--` can move that end. `\x3C` is `<`
@@ -195,4 +239,25 @@ export function frameHeightFromMessage(event: Pick<MessageEvent<unknown>, 'sourc
   const data = event.data as { journalLiveBlock?: unknown; height?: unknown } | null | undefined;
   if (data?.journalLiveBlock !== 1 || typeof data.height !== 'number' || !Number.isFinite(data.height)) return null;
   return Math.min(Math.max(data.height, MIN_FRAME_HEIGHT), MAX_FRAME_HEIGHT);
+}
+
+/** A `journal.storage` call from a block's frame (#410). `key` and `value` are not checked yet. */
+export interface StorageRequest {
+  request: number;
+  storage: 'get' | 'set';
+  key: unknown;
+  value?: unknown;
+}
+
+/**
+ * The storage request in a `message` event, or null for anything else. As with
+ * frameHeightFromMessage, the block is known by `frame` (its `iframe.contentWindow`)
+ * alone: a message from any other window is no request of this block's, and gets no reply.
+ */
+export function storageRequestFromMessage(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null): StorageRequest | null {
+  if (!frame || event.source !== frame) return null;
+  const data = event.data as { journalLiveBlock?: unknown; storage?: unknown; request?: unknown; key?: unknown; value?: unknown } | null | undefined;
+  if (data?.journalLiveBlock !== 1 || (data.storage !== 'get' && data.storage !== 'set')) return null;
+  if (typeof data.request !== 'number' || !Number.isFinite(data.request)) return null;
+  return { request: data.request, storage: data.storage, key: data.key, value: data.value };
 }

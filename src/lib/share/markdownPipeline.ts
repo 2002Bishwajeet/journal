@@ -75,13 +75,53 @@ export function rehypeDropEmptyThead() {
     };
 }
 
+/** Calls `visit` on every `code` element under `parent`. */
+function eachCode(parent: Root | Element, visit: (code: Element) => void): void {
+    for (const child of parent.children) {
+        if (child.type !== 'element') continue;
+        if (child.tagName === 'code') visit(child);
+        eachCode(child, visit);
+    }
+}
+
+// A code element's `data.meta` is the rest of its fence's info string, which holds a live
+// block's id (```html id=k3f9, #410). rehype-raw rebuilds the tree without `data`, so the
+// meta is set aside before it, by source position, and put back once the tree is
+// sanitized. It is never an attribute, so the sanitizer has nothing to allow.
+const metaByFile = new WeakMap<object, Map<number, string>>();
+
+function rehypeKeepCodeMeta() {
+    return (tree: Root, file: object) => {
+        const metas = new Map<number, string>();
+        eachCode(tree, (code) => {
+            const offset = code.position?.start.offset;
+            if (code.data?.meta && offset !== undefined) metas.set(offset, code.data.meta);
+        });
+        metaByFile.set(file, metas);
+    };
+}
+
+function rehypeRestoreCodeMeta() {
+    return (tree: Root, file: object) => {
+        const metas = metaByFile.get(file);
+        metaByFile.delete(file);
+        if (!metas?.size) return;
+        eachCode(tree, (code) => {
+            const meta = metas.get(code.position?.start.offset ?? -1);
+            if (meta) code.data = { ...code.data, meta };
+        });
+    };
+}
+
 export const shareRemarkPlugins: Options['remarkPlugins'] = [remarkGfm, remarkMath];
 
 // Order: parse raw HTML -> sanitize -> highlight code -> render math. Highlighting
 // and KaTeX run after the sanitizer so their trusted markup isn't stripped.
 export const shareRehypePlugins: Options['rehypePlugins'] = [
+    rehypeKeepCodeMeta,
     rehypeRaw,
     [rehypeSanitize, sanitizeSchema],
+    rehypeRestoreCodeMeta,
     rehypeDropEmptyThead,
     rehypeLowlight,
     rehypeKatex,
