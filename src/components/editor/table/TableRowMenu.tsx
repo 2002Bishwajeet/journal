@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { GripVertical, ArrowUp, ArrowDown, Trash2, PanelTop, Table2 } from 'lucide-react';
 import { useTableState } from './hooks';
+import { TABLE_DESTRUCTIVE_CLASS, TABLE_HANDLE_CLASS, TABLE_MENU_CLASS, TABLE_TOGGLE_CLASS } from './styles';
 import {
   Popover,
   PopoverContent,
@@ -75,16 +76,17 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
 
     if (!tableRect) return null;
 
+    // The table's left edge along this row; the handle sits just outside it, centred on the row.
     return {
       getBoundingClientRect: () => {
         return {
-            width: 20,
+            width: 0,
             height: rect.height,
-            x: tableRect.left - 24, // Position to the left of the table
+            x: tableRect.left,
             y: rect.y,
             top: rect.top,
-            left: tableRect.left - 24,
-            right: tableRect.left - 4,
+            left: tableRect.left,
+            right: tableRect.left,
             bottom: rect.bottom,
         };
       },
@@ -103,8 +105,8 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
     open: isOpen, 
     placement: 'left', // Position to the left of the row
     middleware: [
-        offset(0), 
-        shift(), 
+        offset(2),
+        shift(),
     ],
     whileElementsMounted: autoUpdate,
   });
@@ -129,36 +131,35 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
                 variant="ghost" 
                 size="icon" 
                 aria-label="Row options"
-                className="h-full w-6 rounded-none hover:bg-muted active:bg-muted-foreground/20 flex flex-col items-center justify-center transition-colors"
+                className={TABLE_HANDLE_CLASS + ' h-6 w-4'}
             >
-                <GripVertical className="h-4 w-4 text-muted-foreground/50 hover:text-foreground" />
+                <GripVertical />
            </Button>
          </PopoverTrigger>
-         <PopoverContent className="w-auto p-1 flex gap-1 z-9999" side="left" align="center">
-             <Button variant="ghost" size="icon" aria-label="Insert row above" className="h-7 w-7" onClick={() => editor.chain().focus().addRowBefore().run()}>
-                <ArrowUp className="w-4 h-4" />
+         <PopoverContent className={TABLE_MENU_CLASS} side="left" align="center">
+             <Button variant="ghost" size="icon" aria-label="Insert row above" title="Insert row above" className="h-7 w-7" onClick={() => editor.chain().focus().addRowBefore().run()}>
+                <ArrowUp />
              </Button>
-             <Button variant="ghost" size="icon" aria-label="Insert row below" className="h-7 w-7" onClick={() => editor.chain().focus().addRowAfter().run()}>
-                <ArrowDown className="w-4 h-4" />
+             <Button variant="ghost" size="icon" aria-label="Insert row below" title="Insert row below" className="h-7 w-7" onClick={() => editor.chain().focus().addRowAfter().run()}>
+                <ArrowDown />
              </Button>
-             <Separator orientation="vertical" className="h-4 my-auto" />
-             <Button variant="ghost" size="icon" aria-label="Delete row" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => editor.chain().focus().deleteRow().run()}>
-                <Trash2 className="w-4 h-4" />
-             </Button>
-             <Separator orientation="vertical" className="h-4 my-auto" />
              <Button
                 variant="ghost"
                 size="icon"
                 aria-label="Header row"
                 title="Header row"
                 aria-pressed={hasHeaderRow}
-                className={`h-7 w-7 ${hasHeaderRow ? 'bg-muted text-foreground' : ''}`}
+                className={TABLE_TOGGLE_CLASS}
                 onClick={() => editor.chain().focus().toggleHeaderRow().run()}
              >
-                <PanelTop className="w-4 h-4" />
+                <PanelTop />
              </Button>
-             <Button variant="ghost" size="icon" aria-label="Delete table" title="Delete table" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => { setHandleOpen(false); editor.chain().focus().deleteTable().run(); }}>
-                <Table2 className="w-4 h-4" />
+             <Separator orientation="vertical" className="h-4 my-auto" />
+             <Button variant="ghost" size="icon" aria-label="Delete row" title="Delete row" className={TABLE_DESTRUCTIVE_CLASS} onClick={() => editor.chain().focus().deleteRow().run()}>
+                <Trash2 />
+             </Button>
+             <Button variant="ghost" size="icon" aria-label="Delete table" title="Delete table" className={TABLE_DESTRUCTIVE_CLASS} onClick={() => { setHandleOpen(false); editor.chain().focus().deleteTable().run(); }}>
+                <Table2 />
              </Button>
          </PopoverContent>
        </Popover>

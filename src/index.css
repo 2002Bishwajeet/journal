@@ -390,10 +390,13 @@ body {
   vertical-align: top;
 }
 
+/* Header cells: a shaded band in a slightly softer ink than the body text, so the
+   header reads as a label row without shouting. About 8:1 on the shading in both
+   themes (muted-foreground on muted was under WCAG AA, #221). */
 .prose th {
   background: var(--muted);
   font-weight: 600;
-  color: var(--muted-foreground);
+  color: color-mix(in srgb, var(--foreground) 85%, var(--muted));
 }
 
 /* A cell's paragraph carries no margin of its own: the cell's padding is the only
@@ -410,55 +413,33 @@ body {
   margin-top: 0.75rem;
 }
 
-/* muted-foreground on muted is 3.9:1 in dark mode — below WCAG AA (#221). */
-.dark .prose th {
-  color: var(--foreground);
-}
-
-/* Selected Cell (Tiptap Table Extension) */
+/* Selected cells (CellSelection): a light wash of the text colour, both themes. */
 .prose .selectedCell:after {
   content: "";
   position: absolute;
-  left: 0; right: 0; top: 0; bottom: 0;
-  background: rgba(44, 43, 41, 0.1); 
+  inset: 0;
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
   pointer-events: none;
   z-index: 2;
 }
 
-.dark .prose .selectedCell:after {
-  background: rgba(230, 228, 221, 0.1); 
-}
-
-/* Column Resize Handle */
-.prose .column-resize-handle {
-  position: absolute;
-  right: -2px; 
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background-color: var(--blue-400, #60a5fa); /* Blue line on hover/active */
-  pointer-events: none;
-  opacity: 0;
-  z-index: 20;
-  transition: opacity 0.2s;
-}
-
-/* Show handle when hovering header or when dragging (Tiptap adds class usually) */
-.prose th:hover .column-resize-handle,
-.prose td:hover .column-resize-handle { 
-  /* Tiptap uses a specific way to handle resizing, typically relying on a div inside the cell or global events. 
-     The 'resize-cursor' class is added to body during resize. */
-}
-
-/* Tiptap Resizing State */
+/* Column resize: TipTap draws `.column-resize-handle` in each cell of a column and
+   sets `.resize-cursor` on the editor only while the pointer is on that column's
+   border or dragging it, so the handle shows whenever it exists. A 2px line in
+   the action colour over the 1px border, with no fade. */
 .resize-cursor {
   cursor: col-resize;
 }
 
-/* Highlight column being resized */
-.resize-cursor .column-resize-handle {
-  opacity: 1;
+.prose .column-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -1.5px;
+  width: 2px;
   background-color: var(--primary);
+  pointer-events: none;
+  z-index: 20;
 }
 
 /* Tailwind v4 Theme Configuration */
