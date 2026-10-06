@@ -141,12 +141,15 @@ An `html` block **can** contain:
 - Inline `<style>` and inline `<script>`, including event handlers, timers, `<canvas>`,
   inline `<svg>`, CSS animations and form controls handled by script.
 - Images, fonts and media as `data:` URIs.
+- Scripts, stylesheets and fonts from three CDN hosts: `https://cdn.jsdelivr.net`,
+  `https://cdnjs.cloudflare.com` and `https://unpkg.com` (`<script src>`,
+  `<link rel="stylesheet">`, `@font-face`). They load only while the reader is online.
 
 It **cannot**:
 
 - Make network requests: `fetch`, `XMLHttpRequest` and `WebSocket` all fail.
-- Load anything external: no `<script src>`, no stylesheet links, no web fonts, no
-  `https://` images. That rules out CDN libraries such as React, Tailwind or Chart.js.
+- Load anything from another host: a `<script src>`, stylesheet or font from any host not
+  listed above is blocked, and there are no `https://` images or media.
 - Use browser storage. `localStorage`, `sessionStorage`, `indexedDB` and `document.cookie`
   throw a `SecurityError`, so wrap any such call in `try`/`catch`. Use `journal.storage`
   (below) to keep state.
@@ -155,8 +158,6 @@ It **cannot**:
 The frame is as tall as its content, up to 1600px (taller content scrolls inside it), and
 the reader can drag it to another height. It is as wide as the note column, so design for
 roughly 650px and let the layout stretch.
-
-Planned, not available yet: scripts from an allowlisted CDN.
 
 ### Saved state: `journal.storage`
 
