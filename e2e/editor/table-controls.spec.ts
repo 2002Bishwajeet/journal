@@ -94,13 +94,22 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await app.emulateMedia({ colorScheme });
     await insertTable(app, `Table menus ${colorScheme} ${Date.now()}`);
 
+    // Shoot only once the single open popover has finished its fade-in.
+    const popover = app.locator('[role="dialog"][data-state="open"]');
+
     await openMenu(app, 'Row options', 0);
-    await expect(app.getByRole('button', { name: 'Delete table' })).toBeVisible();
+    await expect(popover).toHaveCount(1);
+    await expect(popover.getByRole('button', { name: 'Delete table' })).toBeVisible();
+    await expect(popover.getByRole('button', { name: 'Header row' })).toBeVisible();
+    await expect(popover).toHaveCSS('opacity', '1');
     await app.screenshot({ path: test.info().outputPath(`row-menu-${colorScheme}-1280.png`) });
     await app.keyboard.press('Escape');
+    await expect(popover).toHaveCount(0);
 
     await openMenu(app, 'Column options', 1);
-    await expect(app.getByRole('button', { name: 'Delete column' })).toBeVisible();
+    await expect(popover).toHaveCount(1);
+    await expect(popover.getByRole('button', { name: 'Delete column' })).toBeVisible();
+    await expect(popover).toHaveCSS('opacity', '1');
     await app.screenshot({ path: test.info().outputPath(`column-menu-${colorScheme}-1280.png`) });
   });
 }
