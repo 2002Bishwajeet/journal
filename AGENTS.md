@@ -323,6 +323,7 @@ npm run test:ui  # visual dashboard
 - A push to `main` deploys a Cloudflare Pages **preview** (`deploy-cloudflare.yml`, `--branch=preview`), never production.
 - Production changes only with a release: run **Manual Release** (`manual-release.yml`, patch/minor/major). It pushes over SSH with the `RELEASE_DEPLOY_KEY` deploy key (the main ruleset's bypass actor) and otherwise uses `github.token`: it bumps `package.json`, updates `CHANGELOG.md`, commits `chore(release): X.Y.Z [skip ci]`, pushes tag `vX.Y.Z`, creates the GitHub release, then calls `deploy-cloudflare.yml` (production branch `main`) on that tag.
 - `mcp-release.yml` (`mcp-v*` releases) never deploys the app.
+- **Release notes:** a PR with a change users can see adds a bullet under `## Unreleased` in `RELEASE_NOTES.md` (`### New`, `### Changed` or `### Fixed`), written in ASD-STE100 Simplified Technical English (rules at the top of that file). Users read it in the app's What's new dialog and on the GitHub release. Manual Release stamps it with the version and fails if it is empty. `CHANGELOG.md` stays the generated commit log.
 
 ## Agent harness
 

@@ -53,11 +53,18 @@ jobs:
         run: |
           npx conventional-changelog-cli -p angular -i CHANGELOG.md -s
 
+      # Hand-written user notes (ASD-STE100): fails the release when
+      # RELEASE_NOTES.md's "## Unreleased" is empty.
+      - name: Stamp release notes
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          node scripts/release-notes.mjs "$VERSION" "$(date -u +%F)" > "$RUNNER_TEMP/release-notes.md"
+
       - name: Commit and Tag
         id: tag
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          git add package.json package-lock.json CHANGELOG.md
+          git add package.json package-lock.json CHANGELOG.md RELEASE_NOTES.md
           git commit -m "chore(release): $VERSION [skip ci]"
           git tag "v$VERSION"
           git push origin main --tags
@@ -66,7 +73,7 @@ jobs:
       - name: Create GitHub Release
         run: |
           VERSION=${{ steps.tag.outputs.version }}
-          gh release create v$VERSION --title "v$VERSION" --generate-notes
+          gh release create v$VERSION --title "v$VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
         env:
           GITHUB_TOKEN: ${{ github.token }}
 

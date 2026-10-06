@@ -59,6 +59,8 @@ import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
 import { useAuth } from "@/hooks/auth";
+import { useAutoWhatsNew } from "@/hooks/useWhatsNew";
+import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
 import { useFolders, isUnknownFolderRoute } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useEditorAppearance } from "@/hooks/useEditorAppearance";
@@ -75,6 +77,7 @@ export default function JournalLayout() {
   useThemePreference();
   // Apply the stored editor font/width attributes at root level
   useEditorAppearance();
+  const whatsNew = useAutoWhatsNew();
 
   // Warm the lazy editor chunk once the shell is idle. Desktop with restored
   // tabs already triggers the import by rendering it; this covers mobile and
@@ -555,6 +558,8 @@ export default function JournalLayout() {
           onClose={() => setShowSettings(false)}
         />
       </Suspense>
+
+      <WhatsNewDialog entries={whatsNew.entries} onClose={whatsNew.close} />
 
       {shareNote && (
         <Suspense fallback={null}>
