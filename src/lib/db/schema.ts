@@ -33,16 +33,28 @@ export async function initializeSchema(database: PGliteInterface): Promise<void>
   // applied we skip BOTH the base-table DDL and the migration chain — they're
   // idempotent, but re-running them costs several hundred ms on every launch.
   // Bump SCHEMA_VERSION to force a re-run after a schema change.
+  // The check is read-only: even `CREATE TABLE IF NOT EXISTS` is a write, and a
+  // write on the idb:// VFS pays a full IndexedDB flush (~500ms) on every launch.
+  // to_regclass (not catching 42P01) so a missing table can't abort a transaction.
+  const start = performance.now();
+  const meta = await database.query<{ present: boolean }>(
+    `SELECT to_regclass('schema_meta') IS NOT NULL AS present`,
+  );
+  if (meta.rows[0]?.present) {
+    const applied = await database.query<{ version: string }>(
+      `SELECT version FROM schema_meta WHERE id = 1`,
+    );
+    if (applied.rows[0]?.version === SCHEMA_VERSION) {
+      console.log(
+        `[DB Schema] Schema up to date, skipping schema setup in ${Math.round(performance.now() - start)}ms`,
+      );
+      return;
+    }
+  }
+
   await database.exec(
     `CREATE TABLE IF NOT EXISTS schema_meta (id INTEGER PRIMARY KEY, version TEXT NOT NULL);`,
   );
-  const applied = await database.query<{ version: string }>(
-    `SELECT version FROM schema_meta WHERE id = 1`,
-  );
-  if (applied.rows[0]?.version === SCHEMA_VERSION) {
-    console.log('[DB Schema] Schema up to date, skipping schema setup');
-    return;
-  }
 
   await database.exec(`
     -- Create document_updates table (Yjs source of truth)
