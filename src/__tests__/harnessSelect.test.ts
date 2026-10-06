@@ -75,6 +75,10 @@ describe('classify', () => {
         expect(classify(issue(), ctx())).toEqual({ ready: true });
     });
 
+    it('treats a merged PR dependency as done', () => {
+        expect(classify(issue(), ctx({ deps: { 1: closed, 2: { state: 'MERGED' } } }))).toEqual({ ready: true });
+    });
+
     it.each([
         ['closed', issue({ state: 'CLOSED' }), ctx()],
         ['epic', issue(), ctx({ subIssueCount: 3 })],

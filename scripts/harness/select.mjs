@@ -60,7 +60,8 @@ export function classify(issue, { subIssueCount, openPrForIssue, deps }) {
     const depNums = parseDependsOn(issue.body);
     if (depNums === null) return { ready: false, reason: 'no valid Depends on line' };
     if (openPrForIssue) return { ready: false, reason: `open PR #${openPrForIssue}` };
-    const open = depNums.filter((n) => deps[n]?.state.toLowerCase() !== 'closed');
+    // A merged PR counts as done too: `gh issue view` on a PR reports MERGED, not CLOSED
+    const open = depNums.filter((n) => !['closed', 'merged'].includes(deps[n]?.state.toLowerCase()));
     if (open.length) return { ready: false, reason: `waiting on ${open.map((n) => `#${n}`).join(', ')}` };
     const dropped = depNums.filter((n) => deps[n].stateReason === 'NOT_PLANNED');
     if (dropped.length) {
