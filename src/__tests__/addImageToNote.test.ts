@@ -99,6 +99,16 @@ describe('NotesDriveProvider.addImageToNote', () => {
         expect(payloadsArg()[0].key).toBe('jrnl_img3');
     });
 
+    it('ignores the link-card image payload when picking the next image key (#441)', async () => {
+        mockGetHeader.mockResolvedValue(
+            header({ payloadKeys: ['jrnl_txt', 'jrnl_img0', 'jrnl_card', 'jrnl_img1'], isEncrypted: false })
+        );
+
+        const { payloadKey } = await provider.addImageToNote(NOTE_ID, 'v1', imageBlob());
+
+        expect(payloadKey).toBe('jrnl_img2');
+    });
+
     it('keeps a public note unencrypted, Anonymous, with no key header', async () => {
         mockGetHeader.mockResolvedValue(
             header({

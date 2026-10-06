@@ -117,6 +117,25 @@ describe('buildPublicCard', () => {
         const doc = buildDoc([block('paragraph', 'Hello')]);
         expect(buildPublicCard(toBlob(doc), {})).not.toHaveProperty('coverKey');
     });
+
+    it('sets the card image key and the cover it is drawn from for an uploaded cover', () => {
+        const doc = buildDoc([block('paragraph', 'Hello')]);
+        setCover(doc, { src: 'attachment://F/jrnl_img4', positionY: 30 });
+        const card = buildPublicCard(toBlob(doc), {});
+        expect(card.cardImageKey).toBe('jrnl_card');
+        expect(card.cardImageFrom).toEqual({ src: 'attachment://F/jrnl_img4', positionY: 30 });
+    });
+
+    it('omits the card image while the cover upload is pending, or without a cover', () => {
+        const pending = buildDoc([block('paragraph', 'Hello')]);
+        setCover(pending, { src: 'blob:x', pendingId: 'q1', positionY: 30 });
+        const none = buildDoc([block('paragraph', 'Hello')]);
+        for (const doc of [pending, none]) {
+            const card = buildPublicCard(toBlob(doc), {});
+            expect(card).not.toHaveProperty('cardImageKey');
+            expect(card).not.toHaveProperty('cardImageFrom');
+        }
+    });
 });
 
 describe('fallbackShareDescription', () => {

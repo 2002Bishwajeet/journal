@@ -1,11 +1,22 @@
 import * as Y from 'yjs';
 import type { DocumentMetadata } from '@/types';
 import { coverPayloadKey, getCoverFromBlob } from '@/lib/editor/cover';
+import { PAYLOAD_KEY_CARD_IMAGE } from '@/lib/homebase/config';
+
+/** The cover a card image is drawn from. */
+export interface CardImageFrom {
+    src: string;
+    positionY: number;
+}
 
 /** Link-card data a public note publishes in its plaintext header content. */
 export interface PublicCard {
     description?: string;
+    /** The raw cover payload: og:image for notes published before card images. */
     coverKey?: string;
+    /** The 1200×630 card image payload (#441), drawn from `cardImageFrom`. */
+    cardImageKey?: string;
+    cardImageFrom?: CardImageFrom;
     indexable?: boolean;
 }
 
@@ -73,7 +84,11 @@ export function buildPublicCard(
         // Only an uploaded cover has a payload the guest thumb endpoint can serve.
         const cover = getCoverFromBlob(yjsBlob);
         const coverKey = cover && !cover.pendingId ? coverPayloadKey(cover.src) : null;
-        if (coverKey) card.coverKey = coverKey;
+        if (cover && coverKey) {
+            card.coverKey = coverKey;
+            card.cardImageKey = PAYLOAD_KEY_CARD_IMAGE;
+            card.cardImageFrom = { src: cover.src, positionY: cover.positionY };
+        }
     }
 
     if (meta.shareIndexable === true) card.indexable = true;

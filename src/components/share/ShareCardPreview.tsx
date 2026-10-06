@@ -4,7 +4,7 @@ interface ShareCardPreviewProps {
     title: string;
     description: string;
     domain: string;
-    /** The cover, e.g. a drive image that loads itself. Falls back to the logo. */
+    /** The 1200×630 card image (og:image). Falls back to the logo. */
     image?: ReactNode;
 }
 
@@ -12,7 +12,7 @@ interface ShareCardPreviewProps {
 export function ShareCardPreview({ title, description, domain, image }: ShareCardPreviewProps) {
     return (
         <div className="w-full overflow-hidden rounded-lg border bg-card text-card-foreground">
-            <div className="aspect-[1.91/1] w-full overflow-hidden bg-muted">
+            <div className="aspect-[1200/630] w-full overflow-hidden bg-muted">
                 {image ?? (
                     <div className="flex h-full w-full items-center justify-center">
                         <img src="/logo.webp" alt="" className="h-16 w-16 opacity-80" />

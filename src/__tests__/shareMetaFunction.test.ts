@@ -4,8 +4,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { JOURNAL_DRIVE } from '@/lib/homebase/config';
+import { JOURNAL_DRIVE, PAYLOAD_KEY_CARD_IMAGE } from '@/lib/homebase/config';
 import {
+    CARD_IMAGE_KEY,
     JOURNAL_DRIVE_ALIAS,
     JOURNAL_DRIVE_TYPE,
     buildHeadTags,
@@ -75,6 +76,10 @@ describe('share meta constants', () => {
         expect(JOURNAL_DRIVE_ALIAS).toBe(JOURNAL_DRIVE.alias);
         expect(JOURNAL_DRIVE_TYPE).toBe(JOURNAL_DRIVE.type);
     });
+
+    it('should match the app card image key', () => {
+        expect(CARD_IMAGE_KEY).toBe(PAYLOAD_KEY_CARD_IMAGE);
+    });
 });
 
 describe('parseSharePath', () => {
@@ -118,6 +123,47 @@ describe('fetchShareMeta', () => {
         expect((await fetchShareMeta(IDENTITY, GUID, impl))?.coverKey).toBeUndefined();
     });
 
+    it('should read the card image key when it is the card key and one of the payloads', async () => {
+        const { impl } = mockFetch({
+            status: 200,
+            body: headerJson({
+                content: JSON.stringify({ title: 'T', card: { coverKey: 'jrnl_img2', cardImageKey: 'jrnl_card' } }),
+                payloads: [{ key: 'jrnl_img2' }, { key: 'jrnl_card' }],
+            }),
+        });
+        expect(await fetchShareMeta(IDENTITY, GUID, impl)).toMatchObject({ coverKey: 'jrnl_img2', cardImageKey: 'jrnl_card' });
+    });
+
+    it.each([
+        ['an image key', 'jrnl_img0'],
+        ['the content key', 'jrnl_txt'],
+        ['an arbitrary string', 'jrnl_card&x=1'],
+        ['a near miss', 'jrnl_card0'],
+        ['a non-string', 42],
+    ])('should drop a card image key that is %s', async (_label, cardImageKey) => {
+        const { impl } = mockFetch({
+            status: 200,
+            body: headerJson({
+                content: JSON.stringify({ title: 'T', card: { cardImageKey } }),
+                payloads: [{ key: 'jrnl_img0' }, { key: 'jrnl_txt' }, { key: 'jrnl_card' }, { key: 'jrnl_card0' }],
+            }),
+        });
+        expect((await fetchShareMeta(IDENTITY, GUID, impl))?.cardImageKey).toBeUndefined();
+    });
+
+    it('should drop a card image key that is not one of the payloads', async () => {
+        const { impl } = mockFetch({
+            status: 200,
+            body: headerJson({
+                content: JSON.stringify({ title: 'T', card: { coverKey: 'jrnl_img2', cardImageKey: 'jrnl_card' } }),
+                payloads: [{ key: 'jrnl_img2' }],
+            }),
+        });
+        const result = await fetchShareMeta(IDENTITY, GUID, impl);
+        expect(result?.cardImageKey).toBeUndefined();
+        expect(result?.coverKey).toBe('jrnl_img2');
+    });
+
     it.each([
         ['an encrypted note', { status: 200, body: headerJson({ isEncrypted: true }) }],
         ['a trashed note', { status: 200, body: headerJson({ archivalStatus: 2 }) }],
@@ -147,6 +193,47 @@ describe('fetchShareMeta', () => {
 });
 
 describe('buildHeadTags', () => {
+    const url = 'https://j.test/share/x';
+    const ogImage = (tags: string) =>
+        /<meta property="og:image" content="([^"]+)"/.exec(tags)?.[1].replace(/&amp;/g, '&') ?? '';
+
+    it('should point og:image at the card image payload, with its 1200×630 size', () => {
+        const tags = buildHeadTags(meta({ coverKey: 'jrnl_img2', cardImageKey: 'jrnl_card' }), url, 'https://j.test');
+        const image = new URL(ogImage(tags));
+
+        expect(image.origin).toBe(`https://${IDENTITY}`);
+        expect(image.pathname).toBe('/api/guest/v1/drive/files/payload');
+        expect(Object.fromEntries(image.searchParams)).toEqual({
+            alias: JOURNAL_DRIVE_ALIAS,
+            type: JOURNAL_DRIVE_TYPE,
+            fileId: 'file-1',
+            key: 'jrnl_card',
+        });
+        expect(tags).toContain('property="og:image:width" content="1200"');
+        expect(tags).toContain('property="og:image:height" content="630"');
+        expect(tags).toContain(`name="twitter:image" content="${image.href.replace(/&/g, '&amp;')}"`);
+        expect(tags).toContain('name="twitter:card" content="summary_large_image"');
+    });
+
+    it('should fall back to the cover thumb, without a size, for a note published before card images', () => {
+        const tags = buildHeadTags(meta({ coverKey: 'jrnl_img2' }), url, 'https://j.test');
+        const image = new URL(ogImage(tags));
+
+        expect(image.pathname).toBe('/api/guest/v1/drive/files/thumb');
+        expect(image.searchParams.get('payloadKey')).toBe('jrnl_img2');
+        expect(tags).not.toContain('og:image:width');
+        expect(tags).not.toContain('og:image:height');
+        expect(tags).toContain('name="twitter:card" content="summary_large_image"');
+    });
+
+    it('should fall back to the banner when the note has no cover', () => {
+        const tags = buildHeadTags(meta(), url, 'https://j.test');
+
+        expect(ogImage(tags)).toBe('https://j.test/banner.webp');
+        expect(tags).not.toContain('og:image:width');
+        expect(tags).toContain('name="twitter:card" content="summary"');
+    });
+
     it('should escape the title', () => {
         const tags = buildHeadTags(meta({ title: '"><script>alert(1)</script>' }), 'https://j.test/share/x', 'https://j.test');
         expect(tags).not.toContain('<script>alert');

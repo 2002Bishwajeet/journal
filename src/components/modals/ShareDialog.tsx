@@ -14,14 +14,13 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ShareCardPreview } from '@/components/share/ShareCardPreview';
-import { OdinImage } from '@/components/OdinImage/OdinImage';
 import { useAuth } from '@/hooks/auth';
 import { useDotYouClientContext } from '@/components/auth';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
-import { JOURNAL_DRIVE } from '@/lib/homebase/config';
 import { useNotes } from '@/hooks/useNotes';
 import { useSyncService } from '@/hooks/useSyncService';
 import { useShareCardPreview } from '@/hooks/useShareCardPreview';
+import { useShareCardImage } from '@/hooks/useShareCardImage';
 import * as Y from 'yjs';
 import { getDocumentUpdates, getSyncRecord } from '@/lib/db';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
@@ -57,6 +56,8 @@ export default function ShareDialog({
     const noteMetadata = get.data?.find((n) => n.docId === noteId)?.metadata;
     const isPublic = !!noteMetadata?.isPublic;
     const shareDescription = noteMetadata?.shareDescription ?? '';
+    // The same 1200×630 image the link unfurls with (og:image); a pending cover previews as the logo.
+    const cardImage = useShareCardImage(noteId, cardPreview.cover, isPublic);
 
     const identity = getIdentity() || 'unknown';
     const shareUrl = `${window.location.origin}/share/${encodeURIComponent(identity)}/${noteId}`;
@@ -136,12 +137,6 @@ export default function ShareDialog({
             toast.error('Failed to save link preview');
         }
     };
-
-    // Only an uploaded cover reaches the link card; a pending one previews as the logo.
-    const coverSrc = cardPreview.cover?.src;
-    const [coverFileId, coverPayloadKey] = coverSrc?.startsWith('attachment://')
-        ? coverSrc.replace('attachment://', '').split('/')
-        : [];
 
     const handleCopyLink = async () => {
         try {
@@ -267,16 +262,8 @@ export default function ShareDialog({
                                         title={noteTitle || 'Untitled'}
                                         description={cardPreview.description}
                                         domain={window.location.host}
-                                        image={coverFileId ? (
-                                            <OdinImage
-                                                dotYouClient={dotYouClient}
-                                                targetDrive={JOURNAL_DRIVE}
-                                                fileId={coverFileId}
-                                                fileKey={coverPayloadKey}
-                                                alt=""
-                                                fit="cover"
-                                                className="h-full w-full"
-                                            />
+                                        image={cardImage ? (
+                                            <img src={cardImage} alt="" className="h-full w-full object-cover" />
                                         ) : undefined}
                                     />
 

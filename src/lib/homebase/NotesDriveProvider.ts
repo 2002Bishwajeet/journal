@@ -30,11 +30,13 @@ import {
     JOURNAL_DATA_TYPE,
     PAYLOAD_KEY_CONTENT,
     PAYLOAD_KEY_IMAGE_PREFIX,
+    PAYLOAD_KEY_CARD_IMAGE,
     COLLABORATIVE_FOLDER_ID,
     MAIN_FOLDER_ID,
 } from './config';
 import type { NoteFileContent, DocumentMetadata } from '@/types';
-import { buildPublicCard, type PublicCard } from '@/lib/share/publicCard';
+import { buildPublicCard, type CardImageFrom, type PublicCard } from '@/lib/share/publicCard';
+import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import { noteAcl, noteAppData, noteFileContent } from './noteUploadMetadata';
 import { buildContentPayloads, buildImagePayload } from './noteImagePayloads';
 import { InvitationDriveProvider } from './InvitationDriveProvider';
@@ -47,6 +49,16 @@ export interface ImageUploadData {
 /** A card with no keys is left out of the public header content entirely. */
 const nonEmptyCard = (card: PublicCard): PublicCard | undefined =>
     Object.keys(card).length > 0 ? card : undefined;
+
+/** Whether the file's card image payload was drawn from `from`, per the card in its header. */
+function isCardImageCurrent(header: HomebaseFile<NoteFileContent>, from: CardImageFrom): boolean {
+    if (!header.fileMetadata.payloads?.some((p) => p.key === PAYLOAD_KEY_CARD_IMAGE)) return false;
+    // Content may come back as a string or an already-parsed object (see makeNotePublic).
+    const raw: unknown = header.fileMetadata.appData.content;
+    const content = typeof raw === 'string' ? tryJsonParse<{ card?: PublicCard }>(raw) : (raw as { card?: PublicCard } | undefined);
+    const drawnFrom = content?.card?.cardImageFrom;
+    return drawnFrom?.src === from.src && drawnFrom?.positionY === from.positionY;
+}
 
 /**
  * NotesDriveProvider handles all note operations with Homebase.
@@ -334,14 +346,15 @@ export class NotesDriveProvider {
         // private branch keeps the full object, so making a note private restores it.
         // The owner-authored share fields are meant to be public; undefined ones (and
         // an empty link card) are dropped by JSON.stringify.
-        const serializedContent = metadata.isPublic
+        const card = metadata.isPublic ? buildPublicCard(yjsBlob, metadata) : undefined;
+        const serializedContent = card
             ? JSON.stringify({
                 title: metadata.title,
                 tags: metadata?.tags || [],
                 isPublic: true,
                 shareDescription: metadata.shareDescription,
                 shareIndexable: metadata.shareIndexable,
-                card: nonEmptyCard(buildPublicCard(yjsBlob, metadata)),
+                card: nonEmptyCard(card),
             })
             : JSON.stringify(noteContent);
         // A public note is stored unencrypted; the server rejects a payload IV
@@ -349,6 +362,14 @@ export class NotesDriveProvider {
         // isEncrypted below driven by this one flag so they can't diverge.
         const isEncrypted = !metadata.isPublic;
         const payloads = buildContentPayloads(yjsBlob, isEncrypted);
+        let toDeletePayloads = options?.toDeletePayloads;
+        // The card image rides on this same patch. Without the content we can't tell
+        // whether the cover changed, so a content-less save leaves it alone.
+        if (card && yjsBlob && !isPeer) {
+            const change = await this.#cardImageChange(fileId, card.cardImageFrom);
+            if (change.upload) payloads.push({ key: PAYLOAD_KEY_CARD_IMAGE, payload: change.upload });
+            if (change.remove) toDeletePayloads = [...(toDeletePayloads ?? []), { key: PAYLOAD_KEY_CARD_IMAGE }];
+        }
 
         const uploadMetadata: UploadFileMetadata = {
             versionTag,
@@ -392,7 +413,7 @@ export class NotesDriveProvider {
             uploadMetadata,
             payloads,
             undefined, // thumbnails
-            options?.toDeletePayloads,
+            toDeletePayloads,
             options?.onVersionConflict
         );
 
@@ -404,6 +425,66 @@ export class NotesDriveProvider {
             versionTag: result.newVersionTag,
             encryptedKeyHeader: cachedKeyHeader,
         };
+    }
+
+    /**
+     * What a save of a public note does to its card image: upload a new one when the
+     * cover (src or positionY) changed since the last one was drawn, remove it when the
+     * note has no cover any more (or the new one can't be drawn), else nothing.
+     */
+    async #cardImageChange(fileId: string, from: CardImageFrom | undefined): Promise<{ upload?: Blob; remove: boolean }> {
+        let header: HomebaseFile<NoteFileContent> | null = null;
+        try {
+            header = await getFileHeader<NoteFileContent>(this.#dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true });
+        } catch (e) {
+            console.warn('[NotesDriveProvider] could not read the header for the card image', e);
+        }
+        if (from && header && isCardImageCurrent(header, from)) return { remove: false };
+        const upload = from ? await this.#drawCardImage(fileId, from, (key) => this.#readPayloadBlob(fileId, key, header)) : null;
+        if (upload) return { upload, remove: false };
+        return { remove: !!header?.fileMetadata.payloads?.some((p) => p.key === PAYLOAD_KEY_CARD_IMAGE) };
+    }
+
+    /**
+     * Draw the 1200×630 card image of `from`. Null when the cover isn't on this file (the
+     * share page won't follow it either), this browser can't draw it, or drawing fails.
+     */
+    async #drawCardImage(
+        fileId: string,
+        from: CardImageFrom,
+        readCover: (payloadKey: string) => Promise<Blob | null>,
+    ): Promise<Blob | null> {
+        const ref = parseAttachmentSrc(from.src, fileId);
+        if (!ref) return null;
+        try {
+            const { canRenderCardImage, renderCardImage } = await import('@/lib/share/cardImage');
+            if (!canRenderCardImage()) return null;
+            const cover = await readCover(ref.payloadKey);
+            return cover ? await renderCardImage(cover, from.positionY) : null;
+        } catch (e) {
+            console.warn('[NotesDriveProvider] could not draw the card image', e);
+            return null;
+        }
+    }
+
+    /** A payload as a Blob, read with its lastModified so the browser can't hand back a stale copy (#451). */
+    async #readPayloadBlob(fileId: string, key: string, header: HomebaseFile<NoteFileContent> | null): Promise<Blob | null> {
+        const lastModified = header?.fileMetadata.payloads?.find((p) => p.key === key)?.lastModified;
+        const data = await getPayloadBytes(this.#dotYouClient, JOURNAL_DRIVE, fileId, key, { decrypt: true, lastModified });
+        return data ? new Blob([new Uint8Array(data.bytes)], { type: data.contentType }) : null;
+    }
+
+    /**
+     * The card image the share dialog previews for a public note: its uploaded card
+     * image when that was drawn from this cover, else the same image drawn here.
+     */
+    async getCardImage(fileId: string, from: CardImageFrom): Promise<Blob | null> {
+        const header = await getFileHeader<NoteFileContent>(this.#dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true });
+        if (header && isCardImageCurrent(header, from)) {
+            const uploaded = await this.#readPayloadBlob(fileId, PAYLOAD_KEY_CARD_IMAGE, header);
+            if (uploaded) return uploaded;
+        }
+        return this.#drawCardImage(fileId, from, (key) => this.#readPayloadBlob(fileId, key, header));
     }
 
     /**
@@ -527,6 +608,8 @@ export class NotesDriveProvider {
         groupId?: string;
         archivalStatus?: number;
         ensureEncrypted?: boolean;
+        /** Reupload only: change the payloads written back. */
+        payloads?: (payloads: PayloadFile[], fileId: string) => Promise<PayloadFile[]>;
         errorMessage: string;
     }): Promise<{ versionTag: string; previousVersionTag: string }> {
         const fetchHeader = async () => {
@@ -597,7 +680,8 @@ export class NotesDriveProvider {
                 storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: existingHeader.fileId },
                 transferIv: getRandom16ByteArray(),
             };
-            const { payloads, thumbnails } = await this.#readAllPayloads(existingHeader);
+            const { payloads: existingPayloads, thumbnails } = await this.#readAllPayloads(existingHeader);
+            const payloads = spec.payloads ? await spec.payloads(existingPayloads, existingHeader.fileId) : existingPayloads;
             result = await uploadFile(this.#dotYouClient, instructions, uploadMetadata, payloads, thumbnails, isEncrypted);
         } else {
             // Header-only patch — never changes payload encryption.
@@ -666,6 +750,15 @@ export class NotesDriveProvider {
                 shareIndexable: existing.shareIndexable,
                 card: card && nonEmptyCard(card),
             }),
+            // Draw the card image from the cover bytes this re-upload already read.
+            payloads: async (payloads, fileId) => {
+                const rest = payloads.filter((p) => p.key !== PAYLOAD_KEY_CARD_IMAGE);
+                const from = card?.cardImageFrom;
+                const image = from
+                    ? await this.#drawCardImage(fileId, from, async (key) => rest.find((p) => p.key === key)?.payload ?? null)
+                    : null;
+                return image ? [...rest, { key: PAYLOAD_KEY_CARD_IMAGE, payload: image }] : rest;
+            },
             isEncrypted: false, // Public notes should not be encrypted
             acl: { requiredSecurityGroup: SecurityGroupType.Anonymous },
             errorMessage: 'Failed to make note public',
@@ -689,6 +782,8 @@ export class NotesDriveProvider {
                 const { card: _card, ...rest } = existing as NoteFileContent & { card?: unknown };
                 return { ...rest, isPublic: false };
             },
+            // ...and its card image with it.
+            payloads: async (payloads) => payloads.filter((p) => p.key !== PAYLOAD_KEY_CARD_IMAGE),
             isEncrypted: true, // Private notes should be encrypted
             acl: { requiredSecurityGroup: SecurityGroupType.Owner },
             errorMessage: 'Failed to make note private',
