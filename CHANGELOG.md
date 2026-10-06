@@ -1,3 +1,28 @@
+# [2.5.0](https://github.com/2002Bishwajeet/journal/compare/v2.4.0...v2.5.0) (2026-10-06)
+
+
+### Bug Fixes
+
+* **deps:** bump @modelcontextprotocol/sdk to 1.32.1 and dedupe katex ([7f260c8](https://github.com/2002Bishwajeet/journal/commit/7f260c8459c52aee0ac379a903af1cefc77a7b39)), closes [#129](https://github.com/2002Bishwajeet/journal/issues/129) [#128](https://github.com/2002Bishwajeet/journal/issues/128)
+* **deps:** override lodash-es to ^4.18.0 for security advisories ([5a03880](https://github.com/2002Bishwajeet/journal/commit/5a03880b4fff8b8a0c455eaee7176b5f55bddcb4))
+* **images:** retry image upload once on VersionTagMismatch ([c64a914](https://github.com/2002Bishwajeet/journal/commit/c64a91468d0e80a193770f6554d8453e60f2fffd))
+* **live-blocks:** chart series start at --chart-2, and cartesian charts leave room for the last x-axis label ([#427](https://github.com/2002Bishwajeet/journal/issues/427)) ([ce74af5](https://github.com/2002Bishwajeet/journal/commit/ce74af5ee2e0c47c200cc1cb22915e2358b47b51))
+* **live-blocks:** draw no Tailwind hue in --chart-1, which is nearly the text colour ([#427](https://github.com/2002Bishwajeet/journal/issues/427)) ([03b2320](https://github.com/2002Bishwajeet/journal/commit/03b2320a54e113eed721b2a2d7d2c89da61722e0))
+* **sync:** never reuse image payload keys; retry failed image uploads on backoff ([faf798a](https://github.com/2002Bishwajeet/journal/commit/faf798a0d069cd16fbf991fafe32c27c71c4d216))
+* **sync:** re-file a note pulled before its folder; push promoted images in the same sync ([3cea54c](https://github.com/2002Bishwajeet/journal/commit/3cea54cd3a06e4cd92236256e48887cd1a0a35f4))
+
+
+### Features
+
+* **live-blocks:** Recharts in Journal's theme in react blocks ([#427](https://github.com/2002Bishwajeet/journal/issues/427)) ([b0657d1](https://github.com/2002Bishwajeet/journal/commit/b0657d12e86ce8ce1f69e695e11d03f3451eea73))
+* **live-blocks:** saved state for html and react blocks, stored in the note ([#410](https://github.com/2002Bishwajeet/journal/issues/410)) ([3673b60](https://github.com/2002Bishwajeet/journal/commit/3673b60456ba32d1ea2a1b710ae56b19723df424)), closes [#412](https://github.com/2002Bishwajeet/journal/issues/412)
+* **live-blocks:** Tailwind in Journal's theme and lucide-react icons in react blocks ([#427](https://github.com/2002Bishwajeet/journal/issues/427)) ([5fd6492](https://github.com/2002Bishwajeet/journal/commit/5fd6492f55e4764f1a3d1a1127552d801c6cffe7))
+
+
+### Performance Improvements
+
+* **db:** make the up-to-date schema check read-only on boot ([6532303](https://github.com/2002Bishwajeet/journal/commit/65323031cb864425521efea98dea0a817ce98914))
+* **share:** decode the note's Yjs blob once per load ([#489](https://github.com/2002Bishwajeet/journal/issues/489)) ([c34d6e3](https://github.com/2002Bishwajeet/journal/commit/c34d6e3b814fbe1de7876ab962a5a4ea31e35e33))
 # [2.4.0](https://github.com/2002Bishwajeet/journal/compare/v2.3.1...v2.4.0) (2026-10-06)
 
 

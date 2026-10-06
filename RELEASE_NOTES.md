@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.5.0 (2026-10-06)
+
 ### New
 
 - A React code block can show charts and icons. They work offline.
