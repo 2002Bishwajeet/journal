@@ -24,10 +24,12 @@ type ImageHandlers = { updateImageReference: typeof updateImageReference };
 
 /**
  * Process pending image uploads with exponential backoff.
+ * Returns how many images were promoted; their notes are pending again.
  */
-export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHandlers): Promise<void> {
+export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHandlers): Promise<number> {
     // Get uploads ready for retry (respects next_retry_at)
     const pendingUploads = await getImageUploadsReadyForRetry();
+    let promotedCount = 0;
 
     for (const upload of pendingUploads) {
         try {
@@ -65,6 +67,10 @@ export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHan
                 console.log(`[SyncService] Image ${upload.id} uploaded as ${payloadKey}`);
             }
 
+            // The editor inserts the node after queueing the row and persists it on
+            // a write window; an already-running sync can get here first
+            await documentBroadcast.requestFlushAndWait(upload.noteDocId);
+
             // Update the Yjs document to replace pending reference with permanent one
             const promoted = await svc.updateImageReference(
                 upload.noteDocId,
@@ -79,6 +85,7 @@ export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHan
                 await updateSyncStatus(upload.noteDocId, 'pending');
                 // Keep the bytes so the image still renders offline (#179); the queue skips synced rows
                 await updateImageUploadStatus(upload.id, 'synced', payloadKey);
+                promotedCount++;
             } else if (upload.retryCount + 1 >= MAX_IMAGE_PROMOTION_ATTEMPTS) {
                 // Give up retrying but keep the bytes (cleared at logout)
                 await updateImageUploadStatus(upload.id, 'failed_permanent');
@@ -98,6 +105,7 @@ export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHan
             console.log(`[SyncService] Image ${upload.id} retry scheduled for ${nextRetryAt.toISOString()}`);
         }
     }
+    return promotedCount;
 }
 
 /**

@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
-import { createFolder, getSearchIndexEntry, upsertSyncRecord } from '@/lib/db/queries';
+import { createFolder, getSearchIndexEntry, upsertSyncRecord, updateSyncStatus } from '@/lib/db/queries';
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
@@ -118,6 +118,53 @@ describe('SyncService.handleRemoteNote orphaned folderId (#259)', () => {
 
         const entry = await getSearchIndexEntry(noteId);
         expect(entry?.metadata.folderId).toBe(MAIN_FOLDER_ID);
+    });
+});
+
+describe('SyncService.handleRemoteNote re-files a note pulled before its folder (#365)', () => {
+    const folderId = '12121212-1212-1212-1212-121212121212';
+    const noteId = '34343434-3434-3434-3434-343434343434';
+
+    beforeEach(async () => {
+        await resetTestDatabase();
+        vi.clearAllMocks();
+        mockDsr.mockResolvedValue({ title: 'T', tags: [] });
+        mockGetNotePayload.mockResolvedValue(null);
+    });
+
+    it('moves it from Main to its folder when the unchanged note is pulled again after the folder', async () => {
+        const svc = new SyncService(fakeClient, fakeOnline);
+        // A websocket notification on a fresh device, before the first pull brought the folder
+        await svc.handleRemoteNote(remoteNote(noteId, folderId));
+        expect((await getSearchIndexEntry(noteId))?.metadata.folderId).toBe(MAIN_FOLDER_ID);
+
+        await createFolder(folderId, 'Worker folder');
+        await svc.handleRemoteNote(remoteNote(noteId, folderId));
+
+        expect((await getSearchIndexEntry(noteId))?.metadata.folderId).toBe(folderId);
+    });
+
+    it('still skips an unchanged note whose folder is still missing', async () => {
+        const svc = new SyncService(fakeClient, fakeOnline);
+        await svc.handleRemoteNote(remoteNote(noteId, folderId));
+        mockDsr.mockClear();
+
+        await svc.handleRemoteNote(remoteNote(noteId, folderId));
+
+        expect(mockDsr).not.toHaveBeenCalled();
+    });
+
+    it('leaves a pending local move to Main alone', async () => {
+        const svc = new SyncService(fakeClient, fakeOnline);
+        await svc.handleRemoteNote(remoteNote(noteId, folderId));
+        await createFolder(folderId, 'Worker folder');
+        await updateSyncStatus(noteId, 'pending');
+        mockDsr.mockClear();
+
+        await svc.handleRemoteNote(remoteNote(noteId, folderId));
+
+        expect(mockDsr).not.toHaveBeenCalled();
+        expect((await getSearchIndexEntry(noteId))?.metadata.folderId).toBe(MAIN_FOLDER_ID);
     });
 });
 

@@ -134,6 +134,43 @@ describe('SyncService.processPendingImageUploads promotion', () => {
         expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('pending');
     });
 
+    it('flushes the editor before promoting, so a node still in its write window is found', async () => {
+        const ydoc = makeDoc();
+        await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(ydoc));
+        await queueUpload();
+        // The editor has inserted the node but not yet written it to PGlite
+        const unflushed = insertPendingImage(ydoc);
+        const unsubscribe = documentBroadcast.subscribe(async (message) => {
+            if (message.type === 'flush' && message.docId === DOC_ID) await saveDocumentUpdate(DOC_ID, unflushed);
+        });
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        try {
+            await svc.processPendingImageUploads();
+        } finally {
+            unsubscribe();
+        }
+
+        expect((await storedImageAttrs())?.src).toBe(`attachment://${FILE_ID}/jrnl_img0`);
+        expect((await getUploadRow())?.status).toBe('synced');
+    });
+
+    it('sync pushes again after a promotion so the new src reaches the server in the same sync', async () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(svc, 'pullChanges').mockResolvedValue({ folders: 0, notes: 0 });
+        const push = vi.spyOn(svc, 'pushChanges').mockResolvedValue({ folders: 0, notes: 1 });
+        const images = vi.spyOn(svc, 'processPendingImageUploads').mockResolvedValue(1);
+
+        const result = await svc.sync();
+        expect(push).toHaveBeenCalledTimes(2);
+        expect(result.pushed.notes).toBe(2);
+
+        push.mockClear();
+        images.mockResolvedValue(0);
+        await svc.sync();
+        expect(push).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps an edit made during the upload pending', async () => {
         await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(makeDoc()));
         await queueUpload();
