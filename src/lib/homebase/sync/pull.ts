@@ -23,7 +23,7 @@ import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader } from '@/lib/utils';
 import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import { MAIN_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from '../config';
-import type { SyncProgress } from '@/types';
+import type { SyncProgress, SyncRecord } from '@/types';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
 import { documentBroadcast } from '@/lib/broadcast';
 import { suspendLiveQueries } from '@/hooks/useLiveQuery';
@@ -224,6 +224,22 @@ export async function handleDeletedFolder(deleted: DeletedFileRef): Promise<void
 }
 
 /**
+ * A note pulled before its folder (a websocket notification on a fresh device
+ * lands before the first pull) falls back to Main, and the pull that brings the
+ * folder would skip the note as unchanged, leaving it in Main for good.
+ */
+async function wasFiledBeforeItsFolder(
+    uniqueId: string,
+    record: SyncRecord | null,
+    groupId: string | undefined,
+): Promise<boolean> {
+    // A pending record may hold a local move to Main that must not be undone
+    if (record?.syncStatus !== 'synced' || !groupId) return false;
+    if ((await resolveNoteFolderId(groupId)) === MAIN_FOLDER_ID) return false;
+    return (await getSearchIndexEntry(uniqueId))?.metadata.folderId === MAIN_FOLDER_ID;
+}
+
+/**
  * Handle a remote note (create, update, or merge).
  * Uses Yjs CRDT merge for conflict resolution.
  */
@@ -237,8 +253,10 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
     // Deleted here; the remote delete is still being retried (#265)
     if (existingRecord?.syncStatus === 'pending_delete') return;
 
-    // Unchanged note: skip decryption and payload fetch entirely
-    if (stringGuidsEqual(remoteFile.fileMetadata.versionTag, existingRecord?.versionTag)) {
+    // Unchanged note: skip decryption and payload fetch entirely, unless it was
+    // filed before its folder arrived and can be filed properly now (#365)
+    if (stringGuidsEqual(remoteFile.fileMetadata.versionTag, existingRecord?.versionTag)
+        && !(await wasFiledBeforeItsFolder(uniqueId, existingRecord, remoteFile.fileMetadata.appData.groupId))) {
         return;
     }
 

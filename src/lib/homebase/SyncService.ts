@@ -144,8 +144,11 @@ export class SyncService {
             const pushResult = await this.pushChanges(onProgress);
             result.pushed = pushResult;
 
-            // 3. Process pending image uploads
-            await this.processPendingImageUploads();
+            // 3. Process pending image uploads. A promoted src is a local edit made
+            // after step 2, so push it now or it waits for some later sync.
+            if (await this.processPendingImageUploads() > 0) {
+                result.pushed.notes += (await this.pushChanges(onProgress)).notes;
+            }
 
             // 4. Save sync timestamp
             await saveAppState(STORAGE_KEY_LAST_SYNC, this.#ctx.inboxProcessor.getCurrentSyncTime());
@@ -219,7 +222,7 @@ export class SyncService {
         return push.pushNote(this.#ctx, record);
     }
 
-    async processPendingImageUploads(): Promise<void> {
+    async processPendingImageUploads(): Promise<number> {
         return images.processPendingImageUploads(this.#ctx, {
             updateImageReference: (...args) => this.updateImageReference(...args),
         });
