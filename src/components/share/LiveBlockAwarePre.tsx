@@ -1,7 +1,8 @@
 /**
  * react-markdown `pre` override for the share page (#390). A fenced `mermaid`,
- * `svg`, `html` or `react` block renders as a preview by default, with a View source
- * toggle for the highlighted code; any other code block renders as a <pre> with
+ * `svg`, `html` or `react` block renders as a preview by default. A mermaid or svg
+ * block has a View source toggle for the highlighted code; an html or react block has
+ * none, so a reader of a public note cannot see its source. Any other code block renders as a <pre> with
  * a Copy button (#408).
  *
  * The preview is built from the code block's text, never from raw HTML in the
@@ -61,9 +62,11 @@ export function LiveBlockAwarePre({ node, children, ...rest }: ComponentProps<'p
       preview={!showSource}
       store={store}
       toggles={
-        <LiveBlockToggle pressed={showSource} onClick={() => setShowSource((v) => !v)}>
-          View source
-        </LiveBlockToggle>
+        live.kind === 'html' || live.kind === 'react' ? null : (
+          <LiveBlockToggle pressed={showSource} onClick={() => setShowSource((v) => !v)}>
+            View source
+          </LiveBlockToggle>
+        )
       }
     >
       {showSource && <pre {...rest}>{children}</pre>}

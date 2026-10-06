@@ -129,9 +129,13 @@ async function expectNoChrome(page: Page, scope: Locator, editing: boolean): Pro
     await expect(block).toHaveCSS('border-top-width', '0px');
     const controls = controlsOf(block);
     await expect(block.getByRole('button', { name: /full ?screen/i })).toHaveCount(0);
-    await expect(controls).toHaveCSS('background-color', TRANSPARENT);
-    await expect(controls).toHaveCSS('border-top-width', '0px');
-    const content = block.locator('> div').nth(1);
+    // A reader gets no controls group on an html block: it has no toggle.
+    const bare = !editing && (await controls.count()) === 0;
+    if (!bare) {
+      await expect(controls).toHaveCSS('background-color', TRANSPARENT);
+      await expect(controls).toHaveCSS('border-top-width', '0px');
+    }
+    const content = block.locator('> div').nth(bare ? 0 : 1);
     const contentHeight = (await content.boundingBox())!.height;
     if (editing) {
       await expect(controls).toHaveCSS('position', 'static');
@@ -139,9 +143,11 @@ async function expectNoChrome(page: Page, scope: Locator, editing: boolean): Pro
       await expect(controls.locator('> span')).toHaveText(/^(Mermaid|SVG|HTML)$/);
       expect((await block.boundingBox())!.height).toBe((await controls.boundingBox())!.height + contentHeight);
     } else {
-      await expect(controls).toHaveCSS('position', 'absolute');
-      await expect(controls).toHaveCSS('opacity', '0');
-      await expect(controls.locator('> span')).toHaveCount(0);
+      if (!bare) {
+        await expect(controls).toHaveCSS('position', 'absolute');
+        await expect(controls).toHaveCSS('opacity', '0');
+        await expect(controls.locator('> span')).toHaveCount(0);
+      }
       expect((await block.boundingBox())!.height).toBe(contentHeight);
     }
   }
@@ -509,9 +515,12 @@ for (const theme of THEMES) {
     await expectJournalControls(anonPage, htmlFrame(article, 2), article.getByText(PARAGRAPH));
     await shootFormAndPie(anonPage, article, 'share', theme);
 
-    // The toggle: out of sight, there on hover, and there when the Tab key reaches it.
+    // A reader sees no View source on an html block.
     await anonPage.setViewportSize(VIEWPORTS[1280]);
-    const block = article.locator('[data-live-block="html"]').first();
+    await expect(article.locator('[data-live-block="html"]').first().getByRole('button', { name: 'View source', exact: true })).toHaveCount(0);
+
+    // The svg block's toggle: out of sight, there on hover, and there when the Tab key reaches it.
+    const block = article.locator('[data-live-block="svg"]').first();
     const controls = controlsOf(block);
     const toggle = block.getByRole('button', { name: 'View source', exact: true });
     await block.scrollIntoViewIfNeeded();
@@ -522,7 +531,7 @@ for (const theme of THEMES) {
     await anonPage.mouse.move(0, 0);
     await expect(controls).toHaveCSS('opacity', '0');
 
-    // It is the first control of the first live block: nothing in a frame is tabbed through on the way.
+    // It is the first control of the first svg block: nothing in a frame is tabbed through on the way.
     for (let presses = 0; presses < 30 && !(await toggle.evaluate((el) => el === document.activeElement)); presses++) {
       await anonPage.keyboard.press('Tab');
     }
