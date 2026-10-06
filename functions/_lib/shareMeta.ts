@@ -9,6 +9,8 @@ export const JOURNAL_DRIVE_TYPE = '30743710039d4b97bbd352f343d1c9df';
 const IDENTITY_RE = /^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 const NOTE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COVER_KEY_RE = /^jrnl_img\d+$/;
+// Copy of PAYLOAD_KEY_CARD_IMAGE in src/lib/homebase/config.ts: the 1200×630 card image (#441).
+export const CARD_IMAGE_KEY = 'jrnl_card';
 const MAX_HEADER_BYTES = 262144;
 const START_MARKER = '<!-- share-meta:start -->';
 const END_MARKER = '<!-- share-meta:end -->';
@@ -20,6 +22,7 @@ export type ShareMeta = {
     title: string;
     description?: string;
     coverKey?: string;
+    cardImageKey?: string;
     indexable: boolean;
     published?: string;
     modified?: string;
@@ -74,7 +77,7 @@ type HeaderJson = {
 
 type NoteContent = {
     title?: unknown;
-    card?: { description?: unknown; coverKey?: unknown; indexable?: unknown };
+    card?: { description?: unknown; coverKey?: unknown; cardImageKey?: unknown; indexable?: unknown };
 };
 
 export async function fetchShareMeta(
@@ -125,6 +128,8 @@ export async function fetchShareMeta(
             typeof card.coverKey === 'string' && COVER_KEY_RE.test(card.coverKey) && payloadKeys.includes(card.coverKey)
                 ? card.coverKey
                 : undefined;
+        const cardImageKey =
+            card.cardImageKey === CARD_IMAGE_KEY && payloadKeys.includes(CARD_IMAGE_KEY) ? CARD_IMAGE_KEY : undefined;
 
         return {
             identity,
@@ -133,6 +138,7 @@ export async function fetchShareMeta(
             title: title.slice(0, 200),
             description,
             coverKey,
+            cardImageKey,
             indexable: card.indexable === true,
             published: isoDate(metadata.appData?.userDate ?? metadata.created),
             modified: isoDate(metadata.updated),
@@ -155,16 +161,20 @@ function escapeHtml(value: string): string {
 export function buildHeadTags(meta: ShareMeta, pageUrl: string, origin: string): string {
     const description = meta.description ?? fallbackShareDescription(meta.authorName);
     const authorUrl = `https://${meta.identity}`;
-    const image = meta.coverKey
-        ? `${authorUrl}/api/guest/v1/drive/files/thumb?${new URLSearchParams({
-              alias: JOURNAL_DRIVE_ALIAS,
-              type: JOURNAL_DRIVE_TYPE,
-              fileId: meta.fileId,
-              payloadKey: meta.coverKey,
-              width: '1600',
-              height: '1600',
-          })}`
-        : `${origin}/banner.webp`;
+    const drive = { alias: JOURNAL_DRIVE_ALIAS, type: JOURNAL_DRIVE_TYPE, fileId: meta.fileId };
+    // The card image is already 1200×630, so it's served as is. Notes published before
+    // it existed fall back to a thumb of the raw cover, then to the site banner.
+    const image = meta.cardImageKey
+        ? `${authorUrl}/api/guest/v1/drive/files/payload?${new URLSearchParams({ ...drive, key: meta.cardImageKey })}`
+        : meta.coverKey
+          ? `${authorUrl}/api/guest/v1/drive/files/thumb?${new URLSearchParams({
+                ...drive,
+                payloadKey: meta.coverKey,
+                width: '1600',
+                height: '1600',
+            })}`
+          : `${origin}/banner.webp`;
+    const hasCover = !!(meta.cardImageKey || meta.coverKey);
 
     const property = (name: string, content: string | undefined) =>
         content === undefined ? [] : [`<meta property="${name}" content="${escapeHtml(content)}" />`];
@@ -193,8 +203,9 @@ export function buildHeadTags(meta: ShareMeta, pageUrl: string, origin: string):
         ...property('og:description', description),
         ...property('og:url', pageUrl),
         ...property('og:image', image),
+        ...(meta.cardImageKey ? [...property('og:image:width', '1200'), ...property('og:image:height', '630')] : []),
         ...property('og:image:alt', meta.title),
-        named('twitter:card', meta.coverKey ? 'summary_large_image' : 'summary'),
+        named('twitter:card', hasCover ? 'summary_large_image' : 'summary'),
         named('twitter:title', meta.title),
         named('twitter:description', description),
         named('twitter:image', image),

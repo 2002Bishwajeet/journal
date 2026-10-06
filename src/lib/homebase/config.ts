@@ -68,6 +68,8 @@ export function isPseudoFolder(id: string | undefined | null): boolean {
 // Payload keys
 export const PAYLOAD_KEY_CONTENT = 'jrnl_txt'; // Yjs binary blob
 export const PAYLOAD_KEY_IMAGE_PREFIX = 'jrnl_img';
+/** A public note's 1200×630 link-card image (#441). Must not start with the image prefix. */
+export const PAYLOAD_KEY_CARD_IMAGE = 'jrnl_card';
 export const PAYLOAD_KEY_LINK_PREVIEW_PREFIX = 'jrnl_lnk';
 export const PAYLOAD_KEY_AGENT_GRANTS = 'jrnl_grt';
 

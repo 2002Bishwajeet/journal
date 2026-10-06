@@ -29,13 +29,18 @@ test('html block: loads a real script from jsDelivr, unpkg and cdnjs (#409)', as
     const urls = [REACT, REACT_DOM, DAYJS];
     const allow = (route: Route) => route.continue();
     for (const url of urls) await page.context().route(url, allow);
+    const title = `Html CDN ${Date.now()}`;
     try {
-        await createNote(page, { title: `Html CDN ${Date.now()}`, body: 'Intro' });
+        await createNote(page, { title, body: 'Intro' });
         await page.keyboard.press('Enter');
         await pastePlainText(page, '```html\n' + SOURCE + '\n```');
 
         const frame = activeEditor(page).frameLocator('iframe[title="HTML preview"]');
         await expect(frame.locator('#rendered')).toHaveText('React 18.3.1, dayjs 2026', { timeout: 30_000 });
+        // Close the note while the CDN is still allowed: a later spec that changes the
+        // theme (emulateMedia) would otherwise reload its frame and trip the fence.
+        await page.getByRole('button', { name: `Close ${title}` }).click();
+        await expect(page.locator('iframe[title="HTML preview"]')).toHaveCount(0);
     } finally {
         for (const url of urls) await page.context().unroute(url, allow);
     }

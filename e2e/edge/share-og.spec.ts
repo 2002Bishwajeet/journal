@@ -9,6 +9,7 @@ test.skip(!!process.env.E2E_EDGE_BASE_URL, 'needs the local upstream fixture');
 
 const OK_NOTE = '11111111-1111-1111-1111-111111111111';
 const FAILING_NOTE = '11111111-1111-1111-1111-222222222222';
+const CARD_NOTE = '11111111-1111-1111-1111-333333333333';
 const TWITTERBOT = { 'User-Agent': 'Twitterbot/1.0' };
 const CHROME = {
   'User-Agent':
@@ -41,6 +42,21 @@ test.beforeAll(async () => {
           },
         });
       }
+      if (id === CARD_NOTE) {
+        return json(200, {
+          fileId: 'aaaaaaaa-0000-0000-0000-000000000003',
+          fileMetadata: {
+            isEncrypted: false,
+            appData: {
+              content: JSON.stringify({
+                title: 'Edge Card',
+                card: { coverKey: 'jrnl_img0', cardImageKey: 'jrnl_card' },
+              }),
+            },
+            payloads: [{ key: 'jrnl_img0' }, { key: 'jrnl_card' }],
+          },
+        });
+      }
       if (id === FAILING_NOTE) return json(500, {});
     }
     json(404, {});
@@ -55,12 +71,14 @@ test.afterAll(async () => {
 function expectNoteMeta(html: string) {
   expect(html).toContain('property="og:title" content="Edge T"');
   expect(html).toContain('property="og:description" content="Edge D"');
-  // #220: a cover becomes the guest thumb URL on the author's identity.
+  // #220: a cover becomes the guest thumb URL on the author's identity (a note published
+  // before #441's card images).
   expect(html).toMatch(
     /property="og:image" content="https:\/\/edge\.example\.com\/api\/guest\/v1\/drive\/files\/thumb\?[^"]*payloadKey=jrnl_img0[^"]*"/,
   );
   expect(html).toMatch(/name="twitter:image" content="[^"]*\/api\/guest\/v1\/drive\/files\/thumb\?[^"]*payloadKey=jrnl_img0/);
   expect(html).toContain('name="twitter:card" content="summary_large_image"');
+  expect(html).not.toContain('og:image:width');
   expect(html).toContain('application/ld+json');
   expect(html).toContain('noindex');
 }
@@ -70,6 +88,19 @@ test('a public note unfurls with its own meta', async ({ request }) => {
   expect(res.status()).toBe(200);
   expectNoteMeta(await res.text());
   expect(res.headers()['cross-origin-embedder-policy']).toBe('require-corp');
+});
+
+test('a note with a card image unfurls with it, at 1200×630 (#441)', async ({ request }) => {
+  const res = await request.get(`/share/edge.example.com/${CARD_NOTE}`, { headers: TWITTERBOT });
+  expect(res.status()).toBe(200);
+  const html = await res.text();
+  expect(html).toMatch(
+    /property="og:image" content="https:\/\/edge\.example\.com\/api\/guest\/v1\/drive\/files\/payload\?[^"]*fileId=aaaaaaaa-0000-0000-0000-000000000003&amp;key=jrnl_card"/,
+  );
+  expect(html).toMatch(/name="twitter:image" content="[^"]*\/api\/guest\/v1\/drive\/files\/payload\?[^"]*key=jrnl_card"/);
+  expect(html).toContain('property="og:image:width" content="1200"');
+  expect(html).toContain('property="og:image:height" content="630"');
+  expect(html).toContain('name="twitter:card" content="summary_large_image"');
 });
 
 test('an upstream failure serves the plain shell', async ({ request }) => {
