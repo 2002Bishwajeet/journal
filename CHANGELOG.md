@@ -1,3 +1,10 @@
+# [2.4.0](https://github.com/2002Bishwajeet/journal/compare/v2.3.1...v2.4.0) (2026-10-06)
+
+
+### Features
+
+* **pwa:** show a What's new dialog once after an update and from Settings About ([#459](https://github.com/2002Bishwajeet/journal/issues/459)) ([8a1b9af](https://github.com/2002Bishwajeet/journal/commit/8a1b9af52f548cac322247a645fb30f92bbdf549))
+* **release:** hand-written release notes in Simplified Technical English (ASD-STE100) ([4ac86be](https://github.com/2002Bishwajeet/journal/commit/4ac86be72b205b689d4a239bd03e37ee54f47935))
 ## [2.3.1](https://github.com/2002Bishwajeet/journal/compare/v2.3.0...v2.3.1) (2026-10-06)
 
 

@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.4.0 (2026-10-06)
+
 ### New
 
 - After an update, the app shows what is new in that version.
