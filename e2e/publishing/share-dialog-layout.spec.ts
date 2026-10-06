@@ -73,6 +73,9 @@ for (const theme of THEMES) {
     await expect(dialog.getByText('Link preview', { exact: true })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Export to Markdown' })).toHaveCount(0);
 
+    // The dialog zooms in from 95%; measure only once the open animation has finished.
+    await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+
     const box = (await dialog.boundingBox())!;
     expect(box.width).toBeCloseTo(MOBILE.width, 0);
     expect(box.height).toBeCloseTo(MOBILE.height, 0);
