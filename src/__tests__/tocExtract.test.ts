@@ -8,6 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { Editor } from '@tiptap/core';
+import { createTrackedEditor } from './trackedEditor';
 import * as Y from 'yjs';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
 import { createCollaborationExtension } from '@/components/editor/plugins/collaboration';
@@ -17,7 +18,7 @@ function makeEditor(): Editor {
   const ydoc = new Y.Doc();
   const fragment = ydoc.getXmlFragment('prosemirror');
   const element = document.createElement('div');
-  return new Editor({ element, extensions: [...createBaseExtensions(), createCollaborationExtension(fragment)] });
+  return createTrackedEditor({ element, extensions: [...createBaseExtensions(), createCollaborationExtension(fragment)] });
 }
 
 describe('extractHeadings', () => {

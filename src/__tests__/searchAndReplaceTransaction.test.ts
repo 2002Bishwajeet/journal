@@ -11,12 +11,13 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Editor } from '@tiptap/core';
+import { createTrackedEditor } from './trackedEditor';
 import StarterKit from '@tiptap/starter-kit';
 import { SearchAndReplace } from '@/components/editor/plugins/SearchAndReplaceExtension';
 
 function mkEditor(content: string) {
     const el = document.createElement('div');
-    return new Editor({
+    return createTrackedEditor({
         element: el,
         extensions: [StarterKit, SearchAndReplace],
         content,

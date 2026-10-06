@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Editor } from '@tiptap/core';
+import { createTrackedEditor } from './trackedEditor';
 import StarterKit from '@tiptap/starter-kit';
 import type { EditorView } from '@tiptap/pm/view';
 import type { Slice } from '@tiptap/pm/model';
@@ -23,7 +24,7 @@ const parseFromClipboard = (pmView as unknown as {
 function mkEditor() {
   const el = document.createElement('div');
   document.body.appendChild(el);
-  return new Editor({
+  return createTrackedEditor({
     element: el,
     extensions: [StarterKit.configure({ codeBlock: false, undoRedo: false, link: false, underline: false })],
     content: '<p></p>',
@@ -95,7 +96,7 @@ describe('SplitHardBreaksOnPaste — wired into the real editor extensions', () 
     const { createBaseExtensions } = await import('@/components/editor/plugins/extensions');
     const el = document.createElement('div');
     document.body.appendChild(el);
-    const editor = new Editor({ element: el, extensions: createBaseExtensions(), content: '<p></p>' });
+    const editor = createTrackedEditor({ element: el, extensions: createBaseExtensions(), content: '<p></p>' });
     expect(editor.view.someProp('transformPasted')).toBeTypeOf('function');
     editor.destroy();
   });
