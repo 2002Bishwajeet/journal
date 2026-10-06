@@ -31,7 +31,7 @@ describe('paletteToken', () => {
   });
 
   it('should draw every hue in one chart ink, washed for the light shades and deepened for the dark ones', () => {
-    expect(paletteToken('blue', 500)).toBe('--chart-1');
+    expect(paletteToken('blue', 500)).toBe('--chart-5');
     expect(paletteToken('purple', 400)).toBe('--chart-5');
     expect(paletteToken('green', 50)).toBe('--chart-3-50');
     expect(paletteToken('red', 900)).toBe('--chart-2-900');
@@ -40,8 +40,8 @@ describe('paletteToken', () => {
     }
   });
 
-  it('should use all five chart inks', () => {
-    expect(new Set(Object.values(HUE_INKS))).toEqual(new Set(['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5']));
+  it('should use every chart ink but --chart-1, which is nearly the text colour', () => {
+    expect(new Set(Object.values(HUE_INKS))).toEqual(new Set(['--chart-2', '--chart-3', '--chart-4', '--chart-5']));
   });
 });
 
@@ -59,7 +59,7 @@ describe('tailwindInput', () => {
     expect(input).toContain('--color-card: var(--card);');
     expect(input).toContain('--color-white: var(--background);');
     expect(input).toContain('--color-black: var(--foreground);');
-    expect(input).toContain('--color-blue-500: var(--chart-1);');
+    expect(input).toContain('--color-blue-500: var(--chart-5);');
     expect(input).toContain('--color-gray-600: var(--muted-foreground);');
     expect(input).toContain('--color-purple-400: var(--chart-5);');
     // Every theme variable a utility names is one the frame gets.
@@ -69,8 +69,9 @@ describe('tailwindInput', () => {
   });
 
   it('should declare each washed or deepened ink once, as a mix of the theme variables', () => {
-    expect(input).toContain('--chart-1-50:color-mix(in srgb,var(--chart-1) 12%,var(--background));');
+    expect(input).toContain('--chart-2-50:color-mix(in srgb,var(--chart-2) 12%,var(--background));');
     expect(input).toContain('--chart-5-950:color-mix(in srgb,var(--chart-5) 35%,var(--foreground));');
+    expect(input).not.toContain('--chart-1-');
   });
 
   it("should give font-sans the note's font and the larger radii the app's", () => {

@@ -37,10 +37,11 @@ const THEME_COLOURS = [
 /** Tailwind's grays. Each shade is one of the theme's neutral tokens. */
 export const NEUTRALS = ['slate', 'gray', 'zinc', 'neutral', 'stone'] as const;
 
-/** Tailwind's hues, each drawn in one chart ink (src/index.css, #430). */
+/**
+ * Tailwind's hues, each drawn in one chart ink (src/index.css, #430). `--chart-1` is left
+ * out: it is nearly the text colour, so a hue drawn in it would read as black or white.
+ */
 export const HUE_INKS = {
-  blue: '--chart-1',
-  indigo: '--chart-1',
   red: '--chart-2',
   orange: '--chart-2',
   pink: '--chart-2',
@@ -51,6 +52,8 @@ export const HUE_INKS = {
   teal: '--chart-3',
   amber: '--chart-4',
   yellow: '--chart-4',
+  blue: '--chart-5',
+  indigo: '--chart-5',
   sky: '--chart-5',
   cyan: '--chart-5',
   violet: '--chart-5',
@@ -80,7 +83,7 @@ const NEUTRAL_SHADES: Record<Shade, string> = {
 /**
  * The light shades of a hue are its ink washed into the background, the dark ones the ink
  * taken towards the text colour (darker in the light theme, lighter in the dark one). The
- * middle shades are the ink itself. The sheet declares each one as a variable, `--chart-1-50`.
+ * middle shades are the ink itself. The sheet declares each one as a variable, `--chart-2-50`.
  */
 export const INK_SHADES: Partial<Record<Shade, { percent: number; into: '--background' | '--foreground' }>> = {
   50: { percent: 12, into: '--background' },
@@ -92,7 +95,7 @@ export const INK_SHADES: Partial<Record<Shade, { percent: number; into: '--backg
   950: { percent: 35, into: '--foreground' },
 };
 
-/** The variable Tailwind's `name`-`shade` is drawn in: `blue-500` → `--chart-1`, `blue-50` → `--chart-1-50`, `gray-100` → `--muted`. */
+/** The variable Tailwind's `name`-`shade` is drawn in: `blue-500` → `--chart-5`, `blue-50` → `--chart-5-50`, `gray-100` → `--muted`. */
 export function paletteToken(name: PaletteName, shade: Shade): string {
   if (!(name in HUE_INKS)) return NEUTRAL_SHADES[shade];
   const ink = HUE_INKS[name as keyof typeof HUE_INKS];
@@ -100,7 +103,7 @@ export function paletteToken(name: PaletteName, shade: Shade): string {
 }
 
 const PALETTE_NAMES: PaletteName[] = [...NEUTRALS, ...(Object.keys(HUE_INKS) as (keyof typeof HUE_INKS)[])];
-const INKS = ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5'];
+const INKS = [...new Set(Object.values(HUE_INKS))];
 
 /**
  * The stylesheet's input, for Tailwind's compiler: its default theme for sizes, with the

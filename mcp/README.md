@@ -229,11 +229,12 @@ to the theme so that a block written for stock Tailwind still matches the note:
 | the same, 300 | `--border` |
 | the same, 400–600 | `--muted-foreground` |
 | the same, 700–950 | `--foreground` |
-| `blue` `indigo` | `--chart-1` |
 | `red` `orange` `pink` `rose` | `--chart-2` |
 | `green` `emerald` `lime` `teal` | `--chart-3` |
 | `amber` `yellow` | `--chart-4` |
-| `sky` `cyan` `violet` `purple` `fuchsia` | `--chart-5` |
+| `blue` `indigo` `sky` `cyan` `violet` `purple` `fuchsia` | `--chart-5` |
+
+No hue is drawn in `--chart-1`: it is nearly the text colour.
 
 A hue's shades 300–600 are its chart colour itself. Shades 50, 100 and 200 are that colour
 washed into `--background` (12%, 20% and 32% of it), and shades 700, 800, 900 and 950 are
