@@ -52,7 +52,7 @@ function openBrowser(url: string): void {
 /**
  * Registers the Journal MCP app on `identity` (or prompts for one) via the same
  * YouAuth flow the app uses, using a throwaway localhost HTTP server as the finalize
- * redirect target. Saves the resulting credentials to the OS keychain on success.
+ * redirect target. Saves the resulting credentials to the OS keychain (or a 0600 file) on success.
  */
 export async function login(identityArg?: string): Promise<void> {
     const identity = getDomainFromUrl(identityArg || (await promptForIdentity())) ?? '';
@@ -63,6 +63,7 @@ export async function login(identityArg?: string): Promise<void> {
 
     const eccKey = await createEccPair();
 
+    let savedTo = '';
     await new Promise<void>((resolve, reject) => {
         let settled = false;
         const finish = (err: Error | null) => {
@@ -102,7 +103,7 @@ export async function login(identityArg?: string): Promise<void> {
                     publicKey,
                     salt
                 );
-                saveCredentials({ identity: finalizeIdentity, clientAuthToken, sharedSecret });
+                savedTo = saveCredentials({ identity: finalizeIdentity, clientAuthToken, sharedSecret });
                 res.writeHead(200, { 'Content-Type': 'text/plain' }).end('You can close this tab.');
                 finish(null);
             })().catch((err: unknown) => {
@@ -147,5 +148,5 @@ export async function login(identityArg?: string): Promise<void> {
         });
     });
 
-    console.error(`Logged in as ${identity}. Credentials saved to the OS keychain.`);
+    console.error(`Logged in as ${identity}. Credentials saved to ${savedTo}.`);
 }
