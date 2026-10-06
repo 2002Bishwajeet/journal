@@ -213,7 +213,7 @@ export default function JournalLayout() {
         : folderId === PSEUDO_FOLDERS.shared
           ? "Shared"
           : folders.find((f) => f.id === folderId)?.name;
-  const { tags } = useTags();
+  const { tags, tagCounts, deleteTag } = useTags();
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
 
@@ -283,6 +283,7 @@ export default function JournalLayout() {
           onSettings={() => setShowSettings(true)}
           onLogout={logout}
           tags={tags}
+          tagCounts={tagCounts}
           selectedTag={selectedTag}
           onSelectTag={(tag) => {
             if (tag) {
@@ -290,6 +291,9 @@ export default function JournalLayout() {
             } else {
               navigate(folderId ? `/${folderId}` : "/");
             }
+          }}
+          onDeleteTag={(tag) => {
+            deleteTag(tag).catch(() => toast.error("Couldn't delete tag"));
           }}
           className="w-full h-full"
         />
