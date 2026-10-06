@@ -1,21 +1,17 @@
 name: Build and Deploy (Cloudflare Pages)
 
+# A push to main deploys a preview (alias `preview`). Production (`main`, the
+# project's production branch) is deployed only by manual-release.yml, which
+# calls this workflow with the version it just tagged.
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      bump:
-        description: "Version bump type"
-        required: false
-        default: "patch"
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-  release:
-    types: [published]
+      version:
+        description: "Released version without the v; deploys tag v<version> to production"
+        required: true
+        type: string
 
 # Opt into Node.js 24 for JS actions (Node 20 on runners is deprecated June 2026).
 env:
@@ -25,47 +21,22 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       deployments: write
-    concurrency: deploy-cloudflare
+    # Separate groups so a pending production deploy is never replaced by a push.
+    concurrency: deploy-cloudflare-${{ inputs.version && 'production' || 'preview' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Release: the tagged commit, not the commit the release was dispatched from.
+          ref: ${{ inputs.version && format('v{0}', inputs.version) || '' }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Determine version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            VERSION="${{ github.event.release.tag_name }}"
-            echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
-            echo "source=release" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "source=manual" >> "$GITHUB_OUTPUT"
-            echo "bump=${{ inputs.bump || 'patch' }}" >> "$GITHUB_OUTPUT"
-          else
-            # push to main: deploy the current package.json version, no bump
-            echo "source=push" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Bump version (manual dispatch)
-        if: steps.version.outputs.source == 'manual'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          npm version ${{ steps.version.outputs.bump }} -m "chore(release): %s [skip ci]"
-          git push origin HEAD:main
-          git push --tags
-
-      - name: Set version from release tag
-        if: steps.version.outputs.source == 'release'
-        run: |
-          npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --allow-same-version
 
       - name: Authenticate to Github packages
         run: |
@@ -98,10 +69,12 @@ jobs:
       - name: Verify legacy PGlite engines stay out of the precache
         run: node scripts/check-precache.mjs
 
+      # --branch is explicit: wrangler otherwise reads it from git, and the
+      # detached tag checkout would land on a `head` preview alias.
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "3.90.0"
-          command: pages deploy dist --project-name=journal --commit-dirty=true
+          command: pages deploy dist --project-name=journal --branch=${{ inputs.version && 'main' || 'preview' }} --commit-dirty=true

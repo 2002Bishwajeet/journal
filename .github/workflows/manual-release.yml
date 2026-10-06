@@ -1,5 +1,8 @@
 name: Manual Release
 
+# Bumps, tags (pushed with the RELEASE_DEPLOY_KEY deploy key) and releases, then deploys that tag to production.
+# Releases made with github.token don't fire `release: published`, so the deploys
+# are called here instead.
 on:
   workflow_dispatch:
     inputs:
@@ -18,32 +21,29 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GH_TOKEN }}
+          # Pushes the release commit and tag over SSH: the deploy key is the
+          # main ruleset's bypass actor; github.token can't bypass it on a personal repo.
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-
-      - name: Authenticate to Github packages
-        run: |
-          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
-
-      - name: Install dependencies
-        run: npm install
 
       - name: Setup Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+      # npm version only rewrites package.json and package-lock.json, so no install
+      # (and no GitHub Packages token) is needed.
       - name: Bump version
         run: |
           VERSION_TYPE=${{ github.event.inputs.version_type }}
@@ -54,16 +54,28 @@ jobs:
           npx conventional-changelog-cli -p angular -i CHANGELOG.md -s
 
       - name: Commit and Tag
+        id: tag
         run: |
           VERSION=$(node -p "require('./package.json').version")
           git add package.json package-lock.json CHANGELOG.md
           git commit -m "chore(release): $VERSION [skip ci]"
-          git tag v$VERSION
+          git tag "v$VERSION"
           git push origin main --tags
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=${{ steps.tag.outputs.version }}
           gh release create v$VERSION --title "v$VERSION" --generate-notes
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+
+  deploy-cloudflare:
+    needs: release
+    permissions:
+      contents: read
+      deployments: write
+    uses: ./.github/workflows/deploy-cloudflare.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+    secrets: inherit

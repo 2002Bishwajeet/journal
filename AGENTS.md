@@ -318,6 +318,12 @@ npm run test:ui  # visual dashboard
 
 **Dev server requires**: Self-signed HTTPS cert (`dev-dotyou-cloud.crt/key`) and `Cross-Origin-Embedder-Policy: require-corp` header (for WebLLM/OPFS).
 
+## Deploy and release
+
+- A push to `main` deploys a Cloudflare Pages **preview** (`deploy-cloudflare.yml`, `--branch=preview`), never production.
+- Production changes only with a release: run **Manual Release** (`manual-release.yml`, patch/minor/major). It pushes over SSH with the `RELEASE_DEPLOY_KEY` deploy key (the main ruleset's bypass actor) and otherwise uses `github.token`: it bumps `package.json`, updates `CHANGELOG.md`, commits `chore(release): X.Y.Z [skip ci]`, pushes tag `vX.Y.Z`, creates the GitHub release, then calls `deploy-cloudflare.yml` (production branch `main`) on that tag.
+- `mcp-release.yml` (`mcp-v*` releases) never deploys the app.
+
 ## Agent harness
 
 `/implement <epic#|issue#…>` (`.claude/commands/implement.md`) works every unblocked `agent-ready` issue unattended:
