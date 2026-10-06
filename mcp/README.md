@@ -147,16 +147,48 @@ It **cannot**:
 - Make network requests: `fetch`, `XMLHttpRequest` and `WebSocket` all fail.
 - Load anything external: no `<script src>`, no stylesheet links, no web fonts, no
   `https://` images. That rules out CDN libraries such as React, Tailwind or Chart.js.
-- Use storage. `localStorage`, `sessionStorage`, `indexedDB` and `document.cookie` throw
-  a `SecurityError`, so wrap any such call in `try`/`catch`. State is lost on reload.
+- Use browser storage. `localStorage`, `sessionStorage`, `indexedDB` and `document.cookie`
+  throw a `SecurityError`, so wrap any such call in `try`/`catch`. Use `journal.storage`
+  (below) to keep state.
 - Open popups, submit forms to a URL, navigate the app, or start downloads.
 
 The frame is as tall as its content, up to 1600px (taller content scrolls inside it), and
 the reader can drag it to another height. It is as wide as the note column, so design for
 roughly 650px and let the layout stretch.
 
-Planned, not available yet: scripts from an allowlisted CDN, and saved state stored in the
-note.
+Planned, not available yet: scripts from an allowlisted CDN.
+
+### Saved state: `journal.storage`
+
+An `html` or `react` block can save small state in the note, so it is there the next time
+the note is opened, on any device the note syncs to:
+
+```js
+journal.storage.get('count').then((saved) => {
+  const count = (saved ?? 0) + 1; // undefined until it is set
+  return journal.storage.set('count', count);
+});
+```
+
+- `journal.storage.get(key)` and `journal.storage.set(key, value)` both return promises.
+  They are there before the block's own scripts run.
+- The state is keyed by the block's id, which is in the fence's info string:
+  ```` ```html id=k3f9 ````. A block without an id gets one the first time it calls `set`.
+  **When you rewrite a block with `replace_in_note`, keep the `id=…` part of its fence**,
+  or the block loses its saved state. Do not give two blocks the same id: they would share
+  their state (a copied and pasted block does, for now).
+- A key is a string of at most 256 characters. A value must be JSON: a string, a finite
+  number, `true`, `false`, `null`, or an array or plain object of those. Anything else
+  (`undefined`, a `Date`, a `Map`, a function…) rejects the promise and saves nothing.
+- A block's whole state can be at most 64 KB as JSON. A `set` that would go over rejects
+  with an error and saves nothing.
+- `set` resolves at once; Journal writes the latest state to the note at most once a
+  second, so calling it often is fine.
+- A block reads and writes only its own state: never another block's, nor the note.
+- The state is not in the markdown (only the id is), so `get_note` does not return it.
+- On a public note, the saved state is published with the note. A reader of the public
+  page sees the owner's state, read-only: their own `set` calls change what the block
+  shows until they reload the page, and never reach the note.
 
 ### How a `react` block works
 
@@ -168,7 +200,7 @@ applies, and no CDN script is needed. `jsx` and `tsx` blocks stay ordinary code.
 - Hooks are on `React` (`React.useState`, `React.useCallback`, …), and `useState`,
   `useEffect`, `useRef`, `useMemo` and `useReducer` also work without the prefix.
 - It can import only from `react`. TypeScript is not supported.
-- State lives in the component and is lost on reload.
+- State in the component is lost on reload; keep what should last with `journal.storage`.
 - A syntax error is shown with its line in place of the component; an error while
   rendering is shown inside the frame.
 

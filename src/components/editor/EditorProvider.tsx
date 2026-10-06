@@ -26,6 +26,7 @@ import {
   coverPayloadKey,
   type NoteCover,
 } from "@/lib/editor/cover";
+import { getBlockState, setBlockState } from "@/lib/liveBlockState";
 import { isAgentEditor } from "@/lib/agent/attribution";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
@@ -262,6 +263,16 @@ export function EditorProvider({
   const setCoverPosition = (y: number) => {
     setCoverPositionInDoc(yDoc, y);
     void updateSyncStatus(docId, "pending");
+  };
+
+  // --- Saved state of html and react blocks (#410), in the Yjs doc like the cover ---
+  // Not an editor transaction either, so it marks the note pending itself.
+  const blockState = {
+    get: (id: string) => getBlockState(yDoc, id),
+    set: (id: string, json: string) => {
+      setBlockState(yDoc, id, json);
+      void updateSyncStatus(docId, "pending");
+    },
   };
 
   // Handle document updates from broadcast (sync service)
@@ -542,6 +553,7 @@ export function EditorProvider({
     setCoverFromFile,
     removeCover,
     setCoverPosition,
+    blockState,
   };
 
   return (

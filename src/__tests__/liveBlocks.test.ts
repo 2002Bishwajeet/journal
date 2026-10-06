@@ -79,14 +79,15 @@ describe('buildSrcdoc', () => {
     return srcdoc.slice(0, srcdoc.length - source.length - HEIGHT_SCRIPT.length);
   };
 
-  it('should put the CSP meta first, then one theme style, the source and the height script', () => {
+  it('should put the CSP meta first, then one theme style, journal.storage, the source and the height script', () => {
     const source = '<style>body{color:red}</style><p>hi</p><script>document.body.append("ran")</script>';
     const srcdoc = buildSrcdoc(source, THEME);
     expect(srcdoc.startsWith(`<!doctype html>${CSP_META}<style>`)).toBe(true);
-    expect(srcdoc.endsWith(`</style>${source}${HEIGHT_SCRIPT}`)).toBe(true);
+    expect(srcdoc.endsWith(`</script>${source}${HEIGHT_SCRIPT}`)).toBe(true);
     // The block's own CSS comes after the one injected style, so it wins.
     expect(head(source).match(/<style>/g)).toHaveLength(1);
-    expect(head(source).endsWith('</style>')).toBe(true);
+    // Between the style and the source, one script: journal.storage (#410).
+    expect(head(source).slice(head(source).indexOf('</style>'))).toMatch(/^<\/style><script>[^<]*window\.journal = [^<]*<\/script>$/);
   });
 
   it('should give the frame the theme tokens with the values passed in', () => {
@@ -177,8 +178,10 @@ describe('buildSrcdoc', () => {
     expect(csp.match(/https:[^ ;]*/g)).toHaveLength(9);
   });
 
-  it('should add a script that only reports: it never listens for a message', () => {
-    expect(buildSrcdoc('', THEME)).not.toMatch(/addEventListener|onmessage/);
+  it('should listen for one kind of message only: a reply from the app to journal.storage (#410)', () => {
+    const srcdoc = buildSrcdoc('', THEME);
+    expect(srcdoc.match(/addEventListener|onmessage/g)).toEqual(['addEventListener']);
+    expect(srcdoc).toContain('event.source !== parent');
   });
 });
 

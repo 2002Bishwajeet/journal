@@ -31,6 +31,7 @@ import { NoteLink } from '../nodes/NoteLinkNode';
 import { LinkPreview } from '../nodes/LinkPreviewNode';
 import { Toggle } from '../nodes/ToggleNode';
 import { Callout } from '../nodes/CalloutNode';
+import { parseCodeInfo } from '@/lib/liveBlocks';
 
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';
@@ -50,6 +51,14 @@ const HeaderlessAwareTable = Table.extend({
 });
 // A `react` live block's code is JSX, which the javascript grammar highlights (#426).
 lowlight.registerAlias({ javascript: ['react'] });
+// The `language` attribute is the fence's whole info string (```html id=k3f9, #410):
+// highlight by its first word, the language.
+const codeLanguage = (info: string) => parseCodeInfo(info).language ?? '';
+const infoStringLowlight = {
+    ...lowlight,
+    registered: (info: string) => lowlight.registered(codeLanguage(info)),
+    highlight: (info: string, value: string) => lowlight.highlight(codeLanguage(info), value),
+};
 
 declare module '@tiptap/core' {
     interface Commands<ReturnType> {
@@ -354,7 +363,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         options?.image ?? ImageSchema,
 
         CodeBlockLowlight.configure({
-            lowlight,
+            lowlight: infoStringLowlight,
         }),
 
         HeaderlessAwareTable.configure({
