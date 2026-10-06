@@ -20,7 +20,8 @@
  * - react: the JSX is compiled in the app by the lazily imported
  *   reactBlockCompiler, then runs in the same frame as an html block, on the
  *   app's own React: vite.config.ts builds it into a script that is inlined in
- *   the frame's srcdoc, so nothing comes from the network (#426). A compile
+ *   the frame's srcdoc, so nothing comes from the network (#426). The same goes
+ *   for its Tailwind sheet and the libraries it may import (#427). A compile
  *   error is shown as text in place of the frame.
  */
 import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -122,8 +123,9 @@ function HtmlPreview({ source, title, onHeight }: Pick<LiveBlockPreviewProps, 's
 }
 
 /**
- * A react block (#426). The compiler and the runtime load on the first one shown; both are
- * cached for offline use by src/sw.ts.
+ * A react block (#426). The compiler, the runtime and the Tailwind sheet load on the first one
+ * shown, a library on the first block that imports it (#427); all are cached for offline use
+ * by src/sw.ts.
  */
 function ReactPreview({ source, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'onHeight'>) {
   const [result, setResult] = useState<ReactResult | null>(null);
@@ -133,15 +135,19 @@ function ReactPreview({ source, onHeight }: Pick<LiveBlockPreviewProps, 'source'
     (async () => {
       let next: ReactResult;
       try {
-        const [{ compileReactBlock }, { default: runtime }] = await Promise.all([
+        const [{ compileReactBlock, reactBlockImports }, { default: react }, { default: tailwind }] = await Promise.all([
           import('@/lib/reactBlockCompiler'),
           import('virtual:react-block-runtime'),
+          import('virtual:react-block-tailwind'),
         ]);
         const compiled = compileReactBlock(source);
-        next =
-          'error' in compiled
-            ? { source, title: 'Couldn’t compile this component. Check its syntax.', error: compiled.error }
-            : { source, page: reactBlockDocument(runtime, compiled.code) };
+        if ('error' in compiled) {
+          next = { source, title: 'Couldn’t compile this component. Check its syntax.', error: compiled.error };
+        } else {
+          // A library loads only for a block that imports it (#427).
+          const lucide = reactBlockImports(compiled.code).includes('lucide-react') ? (await import('virtual:react-block-lucide')).default : undefined;
+          next = { source, page: reactBlockDocument({ react, tailwind, lucide }, compiled.code) };
+        }
       } catch (err) {
         // Offline, before any react block was ever shown: the compiler and runtime are not cached yet.
         next = { source, title: 'Couldn’t load React for this component.', error: err instanceof Error ? err.message : String(err) };

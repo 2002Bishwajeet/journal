@@ -141,6 +141,9 @@ describe('createJournalMcpServer', () => {
                 'defines a component named `App`',
                 'or exports one as default',
                 '`useState`, `useEffect`, `useRef`, `useMemo` and `useReducer`',
+                // #427
+                'It can import only from `react` and `lucide-react`.',
+                "`className` takes Tailwind classes drawn in Journal's theme",
                 'State is lost on reload.',
                 'These rules apply to a `react` block unchanged.',
             ]) {
