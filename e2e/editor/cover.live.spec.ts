@@ -1,7 +1,7 @@
 import type { ConsoleMessage, Locator, Page, TestInfo } from '@playwright/test';
-import { test, expect, waitForAppReady } from '../fixtures';
+import { test, expect, waitForAppReady, withFencedPage, liveIdentityOrigin, LIVE_STORAGE_STATE } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
-import { activeTitleInput, createNote, selectFolder } from '../support/actions';
+import { activeTitleInput, createFolder, createNote, selectFolder, shareNotePublicly } from '../support/actions';
 import { makeSolidPng } from '../support/png';
 
 // #219: the owner adds, repositions, changes and removes a note's cover on a
@@ -181,4 +181,57 @@ test('cover image: add, reposition, change and remove survive reloads (#219)', a
         await page.setViewportSize({ width: 1280, height: 720 });
         await selectFolder(page, folderName).catch(() => {});
     }
+});
+
+// #444: OdinImage sizes its request from device pixels, so on a 2x screen a cover is sharp in
+// the editor band and in the Share dialog's link preview. Own context: the shared liveRun page
+// is a 1x one, and deviceScaleFactor is fixed per context.
+test('cover image is sharp on a 2x screen in the band and the share preview (#444)', async ({ browser }, testInfo) => {
+    test.setTimeout(300_000);
+    const folderName = `${process.env.E2E_LIVE_RUN_FOLDER}-w${testInfo.workerIndex}-dpr2`;
+    const options = {
+        storageState: LIVE_STORAGE_STATE,
+        viewport: { width: 1900, height: 1000 },
+        deviceScaleFactor: 2,
+    };
+
+    await withFencedPage(browser, options, async (page) => {
+        await page.goto('/');
+        await assertTestOrigin(page);
+        await waitForAppReady(page);
+        await createFolder(page, folderName);
+        await selectFolder(page, folderName);
+
+        const title = `Cover dpr2 note ${Date.now()}`;
+        await createNote(page, { title, body: 'A note with a big cover image.' });
+        await assertTestOrigin(page);
+        const chooser = page.waitForEvent('filechooser');
+        await page.getByRole('button', { name: 'Add cover' }).click();
+        await (await chooser).setFiles({ name: 'cover.png', mimeType: 'image/png', buffer: makeSolidPng(3200, 1200, RED) });
+        await expect(uploadedImg(page)).toBeAttached({ timeout: 120_000 });
+
+        // The shared check: the <img> has at least the pixels its box shows on a 2x screen, up to the original's 3200.
+        const isSharp = (img: Locator) => img.evaluate((i: HTMLImageElement) =>
+            i.complete && i.naturalWidth >= Math.min(i.clientWidth * window.devicePixelRatio, 3200));
+
+        await reloadNote(page);
+        await expect(band(page)).toBeVisible({ timeout: 15_000 });
+        await expect.poll(() => isSharp(uploadedImg(page)), { timeout: 30_000, message: 'band cover has 2x pixels' }).toBe(true);
+        await screenshot(page, testInfo, 'cover-band-light-1900x1000-dpr2');
+
+        // Share dialog: making a note public before its upload lands fails (#361) — retry.
+        await expect(async () => {
+            await page.keyboard.press('Escape');
+            await shareNotePublicly(page, title);
+        }).toPass({ timeout: 90_000 });
+        await page.getByRole('button').filter({ hasText: title }).first().click({ button: 'right' });
+        await page.getByRole('menuitem', { name: 'Share' }).click();
+        const dialog = page.getByRole('dialog');
+        await expect(dialog.getByText('Link preview', { exact: true })).toBeVisible({ timeout: 15_000 });
+        // The preview is the generated 1200×630 card image (#441), shown as a blob: URL.
+        const preview = dialog.locator('img[src^="blob:"]');
+        await expect.poll(() => isSharp(preview), { timeout: 60_000, message: 'share preview has 2x pixels' }).toBe(true);
+        await screenshot(page, testInfo, 'cover-share-preview-light-1900x1000-dpr2');
+        await page.keyboard.press('Escape');
+    }, [liveIdentityOrigin()]);
 });

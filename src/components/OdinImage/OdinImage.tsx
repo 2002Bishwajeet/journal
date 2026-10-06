@@ -5,6 +5,7 @@ import {
 } from "./OdinPreviewImage";
 import { OdinThumbnailImage } from "./OdinThumbnailImage";
 import { OdinPayloadImage } from "./OdinPayloadImage";
+import { pickLoadSize } from "./pickLoadSize";
 import { Loader2, AlertCircle } from "lucide-react";
 import type { ImageSize } from "@homebase-id/js-lib/core";
 
@@ -90,31 +91,16 @@ export const OdinImage = ({
       return;
     }
 
-    const targetWidth = previewImgRef.current?.clientWidth;
-    const targetHeight = previewImgRef.current?.clientHeight;
-
-    // Find the best matching size in the meta sizes
-    let matchingSize = tinyThumb?.sizes?.find((size) => {
-      return targetWidth < size.pixelWidth && targetHeight < size.pixelHeight;
-    });
-
-    // If no exact size, pass the size of the img element
-    // If targetWidth or targetHeight is 0, we can't calculate the size; And shouldn't even fetch
-    if (!matchingSize && targetWidth && targetHeight) {
-      // The preview size is heavily rounded so we recalculate the pixelHeight
-      const validatedHeight = naturalSize
-        ? Math.round(
-            targetWidth * (naturalSize.pixelHeight / naturalSize.pixelWidth)
-          )
-        : targetHeight;
-
-      matchingSize = {
-        pixelWidth: targetWidth,
-        pixelHeight: validatedHeight,
-      };
-    }
-
-    setLoadSize(matchingSize);
+    setLoadSize(
+      pickLoadSize({
+        sizes: tinyThumb?.sizes,
+        cssWidth: previewImgRef.current.clientWidth,
+        cssHeight: previewImgRef.current.clientHeight,
+        dpr: window.devicePixelRatio,
+        naturalSize,
+        avoidPayload,
+      })
+    );
   };
 
   useEffect(() => {
