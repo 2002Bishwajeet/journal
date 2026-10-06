@@ -15,6 +15,11 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- A React code block can show charts and icons. They work offline.
+- The styles of a React code block use the colours and font of your light or dark theme.
+
 ## 2.4.0 (2026-10-06)
 
 ### New

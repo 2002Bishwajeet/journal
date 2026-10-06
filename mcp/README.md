@@ -167,11 +167,12 @@ applies, and no CDN script is needed. `jsx` and `tsx` blocks stay ordinary code.
 
 - Hooks are on `React` (`React.useState`, `React.useCallback`, …), and `useState`,
   `useEffect`, `useRef`, `useMemo` and `useReducer` also work without the prefix.
-- It can import from `react` and `lucide-react`, and from nothing else: any other import
-  shows "A react block can import only react and lucide-react, not …" in the frame. Both
-  come with Journal, so a block needs no network and works offline. TypeScript is not
-  supported.
+- It can import from `react`, `recharts` and `lucide-react`, and from nothing else: any
+  other import shows "A react block can import only react, recharts and lucide-react,
+  not …" in the frame. All three come with Journal, so a block needs no network and works
+  offline. TypeScript is not supported.
 - `className` takes Tailwind classes, drawn in Journal's theme (below).
+- `recharts` charts are drawn in the theme without colour props (below).
 - `lucide-react` icons draw in `currentColor`, so they take the text colour around them:
   `<Heart className="size-4 text-muted-foreground" />`.
 - State lives in the component and is lost on reload.
@@ -241,6 +242,56 @@ washed into `--background` (12%, 20% and 32% of it), and shades 700, 800, 900 an
 it taken towards `--foreground` (80%, 65%, 50% and 35% of it). So `bg-blue-50 text-blue-900`
 is a pale panel with strong text in both themes, and `bg-blue-500 text-white` a strong
 button. Opacity modifiers such as `bg-blue-500/50` are not in the sheet.
+
+#### Charts in a `react` block
+
+`recharts` is Recharts 3, drawn in Journal's theme. Leave the colour props out:
+
+- Series take `--chart-1` … `--chart-5` in the order they appear: `Line`, `Area` and
+  `Radar` their line and fill, `Bar` and `Scatter` their fill. A `Pie` gives each sector
+  the next colour.
+- `CartesianGrid` and `PolarGrid` use `--border`. `XAxis`, `YAxis` and the polar axes draw
+  their lines in `--border` and their tick labels in `--muted-foreground`.
+- `Tooltip` and `Legend` text is `--foreground`, the tooltip on `--background`.
+- A colour the block sets wins, except the sample colours of the Recharts docs:
+  `#8884d8`, `#82ca9d`, `#ffc658`, `#ff7300` and `#413ea0` become `--chart-1` …
+  `--chart-5`.
+
+Wrap a chart in `ResponsiveContainer` with a fixed height, so that it fills the note's
+width:
+
+````markdown
+```react
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { TrendingUp } from 'lucide-react';
+
+const data = [
+  { day: 'Mon', words: 420, edits: 12 },
+  { day: 'Tue', words: 380, edits: 18 },
+  { day: 'Wed', words: 610, edits: 9 },
+];
+
+export default function App() {
+  return (
+    <div className="space-y-2">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <TrendingUp className="size-4" /> Words written this week
+      </p>
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="day" />
+          <YAxis />
+          <Tooltip />
+          <Line dataKey="words" />
+          <Line dataKey="edits" />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+```
+````
 
 ### Designing an `html` block
 

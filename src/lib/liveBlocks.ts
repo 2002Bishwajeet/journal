@@ -143,8 +143,9 @@ const componentScript = (code: string) =>
   // The allow-list (#427). Each library is on the page only when the block imports it.
   'function require(name) {' +
   "if (name === 'react') return React;" +
+  "if (name === 'recharts' && window.Recharts) return window.Recharts;" +
   "if (name === 'lucide-react' && window.LucideReact) return window.LucideReact;" +
-  "throw new Error('A react block can import only react and lucide-react, not ' + name + '.'); }" +
+  "throw new Error('A react block can import only react, recharts and lucide-react, not ' + name + '.'); }" +
   `var App = (function () {\n${code}\n;return typeof App === 'undefined' ? module.exports.default : App;\n})();` +
   "if (App === undefined) throw new Error('Define a component named App, or export one as default.');" +
   'class Boundary extends React.Component {' +
@@ -162,6 +163,8 @@ export interface ReactBlockRuntime {
   react: string;
   /** The Tailwind stylesheet in Journal's theme (#427). */
   tailwind: string;
+  /** Recharts in the theme, a script that sets window.Recharts. Only for a block that imports it. */
+  recharts?: string;
   /** lucide-react, a script that sets window.LucideReact. Only for a block that imports it. */
   lucide?: string;
 }
@@ -172,7 +175,7 @@ export interface ReactBlockRuntime {
  * block's `code`, compiled by compileReactBlock. Everything is inline, which the frame's CSP allows.
  */
 export function reactBlockDocument(runtime: ReactBlockRuntime, code: string): string {
-  const libraries = runtime.lucide ? inlineScript(runtime.lucide) : '';
+  const libraries = [runtime.recharts, runtime.lucide].map((library) => (library ? inlineScript(library) : '')).join('');
   return `<style>${runtime.tailwind}</style><div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime.react)}${libraries}${inlineScript(componentScript(code))}`;
 }
 
