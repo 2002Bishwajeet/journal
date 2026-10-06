@@ -8,9 +8,10 @@ import {
   type ChangelogEntry,
 } from '@/lib/changelog';
 
-// Dynamic import keeps the changelog text out of the main entry chunk.
+// Dynamic import keeps the notes out of the main entry chunk. RELEASE_NOTES.md
+// is hand-written for users; CHANGELOG.md stays the commit log for developers.
 async function loadChangelog(): Promise<ChangelogEntry[]> {
-  const { default: raw } = await import('../../CHANGELOG.md?raw');
+  const { default: raw } = await import('../../RELEASE_NOTES.md?raw');
   return parseChangelog(raw);
 }
 

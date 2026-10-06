@@ -1,5 +1,6 @@
-// Parses the conventional-changelog (angular preset) CHANGELOG.md into entries
-// the What's new dialog can render, and decides when to show it.
+// Parses RELEASE_NOTES.md (hand-written, "## X.Y.Z (date)" / "### Section" / bullets;
+// the conventional-changelog CHANGELOG.md format also parses) into entries the
+// What's new dialog can render, and decides when to show it.
 
 export interface ChangelogEntry {
   version: string;

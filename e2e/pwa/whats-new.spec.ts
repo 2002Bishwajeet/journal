@@ -5,14 +5,14 @@ const KEY = 'journal-last-seen-version';
 
 test('shows the skipped versions once after an update', async ({ app }) => {
   await assertTestOrigin(app);
-  await app.evaluate((key) => localStorage.setItem(key, '2.1.2'), KEY);
+  await app.evaluate((key) => localStorage.setItem(key, '2.3.0'), KEY);
   await app.reload();
   await waitForAppReady(app);
 
   const dialog = app.getByRole('dialog', { name: "What's new" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('heading', { name: /^v2\.2\.0/ })).toBeVisible();
-  await expect(dialog.getByRole('heading', { name: /^v2\.1\.2/ })).toHaveCount(0);
+  await expect(dialog.getByRole('heading', { name: /^v2\.3\.1/ })).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: /^v2\.3\.0/ })).toHaveCount(0);
 
   for (const colorScheme of ['light', 'dark'] as const) {
     for (const [label, size] of [['desktop', { width: 1280, height: 800 }], ['mobile', { width: 390, height: 780 }]] as const) {
