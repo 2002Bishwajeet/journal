@@ -13,6 +13,12 @@ declare module 'virtual:react-block-tailwind' {
   export default stylesheet;
 }
 
+/** Recharts in Journal's theme for a react block, as the text of a script that sets window.Recharts (#427). */
+declare module 'virtual:react-block-recharts' {
+  const script: string;
+  export default script;
+}
+
 /** lucide-react for a react block, as the text of a script that sets window.LucideReact (#427). */
 declare module 'virtual:react-block-lucide' {
   const script: string;

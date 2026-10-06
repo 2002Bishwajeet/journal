@@ -17,17 +17,18 @@ const LIVE_BLOCKS =
     ' A `react` block is JSX that defines a component named `App`, or exports one as default. ' +
     "Journal compiles it and runs it on the app's own React, in the same sandbox as an `html` block, with no CDN script. " +
     'Hooks are on `React` (`React.useState`), and `useState`, `useEffect`, `useRef`, `useMemo` and `useReducer` also work without the prefix. ' +
-    'It can import only from `react` and `lucide-react`. ' +
+    'It can import only from `react`, `recharts` and `lucide-react`. ' +
     "`className` takes Tailwind classes drawn in Journal's theme, in light and dark with no `dark:` variant: " +
     'prefer the theme names (`bg-muted`, `text-muted-foreground`, `border`); palette names such as `bg-blue-500` map to the theme too. ' +
+    'Recharts charts take the theme without colour props: series use `--chart-2` … `--chart-5` in order, grid and axes the border and muted text colours. ' +
     'State is lost on reload.' +
     " Journal's design system comes first. " +
     '(1) Prefer a native block (callout, table, toggle, task list, mermaid) whenever one can carry the content. ' +
     "(2) An `html` block must use the note's font and colours, which it inherits, and the theme variables " +
     '(`var(--foreground)`, `var(--muted)`, `var(--muted-foreground)`, `var(--border)`, `var(--accent)`, `var(--radius)`, ' +
-    "and `var(--chart-1)` to `var(--chart-5)` for data series), and leave buttons, inputs and tables unstyled so they get Journal's look. " +
+    "and `var(--chart-2)` to `var(--chart-5)` for data series), and leave buttons, inputs and tables unstyled so they get Journal's look. " +
     '(3) Custom styling is allowed only where the content needs it (a chart, a diagram, a game board), and still built from those variables. ' +
-    'Use `--chart-1` … `--chart-5` in that order for data series, never raw colours. ' +
+    'Use `--chart-2` … `--chart-5` in that order for data series, never raw colours (`--chart-1` is nearly the text colour). ' +
     '(4) No page background, gradients, shadows, badge rows, emoji headers or custom fonts. ' +
     '(5) The block sizes itself to its content: do not set a fixed page height or design for a whole screen. ' +
     'These rules apply to a `react` block unchanged.';

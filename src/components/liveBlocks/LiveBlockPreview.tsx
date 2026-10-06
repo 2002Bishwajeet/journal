@@ -145,8 +145,12 @@ function ReactPreview({ source, onHeight }: Pick<LiveBlockPreviewProps, 'source'
           next = { source, title: 'Couldn’t compile this component. Check its syntax.', error: compiled.error };
         } else {
           // A library loads only for a block that imports it (#427).
-          const lucide = reactBlockImports(compiled.code).includes('lucide-react') ? (await import('virtual:react-block-lucide')).default : undefined;
-          next = { source, page: reactBlockDocument({ react, tailwind, lucide }, compiled.code) };
+          const imports = reactBlockImports(compiled.code);
+          const [recharts, lucide] = await Promise.all([
+            imports.includes('recharts') ? import('virtual:react-block-recharts').then((module) => module.default) : undefined,
+            imports.includes('lucide-react') ? import('virtual:react-block-lucide').then((module) => module.default) : undefined,
+          ]);
+          next = { source, page: reactBlockDocument({ react, tailwind, recharts, lucide }, compiled.code) };
         }
       } catch (err) {
         // Offline, before any react block was ever shown: the compiler and runtime are not cached yet.
