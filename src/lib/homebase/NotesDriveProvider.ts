@@ -498,6 +498,7 @@ export class NotesDriveProvider {
         uniqueId: string,
         versionTag: string,
         image: ImageUploadData,
+        isRetry = false,
     ): Promise<{ versionTag: string; payloadKey: string }> {
         // Fetch existing file header by uniqueId to get encryption key and fileId
         const existingHeader = await this.getNote(
@@ -557,6 +558,7 @@ export class NotesDriveProvider {
             versionTag: existingHeader.fileMetadata.versionTag || versionTag,
         };
 
+        let retried: { versionTag: string; payloadKey: string } | undefined;
         const result = await patchFile(
             this.#dotYouClient,
             // Only an encrypted file has a key header; passing one for a public
@@ -565,8 +567,17 @@ export class NotesDriveProvider {
             updateInstructions,
             uploadMetadata,
             [payload],
-            thumbnails
+            thumbnails,
+            undefined, // toDeletePayloads
+            // A content save on this note can land between the header fetch and this
+            // patch (#469). Refetch the header and retry once; the patch only adds a
+            // new payload and writes back the fresh header's appData, so it can't
+            // clobber anything newer.
+            isRetry ? undefined : async () => {
+                retried = await this.addImageToNote(uniqueId, versionTag, image, true);
+            }
         );
+        if (retried) return retried;
 
         if (!result) {
             throw new Error('Failed to add image to note');
