@@ -741,14 +741,16 @@ body {
   max-width: none;
 }
 
-/* Settings dialog: its 12px help text sits on the dialog and on cards, where the
-   app-wide --muted-foreground is under WCAG AA (3.5:1 light, 4.4:1 on a dark
-   card). These reach 5.4:1 and 5.9:1. The dark --input equals --card, which
-   would hide outline buttons and unchecked switches on the dialog's cards. */
-.settings-dialog {
+/* Settings and Share dialogs: their 12px help text sits on the dialog and on cards,
+   where the app-wide --muted-foreground is under WCAG AA (3.5:1 light, 4.4:1 on a
+   dark card). These reach 5.4:1 and 5.9:1. The dark --input is barely lighter than
+   the dialog, which would hide outline buttons, fields and unchecked switches. */
+.settings-dialog,
+.share-dialog {
   --muted-foreground: #6B6862;
 }
-.dark .settings-dialog {
+.dark .settings-dialog,
+.dark .share-dialog {
   --muted-foreground: #A19E96;
   --input: #3E3D3A;
 }
