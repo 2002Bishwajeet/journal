@@ -33,41 +33,34 @@ const restorePgliteProcessGuard = {
 // window.ReactDOM. A block's sandboxed frame cannot load the app's modules, so the app
 // inlines this text into the frame's srcdoc. Made from the packages' CommonJS production
 // files and a tiny require(), in this build: no second build tool, no generated file.
-const REACT_BLOCK_RUNTIME = 'virtual:react-block-runtime';
-const reactBlockRuntime: Plugin = {
-  name: 'react-block-runtime',
-  resolveId: (id) => (id === REACT_BLOCK_RUNTIME ? `\0${REACT_BLOCK_RUNTIME}` : null),
-  load(id) {
-    if (id !== `\0${REACT_BLOCK_RUNTIME}`) return null;
-    // Each file is read next to its package.json: the packages' `exports` hide their cjs/ files.
-    const appRequire = createRequire(import.meta.url);
-    const reactDom = appRequire.resolve('react-dom/package.json');
-    const packageFile = (packageJson: string, file: string) => fs.readFileSync(path.join(path.dirname(packageJson), file), 'utf8');
-    const modules: Record<string, string> = {
-      react: packageFile(appRequire.resolve('react/package.json'), 'cjs/react.production.js'),
-      scheduler: packageFile(createRequire(reactDom).resolve('scheduler/package.json'), 'cjs/scheduler.production.js'),
-      'react-dom': packageFile(reactDom, 'cjs/react-dom.production.js'),
-      'react-dom/client': packageFile(reactDom, 'cjs/react-dom-client.production.js'),
-    };
-    const factories = Object.entries(modules)
-      .map(([name, source]) => `${JSON.stringify(name)}: function (module, exports, require) {\n${source}\n}`)
-      .join(',\n');
-    const runtime =
-      `(function () {\nvar factories = {\n${factories}\n}, cache = {};\n` +
-      'function require(name) {\n' +
-      '  if (!cache[name]) { cache[name] = { exports: {} }; factories[name](cache[name], cache[name].exports, require); }\n' +
-      '  return cache[name].exports;\n' +
-      '}\n' +
-      "window.React = require('react');\nwindow.ReactDOM = require('react-dom/client');\n})();";
-    return `export default ${JSON.stringify(runtime)};`;
-  },
-};
+const appRequire = createRequire(import.meta.url);
+function reactBlockRuntime(): string {
+  // Each file is read next to its package.json: the packages' `exports` hide their cjs/ files.
+  const reactDom = appRequire.resolve('react-dom/package.json');
+  const packageFile = (packageJson: string, file: string) => fs.readFileSync(path.join(path.dirname(packageJson), file), 'utf8');
+  const modules: Record<string, string> = {
+    react: packageFile(appRequire.resolve('react/package.json'), 'cjs/react.production.js'),
+    scheduler: packageFile(createRequire(reactDom).resolve('scheduler/package.json'), 'cjs/scheduler.production.js'),
+    'react-dom': packageFile(reactDom, 'cjs/react-dom.production.js'),
+    'react-dom/client': packageFile(reactDom, 'cjs/react-dom-client.production.js'),
+  };
+  const factories = Object.entries(modules)
+    .map(([name, source]) => `${JSON.stringify(name)}: function (module, exports, require) {\n${source}\n}`)
+    .join(',\n');
+  return (
+    `(function () {\nvar factories = {\n${factories}\n}, cache = {};\n` +
+    'function require(name) {\n' +
+    '  if (!cache[name]) { cache[name] = { exports: {} }; factories[name](cache[name], cache[name].exports, require); }\n' +
+    '  return cache[name].exports;\n' +
+    '}\n' +
+    "window.React = require('react');\nwindow.ReactDOM = require('react-dom/client');\n})();"
+  );
+}
 
 // The Tailwind sheet a react block gets (#427): the fixed utility list in
 // src/lib/reactBlockTailwind.ts, compiled by the app's own Tailwind and minified by Lightning
 // CSS (Vite's), for the browsers Tailwind v4 supports. Nothing is generated in the frame.
 async function reactBlockTailwind(): Promise<string> {
-  const appRequire = createRequire(import.meta.url);
   const compiler = await compileTailwind(tailwindInput(), {
     base: import.meta.dirname,
     loadStylesheet: async (id) => {
@@ -111,9 +104,10 @@ async function reactBlockLibrary(entry: string, name: string): Promise<string> {
   }
 }
 
-// The rest of a react block's page, as virtual modules next to its React: each is imported
-// lazily, and a library only for a block that imports it.
-const REACT_BLOCK_PIECES: Record<string, () => Promise<string>> = {
+// A react block's page, as virtual modules: each is imported lazily, and a library only for
+// a block that imports it.
+const REACT_BLOCK_PIECES: Record<string, () => string | Promise<string>> = {
+  'virtual:react-block-runtime': reactBlockRuntime,
   'virtual:react-block-tailwind': reactBlockTailwind,
   'virtual:react-block-lucide': () => reactBlockLibrary("export * from 'lucide-react';", 'LucideReact'),
 };
@@ -142,7 +136,6 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     restorePgliteProcessGuard,
-    reactBlockRuntime,
     reactBlockPieces,
     react(),
     ...(mode === 'production' || mode === 'e2e'
@@ -214,8 +207,8 @@ export default defineConfig(({ mode }) => ({
           // block is previewed, cached on first use by the mermaid-runtime route
           // in sw.ts.
           '**/mermaid-*.js',
-          // A react block's runtime, Tailwind sheet and libraries (reactBlockRuntime and
-          // reactBlockPieces above; Rolldown names a virtual module's chunk `_virtual_<name>`)
+          // A react block's runtime, Tailwind sheet and libraries (reactBlockPieces
+          // above; Rolldown names a virtual module's chunk `_virtual_<name>`)
           // and its compiler (src/lib/reactBlockCompiler.ts, with sucrase): loaded only when
           // a react block is previewed, cached on first use by the react-block route in
           // sw.ts (#426, #427).

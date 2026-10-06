@@ -62,7 +62,7 @@ export const HUE_INKS = {
 } as const;
 
 export const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const;
-export type Shade = (typeof SHADES)[number];
+type Shade = (typeof SHADES)[number];
 export type PaletteName = (typeof NEUTRALS)[number] | keyof typeof HUE_INKS;
 
 const NEUTRAL_SHADES: Record<Shade, string> = {
@@ -102,7 +102,7 @@ export function paletteToken(name: PaletteName, shade: Shade): string {
   return INK_SHADES[shade] ? `${ink}-${shade}` : ink;
 }
 
-const PALETTE_NAMES: PaletteName[] = [...NEUTRALS, ...(Object.keys(HUE_INKS) as (keyof typeof HUE_INKS)[])];
+export const PALETTE_NAMES: PaletteName[] = [...NEUTRALS, ...(Object.keys(HUE_INKS) as (keyof typeof HUE_INKS)[])];
 const INKS = [...new Set(Object.values(HUE_INKS))];
 
 /**

@@ -5,20 +5,18 @@ import {
   HUE_INKS,
   INK_SHADES,
   NEUTRALS,
+  PALETTE_NAMES,
   SHADES,
   TAILWIND_UTILITIES,
   compactGradients,
   mergeRules,
   paletteToken,
   tailwindInput,
-  type PaletteName,
 } from '@/lib/reactBlockTailwind';
 
 // #427: a react block's Tailwind sheet is drawn in Journal's theme. vite.config.ts compiles
 // tailwindInput() at build time; the e2e spec e2e/editor/live-react.spec.ts checks the
 // compiled sheet in the frame.
-
-const PALETTE: PaletteName[] = [...NEUTRALS, ...(Object.keys(HUE_INKS) as (keyof typeof HUE_INKS)[])];
 
 describe('paletteToken', () => {
   it('should draw the grays in the neutral tokens', () => {
@@ -205,7 +203,7 @@ describe.each([
   const background = colour('--background');
 
   it('should give text in every shade from 400 up a contrast of at least 3:1 on the background', () => {
-    for (const name of PALETTE) {
+    for (const name of PALETTE_NAMES) {
       for (const shade of SHADES.filter((shade) => shade >= 400)) {
         expect(contrast(colour(paletteToken(name, shade)), background), `${name}-${shade}`).toBeGreaterThanOrEqual(3);
       }
@@ -213,7 +211,7 @@ describe.each([
   });
 
   it('should give text in the light shades a contrast of at least 3:1 on the dark shades of the same colour', () => {
-    for (const name of PALETTE) {
+    for (const name of PALETTE_NAMES) {
       for (const light of [50, 100, 200] as const) {
         for (const dark of [700, 800, 900, 950] as const) {
           expect(contrast(colour(paletteToken(name, light)), colour(paletteToken(name, dark))), `${name}-${light} on ${name}-${dark}`).toBeGreaterThanOrEqual(3);
