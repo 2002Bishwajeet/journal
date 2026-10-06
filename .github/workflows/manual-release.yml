@@ -76,12 +76,3 @@ jobs:
     with:
       version: ${{ needs.release.outputs.version }}
     secrets: inherit
-
-  deploy-netlify:
-    needs: release
-    permissions:
-      contents: read
-    uses: ./.github/workflows/deploy-netlify.yml
-    with:
-      version: ${{ needs.release.outputs.version }}
-    secrets: inherit
