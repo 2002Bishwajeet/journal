@@ -30,16 +30,21 @@ export function setBlockState(ydoc: Y.Doc, id: string, json: string): void {
   ydoc.getMap(BLOCK_STATE_MAP).set(id, json);
 }
 
-/** Every block's saved state, from a stored Yjs blob: for the share page, which has no live doc. */
+/** Every block's saved state in a doc. */
+export function getBlockStates(ydoc: Y.Doc): Record<string, string> {
+  const states: Record<string, string> = {};
+  ydoc.getMap(BLOCK_STATE_MAP).forEach((value, id) => {
+    if (typeof value === 'string') states[id] = value;
+  });
+  return states;
+}
+
+/** Every block's saved state, from a stored Yjs blob: for callers without a live doc. */
 export function getBlockStatesFromBlob(yjsBlob: Uint8Array): Record<string, string> {
   const ydoc = new Y.Doc();
   try {
     Y.applyUpdate(ydoc, yjsBlob);
-    const states: Record<string, string> = {};
-    ydoc.getMap(BLOCK_STATE_MAP).forEach((value, id) => {
-      if (typeof value === 'string') states[id] = value;
-    });
-    return states;
+    return getBlockStates(ydoc);
   } catch {
     return {};
   } finally {

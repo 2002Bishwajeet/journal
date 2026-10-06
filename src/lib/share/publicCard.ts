@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import type { DocumentMetadata } from '@/types';
-import { coverPayloadKey, getCoverFromBlob } from '@/lib/editor/cover';
+import { coverPayloadKey, getCover } from '@/lib/editor/cover';
 import { PAYLOAD_KEY_CARD_IMAGE } from '@/lib/homebase/config';
 
 /** The cover a card image is drawn from. */
@@ -65,29 +65,30 @@ export function buildPublicCard(
     const custom = meta.shareDescription?.trim();
     if (custom) {
         card.description = truncateAtWord(custom, 300);
-    } else if (yjsBlob) {
-        // Best-effort: an undecodable blob just means no derived description, never
-        // a failed save/publish (mirrors extractPreviewTextFromYjs).
-        const doc = new Y.Doc();
-        try {
-            Y.applyUpdate(doc, yjsBlob);
-            const text = firstParagraphText(doc);
-            if (text) card.description = truncateAtWord(text);
-        } catch (e) {
-            console.error('[publicCard] failed to read the note content', e);
-        } finally {
-            doc.destroy();
-        }
     }
 
     if (yjsBlob) {
-        // Only an uploaded cover has a payload the guest thumb endpoint can serve.
-        const cover = getCoverFromBlob(yjsBlob);
-        const coverKey = cover && !cover.pendingId ? coverPayloadKey(cover.src) : null;
-        if (cover && coverKey) {
-            card.coverKey = coverKey;
-            card.cardImageKey = PAYLOAD_KEY_CARD_IMAGE;
-            card.cardImageFrom = { src: cover.src, positionY: cover.positionY };
+        // Decode once. Best-effort: an undecodable blob just means no derived
+        // description and no cover, never a failed save/publish.
+        const doc = new Y.Doc();
+        try {
+            Y.applyUpdate(doc, yjsBlob);
+            if (!custom) {
+                const text = firstParagraphText(doc);
+                if (text) card.description = truncateAtWord(text);
+            }
+            // Only an uploaded cover has a payload the guest thumb endpoint can serve.
+            const cover = getCover(doc);
+            const coverKey = cover && !cover.pendingId ? coverPayloadKey(cover.src) : null;
+            if (cover && coverKey) {
+                card.coverKey = coverKey;
+                card.cardImageKey = PAYLOAD_KEY_CARD_IMAGE;
+                card.cardImageFrom = { src: cover.src, positionY: cover.positionY };
+            }
+        } catch (e) {
+            if (!custom) console.error('[publicCard] failed to read the note content', e);
+        } finally {
+            doc.destroy();
         }
     }
 
