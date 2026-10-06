@@ -12,22 +12,41 @@ import {
 } from '@/lib/db';
 import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
-import { getCover, setCover } from '@/lib/editor/cover';
+import { COVER_MAP, getCover, setCover } from '@/lib/editor/cover';
+import { PAYLOAD_KEY_IMAGE_PREFIX } from '@/lib/homebase/config';
 import { documentBroadcast } from '@/lib/broadcast';
 import type { SyncContext } from './context';
 
 // An uploaded image whose pending node never shows up is marked failed_permanent after this many tries
 const MAX_IMAGE_PROMOTION_ATTEMPTS = 5;
 
+// The next jrnl_img index, kept in the note's doc so a deleted top key is never reused (#373)
+const NEXT_IMAGE_INDEX = 'nextImageIndex';
+
+function readNextImageIndex(ydoc: Y.Doc): number {
+    const value = ydoc.getMap(COVER_MAP).get(NEXT_IMAGE_INDEX);
+    return typeof value === 'number' ? value : 0;
+}
+
+async function getNextImageIndex(docId: string): Promise<number> {
+    const ydoc = await loadLocalYDoc(docId);
+    if (!ydoc) return 0;
+    const next = readNextImageIndex(ydoc);
+    ydoc.destroy();
+    return next;
+}
+
 /** SyncService's (private) updateImageReference, called on the instance as before the split. */
 type ImageHandlers = { updateImageReference: typeof updateImageReference };
 
 /**
  * Process pending image uploads with exponential backoff.
+ * Returns how many images were promoted; their notes are pending again.
  */
-export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHandlers): Promise<void> {
+export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHandlers): Promise<number> {
     // Get uploads ready for retry (respects next_retry_at)
     const pendingUploads = await getImageUploadsReadyForRetry();
+    let promotedCount = 0;
 
     for (const upload of pendingUploads) {
         try {
@@ -55,6 +74,7 @@ export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHan
                     upload.noteDocId, // uniqueId - consistent with how notes are tracked
                     syncRecord.versionTag,
                     { file: new Blob([new Uint8Array(upload.blobData)], { type: upload.contentType }) },
+                    await getNextImageIndex(upload.noteDocId),
                 );
                 payloadKey = result.payloadKey;
 
@@ -64,6 +84,10 @@ export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHan
                 await markSynced(upload.noteDocId, syncRecord.remoteFileId, result.versionTag, undefined, undefined, undefined, undefined, syncRecord.dirtyGeneration);
                 console.log(`[SyncService] Image ${upload.id} uploaded as ${payloadKey}`);
             }
+
+            // The editor inserts the node after queueing the row and persists it on
+            // a write window; an already-running sync can get here first
+            await documentBroadcast.requestFlushAndWait(upload.noteDocId);
 
             // Update the Yjs document to replace pending reference with permanent one
             const promoted = await svc.updateImageReference(
@@ -79,6 +103,7 @@ export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHan
                 await updateSyncStatus(upload.noteDocId, 'pending');
                 // Keep the bytes so the image still renders offline (#179); the queue skips synced rows
                 await updateImageUploadStatus(upload.id, 'synced', payloadKey);
+                promotedCount++;
             } else if (upload.retryCount + 1 >= MAX_IMAGE_PROMOTION_ATTEMPTS) {
                 // Give up retrying but keep the bytes (cleared at logout)
                 await updateImageUploadStatus(upload.id, 'failed_permanent');
@@ -98,6 +123,7 @@ export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHan
             console.log(`[SyncService] Image ${upload.id} retry scheduled for ${nextRetryAt.toISOString()}`);
         }
     }
+    return promotedCount;
 }
 
 /**
@@ -156,6 +182,9 @@ export async function updateImageReference(
             setCover(ydoc, { src: `attachment://${fileId}/${payloadKey}`, positionY: cover.positionY });
             found = true;
         }
+
+        const next = parseInt(payloadKey.slice(PAYLOAD_KEY_IMAGE_PREFIX.length), 10) + 1;
+        if (found && next > readNextImageIndex(ydoc)) ydoc.getMap(COVER_MAP).set(NEXT_IMAGE_INDEX, next);
     });
 
     if (found) {

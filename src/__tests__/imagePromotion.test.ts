@@ -123,6 +123,33 @@ describe('SyncService.processPendingImageUploads promotion', () => {
         before.forEach((u, i) => expect(after[i]).toEqual(u));
     });
 
+    it('keeps a key counter in the doc and uploads at or above it, so a deleted key is never reused (#373)', async () => {
+        const ydoc = makeDoc();
+        await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(ydoc));
+        await saveDocumentUpdate(DOC_ID, insertPendingImage(ydoc));
+        await queueUpload();
+        mockAddImageToNote.mockResolvedValue({ payloadKey: 'jrnl_img4', versionTag: 'v2' });
+
+        await svc.processPendingImageUploads();
+
+        expect(mockAddImageToNote).toHaveBeenCalledWith(DOC_ID, 'v1', expect.anything(), 0);
+        const d = new Y.Doc();
+        for (const u of await getDocumentUpdates(DOC_ID)) Y.applyUpdate(d, u);
+        expect(d.getMap('journalMeta').get('nextImageIndex')).toBe(5);
+        d.destroy();
+
+        // The next upload asks for at least jrnl_img5, even after jrnl_img4 is deleted
+        const NEXT_ID = '33333333-3333-3333-3333-333333333333';
+        await savePendingImageUpload({
+            id: NEXT_ID, noteDocId: DOC_ID, blobData: new Uint8Array([4]), contentType: 'image/png',
+            status: 'pending', retryCount: 0, createdAt: new Date().toISOString(),
+        });
+
+        await svc.processPendingImageUploads();
+
+        expect(mockAddImageToNote).toHaveBeenLastCalledWith(DOC_ID, 'v2', expect.anything(), 5);
+    });
+
     it('marks the note pending after promotion so the new src reaches the server', async () => {
         const ydoc = makeDoc();
         await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(ydoc));
@@ -132,6 +159,43 @@ describe('SyncService.processPendingImageUploads promotion', () => {
         await svc.processPendingImageUploads();
 
         expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('pending');
+    });
+
+    it('flushes the editor before promoting, so a node still in its write window is found', async () => {
+        const ydoc = makeDoc();
+        await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(ydoc));
+        await queueUpload();
+        // The editor has inserted the node but not yet written it to PGlite
+        const unflushed = insertPendingImage(ydoc);
+        const unsubscribe = documentBroadcast.subscribe(async (message) => {
+            if (message.type === 'flush' && message.docId === DOC_ID) await saveDocumentUpdate(DOC_ID, unflushed);
+        });
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        try {
+            await svc.processPendingImageUploads();
+        } finally {
+            unsubscribe();
+        }
+
+        expect((await storedImageAttrs())?.src).toBe(`attachment://${FILE_ID}/jrnl_img0`);
+        expect((await getUploadRow())?.status).toBe('synced');
+    });
+
+    it('sync pushes again after a promotion so the new src reaches the server in the same sync', async () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(svc, 'pullChanges').mockResolvedValue({ folders: 0, notes: 0 });
+        const push = vi.spyOn(svc, 'pushChanges').mockResolvedValue({ folders: 0, notes: 1 });
+        const images = vi.spyOn(svc, 'processPendingImageUploads').mockResolvedValue(1);
+
+        const result = await svc.sync();
+        expect(push).toHaveBeenCalledTimes(2);
+        expect(result.pushed.notes).toBe(2);
+
+        push.mockClear();
+        images.mockResolvedValue(0);
+        await svc.sync();
+        expect(push).toHaveBeenCalledTimes(1);
     });
 
     it('keeps an edit made during the upload pending', async () => {

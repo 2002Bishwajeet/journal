@@ -149,6 +149,17 @@ export async function updateImageRetryAt(id: string, nextRetryAt: Date): Promise
     );
 }
 
+/** When the earliest image upload backing off can be retried (ms since epoch), #374. */
+export async function getNextImageRetryAt(): Promise<number | undefined> {
+    const db = await getDatabase();
+    const result = await db.query<{ next_retry_at: string | Date | null }>(
+        `SELECT MIN(next_retry_at) AS next_retry_at FROM pending_image_uploads
+         WHERE status NOT IN ('synced', 'failed_permanent') AND next_retry_at > CURRENT_TIMESTAMP`
+    );
+    const nextRetryAt = result.rows[0]?.next_retry_at;
+    return nextRetryAt ? new Date(nextRetryAt).getTime() : undefined;
+}
+
 /**
  * Get image uploads that are ready for retry (next_retry_at has passed or is null)
  */
