@@ -8,10 +8,11 @@ const notes = readFileSync(new URL('../../RELEASE_NOTES.md', import.meta.url), '
 
 describe('RELEASE_NOTES.md', () => {
   it('parses into dated versions with New / Changed / Fixed sections, skipping Unreleased', () => {
+    // Not entries[0]: every release adds a newer entry on top
     const entries = parseChangelog(notes);
-    expect(entries[0].version).toBe('2.3.1');
-    expect(entries[0].date).toBe('2026-10-06');
-    expect(Object.keys(entries[0].sections)).toEqual(['New', 'Changed', 'Fixed']);
+    const v231 = entries.find((e) => e.version === '2.3.1');
+    expect(v231?.date).toBe('2026-10-06');
+    expect(Object.keys(v231?.sections ?? {})).toEqual(['New', 'Changed', 'Fixed']);
     expect(entries.some((e) => e.version === 'Unreleased')).toBe(false);
   });
 });
