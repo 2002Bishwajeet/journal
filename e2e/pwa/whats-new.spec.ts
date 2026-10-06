@@ -16,9 +16,12 @@ test('shows the skipped versions once after an update', async ({ app }) => {
 
   for (const colorScheme of ['light', 'dark'] as const) {
     for (const [label, size] of [['desktop', { width: 1280, height: 800 }], ['mobile', { width: 390, height: 780 }]] as const) {
-      await app.emulateMedia({ colorScheme });
+      await app.emulateMedia({ colorScheme, reducedMotion: 'reduce' });
       await app.setViewportSize(size);
-      await app.screenshot({ path: test.info().outputPath(`whats-new-${colorScheme}-${label}.png`) });
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toHaveCSS('opacity', '1');
+      await expect(dialog.getByRole('button', { name: 'Close' }).first()).toHaveCSS('opacity', '1');
+      await app.screenshot({ animations: 'disabled', path: test.info().outputPath(`whats-new-${colorScheme}-${label}.png`) });
     }
   }
 
