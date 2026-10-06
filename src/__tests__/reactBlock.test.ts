@@ -127,13 +127,15 @@ describe('reactBlockDocument', () => {
     expect(html.match(/<style>/g)).toHaveLength(1);
   });
 
-  it('should hold lucide-react only when it is passed, between React and the component (#427)', () => {
+  it('should hold Recharts and lucide-react only when they are passed, between React and the component (#427)', () => {
+    const RECHARTS = 'window.Recharts = {};';
     const scripts = (html: string) => [...new DOMParser().parseFromString(html, 'text/html').querySelectorAll('script')].map((script) => script.textContent ?? '');
-    expect(scripts(reactBlockDocument({ react: RUNTIME, tailwind: SHEET }, 'var marker = 1;')).some((text) => text.includes('LucideReact ='))).toBe(false);
+    expect(scripts(reactBlockDocument({ react: RUNTIME, tailwind: SHEET }, 'var marker = 1;')).filter((text) => /Recharts =|LucideReact =/.test(text))).toEqual([]);
 
-    const texts = scripts(reactBlockDocument({ react: RUNTIME, tailwind: SHEET, lucide: LUCIDE }, 'var marker = 1;'));
+    const texts = scripts(reactBlockDocument({ react: RUNTIME, tailwind: SHEET, recharts: RECHARTS, lucide: LUCIDE }, 'var marker = 1;'));
     const at = (needle: string) => texts.findIndex((text) => text.includes(needle));
-    expect(at(RUNTIME)).toBeLessThan(at(LUCIDE));
+    expect(at(RUNTIME)).toBeLessThan(at(RECHARTS));
+    expect(at(RECHARTS)).toBeLessThan(at(LUCIDE));
     expect(at(LUCIDE)).toBeLessThan(at('var marker = 1;'));
   });
 
@@ -214,7 +216,7 @@ describe('reactBlockDocument', () => {
 
     it('should name the module and the allowed ones when a block imports anything else (#427)', async () => {
       await run("import * as d3 from 'd3';\nfunction App() { return <p>{d3.version}</p>; }");
-      expect(alertText()).toContain('A react block can import only react and lucide-react, not d3.');
+      expect(alertText()).toContain('A react block can import only react, recharts and lucide-react, not d3.');
       expect(rootText()).toBe('');
     });
   });

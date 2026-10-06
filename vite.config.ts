@@ -11,7 +11,7 @@ import { transform as transformCss } from 'lightningcss'
 import { rolldown } from 'rolldown'
 import { compile as compileTailwind } from 'tailwindcss'
 import pkg from './package.json' with { type: 'json' }
-import { compactGradients, mergeRules, tailwindInput } from './src/lib/reactBlockTailwind'
+import { compactGradients, mergeRules, tailwindInput } from './src/lib/reactBlockTailwind.ts'
 
 // Vite defines `globalThis.process.env` as `{}` so browser code can read
 // process.env. That literal is truthy, so PGlite 0.4's own browser check
@@ -30,7 +30,8 @@ const restorePgliteProcessGuard = {
 
 // The React a `react` live block runs on (#426): the app's own installed react and
 // react-dom/client as the text of one classic script, which sets window.React and
-// window.ReactDOM. A block's sandboxed frame cannot load the app's modules, so the app
+// window.ReactDOM (react-dom/client with react-dom's own exports, such as the createPortal
+// Recharts uses, #427). A block's sandboxed frame cannot load the app's modules, so the app
 // inlines this text into the frame's srcdoc. Made from the packages' CommonJS production
 // files and a tiny require(), in this build: no second build tool, no generated file.
 const appRequire = createRequire(import.meta.url);
@@ -53,7 +54,7 @@ function reactBlockRuntime(): string {
     '  if (!cache[name]) { cache[name] = { exports: {} }; factories[name](cache[name], cache[name].exports, require); }\n' +
     '  return cache[name].exports;\n' +
     '}\n' +
-    "window.React = require('react');\nwindow.ReactDOM = require('react-dom/client');\n})();"
+    "window.React = require('react');\nwindow.ReactDOM = Object.assign({}, require('react-dom'), require('react-dom/client'));\n})();"
   );
 }
 
@@ -110,6 +111,9 @@ const REACT_BLOCK_PIECES: Record<string, () => string | Promise<string>> = {
   'virtual:react-block-runtime': reactBlockRuntime,
   'virtual:react-block-tailwind': reactBlockTailwind,
   'virtual:react-block-lucide': () => reactBlockLibrary("export * from 'lucide-react';", 'LucideReact'),
+  // Recharts with Journal's chart colours as its defaults.
+  'virtual:react-block-recharts': () =>
+    reactBlockLibrary(`export * from ${JSON.stringify(path.resolve(import.meta.dirname, 'src/lib/reactBlockRecharts.ts'))};`, 'Recharts'),
 };
 const reactBlockPieces: Plugin = {
   name: 'react-block-pieces',

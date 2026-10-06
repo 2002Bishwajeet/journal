@@ -7,6 +7,7 @@
 @source not "./__tests__/reactBlockTailwind.test.ts";
 @source not "../mcp/README.md";
 @source not "../mcp/createServer.ts";
+@source not "../e2e/editor/live-react-artifact.spec.ts";
 
 /* Self-hosted fonts: same-origin so they survive COEP and get precached. */
 @import "@fontsource-variable/inter";

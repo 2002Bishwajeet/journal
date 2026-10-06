@@ -36,6 +36,7 @@ export default defineConfig({
             'virtual:react-block-runtime': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockRuntime.ts'),
             'virtual:react-block-tailwind': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockTailwind.ts'),
             'virtual:react-block-lucide': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockLucide.ts'),
+            'virtual:react-block-recharts': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockRecharts.ts'),
         },
     },
 });
