@@ -22,7 +22,29 @@ let bootError: Error | null = null;
 let bootFailures = 0;
 const listeners = new Set<() => void>();
 
+const bootMarks = new Set<string>();
+
+/**
+ * Timing of a boot milestone, first report only: a performance mark (always, so
+ * it can be read from the console in any build) and a log line in dev and e2e.
+ */
+function markBoot(name: string): void {
+    if (bootMarks.has(name)) return;
+    bootMarks.add(name);
+    const at = performance.now();
+    performance.mark(`boot:${name}`);
+    if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+        console.log(`[boot] ${name} at ${Math.round(at)}ms`);
+    }
+}
+
+/** The first note list rendered from PGlite rows — the number a user feels. */
+export function reportFirstNote(): void {
+    markBoot('first-note');
+}
+
 export function reportBootPhase(phase: BootPhase): void {
+    markBoot(phase);
     const next = PHASE_PROGRESS[phase];
     if (next <= progress) return;
     progress = next;

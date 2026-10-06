@@ -11,15 +11,14 @@ import {
     STORAGE_KEY_SHARED_SECRET,
 } from '@/lib/homebase/config';
 import { SESSION_STORAGE_KEY, TABS_STORAGE_KEY } from '@/lib/storage';
+import { hasStoredLogin } from '@/lib/dbPrewarm';
 import { useVerifyToken } from './useVerifyToken';
 import { useOnlineContext } from '../useOnlineContext';
 
 
 export type AuthenticationState = 'unknown' | 'anonymous' | 'authenticated';
 
-const hasSharedSecret = () => {
-    return !!localStorage.getItem(STORAGE_KEY_SHARED_SECRET);
-};
+const hasSharedSecret = hasStoredLogin;
 
 /**
  * Core authentication hook.

@@ -14,6 +14,7 @@ import {
   setStoredPGliteVersion,
   type LegacyDump,
 } from './pglite-migrate';
+import { scheduleVacuum } from './vacuum';
 import { initializeSchema, TRIGRAM_SEARCH_SQL } from './schema';
 
 // PGlite 0.5 runs Postgres 18, which can't open the Postgres 17 data dir the
@@ -60,6 +61,10 @@ export function getDatabase(): Promise<PGliteInterface> {
       .then((db) => {
         reportBootPhase('db-ready');
         clearBootError();
+        if (import.meta.env.DEV || import.meta.env.MODE === 'e2e') {
+          void import('./dbStats').then((m) => m.logDatabaseSize(db));
+        }
+        scheduleVacuum(db);
         return db;
       })
       .catch((err) => {

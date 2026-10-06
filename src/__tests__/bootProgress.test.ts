@@ -50,3 +50,17 @@ describe('bootProgress', () => {
         expect(store.getBootProgress()).toBe(25);
     });
 });
+
+describe('boot timing marks', () => {
+    it('marks each milestone and first-note once, without moving the progress bar', async () => {
+        const store = await freshStore();
+        const mark = vi.spyOn(performance, 'mark');
+        store.reportBootPhase('db-start');
+        store.reportBootPhase('db-start');
+        store.reportFirstNote();
+        store.reportFirstNote();
+        expect(mark.mock.calls.map((c) => c[0])).toEqual(['boot:db-start', 'boot:first-note']);
+        expect(store.getBootProgress()).toBe(25);
+        mark.mockRestore();
+    });
+});

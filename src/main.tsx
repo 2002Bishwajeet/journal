@@ -3,6 +3,7 @@ import './lib/utils/sw-safety';
 import { reloadOnceForChunkError } from './lib/utils/chunkReload';
 import { reportBootPhase } from './lib/bootProgress';
 import { isPublicSharePath } from './lib/sharePath';
+import { prewarmDatabase } from './lib/dbPrewarm';
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -28,6 +29,10 @@ if (!isPublicSharePath(location.pathname)) {
 
 // Main bundle parsed and executing — first boot milestone for the splash bar.
 reportBootPhase('react');
+
+// A stored login means the DB will be needed: start its WASM fetch/compile now
+// instead of after the auth round-trip. No-op on share pages and for visitors.
+prewarmDatabase(location.pathname);
 
 // e2e-only readiness hooks (window.__journalE2E) — dynamic import keeps this
 // out of the production bundle entirely.

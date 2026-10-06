@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTabManager, staleTabIds, nextActiveTabId } from '@/hooks/useTabManager';
 import { useMountedTabs } from '@/hooks/useMountedTabs';
+import { reportFirstNote } from '@/lib/bootProgress';
 import type { NoteListEntry } from '@/types';
 
 interface UseTabRoutingOptions {
@@ -43,6 +44,11 @@ export function useTabRouting({ noteId, folderId, notes, isNotesLoading }: UseTa
             openTab(noteId, note?.title || 'Untitled');
         }
     }, [noteId, openTab]);
+
+    // Boot timing: the note list's rows have arrived from PGlite.
+    useEffect(() => {
+        if (!isNotesLoading) reportFirstNote();
+    }, [isNotesLoading]);
 
     // Once, at boot: drop restored tabs whose note is gone (archived, trashed or
     // deleted on another device). One-shot on purpose — running on every notes
