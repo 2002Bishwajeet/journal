@@ -4,7 +4,7 @@
  * the app itself never imports it.
  *
  * It is Recharts itself, except that each chart passes its children through themeChildren:
- * series take `--chart-1` … `--chart-5` in order, the grid and axes `--border` and
+ * series take `--chart-2` … `--chart-5` in order (`--chart-1` is nearly the text colour), the grid and axes `--border` and
  * `--muted-foreground`, the tooltip and legend the theme's text and background. A colour the
  * block sets wins, except the sample colours of the Recharts docs, which agents copy: those
  * become the chart inks.
@@ -16,7 +16,7 @@ export * from 'recharts';
 
 /** The theme values a chart is drawn in, as the frame's variables hold them. */
 export interface ChartTheme {
-  /** `--chart-1` … `--chart-5`. */
+  /** `--chart-2` … `--chart-5`. */
   series: string[];
   background: string;
   foreground: string;
@@ -26,13 +26,13 @@ export interface ChartTheme {
   radius: string;
 }
 
-/** The colours of the Recharts docs' examples, in the order they become `--chart-1` … `--chart-5`. */
+/** The colours of the Recharts docs' examples, in the order they become the series inks: `--chart-2` … `--chart-5`, then `--chart-2`. */
 const SAMPLE_COLOURS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#413ea0'];
 
 /** A colour the block set: a Recharts sample colour becomes its chart ink; any other stays as written. */
 export function themeColour(colour: unknown, theme: ChartTheme): unknown {
   const sample = typeof colour === 'string' ? SAMPLE_COLOURS.indexOf(colour.trim().toLowerCase()) : -1;
-  return sample === -1 ? colour : theme.series[sample];
+  return sample === -1 ? colour : theme.series[sample % theme.series.length];
 }
 
 type Props = Record<string, unknown>;
@@ -136,7 +136,7 @@ function frameTheme(): ChartTheme {
   const style = getComputedStyle(document.documentElement);
   const token = (name: string) => style.getPropertyValue(name).trim();
   return {
-    series: [1, 2, 3, 4, 5].map((n) => token(`--chart-${n}`)),
+    series: [2, 3, 4, 5].map((n) => token(`--chart-${n}`)),
     background: token('--background'),
     foreground: token('--foreground'),
     muted: token('--muted'),
@@ -146,21 +146,25 @@ function frameTheme(): ChartTheme {
   };
 }
 
-// Colours are resolved in the frame rather than written as var(--chart-1): an SVG presentation
+// Colours are resolved in the frame rather than written as var(--chart-2): an SVG presentation
 // attribute does not take var() in every browser.
-function themed<Chart extends (props: never) => ReactNode>(chart: Chart, name: string): Chart {
-  const Inner = chart as unknown as FunctionComponent<{ children?: ReactNode }>;
-  const Themed = (props: { children?: ReactNode }) => createElement(Inner, { ...props, children: themeChildren(props.children, frameTheme()) });
+function themed<Chart extends (props: never) => ReactNode>(chart: Chart, name: string, margin?: Props): Chart {
+  const Inner = chart as unknown as FunctionComponent<{ children?: ReactNode; margin?: Props }>;
+  const Themed = (props: { children?: ReactNode; margin?: Props }) =>
+    createElement(Inner, { ...props, margin: props.margin ?? margin, children: themeChildren(props.children, frameTheme()) });
   Themed.displayName = name;
   // The same props as the chart it wraps.
   return Themed as unknown as Chart;
 }
 
-export const LineChart = themed(Recharts.LineChart, 'LineChart');
-export const BarChart = themed(Recharts.BarChart, 'BarChart');
-export const AreaChart = themed(Recharts.AreaChart, 'AreaChart');
-export const ComposedChart = themed(Recharts.ComposedChart, 'ComposedChart');
-export const ScatterChart = themed(Recharts.ScatterChart, 'ScatterChart');
+// Recharts' own margin, wider on the right: its 5px clips the last x-axis label.
+const CARTESIAN_MARGIN = { top: 5, right: 20, bottom: 5, left: 5 };
+
+export const LineChart = themed(Recharts.LineChart, 'LineChart', CARTESIAN_MARGIN);
+export const BarChart = themed(Recharts.BarChart, 'BarChart', CARTESIAN_MARGIN);
+export const AreaChart = themed(Recharts.AreaChart, 'AreaChart', CARTESIAN_MARGIN);
+export const ComposedChart = themed(Recharts.ComposedChart, 'ComposedChart', CARTESIAN_MARGIN);
+export const ScatterChart = themed(Recharts.ScatterChart, 'ScatterChart', CARTESIAN_MARGIN);
 export const PieChart = themed(Recharts.PieChart, 'PieChart');
 export const RadarChart = themed(Recharts.RadarChart, 'RadarChart');
 export const RadialBarChart = themed(Recharts.RadialBarChart, 'RadialBarChart');

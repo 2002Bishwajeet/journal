@@ -247,15 +247,18 @@ button. Opacity modifiers such as `bg-blue-500/50` are not in the sheet.
 
 `recharts` is Recharts 3, drawn in Journal's theme. Leave the colour props out:
 
-- Series take `--chart-1` … `--chart-5` in the order they appear: `Line`, `Area` and
-  `Radar` their line and fill, `Bar` and `Scatter` their fill. A `Pie` gives each sector
-  the next colour.
+- Series take `--chart-2` … `--chart-5` in the order they appear, then start again at
+  `--chart-2` (`--chart-1` is nearly the text colour): `Line`, `Area` and `Radar` their
+  line and fill, `Bar` and `Scatter` their fill. A `Pie` gives each sector the next colour.
 - `CartesianGrid` and `PolarGrid` use `--border`. `XAxis`, `YAxis` and the polar axes draw
   their lines in `--border` and their tick labels in `--muted-foreground`.
 - `Tooltip` and `Legend` text is `--foreground`, the tooltip on `--background`.
 - A colour the block sets wins, except the sample colours of the Recharts docs:
-  `#8884d8`, `#82ca9d`, `#ffc658`, `#ff7300` and `#413ea0` become `--chart-1` …
-  `--chart-5`.
+  `#8884d8`, `#82ca9d`, `#ffc658`, `#ff7300` and `#413ea0` become `--chart-2`,
+  `--chart-3`, `--chart-4`, `--chart-5` and `--chart-2`, as the series do.
+- A cartesian chart (`LineChart`, `BarChart`, `AreaChart`, `ComposedChart`,
+  `ScatterChart`) has a 20px right margin, so the last x-axis label is not cut off. A
+  `margin` the block sets replaces it.
 
 Wrap a chart in `ResponsiveContainer` with a fixed height, so that it fills the note's
 width:

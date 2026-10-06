@@ -10,9 +10,9 @@ import { createRoot } from 'react-dom/client';
 import * as Recharts from 'recharts';
 import { LineChart, themeChildren, themeColour, type ChartTheme } from '@/lib/reactBlockRecharts';
 
-// The light theme's values in src/index.css.
+// The light theme's values in src/index.css: the series are --chart-2 … --chart-5.
 const THEME: ChartTheme = {
-  series: ['#39362E', '#8A5344', '#718968', '#9D7F42', '#4F7A96'],
+  series: ['#8A5344', '#718968', '#9D7F42', '#4F7A96'],
   background: '#FDFCF8',
   foreground: '#2C2B29',
   muted: '#F2F0E9',
@@ -37,8 +37,8 @@ function themed(children: ReactNode): ReactElement<Props>[] {
 }
 
 describe('themeColour', () => {
-  it('should turn the Recharts docs sample colours into the chart inks, in order, in any case', () => {
-    expect(['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#413ea0'].map((colour) => themeColour(colour, THEME))).toEqual(THEME.series);
+  it('should turn the Recharts docs sample colours into the series inks, in order and wrapping, in any case', () => {
+    expect(['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#413ea0'].map((colour) => themeColour(colour, THEME))).toEqual([...THEME.series, THEME.series[0]]);
     expect(themeColour('#8884D8', THEME)).toBe(THEME.series[0]);
   });
 
@@ -48,7 +48,7 @@ describe('themeColour', () => {
 });
 
 describe('themeChildren', () => {
-  it('should draw the series in --chart-1 … --chart-5 in order, through fragments and arrays', () => {
+  it('should draw the series in --chart-2 … --chart-5 in order, through fragments and arrays', () => {
     const [a, b, c, d] = themed([
       <Recharts.Line key="a" dataKey="a" />,
       <Fragment key="f">
@@ -64,8 +64,8 @@ describe('themeChildren', () => {
     expect(d.props.fill).toBe(THEME.series[3]);
   });
 
-  it('should start again at --chart-1 after the fifth series', () => {
-    const lines = themed(Array.from({ length: 6 }, (_, i) => <Recharts.Line key={i} dataKey={`k${i}`} />));
+  it('should start again at --chart-2 after the fourth series', () => {
+    const lines = themed(Array.from({ length: 5 }, (_, i) => <Recharts.Line key={i} dataKey={`k${i}`} />));
     expect(lines.map((line) => line.props.stroke)).toEqual([...THEME.series, THEME.series[0]]);
   });
 
@@ -147,8 +147,9 @@ describe('LineChart, rendered', () => {
     document.documentElement.removeAttribute('style');
   });
 
-  it("should draw two series with no colour props in --chart-1 and --chart-2, as the frame's variables hold them", async () => {
-    THEME.series.forEach((colour, i) => document.documentElement.style.setProperty(`--chart-${i + 1}`, colour));
+  it("should draw two series with no colour props in --chart-2 and --chart-3, as the frame's variables hold them", async () => {
+    document.documentElement.style.setProperty('--chart-1', THEME.foreground);
+    THEME.series.forEach((colour, i) => document.documentElement.style.setProperty(`--chart-${i + 2}`, colour));
     for (const [name, value] of [['--border', THEME.border], ['--muted-foreground', THEME.mutedForeground], ['--background', THEME.background]]) {
       document.documentElement.style.setProperty(name, value);
     }
@@ -170,5 +171,30 @@ describe('LineChart, rendered', () => {
     const curves = [...document.querySelectorAll('.recharts-line-curve')].map((curve) => curve.getAttribute('stroke'));
     expect(curves).toEqual([THEME.series[0], THEME.series[1]]);
     await act(async () => root.unmount());
+  });
+
+  it("should leave room on the right for the last x-axis label, unless the block sets its own margin", async () => {
+    const data = [
+      { name: 'Mon', a: 1 },
+      { name: 'Tue', a: 2 },
+    ];
+    /** The right end of the x-axis line, in a 400px chart. */
+    const axisEnd = async (margin?: { right: number }) => {
+      const root = createRoot(document.body.appendChild(document.createElement('div')));
+      await act(async () =>
+        root.render(
+          <LineChart width={400} height={200} data={data} margin={margin}>
+            <Recharts.XAxis dataKey="name" />
+            <Recharts.Line dataKey="a" isAnimationActive={false} />
+          </LineChart>,
+        ),
+      );
+      const end = document.querySelector('.recharts-xAxis .recharts-cartesian-axis-line')?.getAttribute('x2');
+      await act(async () => root.unmount());
+      document.body.innerHTML = '';
+      return Number(end);
+    };
+    expect(await axisEnd()).toBe(380);
+    expect(await axisEnd({ right: 0 })).toBe(400);
   });
 });

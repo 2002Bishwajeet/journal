@@ -86,9 +86,9 @@ async function drawn(frame: FrameLocator) {
     const like = document.getElementById('like')!;
     return {
       tokens: {
-        chart1: token('--chart-1'),
-        chart1Raw: raw('--chart-1'),
+        chart5: token('--chart-5'),
         chart2Raw: raw('--chart-2'),
+        chart3Raw: raw('--chart-3'),
         background: token('--background'),
         mutedForeground: token('--muted-foreground'),
         mutedForegroundRaw: raw('--muted-foreground'),
@@ -130,16 +130,16 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(frame.getByRole('button', { name: 'Liked' })).toBeVisible();
 
     const result = await drawn(frame);
-    // The two series, with no colour props, are --chart-1 and --chart-2.
-    expect(result.lines).toEqual([result.tokens.chart1Raw, result.tokens.chart2Raw]);
+    // The two series, with no colour props, are --chart-2 and --chart-3 (--chart-1 is nearly the text colour).
+    expect(result.lines).toEqual([result.tokens.chart2Raw, result.tokens.chart3Raw]);
     // The grid is --border, the tick labels --muted-foreground.
     expect(result.grid.length).toBeGreaterThan(0);
     expect(new Set(result.grid)).toEqual(new Set([result.tokens.borderRaw]));
     expect(result.ticks.length).toBeGreaterThan(0);
     expect(new Set(result.ticks)).toEqual(new Set([result.tokens.mutedForegroundRaw]));
-    // Raw palette classes resolve to their theme tokens: bg-blue-500 is --chart-1, text-white
+    // Raw palette classes resolve to their theme tokens: bg-blue-500 is --chart-5, text-white
     // --background, text-gray-500 --muted-foreground.
-    expect(result.likeBackground).toBe(result.tokens.chart1);
+    expect(result.likeBackground).toBe(result.tokens.chart5);
     expect(result.likeText).toBe(result.tokens.background);
     expect(result.caption).toBe(result.tokens.mutedForeground);
     // Theme names: bg-card, and a bare border in --border.
