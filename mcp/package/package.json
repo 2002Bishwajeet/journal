@@ -1,6 +1,6 @@
 {
   "name": "journal-mcp",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "MCP server for Journal notes on your Homebase identity",
   "type": "module",
   "bin": { "journal-mcp": "dist/server.mjs" },
