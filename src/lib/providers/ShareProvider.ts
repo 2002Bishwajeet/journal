@@ -6,9 +6,10 @@ import {
     getContentFromHeaderOrPayload,
     type HomebaseFile,
 } from '@homebase-id/js-lib/core';
+import * as Y from 'yjs';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
-import { getCoverFromBlob } from '@/lib/editor/cover';
-import { getBlockStatesFromBlob } from '@/lib/liveBlockState';
+import { getCover } from '@/lib/editor/cover';
+import { getBlockStates } from '@/lib/liveBlockState';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import type { NoteFileContent } from '@/types';
 import { JOURNAL_DRIVE, PAYLOAD_KEY_CONTENT } from '@/lib/homebase/config';
@@ -92,12 +93,24 @@ export class ShareProvider {
                 decrypt: false,
             });
             if (yjs?.bytes && yjs.bytes.length > 0) {
-                markdown = await extractMarkdownFromYjs(noteId, yjs.bytes);
-                const c = getCoverFromBlob(yjs.bytes);
-                if (c && parseAttachmentSrc(c.src, header.fileId)) {
-                    cover = { src: c.src, positionY: c.positionY };
+                // Decode once; markdown, cover and block states all read from this doc.
+                const ydoc = new Y.Doc();
+                try {
+                    try {
+                        Y.applyUpdate(ydoc, yjs.bytes);
+                    } catch (err) {
+                        // A broken blob leaves the doc empty: no markdown, cover or block states.
+                        console.warn('[ShareProvider] Failed to decode shared note payload:', err);
+                    }
+                    markdown = await extractMarkdownFromYjs(noteId, ydoc);
+                    const c = getCover(ydoc);
+                    if (c && parseAttachmentSrc(c.src, header.fileId)) {
+                        cover = { src: c.src, positionY: c.positionY };
+                    }
+                    blockStates = getBlockStates(ydoc);
+                } finally {
+                    ydoc.destroy();
                 }
-                blockStates = getBlockStatesFromBlob(yjs.bytes);
             }
         } catch (err) {
             console.warn('[ShareProvider] Failed to fetch shared note payload:', err);

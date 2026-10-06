@@ -163,3 +163,36 @@ test("share page: a reader sees the owner's saved state, and their own change la
   expect(methods.length).toBeGreaterThan(0);
   expect(methods.filter((method) => method !== 'GET' && method !== 'OPTIONS')).toEqual([]);
 });
+
+// #489: a react block reaches journal.storage through the same frame code as an html block.
+const REACT_COUNTER = [
+  'function App() {',
+  "  const [text, setText] = useState('loading');",
+  "  useEffect(() => { journal.storage.get('count').then((count) => setText('count: ' + count)); }, []);",
+  '  return (',
+  '    <div>',
+  '      <p id="out">{text}</p>',
+  "      <button onClick={() => journal.storage.set('count', 3).then(() => setText('saved'))}>Save 3</button>",
+  '    </div>',
+  '  );',
+  '}',
+].join('\n');
+
+test('react block: journal.storage.set survives a reload of the app', async ({ app }) => {
+  const reactBlock = activeEditor(app).locator('[data-live-block="react"]');
+  const reactFrame = reactBlock.frameLocator('iframe[title="React preview"]');
+
+  await createNote(app, { title: `React storage ${Date.now()}`, body: 'Intro' });
+  await app.keyboard.press('Enter');
+  await pastePlainText(app, '```react\n' + REACT_COUNTER + '\n```');
+  await expect(reactFrame.locator('#out')).toHaveText('count: undefined');
+
+  await reactFrame.getByRole('button', { name: 'Save 3' }).click();
+  await expect(reactFrame.locator('#out')).toHaveText('saved');
+
+  // Same wait as the html case: the save reaches PGlite a moment after the note.
+  await app.waitForTimeout(1500);
+  await app.reload();
+  await waitForAppReady(app);
+  await expect(reactFrame.locator('#out')).toHaveText('count: 3');
+});
