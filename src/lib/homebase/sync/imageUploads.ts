@@ -12,12 +12,29 @@ import {
 } from '@/lib/db';
 import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
-import { getCover, setCover } from '@/lib/editor/cover';
+import { COVER_MAP, getCover, setCover } from '@/lib/editor/cover';
+import { PAYLOAD_KEY_IMAGE_PREFIX } from '@/lib/homebase/config';
 import { documentBroadcast } from '@/lib/broadcast';
 import type { SyncContext } from './context';
 
 // An uploaded image whose pending node never shows up is marked failed_permanent after this many tries
 const MAX_IMAGE_PROMOTION_ATTEMPTS = 5;
+
+// The next jrnl_img index, kept in the note's doc so a deleted top key is never reused (#373)
+const NEXT_IMAGE_INDEX = 'nextImageIndex';
+
+function readNextImageIndex(ydoc: Y.Doc): number {
+    const value = ydoc.getMap(COVER_MAP).get(NEXT_IMAGE_INDEX);
+    return typeof value === 'number' ? value : 0;
+}
+
+async function getNextImageIndex(docId: string): Promise<number> {
+    const ydoc = await loadLocalYDoc(docId);
+    if (!ydoc) return 0;
+    const next = readNextImageIndex(ydoc);
+    ydoc.destroy();
+    return next;
+}
 
 /** SyncService's (private) updateImageReference, called on the instance as before the split. */
 type ImageHandlers = { updateImageReference: typeof updateImageReference };
@@ -57,6 +74,7 @@ export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHan
                     upload.noteDocId, // uniqueId - consistent with how notes are tracked
                     syncRecord.versionTag,
                     { file: new Blob([new Uint8Array(upload.blobData)], { type: upload.contentType }) },
+                    await getNextImageIndex(upload.noteDocId),
                 );
                 payloadKey = result.payloadKey;
 
@@ -164,6 +182,9 @@ export async function updateImageReference(
             setCover(ydoc, { src: `attachment://${fileId}/${payloadKey}`, positionY: cover.positionY });
             found = true;
         }
+
+        const next = parseInt(payloadKey.slice(PAYLOAD_KEY_IMAGE_PREFIX.length), 10) + 1;
+        if (found && next > readNextImageIndex(ydoc)) ydoc.getMap(COVER_MAP).set(NEXT_IMAGE_INDEX, next);
     });
 
     if (found) {
