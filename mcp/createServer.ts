@@ -17,7 +17,10 @@ const LIVE_BLOCKS =
     ' A `react` block is JSX that defines a component named `App`, or exports one as default. ' +
     "Journal compiles it and runs it on the app's own React, in the same sandbox as an `html` block, with no CDN script. " +
     'Hooks are on `React` (`React.useState`), and `useState`, `useEffect`, `useRef`, `useMemo` and `useReducer` also work without the prefix. ' +
-    'It can import only from `react`. State is lost on reload.' +
+    'It can import only from `react` and `lucide-react`. ' +
+    "`className` takes Tailwind classes drawn in Journal's theme, in light and dark with no `dark:` variant: " +
+    'prefer the theme names (`bg-muted`, `text-muted-foreground`, `border`); palette names such as `bg-blue-500` map to the theme too. ' +
+    'State is lost on reload.' +
     " Journal's design system comes first. " +
     '(1) Prefer a native block (callout, table, toggle, task list, mermaid) whenever one can carry the content. ' +
     "(2) An `html` block must use the note's font and colours, which it inherits, and the theme variables " +

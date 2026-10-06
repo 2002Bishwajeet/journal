@@ -15,3 +15,11 @@ export function compileReactBlock(source: string): { code: string } | { error: s
     return { error: loc ? `Line ${loc.line}: ${message.replace(/ \(\d+:\d+\)$/, '')}` : message };
   }
 }
+
+/**
+ * The modules a compiled block imports, in order, each once: the names in its `require('…')`
+ * calls, which is what the `imports` transform makes of every import (#427).
+ */
+export function reactBlockImports(code: string): string[] {
+  return [...new Set(Array.from(code.matchAll(/\brequire\('([^']*)'\)/g), (match) => match[1]))];
+}

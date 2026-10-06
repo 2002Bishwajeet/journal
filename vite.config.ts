@@ -7,7 +7,11 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import { createRequire } from 'module'
 import path from 'path'
+import { transform as transformCss } from 'lightningcss'
+import { rolldown } from 'rolldown'
+import { compile as compileTailwind } from 'tailwindcss'
 import pkg from './package.json' with { type: 'json' }
+import { compactGradients, mergeRules, tailwindInput } from './src/lib/reactBlockTailwind'
 
 // Vite defines `globalThis.process.env` as `{}` so browser code can read
 // process.env. That literal is truthy, so PGlite 0.4's own browser check
@@ -59,6 +63,69 @@ const reactBlockRuntime: Plugin = {
   },
 };
 
+// The Tailwind sheet a react block gets (#427): the fixed utility list in
+// src/lib/reactBlockTailwind.ts, compiled by the app's own Tailwind and minified by Lightning
+// CSS (Vite's), for the browsers Tailwind v4 supports. Nothing is generated in the frame.
+async function reactBlockTailwind(): Promise<string> {
+  const appRequire = createRequire(import.meta.url);
+  const compiler = await compileTailwind(tailwindInput(), {
+    base: import.meta.dirname,
+    loadStylesheet: async (id) => {
+      const file = appRequire.resolve(id);
+      return { path: file, base: path.dirname(file), content: fs.readFileSync(file, 'utf8') };
+    },
+  });
+  const { code } = transformCss({
+    filename: 'react-block-tailwind.css',
+    code: Buffer.from(compactGradients(compiler.build([]))),
+    minify: true,
+    targets: { chrome: 111 << 16, firefox: 128 << 16, safari: (16 << 16) | (4 << 8) },
+  });
+  return mergeRules(code.toString());
+}
+
+// A library a react block may import (#427), as the text of one classic script that sets the
+// global `name`. Bundled by Rolldown, Vite's own bundler, on the frame's React: the library's
+// `react` and `react-dom` are window.React and window.ReactDOM, never a second copy.
+const FRAME_GLOBALS: Record<string, string> = { react: 'React', 'react-dom': 'ReactDOM' };
+async function reactBlockLibrary(entry: string, name: string): Promise<string> {
+  const bundle = await rolldown({
+    input: 'entry',
+    platform: 'browser',
+    // lucide-react marks its modules "use client", which means nothing in a classic script.
+    checks: { moduleLevelDirective: false },
+    transform: { define: { 'process.env.NODE_ENV': '"production"' } },
+    plugins: [
+      {
+        name: 'react-block-library',
+        resolveId: (id) => (id === 'entry' || Object.hasOwn(FRAME_GLOBALS, id) ? `\0${id}` : null),
+        load: (id) => (id === '\0entry' ? entry : id.startsWith('\0') ? `module.exports = window.${FRAME_GLOBALS[id.slice(1)]};` : null),
+      },
+    ],
+  });
+  try {
+    const { output } = await bundle.generate({ format: 'iife', name, minify: true });
+    return output[0].code;
+  } finally {
+    await bundle.close();
+  }
+}
+
+// The rest of a react block's page, as virtual modules next to its React: each is imported
+// lazily, and a library only for a block that imports it.
+const REACT_BLOCK_PIECES: Record<string, () => Promise<string>> = {
+  'virtual:react-block-tailwind': reactBlockTailwind,
+  'virtual:react-block-lucide': () => reactBlockLibrary("export * from 'lucide-react';", 'LucideReact'),
+};
+const reactBlockPieces: Plugin = {
+  name: 'react-block-pieces',
+  resolveId: (id) => (Object.hasOwn(REACT_BLOCK_PIECES, id) ? `\0${id}` : null),
+  async load(id) {
+    const build = id.startsWith('\0') && Object.hasOwn(REACT_BLOCK_PIECES, id.slice(1)) ? REACT_BLOCK_PIECES[id.slice(1)] : null;
+    return build ? `export default ${JSON.stringify(await build())};` : null;
+  },
+};
+
 function gitShortSha(): string | undefined {
   try {
     return execSync('git rev-parse --short HEAD').toString().trim();
@@ -76,6 +143,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     restorePgliteProcessGuard,
     reactBlockRuntime,
+    reactBlockPieces,
     react(),
     ...(mode === 'production' || mode === 'e2e'
       ? [babel({ presets: [reactCompilerPreset()] })]
@@ -146,11 +214,12 @@ export default defineConfig(({ mode }) => ({
           // block is previewed, cached on first use by the mermaid-runtime route
           // in sw.ts.
           '**/mermaid-*.js',
-          // A react block's runtime (reactBlockRuntime above; Rolldown names a virtual
-          // module's chunk `_virtual_<name>`) and its compiler (src/lib/reactBlockCompiler.ts,
-          // with sucrase): loaded only when a react block is previewed, cached on first use
-          // by the react-block route in sw.ts (#426).
-          '**/_virtual_react-block-runtime-*.js',
+          // A react block's runtime, Tailwind sheet and libraries (reactBlockRuntime and
+          // reactBlockPieces above; Rolldown names a virtual module's chunk `_virtual_<name>`)
+          // and its compiler (src/lib/reactBlockCompiler.ts, with sucrase): loaded only when
+          // a react block is previewed, cached on first use by the react-block route in
+          // sw.ts (#426, #427).
+          '**/_virtual_react-block-*.js',
           '**/reactBlockCompiler-*.js',
           // Legacy engine: loaded only to upgrade a leftover v0.3/v0.4 database
           // (see pglite-migrate.ts), never on the boot path. A v0.3 dir is read
