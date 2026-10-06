@@ -2,7 +2,7 @@
 /**
  * Recharts in a react block (#427) is drawn in Journal's theme by default: the module that
  * vite.config.ts bundles into the frame's window.Recharts. Here it runs on the app's own
- * React and Recharts; the e2e spec e2e/editor/live-react.spec.ts runs the bundle in the frame.
+ * React and Recharts; the e2e spec e2e/editor/live-react-artifact.spec.ts runs the bundle in the frame.
  */
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { act, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react';

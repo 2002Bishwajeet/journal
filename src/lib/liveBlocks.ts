@@ -175,7 +175,7 @@ export interface ReactBlockRuntime {
  * block's `code`, compiled by compileReactBlock. Everything is inline, which the frame's CSP allows.
  */
 export function reactBlockDocument(runtime: ReactBlockRuntime, code: string): string {
-  const libraries = [runtime.recharts, runtime.lucide].map((library) => (library ? inlineScript(library) : '')).join('');
+  const libraries = [runtime.recharts, runtime.lucide].filter((library): library is string => !!library).map(inlineScript).join('');
   return `<style>${runtime.tailwind}</style><div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime.react)}${libraries}${inlineScript(componentScript(code))}`;
 }
 

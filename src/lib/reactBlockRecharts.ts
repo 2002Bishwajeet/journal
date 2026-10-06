@@ -131,11 +131,16 @@ export function themeChildren(children: ReactNode, theme: ChartTheme): ReactNode
   return visit(children);
 }
 
-/** The theme as the frame's `:root` variables hold it now (buildSrcdoc sets them). */
+/**
+ * The theme as the frame's `:root` variables hold it (buildSrcdoc sets them), read on the
+ * first render. It never changes: a theme change gives the block a new frame.
+ */
+let frameThemeCache: ChartTheme | undefined;
 function frameTheme(): ChartTheme {
+  if (frameThemeCache) return frameThemeCache;
   const style = getComputedStyle(document.documentElement);
   const token = (name: string) => style.getPropertyValue(name).trim();
-  return {
+  frameThemeCache = {
     series: [2, 3, 4, 5].map((n) => token(`--chart-${n}`)),
     background: token('--background'),
     foreground: token('--foreground'),
@@ -144,6 +149,7 @@ function frameTheme(): ChartTheme {
     border: token('--border'),
     radius: token('--radius'),
   };
+  return frameThemeCache;
 }
 
 // Colours are resolved in the frame rather than written as var(--chart-2): an SVG presentation

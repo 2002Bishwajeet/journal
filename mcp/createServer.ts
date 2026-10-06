@@ -20,7 +20,7 @@ const LIVE_BLOCKS =
     'It can import only from `react`, `recharts` and `lucide-react`. ' +
     "`className` takes Tailwind classes drawn in Journal's theme, in light and dark with no `dark:` variant: " +
     'prefer the theme names (`bg-muted`, `text-muted-foreground`, `border`); palette names such as `bg-blue-500` map to the theme too. ' +
-    'Recharts charts take the theme without colour props: series use `--chart-1` … `--chart-5` in order, grid and axes the border and muted text colours. ' +
+    'Recharts charts take the theme without colour props: series use `--chart-2` … `--chart-5` in order, grid and axes the border and muted text colours. ' +
     'State is lost on reload.' +
     " Journal's design system comes first. " +
     '(1) Prefer a native block (callout, table, toggle, task list, mermaid) whenever one can carry the content. ' +
