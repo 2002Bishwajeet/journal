@@ -123,6 +123,33 @@ describe('SyncService.processPendingImageUploads promotion', () => {
         before.forEach((u, i) => expect(after[i]).toEqual(u));
     });
 
+    it('keeps a key counter in the doc and uploads at or above it, so a deleted key is never reused (#373)', async () => {
+        const ydoc = makeDoc();
+        await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(ydoc));
+        await saveDocumentUpdate(DOC_ID, insertPendingImage(ydoc));
+        await queueUpload();
+        mockAddImageToNote.mockResolvedValue({ payloadKey: 'jrnl_img4', versionTag: 'v2' });
+
+        await svc.processPendingImageUploads();
+
+        expect(mockAddImageToNote).toHaveBeenCalledWith(DOC_ID, 'v1', expect.anything(), 0);
+        const d = new Y.Doc();
+        for (const u of await getDocumentUpdates(DOC_ID)) Y.applyUpdate(d, u);
+        expect(d.getMap('journalMeta').get('nextImageIndex')).toBe(5);
+        d.destroy();
+
+        // The next upload asks for at least jrnl_img5, even after jrnl_img4 is deleted
+        const NEXT_ID = '33333333-3333-3333-3333-333333333333';
+        await savePendingImageUpload({
+            id: NEXT_ID, noteDocId: DOC_ID, blobData: new Uint8Array([4]), contentType: 'image/png',
+            status: 'pending', retryCount: 0, createdAt: new Date().toISOString(),
+        });
+
+        await svc.processPendingImageUploads();
+
+        expect(mockAddImageToNote).toHaveBeenLastCalledWith(DOC_ID, 'v2', expect.anything(), 5);
+    });
+
     it('marks the note pending after promotion so the new src reaches the server', async () => {
         const ydoc = makeDoc();
         await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(ydoc));

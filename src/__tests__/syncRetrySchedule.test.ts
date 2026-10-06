@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
-import { upsertSyncRecord, recordSyncError } from '@/lib/db/queries';
+import { upsertSyncRecord, recordSyncError, savePendingImageUpload, updateImageRetryAt } from '@/lib/db/queries';
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
@@ -62,6 +62,20 @@ describe('sync reports when skipped pushes can be retried (#263)', () => {
 
         expect(svc.pushNote).not.toHaveBeenCalled(); // both skipped
         expect(result.nextRetryAt).toBe(await nextRetryAtOf(NOTE_BACKOFF));
+    });
+
+    it('returns when a failed image upload can be retried, so it retries without an edit (#374)', async () => {
+        await upsertSyncRecord({ localId: NOTE_BACKOFF, entityType: 'note', syncStatus: 'synced' });
+        await savePendingImageUpload({
+            id: NOTE_LATER, noteDocId: NOTE_BACKOFF, blobData: new Uint8Array([1]), contentType: 'image/png',
+            status: 'failed', retryCount: 1, createdAt: new Date().toISOString(),
+        });
+        const retryAt = new Date(Date.now() + 10_000);
+        await updateImageRetryAt(NOTE_LATER, retryAt);
+
+        const result = await svc.sync();
+
+        expect(result.nextRetryAt).toBe(retryAt.getTime());
     });
 
     it('returns no retry time when nothing is waiting on a backoff', async () => {

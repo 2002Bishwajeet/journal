@@ -494,10 +494,13 @@ export class NotesDriveProvider {
     // Payload keys are max-index-derived (never reused) and encryption/ACL/key
     // header mirror the existing file, so adding an image can't corrupt an image
     // or re-scope the note (was a corruption TODO).
+    // `minIndex` is the note's own key counter: the max only sees live payloads, so
+    // deleting the top image would hand its key (and its cached picture) out again (#373).
     async addImageToNote(
         uniqueId: string,
         versionTag: string,
         image: ImageUploadData,
+        minIndex = 0,
     ): Promise<{ versionTag: string; payloadKey: string }> {
         // Fetch existing file header by uniqueId to get encryption key and fileId
         const existingHeader = await this.getNote(
@@ -515,10 +518,10 @@ export class NotesDriveProvider {
         const imgKeys = (existingHeader.fileMetadata.payloads ?? [])
             .map(p => p.key)
             .filter(k => k.startsWith(PAYLOAD_KEY_IMAGE_PREFIX));
-        const nextIdx = 1 + imgKeys.reduce((max, k) => {
+        const nextIdx = Math.max(minIndex, 1 + imgKeys.reduce((max, k) => {
             const n = parseInt(k.slice(PAYLOAD_KEY_IMAGE_PREFIX.length), 10);
             return Number.isFinite(n) ? Math.max(max, n) : max;
-        }, -1);
+        }, -1));
 
         const fileId = existingHeader.fileId;
         const appData = existingHeader.fileMetadata.appData

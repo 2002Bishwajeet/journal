@@ -99,6 +99,17 @@ describe('NotesDriveProvider.addImageToNote', () => {
         expect(payloadsArg()[0].key).toBe('jrnl_img3');
     });
 
+    it('never goes below the note\'s key counter, so a deleted top key is not reused (#373)', async () => {
+        // jrnl_img1 (the top key) was deleted; the max of what's left would hand it out again
+        mockGetHeader.mockResolvedValue(
+            header({ payloadKeys: ['jrnl_txt', 'jrnl_img0'], isEncrypted: true })
+        );
+
+        const { payloadKey } = await provider.addImageToNote(NOTE_ID, 'v1', imageBlob(), 2);
+
+        expect(payloadKey).toBe('jrnl_img2');
+    });
+
     it('ignores the link-card image payload when picking the next image key (#441)', async () => {
         mockGetHeader.mockResolvedValue(
             header({ payloadKeys: ['jrnl_txt', 'jrnl_img0', 'jrnl_card', 'jrnl_img1'], isEncrypted: false })
