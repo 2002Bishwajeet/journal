@@ -124,6 +124,21 @@ describe('LiveBlockPreview react, mounted (#426)', () => {
     expect(srcdoc).toContain("React.createElement('button'");
   });
 
+  it('should give every react block the Tailwind sheet, and lucide-react only to one that imports it (#427)', async () => {
+    // The stubs stand in for what vite.config.ts builds (src/__tests__/stubs/).
+    await mount("import { useState } from 'react';\n" + COUNTER);
+    let srcdoc = note.querySelector('iframe')!.getAttribute('srcdoc')!;
+    expect(srcdoc).toContain('<style>/* react-block-tailwind stub */</style>');
+    expect(srcdoc).not.toContain('react-block-lucide stub');
+    await act(async () => root.unmount());
+    note.remove();
+
+    await mount("import { Heart } from 'lucide-react';\nfunction App() { return <Heart />; }");
+    srcdoc = note.querySelector('iframe')!.getAttribute('srcdoc')!;
+    expect(srcdoc).toContain('<style>/* react-block-tailwind stub */</style>');
+    expect(srcdoc).toContain('<script>/* react-block-lucide stub */</script>');
+  });
+
   it('should show a syntax error with its line, as text in place of the frame', async () => {
     await mount('function App() { return <div>; }');
     expect(note.querySelector('iframe')).toBeNull();

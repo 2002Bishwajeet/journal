@@ -167,7 +167,13 @@ applies, and no CDN script is needed. `jsx` and `tsx` blocks stay ordinary code.
 
 - Hooks are on `React` (`React.useState`, `React.useCallback`, …), and `useState`,
   `useEffect`, `useRef`, `useMemo` and `useReducer` also work without the prefix.
-- It can import only from `react`. TypeScript is not supported.
+- It can import from `react` and `lucide-react`, and from nothing else: any other import
+  shows "A react block can import only react and lucide-react, not …" in the frame. Both
+  come with Journal, so a block needs no network and works offline. TypeScript is not
+  supported.
+- `className` takes Tailwind classes, drawn in Journal's theme (below).
+- `lucide-react` icons draw in `currentColor`, so they take the text colour around them:
+  `<Heart className="size-4 text-muted-foreground" />`.
 - State lives in the component and is lost on reload.
 - A syntax error is shown with its line in place of the component; an error while
   rendering is shown inside the frame.
@@ -187,6 +193,54 @@ function App() {
 ````
 
 The design rules for `html` blocks below apply to a `react` block unchanged.
+
+#### Tailwind in a `react` block
+
+A `react` block gets a fixed Tailwind stylesheet, built with Journal and drawn in its
+theme. It follows the light and dark theme by itself: no `dark:` variant is needed, and
+`dark:` classes do nothing. Classes outside this list also do nothing. There is no
+preflight: the frame keeps the note's font, and unstyled buttons, inputs and tables
+still look like Journal's.
+
+| Family | Classes |
+|---|---|
+| Layout | `block` `inline-block` `inline` `flex` `inline-flex` `grid` `inline-grid` `hidden` `contents`, `flex-row` `flex-col` (and `-reverse`) `flex-wrap` `flex-nowrap` `flex-1` `flex-auto` `flex-none` `grow` `shrink-0`, `items-*` `justify-*` `self-*` `content-*` `place-items-center`, `grid-cols-1`…`12` `col-span-1`…`12`/`full` `grid-rows-1`…`6` `row-span-*`, `gap-*` `gap-x-*` `gap-y-*` `space-x-*` `space-y-*`, `relative` `absolute` `sticky` `inset-*` `top-*` …, `z-*`, `overflow-*`, `aspect-square` `aspect-video`, `object-cover` `object-contain` |
+| Spacing | `p` `px` `py` `pt` `pr` `pb` `pl` `m` `mx` `my` `mt` `mr` `mb` `ml`, `0` to `24` on Tailwind's scale, and `m*-auto` |
+| Sizing | `w-*` `h-*` `size-*` (the spacing scale up to `96`, `auto` `full` `fit` `min` `max` and halves to quarters), `w-screen` `h-screen`, `min-w-*` `min-h-*`, `max-w-xs`…`4xl` `max-w-prose` `max-w-full`, `max-h-*` |
+| Typography | `text-xs`…`text-6xl`, `font-sans` (the note's font) `font-mono`, `font-light`…`font-extrabold`, `leading-*` `tracking-*`, `text-left` `text-center` `text-right` `text-justify`, `truncate` `line-clamp-1`…`3` `break-words` `whitespace-*`, `uppercase` `italic` `underline` `tabular-nums` |
+| Borders | `border` `border-0` `border-2` `border-4` and each side, `border-dashed` `border-dotted`, `divide-x` `divide-y`, `rounded` `rounded-sm`…`rounded-full` and each side, `ring` `ring-0`…`ring-4` `ring-inset` |
+| Effects | `opacity-*`, `shadow` `shadow-sm`…`shadow-2xl` (all one hairline: the note is flat), `transition` `transition-colors` `duration-100` `200` `300` `ease-*`, `cursor-pointer` `select-none` `sr-only` |
+| Colours | `bg-*` `text-*` `border-*` `from-*` `via-*` `to-*` with `bg-gradient-to-*` or `bg-linear-to-*`, and `hover:bg-*`: every colour name below. `ring-*` `divide-*` `hover:text-*` `hover:border-*`: the theme names and the grays. `fill-*` `stroke-*` `focus-visible:ring-*` `focus-visible:border-*`: the theme names, `white`, `black` and `current` |
+| Variants | `hover:` and `focus-visible:` on the colours above, `hover:opacity-*`, `focus-visible:ring-*` `focus-visible:outline-none`; `sm:` on display, flex direction, `grid-cols-*`, `col-span-*` and text size. The frame is about 650px wide, so `md:` and wider never apply |
+
+A bare `border`, `divide-y` or `ring` is drawn in `--border` or `--ring`.
+
+The colour names are the theme's: `background` `foreground` `card` `card-foreground`
+`popover` `popover-foreground` `primary` `primary-foreground` `secondary`
+`secondary-foreground` `muted` `muted-foreground` `accent` `accent-foreground`
+`destructive` `destructive-foreground` `border` `input` `ring` `chart-1`…`chart-5`, and
+`transparent` `current` `inherit`. Prefer them. Tailwind's palette names work too, mapped
+to the theme so that a block written for stock Tailwind still matches the note:
+
+| Tailwind name | Drawn in |
+|---|---|
+| `white`, `black` | `--background`, `--foreground` |
+| `slate` `gray` `zinc` `neutral` `stone` 50–200 | `--muted` |
+| the same, 300 | `--border` |
+| the same, 400–600 | `--muted-foreground` |
+| the same, 700–950 | `--foreground` |
+| `red` `orange` `pink` `rose` | `--chart-2` |
+| `green` `emerald` `lime` `teal` | `--chart-3` |
+| `amber` `yellow` | `--chart-4` |
+| `blue` `indigo` `sky` `cyan` `violet` `purple` `fuchsia` | `--chart-5` |
+
+No hue is drawn in `--chart-1`: it is nearly the text colour.
+
+A hue's shades 300–600 are its chart colour itself. Shades 50, 100 and 200 are that colour
+washed into `--background` (12%, 20% and 32% of it), and shades 700, 800, 900 and 950 are
+it taken towards `--foreground` (80%, 65%, 50% and 35% of it). So `bg-blue-50 text-blue-900`
+is a pale panel with strong text in both themes, and `bg-blue-500 text-white` a strong
+button. Opacity modifiers such as `bg-blue-500/50` are not in the sheet.
 
 ### Designing an `html` block
 
