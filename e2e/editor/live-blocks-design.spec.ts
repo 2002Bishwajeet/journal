@@ -57,7 +57,7 @@ async function expectPreviews(scope: Locator): Promise<void> {
 }
 
 /** The layout promises of #393 that hold at every viewport. */
-async function expectLayout(page: Page, scope: Locator, theme: (typeof THEMES)[number], codeToggle: string): Promise<void> {
+async function expectLayout(page: Page, scope: Locator, theme: (typeof THEMES)[number], codeToggle: string | null): Promise<void> {
   // The diagram follows the theme and keeps its natural size; its wrapper scrolls instead of overflowing.
   const drawn = await diagram(scope).evaluate((svg: SVGSVGElement) => ({
     width: svg.getBoundingClientRect().width,
@@ -77,6 +77,11 @@ async function expectLayout(page: Page, scope: Locator, theme: (typeof THEMES)[n
 
   // Switching an html block to its code and back does not move the page.
   const html = liveBlock(scope, 'html');
+  // A reader of a public note has no toggle on an html block, so there is no code view to switch to.
+  if (codeToggle === null) {
+    await expect(html.getByRole('button')).toHaveCount(0);
+    return;
+  }
   const toggle = html.getByRole('button', { name: codeToggle, exact: true });
   const previewHeight = (await html.boundingBox())!.height;
   await toggle.click();
@@ -216,7 +221,7 @@ for (const theme of THEMES) {
     for (const viewport of ['desktop', 'mobile'] as const) {
       await anonPage.setViewportSize(VIEWPORTS[viewport]);
       await expectPreviews(article);
-      await expectLayout(anonPage, article, theme, 'View source');
+      await expectLayout(anonPage, article, theme, null);
       if (viewport === 'mobile') await expectTouchTargets(article);
       for (const kind of KINDS) await shoot(anonPage, liveBlock(article, kind), `${kind}-share-${theme}-${viewport}.png`);
     }

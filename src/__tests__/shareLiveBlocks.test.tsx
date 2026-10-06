@@ -67,8 +67,8 @@ describe('share page live blocks', () => {
     expect(html).toMatch(/<div role="status"[^>]*>Rendering diagram…<\/div>/);
   });
 
-  it('gives each live block a View source toggle in a group named after its kind, and no header bar (#420)', () => {
-    for (const label of ['Mermaid', 'SVG', 'HTML']) {
+  it('gives a mermaid and an svg block a View source toggle in a group named after its kind, and no header bar (#420)', () => {
+    for (const label of ['Mermaid', 'SVG']) {
       expect(html).toMatch(
         new RegExp(`<div role="group" aria-label="${label} block"[^>]*><button type="button" aria-pressed="false"[^>]*><span[^>]*>View source</span></button>`),
       );
@@ -76,9 +76,16 @@ describe('share page live blocks', () => {
     }
   });
 
-  it('renders a react block as a live block with a View source toggle, and a jsx block as plain code (#426)', () => {
+  it('gives an html block no View source toggle and no controls group', () => {
+    expect(html).toContain('data-live-block-preview="html"');
+    expect(html).not.toContain('aria-label="HTML block"');
+    expect(render('```html\n<h1>x</h1>\n```')).not.toContain('View source');
+  });
+
+  it('renders a react block as a live block with no View source toggle, and a jsx block as plain code (#426)', () => {
     const react = render('```react\nfunction App() { return <p>hi</p>; }\n```');
-    expect(react).toMatch(/<div role="group" aria-label="React block"[^>]*><button type="button" aria-pressed="false"[^>]*><span[^>]*>View source<\/span><\/button>/);
+    expect(react).not.toContain('View source');
+    expect(react).not.toContain('aria-label="React block"');
     expect(react).toContain('data-live-block-preview="react"');
     const jsx = render('```jsx\nfunction App() { return <p>hi</p>; }\n```');
     expect(jsx).not.toContain('data-live-block');

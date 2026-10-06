@@ -57,18 +57,20 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, stor
       {/* While editing, a plain row above the block: its kind, then the toggles. For a reader, only
           the toggles, over the corner and out of sight until the block is hovered or has keyboard
           focus (always there on a device that cannot hover). */}
-      <div
-        role="group"
-        aria-label={`${LABELS[kind]} block`}
-        contentEditable={false}
-        className={cn(
-          'z-10 flex items-center justify-end font-sans select-none',
-          !labelled && cn('absolute right-0 top-0', REVEALED),
-        )}
-      >
-        {labelled && <span className="mr-auto text-xs font-medium text-muted-foreground">{LABELS[kind]}</span>}
-        {toggles}
-      </div>
+      {(toggles || labelled) && (
+        <div
+          role="group"
+          aria-label={`${LABELS[kind]} block`}
+          contentEditable={false}
+          className={cn(
+            'z-10 flex items-center justify-end font-sans select-none',
+            !labelled && cn('absolute right-0 top-0', REVEALED),
+          )}
+        >
+          {labelled && <span className="mr-auto text-xs font-medium text-muted-foreground">{LABELS[kind]}</span>}
+          {toggles}
+        </div>
+      )}
       {/* An html block's preview and code share this box and its height (400px until the content
           reports its own, or the box is resized), so switching views does not move the page.
           `resize` needs a non-visible overflow. */}
