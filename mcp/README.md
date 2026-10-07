@@ -35,6 +35,20 @@ This prints an authorization URL and tries to open it in your browser. Approve t
 Journal MCP app in the owner console; the login command then saves your credentials and
 exits.
 
+### Headless / SSH login
+
+On a machine with no browser (over SSH, a container), add `--no-browser`:
+
+```bash
+npm run mcp:login -- --no-browser you.dotyou.cloud
+```
+
+It prints the approval URL and starts no local server. Open the URL in any browser,
+approve **Journal MCP**, and the Journal app shows a login code. Paste it at the
+`Paste code:` prompt and the credentials are saved. The code holds only public values;
+the private key never leaves the terminal. Set `JOURNAL_MCP_APP_ORIGIN` to use a
+different Journal app origin than `https://journal.cloudx.run` (dev or testing).
+
 To remove the saved credentials from this machine:
 
 ```bash
