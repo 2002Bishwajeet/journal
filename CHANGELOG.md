@@ -1,3 +1,11 @@
+## [2.5.2](https://github.com/2002Bishwajeet/journal/compare/v2.5.1...v2.5.2) (2026-10-07)
+
+
+### Features
+
+* **mcp:** fall back to a 0600 credentials file when the OS keyring is unavailable ([#499](https://github.com/2002Bishwajeet/journal/issues/499)) ([bf0a0d1](https://github.com/2002Bishwajeet/journal/commit/bf0a0d186405bd8f8849799671e37d80d5ba7e1e))
+* **mcp:** login --no-browser paste-a-code flow for SSH and headless machines ([#500](https://github.com/2002Bishwajeet/journal/issues/500)) ([d8b703a](https://github.com/2002Bishwajeet/journal/commit/d8b703a6ece890c26402b95bb534b6ca3791a569))
+* **mcp:** public /mcp/code page showing a paste-able login code ([#498](https://github.com/2002Bishwajeet/journal/issues/498)) ([abffc54](https://github.com/2002Bishwajeet/journal/commit/abffc54490ec5be955bd9b944a797787b750b2d9))
 ## [2.5.1](https://github.com/2002Bishwajeet/journal/compare/v2.5.0...v2.5.1) (2026-10-06)
 
 
