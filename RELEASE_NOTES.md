@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- You can log in to the Journal MCP on a computer without a browser, for example over SSH. Run `journal-mcp login --no-browser`, approve in a browser on another device, and paste the code.
+
 ## 2.5.1 (2026-10-06)
 
 ### Changed
