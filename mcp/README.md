@@ -25,7 +25,7 @@ To release a new server version: bump `mcp/package/package.json` and the URLs in
 
 Log in once per identity. This registers a "Journal MCP" app on your identity (its own
 appId, Read+Write on the notes drive only) and saves the resulting credentials to your
-OS keychain — nothing is written to disk.
+OS keychain. On headless Linux, where no keychain is available, it falls back to a `0600` file at `$XDG_CONFIG_HOME/journal-mcp/credentials.json` (default `~/.config/journal-mcp/credentials.json`).
 
 ```bash
 npm run mcp:login -- you.dotyou.cloud

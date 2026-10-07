@@ -6,7 +6,7 @@ const USAGE = `Usage: journal-mcp [login [identity] | logout | --help]
 
   (no command)  Start the MCP server over stdio.
   login [id]    Register the Journal MCP app on your identity and save credentials.
-  logout        Delete saved credentials from the OS keychain.
+  logout        Delete saved credentials (OS keychain and fallback file).
   --help        Show this message.
 `;
 
@@ -26,7 +26,7 @@ async function main(): Promise<void> {
 
     if (command === 'logout') {
         deleteCredentials();
-        console.error('Logged out. Credentials removed from the OS keychain.');
+        console.error('Logged out. Credentials removed.');
         return;
     }
 
