@@ -2,10 +2,12 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { createJournalMcpServer } from './createServer';
 import { loadCredentials, deleteCredentials } from './credentials';
 
-const USAGE = `Usage: journal-mcp [login [identity] | logout | --help]
+const USAGE = `Usage: journal-mcp [login [--no-browser] [identity] | logout | --help]
 
   (no command)  Start the MCP server over stdio.
   login [id]    Register the Journal MCP app on your identity and save credentials.
+                --no-browser: for SSH / headless machines. Prints the approval URL,
+                then asks you to paste the code the Journal app shows.
   logout        Delete saved credentials (OS keychain and fallback file).
   --help        Show this message.
 `;
@@ -20,7 +22,10 @@ async function main(): Promise<void> {
 
     if (command === 'login') {
         const { login } = await import('./login');
-        await login(rest[0]);
+        await login(
+            rest.find((arg) => !arg.startsWith('--')),
+            { noBrowser: rest.includes('--no-browser') }
+        );
         return;
     }
 

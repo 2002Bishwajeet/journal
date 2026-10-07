@@ -6,10 +6,13 @@ import { createEccPair, finalizeAuthentication, getRegistrationParams } from '@h
 import { getDomainFromUrl } from '@homebase-id/js-lib/helpers';
 import { JOURNAL_MCP_APP_ID, JOURNAL_MCP_APP_NAME, JOURNAL_MCP_APP_SLUG, mcpDriveRequest } from './config';
 import { saveCredentials } from './credentials';
+import { decodeMcpLoginCode } from '@/lib/mcpLoginCode';
 
 // Same identity validation as useYouAuthAuthorization.ts's checkIdentity (src/hooks/auth/useYouAuthAuthorization.ts:107-127).
 const IDENTITY_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]{2,25}(?::\d{1,5})?$/i;
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
+const DEFAULT_APP_ORIGIN = 'https://journal.cloudx.run';
+const NO_BROWSER_HINT = 'Over SSH? Re-run with --no-browser.';
 
 async function checkIdentity(odinId: string): Promise<boolean> {
     if (!odinId) return false;
@@ -49,12 +52,94 @@ function openBrowser(url: string): void {
     }
 }
 
+function looksHeadless(env: NodeJS.ProcessEnv): boolean {
+    return Boolean(env.SSH_CONNECTION) || (process.platform === 'linux' && !env.DISPLAY && !env.WAYLAND_DISPLAY);
+}
+
+async function buildAuthUrl(identity: string, finalizeUrl: string, publicKey: CryptoKey): Promise<string> {
+    const params = await getRegistrationParams(
+        finalizeUrl,
+        JOURNAL_MCP_APP_NAME,
+        JOURNAL_MCP_APP_ID,
+        JOURNAL_MCP_APP_SLUG,
+        undefined,
+        undefined,
+        [mcpDriveRequest],
+        undefined,
+        undefined,
+        publicKey,
+        undefined,
+        `Journal MCP (${os.hostname()})`,
+        undefined
+    );
+
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+        if (value) searchParams.set(key, String(value));
+    }
+    return `https://${identity}/api/owner/v1/youauth/authorize?${searchParams.toString()}`;
+}
+
+async function finalizeAndSave(
+    privateKey: CryptoKey,
+    identity: string,
+    publicKey: string,
+    salt: string
+): Promise<string> {
+    // ponytail: the SDK's finalizeAuthentication derives the shared key via
+    // window.crypto.subtle (browser-only); Node has the same Web Crypto on
+    // globalThis.crypto. Drop this once the SDK uses globalThis.crypto.
+    const g = globalThis as { window?: { crypto?: Crypto } };
+    g.window ??= { crypto: globalThis.crypto };
+    const { clientAuthToken, sharedSecret } = await finalizeAuthentication(identity, privateKey, publicKey, salt);
+    return saveCredentials({ identity, clientAuthToken, sharedSecret });
+}
+
+/** Prompts for the code `/mcp/code` shows; rejects on stdin EOF or after the login timeout. */
+function promptForCode(): Promise<string> {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+    return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+            rl.close();
+            reject(new Error('Login timed out after 5 minutes.'));
+        }, LOGIN_TIMEOUT_MS);
+        rl.on('close', () => {
+            clearTimeout(timeoutId);
+            reject(new Error('Input closed before a code was pasted.'));
+        });
+        rl.question('Paste code: ', (answer) => {
+            clearTimeout(timeoutId);
+            resolve(answer);
+            rl.close();
+        });
+    });
+}
+
+async function loginWithPastedCode(identity: string, eccKey: Awaited<ReturnType<typeof createEccPair>>): Promise<string> {
+    const origin = (process.env.JOURNAL_MCP_APP_ORIGIN || DEFAULT_APP_ORIGIN).replace(/\/+$/, '');
+    const authUrl = await buildAuthUrl(identity, `${origin}/mcp/code`, eccKey.publicKey);
+    console.error(
+        `Open this URL in any browser to approve Journal MCP, then paste the code it shows:\n${authUrl}\n`
+    );
+
+    const code = decodeMcpLoginCode(await promptForCode());
+    if (code.identity.toLowerCase() !== identity.toLowerCase()) {
+        throw new Error(`Login code is for ${code.identity}, not ${identity}.`);
+    }
+    return finalizeAndSave(eccKey.privateKey, code.identity, code.public_key, code.salt);
+}
+
 /**
  * Registers the Journal MCP app on `identity` (or prompts for one) via the same
  * YouAuth flow the app uses, using a throwaway localhost HTTP server as the finalize
  * redirect target. Saves the resulting credentials to the OS keychain (or a 0600 file) on success.
+ *
+ * With `noBrowser` (SSH / headless), no server is started: the finalize redirect is the
+ * app's `/mcp/code` page, which shows a code the user pastes back into the terminal.
  */
-export async function login(identityArg?: string): Promise<void> {
+export async function login(identityArg?: string, { noBrowser = false }: { noBrowser?: boolean } = {}): Promise<void> {
+    if (!noBrowser && looksHeadless(process.env)) console.error(NO_BROWSER_HINT);
+
     const identity = getDomainFromUrl(identityArg || (await promptForIdentity())) ?? '';
 
     if (!(await checkIdentity(identity))) {
@@ -62,6 +147,12 @@ export async function login(identityArg?: string): Promise<void> {
     }
 
     const eccKey = await createEccPair();
+
+    if (noBrowser) {
+        const savedTo = await loginWithPastedCode(identity, eccKey);
+        console.error(`Logged in as ${identity}. Credentials saved to ${savedTo}.`);
+        return;
+    }
 
     let savedTo = '';
     await new Promise<void>((resolve, reject) => {
@@ -92,18 +183,7 @@ export async function login(identityArg?: string): Promise<void> {
                 if (!finalizeIdentity || !publicKey || !salt) {
                     throw new Error('Callback is missing identity, public_key or salt.');
                 }
-                // ponytail: the SDK's finalizeAuthentication derives the shared key via
-                // window.crypto.subtle (browser-only); Node has the same Web Crypto on
-                // globalThis.crypto. Drop this once the SDK uses globalThis.crypto.
-                const g = globalThis as { window?: { crypto?: Crypto } };
-                g.window ??= { crypto: globalThis.crypto };
-                const { clientAuthToken, sharedSecret } = await finalizeAuthentication(
-                    finalizeIdentity,
-                    eccKey.privateKey,
-                    publicKey,
-                    salt
-                );
-                savedTo = saveCredentials({ identity: finalizeIdentity, clientAuthToken, sharedSecret });
+                savedTo = await finalizeAndSave(eccKey.privateKey, finalizeIdentity, publicKey, salt);
                 res.writeHead(200, { 'Content-Type': 'text/plain' }).end('You can close this tab.');
                 finish(null);
             })().catch((err: unknown) => {
@@ -120,27 +200,7 @@ export async function login(identityArg?: string): Promise<void> {
                 const port = typeof address === 'object' && address ? address.port : 0;
                 const finalizeUrl = `http://127.0.0.1:${port}/finalize`;
 
-                const params = await getRegistrationParams(
-                    finalizeUrl,
-                    JOURNAL_MCP_APP_NAME,
-                    JOURNAL_MCP_APP_ID,
-                    JOURNAL_MCP_APP_SLUG,
-                    undefined,
-                    undefined,
-                    [mcpDriveRequest],
-                    undefined,
-                    undefined,
-                    eccKey.publicKey,
-                    undefined,
-                    `Journal MCP (${os.hostname()})`,
-                    undefined
-                );
-
-                const searchParams = new URLSearchParams();
-                for (const [key, value] of Object.entries(params)) {
-                    if (value) searchParams.set(key, String(value));
-                }
-                const authUrl = `https://${identity}/api/owner/v1/youauth/authorize?${searchParams.toString()}`;
+                const authUrl = await buildAuthUrl(identity, finalizeUrl, eccKey.publicKey);
 
                 console.error(`Open this URL to approve Journal MCP:\n${authUrl}\n`);
                 openBrowser(authUrl);
