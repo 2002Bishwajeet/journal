@@ -21,5 +21,6 @@ describe('isPublicSharePath', () => {
         expect(isPublicSharePath('/inbox/note-1')).toBe(false);
         expect(isPublicSharePath('/welcome')).toBe(false);
         expect(isPublicSharePath('/auth/finalize')).toBe(false);
+        expect(isPublicSharePath('/mcp/code')).toBe(true);
     });
 });

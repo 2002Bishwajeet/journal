@@ -10,6 +10,7 @@ const EmptyEditorPage = lazy(() => import("@/pages/EmptyEditorPage"));
 const SharePage = lazy(() => import("@/pages/SharePage"));
 const LandingPage = lazy(() => import("@/pages/Landing"));
 const AuthFinalizePage = lazy(() => import("@/pages/AuthFinalizePage"));
+const McpCodePage = lazy(() => import("@/pages/McpCodePage"));
 const ShareTargetPage = lazy(() => import("@/pages/ShareTargetPage"));
 const SaveSharedPage = lazy(() => import("@/pages/SaveSharedPage"));
 const JournalLayout = lazy(() => import("@/layouts/JournalLayout"));
@@ -117,6 +118,7 @@ function App() {
                       path="/auth/finalize"
                       element={<AuthFinalizePage />}
                     />
+                    <Route path="/mcp/code" element={<McpCodePage />} />
                     <Route
                       path="/share/:identity/:noteId"
                       element={<SharePage />}
