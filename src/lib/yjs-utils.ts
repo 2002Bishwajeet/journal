@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import { fragmentToMarkdown } from '@/lib/yjs/fragmentToMarkdown';
 import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
+import { joinPreviewText } from '@/lib/previewText';
 
 /**
  * Extracts markdown from a Yjs document's TipTap content.
@@ -29,7 +30,8 @@ export async function extractMarkdownFromYjs(noteId: string, yjsBlob?: Uint8Arra
 
 /**
  * Extracts clean plain text from a Yjs document for sidebar previews.
- * Removes markdown syntax and extra whitespace.
+ * Removes markdown syntax and extra whitespace. Prose comes first; code-block
+ * (and live-block) text follows a separator so previews skip it but search keeps it.
  */
 export async function extractPreviewTextFromYjs(noteId: string, yjsBlob?: Uint8Array): Promise<string> {
   let ydoc: Y.Doc | null;
@@ -53,6 +55,7 @@ export async function extractPreviewTextFromYjs(noteId: string, yjsBlob?: Uint8A
 
   // Simple extraction: iterate over elements and get text content only
   let text = '';
+  let code = '';
 
   const extractText = (node: Y.XmlElement | Y.XmlText): string => {
     if (node instanceof Y.XmlText) {
@@ -69,6 +72,13 @@ export async function extractPreviewTextFromYjs(noteId: string, yjsBlob?: Uint8A
     const nodeName = node.nodeName;
     let content = '';
 
+    if (nodeName === 'codeBlock') {
+      node.toArray().forEach((child) => {
+        if (child instanceof Y.XmlElement || child instanceof Y.XmlText) code += extractText(child) + ' ';
+      });
+      return '';
+    }
+
     node.toArray().forEach((child) => {
       if (child instanceof Y.XmlElement || child instanceof Y.XmlText) {
         content += extractText(child);
@@ -79,7 +89,6 @@ export async function extractPreviewTextFromYjs(noteId: string, yjsBlob?: Uint8A
     switch (nodeName) {
       case 'paragraph':
       case 'heading':
-      case 'codeBlock':
       case 'blockquote':
       case 'callout':
       case 'listItem':
@@ -103,6 +112,5 @@ export async function extractPreviewTextFromYjs(noteId: string, yjsBlob?: Uint8A
     }
   });
 
-  // Collapse multiple spaces/newlines into single spaces and trim
-  return text.replace(/\s+/g, ' ').trim();
+  return joinPreviewText(text, code);
 }

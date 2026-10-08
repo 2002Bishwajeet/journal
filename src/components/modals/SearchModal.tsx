@@ -2,6 +2,7 @@ import { HighlightedText } from "@/components/ui/HighlightedText";
 import { Kbd } from "@/components/ui/kbd";
 import { Search, FileText, Loader2, Sparkles, Type, FileSearch, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { proseOnly } from "@/lib/previewText";
 import { useSearchModal, isAdvancedResult, type SearchResult } from "@/hooks/useSearchModal";
 
 interface SearchModalProps {
@@ -59,7 +60,7 @@ function SearchResultItem({
   const isAdvanced = isAdvancedResult(result);
   const matchType = isAdvanced ? result.matchType : undefined;
   const contentHighlight = isAdvanced ? result.contentHighlight : undefined;
-  const plainText = 'plainTextContent' in result ? result.plainTextContent : undefined;
+  const plainText = 'plainTextContent' in result ? proseOnly(result.plainTextContent) : undefined;
 
   return (
     <button

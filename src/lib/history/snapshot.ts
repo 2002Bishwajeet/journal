@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import { saveSnapshot, getSnapshots, getLatestSnapshotVector, deleteSnapshots } from '@/lib/db';
+import { proseOnly } from '@/lib/previewText';
 import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import { selectSnapshotsToPrune } from './retention';
 
@@ -27,7 +28,7 @@ export async function captureSnapshot(
     }
 
     const stateBlob = Y.encodeStateAsUpdate(doc);
-    const text = await extractPreviewTextFromYjs(docId, stateBlob);
+    const text = proseOnly(await extractPreviewTextFromYjs(docId, stateBlob));
     await saveSnapshot(docId, {
         stateBlob,
         stateVector,

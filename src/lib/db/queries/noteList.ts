@@ -1,5 +1,6 @@
 import { getDatabase } from '../pglite';
 import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata } from '@/types';
+import { proseOnly } from '@/lib/previewText';
 import { ACTIVE_NOTES_FILTER, NOTE_LIST_SELECT, MODIFIED_DESC } from './shared';
 
 export type NoteListRow = { doc_id: string; title: string; preview: string; metadata: DocumentMetadata };
@@ -17,7 +18,7 @@ const NOTE_ENTRY_CACHE_LIMIT = 2000;
 const noteEntryCache = new Map<string, { sig: string; entry: NoteListEntry }>();
 
 export const toNoteListEntry = (row: NoteListRow): NoteListEntry => {
-    const preview = row.preview || '';
+    const preview = proseOnly(row.preview || '');
     const sig = JSON.stringify([row.title, preview, row.metadata]);
     const cached = noteEntryCache.get(row.doc_id);
     if (cached && cached.sig === sig) {
