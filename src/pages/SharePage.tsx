@@ -60,6 +60,7 @@ export default function SharePage() {
         <div className="min-h-screen bg-background">
             <ShareHeader
                 saveHref={`/save-shared?${new URLSearchParams({ identity: decodeURIComponent(identity), file: noteId })}`}
+                authorIndexHref={`/share/${identity}`}
             />
 
             {/* Content */}

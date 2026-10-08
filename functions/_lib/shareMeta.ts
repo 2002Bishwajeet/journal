@@ -6,8 +6,8 @@
 export const JOURNAL_DRIVE_ALIAS = 'd5f411fa83fd4854a3bd7e974cc9bca9';
 export const JOURNAL_DRIVE_TYPE = '30743710039d4b97bbd352f343d1c9df';
 
-const IDENTITY_RE = /^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
-const NOTE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const IDENTITY_RE = /^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+export const NOTE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COVER_KEY_RE = /^jrnl_img\d+$/;
 // Copy of PAYLOAD_KEY_CARD_IMAGE in src/lib/homebase/config.ts: the 1200×630 card image (#441).
 export const CARD_IMAGE_KEY = 'jrnl_card';
@@ -43,17 +43,22 @@ export function parseSharePath(pathname: string): { identity: string; noteId: st
     return { identity, noteId };
 }
 
+/** The author's Homebase origin. `override` is HOMEBASE_UPSTREAM_OVERRIDE, set only by the e2e edge harness. */
+export function upstreamBase(identity: string, override?: string): string {
+    return override ? override.replace(/\/+$/, '') : `https://${identity}`;
+}
+
 export function fallbackShareDescription(author: string): string {
     return `A note by ${author}, shared with Journal`;
 }
 
-function isoDate(value: unknown): string | undefined {
+export function isoDate(value: unknown): string | undefined {
     if (typeof value !== 'number' && typeof value !== 'string') return undefined;
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
-async function fetchAuthorName(url: string, fetchImpl: typeof fetch): Promise<string | undefined> {
+export async function fetchAuthorName(url: string, fetchImpl: typeof fetch): Promise<string | undefined> {
     try {
         const res = await fetchImpl(url, { redirect: 'manual', signal: AbortSignal.timeout(1000) });
         if (res.status !== 200) return undefined;
@@ -87,8 +92,7 @@ export async function fetchShareMeta(
     override?: string,
 ): Promise<ShareMeta | null> {
     try {
-        // `override` is HOMEBASE_UPSTREAM_OVERRIDE, set only by the e2e edge harness.
-        const base = override ? override.replace(/\/+$/, '') : `https://${identity}`;
+        const base = upstreamBase(identity, override);
         const query = new URLSearchParams({
             alias: JOURNAL_DRIVE_ALIAS,
             type: JOURNAL_DRIVE_TYPE,
@@ -149,7 +153,7 @@ export async function fetchShareMeta(
     }
 }
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
     return value
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')

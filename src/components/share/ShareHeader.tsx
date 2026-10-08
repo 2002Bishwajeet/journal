@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, CopyPlus } from 'lucide-react';
+import { ArrowUpRight, CopyPlus, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useHasScrolled } from '@/hooks/useHasScrolled';
 import { cn } from '@/lib/utils';
@@ -7,10 +7,12 @@ import { cn } from '@/lib/utils';
 interface ShareHeaderProps {
     /** The in-app route that saves a copy of the note; the action is left out without one. */
     saveHref?: string;
+    /** The author's index, `/share/<identity>` (#515); left out without one. */
+    authorIndexHref?: string;
 }
 
 /** The share page's sticky bar: the logo and wordmark, then the actions. */
-export function ShareHeader({ saveHref }: ShareHeaderProps) {
+export function ShareHeader({ saveHref, authorIndexHref }: ShareHeaderProps) {
     const scrolled = useHasScrolled();
 
     return (
@@ -33,6 +35,15 @@ export function ShareHeader({ saveHref }: ShareHeaderProps) {
                     <span className="font-serif text-xl leading-none tracking-tight">Journal</span>
                 </Link>
                 <div className="flex items-center gap-1.5">
+                    {authorIndexHref && (
+                        // A plain link: the Pages Function renders the index, not the SPA.
+                        <Button asChild variant="ghost" size="sm" className="max-sm:px-2">
+                            <a href={authorIndexHref}>
+                                <Library aria-hidden />
+                                <span className="sr-only sm:not-sr-only">More notes</span>
+                            </a>
+                        </Button>
+                    )}
                     {saveHref && (
                         // Signed out, the app's guard sends the visitor through sign-in and back here.
                         <Button asChild size="sm">
