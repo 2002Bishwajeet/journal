@@ -818,3 +818,51 @@ body {
 .share-article pre code {
   padding: 0;
 }
+
+/* Share page task lists and toggles (#517). Readers can tick a box or open a
+   toggle; the state is local to the page. Looks like the editor's task list. */
+.share-article ul.contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.share-article li.task-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding-left: 0;
+}
+
+.share-article li.task-list-item::marker {
+  content: none;
+}
+
+.share-article li.task-list-item > input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.3rem 0 0;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.share-article li.task-list-item:has(> input:checked) {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+
+.share-article li.task-list-item p {
+  margin: 0;
+}
+
+.share-article summary {
+  cursor: pointer;
+  font-weight: 500;
+  border-radius: 0.25rem;
+}
+
+.share-article summary:focus-visible,
+.share-article li.task-list-item > input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
