@@ -63,10 +63,22 @@ describe('Account settings', () => {
 
     it('warns that unsynced changes will be lost when changes are pending', async () => {
         await render(3);
-        expect(host.textContent).toContain('3 changes waiting');
+        expect(host.textContent).toContain('3 changes waiting to sync · last synced');
+        expect(host.textContent).not.toContain('Up to date');
         const dialog = await openSignOutDialog();
         expect(dialog).toContain('Sign out?');
         expect(dialog).toContain("3 changes on this device haven't synced");
+    });
+
+    it('says "Up to date" only when nothing is pending', async () => {
+        await render(0);
+        expect(host.textContent).toContain('Up to date · last synced');
+        expect(host.textContent).not.toContain('waiting');
+    });
+
+    it('uses the singular for one pending change', async () => {
+        await render(1);
+        expect(host.textContent).toContain('1 change waiting to sync');
     });
 
     it('reassures the notes are safe when nothing is pending', async () => {

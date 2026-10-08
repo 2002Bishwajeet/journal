@@ -30,7 +30,9 @@ test('a pending change: both sign-out entry points warn it will be lost', async 
 
   await app.getByRole('button', { name: 'Settings' }).click();
   const panel = app.getByRole('dialog').getByRole('tabpanel');
-  await expect(panel.getByRole('status')).toContainText('waiting');
+  await expect(panel.getByRole('status')).toContainText('waiting to sync');
+  await expect(panel.getByRole('status')).not.toContainText('Up to date');
+  await app.screenshot({ path: test.info().outputPath('account-status-pending.png') });
   await panel.getByRole('button', { name: 'Sign out' }).click();
   const confirm = app.getByRole('dialog', { name: 'Sign out?' });
   await expect(confirm).toContainText("synced yet and will be lost");
