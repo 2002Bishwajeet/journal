@@ -198,7 +198,11 @@ describe('buildHeadTags', () => {
         /<meta property="og:image" content="([^"]+)"/.exec(tags)?.[1].replace(/&amp;/g, '&') ?? '';
 
     it('should point og:image at the card image payload, with its 1200×630 size', () => {
-        const tags = buildHeadTags(meta({ coverKey: 'jrnl_img2', cardImageKey: 'jrnl_card' }), url, 'https://j.test');
+        const tags = buildHeadTags(
+            meta({ coverKey: 'jrnl_img2', cardImageKey: 'jrnl_card', modified: '2026-01-03T00:00:00.000Z' }),
+            url,
+            'https://j.test',
+        );
         const image = new URL(ogImage(tags));
 
         expect(image.origin).toBe(`https://${IDENTITY}`);
@@ -208,6 +212,7 @@ describe('buildHeadTags', () => {
             type: JOURNAL_DRIVE_TYPE,
             fileId: 'file-1',
             key: 'jrnl_card',
+            v: String(Date.parse('2026-01-03T00:00:00.000Z')),
         });
         expect(tags).toContain('property="og:image:width" content="1200"');
         expect(tags).toContain('property="og:image:height" content="630"');
@@ -224,6 +229,13 @@ describe('buildHeadTags', () => {
         expect(tags).not.toContain('og:image:width');
         expect(tags).not.toContain('og:image:height');
         expect(tags).toContain('name="twitter:card" content="summary_large_image"');
+    });
+
+    it('should change the image URL when the note is modified', () => {
+        const a = ogImage(buildHeadTags(meta({ coverKey: 'jrnl_img2', modified: '2026-01-03T00:00:00.000Z' }), url, 'https://j.test'));
+        const b = ogImage(buildHeadTags(meta({ coverKey: 'jrnl_img2', modified: '2026-01-04T00:00:00.000Z' }), url, 'https://j.test'));
+        expect(a).not.toBe(b);
+        expect(new URL(a).searchParams.get('v')).toBe(String(Date.parse('2026-01-03T00:00:00.000Z')));
     });
 
     it('should fall back to the banner when the note has no cover', () => {

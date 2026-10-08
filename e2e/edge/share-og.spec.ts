@@ -81,12 +81,15 @@ function expectNoteMeta(html: string) {
   expect(html).not.toContain('og:image:width');
   expect(html).toContain('application/ld+json');
   expect(html).toContain('noindex');
+  // #513: the image URL carries the modified time, so a changed cover busts crawler caches.
+  expect(html).toContain(`v=${Date.UTC(2026, 0, 3)}`);
 }
 
 test('a public note unfurls with its own meta', async ({ request }) => {
   const res = await request.get(`/share/edge.example.com/${OK_NOTE}`, { headers: TWITTERBOT });
   expect(res.status()).toBe(200);
   expectNoteMeta(await res.text());
+  expect(res.headers()['x-robots-tag']).toBe('noindex');
   expect(res.headers()['cross-origin-embedder-policy']).toBe('require-corp');
 });
 
