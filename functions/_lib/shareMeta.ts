@@ -162,16 +162,19 @@ export function buildHeadTags(meta: ShareMeta, pageUrl: string, origin: string):
     const description = meta.description ?? fallbackShareDescription(meta.authorName);
     const authorUrl = `https://${meta.identity}`;
     const drive = { alias: JOURNAL_DRIVE_ALIAS, type: JOURNAL_DRIVE_TYPE, fileId: meta.fileId };
+    // Crawlers cache og:image by URL; the modified time changes it when the cover or card does.
+    const version: Record<string, string> = meta.modified ? { v: String(Date.parse(meta.modified)) } : {};
     // The card image is already 1200×630, so it's served as is. Notes published before
     // it existed fall back to a thumb of the raw cover, then to the site banner.
     const image = meta.cardImageKey
-        ? `${authorUrl}/api/guest/v1/drive/files/payload?${new URLSearchParams({ ...drive, key: meta.cardImageKey })}`
+        ? `${authorUrl}/api/guest/v1/drive/files/payload?${new URLSearchParams({ ...drive, key: meta.cardImageKey, ...version })}`
         : meta.coverKey
           ? `${authorUrl}/api/guest/v1/drive/files/thumb?${new URLSearchParams({
                 ...drive,
                 payloadKey: meta.coverKey,
                 width: '1600',
                 height: '1600',
+                ...version,
             })}`
           : `${origin}/banner.webp`;
     const hasCover = !!(meta.cardImageKey || meta.coverKey);

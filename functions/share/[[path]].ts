@@ -35,6 +35,7 @@ export async function onRequest(context: ShareContext): Promise<Response> {
         headers.delete('etag');
         headers.set('content-type', 'text/html; charset=utf-8');
         headers.set('cache-control', 'no-cache');
+        if (!meta.indexable) headers.set('x-robots-tag', 'noindex');
         return new Response(request.method === 'HEAD' ? null : html, { status: 200, headers });
     } catch {
         return shell;
