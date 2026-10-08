@@ -98,7 +98,7 @@
     "@modelcontextprotocol/sdk": "1.32.1",
     "@napi-rs/keyring": "2.1.0",
     "@playwright/test": "1.63.0",
-    "@rolldown/plugin-babel": "^0.2.3",
+    "@rolldown/plugin-babel": "^0.2.4",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.5.1",
     "@types/react": "^19.2.17",
