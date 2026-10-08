@@ -6,7 +6,7 @@ const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** Footnote numbers by id: the n-th distinct referenced id is footnote n (#518). */
-export function footnoteNumbers(xmlFragment: Y.XmlFragment): Map<string, number> {
+function footnoteNumbers(xmlFragment: Y.XmlFragment): Map<string, number> {
   const numbers = new Map<string, number>();
   const walk = (node: Y.XmlFragment | Y.XmlElement) =>
     node.toArray().forEach((child) => {
@@ -29,7 +29,6 @@ export function fragmentToMarkdown(xmlFragment: Y.XmlFragment, numbers = footnot
     const id = String(node.getAttribute('id') ?? '');
     return `[^${numbers.get(id) ?? id}]`;
   };
-
 
   // Backtick fence long enough to wrap text that itself contains backticks —
   // otherwise an interior ``` would prematurely close a code span/block and
