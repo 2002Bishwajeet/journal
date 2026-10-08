@@ -14,7 +14,7 @@ test('desktop: opens on Account with the identity, Sync now and a sign-out dialo
   await expect(panel.getByRole('status')).not.toBeEmpty();
 
   await panel.getByRole('button', { name: 'Sync now' }).click();
-  await expect(panel.getByRole('status')).toContainText('Up to date · last synced Just now');
+  await expect(panel.getByRole('status')).toContainText('waiting to sync · last synced Just now');
 
   await panel.getByRole('button', { name: 'Sign out' }).click();
   const confirm = app.getByRole('dialog', { name: 'Sign out?' });
@@ -32,7 +32,20 @@ test('a pending change: both sign-out entry points warn it will be lost', async 
   const panel = app.getByRole('dialog').getByRole('tabpanel');
   await expect(panel.getByRole('status')).toContainText('waiting to sync');
   await expect(panel.getByRole('status')).not.toContainText('Up to date');
-  await app.screenshot({ path: test.info().outputPath('account-status-pending.png') });
+  // Let the dialog's open animation finish so the shot isn't translucent.
+  await app.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
+  for (const [scheme, size] of [
+    ['light', { width: 1280, height: 800 }],
+    ['dark', { width: 1280, height: 800 }],
+    ['light', { width: 390, height: 844 }],
+  ] as const) {
+    await app.emulateMedia({ colorScheme: scheme });
+    await app.setViewportSize(size);
+    await app.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
+    await app.screenshot({ path: test.info().outputPath(`account-status-pending-${scheme}-${size.width}x${size.height}.png`) });
+  }
+  await app.emulateMedia({ colorScheme: 'light' });
+  await app.setViewportSize({ width: 1280, height: 800 });
   await panel.getByRole('button', { name: 'Sign out' }).click();
   const confirm = app.getByRole('dialog', { name: 'Sign out?' });
   await expect(confirm).toContainText("synced yet and will be lost");
