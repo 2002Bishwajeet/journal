@@ -52,7 +52,6 @@ import {
 import "katex/dist/katex.min.css";
 import { joinPreviewText } from "@/lib/previewText";
 
-// Shared by in-note images and the cover
 /** Prose first, code/live-block text after a separator (see previewText.ts). */
 function editorPreviewText(editor: Editor): string {
   let code = "";
@@ -67,6 +66,7 @@ function editorPreviewText(editor: Editor): string {
   );
 }
 
+// Shared by in-note images and the cover
 const MAX_IMAGE_SIZE_MB = 5;
 
 interface EditorProviderProps {
