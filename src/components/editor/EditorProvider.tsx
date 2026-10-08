@@ -50,8 +50,23 @@ import {
 } from "./plugins";
 
 import "katex/dist/katex.min.css";
+import { joinPreviewText } from "@/lib/previewText";
 
 // Shared by in-note images and the cover
+/** Prose first, code/live-block text after a separator (see previewText.ts). */
+function editorPreviewText(editor: Editor): string {
+  let code = "";
+  editor.state.doc.descendants((node) => {
+    if (node.type.name !== "codeBlock") return true;
+    code += node.textContent + " ";
+    return false;
+  });
+  return joinPreviewText(
+    editor.getText({ textSerializers: { codeBlock: () => "" } }),
+    code,
+  );
+}
+
 const MAX_IMAGE_SIZE_MB = 5;
 
 interface EditorProviderProps {
@@ -447,7 +462,7 @@ export function EditorProvider({
         const currentDocId = docIdRef.current;
         const currentMetadata = metadataRef.current;
         // Use passed plainText if available, otherwise fallback
-        const plainText = plainTextContent ?? editorInstance.getText();
+        const plainText = plainTextContent ?? editorPreviewText(editorInstance);
         // Recompute outgoing internal links — powers the backlinks live query.
         const linkedNoteIds = extractNoteLinkIds(editorInstance.getJSON());
 
