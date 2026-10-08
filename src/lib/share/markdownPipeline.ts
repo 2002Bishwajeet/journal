@@ -113,6 +113,30 @@ function rehypeRestoreCodeMeta() {
     };
 }
 
+const CLOBBER_PREFIX = 'user-content-';
+
+/**
+ * GFM footnotes (#518) come out of remark-rehype with ids already prefixed
+ * (`user-content-fn-1`, which their links point at), and the sanitizer
+ * prefixes them again. Drops the second prefix so the links and back links
+ * land; every id still carries one.
+ */
+function rehypeSingleClobberPrefix() {
+  return (tree: Root) => {
+    const walk = (parent: Root | Element) => {
+      for (const child of parent.children) {
+        if (child.type !== 'element') continue;
+        const { id } = child.properties;
+        if (typeof id === 'string' && id.startsWith(CLOBBER_PREFIX + CLOBBER_PREFIX)) {
+          child.properties.id = id.slice(CLOBBER_PREFIX.length);
+        }
+        walk(child);
+      }
+    };
+    walk(tree);
+  };
+}
+
 export const shareRemarkPlugins: Options['remarkPlugins'] = [remarkGfm, remarkMath];
 
 // Order: parse raw HTML -> sanitize -> highlight code -> render math. Highlighting
@@ -122,6 +146,7 @@ export const shareRehypePlugins: Options['rehypePlugins'] = [
     rehypeRaw,
     [rehypeSanitize, sanitizeSchema],
     rehypeRestoreCodeMeta,
+    rehypeSingleClobberPrefix,
     rehypeDropEmptyThead,
     rehypeLowlight,
     rehypeKatex,

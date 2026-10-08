@@ -8,12 +8,15 @@
  * concurrent edits elsewhere merge as normal CRDT updates.
  */
 import * as Y from 'yjs';
-import { getSchema } from '@tiptap/core';
+import { getSchema, type JSONContent } from '@tiptap/core';
 import { MarkdownManager } from '@tiptap/markdown';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
+import { Transform } from '@tiptap/pm/transform';
 import { prosemirrorToYXmlFragment, updateYFragment, yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
 import { fragmentToMarkdown } from '@/lib/yjs/fragmentToMarkdown';
+import { footnoteOrder, normalizeFootnotes } from '@/lib/editor/footnotes';
+import { getNewId } from '@/lib/utils';
 
 const FRAGMENT = 'prosemirror';
 
@@ -23,8 +26,31 @@ export const editorSchema = getSchema(extensions);
 
 const md = new MarkdownManager({ extensions });
 
-function parseMarkdown(markdown: string): PMNode {
-  return editorSchema.nodeFromJSON(md.parse(markdown));
+/**
+ * Markdown -> ProseMirror. A `[^n]` the note already has is that footnote
+ * (`existing[n - 1]`); any other label gets a new id. With `newDefinitions`
+ * (appended text), a label the markdown defines is always a new footnote.
+ */
+function parseMarkdown(markdown: string, existing: string[] = [], newDefinitions = false): PMNode {
+  const json = md.parse(markdown);
+  const footnoteNodes: JSONContent[] = [];
+  const collect = (node: JSONContent) => {
+    if (node.type === 'footnoteReference' || node.type === 'footnote') footnoteNodes.push(node);
+    node.content?.forEach(collect);
+  };
+  collect(json);
+  const defined = new Set(footnoteNodes.filter((n) => n.type === 'footnote').map((n) => String(n.attrs?.id)));
+  const ids = new Map<string, string>();
+  for (const node of footnoteNodes) {
+    const label = String(node.attrs?.id);
+    if (!ids.has(label)) {
+      const n = /^[1-9]\d*$/.test(label) ? Number(label) : 0;
+      const reuse = n > 0 && n <= existing.length && !(newDefinitions && defined.has(label));
+      ids.set(label, reuse ? existing[n - 1] : getNewId());
+    }
+    node.attrs = { ...node.attrs, id: ids.get(label) };
+  }
+  return editorSchema.nodeFromJSON(json);
 }
 
 export function toMarkdown(doc: Y.Doc): string {
@@ -37,21 +63,24 @@ function read(doc: Y.Doc): PMNode {
 
 function write(doc: Y.Doc, pmDoc: PMNode): void {
   const fragment = doc.getXmlFragment(FRAGMENT);
-  doc.transact(() => updateYFragment(doc, fragment, pmDoc, { mapping: new Map(), isOMark: new Map() }), 'agent');
+  // The editor's footnotes plugin doesn't run here: put the section in step with the references.
+  const tr = new Transform(pmDoc);
+  normalizeFootnotes(tr);
+  doc.transact(() => updateYFragment(doc, fragment, tr.doc, { mapping: new Map(), isOMark: new Map() }), 'agent');
 }
 
 export function appendMarkdown(doc: Y.Doc, markdown: string): void {
   const current = read(doc);
-  const added = parseMarkdown(markdown);
+  const added = parseMarkdown(markdown, footnoteOrder(current), true);
   const first = current.firstChild;
   const isEmpty = current.childCount === 1 && first?.type.name === 'paragraph' && first.content.size === 0;
   write(doc, isEmpty ? current.copy(added.content) : current.copy(current.content.append(added.content)));
 }
 
-/** Markdown of one top-level block, via the same serializer as `toMarkdown`. */
-function blockToMarkdown(block: PMNode): string {
+/** Markdown of one top-level block, via the same serializer as `toMarkdown`, with the note's footnote `numbers`. */
+function blockToMarkdown(block: PMNode, numbers: Map<string, number>): string {
   const tmp = new Y.Doc();
-  return fragmentToMarkdown(prosemirrorToYXmlFragment(editorSchema.topNodeType.create(null, block), tmp.getXmlFragment(FRAGMENT)));
+  return fragmentToMarkdown(prosemirrorToYXmlFragment(editorSchema.topNodeType.create(null, block), tmp.getXmlFragment(FRAGMENT)), numbers);
 }
 
 // Nodes the markdown parser can't rebuild: re-parsing drops them (or, for
@@ -76,7 +105,9 @@ export function replaceInNote(doc: Y.Doc, oldText: string, newText: string): voi
   const current = read(doc);
   const blocks: PMNode[] = [];
   current.forEach((b) => blocks.push(b));
-  const mds = blocks.map(blockToMarkdown);
+  const footnotes = footnoteOrder(current);
+  const numbers = new Map(footnotes.map((id, i) => [id, i + 1]));
+  const mds = blocks.map((b) => blockToMarkdown(b, numbers));
   const joined = mds.join('\n\n');
 
   const count = oldText ? joined.split(oldText).length - 1 : 0;
@@ -111,7 +142,7 @@ export function replaceInNote(doc: Y.Doc, oldText: string, newText: string): voi
   const rangeMd = joined.slice(rangeStart, rangeEnd);
   const replaced = rangeMd.slice(0, at - rangeStart) + newText + rangeMd.slice(end - rangeStart);
   const next: PMNode[] = [...blocks.slice(0, from)];
-  parseMarkdown(replaced).forEach((n) => next.push(n));
+  parseMarkdown(replaced, footnotes).forEach((n) => next.push(n));
   next.push(...blocks.slice(to + 1));
   write(doc, current.copy(Fragment.fromArray(next)));
 }
