@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Markdown, { defaultUrlTransform } from 'react-markdown';
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
+import { ReaderTaskCheckbox } from '@/components/share/ReaderTaskCheckbox';
 import { LiveBlockAwarePre } from '@/components/share/LiveBlockAwarePre';
 import { LiveBlockStatesContext } from '@/components/share/liveBlockStatesContext';
 import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
@@ -106,6 +107,7 @@ export default function SharePage() {
                             components={{
                                 blockquote: CalloutAwareBlockquote,
                                 pre: LiveBlockAwarePre,
+                                input: ReaderTaskCheckbox,
                                 img: ({ src, alt, node, ...rest }) => {
                                     // `node` is react-markdown's own extra prop, not a DOM attribute —
                                     // exclude it before spreading the rest (title, etc.) onto <img>.
