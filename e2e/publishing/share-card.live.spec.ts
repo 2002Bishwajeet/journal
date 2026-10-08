@@ -72,11 +72,15 @@ test('share dialog link card: preview, custom description, indexing (#222)', asy
         await expect(preview).toContainText(custom);
         await expect.poll(async () => (await guestCard())?.description, { timeout: 60_000 }).toBe(custom);
 
-        // Search indexing on.
-        const indexing = dialog.getByRole('switch', { name: 'Allow search engines to index this page' });
+        // Indexable by default; the switch opts out.
+        const indexing = dialog.getByRole('switch', { name: 'Hide from search engines' });
         await expect(indexing).not.toBeChecked();
+        await expect.poll(async () => (await guestCard())?.indexable, { timeout: 60_000 }).toBe(true);
         await indexing.click();
         await expect(indexing).toBeChecked();
+        await expect.poll(async () => (await guestCard())?.indexable, { timeout: 60_000 }).toBeUndefined();
+        await indexing.click();
+        await expect(indexing).not.toBeChecked();
         await expect.poll(async () => (await guestCard())?.indexable, { timeout: 60_000 }).toBe(true);
         const afterIndexing = await guestCard();
         testInfo.annotations.push({ type: 'guest card (custom, indexable)', description: JSON.stringify(afterIndexing) });

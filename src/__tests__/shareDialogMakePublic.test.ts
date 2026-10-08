@@ -5,17 +5,19 @@ import { act, createElement } from 'react';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const { syncRecord, syncNote, makeNotePublic, mutate } = vi.hoisted(() => ({
+const { syncRecord, syncNote, makeNotePublic, mutate, mutateAsync, notes } = vi.hoisted(() => ({
     syncRecord: { current: undefined as { remoteFileId?: string } | undefined },
     syncNote: vi.fn(async () => {}),
     makeNotePublic: vi.fn(async () => ({ versionTag: 'v2', previousVersionTag: 'v1' })),
     mutate: vi.fn(),
+    mutateAsync: vi.fn(async () => {}),
+    notes: { current: [] as { docId: string; metadata: { shareIndexable?: boolean } }[] },
 }));
 
 vi.mock('@/hooks/auth', () => ({ useAuth: () => ({ getIdentity: () => 'frodo.dotyou.cloud' }) }));
 vi.mock('@/components/auth', () => ({ useDotYouClientContext: () => ({}) }));
 vi.mock('@/hooks/useNotes', () => ({
-    useNotes: () => ({ get: { data: [] }, setNotePublic: { mutate }, setShareCard: {} }),
+    useNotes: () => ({ get: { data: notes.current }, setNotePublic: { mutate }, setShareCard: { mutateAsync } }),
 }));
 vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ syncNote }) }));
 vi.mock('@/hooks/useShareCardPreview', () => ({ useShareCardPreview: () => ({}) }));
@@ -39,6 +41,7 @@ describe('ShareDialog make public', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        notes.current = [];
         host = document.createElement('div');
         document.body.appendChild(host);
         root = createRoot(host);
@@ -75,5 +78,25 @@ describe('ShareDialog make public', () => {
 
         expect(syncNote).not.toHaveBeenCalled();
         expect(makeNotePublic).toHaveBeenCalledWith(NOTE_ID, 'file-1', expect.anything());
+    });
+
+    it('publishes a new note as indexable and persists the flag', async () => {
+        syncRecord.current = { remoteFileId: 'file-1' };
+        notes.current = [{ docId: NOTE_ID, metadata: {} }];
+
+        await clickMakePublic();
+
+        expect(makeNotePublic).toHaveBeenCalledWith(NOTE_ID, 'file-1', expect.objectContaining({ indexable: true }));
+        expect(mutateAsync).toHaveBeenCalledWith({ docId: NOTE_ID, shareIndexable: true });
+    });
+
+    it('keeps a stored opt-out when republishing', async () => {
+        syncRecord.current = { remoteFileId: 'file-1' };
+        notes.current = [{ docId: NOTE_ID, metadata: { shareIndexable: false } }];
+
+        await clickMakePublic();
+
+        expect((makeNotePublic.mock.calls as unknown[][])[0][2]).not.toHaveProperty('indexable');
+        expect(mutateAsync).not.toHaveBeenCalled();
     });
 });

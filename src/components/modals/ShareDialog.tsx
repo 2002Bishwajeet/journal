@@ -115,7 +115,15 @@ export default function ShareDialog({
             const updates = await getDocumentUpdates(noteId);
             const blob = updates.length > 0 ? Y.mergeUpdates(updates) : undefined;
             const metadata = get.data?.find((n) => n.docId === noteId)?.metadata;
-            const rekeyed = await provider.makeNotePublic(noteId, record?.remoteFileId, buildPublicCard(blob, metadata ?? {}));
+            // New publishes are indexable unless the owner opts out; a stored value is kept as is.
+            const publishIndexable = metadata?.shareIndexable ?? true;
+            const rekeyed = await provider.makeNotePublic(
+                noteId,
+                record?.remoteFileId,
+                buildPublicCard(blob, { ...metadata, shareIndexable: publishIndexable })
+            );
+            // Persist it so later pushes rebuild the card with the same flag.
+            if (metadata?.shareIndexable === undefined) await setShareCard.mutateAsync({ docId: noteId, shareIndexable: true });
             setNotePublic.mutate({ docId: noteId, isPublic: true, rekeyed });
             toast.success('Note is now publicly accessible');
         } catch (err) {
@@ -328,7 +336,7 @@ export default function ShareDialog({
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0 space-y-1">
                                             <Label htmlFor="share-indexable" className="leading-5">
-                                                Allow search engines to index this page
+                                                Hide from search engines
                                             </Label>
                                             <p id="share-indexable-help" className="text-xs leading-relaxed text-muted-foreground">
                                                 Link previews work either way.
@@ -338,9 +346,9 @@ export default function ShareDialog({
                                             id="share-indexable"
                                             aria-describedby="share-indexable-help"
                                             className="mt-0.5"
-                                            checked={!!noteMetadata?.shareIndexable}
+                                            checked={!noteMetadata?.shareIndexable}
                                             disabled={isMakingPrivate}
-                                            onCheckedChange={(checked) => saveShareCard({ shareIndexable: checked })}
+                                            onCheckedChange={(hide) => saveShareCard({ shareIndexable: !hide })}
                                         />
                                     </div>
 

@@ -1,3 +1,6 @@
 # https://www.robotstxt.org/robotstxt.html
+# Public notes (/share/) and the landing page are crawlable; app routes are private.
 User-agent: *
-Disallow:
+Allow: /share/
+Allow: /welcome
+Disallow: /
