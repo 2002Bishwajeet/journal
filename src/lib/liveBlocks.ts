@@ -152,8 +152,9 @@ export interface FrameTheme {
 export function buildSrcdoc(source: string, theme: FrameTheme): string {
   const tokens = FRAME_TOKENS.map((name) => `${name}:${theme.tokens[name]};`).join('');
   const style =
-    // The font is also a variable, for a react block's `font-sans` (#427).
-    `:root{${tokens}--font-sans:${theme.fontFamily};color-scheme:${theme.colorScheme}}` +
+    // The font is also a variable, for a react block's `font-sans` (#427), and its shadows
+    // are softer in the dark theme (#559).
+    `:root{${tokens}--font-sans:${theme.fontFamily};--shadow-strength:${theme.colorScheme === 'dark' ? 0.6 : 1};color-scheme:${theme.colorScheme}}` +
     '*,*::before,*::after{box-sizing:border-box}' +
     'html,body{background:transparent}' +
     `body{margin:0;color:var(--foreground);font-family:${theme.fontFamily};line-height:${theme.lineHeight}}` +
@@ -223,11 +224,14 @@ export interface ReactBlockRuntime {
 /**
  * The page of a `react` block (#426), for buildSrcdoc to wrap: the Tailwind sheet (right after
  * buildSrcdoc's theme style, before anything the block renders), a root, the runtime and the
- * block's `code`, compiled by compileReactBlock. Everything is inline, which the frame's CSP allows.
+ * block's `code`, compiled by compileReactBlock. After the sheet, the block's own Tailwind
+ * (#559), if compileBlockTailwind found any. Everything is inline, which the frame's CSP allows.
  */
-export function reactBlockDocument(runtime: ReactBlockRuntime, code: string): string {
+export function reactBlockDocument(runtime: ReactBlockRuntime, code: string, blockTailwind = ''): string {
   const libraries = (runtime.libraries ?? []).map(inlineScript).join('');
-  return `<style>${runtime.tailwind}</style><div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime.react)}${libraries}${inlineScript(componentScript(code))}`;
+  // A class's arbitrary value can hold `</style`, which would end the style element.
+  const blockStyle = blockTailwind && `<style id="journal-block-tailwind">${blockTailwind.replace(/<\/style/gi, '<\\/style')}</style>`;
+  return `<style>${runtime.tailwind}</style>${blockStyle}<div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime.react)}${libraries}${inlineScript(componentScript(code))}`;
 }
 
 /** The least height a framed (html or react) block's box is fitted to. */

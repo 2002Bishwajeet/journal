@@ -13,6 +13,12 @@ declare module 'virtual:react-block-tailwind' {
   export default stylesheet;
 }
 
+/** Tailwind's theme.css, for the compiler of a react block's own classes (#559). Built in vite.config.ts. */
+declare module 'virtual:react-block-tailwind-theme' {
+  const css: string;
+  export default css;
+}
+
 /** Recharts in Journal's theme for a react block, as the text of a script that sets window.Recharts (#427). */
 declare module 'virtual:react-block-recharts' {
   const script: string;

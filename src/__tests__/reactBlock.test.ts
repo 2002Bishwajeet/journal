@@ -125,6 +125,12 @@ describe('reactBlockDocument', () => {
     const html = reactBlockDocument({ react: RUNTIME, tailwind: SHEET }, 'var marker = 1;');
     expect(html.startsWith(`<style>${SHEET}</style><div id="root"></div>`)).toBe(true);
     expect(html.match(/<style>/g)).toHaveLength(1);
+    expect(html).not.toContain('journal-block-tailwind');
+  });
+
+  it("should put the block's own Tailwind right after the sheet, and keep a closing style tag in it from ending its style (#559)", () => {
+    const html = reactBlockDocument({ react: RUNTIME, tailwind: SHEET }, 'var marker = 1;', ".a{content:'</style><b>'}");
+    expect(html.startsWith(`<style>${SHEET}</style><style id="journal-block-tailwind">.a{content:'<\\/style><b>'}</style><div id="root"></div>`)).toBe(true);
   });
 
   it('should hold the libraries only when they are passed, in order, between React and the component (#427)', () => {
