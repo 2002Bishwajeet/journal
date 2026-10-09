@@ -326,6 +326,15 @@ li[data-type='footnote'] > [data-footnote-backref] {
   margin: 1.5rem 0;
 }
 
+/* The image box clips (overflow-hidden), so the spacing lives on the box, not the img inside it */
+.prose .image-node img {
+  margin: 0;
+}
+
+.prose .image-node > div {
+  margin: 1.5rem 0;
+}
+
 /* Lists */
 .prose ul {
   list-style-type: disc;
