@@ -115,6 +115,10 @@ const SERIF = '"Playfair Display Variable", serif';
 const SANS = '"Inter Variable", system-ui, sans-serif';
 const TITLE_SIZE = 64;
 const TITLE_FONT = `600 ${TITLE_SIZE}px ${SERIF}`;
+// A title that fits in two lines is drawn larger.
+const TITLE_LARGE_SIZE = 76;
+const TITLE_LARGE_FONT = `600 ${TITLE_LARGE_SIZE}px ${SERIF}`;
+const TITLE_LARGE_LINE = 90;
 const EXCERPT_SIZE = 30;
 const EXCERPT_FONT = `400 ${EXCERPT_SIZE}px ${SANS}`;
 const AUTHOR_FONT = `500 28px ${SANS}`;
@@ -146,6 +150,13 @@ function wrapIn(ctx: Ctx, font: string, text: string, maxLines: number, maxWidth
     return wrapText(text, maxWidth, maxLines, (s) => ctx.measureText(s).width);
 }
 
+/** The title's lines, at the large size when it fits in two lines, else up to three at the normal size. */
+function fitTitle(ctx: Ctx, title: string): { lines: string[]; size: number; lineHeight: number } {
+    const large = wrapIn(ctx, TITLE_LARGE_FONT, title, 3);
+    if (large.length <= 2) return { lines: large, size: TITLE_LARGE_SIZE, lineHeight: TITLE_LARGE_LINE };
+    return { lines: wrapIn(ctx, TITLE_FONT, title, 3), size: TITLE_SIZE, lineHeight: TITLE_LINE };
+}
+
 /** Draw `lines` in the current font and fill, the first line box's top at `top`. */
 function drawLines(ctx: Ctx, lines: string[], top: number, lineHeight: number, size: number): void {
     ctx.textBaseline = 'top';
@@ -153,7 +164,7 @@ function drawLines(ctx: Ctx, lines: string[], top: number, lineHeight: number, s
 }
 
 /** The logo tile and the wordmark, centred on `centerY`, starting at `x` or (right-aligned) ending at it. */
-function drawBrand(ctx: Ctx, logo: ImageBitmap | null, x: number, centerY: number, color: string, align: 'left' | 'right'): void {
+function drawBrand(ctx: Ctx, logo: ImageBitmap | null, x: number, centerY: number, color: string, align: 'left' | 'right', border?: string): void {
     ctx.font = WORDMARK_FONT;
     const logoWidth = logo ? LOGO_SIZE + LOGO_GAP : 0;
     const left = align === 'left' ? x : x - logoWidth - ctx.measureText('Journal').width;
@@ -167,6 +178,14 @@ function drawBrand(ctx: Ctx, logo: ImageBitmap | null, x: number, centerY: numbe
         ctx.drawImage(logo, inset, inset, logo.width - 2 * inset, logo.height - 2 * inset,
             left, centerY - LOGO_SIZE / 2, LOGO_SIZE, LOGO_SIZE);
         ctx.restore();
+        if (border) {
+            // On paper the beige tile would blend in.
+            ctx.strokeStyle = border;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(left, centerY - LOGO_SIZE / 2, LOGO_SIZE, LOGO_SIZE, 11);
+            ctx.stroke();
+        }
     }
     ctx.fillStyle = color;
     ctx.textBaseline = 'middle';
@@ -177,25 +196,37 @@ function drawPaperCard(ctx: Ctx, text: CardText, logo: ImageBitmap | null): void
     ctx.fillStyle = PAPER;
     ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
 
-    const title = wrapIn(ctx, TITLE_FONT, text.title, 3);
-    ctx.fillStyle = INK;
-    drawLines(ctx, title, PAD, TITLE_LINE, TITLE_SIZE);
+    // The title and excerpt are one block, centred between the top and the footer rule.
+    const footerY = CARD_HEIGHT - PAD - 22;
+    const ruleY = footerY - 50;
+    const title = fitTitle(ctx, text.title);
+    const excerpt = text.excerpt ? wrapIn(ctx, EXCERPT_FONT, text.excerpt, 2) : [];
+    const titleHeight = title.lines.length * title.lineHeight;
+    const blockHeight = titleHeight + (excerpt.length ? 24 + excerpt.length * EXCERPT_LINE : 0);
+    const top = Math.max(PAD, (ruleY - blockHeight) / 2);
 
-    if (text.excerpt) {
-        const excerpt = wrapIn(ctx, EXCERPT_FONT, text.excerpt, 2);
+    ctx.font = title.size === TITLE_SIZE ? TITLE_FONT : TITLE_LARGE_FONT;
+    ctx.fillStyle = INK;
+    drawLines(ctx, title.lines, top, title.lineHeight, title.size);
+    if (excerpt.length) {
+        ctx.font = EXCERPT_FONT;
         ctx.fillStyle = MUTED;
-        drawLines(ctx, excerpt, PAD + title.length * TITLE_LINE + 24, EXCERPT_LINE, EXCERPT_SIZE);
+        drawLines(ctx, excerpt, top + titleHeight + 24, EXCERPT_LINE, EXCERPT_SIZE);
     }
 
     // Footer: a rule, then the author on the left and the brand on the right.
-    const footerY = CARD_HEIGHT - PAD - 22;
     ctx.fillStyle = RULE;
-    ctx.fillRect(PAD, footerY - 50, TEXT_WIDTH, 2);
-    const [author = ''] = wrapIn(ctx, AUTHOR_FONT, text.author, 1, TEXT_WIDTH / 2);
-    ctx.fillStyle = INK;
+    ctx.fillRect(PAD, ruleY, TEXT_WIDTH, 2);
+    drawAuthor(ctx, text.author, footerY, INK);
+    drawBrand(ctx, logo, CARD_WIDTH - PAD, footerY, INK, 'right', RULE);
+}
+
+/** The author on the left of the footer, cut to half the text width. */
+function drawAuthor(ctx: Ctx, name: string, centerY: number, color: string): void {
+    const [author = ''] = wrapIn(ctx, AUTHOR_FONT, name, 1, TEXT_WIDTH / 2);
+    ctx.fillStyle = color;
     ctx.textBaseline = 'middle';
-    ctx.fillText(author, PAD, footerY);
-    drawBrand(ctx, logo, CARD_WIDTH - PAD, footerY, INK, 'right');
+    ctx.fillText(author, PAD, centerY);
 }
 
 function drawCoverCard(ctx: Ctx, bitmap: ImageBitmap, positionY: number, text: CardText, logo: ImageBitmap | null): void {
@@ -211,19 +242,24 @@ function drawCoverCard(ctx: Ctx, bitmap: ImageBitmap, positionY: number, text: C
     }
     ctx.drawImage(bitmap, source.x, source.y, source.width, source.height, dest.x, dest.y, dest.width, dest.height);
 
-    // A bottom scrim, so the white title reads on any cover.
-    const scrim = ctx.createLinearGradient(0, CARD_HEIGHT * 0.2, 0, CARD_HEIGHT);
+    const brandY = CARD_HEIGHT - PAD + 6;
+    const title = fitTitle(ctx, text.title);
+    const titleTop = brandY - 46 - title.lines.length * title.lineHeight;
+
+    // A scrim from just above the title down, so the white text reads on any cover and the rest of the photo stays bright.
+    const scrim = ctx.createLinearGradient(0, Math.max(0, titleTop - 80), 0, CARD_HEIGHT);
     scrim.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    scrim.addColorStop(0.5, 'rgba(0, 0, 0, 0.5)');
+    scrim.addColorStop(0.4, 'rgba(0, 0, 0, 0.5)');
     scrim.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
     ctx.fillStyle = scrim;
     ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
 
-    const brandY = CARD_HEIGHT - PAD + 6;
-    const title = wrapIn(ctx, TITLE_FONT, text.title, 3);
+    ctx.font = title.size === TITLE_SIZE ? TITLE_FONT : TITLE_LARGE_FONT;
     ctx.fillStyle = '#FFFFFF';
-    drawLines(ctx, title, brandY - 46 - title.length * TITLE_LINE, TITLE_LINE, TITLE_SIZE);
-    drawBrand(ctx, logo, PAD, brandY, '#FFFFFF', 'left');
+    drawLines(ctx, title.lines, titleTop, title.lineHeight, title.size);
+    // Same footer as the paper card: the author on the left, the brand on the right.
+    drawAuthor(ctx, text.author, brandY, '#FFFFFF');
+    drawBrand(ctx, logo, CARD_WIDTH - PAD, brandY, '#FFFFFF', 'right');
 }
 
 /** The logo, or null when it can't be loaded: the card then shows the wordmark alone. */
@@ -238,7 +274,7 @@ async function loadLogo(): Promise<ImageBitmap | null> {
 
 /** Load the card's fonts, so the canvas doesn't draw a fallback face. */
 async function loadFonts(): Promise<void> {
-    await Promise.all([TITLE_FONT, EXCERPT_FONT, AUTHOR_FONT, WORDMARK_FONT].map((font) => document.fonts.load(font)));
+    await Promise.all([TITLE_FONT, TITLE_LARGE_FONT, EXCERPT_FONT, AUTHOR_FONT, WORDMARK_FONT].map((font) => document.fonts.load(font)));
     await document.fonts.ready;
 }
 
