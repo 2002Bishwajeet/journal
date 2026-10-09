@@ -200,6 +200,18 @@ describe('saving a public note: the card image', () => {
         expect(patchedKeys()).not.toContain('jrnl_card');
     });
 
+    it('keeps an existing card where none can be drawn (MCP), still saying what it was drawn from', async () => {
+        const drawn = { src: COVER, positionY: 50 };
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], drawn));
+        mockCanRender.mockReturnValue(false);
+
+        await save(noteBlob({ src: COVER, positionY: 30 }));
+
+        expect(patchedDeletes()).not.toContain('jrnl_card');
+        expect(patchedKeys()).not.toContain('jrnl_card');
+        expect(patchedCard().cardImageFrom).toEqual(drawn);
+    });
+
     it('is not looked at for a private note', async () => {
         await save(noteBlob({ src: COVER, positionY: 30 }), { title: 'Note', tags: [] } as unknown as DocumentMetadata);
 
