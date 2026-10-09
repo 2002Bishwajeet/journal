@@ -25,6 +25,7 @@ import {
     getPayloadBytesOverPeer,
 } from '@homebase-id/js-lib/peer';
 import { getRandom16ByteArray, tryJsonParse } from '@homebase-id/js-lib/helpers';
+import { GetProfileCard } from '@homebase-id/js-lib/public';
 import {
     JOURNAL_DRIVE,
     JOURNAL_FILE_TYPE,
@@ -36,7 +37,7 @@ import {
     MAIN_FOLDER_ID,
 } from './config';
 import type { NoteFileContent, DocumentMetadata } from '@/types';
-import { buildPublicCard, type CardImageFrom, type PublicCard } from '@/lib/share/publicCard';
+import { buildPublicCard, sameCardImageFrom, type CardImageFrom, type PublicCard } from '@/lib/share/publicCard';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import { noteAcl, noteAppData, noteFileContent } from './noteUploadMetadata';
 import { buildContentPayloads, buildImagePayload } from './noteImagePayloads';
@@ -53,22 +54,19 @@ export interface ImageUploadData {
 const nonEmptyCard = (card: PublicCard): PublicCard | undefined =>
     Object.keys(card).length > 0 ? card : undefined;
 
-/** Whether the file's card image payload was drawn from `from`, per the card in its header. */
-function isCardImageCurrent(header: HomebaseFile<NoteFileContent>, from: CardImageFrom): boolean {
-    if (!header.fileMetadata.payloads?.some((p) => p.key === PAYLOAD_KEY_CARD_IMAGE)) return false;
-    // Content may come back as a string or an already-parsed object (see makeNotePublic).
-    const raw: unknown = header.fileMetadata.appData.content;
-    const content = typeof raw === 'string' ? tryJsonParse<{ card?: PublicCard }>(raw) : (raw as { card?: PublicCard } | undefined);
-    const drawnFrom = content?.card?.cardImageFrom;
-    return drawnFrom?.src === from.src && drawnFrom?.positionY === from.positionY;
-}
-
 /** What the file's card image payload was drawn from, per the card in its header; undefined without one. */
 function drawnCardImageFrom(header: HomebaseFile<NoteFileContent>): CardImageFrom | undefined {
     if (!header.fileMetadata.payloads?.some((p) => p.key === PAYLOAD_KEY_CARD_IMAGE)) return undefined;
+    // Content may come back as a string or an already-parsed object (see makeNotePublic).
     const raw: unknown = header.fileMetadata.appData.content;
     const content = typeof raw === 'string' ? tryJsonParse<{ card?: PublicCard }>(raw) : (raw as { card?: PublicCard } | undefined);
     return content?.card?.cardImageFrom;
+}
+
+/** Whether the file's card image payload was drawn from `from`, per the card in its header. */
+function isCardImageCurrent(header: HomebaseFile<NoteFileContent>, from: CardImageFrom): boolean {
+    const drawn = drawnCardImageFrom(header);
+    return !!drawn && sameCardImageFrom(drawn, from);
 }
 
 /**
@@ -439,9 +437,9 @@ export class NotesDriveProvider {
     }
 
     /**
-     * What a save of a public note does to its card image: upload a new one when the
-     * cover (src or positionY) changed since the last one was drawn, remove it when the
-     * note has no cover any more (or the new one can't be drawn), else nothing.
+     * What a save of a public note does to its card image: upload a new one when its
+     * title, excerpt or cover (src or positionY) changed since the last one was drawn,
+     * remove it when the new one can't be drawn, else nothing.
      * Where no card can be drawn at all (the MCP server, in Node), an existing card is
      * kept: deleting it would break link previews whose page metadata is still cached.
      */
@@ -467,25 +465,34 @@ export class NotesDriveProvider {
     }
 
     /**
-     * Draw the 1200×630 card image of `from`. Null when the cover isn't on this file (the
-     * share page won't follow it either), this browser can't draw it, or drawing fails.
+     * Draw the 1200×630 card image of `from`. A cover on another file is left out (the
+     * share page won't follow it either). Null when this file's cover can't be read, this
+     * browser can't draw it, or drawing fails.
      */
     async #drawCardImage(
         fileId: string,
         from: CardImageFrom,
         readCover: (payloadKey: string) => Promise<Blob | null>,
     ): Promise<Blob | null> {
-        const ref = parseAttachmentSrc(from.src, fileId);
-        if (!ref) return null;
+        const ref = from.cover ? parseAttachmentSrc(from.cover.src, fileId) : null;
         try {
             const { canRenderCardImage, renderCardImage } = await import('@/lib/share/cardImage');
             if (!canRenderCardImage()) return null;
-            const cover = await readCover(ref.payloadKey);
-            return cover ? await renderCardImage(cover, from.positionY) : null;
+            const image = ref ? await readCover(ref.payloadKey) : null;
+            if (ref && !image) return null;
+            const text = { title: from.title, excerpt: from.excerpt, author: await this.#authorName() };
+            return await renderCardImage(text, image && from.cover ? { image, positionY: from.cover.positionY } : undefined);
         } catch (e) {
             console.warn('[NotesDriveProvider] could not draw the card image', e);
             return null;
         }
+    }
+
+    /** The owner's public profile name, as the share page's byline shows it; the identity when there is none. */
+    async #authorName(): Promise<string> {
+        const identity = this.#dotYouClient.getHostIdentity();
+        const card = await GetProfileCard(identity).catch(() => undefined);
+        return card?.name || identity;
     }
 
     /** A payload as a Blob, read with its lastModified so the browser can't hand back a stale copy (#451). */
@@ -497,7 +504,7 @@ export class NotesDriveProvider {
 
     /**
      * The card image the share dialog previews for a public note: its uploaded card
-     * image when that was drawn from this cover, else the same image drawn here.
+     * image when that was drawn from `from`, else the same image drawn here.
      */
     async getCardImage(fileId: string, from: CardImageFrom): Promise<Blob | null> {
         const header = await getFileHeader<NoteFileContent>(this.#dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true });
