@@ -20,6 +20,7 @@ import {
     createDoc,
     localImageSources,
     setMarkdown,
+    type LinkTarget,
 } from '@/lib/agent/editEngine';
 import {
     advanceNextImageIndex,
@@ -37,7 +38,7 @@ import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import type { PreparedImage } from '@/lib/images/imageBytes';
 import type { DocumentMetadata } from '@/types';
 import { loadImage } from '../imageSource';
-import { noteAccess, type ReadDeps, type NoteSummary } from './read';
+import { linkTargets, noteAccess, type ReadDeps, type NoteSummary } from './read';
 
 /** Thrown by `uploadNoteEdit` when the note's versionTag is stale. */
 export class VersionConflictError extends Error {
@@ -162,6 +163,12 @@ async function loadBodyImages(markdown: string | undefined): Promise<Map<string,
     return loaded;
 }
 
+/** The notes a note link in written markdown may point at (#561). */
+async function loadLinkTargets(deps: ReadDeps): Promise<LinkTarget[]> {
+    const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
+    return linkTargets(grants, notes);
+}
+
 /**
  * `editWithRetry` for markdown that may hold local images (#415): each is uploaded as a
  * jrnl_img payload on the note's file, and `apply` gets the map from each image's local
@@ -215,7 +222,8 @@ export async function createNote(
     deps: WriteDeps,
     params: { title: string; markdown: string; folderId: string; tags?: string[] }
 ): Promise<{ id: string; title: string; folderId: string }> {
-    const grants = await deps.loadGrants();
+    const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
+    const targets = linkTargets(grants, notes);
     const writable =
         folderAccess(grants, params.folderId) === 'write' &&
         (await deps.listFolders()).some((folder) => folder.id === params.folderId);
@@ -234,8 +242,10 @@ export async function createNote(
         lastEditedBy: agentEditor(deps.clientName()),
     };
     const images = await loadBodyImages(params.markdown);
+    // Built before anything is created, so a note link that can't be resolved fails the call first.
+    const doc = createDoc(params.markdown, targets);
     if (images.size === 0) {
-        await deps.createNote(id, metadata, Y.encodeStateAsUpdate(createDoc(params.markdown)));
+        await deps.createNote(id, metadata, Y.encodeStateAsUpdate(doc));
         return { id, title: metadata.title, folderId: metadata.folderId };
     }
 
@@ -243,7 +253,7 @@ export async function createNote(
     // empty, then write the body like an append. A failed upload trashes the empty note.
     await deps.createNote(id, metadata, Y.encodeStateAsUpdate(createDoc('')));
     try {
-        await editWithBodyImages(deps, id, images, (doc, imageSrcs) => appendMarkdown(doc, params.markdown, imageSrcs));
+        await editWithBodyImages(deps, id, images, (doc, imageSrcs) => appendMarkdown(doc, params.markdown, imageSrcs, targets));
     } catch (err) {
         const created = await deps.fetchNoteForEdit(id).catch(() => null);
         if (created) await deps.trashNote(id, created.fileId).catch(() => undefined);
@@ -268,9 +278,8 @@ export async function createFolder(deps: WriteDeps, params: { name: string }): P
 }
 
 export async function appendToNote(deps: WriteDeps, params: { id: string; markdown: string }): Promise<{ id: string }> {
-    await editWithBodyImages(deps, params.id, await loadBodyImages(params.markdown), (doc, imageSrcs) =>
-        appendMarkdown(doc, params.markdown, imageSrcs)
-    );
+    const [images, targets] = await Promise.all([loadBodyImages(params.markdown), loadLinkTargets(deps)]);
+    await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) => appendMarkdown(doc, params.markdown, imageSrcs, targets));
     return { id: params.id };
 }
 
@@ -279,8 +288,9 @@ export async function replaceInNote(
     deps: WriteDeps,
     params: { id: string; old_text: string; new_text: string }
 ): Promise<{ id: string }> {
-    await editWithBodyImages(deps, params.id, await loadBodyImages(params.new_text), (doc, imageSrcs) =>
-        replaceInDoc(doc, params.old_text, params.new_text, imageSrcs)
+    const [images, targets] = await Promise.all([loadBodyImages(params.new_text), loadLinkTargets(deps)]);
+    await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) =>
+        replaceInDoc(doc, params.old_text, params.new_text, imageSrcs, targets)
     );
     return { id: params.id };
 }
@@ -304,14 +314,18 @@ export async function updateNote(
     // The rewrite is diffed once, against the note as first fetched, and that update is merged
     // into any refetch: re-diffing against a refetched note would delete a concurrent edit.
     let rewrite: Uint8Array | undefined;
+    const [images, targets] = await Promise.all([
+        loadBodyImages(markdown),
+        markdown === undefined ? undefined : loadLinkTargets(deps),
+    ]);
     const apply = (doc: Y.Doc, imageSrcs?: Map<string, string>) => {
         if (markdown === undefined) return;
         if (rewrite) return Y.applyUpdate(doc, rewrite);
         const before = Y.encodeStateVector(doc);
-        setMarkdown(doc, markdown, imageSrcs);
+        setMarkdown(doc, markdown, imageSrcs, targets);
         rewrite = Y.encodeStateAsUpdate(doc, before);
     };
-    await editWithBodyImages(deps, id, await loadBodyImages(markdown), apply, { metadata, expectedModified, dryRun: false });
+    await editWithBodyImages(deps, id, images, apply, { metadata, expectedModified, dryRun: false });
     return { id };
 }
 

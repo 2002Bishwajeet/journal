@@ -18,6 +18,8 @@ A note can hold:
 - Toggles: <details>, a <summary> line, a blank line, the body, a blank line, </details>.
 - Math: inline $E = mc^2$, or a block of LaTeX between two $$ lines.
 - Footnotes: text[^1], with "[^1]: the note" on its own line.
+- Note links: [label](journal:note/<id>), or [[Note title]] for the one note you can see with that title.
+- Link previews: a link alone on its line followed by <!-- preview -->, e.g. <https://journal.cloudx.run><!-- preview -->.
 - Body images: ![alt](/absolute/path.png) or a data: URI is uploaded; keep the attachment:// srcs get_note returns.
 - Covers: set_note_cover and clear_note_cover, not an image at the top of the body.
 - Live blocks: a fenced block in mermaid (diagrams), svg (a static drawing), html (a sandboxed page with script) or react (a JSX component with recharts and lucide-react). Put an id after the language (\`\`\`html id=k3f9) and keep it when rewriting the block: it keys the block's saved state.

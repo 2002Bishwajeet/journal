@@ -10,6 +10,11 @@
 import { Node } from '@tiptap/core';
 import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state';
 import { isPreviewableUrl } from '@/lib/editor/linkPreview';
+import { inListItem } from './markdownParse';
+
+// A line as previewToMarkdown writes it (#561): `[title](url)`, `<url>` or a bare URL, then
+// `<!-- preview -->`. Only the URL is kept: the node view fetches the rest, as for a paste.
+const PREVIEW_LINE = /^(?:\[(?:\\.|[^\\\]\n])*\]\((\S+)\)|<(\S+)>|(\S+?))[ \t]*<!-- preview -->[ \t]*(?:\n|$)/;
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -62,6 +67,27 @@ export const LinkPreview = Node.create({
   renderText({ node }) {
     return node.attrs.url;
   },
+
+  // Markdown -> card (#561). Only the agent edit engine and markdown import parse markdown.
+  markdownTokenizer: {
+    name: 'linkPreview',
+    level: 'block',
+    // Line where the next candidate starts. Without a `start`, tiptap lexes with a second lexer,
+    // which steals the paragraphs' inline lexing.
+    start: (src) => {
+      const at = /(^|\n)[^\n]*<!-- preview -->/.exec(src);
+      return at ? at.index + at[1].length : -1;
+    },
+    tokenize(src, tokens) {
+      const line = PREVIEW_LINE.exec(src);
+      const url = line && (line[1] ?? line[2] ?? line[3]);
+      // A list item's first paragraph can't be a card.
+      if (!line || !url || !isPreviewableUrl(url) || inListItem(tokens)) return undefined;
+      return { type: 'linkPreview', raw: line[0], url };
+    },
+  },
+
+  parseMarkdown: (token, helpers) => helpers.createNode('linkPreview', { url: token.url }),
 
   addCommands() {
     return {
