@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.6.0 (2026-10-09)
+
 ### New
 
 - Each author has a public page that lists their public notes. It also has a sitemap, so search engines can find the notes.

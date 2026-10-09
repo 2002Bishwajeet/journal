@@ -1,3 +1,33 @@
+# [2.6.0](https://github.com/2002Bishwajeet/journal/compare/v2.5.2...v2.6.0) (2026-10-09)
+
+
+### Bug Fixes
+
+* **cover:** drop duplicate dark reposition item in dark mode ([#512](https://github.com/2002Bishwajeet/journal/issues/512)) ([0ec584a](https://github.com/2002Bishwajeet/journal/commit/0ec584adf6972cfbbf665c49974a529b25e34ff7))
+* **cover:** Reposition moves the cover the current theme shows ([#512](https://github.com/2002Bishwajeet/journal/issues/512)) ([4e61628](https://github.com/2002Bishwajeet/journal/commit/4e616280d7c2409df504f20168e3b2a2520cf9e3))
+* **editor:** long note titles wrap up to three lines instead of being cut off ([ddc23e6](https://github.com/2002Bishwajeet/journal/commit/ddc23e6ec140664713d25da48f819d7e81ae02e7))
+* load contact avatars via direct /pub/image fetch, not js-lib GetProfileImage ([#360](https://github.com/2002Bishwajeet/journal/issues/360)) ([6621c5a](https://github.com/2002Bishwajeet/journal/commit/6621c5acda8a34e672a1465ffe4efc3857fdfcfa))
+* **notes:** note list preview shows prose, not live-block code ([#521](https://github.com/2002Bishwajeet/journal/issues/521)) ([d8272b3](https://github.com/2002Bishwajeet/journal/commit/d8272b379ca54a239a61eca8aafacfe65ae21fb9))
+* **settings:** account status says changes are waiting to sync instead of Up to date ([#379](https://github.com/2002Bishwajeet/journal/issues/379)) ([e4f9d6a](https://github.com/2002Bishwajeet/journal/commit/e4f9d6a66a936a350344954caa1cc1d79fc4dc6f))
+* **settings:** keep mobile close button clear of the tab strip ([#351](https://github.com/2002Bishwajeet/journal/issues/351)) ([f66b43d](https://github.com/2002Bishwajeet/journal/commit/f66b43dccf4ab14d19cb8f44ca5b7f811e70df7d))
+* **share:** author index empty state says listed, not yet ([#515](https://github.com/2002Bishwajeet/journal/issues/515)) ([b084993](https://github.com/2002Bishwajeet/journal/commit/b084993953b0b6f00c197c8b542ee342aad0281e))
+* **share:** card ellipsis ends on a whole word; cover cards ignore excerpt edits ([#434](https://github.com/2002Bishwajeet/journal/issues/434)) ([e308228](https://github.com/2002Bishwajeet/journal/commit/e308228dc10fe0b0621b3805f81a89ce3992d351))
+* **share:** keep the card image where it can't be redrawn (MCP), so cached link previews never 404 ([#516](https://github.com/2002Bishwajeet/journal/issues/516)) ([efab319](https://github.com/2002Bishwajeet/journal/commit/efab31978b17fa043beefda2fcfd777bc11602fd))
+* **share:** twitter name= tags, cache-busting og:image, X-Robots-Tag ([#513](https://github.com/2002Bishwajeet/journal/issues/513)) ([dbd487c](https://github.com/2002Bishwajeet/journal/commit/dbd487cb14a06e6601c08ebe713a7d9718c1259d))
+* **sw:** let author index and sitemap navigations reach the share function ([#515](https://github.com/2002Bishwajeet/journal/issues/515)) ([184b44a](https://github.com/2002Bishwajeet/journal/commit/184b44aaae1a602d222d9b484bf23aed077f80d1))
+
+
+### Features
+
+* **covers:** optional dark-mode cover and size hint ([#512](https://github.com/2002Bishwajeet/journal/issues/512)) ([7f207d1](https://github.com/2002Bishwajeet/journal/commit/7f207d15f7147d1c209e7b62fb95e35a728518a8))
+* **editor:** footnotes with [^n] markdown round-trip and share page back links ([#518](https://github.com/2002Bishwajeet/journal/issues/518)) ([a4c82ff](https://github.com/2002Bishwajeet/journal/commit/a4c82ff0954e8159e056382d39e0ac520674f427))
+* **mcp:** add update_note and delete_note (to Trash) tools ([#511](https://github.com/2002Bishwajeet/journal/issues/511)) ([9658c1d](https://github.com/2002Bishwajeet/journal/commit/9658c1dbdcdcaf9beddd3e86c3016435d4bcac23))
+* **mcp:** set_note_cover / clear_note_cover tools ([#516](https://github.com/2002Bishwajeet/journal/issues/516)) ([2210c2e](https://github.com/2002Bishwajeet/journal/commit/2210c2ec921cdd56235dfc85ef3c226abd06ee1a))
+* **seo:** public notes indexable by default with per-note opt-out, restrict robots.txt ([#514](https://github.com/2002Bishwajeet/journal/issues/514)) ([171721d](https://github.com/2002Bishwajeet/journal/commit/171721deb2525cc7655a4a44f1429525ba2715b9))
+* **share:** card design polish: centred paper text, larger short titles, logo border, lighter scrim, author on cover cards ([#434](https://github.com/2002Bishwajeet/journal/issues/434)) ([c6f0698](https://github.com/2002Bishwajeet/journal/commit/c6f0698be627d543d6ea78c0bba6d31cca6fec54))
+* **share:** designed 1200x630 preview card for every shared note ([#434](https://github.com/2002Bishwajeet/journal/issues/434)) ([d749b16](https://github.com/2002Bishwajeet/journal/commit/d749b165e88bc83ce6cf6e425839388280b5424b))
+* **share:** per-author public index page and sitemap.xml ([#515](https://github.com/2002Bishwajeet/journal/issues/515)) ([95f4ac5](https://github.com/2002Bishwajeet/journal/commit/95f4ac5f51a2fb5ba12b6d6680d0f99b5d596405))
+* **share:** readers can tick task checkboxes and open toggles, local state only ([#517](https://github.com/2002Bishwajeet/journal/issues/517)) ([69de39c](https://github.com/2002Bishwajeet/journal/commit/69de39cd2aeedffc5c141faf77766588a840f144))
 ## [2.5.2](https://github.com/2002Bishwajeet/journal/compare/v2.5.1...v2.5.2) (2026-10-07)
 
 
