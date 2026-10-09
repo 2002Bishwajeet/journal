@@ -3,40 +3,31 @@ import { z } from 'zod';
 import * as readTools from './tools/read';
 import * as writeTools from './tools/write';
 import type { WriteDeps } from './tools/write';
+// The full authoring reference (#519), inlined at build time so the packaged server carries it.
+// mcpServer.test.ts checks it names every live-block language, react import and CDN host in code.
+import AUTHORING_GUIDE from './AUTHORING.md?raw';
 
-/**
- * Shared by the tools that take markdown: tells agents which fenced blocks render live in Journal.
- * The hosts are HTML_BLOCK_CDN_HOSTS in src/lib/liveBlocks.ts (mcpServer.test.ts holds the two together).
- */
-const LIVE_BLOCKS =
-    ' Fenced code blocks with language `mermaid`, `svg`, `html` or `react` render live in Journal. ' +
-    'An `html` block is one self-contained document. Besides inline <script> and <style>, it may load ' +
-    'scripts, styles and fonts only from cdn.jsdelivr.net, cdnjs.cloudflare.com and unpkg.com. ' +
-    'Images must be `data:` URIs. There is no network access from script (fetch, XMLHttpRequest and WebSocket fail) and no browser storage. ' +
-    'To keep state in the note, an `html` or `react` block calls `journal.storage.get(key)` and `journal.storage.set(key, value)` ' +
-    '(promises; JSON values; at most 64 KB per block), keyed by the `id=…` in its fence (```html id=k3f9): keep that id when rewriting a block. ' +
-    "Tailwind's CDN script does not work. React needs its UMD build, and JSX needs Babel standalone, both from those hosts." +
-    ' A `react` block is JSX that defines a component named `App`, or exports one as default. ' +
-    "Journal compiles it and runs it on the app's own React, in the same sandbox as an `html` block, with no CDN script. " +
-    'Hooks are on `React` (`React.useState`), and `useState`, `useEffect`, `useRef`, `useMemo` and `useReducer` also work without the prefix. ' +
-    'It can import only from `react`, `recharts` and `lucide-react`. ' +
-    "`className` takes Tailwind classes drawn in Journal's theme, in light and dark with no `dark:` variant: " +
-    'prefer the theme names (`bg-muted`, `text-muted-foreground`, `border`); palette names such as `bg-blue-500` map to the theme too. ' +
-    'Recharts charts take the theme without colour props: series use `--chart-2` … `--chart-5` in order, grid and axes the border and muted text colours. ' +
-    'State is lost on reload unless kept with `journal.storage`.' +
-    ' A block that needs room (a dashboard, a game, a simulation) can add `wide` to its fence (```react wide id=k3f9): ' +
-    "it then spans the editor's full width instead of the note column, up to 2400px tall instead of 1600px; keep `wide` when rewriting the block. " +
-    'Readers can open any `html` or `react` block fullscreen, so let its layout stretch.' +
-    " Journal's design system comes first. " +
-    '(1) Prefer a native block (callout, table, toggle, task list, mermaid) whenever one can carry the content. ' +
-    "(2) An `html` block must use the note's font and colours, which it inherits, and the theme variables " +
-    '(`var(--foreground)`, `var(--muted)`, `var(--muted-foreground)`, `var(--border)`, `var(--accent)`, `var(--radius)`, ' +
-    "and `var(--chart-2)` to `var(--chart-5)` for data series), and leave buttons, inputs and tables unstyled so they get Journal's look. " +
-    '(3) Custom styling is allowed only where the content needs it (a chart, a diagram, a game board), and still built from those variables. ' +
-    'Use `--chart-2` … `--chart-5` in that order for data series, never raw colours (`--chart-1` is nearly the text colour). ' +
-    '(4) No page background, gradients, shadows, badge rows, emoji headers or custom fonts. ' +
-    '(5) The block sizes itself to its content: do not set a fixed page height or design for a whole screen. ' +
-    'These rules apply to a `react` block unchanged.';
+/** Sent once per session in `initialize` (#519): what a note can hold, and where the full guide is. */
+const INSTRUCTIONS = `Journal is a notes app. A note has a title, tags, an optional cover image and a body, which these tools read and write as markdown. Everything below renders in Journal and on the note's public share page, in light and dark, and get_note returns it as the markdown you wrote.
+
+A note can hold:
+- Headings (# to ######), **bold**, *italic*, ~~strike~~, links, \`code\`, and fenced code with a language.
+- Tables: GitHub-style pipe tables.
+- Task lists: "- [ ] to do" and "- [x] done".
+- Callouts: a blockquote whose first line is > [!info], > [!tip], > [!warning] or > [!error].
+- Toggles: <details>, a <summary> line, a blank line, the body, a blank line, </details>.
+- Math: inline $E = mc^2$, or a block of LaTeX between two $$ lines.
+- Footnotes: text[^1], with "[^1]: the note" on its own line.
+- Body images: ![alt](/absolute/path.png) or a data: URI is uploaded; keep the attachment:// srcs get_note returns.
+- Covers: set_note_cover and clear_note_cover, not an image at the top of the body.
+- Live blocks: a fenced block in mermaid (diagrams), svg (a static drawing), html (a sandboxed page with script) or react (a JSX component with recharts and lucide-react). Put an id after the language (\`\`\`html id=k3f9) and keep it when rewriting the block: it keys the block's saved state.
+
+Interactive tools, calculators, dashboards, charts, simulations and small games are welcome in a note: build them as an html or react block. Use a native block (table, callout, toggle, task list, mermaid) when it can carry the content.
+
+Before writing anything beyond plain markdown, call get_authoring_guide: it has every block's syntax with examples, what a live block can load and do, the design rules that keep it matching the note in light and dark, and complete examples.`;
+
+/** Shared by the tools that take markdown, in place of the full guide. */
+const RICH_BLOCKS = ' Supports rich blocks; call get_authoring_guide before writing anything beyond plain markdown.';
 
 /** Shared by the tools that take markdown: an image in it can be a local file or a data: URI (#415). */
 const BODY_IMAGES =
@@ -51,13 +42,13 @@ function json(x: unknown) {
 }
 
 /**
- * Builds the MCP server and wires its four read tools and eight write tools to `deps`.
+ * Builds the MCP server and wires its five read tools and eight write tools to `deps`.
  * Lives outside mcp/server.ts (the CLI entry) so tests can connect it to an
  * in-memory transport with fake deps — no SDK/drive access needed for the real server to
  * be exercised. `clientName` comes from this server's own initialize handshake.
  */
 export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>): McpServer {
-    const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' });
+    const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' }, { instructions: INSTRUCTIONS });
     const deps: WriteDeps = { ...driveDeps, clientName: () => server.server.getClientVersion()?.name ?? '' };
 
     server.registerTool(
@@ -107,11 +98,23 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
     );
 
     server.registerTool(
+        'get_authoring_guide',
+        {
+            title: 'Get authoring guide',
+            description:
+                'The full reference for writing Journal notes: every block a note can hold, with its markdown syntax and examples, ' +
+                'how live blocks (mermaid, svg, html, react) run, and how to design them to match the note. Read it before writing rich content.',
+            inputSchema: {},
+        },
+        async () => ({ content: [{ type: 'text' as const, text: AUTHORING_GUIDE }] })
+    );
+
+    server.registerTool(
         'create_note',
         {
             title: 'Create note',
             description:
-                'Create a Journal note from markdown in a folder you have granted Read+write access to.' + BODY_IMAGES + LIVE_BLOCKS,
+                'Create a Journal note from markdown in a folder you have granted Read+write access to.' + BODY_IMAGES + RICH_BLOCKS,
             inputSchema: {
                 title: z.string(),
                 markdown: z.string(),
@@ -139,7 +142,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
             description:
                 'Append markdown to the end of a Journal note with Read+write access. Merges with concurrent edits.' +
                 BODY_IMAGES +
-                LIVE_BLOCKS,
+                RICH_BLOCKS,
             inputSchema: { id: z.string(), markdown: z.string() },
         },
         async ({ id, markdown }) => json(await writeTools.appendToNote(deps, { id, markdown }))
@@ -153,7 +156,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
                 "Replace one unique span of a Journal note's markdown (as returned by get_note) with new markdown. " +
                 'old_text must match exactly once; include surrounding text if it is ambiguous.' +
                 BODY_IMAGES.replace('Images:', 'Images in new_text:') +
-                LIVE_BLOCKS,
+                RICH_BLOCKS,
             inputSchema: { id: z.string(), old_text: z.string(), new_text: z.string() },
         },
         async ({ id, old_text, new_text }) => json(await writeTools.replaceInNote(deps, { id, old_text, new_text }))
@@ -168,7 +171,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
                 'Use it instead of creating a second note. Blocks you keep exactly as get_note returned them stay untouched, note links and images included. ' +
                 "Pass get_note's `modified` as expectedModified to refuse the edit if the note changed since. Merges with concurrent edits." +
                 BODY_IMAGES +
-                LIVE_BLOCKS,
+                RICH_BLOCKS,
             inputSchema: {
                 id: z.string(),
                 markdown: z.string().optional(),

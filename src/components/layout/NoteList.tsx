@@ -308,9 +308,9 @@ export default function NoteList({
             onDeleteNote(noteToDelete);
           }
         }}
-        title="Delete Note?"
-        description="Are you sure you want to delete this note? This action cannot be undone."
-        confirmText="Delete"
+        title="Move to Trash?"
+        description="This note will be moved to Trash. You can restore it from there."
+        confirmText="Move to Trash"
       />
     </div>
   );

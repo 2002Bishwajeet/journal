@@ -19,6 +19,8 @@ export interface SharedNoteData {
     title: string;
     content: string; // Markdown
     fileId: string;
+    /** The file's modified time. Payload URLs carry it so an edit gets a new URL, not the browser's cached bytes (#543). */
+    lastModified: number;
     /** Uploaded cover image of this note (never a ref to another file), with its optional dark-mode cover. */
     cover?: { src: string; positionY: number; dark?: { src: string; positionY: number } };
     /** Saved state of the note's html and react blocks (#410), as JSON text per block id. */
@@ -85,12 +87,14 @@ export class ShareProvider {
         const title = content?.title || 'Untitled';
 
         // A missing payload is not fatal — render the titled note with an empty body.
+        const lastModified = header.fileMetadata.updated ?? 0;
         let markdown = '';
         let cover: SharedNoteData['cover'];
         let blockStates: SharedNoteData['blockStates'];
         try {
             const yjs = await getPayloadBytes(client, JOURNAL_DRIVE, header.fileId, PAYLOAD_KEY_CONTENT, {
                 decrypt: false,
+                lastModified,
             });
             if (yjs?.bytes && yjs.bytes.length > 0) {
                 // Decode once; markdown, cover and block states all read from this doc.
@@ -123,6 +127,7 @@ export class ShareProvider {
             title,
             content: markdown,
             fileId: header.fileId,
+            lastModified,
             ...(cover ? { cover } : {}),
             ...(blockStates && Object.keys(blockStates).length > 0 ? { blockStates } : {}),
             createdAt: new Date(header.fileMetadata.appData.userDate || Date.now()).toISOString(),

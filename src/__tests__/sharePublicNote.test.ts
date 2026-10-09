@@ -64,6 +64,17 @@ describe('ShareProvider.getPublicNote', () => {
         expect(note!.content).toContain('Hello');
     });
 
+    it('reads the body with the header\'s updated time as lastModified, so an edit gets a new URL (#543)', async () => {
+        const h = header();
+        mockGetHeader.mockResolvedValue({ ...h, fileMetadata: { ...h.fileMetadata, updated: 1710000000000 } });
+        mockGetPayload.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]) });
+
+        const note = await shareProvider.getPublicNote(IDENTITY, NOTE_ID);
+
+        expect(mockGetPayload.mock.calls[0][4]).toMatchObject({ lastModified: 1710000000000 });
+        expect(note!.lastModified).toBe(1710000000000);
+    });
+
     it('includes the fileId, so an attachment:// image ref can be scoped to this note', async () => {
         mockGetHeader.mockResolvedValue(header());
         mockGetPayload.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]) });
