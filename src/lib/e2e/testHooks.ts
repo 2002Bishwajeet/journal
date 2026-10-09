@@ -4,8 +4,8 @@
  * module (and its `window.__journalE2E` global) never ships in the production
  * bundle. See src/globals.d.ts for the public type.
  *
- * Nothing here mutates app state — the hook only reads signals the app
- * already maintains (bootProgress and the boot splash).
+ * Nothing here mutates app state — the hooks only read signals the app
+ * already maintains (bootProgress and the boot splash) or draw a link card.
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
 
@@ -57,9 +57,15 @@ async function ready(): Promise<void> {
     await waitForSplashGone();
 }
 
+/** Draw a link card image (#434) the way publishing does; nothing is stored or uploaded. */
+async function renderCard(...args: Parameters<JournalE2EHooks['renderCard']>): Promise<Blob> {
+    const { renderCardImage } = await import('@/lib/share/cardImage');
+    return renderCardImage(...args);
+}
+
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready }),
+        value: Object.freeze({ ready, renderCard }),
         writable: false,
         configurable: false,
         enumerable: false,

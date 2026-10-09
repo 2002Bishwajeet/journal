@@ -137,18 +137,20 @@ describe('share card: dialog edits reach the uploaded header', () => {
     it('publishes the first paragraph, then the custom text, indexing, and the first paragraph again', async () => {
         await makePublic();
         expect(mockReUpload).toHaveBeenCalledTimes(1);
-        expect(uploadedCard(mockReUpload.mock.calls[0][2])).toEqual({ description: 'Hello world' });
+        // The card image is drawn from the title and the description (#434).
+        const image = (excerpt: string) => ({ cardImageKey: 'jrnl_card', cardImageFrom: { title: 'Note', excerpt } });
+        expect(uploadedCard(mockReUpload.mock.calls[0][2])).toEqual({ description: 'Hello world', ...image('Hello world') });
 
         await setShareCardAndPush(svc, { shareDescription: 'Custom text' });
         expect(patchedCard().description).toBe('Custom text');
         expect((await getSyncRecord(DOC_ID))?.syncStatus).toBe('synced');
 
         await setShareCardAndPush(svc, { shareIndexable: true });
-        expect(patchedCard()).toEqual({ description: 'Custom text', indexable: true });
+        expect(patchedCard()).toEqual({ description: 'Custom text', indexable: true, ...image('Custom text') });
 
         // "Use first paragraph"
         await setShareCardAndPush(svc, { shareDescription: '' });
-        expect(patchedCard()).toEqual({ description: 'Hello world', indexable: true });
+        expect(patchedCard()).toEqual({ description: 'Hello world', indexable: true, ...image('Hello world') });
         expect((await getSearchIndexEntry(DOC_ID))?.metadata).not.toHaveProperty('shareDescription');
     });
 
