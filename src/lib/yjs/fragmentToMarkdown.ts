@@ -5,11 +5,31 @@ import { previewToMarkdown } from '@/lib/editor/linkPreview';
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+/** Footnote numbers by id: the n-th distinct referenced id is footnote n (#518). */
+function footnoteNumbers(xmlFragment: Y.XmlFragment): Map<string, number> {
+  const numbers = new Map<string, number>();
+  const walk = (node: Y.XmlFragment | Y.XmlElement) =>
+    node.toArray().forEach((child) => {
+      if (!(child instanceof Y.XmlElement)) return;
+      const id = String(child.getAttribute('id') ?? '');
+      if (child.nodeName === 'footnoteReference' && !numbers.has(id)) numbers.set(id, numbers.size + 1);
+      walk(child);
+    });
+  walk(xmlFragment);
+  return numbers;
+}
+
 /**
  * Serializes a TipTap Y.XmlFragment to markdown. Lossy: noteLink atoms and
- * image layout attrs have no markdown form and are dropped.
+ * image layout attrs have no markdown form and are dropped. Pass `numbers`
+ * when the fragment is only part of a note, so its footnotes keep the note's numbers.
  */
-export function fragmentToMarkdown(xmlFragment: Y.XmlFragment): string {
+export function fragmentToMarkdown(xmlFragment: Y.XmlFragment, numbers = footnoteNumbers(xmlFragment)): string {
+  const footnoteLabel = (node: Y.XmlElement) => {
+    const id = String(node.getAttribute('id') ?? '');
+    return `[^${numbers.get(id) ?? id}]`;
+  };
+
   // Backtick fence long enough to wrap text that itself contains backticks —
   // otherwise an interior ``` would prematurely close a code span/block and
   // corrupt everything after it.
@@ -81,6 +101,9 @@ export function fragmentToMarkdown(xmlFragment: Y.XmlFragment): string {
             if (latex) out += `$${latex}$`;
             break;
           }
+          case 'footnoteReference':
+            out += footnoteLabel(child);
+            break;
           default:
             out += serializeInline(child);
         }
@@ -228,6 +251,13 @@ export function fragmentToMarkdown(xmlFragment: Y.XmlFragment): string {
       }
       case 'table':
         return serializeTable(node);
+      case 'footnotes':
+        // `[^n]: text`, the note's later lines indented so they stay in it.
+        return node.toArray().map((note) => {
+          if (!(note instanceof Y.XmlElement)) return '';
+          const body = note.toArray().map((p) => (p instanceof Y.XmlElement ? serializeInline(p) : '')).join('\n\n');
+          return `${footnoteLabel(note)}: ${body.replace(/\n(?=.)/g, '\n    ')}`.trimEnd();
+        }).join('\n') + '\n\n';
       default:
         return serializeChildren(node, depth);
     }
