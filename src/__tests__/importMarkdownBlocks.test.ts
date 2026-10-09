@@ -10,6 +10,7 @@ const { saveDocumentUpdate, upsertSearchIndex } = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/db/queries', () => ({
     getAllFolders: vi.fn().mockResolvedValue([]),
+    upsertSyncRecord: vi.fn(),
     saveDocumentUpdate,
     upsertSearchIndex,
     createFolder: vi.fn(),

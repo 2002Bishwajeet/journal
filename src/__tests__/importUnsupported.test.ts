@@ -12,6 +12,7 @@ vi.mock('sonner', () => ({ toast }));
 vi.mock('@/components/auth', () => ({ useDotYouClientContext: () => ({}) }));
 vi.mock('@/lib/db/queries', () => ({
     getAllFolders: vi.fn().mockResolvedValue([]),
+    upsertSyncRecord: vi.fn(),
     saveDocumentUpdate: vi.fn(),
     upsertSearchIndex: vi.fn(),
     createFolder: vi.fn(),

@@ -24,6 +24,7 @@ import { COVER_MAP } from '@/lib/editor/cover';
 const { saveDocumentUpdate } = vi.hoisted(() => ({ saveDocumentUpdate: vi.fn() }));
 vi.mock('@/lib/db/queries', () => ({
   getAllFolders: vi.fn().mockResolvedValue([]),
+  upsertSyncRecord: vi.fn(),
   saveDocumentUpdate,
   upsertSearchIndex: vi.fn(),
   createFolder: vi.fn(),
