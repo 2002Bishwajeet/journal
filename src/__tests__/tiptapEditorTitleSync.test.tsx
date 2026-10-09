@@ -27,7 +27,7 @@ const meta = (title: string) => ({ title, timestamps: {} }) as unknown as Docume
 
 let root: Root;
 let host: HTMLElement;
-const field = () => host.querySelector<HTMLInputElement>('input[placeholder="Untitled"]')!;
+const field = () => host.querySelector<HTMLTextAreaElement>('textarea[placeholder="Untitled"]')!;
 const show = (title: string) =>
   act(async () => {
     root.render(createElement(TipTapEditor, { noteId: 'n', metadata: meta(title) }));

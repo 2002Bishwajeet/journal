@@ -52,8 +52,8 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
         >
           {/* ── Navigation: a strip under the title on phones, a left rail from md ── */}
           <nav className="flex min-w-0 shrink-0 flex-col border-b border-border/60 bg-muted/30 md:w-56 md:overflow-y-auto md:border-b-0 md:border-r">
-            {/* pr-12 on phones keeps the title clear of the dialog's close button. */}
-            <div className="pl-5 pr-12 pt-4 md:px-6 md:pt-7 md:pb-5">
+            {/* pr-12 and pb-2 on phones keep the title and tab strip clear of the dialog's close button. */}
+            <div className="pl-5 pr-12 pt-4 pb-2 md:px-6 md:pt-7 md:pb-5">
               <DialogTitle className="font-serif text-xl font-normal tracking-tight text-foreground md:text-2xl">
                 Settings
               </DialogTitle>

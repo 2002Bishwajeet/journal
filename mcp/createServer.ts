@@ -41,7 +41,7 @@ function json(x: unknown) {
 }
 
 /**
- * Builds the MCP server and wires its four read tools and six write tools to `deps`.
+ * Builds the MCP server and wires its four read tools and eight write tools to `deps`.
  * Lives outside mcp/server.ts (the CLI entry) so tests can connect it to an
  * in-memory transport with fake deps — no SDK/drive access needed for the real server to
  * be exercised. `clientName` comes from this server's own initialize handshake.
@@ -177,6 +177,38 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
             inputSchema: { id: z.string() },
         },
         async ({ id }) => json(await writeTools.deleteNote(deps, { id }))
+    );
+
+    server.registerTool(
+        'set_note_cover',
+        {
+            title: 'Set note cover',
+            description:
+                "Set the cover image of a Journal note with Read+write access, replacing its cover. `image` is an absolute path to a file on this computer (preferred: it costs no tokens) or a base64 `data:` URI. " +
+                'PNG, JPEG or WebP, at most 5 MB; metadata such as EXIF and GPS is removed before upload. Recommended size 2400×1260, at least 1200×630. ' +
+                '`positionY` is the vertical focal point, 0 (top) to 100 (bottom), default 50. ' +
+                "`dark: true` sets the cover shown in dark mode instead; the note must already have a cover. " +
+                'Use this rather than an image in an html block: the cover also feeds the link preview of a public note.',
+            inputSchema: {
+                id: z.string(),
+                image: z.string(),
+                positionY: z.number().min(0).max(100).optional(),
+                dark: z.boolean().optional(),
+            },
+        },
+        async ({ id, image, positionY, dark }) => json(await writeTools.setNoteCover(deps, { id, image, positionY, dark }))
+    );
+
+    server.registerTool(
+        'clear_note_cover',
+        {
+            title: 'Clear note cover',
+            description:
+                'Remove the cover image of a Journal note with Read+write access. This removes the dark-mode cover too; ' +
+                'with `dark: true` only the dark-mode cover is removed.',
+            inputSchema: { id: z.string(), dark: z.boolean().optional() },
+        },
+        async ({ id, dark }) => json(await writeTools.clearNoteCover(deps, { id, dark }))
     );
 
     return server;

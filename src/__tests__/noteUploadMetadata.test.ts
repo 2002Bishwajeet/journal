@@ -217,4 +217,20 @@ describe('addImageToNote — full upload metadata', () => {
             accessControlList: ACL[visibility],
         });
     });
+
+    it('with a natural size (no canvas, as in the MCP server) the image is its own one thumbnail', async () => {
+        mockGetHeader.mockResolvedValue({
+            fileId: 'file-1',
+            sharedSecretEncryptedKeyHeader: { encryptionVersion: 1 },
+            fileMetadata: { versionTag: 'v-existing', isEncrypted: true, payloads: [], appData: { content: existingContent('private') } },
+        } as unknown as HomebaseFile<NoteFileContent>);
+        const file = new Blob([new Uint8Array([1])], { type: 'image/jpeg' });
+
+        const { payloadKey } = await provider.addImageToNote(NOTE_ID, 'v1', { file, naturalSize: { pixelWidth: 2400, pixelHeight: 1260 } }, 3);
+
+        expect(payloadKey).toBe('jrnl_img3');
+        expect(mockCreateThumbnails).not.toHaveBeenCalled();
+        expect(mockPatch.mock.calls[0][4]).toMatchObject([{ key: 'jrnl_img3', payload: file }]);
+        expect(mockPatch.mock.calls[0][5]).toEqual([{ key: 'jrnl_img3', pixelWidth: 2400, pixelHeight: 1260, payload: file }]);
+    });
 });
