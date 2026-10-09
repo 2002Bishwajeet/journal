@@ -113,6 +113,14 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
   returns it (`id`, `old_text`, `new_text`). If `old_text` matches zero or several
   times the tool returns an error, so the agent can retry with more context.
   Example: *"In my Trip plan note, change the flight time from 9:40 to 10:15."*
+- `update_note` — rewrite a note's whole body (`markdown`), `title` and/or `tags` (`id`,
+  each optional). Blocks kept exactly as `get_note` returned them stay untouched. Pass
+  `get_note`'s `modified` as `expectedModified` to have the edit refused if the note
+  changed since.
+  Example: *"Redesign my Trip plan note as a day-by-day itinerary."*
+- `delete_note` — move a note to Journal's Trash (`id`), where you can restore it. It is
+  never deleted permanently.
+  Example: *"Delete the duplicate Trip plan note."*
 
 ## What the markdown can contain
 
