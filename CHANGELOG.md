@@ -1,3 +1,33 @@
+# [2.7.0](https://github.com/2002Bishwajeet/journal/compare/v2.6.0...v2.7.0) (2026-10-09)
+
+
+### Bug Fixes
+
+* **brand:** use the original app-icon quill and its colours ([f8d6765](https://github.com/2002Bishwajeet/journal/commit/f8d6765bbd11a29f064300e4fdaab39d1b946eeb)), closes [#67665E](https://github.com/2002Bishwajeet/journal/issues/67665E) [#F6F1E5](https://github.com/2002Bishwajeet/journal/issues/F6F1E5)
+* **editor:** keep image spacing unchanged; move margin only onto OdinImage's clip box ([#552](https://github.com/2002Bishwajeet/journal/issues/552)) ([aa20504](https://github.com/2002Bishwajeet/journal/commit/aa205049608c35acc701c012f907c69ebdd57425))
+* **editor:** move body image margin onto the image box so it isn't clipped ([#552](https://github.com/2002Bishwajeet/journal/issues/552)) ([91465a1](https://github.com/2002Bishwajeet/journal/commit/91465a1827fe0c0f80e337d94425f891ec08425f))
+* **editor:** stop ProseMirror separator picking up prose img spacing ([#536](https://github.com/2002Bishwajeet/journal/issues/536)) ([a7c2130](https://github.com/2002Bishwajeet/journal/commit/a7c2130cb4331c600e0bb9b028d17ba79c04a52a))
+* **editor:** sync title field when title changes elsewhere ([#534](https://github.com/2002Bishwajeet/journal/issues/534)) ([ba67720](https://github.com/2002Bishwajeet/journal/commit/ba67720d3c9e678e89942718b83f107b8af9957f))
+* **import:** list preview from the built note, and sync right after import ([#533](https://github.com/2002Bishwajeet/journal/issues/533)) ([2974139](https://github.com/2002Bishwajeet/journal/commit/29741390b5f93be02661203741ec22df4331b3bf))
+* **live-blocks:** clearer Close button, plain Expand focus ring, no resize grip ([8747ed7](https://github.com/2002Bishwajeet/journal/commit/8747ed72869c9b7162fa65e55052afc4a1b8a3c2)), closes [#412](https://github.com/2002Bishwajeet/journal/issues/412)
+* **mcp:** dry-run image edits before uploading so a rejected edit leaves no orphan payloads ([#415](https://github.com/2002Bishwajeet/journal/issues/415)) ([b3c7d20](https://github.com/2002Bishwajeet/journal/commit/b3c7d2019e9cdd9eb5410b24edcaea4fca887926))
+* **notes:** reword Move to Trash dialog as restorable ([#535](https://github.com/2002Bishwajeet/journal/issues/535)) ([e062bdd](https://github.com/2002Bishwajeet/journal/commit/e062bdd6cd9021be5496278a7d75a49fbd68c72d))
+* **share:** cache-bust share page payload reads on the file's updated time ([#543](https://github.com/2002Bishwajeet/journal/issues/543)) ([4ca1319](https://github.com/2002Bishwajeet/journal/commit/4ca1319eb3dae4193dc508c0f63acb0d461bde39))
+
+
+### Features
+
+* **brand:** v3.0.0 brand kit, positioning draft and HyperFrames video scaffold ([851f90c](https://github.com/2002Bishwajeet/journal/commit/851f90c10c5335a75e7be631eb175b6d84c72e97))
+* **import:** import a zip's relative images as note images ([#533](https://github.com/2002Bishwajeet/journal/issues/533)) ([93693ce](https://github.com/2002Bishwajeet/journal/commit/93693ce7e862192b16bc32b284812fdda63c26ae))
+* **import:** parse imported markdown into real blocks ([#533](https://github.com/2002Bishwajeet/journal/issues/533)) ([c89d775](https://github.com/2002Bishwajeet/journal/commit/c89d7753dae1a57faf391e35cd3547c40a8d65fb))
+* **live-blocks:** centre and cap wide blocks; layout guidance for agents ([d53f2ea](https://github.com/2002Bishwajeet/journal/commit/d53f2eacedac858dd5f0a9aa956866ca78ad9a4b))
+* **live-blocks:** react blocks get real shadows, arbitrary values, md:/lg: and opt-in raw palette ([#559](https://github.com/2002Bishwajeet/journal/issues/559)) ([1315e1c](https://github.com/2002Bishwajeet/journal/commit/1315e1c64909c5b957891142b7dcf535b8ffaa8b))
+* **live-blocks:** react blocks import d3, three, lodash, mathjs, papaparse and journal-ui ([#558](https://github.com/2002Bishwajeet/journal/issues/558)) ([3669518](https://github.com/2002Bishwajeet/journal/commit/3669518a5e87f5d229436a734f37f4f3ccfbf1fb))
+* **live-blocks:** wide blocks and fullscreen ([#557](https://github.com/2002Bishwajeet/journal/issues/557)) ([b314855](https://github.com/2002Bishwajeet/journal/commit/b31485543d06a440fc4fc04e8420a3fd2fd9046d))
+* **mcp:** block-level editing with get_note blocks and edit_block ([#560](https://github.com/2002Bishwajeet/journal/issues/560)) ([92caf6f](https://github.com/2002Bishwajeet/journal/commit/92caf6ff1eb03e3eec5f4ce0445593f48f14d72a))
+* **mcp:** note-to-note links and link-preview cards round-trip in markdown ([#561](https://github.com/2002Bishwajeet/journal/issues/561)) ([11f5f44](https://github.com/2002Bishwajeet/journal/commit/11f5f4483476671b9cac9eef244ca08ab9fbf2e3))
+* **mcp:** server instructions, get_authoring_guide and round-trip tests ([#519](https://github.com/2002Bishwajeet/journal/issues/519)) ([9e9d07d](https://github.com/2002Bishwajeet/journal/commit/9e9d07df099d6db9dc401226e8b200f3d9c878f1))
+* **mcp:** upload local and data: URI images in note markdown ([#415](https://github.com/2002Bishwajeet/journal/issues/415)) ([77ab12b](https://github.com/2002Bishwajeet/journal/commit/77ab12ba8a53d033e3bbd4e3205c83b77629945b))
 # [2.6.0](https://github.com/2002Bishwajeet/journal/compare/v2.5.2...v2.6.0) (2026-10-09)
 
 

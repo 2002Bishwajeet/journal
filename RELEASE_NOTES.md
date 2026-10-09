@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.7.0 (2026-10-09)
+
 ### New
 
 - An HTML or React block can be wide. A wide block uses more of the page and stays centred under the text.
