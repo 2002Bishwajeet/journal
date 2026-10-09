@@ -141,7 +141,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto(`/share/${MIXED}`);
       await expect(page.getByRole('heading', { level: 1, name: 'Edge Author' })).toBeVisible();
       await expect(page.getByRole('listitem')).toHaveCount(2);
-      await expect(page.getByRole('link', { name: 'Newer indexable note' })).toHaveAttribute('href', new RegExp(`/share/${MIXED}/${id(2)}$`));
+      await expect(page.getByRole('link', { name: 'Newer indexable note' })).toHaveAttribute('href', new RegExp(`/share/${MIXED.replaceAll('.', '\\.')}/${id(2)}$`));
       const logo = page.getByRole('banner').locator('img');
       await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
