@@ -101,6 +101,8 @@ for (const theme of THEMES) {
       await expect(pageHeader(page)).toHaveAttribute('data-scrolled', 'false');
       await expect(pageHeader(page).getByRole('link', { name: 'Save a copy' })).toBeVisible();
       await expect(pageHeader(page).getByRole('link', { name: 'Open Journal' })).toBeVisible();
+      // #515: the author's index, rendered by the Pages Function.
+      await expect(pageHeader(page).getByRole('link', { name: 'More notes' })).toHaveAttribute('href', `/share/${AUTHOR}`);
 
       // One row, and nothing sideways.
       const { height } = (await pageHeader(page).boundingBox())!;
@@ -134,20 +136,22 @@ for (const theme of THEMES) {
       await expectLogoHeader(page);
       await expect(pageHeader(page).getByRole('link', { name: 'Open Journal' })).toBeVisible();
       await expect(pageHeader(page).getByRole('link', { name: 'Save a copy' })).toHaveCount(0);
+      await expect(pageHeader(page).getByRole('link', { name: 'More notes' })).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       await shoot(page, `share-header-error-${theme}-${width}.png`);
     });
   }
 }
 
-test('share header: the logo, "Save a copy" and "Open Journal" are reachable by keyboard, in order', async ({ anonPage: page }) => {
+test('share header: the logo, "More notes", "Save a copy" and "Open Journal" are reachable by keyboard, in order', async ({ anonPage: page }) => {
   await page.setViewportSize(VIEWPORTS[390]);
   await openNote(page);
   await expect(page.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
 
-  // At 390px "Open Journal" is an icon; its accessible name is still the label.
+  // At 390px "More notes" and "Open Journal" are icons; their accessible names are still the labels.
   const order = [
     homeLink(page),
+    pageHeader(page).getByRole('link', { name: 'More notes' }),
     pageHeader(page).getByRole('link', { name: 'Save a copy' }),
     pageHeader(page).getByRole('link', { name: 'Open Journal' }),
   ];
@@ -155,7 +159,7 @@ test('share header: the logo, "Save a copy" and "Open Journal" are reachable by 
     await page.keyboard.press('Tab');
     await expect(link).toBeFocused();
   }
-  await expect(order[2]).toHaveAttribute('href', '/');
+  await expect(order[3]).toHaveAttribute('href', '/');
 });
 
 test('share header: the logo goes to "/"', async ({ app }) => {
