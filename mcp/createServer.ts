@@ -6,7 +6,8 @@ import type { WriteDeps } from './tools/write';
 
 /**
  * Shared by the tools that take markdown: tells agents which fenced blocks render live in Journal.
- * The hosts are HTML_BLOCK_CDN_HOSTS in src/lib/liveBlocks.ts (mcpServer.test.ts holds the two together).
+ * The hosts are HTML_BLOCK_CDN_HOSTS in src/lib/liveBlocks.ts, a react block's imports REACT_BLOCK_IMPORTS
+ * in src/lib/reactBlockLibraries.ts (mcpServer.test.ts holds them together).
  */
 const LIVE_BLOCKS =
     ' Fenced code blocks with language `mermaid`, `svg`, `html` or `react` render live in Journal. ' +
@@ -19,7 +20,14 @@ const LIVE_BLOCKS =
     ' A `react` block is JSX that defines a component named `App`, or exports one as default. ' +
     "Journal compiles it and runs it on the app's own React, in the same sandbox as an `html` block, with no CDN script. " +
     'Hooks are on `React` (`React.useState`), and `useState`, `useEffect`, `useRef`, `useMemo` and `useReducer` also work without the prefix. ' +
-    'It can import only from `react`, `recharts` and `lucide-react`. ' +
+    'It can import only from `react`, `recharts`, `lucide-react`, `d3`, `three`, `lodash-es` (also as `lodash`), `mathjs`, `papaparse` and `journal-ui`. ' +
+    "`journal-ui` is Journal's UI kit under shadcn/ui's names; prefer it to hand-styled controls: " +
+    '`Button` (`variant` default, secondary, outline, ghost, destructive or link; `size` sm, lg or icon), ' +
+    '`Card` with `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` and `CardFooter`, `Tabs` with `TabsList`, `TabsTrigger` and `TabsContent`, ' +
+    "`Input`, `Select` (the browser's own: `<Select value onValueChange placeholder>` holding `<SelectItem value>`; no SelectTrigger), " +
+    '`Slider` (`value={[n]}` and `onValueChange`), `Switch` (`checked` and `onCheckedChange`), `Badge` and `Progress` (`value` 0 to 100). ' +
+    'Libraries have no network either, so give them data inline (`Papa.parse` a string, never `d3.csv` a URL); ' +
+    "code that needs eval fails, such as `d3.csvParse` (use papaparse) and lodash's `template`. " +
     "`className` takes Tailwind classes drawn in Journal's theme, in light and dark with no `dark:` variant: " +
     'prefer the theme names (`bg-muted`, `text-muted-foreground`, `border`); palette names such as `bg-blue-500` map to the theme too. ' +
     'Recharts charts take the theme without colour props: series use `--chart-2` … `--chart-5` in order, grid and axes the border and muted text colours. ' +

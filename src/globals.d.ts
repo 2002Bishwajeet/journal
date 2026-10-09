@@ -25,6 +25,12 @@ declare module 'virtual:react-block-lucide' {
   export default script;
 }
 
+/** Any other library a react block can import, as the text of a script that sets its global (REACT_BLOCK_LIBRARIES, #558). */
+declare module 'virtual:react-block-*' {
+  const script: string;
+  export default script;
+}
+
 /** Installed only in e2e mode on an allowlisted test origin — see src/lib/e2e/testHooks.ts. */
 interface JournalE2EHooks {
   /** Resolves once boot phase db-ready has fired and the boot splash has been replaced by the app UI. */

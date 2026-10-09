@@ -8,6 +8,7 @@ import type { AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
 import { createDoc } from '@/lib/agent/editEngine';
 import { HTML_BLOCK_CDN_HOSTS } from '@/lib/liveBlocks';
+import { REACT_BLOCK_IMPORTS } from '@/lib/reactBlockLibraries';
 
 const GRANTS: AgentGrants = { version: 1, folders: { F1: 'read' }, notes: {} };
 const WRITE_GRANTS: AgentGrants = { version: 1, folders: { F1: 'write' }, notes: {} };
@@ -150,8 +151,8 @@ describe('createJournalMcpServer', () => {
                 'defines a component named `App`',
                 'or exports one as default',
                 '`useState`, `useEffect`, `useRef`, `useMemo` and `useReducer`',
-                // #427
-                'It can import only from `react`, `recharts` and `lucide-react`.',
+                // #427, #558
+                "`journal-ui` is Journal's UI kit under shadcn/ui's names",
                 "`className` takes Tailwind classes drawn in Journal's theme",
                 'Recharts charts take the theme without colour props',
                 'State is lost on reload',
@@ -162,6 +163,9 @@ describe('createJournalMcpServer', () => {
             ]) {
                 expect(tool.description).toContain(text);
             }
+            // Every module a react block can import (REACT_BLOCK_IMPORTS), and no other.
+            const imports = tool.description!.match(/It can import only from ([^.]*)\./)?.[1] ?? '';
+            expect([...imports.matchAll(/`([^`]+)`/g)].map((match) => match[1]).sort()).toEqual([...REACT_BLOCK_IMPORTS].sort());
             // The rules come before the sentence that applies them to react blocks.
             expect(tool.description!.indexOf('(5) The block sizes itself')).toBeLessThan(tool.description!.indexOf('These rules apply to a `react` block'));
         }
