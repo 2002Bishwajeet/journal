@@ -44,7 +44,7 @@ export default function TipTapEditor({
   const { editor, isLoading } = useEditorContext();
   const deviceType = useDeviceType();
   const [title, setTitle] = useState(metadata.title);
-  const titleInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLTextAreaElement>(null);
 
   const [wordCount, setWordCount] = useState({ words: 0, characters: 0 });
   const wordCountTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -115,13 +115,19 @@ export default function TipTapEditor({
 
         {/* Title input */}
         <div className="px-4 pt-4 pb-2">
-          <input
+          {/* Wraps up to three lines, then scrolls. A title is one line: Enter and pasted newlines don't break it.
+              ponytail: field-sizing grows it; a browser without it shows one scrolling row, add JS autosize if that matters. */}
+          <textarea
             ref={titleInputRef}
-            type="text"
+            rows={1}
             value={title}
-            onChange={(e) => handleTitleChange(e.target.value)}
+            onChange={(e) => handleTitleChange(e.target.value.replace(/\s*\n\s*/g, " "))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.preventDefault();
+            }}
             placeholder="Untitled"
-            className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder:text-gray-400 dark:text-white"
+            aria-label="Note title"
+            className="block w-full max-h-[3lh] resize-none overflow-y-auto [field-sizing:content] text-3xl font-bold bg-transparent border-none outline-none placeholder:text-gray-400 dark:text-white"
           />
         </div>
       </div>
