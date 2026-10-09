@@ -103,6 +103,8 @@ async function expectFullscreen(page: Page, block: Locator, shot: string): Promi
   await block.getByRole('button', { name: 'Expand' }).click();
   await close.click();
   await expect.poll(() => isFullscreen(block)).toBe(false);
+  // A mouse Close leaves no focus ring behind on Expand.
+  expect(await block.getByRole('button', { name: 'Expand' }).evaluate((el) => el.matches(':focus-visible'))).toBe(false);
   await expect(out).toHaveText(`count: ${count + 1}`);
 }
 
@@ -227,6 +229,8 @@ for (const theme of THEMES) {
     // The frame is lazy: it loads once it is near the viewport.
     await block.scrollIntoViewIfNeeded();
     await expect(htmlFrame(block).locator('#out')).toHaveText('count: 3');
+    // A reader cannot drag the box taller: no resize handle on the share page.
+    expect(await boxOf(block).evaluate((el) => getComputedStyle(el).resize)).toBe('none');
 
     for (const viewport of [1280, 390] as const) {
       await anonPage.setViewportSize(VIEWPORTS[viewport]);
