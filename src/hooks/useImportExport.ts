@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useDotYouClientContext } from "@/components/auth";
+import { useSyncService } from "@/hooks/useSyncService";
 
 export interface UseImportExportReturn {
     // State
@@ -16,6 +17,7 @@ export function useImportExport(): UseImportExportReturn {
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const dotYouClient = useDotYouClientContext();
+    const { sync } = useSyncService();
 
     const handleExport = useCallback(async () => {
         try {
@@ -39,6 +41,8 @@ export function useImportExport(): UseImportExportReturn {
             setIsImporting(true);
             const { ImportService } = await import("@/lib/importexport/ImportService");
             const result = await ImportService.importFiles(files);
+            // Upload the imported notes (and then their images) now, not on the next sync trigger.
+            if (result.imported > 0 || result.foldersCreated > 0) void sync();
 
             if (result.failed > 0) {
                 const noun = result.failed === 1 ? "file" : "files";
@@ -57,7 +61,7 @@ export function useImportExport(): UseImportExportReturn {
         } finally {
             setIsImporting(false);
         }
-    }, []);
+    }, [sync]);
 
     return {
         isExporting,

@@ -10,6 +10,8 @@ const { toast } = vi.hoisted(() => ({
 }));
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@/components/auth', () => ({ useDotYouClientContext: () => ({}) }));
+const { sync } = vi.hoisted(() => ({ sync: vi.fn(async () => {}) }));
+vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ sync }) }));
 vi.mock('@/lib/db/queries', () => ({
     getAllFolders: vi.fn().mockResolvedValue([]),
     upsertSyncRecord: vi.fn(),
@@ -45,6 +47,8 @@ describe('importing an unsupported file', () => {
         expect(toast.warning).toHaveBeenCalledWith(
             "Imported 0 notes. 2 files couldn't be imported (e.g. notes.txt)."
         );
+        // Nothing imported, so nothing to sync.
+        expect(sync).not.toHaveBeenCalled();
         await act(async () => { root.unmount(); });
     });
 });

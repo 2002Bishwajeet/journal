@@ -42,6 +42,11 @@ describe('markdown import', () => {
         const result = await ImportService.importFiles([new File([MD], 'x.md', { type: 'text/markdown' })]);
         expect(result.imported).toBe(1);
         expect(upsertSearchIndex.mock.calls[0][0].title).toBe('Imported title');
+        // The list preview is the note's text, not its markdown syntax.
+        const preview: string = upsertSearchIndex.mock.calls[0][0].plainTextContent;
+        expect(preview).toMatch(/^Heading/);
+        expect(preview).not.toContain('# ');
+        expect(preview).not.toContain('```');
 
         const ydoc = new Y.Doc();
         Y.applyUpdate(ydoc, saveDocumentUpdate.mock.calls[0][1] as Uint8Array);

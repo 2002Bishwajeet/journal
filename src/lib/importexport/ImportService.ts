@@ -4,6 +4,7 @@ import { saveDocumentUpdate, upsertSearchIndex, createFolder, getAllFolders, sav
 import { prepareImageForUpload } from '@/lib/images/imageIngest';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
+import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import * as Y from 'yjs';
 import type { DocumentMetadata } from '@/types';
 
@@ -149,7 +150,8 @@ async function importMarkdown(
     await upsertSearchIndex({
         docId,
         title: metadata.title,
-        plainTextContent: content,
+        // From the built note, so the list preview and search read text, not markdown syntax
+        plainTextContent: await extractPreviewTextFromYjs(docId, updateBlob),
         metadata
     });
     await upsertSyncRecord({ localId: docId, entityType: 'note', syncStatus: 'pending' });
