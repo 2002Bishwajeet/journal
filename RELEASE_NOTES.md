@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- In a code block, Select All selects only the code. Press it again to select the whole note.
+
 ## 2.7.0 (2026-10-09)
 
 ### New
