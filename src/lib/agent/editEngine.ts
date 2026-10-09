@@ -26,13 +26,64 @@ export const editorSchema = getSchema(extensions);
 
 const md = new MarkdownManager({ extensions });
 
+/** Image srcs in parsed markdown that are neither remote nor already attached: files and data: URIs. */
+const isLocalImageSrc = (src: string) => !/^(https?|attachment|blob):/i.test(src);
+
 /**
- * Markdown -> ProseMirror. A `[^n]` the note already has is that footnote
+ * The markdown parser returns an image that is alone on its line as a block of its own,
+ * which the schema doesn't allow (image is inline) and the serializer drops: put it in a paragraph.
+ */
+function wrapBlockImages(node: JSONContent) {
+  if (!node.content) return;
+  const holdsInline = !!node.type && editorSchema.nodes[node.type]?.inlineContent;
+  node.content = node.content.map((child) =>
+    child.type === 'image' && !holdsInline ? { type: 'paragraph', content: [child] } : child
+  );
+  node.content.forEach(wrapBlockImages);
+}
+
+function parseJson(markdown: string): JSONContent {
+  const json = md.parse(markdown);
+  wrapBlockImages(json);
+  return json;
+}
+
+function walkImages(node: JSONContent, visit: (image: JSONContent) => void) {
+  if (node.type === 'image') visit(node);
+  node.content?.forEach((child) => walkImages(child, visit));
+}
+
+/** The distinct local file paths and `data:` URIs of the images in `markdown`, in order. */
+export function localImageSources(markdown: string): string[] {
+  const found = new Set<string>();
+  walkImages(parseJson(markdown), (image) => {
+    const src = image.attrs?.src;
+    if (typeof src === 'string' && src && isLocalImageSrc(src)) found.add(src);
+  });
+  return [...found];
+}
+
+function swapImageSrcs(json: JSONContent, imageSrcs: ReadonlyMap<string, string>) {
+  walkImages(json, (image) => {
+    const next = imageSrcs.get(String(image.attrs?.src));
+    if (next) image.attrs = { ...image.attrs, src: next };
+  });
+}
+
+/**
+ * Markdown -> ProseMirror. `imageSrcs` swaps image srcs (a local path for its uploaded
+ * `attachment://…`) before the nodes are built. A `[^n]` the note already has is that footnote
  * (`existing[n - 1]`); any other label gets a new id. With `newDefinitions`
  * (appended text), a label the markdown defines is always a new footnote.
  */
-function parseMarkdown(markdown: string, existing: string[] = [], newDefinitions = false): PMNode {
-  const json = md.parse(markdown);
+function parseMarkdown(
+  markdown: string,
+  existing: string[] = [],
+  newDefinitions = false,
+  imageSrcs?: ReadonlyMap<string, string>
+): PMNode {
+  const json = parseJson(markdown);
+  if (imageSrcs?.size) swapImageSrcs(json, imageSrcs);
   const footnoteNodes: JSONContent[] = [];
   const collect = (node: JSONContent) => {
     if (node.type === 'footnoteReference' || node.type === 'footnote') footnoteNodes.push(node);
@@ -69,9 +120,9 @@ function write(doc: Y.Doc, pmDoc: PMNode): void {
   doc.transact(() => updateYFragment(doc, fragment, tr.doc, { mapping: new Map(), isOMark: new Map() }), 'agent');
 }
 
-export function appendMarkdown(doc: Y.Doc, markdown: string): void {
+export function appendMarkdown(doc: Y.Doc, markdown: string, imageSrcs?: ReadonlyMap<string, string>): void {
   const current = read(doc);
-  const added = parseMarkdown(markdown, footnoteOrder(current), true);
+  const added = parseMarkdown(markdown, footnoteOrder(current), true, imageSrcs);
   const first = current.firstChild;
   const isEmpty = current.childCount === 1 && first?.type.name === 'paragraph' && first.content.size === 0;
   write(doc, isEmpty ? current.copy(added.content) : current.copy(current.content.append(added.content)));
@@ -101,7 +152,7 @@ const hasLossyNode = (block: PMNode) => {
  * blocks the single match spans are re-parsed from markdown; every other block
  * stays the original ProseMirror node read from Yjs.
  */
-export function replaceInNote(doc: Y.Doc, oldText: string, newText: string): void {
+export function replaceInNote(doc: Y.Doc, oldText: string, newText: string, imageSrcs?: ReadonlyMap<string, string>): void {
   const current = read(doc);
   const blocks: PMNode[] = [];
   current.forEach((b) => blocks.push(b));
@@ -142,7 +193,7 @@ export function replaceInNote(doc: Y.Doc, oldText: string, newText: string): voi
   const rangeMd = joined.slice(rangeStart, rangeEnd);
   const replaced = rangeMd.slice(0, at - rangeStart) + newText + rangeMd.slice(end - rangeStart);
   const next: PMNode[] = [...blocks.slice(0, from)];
-  parseMarkdown(replaced, footnotes).forEach((n) => next.push(n));
+  parseMarkdown(replaced, footnotes, false, imageSrcs).forEach((n) => next.push(n));
   next.push(...blocks.slice(to + 1));
   write(doc, current.copy(Fragment.fromArray(next)));
 }
@@ -161,7 +212,7 @@ function findBlock(text: string, block: string, from: number): number {
  * `toMarkdown` returns it) appears unchanged, in order, keeps its original node read from
  * Yjs, so note links and images in kept blocks survive; only the rest is parsed from markdown.
  */
-export function setMarkdown(doc: Y.Doc, markdown: string): void {
+export function setMarkdown(doc: Y.Doc, markdown: string, imageSrcs?: ReadonlyMap<string, string>): void {
   const current = read(doc);
   const footnotes = footnoteOrder(current);
   const numbers = new Map(footnotes.map((id, i) => [id, i + 1]));
@@ -182,14 +233,14 @@ export function setMarkdown(doc: Y.Doc, markdown: string): void {
 
   const next: PMNode[] = [];
   let reused = 0;
-  parseMarkdown(text, footnotes).forEach((n) => {
+  parseMarkdown(text, footnotes, false, imageSrcs).forEach((n) => {
     const original = n.type.name === 'paragraph' ? kept.get(n.textContent) : undefined;
     if (original) reused++;
     next.push(original ?? n);
   });
   // A placeholder that didn't come back as its own paragraph (say, inside a code fence) would
   // leak into the note: then parse the markdown as given, without reuse.
-  write(doc, reused === kept.size ? current.copy(Fragment.fromArray(next)) : parseMarkdown(markdown, footnotes));
+  write(doc, reused === kept.size ? current.copy(Fragment.fromArray(next)) : parseMarkdown(markdown, footnotes, false, imageSrcs));
 }
 
 /**

@@ -144,6 +144,12 @@ tables, links, code), these render as richer blocks in Journal:
 - **Footnotes** — `text[^1]` with `[^1]: the note` on its own line. Journal numbers them
   by reference order and keeps the notes at the end; in `append_to_note`, a `[^n]` with a
   definition is a new footnote, one without points at the note's existing footnote n.
+- **Images** — `![alt](/path/to/file.png)` (wrap the path in `<>` if it has spaces) or
+  `![alt](data:image/png;base64,…)` in `create_note`, `append_to_note`, `replace_in_note`'s
+  `new_text` and `update_note` is uploaded to the note and shown there, as a cover is.
+  PNG, JPEG or WebP up to 5 MB, metadata removed. If any image is invalid the call fails and
+  nothing is written. `https://` URLs are left as they are, not fetched. `get_note` returns
+  an uploaded image as `![alt](attachment://…)`; keep that as it is to keep the image.
 - **Live blocks** — a fenced code block whose language is `mermaid`, `svg`, `html` or `react`.
   Journal shows a preview with a Code / Preview toggle, in the editor and on the note's
   public share page.
