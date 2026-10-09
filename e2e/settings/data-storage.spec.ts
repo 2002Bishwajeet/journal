@@ -1,5 +1,12 @@
 import { test, expect } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { createRequire } from 'node:module';
+import type JSZipType from 'jszip';
+import { makeSolidPng } from '../support/png';
+import { activeEditor, openNote, selectFolder } from '../support/actions';
+
+// jszip's CommonJS entry trips Playwright's ESM loader; its single-file bundle loads fine.
+const JSZip = createRequire(import.meta.url)('jszip/dist/jszip.min.js') as typeof JSZipType;
 
 // Settings: Data & storage shows real device storage info and imports/exports
 // Markdown (#214).
@@ -35,6 +42,37 @@ test('storage info, .md and .txt import toasts, export downloads a zip', async (
   const download = app.waitForEvent('download');
   await panel.getByRole('button', { name: 'Export All Notes' }).click();
   expect((await download).suggestedFilename()).toMatch(/^journal-export-.*\.zip$/);
+});
+
+// #533: a zip's relative images become the note's own (pending upload) images.
+test('zip import turns relative images into note images', async ({ app }) => {
+  await app.setViewportSize({ width: 1280, height: 800 });
+  await assertTestOrigin(app);
+
+  const folder = `Imported ${Date.now()}`;
+  const zip = new JSZip();
+  zip.file(`${folder}/Trip.md`, '# Trip\n\n![Red square](assets/red%20square.png)\n\n![Gone](assets/gone.png)\n');
+  zip.file(`${folder}/assets/red square.png`, makeSolidPng(800, 600, [200, 30, 30]));
+
+  await app.getByRole('button', { name: 'Settings' }).click();
+  const dialog = app.getByRole('dialog');
+  await dialog.getByRole('tab', { name: 'Data & storage' }).click();
+  await dialog.locator('input[type="file"]').setInputFiles({
+    name: 'export.zip',
+    mimeType: 'application/zip',
+    buffer: await zip.generateAsync({ type: 'nodebuffer' }),
+  });
+  await expect(app.getByText('Successfully imported 1 notes')).toBeVisible();
+  await app.keyboard.press('Escape');
+
+  await selectFolder(app, folder);
+  await openNote(app, 'Trip');
+  const img = activeEditor(app).locator('img[alt="Red square"]');
+  await expect(img).toBeVisible();
+  await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
+  // The missing image stays readable as its alt text
+  await expect(activeEditor(app).getByText('Gone')).toBeVisible();
+  await expect(activeEditor(app).locator('img[alt="Gone"]')).toHaveCount(0);
 });
 
 // navigator.storage.persist() is browser-dependent, so either outcome is fine —
