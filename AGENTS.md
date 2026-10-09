@@ -500,7 +500,7 @@ npm run mcp        # local MCP server (see mcp/README.md)
 
 `/implement <epic#|issue#…>` (`.claude/commands/implement.md`) works every unblocked `agent-ready` issue unattended:
 
-- `scripts/harness/select.mjs` picks issues: open, `agent-ready`, not `needs-design`/`blocked`, no open PR, and every issue on its `Depends on:` line closed. Epics expand recursively to their sub-issues, so `/implement 163` (the backlog tracker) covers everything.
+- `scripts/harness/select.mjs` picks issues: open, `agent-ready`, not `needs-design`/`blocked`, no open PR, and every issue on its `Depends on:` line closed. Epics expand recursively to their sub-issues. The `agent-ready` label is the queue; pass issue or epic numbers.
 - The `implement-epic` workflow (`.claude/workflows/implement-epic.js`) runs 2 issues at a time: an implementer in its own worktree (effort follows `Size:`), a fresh Sonnet verifier that runs the issue's `## Verification` (e2e first) and reviews the diff, 1 fix round, then a PR labelled `agent-harness` with `Closes #N` and the check table.
 - `--dry` prints the selection table and starts nothing. `--loop` waits for you to merge/close an `agent-harness` PR, then selects the next wave (stops when nothing is left, or after 12 h). `--max N` caps a wave (default 3). Start it from a fresh session to keep token use down.
 - A STOP condition or still-failing verification comments on the issue and adds `blocked`; remove the label to make it selectable again.
