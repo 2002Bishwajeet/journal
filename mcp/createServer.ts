@@ -41,7 +41,7 @@ function json(x: unknown) {
 }
 
 /**
- * Builds the MCP server and wires its four read tools and four write tools to `deps`.
+ * Builds the MCP server and wires its four read tools and six write tools to `deps`.
  * Lives outside mcp/server.ts (the CLI entry) so tests can connect it to an
  * in-memory transport with fake deps — no SDK/drive access needed for the real server to
  * be exercised. `clientName` comes from this server's own initialize handshake.
@@ -145,6 +145,38 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
             inputSchema: { id: z.string(), old_text: z.string(), new_text: z.string() },
         },
         async ({ id, old_text, new_text }) => json(await writeTools.replaceInNote(deps, { id, old_text, new_text }))
+    );
+
+    server.registerTool(
+        'update_note',
+        {
+            title: 'Update note',
+            description:
+                "Rewrite a Journal note with Read+write access: its whole body as markdown, its title and/or its tags (tags replace the note's tags). " +
+                'Use it instead of creating a second note. Blocks you keep exactly as get_note returned them stay untouched, note links and images included. ' +
+                "Pass get_note's `modified` as expectedModified to refuse the edit if the note changed since. Merges with concurrent edits." +
+                LIVE_BLOCKS,
+            inputSchema: {
+                id: z.string(),
+                markdown: z.string().optional(),
+                title: z.string().optional(),
+                tags: z.array(z.string()).optional(),
+                expectedModified: z.string().optional(),
+            },
+        },
+        async ({ id, markdown, title, tags, expectedModified }) =>
+            json(await writeTools.updateNote(deps, { id, markdown, title, tags, expectedModified }))
+    );
+
+    server.registerTool(
+        'delete_note',
+        {
+            title: 'Delete note',
+            description:
+                "Move a Journal note with Read+write access to Journal's Trash, where the owner can restore it. Never deletes permanently.",
+            inputSchema: { id: z.string() },
+        },
+        async ({ id }) => json(await writeTools.deleteNote(deps, { id }))
     );
 
     return server;
