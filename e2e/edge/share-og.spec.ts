@@ -10,6 +10,7 @@ test.skip(!!process.env.E2E_EDGE_BASE_URL, 'needs the local upstream fixture');
 const OK_NOTE = '11111111-1111-1111-1111-111111111111';
 const FAILING_NOTE = '11111111-1111-1111-1111-222222222222';
 const CARD_NOTE = '11111111-1111-1111-1111-333333333333';
+const NO_COVER_NOTE = '11111111-1111-1111-1111-444444444444';
 const TWITTERBOT = { 'User-Agent': 'Twitterbot/1.0' };
 const CHROME = {
   'User-Agent':
@@ -57,6 +58,18 @@ test.beforeAll(async () => {
           },
         });
       }
+      if (id === NO_COVER_NOTE) {
+        return json(200, {
+          fileId: 'aaaaaaaa-0000-0000-0000-000000000004',
+          fileMetadata: {
+            isEncrypted: false,
+            appData: {
+              content: JSON.stringify({ title: 'Edge Plain', card: { description: 'Edge D', cardImageKey: 'jrnl_card' } }),
+            },
+            payloads: [{ key: 'jrnl_card' }],
+          },
+        });
+      }
       if (id === FAILING_NOTE) return json(500, {});
     }
     json(404, {});
@@ -101,6 +114,19 @@ test('a note with a card image unfurls with it, at 1200×630 (#441)', async ({ r
     /property="og:image" content="https:\/\/edge\.example\.com\/api\/guest\/v1\/drive\/files\/payload\?[^"]*fileId=aaaaaaaa-0000-0000-0000-000000000003&amp;key=jrnl_card"/,
   );
   expect(html).toMatch(/name="twitter:image" content="[^"]*\/api\/guest\/v1\/drive\/files\/payload\?[^"]*key=jrnl_card"/);
+  expect(html).toContain('property="og:image:width" content="1200"');
+  expect(html).toContain('property="og:image:height" content="630"');
+  expect(html).toContain('name="twitter:card" content="summary_large_image"');
+});
+
+test('a note with no cover unfurls with its designed card, as a large image (#434)', async ({ request }) => {
+  const res = await request.get(`/share/edge.example.com/${NO_COVER_NOTE}`, { headers: TWITTERBOT });
+  expect(res.status()).toBe(200);
+  const html = await res.text();
+  expect(html).toMatch(
+    /property="og:image" content="https:\/\/edge\.example\.com\/api\/guest\/v1\/drive\/files\/payload\?[^"]*fileId=aaaaaaaa-0000-0000-0000-000000000004&amp;key=jrnl_card"/,
+  );
+  expect(html).not.toContain('banner.webp');
   expect(html).toContain('property="og:image:width" content="1200"');
   expect(html).toContain('property="og:image:height" content="630"');
   expect(html).toContain('name="twitter:card" content="summary_large_image"');

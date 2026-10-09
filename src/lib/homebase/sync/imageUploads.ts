@@ -12,21 +12,12 @@ import {
 } from '@/lib/db';
 import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
-import { COVER_MAP, getCover, setCover, setDarkCover } from '@/lib/editor/cover';
-import { PAYLOAD_KEY_IMAGE_PREFIX } from '@/lib/homebase/config';
+import { advanceNextImageIndex, getCover, readNextImageIndex, setCover, setDarkCover } from '@/lib/editor/cover';
 import { documentBroadcast } from '@/lib/broadcast';
 import type { SyncContext } from './context';
 
 // An uploaded image whose pending node never shows up is marked failed_permanent after this many tries
 const MAX_IMAGE_PROMOTION_ATTEMPTS = 5;
-
-// The next jrnl_img index, kept in the note's doc so a deleted top key is never reused (#373)
-const NEXT_IMAGE_INDEX = 'nextImageIndex';
-
-function readNextImageIndex(ydoc: Y.Doc): number {
-    const value = ydoc.getMap(COVER_MAP).get(NEXT_IMAGE_INDEX);
-    return typeof value === 'number' ? value : 0;
-}
 
 async function getNextImageIndex(docId: string): Promise<number> {
     const ydoc = await loadLocalYDoc(docId);
@@ -188,8 +179,7 @@ export async function updateImageReference(
             found = true;
         }
 
-        const next = parseInt(payloadKey.slice(PAYLOAD_KEY_IMAGE_PREFIX.length), 10) + 1;
-        if (found && next > readNextImageIndex(ydoc)) ydoc.getMap(COVER_MAP).set(NEXT_IMAGE_INDEX, next);
+        if (found) advanceNextImageIndex(ydoc, payloadKey);
     });
 
     if (found) {
