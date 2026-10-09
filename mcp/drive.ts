@@ -11,10 +11,11 @@ import { VersionConflictError, type NoteEdit, type NoteForEdit, type WriteDeps }
 import type { McpCredentials } from './credentials';
 import { createClient } from './client';
 
-function toNoteSummary(file: HomebaseFile<NoteFileContent>): NoteSummary | null {
+export function toNoteSummary(file: HomebaseFile<NoteFileContent>): NoteSummary | null {
     const uniqueId = file.fileMetadata.appData.uniqueId;
     const content = file.fileMetadata.appData.content;
-    if (!uniqueId || !content) return null;
+    // A note in Trash (archivalStatus 2) is gone for agents, as for the app's lists.
+    if (!uniqueId || !content || file.fileMetadata.appData.archivalStatus === 2) return null;
 
     return {
         id: uniqueId,
@@ -159,6 +160,11 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         await folderProvider.createFolder(uniqueId, { name, isCollaborative: false, needsPassword: false });
     }
 
+    async function trashNote(id: string, fileId: string): Promise<void> {
+        // The same header-only patch as the app's trashNote (SyncService.setNoteArchivalStatusRemote).
+        await notesProvider.setNoteArchivalStatus(id, 2, fileId);
+    }
+
     async function grantFolder(folderId: string, access: AgentAccess): Promise<void> {
         // Read-modify-write; on a conflict (the owner saved grants meanwhile) reload and reapply.
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -173,5 +179,5 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         throw new Error('Agent grants changed too often; try again');
     }
 
-    return { loadGrants, listFolders, listNotes, getNote, fetchNoteForEdit, uploadNoteEdit, createNote, createFolder, grantFolder };
+    return { loadGrants, listFolders, listNotes, getNote, fetchNoteForEdit, uploadNoteEdit, createNote, createFolder, trashNote, grantFolder };
 }

@@ -19,8 +19,8 @@ export interface SharedNoteData {
     title: string;
     content: string; // Markdown
     fileId: string;
-    /** Uploaded cover image of this note (never a ref to another file). */
-    cover?: { src: string; positionY: number };
+    /** Uploaded cover image of this note (never a ref to another file), with its optional dark-mode cover. */
+    cover?: { src: string; positionY: number; dark?: { src: string; positionY: number } };
     /** Saved state of the note's html and react blocks (#410), as JSON text per block id. */
     blockStates?: Record<string, string>;
     createdAt: string;
@@ -106,6 +106,9 @@ export class ShareProvider {
                     const c = getCover(ydoc);
                     if (c && parseAttachmentSrc(c.src, header.fileId)) {
                         cover = { src: c.src, positionY: c.positionY };
+                        if (c.dark && parseAttachmentSrc(c.dark.src, header.fileId)) {
+                            cover.dark = { src: c.dark.src, positionY: c.dark.positionY };
+                        }
                     }
                     blockStates = getBlockStates(ydoc);
                 } finally {

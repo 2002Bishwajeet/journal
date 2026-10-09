@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
-import { appendToNote, replaceInNote, createNote, createFolder, VersionConflictError, type WriteDeps } from '../../mcp/tools/write';
+import {
+    appendToNote,
+    replaceInNote,
+    createNote,
+    createFolder,
+    updateNote,
+    deleteNote,
+    VersionConflictError,
+    type WriteDeps,
+} from '../../mcp/tools/write';
 import type { NoteSummary } from '../../mcp/tools/read';
 import type { AgentAccess, AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
@@ -58,6 +67,7 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
     const creates: { uniqueId: string; metadata: DocumentMetadata; yjsBlob: Uint8Array }[] = [];
     const folderCreates: { uniqueId: string; name: string }[] = [];
     const folderGrants: { folderId: string; access: AgentAccess }[] = [];
+    const trashed: { id: string; fileId: string }[] = [];
     let uploadAttempts = 0;
 
     function put(id: string, markdown: string, metadata: DocumentMetadata) {
@@ -108,10 +118,14 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
         grantFolder: async (folderId, access) => {
             folderGrants.push({ folderId, access });
         },
+        trashNote: async (id, fileId) => {
+            trashed.push({ id, fileId });
+            store.delete(id); // gone from the agent's view, like the real drive's lists
+        },
         clientName: () => opts.clientName ?? '',
     };
 
-    return { deps, store, uploads, creates, folderCreates, folderGrants, put };
+    return { deps, store, uploads, creates, folderCreates, folderGrants, trashed, put };
 }
 
 function markdownOf(blob: Uint8Array): string {
@@ -275,6 +289,17 @@ describe('write tools: conflict-safe upload', () => {
         expect(markdownOf(drive.store.get('nw')!.blob)).toContain('[!info]');
     });
 
+    it('update_note uploads once when the conflicting upload had already been saved', async () => {
+        const drive = makeDrive();
+        drive.put('nw', 'Old body', metadataFor('FW'));
+        committedThenConflict(drive);
+
+        await updateNote(drive.deps, { id: 'nw', markdown: 'New body\n\nSecond' });
+
+        expect(drive.uploads).toHaveLength(1);
+        expect(markdownOf(drive.store.get('nw')!.blob)).toBe('New body\n\nSecond');
+    });
+
     it('append_to_note does not append twice when the conflicting upload had already been saved', async () => {
         const drive = makeDrive();
         drive.put('nw', 'Original line', metadataFor('FW'));
@@ -374,5 +399,109 @@ describe('write tools: engine errors', () => {
             /^replace_in_note: old_text matches 2 times; include more surrounding text$/
         );
         expect(uploads).toHaveLength(0);
+    });
+});
+
+describe('write tools: update_note (#511)', () => {
+    it('rewrites the body, title and tags in one upload, keeping every other field', async () => {
+        const { deps, put, uploads } = makeDrive({ clientName: 'claude-code' });
+        const fetched = metadataFor('FW');
+        put('nw', 'Old plan\n\nDay two', fetched);
+
+        await expect(
+            updateNote(deps, { id: 'nw', markdown: '# New plan\n\nDay two', title: 'Trip v2', tags: ['trip'] })
+        ).resolves.toEqual({ id: 'nw' });
+
+        expect(uploads).toHaveLength(1);
+        expect(markdownOf(uploads[0].yjsBlob)).toBe('# New plan\n\nDay two');
+        expect(uploads[0].metadata).toEqual({ ...fetched, title: 'Trip v2', tags: ['trip'], lastEditedBy: 'agent:claude-code' });
+    });
+
+    it('a title-only update leaves the body alone', async () => {
+        const { deps, put, uploads } = makeDrive();
+        put('nw', 'Body stays', metadataFor('FW'));
+        await updateNote(deps, { id: 'nw', title: 'Renamed' });
+        expect(markdownOf(uploads[0].yjsBlob)).toBe('Body stays');
+        expect(uploads[0].metadata.title).toBe('Renamed');
+        expect(uploads[0].metadata.tags).toEqual(['work']);
+    });
+
+    it('a title-only update retries after a conflict and keeps the human edit', async () => {
+        const { deps, put, store, uploads } = makeDrive({
+            beforeUpload: (s, attempt) => {
+                if (attempt === 1) humanAppends(s, 'nw', 'Human line');
+            },
+        });
+        put('nw', 'Body', metadataFor('FW'));
+        await updateNote(deps, { id: 'nw', title: 'Renamed' });
+        expect(uploads).toHaveLength(2);
+        expect(store.get('nw')!.metadata.title).toBe('Renamed');
+        expect(markdownOf(store.get('nw')!.blob)).toBe('Body\n\nHuman line');
+    });
+
+    it('the rewrite merges with a human edit that lands meanwhile', async () => {
+        const { deps, put, store } = makeDrive({
+            beforeUpload: (s, attempt) => {
+                if (attempt === 1) humanAppends(s, 'nw', 'Human line');
+            },
+        });
+        put('nw', 'Keep me\n\nOld', metadataFor('FW'));
+        await updateNote(deps, { id: 'nw', markdown: 'Keep me\n\nNew' });
+        const final = markdownOf(store.get('nw')!.blob);
+        expect(final).toContain('New');
+        expect(final).toContain('Human line');
+        expect(final).not.toContain('Old');
+    });
+
+    it('accepts a matching expectedModified, in any ISO form', async () => {
+        const { deps, put, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        await updateNote(deps, { id: 'nw', markdown: 'New', expectedModified: '2024-01-02T00:00:00Z' });
+        expect(uploads).toHaveLength(1);
+    });
+
+    it('rejects a stale expectedModified and leaves the note unchanged', async () => {
+        const { deps, put, store, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const before = store.get('nw')!;
+        await expect(
+            updateNote(deps, { id: 'nw', markdown: 'New', title: 'X', expectedModified: '2024-01-01T00:00:00.000Z' })
+        ).rejects.toThrow('Note changed since 2024-01-01T00:00:00.000Z (now 2024-01-02T00:00:00.000Z); get_note it again: nw');
+        expect(uploads).toHaveLength(0);
+        expect(store.get('nw')).toBe(before);
+    });
+
+    it('rejects read-only and ungranted notes, and an empty update', async () => {
+        const { deps, put, uploads } = makeDrive();
+        put('nr', 'Readable', metadataFor('FR'));
+        put('nn', 'Hidden', metadataFor('FN'));
+        put('nw', 'Body', metadataFor('FW'));
+        await expect(updateNote(deps, { id: 'nr', markdown: 'x' })).rejects.toThrow('Note is read-only for agents: nr');
+        await expect(updateNote(deps, { id: 'nn', markdown: 'x' })).rejects.toThrow('Note not found: nn');
+        await expect(updateNote(deps, { id: 'nw' })).rejects.toThrow('update_note: give markdown, title or tags');
+        expect(uploads).toHaveLength(0);
+    });
+});
+
+describe('write tools: delete_note (#511)', () => {
+    it('moves a writable note to Trash and returns its state', async () => {
+        const { deps, put, trashed, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        await expect(deleteNote(deps, { id: 'nw' })).resolves.toEqual({ id: 'nw', state: 'trashed' });
+        expect(trashed).toEqual([{ id: 'nw', fileId: 'file-nw' }]);
+        expect(uploads).toHaveLength(0);
+        // A trashed note is gone for agents.
+        await expect(deleteNote(deps, { id: 'nw' })).rejects.toThrow('Note not found: nw');
+    });
+
+    it('rejects read-only, ungranted and excludeFromAI notes without trashing', async () => {
+        const { deps, put, trashed } = makeDrive();
+        put('nr', 'Readable', metadataFor('FR'));
+        put('nn', 'Hidden', metadataFor('FN'));
+        put('nx', 'Private', metadataFor('FW', { excludeFromAI: true }));
+        await expect(deleteNote(deps, { id: 'nr' })).rejects.toThrow('Note is read-only for agents: nr');
+        await expect(deleteNote(deps, { id: 'nn' })).rejects.toThrow('Note not found: nn');
+        await expect(deleteNote(deps, { id: 'nx' })).rejects.toThrow('Note not found: nx');
+        expect(trashed).toHaveLength(0);
     });
 });

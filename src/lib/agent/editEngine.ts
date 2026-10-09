@@ -147,6 +147,51 @@ export function replaceInNote(doc: Y.Doc, oldText: string, newText: string): voi
   write(doc, current.copy(Fragment.fromArray(next)));
 }
 
+/** Index of `block` in `text` at or after `from`, as a whole blank-line-separated block; -1 if absent. */
+function findBlock(text: string, block: string, from: number): number {
+  for (let at = text.indexOf(block, from); at >= 0; at = text.indexOf(block, at + 1)) {
+    const end = at + block.length;
+    if ((at === 0 || text.endsWith('\n\n', at)) && (end === text.length || text.startsWith('\n\n', end))) return at;
+  }
+  return -1;
+}
+
+/**
+ * Replaces the whole body with `markdown`. Every existing block whose markdown (as
+ * `toMarkdown` returns it) appears unchanged, in order, keeps its original node read from
+ * Yjs, so note links and images in kept blocks survive; only the rest is parsed from markdown.
+ */
+export function setMarkdown(doc: Y.Doc, markdown: string): void {
+  const current = read(doc);
+  const footnotes = footnoteOrder(current);
+  const numbers = new Map(footnotes.map((id, i) => [id, i + 1]));
+  const nonce = getNewId();
+  const kept = new Map<string, PMNode>();
+  let text = markdown;
+  let from = 0;
+  current.forEach((block, _offset, i) => {
+    const blockMd = blockToMarkdown(block, numbers);
+    const at = blockMd ? findBlock(text, blockMd, from) : -1;
+    if (at < 0) return;
+    // Swap the block for a placeholder paragraph, then swap its original node back in after parsing.
+    const token = `jrnlkeep${i}x${nonce}`;
+    text = text.slice(0, at) + token + text.slice(at + blockMd.length);
+    from = at + token.length;
+    kept.set(token, block);
+  });
+
+  const next: PMNode[] = [];
+  let reused = 0;
+  parseMarkdown(text, footnotes).forEach((n) => {
+    const original = n.type.name === 'paragraph' ? kept.get(n.textContent) : undefined;
+    if (original) reused++;
+    next.push(original ?? n);
+  });
+  // A placeholder that didn't come back as its own paragraph (say, inside a code fence) would
+  // leak into the note: then parse the markdown as given, without reuse.
+  write(doc, reused === kept.size ? current.copy(Fragment.fromArray(next)) : parseMarkdown(markdown, footnotes));
+}
+
 /**
  * A fresh doc built from markdown. LOSSY for note links and image layout, so
  * only for new notes, never for rewriting existing ones.

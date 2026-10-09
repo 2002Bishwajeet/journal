@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import Markdown from 'react-markdown';
 import { yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
 import type { Node as PMNode } from '@tiptap/pm/model';
-import { editorSchema, toMarkdown, createDoc, appendMarkdown, replaceInNote } from '@/lib/agent/editEngine';
+import { editorSchema, toMarkdown, createDoc, appendMarkdown, replaceInNote, setMarkdown } from '@/lib/agent/editEngine';
 import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
 import type * as Y from 'yjs';
 
@@ -98,6 +98,14 @@ describe('footnotes through agent edits', () => {
     const doc = createDoc('A[^1] b[^2].\n\n[^1]: One.\n[^2]: Two.');
     replaceInNote(doc, 'A[^1] b', 'A b');
     expect(toMarkdown(doc)).toBe('A b[^1].\n\n[^1]: Two.');
+  });
+
+  it('keeps footnotes linked when the whole body is set (update_note)', () => {
+    const doc = createDoc('Intro[^1].\n\nMiddle[^2].\n\n[^1]: One.\n[^2]: Two.');
+    const before = linkage(pmDoc(doc)).notes;
+    setMarkdown(doc, 'Intro[^1].\n\nNew middle[^2].\n\n[^1]: One.\n[^2]: Two.');
+    expect(toMarkdown(doc)).toBe('Intro[^1].\n\nNew middle[^2].\n\n[^1]: One.\n[^2]: Two.');
+    expect(linkage(pmDoc(doc)).notes).toEqual(before);
   });
 });
 
