@@ -2,7 +2,7 @@ import * as Y from 'yjs';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { FolderDriveProvider } from '@/lib/homebase/FolderDriveProvider';
 import { AgentGrantsDriveProvider } from '@/lib/homebase/AgentGrantsDriveProvider';
-import { toMarkdown } from '@/lib/agent/editEngine';
+import { toMarkdown, type LinkTarget } from '@/lib/agent/editEngine';
 import { setFolderAccess, type AgentAccess } from '@/lib/agent/grants';
 import type { HomebaseFile } from '@homebase-id/js-lib/core';
 import type { PreparedImage } from '@/lib/images/imageBytes';
@@ -132,9 +132,9 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         };
     }
 
-    async function getNote(id: string): Promise<{ summary: NoteSummary; markdown: string } | null> {
+    async function getNote(id: string, targets?: readonly LinkTarget[]): Promise<{ summary: NoteSummary; markdown: string } | null> {
         const note = await fetchNoteForEdit(id);
-        return note ? { summary: note.summary, markdown: toMarkdown(note.doc) } : null;
+        return note ? { summary: note.summary, markdown: toMarkdown(note.doc, targets) } : null;
     }
 
     async function uploadNoteEdit(id: string, edit: NoteEdit): Promise<void> {

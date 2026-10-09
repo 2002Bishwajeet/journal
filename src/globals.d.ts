@@ -13,6 +13,12 @@ declare module 'virtual:react-block-tailwind' {
   export default stylesheet;
 }
 
+/** Tailwind's theme.css, for the compiler of a react block's own classes (#559). Built in vite.config.ts. */
+declare module 'virtual:react-block-tailwind-theme' {
+  const css: string;
+  export default css;
+}
+
 /** Recharts in Journal's theme for a react block, as the text of a script that sets window.Recharts (#427). */
 declare module 'virtual:react-block-recharts' {
   const script: string;
@@ -21,6 +27,12 @@ declare module 'virtual:react-block-recharts' {
 
 /** lucide-react for a react block, as the text of a script that sets window.LucideReact (#427). */
 declare module 'virtual:react-block-lucide' {
+  const script: string;
+  export default script;
+}
+
+/** Any other library a react block can import, as the text of a script that sets its global (REACT_BLOCK_LIBRARIES, #558). */
+declare module 'virtual:react-block-*' {
   const script: string;
   export default script;
 }

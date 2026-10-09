@@ -12,6 +12,7 @@ import { rolldown } from 'rolldown'
 import { compile as compileTailwind } from 'tailwindcss'
 import pkg from './package.json' with { type: 'json' }
 import { compactGradients, mergeRules, tailwindInput } from './src/lib/reactBlockTailwind.ts'
+import { REACT_BLOCK_LIBRARIES, type ReactBlockLibrary } from './src/lib/reactBlockLibraries.ts'
 
 // Vite defines `globalThis.process.env` as `{}` so browser code can read
 // process.env. That literal is truthy, so PGlite 0.4's own browser check
@@ -98,22 +99,39 @@ async function reactBlockLibrary(entry: string, name: string): Promise<string> {
     ],
   });
   try {
-    const { output } = await bundle.generate({ format: 'iife', name, minify: true });
+    // Named: a default export (lodash-es, papaparse) is the global's `default`, as `import _ from …` reads it.
+    // No Symbol.toStringTag on the global: lodash-es declares a top-level `Symbol`, which the
+    // tag's `Symbol.toStringTag` would read before it is set, and throw.
+    const { output } = await bundle.generate({ format: 'iife', name, exports: 'named', generatedCode: { symbols: false }, minify: true });
     return output[0].code;
   } finally {
     await bundle.close();
   }
 }
 
+// The script of the library a react block imports as `module`, setting its global in
+// REACT_BLOCK_LIBRARIES. Its entry is the package itself unless given.
+const library = (module: ReactBlockLibrary, entry = `export * from '${module}';`) => () => reactBlockLibrary(entry, REACT_BLOCK_LIBRARIES[module]);
+const srcModule = (file: string) => JSON.stringify(path.resolve(import.meta.dirname, file));
+
 // A react block's page, as virtual modules: each is imported lazily, and a library only for
 // a block that imports it.
 const REACT_BLOCK_PIECES: Record<string, () => string | Promise<string>> = {
   'virtual:react-block-runtime': reactBlockRuntime,
   'virtual:react-block-tailwind': reactBlockTailwind,
-  'virtual:react-block-lucide': () => reactBlockLibrary("export * from 'lucide-react';", 'LucideReact'),
+  // Tailwind's theme, for the compiler that builds a block's own classes in the app (#559).
+  'virtual:react-block-tailwind-theme': () => fs.readFileSync(appRequire.resolve('tailwindcss/theme.css'), 'utf8'),
+  'virtual:react-block-lucide': library('lucide-react'),
   // Recharts with Journal's chart colours as its defaults.
-  'virtual:react-block-recharts': () =>
-    reactBlockLibrary(`export * from ${JSON.stringify(path.resolve(import.meta.dirname, 'src/lib/reactBlockRecharts.ts'))};`, 'Recharts'),
+  'virtual:react-block-recharts': library('recharts', `export * from ${srcModule('src/lib/reactBlockRecharts.ts')};`),
+  // #558. lodash-es and papaparse also have a default export (`import _ from 'lodash'`).
+  'virtual:react-block-d3': library('d3'),
+  'virtual:react-block-three': library('three'),
+  'virtual:react-block-lodash': library('lodash-es', "export * from 'lodash-es'; export { default } from 'lodash-es';"),
+  'virtual:react-block-mathjs': library('mathjs'),
+  'virtual:react-block-papaparse': library('papaparse', "export { default, parse, unparse } from 'papaparse';"),
+  // Button, Card, Tabs and the rest, in Journal's theme.
+  'virtual:react-block-ui': library('journal-ui', `export * from ${srcModule('src/lib/reactBlockUi.tsx')};`),
 };
 const reactBlockPieces: Plugin = {
   name: 'react-block-pieces',
@@ -213,7 +231,7 @@ export default defineConfig(({ mode }) => ({
           '**/mermaid-*.js',
           // A react block's runtime, Tailwind sheet and libraries (reactBlockPieces
           // above; Rolldown names a virtual module's chunk `_virtual_<name>`)
-          // and its compiler (src/lib/reactBlockCompiler.ts, with sucrase): loaded only when
+          // and its compiler (src/lib/reactBlockCompiler.ts, with sucrase and Tailwind's compiler): loaded only when
           // a react block is previewed, cached on first use by the react-block route in
           // sw.ts (#426, #427).
           '**/_virtual_react-block-*.js',

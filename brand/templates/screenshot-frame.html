@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- 1600x1000 framed screenshot. Params: ?src=<image url>&caption=&theme=dark -->
+<html><head><meta charset="utf-8"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  html,body{margin:0}
+  body{width:1600px;height:1000px;box-sizing:border-box;padding:64px 96px 0;background:var(--sand);font-family:var(--font-sans);
+    display:flex;flex-direction:column;align-items:center;gap:40px;overflow:hidden}
+  body.dark{background:var(--night)}
+  p{margin:0;font-family:var(--font-serif);font-style:italic;font-size:44px;color:var(--ink)}
+  body.dark p{color:var(--mist)}
+  .window{width:100%;flex:1;background:var(--paper);border-radius:14px 14px 0 0;box-shadow:0 30px 80px rgb(44 43 41/.22);overflow:hidden;display:flex;flex-direction:column}
+  body.dark .window{background:var(--night-card);box-shadow:0 30px 80px rgb(0 0 0/.5)}
+  .bar{height:44px;display:flex;align-items:center;gap:8px;padding:0 18px;border-bottom:1px solid var(--line)}
+  body.dark .bar{border-color:var(--night-line)}
+  .bar i{width:12px;height:12px;border-radius:50%;background:var(--line)}
+  body.dark .bar i{background:var(--night-line)}
+  .shot{flex:1;background:center top/cover no-repeat;background-color:#141312}
+</style></head>
+<body>
+  <p id="caption">Private by design.</p>
+  <div class="window"><div class="bar"><i></i><i></i><i></i></div><div class="shot" id="shot"></div></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  shot.style.backgroundImage = `url("${q.get('src') || '../png/board.png'}")`;
+  if (q.get('caption') !== null) caption.textContent = q.get('caption');
+  if (q.get('theme') === 'dark') document.body.className = 'dark';
+</script></body></html>

@@ -1,3 +1,5 @@
+import { REACT_BLOCK_IMPORTS, REACT_BLOCK_LIBRARIES } from '@/lib/reactBlockLibraries';
+
 /** Code-block languages that render a live preview in the editor. */
 export type LiveBlockKind = 'mermaid' | 'svg' | 'html' | 'react';
 
@@ -6,12 +8,13 @@ const BLOCK_ID_TOKEN = /^id=[a-z0-9]{4,12}$/;
 /**
  * A code block's `language` attribute holds the fence's whole info string, so an html
  * block's id rides in it (```html id=k3f9, #410) through export, import and agent edits.
- * This splits it: the language is the first word, the id an `id=<4–12 of a-z0-9>` word.
+ * This splits it: the language is the first word, the id an `id=<4–12 of a-z0-9>` word,
+ * and `wide` a word of its own (```react wide id=k3f9, #557).
  */
-export function parseCodeInfo(info: string | null): { language: string | null; id: string | null } {
+export function parseCodeInfo(info: string | null): { language: string | null; id: string | null; wide: boolean } {
   const [language, ...rest] = (info ?? '').trim().split(/\s+/);
   const token = rest.find((word) => BLOCK_ID_TOKEN.test(word));
-  return { language: language || null, id: token ? token.slice('id='.length) : null };
+  return { language: language || null, id: token ? token.slice('id='.length) : null, wide: rest.includes('wide') };
 }
 
 /** The info string with an id added, for a block that saves its state the first time. */
@@ -50,6 +53,10 @@ const HTML_BLOCK_CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; s
 // What a frame tells the app unasked: how tall its document is, whenever that changes (#412).
 const HEIGHT_REPORT_SCRIPT =
   "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) }, '*')).observe(document.documentElement)</script>";
+
+// Esc inside the frame never reaches the app, so the frame passes it on: it closes the block's fullscreen (#557).
+const ESCAPE_SCRIPT =
+  "<script>addEventListener('keydown', function (event) { if (event.key === 'Escape') parent.postMessage({ journalLiveBlock: 1, escape: 1 }, '*'); })</script>";
 
 // `journal.storage` (#410): get and set ask the app for this block's saved state over the
 // same bridge, and the app answers each request by its number. The app decides everything
@@ -137,7 +144,7 @@ export interface FrameTheme {
  * so it is in force before anything in the (untrusted) source is parsed. Then
  * one style gives the page the note's look; it comes before the source, so the
  * block's own CSS wins. Then `journal.storage`, so the source can use it as it
- * loads. The height report comes last.
+ * loads. The height report and the Esc relay come last.
  *
  * The page is only see-through while its colour scheme is that of the app
  * around it: a browser paints a frame of the other scheme opaque.
@@ -145,8 +152,9 @@ export interface FrameTheme {
 export function buildSrcdoc(source: string, theme: FrameTheme): string {
   const tokens = FRAME_TOKENS.map((name) => `${name}:${theme.tokens[name]};`).join('');
   const style =
-    // The font is also a variable, for a react block's `font-sans` (#427).
-    `:root{${tokens}--font-sans:${theme.fontFamily};color-scheme:${theme.colorScheme}}` +
+    // The font is also a variable, for a react block's `font-sans` (#427), and its shadows
+    // are softer in the dark theme (#559).
+    `:root{${tokens}--font-sans:${theme.fontFamily};--shadow-strength:${theme.colorScheme === 'dark' ? 0.6 : 1};color-scheme:${theme.colorScheme}}` +
     '*,*::before,*::after{box-sizing:border-box}' +
     'html,body{background:transparent}' +
     `body{margin:0;color:var(--foreground);font-family:${theme.fontFamily};line-height:${theme.lineHeight}}` +
@@ -156,7 +164,7 @@ export function buildSrcdoc(source: string, theme: FrameTheme): string {
     'table{border-collapse:collapse}' +
     'th,td{border:1px solid var(--border);padding:0.5rem 0.75rem;text-align:left}' +
     'img{max-width:100%}';
-  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${STORAGE_SCRIPT}${source}${HEIGHT_REPORT_SCRIPT}`;
+  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${STORAGE_SCRIPT}${source}${HEIGHT_REPORT_SCRIPT}${ESCAPE_SCRIPT}`;
 }
 
 // A script's text ends at the first `</script`, and `<!--` can move that end. `\x3C` is `<`
@@ -174,6 +182,8 @@ const REACT_ERROR_BOX =
 const REACT_ERROR_SCRIPT =
   "addEventListener('error', function (event) { var box = document.getElementById('journal-react-error'); box.hidden = false; box.lastChild.textContent = event.error ? String(event.error) : event.message; });";
 
+const REACT_BLOCK_IMPORTS_TEXT = `${REACT_BLOCK_IMPORTS.slice(0, -1).join(', ')} and ${REACT_BLOCK_IMPORTS.at(-1)}`;
+
 /** Hooks a react block can use without the `React.` prefix. */
 const BARE_HOOKS = ['useState', 'useEffect', 'useRef', 'useMemo', 'useReducer'];
 
@@ -185,11 +195,11 @@ const componentScript = (code: string) =>
   `var ${BARE_HOOKS.map((hook) => `${hook} = React.${hook}`).join(', ')};` +
   'var module = { exports: {} }, exports = module.exports;' +
   // The allow-list (#427). Each library is on the page only when the block imports it.
+  `var libraries = ${JSON.stringify(REACT_BLOCK_LIBRARIES)};` +
   'function require(name) {' +
   "if (name === 'react') return React;" +
-  "if (name === 'recharts' && window.Recharts) return window.Recharts;" +
-  "if (name === 'lucide-react' && window.LucideReact) return window.LucideReact;" +
-  "throw new Error('A react block can import only react, recharts and lucide-react, not ' + name + '.'); }" +
+  'if (Object.prototype.hasOwnProperty.call(libraries, name) && window[libraries[name]]) return window[libraries[name]];' +
+  `throw new Error(${JSON.stringify(`A react block can import only ${REACT_BLOCK_IMPORTS_TEXT}, not `)} + name + '.'); }` +
   `var App = (function () {\n${code}\n;return typeof App === 'undefined' ? module.exports.default : App;\n})();` +
   "if (App === undefined) throw new Error('Define a component named App, or export one as default.');" +
   'class Boundary extends React.Component {' +
@@ -207,38 +217,48 @@ export interface ReactBlockRuntime {
   react: string;
   /** The Tailwind stylesheet in Journal's theme (#427). */
   tailwind: string;
-  /** Recharts in the theme, a script that sets window.Recharts. Only for a block that imports it. */
-  recharts?: string;
-  /** lucide-react, a script that sets window.LucideReact. Only for a block that imports it. */
-  lucide?: string;
+  /** The scripts of the libraries the block imports, each setting its global in REACT_BLOCK_LIBRARIES. */
+  libraries?: string[];
 }
 
 /**
  * The page of a `react` block (#426), for buildSrcdoc to wrap: the Tailwind sheet (right after
  * buildSrcdoc's theme style, before anything the block renders), a root, the runtime and the
- * block's `code`, compiled by compileReactBlock. Everything is inline, which the frame's CSP allows.
+ * block's `code`, compiled by compileReactBlock. After the sheet, the block's own Tailwind
+ * (#559), if compileBlockTailwind found any. Everything is inline, which the frame's CSP allows.
  */
-export function reactBlockDocument(runtime: ReactBlockRuntime, code: string): string {
-  const libraries = [runtime.recharts, runtime.lucide].filter((library): library is string => !!library).map(inlineScript).join('');
-  return `<style>${runtime.tailwind}</style><div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime.react)}${libraries}${inlineScript(componentScript(code))}`;
+export function reactBlockDocument(runtime: ReactBlockRuntime, code: string, blockTailwind = ''): string {
+  const libraries = (runtime.libraries ?? []).map(inlineScript).join('');
+  // A class's arbitrary value can hold `</style`, which would end the style element.
+  const blockStyle = blockTailwind && `<style id="journal-block-tailwind">${blockTailwind.replace(/<\/style/gi, '<\\/style')}</style>`;
+  return `<style>${runtime.tailwind}</style>${blockStyle}<div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime.react)}${libraries}${inlineScript(componentScript(code))}`;
 }
 
 /** The least height a framed (html or react) block's box is fitted to. */
 export const MIN_FRAME_HEIGHT = 120;
 const MAX_FRAME_HEIGHT = 1600;
+// A `wide` block (#557) is for a dashboard, a game or a simulation, which need room both ways.
+const MAX_WIDE_FRAME_HEIGHT = 2400;
 
 /**
  * The height to give an `html` block, from a `message` event: the height its
- * own frame reported, clamped (taller content scrolls inside the frame). Null
- * for anything else. `frame` is the block's `iframe.contentWindow`. The frame's
- * source is untrusted and can post any message it likes, so the most a block
- * can do with one is pick its own height within the clamp.
+ * own frame reported, clamped (taller content scrolls inside the frame); a
+ * `wide` block may be taller. Null for anything else. `frame` is the block's
+ * `iframe.contentWindow`. The frame's source is untrusted and can post any
+ * message it likes, so the most a block can do with one is pick its own height
+ * within the clamp.
  */
-export function frameHeightFromMessage(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null): number | null {
+export function frameHeightFromMessage(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null, wide = false): number | null {
   if (!frame || event.source !== frame) return null;
   const data = event.data as { journalLiveBlock?: unknown; height?: unknown } | null | undefined;
   if (data?.journalLiveBlock !== 1 || typeof data.height !== 'number' || !Number.isFinite(data.height)) return null;
-  return Math.min(Math.max(data.height, MIN_FRAME_HEIGHT), MAX_FRAME_HEIGHT);
+  return Math.min(Math.max(data.height, MIN_FRAME_HEIGHT), wide ? MAX_WIDE_FRAME_HEIGHT : MAX_FRAME_HEIGHT);
+}
+
+/** Whether a `message` event is Esc pressed inside the block's own frame (`frame`, its `iframe.contentWindow`). */
+export function isEscapeFromFrame(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null): boolean {
+  const data = event.data as { journalLiveBlock?: unknown; escape?: unknown } | null | undefined;
+  return !!frame && event.source === frame && data?.journalLiveBlock === 1 && data.escape === 1;
 }
 
 /** A `journal.storage` call from a block's frame (#410). `key` and `value` are not checked yet. */

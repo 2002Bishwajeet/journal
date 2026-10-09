@@ -5,6 +5,7 @@
  * ReadDeps against Homebase).
  */
 import { resolveAccess, folderAccess, type AgentAccess, type AgentGrants } from '@/lib/agent/grants';
+import type { LinkTarget } from '@/lib/agent/editEngine';
 
 export interface NoteSummary {
     id: string;
@@ -19,7 +20,8 @@ export interface ReadDeps {
     loadGrants(): Promise<AgentGrants>;
     listFolders(): Promise<{ id: string; name: string }[]>;
     listNotes(): Promise<NoteSummary[]>;
-    getNote(id: string): Promise<{ summary: NoteSummary; markdown: string } | null>;
+    /** With `targets`, a link to a note not in it is only its label in the markdown (#561). */
+    getNote(id: string, targets?: readonly LinkTarget[]): Promise<{ summary: NoteSummary; markdown: string } | null>;
 }
 
 export interface FolderResult {
@@ -51,6 +53,11 @@ export function noteAccess(grants: AgentGrants, note: NoteSummary): AgentAccess 
     return resolveAccess(grants, { noteId: note.id, folderId: note.folderId, excludeFromAI: note.excludeFromAI });
 }
 
+/** The notes the agent can see, which a note link may point at (#561). */
+export function linkTargets(grants: AgentGrants, notes: NoteSummary[]): LinkTarget[] {
+    return notes.filter((note) => noteAccess(grants, note) !== 'none').map(({ id, title }) => ({ id, title }));
+}
+
 function toListResult(note: NoteSummary, access: AgentAccess): NoteListResult {
     return { id: note.id, title: note.title, folderId: note.folderId, modified: note.modified, tags: note.tags, access };
 }
@@ -78,7 +85,8 @@ export async function listNotes(
 }
 
 export async function getNote(deps: ReadDeps, params: { id: string }): Promise<NoteResult> {
-    const [grants, result] = await Promise.all([deps.loadGrants(), deps.getNote(params.id)]);
+    const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
+    const result = await deps.getNote(params.id, linkTargets(grants, notes));
     if (!result) throw new Error(`Note not found: ${params.id}`);
 
     const access = noteAccess(grants, result.summary);
@@ -94,6 +102,7 @@ export async function searchNotes(
     const limit = params.limit ?? DEFAULT_SEARCH_LIMIT;
     const query = params.query.toLowerCase();
     const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
+    const targets = linkTargets(grants, notes);
 
     const matchOf = async (note: NoteSummary): Promise<NoteListResult | null> => {
         const access = noteAccess(grants, note);
@@ -104,7 +113,7 @@ export async function searchNotes(
             note.title.toLowerCase().includes(query) || note.tags.some((tag) => tag.toLowerCase().includes(query));
         // Only fetch the body of a note that didn't already match by title/tag.
         const hit =
-            titleOrTagHit || ((await deps.getNote(note.id))?.markdown ?? '').toLowerCase().includes(query);
+            titleOrTagHit || ((await deps.getNote(note.id, targets))?.markdown ?? '').toLowerCase().includes(query);
         return hit ? toListResult(note, access) : null;
     };
 

@@ -67,28 +67,25 @@ describe('dataUriToBlob', () => {
 });
 
 describe('previewToMarkdown', () => {
-  it('escapes brackets in the title and never contains the image', () => {
+  it('escapes brackets in the title, ends with the marker and leaves out the description and image (#561)', () => {
     const attrs = toPreviewAttrs(
       { url: 'https://a.com', title: 'A [b] \\ c', description: 'Desc', imageUrl: 'ignored' },
       'data:image/webp;base64,AAAA',
     );
     const md = previewToMarkdown(attrs);
-    expect(md).toBe('[A \\[b\\] \\\\ c](https://a.com)\n\n> Desc');
+    expect(md).toBe('[A \\[b\\] \\\\ c](https://a.com)<!-- preview -->');
     expect(md).not.toContain('data:');
   });
 
   it('collapses whitespace in a multi-line title so metadata cannot add blocks', () => {
-    const md = previewToMarkdown({ url: 'https://a.com', title: 'a\n\n# b\n> c', description: '' });
-    expect(md).toBe('[a # b > c](https://a.com)');
+    const md = previewToMarkdown({ url: 'https://a.com', title: 'a\n\n# b\n> c' });
+    expect(md).toBe('[a # b > c](https://a.com)<!-- preview -->');
     expect(md).not.toContain('\n');
   });
 
-  it('falls back to the URL for a whitespace-only title', () => {
-    expect(previewToMarkdown({ url: 'https://a.com', title: ' \n ', description: '' })).toBe('[https://a.com](https://a.com)');
-  });
-
-  it('falls back to the URL as link text and omits an empty description', () => {
-    expect(previewToMarkdown({ url: 'https://a.com', title: '', description: '' })).toBe('[https://a.com](https://a.com)');
+  it('writes <url> for an empty or whitespace-only title', () => {
+    expect(previewToMarkdown({ url: 'https://a.com', title: ' \n ' })).toBe('<https://a.com><!-- preview -->');
+    expect(previewToMarkdown({ url: 'https://a.com', title: '' })).toBe('<https://a.com><!-- preview -->');
   });
 });
 
@@ -145,20 +142,18 @@ describe('Yjs serializers', () => {
     return Y.encodeStateAsUpdate(doc);
   }
 
-  it('extractMarkdownFromYjs outputs a link and a quote without the image', async () => {
+  it('extractMarkdownFromYjs outputs the title link and the preview marker, without the image (#561)', async () => {
     const md = await extractMarkdownFromYjs('n', blobWithPreview());
-    expect(md).toContain('[Title](https://a.com/post)');
-    expect(md).toContain('> Desc');
-    expect(md).not.toContain('base64');
+    expect(md).toBe('[Title](https://a.com/post)<!-- preview -->');
   });
 
-  it('renders on the share page as a link plus a quote with no data:image', async () => {
+  it('renders on the share page as a plain link, without the marker or a data:image', async () => {
     const md = await extractMarkdownFromYjs('n', blobWithPreview());
     const html = renderToStaticMarkup(
       createElement(Markdown, { remarkPlugins: shareRemarkPlugins, rehypePlugins: shareRehypePlugins }, md),
     );
     expect(html).toContain('href="https://a.com/post"');
-    expect(html).toContain('<blockquote>');
+    expect(html).not.toContain('preview');
     expect(html).not.toContain('data:image');
   });
 

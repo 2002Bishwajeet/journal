@@ -135,7 +135,8 @@ function EditorLayout({
       </div>
 
       <div className="flex-1 flex min-h-0 w-full overflow-hidden">
-        <div className="flex-1 overflow-y-auto relative bg-background w-full">
+        {/* The container a `wide` live block takes its width from (src/index.css, "Live blocks"). */}
+        <div className="@container/live-blocks flex-1 overflow-y-auto relative bg-background w-full">
           <FindReplaceBar />
           <TipTapEditor
             noteId={noteId}

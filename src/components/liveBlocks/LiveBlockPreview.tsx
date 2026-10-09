@@ -22,7 +22,8 @@
  *   reactBlockCompiler, then runs in the same frame as an html block, on the
  *   app's own React: vite.config.ts builds it into a script that is inlined in
  *   the frame's srcdoc, so nothing comes from the network (#426). The same goes
- *   for its Tailwind sheet and the libraries it may import (#427). A compile
+ *   for its Tailwind sheet and the libraries it may import (#427); classes the
+ *   sheet lacks are compiled for the block along with its JSX (#559). A compile
  *   error is shown as text in place of the frame.
  */
 import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -38,6 +39,7 @@ import {
   type FrameTheme,
   type LiveBlockKind,
 } from '@/lib/liveBlocks';
+import type { ReactBlockLibrary } from '@/lib/reactBlockLibraries';
 import { createBlockStateSession, memoryBlockStateStore, replyToStorageMessage, type BlockStateStore } from '@/lib/liveBlockState';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +50,8 @@ interface LiveBlockPreviewProps {
   store?: BlockStateStore;
   /** An html or react block's preview reported how tall its content is. */
   onHeight?: (height: number) => void;
+  /** A `wide` html or react block, which may be taller (#557). */
+  wide?: boolean;
 }
 
 type MermaidResult = { source: string; dark: boolean; svg: string } | { source: string; dark: boolean; error: string };
@@ -55,7 +59,7 @@ type ReactResult = { source: string; page: string } | { source: string; title: s
 
 let renderCount = 0;
 
-export function LiveBlockPreview({ kind, source, store, onHeight }: LiveBlockPreviewProps) {
+export function LiveBlockPreview({ kind, source, store, onHeight, wide }: LiveBlockPreviewProps) {
   if (kind === 'svg') {
     return (
       <div className="p-4">
@@ -63,8 +67,8 @@ export function LiveBlockPreview({ kind, source, store, onHeight }: LiveBlockPre
       </div>
     );
   }
-  if (kind === 'html') return <HtmlPreview source={source} title="HTML preview" store={store} onHeight={onHeight} />;
-  if (kind === 'react') return <ReactPreview source={source} store={store} onHeight={onHeight} />;
+  if (kind === 'html') return <HtmlPreview source={source} title="HTML preview" store={store} onHeight={onHeight} wide={wide} />;
+  if (kind === 'react') return <ReactPreview source={source} store={store} onHeight={onHeight} wide={wide} />;
   return <MermaidPreview source={source} />;
 }
 
@@ -93,7 +97,7 @@ function frameTheme(frame: HTMLIFrameElement): FrameTheme {
   };
 }
 
-function HtmlPreview({ source, title, store, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight'> & { title: string }) {
+function HtmlPreview({ source, title, store, onHeight, wide }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide'> & { title: string }) {
   // State, not a ref: the frame's document takes its look from the mounted element.
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
   // Rebuilt when the look changes, which reloads the page in the frame.
@@ -112,7 +116,7 @@ function HtmlPreview({ source, title, store, onHeight }: Pick<LiveBlockPreviewPr
   useEffect(() => {
     const onMessage = (event: MessageEvent<unknown>) => {
       const frameWindow = frame?.contentWindow ?? null;
-      const height = frameHeightFromMessage(event, frameWindow);
+      const height = frameHeightFromMessage(event, frameWindow, wide);
       if (height !== null) onHeight?.(height);
       const reply = replyToStorageMessage(event, frameWindow, session, blockStore);
       // The frame's origin is opaque, so there is no origin to name.
@@ -120,7 +124,7 @@ function HtmlPreview({ source, title, store, onHeight }: Pick<LiveBlockPreviewPr
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [frame, onHeight, session, blockStore]);
+  }, [frame, onHeight, session, blockStore, wide]);
 
   // No background: the page inside is see-through, so the note shows behind it.
   return (
@@ -136,12 +140,25 @@ function HtmlPreview({ source, title, store, onHeight }: Pick<LiveBlockPreviewPr
   );
 }
 
+/** The script of each library a react block can import (REACT_BLOCK_LIBRARIES), built in vite.config.ts. */
+const REACT_BLOCK_LIBRARY_SCRIPTS: Record<ReactBlockLibrary, () => Promise<{ default: string }>> = {
+  recharts: () => import('virtual:react-block-recharts'),
+  'lucide-react': () => import('virtual:react-block-lucide'),
+  d3: () => import('virtual:react-block-d3'),
+  three: () => import('virtual:react-block-three'),
+  'lodash-es': () => import('virtual:react-block-lodash'),
+  lodash: () => import('virtual:react-block-lodash'),
+  mathjs: () => import('virtual:react-block-mathjs'),
+  papaparse: () => import('virtual:react-block-papaparse'),
+  'journal-ui': () => import('virtual:react-block-ui'),
+};
+
 /**
  * A react block (#426). The compiler, the runtime and the Tailwind sheet load on the first one
  * shown, a library on the first block that imports it (#427); all are cached for offline use
  * by src/sw.ts.
  */
-function ReactPreview({ source, store, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight'>) {
+function ReactPreview({ source, store, onHeight, wide }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide'>) {
   const [result, setResult] = useState<ReactResult | null>(null);
 
   useEffect(() => {
@@ -149,7 +166,7 @@ function ReactPreview({ source, store, onHeight }: Pick<LiveBlockPreviewProps, '
     (async () => {
       let next: ReactResult;
       try {
-        const [{ compileReactBlock, reactBlockImports }, { default: react }, { default: tailwind }] = await Promise.all([
+        const [{ compileReactBlock, compileBlockTailwind, reactBlockImports }, { default: react }, { default: tailwind }] = await Promise.all([
           import('@/lib/reactBlockCompiler'),
           import('virtual:react-block-runtime'),
           import('virtual:react-block-tailwind'),
@@ -158,13 +175,13 @@ function ReactPreview({ source, store, onHeight }: Pick<LiveBlockPreviewProps, '
         if ('error' in compiled) {
           next = { source, title: 'Couldn’t compile this component. Check its syntax.', error: compiled.error };
         } else {
-          // A library loads only for a block that imports it (#427).
-          const imports = reactBlockImports(compiled.code);
-          const [recharts, lucide] = await Promise.all([
-            imports.includes('recharts') ? import('virtual:react-block-recharts').then((module) => module.default) : undefined,
-            imports.includes('lucide-react') ? import('virtual:react-block-lucide').then((module) => module.default) : undefined,
+          // A library loads only for a block that imports it (#427); `lodash` and `lodash-es` are one script.
+          const loads = reactBlockImports(compiled.code).filter((name) => Object.hasOwn(REACT_BLOCK_LIBRARY_SCRIPTS, name));
+          const [scripts, blockTailwind] = await Promise.all([
+            Promise.all(loads.map((name) => REACT_BLOCK_LIBRARY_SCRIPTS[name as ReactBlockLibrary]().then((module) => module.default))),
+            compileBlockTailwind(source),
           ]);
-          next = { source, page: reactBlockDocument({ react, tailwind, recharts, lucide }, compiled.code) };
+          next = { source, page: reactBlockDocument({ react, tailwind, libraries: [...new Set(scripts)] }, compiled.code, blockTailwind) };
         }
       } catch (err) {
         // Offline, before any react block was ever shown: the compiler and runtime are not cached yet.
@@ -198,7 +215,7 @@ function ReactPreview({ source, store, onHeight }: Pick<LiveBlockPreviewProps, '
       </div>
     );
   }
-  return <HtmlPreview source={current.page} title="React preview" store={store} onHeight={onHeight} />;
+  return <HtmlPreview source={current.page} title="React preview" store={store} onHeight={onHeight} wide={wide} />;
 }
 
 /** A preview that could not be made, as the app's error callout. */

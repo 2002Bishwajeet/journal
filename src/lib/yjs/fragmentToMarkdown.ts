@@ -20,11 +20,17 @@ function footnoteNumbers(xmlFragment: Y.XmlFragment): Map<string, number> {
 }
 
 /**
- * Serializes a TipTap Y.XmlFragment to markdown. Lossy: noteLink atoms and
- * image layout attrs have no markdown form and are dropped. Pass `numbers`
+ * Serializes a TipTap Y.XmlFragment to markdown. Lossy: image layout attrs and a
+ * link preview's description and image have no markdown form and are dropped. Pass `numbers`
  * when the fragment is only part of a note, so its footnotes keep the note's numbers.
+ * A note link is `[label](journal:note/<id>)` (#561); with `canSee`, a link to a note
+ * it rejects is only its label.
  */
-export function fragmentToMarkdown(xmlFragment: Y.XmlFragment, numbers = footnoteNumbers(xmlFragment)): string {
+export function fragmentToMarkdown(
+  xmlFragment: Y.XmlFragment,
+  numbers = footnoteNumbers(xmlFragment),
+  canSee?: (noteId: string) => boolean
+): string {
   const footnoteLabel = (node: Y.XmlElement) => {
     const id = String(node.getAttribute('id') ?? '');
     return `[^${numbers.get(id) ?? id}]`;
@@ -104,6 +110,12 @@ export function fragmentToMarkdown(xmlFragment: Y.XmlFragment, numbers = footnot
           case 'footnoteReference':
             out += footnoteLabel(child);
             break;
+          case 'noteLink': {
+            const label = String(child.getAttribute('label') ?? '').replace(/\s+/g, ' ');
+            const noteId = String(child.getAttribute('noteId') ?? '');
+            out += noteId && (!canSee || canSee(noteId)) ? `[${label.replace(/[\\[\]]/g, '\\$&')}](journal:note/${noteId})` : label;
+            break;
+          }
           default:
             out += serializeInline(child);
         }
@@ -239,9 +251,9 @@ export function fragmentToMarkdown(xmlFragment: Y.XmlFragment, numbers = footnot
         return `<details>\n<summary>${summary}</summary>\n\n${serializeChildren(node, depth).trim()}\n\n</details>\n\n`;
       }
       case 'linkPreview': {
-        // Title link + description quote; the image (a data URI) is never exported.
+        // `[title](url)<!-- preview -->`, which the edit engine parses back into a card (#561).
         const attr = (name: string) => String(node.getAttribute(name) ?? '');
-        return previewToMarkdown({ url: attr('url'), title: attr('title'), description: attr('description') }) + '\n\n';
+        return previewToMarkdown({ url: attr('url'), title: attr('title') }) + '\n\n';
       }
       case 'horizontalRule':
         return '---\n\n';

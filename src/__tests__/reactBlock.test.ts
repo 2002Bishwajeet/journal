@@ -125,14 +125,20 @@ describe('reactBlockDocument', () => {
     const html = reactBlockDocument({ react: RUNTIME, tailwind: SHEET }, 'var marker = 1;');
     expect(html.startsWith(`<style>${SHEET}</style><div id="root"></div>`)).toBe(true);
     expect(html.match(/<style>/g)).toHaveLength(1);
+    expect(html).not.toContain('journal-block-tailwind');
   });
 
-  it('should hold Recharts and lucide-react only when they are passed, between React and the component (#427)', () => {
+  it("should put the block's own Tailwind right after the sheet, and keep a closing style tag in it from ending its style (#559)", () => {
+    const html = reactBlockDocument({ react: RUNTIME, tailwind: SHEET }, 'var marker = 1;', ".a{content:'</style><b>'}");
+    expect(html.startsWith(`<style>${SHEET}</style><style id="journal-block-tailwind">.a{content:'<\\/style><b>'}</style><div id="root"></div>`)).toBe(true);
+  });
+
+  it('should hold the libraries only when they are passed, in order, between React and the component (#427)', () => {
     const RECHARTS = 'window.Recharts = {};';
     const scripts = (html: string) => [...new DOMParser().parseFromString(html, 'text/html').querySelectorAll('script')].map((script) => script.textContent ?? '');
     expect(scripts(reactBlockDocument({ react: RUNTIME, tailwind: SHEET }, 'var marker = 1;')).filter((text) => /Recharts =|LucideReact =/.test(text))).toEqual([]);
 
-    const texts = scripts(reactBlockDocument({ react: RUNTIME, tailwind: SHEET, recharts: RECHARTS, lucide: LUCIDE }, 'var marker = 1;'));
+    const texts = scripts(reactBlockDocument({ react: RUNTIME, tailwind: SHEET, libraries: [RECHARTS, LUCIDE] }, 'var marker = 1;'));
     const at = (needle: string) => texts.findIndex((text) => text.includes(needle));
     expect(at(RUNTIME)).toBeLessThan(at(RECHARTS));
     expect(at(RECHARTS)).toBeLessThan(at(LUCIDE));
@@ -208,16 +214,41 @@ describe('reactBlockDocument', () => {
 
     it('should render an icon imported from lucide-react, when the page holds it (#427)', async () => {
       const source = "import { Heart } from 'lucide-react';\nfunction App() { return <p><Heart className=\"size-4\" /> Liked</p>; }";
-      await act(async () => load(reactBlockDocument({ react: RUNTIME, tailwind: SHEET, lucide: LUCIDE }, compiled(source))));
+      await act(async () => load(reactBlockDocument({ react: RUNTIME, tailwind: SHEET, libraries: [LUCIDE] }, compiled(source))));
       expect(document.querySelector('#root svg[data-icon="heart"]')?.getAttribute('class')).toBe('size-4');
       expect(alertText()).toBeNull();
       delete win.LucideReact;
     });
 
-    it('should name the module and the allowed ones when a block imports anything else (#427)', async () => {
-      await run("import * as d3 from 'd3';\nfunction App() { return <p>{d3.version}</p>; }");
-      expect(alertText()).toContain('A react block can import only react, recharts and lucide-react, not d3.');
+    it('should give a block each library under its import name: a namespace, named imports, and lodash default-imported under either name (#558)', async () => {
+      // Stand-ins for the scripts vite.config.ts builds: each sets the global REACT_BLOCK_LIBRARIES names.
+      const D3 = "window.d3 = { version: '7' };";
+      const LODASH = "window.lodash = { __esModule: true, default: { chunk: function (list) { return [list]; } }, sum: function (list) { return list.length; } };";
+      const MATH = "window.math = { evaluate: function () { return 4; } };";
+      const source = [
+        "import * as d3 from 'd3';",
+        "import _ from 'lodash';",
+        "import { sum } from 'lodash-es';",
+        "import { evaluate } from 'mathjs';",
+        "function App() { return <p>{d3.version} {_.chunk([1]).length} {sum([1, 2])} {evaluate('2 + 2')}</p>; }",
+      ].join('\n');
+      await act(async () => load(reactBlockDocument({ react: RUNTIME, tailwind: SHEET, libraries: [D3, LODASH, MATH] }, compiled(source))));
+      expect(rootText()).toBe('7 1 2 4');
+      expect(alertText()).toBeNull();
+      for (const name of ['d3', 'lodash', 'math']) delete (win as unknown as Record<string, unknown>)[name];
+    });
+
+    it('should name the module and the allowed ones when a block imports anything else (#427, #558)', async () => {
+      await run("import axios from 'axios';\nfunction App() { return <p>{axios.VERSION}</p>; }");
+      expect(alertText()).toContain(
+        'A react block can import only react, recharts, lucide-react, d3, three, lodash-es, lodash, mathjs, papaparse and journal-ui, not axios.',
+      );
       expect(rootText()).toBe('');
+    });
+
+    it('should not hand out a library that is allowed but not on the page (#558)', async () => {
+      await run("import * as THREE from 'three';\nfunction App() { return <p>{THREE.REVISION}</p>; }");
+      expect(alertText()).toContain('not three.');
     });
   });
 });

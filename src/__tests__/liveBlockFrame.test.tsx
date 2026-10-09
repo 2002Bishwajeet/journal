@@ -62,7 +62,7 @@ describe('LiveBlockFrame', () => {
     expect(classes.filter((name) => name === 'absolute' || name.includes('opacity'))).toEqual([]);
   });
 
-  it('should give an html block no control besides the toggles it was handed (#424)', () => {
+  it('should give an html block no control besides the toggles it was handed and Expand (#424, #557)', () => {
     const markup = renderToStaticMarkup(
       <LiveBlockFrame
         kind="html"
@@ -77,8 +77,33 @@ describe('LiveBlockFrame', () => {
         {null}
       </LiveBlockFrame>,
     );
-    expect(markup.match(/<button/g)).toHaveLength(1);
-    expect(markup).toMatch(/<button[^>]*><span[^>]*>View source<\/span><\/button>/);
+    expect(markup.match(/<button/g)).toHaveLength(2);
+    expect(markup).toMatch(/<button[^>]*><span[^>]*>View source<\/span><\/button><button type="button"[^>]*><span[^>]*>Expand<\/span><\/button>/);
+    // Expand is a button, not a toggle; the box it opens is a popover.
+    expect(markup).not.toMatch(/aria-pressed="[^"]*"[^>]*><span[^>]*>Expand/);
+    expect(markup).toMatch(/<div popover="auto"[^>]*data-live-block-preview="html"/);
+  });
+
+  it('should give Expand to html and react blocks only, even with no toggles (the share page, #557)', () => {
+    const expandable = (kind: 'mermaid' | 'svg' | 'html' | 'react') =>
+      /Expand/.test(
+        renderToStaticMarkup(
+          <LiveBlockFrame kind={kind} source="x" preview toggles={null}>
+            {null}
+          </LiveBlockFrame>,
+        ),
+      );
+    expect([expandable('html'), expandable('react'), expandable('mermaid'), expandable('svg')]).toEqual([true, true, false, false]);
+  });
+
+  it('should mark a wide html or react block, and ignore wide on a mermaid or svg block (#557)', () => {
+    const marked = (kind: 'svg' | 'html' | 'react', wide: boolean) =>
+      renderToStaticMarkup(
+        <LiveBlockFrame kind={kind} source="x" preview={false} wide={wide} toggles={null}>
+          {null}
+        </LiveBlockFrame>,
+      ).includes('data-live-block-wide');
+    expect([marked('html', true), marked('react', true), marked('svg', true), marked('html', false)]).toEqual([true, true, false, false]);
   });
 
   it('should outline the block when its node is selected, like an image', () => {
@@ -146,6 +171,15 @@ describe('LiveBlockPreview react, mounted (#426)', () => {
     expect(srcdoc).toContain('<script>/* react-block-recharts stub */</script>');
     expect(srcdoc).toContain('<script>/* react-block-lucide stub */</script>');
     expect(srcdoc).toContain('<style>/* react-block-tailwind stub */</style>');
+  });
+
+  it('should give a block only the libraries it imports, and lodash once under either name (#558)', async () => {
+    await mount("import * as d3 from 'd3';\nimport _ from 'lodash';\nimport { sum } from 'lodash-es';\nimport { Button } from 'journal-ui';\nfunction App() { return <Button />; }");
+    const srcdoc = note.querySelector('iframe')!.getAttribute('srcdoc')!;
+    expect(srcdoc).toContain('<script>/* react-block-d3 stub */</script>');
+    expect(srcdoc).toContain('<script>/* react-block-ui stub */</script>');
+    expect(srcdoc.match(/react-block-lodash stub/g)).toHaveLength(1);
+    for (const other of ['three', 'mathjs', 'papaparse', 'recharts', 'lucide']) expect(srcdoc).not.toContain(`react-block-${other} stub`);
   });
 
   it('should show a syntax error with its line, as text in place of the frame', async () => {

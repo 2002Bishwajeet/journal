@@ -51,7 +51,7 @@ registerRoute(
 );
 
 // A react block's React runtime and JSX compiler (#426), its Tailwind sheet and the libraries
-// it may import (#427) are not precached either: they load only when a react block is
+// it may import (#427, #558) are not precached either: they load only when a react block is
 // previewed, and are cached on first use so the block renders offline from then on. Chunk
 // names: injectManifest.globIgnores in vite.config.ts.
 registerRoute(
@@ -60,8 +60,8 @@ registerRoute(
     new CacheFirst({
         cacheName: 'react-block',
         plugins: [
-            // Every piece, with room for its copy from the previous release.
-            new ExpirationPlugin({ maxEntries: 10 }),
+            // Every piece (11), with room for its copy from the previous release.
+            new ExpirationPlugin({ maxEntries: 22 }),
         ],
     })
 );

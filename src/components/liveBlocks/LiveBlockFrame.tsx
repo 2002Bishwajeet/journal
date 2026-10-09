@@ -3,9 +3,15 @@
  * same: the preview or the code, straight on the note with no card and no bar
  * (#420), and the view toggles over its top right corner. Rules that have to
  * beat the unlayered `.prose` styles are in src/index.css ("Live blocks").
+ *
+ * An html or react block can be `wide` and can go fullscreen (#557). Fullscreen
+ * is the block's own box as a popover: it moves to the top layer where it is in
+ * the page, so the frame inside keeps running, with its state.
  */
-import { useRef, type ReactNode } from 'react';
-import type { LiveBlockKind } from '@/lib/liveBlocks';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { XIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { isEscapeFromFrame, type LiveBlockKind } from '@/lib/liveBlocks';
 import type { BlockStateStore } from '@/lib/liveBlockState';
 import { cn } from '@/lib/utils';
 import { LiveBlockPreview } from './LiveBlockPreview';
@@ -23,6 +29,8 @@ interface LiveBlockFrameProps {
   labelled?: boolean;
   /** Where an html or react block's `journal.storage` keeps its state (#410). */
   store?: BlockStateStore;
+  /** The fence asks for the full width of the pane (```react wide). Only an html or react block takes it. */
+  wide?: boolean;
   /** The view toggles, as LiveBlockToggle buttons. */
   toggles: ReactNode;
   /** The code block's `<pre>`. */
@@ -33,12 +41,28 @@ interface LiveBlockFrameProps {
 const REVEALED =
   'opacity-0 transition-opacity duration-100 group-hover/block:opacity-100 group-focus-within/block:opacity-100 [@media(hover:none)]:opacity-100';
 
-export function LiveBlockFrame({ kind, source, preview, selected, labelled, store, toggles, children }: LiveBlockFrameProps) {
+export function LiveBlockFrame({ kind, source, preview, selected, labelled, store, wide, toggles, children }: LiveBlockFrameProps) {
+  const block = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   // The inline height fitContent last gave the box.
   const fittedHeight = useRef('');
+  // Follows the box's popover: Esc and Close both hide it.
+  const [fullscreen, setFullscreen] = useState(false);
   // A react block runs in the same frame as an html block (#426), so it gets the same box.
   const framed = kind === 'html' || kind === 'react';
+  const wideBlock = framed && !!wide;
+  // Only the editor lets the user drag the box taller; a reader gets the fitted height.
+  const resizable = framed && !!labelled;
+
+  // Esc pressed in the page closes the popover itself; Esc pressed in the frame never reaches the page, so the frame passes it on.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onMessage = (event: MessageEvent<unknown>) => {
+      if (isEscapeFromFrame(event, box.current?.querySelector('iframe')?.contentWindow ?? null)) box.current?.hidePopover();
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [fullscreen]);
 
   // An html block is as tall as its content (#412) until the user drags the resize handle:
   // the browser then writes an inline height that is not the fitted one, and that one stays.
@@ -50,14 +74,17 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, stor
 
   return (
     <div
+      ref={block}
       data-live-block={kind}
+      // Its width is in src/index.css ("Live blocks").
+      data-live-block-wide={wideBlock ? '' : undefined}
       // `isolate` keeps the controls' z-index inside the block. The outline is the one a selected image gets (ImageNode).
       className={cn('group/block relative isolate my-4', selected && 'rounded-sm outline-2 outline-primary/60')}
     >
       {/* While editing, a plain row above the block: its kind, then the toggles. For a reader, only
           the toggles, over the corner and out of sight until the block is hovered or has keyboard
           focus (always there on a device that cannot hover). */}
-      {(toggles || labelled) && (
+      {(toggles || labelled || framed) && (
         <div
           role="group"
           aria-label={`${LABELS[kind]} block`}
@@ -69,20 +96,60 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, stor
         >
           {labelled && <span className="mr-auto text-xs font-medium text-muted-foreground">{LABELS[kind]}</span>}
           {toggles}
+          {framed && (
+            <LiveBlockToggle
+              onClick={() => {
+                // Open, the box leaves the note for the top layer: the block keeps its height so the note does not move under it.
+                if (block.current) block.current.style.minHeight = `${block.current.offsetHeight}px`;
+                box.current?.showPopover();
+              }}
+            >
+              Expand
+            </LiveBlockToggle>
+          )}
         </div>
       )}
       {/* An html block's preview and code share this box and its height (400px until the content
-          reports its own, or the box is resized), so switching views does not move the page.
-          `resize` needs a non-visible overflow. */}
+          reports its own, or the box is resized in the editor), so switching views does not move
+          the page. `resize` needs a non-visible overflow. Closed, the popover is this ordinary box: the
+          classes undo the browser's popover style. Open, it fills the viewport, with Close in a
+          row on top, and its fitted or dragged height gives way. */}
       <div
         ref={box}
+        popover={framed ? 'auto' : undefined}
+        onToggle={(event) => {
+          setFullscreen(event.newState === 'open');
+          if (event.newState === 'closed' && block.current) block.current.style.minHeight = '';
+        }}
         contentEditable={preview ? false : undefined}
         data-live-block-preview={preview ? kind : undefined}
-        className={cn(framed && 'relative h-[400px] resize-y overflow-hidden')}
+        className={cn(
+          framed &&
+            'relative block h-[400px] w-auto overflow-hidden border-0 bg-transparent p-0 text-inherit open:fixed open:inset-0 open:size-auto! open:resize-none open:bg-background open:pt-11',
+          resizable && 'resize-y',
+        )}
       >
-        {preview && <LiveBlockPreview kind={kind} source={source} store={store} onHeight={fitContent} />}
+        {fullscreen && (
+          <div contentEditable={false} className="absolute right-2 top-1.5 font-sans select-none">
+            <Button
+              variant="outline"
+              size="sm"
+              autoFocus
+              onClick={(event) => {
+                // Closing puts focus back on Expand, and it keeps Close's focus ring (Close took focus
+                // on its own). A mouse click (detail > 0) drops focus first, so Expand gets no ring.
+                if (event.detail > 0) event.currentTarget.blur();
+                box.current?.hidePopover();
+              }}
+            >
+              <XIcon aria-hidden />
+              Close
+            </Button>
+          </div>
+        )}
+        {preview && <LiveBlockPreview kind={kind} source={source} store={store} onHeight={fitContent} wide={wideBlock} />}
         {children}
-        {framed && (
+        {resizable && !fullscreen && (
           // Drawn over the native resize handle, which is hard to see on a page. Dragging it
           // needs a mouse, so touch devices do not get the hint.
           <span
@@ -104,15 +171,16 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, stor
 }
 
 interface LiveBlockToggleProps {
-  pressed: boolean;
+  /** A view toggle's state. Expand has none. */
+  pressed?: boolean;
   onClick: () => void;
   children: ReactNode;
 }
 
 /**
- * A view toggle over a live block. The button is 44px tall (36px on a desktop
- * with a mouse) so it is an easy target; the pill inside it carries the look
- * and the hover, pressed and focus states.
+ * A view toggle or button over a live block. The button is 44px tall (36px on a
+ * desktop with a mouse) so it is an easy target; the pill inside it carries the
+ * look and the hover, pressed and focus states.
  */
 export function LiveBlockToggle({ pressed, onClick, children }: LiveBlockToggleProps) {
   return (

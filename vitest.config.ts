@@ -35,8 +35,15 @@ export default defineConfig({
             // Built by a plugin in vite.config.ts, which vitest does not load.
             'virtual:react-block-runtime': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockRuntime.ts'),
             'virtual:react-block-tailwind': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockTailwind.ts'),
+            'virtual:react-block-tailwind-theme': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockTailwindTheme.ts'),
             'virtual:react-block-lucide': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockLucide.ts'),
             'virtual:react-block-recharts': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockRecharts.ts'),
+            'virtual:react-block-d3': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockD3.ts'),
+            'virtual:react-block-three': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockThree.ts'),
+            'virtual:react-block-lodash': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockLodash.ts'),
+            'virtual:react-block-mathjs': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockMathjs.ts'),
+            'virtual:react-block-papaparse': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockPapaparse.ts'),
+            'virtual:react-block-ui': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockUi.ts'),
         },
     },
 });

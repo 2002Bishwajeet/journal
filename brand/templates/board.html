@@ -1,0 +1,69 @@
+<!doctype html>
+<!-- 1920x1440 brand overview board, rendered to brand/png/board.png -->
+<html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  html,body{margin:0}
+  body{width:1920px;height:1440px;box-sizing:border-box;padding:48px;background:#141312;font-family:var(--font-sans);
+    display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);gap:24px}
+  .p{position:relative;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--paper);color:var(--ink)}
+  .p.n{background:var(--night);color:var(--mist)}
+  .p.s{background:var(--sand)}
+  .p.b{background:var(--beige)}
+  .lbl{position:absolute;left:24px;bottom:20px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--stone)}
+  .num{position:absolute;right:24px;bottom:20px;font-size:13px;color:var(--stone)}
+  .serif{font-family:var(--font-serif)}
+  /* construction */
+  .grid{position:absolute;inset:0;background-image:linear-gradient(var(--night-line) 1px,transparent 1px),linear-gradient(90deg,var(--night-line) 1px,transparent 1px);background-size:30px 30px;background-position:center;opacity:.5}
+  .ring{position:absolute;width:300px;height:300px;border:1px dashed var(--stone);border-radius:50%}
+  .axis{position:absolute;width:420px;height:1px;background:var(--stone);transform:rotate(-48deg)}
+  /* browser */
+  .win{width:82%;height:62%;background:var(--paper);border-radius:10px;box-shadow:0 18px 50px rgb(44 43 41/.18);overflow:hidden}
+  .tab{display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;background:var(--beige);font-size:15px}
+  .tab span{display:flex;align-items:center;gap:8px;background:var(--paper);height:30px;margin-top:10px;padding:0 14px;border-radius:8px 8px 0 0}
+  .url{margin:12px 14px;padding:8px 14px;border-radius:999px;background:var(--hover);border:1px solid var(--line);font-size:14px;color:var(--stone)}
+  .doc{padding:6px 28px}
+  .doc h3{font-family:var(--font-serif);font-weight:500;font-size:28px;margin:6px 0 10px}
+  .doc i{display:block;height:9px;border-radius:5px;background:var(--line);margin:9px 0}
+  /* swatches */
+  .sw{display:grid;grid-template-columns:repeat(4,1fr);width:86%;gap:10px}
+  .sw div{height:118px;border-radius:8px;padding:10px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end;font-size:12px;border:1px solid var(--line)}
+  .sw b{font-weight:600;font-size:13px}
+  /* chips */
+  .chips{display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+  .chip{display:inline-flex;align-items:center;gap:10px;padding:10px 16px;border-radius:999px;background:var(--night-card);border:1px solid var(--night-line);font-size:17px}
+  .chip i{width:8px;height:8px;border-radius:50%;background:var(--sand)}
+</style></head>
+<body>
+  <!-- 1 cover -->
+  <section class="p"><img src="../logo/wordmark-light.svg" style="height:110px" alt="Journal"><span class="lbl">Journal · Brand kit</span><span class="num">01</span></section>
+  <!-- 2 construction -->
+  <section class="p n"><div class="grid"></div><div class="ring"></div><img src="../logo/mark-dark.svg" style="height:260px;position:relative"><span class="lbl">Mark · the original quill</span><span class="num">02</span></section>
+  <!-- 3 digital -->
+  <section class="p b"><div class="win"><div class="tab"><span><img src="../logo/mark-light.svg" style="height:18px">Journal</span></div><div class="url">Saved on this device</div><div class="doc"><h3>Morning pages</h3><i style="width:92%"></i><i style="width:78%"></i><i style="width:85%"></i><i style="width:40%"></i></div></div><span class="lbl">Favicon · tab</span><span class="num">03</span></section>
+  <!-- 4 essence -->
+  <section class="p n"><div class="serif" style="font-style:italic;font-size:64px;text-align:center;line-height:1.1">Private<br>by design.</div><span class="lbl">Essence</span><span class="num">04</span></section>
+  <!-- 5 colour -->
+  <section class="p"><div class="sw">
+    <div style="background:var(--paper)"><b>Paper</b>#FDFCF8</div>
+    <div style="background:var(--beige)"><b>Beige</b>#F2F0E9</div>
+    <div style="background:var(--sand)"><b>Sand</b>#DACAB0</div>
+    <div style="background:var(--stone);color:var(--paper);border:0"><b>Stone</b>#8A8780</div>
+    <div style="background:var(--quill);color:var(--paper);border:0"><b>Quill</b>#67665E</div>
+    <div style="background:var(--ink);color:var(--mist);border:0"><b>Ink</b>#2C2B29</div>
+    <div style="background:var(--cream)"><b>Cream</b>#F6F1E5</div>
+    <div style="background:var(--night);color:var(--mist);border:0"><b>Night</b>#1C1B1A</div>
+  </div><span class="lbl">Colour · app + icon</span><span class="num">05</span></section>
+  <!-- 6 type -->
+  <section class="p"><div style="display:flex;gap:56px;align-items:flex-end">
+    <div><div class="serif" style="font-size:150px;line-height:1">Aa</div><div style="font-size:16px;color:var(--stone);margin-top:10px">Playfair Display · headings</div></div>
+    <div><div style="font-size:150px;line-height:1;font-weight:500">Aa</div><div style="font-size:16px;color:var(--stone);margin-top:10px">Inter · interface</div></div>
+  </div><span class="lbl">Type</span><span class="num">06</span></section>
+  <!-- 7 app icon -->
+  <section class="p s"><img src="../logo/app-icon.svg" style="height:230px;border-radius:52px;box-shadow:0 22px 50px rgb(44 43 41/.22)"><span class="lbl">App icon</span><span class="num">07</span></section>
+  <!-- 8 atmosphere -->
+  <section class="p b"><img src="../logo/mark-light.svg" style="position:absolute;height:720px;right:-200px;top:-140px;opacity:.08"><div style="position:relative;max-width:78%"><div class="serif" style="font-size:52px;line-height:1.12">Your notes stay home.</div><div style="margin-top:16px;font-size:19px;color:var(--stone)">On your device. In your own private space.</div></div><span class="lbl">Voice</span><span class="num">08</span></section>
+  <!-- 9 detail -->
+  <section class="p n"><div class="chips"><span class="chip"><i></i>Saved on this device</span><span class="chip"><i></i>Encrypted sync</span><span class="chip"><i></i>Agent built a live block</span></div><span class="lbl">UI detail</span><span class="num">09</span></section>
+</body></html>

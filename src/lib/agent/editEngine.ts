@@ -26,13 +26,123 @@ export const editorSchema = getSchema(extensions);
 
 const md = new MarkdownManager({ extensions });
 
+/** Image srcs in parsed markdown that are neither remote nor already attached: files and data: URIs. */
+const isLocalImageSrc = (src: string) => !/^(https?|attachment|blob):/i.test(src);
+
 /**
- * Markdown -> ProseMirror. A `[^n]` the note already has is that footnote
- * (`existing[n - 1]`); any other label gets a new id. With `newDefinitions`
- * (appended text), a label the markdown defines is always a new footnote.
+ * The markdown parser returns an image that is alone on its line as a block of its own,
+ * which the schema doesn't allow (image is inline) and the serializer drops: put it in a paragraph.
  */
-function parseMarkdown(markdown: string, existing: string[] = [], newDefinitions = false): PMNode {
+function wrapBlockImages(node: JSONContent) {
+  if (!node.content) return;
+  const holdsInline = !!node.type && editorSchema.nodes[node.type]?.inlineContent;
+  node.content = node.content.map((child) =>
+    child.type === 'image' && !holdsInline ? { type: 'paragraph', content: [child] } : child
+  );
+  node.content.forEach(wrapBlockImages);
+}
+
+/** A list item opens with a paragraph, so a link preview line there stays a plain link (#561). */
+function unwrapListItemCards(node: JSONContent) {
+  if (!node.content) return;
+  const [first] = node.content;
+  if ((node.type === 'listItem' || node.type === 'taskItem') && first?.type === 'linkPreview') {
+    const href = String(first.attrs?.url);
+    node.content[0] = { type: 'paragraph', content: [{ type: 'text', text: href, marks: [{ type: 'link', attrs: { href } }] }] };
+  }
+  node.content.forEach(unwrapListItemCards);
+}
+
+function parseJson(markdown: string): JSONContent {
   const json = md.parse(markdown);
+  wrapBlockImages(json);
+  unwrapListItemCards(json);
+  return json;
+}
+
+function walkImages(node: JSONContent, visit: (image: JSONContent) => void) {
+  if (node.type === 'image') visit(node);
+  node.content?.forEach((child) => walkImages(child, visit));
+}
+
+/** The distinct local file paths and `data:` URIs of the images in `markdown`, in order. */
+export function localImageSources(markdown: string): string[] {
+  const found = new Set<string>();
+  walkImages(parseJson(markdown), (image) => {
+    const src = image.attrs?.src;
+    if (typeof src === 'string' && src && isLocalImageSrc(src)) found.add(src);
+  });
+  return [...found];
+}
+
+function swapImageSrcs(json: JSONContent, imageSrcs: ReadonlyMap<string, string>) {
+  walkImages(json, (image) => {
+    const next = imageSrcs.get(String(image.attrs?.src));
+    if (next) image.attrs = { ...image.attrs, src: next };
+  });
+}
+
+/** A note the agent can see, so a note link can point at it (#561). */
+export interface LinkTarget {
+  id: string;
+  title: string;
+}
+
+type CanSee = (noteId: string) => boolean;
+
+function canSeeOf(targets?: readonly LinkTarget[]): CanSee | undefined {
+  if (!targets) return undefined;
+  const ids = new Set(targets.map((t) => t.id));
+  return (noteId) => ids.has(noteId);
+}
+
+function noteTitled(targets: readonly LinkTarget[], title: string): LinkTarget {
+  const key = title.toLowerCase();
+  const matches = targets.filter((t) => t.title.trim().toLowerCase() === key);
+  if (matches.length === 1) return matches[0];
+  if (matches.length === 0) throw new Error(`Note link [[${title}]]: no note you can see has this title`);
+  throw new Error(`Note link [[${title}]]: ${matches.length} notes have this title; link one by id: [${title}](journal:note/<id>)`);
+}
+
+/**
+ * Note links in parsed markdown, against the notes in `targets`: `[[Title]]` (noteId null)
+ * becomes a link to the one note with that title, and a link to a note not in `targets` is
+ * only its label. Without `targets` (markdown import) links are kept and `[[Title]]` stays text.
+ */
+function resolveNoteLinks(node: JSONContent, targets?: readonly LinkTarget[], canSee = canSeeOf(targets)): void {
+  if (!node.content) return;
+  node.content = node.content.flatMap((child): JSONContent[] => {
+    if (child.type !== 'noteLink') {
+      resolveNoteLinks(child, targets, canSee);
+      return [child];
+    }
+    const label = String(child.attrs?.label ?? '');
+    const asText = (text: string): JSONContent[] => (text ? [{ type: 'text', text, marks: child.marks }] : []);
+    const noteId = child.attrs?.noteId;
+    if (noteId) return !canSee || canSee(String(noteId)) ? [child] : asText(label);
+    if (!targets) return asText(`[[${label}]]`);
+    const target = noteTitled(targets, label);
+    return [{ ...child, attrs: { noteId: target.id, label: target.title } }];
+  });
+}
+
+/**
+ * Markdown -> ProseMirror. `imageSrcs` swaps image srcs (a local path for its uploaded
+ * `attachment://…`) before the nodes are built. A `[^n]` the note already has is that footnote
+ * (`existing[n - 1]`); any other label gets a new id. With `newDefinitions`
+ * (appended text), a label the markdown defines is always a new footnote. Note links
+ * are resolved against `targets` (`resolveNoteLinks`).
+ */
+function parseMarkdown(
+  markdown: string,
+  existing: string[] = [],
+  newDefinitions = false,
+  imageSrcs?: ReadonlyMap<string, string>,
+  targets?: readonly LinkTarget[]
+): PMNode {
+  const json = parseJson(markdown);
+  if (imageSrcs?.size) swapImageSrcs(json, imageSrcs);
+  resolveNoteLinks(json, targets);
   const footnoteNodes: JSONContent[] = [];
   const collect = (node: JSONContent) => {
     if (node.type === 'footnoteReference' || node.type === 'footnote') footnoteNodes.push(node);
@@ -53,8 +163,9 @@ function parseMarkdown(markdown: string, existing: string[] = [], newDefinitions
   return editorSchema.nodeFromJSON(json);
 }
 
-export function toMarkdown(doc: Y.Doc): string {
-  return fragmentToMarkdown(doc.getXmlFragment(FRAGMENT));
+/** With `targets`, a link to a note not in it is only its label. */
+export function toMarkdown(doc: Y.Doc, targets?: readonly LinkTarget[]): string {
+  return fragmentToMarkdown(doc.getXmlFragment(FRAGMENT), undefined, canSeeOf(targets));
 }
 
 function read(doc: Y.Doc): PMNode {
@@ -69,28 +180,41 @@ function write(doc: Y.Doc, pmDoc: PMNode): void {
   doc.transact(() => updateYFragment(doc, fragment, tr.doc, { mapping: new Map(), isOMark: new Map() }), 'agent');
 }
 
-export function appendMarkdown(doc: Y.Doc, markdown: string): void {
+export function appendMarkdown(
+  doc: Y.Doc,
+  markdown: string,
+  imageSrcs?: ReadonlyMap<string, string>,
+  targets?: readonly LinkTarget[]
+): void {
   const current = read(doc);
-  const added = parseMarkdown(markdown, footnoteOrder(current), true);
+  const added = parseMarkdown(markdown, footnoteOrder(current), true, imageSrcs, targets);
   const first = current.firstChild;
   const isEmpty = current.childCount === 1 && first?.type.name === 'paragraph' && first.content.size === 0;
   write(doc, isEmpty ? current.copy(added.content) : current.copy(current.content.append(added.content)));
 }
 
 /** Markdown of one top-level block, via the same serializer as `toMarkdown`, with the note's footnote `numbers`. */
-function blockToMarkdown(block: PMNode, numbers: Map<string, number>): string {
+function blockToMarkdown(block: PMNode, numbers: Map<string, number>, canSee?: CanSee): string {
   const tmp = new Y.Doc();
-  return fragmentToMarkdown(prosemirrorToYXmlFragment(editorSchema.topNodeType.create(null, block), tmp.getXmlFragment(FRAGMENT)), numbers);
+  return fragmentToMarkdown(
+    prosemirrorToYXmlFragment(editorSchema.topNodeType.create(null, block), tmp.getXmlFragment(FRAGMENT)),
+    numbers,
+    canSee
+  );
 }
 
 // Nodes the markdown parser can't rebuild: re-parsing drops them (or, for
 // toggle/callout, their summary/variant).
-const LOSSY_NODES = new Set(['noteLink', 'image', 'toggle', 'callout', 'linkPreview']);
+const LOSSY_NODES = new Set(['image', 'toggle', 'callout']);
 
-const hasLossyNode = (block: PMNode) => {
-  let found = LOSSY_NODES.has(block.type.name);
+// A link to a note the agent can't see is only its label in the markdown, so re-parsing drops it too.
+const isLossy = (n: PMNode, canSee?: CanSee) =>
+  LOSSY_NODES.has(n.type.name) || (n.type.name === 'noteLink' && !!n.attrs.noteId && canSee?.(n.attrs.noteId) === false);
+
+const hasLossyNode = (block: PMNode, canSee?: CanSee) => {
+  let found = isLossy(block, canSee);
   block.descendants((n) => {
-    if (LOSSY_NODES.has(n.type.name)) found = true;
+    if (isLossy(n, canSee)) found = true;
     return !found;
   });
   return found;
@@ -101,13 +225,20 @@ const hasLossyNode = (block: PMNode) => {
  * blocks the single match spans are re-parsed from markdown; every other block
  * stays the original ProseMirror node read from Yjs.
  */
-export function replaceInNote(doc: Y.Doc, oldText: string, newText: string): void {
+export function replaceInNote(
+  doc: Y.Doc,
+  oldText: string,
+  newText: string,
+  imageSrcs?: ReadonlyMap<string, string>,
+  targets?: readonly LinkTarget[]
+): void {
   const current = read(doc);
   const blocks: PMNode[] = [];
   current.forEach((b) => blocks.push(b));
   const footnotes = footnoteOrder(current);
   const numbers = new Map(footnotes.map((id, i) => [id, i + 1]));
-  const mds = blocks.map((b) => blockToMarkdown(b, numbers));
+  const canSee = canSeeOf(targets);
+  const mds = blocks.map((b) => blockToMarkdown(b, numbers, canSee));
   const joined = mds.join('\n\n');
 
   const count = oldText ? joined.split(oldText).length - 1 : 0;
@@ -135,14 +266,16 @@ export function replaceInNote(doc: Y.Doc, oldText: string, newText: string): voi
     offset = e + 2; // '\n\n' separator
   });
 
-  if (blocks.slice(from, to + 1).some(hasLossyNode)) {
-    throw new Error('replace_in_note: the matched text is in a block with a note link, image, toggle, callout or link preview; edit a different span');
+  if (blocks.slice(from, to + 1).some((b) => hasLossyNode(b, canSee))) {
+    throw new Error(
+      "replace_in_note: the matched text is in a block with an image, toggle, callout or a link to a note you can't see; edit a different span"
+    );
   }
 
   const rangeMd = joined.slice(rangeStart, rangeEnd);
   const replaced = rangeMd.slice(0, at - rangeStart) + newText + rangeMd.slice(end - rangeStart);
   const next: PMNode[] = [...blocks.slice(0, from)];
-  parseMarkdown(replaced, footnotes).forEach((n) => next.push(n));
+  parseMarkdown(replaced, footnotes, false, imageSrcs, targets).forEach((n) => next.push(n));
   next.push(...blocks.slice(to + 1));
   write(doc, current.copy(Fragment.fromArray(next)));
 }
@@ -161,16 +294,22 @@ function findBlock(text: string, block: string, from: number): number {
  * `toMarkdown` returns it) appears unchanged, in order, keeps its original node read from
  * Yjs, so note links and images in kept blocks survive; only the rest is parsed from markdown.
  */
-export function setMarkdown(doc: Y.Doc, markdown: string): void {
+export function setMarkdown(
+  doc: Y.Doc,
+  markdown: string,
+  imageSrcs?: ReadonlyMap<string, string>,
+  targets?: readonly LinkTarget[]
+): void {
   const current = read(doc);
   const footnotes = footnoteOrder(current);
   const numbers = new Map(footnotes.map((id, i) => [id, i + 1]));
+  const canSee = canSeeOf(targets);
   const nonce = getNewId();
   const kept = new Map<string, PMNode>();
   let text = markdown;
   let from = 0;
   current.forEach((block, _offset, i) => {
-    const blockMd = blockToMarkdown(block, numbers);
+    const blockMd = blockToMarkdown(block, numbers, canSee);
     const at = blockMd ? findBlock(text, blockMd, from) : -1;
     if (at < 0) return;
     // Swap the block for a placeholder paragraph, then swap its original node back in after parsing.
@@ -182,22 +321,25 @@ export function setMarkdown(doc: Y.Doc, markdown: string): void {
 
   const next: PMNode[] = [];
   let reused = 0;
-  parseMarkdown(text, footnotes).forEach((n) => {
+  parseMarkdown(text, footnotes, false, imageSrcs, targets).forEach((n) => {
     const original = n.type.name === 'paragraph' ? kept.get(n.textContent) : undefined;
     if (original) reused++;
     next.push(original ?? n);
   });
   // A placeholder that didn't come back as its own paragraph (say, inside a code fence) would
   // leak into the note: then parse the markdown as given, without reuse.
-  write(doc, reused === kept.size ? current.copy(Fragment.fromArray(next)) : parseMarkdown(markdown, footnotes));
+  write(
+    doc,
+    reused === kept.size ? current.copy(Fragment.fromArray(next)) : parseMarkdown(markdown, footnotes, false, imageSrcs, targets)
+  );
 }
 
 /**
- * A fresh doc built from markdown. LOSSY for note links and image layout, so
+ * A fresh doc built from markdown. LOSSY for image layout, so
  * only for new notes, never for rewriting existing ones.
  */
-export function createDoc(markdown: string): Y.Doc {
+export function createDoc(markdown: string, targets?: readonly LinkTarget[]): Y.Doc {
   const doc = new Y.Doc();
-  write(doc, parseMarkdown(markdown));
+  write(doc, parseMarkdown(markdown, [], false, undefined, targets));
   return doc;
 }
