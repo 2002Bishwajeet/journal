@@ -2,7 +2,7 @@
 
 A Journal note is a title, tags, an optional cover image and a body. The MCP tools read
 and write the body as markdown: `get_note` returns it, and `create_note`,
-`append_to_note`, `replace_in_note` and `update_note` take it. Everything in this guide
+`append_to_note`, `replace_in_note`, `update_note` and `edit_block` take it. Everything in this guide
 renders in the Journal editor and on the note's public share page, in the light and the
 dark theme, and comes back from `get_note` as the same markdown you wrote (an uploaded
 image comes back as `attachment://…`).
@@ -122,6 +122,36 @@ recommended 2400×1260 and at least 1200×630, `positionY` 0 to 100 for the foca
 `clear_note_cover`. Use a cover rather than an image at the top of the body: it also feeds
 the link preview of a public note.
 
+### Editing one block
+
+To change part of an existing note, edit just that block rather than rewriting the note.
+`get_note` with `format: "blocks"` returns the body as its top-level blocks:
+
+```json
+{ "id": "1843:12", "type": "table", "markdown": "| Day | Plan |\n| --- | --- |\n| Mon | Rest |",
+  "attrs": {}, "rows": [["Day", "Plan"], ["Mon", "Rest"]] }
+```
+
+`attrs` holds what `set_attrs` can change: a callout's `variant`, a toggle's `summary`, a
+heading's `level`, a code block's `language`, `id` and `wide`, and a task list's `checked`
+(one value per task). A table also has `rows`, its cells as markdown. A block's `id` stays
+the same while the block exists, across edits, reloads and devices.
+
+`edit_block` takes `note_id`, `block_id`, an `op` and optionally `expectedModified`:
+
+- `{ "type": "replace", "markdown": "…" }` re-parses that block alone;
+  `insert_before` and `insert_after` add blocks next to it; `{ "type": "delete" }` removes it.
+- `{ "type": "set_text", "markdown": "…" }` replaces a callout's or a toggle's body and keeps
+  its variant or summary. Use it rather than `replace` for those two.
+- `{ "type": "set_attrs", "attrs": { "variant": "tip" } }` changes attributes only.
+- In a table: `{ "type": "set_cell", "row": 1, "col": 0, "markdown": "Tue" }`,
+  `{ "type": "insert_row", "at": 2, "cells": ["Wed", "Hike"] }`, and `delete_row`,
+  `insert_column` and `delete_column` with `at`. Rows and columns count from 0, the header
+  row included. These keep the column widths and every other cell.
+
+It returns the ids of the blocks the op leaves (none for `delete`). An id that no longer
+exists fails with "block not found"; call `get_note` with `format: "blocks"` again.
+
 ### Note links
 
 A link to another note is `[label](journal:note/<id>)`, with the id `list_notes` or
@@ -135,7 +165,8 @@ Packing is in [[Packing list]], and the route in [the plan](journal:note/3f2a9c1
 ```
 
 A link to a note you can't see comes back as its label only. Keep that text as it is to
-keep the link; `replace_in_note` refuses a block holding one.
+keep the link; `replace_in_note` and `edit_block` refuse to rewrite a block holding
+one.
 
 ### Link previews
 

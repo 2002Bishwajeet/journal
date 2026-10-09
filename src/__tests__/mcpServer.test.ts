@@ -7,7 +7,8 @@ import type { NoteSummary } from '../../mcp/tools/read';
 import type { WriteDeps } from '../../mcp/tools/write';
 import type { AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
-import { createDoc } from '@/lib/agent/editEngine';
+import * as Y from 'yjs';
+import { createDoc, toMarkdown } from '@/lib/agent/editEngine';
 import { HTML_BLOCK_CDN_HOSTS } from '@/lib/liveBlocks';
 import { REACT_BLOCK_IMPORTS } from '@/lib/reactBlockLibraries';
 import GUIDE from '../../mcp/AUTHORING.md?raw';
@@ -21,7 +22,7 @@ const NOTES: NoteSummary[] = [{ id: 'n1', title: 'Note One', folderId: 'F1', tag
 type ServerDeps = Omit<WriteDeps, 'clientName'>;
 
 /** The write tools that take markdown, sorted. */
-const MARKDOWN_TOOLS = ['append_to_note', 'create_note', 'replace_in_note', 'update_note'];
+const MARKDOWN_TOOLS = ['append_to_note', 'create_note', 'edit_block', 'replace_in_note', 'update_note'];
 
 const METADATA: DocumentMetadata = {
     title: 'Note One',
@@ -64,7 +65,7 @@ async function connectedClient(deps: ServerDeps): Promise<Client> {
 }
 
 describe('createJournalMcpServer', () => {
-    it('registers exactly the five read tools and the eight write tools', async () => {
+    it('registers exactly the five read tools and the nine write tools', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
         expect(tools.map((tool) => tool.name).sort()).toEqual([
@@ -73,6 +74,7 @@ describe('createJournalMcpServer', () => {
             'create_folder',
             'create_note',
             'delete_note',
+            'edit_block',
             'get_authoring_guide',
             'get_note',
             'list_folders',
@@ -84,7 +86,7 @@ describe('createJournalMcpServer', () => {
         ]);
     });
 
-    it('points the four markdown write tools, and only them, to the authoring guide in one line (#519)', async () => {
+    it('points the five markdown write tools, and only them, to the authoring guide in one line (#519)', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
         const pointer = 'Supports rich blocks; call get_authoring_guide before writing anything beyond plain markdown.';
@@ -170,6 +172,44 @@ describe('createJournalMcpServer', () => {
         expect(result.content).toEqual([
             { type: 'text', text: 'replace_in_note: old_text matches 2 times; include more surrounding text' },
         ]);
+    });
+
+    it('get_note with format blocks returns block ids that edit_block takes (#560)', async () => {
+        let blob = Y.encodeStateAsUpdate(createDoc('| Day | Plan |\n| --- | --- |\n| Mon | Rest |\n\nAfter'));
+        const docOf = () => {
+            const doc = new Y.Doc();
+            Y.applyUpdate(doc, blob);
+            return doc;
+        };
+        const deps: ServerDeps = {
+            ...makeFakeDeps(WRITE_GRANTS),
+            fetchNoteForEdit: async () => ({ summary: NOTES[0], doc: docOf(), versionTag: 'v1', fileId: 'f1', metadata: METADATA }),
+            uploadNoteEdit: async (_id, edit) => {
+                blob = edit.yjsBlob;
+            },
+        };
+        const client = await connectedClient(deps);
+        const text = (result: Awaited<ReturnType<Client['callTool']>>) => (result.content as Array<{ text: string }>)[0].text;
+
+        const note = JSON.parse(text(await client.callTool({ name: 'get_note', arguments: { id: 'n1', format: 'blocks' } })));
+        expect(note).toMatchObject({ id: 'n1', access: 'write', blocks: [{ type: 'table', rows: [['Day', 'Plan'], ['Mon', 'Rest']] }, { type: 'paragraph', markdown: 'After' }] });
+
+        const tableId = note.blocks[0].id;
+        const edited = await client.callTool({
+            name: 'edit_block',
+            arguments: { note_id: 'n1', block_id: tableId, op: { type: 'set_cell', row: 1, col: 1, markdown: 'Hike' } },
+        });
+        expect(JSON.parse(text(edited))).toEqual({ id: 'n1', block_ids: [tableId] });
+        expect(toMarkdown(docOf())).toBe('| Day | Plan |\n| --- | --- |\n| Mon | Hike |\n\nAfter');
+
+        // The default format is unchanged.
+        const plain = await client.callTool({ name: 'get_note', arguments: { id: 'n1' } });
+        expect(JSON.parse(text(plain))).toMatchObject({ markdown: 'body' });
+
+        const bad = await client.callTool({ name: 'edit_block', arguments: { note_id: 'n1', block_id: tableId, op: { type: 'merge' } } });
+        expect(bad.isError).toBe(true);
+        const gone = await client.callTool({ name: 'edit_block', arguments: { note_id: 'n1', block_id: '1:0', op: { type: 'delete' } } });
+        expect(text(gone)).toBe('edit_block: block not found; call get_note with format blocks');
     });
 
     it('callTool list_notes returns the granted notes', async () => {

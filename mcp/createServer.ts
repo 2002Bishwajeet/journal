@@ -3,6 +3,7 @@ import { z } from 'zod';
 import * as readTools from './tools/read';
 import * as writeTools from './tools/write';
 import type { WriteDeps } from './tools/write';
+import { CALLOUT_VARIANTS } from '@/components/editor/nodes/calloutVariants';
 // The full authoring reference (#519), inlined at build time so the packaged server carries it.
 // mcpServer.test.ts checks it names every live-block language, react import and CDN host in code.
 import AUTHORING_GUIDE from './AUTHORING.md?raw';
@@ -26,6 +27,8 @@ A note can hold:
 
 Interactive tools, calculators, dashboards, charts, simulations and small games are welcome in a note: build them as an html or react block. Use a native block (table, callout, toggle, task list, mermaid) when it can carry the content. Design a live block for the ~650px note column with a fluid layout (it is also shown at 390px and fullscreen); add \`wide\` to its fence (\`\`\`react wide id=k3f9) only when the content needs horizontal room, and keep it when rewriting the block.
 
+To change part of a note, call get_note with format "blocks" and edit_block that one block, table cell or attribute; everything else stays as it is.
+
 Before writing anything beyond plain markdown, call get_authoring_guide: it has every block's syntax with examples, what a live block can load and do, the design rules that keep it matching the note in light and dark, and complete examples.`;
 
 /** Shared by the tools that take markdown, in place of the full guide. */
@@ -44,7 +47,7 @@ function json(x: unknown) {
 }
 
 /**
- * Builds the MCP server and wires its five read tools and eight write tools to `deps`.
+ * Builds the MCP server and wires its five read tools and nine write tools to `deps`.
  * Lives outside mcp/server.ts (the CLI entry) so tests can connect it to an
  * in-memory transport with fake deps — no SDK/drive access needed for the real server to
  * be exercised. `clientName` comes from this server's own initialize handshake.
@@ -80,10 +83,14 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
         'get_note',
         {
             title: 'Get note',
-            description: 'Fetch one granted Journal note by id, with its body as markdown.',
-            inputSchema: { id: z.string() },
+            description:
+                'Fetch one granted Journal note by id, with its body as markdown. ' +
+                'With format "blocks", the body is a list of top-level blocks { id, type, markdown, attrs }, plus rows (cell markdown) for a table: ' +
+                'the ids edit_block takes, which stay the same while the block exists.',
+            inputSchema: { id: z.string(), format: z.enum(['markdown', 'blocks']).optional() },
         },
-        async ({ id }) => json(await readTools.getNote(deps, { id }))
+        async ({ id, format }) =>
+            json(format === 'blocks' ? await writeTools.getNoteBlocks(deps, { id }) : await readTools.getNote(deps, { id }))
     );
 
     server.registerTool(
@@ -184,6 +191,48 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
         },
         async ({ id, markdown, title, tags, expectedModified }) =>
             json(await writeTools.updateNote(deps, { id, markdown, title, tags, expectedModified }))
+    );
+
+    const index = z.number().int().min(0);
+    server.registerTool(
+        'edit_block',
+        {
+            title: 'Edit block',
+            description:
+                'Edit one block of a Journal note with Read+write access, by its id from get_note with format "blocks". Every other block is left as it is, and the edit merges with concurrent edits. ' +
+                'op.type: replace, insert_before or insert_after (markdown); delete; set_text (a callout\'s or toggle\'s body, keeping its variant or summary); ' +
+                'set_attrs (attrs: callout variant, toggle summary, heading level, code block language, id and wide, task list checked); ' +
+                'and for a table, set_cell (row, col, markdown), insert_row (at, cells?), delete_row, insert_column and delete_column (at), which keep column widths and the other cells. ' +
+                'Returns the ids of the blocks the op leaves. Pass get_note\'s `modified` as expectedModified to refuse the edit if the note changed since.' +
+                BODY_IMAGES.replace('Images:', 'Images in markdown:') +
+                RICH_BLOCKS,
+            inputSchema: {
+                note_id: z.string(),
+                block_id: z.string(),
+                op: z.discriminatedUnion('type', [
+                    z.object({ type: z.enum(['replace', 'insert_before', 'insert_after', 'set_text']), markdown: z.string() }),
+                    z.object({ type: z.literal('delete') }),
+                    z.object({
+                        type: z.literal('set_attrs'),
+                        attrs: z.object({
+                            variant: z.enum(CALLOUT_VARIANTS).optional(),
+                            summary: z.string().optional(),
+                            level: z.number().int().min(1).max(6).optional(),
+                            language: z.string().nullable().optional(),
+                            id: z.string().nullable().optional(),
+                            wide: z.boolean().optional(),
+                            checked: z.array(z.boolean()).optional(),
+                        }),
+                    }),
+                    z.object({ type: z.literal('set_cell'), row: index, col: index, markdown: z.string() }),
+                    z.object({ type: z.literal('insert_row'), at: index, cells: z.array(z.string()).optional() }),
+                    z.object({ type: z.enum(['delete_row', 'insert_column', 'delete_column']), at: index }),
+                ]),
+                expectedModified: z.string().optional(),
+            },
+        },
+        async ({ note_id, block_id, op, expectedModified }) =>
+            json(await writeTools.editBlock(deps, { note_id, block_id, op, expectedModified }))
     );
 
     server.registerTool(

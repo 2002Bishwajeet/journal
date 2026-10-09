@@ -58,7 +58,7 @@ export function linkTargets(grants: AgentGrants, notes: NoteSummary[]): LinkTarg
     return notes.filter((note) => noteAccess(grants, note) !== 'none').map(({ id, title }) => ({ id, title }));
 }
 
-function toListResult(note: NoteSummary, access: AgentAccess): NoteListResult {
+export function toListResult(note: NoteSummary, access: AgentAccess): NoteListResult {
     return { id: note.id, title: note.title, folderId: note.folderId, modified: note.modified, tags: note.tags, access };
 }
 

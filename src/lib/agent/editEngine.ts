@@ -17,6 +17,8 @@ import { createBaseExtensions } from '@/components/editor/plugins/extensions';
 import { fragmentToMarkdown } from '@/lib/yjs/fragmentToMarkdown';
 import { footnoteOrder, normalizeFootnotes } from '@/lib/editor/footnotes';
 import { getNewId } from '@/lib/utils';
+import { parseCodeInfo } from '@/lib/liveBlocks';
+import { CALLOUT_VARIANTS, type CalloutVariant } from '@/components/editor/nodes/calloutVariants';
 
 const FRAGMENT = 'prosemirror';
 
@@ -193,8 +195,8 @@ export function appendMarkdown(
   write(doc, isEmpty ? current.copy(added.content) : current.copy(current.content.append(added.content)));
 }
 
-/** Markdown of one top-level block, via the same serializer as `toMarkdown`, with the note's footnote `numbers`. */
-function blockToMarkdown(block: PMNode, numbers: Map<string, number>, canSee?: CanSee): string {
+/** Markdown of one top-level block (or a cell's blocks), via the same serializer as `toMarkdown`, with the note's footnote `numbers`. */
+function blockToMarkdown(block: PMNode | Fragment, numbers: Map<string, number>, canSee?: CanSee): string {
   const tmp = new Y.Doc();
   return fragmentToMarkdown(
     prosemirrorToYXmlFragment(editorSchema.topNodeType.create(null, block), tmp.getXmlFragment(FRAGMENT)),
@@ -208,8 +210,18 @@ function blockToMarkdown(block: PMNode, numbers: Map<string, number>, canSee?: C
 const LOSSY_NODES = new Set(['image', 'toggle', 'callout']);
 
 // A link to a note the agent can't see is only its label in the markdown, so re-parsing drops it too.
-const isLossy = (n: PMNode, canSee?: CanSee) =>
-  LOSSY_NODES.has(n.type.name) || (n.type.name === 'noteLink' && !!n.attrs.noteId && canSee?.(n.attrs.noteId) === false);
+const isUnseenNoteLink = (n: PMNode, canSee?: CanSee) =>
+  n.type.name === 'noteLink' && !!n.attrs.noteId && canSee?.(n.attrs.noteId) === false;
+const isLossy = (n: PMNode, canSee?: CanSee) => LOSSY_NODES.has(n.type.name) || isUnseenNoteLink(n, canSee);
+
+const hasUnseenNoteLink = (node: PMNode, canSee?: CanSee) => {
+  let found = false;
+  node.descendants((n) => {
+    if (isUnseenNoteLink(n, canSee)) found = true;
+    return !found;
+  });
+  return found;
+};
 
 const hasLossyNode = (block: PMNode, canSee?: CanSee) => {
   let found = isLossy(block, canSee);
@@ -342,4 +354,301 @@ export function createDoc(markdown: string, targets?: readonly LinkTarget[]): Y.
   const doc = new Y.Doc();
   write(doc, parseMarkdown(markdown, [], false, undefined, targets));
   return doc;
+}
+
+// ---------------------------------------------------------------------------
+// Block-level editing (#560). A top-level block's id is the Yjs item id (`client:clock`)
+// of its Y.XmlElement: stable while the block exists, on every device, since sync only
+// ever merges updates. Each op writes Yjs directly at the block (or row, column, cell)
+// it addresses, so no other block's items are touched.
+// ---------------------------------------------------------------------------
+
+const BLOCK_NOT_FOUND = 'block not found; call get_note with format blocks';
+
+export interface BlockAttrs {
+  variant?: CalloutVariant;
+  summary?: string;
+  level?: number;
+  language?: string | null;
+  id?: string | null;
+  wide?: boolean;
+  checked?: boolean[];
+}
+
+export interface NoteBlock {
+  id: string;
+  type: string;
+  markdown: string;
+  /** The block's editable attributes (see `SETTABLE_ATTRS`); empty for most blocks. */
+  attrs: BlockAttrs;
+  /** A table's cells, as markdown. */
+  rows?: string[][];
+}
+
+export type BlockOp =
+  | { type: 'replace' | 'insert_after' | 'insert_before' | 'set_text'; markdown: string }
+  | { type: 'delete' }
+  | { type: 'set_attrs'; attrs: BlockAttrs }
+  | { type: 'set_cell'; row: number; col: number; markdown: string }
+  | { type: 'insert_row'; at: number; cells?: string[] }
+  | { type: 'delete_row' | 'insert_column' | 'delete_column'; at: number };
+
+/** The attributes `set_attrs` can change, by block type. */
+const SETTABLE_ATTRS: Record<string, (keyof BlockAttrs)[]> = {
+  callout: ['variant'],
+  toggle: ['summary'],
+  heading: ['level'],
+  codeBlock: ['language', 'id', 'wide'],
+  taskList: ['checked'],
+};
+
+const LIVE_BLOCK_ID = /^[a-z0-9]{4,12}$/;
+
+const blockIdOf = (el: Y.XmlElement) => `${el._item!.id.client}:${el._item!.id.clock}`;
+
+const freshMeta = () => ({ mapping: new Map(), isOMark: new Map() });
+
+function blockAttrs(node: PMNode): BlockAttrs {
+  switch (node.type.name) {
+    case 'callout':
+      return { variant: node.attrs.variant };
+    case 'toggle':
+      return { summary: node.attrs.summary };
+    case 'heading':
+      return { level: node.attrs.level };
+    case 'codeBlock':
+      return parseCodeInfo(node.attrs.language);
+    case 'taskList': {
+      const checked: boolean[] = [];
+      node.forEach((item) => checked.push(!!item.attrs.checked));
+      return { checked };
+    }
+    default:
+      return {};
+  }
+}
+
+/** The note as ProseMirror, with the top-level Yjs element of each block. */
+function readBlocks(doc: Y.Doc): { root: PMNode; elements: Y.XmlElement[] } {
+  const root = read(doc);
+  const elements = doc.getXmlFragment(FRAGMENT).toArray().filter((t): t is Y.XmlElement => t instanceof Y.XmlElement);
+  if (elements.length !== root.childCount) throw new Error('This note has content the editor cannot read; edit it in Journal');
+  return { root, elements };
+}
+
+/** The note's top-level blocks, each with its id for `editBlock`. With `targets`, a link to a note not in it is only its label. */
+export function noteBlocks(doc: Y.Doc, targets?: readonly LinkTarget[]): NoteBlock[] {
+  const { root, elements } = readBlocks(doc);
+  const numbers = new Map(footnoteOrder(root).map((id, i) => [id, i + 1]));
+  const canSee = canSeeOf(targets);
+  return elements.map((el, i) => {
+    const node = root.child(i);
+    const block: NoteBlock = { id: blockIdOf(el), type: node.type.name, markdown: blockToMarkdown(node, numbers, canSee), attrs: blockAttrs(node) };
+    if (node.type.name === 'table') {
+      const rows: string[][] = [];
+      node.forEach((row) => {
+        const cells: string[] = [];
+        row.forEach((cell) => cells.push(blockToMarkdown(cell.content, numbers, canSee)));
+        rows.push(cells);
+      });
+      block.rows = rows;
+    }
+    return block;
+  });
+}
+
+/** Inserts `nodes` as new Yjs elements at `index` of `parent`; returns the elements. */
+function insertNodes(doc: Y.Doc, parent: Y.XmlFragment, index: number, nodes: PMNode[]): Y.XmlElement[] {
+  if (!nodes.length) return [];
+  const els = nodes.map((node) => new Y.XmlElement(node.type.name));
+  parent.insert(index, els);
+  els.forEach((el, i) => updateYFragment(doc, el, nodes[i], freshMeta()));
+  return els;
+}
+
+function checkIndex(at: number, max: number, what: string): void {
+  if (!Number.isInteger(at) || at < 0 || at > max) throw new Error(`edit_block: ${what} ${at} is out of range 0–${max}`);
+}
+
+/** A block element, typed for the non-string attributes y-prosemirror stores (level, checked). */
+type AttrsElement = Y.XmlElement<{ [key: string]: string | number | boolean }>;
+
+function setAttrs(el: AttrsElement, node: PMNode, attrs: BlockAttrs): void {
+  const name = node.type.name;
+  const allowed = SETTABLE_ATTRS[name] ?? [];
+  const keys = (Object.keys(attrs) as (keyof BlockAttrs)[]).filter((key) => attrs[key] !== undefined);
+  if (!keys.length) throw new Error('edit_block: set_attrs needs at least one attribute');
+  const unknown = keys.filter((key) => !allowed.includes(key));
+  if (unknown.length) {
+    const takes = allowed.length ? `; it takes ${allowed.join(', ')}` : '';
+    throw new Error(`edit_block: a ${name} block has no settable ${unknown.join(', ')}${takes}`);
+  }
+  const { variant, summary, level, checked } = attrs;
+  if (variant !== undefined) {
+    if (!CALLOUT_VARIANTS.includes(variant)) throw new Error(`edit_block: variant must be one of ${CALLOUT_VARIANTS.join(', ')}`);
+    el.setAttribute('variant', variant);
+  }
+  if (summary !== undefined) el.setAttribute('summary', summary);
+  if (level !== undefined) {
+    if (!Number.isInteger(level) || level < 1 || level > 6) throw new Error('edit_block: level must be 1 to 6');
+    el.setAttribute('level', level);
+  }
+  if (name === 'codeBlock') {
+    // The language attribute is the fence's info string (```react wide id=k3f9).
+    const info = { ...parseCodeInfo(node.attrs.language), ...attrs };
+    if (info.id && !LIVE_BLOCK_ID.test(info.id)) throw new Error('edit_block: id must be 4 to 12 of a-z and 0-9');
+    if (info.language && /\s/.test(info.language)) throw new Error('edit_block: language must be one word');
+    if (!info.language && (info.id || info.wide)) throw new Error('edit_block: id and wide need a language');
+    el.setAttribute('language', [info.language, info.wide && 'wide', info.id && `id=${info.id}`].filter(Boolean).join(' '));
+  }
+  if (checked !== undefined) {
+    const items = el.toArray().filter((t) => t instanceof Y.XmlElement) as AttrsElement[];
+    if (checked.length !== items.length) throw new Error(`edit_block: checked needs one value per task (${items.length})`);
+    items.forEach((item, i) => {
+      if (!!node.child(i).attrs.checked !== checked[i]) item.setAttribute('checked', checked[i]);
+    });
+  }
+}
+
+type TableOp = Extract<BlockOp, { type: 'set_cell' | 'insert_row' | 'delete_row' | 'insert_column' | 'delete_column' }>;
+
+function editTable(doc: Y.Doc, table: Y.XmlElement, node: PMNode, op: TableOp, parse: (markdown: string) => PMNode[]): void {
+  if (node.type.name !== 'table') throw new Error(`edit_block: ${op.type} works on a table; this block is a ${node.type.name}`);
+  const rows = table.toArray() as Y.XmlElement[];
+  const cellNode = (type: PMNode['type'], attrs: PMNode['attrs'] | null, markdown: string) => {
+    const cell = type.createAndFill(attrs, parse(markdown));
+    if (!cell) throw new Error('edit_block: that markdown cannot go in a table cell');
+    return cell;
+  };
+
+  if (op.type === 'set_cell') {
+    checkIndex(op.row, node.childCount - 1, 'row');
+    const row = node.child(op.row);
+    checkIndex(op.col, row.childCount - 1, 'col');
+    const cell = row.child(op.col);
+    const cellEl = rows[op.row].get(op.col) as Y.XmlElement;
+    updateYFragment(doc, cellEl, cellNode(cell.type, cell.attrs, op.markdown), freshMeta());
+    return;
+  }
+
+  let merged = false;
+  node.forEach((row) => row.forEach((cell) => {
+    if (cell.attrs.colspan > 1 || cell.attrs.rowspan > 1) merged = true;
+  }));
+  if (merged) throw new Error(`edit_block: ${op.type} can't edit a table with merged cells; use replace`);
+  const width = node.child(0).childCount;
+  const { tableCell, tableRow } = editorSchema.nodes;
+
+  switch (op.type) {
+    case 'insert_row': {
+      checkIndex(op.at, node.childCount, 'row');
+      const cells = op.cells ?? [];
+      if (cells.length > width) throw new Error(`edit_block: the table has ${width} columns`);
+      // The column widths of the row it goes next to.
+      const near = node.child(Math.min(op.at, node.childCount - 1));
+      const row = Array.from({ length: width }, (_, i) => cellNode(tableCell, { colwidth: near.child(i).attrs.colwidth }, cells[i] ?? ''));
+      insertNodes(doc, table, op.at, [tableRow.create(null, row)]);
+      return;
+    }
+    case 'delete_row':
+      checkIndex(op.at, node.childCount - 1, 'row');
+      if (node.childCount === 1) throw new Error('edit_block: that is the only row; delete the block instead');
+      table.delete(op.at, 1);
+      return;
+    case 'insert_column':
+      checkIndex(op.at, width, 'column');
+      // Each row gets the cell type of its neighbour, so a header row gets a header cell.
+      node.forEach((row, _, r) => {
+        insertNodes(doc, rows[r], op.at, [row.child(Math.min(op.at, width - 1)).type.createAndFill()!]);
+      });
+      return;
+    case 'delete_column':
+      checkIndex(op.at, width - 1, 'column');
+      if (width === 1) throw new Error('edit_block: that is the only column; delete the block instead');
+      rows.forEach((row) => row.delete(op.at, 1));
+      return;
+  }
+}
+
+/**
+ * Applies `op` to the block with id `blockId`, as Yjs changes at that block only. Returns
+ * the ids of the blocks the op leaves in its place: the block itself, the blocks `replace`
+ * or an insert creates, or none for `delete`.
+ */
+export function editBlock(
+  doc: Y.Doc,
+  blockId: string,
+  op: BlockOp,
+  imageSrcs?: ReadonlyMap<string, string>,
+  targets?: readonly LinkTarget[]
+): string[] {
+  const { root, elements } = readBlocks(doc);
+  const index = elements.findIndex((el) => blockIdOf(el) === blockId);
+  if (index < 0) throw new Error(`edit_block: ${BLOCK_NOT_FOUND}`);
+  const el = elements[index];
+  const node = root.child(index);
+  const fragment = doc.getXmlFragment(FRAGMENT);
+  const footnotes = footnoteOrder(root);
+  const parse = (markdown: string) => {
+    const nodes: PMNode[] = [];
+    parseMarkdown(markdown, footnotes, false, imageSrcs, targets).forEach((n) => nodes.push(n));
+    return nodes;
+  };
+  // Rewriting content that holds a link to a note the agent can't see would drop that link,
+  // as it reads as its label only (see `replaceInNote`).
+  const canSee = canSeeOf(targets);
+  const rewritten = op.type === 'replace' || op.type === 'set_text' ? node : op.type === 'set_cell' ? node.maybeChild(op.row)?.maybeChild(op.col) : null;
+  if (rewritten && hasUnseenNoteLink(rewritten, canSee)) {
+    throw new Error(`edit_block: this ${op.type === 'set_cell' ? 'cell' : 'block'} holds a link to a note you can't see; edit a different block`);
+  }
+  const insert = (at: number, nodes: PMNode[]) => insertNodes(doc, fragment, at, nodes).map(blockIdOf);
+
+  let ids = [blockId];
+  doc.transact(() => {
+    switch (op.type) {
+      case 'delete':
+        fragment.delete(index, 1);
+        ids = [];
+        break;
+      case 'insert_before':
+        ids = insert(index, parse(op.markdown));
+        break;
+      case 'insert_after':
+        ids = insert(index + 1, parse(op.markdown));
+        break;
+      case 'replace': {
+        const nodes = parse(op.markdown);
+        // Same type: update the block in place, so it keeps its id; otherwise swap it out.
+        if (nodes[0]?.type === node.type) {
+          updateYFragment(doc, el, nodes[0], freshMeta());
+          ids = [blockId, ...insert(index + 1, nodes.slice(1))];
+        } else {
+          fragment.delete(index, 1);
+          ids = insert(index, nodes);
+        }
+        break;
+      }
+      case 'set_text': {
+        if (node.type.name !== 'callout' && node.type.name !== 'toggle') {
+          throw new Error(`edit_block: set_text works on a callout or toggle; this block is a ${node.type.name}, use replace`);
+        }
+        const next = node.type.createAndFill(node.attrs, parse(op.markdown));
+        if (!next) throw new Error(`edit_block: that markdown cannot go in a ${node.type.name}`);
+        updateYFragment(doc, el, next, freshMeta());
+        break;
+      }
+      case 'set_attrs':
+        setAttrs(el as AttrsElement, node, op.attrs);
+        break;
+      default:
+        editTable(doc, el, node, op, parse);
+    }
+    // A note always holds at least one block.
+    if (fragment.length === 0) insert(0, [editorSchema.nodes.paragraph.create()]);
+  }, 'agent');
+
+  // Keep the footnotes section in step, as `write` does; most edits leave it unchanged.
+  const tr = new Transform(read(doc));
+  if (normalizeFootnotes(tr)) write(doc, tr.doc);
+  return ids;
 }

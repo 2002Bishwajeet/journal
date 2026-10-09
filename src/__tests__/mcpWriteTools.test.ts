@@ -13,6 +13,8 @@ import {
     deleteNote,
     setNoteCover,
     clearNoteCover,
+    editBlock,
+    getNoteBlocks,
     VersionConflictError,
     type WriteDeps,
 } from '../../mcp/tools/write';
@@ -889,5 +891,83 @@ describe('write tools: images in the body (#415)', () => {
         await expect(createNote(failing, { title: 'T', markdown: `![x](${webp})`, folderId: 'FW' })).rejects.toThrow('upload boom');
         expect(creates).toHaveLength(1);
         expect(trashed).toEqual([{ id: creates[0].uniqueId, fileId: `file-${creates[0].uniqueId}` }]);
+    });
+});
+
+describe('write tools: get_note blocks and edit_block (#560)', () => {
+    const blocksOf = async (deps: WriteDeps, id: string) => (await getNoteBlocks(deps, { id })).blocks;
+    const webp = fixturePath('cover-plain.webp');
+
+    it('get_note blocks returns the block ids edit_block takes, under the same grants', async () => {
+        const { deps, put, store, uploads } = makeDrive({ clientName: 'claude-code' });
+        put('nw', 'One\n\nTwo', metadataFor('FW'));
+        put('nn', 'Hidden', metadataFor('FN'));
+        await expect(getNoteBlocks(deps, { id: 'nn' })).rejects.toThrow('Note not found: nn');
+
+        const result = await getNoteBlocks(deps, { id: 'nw' });
+        expect(result).toMatchObject({ id: 'nw', access: 'write', modified: '2024-01-02T00:00:00.000Z' });
+        const [, two] = result.blocks;
+        const edited = await editBlock(deps, { note_id: 'nw', block_id: two.id, op: { type: 'replace', markdown: 'Second' } });
+
+        expect(edited).toEqual({ id: 'nw', block_ids: [two.id] });
+        expect(markdownOf(store.get('nw')!.blob)).toBe('One\n\nSecond');
+        expect(uploads.at(-1)!.metadata.lastEditedBy).toBe('agent:claude-code');
+        expect((await blocksOf(deps, 'nw')).map((b) => b.id)).toEqual(result.blocks.map((b) => b.id));
+    });
+
+    it('re-applies the op by block id after a version conflict, keeping the human edit', async () => {
+        const { deps, put, uploads } = makeDrive({
+            beforeUpload: (s, attempt) => {
+                if (attempt === 1) humanAppends(s, 'nw', 'Human line');
+            },
+        });
+        put('nw', 'Draft', metadataFor('FW'));
+        const [draft] = await blocksOf(deps, 'nw');
+
+        await editBlock(deps, { note_id: 'nw', block_id: draft.id, op: { type: 'replace', markdown: 'Done' } });
+
+        expect(uploads).toHaveLength(2);
+        expect(markdownOf(uploads[1].yjsBlob)).toBe('Done\n\nHuman line');
+    });
+
+    it('rejects a stale expectedModified before uploading anything, images included', async () => {
+        const { deps, put, uploads, images } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const [body] = await blocksOf(deps, 'nw');
+        const op = { type: 'insert_after', markdown: `![x](${webp})` } as const;
+        const stale = '2020-01-01T00:00:00.000Z';
+
+        await expect(editBlock(deps, { note_id: 'nw', block_id: body.id, op, expectedModified: stale })).rejects.toThrow(
+            `Note changed since ${stale}`
+        );
+        await expect(
+            editBlock(deps, { note_id: 'nw', block_id: body.id, op: { type: 'delete' }, expectedModified: stale })
+        ).rejects.toThrow(`Note changed since ${stale}`);
+        expect(uploads).toHaveLength(0);
+        expect(images).toHaveLength(0);
+
+        await editBlock(deps, { note_id: 'nw', block_id: body.id, op, expectedModified: '2024-01-02T00:00:00.000Z' });
+        expect(images).toHaveLength(1);
+        expect(markdownOf(uploads[0].yjsBlob)).toContain('attachment://file-nw/jrnl_img0');
+    });
+
+    it('fails with "block not found" for an unknown block, uploading nothing, even with an image', async () => {
+        const { deps, put, uploads, images } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const op = { type: 'replace', markdown: `![x](${webp})` } as const;
+        await expect(editBlock(deps, { note_id: 'nw', block_id: '1:0', op })).rejects.toThrow(
+            'edit_block: block not found; call get_note with format blocks'
+        );
+        expect(uploads).toHaveLength(0);
+        expect(images).toHaveLength(0);
+    });
+
+    it('refuses a read-only note', async () => {
+        const { deps, put } = makeDrive();
+        put('nr', 'Body', metadataFor('FR'));
+        const [body] = await blocksOf(deps, 'nr');
+        await expect(editBlock(deps, { note_id: 'nr', block_id: body.id, op: { type: 'delete' } })).rejects.toThrow(
+            'Note is read-only for agents: nr'
+        );
     });
 });
