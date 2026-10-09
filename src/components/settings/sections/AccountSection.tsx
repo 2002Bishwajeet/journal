@@ -12,18 +12,17 @@ export default function AccountSection() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const isSyncing = syncStatus === "syncing";
 
-  let statusText =
-    syncStatus === "syncing"
-      ? "Syncing…"
-      : syncStatus === "error"
-        ? "Last sync failed"
-        : syncStatus === "offline"
-          ? "Offline — changes will sync when you're back online"
-          : lastSyncedAt
-            ? `Up to date · last synced ${formatRelativeTime(lastSyncedAt)}`
-            : "Up to date";
-  if (pendingTotal > 0) {
-    statusText += ` · ${pendingTotal} ${pendingTotal === 1 ? "change" : "changes"} waiting`;
+  const waiting = `${pendingTotal} ${pendingTotal === 1 ? "change" : "changes"} waiting`;
+  const lastSynced = lastSyncedAt ? `last synced ${formatRelativeTime(lastSyncedAt)}` : null;
+
+  let statusText: string;
+  if (syncStatus === "syncing") statusText = "Syncing…";
+  else if (syncStatus === "error") statusText = "Last sync failed";
+  else if (syncStatus === "offline") statusText = "Offline — changes will sync when you're back online";
+  else if (pendingTotal > 0) statusText = [`${waiting} to sync`, lastSynced].filter(Boolean).join(" · ");
+  else statusText = ["Up to date", lastSynced].filter(Boolean).join(" · ");
+  if (pendingTotal > 0 && syncStatus !== "idle") {
+    statusText += ` · ${waiting}`;
   }
 
   return (
