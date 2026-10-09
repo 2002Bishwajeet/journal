@@ -135,7 +135,8 @@ function HtmlPreview({ source, title, store, onHeight, wide }: Pick<LiveBlockPre
       referrerPolicy="no-referrer"
       loading="lazy"
       title={title}
-      className="block size-full"
+      // Over the box's padding too: its bleed (LiveBlockFrame).
+      className="absolute inset-0 block size-full"
     />
   );
 }

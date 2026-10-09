@@ -50,9 +50,16 @@ const CDN = HTML_BLOCK_CDN_HOSTS.join(' ');
 // external images, media or form posts.
 const HTML_BLOCK_CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; style-src 'unsafe-inline' ${CDN}; img-src data: blob:; font-src data: ${CDN}; media-src data: blob:; form-action 'none'; base-uri 'none'`;
 
-// What a frame tells the app unasked: how tall its document is, whenever that changes (#412).
-const HEIGHT_REPORT_SCRIPT =
-  "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) }, '*')).observe(document.documentElement)</script>";
+/**
+ * How far a framed (html or react) block's frame reaches past its box on each side, in px.
+ * The page inside is padded by as much, so its content sits where the box is, and a focus
+ * ring, an outline or a shadow at its edge is not cut off. Anything that reaches further
+ * than this (a shadow-xl, say) is still cut at the frame's edge.
+ */
+export const FRAME_BLEED = 12;
+
+// What a frame tells the app unasked: how tall its content is, without the bleed, whenever that changes (#412).
+const HEIGHT_REPORT_SCRIPT = `<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - ${2 * FRAME_BLEED} }, '*')).observe(document.documentElement)</script>`;
 
 // `journal.storage` (#410): get and set ask the app for this block's saved state over the
 // same bridge, and the app answers each request by its number. The app decides everything
@@ -151,6 +158,8 @@ export function buildSrcdoc(source: string, theme: FrameTheme): string {
     // The font is also a variable, for a react block's `font-sans` (#427), and its shadows
     // are softer in the dark theme (#559).
     `:root{${tokens}--font-sans:${theme.fontFamily};--shadow-strength:${theme.colorScheme === 'dark' ? 0.6 : 1};color-scheme:${theme.colorScheme}}` +
+    // The bleed is on the root, so a block's own `body` margin or padding still adds to it.
+    `html{padding:${FRAME_BLEED}px}` +
     '*,*::before,*::after{box-sizing:border-box}' +
     'html,body{background:transparent}' +
     `body{margin:0;color:var(--foreground);font-family:${theme.fontFamily};line-height:${theme.lineHeight}}` +

@@ -19,6 +19,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - HTML and React blocks no longer have an Expand button.
 
+### Fixed
+
+- Outlines and shadows at the edge of an HTML or React block are no longer cut off.
+
 ## 2.7.0 (2026-10-09)
 
 ### New

@@ -72,7 +72,8 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, stor
           aria-label={`${LABELS[kind]} block`}
           contentEditable={false}
           className={cn(
-            'z-10 flex items-center justify-end font-sans select-none',
+            // Positioned, so its z-index puts the toggles over the frame's bleed.
+            'relative z-10 flex items-center justify-end font-sans select-none',
             !labelled && cn('absolute right-0 top-0', REVEALED),
           )}
         >
@@ -82,13 +83,17 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, stor
       )}
       {/* An html block's preview and code share this box and its height (400px until the content
           reports its own, or the box is resized in the editor), so switching views does not move
-          the page. `resize` needs a non-visible overflow. */}
+          the page. `resize` needs a non-visible overflow. The box reaches FRAME_BLEED (12px)
+          past where it sits on every side (-m-3) and pads that back (p-3, with its height on
+          the content box), so the frame drawn over its padding does not cut off what is at
+          its edge. A `wide` block's gutter is wider than that. */}
       <div
         ref={box}
         contentEditable={preview ? false : undefined}
         data-live-block-preview={preview ? kind : undefined}
         className={cn(
-          framed && 'relative h-[400px] overflow-hidden',
+          // `!`: the unlayered reset in src/index.css sets border-box on everything.
+          framed && 'relative -m-3 box-content! h-[400px] overflow-hidden p-3',
           resizable && 'resize-y',
         )}
       >

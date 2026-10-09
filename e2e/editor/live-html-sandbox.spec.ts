@@ -144,7 +144,8 @@ test("html block: its inline script runs in the frame under the app's COEP heade
   // native resize handle is reachable over the frame.
   await expect(frame.locator('#out')).toContainText('fetch: rejected');
   await expect(frame.locator('#out')).toContainText('img: naturalWidth 0');
-  const fitted = await frame.locator('html').evaluate((html) => Math.ceil(html.getBoundingClientRect().height));
+  // Less the frame's bleed: 12px of padding above and below its content.
+  const fitted = await frame.locator('html').evaluate((html) => Math.ceil(html.getBoundingClientRect().height) - 24);
   const resizable = iframe.locator('..');
   await expect(resizable).toHaveCSS('height', `${fitted}px`);
   await dragResizeHandle(app, resizable, 100);
@@ -228,7 +229,8 @@ test('html block: is as tall as its content and grows with it, until the user re
 
   // Nobody resized it: the block took its content's height, and follows it.
   await expect(resizable).toHaveCSS('height', '900px');
-  await expect(resizable.locator('iframe')).toHaveCSS('height', '900px');
+  // The frame also covers the box's 12px bleed above and below.
+  await expect(resizable.locator('iframe')).toHaveCSS('height', '924px');
   await grow.click();
   await expect(resizable).toHaveCSS('height', '1300px');
 

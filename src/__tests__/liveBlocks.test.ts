@@ -55,7 +55,7 @@ describe('buildSrcdoc', () => {
   const CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; style-src 'unsafe-inline' ${CDN}; img-src data: blob:; font-src data: ${CDN}; media-src data: blob:; form-action 'none'; base-uri 'none'`;
   const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
   const HEIGHT_SCRIPT =
-    "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) }, '*')).observe(document.documentElement)</script>";
+    "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - 24 }, '*')).observe(document.documentElement)</script>";
 
   // The dark theme's values in src/index.css.
   const THEME: FrameTheme = {
