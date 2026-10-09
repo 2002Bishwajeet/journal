@@ -1,6 +1,0 @@
-node_modules/
-renders/
-snapshots/
-# Copied in by scripts/sync-assets.mjs from ../brand and node_modules
-brand/
-vendor/
