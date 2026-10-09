@@ -62,7 +62,7 @@ src/
 │   │   ├── FindReplaceBar.tsx
 │   │   ├── LinkedMentions.tsx  # Backlinks
 │   │   ├── MobileToolbar.tsx   # Touch toolbar with safe-area
-│   │   ├── NoteCover.tsx       # Cover image (add, reposition, remove)
+│   │   ├── NoteCover.tsx       # Cover image (add, reposition, remove), plus an optional dark-mode cover
 │   │   ├── NoteLinkContext.tsx
 │   │   ├── PeerNoteFallback.tsx / peerNoteStatus.ts  # Collaborator-owned note states
 │   │   ├── TablePicker.tsx
@@ -656,7 +656,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 ### Share pages (#223)
 
 - Publishing (`makeNotePublic` in `src/lib/homebase/NotesDriveProvider.ts`) re-uploads the note unencrypted with an Anonymous ACL and a small public header that carries a `card` (`description`, `coverKey`, `cardImageKey`, `indexable`; `src/lib/share/publicCard.ts`). The share dialog previews the link card and edits the description and search-engine indexing.
-- The page: `/share/:identity/:noteId` → `src/pages/SharePage.tsx` reads the note with the SDK guest client (`src/lib/providers/ShareProvider.ts`) and renders it as an article: cover, byline, dates, reading time, highlighted code, live blocks (`src/components/share/`, `src/lib/share/`).
+- The page: `/share/:identity/:noteId` → `src/pages/SharePage.tsx` reads the note with the SDK guest client (`src/lib/providers/ShareProvider.ts`) and renders it as an article: cover (the dark-mode cover in dark mode, read from the Yjs payload), byline, dates, reading time, highlighted code, live blocks (`src/components/share/`, `src/lib/share/`).
 - Link previews: the Pages Function `functions/share/[[path]].ts`, limited to `/share/*` by `public/_routes.json`, fetches the SPA shell through `env.ASSETS` (so `public/_headers` still applies), validates the identity and note id, reads the public header and profile (`functions/_lib/shareMeta.ts`, short timeouts, no redirects) and injects `<title>`, `og:*`, `twitter:*`, `robots` and JSON-LD. Meta is cached 5 min (60 s for misses); any failure serves the plain shell.
 - Specs: `e2e/publishing/` and `e2e/edge/` (`npm run e2e:edge`, `wrangler pages dev` on `127.0.0.1:8788`).
 

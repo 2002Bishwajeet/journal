@@ -5,7 +5,7 @@ import { saveDocumentUpdate, getDocumentUpdates } from '@/lib/db/queries';
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import { getNewId } from '@/lib/utils';
-import { getCover, setCover } from '@/lib/editor/cover';
+import { getCover, setCover, setDarkCover } from '@/lib/editor/cover';
 import * as Y from 'yjs';
 
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
@@ -94,6 +94,43 @@ describe('SyncService.updateImageReference cover promotion', () => {
         expect(stored.getAttribute('data-pending-id')).toBeUndefined();
         // The cover's own upload is still pending
         expect(getCover(d)).toEqual({ src: 'blob:x', pendingId: coverPendingId, positionY: 50 });
+        d.destroy();
+    });
+
+    it('promotes a pending dark cover and leaves the light cover alone (#512)', async () => {
+        const darkPendingId = formatGuidId(getNewId());
+        const ydoc = new Y.Doc();
+        setCover(ydoc, { src: 'attachment://F/jrnl_img0', positionY: 40 });
+        setDarkCover(ydoc, { src: 'blob:d', pendingId: darkPendingId, positionY: 60 });
+        await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(ydoc));
+
+        expect(await updateImageReference(DOC_ID, darkPendingId, 'F', 'jrnl_img1')).toBe(true);
+
+        const d = await storedDoc();
+        expect(getCover(d)).toEqual({
+            src: 'attachment://F/jrnl_img0',
+            positionY: 40,
+            dark: { src: 'attachment://F/jrnl_img1', positionY: 60 },
+        });
+        d.destroy();
+    });
+
+    it('promoting the light cover keeps a pending dark cover (#512)', async () => {
+        const lightPendingId = formatGuidId(getNewId());
+        const darkPendingId = formatGuidId(getNewId());
+        const ydoc = new Y.Doc();
+        setCover(ydoc, { src: 'blob:l', pendingId: lightPendingId, positionY: 50 });
+        setDarkCover(ydoc, { src: 'blob:d', pendingId: darkPendingId, positionY: 50 });
+        await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(ydoc));
+
+        expect(await updateImageReference(DOC_ID, lightPendingId, 'F', 'jrnl_img0')).toBe(true);
+
+        const d = await storedDoc();
+        expect(getCover(d)).toEqual({
+            src: 'attachment://F/jrnl_img0',
+            positionY: 50,
+            dark: { src: 'blob:d', pendingId: darkPendingId, positionY: 50 },
+        });
         d.destroy();
     });
 });

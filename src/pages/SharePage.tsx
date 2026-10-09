@@ -20,7 +20,7 @@ import 'katex/dist/katex.min.css';
  * Public page to display a shared note.
  */
 export default function SharePage() {
-    const { identity, noteId, note, isLoading, error, author, readingMinutes } = useSharePage();
+    const { identity, noteId, note, isLoading, error, author, readingMinutes, cover } = useSharePage();
     useDocumentTitle(note?.title ?? 'Shared note');
 
     if (isLoading) {
@@ -65,16 +65,16 @@ export default function SharePage() {
             {/* Content */}
             <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
                 {/* Outside the article so the global `.prose img` margin doesn't apply. */}
-                {note.cover && (
+                {cover && (
                     <div className="mb-8 h-40 sm:h-56 w-full rounded-lg overflow-hidden">
                         <PublicNoteImage
-                            key={note.cover.src}
+                            key={cover.src}
                             identity={decodeURIComponent(identity)}
                             noteFileId={note.fileId}
-                            src={note.cover.src}
+                            src={cover.src}
                             alt=""
                             className="w-full h-full object-cover"
-                            style={{ objectPosition: `50% ${note.cover.positionY}%` }}
+                            style={{ objectPosition: `50% ${cover.positionY}%` }}
                         />
                     </div>
                 )}
