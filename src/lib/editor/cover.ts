@@ -1,8 +1,22 @@
 import * as Y from 'yjs';
+import { PAYLOAD_KEY_IMAGE_PREFIX } from '@/lib/homebase/config';
 
 /** Y.Map in the note's Yjs doc that holds note-level data outside the body. */
 export const COVER_MAP = 'journalMeta';
 const COVER_KEY = 'cover';
+// The next jrnl_img index, kept in the note's doc so a deleted top key is never reused (#373)
+const NEXT_IMAGE_INDEX = 'nextImageIndex';
+
+export function readNextImageIndex(ydoc: Y.Doc): number {
+    const value = ydoc.getMap(COVER_MAP).get(NEXT_IMAGE_INDEX);
+    return typeof value === 'number' ? value : 0;
+}
+
+/** Record that `payloadKey` (a jrnl_img key) is in use, so its index is never handed out again. */
+export function advanceNextImageIndex(ydoc: Y.Doc, payloadKey: string): void {
+    const next = parseInt(payloadKey.slice(PAYLOAD_KEY_IMAGE_PREFIX.length), 10) + 1;
+    if (next > readNextImageIndex(ydoc)) ydoc.getMap(COVER_MAP).set(NEXT_IMAGE_INDEX, next);
+}
 
 /** One cover image. */
 export interface CoverImage {

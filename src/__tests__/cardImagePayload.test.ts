@@ -1,7 +1,8 @@
 /**
- * #441: a public note with an uploaded cover gets a 1200×630 card image, stored as its own
- * `jrnl_card` payload. It is drawn at publish, redrawn on a save only when the cover's src
- * or positionY changed since the last one, and removed with the cover or the share.
+ * #441, #434: a public note gets a 1200×630 card image, stored as its own `jrnl_card`
+ * payload: its cover with the title, or without a cover the designed card. It is drawn at
+ * publish, redrawn on a save only when the title, excerpt or the cover's src or positionY
+ * changed since the last one, and removed with the share.
  * Drawing needs a canvas, so the renderer is stubbed; the drive SDK is stubbed at its calls.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -32,6 +33,7 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
     };
 });
 vi.mock('@/lib/share/cardImage', () => ({ renderCardImage: mockRender, canRenderCardImage: mockCanRender }));
+vi.mock('@homebase-id/js-lib/public', () => ({ GetProfileCard: vi.fn().mockResolvedValue({ name: 'Ada Author' }) }));
 
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { buildPublicCard, type CardImageFrom } from '@/lib/share/publicCard';
@@ -42,6 +44,7 @@ const COVER = `attachment://${FILE_ID}/jrnl_img0`;
 const COVER_BYTES = new Uint8Array([1, 2, 3]);
 const CARD_BYTES = new Uint8Array([9, 9]);
 const client = fakeDotYouClient();
+const coverAt = (positionY: number, src = COVER): CardImageFrom => ({ title: 'Note', cover: { src, positionY } });
 
 function noteBlob(cover?: { src: string; positionY: number }): Uint8Array {
     const doc = new Y.Doc();
@@ -101,7 +104,8 @@ describe('saving a public note: the card image', () => {
         await save(noteBlob({ src: COVER, positionY: 30 }));
 
         expect(mockGetPayload).toHaveBeenCalledWith(client, expect.anything(), FILE_ID, 'jrnl_img0', { decrypt: true, lastModified: 7 });
-        const [image, positionY] = mockRender.mock.calls[0];
+        const [text, { image, positionY }] = mockRender.mock.calls[0];
+        expect(text).toEqual({ title: 'Note', excerpt: undefined, author: 'Ada Author' });
         expect(new Uint8Array(await (image as Blob).arrayBuffer())).toEqual(COVER_BYTES);
         expect(positionY).toBe(30);
         expect(mockPatch).toHaveBeenCalledTimes(1);
@@ -109,12 +113,12 @@ describe('saving a public note: the card image', () => {
         expect(patchedCard()).toMatchObject({
             coverKey: 'jrnl_img0',
             cardImageKey: 'jrnl_card',
-            cardImageFrom: { src: COVER, positionY: 30 },
+            cardImageFrom: coverAt(30),
         });
     });
 
-    it('is left alone on a plain edit: same cover and positionY as the last one drawn', async () => {
-        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], { src: COVER, positionY: 30 }));
+    it('is left alone on a plain edit: same title, excerpt, cover and positionY as the last one drawn', async () => {
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], coverAt(30)));
 
         await save(noteBlob({ src: COVER, positionY: 30 }));
 
@@ -126,17 +130,45 @@ describe('saving a public note: the card image', () => {
     });
 
     it('is redrawn when positionY changed', async () => {
-        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], { src: COVER, positionY: 30 }));
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], coverAt(30)));
 
         await save(noteBlob({ src: COVER, positionY: 100 }));
 
-        expect(mockRender.mock.calls[0][1]).toBe(100);
+        expect(mockRender.mock.calls[0][1].positionY).toBe(100);
         expect(patchedKeys()).toContain('jrnl_card');
-        expect(patchedCard().cardImageFrom).toEqual({ src: COVER, positionY: 100 });
+        expect(patchedCard().cardImageFrom).toEqual(coverAt(100));
+    });
+
+    it('is redrawn when the note was renamed (#434)', async () => {
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], coverAt(30)));
+
+        await save(noteBlob({ src: COVER, positionY: 30 }), { ...publicMeta, title: 'Renamed' });
+
+        expect(mockRender.mock.calls[0][0].title).toBe('Renamed');
+        expect(patchedKeys()).toContain('jrnl_card');
+        expect(patchedCard().cardImageFrom.title).toBe('Renamed');
+    });
+
+    it('is redrawn when the share description changed (#434)', async () => {
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_card'], { title: 'Note' }));
+
+        await save(noteBlob(), { ...publicMeta, shareDescription: 'New words' });
+
+        expect(mockRender.mock.calls[0][0].excerpt).toBe('New words');
+        expect(patchedKeys()).toContain('jrnl_card');
+    });
+
+    it('is redrawn once for a card drawn before #434', async () => {
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'],
+            { src: COVER, positionY: 30 } as unknown as CardImageFrom));
+
+        await save(noteBlob({ src: COVER, positionY: 30 }));
+
+        expect(patchedKeys()).toContain('jrnl_card');
     });
 
     it('is redrawn from the new cover when the cover was replaced', async () => {
-        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_img1', 'jrnl_card'], { src: COVER, positionY: 30 }));
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_img1', 'jrnl_card'], coverAt(30)));
 
         await save(noteBlob({ src: `attachment://${FILE_ID}/jrnl_img1`, positionY: 30 }));
 
@@ -144,18 +176,30 @@ describe('saving a public note: the card image', () => {
         expect(patchedKeys()).toContain('jrnl_card');
     });
 
-    it('is deleted, and dropped from the card, when the cover was removed', async () => {
-        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_card'], { src: COVER, positionY: 30 }));
+    it('is redrawn as the designed card, with no cover, when the cover was removed (#434)', async () => {
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_card'], coverAt(30)));
 
         await save(noteBlob());
 
-        expect(patchedDeletes()).toEqual(['jrnl_card']);
-        expect(patchedKeys()).not.toContain('jrnl_card');
-        expect(patchedCard()).toBeUndefined();
+        expect(mockRender.mock.calls[0][1]).toBeUndefined();
+        expect(patchedCardImage()?.payload).toBe(renderedImage);
+        expect(patchedDeletes()).toEqual([]);
+        expect(patchedCard()).toEqual({ cardImageKey: 'jrnl_card', cardImageFrom: { title: 'Note' } });
     });
 
-    it('is not deleted when the file has none', async () => {
+    it('is drawn as the designed card for a note without a cover (#434)', async () => {
         mockGetHeader.mockResolvedValue(header(['jrnl_txt']));
+
+        await save(noteBlob());
+
+        expect(mockGetPayload).not.toHaveBeenCalled();
+        expect(mockRender).toHaveBeenCalledWith({ title: 'Note', excerpt: undefined, author: 'Ada Author' }, undefined);
+        expect(patchedKeys()).toContain('jrnl_card');
+    });
+
+    it('is not deleted when the file has none and drawing fails', async () => {
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt']));
+        mockRender.mockRejectedValue(new Error('no canvas'));
 
         await save(noteBlob());
 
@@ -163,7 +207,8 @@ describe('saving a public note: the card image', () => {
     });
 
     it('keeps the deletions the save already had', async () => {
-        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], { src: COVER, positionY: 30 }));
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], coverAt(30)));
+        mockRender.mockRejectedValue(new Error('decode failed'));
 
         await new NotesDriveProvider(client).updateNote(NOTE_ID, FILE_ID, 'v1', publicMeta, undefined, undefined, noteBlob(),
             undefined, { toDeletePayloads: [{ key: 'jrnl_img0' }] });
@@ -171,17 +216,28 @@ describe('saving a public note: the card image', () => {
         expect(patchedDeletes()).toEqual(['jrnl_img0', 'jrnl_card']);
     });
 
-    it('is not drawn from a cover on another file, and a stale one is deleted', async () => {
-        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_card'], { src: COVER, positionY: 30 }));
+    it('leaves out a cover on another file and draws the designed card', async () => {
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_card'], coverAt(30)));
 
         await save(noteBlob({ src: 'attachment://other-file/jrnl_img0', positionY: 30 }));
+
+        expect(mockGetPayload).not.toHaveBeenCalled();
+        expect(mockRender.mock.calls[0][1]).toBeUndefined();
+        expect(patchedKeys()).toContain('jrnl_card');
+    });
+
+    it('is not drawn when this file\'s cover cannot be read, and a stale one is deleted', async () => {
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], coverAt(30)));
+        mockGetPayload.mockResolvedValue(null);
+
+        await save(noteBlob({ src: COVER, positionY: 60 }));
 
         expect(mockRender).not.toHaveBeenCalled();
         expect(patchedDeletes()).toEqual(['jrnl_card']);
     });
 
     it('never fails the save when drawing fails, and deletes the stale one', async () => {
-        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], { src: COVER, positionY: 30 }));
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], coverAt(30)));
         mockRender.mockRejectedValue(new Error('decode failed'));
 
         await save(noteBlob({ src: COVER, positionY: 60 }));
@@ -200,6 +256,18 @@ describe('saving a public note: the card image', () => {
         expect(patchedKeys()).not.toContain('jrnl_card');
     });
 
+    it('keeps an existing card where none can be drawn (MCP), still saying what it was drawn from', async () => {
+        const drawn = { title: 'Old title', cover: { src: COVER, positionY: 50 } };
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], drawn));
+        mockCanRender.mockReturnValue(false);
+
+        await save(noteBlob({ src: COVER, positionY: 30 }));
+
+        expect(patchedDeletes()).not.toContain('jrnl_card');
+        expect(patchedKeys()).not.toContain('jrnl_card');
+        expect(patchedCard().cardImageFrom).toEqual(drawn);
+    });
+
     it('is not looked at for a private note', async () => {
         await save(noteBlob({ src: COVER, positionY: 30 }), { title: 'Note', tags: [] } as unknown as DocumentMetadata);
 
@@ -211,32 +279,32 @@ describe('saving a public note: the card image', () => {
 describe('making a note public or private: the card image', () => {
     it('is drawn at publish from the cover bytes the re-upload read, replacing an old one', async () => {
         mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card']));
-        const card = buildPublicCard(noteBlob({ src: COVER, positionY: 0 }), {});
+        const card = buildPublicCard(noteBlob({ src: COVER, positionY: 0 }), { title: 'Note' });
 
         await new NotesDriveProvider(client).makeNotePublic(NOTE_ID, FILE_ID, card);
 
-        expect(mockRender.mock.calls[0][1]).toBe(0);
-        expect(new Uint8Array(await (mockRender.mock.calls[0][0] as Blob).arrayBuffer())).toEqual(COVER_BYTES);
+        expect(mockRender.mock.calls[0][1].positionY).toBe(0);
+        expect(new Uint8Array(await (mockRender.mock.calls[0][1].image as Blob).arrayBuffer())).toEqual(COVER_BYTES);
         expect(uploadedKeys().filter((k) => k === 'jrnl_card')).toHaveLength(1);
         const uploadedCard = (mockUpload.mock.calls[0][3] as Array<{ key: string; payload: Blob }>).find((p) => p.key === 'jrnl_card');
         expect(uploadedCard?.payload).toBe(renderedImage);
         expect(JSON.parse(mockUpload.mock.calls[0][2].appData.content).card).toMatchObject({
             cardImageKey: 'jrnl_card',
-            cardImageFrom: { src: COVER, positionY: 0 },
+            cardImageFrom: coverAt(0),
         });
     });
 
-    it('is dropped at publish when the note has no cover', async () => {
+    it('is the designed card at publish when the note has no cover (#434)', async () => {
         mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_card']));
 
-        await new NotesDriveProvider(client).makeNotePublic(NOTE_ID, FILE_ID, buildPublicCard(noteBlob(), {}));
+        await new NotesDriveProvider(client).makeNotePublic(NOTE_ID, FILE_ID, buildPublicCard(noteBlob(), { title: 'Note' }));
 
-        expect(mockRender).not.toHaveBeenCalled();
-        expect(uploadedKeys()).toEqual(['jrnl_txt']);
+        expect(mockRender).toHaveBeenCalledWith({ title: 'Note', excerpt: undefined, author: 'Ada Author' }, undefined);
+        expect(uploadedKeys()).toEqual(['jrnl_txt', 'jrnl_card']);
     });
 
     it('is removed when the note is made private', async () => {
-        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], { src: COVER, positionY: 30 }));
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], coverAt(30)));
 
         await new NotesDriveProvider(client).makeNotePrivate(NOTE_ID, FILE_ID);
 
@@ -247,20 +315,20 @@ describe('making a note public or private: the card image', () => {
 
 describe('getCardImage (the share dialog preview)', () => {
     it('returns the uploaded card image when it was drawn from this cover', async () => {
-        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], { src: COVER, positionY: 30 }));
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], coverAt(30)));
 
-        const image = await new NotesDriveProvider(client).getCardImage(FILE_ID, { src: COVER, positionY: 30 });
+        const image = await new NotesDriveProvider(client).getCardImage(FILE_ID, coverAt(30));
 
         expect(new Uint8Array(await image!.arrayBuffer())).toEqual(CARD_BYTES);
         expect(mockRender).not.toHaveBeenCalled();
     });
 
     it('draws the same image locally while the uploaded one is missing or out of date', async () => {
-        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], { src: COVER, positionY: 30 }));
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_card'], coverAt(30)));
 
-        const image = await new NotesDriveProvider(client).getCardImage(FILE_ID, { src: COVER, positionY: 80 });
+        const image = await new NotesDriveProvider(client).getCardImage(FILE_ID, coverAt(80));
 
         expect(image).toBe(renderedImage);
-        expect(mockRender.mock.calls[0][1]).toBe(80);
+        expect(mockRender.mock.calls[0][1].positionY).toBe(80);
     });
 });

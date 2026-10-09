@@ -168,8 +168,8 @@ export function buildHeadTags(meta: ShareMeta, pageUrl: string, origin: string):
     const drive = { alias: JOURNAL_DRIVE_ALIAS, type: JOURNAL_DRIVE_TYPE, fileId: meta.fileId };
     // Crawlers cache og:image by URL; the modified time changes it when the cover or card does.
     const version: Record<string, string> = meta.modified ? { v: String(Date.parse(meta.modified)) } : {};
-    // The card image is already 1200×630, so it's served as is. Notes published before
-    // it existed fall back to a thumb of the raw cover, then to the site banner.
+    // The card image is already 1200×630, so it's served as is. Notes published (or last
+    // saved) before it existed fall back to a thumb of the raw cover, then to the site banner.
     const image = meta.cardImageKey
         ? `${authorUrl}/api/guest/v1/drive/files/payload?${new URLSearchParams({ ...drive, key: meta.cardImageKey, ...version })}`
         : meta.coverKey
@@ -181,7 +181,6 @@ export function buildHeadTags(meta: ShareMeta, pageUrl: string, origin: string):
                 ...version,
             })}`
           : `${origin}/banner.webp`;
-    const hasCover = !!(meta.cardImageKey || meta.coverKey);
 
     const property = (name: string, content: string | undefined) =>
         content === undefined ? [] : [`<meta property="${name}" content="${escapeHtml(content)}" />`];
@@ -212,7 +211,8 @@ export function buildHeadTags(meta: ShareMeta, pageUrl: string, origin: string):
         ...property('og:image', image),
         ...(meta.cardImageKey ? [...property('og:image:width', '1200'), ...property('og:image:height', '630')] : []),
         ...property('og:image:alt', meta.title),
-        named('twitter:card', hasCover ? 'summary_large_image' : 'summary'),
+        // Every image is wide: the 1200×630 card (#434), a cover, or the banner.
+        named('twitter:card', 'summary_large_image'),
         named('twitter:title', meta.title),
         named('twitter:description', description),
         named('twitter:image', image),

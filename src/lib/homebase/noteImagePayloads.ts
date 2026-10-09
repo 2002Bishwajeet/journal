@@ -1,4 +1,4 @@
-import type { PayloadFile, ThumbnailFile } from '@homebase-id/js-lib/core';
+import type { ImageSize, PayloadFile, ThumbnailFile } from '@homebase-id/js-lib/core';
 import { getRandom16ByteArray } from '@homebase-id/js-lib/helpers';
 import { createThumbnails } from '@homebase-id/js-lib/media';
 import { dedupeThumbnailsByDimensions } from '@/lib/utils';
@@ -23,12 +23,15 @@ export function buildContentPayloads(yjsBlob: Uint8Array | undefined, isEncrypte
 /**
  * Build a note image payload under `payloadKey`, with a preview thumbnail and
  * thumbnails when the file is an image. `iv` is set only for an encrypted note.
+ * With `naturalSize` (where there is no canvas to draw thumbnails, as in the MCP
+ * server) the image itself is its one thumbnail, so thumb requests still resolve.
  */
 export async function buildImagePayload(
     file: Blob,
     filename: string | undefined,
     payloadKey: string,
-    iv?: Uint8Array
+    iv?: Uint8Array,
+    naturalSize?: ImageSize
 ): Promise<{ payload: PayloadFile; thumbnails: ThumbnailFile[] }> {
     const payload: PayloadFile = {
         key: payloadKey,
@@ -38,6 +41,9 @@ export async function buildImagePayload(
     };
     if (!file.type.startsWith('image/')) {
         return { payload, thumbnails: [] };
+    }
+    if (naturalSize) {
+        return { payload, thumbnails: [{ key: payloadKey, ...naturalSize, payload: file }] };
     }
 
     const { additionalThumbnails, tinyThumb } = await createThumbnails(file, payloadKey);
