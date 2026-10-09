@@ -24,6 +24,7 @@ import { COVER_MAP } from '@/lib/editor/cover';
 const { saveDocumentUpdate } = vi.hoisted(() => ({ saveDocumentUpdate: vi.fn() }));
 vi.mock('@/lib/db/queries', () => ({
   getAllFolders: vi.fn().mockResolvedValue([]),
+  upsertSyncRecord: vi.fn(),
   saveDocumentUpdate,
   upsertSearchIndex: vi.fn(),
   createFolder: vi.fn(),
@@ -86,13 +87,13 @@ describe('the block id in markdown', () => {
     expect(toMarkdown(doc)).toContain('A new paragraph.');
   });
 
-  it('should survive a markdown import, which keeps the text as it was', async () => {
+  it('should survive a markdown import, which parses it into real blocks', async () => {
     saveDocumentUpdate.mockClear();
     const result = await ImportService.importFiles([new File([`# Note\n\n${FENCE}\n`], 'note.md', { type: 'text/markdown' })]);
     expect(result.imported).toBe(1);
     const doc = new Y.Doc();
     Y.applyUpdate(doc, saveDocumentUpdate.mock.calls[0][1] as Uint8Array);
-    expect(doc.getXmlFragment('prosemirror').toString()).toContain(FENCE);
+    expect(toMarkdown(doc)).toContain(FENCE);
   });
 });
 
