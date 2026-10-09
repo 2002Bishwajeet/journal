@@ -4,7 +4,7 @@
  * vertically at its positionY, the same crop as the editor band.
  */
 import { describe, it, expect } from 'vitest';
-import { CARD_HEIGHT, CARD_WIDTH, cardLayout } from '@/lib/share/cardImage';
+import { CARD_HEIGHT, CARD_WIDTH, cardLayout, wrapText } from '@/lib/share/cardImage';
 
 const FULL_CARD = { x: 0, y: 0, width: CARD_WIDTH, height: CARD_HEIGHT };
 
@@ -52,5 +52,53 @@ describe('cardLayout', () => {
         expect(layout.source.height).toBeCloseTo(height);
         // At most a sliver of the sides is cropped.
         expect(layout.source.width / width).toBeGreaterThan(0.99);
+    });
+});
+
+/**
+ * #434: the card's title wraps to 3 lines and its excerpt to 2, then ends with an
+ * ellipsis; no line is ever wider than the text box. Measured here as 10px per character.
+ */
+describe('wrapText', () => {
+    const measure = (s: string) => s.length * 10;
+    const fits = (lines: string[], maxWidth: number) => lines.every((line) => measure(line) <= maxWidth);
+
+    it('keeps a short title on one line', () => {
+        expect(wrapText('A short title', 200, 3, measure)).toEqual(['A short title']);
+    });
+
+    it('wraps at spaces, collapsing whitespace', () => {
+        expect(wrapText('alpha  beta\ngamma delta', 110, 3, measure)).toEqual(['alpha beta', 'gamma delta']);
+    });
+
+    it('ends the last line with an ellipsis when the text needs more lines', () => {
+        const lines = wrapText('one two three four five six seven eight nine ten', 100, 3, measure);
+
+        expect(lines).toEqual(['one two', 'three four', 'five six…']);
+        expect(fits(lines, 100)).toBe(true);
+    });
+
+    it('cuts the last line back so the ellipsis fits', () => {
+        const lines = wrapText('aaaa bbbb cccc dddd eeee', 90, 2, measure);
+
+        expect(lines).toEqual(['aaaa bbbb', 'cccc ddd…']);
+        expect(fits(lines, 90)).toBe(true);
+    });
+
+    it('breaks a word wider than a line between characters', () => {
+        const lines = wrapText('Supercalifragilistic is long', 80, 3, measure);
+
+        expect(lines).toEqual(['Supercal', 'ifragili', 'stic is…']);
+        expect(fits(lines, 80)).toBe(true);
+    });
+
+    it('never splits a surrogate pair', () => {
+        const lines = wrapText('😀😀😀😀', 20, 3, (s) => Array.from(s).length * 10);
+
+        expect(lines).toEqual(['😀😀', '😀😀']);
+    });
+
+    it('returns no lines for blank text', () => {
+        expect(wrapText('   ', 100, 3, measure)).toEqual([]);
     });
 });

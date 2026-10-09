@@ -238,12 +238,23 @@ describe('buildHeadTags', () => {
         expect(new URL(a).searchParams.get('v')).toBe(String(Date.parse('2026-01-03T00:00:00.000Z')));
     });
 
-    it('should fall back to the banner when the note has no cover', () => {
+    it('should fall back to the banner for a note with no card image or cover', () => {
         const tags = buildHeadTags(meta(), url, 'https://j.test');
 
         expect(ogImage(tags)).toBe('https://j.test/banner.webp');
         expect(tags).not.toContain('og:image:width');
-        expect(tags).toContain('name="twitter:card" content="summary"');
+        expect(tags).toContain('name="twitter:card" content="summary_large_image"');
+    });
+
+    it('should use the designed card of a note with no cover, as a large image (#434)', () => {
+        const tags = buildHeadTags(meta({ cardImageKey: 'jrnl_card' }), url, 'https://j.test');
+        const image = new URL(ogImage(tags));
+
+        expect(image.pathname).toBe('/api/guest/v1/drive/files/payload');
+        expect(image.searchParams.get('key')).toBe('jrnl_card');
+        expect(tags).toContain('property="og:image:width" content="1200"');
+        expect(tags).toContain('property="og:image:height" content="630"');
+        expect(tags).toContain('name="twitter:card" content="summary_large_image"');
     });
 
     it('should escape the title', () => {

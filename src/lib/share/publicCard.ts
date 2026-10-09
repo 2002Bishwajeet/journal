@@ -3,10 +3,21 @@ import type { DocumentMetadata } from '@/types';
 import { coverPayloadKey, getCover } from '@/lib/editor/cover';
 import { PAYLOAD_KEY_CARD_IMAGE } from '@/lib/homebase/config';
 
-/** The cover a card image is drawn from. */
+/** What a card image is drawn from (#434): a redraw is due when any of it changes. */
 export interface CardImageFrom {
-    src: string;
-    positionY: number;
+    title: string;
+    /** The card's description: the share description or the first paragraph. */
+    excerpt?: string;
+    /** The uploaded cover. Without one the card is the designed paper card. */
+    cover?: { src: string; positionY: number };
+}
+
+/** Whether two card images would be drawn the same. */
+export function sameCardImageFrom(a: CardImageFrom | undefined, b: CardImageFrom): boolean {
+    return a?.title === b.title
+        && a.excerpt === b.excerpt
+        && a.cover?.src === b.cover?.src
+        && a.cover?.positionY === b.cover?.positionY;
 }
 
 /** Link-card data a public note publishes in its plaintext header content. */
@@ -14,7 +25,7 @@ export interface PublicCard {
     description?: string;
     /** The raw cover payload: og:image for notes published before card images. */
     coverKey?: string;
-    /** The 1200×630 card image payload (#441), drawn from `cardImageFrom`. */
+    /** The 1200×630 card image payload (#441, #434), drawn from `cardImageFrom`. */
     cardImageKey?: string;
     cardImageFrom?: CardImageFrom;
     indexable?: boolean;
@@ -58,7 +69,7 @@ export function truncateAtWord(text: string, max = 200): string {
 
 export function buildPublicCard(
     yjsBlob: Uint8Array | undefined,
-    meta: Pick<DocumentMetadata, 'shareDescription' | 'shareIndexable'>
+    meta: Pick<DocumentMetadata, 'shareDescription' | 'shareIndexable'> & { title?: string }
 ): PublicCard {
     const card: PublicCard = {};
 
@@ -80,11 +91,14 @@ export function buildPublicCard(
             // Only an uploaded cover has a payload the guest thumb endpoint can serve.
             const cover = getCover(doc);
             const coverKey = cover && !cover.pendingId ? coverPayloadKey(cover.src) : null;
-            if (cover && coverKey) {
-                card.coverKey = coverKey;
-                card.cardImageKey = PAYLOAD_KEY_CARD_IMAGE;
-                card.cardImageFrom = { src: cover.src, positionY: cover.positionY };
-            }
+            if (cover && coverKey) card.coverKey = coverKey;
+            // Every note gets a card image (#434): one without an uploaded cover is the designed card.
+            card.cardImageKey = PAYLOAD_KEY_CARD_IMAGE;
+            card.cardImageFrom = {
+                title: meta.title?.trim() || 'Untitled',
+                ...(card.description && { excerpt: card.description }),
+                ...(cover && coverKey && { cover: { src: cover.src, positionY: cover.positionY } }),
+            };
         } catch (e) {
             if (!custom) console.error('[publicCard] failed to read the note content', e);
         } finally {
