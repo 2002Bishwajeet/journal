@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import * as Y from 'yjs';
-import { appendMarkdown, createDoc, replaceInNote, toMarkdown } from '@/lib/agent/editEngine';
+import { appendMarkdown, createDoc, replaceInNote, setMarkdown, toMarkdown } from '@/lib/agent/editEngine';
 import { buildSrcdoc, FRAME_TOKENS, liveBlockKind, parseCodeInfo, withBlockId, type FrameTheme } from '@/lib/liveBlocks';
 import {
   BLOCK_STATE_MAP,
@@ -35,21 +35,28 @@ const FENCE = '```html id=k3f9\n<p>hi</p>\n```';
 
 describe('parseCodeInfo', () => {
   it('should split the info string into the language and the block id', () => {
-    expect(parseCodeInfo('html id=k3f9')).toEqual({ language: 'html', id: 'k3f9' });
-    expect(parseCodeInfo('react   other id=abcdef123456 ')).toEqual({ language: 'react', id: 'abcdef123456' });
+    expect(parseCodeInfo('html id=k3f9')).toEqual({ language: 'html', id: 'k3f9', wide: false });
+    expect(parseCodeInfo('react   other id=abcdef123456 ')).toEqual({ language: 'react', id: 'abcdef123456', wide: false });
   });
 
   it('should give no id when there is none, or it is not 4–12 of a-z0-9', () => {
-    expect(parseCodeInfo('html')).toEqual({ language: 'html', id: null });
-    expect(parseCodeInfo(null)).toEqual({ language: null, id: null });
-    expect(parseCodeInfo('')).toEqual({ language: null, id: null });
+    expect(parseCodeInfo('html')).toEqual({ language: 'html', id: null, wide: false });
+    expect(parseCodeInfo(null)).toEqual({ language: null, id: null, wide: false });
+    expect(parseCodeInfo('')).toEqual({ language: null, id: null, wide: false });
     for (const bad of ['id=abc', 'id=abcdefghijklm', 'id=K3F9', 'id=k3-f9', 'id=', 'xid=k3f9', 'id=k3f9;']) {
       expect(parseCodeInfo(`html ${bad}`).id).toBeNull();
     }
   });
 
   it('should not take the language word itself as an id', () => {
-    expect(parseCodeInfo('id=k3f9')).toEqual({ language: 'id=k3f9', id: null });
+    expect(parseCodeInfo('id=k3f9')).toEqual({ language: 'id=k3f9', id: null, wide: false });
+  });
+
+  it('should read `wide` as a word of its own, before or after the id (#557)', () => {
+    expect(parseCodeInfo('react wide id=k3f9')).toEqual({ language: 'react', id: 'k3f9', wide: true });
+    expect(parseCodeInfo('html id=k3f9 wide')).toEqual({ language: 'html', id: 'k3f9', wide: true });
+    for (const notWide of ['wide', 'html wider', 'html id=wide', 'html Wide']) expect(parseCodeInfo(notWide).wide).toBe(false);
+    expect(liveBlockKind('react wide')).toBe('react');
   });
 
   it('should make a block with an id in its info string a live block of its language', () => {
@@ -62,7 +69,8 @@ describe('parseCodeInfo', () => {
     const id = newBlockId();
     expect(id).toMatch(/^[a-z0-9]{8}$/);
     expect(withBlockId('html', id)).toBe(`html id=${id}`);
-    expect(parseCodeInfo(withBlockId(' html ', id))).toEqual({ language: 'html', id });
+    expect(parseCodeInfo(withBlockId(' html ', id))).toEqual({ language: 'html', id, wide: false });
+    expect(parseCodeInfo(withBlockId('react wide', id))).toEqual({ language: 'react', id, wide: true });
   });
 });
 
@@ -77,6 +85,25 @@ describe('the block id in markdown', () => {
     replaceInNote(doc, '<p>hi</p>', '<p>bye</p>');
     expect(toMarkdown(doc)).toContain('```html id=k3f9\n<p>bye</p>\n```');
     expect(getBlockState(doc, 'k3f9')).toBe('{"count":3}');
+  });
+
+  it('should keep `wide` through get_note and update_note, as the info string it is in (#557)', () => {
+    // As the editor has it: the whole info string in the code block's language.
+    const doc = new Y.Doc();
+    const code = new Y.XmlElement('codeBlock');
+    code.setAttribute('language', 'react wide id=k3f9');
+    code.insert(0, [new Y.XmlText('function App() { return null; }')]);
+    doc.getXmlFragment('prosemirror').push([code]);
+
+    const markdown = toMarkdown(doc);
+    expect(markdown).toContain('```react wide id=k3f9\n');
+    setMarkdown(doc, `${markdown}\nA new paragraph.\n`);
+    const block = doc
+      .getXmlFragment('prosemirror')
+      .toArray()
+      .find((node): node is Y.XmlElement => node instanceof Y.XmlElement && node.nodeName === 'codeBlock');
+    expect(block?.getAttribute('language')).toBe('react wide id=k3f9');
+    expect(toMarkdown(doc)).toContain('```react wide id=k3f9\n');
   });
 
   it('should survive append_to_note elsewhere in the note', () => {

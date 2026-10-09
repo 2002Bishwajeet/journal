@@ -169,6 +169,16 @@ describe('createJournalMcpServer', () => {
         expect(told.sort()).toEqual(MARKDOWN_TOOLS);
     });
 
+    it('tells agents about wide blocks and fullscreen (#557)', async () => {
+        const client = await connectedClient(makeFakeDeps());
+        const { tools } = await client.listTools();
+        const told = tools.filter((tool) => tool.description?.includes('```react wide id=k3f9')).map((tool) => tool.name);
+        expect(told.sort()).toEqual(MARKDOWN_TOOLS);
+        for (const tool of tools.filter((t) => MARKDOWN_TOOLS.includes(t.name))) {
+            for (const text of ['up to 2400px tall', 'keep `wide` when rewriting the block', 'fullscreen']) expect(tool.description).toContain(text);
+        }
+    });
+
     it('attributes writes to the client name from the initialize handshake', async () => {
         const uploads: DocumentMetadata[] = [];
         const client = await connectedClient(makeFakeDeps(WRITE_GRANTS, uploads));

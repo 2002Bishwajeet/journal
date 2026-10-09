@@ -7,7 +7,7 @@
  *
  * The `language` attribute is the fence's whole info string; only its first word
  * is the language. An html or react block's id is in it too (```html id=k3f9),
- * and keys the block's saved state in the note (#410).
+ * and keys the block's saved state in the note (#410), and so is `wide` (#557).
  */
 import { useState } from 'react';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
@@ -18,7 +18,7 @@ import { useEditorContext } from '../EditorContext';
 
 export function CodeBlockNodeView({ node, selected, editor, getPos, updateAttributes }: NodeViewProps) {
   const info = node.attrs.language as string | null;
-  const { language } = parseCodeInfo(info);
+  const { language, wide } = parseCodeInfo(info);
   const kind = liveBlockKind(info);
   const { blockState } = useEditorContext();
   // Preview when the block has content at mount, Code when it is empty.
@@ -63,6 +63,7 @@ export function CodeBlockNodeView({ node, selected, editor, getPos, updateAttrib
           selected={selected}
           labelled
           store={store}
+          wide={wide}
           toggles={
             <>
               <LiveBlockToggle pressed={preview} onClick={() => setShowPreview(true)}>

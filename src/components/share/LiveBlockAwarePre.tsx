@@ -36,8 +36,8 @@ function liveBlockOf(node: Element | undefined) {
     : undefined;
   const kind = liveBlockKind(language ?? null);
   // Remark keeps the info string's first word as the language, and the rest as the meta.
-  const { id } = parseCodeInfo(`${language} ${code.data?.meta ?? ''}`);
-  return kind ? { kind, id, source: code.children.map(textOf).join('') } : null;
+  const { id, wide } = parseCodeInfo(`${language} ${code.data?.meta ?? ''}`);
+  return kind ? { kind, id, wide, source: code.children.map(textOf).join('') } : null;
 }
 
 export function LiveBlockAwarePre({ node, children, ...rest }: ComponentProps<'pre'> & ExtraProps) {
@@ -61,6 +61,7 @@ export function LiveBlockAwarePre({ node, children, ...rest }: ComponentProps<'p
       source={live.source}
       preview={!showSource}
       store={store}
+      wide={live.wide}
       toggles={
         live.kind === 'html' || live.kind === 'react' ? null : (
           <LiveBlockToggle pressed={showSource} onClick={() => setShowSource((v) => !v)}>

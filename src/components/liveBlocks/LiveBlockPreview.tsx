@@ -48,6 +48,8 @@ interface LiveBlockPreviewProps {
   store?: BlockStateStore;
   /** An html or react block's preview reported how tall its content is. */
   onHeight?: (height: number) => void;
+  /** A `wide` html or react block, which may be taller (#557). */
+  wide?: boolean;
 }
 
 type MermaidResult = { source: string; dark: boolean; svg: string } | { source: string; dark: boolean; error: string };
@@ -55,7 +57,7 @@ type ReactResult = { source: string; page: string } | { source: string; title: s
 
 let renderCount = 0;
 
-export function LiveBlockPreview({ kind, source, store, onHeight }: LiveBlockPreviewProps) {
+export function LiveBlockPreview({ kind, source, store, onHeight, wide }: LiveBlockPreviewProps) {
   if (kind === 'svg') {
     return (
       <div className="p-4">
@@ -63,8 +65,8 @@ export function LiveBlockPreview({ kind, source, store, onHeight }: LiveBlockPre
       </div>
     );
   }
-  if (kind === 'html') return <HtmlPreview source={source} title="HTML preview" store={store} onHeight={onHeight} />;
-  if (kind === 'react') return <ReactPreview source={source} store={store} onHeight={onHeight} />;
+  if (kind === 'html') return <HtmlPreview source={source} title="HTML preview" store={store} onHeight={onHeight} wide={wide} />;
+  if (kind === 'react') return <ReactPreview source={source} store={store} onHeight={onHeight} wide={wide} />;
   return <MermaidPreview source={source} />;
 }
 
@@ -93,7 +95,7 @@ function frameTheme(frame: HTMLIFrameElement): FrameTheme {
   };
 }
 
-function HtmlPreview({ source, title, store, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight'> & { title: string }) {
+function HtmlPreview({ source, title, store, onHeight, wide }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide'> & { title: string }) {
   // State, not a ref: the frame's document takes its look from the mounted element.
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
   // Rebuilt when the look changes, which reloads the page in the frame.
@@ -112,7 +114,7 @@ function HtmlPreview({ source, title, store, onHeight }: Pick<LiveBlockPreviewPr
   useEffect(() => {
     const onMessage = (event: MessageEvent<unknown>) => {
       const frameWindow = frame?.contentWindow ?? null;
-      const height = frameHeightFromMessage(event, frameWindow);
+      const height = frameHeightFromMessage(event, frameWindow, wide);
       if (height !== null) onHeight?.(height);
       const reply = replyToStorageMessage(event, frameWindow, session, blockStore);
       // The frame's origin is opaque, so there is no origin to name.
@@ -120,7 +122,7 @@ function HtmlPreview({ source, title, store, onHeight }: Pick<LiveBlockPreviewPr
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [frame, onHeight, session, blockStore]);
+  }, [frame, onHeight, session, blockStore, wide]);
 
   // No background: the page inside is see-through, so the note shows behind it.
   return (
@@ -141,7 +143,7 @@ function HtmlPreview({ source, title, store, onHeight }: Pick<LiveBlockPreviewPr
  * shown, a library on the first block that imports it (#427); all are cached for offline use
  * by src/sw.ts.
  */
-function ReactPreview({ source, store, onHeight }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight'>) {
+function ReactPreview({ source, store, onHeight, wide }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide'>) {
   const [result, setResult] = useState<ReactResult | null>(null);
 
   useEffect(() => {
@@ -198,7 +200,7 @@ function ReactPreview({ source, store, onHeight }: Pick<LiveBlockPreviewProps, '
       </div>
     );
   }
-  return <HtmlPreview source={current.page} title="React preview" store={store} onHeight={onHeight} />;
+  return <HtmlPreview source={current.page} title="React preview" store={store} onHeight={onHeight} wide={wide} />;
 }
 
 /** A preview that could not be made, as the app's error callout. */

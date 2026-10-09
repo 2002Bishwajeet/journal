@@ -24,6 +24,9 @@ const LIVE_BLOCKS =
     'prefer the theme names (`bg-muted`, `text-muted-foreground`, `border`); palette names such as `bg-blue-500` map to the theme too. ' +
     'Recharts charts take the theme without colour props: series use `--chart-2` … `--chart-5` in order, grid and axes the border and muted text colours. ' +
     'State is lost on reload unless kept with `journal.storage`.' +
+    ' A block that needs room (a dashboard, a game, a simulation) can add `wide` to its fence (```react wide id=k3f9): ' +
+    "it then spans the editor's full width instead of the note column, up to 2400px tall instead of 1600px; keep `wide` when rewriting the block. " +
+    'Readers can open any `html` or `react` block fullscreen, so let its layout stretch.' +
     " Journal's design system comes first. " +
     '(1) Prefer a native block (callout, table, toggle, task list, mermaid) whenever one can carry the content. ' +
     "(2) An `html` block must use the note's font and colours, which it inherits, and the theme variables " +

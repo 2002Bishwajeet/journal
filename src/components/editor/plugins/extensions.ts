@@ -257,12 +257,14 @@ const SplitHardBreaksOnPaste = Extension.create({
  * Pasted plain text that should become a code block: one whole fenced block
  * (```lang … ```), or bare markup that starts with a tag and ends with one
  * (`svg` when the root is `<svg>`, otherwise `html`). Null for anything else.
+ * A fence's `language` is its whole info string, as a markdown import keeps it,
+ * so an id or `wide` in it stays with the block (#557).
  */
 export function codeBlockFromPaste(text: string): { language: string | null; code: string } | null {
     const trimmed = text.replace(/\r\n?/g, '\n').trim();
-    const fence = trimmed.match(/^```([\w-]*)[^\n]*\n([\s\S]*?)\n?```$/);
+    const fence = trimmed.match(/^```([^\n]*)\n([\s\S]*?)\n?```$/);
     // A fence line inside the body means several blocks were pasted; leave those alone.
-    if (fence) return /^```/m.test(fence[2]) ? null : { language: fence[1] || null, code: fence[2] };
+    if (fence) return /^```/m.test(fence[2]) ? null : { language: fence[1].trim() || null, code: fence[2] };
     // Lower-case tag names only, so pasted JSX (<Component>) stays text.
     if (/^<(!doctype html|[a-z][\w-]*)[\s>]/i.test(trimmed) && !/^<[A-Z]/.test(trimmed) && /<\/[a-z][\w-]*>$/.test(trimmed)) {
         return { language: /^<svg[\s>]/.test(trimmed) ? 'svg' : 'html', code: trimmed };

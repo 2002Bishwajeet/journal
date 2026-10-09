@@ -152,7 +152,8 @@ tables, links, code), these render as richer blocks in Journal:
   an uploaded image as `![alt](attachment://…)`; keep that as it is to keep the image.
 - **Live blocks** — a fenced code block whose language is `mermaid`, `svg`, `html` or `react`.
   Journal shows a preview with a Code / Preview toggle, in the editor and on the note's
-  public share page.
+  public share page. An `html` or `react` block can be `wide`, and any of them can be
+  opened fullscreen (below).
 
 Not available through these tools: uploading images into the body, link-preview cards
 (a link on its own line stays a plain link) and note-to-note links.
@@ -199,6 +200,18 @@ It **cannot**:
 The frame is as tall as its content, up to 1600px (taller content scrolls inside it), and
 the reader can drag it to another height. It is as wide as the note column, so design for
 roughly 650px and let the layout stretch.
+
+A block that needs more room (a dashboard, a game, a simulation) can ask for it with `wide`
+in its fence, next to the id: ```` ```react wide id=k3f9 ```` or ```` ```html wide ````.
+A `wide` block leaves the note column for the full width of the editor (keeping its side
+margin) and of the share page, and can be up to 2400px tall. On a phone it simply fills the
+width. `wide` is part of the fence, so it is in the markdown `get_note` returns: keep it
+when rewriting the block, as you keep the id.
+
+Every `html` and `react` block has an Expand button next to its Code / Preview toggle, in
+the editor and on the share page. It shows the same running block fullscreen, with its
+state; Esc or Close returns to the note. Still let the layout stretch: the block is shown
+at every size from a phone column to a full screen.
 
 ### Saved state: `journal.storage`
 
