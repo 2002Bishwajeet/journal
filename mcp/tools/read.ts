@@ -51,7 +51,7 @@ export function noteAccess(grants: AgentGrants, note: NoteSummary): AgentAccess 
     return resolveAccess(grants, { noteId: note.id, folderId: note.folderId, excludeFromAI: note.excludeFromAI });
 }
 
-function toListResult(note: NoteSummary, access: AgentAccess): NoteListResult {
+export function toListResult(note: NoteSummary, access: AgentAccess): NoteListResult {
     return { id: note.id, title: note.title, folderId: note.folderId, modified: note.modified, tags: note.tags, access };
 }
 

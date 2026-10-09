@@ -91,7 +91,9 @@ Claude Desktop (`claude_desktop_config.json`):
 
 - `list_folders` — folders you've granted access to.
 - `list_notes` — granted notes, newest first (optional `folderId`, `limit`).
-- `get_note` — one granted note by id, body as markdown.
+- `get_note` — one granted note by id, body as markdown. With `format: "blocks"`, the
+  body is a list of top-level blocks (`id`, `type`, `markdown`, `attrs`, and `rows` for a
+  table), whose ids `edit_block` takes.
 - `search_notes` — case-insensitive substring search over title, tags and body of
   granted notes.
 - `get_authoring_guide` — the authoring reference, [`AUTHORING.md`](AUTHORING.md): everything a
@@ -120,6 +122,14 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
   `get_note`'s `modified` as `expectedModified` to have the edit refused if the note
   changed since.
   Example: *"Redesign my Trip plan note as a day-by-day itinerary."*
+- `edit_block` — edit one block by its id from `get_note` with `format: "blocks"`
+  (`note_id`, `block_id`, `op`, optional `expectedModified`). Ops: `replace`,
+  `insert_before`, `insert_after`, `delete`, `set_text` (a callout's or toggle's body,
+  keeping its variant or summary), `set_attrs`, and for tables `set_cell`, `insert_row`,
+  `delete_row`, `insert_column`, `delete_column`, which keep column widths and the other
+  cells. Every other block is left untouched. See
+  [Editing one block](AUTHORING.md#editing-one-block).
+  Example: *"In my Trip plan table, set Tuesday's plan to Hike."*
 - `delete_note` — move a note to Journal's Trash (`id`), where you can restore it. It is
   never deleted permanently.
   Example: *"Delete the duplicate Trip plan note."*

@@ -18,8 +18,12 @@ import {
     appendMarkdown,
     replaceInNote as replaceInDoc,
     createDoc,
+    editBlock as editBlockInDoc,
     localImageSources,
+    noteBlocks,
     setMarkdown,
+    type BlockOp,
+    type NoteBlock,
 } from '@/lib/agent/editEngine';
 import {
     advanceNextImageIndex,
@@ -37,7 +41,7 @@ import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import type { PreparedImage } from '@/lib/images/imageBytes';
 import type { DocumentMetadata } from '@/types';
 import { loadImage } from '../imageSource';
-import { noteAccess, type ReadDeps, type NoteSummary } from './read';
+import { noteAccess, toListResult, type ReadDeps, type NoteSummary, type NoteListResult } from './read';
 
 /** Thrown by `uploadNoteEdit` when the note's versionTag is stale. */
 export class VersionConflictError extends Error {
@@ -313,6 +317,37 @@ export async function updateNote(
     };
     await editWithBodyImages(deps, id, await loadBodyImages(markdown), apply, { metadata, expectedModified, dryRun: false });
     return { id };
+}
+
+/**
+ * `get_note` with `format: "blocks"` (#560): the note's top-level blocks with the ids
+ * `edit_block` takes. Here rather than in read.ts because it needs the note's Yjs doc.
+ */
+export async function getNoteBlocks(deps: WriteDeps, params: { id: string }): Promise<NoteListResult & { blocks: NoteBlock[] }> {
+    const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(params.id)]);
+    const access = note ? noteAccess(grants, note.summary) : 'none';
+    if (!note || access === 'none') throw new Error(`Note not found: ${params.id}`);
+    return { ...toListResult(note.summary, access), blocks: noteBlocks(note.doc) };
+}
+
+/** One block op (#560), by the block's id from `getNoteBlocks`. Returns the ids the op leaves. */
+export async function editBlock(
+    deps: WriteDeps,
+    params: { note_id: string; block_id: string; op: BlockOp; expectedModified?: string }
+): Promise<{ id: string; block_ids: string[] }> {
+    const { note_id, block_id, op, expectedModified } = params;
+    const markdown = 'markdown' in op ? op.markdown : op.type === 'insert_row' ? op.cells?.join('\n\n') : undefined;
+    let blockIds: string[] = [];
+    await editWithBodyImages(
+        deps,
+        note_id,
+        await loadBodyImages(markdown),
+        (doc, imageSrcs) => {
+            blockIds = editBlockInDoc(doc, block_id, op, imageSrcs);
+        },
+        { expectedModified }
+    );
+    return { id: note_id, block_ids: blockIds };
 }
 
 /** Moves a note to Trash, where the owner can restore it. Never deletes permanently. */
