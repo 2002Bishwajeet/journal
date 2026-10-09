@@ -18,6 +18,7 @@ import {
     type PayloadFile,
     type ThumbnailFile,
     type EncryptedKeyHeader,
+    type ImageSize,
 } from '@homebase-id/js-lib/core';
 import {
     getFileHeaderOverPeerByUniqueId,
@@ -45,19 +46,27 @@ import { InvitationDriveProvider } from './InvitationDriveProvider';
 export interface ImageUploadData {
     file: Blob;
     filename?: string;
+    /** Set where thumbnails can't be drawn (no canvas); see buildImagePayload. */
+    naturalSize?: ImageSize;
 }
 
 /** A card with no keys is left out of the public header content entirely. */
 const nonEmptyCard = (card: PublicCard): PublicCard | undefined =>
     Object.keys(card).length > 0 ? card : undefined;
 
-/** Whether the file's card image payload was drawn from `from`, per the card in its header. */
-function isCardImageCurrent(header: HomebaseFile<NoteFileContent>, from: CardImageFrom): boolean {
-    if (!header.fileMetadata.payloads?.some((p) => p.key === PAYLOAD_KEY_CARD_IMAGE)) return false;
+/** What the file's card image payload was drawn from, per the card in its header; undefined without one. */
+function drawnCardImageFrom(header: HomebaseFile<NoteFileContent>): CardImageFrom | undefined {
+    if (!header.fileMetadata.payloads?.some((p) => p.key === PAYLOAD_KEY_CARD_IMAGE)) return undefined;
     // Content may come back as a string or an already-parsed object (see makeNotePublic).
     const raw: unknown = header.fileMetadata.appData.content;
     const content = typeof raw === 'string' ? tryJsonParse<{ card?: PublicCard }>(raw) : (raw as { card?: PublicCard } | undefined);
-    return sameCardImageFrom(content?.card?.cardImageFrom, from);
+    return content?.card?.cardImageFrom;
+}
+
+/** Whether the file's card image payload was drawn from `from`, per the card in its header. */
+function isCardImageCurrent(header: HomebaseFile<NoteFileContent>, from: CardImageFrom): boolean {
+    const drawn = drawnCardImageFrom(header);
+    return !!drawn && sameCardImageFrom(drawn, from);
 }
 
 /**
@@ -347,6 +356,11 @@ export class NotesDriveProvider {
         // The owner-authored share fields are meant to be public; undefined ones (and
         // an empty link card) are dropped by JSON.stringify.
         const card = metadata.isPublic ? buildPublicCard(yjsBlob, metadata) : undefined;
+        // The card image rides on this same patch. Without the content we can't tell
+        // whether the cover changed, so a content-less save leaves it alone.
+        const cardChange = card && yjsBlob && !isPeer ? await this.#cardImageChange(fileId, card.cardImageFrom) : undefined;
+        // A card kept as it is (it couldn't be redrawn here) keeps saying what it was drawn from, so the app redraws it.
+        if (card && cardChange?.kept) card.cardImageFrom = cardChange.keptFrom;
         const serializedContent = card
             ? JSON.stringify({
                 title: metadata.title,
@@ -363,13 +377,8 @@ export class NotesDriveProvider {
         const isEncrypted = !metadata.isPublic;
         const payloads = buildContentPayloads(yjsBlob, isEncrypted);
         let toDeletePayloads = options?.toDeletePayloads;
-        // The card image rides on this same patch. Without the content we can't tell
-        // whether the cover changed, so a content-less save leaves it alone.
-        if (card && yjsBlob && !isPeer) {
-            const change = await this.#cardImageChange(fileId, card.cardImageFrom);
-            if (change.upload) payloads.push({ key: PAYLOAD_KEY_CARD_IMAGE, payload: change.upload });
-            if (change.remove) toDeletePayloads = [...(toDeletePayloads ?? []), { key: PAYLOAD_KEY_CARD_IMAGE }];
-        }
+        if (cardChange?.upload) payloads.push({ key: PAYLOAD_KEY_CARD_IMAGE, payload: cardChange.upload });
+        if (cardChange?.remove) toDeletePayloads = [...(toDeletePayloads ?? []), { key: PAYLOAD_KEY_CARD_IMAGE }];
 
         const uploadMetadata: UploadFileMetadata = {
             versionTag,
@@ -431,8 +440,13 @@ export class NotesDriveProvider {
      * What a save of a public note does to its card image: upload a new one when its
      * title, excerpt or cover (src or positionY) changed since the last one was drawn,
      * remove it when the new one can't be drawn, else nothing.
+     * Where no card can be drawn at all (the MCP server, in Node), an existing card is
+     * kept: deleting it would break link previews whose page metadata is still cached.
      */
-    async #cardImageChange(fileId: string, from: CardImageFrom | undefined): Promise<{ upload?: Blob; remove: boolean }> {
+    async #cardImageChange(
+        fileId: string,
+        from: CardImageFrom | undefined,
+    ): Promise<{ upload?: Blob; remove: boolean; kept?: boolean; keptFrom?: CardImageFrom }> {
         let header: HomebaseFile<NoteFileContent> | null = null;
         try {
             header = await getFileHeader<NoteFileContent>(this.#dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true });
@@ -440,6 +454,11 @@ export class NotesDriveProvider {
             console.warn('[NotesDriveProvider] could not read the header for the card image', e);
         }
         if (from && header && isCardImageCurrent(header, from)) return { remove: false };
+        const { canRenderCardImage } = await import('@/lib/share/cardImage');
+        if (!canRenderCardImage()) {
+            const hasCard = !!header?.fileMetadata.payloads?.some((p) => p.key === PAYLOAD_KEY_CARD_IMAGE);
+            return hasCard && header ? { remove: false, kept: true, keptFrom: drawnCardImageFrom(header) } : { remove: false };
+        }
         const upload = from ? await this.#drawCardImage(fileId, from, (key) => this.#readPayloadBlob(fileId, key, header)) : null;
         if (upload) return { upload, remove: false };
         return { remove: !!header?.fileMetadata.payloads?.some((p) => p.key === PAYLOAD_KEY_CARD_IMAGE) };
@@ -541,7 +560,8 @@ export class NotesDriveProvider {
             image.file,
             image.filename,
             payloadKey,
-            existingHeader.fileMetadata.isEncrypted ? getRandom16ByteArray() : undefined
+            existingHeader.fileMetadata.isEncrypted ? getRandom16ByteArray() : undefined,
+            image.naturalSize
         );
 
         // Mirror the existing file's visibility so adding an image never re-encrypts
