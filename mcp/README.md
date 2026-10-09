@@ -131,6 +131,9 @@ tables, links, code), these render as richer blocks in Journal:
   or `> [!error]`.
 - **Toggle** — `<details>` with a `<summary>` line, then a blank line, the body, a blank
   line and `</details>`.
+- **Footnotes** — `text[^1]` with `[^1]: the note` on its own line. Journal numbers them
+  by reference order and keeps the notes at the end; in `append_to_note`, a `[^n]` with a
+  definition is a new footnote, one without points at the note's existing footnote n.
 - **Live blocks** — a fenced code block whose language is `mermaid`, `svg`, `html` or `react`.
   Journal shows a preview with a Code / Preview toggle, in the editor and on the note's
   public share page.
