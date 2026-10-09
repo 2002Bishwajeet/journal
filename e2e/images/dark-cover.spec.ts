@@ -63,6 +63,13 @@ test('light and dark covers swap with the theme, with no reload', async ({ app }
   expect(darkSrc).not.toBe(lightSrc);
   await shoot(app, 'dark-cover-dark-desktop.png');
 
+  // Reposition in dark mode moves the dark cover, so the dark cover stays shown.
+  await app.getByRole('img', { name: 'Note cover' }).hover({ force: true });
+  await app.getByRole('button', { name: 'Reposition cover' }).click();
+  await expect(app.getByText('Drag to reposition the dark mode cover')).toBeVisible();
+  expect(await coverImg(app).getAttribute('src')).toBe(darkSrc);
+  await app.getByRole('button', { name: 'Done repositioning' }).click();
+
   // Back to light, then remove the dark cover: dark mode falls back to the light one.
   await app.emulateMedia({ colorScheme: 'light' });
   await expect.poll(() => coverImg(app).getAttribute('src')).toBe(lightSrc);

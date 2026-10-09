@@ -6,7 +6,8 @@
  * position in local state and writes the Yjs doc once per drag, on pointerup.
  *
  * A note can also have a dark-mode cover (#512), shown instead while the app's
- * theme is dark. While one cover is being repositioned, that cover is shown.
+ * theme is dark. While one cover is being repositioned, that cover is shown;
+ * Reposition moves the cover the current theme shows.
  */
 
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type PointerEvent } from "react";
@@ -125,7 +126,8 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
     );
   }
 
-  const shownVariant: CoverVariant = repositioning ?? (isDark && cover.dark ? "dark" : "light");
+  const themeVariant: CoverVariant = isDark && cover.dark ? "dark" : "light";
+  const shownVariant: CoverVariant = repositioning ?? themeVariant;
   const shown = shownVariant === "dark" && cover.dark ? cover.dark : cover;
   const positionY = dragY ?? shown.positionY;
 
@@ -241,7 +243,7 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
                 variant="secondary"
                 aria-label="Reposition cover"
                 className="text-xs"
-                onClick={() => setRepositioning("light")}
+                onClick={() => setRepositioning(themeVariant)}
               >
                 <Move />
                 Reposition
