@@ -57,7 +57,8 @@ export default function SharePage() {
     }
 
     return (
-        <div className="min-h-screen bg-background">
+        // The container a `wide` live block takes its width from (src/index.css, "Live blocks").
+        <div className="@container/live-blocks min-h-screen bg-background">
             <ShareHeader
                 saveHref={`/save-shared?${new URLSearchParams({ identity: decodeURIComponent(identity), file: noteId })}`}
                 authorIndexHref={`/share/${identity}`}

@@ -22,7 +22,7 @@ A note can hold:
 - Covers: set_note_cover and clear_note_cover, not an image at the top of the body.
 - Live blocks: a fenced block in mermaid (diagrams), svg (a static drawing), html (a sandboxed page with script) or react (a JSX component that can import recharts, lucide-react, d3, three, lodash, mathjs, papaparse and the journal-ui kit). Put an id after the language (\`\`\`html id=k3f9) and keep it when rewriting the block: it keys the block's saved state.
 
-Interactive tools, calculators, dashboards, charts, simulations and small games are welcome in a note: build them as an html or react block. Use a native block (table, callout, toggle, task list, mermaid) when it can carry the content.
+Interactive tools, calculators, dashboards, charts, simulations and small games are welcome in a note: build them as an html or react block. Use a native block (table, callout, toggle, task list, mermaid) when it can carry the content. Design a live block for the ~650px note column with a fluid layout (it is also shown at 390px and fullscreen); add \`wide\` to its fence (\`\`\`react wide id=k3f9) only when the content needs horizontal room, and keep it when rewriting the block.
 
 Before writing anything beyond plain markdown, call get_authoring_guide: it has every block's syntax with examples, what a live block can load and do, the design rules that keep it matching the note in light and dark, and complete examples.`;
 

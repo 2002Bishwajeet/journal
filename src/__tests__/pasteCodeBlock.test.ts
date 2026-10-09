@@ -16,6 +16,11 @@ describe('codeBlockFromPaste', () => {
         expect(codeBlockFromPaste('```react\n' + code + '\n```')).toEqual({ language: 'react', code });
     });
 
+    it('should keep the whole info string, so a block keeps its id and `wide` (#557)', () => {
+        expect(codeBlockFromPaste('```react wide id=k3f9\nfunction App() {}\n```')).toEqual({ language: 'react wide id=k3f9', code: 'function App() {}' });
+        expect(codeBlockFromPaste('```html wide \n<p>x</p>\n```')?.language).toBe('html wide');
+    });
+
     it('should leave several fenced blocks alone', () => {
         expect(codeBlockFromPaste('```js\na\n```\ntext\n```js\nb\n```')).toBeNull();
     });

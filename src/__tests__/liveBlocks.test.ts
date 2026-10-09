@@ -2,7 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { LiveBlockPreview } from '@/components/liveBlocks/LiveBlockPreview';
-import { HTML_BLOCK_CDN_HOSTS, buildSrcdoc, frameHeightFromMessage, liveBlockKind, svgDataUri, type FrameTheme } from '@/lib/liveBlocks';
+import {
+  FRAME_TOKENS,
+  HTML_BLOCK_CDN_HOSTS,
+  buildSrcdoc,
+  frameHeightFromMessage,
+  isEscapeFromFrame,
+  liveBlockKind,
+  svgDataUri,
+  type FrameTheme,
+} from '@/lib/liveBlocks';
 
 describe('liveBlockKind', () => {
   it('should recognise mermaid, svg, html and react languages', () => {
@@ -49,6 +58,8 @@ describe('buildSrcdoc', () => {
   const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
   const HEIGHT_SCRIPT =
     "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) }, '*')).observe(document.documentElement)</script>";
+  const ESCAPE_SCRIPT =
+    "<script>addEventListener('keydown', function (event) { if (event.key === 'Escape') parent.postMessage({ journalLiveBlock: 1, escape: 1 }, '*'); })</script>";
 
   // The dark theme's values in src/index.css.
   const THEME: FrameTheme = {
@@ -86,14 +97,14 @@ describe('buildSrcdoc', () => {
   /** Everything buildSrcdoc puts before the source. */
   const head = (source: string, theme = THEME) => {
     const srcdoc = buildSrcdoc(source, theme);
-    return srcdoc.slice(0, srcdoc.length - source.length - HEIGHT_SCRIPT.length);
+    return srcdoc.slice(0, srcdoc.length - source.length - HEIGHT_SCRIPT.length - ESCAPE_SCRIPT.length);
   };
 
-  it('should put the CSP meta first, then one theme style, journal.storage, the source and the height script', () => {
+  it('should put the CSP meta first, then one theme style, journal.storage, the source, the height script and the Esc relay', () => {
     const source = '<style>body{color:red}</style><p>hi</p><script>document.body.append("ran")</script>';
     const srcdoc = buildSrcdoc(source, THEME);
     expect(srcdoc.startsWith(`<!doctype html>${CSP_META}<style>`)).toBe(true);
-    expect(srcdoc.endsWith(`</script>${source}${HEIGHT_SCRIPT}`)).toBe(true);
+    expect(srcdoc.endsWith(`</script>${source}${HEIGHT_SCRIPT}${ESCAPE_SCRIPT}`)).toBe(true);
     // The block's own CSS comes after the one injected style, so it wins.
     expect(head(source).match(/<style>/g)).toHaveLength(1);
     // Between the style and the source, one script: journal.storage (#410).
@@ -194,7 +205,7 @@ describe('buildSrcdoc', () => {
 
   it('should listen for one kind of message only: a reply from the app to journal.storage (#410)', () => {
     const srcdoc = buildSrcdoc('', THEME);
-    expect(srcdoc.match(/addEventListener|onmessage/g)).toEqual(['addEventListener']);
+    expect(srcdoc.match(/addEventListener\('message'|onmessage/g)).toEqual(["addEventListener('message'"]);
     expect(srcdoc).toContain('event.source !== parent');
   });
 });
@@ -212,6 +223,12 @@ describe('frameHeightFromMessage', () => {
   it('should clamp the height to 120–1600px', () => {
     expect(frameHeightFromMessage({ source: frame, data: report(0) }, frame)).toBe(120);
     expect(frameHeightFromMessage({ source: frame, data: report(5000) }, frame)).toBe(1600);
+  });
+
+  it('should let a wide block be up to 2400px tall (#557)', () => {
+    expect(frameHeightFromMessage({ source: frame, data: report(2000) }, frame, true)).toBe(2000);
+    expect(frameHeightFromMessage({ source: frame, data: report(5000) }, frame, true)).toBe(2400);
+    expect(frameHeightFromMessage({ source: frame, data: report(0) }, frame, true)).toBe(120);
   });
 
   it('should ignore a message from another window', () => {
@@ -233,6 +250,40 @@ describe('frameHeightFromMessage', () => {
     for (const data of [{ height: 900 }, { journalLiveBlock: '1', height: 900 }, { journalLiveBlock: true, height: 900 }, 'height: 900', 900, null, undefined]) {
       expect(frameHeightFromMessage({ source: frame, data }, frame)).toBeNull();
     }
+  });
+});
+
+describe('isEscapeFromFrame', () => {
+  const frame = {} as Window;
+  const escape = { journalLiveBlock: 1, escape: 1 };
+
+  it('should be true for Esc from the block’s own frame only (#557)', () => {
+    expect(isEscapeFromFrame({ source: frame, data: escape }, frame)).toBe(true);
+    expect(isEscapeFromFrame({ source: {} as Window, data: escape }, frame)).toBe(false);
+    expect(isEscapeFromFrame({ source: null, data: escape }, null)).toBe(false);
+    for (const data of [{ escape: 1 }, { journalLiveBlock: 1, escape: true }, { journalLiveBlock: 1, height: 900 }, null]) {
+      expect(isEscapeFromFrame({ source: frame, data }, frame)).toBe(false);
+    }
+  });
+
+  it('should be what the frame posts when Esc is pressed in it', () => {
+    const theme: FrameTheme = {
+      colorScheme: 'light',
+      tokens: Object.fromEntries(FRAME_TOKENS.map((name) => [name, '#000'])) as FrameTheme['tokens'],
+      fontFamily: 'system-ui',
+      lineHeight: '1.5',
+    };
+    const script = buildSrcdoc('', theme).match(/<script>(addEventListener\('keydown'[^]*?)<\/script>/)![1];
+    const posted: unknown[] = [];
+    let onKeyDown: (event: { key: string }) => void = () => {};
+    const parent = { postMessage: (message: unknown) => posted.push(message) };
+    new Function('parent', 'addEventListener', script)(parent, (_: string, listener: typeof onKeyDown) => {
+      onKeyDown = listener;
+    });
+    onKeyDown({ key: 'a' });
+    onKeyDown({ key: 'Escape' });
+    expect(posted).toEqual([escape]);
+    expect(isEscapeFromFrame({ source: frame, data: posted[0] }, frame)).toBe(true);
   });
 });
 

@@ -254,8 +254,8 @@ test('html block: a height report posted by the app page itself changes no block
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
-  // #424: no full screen. The block is as tall as its content and lives in the note.
-  test(`html block: a 900px page gets a frame of its height and no Full screen control, ${colorScheme} theme`, async ({ app }) => {
+  // #424: the block is as tall as its content and lives in the note; it is fullscreen only once expanded (#557).
+  test(`html block: a 900px page gets a frame of its height and is not fullscreen until expanded, ${colorScheme} theme`, async ({ app }) => {
     await app.emulateMedia({ colorScheme });
     // Tall enough to show the whole 900px block at its natural height.
     await app.setViewportSize({ width: 1280, height: 1200 });

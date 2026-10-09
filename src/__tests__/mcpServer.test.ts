@@ -144,6 +144,14 @@ describe('createJournalMcpServer', () => {
         expect(readme).not.toContain('Designing an `html` block');
     });
 
+    it('tells agents in initialize to design for the column and keep `wide` for content that needs room (#557)', async () => {
+        const client = await connectedClient(makeFakeDeps());
+        const instructions = client.getInstructions() ?? '';
+        for (const text of ['~650px note column with a fluid layout', '```react wide id=k3f9', 'only when the content needs horizontal room', 'keep it when rewriting the block']) {
+            expect(instructions).toContain(text);
+        }
+    });
+
     it('attributes writes to the client name from the initialize handshake', async () => {
         const uploads: DocumentMetadata[] = [];
         const client = await connectedClient(makeFakeDeps(WRITE_GRANTS, uploads));
@@ -224,6 +232,25 @@ describe('the authoring guide (#519)', () => {
             expect(GUIDE).toContain(`| \`${name}\` |`);
         }
         expect(GUIDE).toContain('Use `--chart-2` … `--chart-5` in order for data\nseries, and never raw colours.');
+    });
+
+    it('says how a block is laid out in the column, `wide` and fullscreen, in order (#557)', () => {
+        for (const text of ['```` ```react wide id=k3f9 ````', 'up to about 1150px and centred on the column', 'up to 2400px tall', 'keep it when rewriting the block', 'Expand button']) {
+            expect(GUIDE).toContain(text);
+        }
+        const rules = [
+            '1. **Design for the note column first (about 650px), and keep the layout fluid**',
+            '2. **`wide` only when the content needs the horizontal room**',
+            'Never for a form, a counter,\n   a single chart or text.',
+            'Prose stays in markdown at reading width, never inside a wide\n   block.',
+            '3. **A wide block reads as a figure between paragraphs.**',
+            "4. **Fullscreen is the reader's choice, not yours.**",
+            '(`max-width: 65ch`)',
+        ];
+        const positions = rules.map((rule) => GUIDE.indexOf(rule));
+        expect(positions).not.toContain(-1);
+        expect(positions).toEqual([...positions].sort((a, b) => a - b));
+        for (const text of ['no fixed pixel widths', '`ResizeObserver`', '`ResponsiveContainer`', 'at 390px']) expect(GUIDE).toContain(text);
     });
 
     it('says what an html block may load: scripts, styles and fonts from the CDN hosts, and no other host (#409)', () => {

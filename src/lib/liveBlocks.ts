@@ -8,12 +8,13 @@ const BLOCK_ID_TOKEN = /^id=[a-z0-9]{4,12}$/;
 /**
  * A code block's `language` attribute holds the fence's whole info string, so an html
  * block's id rides in it (```html id=k3f9, #410) through export, import and agent edits.
- * This splits it: the language is the first word, the id an `id=<4–12 of a-z0-9>` word.
+ * This splits it: the language is the first word, the id an `id=<4–12 of a-z0-9>` word,
+ * and `wide` a word of its own (```react wide id=k3f9, #557).
  */
-export function parseCodeInfo(info: string | null): { language: string | null; id: string | null } {
+export function parseCodeInfo(info: string | null): { language: string | null; id: string | null; wide: boolean } {
   const [language, ...rest] = (info ?? '').trim().split(/\s+/);
   const token = rest.find((word) => BLOCK_ID_TOKEN.test(word));
-  return { language: language || null, id: token ? token.slice('id='.length) : null };
+  return { language: language || null, id: token ? token.slice('id='.length) : null, wide: rest.includes('wide') };
 }
 
 /** The info string with an id added, for a block that saves its state the first time. */
@@ -52,6 +53,10 @@ const HTML_BLOCK_CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; s
 // What a frame tells the app unasked: how tall its document is, whenever that changes (#412).
 const HEIGHT_REPORT_SCRIPT =
   "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) }, '*')).observe(document.documentElement)</script>";
+
+// Esc inside the frame never reaches the app, so the frame passes it on: it closes the block's fullscreen (#557).
+const ESCAPE_SCRIPT =
+  "<script>addEventListener('keydown', function (event) { if (event.key === 'Escape') parent.postMessage({ journalLiveBlock: 1, escape: 1 }, '*'); })</script>";
 
 // `journal.storage` (#410): get and set ask the app for this block's saved state over the
 // same bridge, and the app answers each request by its number. The app decides everything
@@ -139,7 +144,7 @@ export interface FrameTheme {
  * so it is in force before anything in the (untrusted) source is parsed. Then
  * one style gives the page the note's look; it comes before the source, so the
  * block's own CSS wins. Then `journal.storage`, so the source can use it as it
- * loads. The height report comes last.
+ * loads. The height report and the Esc relay come last.
  *
  * The page is only see-through while its colour scheme is that of the app
  * around it: a browser paints a frame of the other scheme opaque.
@@ -158,7 +163,7 @@ export function buildSrcdoc(source: string, theme: FrameTheme): string {
     'table{border-collapse:collapse}' +
     'th,td{border:1px solid var(--border);padding:0.5rem 0.75rem;text-align:left}' +
     'img{max-width:100%}';
-  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${STORAGE_SCRIPT}${source}${HEIGHT_REPORT_SCRIPT}`;
+  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${STORAGE_SCRIPT}${source}${HEIGHT_REPORT_SCRIPT}${ESCAPE_SCRIPT}`;
 }
 
 // A script's text ends at the first `</script`, and `<!--` can move that end. `\x3C` is `<`
@@ -228,19 +233,28 @@ export function reactBlockDocument(runtime: ReactBlockRuntime, code: string): st
 /** The least height a framed (html or react) block's box is fitted to. */
 export const MIN_FRAME_HEIGHT = 120;
 const MAX_FRAME_HEIGHT = 1600;
+// A `wide` block (#557) is for a dashboard, a game or a simulation, which need room both ways.
+const MAX_WIDE_FRAME_HEIGHT = 2400;
 
 /**
  * The height to give an `html` block, from a `message` event: the height its
- * own frame reported, clamped (taller content scrolls inside the frame). Null
- * for anything else. `frame` is the block's `iframe.contentWindow`. The frame's
- * source is untrusted and can post any message it likes, so the most a block
- * can do with one is pick its own height within the clamp.
+ * own frame reported, clamped (taller content scrolls inside the frame); a
+ * `wide` block may be taller. Null for anything else. `frame` is the block's
+ * `iframe.contentWindow`. The frame's source is untrusted and can post any
+ * message it likes, so the most a block can do with one is pick its own height
+ * within the clamp.
  */
-export function frameHeightFromMessage(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null): number | null {
+export function frameHeightFromMessage(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null, wide = false): number | null {
   if (!frame || event.source !== frame) return null;
   const data = event.data as { journalLiveBlock?: unknown; height?: unknown } | null | undefined;
   if (data?.journalLiveBlock !== 1 || typeof data.height !== 'number' || !Number.isFinite(data.height)) return null;
-  return Math.min(Math.max(data.height, MIN_FRAME_HEIGHT), MAX_FRAME_HEIGHT);
+  return Math.min(Math.max(data.height, MIN_FRAME_HEIGHT), wide ? MAX_WIDE_FRAME_HEIGHT : MAX_FRAME_HEIGHT);
+}
+
+/** Whether a `message` event is Esc pressed inside the block's own frame (`frame`, its `iframe.contentWindow`). */
+export function isEscapeFromFrame(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null): boolean {
+  const data = event.data as { journalLiveBlock?: unknown; escape?: unknown } | null | undefined;
+  return !!frame && event.source === frame && data?.journalLiveBlock === 1 && data.escape === 1;
 }
 
 /** A `journal.storage` call from a block's frame (#410). `key` and `value` are not checked yet. */
