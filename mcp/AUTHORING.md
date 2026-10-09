@@ -122,9 +122,33 @@ recommended 2400×1260 and at least 1200×630, `positionY` 0 to 100 for the foca
 `clear_note_cover`. Use a cover rather than an image at the top of the body: it also feeds
 the link preview of a public note.
 
-### Not available through these tools
+### Note links
 
-Link-preview cards (a link on its own line stays a plain link) and note-to-note links.
+A link to another note is `[label](journal:note/<id>)`, with the id `list_notes` or
+`search_notes` gives. Clicking it in Journal opens that note, and Journal shows the note's
+current title. You can also write `[[Note title]]`: it links the one note you can see
+with that title (ignoring case), and the call fails if none or several match. `get_note`
+returns every note link as `[label](journal:note/<id>)`.
+
+```markdown
+Packing is in [[Packing list]], and the route in [the plan](journal:note/3f2a9c1e-…).
+```
+
+A link to a note you can't see comes back as its label only. Keep that text as it is to
+keep the link; `replace_in_note` refuses a block holding one.
+
+### Link previews
+
+A card with the page's title, description and image: a link alone on its line, followed
+by `<!-- preview -->`. Write the link as `<https://…>`; Journal fetches the title,
+description and image when the note opens, as for a pasted link. `get_note` returns a
+card as `[Page title](https://…)<!-- preview -->` once its title is fetched, and
+`<https://…><!-- preview -->` before that; keep that line as it is to keep the card. A
+card can't open a list item: there the line stays a plain link.
+
+```markdown
+<https://journal.cloudx.run><!-- preview -->
+```
 
 ## Live blocks
 

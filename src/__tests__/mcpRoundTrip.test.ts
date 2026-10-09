@@ -8,7 +8,7 @@ import type { NoteSummary } from '../../mcp/tools/read';
 import type { WriteDeps } from '../../mcp/tools/write';
 import type { AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
-import { toMarkdown } from '@/lib/agent/editEngine';
+import { createDoc, toMarkdown } from '@/lib/agent/editEngine';
 
 /**
  * Every feature the authoring guide documents (#519) round-trips through the MCP server:
@@ -24,7 +24,12 @@ interface Stored {
     metadata: DocumentMetadata;
 }
 
-function makeDeps(): { deps: Omit<WriteDeps, 'clientName'>; uploadedImages: () => number } {
+function makeDeps(): {
+    deps: Omit<WriteDeps, 'clientName'>;
+    uploadedImages: () => number;
+    store: Map<string, Stored>;
+    docOf: (note: Stored) => Y.Doc;
+} {
     const store = new Map<string, Stored>();
     let images = 0;
     const docOf = (note: Stored) => {
@@ -43,9 +48,9 @@ function makeDeps(): { deps: Omit<WriteDeps, 'clientName'>; uploadedImages: () =
         loadGrants: async () => GRANTS,
         listFolders: async () => [{ id: 'F1', name: 'Notes' }],
         listNotes: async () => [...store].map(([id, note]) => summaryOf(id, note)),
-        getNote: async (id) => {
+        getNote: async (id, targets) => {
             const note = store.get(id);
-            return note ? { summary: summaryOf(id, note), markdown: toMarkdown(docOf(note)) } : null;
+            return note ? { summary: summaryOf(id, note), markdown: toMarkdown(docOf(note), targets) } : null;
         },
         fetchNoteForEdit: async (id) => {
             const note = store.get(id);
@@ -68,7 +73,7 @@ function makeDeps(): { deps: Omit<WriteDeps, 'clientName'>; uploadedImages: () =
             return `jrnl_img${images++}`;
         },
     };
-    return { deps, uploadedImages: () => images };
+    return { deps, uploadedImages: () => images, store, docOf };
 }
 
 async function connect(deps: Omit<WriteDeps, 'clientName'>): Promise<Client> {
@@ -96,6 +101,7 @@ const FEATURES: Record<string, string> = {
     'inline math': 'The energy is $E = mc^2$.',
     'block math': '$$\n\\int_0^1 x^2 \\, dx = \\frac{1}{3}\n$$',
     footnotes: 'Journal syncs through Homebase.[^1] It works offline.[^2]\n\n[^1]: Your own identity.\n[^2]: Changes sync later.',
+    'link preview': 'Read this:\n\n<https://journal.cloudx.run/blog><!-- preview -->',
     table: '| Day | Distance |\n| --- | --- |\n| Mon | 5 km |\n| Wed | 8 km |',
     'mermaid block': '```mermaid id=r3l5\nflowchart LR\n  A[Write] --> B{Tests pass?}\n  B -- yes --> C[Merge]\n```',
     'svg block': '```svg id=c1rc\n<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="#718968"/></svg>\n```',
@@ -134,5 +140,71 @@ describe('MCP round trip of every documented feature (#519)', () => {
         await call(client, 'update_note', { id, markdown });
         expect(await getMarkdown(client, id)).toBe(markdown);
         expect(uploadedImages()).toBe(1);
+    });
+});
+
+describe('MCP note links (#561)', () => {
+    const OWNER_METADATA: DocumentMetadata = {
+        title: 'Secret',
+        folderId: 'F2', // not granted
+        tags: [],
+        timestamps: { created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z' },
+        excludeFromAI: false,
+    };
+
+    it('[[Title]] and [label](journal:note/<id>) read back as note links, and survive update_note and replace_in_note', async () => {
+        const { deps, store, docOf } = makeDeps();
+        const client = await connect(deps);
+        const { id: target } = await call<{ id: string }>(client, 'create_note', { title: 'Trip plan', markdown: 'Day one.', folderId: 'F1' });
+        const { id } = await call<{ id: string }>(client, 'create_note', {
+            title: 'Index',
+            markdown: `See [[trip plan]] and [the plan](journal:note/${target}).`,
+            folderId: 'F1',
+        });
+        const markdown = `See [Trip plan](journal:note/${target}) and [the plan](journal:note/${target}).`;
+        expect(await getMarkdown(client, id)).toBe(markdown);
+
+        // Passed back unchanged, the note's blocks are kept as they are: the edit adds no Yjs ops.
+        const before = Y.encodeStateVector(docOf(store.get(id)!));
+        await call(client, 'update_note', { id, markdown });
+        expect(await getMarkdown(client, id)).toBe(markdown);
+        expect(Y.encodeStateVector(docOf(store.get(id)!))).toEqual(before);
+
+        await call(client, 'replace_in_note', { id, old_text: 'See', new_text: 'Read' });
+        expect(await getMarkdown(client, id)).toBe(markdown.replace('See', 'Read'));
+    });
+
+    it('[[Title]] that matches no granted note fails the call and creates nothing', async () => {
+        const { deps, store } = makeDeps();
+        const client = await connect(deps);
+        await expect(call(client, 'create_note', { title: 'Index', markdown: 'See [[Nowhere]].', folderId: 'F1' })).rejects.toThrow(
+            'Note link [[Nowhere]]: no note you can see has this title'
+        );
+        expect(store.size).toBe(0);
+    });
+
+    it("a link to a note the agent can't see is plain text, both ways, and update_note keeps the owner's link", async () => {
+        const { deps, store, docOf } = makeDeps();
+        await deps.createNote('hidden', OWNER_METADATA, Y.encodeStateAsUpdate(createDoc('Private.')));
+        const client = await connect(deps);
+        await expect(call(client, 'get_note', { id: 'hidden' })).rejects.toThrow('Note not found: hidden');
+
+        const { id } = await call<{ id: string }>(client, 'create_note', {
+            title: 'Index',
+            markdown: 'See [Secret](journal:note/hidden).',
+            folderId: 'F1',
+        });
+        expect(await getMarkdown(client, id)).toBe('See Secret.');
+        expect(toMarkdown(docOf(store.get(id)!))).toBe('See Secret.');
+
+        // A link the owner made in Journal.
+        const owned = createDoc('Owner: [Secret](journal:note/hidden)\n\nEnd');
+        const { id: ownedId } = await call<{ id: string }>(client, 'create_note', { title: 'Owned', markdown: '', folderId: 'F1' });
+        store.set(ownedId, { ...store.get(ownedId)!, blob: Y.encodeStateAsUpdate(owned) });
+        const read = await getMarkdown(client, ownedId);
+        expect(read).toBe('Owner: Secret\n\nEnd');
+
+        await call(client, 'update_note', { id: ownedId, markdown: `${read}\n\nMore` });
+        expect(toMarkdown(docOf(store.get(ownedId)!))).toBe('Owner: [Secret](journal:note/hidden)\n\nEnd\n\nMore');
     });
 });

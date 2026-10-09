@@ -63,11 +63,17 @@ const escapeMd = (s: string) => s.replace(/[\\[\]]/g, '\\$&').replace(/</g, '&lt
 // own block (a heading, a quote) to the Markdown.
 const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
 
-/** `[title](url)` plus a `> description` quote. Never includes the image. */
-export function previewToMarkdown(attrs: Pick<LinkPreviewAttrs, 'url' | 'title' | 'description'>): string {
-  const { url } = attrs;
-  let md = `[${escapeMd(oneLine(attrs.title) || url)}](${url})`;
-  const desc = oneLine(attrs.description);
-  if (desc) md += `\n\n> ${escapeMd(desc)}`;
-  return md;
+/**
+ * Ends a Markdown line that is a link preview card (#561). An HTML comment, so the share
+ * page and other Markdown viewers show the line as a plain link.
+ */
+export const PREVIEW_MARKER = '<!-- preview -->';
+
+/**
+ * `[title](url)<!-- preview -->`, or `<url><!-- preview -->` while the card has no title.
+ * One line, so the card stays one block: the description and image are never included.
+ */
+export function previewToMarkdown(attrs: Pick<LinkPreviewAttrs, 'url' | 'title'>): string {
+  const title = oneLine(attrs.title);
+  return (title ? `[${escapeMd(title)}](${attrs.url})` : `<${attrs.url}>`) + PREVIEW_MARKER;
 }

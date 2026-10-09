@@ -137,7 +137,9 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
 ## What the markdown can contain
 
 The write tools take markdown, and a note can hold much more than text: callouts, toggles,
-task lists, tables, math, footnotes, images, a cover, and live `mermaid`, `svg`, `html` and
+task lists, tables, math, footnotes, images, a cover, links to other notes
+(`[label](journal:note/<id>)` or `[[Note title]]`), link preview cards
+(`<https://…><!-- preview -->`), and live `mermaid`, `svg`, `html` and
 `react` blocks for diagrams, charts, dashboards and small interactive tools.
 [`AUTHORING.md`](AUTHORING.md) is the full reference: the syntax of every block, what a
 live block can load and do, the design rules and complete examples. The server returns the
