@@ -1,4 +1,4 @@
-// A crawlable list of an author's indexable public notes (#515):
+// A list of an author's public notes (#515):
 // /share/<identity> (HTML) and /share/<identity>/sitemap.xml.
 // Pure code with no Workers globals, so vitest can run it under node.
 
@@ -18,7 +18,9 @@ export const JOURNAL_FILE_TYPE = 605;
 export const MAX_INDEX_NOTES = 500;
 const MAX_QUERY_BYTES = 8 * 1024 * 1024;
 
-export type IndexNote = { noteId: string; title: string; published?: string; modified?: string };
+// `indexable` is the note's "Hide from search engines" switch: it only decides
+// the sitemap, never the author page (which lists every public note).
+export type IndexNote = { noteId: string; title: string; indexable: boolean; published?: string; modified?: string };
 
 export type AuthorIndex = { identity: string; authorName: string; notes: IndexNote[] };
 
@@ -59,11 +61,11 @@ function toIndexNote(file: QueryFile): IndexNote | null {
             title?: unknown;
             card?: { indexable?: unknown };
         };
-        if (content.card?.indexable !== true) return null;
         const title = (typeof content.title === 'string' && content.title.trim()) || 'Untitled';
         return {
             noteId: appData.uniqueId.toLowerCase(),
             title: title.slice(0, 200),
+            indexable: content.card?.indexable === true,
             published: isoDate(appData.userDate ?? metadata.created),
             modified: isoDate(metadata.updated),
         };
@@ -72,7 +74,7 @@ function toIndexNote(file: QueryFile): IndexNote | null {
     }
 }
 
-/** The author's public, indexable notes, newest first. Null on any upstream failure. */
+/** The author's public notes, newest first. Null on any upstream failure. */
 export async function fetchAuthorIndex(
     identity: string,
     fetchImpl: typeof fetch,
@@ -175,7 +177,7 @@ export function buildAuthorIndexHtml(index: AuthorIndex, origin: string): string
 <title>${escapeHtml(title)} · Journal</title>
 ${named('description', description)}
 <link rel="canonical" href="${escapeHtml(pageUrl)}" />
-${notes.length ? '' : `${named('robots', 'noindex')}\n`}${property('og:type', 'website')}
+${notes.some((note) => note.indexable) ? '' : `${named('robots', 'noindex')}\n`}${property('og:type', 'website')}
 ${property('og:site_name', 'Journal')}
 ${property('og:title', title)}
 ${property('og:description', description)}
@@ -200,9 +202,10 @@ ${notes.length ? `<ol>\n${items}\n</ol>` : '<p class="empty">No public notes lis
 `;
 }
 
-/** The same notes as a sitemap, with each note's last change as `<lastmod>`. */
+/** The indexable notes as a sitemap, with each note's last change as `<lastmod>`. */
 export function buildSitemapXml(index: AuthorIndex, origin: string): string {
     const urls = index.notes
+        .filter((note) => note.indexable)
         .map((note) => {
             const lastmod = note.modified ?? note.published;
             return `  <url><loc>${escapeHtml(noteUrl(origin, index.identity, note.noteId))}</loc>${

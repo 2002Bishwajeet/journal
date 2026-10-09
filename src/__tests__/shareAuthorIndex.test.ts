@@ -1,6 +1,6 @@
 /**
  * #515: /share/<identity> and /share/<identity>/sitemap.xml list the author's
- * public, indexable notes, rendered by the /share/* Pages Function; any
+ * public notes (the sitemap only the indexable ones), rendered by the /share/* Pages Function; any
  * failure there is a 404, never the SPA shell.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -76,8 +76,14 @@ function index(overrides: Partial<AuthorIndex> = {}): AuthorIndex {
         identity: IDENTITY,
         authorName: 'Frodo',
         notes: [
-            { noteId: id(2), title: 'Second', published: '2026-01-02T00:00:00.000Z', modified: '2026-01-05T00:00:00.000Z' },
-            { noteId: id(1), title: 'First', published: '2026-01-01T00:00:00.000Z' },
+            {
+                noteId: id(2),
+                title: 'Second',
+                indexable: true,
+                published: '2026-01-02T00:00:00.000Z',
+                modified: '2026-01-05T00:00:00.000Z',
+            },
+            { noteId: id(1), title: 'First', indexable: true, published: '2026-01-01T00:00:00.000Z' },
         ],
         ...overrides,
     };
@@ -112,7 +118,7 @@ describe('parseAuthorPath', () => {
 });
 
 describe('fetchAuthorIndex', () => {
-    it('should list only public, indexable notes, newest first', async () => {
+    it('should list every public note, newest first, flagging the indexable ones', async () => {
         const { impl } = mockFetch({
             status: 200,
             body: {
@@ -132,10 +138,18 @@ describe('fetchAuthorIndex', () => {
         });
         const result = await fetchAuthorIndex(IDENTITY, impl);
         expect(result?.authorName).toBe('Frodo');
-        expect(result?.notes.map((n) => n.noteId)).toEqual([id(3), id(2), id(1)]);
-        expect(result?.notes[1]).toEqual({
+        expect(result?.notes.map((n) => [n.noteId, n.indexable])).toEqual([
+            [id(6), false],
+            [id(5), false],
+            [id(4), false],
+            [id(3), true],
+            [id(2), true],
+            [id(1), true],
+        ]);
+        expect(result?.notes[4]).toEqual({
             noteId: id(2),
             title: 'Already parsed',
+            indexable: true,
             published: '2026-01-02T00:00:00.000Z',
             modified: '2026-01-02T01:00:00.000Z',
         });
@@ -194,7 +208,10 @@ describe('buildAuthorIndexHtml', () => {
 
     it('should escape the author name and titles', () => {
         const html = buildAuthorIndexHtml(
-            index({ authorName: '<b>Frodo</b>', notes: [{ noteId: id(1), title: '<img src=x onerror=alert(1)>' }] }),
+            index({
+                authorName: '<b>Frodo</b>',
+                notes: [{ noteId: id(1), title: '<img src=x onerror=alert(1)>', indexable: true }],
+            }),
             ORIGIN,
         );
         expect(html).not.toContain('<b>');
@@ -205,6 +222,15 @@ describe('buildAuthorIndexHtml', () => {
     it('should say there are no notes, and not be indexed, when the list is empty', () => {
         const html = buildAuthorIndexHtml(index({ notes: [] }), ORIGIN);
         expect(html).toContain('No public notes listed.');
+        expect(html).toContain('name="robots" content="noindex"');
+    });
+
+    it('should list notes hidden from search engines, and not be indexed when none is indexable', () => {
+        const html = buildAuthorIndexHtml(
+            index({ notes: [{ noteId: id(1), title: 'Hidden', indexable: false }] }),
+            ORIGIN,
+        );
+        expect(html).toContain(`<a href="${ORIGIN}/share/${IDENTITY}/${id(1)}">Hidden</a>`);
         expect(html).toContain('name="robots" content="noindex"');
     });
 });
@@ -220,6 +246,20 @@ describe('buildSitemapXml', () => {
             `<url><loc>${ORIGIN}/share/${IDENTITY}/${id(1)}</loc><lastmod>2026-01-01T00:00:00.000Z</lastmod></url>`,
         );
         expect(xml.match(/<url>/g)).toHaveLength(2);
+    });
+
+    it('should leave out notes hidden from search engines', () => {
+        const xml = buildSitemapXml(
+            index({
+                notes: [
+                    { noteId: id(2), title: 'Shown', indexable: true },
+                    { noteId: id(1), title: 'Hidden', indexable: false },
+                ],
+            }),
+            ORIGIN,
+        );
+        expect(xml).toContain(id(2));
+        expect(xml).not.toContain(id(1));
     });
 });
 
@@ -239,7 +279,20 @@ describe('author index in the share Pages Function', () => {
         return { ctx, assets };
     }
 
-    const results = { status: 200, body: { searchResults: [file(1), file(2, { indexable: false })] } };
+    // 1 is indexable, 2 is hidden from search engines, 3 predates the flag,
+    // 4 is encrypted and 5 is trashed.
+    const results = {
+        status: 200,
+        body: {
+            searchResults: [
+                file(1),
+                file(2, { indexable: false }),
+                file(3, { content: JSON.stringify({ title: 'Old card', card: { description: 'x' } }) }),
+                file(4, { isEncrypted: true, content: 'ZW5jcnlwdGVk' }),
+                file(5, { archivalStatus: 2 }),
+            ],
+        },
+    };
 
     it('should serve the index page as HTML without the SPA shell', async () => {
         vi.stubGlobal('fetch', mockFetch(results).impl);
@@ -249,7 +302,11 @@ describe('author index in the share Pages Function', () => {
         expect(res.status).toBe(200);
         expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8');
         expect(html).toContain(`/share/${IDENTITY}/${id(1)}`);
-        expect(html).not.toContain(id(2));
+        expect(html).toContain(`/share/${IDENTITY}/${id(2)}`);
+        expect(html).toContain(`/share/${IDENTITY}/${id(3)}`);
+        expect(html).not.toContain(id(4));
+        expect(html).not.toContain(id(5));
+        expect(html).not.toContain('noindex');
         expect(html).not.toContain('id="root"');
         expect(assets).not.toHaveBeenCalled();
     });
@@ -261,7 +318,7 @@ describe('author index in the share Pages Function', () => {
         expect(res.headers.get('content-type')).toBe('application/xml; charset=utf-8');
         const xml = await res.text();
         expect(xml).toContain(`<loc>${ORIGIN}/share/${IDENTITY}/${id(1)}</loc>`);
-        expect(xml).not.toContain(id(2));
+        for (const n of [2, 3, 4, 5]) expect(xml).not.toContain(id(n));
     });
 
     it('should answer HEAD without a body', async () => {
@@ -316,7 +373,7 @@ describe('author index in the share Pages Function', () => {
     });
 
     it('should serve a cached list without fetching', async () => {
-        const cached = index({ notes: [{ noteId: id(9), title: 'Cached' }] });
+        const cached = index({ notes: [{ noteId: id(9), title: 'Cached', indexable: true }] });
         vi.stubGlobal('caches', {
             default: { match: async () => new Response(JSON.stringify(cached)), put: async () => undefined },
         });
