@@ -225,6 +225,10 @@ registerRoute(
             /^\/api\//, // Exclude API calls
             /^\/img\//, // Exclude images if needed
             /^\/proxy-image\//, // Exclude proxy image calls
+            // An author's public index and sitemap (#515) are rendered by the
+            // share Pages Function; the SPA has no route for them. Note pages
+            // (/share/<identity>/<noteId>) still get the shell.
+            /^\/share\/[^/]+(\/sitemap\.xml)?\/?(\?.*)?$/,
         ],
     })
 );

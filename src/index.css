@@ -246,6 +246,47 @@ body {
   cursor: default;
 }
 
+/* Footnotes (#518), in the editor and on the share page. The editor numbers
+   its references with a decoration (data-number); GFM writes the number in. */
+sup[data-type='footnote-reference'],
+.share-article a[data-footnote-ref] {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+sup[data-type='footnote-reference']::after {
+  content: attr(data-number);
+}
+sup[data-type='footnote-reference'].ProseMirror-selectednode {
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+}
+section[data-type='footnotes'],
+.share-article section.footnotes {
+  margin-top: 2.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.875em;
+}
+li[data-type='footnote'] p,
+.share-article section.footnotes li p {
+  margin: 0.25rem 0;
+}
+li[data-type='footnote'] > [data-footnote-backref] {
+  float: right;
+  margin-left: 0.5rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.share-article a[data-footnote-backref] {
+  color: var(--muted-foreground);
+  text-decoration: none;
+}
+.share-article :is(a[data-footnote-ref], section.footnotes li) {
+  scroll-margin-top: 5rem;
+}
+
 .prose blockquote {
   border-left: 3px solid var(--border);
   padding-left: 1rem;

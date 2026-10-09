@@ -12,6 +12,7 @@ import {
   createDoc,
   appendMarkdown,
   replaceInNote,
+  setMarkdown,
 } from '@/lib/agent/editEngine';
 
 const frag = (doc: Y.Doc) => doc.getXmlFragment('prosemirror');
@@ -353,5 +354,63 @@ describe('replaceInNote', () => {
     const first = yXmlFragmentToProseMirrorRootNode(frag(doc), editorSchema).firstChild;
     expect(first?.type.name).toBe(type);
     expect(first?.attrs).toMatchObject(attrs);
+  });
+});
+
+describe('setMarkdown (#511)', () => {
+  it('rewrites the whole body; unchanged blocks keep their Yjs elements', () => {
+    const doc = createDoc('# Trip\n\nDay one\n\nDay two');
+    const [heading, , dayTwo] = topElements(doc);
+    setMarkdown(doc, '# Trip\n\nDay 1: beach\n\nDay two\n\n- pack');
+    const after = topElements(doc);
+    expect(toMarkdown(doc)).toBe('# Trip\n\nDay 1: beach\n\nDay two\n\n- pack');
+    expect(after[0]).toBe(heading);
+    expect(after[2]).toBe(dayTwo);
+  });
+
+  it('keeps a note link and an image in blocks passed back unchanged', () => {
+    const doc = docFromJSON({
+      type: 'doc',
+      content: [
+        para('intro'),
+        { type: 'paragraph', content: [{ type: 'image', attrs: { src: 'attachment://f/jrnl_img0', width: 320 } }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'see ' }, { type: 'noteLink', attrs: { noteId: 'n1', label: 'Other' } }] },
+      ],
+    });
+    const [, imageBlock, linkBlock] = topElements(doc);
+    const [, imageMd, linkMd] = toMarkdown(doc).split('\n\n');
+
+    setMarkdown(doc, `New intro\n\n${imageMd}\n\n${linkMd}\n\nNew end`);
+
+    const els = topElements(doc);
+    expect(els).toHaveLength(4);
+    expect(els[1]).toBe(imageBlock);
+    expect((els[1].get(0) as Y.XmlElement).getAttribute('width')).toBe(320);
+    expect(els[2]).toBe(linkBlock);
+    expect((els[2].get(1) as Y.XmlElement).getAttribute('noteId')).toBe('n1');
+    expect(toMarkdown(doc)).toContain('New intro');
+  });
+
+  it('a kept block only matches as a whole block, never inside a code fence', () => {
+    const doc = createDoc('alpha\n\nbeta');
+    setMarkdown(doc, '```\n\nalpha\n\n```');
+    const md = toMarkdown(doc);
+    expect(md.startsWith('```')).toBe(true);
+    expect(md).toContain('alpha');
+    expect(md).not.toContain('jrnlkeep');
+  });
+
+  it('merges with a concurrent human edit to a kept block', () => {
+    const A = createDoc('first\n\nsecond');
+    const B = new Y.Doc();
+    Y.applyUpdate(B, Y.encodeStateAsUpdate(A));
+
+    setMarkdown(A, 'first\n\nSECOND');
+    const firstText = topElements(B)[0].get(0) as Y.XmlText;
+    firstText.insert(firstText.length, ' human');
+
+    sync(A, B);
+    expect(toMarkdown(A)).toBe('first human\n\nSECOND');
+    expect(toMarkdown(B)).toBe(toMarkdown(A));
   });
 });

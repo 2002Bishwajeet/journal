@@ -21,9 +21,13 @@ import {
   COVER_MAP,
   getCover,
   setCover,
+  setDarkCover,
   clearCover,
+  clearDarkCover,
   setCoverPosition as setCoverPositionInDoc,
   coverPayloadKey,
+  type CoverImage,
+  type CoverVariant,
   type NoteCover,
 } from "@/lib/editor/cover";
 import { getBlockState, setBlockState } from "@/lib/liveBlockState";
@@ -237,13 +241,14 @@ export function EditorProvider({
     return () => map.unobserve(onChange);
   }, [yDoc]);
 
-  const queueOldCoverDeletion = async () => {
-    const old = getCover(yDoc);
-    const oldKey = old && coverPayloadKey(old.src);
-    if (oldKey) await savePendingImageDeletion(docId, oldKey);
+  const queueCoverDeletion = async (images: Array<CoverImage | null | undefined>) => {
+    for (const image of images) {
+      const oldKey = image && coverPayloadKey(image.src);
+      if (oldKey) await savePendingImageDeletion(docId, oldKey);
+    }
   };
 
-  const setCoverFromFile = async (file: File) => {
+  const setCoverFromFile = async (file: File, variant: CoverVariant = "light") => {
     if (!file.type.startsWith("image/")) {
       throw new Error(`Unsupported file type: ${file.type}`);
     }
@@ -262,21 +267,29 @@ export function EditorProvider({
       throw new Error(`File too large. Maximum size is ${MAX_IMAGE_SIZE_MB}MB`);
     }
     const pendingId = formatGuidId(getNewId());
-    await queueOldCoverDeletion();
-    setCover(yDoc, { src: URL.createObjectURL(processed), pendingId, positionY: 50 });
+    const old = getCover(yDoc);
+    // A dark cover sits next to a light one; without it there's nothing to add to.
+    if (variant === "dark" && !old) throw new Error("Add a cover first");
+    await queueCoverDeletion([variant === "dark" ? old?.dark : old]);
+    const next = { src: URL.createObjectURL(processed), pendingId, positionY: 50 };
+    if (variant === "dark") setDarkCover(yDoc, next);
+    else setCover(yDoc, next);
     await handleImageDrop(processed, pendingId);
   };
 
   // Cover edits aren't editor transactions, so mark the note pending here
   // (as a body edit does) or the change never reaches the server.
-  const removeCover = async () => {
-    await queueOldCoverDeletion();
-    clearCover(yDoc);
+  const removeCover = async (variant: CoverVariant = "light") => {
+    // Removing the light cover removes the dark one with it.
+    const old = getCover(yDoc);
+    await queueCoverDeletion(variant === "dark" ? [old?.dark] : [old, old?.dark]);
+    if (variant === "dark") clearDarkCover(yDoc);
+    else clearCover(yDoc);
     void updateSyncStatus(docId, "pending");
   };
 
-  const setCoverPosition = (y: number) => {
-    setCoverPositionInDoc(yDoc, y);
+  const setCoverPosition = (y: number, variant: CoverVariant = "light") => {
+    setCoverPositionInDoc(yDoc, y, variant);
     void updateSyncStatus(docId, "pending");
   };
 

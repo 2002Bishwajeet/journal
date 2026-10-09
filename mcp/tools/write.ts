@@ -12,9 +12,9 @@ import * as Y from 'yjs';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import { getNewId } from '@/lib/utils';
-import { folderAccess, type AgentAccess } from '@/lib/agent/grants';
+import { folderAccess, type AgentAccess, type AgentGrants } from '@/lib/agent/grants';
 import { agentEditor } from '@/lib/agent/attribution';
-import { appendMarkdown, replaceInNote as replaceInDoc, createDoc } from '@/lib/agent/editEngine';
+import { appendMarkdown, replaceInNote as replaceInDoc, createDoc, setMarkdown } from '@/lib/agent/editEngine';
 import type { DocumentMetadata } from '@/types';
 import { noteAccess, type ReadDeps, type NoteSummary } from './read';
 
@@ -49,6 +49,8 @@ export type WriteDeps = ReadDeps & {
     uploadNoteEdit(id: string, edit: NoteEdit): Promise<void>;
     createNote(uniqueId: string, metadata: DocumentMetadata, yjsBlob: Uint8Array): Promise<void>;
     createFolder(uniqueId: string, name: string): Promise<void>;
+    /** Moves the note to Trash (Homebase archivalStatus 2), like the app's trashNote. */
+    trashNote(id: string, fileId: string): Promise<void>;
     /** Sets one folder's grant in the grants file, keeping every other grant. */
     grantFolder(folderId: string, access: AgentAccess): Promise<void>;
     /** The MCP client's `clientInfo.name` from the initialize handshake ('' if absent). */
@@ -57,7 +59,18 @@ export type WriteDeps = ReadDeps & {
 
 const MAX_ATTEMPTS = 3;
 
-async function editWithRetry(deps: WriteDeps, id: string, apply: (doc: Y.Doc) => void): Promise<void> {
+function assertWritable(grants: AgentGrants, note: NoteForEdit | null, id: string): asserts note is NoteForEdit {
+    const access = note ? noteAccess(grants, note.summary) : 'none';
+    if (!note || access === 'none') throw new Error(`Note not found: ${id}`);
+    if (access === 'read') throw new Error(`Note is read-only for agents: ${id}`);
+}
+
+async function editWithRetry(
+    deps: WriteDeps,
+    id: string,
+    apply: (doc: Y.Doc) => void,
+    opts: { metadata?: Partial<DocumentMetadata>; expectedModified?: string } = {}
+): Promise<void> {
     const lastEditedBy = agentEditor(deps.clientName());
     const [grants, firstNote] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
     let sent: { client: number; clock: number } | undefined;
@@ -65,22 +78,33 @@ async function editWithRetry(deps: WriteDeps, id: string, apply: (doc: Y.Doc) =>
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         // Access is re-checked on every fetch: a refetched note may have become excludeFromAI.
         const note = attempt === 0 ? firstNote : await deps.fetchNoteForEdit(id);
-        const access = note ? noteAccess(grants, note.summary) : 'none';
-        if (!note || access === 'none') throw new Error(`Note not found: ${id}`);
-        if (access === 'read') throw new Error(`Note is read-only for agents: ${id}`);
+        assertWritable(grants, note, id);
 
         // A conflicting upload can still have been saved (#439). If the refetched doc already
         // holds its ops, the edit is in: re-applying it would duplicate it or fail on it.
         if (sent && Y.getState(note.doc.store, sent.client) >= sent.clock) return;
 
+        // Checked against the note as the agent's call found it; an edit landing while
+        // uploading merges like any concurrent edit.
+        if (
+            attempt === 0 &&
+            opts.expectedModified !== undefined &&
+            Date.parse(opts.expectedModified) !== Date.parse(note.summary.modified)
+        ) {
+            throw new Error(`Note changed since ${opts.expectedModified} (now ${note.summary.modified}); get_note it again: ${id}`);
+        }
+
         apply(note.doc);
-        sent = { client: note.doc.clientID, clock: Y.getState(note.doc.store, note.doc.clientID) };
+        const clock = Y.getState(note.doc.store, note.doc.clientID);
+        // No ops of this doc's own (a title/tags-only edit, or ops merged in from an earlier
+        // attempt) leaves the earlier record, if any, as what to detect.
+        if (clock > 0) sent = { client: note.doc.clientID, clock };
         try {
             await deps.uploadNoteEdit(id, {
                 fileId: note.fileId,
                 versionTag: note.versionTag,
                 keyHeader: note.keyHeader,
-                metadata: { ...note.metadata, lastEditedBy },
+                metadata: { ...note.metadata, ...opts.metadata, lastEditedBy },
                 yjsBlob: Y.encodeStateAsUpdate(note.doc),
             });
             return;
@@ -144,4 +168,42 @@ export async function replaceInNote(
 ): Promise<{ id: string }> {
     await editWithRetry(deps, params.id, (doc) => replaceInDoc(doc, params.old_text, params.new_text));
     return { id: params.id };
+}
+
+/**
+ * Rewrites the body, title and/or tags as one edit on the stored Yjs state, so an open
+ * editor merges it. With `expectedModified`, a note modified since is left unchanged.
+ */
+export async function updateNote(
+    deps: WriteDeps,
+    params: { id: string; markdown?: string; title?: string; tags?: string[]; expectedModified?: string }
+): Promise<{ id: string }> {
+    const { id, markdown, title, tags, expectedModified } = params;
+    if (markdown === undefined && title === undefined && tags === undefined) {
+        throw new Error('update_note: give markdown, title or tags');
+    }
+    const metadata: Partial<DocumentMetadata> = {
+        ...(title !== undefined && { title: title || 'Untitled' }),
+        ...(tags !== undefined && { tags }),
+    };
+    // The rewrite is diffed once, against the note as first fetched, and that update is merged
+    // into any refetch: re-diffing against a refetched note would delete a concurrent edit.
+    let rewrite: Uint8Array | undefined;
+    const apply = (doc: Y.Doc) => {
+        if (markdown === undefined) return;
+        if (rewrite) return Y.applyUpdate(doc, rewrite);
+        const before = Y.encodeStateVector(doc);
+        setMarkdown(doc, markdown);
+        rewrite = Y.encodeStateAsUpdate(doc, before);
+    };
+    await editWithRetry(deps, id, apply, { metadata, expectedModified });
+    return { id };
+}
+
+/** Moves a note to Trash, where the owner can restore it. Never deletes permanently. */
+export async function deleteNote(deps: WriteDeps, params: { id: string }): Promise<{ id: string; state: 'trashed' }> {
+    const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(params.id)]);
+    assertWritable(grants, note, params.id);
+    await deps.trashNote(params.id, note.fileId);
+    return { id: params.id, state: 'trashed' };
 }

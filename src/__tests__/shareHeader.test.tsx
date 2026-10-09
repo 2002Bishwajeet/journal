@@ -63,6 +63,15 @@ describe('ShareHeader', () => {
         expect(link('Open Journal')).toBeDefined();
     });
 
+    it('links to the author index with a plain link, only when given one (#515)', async () => {
+        await mount(createElement(ShareHeader, { authorIndexHref: '/share/author.test' }));
+        const index = link('More notes')!;
+        expect(index.getAttribute('href')).toBe('/share/author.test');
+        expect(index.hasAttribute('data-discover')).toBe(false); // not a router <Link>
+        await mount(createElement(ShareHeader));
+        expect(link('More notes')).toBeUndefined();
+    });
+
     it('shows its hairline only once the page has scrolled', async () => {
         await mount(createElement(ShareHeader));
         const header = el.querySelector('header')!;
