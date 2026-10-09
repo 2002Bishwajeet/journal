@@ -67,8 +67,8 @@ export default function ShareDialog({
     const noteMetadata = get.data?.find((n) => n.docId === noteId)?.metadata;
     const isPublic = !!noteMetadata?.isPublic;
     const shareDescription = noteMetadata?.shareDescription ?? '';
-    // The same 1200×630 image the link unfurls with (og:image); a pending cover previews as the logo.
-    const cardImage = useShareCardImage(noteId, cardPreview.cover, isPublic);
+    // The same 1200×630 image the link unfurls with (og:image).
+    const cardImage = useShareCardImage(noteId, cardPreview.cardImageFrom, isPublic);
 
     const identity = getIdentity() || 'unknown';
     const shareUrl = `${window.location.origin}/share/${encodeURIComponent(identity)}/${noteId}`;

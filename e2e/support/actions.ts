@@ -7,9 +7,9 @@ import { assertTestOrigin } from './origin-guard';
 // resolve to more than one element — scope every read/write to the visible
 // (active) tab. Exported so specs asserting on the title/editor do the same.
 
-/** The active tab's title input ("Untitled" is its placeholder, not its value). */
+/** The active tab's title field, a textarea ("Untitled" is its placeholder, not its value). */
 export function activeTitleInput(page: Page): Locator {
-    return page.locator('input[placeholder="Untitled"]:visible');
+    return page.locator('textarea[placeholder="Untitled"]:visible');
 }
 
 /** The active tab's TipTap editor. */
