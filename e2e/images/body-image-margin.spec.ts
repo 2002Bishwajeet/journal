@@ -17,6 +17,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
     const img = activeEditor(app).locator('img[alt="Journal logo"]');
     await expect(img).toBeVisible();
     const imgBox = (await img.boundingBox())!;
+    // The clipping wrappers (OdinImage / pending) sit between box and img; the img's own
+    // margin must be 0 so it cannot overflow them, and the spacing lives on the box.
+    const margins = await img.evaluate((el) => {
+      const box = el.closest('.image-node > div') as HTMLElement;
+      const s = getComputedStyle(el);
+      const b = getComputedStyle(box);
+      return { img: [s.marginTop, s.marginBottom], box: [b.marginTop, b.marginBottom] };
+    });
+    expect(margins.img).toEqual(['0px', '0px']);
+    expect(margins.box).toEqual(['24px', '24px']);
+    await img.scrollIntoViewIfNeeded();
     const wrapperBox = (await img.locator('xpath=ancestor::div[contains(@class,"group")][1]').boundingBox())!;
     expect(imgBox.y + imgBox.height).toBeLessThanOrEqual(wrapperBox.y + wrapperBox.height + 0.5);
     expect(imgBox.y).toBeGreaterThanOrEqual(wrapperBox.y - 0.5);
