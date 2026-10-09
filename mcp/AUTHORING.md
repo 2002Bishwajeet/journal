@@ -327,8 +327,11 @@ width. The examples at the end include a chart.
 
 ## Designing a live block
 
-Journal's theme and design system come first. A block brings styling of its own only
-where its content needs it, never as a default. In order:
+Journal's theme and design system are the recommended defaults: a block that follows
+them looks native in the light and the dark theme. They are a starting point, not a
+limit. When the user asks for a distinct look, or the block is meant to stand out (a
+poster, a landing-page mock, a game, a showcase), design it however serves it, as freely
+as you like, and keep it readable in both themes. Otherwise, in order:
 
 1. **Prefer a native block whenever one can carry the content**: a callout, a table, a
    toggle, a task list or a mermaid diagram. Keep `html` and `react` for what needs
@@ -342,9 +345,10 @@ where its content needs it, never as a default. In order:
 3. **Custom styling only where the content needs it**: a chart, a diagram, a game board.
    Build it from the theme variables below. A fixed colour is right in one theme at most;
    the variables follow the reader's theme.
-4. **No page background, gradients, shadows, badge rows, emoji headers or custom fonts.**
-   The note is flat and quiet, and decoration is what makes a block read as a widget
-   dropped into it. A white page is a bright box in the dark theme.
+4. **By default, no page background, gradients, shadows, badge rows, emoji headers or
+   custom fonts.** The note is flat and quiet, and decoration is what makes a block read
+   as a widget dropped into it. A white page is a bright box in the dark theme. Use them
+   when the user asks for them or the block is meant to stand out.
 5. **The block sizes itself to its content.** Do not set a fixed page height (`100vh`, a
    tall `min-height`) or lay the block out as if it had a whole screen: it is one part of
    a note, as wide as the text column.

@@ -212,7 +212,7 @@ describe('the authoring guide (#519)', () => {
             '1. **Prefer a native block whenever one can carry the content**',
             "2. **An `html` block uses the note's font, colours and the theme variables, and leaves\n   buttons, inputs and tables unstyled.**",
             '3. **Custom styling only where the content needs it**: a chart, a diagram, a game board.',
-            '4. **No page background, gradients, shadows, badge rows, emoji headers or custom fonts.**',
+            '4. **By default, no page background, gradients, shadows, badge rows, emoji headers or\n   custom fonts.**',
             '5. **The block sizes itself to its content.**',
             'These rules apply to a `react` block unchanged',
         ];
