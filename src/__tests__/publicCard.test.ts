@@ -13,7 +13,7 @@ import {
     truncateAtWord,
 } from '@/lib/share/publicCard';
 import { fallbackShareDescription as functionFallback } from '../../functions/_lib/shareMeta';
-import { setCover } from '@/lib/editor/cover';
+import { setCover, setDarkCover } from '@/lib/editor/cover';
 
 function block(name: string, text: string): Y.XmlElement {
     const el = new Y.XmlElement(name);
@@ -111,6 +111,15 @@ describe('buildPublicCard', () => {
         const doc = buildDoc([block('paragraph', 'Hello')]);
         setCover(doc, { src: 'attachment://F/jrnl_img4', pendingId: 'q1', positionY: 30 });
         expect(buildPublicCard(toBlob(doc), {})).not.toHaveProperty('coverKey');
+    });
+
+    it('keeps the link card on the light cover when a dark cover is set (#512)', () => {
+        const doc = buildDoc([block('paragraph', 'Hello')]);
+        setCover(doc, { src: 'attachment://F/jrnl_img4', positionY: 30 });
+        setDarkCover(doc, { src: 'attachment://F/jrnl_img5', positionY: 70 });
+        const card = buildPublicCard(toBlob(doc), {});
+        expect(card.coverKey).toBe('jrnl_img4');
+        expect(card.cardImageFrom).toEqual({ src: 'attachment://F/jrnl_img4', positionY: 30 });
     });
 
     it('omits coverKey when the note has no cover', () => {

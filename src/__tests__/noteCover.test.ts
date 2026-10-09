@@ -8,6 +8,7 @@ import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import * as Y from 'yjs';
 import {
     COVER_MAP, getCover, setCover, clearCover, setCoverPosition, coverPayloadKey, getCoverFromBlob,
+    setDarkCover, clearDarkCover, coverForTheme, isBelowMinCoverSize,
 } from '@/lib/editor/cover';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
@@ -136,6 +137,103 @@ describe('note cover', () => {
 
         expect(getCover(a)).not.toBeNull();
         expect(getCover(a)).toEqual(getCover(b));
+    });
+});
+
+describe('dark-mode cover (#512)', () => {
+    const LIGHT = { src: 'attachment://f/jrnl_img0', positionY: 40 };
+    const DARK = { src: 'attachment://f/jrnl_img1', positionY: 70 };
+
+    it('a note without a dark cover reads exactly as before', () => {
+        const doc = new Y.Doc();
+        // The shape stored by notes made before #512.
+        doc.getMap(COVER_MAP).set('cover', { src: LIGHT.src, positionY: LIGHT.positionY });
+        expect(getCover(doc)).toEqual(LIGHT);
+        expect(coverForTheme(getCover(doc)!, true)).toEqual(LIGHT);
+    });
+
+    it('sets, reads and removes the dark cover next to the light one', () => {
+        const doc = new Y.Doc();
+        setCover(doc, LIGHT);
+        setDarkCover(doc, { src: 'blob:d', pendingId: 'p2', positionY: 50 });
+        expect(getCover(doc)).toEqual({ ...LIGHT, dark: { src: 'blob:d', pendingId: 'p2', positionY: 50 } });
+
+        setDarkCover(doc, DARK);
+        expect(getCover(doc)).toEqual({ ...LIGHT, dark: DARK });
+
+        clearDarkCover(doc);
+        expect(getCover(doc)).toEqual(LIGHT);
+    });
+
+    it('setDarkCover is a no-op without a light cover', () => {
+        const doc = new Y.Doc();
+        setDarkCover(doc, DARK);
+        expect(getCover(doc)).toBeNull();
+    });
+
+    it('setting the light cover leaves the dark cover untouched', () => {
+        const doc = new Y.Doc();
+        setCover(doc, LIGHT);
+        setDarkCover(doc, DARK);
+        setCover(doc, { src: 'blob:new', pendingId: 'p3', positionY: 50 });
+        expect(getCover(doc)).toEqual({ src: 'blob:new', pendingId: 'p3', positionY: 50, dark: DARK });
+    });
+
+    it('removing the light cover removes the dark one too', () => {
+        const doc = new Y.Doc();
+        setCover(doc, LIGHT);
+        setDarkCover(doc, DARK);
+        clearCover(doc);
+        expect(getCover(doc)).toBeNull();
+    });
+
+    it('repositions each cover on its own', () => {
+        const doc = new Y.Doc();
+        setCover(doc, LIGHT);
+        setDarkCover(doc, DARK);
+
+        setCoverPosition(doc, 10, 'dark');
+        expect(getCover(doc)).toEqual({ ...LIGHT, dark: { ...DARK, positionY: 10 } });
+        setCoverPosition(doc, 90);
+        expect(getCover(doc)).toEqual({ ...LIGHT, positionY: 90, dark: { ...DARK, positionY: 10 } });
+        setCoverPosition(doc, 140, 'dark');
+        expect(getCover(doc)?.dark?.positionY).toBe(100);
+    });
+
+    it('setCoverPosition for the dark cover is a no-op without one', () => {
+        const doc = new Y.Doc();
+        setCover(doc, LIGHT);
+        setCoverPosition(doc, 10, 'dark');
+        expect(getCover(doc)).toEqual(LIGHT);
+    });
+
+    it('drops a malformed dark cover and keeps the light one', () => {
+        const doc = new Y.Doc();
+        for (const bad of [{ src: 'https://tracker.example/x.gif', positionY: 50 }, { src: DARK.src }, 'x']) {
+            doc.getMap(COVER_MAP).set('cover', { ...LIGHT, dark: bad });
+            expect(getCover(doc)).toEqual(LIGHT);
+        }
+    });
+
+    it('coverForTheme picks the dark cover only in dark mode', () => {
+        const cover = { ...LIGHT, dark: DARK };
+        expect(coverForTheme(cover, true)).toBe(DARK);
+        expect(coverForTheme(cover, false)).toBe(cover);
+    });
+
+    it('getCoverFromBlob carries the dark cover', () => {
+        const doc = new Y.Doc();
+        setCover(doc, LIGHT);
+        setDarkCover(doc, DARK);
+        expect(getCoverFromBlob(Y.encodeStateAsUpdate(doc))).toEqual({ ...LIGHT, dark: DARK });
+    });
+
+    it('isBelowMinCoverSize flags images under 1200×630', () => {
+        expect(isBelowMinCoverSize(600, 300)).toBe(true);
+        expect(isBelowMinCoverSize(1199, 630)).toBe(true);
+        expect(isBelowMinCoverSize(1200, 629)).toBe(true);
+        expect(isBelowMinCoverSize(1200, 630)).toBe(false);
+        expect(isBelowMinCoverSize(2400, 1260)).toBe(false);
     });
 });
 
@@ -305,5 +403,83 @@ describe('note cover in the editor (real PGlite + Yjs, drive stubbed)', () => {
         const options = mockUpdateNote.mock.calls[0][8] as { toDeletePayloads?: { key: string }[] };
         expect(options.toDeletePayloads).toEqual([{ key: 'jrnl_img0' }]);
         expect(await getPendingImageDeletions(DOC_ID)).toEqual([]);
+    });
+
+    const DARK_UPLOADED = `attachment://${FILE_ID}/jrnl_img1`;
+
+    async function seedBothCovers(): Promise<void> {
+        const d = new Y.Doc();
+        setCover(d, { src: UPLOADED, positionY: 50 });
+        setDarkCover(d, { src: DARK_UPLOADED, positionY: 30 });
+        await saveDocumentUpdate(DOC_ID, Y.encodeStateAsUpdate(d));
+        d.destroy();
+    }
+
+    it('adding a dark cover uploads it through the same queue and keeps the light cover (#512)', async () => {
+        await seedCover({ src: UPLOADED, positionY: 50 });
+        const editor = await openNote();
+
+        await act(() => editor.setCoverFromFile(new File([new Uint8Array([5])], 'd.png', { type: 'image/png' }), 'dark'));
+
+        expect(ctx?.cover?.src).toBe(UPLOADED);
+        expect(ctx?.cover?.dark?.src.startsWith('blob:')).toBe(true);
+        const [queued] = await getImageUploadsReadyForRetry();
+        expect(queued).toMatchObject({ id: ctx?.cover?.dark?.pendingId, noteDocId: DOC_ID });
+        expect(await getPendingImageDeletions(DOC_ID)).toEqual([]);
+        await waitFor(async () => (await storedCover())?.dark?.pendingId === queued.id);
+
+        mockAddImageToNote.mockResolvedValueOnce({ payloadKey: 'jrnl_img1', versionTag: 'v2' });
+        await svc.processPendingImageUploads();
+
+        expect(await storedCover()).toEqual({ src: UPLOADED, positionY: 50, dark: { src: DARK_UPLOADED, positionY: 50 } });
+    });
+
+    it('a dark cover needs a light cover first', async () => {
+        const editor = await openNote();
+        await expect(editor.setCoverFromFile(new File([new Uint8Array([5])], 'd.png', { type: 'image/png' }), 'dark'))
+            .rejects.toThrow('Add a cover first');
+        expect(await getImageUploadsReadyForRetry()).toEqual([]);
+    });
+
+    it('changing the dark cover queues only the old dark payload for deletion', async () => {
+        await seedBothCovers();
+        const editor = await openNote();
+
+        await act(() => editor.setCoverFromFile(new File([new Uint8Array([6])], 'd2.png', { type: 'image/png' }), 'dark'));
+
+        expect(await getPendingImageDeletions(DOC_ID)).toEqual(['jrnl_img1']);
+        expect(ctx?.cover?.src).toBe(UPLOADED);
+    });
+
+    it('repositioning the dark cover leaves the light one alone', async () => {
+        await seedBothCovers();
+        const editor = await openNote();
+
+        act(() => editor.setCoverPosition(80, 'dark'));
+
+        await waitFor(async () => (await storedCover())?.dark?.positionY === 80);
+        expect((await storedCover())?.positionY).toBe(50);
+        await waitFor(async () => (await getSyncRecord(DOC_ID))?.syncStatus === 'pending');
+    });
+
+    it('removing the dark cover deletes only its payload', async () => {
+        await seedBothCovers();
+        const editor = await openNote();
+
+        await act(() => editor.removeCover('dark'));
+
+        await waitFor(async () => !(await storedCover())?.dark);
+        expect(await storedCover()).toEqual({ src: UPLOADED, positionY: 50 });
+        expect(await getPendingImageDeletions(DOC_ID)).toEqual(['jrnl_img1']);
+    });
+
+    it('removing the light cover removes the dark one and deletes both payloads', async () => {
+        await seedBothCovers();
+        const editor = await openNote();
+
+        await act(() => editor.removeCover());
+
+        await waitFor(async () => (await storedCover()) === null);
+        expect((await getPendingImageDeletions(DOC_ID)).sort()).toEqual(['jrnl_img0', 'jrnl_img1']);
     });
 });

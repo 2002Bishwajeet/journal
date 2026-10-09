@@ -12,7 +12,7 @@ import {
 } from '@/lib/db';
 import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
-import { COVER_MAP, getCover, setCover } from '@/lib/editor/cover';
+import { COVER_MAP, getCover, setCover, setDarkCover } from '@/lib/editor/cover';
 import { PAYLOAD_KEY_IMAGE_PREFIX } from '@/lib/homebase/config';
 import { documentBroadcast } from '@/lib/broadcast';
 import type { SyncContext } from './context';
@@ -180,6 +180,11 @@ export async function updateImageReference(
         const cover = getCover(ydoc);
         if (cover?.pendingId && stringGuidsEqual(cover.pendingId, pendingId)) {
             setCover(ydoc, { src: `attachment://${fileId}/${payloadKey}`, positionY: cover.positionY });
+            found = true;
+        }
+        const dark = cover?.dark;
+        if (dark?.pendingId && stringGuidsEqual(dark.pendingId, pendingId)) {
+            setDarkCover(ydoc, { src: `attachment://${fileId}/${payloadKey}`, positionY: dark.positionY });
             found = true;
         }
 

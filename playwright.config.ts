@@ -80,6 +80,8 @@ export default defineConfig({
     {
       name: 'edge',
       testDir: 'e2e/edge',
+      // Its specs each bind the one upstream stub port (8799) the edge server points at.
+      workers: 1,
       use: { ...devices['Desktop Chrome'], baseURL: edgeBaseURL, serviceWorkers: 'block' },
     },
   ],

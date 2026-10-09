@@ -15,6 +15,12 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- Each author has a public page that lists their public notes. It also has a sitemap, so search engines can find the notes.
+- Notes that you hide from search engines are not on this page.
+- On a public note, "More notes" opens the page of the author.
+
 ## 2.5.2 (2026-10-07)
 
 ### New
