@@ -19,7 +19,8 @@ import {
 import type { NoteSummary } from '../../mcp/tools/read';
 import type { AgentAccess, AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
-import { createDoc, appendMarkdown, toMarkdown } from '@/lib/agent/editEngine';
+import { createDoc, appendMarkdown, localImageSources, toMarkdown } from '@/lib/agent/editEngine';
+import { collectImageRefs } from '@/lib/yjs/imageRefs';
 import { advanceNextImageIndex, getCoverFromBlob, readNextImageIndex, setCover, setDarkCover } from '@/lib/editor/cover';
 import type { PreparedImage } from '@/lib/images/imageBytes';
 
@@ -78,6 +79,7 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
     const folderGrants: { folderId: string; access: AgentAccess }[] = [];
     const trashed: { id: string; fileId: string }[] = [];
     const images: { id: string; versionTag: string; image: PreparedImage; payloadKey: string }[] = [];
+    const lastImageIndex = new Map<string, number>();
     let uploadAttempts = 0;
 
     function put(id: string, markdown: string, metadata: DocumentMetadata) {
@@ -121,6 +123,7 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
         },
         createNote: async (uniqueId, metadata, yjsBlob) => {
             creates.push({ uniqueId, metadata, yjsBlob });
+            store.set(uniqueId, { blob: yjsBlob, versionTag: 1, metadata });
         },
         createFolder: async (uniqueId, name) => {
             folderCreates.push({ uniqueId, name });
@@ -129,8 +132,11 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
             folderGrants.push({ folderId, access });
         },
         uploadNoteImage: async (id, versionTag, image, minIndex) => {
-            // Like addImageToNote: a new payload changes the file's versionTag.
-            const payloadKey = `jrnl_img${minIndex}`;
+            // Like addImageToNote: a new payload changes the file's versionTag, and its key
+            // is past every key the file already has.
+            const index = Math.max(minIndex, (lastImageIndex.get(id) ?? -1) + 1);
+            lastImageIndex.set(id, index);
+            const payloadKey = `jrnl_img${index}`;
             images.push({ id, versionTag, image, payloadKey });
             const note = store.get(id)!;
             store.set(id, { ...note, versionTag: note.versionTag + 1 });
@@ -694,5 +700,194 @@ describe('write tools: set_note_cover / clear_note_cover (#516)', () => {
         put('nw', 'Body', metadataFor('FW'));
         await expect(clearNoteCover(deps, { id: 'nw' })).resolves.toEqual({ id: 'nw', variant: 'light', cleared: false });
         expect(uploads).toHaveLength(0);
+    });
+});
+
+describe('write tools: images in the body (#415)', () => {
+    const imageSrcs = (blob: Uint8Array) => {
+        const doc = new Y.Doc();
+        Y.applyUpdate(doc, blob);
+        return collectImageRefs(doc.getXmlFragment('prosemirror')).map((ref) => `attachment://${ref.fileId}/${ref.payloadKey}`);
+    };
+    const webp = fixturePath('cover-plain.webp');
+    const jpeg = fixturePath('cover-exif.jpg');
+
+    it('create_note uploads a file path image and stores it as an attachment', async () => {
+        const { deps, store, creates, images, uploads } = makeDrive({ clientName: 'claude-code' });
+        const markdown = `Before\n\n![a lisbon tram](${jpeg})\n\nAfter`;
+        const { id } = await createNote(deps, { title: 'Trip', markdown, folderId: 'FW' });
+
+        expect(images).toHaveLength(1);
+        expect(images[0].image).toMatchObject({ contentType: 'image/jpeg', width: 40, height: 24 });
+        expect(Buffer.from(images[0].image.bytes).includes('Exif')).toBe(false);
+        expect(creates).toHaveLength(1);
+        expect(uploads.at(-1)!.metadata.lastEditedBy).toBe('agent:claude-code');
+
+        const blob = store.get(id)!.blob;
+        expect(imageSrcs(blob)).toEqual([`attachment://file-${id}/jrnl_img0`]);
+        const stored = markdownOf(blob);
+        expect(stored).toContain(`![a lisbon tram](attachment://file-${id}/jrnl_img0)`);
+        expect(stored).not.toContain(jpeg);
+        expect(stored).toContain('Before');
+        expect(stored).toContain('After');
+        // The key counter moves past the new key, as for a cover.
+        const doc = new Y.Doc();
+        Y.applyUpdate(doc, blob);
+        expect(readNextImageIndex(doc)).toBe(1);
+    });
+
+    it('the markdown get_note returns for an uploaded image round-trips through the converter', async () => {
+        const { deps, store } = makeDrive();
+        const { id } = await createNote(deps, { title: 'T', markdown: `![x](${webp})`, folderId: 'FW' });
+        const first = markdownOf(store.get(id)!.blob);
+        expect(first.trim()).toBe(`![x](attachment://file-${id}/jrnl_img0)`);
+        expect(markdownOf(Y.encodeStateAsUpdate(createDoc(first))).trim()).toBe(first.trim());
+        expect(localImageSources(first)).toEqual([]);
+    });
+
+    it('a data: URI works the same way', async () => {
+        const { deps, store, images } = makeDrive();
+        const png = new Uint8Array(readFileSync(fixturePath('cover-meta.png')));
+        const { id } = await createNote(deps, { title: 'T', markdown: `![dot](${dataUri(png)})`, folderId: 'FW' });
+        expect(images[0].image.contentType).toBe('image/png');
+        expect(Buffer.from(images[0].image.bytes).includes('SECRET')).toBe(false);
+        expect(markdownOf(store.get(id)!.blob).trim()).toBe(`![dot](attachment://file-${id}/jrnl_img0)`);
+    });
+
+    it('a path with spaces works in <>, and the same file twice is uploaded once', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'body-img-'));
+        try {
+            const spaced = join(dir, 'my photo.webp');
+            writeFileSync(spaced, readFileSync(webp));
+            const { deps, store, images } = makeDrive();
+            const markdown = `![a](<${spaced}>)\n\n![b](<${spaced}>)`;
+            const { id } = await createNote(deps, { title: 'T', markdown, folderId: 'FW' });
+            expect(images).toHaveLength(1);
+            expect(imageSrcs(store.get(id)!.blob)).toEqual([`attachment://file-${id}/jrnl_img0`, `attachment://file-${id}/jrnl_img0`]);
+        } finally {
+            rmSync(dir, { recursive: true });
+        }
+    });
+
+    it('two different images get different keys', async () => {
+        const { deps, store, images } = makeDrive();
+        const { id } = await createNote(deps, { title: 'T', markdown: `![a](${webp})\n\n![b](${jpeg})`, folderId: 'FW' });
+        expect(images.map((upload) => upload.payloadKey)).toEqual(['jrnl_img0', 'jrnl_img1']);
+        expect(imageSrcs(store.get(id)!.blob)).toEqual([`attachment://file-${id}/jrnl_img0`, `attachment://file-${id}/jrnl_img1`]);
+    });
+
+    it('an invalid image rejects the whole call before anything is written', async () => {
+        const { deps, put, images, uploads, creates } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const gif = dataUri(new TextEncoder().encode('GIF89a\x01\x00\x01\x00'), 'image/gif');
+
+        await expect(
+            createNote(deps, { title: 'T', markdown: `![ok](${webp})\n\n![bad](/no/such/a.png)`, folderId: 'FW' })
+        ).rejects.toThrow('Image /no/such/a.png: Image file not found: /no/such/a.png');
+        await expect(appendToNote(deps, { id: 'nw', markdown: `![ok](${webp})\n\n![bad](${gif})` })).rejects.toThrow(
+            'Image data: URI: Unsupported image type: use a PNG, JPEG or WebP image'
+        );
+        await expect(replaceInNote(deps, { id: 'nw', old_text: 'Body', new_text: `![bad](${gif})` })).rejects.toThrow(
+            'Unsupported image type'
+        );
+        await expect(updateNote(deps, { id: 'nw', markdown: '![bad](/no/such/b.png)' })).rejects.toThrow('Image file not found');
+
+        expect(creates).toHaveLength(0);
+        expect(images).toHaveLength(0);
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('append_to_note adds the image after the existing body', async () => {
+        const { deps, put, store, images, uploads } = makeDrive();
+        put('nw', 'Existing text', metadataFor('FW'));
+        await appendToNote(deps, { id: 'nw', markdown: `![fig](${jpeg})` });
+        expect(images).toHaveLength(1);
+        expect(uploads).toHaveLength(1);
+        expect(markdownOf(store.get('nw')!.blob).trim()).toBe('Existing text\n\n![fig](attachment://file-nw/jrnl_img0)');
+    });
+
+    it('replace_in_note swaps the text for an image', async () => {
+        const { deps, put, store } = makeDrive();
+        put('nw', 'Intro\n\nPLACEHOLDER\n\nOutro', metadataFor('FW'));
+        await replaceInNote(deps, { id: 'nw', old_text: 'PLACEHOLDER', new_text: `![fig](${webp})` });
+        expect(markdownOf(store.get('nw')!.blob).trim()).toBe('Intro\n\n![fig](attachment://file-nw/jrnl_img0)\n\nOutro');
+    });
+
+    it('replace_in_note with an image and a non-matching old_text uploads nothing', async () => {
+        const { deps, put, images, uploads } = makeDrive();
+        put('nw', 'Intro\n\nBody', metadataFor('FW'));
+        await expect(replaceInNote(deps, { id: 'nw', old_text: 'MISSING', new_text: `![fig](${webp})` })).rejects.toThrow(
+            /^replace_in_note: old_text not found$/
+        );
+        expect(images).toHaveLength(0);
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('replace_in_note with an image and an ambiguous old_text uploads nothing', async () => {
+        const { deps, put, images, uploads } = makeDrive();
+        put('nw', 'todo one\n\ntodo two', metadataFor('FW'));
+        await expect(replaceInNote(deps, { id: 'nw', old_text: 'todo', new_text: `![fig](${webp})` })).rejects.toThrow(
+            /old_text matches 2 times/
+        );
+        expect(images).toHaveLength(0);
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('update_note keeps existing images and adds the new one past the key counter', async () => {
+        const { deps, putDoc, store, images } = makeDrive();
+        putDoc(
+            'nw',
+            (doc) => {
+                const paragraph = new Y.XmlElement('paragraph');
+                doc.getXmlFragment('prosemirror').push([paragraph]);
+                const image = new Y.XmlElement('image');
+                image.setAttribute('src', 'attachment://file-nw/jrnl_img0');
+                paragraph.push([image]);
+                advanceNextImageIndex(doc, 'jrnl_img0');
+            },
+            metadataFor('FW')
+        );
+        const before = markdownOf(store.get('nw')!.blob).trim();
+        await updateNote(deps, { id: 'nw', markdown: `${before}\n\n![new](${webp})` });
+        expect(images.map((upload) => upload.payloadKey)).toEqual(['jrnl_img1']);
+        expect(imageSrcs(store.get('nw')!.blob)).toEqual(['attachment://file-nw/jrnl_img0', 'attachment://file-nw/jrnl_img1']);
+    });
+
+    it('update_note checks expectedModified before the upload', async () => {
+        const { deps, put, images } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        await expect(
+            updateNote(deps, { id: 'nw', markdown: `![x](${webp})`, expectedModified: '2020-01-01T00:00:00.000Z' })
+        ).rejects.toThrow('Note changed since 2020-01-01T00:00:00.000Z');
+        expect(images).toHaveLength(0);
+
+        await updateNote(deps, { id: 'nw', markdown: `![x](${webp})`, expectedModified: '2024-01-02T00:00:00.000Z' });
+        expect(images).toHaveLength(1);
+    });
+
+    it('leaves https image URLs as they are, uploading nothing', async () => {
+        const { deps, put, store, images } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        await appendToNote(deps, { id: 'nw', markdown: '![remote](https://example.com/a.png)' });
+        expect(images).toHaveLength(0);
+        expect(markdownOf(store.get('nw')!.blob)).toContain('![remote](https://example.com/a.png)');
+    });
+
+    it('does not upload to a read-only or hidden note', async () => {
+        const { deps, put, images } = makeDrive();
+        put('nr', 'Readable', metadataFor('FR'));
+        put('nn', 'Hidden', metadataFor('FN'));
+        const markdown = `![x](${webp})`;
+        await expect(appendToNote(deps, { id: 'nr', markdown })).rejects.toThrow('Note is read-only for agents: nr');
+        await expect(appendToNote(deps, { id: 'nn', markdown })).rejects.toThrow('Note not found: nn');
+        expect(images).toHaveLength(0);
+    });
+
+    it('create_note trashes the new note if an upload fails', async () => {
+        const { deps, creates, trashed } = makeDrive();
+        const failing: WriteDeps = { ...deps, uploadNoteImage: () => Promise.reject(new Error('upload boom')) };
+        await expect(createNote(failing, { title: 'T', markdown: `![x](${webp})`, folderId: 'FW' })).rejects.toThrow('upload boom');
+        expect(creates).toHaveLength(1);
+        expect(trashed).toEqual([{ id: creates[0].uniqueId, fileId: `file-${creates[0].uniqueId}` }]);
     });
 });
