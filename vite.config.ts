@@ -119,6 +119,8 @@ const srcModule = (file: string) => JSON.stringify(path.resolve(import.meta.dirn
 const REACT_BLOCK_PIECES: Record<string, () => string | Promise<string>> = {
   'virtual:react-block-runtime': reactBlockRuntime,
   'virtual:react-block-tailwind': reactBlockTailwind,
+  // Tailwind's theme, for the compiler that builds a block's own classes in the app (#559).
+  'virtual:react-block-tailwind-theme': () => fs.readFileSync(appRequire.resolve('tailwindcss/theme.css'), 'utf8'),
   'virtual:react-block-lucide': library('lucide-react'),
   // Recharts with Journal's chart colours as its defaults.
   'virtual:react-block-recharts': library('recharts', `export * from ${srcModule('src/lib/reactBlockRecharts.ts')};`),
@@ -229,7 +231,7 @@ export default defineConfig(({ mode }) => ({
           '**/mermaid-*.js',
           // A react block's runtime, Tailwind sheet and libraries (reactBlockPieces
           // above; Rolldown names a virtual module's chunk `_virtual_<name>`)
-          // and its compiler (src/lib/reactBlockCompiler.ts, with sucrase): loaded only when
+          // and its compiler (src/lib/reactBlockCompiler.ts, with sucrase and Tailwind's compiler): loaded only when
           // a react block is previewed, cached on first use by the react-block route in
           // sw.ts (#426, #427).
           '**/_virtual_react-block-*.js',

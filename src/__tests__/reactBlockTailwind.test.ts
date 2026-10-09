@@ -12,7 +12,9 @@ import {
   mergeRules,
   paletteToken,
   tailwindInput,
+  tailwindTheme,
 } from '@/lib/reactBlockTailwind';
+import { compileBlockTailwind } from '@/lib/reactBlockCompiler';
 
 // #427: a react block's Tailwind sheet is drawn in Journal's theme. vite.config.ts compiles
 // tailwindInput() at build time; the e2e spec e2e/editor/live-react.spec.ts checks the
@@ -85,6 +87,84 @@ describe('tailwindInput', () => {
 
   it('should draw a bare border and ring in the theme colours', () => {
     expect(input).toContain('*,::before,::after{border-color:var(--border);--tw-ring-color:var(--ring)}');
+  });
+
+  it("should give Tailwind's real shadows, scaled by the theme's --shadow-strength (#559)", () => {
+    const ink = (alpha: number) => `rgb(0 0 0 / calc(${alpha} * var(--shadow-strength, 1)))`;
+    expect(input).toContain(`--shadow-md: 0 4px 6px -1px ${ink(0.1)}, 0 2px 4px -2px ${ink(0.1)};`);
+    expect(input).toContain(`--shadow-2xl: 0 25px 50px -12px ${ink(0.25)};`);
+    expect(input).toContain(`--shadow: 0 1px 3px 0 ${ink(0.1)}, 0 1px 2px -1px ${ink(0.1)};`);
+    expect(input).not.toContain('0 1px 2px 0 rgb(0 0 0 / 0.05)');
+  });
+});
+
+describe('tailwindTheme (#559)', () => {
+  it('should map the palette to the theme by default, and leave it as Tailwind has it with rawPalette', () => {
+    expect(tailwindTheme()).toContain('--color-blue-500: var(--chart-5);');
+    const raw = tailwindTheme({ rawPalette: true });
+    expect(raw).not.toMatch(/--color-\*: initial|--color-blue-500|--color-white/);
+    // The theme names, fonts, radii and shadows are Journal's either way.
+    expect(raw).toContain('--color-muted: var(--muted);');
+    expect(raw).toContain('--font-sans: var(--font-sans);');
+    expect(raw).toContain('--radius-md: calc(var(--radius) - 2px);');
+    expect(raw).toContain('--shadow-md: 0 4px 6px -1px');
+  });
+});
+
+describe('compileBlockTailwind (#559)', () => {
+  // A block like the artifact of e2e/editor/live-react-artifact.spec.ts: every class is in the fixed sheet.
+  const FIXED_ONLY = [
+    'export default function App() {',
+    '  const [on, setOn] = useState(false);',
+    '  return (',
+    '    <div className="space-y-4 rounded-lg border bg-card p-4 font-sans">',
+    "      <button onClick={() => setOn(!on)} className={on ? 'bg-blue-500 text-white' : 'bg-muted'}>Like</button>",
+    '      <p className="text-sm text-gray-500 sm:grid-cols-2">Words per day</p>',
+    '    </div>',
+    '  );',
+    '}',
+  ].join('\n');
+  const rule = (css: string, selector: string) => {
+    const at = css.indexOf(`${selector} {`);
+    return at === -1 ? null : css.slice(at, css.indexOf('}', at) + 1).replace(/\s+/g, ' ');
+  };
+
+  it('should add nothing for a block whose classes are all in the fixed sheet', async () => {
+    expect(await compileBlockTailwind(FIXED_ONLY)).toBe('');
+  });
+
+  it('should compile arbitrary values, with every other class of the block, in Tailwind order', async () => {
+    const css = await compileBlockTailwind('<div className="p-4 bg-[#ff6600] text-[13px] w-[420px] grid grid-cols-[1fr_2fr] px-[7px]" />');
+    expect(rule(css, '.bg-\\[\\#ff6600\\]')).toBe('.bg-\\[\\#ff6600\\] { background-color: #ff6600; }');
+    expect(rule(css, '.text-\\[13px\\]')).toBe('.text-\\[13px\\] { font-size: 13px; }');
+    expect(rule(css, '.w-\\[420px\\]')).toBe('.w-\\[420px\\] { width: 420px; }');
+    expect(rule(css, '.grid-cols-\\[1fr_2fr\\]')).toBe('.grid-cols-\\[1fr_2fr\\] { grid-template-columns: 1fr 2fr; }');
+    // The fixed classes are in it too, so px-[7px] still comes after p-4 and wins.
+    expect(css.indexOf('.p-4 {')).toBeGreaterThan(-1);
+    expect(css.indexOf('.px-\\[7px\\] {')).toBeGreaterThan(css.indexOf('.p-4 {'));
+  });
+
+  it('should compile md: and lg: for a frame that wide, in the theme colours', async () => {
+    const css = await compileBlockTailwind('<div className="grid grid-cols-1 md:grid-cols-3 lg:p-8 md:bg-blue-500" />');
+    expect(css).toMatch(/@media \(width >= 48rem\) \{[^@]*\.md\\:grid-cols-3 \{\s*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+    expect(css).toMatch(/@media \(width >= 64rem\) \{\s*\.lg\\:p-8 \{/);
+    expect(rule(css, '.md\\:bg-blue-500')).toBe('.md\\:bg-blue-500 { background-color: var(--chart-5); }');
+  });
+
+  it("should draw the palette in Tailwind's own colours in a block with palette-raw", async () => {
+    const css = await compileBlockTailwind('<div className="palette-raw bg-blue-500 text-white border-gray-200 bg-muted" />');
+    expect(rule(css, '.bg-blue-500')).toBe('.bg-blue-500 { background-color: var(--color-blue-500); }');
+    expect(css).toContain('--color-blue-500: oklch(62.3% 0.214 259.815);');
+    expect(css).toContain('--color-white: #fff;');
+    expect(css).toContain('--color-gray-200: oklch(92.8% 0.006 264.531);');
+    // The theme names stay the theme's.
+    expect(rule(css, '.bg-muted')).toBe('.bg-muted { background-color: var(--muted); }');
+  });
+
+  it('should draw real shadows, and match nothing with dark:, as the fixed sheet does', async () => {
+    const css = await compileBlockTailwind('<div className="shadow-lg dark:bg-[#000] shadow-[0_0_8px_red]" />');
+    expect(css).toContain('0 10px 15px -3px var(--tw-shadow-color, rgb(0 0 0 / calc(0.1 * var(--shadow-strength, 1))))');
+    expect(css).toContain('.dark\\:bg-\\[\\#000\\]:not(*) {');
   });
 });
 

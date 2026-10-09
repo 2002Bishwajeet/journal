@@ -1,9 +1,11 @@
 /**
  * The Tailwind a `react` live block can use (#427): a fixed list of utilities, drawn in
  * Journal's theme. vite.config.ts compiles them into one stylesheet at build time
- * (`virtual:react-block-tailwind`); nothing is generated in the frame. The colours resolve
- * to the theme variables the frame gets (FRAME_TOKENS in liveBlocks.ts), so the sheet
- * follows the light and dark theme without a `dark:` variant.
+ * (`virtual:react-block-tailwind`). The colours resolve to the theme variables the frame
+ * gets (FRAME_TOKENS in liveBlocks.ts), so the sheet follows the light and dark theme
+ * without a `dark:` variant. Any other class a block spells out (an arbitrary value, `md:`,
+ * `palette-raw`) is compiled for that block in the app, with tailwindTheme (#559,
+ * compileBlockTailwind in reactBlockCompiler.ts).
  */
 
 /** Theme colour names, as the app's own Tailwind has them (src/index.css `@theme inline`). */
@@ -105,25 +107,40 @@ export function paletteToken(name: PaletteName, shade: Shade): string {
 export const PALETTE_NAMES: PaletteName[] = [...NEUTRALS, ...(Object.keys(HUE_INKS) as (keyof typeof HUE_INKS)[])];
 const INKS = [...new Set(Object.values(HUE_INKS))];
 
+// Tailwind's own shadows (#559), each alpha scaled by `--shadow-strength`, which buildSrcdoc
+// sets lower in the dark theme, so a shadow there is softer.
+const shadowInk = (alpha: number) => `rgb(0 0 0 / calc(${alpha} * var(--shadow-strength, 1)))`;
+const SHADOWS: Record<string, string> = {
+  shadow: `0 1px 3px 0 ${shadowInk(0.1)}, 0 1px 2px -1px ${shadowInk(0.1)}`,
+  'shadow-2xs': `0 1px ${shadowInk(0.05)}`,
+  'shadow-xs': `0 1px 2px 0 ${shadowInk(0.05)}`,
+  'shadow-sm': `0 1px 3px 0 ${shadowInk(0.1)}, 0 1px 2px -1px ${shadowInk(0.1)}`,
+  'shadow-md': `0 4px 6px -1px ${shadowInk(0.1)}, 0 2px 4px -2px ${shadowInk(0.1)}`,
+  'shadow-lg': `0 10px 15px -3px ${shadowInk(0.1)}, 0 4px 6px -4px ${shadowInk(0.1)}`,
+  'shadow-xl': `0 20px 25px -5px ${shadowInk(0.1)}, 0 8px 10px -6px ${shadowInk(0.1)}`,
+  'shadow-2xl': `0 25px 50px -12px ${shadowInk(0.25)}`,
+};
+
 /**
- * The stylesheet's input, for Tailwind's compiler: its default theme for sizes, with the
- * colours, fonts, radii and shadows replaced by Journal's. No preflight: the frame keeps
- * its own base and form-control styles (#424). That theme is `inline reference`, so each
- * utility names a frame variable directly and the sheet redeclares none of the frame's.
+ * Tailwind's theme in Journal's look, for its compiler: its default theme for sizes, with the
+ * colours, fonts, radii and shadows replaced by Journal's. That theme is `inline reference`,
+ * so each utility names a frame variable directly and the sheet redeclares none of the
+ * frame's. With `rawPalette` (a block with `palette-raw`, #559), Tailwind's own palette,
+ * `white` and `black` stay as Tailwind has them; the theme names are still Journal's.
  */
-export function tailwindInput(): string {
-  const quiet = '0 1px 2px 0 rgb(0 0 0 / 0.05)';
-  const inkShades = INKS.flatMap((ink) =>
-    Object.entries(INK_SHADES).map(([shade, mix]) => `${ink}-${shade}:color-mix(in srgb,var(${ink}) ${mix.percent}%,var(${mix.into}));`),
-  );
+export function tailwindTheme({ rawPalette = false } = {}): string {
   return [
     "@import 'tailwindcss/theme.css';",
     '@theme inline reference {',
-    '--color-*: initial;',
+    ...(rawPalette ? [] : ['--color-*: initial;']),
     ...THEME_COLOURS.map((name) => `--color-${name}: var(--${name});`),
-    '--color-white: var(--background);',
-    '--color-black: var(--foreground);',
-    ...PALETTE_NAMES.flatMap((name) => SHADES.map((shade) => `--color-${name}-${shade}: var(${paletteToken(name, shade)});`)),
+    ...(rawPalette
+      ? []
+      : [
+          '--color-white: var(--background);',
+          '--color-black: var(--foreground);',
+          ...PALETTE_NAMES.flatMap((name) => SHADES.map((shade) => `--color-${name}-${shade}: var(${paletteToken(name, shade)});`)),
+        ]),
     // The note's font (buildSrcdoc puts it on :root) and the app's monospace stack.
     '--font-sans: var(--font-sans);',
     '--font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;',
@@ -134,11 +151,22 @@ export function tailwindInput(): string {
     '--radius-md: calc(var(--radius) - 2px);',
     '--radius-lg: var(--radius);',
     ...['xl', '2xl', '3xl', '4xl'].map((size) => `--radius-${size}: calc(var(--radius) + 4px);`),
-    // The note is flat: a shadow is at most a hairline.
     '--shadow-*: initial;',
-    `--shadow: ${quiet};`,
-    ...['2xs', 'xs', 'sm', 'md', 'lg', 'xl', '2xl'].map((size) => `--shadow-${size}: ${quiet};`),
+    ...Object.entries(SHADOWS).map(([name, shadow]) => `--${name}: ${shadow};`),
     '}',
+  ].join('\n');
+}
+
+/**
+ * The fixed stylesheet's input: the theme, and every utility in TAILWIND_UTILITIES. No
+ * preflight: the frame keeps its own base and form-control styles (#424).
+ */
+export function tailwindInput(): string {
+  const inkShades = INKS.flatMap((ink) =>
+    Object.entries(INK_SHADES).map(([shade, mix]) => `${ink}-${shade}:color-mix(in srgb,var(${ink}) ${mix.percent}%,var(${mix.into}));`),
+  );
+  return [
+    tailwindTheme(),
     `:root{${inkShades.join('')}}`,
     // A bare `border`, `divide-y` or `ring` is drawn in the theme's colour, as in the app.
     '*,::before,::after{border-color:var(--border);--tw-ring-color:var(--ring)}',
@@ -291,6 +319,7 @@ export const TAILWIND_UTILITIES: string[] = [
   ...each(['duration'], ['100', '200', '300']),
   ...each(['ease'], ['in', 'out', 'in-out']),
   ...['cursor-pointer', 'cursor-default', 'cursor-not-allowed', 'select-none', 'pointer-events-none', 'sr-only'],
-  // The frame is about 650px wide: `sm:` is the one breakpoint it can cross.
+  // In the note column the frame is about 650px wide: `sm:` is the one breakpoint it can
+  // cross there. `md:` and wider are compiled per block, for a wider frame (#559).
   ...[...DISPLAY, ...FLEX_DIRECTION, ...GRID_COLS, ...COL_SPAN, ...TEXT_SIZES].map((utility) => `sm:${utility}`),
 ];
