@@ -4,9 +4,7 @@
 
 ## Pitch
 
-> Journal is a private notebook that keeps your notes on your device, encrypted, and lets AI agents build live, interactive pages inside them.
-
-"Encrypted on your device" depends on #555. Until that ships, say "encrypted sync".
+> Journal is a private notebook that keeps your notes on your device, syncs them encrypted, and lets AI agents build live, interactive pages inside them.
 
 ## Taglines
 
