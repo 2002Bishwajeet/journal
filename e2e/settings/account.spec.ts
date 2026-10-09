@@ -14,7 +14,7 @@ test('desktop: opens on Account with the identity, Sync now and a sign-out dialo
   await expect(panel.getByRole('status')).not.toBeEmpty();
 
   await panel.getByRole('button', { name: 'Sync now' }).click();
-  await expect(panel.getByRole('status')).toContainText('Up to date · last synced Just now');
+  await expect(panel.getByRole('status')).toContainText('waiting to sync · last synced Just now');
 
   await panel.getByRole('button', { name: 'Sign out' }).click();
   const confirm = app.getByRole('dialog', { name: 'Sign out?' });
@@ -30,7 +30,33 @@ test('a pending change: both sign-out entry points warn it will be lost', async 
 
   await app.getByRole('button', { name: 'Settings' }).click();
   const panel = app.getByRole('dialog').getByRole('tabpanel');
-  await expect(panel.getByRole('status')).toContainText('waiting');
+  await expect(panel.getByRole('status')).toContainText('waiting to sync');
+  await expect(panel.getByRole('status')).not.toContainText('Up to date');
+  // Let the dialog's open animation finish so the shot isn't translucent.
+  await app.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
+  // Pick the theme the way a user does (Settings → Appearance), then come back
+  // to Account: emulateMedia alone only flips prefers-color-scheme.
+  const dialog = app.getByRole('dialog', { name: 'Settings' });
+  const settle = () => app.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
+  for (const [theme, size] of [
+    ['light', { width: 1280, height: 800 }],
+    ['dark', { width: 1280, height: 800 }],
+    ['light', { width: 390, height: 844 }],
+  ] as const) {
+    await app.setViewportSize(size);
+    await dialog.getByRole('tab', { name: 'Appearance' }).click();
+    const label = theme === 'dark' ? 'Dark' : 'Light';
+    // The radio is an sr-only input inside a card label; click the card.
+    await dialog.getByRole('radiogroup', { name: 'Theme' }).locator('label', { hasText: label }).click();
+    await expect(dialog.getByRole('radio', { name: label })).toBeChecked();
+    await dialog.getByRole('tab', { name: 'Account' }).click();
+    await expect(app.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`));
+    await expect(panel.getByRole('status')).toBeVisible();
+    await expect(panel.getByRole('status')).toContainText('waiting to sync');
+    await settle();
+    await app.screenshot({ path: test.info().outputPath(`account-status-pending-${theme}-${size.width}x${size.height}.png`) });
+  }
+  await app.setViewportSize({ width: 1280, height: 800 });
   await panel.getByRole('button', { name: 'Sign out' }).click();
   const confirm = app.getByRole('dialog', { name: 'Sign out?' });
   await expect(confirm).toContainText("synced yet and will be lost");
