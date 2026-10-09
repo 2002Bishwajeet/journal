@@ -1,0 +1,25 @@
+/* Journal brand tokens. Colours mirror src/index.css (:root and .dark); keep them in sync. */
+:root {
+  --font-sans: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-serif: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Light (app default) */
+  --paper: #FDFCF8;       /* --background */
+  --ink: #2C2B29;         /* --foreground, --primary */
+  --beige: #F2F0E9;       /* --secondary, --muted */
+  --hover: #F7F5F0;       /* --accent */
+  --line: #E6E4DD;        /* --border */
+  --stone: #8A8780;       /* --muted-foreground */
+
+  /* Dark */
+  --night: #1C1B1A;       /* .dark --background */
+  --night-card: #242321;  /* .dark --card */
+  --night-line: #3E3D3A;  /* .dark --border */
+  --mist: #E6E4DD;        /* .dark --foreground */
+
+  /* Brand-only: the sand from public/banner.webp and public/logo.webp */
+  --sand: #DACAB0;
+
+  --radius: 0.5rem;
+}
