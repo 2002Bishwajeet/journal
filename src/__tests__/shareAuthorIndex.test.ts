@@ -204,7 +204,7 @@ describe('buildAuthorIndexHtml', () => {
 
     it('should say there are no notes, and not be indexed, when the list is empty', () => {
         const html = buildAuthorIndexHtml(index({ notes: [] }), ORIGIN);
-        expect(html).toContain('No public notes yet.');
+        expect(html).toContain('No public notes listed.');
         expect(html).toContain('name="robots" content="noindex"');
     });
 });

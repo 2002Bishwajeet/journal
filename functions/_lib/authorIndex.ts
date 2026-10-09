@@ -192,7 +192,7 @@ ${named('twitter:description', description)}
 <main class="wrap">
 <h1 class="serif">${escapeHtml(authorName)}</h1>
 <p class="sub">Public notes by ${escapeHtml(identity)}</p>
-${notes.length ? `<ol>\n${items}\n</ol>` : '<p class="empty">No public notes yet.</p>'}
+${notes.length ? `<ol>\n${items}\n</ol>` : '<p class="empty">No public notes listed.</p>'}
 </main>
 <footer><div class="wrap"><p>Published by ${escapeHtml(identity)}. Content is the author's own and is not reviewed by Journal.</p></div></footer>
 </body>
