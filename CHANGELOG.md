@@ -1,3 +1,15 @@
+## [2.7.1](https://github.com/2002Bishwajeet/journal/compare/v2.7.0...v2.7.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **live-blocks:** let outlines and shadows at a block's edge show ([baa6d9d](https://github.com/2002Bishwajeet/journal/commit/baa6d9dab1502cfe74ca4b66b8163ea4b0877cff))
+* **share:** author page lists every public note; search hiding only affects the sitemap ([d9d24ee](https://github.com/2002Bishwajeet/journal/commit/d9d24eee800800b5453371ae4233d9267349e658))
+
+
+### Features
+
+* **editor:** select all inside a code block selects only its code ([d9bd731](https://github.com/2002Bishwajeet/journal/commit/d9bd7319baeefcff1c223c1aa07df99e3619e1f8))
 # [2.7.0](https://github.com/2002Bishwajeet/journal/compare/v2.6.0...v2.7.0) (2026-10-09)
 
 
