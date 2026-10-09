@@ -10,7 +10,7 @@
  * controls (CONTROL_STYLE in liveBlocks.ts) give focus rings and the disabled look. The
  * colours are the frame's theme variables, so light and dark need nothing here.
  */
-import { createContext, useContext, useState, type ComponentProps, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ComponentProps } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -166,7 +166,7 @@ export function Select({
     </select>
   );
 }
-export function SelectItem(props: ComponentProps<'option'> & { value: string; children?: ReactNode }) {
+export function SelectItem(props: ComponentProps<'option'> & { value: string }) {
   return <option {...props} />;
 }
 

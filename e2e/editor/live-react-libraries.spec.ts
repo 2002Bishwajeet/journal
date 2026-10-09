@@ -138,8 +138,8 @@ const COUNTER = 'function App() { const [n, setN] = useState(0); return <button 
 // A library's chunk, as the preview build (`_virtual_react-block-d3-<hash>.js`) and the dev server name it.
 const LIBRARY_URL = /react-block-(d3|three|lodash|mathjs|papaparse|ui|recharts|lucide)\b/;
 
-const reactFrame = (page: Page, index: number): FrameLocator =>
-  activeEditor(page).locator('[data-live-block="react"]').nth(index).frameLocator('iframe[title="React preview"]');
+const reactBlocks = (page: Page) => activeEditor(page).locator('[data-live-block="react"]');
+const reactFrame = (page: Page, index: number): FrameLocator => reactBlocks(page).nth(index).frameLocator('iframe[title="React preview"]');
 
 /** True for a request made by a frame inside the page, rather than by the page itself. */
 function fromFrame(request: Request): boolean {
@@ -175,7 +175,7 @@ const librariesRequested = (requests: Request[]) => [...new Set(requests.flatMap
 
 /** Screenshots the page with block `index` in view, once its frame has painted twice. */
 async function shoot(page: Page, index: number, name: string): Promise<void> {
-  await activeEditor(page).locator('[data-live-block="react"]').nth(index).scrollIntoViewIfNeeded();
+  await reactBlocks(page).nth(index).scrollIntoViewIfNeeded();
   await reactFrame(page, index).locator('body').evaluate(() => new Promise<void>((painted) => requestAnimationFrame(() => requestAnimationFrame(() => painted()))));
   await page.screenshot({ path: test.info().outputPath(name) });
 }
@@ -196,7 +196,7 @@ for (const theme of ['light', 'dark'] as const) {
 
     await createNote(app, { title: `React libraries ${theme} ${Date.now()}`, body: 'Intro' });
     await pasteBlocks(app, [D3_CHART, THREE_CUBE, PAPA_TABLE, MATHJS]);
-    await expect(activeEditor(app).locator('[data-live-block="react"]')).toHaveCount(4);
+    await expect(reactBlocks(app)).toHaveCount(4);
 
     await expect(reactFrame(app, 0).locator('#d3-chart rect')).toHaveCount(4);
 
