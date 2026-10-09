@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- HTML and React blocks no longer have an Expand button.
+
 ## 2.7.0 (2026-10-09)
 
 ### New

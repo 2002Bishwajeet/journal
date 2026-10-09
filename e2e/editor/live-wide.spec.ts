@@ -6,8 +6,7 @@ import { activeEditor, createNote, pastePlainText } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #557: an html or react block can ask for the full width of the pane with `wide` in its
-// fence, and any of them can be shown fullscreen (the same running frame, so its state
-// stays), in the editor and on the share page. Takes the screenshots the issue asks for:
+// fence, in the editor and on the share page. Takes the screenshots the issue asks for:
 // light and dark, 1280px and 390px.
 
 const THEMES = ['light', 'dark'] as const;
@@ -36,9 +35,8 @@ const COUNTER = [
 ].join('\n');
 
 const htmlFrame = (block: Locator): FrameLocator => block.frameLocator('iframe[title="HTML preview"]');
-// The block's box, which is the popover that goes fullscreen.
-const boxOf = (block: Locator) => block.locator('[popover]');
-const isFullscreen = (block: Locator) => boxOf(block).evaluate((el) => el.matches(':popover-open'));
+// The block's box, around its frame.
+const boxOf = (block: Locator) => block.locator('[data-live-block-preview]');
 
 /** The pane a wide block takes its width from (`@container/live-blocks`), as its content box. */
 const paneOf = (block: Locator) =>
@@ -83,55 +81,8 @@ async function expectCapped(page: Page, block: Locator, paragraph: Locator): Pro
   expect(Math.abs(wide.x + wide.width / 2 - (column.x + column.width / 2))).toBeLessThanOrEqual(2);
 }
 
-/** Expand shows the same running frame over the whole viewport; Esc in the frame, Esc in the page and Close all return. */
-async function expectFullscreen(page: Page, block: Locator, shot: string): Promise<void> {
-  const frame = htmlFrame(block);
-  const out = frame.locator('#out');
-  const before = (await out.textContent())!;
-  const count = Number(before.replace('count: ', ''));
-  // A mark in the frame's document: still there afterwards only if the frame never reloaded.
-  await frame.locator('body').evaluate((body) => body.setAttribute('data-mark', 'kept'));
-
-  const inNote = await box(block);
-  await block.hover();
-  await block.getByRole('button', { name: 'Expand' }).click();
-  expect(await isFullscreen(block)).toBe(true);
-  // The block keeps its place in the note: nothing under the overlay moves.
-  expect(await box(block)).toEqual(inNote);
-  const viewport = page.viewportSize()!;
-  expect(await box(boxOf(block))).toEqual({ x: 0, y: 0, width: viewport.width, height: viewport.height });
-  const close = block.getByRole('button', { name: 'Close' });
-  await expect(close).toBeFocused();
-  await expect(frame.locator('body')).toHaveAttribute('data-mark', 'kept');
-  await expect(out).toHaveText(before);
-
-  // Focus is in the frame now: its Esc is passed on to the app.
-  await frame.getByRole('button', { name: 'Add one' }).click();
-  await expect(out).toHaveText(`count: ${count + 1}`);
-  await page.screenshot({ path: test.info().outputPath(shot) });
-  await page.keyboard.press('Escape');
-  await expect.poll(() => isFullscreen(block)).toBe(false);
-  await expect(close).toHaveCount(0);
-  await expect(out).toHaveText(`count: ${count + 1}`);
-  await expect(frame.locator('body')).toHaveAttribute('data-mark', 'kept');
-
-  // Esc with focus in the page, then Close.
-  await block.hover();
-  await block.getByRole('button', { name: 'Expand' }).click();
-  await expect(close).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect.poll(() => isFullscreen(block)).toBe(false);
-  await block.hover();
-  await block.getByRole('button', { name: 'Expand' }).click();
-  await close.click();
-  await expect.poll(() => isFullscreen(block)).toBe(false);
-  // A mouse Close leaves no focus ring behind on Expand.
-  expect(await block.getByRole('button', { name: 'Expand' }).evaluate((el) => el.matches(':focus-visible'))).toBe(false);
-  await expect(out).toHaveText(`count: ${count + 1}`);
-}
-
 for (const theme of THEMES) {
-  test(`editor: a wide html block spans the pane, goes fullscreen with its state, and keeps wide in its markdown, ${theme} theme`, async ({ app }) => {
+  test(`editor: a wide html block spans the pane and keeps wide in its markdown, ${theme} theme`, async ({ app }) => {
     // The theme preference defaults to "system", which follows prefers-color-scheme.
     await app.emulateMedia({ colorScheme: theme });
     await app.setViewportSize(VIEWPORTS[1280]);
@@ -166,16 +117,18 @@ for (const theme of THEMES) {
       await expect(() => expectWide(app, block, paragraph, viewport)).toPass();
       await block.evaluate((el) => el.scrollIntoView({ block: 'center' }));
       await app.screenshot({ path: test.info().outputPath(`wide-editor-${theme}-${viewport}.png`) });
-      await expectFullscreen(app, block, `fullscreen-editor-${theme}-${viewport}.png`);
     }
 
-    // The count the block saved, in and out of fullscreen, is in the note. Same wait as
+    // A count the block saves is in the note, and gives the block its id. Same wait as
     // e2e/editor/live-html-storage.spec.ts: the save reaches PGlite a moment after the note.
     await app.setViewportSize(VIEWPORTS[1280]);
+    await expect(app.getByText('Loading document...')).toHaveCount(0);
+    await htmlFrame(block).getByRole('button', { name: 'Add one' }).click();
+    await expect(htmlFrame(block).locator('#out')).toHaveText('count: 1');
     await app.waitForTimeout(1500);
     await app.reload();
     await waitForAppReady(app);
-    await expect(htmlFrame(activeEditor(app).locator('[data-live-block="html"]')).locator('#out')).toHaveText('count: 2');
+    await expect(htmlFrame(activeEditor(app).locator('[data-live-block="html"]')).locator('#out')).toHaveText('count: 1');
 
     // `wide` stays in the fence, next to the id the block got on its first save. The rest of
     // the round trip (get_note, update_note) is in src/__tests__/liveBlockState.test.ts.
@@ -242,7 +195,7 @@ async function openSharedNote(page: Page): Promise<Locator> {
 }
 
 for (const theme of THEMES) {
-  test(`share page: a wide html block spans the page and goes fullscreen with the owner's state, ${theme} theme`, async ({ anonPage }) => {
+  test(`share page: a wide html block spans the page with the owner's state, ${theme} theme`, async ({ anonPage }) => {
     await anonPage.emulateMedia({ colorScheme: theme });
     await anonPage.setViewportSize(VIEWPORTS[1280]);
     const article = await openSharedNote(anonPage);
@@ -264,9 +217,6 @@ for (const theme of THEMES) {
       await expect(() => expectWide(anonPage, block, paragraph, viewport)).toPass();
       await block.evaluate((el) => el.scrollIntoView({ block: 'center' }));
       await anonPage.screenshot({ path: test.info().outputPath(`wide-share-${theme}-${viewport}.png`) });
-      await expectFullscreen(anonPage, block, `fullscreen-share-${theme}-${viewport}.png`);
     }
-    // The reader's own count: started from the owner's 3, one added in each fullscreen.
-    await expect(htmlFrame(block).locator('#out')).toHaveText('count: 5');
   });
 }

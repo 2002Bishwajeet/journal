@@ -3,7 +3,7 @@ import { test, expect } from '../fixtures';
 import { activeEditor, createNote, pastePlainText } from '../support/actions';
 
 // #559: a react block keeps Journal's look by default, and goes further when it asks:
-// real shadows, arbitrary values, `md:` in a `wide` or fullscreen block (#557), and
+// real shadows, arbitrary values, `md:` in a `wide` block (#557), and
 // Tailwind's own palette under `palette-raw`.
 
 // A block written by the default guidance: theme names and mapped palette classes, all in the fixed sheet.
@@ -92,7 +92,7 @@ for (const theme of ['light', 'dark'] as const) {
     await shoot(reactBlock(app), `react-default-before-${theme}-1280.png`);
   });
 
-  test(`react block styling: a block that asks gets real shadows, arbitrary values, and palette-raw, and md: fullscreen, ${theme} theme`, async ({ app }) => {
+  test(`react block styling: a block that asks gets real shadows, arbitrary values, and palette-raw, ${theme} theme`, async ({ app }) => {
     await app.emulateMedia({ colorScheme: theme });
     await app.setViewportSize({ width: 1280, height: 900 });
     await createNote(app, { title: `React styling bold ${theme} ${Date.now()}`, body: 'Intro' });
@@ -123,14 +123,6 @@ for (const theme of ['light', 'dark'] as const) {
     expect(narrow).toHaveLength(2);
     expect(Math.abs(narrow[1] - 2 * narrow[0])).toBeLessThanOrEqual(2);
     await shoot(reactBlock(app), `react-bold-normal-${theme}-1280.png`);
-
-    // Fullscreen (#557): the same frame, as wide as the viewport, so md:grid-cols-3 applies.
-    await reactBlock(app).hover();
-    await reactBlock(app).getByRole('button', { name: 'Expand' }).click();
-    await expect.poll(async () => (await columns(bold)).length).toBe(3);
-    await app.screenshot({ path: test.info().outputPath(`react-bold-fullscreen-${theme}-1280.png`) });
-    await app.keyboard.press('Escape');
-    await expect.poll(async () => (await columns(bold)).length).toBe(2);
   });
 
   test(`react block styling: md: applies in a wide block, ${theme} theme`, async ({ app }) => {

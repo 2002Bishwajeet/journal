@@ -252,10 +252,6 @@ On a phone it simply fills the width. `wide` is part of the fence, so it is in t
 `get_note` returns: keep it when rewriting the block, as you keep the id. When to use it
 is under "Layout" below.
 
-Every `html` and `react` block has an Expand button next to its Code / Preview toggle, in
-the editor and on the share page. It shows the same running block fullscreen, with its
-state; Esc or Close returns to the note.
-
 ### Saved state: `journal.storage`
 
 An `html` or `react` block can save small state in the note, so it is there the next time
@@ -444,8 +440,8 @@ for a distinct look, or the block is meant to stand out, these are the ways past
   in full in the source; the block's page then gets it, compiled for that block.
 - **Responsive variants**: `md:` (from 768px), `lg:` (from 1024px) and wider, on any
   class. They follow the width of the block's frame, not the window's. In the note column
-  the frame is about 650px wide, so `md:` and wider apply only fullscreen or in a `wide`
-  block on a large screen: lay the block out for the narrow frame first.
+  the frame is about 650px wide, so `md:` and wider apply only in a `wide` block on a
+  large screen: lay the block out for the narrow frame first.
 - **Tailwind's own palette**: put `palette-raw` on the block's root element, and its
   palette names (`bg-blue-500`, `text-gray-600`, `white`, `black`) are Tailwind's real
   colours instead of the theme's. The theme names (`bg-muted`, `text-foreground`) stay the
@@ -502,12 +498,13 @@ as you like, and keep it readable in both themes. Otherwise, in order:
 These rules apply to a `react` block unchanged: its Tailwind theme names are the same
 variables.
 
-### Layout: the column, `wide` and fullscreen
+### Layout: the column and `wide`
 
-The same block is shown at every size, from a 390px phone to a full screen. In order:
+The same block is shown at every size, from a 390px phone to a `wide` block on a big
+screen. In order:
 
 1. **Design for the note column first (about 650px), and keep the layout fluid**, so it
-   also looks right `wide`, fullscreen and at 390px: percentage widths, CSS grid with
+   also looks right `wide` and at 390px: percentage widths, CSS grid with
    `repeat(auto-fit, minmax(…, 1fr))` (in a `react` block, as a `style`), `flex-wrap`, and
    no fixed pixel widths. A canvas (d3, three.js, a chart) sizes from its container
    (`ResizeObserver`, Recharts' `ResponsiveContainer`) and lays out again on resize.
@@ -517,9 +514,6 @@ The same block is shown at every size, from a 390px phone to a full screen. In o
    block.
 3. **A wide block reads as a figure between paragraphs.** Do not stack several wide blocks
    with no prose between them, unless the note is a dashboard.
-4. **Fullscreen is the reader's choice, not yours.** Visuals may grow to fill it, but any
-   text in the block keeps a reading width (`max-width: 65ch`), and the content stays
-   centred instead of stranded in the top-left corner.
 
 As with the design rules, these are the defaults: when the user asks for a different
 layout, build that.
