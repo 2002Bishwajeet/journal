@@ -35,6 +35,13 @@ const LIVE_BLOCKS =
     '(5) The block sizes itself to its content: do not set a fixed page height or design for a whole screen. ' +
     'These rules apply to a `react` block unchanged.';
 
+/** Shared by the tools that take markdown: an image in it can be a local file or a data: URI (#415). */
+const BODY_IMAGES =
+    ' Images: `![alt](/absolute/path/to/file.png)` (wrap the path in <> if it has spaces) or `![alt](data:image/png;base64,…)` ' +
+    'is uploaded to the note and shown there; prefer a path, it costs no tokens. PNG, JPEG or WebP, at most 5 MB each; ' +
+    'metadata such as EXIF and GPS is removed. If any image is invalid, the call fails and nothing is written. ' +
+    '`https://` image URLs are kept as they are, not fetched or uploaded.';
+
 /** A tool result carrying `x` as pretty-printed JSON text. */
 function json(x: unknown) {
     return { content: [{ type: 'text' as const, text: JSON.stringify(x, null, 2) }] };
@@ -101,7 +108,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
         {
             title: 'Create note',
             description:
-                'Create a Journal note from markdown in a folder you have granted Read+write access to.' + LIVE_BLOCKS,
+                'Create a Journal note from markdown in a folder you have granted Read+write access to.' + BODY_IMAGES + LIVE_BLOCKS,
             inputSchema: {
                 title: z.string(),
                 markdown: z.string(),
@@ -128,6 +135,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
             title: 'Append to note',
             description:
                 'Append markdown to the end of a Journal note with Read+write access. Merges with concurrent edits.' +
+                BODY_IMAGES +
                 LIVE_BLOCKS,
             inputSchema: { id: z.string(), markdown: z.string() },
         },
@@ -141,6 +149,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
             description:
                 "Replace one unique span of a Journal note's markdown (as returned by get_note) with new markdown. " +
                 'old_text must match exactly once; include surrounding text if it is ambiguous.' +
+                BODY_IMAGES.replace('Images:', 'Images in new_text:') +
                 LIVE_BLOCKS,
             inputSchema: { id: z.string(), old_text: z.string(), new_text: z.string() },
         },
@@ -155,6 +164,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
                 "Rewrite a Journal note with Read+write access: its whole body as markdown, its title and/or its tags (tags replace the note's tags). " +
                 'Use it instead of creating a second note. Blocks you keep exactly as get_note returned them stay untouched, note links and images included. ' +
                 "Pass get_note's `modified` as expectedModified to refuse the edit if the note changed since. Merges with concurrent edits." +
+                BODY_IMAGES +
                 LIVE_BLOCKS,
             inputSchema: {
                 id: z.string(),
