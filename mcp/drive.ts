@@ -5,6 +5,7 @@ import { AgentGrantsDriveProvider } from '@/lib/homebase/AgentGrantsDriveProvide
 import { toMarkdown } from '@/lib/agent/editEngine';
 import { setFolderAccess, type AgentAccess } from '@/lib/agent/grants';
 import type { HomebaseFile } from '@homebase-id/js-lib/core';
+import type { PreparedImage } from '@/lib/images/imageBytes';
 import type { DocumentMetadata, NoteFileContent } from '@/types';
 import type { NoteSummary } from './tools/read';
 import { VersionConflictError, type NoteEdit, type NoteForEdit, type WriteDeps } from './tools/write';
@@ -109,6 +110,9 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
             excludeFromAI: content.excludeFromAI ?? false,
             isPinned: content.isPinned,
             isPublic: content.isPublic,
+            // Kept so an agent edit of a public note keeps its link-card text and indexing.
+            shareDescription: content.shareDescription,
+            shareIndexable: content.shareIndexable,
             archivalStatus: file.fileMetadata.appData.archivalStatus,
             isCollaborative: content.isCollaborative,
             circleIds: content.circleIds,
@@ -147,8 +151,17 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
                 onVersionConflict: () => {
                     throw new VersionConflictError();
                 },
+                toDeletePayloads: edit.toDeletePayloads?.map((key) => ({ key })),
             }
         );
+    }
+
+    async function uploadNoteImage(id: string, versionTag: string, image: PreparedImage, minIndex: number): Promise<string> {
+        const file = new Blob([new Uint8Array(image.bytes)], { type: image.contentType });
+        // No canvas in Node for thumbnails: the natural size makes the image its own thumbnail.
+        const naturalSize = { pixelWidth: image.width, pixelHeight: image.height };
+        const { payloadKey } = await notesProvider.addImageToNote(id, versionTag, { file, naturalSize }, minIndex);
+        return payloadKey;
     }
 
     async function createNote(uniqueId: string, metadata: DocumentMetadata, yjsBlob: Uint8Array): Promise<void> {
@@ -179,5 +192,17 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         throw new Error('Agent grants changed too often; try again');
     }
 
-    return { loadGrants, listFolders, listNotes, getNote, fetchNoteForEdit, uploadNoteEdit, createNote, createFolder, trashNote, grantFolder };
+    return {
+        loadGrants,
+        listFolders,
+        listNotes,
+        getNote,
+        fetchNoteForEdit,
+        uploadNoteEdit,
+        uploadNoteImage,
+        createNote,
+        createFolder,
+        trashNote,
+        grantFolder,
+    };
 }

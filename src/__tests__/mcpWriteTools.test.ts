@@ -1,4 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as Y from 'yjs';
 import {
     appendToNote,
@@ -7,6 +11,8 @@ import {
     createFolder,
     updateNote,
     deleteNote,
+    setNoteCover,
+    clearNoteCover,
     VersionConflictError,
     type WriteDeps,
 } from '../../mcp/tools/write';
@@ -14,6 +20,8 @@ import type { NoteSummary } from '../../mcp/tools/read';
 import type { AgentAccess, AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
 import { createDoc, appendMarkdown, toMarkdown } from '@/lib/agent/editEngine';
+import { advanceNextImageIndex, getCoverFromBlob, readNextImageIndex, setCover, setDarkCover } from '@/lib/editor/cover';
+import type { PreparedImage } from '@/lib/images/imageBytes';
 
 // FW granted write, FR granted read, FN has no grant.
 const GRANTS: AgentGrants = { version: 1, folders: { FW: 'write', FR: 'read' }, notes: {} };
@@ -53,6 +61,7 @@ interface Upload {
     versionTag: string;
     metadata: DocumentMetadata;
     yjsBlob: Uint8Array;
+    toDeletePayloads?: string[];
 }
 
 /**
@@ -68,6 +77,7 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
     const folderCreates: { uniqueId: string; name: string }[] = [];
     const folderGrants: { folderId: string; access: AgentAccess }[] = [];
     const trashed: { id: string; fileId: string }[] = [];
+    const images: { id: string; versionTag: string; image: PreparedImage; payloadKey: string }[] = [];
     let uploadAttempts = 0;
 
     function put(id: string, markdown: string, metadata: DocumentMetadata) {
@@ -118,6 +128,14 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
         grantFolder: async (folderId, access) => {
             folderGrants.push({ folderId, access });
         },
+        uploadNoteImage: async (id, versionTag, image, minIndex) => {
+            // Like addImageToNote: a new payload changes the file's versionTag.
+            const payloadKey = `jrnl_img${minIndex}`;
+            images.push({ id, versionTag, image, payloadKey });
+            const note = store.get(id)!;
+            store.set(id, { ...note, versionTag: note.versionTag + 1 });
+            return payloadKey;
+        },
         trashNote: async (id, fileId) => {
             trashed.push({ id, fileId });
             store.delete(id); // gone from the agent's view, like the real drive's lists
@@ -125,7 +143,14 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
         clientName: () => opts.clientName ?? '',
     };
 
-    return { deps, store, uploads, creates, folderCreates, folderGrants, trashed, put };
+    /** A note whose doc is built by `build` (e.g. with a cover). */
+    function putDoc(id: string, build: (doc: Y.Doc) => void, metadata: DocumentMetadata) {
+        const doc = createDoc('Body');
+        build(doc);
+        store.set(id, { blob: Y.encodeStateAsUpdate(doc), versionTag: 1, metadata });
+    }
+
+    return { deps, store, uploads, creates, folderCreates, folderGrants, trashed, images, put, putDoc };
 }
 
 function markdownOf(blob: Uint8Array): string {
@@ -503,5 +528,171 @@ describe('write tools: delete_note (#511)', () => {
         await expect(deleteNote(deps, { id: 'nn' })).rejects.toThrow('Note not found: nn');
         await expect(deleteNote(deps, { id: 'nx' })).rejects.toThrow('Note not found: nx');
         expect(trashed).toHaveLength(0);
+    });
+});
+
+const fixturePath = (name: string) => fileURLToPath(new URL(`./fixtures/images/${name}`, import.meta.url));
+const dataUri = (bytes: Uint8Array, type = 'image/png') => `data:${type};base64,${Buffer.from(bytes).toString('base64')}`;
+
+/** A doc with a light cover at jrnl_img0 and a dark one at jrnl_img1, as the app leaves it. */
+function withCovers(doc: Y.Doc) {
+    setCover(doc, { src: 'attachment://file-nw/jrnl_img0', positionY: 20 });
+    setDarkCover(doc, { src: 'attachment://file-nw/jrnl_img1', positionY: 70 });
+    advanceNextImageIndex(doc, 'jrnl_img1');
+}
+
+describe('write tools: set_note_cover / clear_note_cover (#516)', () => {
+    it('sets the cover from a file path, uploading the JPEG with its EXIF stripped', async () => {
+        const { deps, put, store, images, uploads } = makeDrive({ clientName: 'claude-code' });
+        put('nw', 'Body', metadataFor('FW'));
+        expect(readFileSync(fixturePath('cover-exif.jpg')).includes('Exif')).toBe(true);
+
+        const result = await setNoteCover(deps, { id: 'nw', image: fixturePath('cover-exif.jpg') });
+        expect(result).toEqual({ id: 'nw', variant: 'light', src: 'attachment://file-nw/jrnl_img0', positionY: 50 });
+
+        expect(images).toHaveLength(1);
+        const uploaded = images[0].image;
+        expect(uploaded).toMatchObject({ contentType: 'image/jpeg', width: 40, height: 24 });
+        expect(Buffer.from(uploaded.bytes).includes('Exif')).toBe(false);
+        expect(Buffer.from(uploaded.bytes).includes(Buffer.from([0xff, 0xe1]))).toBe(false);
+
+        const blob = store.get('nw')!.blob;
+        expect(getCoverFromBlob(blob)).toEqual({ src: 'attachment://file-nw/jrnl_img0', positionY: 50 });
+        expect(uploads).toHaveLength(1);
+        expect(uploads[0].metadata.lastEditedBy).toBe('agent:claude-code');
+        expect(uploads[0].toDeletePayloads).toBeUndefined();
+        // The note's key counter moves past the new key, as the app's upload does.
+        const doc = new Y.Doc();
+        Y.applyUpdate(doc, blob);
+        expect(readNextImageIndex(doc)).toBe(1);
+        expect(markdownOf(blob).trim()).toBe('Body');
+    });
+
+    it('sets the cover from a data: URI with a focal point', async () => {
+        const { deps, put, store, images } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const png = new Uint8Array(readFileSync(fixturePath('cover-meta.png')));
+        const result = await setNoteCover(deps, { id: 'nw', image: dataUri(png), positionY: 30 });
+        expect(result).toMatchObject({ src: 'attachment://file-nw/jrnl_img0', positionY: 30 });
+        expect(images[0].image.contentType).toBe('image/png');
+        expect(Buffer.from(images[0].image.bytes).includes('SECRET')).toBe(false);
+        expect(getCoverFromBlob(store.get('nw')!.blob)).toEqual({ src: 'attachment://file-nw/jrnl_img0', positionY: 30 });
+    });
+
+    it('replacing the light cover keeps the dark one and deletes the old payload', async () => {
+        const { deps, putDoc, store, uploads } = makeDrive();
+        putDoc('nw', withCovers, metadataFor('FW'));
+        await setNoteCover(deps, { id: 'nw', image: fixturePath('cover-plain.webp') });
+        expect(getCoverFromBlob(store.get('nw')!.blob)).toEqual({
+            src: 'attachment://file-nw/jrnl_img2',
+            positionY: 50,
+            dark: { src: 'attachment://file-nw/jrnl_img1', positionY: 70 },
+        });
+        expect(uploads.at(-1)!.toDeletePayloads).toEqual(['jrnl_img0']);
+    });
+
+    it('sets the dark cover next to the light one, and refuses it without a light cover', async () => {
+        const { deps, put, putDoc, store, images, uploads } = makeDrive();
+        putDoc('nw', withCovers, metadataFor('FW'));
+        const result = await setNoteCover(deps, { id: 'nw', image: fixturePath('cover-lossless.webp'), dark: true, positionY: 10 });
+        expect(result).toMatchObject({ variant: 'dark', src: 'attachment://file-nw/jrnl_img2', positionY: 10 });
+        expect(getCoverFromBlob(store.get('nw')!.blob)).toEqual({
+            src: 'attachment://file-nw/jrnl_img0',
+            positionY: 20,
+            dark: { src: 'attachment://file-nw/jrnl_img2', positionY: 10 },
+        });
+        expect(uploads.at(-1)!.toDeletePayloads).toEqual(['jrnl_img1']);
+
+        put('bare', 'Body', metadataFor('FW'));
+        images.length = 0;
+        await expect(setNoteCover(deps, { id: 'bare', image: fixturePath('cover-plain.webp'), dark: true })).rejects.toThrow(
+            'Note has no cover; set the light cover before the dark one: bare'
+        );
+        expect(images).toHaveLength(0);
+    });
+
+    it('never deletes a payload the body still shows', async () => {
+        const { deps, putDoc, uploads } = makeDrive();
+        putDoc(
+            'nw',
+            (doc) => {
+                withCovers(doc);
+                const image = new Y.XmlElement('image');
+                image.setAttribute('src', 'attachment://file-nw/jrnl_img0');
+                doc.getXmlFragment('prosemirror').push([image]);
+            },
+            metadataFor('FW')
+        );
+        await setNoteCover(deps, { id: 'nw', image: fixturePath('cover-plain.webp') });
+        expect(uploads.at(-1)!.toDeletePayloads).toBeUndefined();
+    });
+
+    it('rejects a bad type, an image over 5 MB and a read-only grant with clear messages, uploading nothing', async () => {
+        const { deps, put, images, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        put('nr', 'Readable', metadataFor('FR'));
+        put('nn', 'Hidden', metadataFor('FN'));
+
+        const gif = new TextEncoder().encode('GIF89a\x01\x00\x01\x00');
+        await expect(setNoteCover(deps, { id: 'nw', image: dataUri(gif, 'image/gif') })).rejects.toThrow(
+            'Unsupported image type: use a PNG, JPEG or WebP image'
+        );
+        const huge = new Uint8Array(5 * 1024 * 1024 + 1);
+        huge.set(readFileSync(fixturePath('cover-meta.png')));
+        await expect(setNoteCover(deps, { id: 'nw', image: dataUri(huge) })).rejects.toThrow(
+            'Image is too large (5.0 MB); the limit is 5 MB'
+        );
+        const dir = mkdtempSync(join(tmpdir(), 'cover-'));
+        try {
+            writeFileSync(join(dir, 'huge.png'), huge);
+            await expect(setNoteCover(deps, { id: 'nw', image: join(dir, 'huge.png') })).rejects.toThrow('the limit is 5 MB');
+        } finally {
+            rmSync(dir, { recursive: true });
+        }
+        await expect(setNoteCover(deps, { id: 'nw', image: '/no/such/cover.png' })).rejects.toThrow(
+            'Image file not found: /no/such/cover.png'
+        );
+        await expect(setNoteCover(deps, { id: 'nw', image: 'data:image/png,%89PNG' })).rejects.toThrow('must be base64-encoded');
+        await expect(setNoteCover(deps, { id: 'nr', image: fixturePath('cover-exif.jpg') })).rejects.toThrow(
+            'Note is read-only for agents: nr'
+        );
+        await expect(setNoteCover(deps, { id: 'nn', image: fixturePath('cover-exif.jpg') })).rejects.toThrow('Note not found: nn');
+        await expect(clearNoteCover(deps, { id: 'nr' })).rejects.toThrow('Note is read-only for agents: nr');
+        expect(images).toHaveLength(0);
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('says the link card is not redrawn when setting the light cover of a public note', async () => {
+        const { deps, put, putDoc } = makeDrive();
+        put('np', 'Body', metadataFor('FW', { isPublic: true }));
+        const light = await setNoteCover(deps, { id: 'np', image: fixturePath('cover-plain.webp') });
+        expect(light.note).toMatch(/public.*link-preview card image can't be drawn here/);
+
+        putDoc('npd', withCovers, metadataFor('FW', { isPublic: true }));
+        const dark = await setNoteCover(deps, { id: 'npd', image: fixturePath('cover-plain.webp'), dark: true });
+        expect(dark.note).toBeUndefined();
+    });
+
+    it('clear_note_cover removes the cover with its dark one and deletes both payloads', async () => {
+        const { deps, putDoc, store, uploads } = makeDrive();
+        putDoc('nw', withCovers, metadataFor('FW'));
+        await expect(clearNoteCover(deps, { id: 'nw' })).resolves.toEqual({ id: 'nw', variant: 'light', cleared: true });
+        expect(getCoverFromBlob(store.get('nw')!.blob)).toBeNull();
+        expect(uploads.at(-1)!.toDeletePayloads).toEqual(['jrnl_img0', 'jrnl_img1']);
+    });
+
+    it('clear_note_cover with dark removes only the dark cover', async () => {
+        const { deps, putDoc, store, uploads } = makeDrive();
+        putDoc('nw', withCovers, metadataFor('FW'));
+        await expect(clearNoteCover(deps, { id: 'nw', dark: true })).resolves.toEqual({ id: 'nw', variant: 'dark', cleared: true });
+        expect(getCoverFromBlob(store.get('nw')!.blob)).toEqual({ src: 'attachment://file-nw/jrnl_img0', positionY: 20 });
+        expect(uploads.at(-1)!.toDeletePayloads).toEqual(['jrnl_img1']);
+    });
+
+    it('clear_note_cover on a note without a cover changes nothing', async () => {
+        const { deps, put, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        await expect(clearNoteCover(deps, { id: 'nw' })).resolves.toEqual({ id: 'nw', variant: 'light', cleared: false });
+        expect(uploads).toHaveLength(0);
     });
 });

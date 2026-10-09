@@ -121,6 +121,16 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
 - `delete_note` — move a note to Journal's Trash (`id`), where you can restore it. It is
   never deleted permanently.
   Example: *"Delete the duplicate Trip plan note."*
+- `set_note_cover` — set a note's cover image (`id`, `image`, optional `positionY` 0–100,
+  default 50, and `dark`). `image` is a path to a file on this computer or a base64
+  `data:` URI; PNG, JPEG or WebP up to 5 MB. EXIF/GPS, XMP and text metadata are removed
+  before upload, without re-encoding (so a JPEG's EXIF rotation is dropped too). `dark: true`
+  sets the dark-mode cover, next to an existing cover. On a public note the link-preview
+  card image is redrawn the next time the note is saved in Journal; until then link
+  previews show the plain cover.
+  Example: *"Use ~/Pictures/lisbon.jpg as the cover of my Trip plan note."*
+- `clear_note_cover` — remove a note's cover and its dark-mode cover (`id`), or with
+  `dark: true` only the dark-mode cover.
 
 ## What the markdown can contain
 
@@ -138,7 +148,7 @@ tables, links, code), these render as richer blocks in Journal:
   Journal shows a preview with a Code / Preview toggle, in the editor and on the note's
   public share page.
 
-Not available through these tools: uploading images or a cover image, link-preview cards
+Not available through these tools: uploading images into the body, link-preview cards
 (a link on its own line stays a plain link) and note-to-note links.
 
 ### Live blocks

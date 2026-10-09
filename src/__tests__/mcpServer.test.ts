@@ -47,6 +47,7 @@ function makeFakeDeps(grants = GRANTS, uploads: DocumentMetadata[] = []): Server
         createFolder: async () => {},
         grantFolder: async () => {},
         trashNote: async () => {},
+        uploadNoteImage: async () => 'jrnl_img0',
     };
 }
 
@@ -59,11 +60,12 @@ async function connectedClient(deps: ServerDeps): Promise<Client> {
 }
 
 describe('createJournalMcpServer', () => {
-    it('registers exactly the four read tools and the six write tools', async () => {
+    it('registers exactly the four read tools and the eight write tools', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
         expect(tools.map((tool) => tool.name).sort()).toEqual([
             'append_to_note',
+            'clear_note_cover',
             'create_folder',
             'create_note',
             'delete_note',
@@ -72,6 +74,7 @@ describe('createJournalMcpServer', () => {
             'list_notes',
             'replace_in_note',
             'search_notes',
+            'set_note_cover',
             'update_note',
         ]);
     });
@@ -194,11 +197,13 @@ describe('createJournalMcpServer', () => {
         expect(notes).toEqual([{ id: 'n1', title: 'Note One', folderId: 'F1', modified: '2024-01-01T00:00:00.000Z', tags: [], access: 'read' }]);
     });
 
-    it('update_note and delete_note reject a read-only grant as tool errors', async () => {
+    it('update_note, delete_note and the cover tools reject a read-only grant as tool errors', async () => {
         const client = await connectedClient(makeFakeDeps(GRANTS));
         for (const [name, args] of [
             ['update_note', { id: 'n1', markdown: 'new' }],
             ['delete_note', { id: 'n1' }],
+            ['set_note_cover', { id: 'n1', image: '/no/such/file.png' }],
+            ['clear_note_cover', { id: 'n1' }],
         ] as const) {
             const result = await client.callTool({ name, arguments: args });
             expect(result.isError).toBe(true);
