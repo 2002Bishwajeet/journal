@@ -15,11 +15,32 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.6.0 (2026-10-09)
+
 ### New
 
 - Each author has a public page that lists their public notes. It also has a sitemap, so search engines can find the notes.
 - Notes that you hide from search engines are not on this page.
 - On a public note, "More notes" opens the page of the author.
+- A note can have a second cover for dark mode. Open the cover's "Dark mode" menu to add it.
+- Links to your public notes show a designed preview card with the title, a short excerpt and your name.
+- You can add footnotes from the slash menu. Footnotes show on the share page and in Markdown export.
+- Readers of a shared note can tick its checkboxes and open its toggles. Their changes stay on their device.
+- AI agents that use the Journal MCP can update a note and move a note to Trash.
+- AI agents that use the Journal MCP can set or remove a note's cover, also for dark mode.
+
+### Changed
+
+- Search engines can show your public notes. You can hide a note from search engines in the share dialog.
+- Long note titles wrap onto up to three lines.
+
+### Fixed
+
+- In dark mode, "Reposition" moves the dark mode cover.
+- The note list shows the first words of a note, not code from its blocks.
+- Contact pictures load again.
+- Settings → Account shows "changes waiting to sync" when changes wait to sync.
+- On a phone, the close button in Settings does not cover the section tabs.
 
 ## 2.5.2 (2026-10-07)
 
