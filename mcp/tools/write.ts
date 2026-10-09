@@ -14,7 +14,13 @@ import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import { getNewId } from '@/lib/utils';
 import { folderAccess, type AgentAccess, type AgentGrants } from '@/lib/agent/grants';
 import { agentEditor } from '@/lib/agent/attribution';
-import { appendMarkdown, replaceInNote as replaceInDoc, createDoc, setMarkdown } from '@/lib/agent/editEngine';
+import {
+    appendMarkdown,
+    replaceInNote as replaceInDoc,
+    createDoc,
+    localImageSources,
+    setMarkdown,
+} from '@/lib/agent/editEngine';
 import {
     advanceNextImageIndex,
     clearCover,
@@ -87,6 +93,12 @@ function assertWritable(grants: AgentGrants, note: NoteForEdit | null, id: strin
     if (access === 'read') throw new Error(`Note is read-only for agents: ${id}`);
 }
 
+function assertUnchangedSince(expectedModified: string | undefined, summary: NoteSummary, id: string): void {
+    if (expectedModified !== undefined && Date.parse(expectedModified) !== Date.parse(summary.modified)) {
+        throw new Error(`Note changed since ${expectedModified} (now ${summary.modified}); get_note it again: ${id}`);
+    }
+}
+
 async function editWithRetry(
     deps: WriteDeps,
     id: string,
@@ -109,13 +121,7 @@ async function editWithRetry(
 
         // Checked against the note as the agent's call found it; an edit landing while
         // uploading merges like any concurrent edit.
-        if (
-            attempt === 0 &&
-            opts.expectedModified !== undefined &&
-            Date.parse(opts.expectedModified) !== Date.parse(note.summary.modified)
-        ) {
-            throw new Error(`Note changed since ${opts.expectedModified} (now ${note.summary.modified}); get_note it again: ${id}`);
-        }
+        if (attempt === 0) assertUnchangedSince(opts.expectedModified, note.summary, id);
 
         const toDeletePayloads = apply(note.doc) || undefined;
         const clock = Y.getState(note.doc.store, note.doc.clientID);
@@ -137,6 +143,62 @@ async function editWithRetry(
         }
     }
     throw new Error(`Note changed too often while editing; try again: ${id}`);
+}
+
+/**
+ * Reads and checks every local image (file path or data: URI) in `markdown`, before
+ * anything is written: one bad image rejects the whole call.
+ */
+async function loadBodyImages(markdown: string | undefined): Promise<Map<string, PreparedImage>> {
+    const loaded = new Map<string, PreparedImage>();
+    for (const src of markdown ? localImageSources(markdown) : []) {
+        try {
+            loaded.set(src, await loadImage(src));
+        } catch (err) {
+            const label = src.startsWith('data:') ? 'data: URI' : src;
+            throw new Error(`Image ${label}: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
+        }
+    }
+    return loaded;
+}
+
+/**
+ * `editWithRetry` for markdown that may hold local images (#415): each is uploaded as a
+ * jrnl_img payload on the note's file, and `apply` gets the map from each image's local
+ * source to its `attachment://` src, for the markdown converter to swap in.
+ */
+async function editWithBodyImages(
+    deps: WriteDeps,
+    id: string,
+    loaded: Map<string, PreparedImage>,
+    apply: (doc: Y.Doc, imageSrcs?: Map<string, string>) => string[] | void,
+    opts: { metadata?: Partial<DocumentMetadata>; expectedModified?: string } = {}
+): Promise<void> {
+    if (loaded.size === 0) return editWithRetry(deps, id, (doc) => apply(doc), opts);
+
+    const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
+    assertWritable(grants, note, id);
+    // The uploads below change the file's modified time, so the check has to come first.
+    assertUnchangedSince(opts.expectedModified, note.summary, id);
+
+    const imageSrcs = new Map<string, string>();
+    const payloadKeys: string[] = [];
+    const minIndex = readNextImageIndex(note.doc);
+    for (const [src, image] of loaded) {
+        const payloadKey = await deps.uploadNoteImage(id, note.versionTag, image, minIndex);
+        payloadKeys.push(payloadKey);
+        imageSrcs.set(src, `attachment://${note.fileId}/${payloadKey}`);
+    }
+    await editWithRetry(
+        deps,
+        id,
+        (doc) => {
+            const toDelete = apply(doc, imageSrcs);
+            payloadKeys.forEach((key) => advanceNextImageIndex(doc, key));
+            return toDelete;
+        },
+        { ...opts, expectedModified: undefined }
+    );
 }
 
 export async function createNote(
@@ -161,7 +223,22 @@ export async function createNote(
         isPinned: false,
         lastEditedBy: agentEditor(deps.clientName()),
     };
-    await deps.createNote(id, metadata, Y.encodeStateAsUpdate(createDoc(params.markdown)));
+    const images = await loadBodyImages(params.markdown);
+    if (images.size === 0) {
+        await deps.createNote(id, metadata, Y.encodeStateAsUpdate(createDoc(params.markdown)));
+        return { id, title: metadata.title, folderId: metadata.folderId };
+    }
+
+    // Images are payloads of the note's file, which only exists once created: create it
+    // empty, then write the body like an append. A failed upload trashes the empty note.
+    await deps.createNote(id, metadata, Y.encodeStateAsUpdate(createDoc('')));
+    try {
+        await editWithBodyImages(deps, id, images, (doc, imageSrcs) => appendMarkdown(doc, params.markdown, imageSrcs));
+    } catch (err) {
+        const created = await deps.fetchNoteForEdit(id).catch(() => null);
+        if (created) await deps.trashNote(id, created.fileId).catch(() => undefined);
+        throw err;
+    }
     return { id, title: metadata.title, folderId: metadata.folderId };
 }
 
@@ -181,7 +258,9 @@ export async function createFolder(deps: WriteDeps, params: { name: string }): P
 }
 
 export async function appendToNote(deps: WriteDeps, params: { id: string; markdown: string }): Promise<{ id: string }> {
-    await editWithRetry(deps, params.id, (doc) => appendMarkdown(doc, params.markdown));
+    await editWithBodyImages(deps, params.id, await loadBodyImages(params.markdown), (doc, imageSrcs) =>
+        appendMarkdown(doc, params.markdown, imageSrcs)
+    );
     return { id: params.id };
 }
 
@@ -190,7 +269,9 @@ export async function replaceInNote(
     deps: WriteDeps,
     params: { id: string; old_text: string; new_text: string }
 ): Promise<{ id: string }> {
-    await editWithRetry(deps, params.id, (doc) => replaceInDoc(doc, params.old_text, params.new_text));
+    await editWithBodyImages(deps, params.id, await loadBodyImages(params.new_text), (doc, imageSrcs) =>
+        replaceInDoc(doc, params.old_text, params.new_text, imageSrcs)
+    );
     return { id: params.id };
 }
 
@@ -213,14 +294,14 @@ export async function updateNote(
     // The rewrite is diffed once, against the note as first fetched, and that update is merged
     // into any refetch: re-diffing against a refetched note would delete a concurrent edit.
     let rewrite: Uint8Array | undefined;
-    const apply = (doc: Y.Doc) => {
+    const apply = (doc: Y.Doc, imageSrcs?: Map<string, string>) => {
         if (markdown === undefined) return;
         if (rewrite) return Y.applyUpdate(doc, rewrite);
         const before = Y.encodeStateVector(doc);
-        setMarkdown(doc, markdown);
+        setMarkdown(doc, markdown, imageSrcs);
         rewrite = Y.encodeStateAsUpdate(doc, before);
     };
-    await editWithRetry(deps, id, apply, { metadata, expectedModified });
+    await editWithBodyImages(deps, id, await loadBodyImages(markdown), apply, { metadata, expectedModified });
     return { id };
 }
 
