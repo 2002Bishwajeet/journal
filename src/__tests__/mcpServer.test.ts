@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createJournalMcpServer } from '../../mcp/createServer';
@@ -9,6 +10,8 @@ import type { DocumentMetadata } from '@/types';
 import { createDoc } from '@/lib/agent/editEngine';
 import { HTML_BLOCK_CDN_HOSTS } from '@/lib/liveBlocks';
 import { REACT_BLOCK_IMPORTS } from '@/lib/reactBlockLibraries';
+import GUIDE from '../../mcp/AUTHORING.md?raw';
+import LIVE_BLOCKS_SOURCE from '@/lib/liveBlocks.ts?raw';
 
 const GRANTS: AgentGrants = { version: 1, folders: { F1: 'read' }, notes: {} };
 const WRITE_GRANTS: AgentGrants = { version: 1, folders: { F1: 'write' }, notes: {} };
@@ -61,7 +64,7 @@ async function connectedClient(deps: ServerDeps): Promise<Client> {
 }
 
 describe('createJournalMcpServer', () => {
-    it('registers exactly the four read tools and the eight write tools', async () => {
+    it('registers exactly the five read tools and the eight write tools', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
         expect(tools.map((tool) => tool.name).sort()).toEqual([
@@ -70,6 +73,7 @@ describe('createJournalMcpServer', () => {
             'create_folder',
             'create_note',
             'delete_note',
+            'get_authoring_guide',
             'get_note',
             'list_folders',
             'list_notes',
@@ -80,97 +84,64 @@ describe('createJournalMcpServer', () => {
         ]);
     });
 
-    it('tells agents about live blocks in the markdown write tools only', async () => {
+    it('points the four markdown write tools, and only them, to the authoring guide in one line (#519)', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
+        const pointer = 'Supports rich blocks; call get_authoring_guide before writing anything beyond plain markdown.';
+        const told = tools.filter((tool) => tool.description?.includes(pointer)).map((tool) => tool.name);
+        expect(told.sort()).toEqual(MARKDOWN_TOOLS);
         for (const tool of tools) {
-            const mentions = ['mermaid', 'svg', 'html'].every((word) => tool.description?.includes(word));
-            expect(mentions).toBe(MARKDOWN_TOOLS.includes(tool.name));
+            // The long live-block text is in the guide now, not in every description.
+            expect(tool.description).not.toContain('journal.storage');
+            expect(tool.description).not.toContain('design system comes first');
         }
     });
 
-    it("tells agents that Journal's design comes first, in order, in the four markdown write tools (#424)", async () => {
+    it('sends instructions of at most 30 lines in initialize, naming every feature and the guide (#519)', async () => {
         const client = await connectedClient(makeFakeDeps());
-        const { tools } = await client.listTools();
-        const rules = [
-            "Journal's design system comes first.",
-            '(1) Prefer a native block (callout, table, toggle, task list, mermaid) whenever one can carry the content.',
-            "(2) An `html` block must use the note's font and colours, which it inherits, and the theme variables",
-            '`var(--chart-2)` to `var(--chart-5)` for data series',
-            "leave buttons, inputs and tables unstyled so they get Journal's look.",
-            '(3) Custom styling is allowed only where the content needs it (a chart, a diagram, a game board), and still built from those variables.',
-            'Use `--chart-2` … `--chart-5` in that order for data series, never raw colours (`--chart-1` is nearly the text colour).',
-            '(4) No page background, gradients, shadows, badge rows, emoji headers or custom fonts.',
-            '(5) The block sizes itself to its content: do not set a fixed page height or design for a whole screen.',
-        ];
-        const described = tools.filter((tool) => MARKDOWN_TOOLS.includes(tool.name));
-        expect(described).toHaveLength(4);
-        for (const tool of described) {
-            const positions = rules.map((rule) => tool.description!.indexOf(rule));
-            expect(positions).not.toContain(-1);
-            expect(positions).toEqual([...positions].sort((a, b) => a - b));
-            for (const name of ['--foreground', '--muted', '--muted-foreground', '--border', '--accent', '--radius']) {
-                expect(tool.description).toContain(`\`var(${name})\``);
-            }
-        }
-        // Only the tools that take markdown carry it.
-        const told = tools.filter((tool) => tool.description?.includes(rules[0])).map((tool) => tool.name);
-        expect(told.sort()).toEqual(MARKDOWN_TOOLS);
-    });
-
-    it('tells agents what an html block may load: scripts, styles and fonts from three CDN hosts (#409)', async () => {
-        const client = await connectedClient(makeFakeDeps());
-        const { tools } = await client.listTools();
-        const described = tools.filter((tool) => MARKDOWN_TOOLS.includes(tool.name));
-        expect(described).toHaveLength(4);
-        for (const tool of described) {
-            for (const text of [
-                'scripts, styles and fonts only from cdn.jsdelivr.net, cdnjs.cloudflare.com and unpkg.com',
-                'Images must be `data:` URIs',
-                'no network access from script',
-                "Tailwind's CDN script does not work",
-                'React needs its UMD build',
-                'Babel standalone',
-            ]) {
-                expect(tool.description).toContain(text);
-            }
-            // Every host the block's CSP allows, and no other.
-            expect(tool.description?.match(/[\w.-]+\.(?:net|com|org|io)\b/g)).toEqual(HTML_BLOCK_CDN_HOSTS.map((host) => new URL(host).host));
-            expect(tool.description).not.toContain('no external scripts');
+        const instructions = client.getInstructions() ?? '';
+        expect(instructions.split('\n').length).toBeLessThanOrEqual(30);
+        for (const feature of [
+            'Headings',
+            'Tables',
+            'Task lists',
+            'Callouts',
+            'Toggles',
+            'Math',
+            'Footnotes',
+            'Body images',
+            'Covers',
+            'set_note_cover',
+            'mermaid',
+            'svg',
+            'html',
+            'react',
+            'id=',
+            'dashboards',
+            'games',
+            'get_authoring_guide',
+        ]) {
+            expect(instructions).toContain(feature);
         }
     });
 
-    it('tells agents how a react block works, and that the html design rules apply to it (#426)', async () => {
+    it('get_authoring_guide takes no arguments and returns mcp/AUTHORING.md as it is (#519)', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
-        const described = tools.filter((tool) => MARKDOWN_TOOLS.includes(tool.name));
-        expect(described).toHaveLength(4);
-        for (const tool of described) {
-            for (const text of [
-                '`mermaid`, `svg`, `html` or `react`',
-                'defines a component named `App`',
-                'or exports one as default',
-                '`useState`, `useEffect`, `useRef`, `useMemo` and `useReducer`',
-                // #427, #558
-                "`journal-ui` is Journal's UI kit under shadcn/ui's names",
-                "`className` takes Tailwind classes drawn in Journal's theme",
-                'Recharts charts take the theme without colour props',
-                'State is lost on reload',
-                // #410
-                '`journal.storage.get(key)` and `journal.storage.set(key, value)`',
-                'keep that id when rewriting a block',
-                'These rules apply to a `react` block unchanged.',
-            ]) {
-                expect(tool.description).toContain(text);
-            }
-            // Every module a react block can import (REACT_BLOCK_IMPORTS), and no other.
-            const imports = tool.description!.match(/It can import only from ([^.]*)\./)?.[1] ?? '';
-            expect([...imports.matchAll(/`([^`]+)`/g)].map((match) => match[1]).sort()).toEqual([...REACT_BLOCK_IMPORTS].sort());
-            // The rules come before the sentence that applies them to react blocks.
-            expect(tool.description!.indexOf('(5) The block sizes itself')).toBeLessThan(tool.description!.indexOf('These rules apply to a `react` block'));
+        expect(tools.find((tool) => tool.name === 'get_authoring_guide')?.inputSchema.properties ?? {}).toEqual({});
+        const result = await client.callTool({ name: 'get_authoring_guide', arguments: {} });
+        expect(result.isError).toBeFalsy();
+        expect(result.content).toEqual([{ type: 'text', text: GUIDE }]);
+    });
+
+    it('the README links to the guide instead of repeating it (#519)', () => {
+        const readme = readFileSync(new URL('../../mcp/README.md', import.meta.url), 'utf8');
+        expect(readme).toContain('(AUTHORING.md)');
+        for (const section of ['### How an `html` block works', '#### Tailwind in a `react` block', '#### Charts in a `react` block']) {
+            expect(GUIDE).toContain(section);
+            expect(readme).not.toContain(section);
         }
-        const told = tools.filter((tool) => tool.description?.includes('named `App`')).map((tool) => tool.name);
-        expect(told.sort()).toEqual(MARKDOWN_TOOLS);
+        expect(readme).not.toContain('Designing an `html` block');
     });
 
     it('attributes writes to the client name from the initialize handshake', async () => {
@@ -233,5 +204,94 @@ describe('createJournalMcpServer', () => {
         });
         expect(result.isError).toBeFalsy();
         expect(uploads).toMatchObject([{ title: 'Renamed', tags: ['a'], lastEditedBy: 'agent:test-client' }]);
+    });
+});
+
+describe('the authoring guide (#519)', () => {
+    it("has Journal's design rules in order, and the theme variables (#424)", () => {
+        const rules = [
+            '1. **Prefer a native block whenever one can carry the content**',
+            "2. **An `html` block uses the note's font, colours and the theme variables, and leaves\n   buttons, inputs and tables unstyled.**",
+            '3. **Custom styling only where the content needs it**: a chart, a diagram, a game board.',
+            '4. **By default, no page background, gradients, shadows, badge rows, emoji headers or\n   custom fonts.**',
+            '5. **The block sizes itself to its content.**',
+            'These rules apply to a `react` block unchanged',
+        ];
+        const positions = rules.map((rule) => GUIDE.indexOf(rule));
+        expect(positions).not.toContain(-1);
+        expect(positions).toEqual([...positions].sort((a, b) => a - b));
+        for (const name of ['--foreground', '--muted', '--muted-foreground', '--border', '--accent', '--radius', '--chart-2', '--chart-5']) {
+            expect(GUIDE).toContain(`| \`${name}\` |`);
+        }
+        expect(GUIDE).toContain('Use `--chart-2` … `--chart-5` in order for data\nseries, and never raw colours.');
+    });
+
+    it('says what an html block may load: scripts, styles and fonts from the CDN hosts, and no other host (#409)', () => {
+        for (const text of [
+            'Scripts, stylesheets and fonts from three CDN hosts',
+            'Images, fonts and media as `data:` URIs',
+            '`fetch`, `XMLHttpRequest` and `WebSocket` all fail',
+            "Tailwind's CDN script",
+            'React needs its UMD build',
+            'Babel standalone',
+            'up to 1600px',
+        ]) {
+            expect(GUIDE).toContain(text);
+        }
+        // Every host the block's CSP allows, and no other.
+        const named = new Set(GUIDE.match(/[\w.-]+\.(?:net|com|org|io)\b/g));
+        expect([...named].sort()).toEqual(HTML_BLOCK_CDN_HOSTS.map((host) => new URL(host).host).sort());
+    });
+
+    it('says how a react block and journal.storage work (#410, #426, #427)', () => {
+        for (const text of [
+            'defines a component named `App`, or exports one as default',
+            '`useState`,\n  `useEffect`, `useRef`, `useMemo` and `useReducer`',
+            "`className` takes Tailwind classes, drawn in Journal's theme",
+            'no `dark:` variant is needed',
+            'Leave the colour props out',
+            'State in the component is lost on reload',
+            '`journal.storage.get(key)` and `journal.storage.set(key, value)`',
+            'at most 64 KB',
+            '**Keep the `id=…` part of the fence whenever you rewrite a\nblock**',
+        ]) {
+            expect(GUIDE).toContain(text);
+        }
+    });
+
+    it('shows the syntax of every native block, and the complete examples', () => {
+        for (const text of [
+            '> [!info]',
+            '> [!tip]',
+            '> [!warning]',
+            '> [!error]',
+            '<summary>',
+            '- [ ] ',
+            '- [x] ',
+            '| --- |',
+            '$E = mc^2$',
+            '$$\n',
+            '[^1]: ',
+            '![alt](/absolute/path/to/file.png)',
+            'attachment://',
+            'set_note_cover',
+            '### A small dashboard',
+            '### An interactive calculator',
+            '### A chart',
+            '### A mermaid diagram',
+        ]) {
+            expect(GUIDE).toContain(text);
+        }
+    });
+
+    it('names every live-block language, react import and CDN host that the code allows', () => {
+        // Read from the code (src/lib/liveBlocks.ts, src/lib/reactBlockLibraries.ts), so one added there and not here fails this test.
+        const languages = [...LIVE_BLOCKS_SOURCE.matchAll(/lang === '([^']+)'/g)].map((match) => match[1]);
+        expect(languages).toEqual(expect.arrayContaining(['mermaid', 'svg', 'html', 'react']));
+        for (const language of languages) expect(GUIDE).toContain(`| \`${language}\` |`);
+        // Every module a react block can import (#558), and no other.
+        const importSentence = GUIDE.match(/It can import from (.+?), and from nothing else/s)?.[1] ?? '';
+        expect([...importSentence.matchAll(/`([^`]+)`/g)].map((match) => match[1]).sort()).toEqual([...REACT_BLOCK_IMPORTS].sort());
+        for (const host of HTML_BLOCK_CDN_HOSTS) expect(GUIDE).toContain(`\`${host}\``);
     });
 });
