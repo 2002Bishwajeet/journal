@@ -3,6 +3,8 @@ import { usePublicNote } from '@/hooks/queries/usePublicNote';
 import { usePublicAuthor, type PublicAuthor } from '@/hooks/usePublicAuthor';
 import { countWords } from '@/lib/share/articleMeta';
 import { readingTimeMinutes } from '@/lib/editor/extractHeadings';
+import { coverForTheme } from '@/lib/editor/cover';
+import { useIsDarkTheme } from '@/hooks/useIsDarkTheme';
 import type { SharedNoteData } from '@/lib/providers/ShareProvider';
 
 export interface UseSharePageReturn {
@@ -19,6 +21,8 @@ export interface UseSharePageReturn {
     author: PublicAuthor;
     /** Estimated reading time; 0 when the note has no prose. */
     readingMinutes: number;
+    /** The cover for the viewer's theme: the dark one in dark mode when the note has one. */
+    cover: { src: string; positionY: number } | undefined;
 }
 
 /**
@@ -30,6 +34,7 @@ export function useSharePage(): UseSharePageReturn {
 
     const { data: note, isLoading, error } = usePublicNote(identity, noteId);
     const author = usePublicAuthor(identity && decodeURIComponent(identity));
+    const isDark = useIsDarkTheme();
 
     const words = note ? countWords(note.content) : 0;
 
@@ -41,5 +46,6 @@ export function useSharePage(): UseSharePageReturn {
         error: error as Error | null,
         author,
         readingMinutes: words > 0 ? readingTimeMinutes(words) : 0,
+        cover: note?.cover && coverForTheme(note.cover, isDark),
     };
 }

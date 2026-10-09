@@ -15,7 +15,7 @@ import {
   getDecryptedImageDataOverPeer,
 } from "@homebase-id/js-lib/peer";
 import { uint8ArrayToBase64 } from "@homebase-id/js-lib/helpers";
-import { GetProfileCard, GetProfileImage } from "@homebase-id/js-lib/public";
+import { GetProfileCard } from "@homebase-id/js-lib/public";
 import { type RawContact, getConnectionInfo } from "@homebase-id/js-lib/network";
 
 //Handles fetching and parsing of Contact Source data
@@ -155,7 +155,11 @@ export const fetchDataFromPublic = async (
   odinId: string,
 ): Promise<RawContact | undefined> => {
   const profileCard = await GetProfileCard(odinId);
-  const imageData = await GetProfileImage(odinId);
+  // Not js-lib's GetProfileImage: it builds the Blob with Node's `Buffer`,
+  // which doesn't exist in the browser, so it always fails there.
+  const imageData = await fetch(`https://${odinId}/pub/image`)
+    .then((r) => (r.ok ? r.blob() : undefined))
+    .catch(() => undefined);
 
   return {
     name: profileCard?.name

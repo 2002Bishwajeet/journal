@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { Editor } from '@tiptap/react';
-import type { NoteCover } from '@/lib/editor/cover';
+import type { CoverVariant, NoteCover } from '@/lib/editor/cover';
 
 export interface EditorContextValue {
   editor: Editor | null;
@@ -8,11 +8,12 @@ export interface EditorContextValue {
   isLoading: boolean;
   isAIReady: boolean;
   cover: NoteCover | null;
-  /** Set the cover from an image file; queues the upload like an in-note image. */
-  setCoverFromFile: (file: File) => Promise<void>;
-  removeCover: () => Promise<void>;
+  /** Set the light (default) or dark cover from an image file; queues the upload like an in-note image. */
+  setCoverFromFile: (file: File, variant?: CoverVariant) => Promise<void>;
+  /** Removing the light cover removes the dark one too. */
+  removeCover: (variant?: CoverVariant) => Promise<void>;
   /** Vertical focal point, clamped to 0–100. */
-  setCoverPosition: (y: number) => void;
+  setCoverPosition: (y: number, variant?: CoverVariant) => void;
   /** The saved state of the note's html and react blocks (#410), as JSON text per block id. */
   blockState: {
     get: (id: string) => string | undefined;

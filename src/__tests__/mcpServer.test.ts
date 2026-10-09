@@ -16,6 +16,9 @@ const NOTES: NoteSummary[] = [{ id: 'n1', title: 'Note One', folderId: 'F1', tag
 
 type ServerDeps = Omit<WriteDeps, 'clientName'>;
 
+/** The write tools that take markdown, sorted. */
+const MARKDOWN_TOOLS = ['append_to_note', 'create_note', 'replace_in_note', 'update_note'];
+
 const METADATA: DocumentMetadata = {
     title: 'Note One',
     folderId: 'F1',
@@ -43,6 +46,7 @@ function makeFakeDeps(grants = GRANTS, uploads: DocumentMetadata[] = []): Server
         createNote: async () => {},
         createFolder: async () => {},
         grantFolder: async () => {},
+        trashNote: async () => {},
     };
 }
 
@@ -55,18 +59,20 @@ async function connectedClient(deps: ServerDeps): Promise<Client> {
 }
 
 describe('createJournalMcpServer', () => {
-    it('registers exactly the four read tools and the four write tools', async () => {
+    it('registers exactly the four read tools and the six write tools', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
         expect(tools.map((tool) => tool.name).sort()).toEqual([
             'append_to_note',
             'create_folder',
             'create_note',
+            'delete_note',
             'get_note',
             'list_folders',
             'list_notes',
             'replace_in_note',
             'search_notes',
+            'update_note',
         ]);
     });
 
@@ -75,11 +81,11 @@ describe('createJournalMcpServer', () => {
         const { tools } = await client.listTools();
         for (const tool of tools) {
             const mentions = ['mermaid', 'svg', 'html'].every((word) => tool.description?.includes(word));
-            expect(mentions).toBe(['create_note', 'append_to_note', 'replace_in_note'].includes(tool.name));
+            expect(mentions).toBe(MARKDOWN_TOOLS.includes(tool.name));
         }
     });
 
-    it("tells agents that Journal's design comes first, in order, in the three markdown write tools (#424)", async () => {
+    it("tells agents that Journal's design comes first, in order, in the four markdown write tools (#424)", async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
         const rules = [
@@ -93,8 +99,8 @@ describe('createJournalMcpServer', () => {
             '(4) No page background, gradients, shadows, badge rows, emoji headers or custom fonts.',
             '(5) The block sizes itself to its content: do not set a fixed page height or design for a whole screen.',
         ];
-        const described = tools.filter((tool) => ['create_note', 'append_to_note', 'replace_in_note'].includes(tool.name));
-        expect(described).toHaveLength(3);
+        const described = tools.filter((tool) => MARKDOWN_TOOLS.includes(tool.name));
+        expect(described).toHaveLength(4);
         for (const tool of described) {
             const positions = rules.map((rule) => tool.description!.indexOf(rule));
             expect(positions).not.toContain(-1);
@@ -105,14 +111,14 @@ describe('createJournalMcpServer', () => {
         }
         // Only the tools that take markdown carry it.
         const told = tools.filter((tool) => tool.description?.includes(rules[0])).map((tool) => tool.name);
-        expect(told.sort()).toEqual(['append_to_note', 'create_note', 'replace_in_note']);
+        expect(told.sort()).toEqual(MARKDOWN_TOOLS);
     });
 
     it('tells agents what an html block may load: scripts, styles and fonts from three CDN hosts (#409)', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
-        const described = tools.filter((tool) => ['create_note', 'append_to_note', 'replace_in_note'].includes(tool.name));
-        expect(described).toHaveLength(3);
+        const described = tools.filter((tool) => MARKDOWN_TOOLS.includes(tool.name));
+        expect(described).toHaveLength(4);
         for (const tool of described) {
             for (const text of [
                 'scripts, styles and fonts only from cdn.jsdelivr.net, cdnjs.cloudflare.com and unpkg.com',
@@ -133,8 +139,8 @@ describe('createJournalMcpServer', () => {
     it('tells agents how a react block works, and that the html design rules apply to it (#426)', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
-        const described = tools.filter((tool) => ['create_note', 'append_to_note', 'replace_in_note'].includes(tool.name));
-        expect(described).toHaveLength(3);
+        const described = tools.filter((tool) => MARKDOWN_TOOLS.includes(tool.name));
+        expect(described).toHaveLength(4);
         for (const tool of described) {
             for (const text of [
                 '`mermaid`, `svg`, `html` or `react`',
@@ -157,7 +163,7 @@ describe('createJournalMcpServer', () => {
             expect(tool.description!.indexOf('(5) The block sizes itself')).toBeLessThan(tool.description!.indexOf('These rules apply to a `react` block'));
         }
         const told = tools.filter((tool) => tool.description?.includes('named `App`')).map((tool) => tool.name);
-        expect(told.sort()).toEqual(['append_to_note', 'create_note', 'replace_in_note']);
+        expect(told.sort()).toEqual(MARKDOWN_TOOLS);
     });
 
     it('attributes writes to the client name from the initialize handshake', async () => {
@@ -186,5 +192,37 @@ describe('createJournalMcpServer', () => {
         const content = result.content as Array<{ type: string; text: string }>;
         const notes = JSON.parse(content[0].text);
         expect(notes).toEqual([{ id: 'n1', title: 'Note One', folderId: 'F1', modified: '2024-01-01T00:00:00.000Z', tags: [], access: 'read' }]);
+    });
+
+    it('update_note and delete_note reject a read-only grant as tool errors', async () => {
+        const client = await connectedClient(makeFakeDeps(GRANTS));
+        for (const [name, args] of [
+            ['update_note', { id: 'n1', markdown: 'new' }],
+            ['delete_note', { id: 'n1' }],
+        ] as const) {
+            const result = await client.callTool({ name, arguments: args });
+            expect(result.isError).toBe(true);
+            expect(result.content).toEqual([{ type: 'text', text: 'Note is read-only for agents: n1' }]);
+        }
+    });
+
+    it('delete_note trashes the note and returns its state', async () => {
+        const trashed: string[] = [];
+        const client = await connectedClient({ ...makeFakeDeps(WRITE_GRANTS), trashNote: async (id) => void trashed.push(id) });
+        const result = await client.callTool({ name: 'delete_note', arguments: { id: 'n1' } });
+        const content = result.content as Array<{ type: string; text: string }>;
+        expect(JSON.parse(content[0].text)).toEqual({ id: 'n1', state: 'trashed' });
+        expect(trashed).toEqual(['n1']);
+    });
+
+    it('update_note sets the title and tags through the server', async () => {
+        const uploads: DocumentMetadata[] = [];
+        const client = await connectedClient(makeFakeDeps(WRITE_GRANTS, uploads));
+        const result = await client.callTool({
+            name: 'update_note',
+            arguments: { id: 'n1', title: 'Renamed', tags: ['a'], expectedModified: '2024-01-01T00:00:00.000Z' },
+        });
+        expect(result.isError).toBeFalsy();
+        expect(uploads).toMatchObject([{ title: 'Renamed', tags: ['a'], lastEditedBy: 'agent:test-client' }]);
     });
 });
