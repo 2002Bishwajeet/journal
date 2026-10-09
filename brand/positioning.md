@@ -33,13 +33,13 @@ Do not say "works without an account" until #563 ships.
 | End-to-end encryption | Synced copy: yes. Device copy: planned (#555). Public notes are not encrypted, by design | Not listed; Notion lists AES-256 at rest and TLS in transit [1] | Yes, with Obsidian Sync (default for new remote vaults) [7] | — |
 | AI agents can edit notes | Yes, through MCP, with per-folder and per-note grants (default: none) | Yes, through Notion MCP, with your full permissions [3] | — | Claude makes and edits artifacts [10] |
 | Interactive artifact blocks inside notes | Yes: Mermaid, SVG, HTML and React live blocks | — | — | Yes, as stand-alone artifacts, not inside notes [10] |
-| Public sharing on your own domain | Partly: the note is published from your own identity; the reading page is on the Journal site at `/share/<your-identity>/…` | Yes, with Notion Sites on a paid plan, +$10/month per domain [4] | Yes, with Obsidian Publish, a paid add-on [8][14] | Link sharing; viewers need a Claude account, except published legacy chat artifacts [11]. Custom domain: — |
+| Public sharing | Yes, free, published from your own private space | Yes, with Notion Sites [4] | Yes, with Obsidian Publish, a paid add-on [8][14] | Link sharing; viewers need a Claude account, except published legacy chat artifacts [11] |
 | Open source | Yes, AGPL-3.0 | — | No [9] | — |
 | Free core | Yes (a paid Pro plan for hosted extras is planned, #306) | Yes, Free plan [12] | Yes, free for all purposes; Sync and Publish are paid add-ons [13][14] | Yes, artifacts are on the Free plan; storage and app connections need a paid plan [10] |
 
 Notes on the table:
 
-- Journal's "partly" on custom domains is deliberate. The public note lives on your identity's domain, but readers open it on the Journal site. Do not write "on your own domain" without that qualifier.
+- Journal's sharing row says "published from your own private space" on purpose. Readers open shared notes on the Journal site, not on your own domain, so don't claim custom domains.
 - Journal's MCP server and public pages need an identity today. Say so next to any claim that uses them, until #563 ships.
 - Live blocks are shipped. The "artifact-level" upgrade (#556) and block-level MCP editing (#560) are still open. Do not claim them until they merge.
 
