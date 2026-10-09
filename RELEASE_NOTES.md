@@ -15,6 +15,25 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- An HTML or React block can be wide. A wide block uses more of the page and stays centred under the text.
+- Each HTML or React block has an Expand button. It shows the block on the full screen. Press Esc to close it.
+- React blocks can use d3, three, lodash, mathjs and papaparse. They also have a set of ready UI parts in the Journal style.
+- React blocks can use shadows, custom sizes and colours, and layouts that change with the width of the screen.
+- Markdown import makes real headings, lists, code blocks and footnotes. It also imports the images in a zip file.
+- AI agents that use the Journal MCP can read a guide to all the blocks a note can have.
+- AI agents can change one block of a note, for example one table cell or the text of a callout.
+- AI agents can add links to other notes and link preview cards.
+- AI agents can put images in the body of a note.
+
+### Fixed
+
+- The note title updates when the title changes in a different place.
+- The Move to Trash dialog no longer says that you cannot undo the action. You can restore the note from Trash.
+- After you change the page layout, the editor no longer adds an empty line.
+- A shared note shows its newest text and cover to readers who open it again.
+
 ## 2.6.0 (2026-10-09)
 
 ### New
