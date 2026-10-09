@@ -172,14 +172,24 @@ async function editWithBodyImages(
     id: string,
     loaded: Map<string, PreparedImage>,
     apply: (doc: Y.Doc, imageSrcs?: Map<string, string>) => string[] | void,
-    opts: { metadata?: Partial<DocumentMetadata>; expectedModified?: string } = {}
+    opts: { metadata?: Partial<DocumentMetadata>; expectedModified?: string; dryRun?: boolean } = {}
 ): Promise<void> {
-    if (loaded.size === 0) return editWithRetry(deps, id, (doc) => apply(doc), opts);
+    const { dryRun = true, ...editOpts } = opts;
+    if (loaded.size === 0) return editWithRetry(deps, id, (doc) => apply(doc), editOpts);
 
     const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
     assertWritable(grants, note, id);
     // The uploads below change the file's modified time, so the check has to come first.
     assertUnchangedSince(opts.expectedModified, note.summary, id);
+
+    // An edit the engine rejects (old_text not found / ambiguous) must fail before anything
+    // is uploaded, or the payloads stay orphaned on the note. `apply` can't be dry-run when
+    // it keeps state between calls (update_note's cached rewrite), hence the opt-out.
+    if (dryRun) {
+        const copy = new Y.Doc();
+        Y.applyUpdate(copy, Y.encodeStateAsUpdate(note.doc));
+        apply(copy, new Map([...loaded.keys()].map((src, i) => [src, `attachment://${note.fileId}/dry-run-${i}`])));
+    }
 
     const imageSrcs = new Map<string, string>();
     const payloadKeys: string[] = [];
@@ -197,7 +207,7 @@ async function editWithBodyImages(
             payloadKeys.forEach((key) => advanceNextImageIndex(doc, key));
             return toDelete;
         },
-        { ...opts, expectedModified: undefined }
+        { ...editOpts, expectedModified: undefined }
     );
 }
 
@@ -301,7 +311,7 @@ export async function updateNote(
         setMarkdown(doc, markdown, imageSrcs);
         rewrite = Y.encodeStateAsUpdate(doc, before);
     };
-    await editWithBodyImages(deps, id, await loadBodyImages(markdown), apply, { metadata, expectedModified });
+    await editWithBodyImages(deps, id, await loadBodyImages(markdown), apply, { metadata, expectedModified, dryRun: false });
     return { id };
 }
 

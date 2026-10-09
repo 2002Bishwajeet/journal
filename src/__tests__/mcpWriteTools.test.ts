@@ -813,6 +813,26 @@ describe('write tools: images in the body (#415)', () => {
         expect(markdownOf(store.get('nw')!.blob).trim()).toBe('Intro\n\n![fig](attachment://file-nw/jrnl_img0)\n\nOutro');
     });
 
+    it('replace_in_note with an image and a non-matching old_text uploads nothing', async () => {
+        const { deps, put, images, uploads } = makeDrive();
+        put('nw', 'Intro\n\nBody', metadataFor('FW'));
+        await expect(replaceInNote(deps, { id: 'nw', old_text: 'MISSING', new_text: `![fig](${webp})` })).rejects.toThrow(
+            /^replace_in_note: old_text not found$/
+        );
+        expect(images).toHaveLength(0);
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('replace_in_note with an image and an ambiguous old_text uploads nothing', async () => {
+        const { deps, put, images, uploads } = makeDrive();
+        put('nw', 'todo one\n\ntodo two', metadataFor('FW'));
+        await expect(replaceInNote(deps, { id: 'nw', old_text: 'todo', new_text: `![fig](${webp})` })).rejects.toThrow(
+            /old_text matches 2 times/
+        );
+        expect(images).toHaveLength(0);
+        expect(uploads).toHaveLength(0);
+    });
+
     it('update_note keeps existing images and adds the new one past the key counter', async () => {
         const { deps, putDoc, store, images } = makeDrive();
         putDoc(
