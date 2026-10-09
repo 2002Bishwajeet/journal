@@ -45,7 +45,7 @@ const ARTIFACT = [
   '}',
 ].join('\n');
 
-const NOT_ALLOWED = "import * as d3 from 'd3';\nfunction App() { return <p>{d3.version}</p>; }";
+const NOT_ALLOWED = "import axios from 'axios';\nfunction App() { return <p>{axios.VERSION}</p>; }";
 
 const LIBRARY_URL = /react-block-(recharts|lucide)/;
 
@@ -168,9 +168,11 @@ for (const theme of ['light', 'dark'] as const) {
 }
 
 test('react block: an import outside the allow-list shows an error naming the module and the allowed ones', async ({ app }) => {
-  await createNote(app, { title: `React d3 ${Date.now()}`, body: 'Intro' });
+  await createNote(app, { title: `React axios ${Date.now()}`, body: 'Intro' });
   await pasteBlock(app, NOT_ALLOWED);
-  await expect(reactFrame(app).getByRole('alert')).toContainText('A react block can import only react, recharts and lucide-react, not d3.');
+  await expect(reactFrame(app).getByRole('alert')).toContainText(
+    'A react block can import only react, recharts, lucide-react, d3, three, lodash-es, lodash, mathjs, papaparse and journal-ui, not axios.',
+  );
   await app.screenshot({ path: test.info().outputPath('react-import-error-light-desktop.png') });
 });
 

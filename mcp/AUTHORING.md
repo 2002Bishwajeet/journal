@@ -228,10 +228,13 @@ applies, and no CDN script is needed. `jsx` and `tsx` blocks stay ordinary code.
 
 - Hooks are on `React` (`React.useState`, `React.useCallback`, …), and `useState`,
   `useEffect`, `useRef`, `useMemo` and `useReducer` also work without the prefix.
-- It can import from `react`, `recharts` and `lucide-react`, and from nothing else: any
-  other import shows "A react block can import only react, recharts and lucide-react,
-  not …" in the frame. All three come with Journal, so a block needs no network and works
-  offline. TypeScript is not supported.
+- It can import from `react`, `recharts`, `lucide-react`, `d3`, `three`, `lodash-es`
+  (also as `lodash`), `mathjs`, `papaparse` and `journal-ui`, and from nothing else: any
+  other import shows "A react block can import only react, recharts, lucide-react, d3,
+  three, lodash-es, lodash, mathjs, papaparse and journal-ui, not …" in the frame. All of
+  them come with Journal, and each loads only for a block that imports it, so a block needs
+  no network and works offline. TypeScript is not supported.
+- `journal-ui` is Journal's UI kit (below).
 - `className` takes Tailwind classes, drawn in Journal's theme (below).
 - `recharts` charts are drawn in the theme without colour props (below).
 - `lucide-react` icons draw in `currentColor`, so they take the text colour around them:
@@ -255,6 +258,62 @@ function App() {
 ````
 
 The design rules below apply to a `react` block unchanged.
+
+#### Libraries in a `react` block
+
+- `d3` is D3 7 (`import * as d3 from 'd3'`), `three` is three.js (`import * as THREE from
+  'three'`, drawing with `WebGLRenderer`), `lodash-es` is lodash (`import _ from 'lodash'`
+  or named imports), `mathjs` is math.js (`import { evaluate } from 'mathjs'`), `papaparse`
+  is Papa Parse (`import Papa from 'papaparse'`).
+- The frame has no network, so give a library its data inline: `Papa.parse` a string,
+  never a URL, and never `d3.csv` or `d3.json`. Papa Parse's `worker` option fails too.
+- The frame forbids eval, so code that compiles code fails: `d3.csvParse` and
+  `d3.tsvParse` (use Papa Parse, or `d3.csvParseRows`), and lodash's `template`.
+
+#### The `journal-ui` kit
+
+Controls in Journal's theme, light and dark, under the names and props of shadcn/ui.
+Prefer them to hand-styled controls.
+
+| Component | Props |
+|---|---|
+| `Button` | `variant`: `default` `secondary` `outline` `ghost` `destructive` `link`; `size`: `default` `sm` `lg` `icon` |
+| `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent`, `CardFooter` | |
+| `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` | `Tabs`: `value` or `defaultValue`, `onValueChange`; a trigger and its content share a `value` |
+| `Input` | an `<input>` |
+| `Select`, `SelectItem` | the browser's own select: `value` or `defaultValue`, `onValueChange`, `placeholder`; each `SelectItem` has a `value`. There is no `SelectTrigger`, `SelectValue` or `SelectContent` |
+| `Slider` | one thumb: `value` or `defaultValue` as `[n]`, `onValueChange(([n]) => …)`, `min` `max` `step` |
+| `Switch` | `checked` or `defaultChecked`, `onCheckedChange` |
+| `Badge` | `variant`: `default` `secondary` `destructive` `outline` |
+| `Progress` | `value`, 0 to 100 |
+
+`className` adds Tailwind classes, each replacing the component's own class of the same
+kind (`<Button className="w-full">`).
+
+````markdown
+```react
+import { Card, CardHeader, CardTitle, CardContent, Slider, Switch, Badge } from 'journal-ui';
+
+export default function App() {
+  const [goal, setGoal] = useState([500]);
+  const [daily, setDaily] = useState(true);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Writing goal</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Slider value={goal} onValueChange={setGoal} max={2000} step={50} />
+        <label className="flex items-center gap-2 text-sm">
+          <Switch checked={daily} onCheckedChange={setDaily} /> Every day
+        </label>
+        <Badge variant="secondary">{goal[0]} words</Badge>
+      </CardContent>
+    </Card>
+  );
+}
+```
+````
 
 #### Tailwind in a `react` block
 

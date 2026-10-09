@@ -148,6 +148,15 @@ describe('LiveBlockPreview react, mounted (#426)', () => {
     expect(srcdoc).toContain('<style>/* react-block-tailwind stub */</style>');
   });
 
+  it('should give a block only the libraries it imports, and lodash once under either name (#558)', async () => {
+    await mount("import * as d3 from 'd3';\nimport _ from 'lodash';\nimport { sum } from 'lodash-es';\nimport { Button } from 'journal-ui';\nfunction App() { return <Button />; }");
+    const srcdoc = note.querySelector('iframe')!.getAttribute('srcdoc')!;
+    expect(srcdoc).toContain('<script>/* react-block-d3 stub */</script>');
+    expect(srcdoc).toContain('<script>/* react-block-ui stub */</script>');
+    expect(srcdoc.match(/react-block-lodash stub/g)).toHaveLength(1);
+    for (const other of ['three', 'mathjs', 'papaparse', 'recharts', 'lucide']) expect(srcdoc).not.toContain(`react-block-${other} stub`);
+  });
+
   it('should show a syntax error with its line, as text in place of the frame', async () => {
     await mount('function App() { return <div>; }');
     expect(note.querySelector('iframe')).toBeNull();

@@ -9,6 +9,7 @@ import type { AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
 import { createDoc } from '@/lib/agent/editEngine';
 import { HTML_BLOCK_CDN_HOSTS } from '@/lib/liveBlocks';
+import { REACT_BLOCK_IMPORTS } from '@/lib/reactBlockLibraries';
 import GUIDE from '../../mcp/AUTHORING.md?raw';
 import LIVE_BLOCKS_SOURCE from '@/lib/liveBlocks.ts?raw';
 
@@ -283,15 +284,14 @@ describe('the authoring guide (#519)', () => {
         }
     });
 
-    it('names every live-block language, react import and CDN host that src/lib/liveBlocks.ts allows', () => {
-        // Read from the code, so one added there and not here fails this test.
+    it('names every live-block language, react import and CDN host that the code allows', () => {
+        // Read from the code (src/lib/liveBlocks.ts, src/lib/reactBlockLibraries.ts), so one added there and not here fails this test.
         const languages = [...LIVE_BLOCKS_SOURCE.matchAll(/lang === '([^']+)'/g)].map((match) => match[1]);
-        const imports = [...LIVE_BLOCKS_SOURCE.matchAll(/name === '([^']+)'/g)].map((match) => match[1]);
         expect(languages).toEqual(expect.arrayContaining(['mermaid', 'svg', 'html', 'react']));
-        expect(imports).toEqual(expect.arrayContaining(['react', 'recharts', 'lucide-react']));
         for (const language of languages) expect(GUIDE).toContain(`| \`${language}\` |`);
+        // Every module a react block can import (#558), and no other.
         const importSentence = GUIDE.match(/It can import from (.+?), and from nothing else/s)?.[1] ?? '';
-        for (const name of imports) expect(importSentence).toContain(`\`${name}\``);
+        expect([...importSentence.matchAll(/`([^`]+)`/g)].map((match) => match[1]).sort()).toEqual([...REACT_BLOCK_IMPORTS].sort());
         for (const host of HTML_BLOCK_CDN_HOSTS) expect(GUIDE).toContain(`\`${host}\``);
     });
 });

@@ -38,6 +38,7 @@ import {
   type FrameTheme,
   type LiveBlockKind,
 } from '@/lib/liveBlocks';
+import type { ReactBlockLibrary } from '@/lib/reactBlockLibraries';
 import { createBlockStateSession, memoryBlockStateStore, replyToStorageMessage, type BlockStateStore } from '@/lib/liveBlockState';
 import { cn } from '@/lib/utils';
 
@@ -136,6 +137,19 @@ function HtmlPreview({ source, title, store, onHeight }: Pick<LiveBlockPreviewPr
   );
 }
 
+/** The script of each library a react block can import (REACT_BLOCK_LIBRARIES), built in vite.config.ts. */
+const REACT_BLOCK_LIBRARY_SCRIPTS: Record<ReactBlockLibrary, () => Promise<{ default: string }>> = {
+  recharts: () => import('virtual:react-block-recharts'),
+  'lucide-react': () => import('virtual:react-block-lucide'),
+  d3: () => import('virtual:react-block-d3'),
+  three: () => import('virtual:react-block-three'),
+  'lodash-es': () => import('virtual:react-block-lodash'),
+  lodash: () => import('virtual:react-block-lodash'),
+  mathjs: () => import('virtual:react-block-mathjs'),
+  papaparse: () => import('virtual:react-block-papaparse'),
+  'journal-ui': () => import('virtual:react-block-ui'),
+};
+
 /**
  * A react block (#426). The compiler, the runtime and the Tailwind sheet load on the first one
  * shown, a library on the first block that imports it (#427); all are cached for offline use
@@ -158,13 +172,10 @@ function ReactPreview({ source, store, onHeight }: Pick<LiveBlockPreviewProps, '
         if ('error' in compiled) {
           next = { source, title: 'Couldn’t compile this component. Check its syntax.', error: compiled.error };
         } else {
-          // A library loads only for a block that imports it (#427).
-          const imports = reactBlockImports(compiled.code);
-          const [recharts, lucide] = await Promise.all([
-            imports.includes('recharts') ? import('virtual:react-block-recharts').then((module) => module.default) : undefined,
-            imports.includes('lucide-react') ? import('virtual:react-block-lucide').then((module) => module.default) : undefined,
-          ]);
-          next = { source, page: reactBlockDocument({ react, tailwind, recharts, lucide }, compiled.code) };
+          // A library loads only for a block that imports it (#427); `lodash` and `lodash-es` are one script.
+          const loads = reactBlockImports(compiled.code).filter((name) => Object.hasOwn(REACT_BLOCK_LIBRARY_SCRIPTS, name));
+          const scripts = await Promise.all(loads.map((name) => REACT_BLOCK_LIBRARY_SCRIPTS[name as ReactBlockLibrary]().then((module) => module.default)));
+          next = { source, page: reactBlockDocument({ react, tailwind, libraries: [...new Set(scripts)] }, compiled.code) };
         }
       } catch (err) {
         // Offline, before any react block was ever shown: the compiler and runtime are not cached yet.

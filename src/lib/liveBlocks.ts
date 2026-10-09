@@ -1,3 +1,5 @@
+import { REACT_BLOCK_IMPORTS, REACT_BLOCK_LIBRARIES } from '@/lib/reactBlockLibraries';
+
 /** Code-block languages that render a live preview in the editor. */
 export type LiveBlockKind = 'mermaid' | 'svg' | 'html' | 'react';
 
@@ -174,6 +176,8 @@ const REACT_ERROR_BOX =
 const REACT_ERROR_SCRIPT =
   "addEventListener('error', function (event) { var box = document.getElementById('journal-react-error'); box.hidden = false; box.lastChild.textContent = event.error ? String(event.error) : event.message; });";
 
+const REACT_BLOCK_IMPORTS_TEXT = `${REACT_BLOCK_IMPORTS.slice(0, -1).join(', ')} and ${REACT_BLOCK_IMPORTS.at(-1)}`;
+
 /** Hooks a react block can use without the `React.` prefix. */
 const BARE_HOOKS = ['useState', 'useEffect', 'useRef', 'useMemo', 'useReducer'];
 
@@ -185,11 +189,11 @@ const componentScript = (code: string) =>
   `var ${BARE_HOOKS.map((hook) => `${hook} = React.${hook}`).join(', ')};` +
   'var module = { exports: {} }, exports = module.exports;' +
   // The allow-list (#427). Each library is on the page only when the block imports it.
+  `var libraries = ${JSON.stringify(REACT_BLOCK_LIBRARIES)};` +
   'function require(name) {' +
   "if (name === 'react') return React;" +
-  "if (name === 'recharts' && window.Recharts) return window.Recharts;" +
-  "if (name === 'lucide-react' && window.LucideReact) return window.LucideReact;" +
-  "throw new Error('A react block can import only react, recharts and lucide-react, not ' + name + '.'); }" +
+  'if (Object.prototype.hasOwnProperty.call(libraries, name) && window[libraries[name]]) return window[libraries[name]];' +
+  `throw new Error(${JSON.stringify(`A react block can import only ${REACT_BLOCK_IMPORTS_TEXT}, not `)} + name + '.'); }` +
   `var App = (function () {\n${code}\n;return typeof App === 'undefined' ? module.exports.default : App;\n})();` +
   "if (App === undefined) throw new Error('Define a component named App, or export one as default.');" +
   'class Boundary extends React.Component {' +
@@ -207,10 +211,8 @@ export interface ReactBlockRuntime {
   react: string;
   /** The Tailwind stylesheet in Journal's theme (#427). */
   tailwind: string;
-  /** Recharts in the theme, a script that sets window.Recharts. Only for a block that imports it. */
-  recharts?: string;
-  /** lucide-react, a script that sets window.LucideReact. Only for a block that imports it. */
-  lucide?: string;
+  /** The scripts of the libraries the block imports, each setting its global in REACT_BLOCK_LIBRARIES. */
+  libraries?: string[];
 }
 
 /**
@@ -219,7 +221,7 @@ export interface ReactBlockRuntime {
  * block's `code`, compiled by compileReactBlock. Everything is inline, which the frame's CSP allows.
  */
 export function reactBlockDocument(runtime: ReactBlockRuntime, code: string): string {
-  const libraries = [runtime.recharts, runtime.lucide].filter((library): library is string => !!library).map(inlineScript).join('');
+  const libraries = (runtime.libraries ?? []).map(inlineScript).join('');
   return `<style>${runtime.tailwind}</style><div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime.react)}${libraries}${inlineScript(componentScript(code))}`;
 }
 
