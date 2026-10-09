@@ -45,6 +45,14 @@ export default function TipTapEditor({
   const deviceType = useDeviceType();
   const [title, setTitle] = useState(metadata.title);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  // Re-sync the field when the title changes elsewhere (MCP, another tab),
+  // unless the user is typing in it.
+  const [titleFocused, setTitleFocused] = useState(false);
+  const [prevMetadataTitle, setPrevMetadataTitle] = useState(metadata.title);
+  if (metadata.title !== prevMetadataTitle) {
+    setPrevMetadataTitle(metadata.title);
+    if (!titleFocused) setTitle(metadata.title);
+  }
 
   const [wordCount, setWordCount] = useState({ words: 0, characters: 0 });
   const wordCountTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,6 +128,8 @@ export default function TipTapEditor({
             type="text"
             value={title}
             onChange={(e) => handleTitleChange(e.target.value)}
+            onFocus={() => setTitleFocused(true)}
+            onBlur={() => setTitleFocused(false)}
             placeholder="Untitled"
             className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder:text-gray-400 dark:text-white"
           />
