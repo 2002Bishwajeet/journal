@@ -500,7 +500,7 @@ npm run mcp        # local MCP server (see mcp/README.md)
 
 `/implement <epic#|issue#…>` (`.claude/commands/implement.md`) works every unblocked `agent-ready` issue unattended:
 
-- `scripts/harness/select.mjs` picks issues: open, `agent-ready`, not `needs-design`/`blocked`, no open PR, and every issue on its `Depends on:` line closed. Epics expand recursively to their sub-issues, so `/implement 163` (the backlog tracker) covers everything.
+- `scripts/harness/select.mjs` picks issues: open, `agent-ready`, not `needs-design`/`blocked`, no open PR, and every issue on its `Depends on:` line closed. Epics expand recursively to their sub-issues. The `agent-ready` label is the queue; pass issue or epic numbers.
 - The `implement-epic` workflow (`.claude/workflows/implement-epic.js`) runs 2 issues at a time: an implementer in its own worktree (effort follows `Size:`), a fresh Sonnet verifier that runs the issue's `## Verification` (e2e first) and reviews the diff, 1 fix round, then a PR labelled `agent-harness` with `Closes #N` and the check table.
 - `--dry` prints the selection table and starts nothing. `--loop` waits for you to merge/close an `agent-harness` PR, then selects the next wave (stops when nothing is left, or after 12 h). `--max N` caps a wave (default 3). Start it from a fresh session to keep token use down.
 - A STOP condition or still-failing verification comments on the issue and adds `blocked`; remove the label to make it selectable again.
@@ -629,6 +629,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 - `mcp/` is a local stdio MCP server (run with `vite-node`, `npm run mcp`) with its own Homebase app registration (`journal-mcp`, `mcp/config.ts`), approved once with `npm run mcp:login -- <identity>`; credentials live in the OS keychain (`mcp/credentials.ts`). It has no local DB: every call reads and writes `JOURNAL_DRIVE` directly, so the app and the server meet only at the drive, like two devices. Setup and the tool list are in `mcp/README.md`; the Claude Code plugin is in `plugins/journal/`.
 - Grants: Settings → Agent access (`src/components/settings/sections/AgentAccessSection.tsx`, `src/hooks/useAgentGrants.ts`) sets each folder or note to none / read / write; default none, a note grant beats its folder's, and `excludeFromAI` notes are always hidden. Stored as one grants file on the drive (`src/lib/homebase/AgentGrantsDriveProvider.ts`, file type 607, fixed unique id) and resolved by `src/lib/agent/grants.ts`, which the server re-reads on every call.
 - Edits are minimal Yjs diffs (`src/lib/agent/editEngine.ts`, `updateYFragment`), uploaded with the fetched version tag and retried on conflict, so concurrent edits merge. Agent writes set `lastEditedBy` to `agent:<client>`, shown as "Edited by …" (`src/lib/agent/attribution.ts`).
+- Covers (#516): `set_note_cover` / `clear_note_cover`. The image (file path or `data:` URI) is read by `mcp/imageSource.ts` and checked by `src/lib/images/imageBytes.ts` (PNG/JPEG/WebP by magic bytes, ≤ 5 MB, metadata stripped without a canvas), then uploaded through `addImageToNote` with the image as its own thumbnail. Reuse both for body images.
 - Specs: `e2e/agent-access/` (live tier). Not done: live co-editing with agent presence (#171, needs design).
 
 ### Images pipeline (#184)

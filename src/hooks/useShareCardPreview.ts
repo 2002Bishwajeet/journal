@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import * as Y from 'yjs';
 import { getDocumentUpdates } from '@/lib/db';
 import { ydocFromUpdates } from '@/lib/yjs/loadDoc';
-import { getCoverFromBlob, type NoteCover } from '@/lib/editor/cover';
 import {
     buildPublicCard,
     fallbackShareDescription,
@@ -15,12 +14,11 @@ import { useNotes } from '@/hooks/useNotes';
 interface NoteContent {
     blob: Uint8Array;
     defaultDescription: string;
-    cover: NoteCover | null;
 }
 
 /**
  * What a public note's link card will show: the description the Pages Function
- * will use, the first-paragraph default, and the cover. The note's content is
+ * will use, the first-paragraph default, and what its card image is drawn from. The note's content is
  * read once per mount (the share dialog mounts per open); the share fields come
  * from the live note list, so edits show as soon as they're saved.
  */
@@ -40,7 +38,6 @@ export function useShareCardPreview(noteId: string) {
                 setContent({
                     blob,
                     defaultDescription: truncateAtWord(firstParagraphText(doc)),
-                    cover: getCoverFromBlob(blob),
                 });
             } finally {
                 doc.destroy();
@@ -51,11 +48,10 @@ export function useShareCardPreview(noteId: string) {
         };
     }, [noteId]);
 
+    const card = buildPublicCard(content?.blob, metadata ?? {});
     return {
         defaultDescription: content?.defaultDescription ?? '',
-        description:
-            buildPublicCard(content?.blob, metadata ?? {}).description ??
-            fallbackShareDescription(getIdentity() || 'unknown'),
-        cover: content?.cover ?? null,
+        description: card.description ?? fallbackShareDescription(getIdentity() || 'unknown'),
+        cardImageFrom: card.cardImageFrom,
     };
 }

@@ -15,7 +15,22 @@ import { getNewId } from '@/lib/utils';
 import { folderAccess, type AgentAccess, type AgentGrants } from '@/lib/agent/grants';
 import { agentEditor } from '@/lib/agent/attribution';
 import { appendMarkdown, replaceInNote as replaceInDoc, createDoc, setMarkdown } from '@/lib/agent/editEngine';
+import {
+    advanceNextImageIndex,
+    clearCover,
+    clearDarkCover,
+    getCover,
+    readNextImageIndex,
+    setCover,
+    setDarkCover,
+    type CoverImage,
+    type CoverVariant,
+} from '@/lib/editor/cover';
+import { collectImageRefs } from '@/lib/yjs/imageRefs';
+import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
+import type { PreparedImage } from '@/lib/images/imageBytes';
 import type { DocumentMetadata } from '@/types';
+import { loadImage } from '../imageSource';
 import { noteAccess, type ReadDeps, type NoteSummary } from './read';
 
 /** Thrown by `uploadNoteEdit` when the note's versionTag is stale. */
@@ -42,6 +57,8 @@ export interface NoteEdit {
     keyHeader?: EncryptedKeyHeader;
     metadata: DocumentMetadata;
     yjsBlob: Uint8Array;
+    /** Image payload keys this edit stops using, deleted with the same upload. */
+    toDeletePayloads?: string[];
 }
 
 export type WriteDeps = ReadDeps & {
@@ -49,6 +66,11 @@ export type WriteDeps = ReadDeps & {
     uploadNoteEdit(id: string, edit: NoteEdit): Promise<void>;
     createNote(uniqueId: string, metadata: DocumentMetadata, yjsBlob: Uint8Array): Promise<void>;
     createFolder(uniqueId: string, name: string): Promise<void>;
+    /**
+     * Adds `image` as a new jrnl_img payload on the note's file (as the app's image upload
+     * does) and returns its payload key. `minIndex` is the note's own key counter.
+     */
+    uploadNoteImage(id: string, versionTag: string, image: PreparedImage, minIndex: number): Promise<string>;
     /** Moves the note to Trash (Homebase archivalStatus 2), like the app's trashNote. */
     trashNote(id: string, fileId: string): Promise<void>;
     /** Sets one folder's grant in the grants file, keeping every other grant. */
@@ -68,7 +90,8 @@ function assertWritable(grants: AgentGrants, note: NoteForEdit | null, id: strin
 async function editWithRetry(
     deps: WriteDeps,
     id: string,
-    apply: (doc: Y.Doc) => void,
+    // May return image payload keys the edit stops using, to delete with the upload.
+    apply: (doc: Y.Doc) => string[] | void,
     opts: { metadata?: Partial<DocumentMetadata>; expectedModified?: string } = {}
 ): Promise<void> {
     const lastEditedBy = agentEditor(deps.clientName());
@@ -94,7 +117,7 @@ async function editWithRetry(
             throw new Error(`Note changed since ${opts.expectedModified} (now ${note.summary.modified}); get_note it again: ${id}`);
         }
 
-        apply(note.doc);
+        const toDeletePayloads = apply(note.doc) || undefined;
         const clock = Y.getState(note.doc.store, note.doc.clientID);
         // No ops of this doc's own (a title/tags-only edit, or ops merged in from an earlier
         // attempt) leaves the earlier record, if any, as what to detect.
@@ -106,6 +129,7 @@ async function editWithRetry(
                 keyHeader: note.keyHeader,
                 metadata: { ...note.metadata, ...opts.metadata, lastEditedBy },
                 yjsBlob: Y.encodeStateAsUpdate(note.doc),
+                ...(toDeletePayloads?.length ? { toDeletePayloads } : {}),
             });
             return;
         } catch (err) {
@@ -206,4 +230,87 @@ export async function deleteNote(deps: WriteDeps, params: { id: string }): Promi
     assertWritable(grants, note, params.id);
     await deps.trashNote(params.id, note.fileId);
     return { id: params.id, state: 'trashed' };
+}
+
+/**
+ * The payload keys of `removed` images (on this note's file) that `doc` no longer uses as
+ * a cover or in its body, so they are deleted as the app deletes a replaced cover.
+ */
+function unusedImageKeys(doc: Y.Doc, fileId: string, removed: (CoverImage | null | undefined)[]): string[] {
+    const keyOf = (src: string) => parseAttachmentSrc(src, fileId)?.payloadKey;
+    const cover = getCover(doc);
+    const inUse = new Set([
+        ...[cover, cover?.dark].map((image) => image && keyOf(image.src)),
+        ...collectImageRefs(doc.getXmlFragment('prosemirror')).filter((ref) => ref.fileId === fileId).map((ref) => ref.payloadKey),
+    ]);
+    const keys = removed.map((image) => image && keyOf(image.src));
+    return [...new Set(keys)].filter((key): key is string => !!key && !inUse.has(key));
+}
+
+const noCover = (id: string) => new Error(`Note has no cover; set the light cover before the dark one: ${id}`);
+
+/**
+ * Sets a note's cover (with `dark`, its dark-mode cover) from a local file path or a
+ * data: URI (#516). The image is checked and stripped of metadata, uploaded as a jrnl_img
+ * payload on the note's file, then set as the cover; a replaced cover's payload is deleted.
+ */
+export async function setNoteCover(
+    deps: WriteDeps,
+    params: { id: string; image: string; positionY?: number; dark?: boolean }
+): Promise<{ id: string; variant: CoverVariant; src: string; positionY: number; note?: string }> {
+    const { id, dark = false } = params;
+    const positionY = Math.round(params.positionY ?? 50);
+    if (!(positionY >= 0 && positionY <= 100)) throw new Error('positionY must be between 0 and 100');
+
+    const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
+    assertWritable(grants, note, id);
+    if (dark && !getCover(note.doc)) throw noCover(id);
+    const image = await loadImage(params.image);
+
+    const payloadKey = await deps.uploadNoteImage(id, note.versionTag, image, readNextImageIndex(note.doc));
+    const next: CoverImage = { src: `attachment://${note.fileId}/${payloadKey}`, positionY };
+    await editWithRetry(deps, id, (doc) => {
+        const old = getCover(doc);
+        if (dark) {
+            if (!old) throw noCover(id);
+            setDarkCover(doc, next);
+        } else {
+            setCover(doc, next);
+        }
+        advanceNextImageIndex(doc, payloadKey);
+        return unusedImageKeys(doc, note.fileId, [dark ? old?.dark : old]);
+    });
+
+    // The link card is drawn from the light cover, with a canvas this server doesn't have.
+    const publicNote =
+        "This note is public. Its link-preview card image can't be drawn here, so link previews show " +
+        'the plain cover until the note is next saved in the Journal app, which redraws the card.';
+    return {
+        id,
+        variant: dark ? 'dark' : 'light',
+        ...next,
+        ...(note.metadata.isPublic && !dark ? { note: publicNote } : {}),
+    };
+}
+
+/** Removes a note's cover (and its dark cover with it), or with `dark` only the dark cover. */
+export async function clearNoteCover(
+    deps: WriteDeps,
+    params: { id: string; dark?: boolean }
+): Promise<{ id: string; variant: CoverVariant; cleared: boolean }> {
+    const { id, dark = false } = params;
+    const variant = dark ? 'dark' : 'light';
+    const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
+    assertWritable(grants, note, id);
+    const cover = getCover(note.doc);
+    // Nothing to clear: no upload, so the note isn't marked as edited by the agent.
+    if (!(dark ? cover?.dark : cover)) return { id, variant, cleared: false };
+
+    await editWithRetry(deps, id, (doc) => {
+        const old = getCover(doc);
+        if (dark) clearDarkCover(doc);
+        else clearCover(doc);
+        return unusedImageKeys(doc, note.fileId, dark ? [old?.dark] : [old, old?.dark]);
+    });
+    return { id, variant, cleared: true };
 }
