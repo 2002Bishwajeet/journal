@@ -50,13 +50,16 @@ const CDN = HTML_BLOCK_CDN_HOSTS.join(' ');
 // external images, media or form posts.
 const HTML_BLOCK_CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; style-src 'unsafe-inline' ${CDN}; img-src data: blob:; font-src data: ${CDN}; media-src data: blob:; form-action 'none'; base-uri 'none'`;
 
-// What a frame tells the app unasked: how tall its document is, whenever that changes (#412).
-const HEIGHT_REPORT_SCRIPT =
-  "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) }, '*')).observe(document.documentElement)</script>";
+/**
+ * How far a framed (html or react) block's frame reaches past its box on each side, in px.
+ * The page inside is padded by as much, so its content sits where the box is, and a focus
+ * ring, an outline or a shadow at its edge is not cut off. Anything that reaches further
+ * than this (a shadow-xl, say) is still cut at the frame's edge.
+ */
+export const FRAME_BLEED = 12;
 
-// Esc inside the frame never reaches the app, so the frame passes it on: it closes the block's fullscreen (#557).
-const ESCAPE_SCRIPT =
-  "<script>addEventListener('keydown', function (event) { if (event.key === 'Escape') parent.postMessage({ journalLiveBlock: 1, escape: 1 }, '*'); })</script>";
+// What a frame tells the app unasked: how tall its content is, without the bleed, whenever that changes (#412).
+const HEIGHT_REPORT_SCRIPT = `<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - ${2 * FRAME_BLEED} }, '*')).observe(document.documentElement)</script>`;
 
 // `journal.storage` (#410): get and set ask the app for this block's saved state over the
 // same bridge, and the app answers each request by its number. The app decides everything
@@ -144,7 +147,7 @@ export interface FrameTheme {
  * so it is in force before anything in the (untrusted) source is parsed. Then
  * one style gives the page the note's look; it comes before the source, so the
  * block's own CSS wins. Then `journal.storage`, so the source can use it as it
- * loads. The height report and the Esc relay come last.
+ * loads. The height report comes last.
  *
  * The page is only see-through while its colour scheme is that of the app
  * around it: a browser paints a frame of the other scheme opaque.
@@ -155,6 +158,8 @@ export function buildSrcdoc(source: string, theme: FrameTheme): string {
     // The font is also a variable, for a react block's `font-sans` (#427), and its shadows
     // are softer in the dark theme (#559).
     `:root{${tokens}--font-sans:${theme.fontFamily};--shadow-strength:${theme.colorScheme === 'dark' ? 0.6 : 1};color-scheme:${theme.colorScheme}}` +
+    // The bleed is on the root, so a block's own `body` margin or padding still adds to it.
+    `html{padding:${FRAME_BLEED}px}` +
     '*,*::before,*::after{box-sizing:border-box}' +
     'html,body{background:transparent}' +
     `body{margin:0;color:var(--foreground);font-family:${theme.fontFamily};line-height:${theme.lineHeight}}` +
@@ -164,7 +169,7 @@ export function buildSrcdoc(source: string, theme: FrameTheme): string {
     'table{border-collapse:collapse}' +
     'th,td{border:1px solid var(--border);padding:0.5rem 0.75rem;text-align:left}' +
     'img{max-width:100%}';
-  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${STORAGE_SCRIPT}${source}${HEIGHT_REPORT_SCRIPT}${ESCAPE_SCRIPT}`;
+  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${STORAGE_SCRIPT}${source}${HEIGHT_REPORT_SCRIPT}`;
 }
 
 // A script's text ends at the first `</script`, and `<!--` can move that end. `\x3C` is `<`
@@ -253,12 +258,6 @@ export function frameHeightFromMessage(event: Pick<MessageEvent<unknown>, 'sourc
   const data = event.data as { journalLiveBlock?: unknown; height?: unknown } | null | undefined;
   if (data?.journalLiveBlock !== 1 || typeof data.height !== 'number' || !Number.isFinite(data.height)) return null;
   return Math.min(Math.max(data.height, MIN_FRAME_HEIGHT), wide ? MAX_WIDE_FRAME_HEIGHT : MAX_FRAME_HEIGHT);
-}
-
-/** Whether a `message` event is Esc pressed inside the block's own frame (`frame`, its `iframe.contentWindow`). */
-export function isEscapeFromFrame(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null): boolean {
-  const data = event.data as { journalLiveBlock?: unknown; escape?: unknown } | null | undefined;
-  return !!frame && event.source === frame && data?.journalLiveBlock === 1 && data.escape === 1;
 }
 
 /** A `journal.storage` call from a block's frame (#410). `key` and `value` are not checked yet. */

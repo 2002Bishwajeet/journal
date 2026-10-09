@@ -144,7 +144,8 @@ test("html block: its inline script runs in the frame under the app's COEP heade
   // native resize handle is reachable over the frame.
   await expect(frame.locator('#out')).toContainText('fetch: rejected');
   await expect(frame.locator('#out')).toContainText('img: naturalWidth 0');
-  const fitted = await frame.locator('html').evaluate((html) => Math.ceil(html.getBoundingClientRect().height));
+  // Less the frame's bleed: 12px of padding above and below its content.
+  const fitted = await frame.locator('html').evaluate((html) => Math.ceil(html.getBoundingClientRect().height) - 24);
   const resizable = iframe.locator('..');
   await expect(resizable).toHaveCSS('height', `${fitted}px`);
   await dragResizeHandle(app, resizable, 100);
@@ -228,7 +229,8 @@ test('html block: is as tall as its content and grows with it, until the user re
 
   // Nobody resized it: the block took its content's height, and follows it.
   await expect(resizable).toHaveCSS('height', '900px');
-  await expect(resizable.locator('iframe')).toHaveCSS('height', '900px');
+  // The frame also covers the box's 12px bleed above and below.
+  await expect(resizable.locator('iframe')).toHaveCSS('height', '924px');
   await grow.click();
   await expect(resizable).toHaveCSS('height', '1300px');
 
@@ -254,8 +256,8 @@ test('html block: a height report posted by the app page itself changes no block
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
-  // #424: the block is as tall as its content and lives in the note; it is fullscreen only once expanded (#557).
-  test(`html block: a 900px page gets a frame of its height and is not fullscreen until expanded, ${colorScheme} theme`, async ({ app }) => {
+  // #424: no full screen. The block is as tall as its content and lives in the note.
+  test(`html block: a 900px page gets a frame of its height and no Full screen control, ${colorScheme} theme`, async ({ app }) => {
     await app.emulateMedia({ colorScheme });
     // Tall enough to show the whole 900px block at its natural height.
     await app.setViewportSize({ width: 1280, height: 1200 });

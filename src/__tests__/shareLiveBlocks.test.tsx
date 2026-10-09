@@ -76,9 +76,9 @@ describe('share page live blocks', () => {
     }
   });
 
-  it('gives an html block no View source toggle: its controls group holds only Expand (#557)', () => {
+  it('gives an html block no View source toggle and no controls group', () => {
     expect(html).toContain('data-live-block-preview="html"');
-    expect(html).toMatch(/<div role="group" aria-label="HTML block"[^>]*><button type="button"[^>]*><span[^>]*>Expand<\/span><\/button><\/div>/);
+    expect(html).not.toContain('aria-label="HTML block"');
     expect(render('```html\n<h1>x</h1>\n```')).not.toContain('View source');
   });
 
@@ -90,7 +90,7 @@ describe('share page live blocks', () => {
   it('renders a react block as a live block with no View source toggle, and a jsx block as plain code (#426)', () => {
     const react = render('```react\nfunction App() { return <p>hi</p>; }\n```');
     expect(react).not.toContain('View source');
-    expect(react).toMatch(/<div role="group" aria-label="React block"[^>]*><button type="button"[^>]*><span[^>]*>Expand<\/span><\/button><\/div>/);
+    expect(react).not.toContain('aria-label="React block"');
     expect(react).toContain('data-live-block-preview="react"');
     const jsx = render('```jsx\nfunction App() { return <p>hi</p>; }\n```');
     expect(jsx).not.toContain('data-live-block');

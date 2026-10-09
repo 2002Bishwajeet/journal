@@ -77,10 +77,9 @@ async function expectLayout(page: Page, scope: Locator, theme: (typeof THEMES)[n
 
   // Switching an html block to its code and back does not move the page.
   const html = liveBlock(scope, 'html');
-  // A reader of a public note has no toggle on an html block, so there is no code view to switch to:
-  // its only control is Expand (#557).
+  // A reader of a public note has no toggle on an html block, so there is no code view to switch to.
   if (codeToggle === null) {
-    await expect(html.getByRole('button')).toHaveText(['Expand']);
+    await expect(html.getByRole('button')).toHaveCount(0);
     return;
   }
   const toggle = html.getByRole('button', { name: codeToggle, exact: true });

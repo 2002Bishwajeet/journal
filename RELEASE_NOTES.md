@@ -17,7 +17,12 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ### Changed
 
+- HTML and React blocks no longer have an Expand button.
 - In a code block, Select All selects only the code. Press it again to select the whole note.
+
+### Fixed
+
+- Outlines and shadows at the edge of an HTML or React block are no longer cut off.
 
 ## 2.7.0 (2026-10-09)
 
