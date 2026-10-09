@@ -6,7 +6,7 @@
  */
 
 import { Extension, type AnyExtension, type RawCommands, type CommandProps } from '@tiptap/core';
-import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
+import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
 import { Fragment, Slice, type Node as PMNode, type Schema } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -161,6 +161,29 @@ const DeleteEmptyLeadingBlock = Extension.create({
         return {
             Backspace: () =>
                 this.editor.commands.command(({ state, dispatch }) => deleteEmptyLeadingBlock(state, dispatch)),
+        };
+    },
+});
+
+/**
+ * Select All inside a code block (live blocks included) selects just its code.
+ * Returns false once the whole code is selected, so a second Mod-a selects the note.
+ */
+export function selectCodeBlockContent(state: EditorState, dispatch?: (tr: Transaction) => void): boolean {
+    const { $from, $to } = state.selection;
+    if ($from.parent.type.name !== 'codeBlock' || !$from.sameParent($to)) return false;
+    const from = $from.start();
+    const to = $from.end();
+    if (state.selection.from === from && state.selection.to === to) return false;
+    if (dispatch) dispatch(state.tr.setSelection(TextSelection.create(state.doc, from, to)));
+    return true;
+}
+
+const CodeBlockSelectAll = Extension.create({
+    name: 'codeBlockSelectAll',
+    addKeyboardShortcuts() {
+        return {
+            'Mod-a': () => this.editor.commands.command(({ state, dispatch }) => selectCodeBlockContent(state, dispatch)),
         };
     },
 });
@@ -390,6 +413,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
             types: ['heading', 'paragraph'],
         }),
         ClearFormattingShortcut,
+        CodeBlockSelectAll,
         DuplicateBlock,
         IndentExtension,
         DeleteEmptyLeadingBlock,
