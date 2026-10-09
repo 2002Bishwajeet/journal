@@ -18,7 +18,7 @@ Lead with privacy and the device. Homebase is "your own private space" under the
 
 ## Logo
 
-The mark is a quill at 42°, redrawn as a vector from `public/logo.webp`. The wordmark is Playfair Display at weight 600, converted to outlines so it needs no font.
+The mark is the quill from the existing app icon, traced from `public/logo.webp` into an SVG, in its original colours: a Quill grey feather on a Cream card. The wordmark adds "Journal" in Playfair Display at weight 600, converted to outlines so it needs no font.
 
 | File | Use |
 | --- | --- |
@@ -44,6 +44,8 @@ Keep clear space around the mark of at least a quarter of its height. Don't reco
 | Night | `#1C1B1A` | `.dark --background` |
 | Card | `#242321` | `.dark --card` |
 | Mist | `#E6E4DD` | `.dark --foreground` |
+| Quill | `#67665E` | brand only, the feather in `public/logo.webp` |
+| Cream | `#F6F1E5` | brand only, the icon card in `public/logo.webp` |
 | Sand | `#DACAB0` | brand only, from `public/banner.webp` |
 
 Type: **Playfair Display** for headings and the wordmark, **Inter** for interface and body text.

@@ -18,7 +18,9 @@
   --night-line: #3E3D3A;  /* .dark --border */
   --mist: #E6E4DD;        /* .dark --foreground */
 
-  /* Brand-only: the sand from public/banner.webp and public/logo.webp */
+  /* Brand-only, sampled from public/logo.webp and public/banner.webp */
+  --quill: #67665E;       /* the feather */
+  --cream: #F6F1E5;       /* the icon card */
   --sand: #DACAB0;
 
   --radius: 0.5rem;
