@@ -130,11 +130,8 @@ async function importMarkdown(
     const docId = getNewId();
 
     // Create Yjs doc
-    const doc = new Y.Doc();
-    const xmlFragment = doc.getXmlFragment('prosemirror');
-    const paragraph = new Y.XmlElement('paragraph');
-    paragraph.insert(0, [new Y.XmlText(content)]);
-    xmlFragment.push([paragraph]);
+    const { createDoc } = await import('@/lib/agent/editEngine');
+    const doc = createDoc(content);
     const updateBlob = Y.encodeStateAsUpdate(doc);
 
     // Save to DB
