@@ -18,6 +18,7 @@ import {
     type PayloadFile,
     type ThumbnailFile,
     type EncryptedKeyHeader,
+    type ImageSize,
 } from '@homebase-id/js-lib/core';
 import {
     getFileHeaderOverPeerByUniqueId,
@@ -44,6 +45,8 @@ import { InvitationDriveProvider } from './InvitationDriveProvider';
 export interface ImageUploadData {
     file: Blob;
     filename?: string;
+    /** Set where thumbnails can't be drawn (no canvas); see buildImagePayload. */
+    naturalSize?: ImageSize;
 }
 
 /** A card with no keys is left out of the public header content entirely. */
@@ -532,7 +535,8 @@ export class NotesDriveProvider {
             image.file,
             image.filename,
             payloadKey,
-            existingHeader.fileMetadata.isEncrypted ? getRandom16ByteArray() : undefined
+            existingHeader.fileMetadata.isEncrypted ? getRandom16ByteArray() : undefined,
+            image.naturalSize
         );
 
         // Mirror the existing file's visibility so adding an image never re-encrypts
