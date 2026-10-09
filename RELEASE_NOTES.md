@@ -29,6 +29,7 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ### Fixed
 
+- Images in a note show in full. Before, the bottom of an image was cut off.
 - The note title updates when the title changes in a different place.
 - The Move to Trash dialog no longer says that you cannot undo the action. You can restore the note from Trash.
 - After you change the page layout, the editor no longer adds an empty line.

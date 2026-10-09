@@ -330,6 +330,16 @@ li[data-type='footnote'] > [data-footnote-backref] {
   margin: 1.5rem 0;
 }
 
+/* OdinImage clips (overflow-hidden) to the img's height, so an attachment's img
+   margin would push its bottom out of view (#552): the spacing goes on the clip box. */
+.prose .image-node .overflow-hidden img {
+  margin: 0;
+}
+
+.prose .image-node > div > .overflow-hidden {
+  margin: 1.5rem 0;
+}
+
 /* ProseMirror's invisible separator must never pick up the .prose img spacing
    (#536: TipTap drops its shared stylesheet when a switched layout unmounts). */
 img.ProseMirror-separator {
