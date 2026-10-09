@@ -189,6 +189,18 @@ The frame is as tall as its content, up to 1600px (taller content scrolls inside
 the reader can drag it to another height. It is as wide as the note column, so design for
 roughly 650px and let the layout stretch.
 
+An `html` or `react` block that needs more room can ask for it with `wide` in its fence,
+next to the id: ```` ```react wide id=k3f9 ```` or ```` ```html wide ````. A `wide` block
+leaves the note column for the width of the editor (keeping its side margin) or of the
+share page, up to about 1150px and centred on the column, and can be up to 2400px tall.
+On a phone it simply fills the width. `wide` is part of the fence, so it is in the markdown
+`get_note` returns: keep it when rewriting the block, as you keep the id. When to use it
+is under "Layout" below.
+
+Every `html` and `react` block has an Expand button next to its Code / Preview toggle, in
+the editor and on the share page. It shows the same running block fullscreen, with its
+state; Esc or Close returns to the note.
+
 ### Saved state: `journal.storage`
 
 An `html` or `react` block can save small state in the note, so it is there the next time
@@ -273,7 +285,7 @@ still look like Journal's.
 | Borders | `border` `border-0` `border-2` `border-4` and each side, `border-dashed` `border-dotted`, `divide-x` `divide-y`, `rounded` `rounded-sm`…`rounded-full` and each side, `ring` `ring-0`…`ring-4` `ring-inset` |
 | Effects | `opacity-*`, `shadow` `shadow-sm`…`shadow-2xl` (all one hairline: the note is flat), `transition` `transition-colors` `duration-100` `200` `300` `ease-*`, `cursor-pointer` `select-none` `sr-only` |
 | Colours | `bg-*` `text-*` `border-*` `from-*` `via-*` `to-*` with `bg-gradient-to-*` or `bg-linear-to-*`, and `hover:bg-*`: every colour name below. `ring-*` `divide-*` `hover:text-*` `hover:border-*`: the theme names and the grays. `fill-*` `stroke-*` `focus-visible:ring-*` `focus-visible:border-*`: the theme names, `white`, `black` and `current` |
-| Variants | `hover:` and `focus-visible:` on the colours above, `hover:opacity-*`, `focus-visible:ring-*` `focus-visible:outline-none`; `sm:` on display, flex direction, `grid-cols-*`, `col-span-*` and text size. The frame is about 650px wide, so `md:` and wider never apply |
+| Variants | `hover:` and `focus-visible:` on the colours above, `hover:opacity-*`, `focus-visible:ring-*` `focus-visible:outline-none`; `sm:` on display, flex direction, `grid-cols-*`, `col-span-*` and text size. The frame is about 650px wide, so `md:` and wider are not in the sheet, even for a `wide` or fullscreen block |
 
 A bare `border`, `divide-y` or `ring` is drawn in `--border` or `--ring`.
 
@@ -355,6 +367,28 @@ as you like, and keep it readable in both themes. Otherwise, in order:
 
 These rules apply to a `react` block unchanged: its Tailwind theme names are the same
 variables.
+
+### Layout: the column, `wide` and fullscreen
+
+The same block is shown at every size, from a 390px phone to a full screen. In order:
+
+1. **Design for the note column first (about 650px), and keep the layout fluid**, so it
+   also looks right `wide`, fullscreen and at 390px: percentage widths, CSS grid with
+   `repeat(auto-fit, minmax(…, 1fr))` (in a `react` block, as a `style`), `flex-wrap`, and
+   no fixed pixel widths. A canvas (d3, three.js, a chart) sizes from its container
+   (`ResizeObserver`, Recharts' `ResponsiveContainer`) and lays out again on resize.
+2. **`wide` only when the content needs the horizontal room**: several charts side by
+   side, a big table or timeline, a map, a 3D or game canvas. Never for a form, a counter,
+   a single chart or text. Prose stays in markdown at reading width, never inside a wide
+   block.
+3. **A wide block reads as a figure between paragraphs.** Do not stack several wide blocks
+   with no prose between them, unless the note is a dashboard.
+4. **Fullscreen is the reader's choice, not yours.** Visuals may grow to fill it, but any
+   text in the block keeps a reading width (`max-width: 65ch`), and the content stays
+   centred instead of stranded in the top-left corner.
+
+As with the design rules, these are the defaults: when the user asks for a different
+layout, build that.
 
 A live block has no card or header around it: it sits on the note like a table or an
 image. These variables hold the theme's current values:

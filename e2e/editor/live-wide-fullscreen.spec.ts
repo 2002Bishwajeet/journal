@@ -14,12 +14,17 @@ const THEMES = ['light', 'dark'] as const;
 const VIEWPORTS = { 1280: { width: 1280, height: 900 }, 390: { width: 390, height: 844 } } as const;
 // The side gutter a wide block keeps: the editor column's own padding, px-6 and md:px-12.
 const GUTTER = { 1280: 48, 390: 24 } as const;
+// The widest a wide block gets (72rem), however wide the pane: measured on a big monitor.
+const WIDE_MAX = 1152;
+const BIG_MONITOR = { width: 1920, height: 1080 };
 
 const PARAGRAPH = 'The note column keeps prose at a reading measure; a wide block takes the whole pane.';
 
-// A counter that keeps its count with journal.storage (#410).
+// A counter that keeps its count with journal.storage (#410), under a bar as wide as the
+// block, so the screenshots show where the block's edges are.
 const COUNTER = [
   '<style>body{margin:16px}</style>',
+  '<div style="height:8px;margin-bottom:12px;background:var(--muted);border-radius:var(--radius)"></div>',
   '<p id="out">loading</p>',
   '<button id="add">Add one</button>',
   '<script>',
@@ -46,14 +51,18 @@ const paneOf = (block: Locator) =>
 
 const box = async (locator: Locator) => (await locator.boundingBox())!;
 
-/** The wide block spans its pane, less the gutter on each side, and nothing scrolls sideways. */
+/** The wide block spans its pane, less the gutter on each side (up to 72rem), centred on the column, and nothing scrolls sideways. */
 async function expectWide(page: Page, block: Locator, paragraph: Locator, viewport: keyof typeof VIEWPORTS): Promise<void> {
   const pane = await paneOf(block);
   const wide = await box(block);
   const column = await box(paragraph);
   const margins = [wide.x - pane.left, pane.left + pane.width - (wide.x + wide.width)];
+  // It grows the same on both sides: centred on the note column, never hugging one side of the pane.
+  expect(Math.abs(wide.x + wide.width / 2 - (column.x + column.width / 2))).toBeLessThanOrEqual(2);
   if (viewport === 1280) {
-    for (const margin of margins) expect(margin).toBeCloseTo(GUTTER[viewport], 0);
+    // The pane less its gutters, or 72rem where the pane is wider than that (the share page).
+    expect(wide.width).toBeCloseTo(Math.min(pane.width - 2 * GUTTER[viewport], WIDE_MAX), 0);
+    for (const margin of margins) expect(margin).toBeGreaterThanOrEqual(GUTTER[viewport] - 0.5);
     expect(wide.width).toBeGreaterThan(column.width + 32);
   } else {
     // A phone: the block fills the width, which is the column's where the page's own margin is narrower than the gutter.
@@ -62,6 +71,16 @@ async function expectWide(page: Page, block: Locator, paragraph: Locator, viewpo
   }
   expect(pane.scrolls).toBe(false);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+}
+
+/** On a big monitor a wide block stops at 72rem, centred on the column, while the pane goes on. */
+async function expectCapped(page: Page, block: Locator, paragraph: Locator): Promise<void> {
+  const pane = await paneOf(block);
+  const wide = await box(block);
+  const column = await box(paragraph);
+  expect(pane.width).toBeGreaterThan(WIDE_MAX + 2 * GUTTER[1280]);
+  expect(wide.width).toBeCloseTo(WIDE_MAX, 0);
+  expect(Math.abs(wide.x + wide.width / 2 - (column.x + column.width / 2))).toBeLessThanOrEqual(2);
 }
 
 /** Expand shows the same running frame over the whole viewport; Esc in the frame, Esc in the page and Close all return. */
@@ -73,9 +92,12 @@ async function expectFullscreen(page: Page, block: Locator, shot: string): Promi
   // A mark in the frame's document: still there afterwards only if the frame never reloaded.
   await frame.locator('body').evaluate((body) => body.setAttribute('data-mark', 'kept'));
 
+  const inNote = await box(block);
   await block.hover();
   await block.getByRole('button', { name: 'Expand' }).click();
   expect(await isFullscreen(block)).toBe(true);
+  // The block keeps its place in the note: nothing under the overlay moves.
+  expect(await box(block)).toEqual(inNote);
   const viewport = page.viewportSize()!;
   expect(await box(boxOf(block))).toEqual({ x: 0, y: 0, width: viewport.width, height: viewport.height });
   const close = block.getByRole('button', { name: 'Close' });
@@ -127,6 +149,8 @@ for (const theme of THEMES) {
     // The note's tab in the desktop tab bar: gone in the mobile layout.
     const closeTab = app.getByRole('button', { name: `Close ${title}`, exact: true });
     await expect(closeTab).toBeVisible();
+    await app.setViewportSize(BIG_MONITOR);
+    await expect(() => expectCapped(app, block, paragraph)).toPass();
 
     for (const viewport of [1280, 390] as const) {
       await app.setViewportSize(VIEWPORTS[viewport]);
@@ -231,6 +255,8 @@ for (const theme of THEMES) {
     await expect(htmlFrame(block).locator('#out')).toHaveText('count: 3');
     // A reader cannot drag the box taller: no resize handle on the share page.
     expect(await boxOf(block).evaluate((el) => getComputedStyle(el).resize)).toBe('none');
+    await anonPage.setViewportSize(BIG_MONITOR);
+    await expect(() => expectCapped(anonPage, block, paragraph)).toPass();
 
     for (const viewport of [1280, 390] as const) {
       await anonPage.setViewportSize(VIEWPORTS[viewport]);

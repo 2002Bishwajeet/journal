@@ -42,6 +42,7 @@ const REVEALED =
   'opacity-0 transition-opacity duration-100 group-hover/block:opacity-100 group-focus-within/block:opacity-100 [@media(hover:none)]:opacity-100';
 
 export function LiveBlockFrame({ kind, source, preview, selected, labelled, store, wide, toggles, children }: LiveBlockFrameProps) {
+  const block = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   // The inline height fitContent last gave the box.
   const fittedHeight = useRef('');
@@ -73,6 +74,7 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, stor
 
   return (
     <div
+      ref={block}
       data-live-block={kind}
       // Its width is in src/index.css ("Live blocks").
       data-live-block-wide={wideBlock ? '' : undefined}
@@ -94,7 +96,17 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, stor
         >
           {labelled && <span className="mr-auto text-xs font-medium text-muted-foreground">{LABELS[kind]}</span>}
           {toggles}
-          {framed && <LiveBlockToggle onClick={() => box.current?.showPopover()}>Expand</LiveBlockToggle>}
+          {framed && (
+            <LiveBlockToggle
+              onClick={() => {
+                // Open, the box leaves the note for the top layer: the block keeps its height so the note does not move under it.
+                if (block.current) block.current.style.minHeight = `${block.current.offsetHeight}px`;
+                box.current?.showPopover();
+              }}
+            >
+              Expand
+            </LiveBlockToggle>
+          )}
         </div>
       )}
       {/* An html block's preview and code share this box and its height (400px until the content
@@ -105,7 +117,10 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, stor
       <div
         ref={box}
         popover={framed ? 'auto' : undefined}
-        onToggle={(event) => setFullscreen(event.newState === 'open')}
+        onToggle={(event) => {
+          setFullscreen(event.newState === 'open');
+          if (event.newState === 'closed' && block.current) block.current.style.minHeight = '';
+        }}
         contentEditable={preview ? false : undefined}
         data-live-block-preview={preview ? kind : undefined}
         className={cn(

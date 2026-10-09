@@ -821,15 +821,18 @@ img.ProseMirror-separator {
   background: transparent;
 }
 
-/* A `wide` html or react block (#557) leaves the note column for the whole width of
-   the pane it is in (the editor's scroll pane, the share page: each a
+/* A `wide` html or react block (#557) leaves the note column for the width of the
+   pane it is in (the editor's scroll pane, the share page: each a
    `@container/live-blocks`), less a side gutter as wide as the editor column's own
-   padding (px-6, md:px-12). Where the column already fills the pane, on a narrow
-   screen, the block fills the width. Anywhere else it keeps the column. */
+   padding (px-6, md:px-12), and up to 72rem (max-w-6xl, a step above the column's
+   max-w-5xl) so it stays a figure in the prose on a big monitor. It grows the same
+   on both sides, so it stays centred on the column. Where the column already fills
+   the pane, on a narrow screen, the block fills the width. Where the column is
+   wider than 72rem it keeps the column. */
 @container live-blocks (width >= 0) {
   [data-live-block-wide] {
     --live-block-gutter: 1.5rem;
-    margin-inline: min(0px, calc(50% - 50cqw + var(--live-block-gutter)));
+    margin-inline: min(0px, max(calc(50% - 50cqw + var(--live-block-gutter)), calc(50% - 36rem)));
   }
 }
 @media (width >= 48rem) {
