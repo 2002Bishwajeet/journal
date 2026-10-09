@@ -97,8 +97,13 @@ function breakWord(word: string, maxWidth: number, measure: (s: string) => numbe
 
 function ellipsize(line: string, maxWidth: number, measure: (s: string) => number): string {
     let chars = Array.from(line);
+    const all = Array.from(line);
     while (chars.length > 0 && measure(`${chars.join('').trimEnd()}…`) > maxWidth) chars = chars.slice(0, -1);
-    return `${chars.join('').trimEnd()}…`;
+    let fit = chars.join('').trimEnd();
+    // Cut mid-word: back off to the last space, unless the line is one long word.
+    const space = fit.lastIndexOf(' ');
+    if (chars.length < all.length && !/\s/.test(all[chars.length]) && space > 0) fit = fit.slice(0, space).trimEnd();
+    return `${fit}…`;
 }
 
 // Journal's light theme (src/index.css) and fonts.

@@ -15,7 +15,8 @@ export interface CardImageFrom {
 /** Whether two card images would be drawn the same. */
 export function sameCardImageFrom(a: CardImageFrom | undefined, b: CardImageFrom): boolean {
     return a?.title === b.title
-        && a.excerpt === b.excerpt
+        // A cover card draws no excerpt.
+        && (b.cover !== undefined || a.excerpt === b.excerpt)
         && a.cover?.src === b.cover?.src
         && a.cover?.positionY === b.cover?.positionY;
 }

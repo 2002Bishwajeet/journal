@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { CARD_HEIGHT, CARD_WIDTH, cardLayout, wrapText } from '@/lib/share/cardImage';
+import { sameCardImageFrom } from '@/lib/share/publicCard';
 
 const FULL_CARD = { x: 0, y: 0, width: CARD_WIDTH, height: CARD_HEIGHT };
 
@@ -78,10 +79,10 @@ describe('wrapText', () => {
         expect(fits(lines, 100)).toBe(true);
     });
 
-    it('cuts the last line back so the ellipsis fits', () => {
+    it('cuts the last line back to a whole word so the ellipsis fits', () => {
         const lines = wrapText('aaaa bbbb cccc dddd eeee', 90, 2, measure);
 
-        expect(lines).toEqual(['aaaa bbbb', 'cccc ddd…']);
+        expect(lines).toEqual(['aaaa bbbb', 'cccc…']);
         expect(fits(lines, 90)).toBe(true);
     });
 
@@ -100,5 +101,17 @@ describe('wrapText', () => {
 
     it('returns no lines for blank text', () => {
         expect(wrapText('   ', 100, 3, measure)).toEqual([]);
+    });
+});
+
+describe('sameCardImageFrom', () => {
+    const cover = { src: 'attachment://f/jrnl_img0', positionY: 50 };
+
+    it('ignores the excerpt for a cover card, which never draws it', () => {
+        expect(sameCardImageFrom({ title: 'T', excerpt: 'old', cover }, { title: 'T', excerpt: 'new', cover })).toBe(true);
+    });
+
+    it('redraws a paper card when its excerpt changes', () => {
+        expect(sameCardImageFrom({ title: 'T', excerpt: 'old' }, { title: 'T', excerpt: 'new' })).toBe(false);
     });
 });
