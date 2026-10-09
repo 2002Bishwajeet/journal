@@ -72,6 +72,7 @@ export default function SharePage() {
                             key={cover.src}
                             identity={decodeURIComponent(identity)}
                             noteFileId={note.fileId}
+                            lastModified={note.lastModified}
                             src={cover.src}
                             alt=""
                             className="w-full h-full object-cover"
@@ -121,6 +122,7 @@ export default function SharePage() {
                                                     key={src}
                                                     identity={decodeURIComponent(identity)}
                                                     noteFileId={note.fileId}
+                                                    lastModified={note.lastModified}
                                                     src={src}
                                                     alt={alt}
                                                 />
