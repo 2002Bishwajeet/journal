@@ -85,8 +85,11 @@ describe('buildPublicCard', () => {
         expect(card.description).toBe('From the body');
     });
 
-    it('returns {} for an empty doc with no overrides', () => {
-        expect(buildPublicCard(toBlob(new Y.Doc()), {})).toEqual({});
+    it('returns only the card image for an empty doc, and {} without content', () => {
+        expect(buildPublicCard(toBlob(new Y.Doc()), {})).toEqual({
+            cardImageKey: 'jrnl_card',
+            cardImageFrom: { title: 'Untitled' },
+        });
         expect(buildPublicCard(undefined, {})).toEqual({});
     });
 
@@ -119,7 +122,7 @@ describe('buildPublicCard', () => {
         setDarkCover(doc, { src: 'attachment://F/jrnl_img5', positionY: 70 });
         const card = buildPublicCard(toBlob(doc), {});
         expect(card.coverKey).toBe('jrnl_img4');
-        expect(card.cardImageFrom).toEqual({ src: 'attachment://F/jrnl_img4', positionY: 30 });
+        expect(card.cardImageFrom?.cover).toEqual({ src: 'attachment://F/jrnl_img4', positionY: 30 });
     });
 
     it('omits coverKey when the note has no cover', () => {
@@ -127,23 +130,34 @@ describe('buildPublicCard', () => {
         expect(buildPublicCard(toBlob(doc), {})).not.toHaveProperty('coverKey');
     });
 
-    it('sets the card image key and the cover it is drawn from for an uploaded cover', () => {
+    it('sets the card image key and what it is drawn from for an uploaded cover', () => {
         const doc = buildDoc([block('paragraph', 'Hello')]);
         setCover(doc, { src: 'attachment://F/jrnl_img4', positionY: 30 });
-        const card = buildPublicCard(toBlob(doc), {});
+        const card = buildPublicCard(toBlob(doc), { title: 'My note' });
         expect(card.cardImageKey).toBe('jrnl_card');
-        expect(card.cardImageFrom).toEqual({ src: 'attachment://F/jrnl_img4', positionY: 30 });
+        expect(card.cardImageFrom).toEqual({
+            title: 'My note',
+            excerpt: 'Hello',
+            cover: { src: 'attachment://F/jrnl_img4', positionY: 30 },
+        });
     });
 
-    it('omits the card image while the cover upload is pending, or without a cover', () => {
+    it('draws the designed card, with no cover, while the cover upload is pending or without one (#434)', () => {
         const pending = buildDoc([block('paragraph', 'Hello')]);
         setCover(pending, { src: 'blob:x', pendingId: 'q1', positionY: 30 });
         const none = buildDoc([block('paragraph', 'Hello')]);
         for (const doc of [pending, none]) {
-            const card = buildPublicCard(toBlob(doc), {});
-            expect(card).not.toHaveProperty('cardImageKey');
-            expect(card).not.toHaveProperty('cardImageFrom');
+            const card = buildPublicCard(toBlob(doc), { title: 'My note' });
+            expect(card.cardImageKey).toBe('jrnl_card');
+            expect(card.cardImageFrom).toEqual({ title: 'My note', excerpt: 'Hello' });
         }
+    });
+
+    it('draws the card from the share description, and an untitled note as Untitled', () => {
+        const doc = buildDoc([block('paragraph', 'Hello')]);
+        const card = buildPublicCard(toBlob(doc), { title: '  ', shareDescription: 'Custom words' });
+        expect(card.cardImageFrom).toEqual({ title: 'Untitled', excerpt: 'Custom words' });
+        expect(buildPublicCard(toBlob(buildDoc([])), { title: 'Empty' }).cardImageFrom).toEqual({ title: 'Empty' });
     });
 });
 
