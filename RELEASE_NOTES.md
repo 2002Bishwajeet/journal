@@ -23,6 +23,7 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 ### Fixed
 
 - Outlines and shadows at the edge of an HTML or React block are no longer cut off.
+- Your author page lists all your public notes. "Hide from search engines" now only keeps a note out of search engines.
 
 ## 2.7.0 (2026-10-09)
 

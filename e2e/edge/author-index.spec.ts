@@ -27,7 +27,8 @@ const NOTES: Record<number, Stub> = {
   5: { title: 'Private note', isEncrypted: true, day: 8 },
   6: { title: 'Trashed note', card: { indexable: true }, archivalStatus: 2, day: 10 },
 };
-const HIDDEN = [3, 4, 5, 6];
+const UNLISTED = [5, 6];
+const NOT_IN_SITEMAP = [3, 4, 5, 6];
 
 let upstream: Server;
 let failing = false;
@@ -76,7 +77,7 @@ test.beforeEach(() => {
   failing = false;
 });
 
-test('the author index lists exactly the public, indexable notes, newest first', async ({ request, baseURL }) => {
+test('the author index lists every public note, newest first, even those hidden from search engines', async ({ request, baseURL }) => {
   const res = await request.get(`/share/${MIXED}`);
   expect(res.status()).toBe(200);
   expect(res.headers()['content-type']).toContain('text/html');
@@ -85,9 +86,11 @@ test('the author index lists exactly the public, indexable notes, newest first',
   const links = [...html.matchAll(/<li><a href="([^"]+)">([^<]+)<\/a>/g)].map((m) => [m[1], m[2]]);
   expect(links).toEqual([
     [`${baseURL}/share/${MIXED}/${id(2)}`, 'Newer indexable note'],
+    [`${baseURL}/share/${MIXED}/${id(3)}`, 'Noindex note'],
+    [`${baseURL}/share/${MIXED}/${id(4)}`, 'Old card note'],
     [`${baseURL}/share/${MIXED}/${id(1)}`, 'Older indexable note'],
   ]);
-  for (const n of HIDDEN) {
+  for (const n of UNLISTED) {
     expect(html).not.toContain(NOTES[n].title);
     expect(html).not.toContain(id(n));
   }
@@ -101,7 +104,7 @@ test('the author index lists exactly the public, indexable notes, newest first',
   expect(html).not.toContain('id="root"');
 });
 
-test('the sitemap lists the same notes, with lastmod', async ({ request, baseURL }) => {
+test('the sitemap lists only the indexable notes, with lastmod', async ({ request, baseURL }) => {
   const res = await request.get(`/share/${MIXED}/sitemap.xml`);
   expect(res.status()).toBe(200);
   expect(res.headers()['content-type']).toContain('application/xml');
@@ -114,6 +117,7 @@ test('the sitemap lists the same notes, with lastmod', async ({ request, baseURL
     [`${baseURL}/share/${MIXED}/${id(1)}`, '2026-02-05T12:00:00.000Z'],
   ]);
   expect(xml.match(/<url>/g)).toHaveLength(2);
+  for (const n of NOT_IN_SITEMAP) expect(xml).not.toContain(id(n));
 });
 
 test('an upstream failure is a 404, not the SPA shell', async ({ request }) => {
@@ -140,7 +144,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.setViewportSize(viewport);
       await page.goto(`/share/${MIXED}`);
       await expect(page.getByRole('heading', { level: 1, name: 'Edge Author' })).toBeVisible();
-      await expect(page.getByRole('listitem')).toHaveCount(2);
+      await expect(page.getByRole('listitem')).toHaveCount(4);
       await expect(page.getByRole('link', { name: 'Newer indexable note' })).toHaveAttribute('href', new RegExp(`/share/${MIXED.replaceAll('.', '\\.')}/${id(2)}$`));
       const logo = page.getByRole('banner').locator('img');
       await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);

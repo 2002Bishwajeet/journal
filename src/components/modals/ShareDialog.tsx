@@ -339,7 +339,7 @@ export default function ShareDialog({
                                                 Hide from search engines
                                             </Label>
                                             <p id="share-indexable-help" className="text-xs leading-relaxed text-muted-foreground">
-                                                Link previews work either way.
+                                                Your author page lists it either way. Link previews work either way.
                                             </p>
                                         </div>
                                         <Switch
