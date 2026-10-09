@@ -29,6 +29,7 @@ import {
     Image,
     ListCollapse,
     MessageSquareWarning,
+    ListEnd,
     type LucideIcon,
 } from 'lucide-react';
 import { safeEditorCommand } from '../../shared';
@@ -160,6 +161,15 @@ const formattingCommands: SlashCommandItem[] = [
         group: 'formatting',
         command: ({ editor, range }) => {
             editor.chain().focus().deleteRange(range).insertContent({ type: 'callout', content: [{ type: 'paragraph' }] }).run();
+        },
+    },
+    {
+        title: 'Footnote',
+        description: 'Numbered note at the end of the page',
+        icon: ListEnd,
+        group: 'formatting',
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).insertFootnote().run();
         },
     },
     {

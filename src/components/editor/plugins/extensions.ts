@@ -31,6 +31,7 @@ import { NoteLink } from '../nodes/NoteLinkNode';
 import { LinkPreview } from '../nodes/LinkPreviewNode';
 import { Toggle } from '../nodes/ToggleNode';
 import { Callout } from '../nodes/CalloutNode';
+import { Footnote, FootnoteReference, Footnotes } from '../nodes/FootnoteNodes';
 import { parseCodeInfo } from '@/lib/liveBlocks';
 
 // Re-export FileHandler for use in EditorProvider
@@ -336,6 +337,8 @@ export function createBaseExtensions(options?: ExtensionOptions) {
             undoRedo: false,
             link: false,
             underline: false,
+            // The footnotes section stays last (#518).
+            trailingNode: { notAfter: ['footnotes'] },
         }),
 
         Placeholder.configure({
@@ -395,5 +398,8 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         options?.linkPreview ?? LinkPreview,
         options?.toggle ?? Toggle,
         options?.callout ?? Callout,
+        FootnoteReference,
+        Footnotes,
+        Footnote,
     ];
 }
