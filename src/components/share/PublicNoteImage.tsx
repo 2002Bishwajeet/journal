@@ -7,6 +7,8 @@ export interface PublicNoteImageProps {
     identity: string;
     noteFileId: string;
     src: string;
+    /** The note's modified time, so an edited note's images get a new URL (#543). */
+    lastModified?: number;
     alt?: string;
     className?: string;
     style?: CSSProperties;
@@ -24,7 +26,7 @@ export interface PublicNoteImageProps {
  * this instance's state (a stale/revoked object URL, or a stale failure)
  * instead of loading the new image.
  */
-export function PublicNoteImage({ identity, noteFileId, src, alt, className, style }: PublicNoteImageProps) {
+export function PublicNoteImage({ identity, noteFileId, src, lastModified, alt, className, style }: PublicNoteImageProps) {
     const ref = parseAttachmentSrc(src, noteFileId);
     const fileId = ref?.fileId;
     const payloadKey = ref?.payloadKey;
@@ -42,6 +44,7 @@ export function PublicNoteImage({ identity, noteFileId, src, alt, className, sty
                 const client = new DotYouClient({ hostIdentity: identity, api: ApiType.Guest });
                 const payload = await getPayloadBytes(client, JOURNAL_DRIVE, fileId, payloadKey, {
                     decrypt: false,
+                    lastModified,
                 });
                 if (cancelled) return;
                 if (!payload?.bytes) {
@@ -59,7 +62,7 @@ export function PublicNoteImage({ identity, noteFileId, src, alt, className, sty
             cancelled = true;
             if (url) URL.revokeObjectURL(url);
         };
-    }, [identity, fileId, payloadKey]);
+    }, [identity, fileId, payloadKey, lastModified]);
 
     if (!fileId || !payloadKey || failed) return null;
 
