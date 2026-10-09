@@ -122,11 +122,22 @@ for (const theme of THEMES) {
     const paragraph = editor.getByText(PARAGRAPH);
     await expect(block).toHaveAttribute('data-live-block-wide', '');
     await expect(htmlFrame(block).locator('#out')).toHaveText('count: 0');
+    // The note's tab in the desktop tab bar: gone in the mobile layout.
+    const closeTab = app.getByRole('button', { name: `Close ${title}`, exact: true });
+    await expect(closeTab).toBeVisible();
 
     for (const viewport of [1280, 390] as const) {
       await app.setViewportSize(VIEWPORTS[viewport]);
+      if (viewport === 390) {
+        // Below 768px the app swaps to its mobile layout: the desktop tab bar goes, and the
+        // note remounts in the router outlet with a new frame. Wait for that remount, then for
+        // the new frame to have loaded its count, before measuring.
+        await expect(closeTab).toBeHidden();
+        await expect(app.getByText('Loading document...')).toHaveCount(0);
+      }
       await expect(htmlFrame(block).locator('#out')).toHaveText(/^count: \d+$/);
-      await expectWide(app, block, paragraph, viewport);
+      // The layout settles over a few frames (the sidebar's transition); measure until it has.
+      await expect(() => expectWide(app, block, paragraph, viewport)).toPass();
       await block.evaluate((el) => el.scrollIntoView({ block: 'center' }));
       await app.screenshot({ path: test.info().outputPath(`wide-editor-${theme}-${viewport}.png`) });
       await expectFullscreen(app, block, `fullscreen-editor-${theme}-${viewport}.png`);
@@ -220,7 +231,7 @@ for (const theme of THEMES) {
     for (const viewport of [1280, 390] as const) {
       await anonPage.setViewportSize(VIEWPORTS[viewport]);
       await expect(htmlFrame(block).locator('#out')).toHaveText(/^count: \d+$/);
-      await expectWide(anonPage, block, paragraph, viewport);
+      await expect(() => expectWide(anonPage, block, paragraph, viewport)).toPass();
       await block.evaluate((el) => el.scrollIntoView({ block: 'center' }));
       await anonPage.screenshot({ path: test.info().outputPath(`wide-share-${theme}-${viewport}.png`) });
       await expectFullscreen(anonPage, block, `fullscreen-share-${theme}-${viewport}.png`);
