@@ -273,10 +273,13 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
                         <ImagePlus />
                         Change dark mode cover
                       </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => setRepositioning("dark")}>
-                        <Move />
-                        Reposition dark mode cover
-                      </DropdownMenuItem>
+                      {/* In dark mode the Reposition button already moves the dark cover. */}
+                      {themeVariant === "light" && (
+                        <DropdownMenuItem onSelect={() => setRepositioning("dark")}>
+                          <Move />
+                          Reposition dark mode cover
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onSelect={() => void removeCover("dark")}>
                         <Trash2 />
                         Remove dark mode cover
