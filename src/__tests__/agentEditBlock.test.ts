@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
 import { updateYFragment, yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
-import { editorSchema, createDoc, editBlock, noteBlocks, replaceInNote, toMarkdown } from '@/lib/agent/editEngine';
+import { editorSchema, createDoc, editBlock, noteBlocks, replaceInNote, toMarkdown, type LinkTarget } from '@/lib/agent/editEngine';
 
 const frag = (doc: Y.Doc) => doc.getXmlFragment('prosemirror');
 const topElements = (doc: Y.Doc) => frag(doc).toArray() as Y.XmlElement[];
@@ -394,5 +394,40 @@ describe('editBlock: tables', () => {
       },
     ]);
     expect(() => editBlock(doc, ids(doc)[0], { type: 'insert_column', at: 0 })).toThrow('merged cells');
+  });
+});
+
+describe('editBlock: note links (#561)', () => {
+  const TARGETS: LinkTarget[] = [{ id: 'trip-1', title: 'Trip plan' }];
+  const noteLink = (noteId: string, label: string) => ({ type: 'noteLink', attrs: { noteId, label } });
+  const withHidden = () =>
+    docFromJSON([
+      { type: 'paragraph', content: [{ type: 'text', text: 'See ' }, noteLink('hidden-9', 'Secret')] },
+      para('Other'),
+    ]);
+
+  it("noteBlocks should read a link to a note the agent can't see as its label only", () => {
+    const doc = withHidden();
+    expect(noteBlocks(doc, TARGETS)[0].markdown).toBe('See Secret');
+    expect(noteBlocks(doc)[0].markdown).toBe('See [Secret](journal:note/hidden-9)');
+  });
+
+  it('should resolve [[Title]] against the targets', () => {
+    const doc = withHidden();
+    editBlock(doc, ids(doc)[1], { type: 'replace', markdown: 'Read [[Trip plan]]' }, undefined, TARGETS);
+    expect(noteBlocks(doc, TARGETS)[1].markdown).toBe('Read [Trip plan](journal:note/trip-1)');
+  });
+
+  it("should refuse to rewrite a block holding a link to a note the agent can't see, but may delete it", () => {
+    const doc = withHidden();
+    const [hidden] = ids(doc);
+    const before = Y.encodeStateAsUpdate(doc);
+    expect(() => editBlock(doc, hidden, { type: 'replace', markdown: 'See Secret' }, undefined, TARGETS)).toThrow(
+      "edit_block: this block holds a link to a note you can't see; edit a different block"
+    );
+    expect(Y.encodeStateAsUpdate(doc)).toEqual(before);
+    editBlock(doc, hidden, { type: 'insert_after', markdown: 'Added' }, undefined, TARGETS);
+    editBlock(doc, hidden, { type: 'delete' }, undefined, TARGETS);
+    expect(toMarkdown(doc)).toBe('Added\n\nOther');
   });
 });

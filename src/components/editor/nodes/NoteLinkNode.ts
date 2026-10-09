@@ -16,6 +16,9 @@ export interface NoteLinkAttributes {
   label: string;
 }
 
+const NOTE_LINK_MARKDOWN = /^\[((?:\\.|[^\\[\]\n])*)\]\(journal:note\/([\w-]+)\)/;
+const WIKI_LINK_MARKDOWN = /^\[\[([^[\]\n]+)\]\]/;
+
 export const NoteLink = Node.create({
   name: "noteLink",
   group: "inline",
@@ -61,4 +64,22 @@ export const NoteLink = Node.create({
   renderText({ node }) {
     return node.attrs.label || "";
   },
+
+  // Markdown -> note link (#561): `[label](journal:note/<id>)`, as fragmentToMarkdown
+  // writes it, or `[[Note title]]` (noteId null), which the agent edit engine resolves.
+  markdownTokenizer: {
+    name: "noteLink",
+    level: "inline",
+    start: (src) => src.indexOf("["),
+    tokenize(src) {
+      const link = NOTE_LINK_MARKDOWN.exec(src);
+      if (link) return { type: "noteLink", raw: link[0], noteId: link[2], label: link[1].replace(/\\(.)/g, "$1") };
+      const wiki = WIKI_LINK_MARKDOWN.exec(src);
+      if (wiki?.[1].trim()) return { type: "noteLink", raw: wiki[0], noteId: null, label: wiki[1].trim() };
+      return undefined;
+    },
+  },
+
+  parseMarkdown: (token, helpers) =>
+    helpers.createNode("noteLink", { noteId: token.noteId, label: token.label }),
 });

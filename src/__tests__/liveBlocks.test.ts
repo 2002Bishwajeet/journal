@@ -125,6 +125,11 @@ describe('buildSrcdoc', () => {
     expect(head('')).toContain('--font-sans:"Inter Variable", system-ui, sans-serif;');
   });
 
+  it("should make a react block's shadows softer in the dark theme (#559)", () => {
+    expect(head('')).toContain('--shadow-strength:0.6;');
+    expect(head('', { ...THEME, colorScheme: 'light' })).toContain('--shadow-strength:1;');
+  });
+
   it("should declare the app's colour scheme, which is what lets the frame be transparent", () => {
     expect(head('')).toContain('color-scheme:dark}');
     expect(head('', { ...THEME, colorScheme: 'light' })).toContain('color-scheme:light}');

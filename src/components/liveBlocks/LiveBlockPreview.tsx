@@ -22,7 +22,8 @@
  *   reactBlockCompiler, then runs in the same frame as an html block, on the
  *   app's own React: vite.config.ts builds it into a script that is inlined in
  *   the frame's srcdoc, so nothing comes from the network (#426). The same goes
- *   for its Tailwind sheet and the libraries it may import (#427). A compile
+ *   for its Tailwind sheet and the libraries it may import (#427); classes the
+ *   sheet lacks are compiled for the block along with its JSX (#559). A compile
  *   error is shown as text in place of the frame.
  */
 import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -165,7 +166,7 @@ function ReactPreview({ source, store, onHeight, wide }: Pick<LiveBlockPreviewPr
     (async () => {
       let next: ReactResult;
       try {
-        const [{ compileReactBlock, reactBlockImports }, { default: react }, { default: tailwind }] = await Promise.all([
+        const [{ compileReactBlock, compileBlockTailwind, reactBlockImports }, { default: react }, { default: tailwind }] = await Promise.all([
           import('@/lib/reactBlockCompiler'),
           import('virtual:react-block-runtime'),
           import('virtual:react-block-tailwind'),
@@ -176,8 +177,11 @@ function ReactPreview({ source, store, onHeight, wide }: Pick<LiveBlockPreviewPr
         } else {
           // A library loads only for a block that imports it (#427); `lodash` and `lodash-es` are one script.
           const loads = reactBlockImports(compiled.code).filter((name) => Object.hasOwn(REACT_BLOCK_LIBRARY_SCRIPTS, name));
-          const scripts = await Promise.all(loads.map((name) => REACT_BLOCK_LIBRARY_SCRIPTS[name as ReactBlockLibrary]().then((module) => module.default)));
-          next = { source, page: reactBlockDocument({ react, tailwind, libraries: [...new Set(scripts)] }, compiled.code) };
+          const [scripts, blockTailwind] = await Promise.all([
+            Promise.all(loads.map((name) => REACT_BLOCK_LIBRARY_SCRIPTS[name as ReactBlockLibrary]().then((module) => module.default))),
+            compileBlockTailwind(source),
+          ]);
+          next = { source, page: reactBlockDocument({ react, tailwind, libraries: [...new Set(scripts)] }, compiled.code, blockTailwind) };
         }
       } catch (err) {
         // Offline, before any react block was ever shown: the compiler and runtime are not cached yet.

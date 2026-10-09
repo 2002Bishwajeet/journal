@@ -8,6 +8,10 @@
 @source not "../mcp/README.md";
 @source not "../mcp/createServer.ts";
 @source not "../e2e/editor/live-react-artifact.spec.ts";
+@source not "./lib/reactBlockCompiler.ts";
+@source not "../e2e/editor/live-react-styling.spec.ts";
+/* The examples of mcp/AUTHORING.md's "Going further" (#559). */
+@source not inline("bg-[#ff6600] text-[13px] w-[420px] grid-cols-[1fr_2fr] rotate-3 text-gray-600");
 
 /* Self-hosted fonts: same-origin so they survive COEP and get precached. */
 @import "@fontsource-variable/inter";

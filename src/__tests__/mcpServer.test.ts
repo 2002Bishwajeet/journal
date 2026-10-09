@@ -326,6 +326,19 @@ describe('the authoring guide (#519)', () => {
         }
     });
 
+    it('says how a react block goes past the theme: real shadows, arbitrary values, md: and lg:, palette-raw (#559)', () => {
+        for (const text of [
+            "Tailwind's own shadows, softer in the dark theme",
+            '#### Going further',
+            '`bg-[#ff6600]`',
+            '`md:` (from 768px), `lg:` (from 1024px)',
+            'put `palette-raw` on the block\'s root element',
+        ]) {
+            expect(GUIDE).toContain(text);
+        }
+        expect(GUIDE).not.toContain('`md:` and wider never apply');
+    });
+
     it('shows the syntax of every native block, and the complete examples', () => {
         for (const text of [
             '> [!info]',
@@ -341,6 +354,9 @@ describe('the authoring guide (#519)', () => {
             '[^1]: ',
             '![alt](/absolute/path/to/file.png)',
             'attachment://',
+            '[label](journal:note/<id>)',
+            '[[Note title]]',
+            '<https://journal.cloudx.run><!-- preview -->',
             'set_note_cover',
             '### A small dashboard',
             '### An interactive calculator',

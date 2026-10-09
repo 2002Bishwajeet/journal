@@ -152,9 +152,34 @@ the same while the block exists, across edits, reloads and devices.
 It returns the ids of the blocks the op leaves (none for `delete`). An id that no longer
 exists fails with "block not found"; call `get_note` with `format: "blocks"` again.
 
-### Not available through these tools
+### Note links
 
-Link-preview cards (a link on its own line stays a plain link) and note-to-note links.
+A link to another note is `[label](journal:note/<id>)`, with the id `list_notes` or
+`search_notes` gives. Clicking it in Journal opens that note, and Journal shows the note's
+current title. You can also write `[[Note title]]`: it links the one note you can see
+with that title (ignoring case), and the call fails if none or several match. `get_note`
+returns every note link as `[label](journal:note/<id>)`.
+
+```markdown
+Packing is in [[Packing list]], and the route in [the plan](journal:note/3f2a9c1e-…).
+```
+
+A link to a note you can't see comes back as its label only. Keep that text as it is to
+keep the link; `replace_in_note` and `edit_block` refuse to rewrite a block holding
+one.
+
+### Link previews
+
+A card with the page's title, description and image: a link alone on its line, followed
+by `<!-- preview -->`. Write the link as `<https://…>`; Journal fetches the title,
+description and image when the note opens, as for a pasted link. `get_note` returns a
+card as `[Page title](https://…)<!-- preview -->` once its title is fetched, and
+`<https://…><!-- preview -->` before that; keep that line as it is to keep the card. A
+card can't open a list item: there the line stays a plain link.
+
+```markdown
+<https://journal.cloudx.run><!-- preview -->
+```
 
 ## Live blocks
 
@@ -360,10 +385,12 @@ export default function App() {
 #### Tailwind in a `react` block
 
 A `react` block gets a fixed Tailwind stylesheet, built with Journal and drawn in its
-theme. It follows the light and dark theme by itself: no `dark:` variant is needed, and
-`dark:` classes do nothing. Classes outside this list also do nothing. There is no
-preflight: the frame keeps the note's font, and unstyled buttons, inputs and tables
-still look like Journal's.
+theme, with the classes below. It follows the light and dark theme by itself:
+no `dark:` variant is needed, and `dark:` classes do nothing. Any other Tailwind class the
+block spells out in its source is compiled for that block when it renders (see "Going
+further" below). A class put together at run time, such as `` `bg-${tone}-500` ``, works
+only when it is in this list. There is no preflight: the frame keeps the note's font, and
+unstyled buttons, inputs and tables still look like Journal's.
 
 | Family | Classes |
 |---|---|
@@ -372,9 +399,9 @@ still look like Journal's.
 | Sizing | `w-*` `h-*` `size-*` (the spacing scale up to `96`, `auto` `full` `fit` `min` `max` and halves to quarters), `w-screen` `h-screen`, `min-w-*` `min-h-*`, `max-w-xs`…`4xl` `max-w-prose` `max-w-full`, `max-h-*` |
 | Typography | `text-xs`…`text-6xl`, `font-sans` (the note's font) `font-mono`, `font-light`…`font-extrabold`, `leading-*` `tracking-*`, `text-left` `text-center` `text-right` `text-justify`, `truncate` `line-clamp-1`…`3` `break-words` `whitespace-*`, `uppercase` `italic` `underline` `tabular-nums` |
 | Borders | `border` `border-0` `border-2` `border-4` and each side, `border-dashed` `border-dotted`, `divide-x` `divide-y`, `rounded` `rounded-sm`…`rounded-full` and each side, `ring` `ring-0`…`ring-4` `ring-inset` |
-| Effects | `opacity-*`, `shadow` `shadow-sm`…`shadow-2xl` (all one hairline: the note is flat), `transition` `transition-colors` `duration-100` `200` `300` `ease-*`, `cursor-pointer` `select-none` `sr-only` |
+| Effects | `opacity-*`, `shadow` `shadow-sm`…`shadow-2xl` (Tailwind's own shadows, softer in the dark theme), `transition` `transition-colors` `duration-100` `200` `300` `ease-*`, `cursor-pointer` `select-none` `sr-only` |
 | Colours | `bg-*` `text-*` `border-*` `from-*` `via-*` `to-*` with `bg-gradient-to-*` or `bg-linear-to-*`, and `hover:bg-*`: every colour name below. `ring-*` `divide-*` `hover:text-*` `hover:border-*`: the theme names and the grays. `fill-*` `stroke-*` `focus-visible:ring-*` `focus-visible:border-*`: the theme names, `white`, `black` and `current` |
-| Variants | `hover:` and `focus-visible:` on the colours above, `hover:opacity-*`, `focus-visible:ring-*` `focus-visible:outline-none`; `sm:` on display, flex direction, `grid-cols-*`, `col-span-*` and text size. The frame is about 650px wide, so `md:` and wider are not in the sheet, even for a `wide` or fullscreen block |
+| Variants | `hover:` and `focus-visible:` on the colours above, `hover:opacity-*`, `focus-visible:ring-*` `focus-visible:outline-none`; `sm:` on display, flex direction, `grid-cols-*`, `col-span-*` and text size. `md:` and wider: see "Going further" |
 
 A bare `border`, `divide-y` or `ring` is drawn in `--border` or `--ring`.
 
@@ -404,7 +431,25 @@ A hue's shades 300–600 are its chart colour itself. Shades 50, 100 and 200 are
 washed into `--background` (12%, 20% and 32% of it), and shades 700, 800, 900 and 950 are
 it taken towards `--foreground` (80%, 65%, 50% and 35% of it). So `bg-blue-50 text-blue-900`
 is a pale panel with strong text in both themes, and `bg-blue-500 text-white` a strong
-button. Opacity modifiers such as `bg-blue-500/50` are not in the sheet.
+button. An opacity modifier such as `bg-blue-500/50` is compiled for the block, in the
+same colour.
+
+#### Going further
+
+The theme names and the mapped palette are the recommended default. When the user asks
+for a distinct look, or the block is meant to stand out, these are the ways past them:
+
+- **Any Tailwind class, with arbitrary values**: `bg-[#ff6600]`, `text-[13px]`,
+  `w-[420px]`, `grid-cols-[1fr_2fr]`, `rotate-3`, `backdrop-blur-sm`. Write each class out
+  in full in the source; the block's page then gets it, compiled for that block.
+- **Responsive variants**: `md:` (from 768px), `lg:` (from 1024px) and wider, on any
+  class. They follow the width of the block's frame, not the window's. In the note column
+  the frame is about 650px wide, so `md:` and wider apply only fullscreen or in a `wide`
+  block on a large screen: lay the block out for the narrow frame first.
+- **Tailwind's own palette**: put `palette-raw` on the block's root element, and its
+  palette names (`bg-blue-500`, `text-gray-600`, `white`, `black`) are Tailwind's real
+  colours instead of the theme's. The theme names (`bg-muted`, `text-foreground`) stay the
+  theme's. A fixed colour suits one theme at most, so make sure the block reads in both.
 
 #### Charts in a `react` block
 
