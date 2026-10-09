@@ -35,6 +35,7 @@ const sharedNote = (content: string): SharedNoteData => ({
     title: 'Shared thing',
     content,
     fileId: 'file-id',
+    lastModified: 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
 });
