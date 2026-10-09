@@ -58,3 +58,28 @@ test('mobile: nav strip switches sections and long content scrolls', async ({ ap
   await app.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
 });
+
+test('mobile 390px: close button does not overlap the section tab strip', async ({ app }) => {
+  await app.setViewportSize({ width: 390, height: 844 });
+  await app.getByRole('button', { name: 'Settings' }).click();
+
+  const dialog = app.getByRole('dialog');
+  const close = dialog.locator('[data-slot=dialog-close]');
+  const tabs = dialog.getByRole('tablist');
+  await expect(close).toBeVisible();
+  await expect(tabs).toBeVisible();
+  // Wait for the open animation to finish (no running animations, full opacity).
+  await expect
+    .poll(() =>
+      dialog.evaluate(
+        (el) => el.getAnimations({ subtree: true }).length === 0 && getComputedStyle(el).opacity === '1',
+      ),
+    )
+    .toBe(true);
+
+  const closeBox = (await close.boundingBox())!;
+  const tabsBox = (await tabs.boundingBox())!;
+  expect(closeBox.y + closeBox.height).toBeLessThanOrEqual(tabsBox.y);
+
+  await app.screenshot({ path: test.info().outputPath('settings-close-light-390.png') });
+});
