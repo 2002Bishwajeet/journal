@@ -208,8 +208,9 @@ body {
 .prose h2 { font-size: 1.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; }
 .prose h3 { font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
 .prose h4 { font-size: 1.125rem; margin-top: 1.25rem; margin-bottom: 0.5rem; }
-.prose h5 { font-size: 1rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; }
-.prose h6 { font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); margin-top: 1rem; margin-bottom: 0.5rem; }
+/* h5/h6 sit below body size: weight, letter-spacing and (h6) case + muted colour carry the level. */
+.prose h5 { font-size: 0.9375rem; letter-spacing: 0.01em; margin-top: 1rem; margin-bottom: 0.5rem; }
+.prose h6 { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); margin-top: 1rem; margin-bottom: 0.5rem; }
 .prose p { margin-top: 0.75rem; margin-bottom: 0.75rem; line-height: 1.7; }
 
 /* Links */
