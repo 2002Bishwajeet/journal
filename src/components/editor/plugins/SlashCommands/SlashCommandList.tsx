@@ -8,6 +8,7 @@
 import { useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { Editor } from '@tiptap/react';
 import { cn } from '@/lib/utils';
+import { useScrollSelectedIntoView } from '@/hooks/useScrollSelectedIntoView';
 import { slashCommandItems, filterCommands, type SlashCommandItem } from './slashCommandItems';
 
 export interface SlashCommandListRef {
@@ -25,6 +26,7 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
   ({ editor, range, query }, ref) => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const filteredItems = filterCommands(slashCommandItems, query);
+    const listRef = useScrollSelectedIntoView<HTMLDivElement>(selectedIndex);
 
     // Reset selection when query changes (adjust state during render)
     const [prevQuery, setPrevQuery] = useState(query);
@@ -92,6 +94,7 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
       return (
         <button
           key={item.title}
+          data-index={index}
           onClick={() => selectItem(index)}
           onMouseEnter={() => setSelectedIndex(index)}
           className={cn(
@@ -111,7 +114,7 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
     };
 
     return (
-      <div className="z-50 w-72 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg animate-in fade-in-0 zoom-in-95">
+      <div ref={listRef} className="z-50 w-72 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg animate-in fade-in-0 zoom-in-95">
         {formattingItems.length > 0 && (
           <div className="p-1">
             <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Formatting</p>
