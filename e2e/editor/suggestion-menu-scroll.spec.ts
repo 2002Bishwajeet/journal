@@ -47,8 +47,11 @@ test('emoji menu keeps the highlighted item visible', async ({ app }) => {
 });
 
 test('note-link menu keeps the highlighted item visible', async ({ app }) => {
+  // Seeding notes through the UI is slow; 8 matches (the picker's limit) plus
+  // the "create" row already overflow the menu.
+  test.slow();
   const stamp = `Zq${Date.now()}`;
-  for (let n = 0; n < 12; n++) {
+  for (let n = 0; n < 8; n++) {
     await createNote(app, { title: `${stamp} ${n}`, body: 'x' });
   }
   await createNote(app, { title: `Linker ${stamp}`, body: `[[${stamp}` });
