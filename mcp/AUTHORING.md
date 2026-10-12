@@ -515,6 +515,19 @@ screen. In order:
 3. **A wide block reads as a figure between paragraphs.** Do not stack several wide blocks
    with no prose between them, unless the note is a dashboard.
 
+Common mistakes at 390px, and the fix for each:
+
+| Mistake | Fix |
+|---|---|
+| `width: 600px` / `w-[600px]` | `max-width: 600px` / `w-full max-w-[600px]` |
+| Side-by-side rows that never wrap | `flex-wrap`, or a grid with `repeat(auto-fit, minmax(160px, 1fr))` |
+| A wide table | wrap it in a `div` with `overflow-x: auto` |
+| A canvas with a fixed size | size it from its container, and redraw on resize |
+| Controls that appear only on hover | show them on tap and focus as well |
+| `100vh` / `h-screen` / `min-h-screen` | let the content set the height |
+
+The server warns when a saved block sets a fixed width over 360px or a viewport height.
+
 As with the design rules, these are the defaults: when the user asks for a different
 layout, build that.
 
@@ -578,6 +591,9 @@ header, a restyled button and a fixed height, and it is wrong in the dark theme.
 
 Check a block in both themes before you finish: every colour should come from a variable
 or a theme class, and nothing should depend on a white or a black page.
+
+Check the block at 390px before you finish: one column, nothing wider than the frame, and
+every control usable by tap, without hover.
 
 ## Examples
 
