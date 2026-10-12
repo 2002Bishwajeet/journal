@@ -394,12 +394,6 @@ img.ProseMirror-separator {
   [data-gallery] > .gallery-break[data-row-break~='narrow'] {
     display: block;
   }
-
-  /* An odd one out keeps the width of one of a pair rather than filling the row.
-     In the editor ProseMirror's cursor helpers follow the last image. */
-  [data-gallery] > .gallery-break[data-row-break~='narrow'] + :is(:last-child, :has(+ .ProseMirror-separator), :has(+ .ProseMirror-trailingBreak)) {
-    flex: 0 1 calc(50% - 0.125rem);
-  }
 }
 
 /* ProseMirror's cursor helpers after the last image would take a slot of the row. */
