@@ -134,6 +134,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const [a, b, c] = [await box(drawn(0)), await box(drawn(1)), await box(drawn(2))];
       expect(Math.abs(a.height - b.height)).toBeLessThan(2);
       expect(Math.abs(a.height - c.height)).toBeLessThan(2);
+      expect(Math.abs(a.y - c.y)).toBeLessThan(2);
+      expect(Math.abs(b.y - c.y)).toBeLessThan(2);
       expect(a.width / a.height).toBeCloseTo(1, 1);
       expect(b.width / b.height).toBeCloseTo(4 / 3, 1);
     }).toPass();

@@ -135,7 +135,7 @@ for (const theme of THEMES) {
 
     await expect.poll(async () => {
       const [a, b, c] = [await box(frames.nth(0)), await box(frames.nth(1)), await box(square)];
-      return near(a.y, b.y) && near(a.height, b.height) && near(a.height, c.height) && near(a.width / a.height, 1) && near(b.width / b.height, 4 / 3);
+      return near(a.y, b.y) && near(a.y, c.y) && near(a.height, b.height) && near(a.height, c.height) && near(a.width / a.height, 1) && near(b.width / b.height, 4 / 3);
     }).toBe(true);
     await gallery.scrollIntoViewIfNeeded();
     await anonPage.screenshot({ path: test.info().outputPath(`share-gallery-edited-${theme}-1280.png`) });
