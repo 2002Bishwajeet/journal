@@ -27,6 +27,12 @@ describe('Slash Command Items', () => {
     expect(image!.group).toBe('formatting');
   });
 
+  it('should find the Gallery command by /gallery, /images and /grid (#603)', () => {
+    expect(filterCommands(slashCommandItems, 'gallery')[0].title).toBe('Gallery');
+    expect(filterCommands(slashCommandItems, 'images')[0].title).toBe('Gallery');
+    expect(filterCommands(slashCommandItems, 'grid').map(r => r.title)).toContain('Gallery');
+  });
+
   it('should include Toggle and Callout blocks (#159)', () => {
     const toggle = slashCommandItems.find(item => item.title === 'Toggle');
     const callout = slashCommandItems.find(item => item.title === 'Callout');

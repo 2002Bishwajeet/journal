@@ -6,8 +6,31 @@
  */
 
 import { Extension } from '@tiptap/core';
-import { ySyncPlugin, yUndoPlugin, undo, redo } from 'y-prosemirror';
+import { Plugin } from '@tiptap/pm/state';
+import { ySyncPlugin, ySyncPluginKey, yUndoPlugin, undo, redo, type ProsemirrorBinding } from 'y-prosemirror';
 import type { XmlFragment } from 'yjs';
+
+/**
+ * After an undo, redo or remote change y-prosemirror restores the selection, a node
+ * selection with NodeSelection.create, which throws when the node has gone from that
+ * spot (undoing an image dragged to the end of a line, #603) and leaves the change
+ * half applied. Kept as a text selection over the same range, it always restores.
+ */
+function nodeSelectionsAsText(): Plugin {
+    return new Plugin({
+        view: (view) => {
+            const binding: ProsemirrorBinding | undefined = ySyncPluginKey.getState(view.state)?.binding;
+            if (!binding) return {};
+            // Runs after the binding's own listener, which saves the selection
+            const toText = () => {
+                const saved = binding.beforeTransactionSelection;
+                if (saved?.type === 'node') binding.beforeTransactionSelection = { ...saved, type: 'text' };
+            };
+            binding.doc.on('beforeAllTransactions', toText);
+            return { destroy: () => binding.doc.off('beforeAllTransactions', toText) };
+        },
+    });
+}
 
 /**
  * Creates a collaboration extension for the given Y.js XML fragment.
@@ -32,6 +55,7 @@ export function createCollaborationExtension(yXmlFragment: XmlFragment) {
                 ySyncPlugin(yXmlFragment),
                 // Let y-prosemirror create and manage the UndoManager internally
                 yUndoPlugin(),
+                nodeSelectionsAsText(),
             ];
         },
 

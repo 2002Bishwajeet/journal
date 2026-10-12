@@ -27,6 +27,7 @@ import {
     FileText,
     Wand2,
     Image,
+    Images,
     ListCollapse,
     MessageSquareWarning,
     ListEnd,
@@ -43,6 +44,19 @@ export interface SlashCommandItem {
     icon: LucideIcon;
     group: 'formatting' | 'ai';
     command: (props: { editor: Editor; range: { from: number; to: number } }) => void;
+}
+
+/** Clears the slash text, then hands the image files picked (several allowed) to `insert`. */
+function pickImages(editor: Editor, range: { from: number; to: number }, insert: (files: File[]) => void): void {
+    editor.chain().focus().deleteRange(range).run();
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.onchange = () => {
+        safeEditorCommand(editor, () => insert(Array.from(input.files ?? [])));
+    };
+    input.click();
 }
 
 /**
@@ -216,15 +230,17 @@ const formattingCommands: SlashCommandItem[] = [
         icon: Image,
         group: 'formatting',
         command: ({ editor, range }) => {
-            editor.chain().focus().deleteRange(range).run();
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.multiple = true;
-            input.onchange = () => {
-                safeEditorCommand(editor, () => editor.commands.insertImageFiles(Array.from(input.files ?? [])));
-            };
-            input.click();
+            pickImages(editor, range, (files) => editor.commands.insertImageFiles(files));
+        },
+    },
+    {
+        title: 'Gallery',
+        description: 'Images side by side',
+        keywords: ['images', 'grid', 'photos'],
+        icon: Images,
+        group: 'formatting',
+        command: ({ editor, range }) => {
+            pickImages(editor, range, (files) => editor.commands.insertImageGallery(files));
         },
     },
     {
