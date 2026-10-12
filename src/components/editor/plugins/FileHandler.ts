@@ -7,6 +7,7 @@
 
 import { Extension, type Editor } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { yUndoPluginKey } from 'y-prosemirror';
 import { toast } from 'sonner';
 import { getNewId } from '@homebase-id/js-lib/helpers';
 import { prepareImageForUpload, UnsupportedImageError } from '@/lib/images/imageIngest';
@@ -27,23 +28,26 @@ declare module '@tiptap/core' {
         fileHandler: {
             /** Validate, insert and queue image files — the same path as drop/paste. */
             insertImageFiles: (files: File[]) => ReturnType;
+            /** Swap the file of the image node at `pos` in place: width, align and alt stay. */
+            replaceImageFile: (pos: number, file: File) => ReturnType;
         };
     }
 }
 
-async function processImageFile(editor: Editor, options: FileHandlerOptions, file: File, pos?: number): Promise<boolean> {
+/** Validate, process and queue a file; null (after a toast) when it can't be used. */
+async function queueImageFile(options: FileHandlerOptions, file: File): Promise<{ processed: File; pendingId: string } | null> {
     const { maxSizeMB, allowedTypes, onImageDrop, imagesReadOnly } = options;
 
     // Otherwise the upload would be queued and could never succeed
     if (imagesReadOnly) {
         toast.error("Images can't be added to notes shared with you yet");
-        return false;
+        return null;
     }
 
     // Validate file type
     if (!allowedTypes.includes(file.type)) {
         toast.error(`Unsupported file type: ${file.type}`);
-        return false;
+        return null;
     }
 
     // Downscale, re-orient and strip EXIF before the file is sized, queued or shown
@@ -57,13 +61,13 @@ async function processImageFile(editor: Editor, options: FileHandlerOptions, fil
             console.error('[FileHandler] Failed to process image:', error);
             toast.error('Failed to process image');
         }
-        return false;
+        return null;
     }
 
     // Validate file size (against the processed bytes)
     if (processed.size > maxSizeMB * 1024 * 1024) {
         toast.error(`File too large. Maximum size is ${maxSizeMB}MB`);
-        return false;
+        return null;
     }
 
     const pendingId = getNewId();
@@ -75,9 +79,15 @@ async function processImageFile(editor: Editor, options: FileHandlerOptions, fil
     } catch (error) {
         console.error('[FileHandler] Failed to queue image:', error);
         toast.error('Failed to queue image for upload');
-        return false;
+        return null;
     }
-    if (editor.isDestroyed) return false;
+    return { processed, pendingId };
+}
+
+async function processImageFile(editor: Editor, options: FileHandlerOptions, file: File, pos?: number): Promise<boolean> {
+    const queued = await queueImageFile(options, file);
+    if (!queued || editor.isDestroyed) return false;
+    const { processed, pendingId } = queued;
 
     const content = {
         type: 'image',
@@ -94,6 +104,31 @@ async function processImageFile(editor: Editor, options: FileHandlerOptions, fil
     }
 
     return true;
+}
+
+async function replaceImageFile(editor: Editor, options: FileHandlerOptions, pos: number, file: File): Promise<void> {
+    const oldSrc = editor.state.doc.nodeAt(pos)?.attrs.src;
+    const queued = await queueImageFile(options, file);
+    if (!queued || editor.isDestroyed) return;
+
+    // The doc may have changed while the file was processed
+    const node = editor.state.doc.nodeAt(pos);
+    if (node?.type.name !== 'image' || node.attrs.src !== oldSrc) {
+        toast.error('The image moved; replace it again');
+        return;
+    }
+
+    // One undo step of its own, so undo brings the old image back (the deletion tracker waits for that).
+    const undoManager = yUndoPluginKey.getState(editor.state)?.undoManager;
+    undoManager?.stopCapturing();
+    editor.view.dispatch(
+        editor.state.tr.setNodeMarkup(pos, undefined, {
+            ...node.attrs,
+            src: URL.createObjectURL(queued.processed),
+            'data-pending-id': queued.pendingId,
+        }),
+    );
+    undoManager?.stopCapturing();
 }
 
 export const FileHandler = Extension.create<FileHandlerOptions>({
@@ -113,6 +148,10 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
             // Each insert lands after its queue write, outside this command's transaction.
             insertImageFiles: (files: File[]) => () => {
                 for (const file of files) void processImageFile(this.editor, this.options, file);
+                return true;
+            },
+            replaceImageFile: (pos: number, file: File) => () => {
+                void replaceImageFile(this.editor, this.options, pos, file);
                 return true;
             },
         };

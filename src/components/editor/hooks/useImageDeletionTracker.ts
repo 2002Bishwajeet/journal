@@ -61,6 +61,10 @@ export function useImageDeletionTracker({ docId, yXmlFragment }: UseImageDeletio
             // Check if any image node was deleted
             let imageDeleted = false;
             for (const event of events) {
+                // Replacing an image swaps its src in place: the old payload is orphaned without a node deleted
+                if (event instanceof Y.YXmlEvent && event.target instanceof Y.XmlElement && event.target.nodeName === 'image' && event.attributesChanged.has('src')) {
+                    imageDeleted = true;
+                }
                 if (event.changes.deleted.size > 0) {
                     event.changes.deleted.forEach((item) => {
                         if (item.content) {

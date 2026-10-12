@@ -152,4 +152,19 @@ describe('FileHandler drop/paste of an unsupported type (#176)', () => {
         expect(toast.error).toHaveBeenCalledWith('Unsupported image type');
         expect(images(e)).toEqual([]);
     });
+
+    it('replaces an image in place, keeping width, align and alt', async () => {
+        e.commands.insertContent({
+            type: 'image',
+            attrs: { src: 'attachment://f/k', alt: 'cat', width: 200, align: 'left' },
+        });
+        const next = file('image/png');
+        e.commands.replaceImageFile(1, next);
+
+        await vi.waitFor(() => expect(images(e)[0].src).toBe('blob:test'));
+        expect(images(e)).toHaveLength(1);
+        expect(images(e)[0]).toMatchObject({ alt: 'cat', width: 200, align: 'left' });
+        expect(images(e)[0]['data-pending-id']).toBeTruthy();
+        expect(onImageDrop).toHaveBeenCalledWith(next, images(e)[0]['data-pending-id']);
+    });
 });
