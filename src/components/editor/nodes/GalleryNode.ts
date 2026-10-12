@@ -1,7 +1,7 @@
 /**
  * Image gallery block (#601): two or more images side by side. Holds the existing
- * inline image node, so images (and their #583 captions) need no migration. Only
- * the `row` layout exists so far; `layout` is kept for the ones to come.
+ * inline image node, so images (and their #583 captions) need no migration. `layout`
+ * is row, grid, masonry or carousel (#602), picked in the toolbar above the gallery.
  *
  * Headless-safe: the plugins below only touch the DOM through an EditorView.
  */
@@ -11,7 +11,7 @@ import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { ySyncPluginKey } from 'y-prosemirror';
 import { inListItem } from './markdownParse';
-import { galleryRowBreaks, watchGalleryAspect } from './galleryLayout';
+import { GALLERY_LAYOUTS, createCarouselNav, galleryRowBreaks, toGalleryLayout, watchGalleryAspect } from './galleryLayout';
 import { dropTargetAt, galleryDropPlugin } from './galleryDrag';
 
 export const GALLERY = 'gallery';
@@ -54,6 +54,7 @@ function rowBreak(modes: string): HTMLElement {
 function rowBreakDecorations(doc: PMNode): DecorationSet {
   const decorations: Decoration[] = [];
   eachGallery(doc, (gallery, pos) => {
+    if (gallery.attrs.layout !== 'row') return;
     const starts: number[] = [];
     gallery.forEach((_child, offset) => starts.push(pos + 1 + offset));
     for (const { index, modes } of galleryRowBreaks(gallery.childCount)) {
@@ -73,7 +74,7 @@ export const Gallery = Node.create({
     return {
       layout: {
         default: 'row',
-        parseHTML: (el) => el.getAttribute('data-gallery') || 'row',
+        parseHTML: (el) => toGalleryLayout(el.getAttribute('data-gallery')),
         renderHTML: (attrs) => ({ 'data-gallery': attrs.layout }),
       },
     };
@@ -113,7 +114,7 @@ export const Gallery = Node.create({
       return {
         type: GALLERY,
         raw: src.slice(0, open[0].length + close.index + close[0].length),
-        layout: open[1],
+        layout: toGalleryLayout(open[1]),
         tokens: lexer.blockTokens(body.slice(0, -2)),
       };
     },
@@ -123,6 +124,57 @@ export const Gallery = Node.create({
     const blocks = (helpers.parseBlockChildren ?? helpers.parseChildren)(token.tokens ?? []);
     const inline = blocks.flatMap((block) => (block.type === 'paragraph' ? (block.content ?? []) : [block]));
     return helpers.createNode(GALLERY, { layout: token.layout }, inline);
+  },
+
+  // The images sit in the inner element; the layout picker and the carousel's nav
+  // beside them, outside what ProseMirror owns.
+  addNodeView() {
+    return ({ node: initial, editor, getPos }) => {
+      let node = initial;
+      const dom = document.createElement('div');
+      dom.className = 'gallery-block';
+      const contentDOM = document.createElement('div');
+      const bar = document.createElement('div');
+      bar.className = 'gallery-toolbar';
+      bar.contentEditable = 'false';
+      bar.setAttribute('role', 'toolbar');
+      bar.setAttribute('aria-label', 'Gallery layout');
+      const buttons = GALLERY_LAYOUTS.map((layout) => {
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.textContent = layout[0].toUpperCase() + layout.slice(1);
+        el.addEventListener('mousedown', (e) => e.preventDefault());
+        el.addEventListener('click', () => {
+          const pos = getPos();
+          if (pos !== undefined) editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, layout }));
+        });
+        return [layout, el] as const;
+      });
+      bar.append(...buttons.map(([, el]) => el));
+      const carousel = createCarouselNav(contentDOM, dom);
+      dom.append(bar, contentDOM, carousel.nav);
+
+      const sync = () => {
+        const layout = toGalleryLayout(node.attrs.layout);
+        contentDOM.dataset.gallery = layout;
+        carousel.nav.hidden = layout !== 'carousel';
+        for (const [name, el] of buttons) el.setAttribute('aria-pressed', String(name === layout));
+      };
+      sync();
+      return {
+        dom,
+        contentDOM,
+        update: (updated) => {
+          if (updated.type !== node.type) return false;
+          node = updated;
+          sync();
+          return true;
+        },
+        ignoreMutation: (mutation) => mutation.type !== 'selection' && !contentDOM.contains(mutation.target),
+        stopEvent: (event) => event.target instanceof HTMLElement && (bar.contains(event.target) || carousel.nav.contains(event.target)),
+        destroy: carousel.destroy,
+      };
+    };
   },
 
   addProseMirrorPlugins() {
