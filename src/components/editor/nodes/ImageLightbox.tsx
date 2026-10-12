@@ -1,14 +1,17 @@
 /**
  * Full-resolution, click-to-zoom view of an image node. `attachment://` sources
  * reuse OdinImage to fetch the real payload at full size; everything else
- * (plain URLs, the pending upload's live object URL) is a plain <img>.
+ * (plain URLs, the pending upload's live object URL) is a plain <img>. An edited
+ * image (#584) shows as edited.
  */
 import { useContext, useState } from "react";
 import { Download } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
+import { EditedImage } from "@/components/EditedImage";
 import { useDotYouClientContext } from "@/components/auth";
 import { JOURNAL_DRIVE } from "@/lib/homebase/config";
+import { hasEdits, NO_EDITS, type ImageEdits } from "@/lib/images/imageEdits";
 import { useImageDownload } from "@/hooks/image/useImageDownload";
 import { useZoomPan } from "@/hooks/image/useZoomPan";
 import { ImageOwnerContext } from "./imageOwnerContext";
@@ -18,16 +21,18 @@ interface ImageLightboxProps {
   onOpenChange: (open: boolean) => void;
   src: string;
   alt: string;
+  edits?: ImageEdits;
 }
 
 /** Mounted only while the dialog is open, so every opening starts fitted. */
-function ZoomStage({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+function ZoomStage({ src, alt, edits, onClose }: { src: string; alt: string; edits: ImageEdits; onClose: () => void }) {
   const dotYouClient = useDotYouClientContext();
   const owner = useContext(ImageOwnerContext);
   const isAttachment = src.startsWith("attachment://");
   const [fileId, fileKey] = src.replace("attachment://", "").split("/");
   const [stage, setStage] = useState<HTMLDivElement | null>(null);
   const { view, stageProps, wasDragged } = useZoomPan(stage);
+  const edited = hasEdits(edits);
 
   return (
     // Wheel/pinch zooms, drag pans, double-click toggles fit and 100%
@@ -51,7 +56,25 @@ function ZoomStage({ src, alt, onClose }: { src: string; alt: string; onClose: (
         className="flex w-full justify-center"
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
       >
-        {isAttachment ? (
+        {edited ? (
+          // The edited box fits the stage; the image fills the frame's layer
+          <EditedImage edits={edits} maxHeight="calc(95vh - 3rem)">
+            {isAttachment ? (
+              <OdinImage
+                dotYouClient={dotYouClient}
+                odinId={owner}
+                targetDrive={JOURNAL_DRIVE}
+                fileId={fileId}
+                fileKey={fileKey}
+                alt={alt}
+                lazyLoad={false}
+                maxWidth="none"
+              />
+            ) : (
+              <img src={src} alt={alt} className="block h-full w-full" />
+            )}
+          </EditedImage>
+        ) : isAttachment ? (
           <OdinImage
             dotYouClient={dotYouClient}
             odinId={owner}
@@ -71,7 +94,7 @@ function ZoomStage({ src, alt, onClose }: { src: string; alt: string; onClose: (
   );
 }
 
-export function ImageLightbox({ open, onOpenChange, src, alt }: ImageLightboxProps) {
+export function ImageLightbox({ open, onOpenChange, src, alt, edits = NO_EDITS }: ImageLightboxProps) {
   const download = useImageDownload(src, alt);
 
   return (
@@ -95,7 +118,7 @@ export function ImageLightbox({ open, onOpenChange, src, alt }: ImageLightboxPro
         >
           <Download className="size-4" />
         </button>
-        <ZoomStage src={src} alt={alt} onClose={() => onOpenChange(false)} />
+        <ZoomStage src={src} alt={alt} edits={edits} onClose={() => onOpenChange(false)} />
         {alt && <p aria-hidden="true" className="text-center text-sm text-white/90">{alt}</p>}
       </DialogContent>
     </Dialog>

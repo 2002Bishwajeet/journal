@@ -343,6 +343,18 @@ li[data-type='footnote'] > [data-footnote-backref] {
   margin: 1.5rem 0;
 }
 
+/* An edited image (#584, src/components/EditedImage.tsx): the img is positioned
+   inside a clipping frame, so the spacing and rounding go on the frame. */
+.prose .image-edit {
+  border-radius: var(--radius);
+  margin: 1.5rem 0;
+}
+
+.prose .image-edit img {
+  border-radius: 0;
+  margin: 0;
+}
+
 /* ProseMirror's invisible separator must never pick up the .prose img spacing
    (#536: TipTap drops its shared stylesheet when a switched layout unmounts). */
 img.ProseMirror-separator {
