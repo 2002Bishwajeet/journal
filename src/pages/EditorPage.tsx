@@ -85,7 +85,8 @@ function EditorLayout({
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-background relative">
+    // Zen: leave room above the toolbar for the exit pill (JournalLayout).
+    <div className={cn("flex flex-col h-full w-full bg-background relative", focusMode && "pt-12")}>
       {/* Mobile Editor Header */}
       <div
         className={
@@ -148,19 +149,9 @@ function EditorLayout({
               })
             }
             hideToolbar={true}
-            className={cn(
-              "min-h-full py-8 px-6 mx-auto pb-24 md:pb-8",
-              focusMode
-                ? "max-w-2xl md:px-8 pt-12"
-                : "editor-column max-w-5xl md:px-12"
-            )}
+            className="min-h-full py-8 px-6 mx-auto pb-24 md:pb-8 editor-column max-w-5xl md:px-12"
           />
-          <div
-            className={cn(
-              "mx-auto px-6 pb-24 md:pb-8",
-              focusMode ? "max-w-2xl md:px-8" : "editor-column max-w-5xl md:px-12"
-            )}
-          >
+          <div className="mx-auto px-6 pb-24 md:pb-8 editor-column max-w-5xl md:px-12">
             <LinkedMentions noteId={noteId} isActive={isActive} />
           </div>
         </div>
