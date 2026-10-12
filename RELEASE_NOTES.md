@@ -15,6 +15,25 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- You can replace an image and keep its place, size and description.
+- You can download an image from its toolbar or from the full-size view.
+- In the full-size view of an image, you can zoom up to 4 times and drag to move the image. Double-click to go back to the full image.
+- Headings 4, 5 and 6 have their own sizes. You can add them from the toolbar on a phone.
+
+### Changed
+
+- The width setting now also applies in Zen mode.
+- AI agents that use the Journal MCP make HTML and React blocks that fit a phone screen. The MCP warns them when a block is too wide.
+
+### Fixed
+
+- The size and alignment of an image stay the same in Markdown export and import, for AI agents, and on the shared page.
+- On a phone, the shared page shows every image at the full width of the text.
+- In Zen mode, you can use the toolbars and menus at the top of the page again.
+- The slash, emoji and note-link menus scroll to the selected item when you use the arrow keys.
+
 ## 2.7.1 (2026-10-09)
 
 ### Changed
