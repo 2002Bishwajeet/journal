@@ -1,12 +1,23 @@
 name: Release MCP package
 
-# Builds journal-mcp and attaches it to an `mcp-v<version>` GitHub release; the Claude Code
-# plugin (plugins/journal/.mcp.json) runs that asset through npx. Bump the version in
-# mcp/package/package.json and in the plugin's URLs together, merge, then run this.
+# Bumps journal-mcp (mcp/package/package.json and the plugin's version and URLs), builds and
+# smoke-tests it, then commits, tags and pushes the bump (with the RELEASE_DEPLOY_KEY deploy
+# key, like manual-release.yml) and attaches the package to an `mcp-v<version>` GitHub
+# release. The Claude Code plugin (plugins/journal/.mcp.json) runs that asset through npx.
 # Releases made with GITHUB_TOKEN don't trigger the `release: published` deploy workflows.
 
 on:
   workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Type of version bump'
+        required: true
+        default: 'minor'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -19,12 +30,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Pushes the bump commit and tag over SSH: the deploy key is the main ruleset's bypass actor.
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
+      - name: Bump version
+        run: |
+          OLD=$(node -p "require('./mcp/package/package.json').version")
+          (cd mcp/package && npm version ${{ github.event.inputs.version_type }} --no-git-tag-version)
+          NEW=$(node -p "require('./mcp/package/package.json').version")
+          sed -i "s|mcp-v$OLD/journal-mcp-$OLD.tgz|mcp-v$NEW/journal-mcp-$NEW.tgz|g" plugins/journal/.mcp.json plugins/journal/commands/login.md
+          sed -i "s|\"version\": \"$OLD\"|\"version\": \"$NEW\"|" plugins/journal/.claude-plugin/plugin.json
+          git diff --stat
 
       - name: Check the plugin points at this version
         id: version
@@ -48,6 +71,17 @@ jobs:
       - name: Smoke test the packed server
         run: npx -y --package=file:$PWD/mcp/journal-mcp-${{ steps.version.outputs.version }}.tgz journal-mcp --help
 
+      - name: Commit, tag and push
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add mcp/package/package.json plugins/journal
+          git commit -m "chore(mcp): $VERSION [skip ci]"
+          git tag "mcp-v$VERSION"
+          git push origin HEAD:main "mcp-v$VERSION"
+
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,4 +89,4 @@ jobs:
         run: |
           gh release create "mcp-v$VERSION" "mcp/journal-mcp-$VERSION.tgz" \
             --title "Journal MCP $VERSION" --notes "Journal MCP server $VERSION for the Claude Code plugin." \
-            --target "$GITHUB_SHA" --latest=false
+            --verify-tag --latest=false
