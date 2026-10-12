@@ -132,7 +132,8 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
 
   Each image is written as above (`![]()` or `<img>`) and keeps its caption. Up to three
   images share a row and more wrap to the next; on a phone, two per row. A gallery with
-  only one image becomes a plain image.
+  only one image becomes a plain image. A gallery holds only images: text or links inside
+  it are dropped.
 
 ### Covers
 

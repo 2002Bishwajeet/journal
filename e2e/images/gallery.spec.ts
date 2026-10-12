@@ -14,16 +14,18 @@ const PICTURES = [
 
 const box = async (locator: Locator) => (await locator.boundingBox())!;
 
-/** The first `count` images sit in one row at one height. */
+/** The first `count` images sit in one row at one height; retried, as a viewport change reflows the row. */
 async function expectRowOf(images: Locator, count: number) {
-  const boxes = [];
-  for (let i = 0; i < count; i++) boxes.push(await box(images.nth(i)));
-  for (const b of boxes.slice(1)) {
-    // Sub-pixel flex widths round each image's height a little differently
-    expect(Math.abs(b.y - boxes[0].y)).toBeLessThan(2);
-    expect(Math.abs(b.height - boxes[0].height)).toBeLessThan(2);
-    expect(b.x).toBeGreaterThan(boxes[0].x);
-  }
+  await expect(async () => {
+    const boxes = [];
+    for (let i = 0; i < count; i++) boxes.push(await box(images.nth(i)));
+    for (const b of boxes.slice(1)) {
+      // Sub-pixel flex widths round each image's height a little differently
+      expect(Math.abs(b.y - boxes[0].y)).toBeLessThan(2);
+      expect(Math.abs(b.height - boxes[0].height)).toBeLessThan(2);
+      expect(b.x).toBeGreaterThan(boxes[0].x);
+    }
+  }).toPass();
 }
 
 for (const colorScheme of ['light', 'dark'] as const) {
@@ -75,7 +77,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await app.setViewportSize({ width: 390, height: 844 });
     await expect(reloaded.first()).toBeVisible();
     await expectRowOf(reloaded, 2);
-    expect((await box(reloaded.nth(2))).y).toBeGreaterThan((await box(reloaded.nth(0))).y + 10);
+    await expect.poll(async () => (await box(reloaded.nth(2))).y - (await box(reloaded.nth(0))).y).toBeGreaterThan(10);
     await reloaded.first().scrollIntoViewIfNeeded();
     // A not-yet-uploaded image's status pill stays inside its (narrow) image
     const items = activeEditor(app).locator('[data-gallery="row"] .image-node');
