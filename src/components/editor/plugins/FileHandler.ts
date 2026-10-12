@@ -30,6 +30,8 @@ declare module '@tiptap/core' {
         fileHandler: {
             /** Validate, insert and queue image files — the same path as drop/paste. */
             insertImageFiles: (files: File[]) => ReturnType;
+            /** The same, as one gallery (#603); a single file stays a plain image. */
+            insertImageGallery: (files: File[]) => ReturnType;
             /** Swap the file of the image node at `pos` in place: width, align and alt stay. */
             replaceImageFile: (pos: number, file: File) => ReturnType;
         };
@@ -173,6 +175,10 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
             // Each insert lands after its queue write, outside this command's transaction.
             insertImageFiles: (files: File[]) => () => {
                 for (const file of files) void processImageFile(this.editor, this.options, file);
+                return true;
+            },
+            insertImageGallery: (files: File[]) => () => {
+                void insertDroppedImages(this.editor, this.options, files);
                 return true;
             },
             replaceImageFile: (pos: number, file: File) => () => {

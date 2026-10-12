@@ -408,6 +408,28 @@ img.ProseMirror-separator {
   }
 }
 
+/* Drop indicator (#603): a bar on the edge of the image a dragged image will go
+   beside (data-drop-side, set by galleryDrag.ts), centred in the gallery gap. */
+[data-drop-side] .image-node > div::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 9999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--background);
+  pointer-events: none;
+}
+
+[data-drop-side='left'] .image-node > div::after {
+  left: -5.5px;
+}
+
+[data-drop-side='right'] .image-node > div::after {
+  right: -5.5px;
+}
+
 /* ProseMirror's cursor helpers after the last image would take a slot of the row. */
 [data-gallery] > img.ProseMirror-separator,
 [data-gallery] > br.ProseMirror-trailingBreak {
@@ -545,12 +567,16 @@ img.ProseMirror-separator {
   opacity: 1;
 }
 
-/* The layout picker in the editor, above the gallery's top right corner. */
+/* The layout picker in the editor, under the gallery's bottom right corner: the strip
+   above the gallery is where each image's own toolbar shows (#603). */
+.gallery-block:has(> .gallery-toolbar) {
+  margin-bottom: 2.75rem;
+}
+
 .gallery-toolbar {
   position: absolute;
-  top: -1.5rem;
+  top: calc(100% + 0.25rem);
   right: 0;
-  /* above an image's own float toolbar, which reaches up into the same strip */
   z-index: 20;
   display: flex;
   gap: 0.125rem;

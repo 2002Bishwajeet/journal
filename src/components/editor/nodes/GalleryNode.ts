@@ -7,11 +7,12 @@
  */
 import { Node, mergeAttributes } from '@tiptap/core';
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
-import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { ySyncPluginKey } from 'y-prosemirror';
 import { inListItem } from './markdownParse';
 import { GALLERY_LAYOUTS, createCarouselNav, galleryRowBreaks, toGalleryLayout, watchGalleryAspect } from './galleryLayout';
+import { dropTargetAt, galleryDropPlugin } from './galleryDrag';
 
 export const GALLERY = 'gallery';
 
@@ -81,6 +82,12 @@ export const Gallery = Node.create({
 
   parseHTML() {
     return [{ tag: 'div[data-gallery]' }];
+  },
+
+  // Over an image the drop indicator (galleryDrag.ts) stands in for ProseMirror's drop cursor
+  extendNodeSchema(extension) {
+    if (extension.name !== 'image') return {};
+    return { disableDropCursor: (view: EditorView, _pos: unknown, event: DragEvent) => dropTargetAt(view, event) !== null };
   },
 
   renderHTML({ HTMLAttributes }) {
@@ -181,6 +188,7 @@ export const Gallery = Node.create({
         props: { decorations: (state) => rowBreakDecorations(state.doc) },
         view: (view) => ({ destroy: watchGalleryAspect(view.dom) }),
       }),
+      galleryDropPlugin(),
     ];
   },
 });
