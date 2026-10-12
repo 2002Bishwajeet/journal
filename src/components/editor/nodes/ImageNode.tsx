@@ -9,7 +9,7 @@
 
 import { useContext, useRef, useState, type ReactNode } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { AlignCenter, AlignLeft, AlignRight, Loader2, Maximize2 } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Download, ImageUp, Loader2, Maximize2 } from "lucide-react";
 import { JOURNAL_DRIVE } from "@/lib/homebase/config";
 import { useDotYouClientContext } from "@/components/auth";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
@@ -18,6 +18,7 @@ import { deletePendingImageUpload, retryPendingImageUploadNow } from "@/lib/db";
 import { usePendingImage } from "@/hooks/usePendingImage";
 import { useLocalImage } from "@/hooks/image/useLocalImage";
 import { useSyncService } from "@/hooks/useSyncService";
+import { useImageDownload } from "@/hooks/image/useImageDownload";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import {
@@ -137,6 +138,8 @@ export function ImageNodeView({
   updateAttributes,
   deleteNode,
   selected,
+  editor,
+  getPos,
 }: NodeViewProps) {
   const dotYouClient = useDotYouClientContext();
   const owner = useContext(ImageOwnerContext);
@@ -148,6 +151,19 @@ export function ImageNodeView({
   const mode = imageRenderMode(src, pendingId);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const download = useImageDownload(src, alt, pendingId);
+
+  const pickReplacement = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      const pos = getPos();
+      if (file && pos !== undefined) editor.commands.replaceImageFile(pos, file);
+    };
+    input.click();
+  };
   const saveAlt = (value: string) => updateAttributes({ alt: value.trim() || null });
 
   // The column the image sits in — the widest it may become.
@@ -282,15 +298,34 @@ export function ImageNodeView({
         </PopoverContent>
       </Popover>
       {canZoom(mode) && (
-        <button
-          type="button"
-          aria-label="View full size"
-          onClick={() => setLightboxOpen(true)}
-          className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
-        >
-          <Maximize2 className="h-4 w-4" />
-        </button>
+        <>
+          <button
+            type="button"
+            aria-label="View full size"
+            onClick={() => setLightboxOpen(true)}
+            className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+          {/* A pending image's queue row would be orphaned by a swap; wait for the upload */}
+          <button
+            type="button"
+            aria-label="Replace image"
+            onClick={pickReplacement}
+            className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
+          >
+            <ImageUp className="h-4 w-4" />
+          </button>
+        </>
       )}
+      <button
+        type="button"
+        aria-label="Download image"
+        onClick={download}
+        className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
+      >
+        <Download className="h-4 w-4" />
+      </button>
     </div>
   );
 
