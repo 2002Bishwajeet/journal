@@ -102,6 +102,7 @@ const FEATURES: Record<string, string> = {
     'block math': '$$\n\\int_0^1 x^2 \\, dx = \\frac{1}{3}\n$$',
     footnotes: 'Journal syncs through Homebase.[^1] It works offline.[^2]\n\n[^1]: Your own identity.\n[^2]: Changes sync later.',
     'link preview': 'Read this:\n\n<https://journal.cloudx.run/blog><!-- preview -->',
+    gallery: '<div data-gallery="row">\n\n![Beach](https://e.com/beach.png) <img src="https://e.com/pier.png" alt="Pier" data-caption="The pier"> ![Dunes](https://e.com/dunes.png)\n\n</div>',
     table: '| Day | Distance |\n| --- | --- |\n| Mon | 5 km |\n| Wed | 8 km |',
     'mermaid block': '```mermaid id=r3l5\nflowchart LR\n  A[Write] --> B{Tests pass?}\n  B -- yes --> C[Merge]\n```',
     'svg block': '```svg id=c1rc\n<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="#718968"/></svg>\n```',

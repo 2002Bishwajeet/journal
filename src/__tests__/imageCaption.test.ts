@@ -35,6 +35,7 @@ describe('ImageNodeView caption', () => {
             node: { attrs: { src: 'https://example.com/kite.png', alt, width: null, align: null, caption: caption ?? null } },
             updateAttributes: () => {},
             selected: false,
+            getPos: () => undefined,
         } as unknown as NodeViewProps;
         await act(async () => { root.render(h(ImageNodeView, props)); });
     }

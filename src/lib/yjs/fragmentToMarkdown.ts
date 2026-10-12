@@ -82,6 +82,25 @@ export function fragmentToMarkdown(
     return delta.map((op) => (typeof op.insert === 'string' ? op.insert : '')).join('');
   }
 
+  function serializeImage(node: Y.XmlElement): string {
+    const src = node.getAttribute('src') || '';
+    const alt = node.getAttribute('alt') || '';
+    const title = node.getAttribute('title');
+    const width = node.getAttribute('width');
+    const align = node.getAttribute('align');
+    const caption = node.getAttribute('caption');
+    const hasCaption = typeof caption === 'string';
+    if (!src) return '';
+    if (width || align || hasCaption) {
+      // Width, float and caption have no markdown form: an <img> keeps them (#581, #583); data-caption="" means hidden.
+      const attrs = [['src', src], ['alt', alt], ['title', title], ['width', width], ['data-align', align], ['data-caption', caption]]
+        .filter(([k, v]) => v || (k === 'data-caption' && hasCaption))
+        .map(([k, v]) => `${k}="${escapeHtml(String(v))}"`);
+      return `<img ${attrs.join(' ')}>`;
+    }
+    return `![${alt}](${src}${title ? ` "${title}"` : ''})`;
+  }
+
   // Inline content of a block: text runs + inline atoms (hardBreak, image,
   // inlineMath). Nested block elements are flattened to their inline text.
   function serializeInline(node: Y.XmlElement): string {
@@ -94,26 +113,9 @@ export function fragmentToMarkdown(
           case 'hardBreak':
             out += '  \n'; // markdown hard break
             break;
-          case 'image': {
-            const src = child.getAttribute('src') || '';
-            const alt = child.getAttribute('alt') || '';
-            const title = child.getAttribute('title');
-            const width = child.getAttribute('width');
-            const align = child.getAttribute('align');
-            const caption = child.getAttribute('caption');
-            const hasCaption = typeof caption === 'string';
-            if (!src) break;
-            if (width || align || hasCaption) {
-              // Width, float and caption have no markdown form: an <img> keeps them (#581, #583); data-caption="" means hidden.
-              const attrs = [['src', src], ['alt', alt], ['title', title], ['width', width], ['data-align', align], ['data-caption', caption]]
-                .filter(([k, v]) => v || (k === 'data-caption' && hasCaption))
-                .map(([k, v]) => `${k}="${escapeHtml(String(v))}"`);
-              out += `<img ${attrs.join(' ')}>`;
-            } else {
-              out += `![${alt}](${src}${title ? ` "${title}"` : ''})`;
-            }
+          case 'image':
+            out += serializeImage(child);
             break;
-          }
           case 'inlineMath': {
             const latex = child.getAttribute('latex') || '';
             if (latex) out += `$${latex}$`;
@@ -261,6 +263,13 @@ export function fragmentToMarkdown(
         // Blank lines around the body so the markdown inside <details> renders.
         const summary = escapeHtml(String(node.getAttribute('summary') ?? ''));
         return `<details>\n<summary>${summary}</summary>\n\n${serializeChildren(node, depth).trim()}\n\n</details>\n\n`;
+      }
+      case 'gallery': {
+        // Images side by side (#601): one line of images in a div, so a plain markdown
+        // viewer shows them one after another. Blank lines keep the markdown inside parsed.
+        const images = node.toArray().map((c) => (c instanceof Y.XmlElement && c.nodeName === 'image' ? serializeImage(c) : ''));
+        const layout = escapeHtml(String(node.getAttribute('layout') || 'row'));
+        return `<div data-gallery="${layout}">\n\n${images.filter(Boolean).join(' ')}\n\n</div>\n\n`;
       }
       case 'linkPreview': {
         // `[title](url)<!-- preview -->`, which the edit engine parses back into a card (#561).

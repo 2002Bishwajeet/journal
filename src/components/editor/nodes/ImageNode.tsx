@@ -32,6 +32,7 @@ import {
 } from "./imageLayout";
 import { ImageOwnerContext } from "./imageOwnerContext";
 import { ImageLightbox } from "./ImageLightbox";
+import { GALLERY } from "./GalleryNode";
 
 // Corner, the edge it drags, and the diagonal cursor for it.
 const CORNERS = [
@@ -155,6 +156,10 @@ export function ImageNodeView({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const download = useImageDownload(src, alt, pendingId);
+  // In a gallery (#601) the row sets the size: no resize handles or float.
+  const pos = getPos();
+  const inGallery =
+    pos !== undefined && pos <= editor.state.doc.content.size && editor.state.doc.resolve(pos).parent.type.name === GALLERY;
 
   const pickReplacement = () => {
     const input = document.createElement("input");
@@ -256,7 +261,7 @@ export function ImageNodeView({
         selected && "opacity-100",
       )}
     >
-      {ALIGN_BUTTONS.map(({ align: value, icon: Icon, label }) => (
+      {!inGallery && ALIGN_BUTTONS.map(({ align: value, icon: Icon, label }) => (
         <button
           key={value}
           type="button"
@@ -379,14 +384,14 @@ export function ImageNodeView({
 
   // Until a width is set the box shrink-wraps the image, so the image keeps its
   // natural size (previous behaviour); once sized, it fills the box.
-  const imgClass = width ? "w-full h-auto" : "max-w-full";
+  const imgClass = width || inGallery ? "w-full h-auto" : "max-w-full";
 
   const resizable = (children: ReactNode) => (
     <div
       ref={boxRef}
       // width last: centering sets `display: block`, which would otherwise
       // stretch the box to the full column instead of hugging the image.
-      style={{ ...(align ? ALIGN_STYLE[align] : {}), width: imageBoxWidth(mode, width) }}
+      style={inGallery ? { width: "100%" } : { ...(align ? ALIGN_STYLE[align] : {}), width: imageBoxWidth(mode, width) }}
       className={cn(
         "group relative inline-block max-w-full",
         selected && "outline outline-2 outline-primary/60 rounded-sm",
@@ -402,7 +407,7 @@ export function ImageNodeView({
       {/* The handles sit on the image's corners, not below the caption */}
       <div className="relative">
         {children}
-        {CORNERS.map(corner)}
+        {!inGallery && CORNERS.map(corner)}
       </div>
       {caption && (
         // w-0 min-w-full: wraps to the image's width instead of widening the box

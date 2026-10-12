@@ -11,6 +11,7 @@ import { yUndoPluginKey } from 'y-prosemirror';
 import { toast } from 'sonner';
 import { getNewId } from '@homebase-id/js-lib/helpers';
 import { prepareImageForUpload, UnsupportedImageError } from '@/lib/images/imageIngest';
+import { GALLERY } from '../nodes/GalleryNode';
 
 export interface FileHandlerOptions {
     /** Maximum file size in MB */
@@ -106,6 +107,27 @@ async function processImageFile(editor: Editor, options: FileHandlerOptions, fil
     return true;
 }
 
+/**
+ * Dropped or pasted files: one is a plain image, as before; two or more become one
+ * gallery (#601), in the order given. Each file is queued before anything is inserted.
+ */
+async function insertDroppedImages(editor: Editor, options: FileHandlerOptions, files: File[], pos?: number): Promise<void> {
+    const images = [];
+    for (const file of files) {
+        const queued = await queueImageFile(options, file);
+        if (queued) {
+            images.push({ type: 'image', attrs: { src: URL.createObjectURL(queued.processed), 'data-pending-id': queued.pendingId } });
+        }
+    }
+    if (!images.length || editor.isDestroyed) return;
+    const content = images.length > 1 ? { type: GALLERY, content: images } : images[0];
+    if (pos !== undefined) {
+        editor.chain().focus().insertContentAt(pos, content).run();
+    } else {
+        editor.chain().focus().insertContent(content).run();
+    }
+}
+
 async function replaceImageFile(editor: Editor, options: FileHandlerOptions, pos: number, file: File): Promise<void> {
     const oldSrc = editor.state.doc.nodeAt(pos)?.attrs.src;
     const queued = await queueImageFile(options, file);
@@ -188,14 +210,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
                         // Insert at the drop point, not wherever the cursor happens to be
                         const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
 
-                        // Await each insert in turn, so with several files they land in drop order
-                        void (async () => {
-                            let insertAt = pos;
-                            for (const file of imageFiles) {
-                                const inserted = await processImageFile(editor, options, file, insertAt);
-                                if (inserted && insertAt !== undefined) insertAt = editor.state.selection.to;
-                            }
-                        })();
+                        void insertDroppedImages(editor, options, imageFiles, pos);
 
                         return true;
                     },
@@ -220,12 +235,8 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
 
                         event.preventDefault();
 
-                        for (const item of imageItems) {
-                            const file = item.getAsFile();
-                            if (file) {
-                                processImageFile(editor, options, file);
-                            }
-                        }
+                        const files = imageItems.map((item) => item.getAsFile()).filter((file): file is File => !!file);
+                        void insertDroppedImages(editor, options, files);
 
                         return true;
                     },

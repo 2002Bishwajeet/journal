@@ -350,6 +350,70 @@ img.ProseMirror-separator {
   margin: 0 !important;
 }
 
+/* Image gallery, row layout (#601), in the editor and on the share page. Each
+   image grows by its aspect ratio (--ar, set on load by galleryLayout.ts), so a
+   row's images share one height. A row ends at a .gallery-break: the `wide` ones
+   above 480px, the `narrow` ones (two per row) at or below it. Never one column. */
+[data-gallery] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  column-gap: 0.5rem;
+  margin: 1.5rem 0;
+}
+
+[data-gallery] > * {
+  flex: var(--ar, 1) 1 0%;
+  min-width: 0;
+}
+
+/* The break is its own zero-width line, so its height is the gap between rows. */
+[data-gallery] > .gallery-break {
+  display: none;
+  flex: 0 0 100%;
+  height: 0.5rem;
+}
+
+[data-gallery] > .gallery-break[data-row-break~='wide'] {
+  display: block;
+}
+
+@media (max-width: 480px) {
+  [data-gallery] {
+    column-gap: 0.25rem;
+  }
+
+  [data-gallery] > .gallery-break {
+    height: 0.25rem;
+  }
+
+  [data-gallery] > .gallery-break[data-row-break~='wide'] {
+    display: none;
+  }
+
+  [data-gallery] > .gallery-break[data-row-break~='narrow'] {
+    display: block;
+  }
+
+  /* An odd one out keeps the width of one of a pair rather than filling the row.
+     In the editor ProseMirror's cursor helpers follow the last image. */
+  [data-gallery] > .gallery-break[data-row-break~='narrow'] + :is(:last-child, :has(+ .ProseMirror-separator), :has(+ .ProseMirror-trailingBreak)) {
+    flex: 0 1 calc(50% - 0.125rem);
+  }
+}
+
+/* ProseMirror's cursor helpers after the last image would take a slot of the row. */
+[data-gallery] > img.ProseMirror-separator,
+[data-gallery] > br.ProseMirror-trailingBreak {
+  display: none !important;
+}
+
+.prose [data-gallery] img,
+.prose [data-gallery] .image-node > div > .overflow-hidden {
+  width: 100%;
+  margin: 0;
+}
+
 /* Lists */
 .prose ul {
   list-style-type: disc;

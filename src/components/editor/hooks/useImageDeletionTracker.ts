@@ -73,7 +73,8 @@ export function useImageDeletionTracker({ docId, yXmlFragment }: UseImageDeletio
                                 // Check if it's an image node by nodeName
                                 if (content && typeof content === 'object' && 'nodeName' in content) {
                                     const nodeName = (content as { nodeName?: string }).nodeName;
-                                    if (nodeName === 'image') {
+                                    // A gallery's images go with it (#601)
+                                    if (nodeName === 'image' || nodeName === 'gallery') {
                                         console.log('[useImageDeletionTracker] Image node deletion detected');
                                         imageDeleted = true;
                                     }

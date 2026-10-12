@@ -38,6 +38,7 @@ describe('ImageNodeView — click-to-zoom lightbox (plain image)', () => {
             node: { attrs: { src: SRC, alt: 'A red kite', width: null, align: null } },
             updateAttributes: () => {},
             selected: false,
+            getPos: () => undefined,
         } as unknown as NodeViewProps;
         await act(async () => { root.render(h(ImageNodeView, props)); });
     }
@@ -109,6 +110,7 @@ describe('ImageNodeView — click-to-zoom lightbox (pending upload)', () => {
             updateAttributes: () => {},
             deleteNode: () => {},
             selected: false,
+            getPos: () => undefined,
         } as unknown as NodeViewProps;
 
         await act(async () => { root.render(h(ImageNodeView, props)); });

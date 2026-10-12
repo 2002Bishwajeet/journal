@@ -47,6 +47,7 @@ describe('ImageNodeView pending image', () => {
             updateAttributes: () => {},
             deleteNode,
             selected: false,
+            getPos: () => undefined,
         } as unknown as NodeViewProps;
         await act(async () => { root.render(h(ImageNodeView, props)); });
     }
