@@ -54,7 +54,26 @@ describe('image width and alignment in markdown', () => {
   });
 });
 
+describe('image caption in markdown (#583)', () => {
+  it('round-trips a caption and an empty (hidden) caption', () => {
+    const md = '<img src="https://e.com/a.png" alt="a" data-caption="Our &quot;logo&quot;">';
+    expect(imageAttrs(md)).toMatchObject({ alt: 'a', caption: 'Our "logo"' });
+    expect(roundTrip(md)).toBe(md);
+    const hidden = '<img src="https://e.com/a.png" alt="a" data-caption="">';
+    expect(imageAttrs(hidden)).toMatchObject({ caption: '' });
+    expect(roundTrip(hidden)).toBe(hidden);
+  });
+
+  it('has no caption by default, so the alt shows', () => {
+    expect(imageAttrs('![a](https://e.com/a.png)')).toMatchObject({ caption: null });
+  });
+});
+
 describe('share page', () => {
+  it('keeps data-caption on an img', () => {
+    expect(share('<img src="https://example.com/cat.png" alt="A cat" data-caption="Tom">')).toContain('data-caption="Tom"');
+  });
+
   it('keeps width and data-align on an img', () => {
     const html = share('<img src="https://example.com/cat.png" alt="A cat" width="320" data-align="right">');
     expect(html).toContain('width="320"');

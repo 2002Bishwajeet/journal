@@ -100,11 +100,13 @@ export function fragmentToMarkdown(
             const title = child.getAttribute('title');
             const width = child.getAttribute('width');
             const align = child.getAttribute('align');
+            const caption = child.getAttribute('caption');
+            const hasCaption = typeof caption === 'string';
             if (!src) break;
-            if (width || align) {
-              // Width and float have no markdown form: an <img> keeps them (#581).
-              const attrs = [['src', src], ['alt', alt], ['title', title], ['width', width], ['data-align', align]]
-                .filter(([, v]) => v)
+            if (width || align || hasCaption) {
+              // Width, float and caption have no markdown form: an <img> keeps them (#581, #583); data-caption="" means hidden.
+              const attrs = [['src', src], ['alt', alt], ['title', title], ['width', width], ['data-align', align], ['data-caption', caption]]
+                .filter(([k, v]) => v || (k === 'data-caption' && hasCaption))
                 .map(([k, v]) => `${k}="${escapeHtml(String(v))}"`);
               out += `<img ${attrs.join(' ')}>`;
             } else {

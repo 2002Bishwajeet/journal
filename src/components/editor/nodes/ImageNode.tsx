@@ -9,7 +9,7 @@
 
 import { useContext, useRef, useState, type ReactNode } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { AlignCenter, AlignLeft, AlignRight, Download, ImageUp, Loader2, Maximize2 } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Captions, Download, ImageUp, Loader2, Maximize2 } from "lucide-react";
 import { JOURNAL_DRIVE } from "@/lib/homebase/config";
 import { useDotYouClientContext } from "@/components/auth";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
@@ -148,6 +148,9 @@ export function ImageNodeView({
   const width = node.attrs.width as number | null;
   const align = node.attrs.align as ImageAlign | null;
   const alt = (node.attrs.alt as string | null) ?? "";
+  // null = show the alt text, "" = hidden, else the caption replaces it (#583)
+  const captionAttr = (node.attrs.caption as string | null | undefined) ?? null;
+  const caption = captionAttr ?? alt;
   const mode = imageRenderMode(src, pendingId);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -165,6 +168,11 @@ export function ImageNodeView({
     input.click();
   };
   const saveAlt = (value: string) => updateAttributes({ alt: value.trim() || null });
+  // Skips unchanged text so a blur after "Hide caption" can't turn "" back into null.
+  const saveCaption = (value: string) => {
+    if (value.trim() === (captionAttr ?? "")) return;
+    updateAttributes({ caption: value.trim() || null });
+  };
 
   // The column the image sits in — the widest it may become.
   const maxWidth = () => boxRef.current?.parentElement?.offsetWidth ?? Infinity;
@@ -297,6 +305,46 @@ export function ImageNodeView({
           />
         </PopoverContent>
       </Popover>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label="Caption"
+            aria-pressed={!!caption}
+            className={cn(
+              "rounded p-1 hover:bg-accent hover:text-accent-foreground",
+              caption && "bg-accent text-accent-foreground",
+            )}
+          >
+            <Captions className="h-4 w-4" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 space-y-2 p-2">
+          <Input
+            key={captionAttr ?? "alt"}
+            defaultValue={captionAttr ?? ""}
+            placeholder={alt || "Add a caption"}
+            aria-label="Caption text"
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") {
+                e.preventDefault();
+                saveCaption(e.currentTarget.value);
+              }
+            }}
+            onBlur={(e) => saveCaption(e.currentTarget.value)}
+          />
+          <button
+            type="button"
+            // Keeps the input from blurring and writing its old text over the toggle.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => updateAttributes({ caption: captionAttr === "" ? null : "" })}
+            className="w-full rounded px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+          >
+            {captionAttr === "" ? "Show caption" : "Hide caption"}
+          </button>
+        </PopoverContent>
+      </Popover>
       {canZoom(mode) && (
         <>
           <button
@@ -356,7 +404,7 @@ export function ImageNodeView({
         {children}
         {CORNERS.map(corner)}
       </div>
-      {alt && (
+      {caption && (
         // w-0 min-w-full: wraps to the image's width instead of widening the box
         <span
           contentEditable={false}
@@ -364,7 +412,7 @@ export function ImageNodeView({
           aria-hidden="true"
           className="mt-1.5 block w-0 min-w-full text-center text-sm text-muted-foreground"
         >
-          {alt}
+          {caption}
         </span>
       )}
       {alignBar}

@@ -37,6 +37,17 @@ export const ImageSchema = Image.extend({
       // Rendered width in px, set by dragging one of the image's corner
       // handles. Lives on the node, so it persists in the Yjs doc like any
       // other attr. No height: leaving it auto keeps the aspect ratio.
+      // Caption under the image (#583). null = show the alt text; "" = hidden;
+      // anything else replaces the alt text. A plain string attr, not a figure
+      // node, so the node stays inline and existing notes need no migration.
+      caption: {
+        default: null,
+        parseHTML: element => element.getAttribute("data-caption"),
+        renderHTML: attributes => {
+          if (attributes.caption === null || attributes.caption === undefined) return {};
+          return { "data-caption": attributes.caption };
+        },
+      },
       width: {
         default: null,
         parseHTML: element => {

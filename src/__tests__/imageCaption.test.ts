@@ -27,12 +27,12 @@ describe('ImageNodeView caption', () => {
         el.remove();
     });
 
-    async function render(alt: string | null) {
+    async function render(alt: string | null, caption?: string | null) {
         el = document.createElement('div');
         document.body.appendChild(el);
         root = createRoot(el);
         const props = {
-            node: { attrs: { src: 'https://example.com/kite.png', alt, width: null, align: null } },
+            node: { attrs: { src: 'https://example.com/kite.png', alt, width: null, align: null, caption: caption ?? null } },
             updateAttributes: () => {},
             selected: false,
         } as unknown as NodeViewProps;
@@ -48,6 +48,16 @@ describe('ImageNodeView caption', () => {
         expect(img.compareDocumentPosition(caption!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         // Screen readers already get it from alt
         expect(caption?.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('a caption replaces the alt text', async () => {
+        await render('A red kite', 'Kite day');
+        expect(el.querySelector('[data-testid="image-caption"]')?.textContent).toBe('Kite day');
+    });
+
+    it('an empty caption hides it', async () => {
+        await render('A red kite', '');
+        expect(el.querySelector('[data-testid="image-caption"]')).toBeNull();
     });
 
     it('shows no caption without alt text', async () => {

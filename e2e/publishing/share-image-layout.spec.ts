@@ -36,6 +36,8 @@ function noteContent(): Buffer {
     image('Right', { width: 320, align: 'right' }),
     element('paragraph', [new Y.XmlText(TEXT)]),
     image('Plain', {}),
+    image('Custom', { caption: 'A custom caption' }),
+    image('Hidden', { caption: '' }),
   ]);
   return Buffer.from(Y.encodeStateAsUpdate(doc));
 }
@@ -73,7 +75,7 @@ async function openNote(page: Page): Promise<Locator> {
   await assertTestOrigin(page);
   const article = page.getByRole('article');
   await expect(article.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
-  for (const alt of ['Right', 'Plain']) {
+  for (const alt of ['Right', 'Plain', 'Custom', 'Hidden']) {
     const picture = article.getByRole('img', { name: alt });
     await picture.scrollIntoViewIfNeeded();
     await expect.poll(() => picture.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(800);
@@ -111,5 +113,20 @@ for (const theme of THEMES) {
     expect((await box(right)).width).toBeCloseTo(phoneColumn.width, 0);
     expect(await anonPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await anonPage.screenshot({ path: test.info().outputPath(`share-image-layout-${theme}-390.png`) });
+  });
+}
+
+// #583: the caption (else the alt text) shows centred under the image; "" hides it.
+for (const theme of THEMES) {
+  test(`share page: image captions, ${theme} theme`, async ({ anonPage }) => {
+    await anonPage.emulateMedia({ colorScheme: theme });
+    await anonPage.setViewportSize(VIEWPORTS.desktop);
+    const article = await openNote(anonPage);
+    const captions = article.getByTestId('share-image-caption');
+    // Right and Plain fall back to alt text, Custom overrides, Hidden has none
+    await expect(captions).toHaveText(['Right', 'Plain', 'A custom caption']);
+    await expect(captions.nth(1)).toHaveCSS('text-align', 'center');
+    await captions.nth(2).scrollIntoViewIfNeeded();
+    await anonPage.screenshot({ path: test.info().outputPath(`share-image-caption-${theme}-1280.png`) });
   });
 }
