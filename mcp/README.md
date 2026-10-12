@@ -18,8 +18,10 @@ Notes and folders are hidden from every tool until you grant them access in
 Then run `/mcp` to reconnect `journal`, and grant folders in **Journal → Settings → Agent access**.
 The plugin runs the packaged server from the `mcp-v*` GitHub release via `npx`; no checkout needed.
 
-To release a new server version: bump `mcp/package/package.json` and the URLs in
-`plugins/journal/`, merge, then run the **Release MCP package** workflow.
+To release a new server version, run the **Release MCP package** workflow and pick patch,
+minor or major. It bumps `mcp/package/package.json` and the plugin's version and URLs,
+builds and smoke-tests the package, then pushes the bump and tag `mcp-v<version>` and
+creates the release.
 
 ## Setup (from a checkout)
 
