@@ -31,7 +31,11 @@ const THREE_COLUMNS = [
   ['Analysis', 'Interviews', 'anonymised_transcripts_twelve_participants.pdf'],
 ];
 
-const box = async (locator: Locator) => (await locator.boundingBox())!;
+// boundingBox() does not wait: after a viewport change the note can still be loading.
+const box = async (locator: Locator) => {
+  await expect(locator).toBeVisible();
+  return (await locator.boundingBox())!;
+};
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const tableHtml = (rows: string[][]) =>

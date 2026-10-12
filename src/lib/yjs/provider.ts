@@ -281,14 +281,17 @@ export class PGliteProvider {
             document.removeEventListener('visibilitychange', this.handleVisibilityChange);
         }
 
-        // Persist any pending/in-flight updates first so they survive teardown even
-        // when the note has <= 1 stored update (below the compaction threshold).
-        await this.flush();
+        try {
+            // Persist any pending/in-flight updates first so they survive teardown even
+            // when the note has <= 1 stored update (below the compaction threshold).
+            await this.flush();
 
-        // Compact on destroy to save memory for next load
-        if (this.updateCount > 1) {
-            await this.compact();
+            // Compact on destroy to save memory for next load
+            if (this.updateCount > 1) {
+                await this.compact();
+            }
+        } finally {
+            PGliteProvider.live.delete(this);
         }
-        PGliteProvider.live.delete(this);
     }
 }
