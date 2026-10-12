@@ -138,10 +138,14 @@ async function expectNoChrome(page: Page, scope: Locator, editing: boolean): Pro
     const content = block.locator('> div').nth(bare ? 0 : 1);
     const contentHeight = (await content.boundingBox())!.height;
     if (editing) {
-      await expect(controls).toHaveCSS('position', 'static');
+      // In the flow (relative, for its z-index over the frame's bleed), not overlaid.
+      await expect(controls).toHaveCSS('position', 'relative');
       await expect(controls).toHaveCSS('opacity', '1');
       await expect(controls.locator('> span')).toHaveText(/^(Mermaid|SVG|HTML)$/);
-      expect((await block.boundingBox())!.height).toBe((await controls.boundingBox())!.height + contentHeight);
+      // A framed (html) box bleeds past its edges with a negative margin: the top one
+      // tucks it under the toggles, the bottom one collapses out of the block.
+      const bleed = await content.evaluate((el) => parseFloat(getComputedStyle(el).marginTop));
+      expect((await block.boundingBox())!.height).toBe((await controls.boundingBox())!.height + contentHeight + bleed);
     } else {
       if (!bare) {
         await expect(controls).toHaveCSS('position', 'absolute');

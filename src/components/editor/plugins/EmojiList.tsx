@@ -1,5 +1,6 @@
 import { forwardRef, useImperativeHandle, useMemo, useState } from "react";
 import type { EmojiItem } from "./emojiData";
+import { useScrollSelectedIntoView } from "@/hooks/useScrollSelectedIntoView";
 
 interface EmojiListProps {
   items: EmojiItem[];
@@ -14,6 +15,8 @@ export const EmojiList = forwardRef((props: EmojiListProps, ref) => {
     if (props.items.length === 0) return 0;
     return Math.min(selectedIndex, props.items.length - 1);
   }, [selectedIndex, props.items.length]);
+
+  const listRef = useScrollSelectedIntoView<HTMLDivElement>(validSelectedIndex);
 
   const selectItem = (index: number) => {
     const item = props.items[index];
@@ -62,12 +65,13 @@ export const EmojiList = forwardRef((props: EmojiListProps, ref) => {
   }
 
   return (
-    <div className="bg-popover text-popover-foreground rounded-md shadow-md border border-border overflow-hidden min-w-45 p-1">
+    <div ref={listRef} className="bg-popover text-popover-foreground rounded-md shadow-md border border-border max-h-80 overflow-y-auto min-w-45 p-1">
       {props.items.map((item, index) => (
         <button
           key={index}
+          data-index={index}
           className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm text-left rounded-sm transition-colors ${
-            index === selectedIndex
+            index === validSelectedIndex
               ? "bg-accent text-accent-foreground"
               : "hover:bg-accent hover:text-accent-foreground"
           }`}
