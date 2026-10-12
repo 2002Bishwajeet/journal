@@ -92,6 +92,39 @@ export type WriteDeps = ReadDeps & {
 
 const MAX_ATTEMPTS = 3;
 
+/** Widest fixed width that still fits a 390px phone frame. */
+const PHONE_MAX_PX = 360;
+
+const FIXED_WIDTH = [
+    /(?<![\w-])(?:min-)?width\s*:\s*(\d+(?:\.\d+)?)px/gi,
+    /(?<![\w-])min-w-\[(\d+(?:\.\d+)?)px\]/g,
+    /(?<![\w-])w-\[(\d+(?:\.\d+)?)px\]/g,
+    /<(?:svg|canvas)\b[^>]*?\swidth\s*=\s*["']?(\d+(?:\.\d+)?)(?:px)?["']?/gi,
+];
+
+/**
+ * Obvious phone breakers in the html / react fences of `markdown` (#591): one line per
+ * block, naming it by id. Advisory only; the write has already succeeded.
+ */
+export function liveBlockLayoutWarnings(markdown: string): string[] {
+    const warnings: string[] = [];
+    const fence = /^ {0,3}(`{3,}|~{3,})[ \t]*(html|react)\b([^\n]*)\n([\s\S]*?)^ {0,3}\1[`~]*[ \t]*$/gm;
+    for (const [, , lang, info, code] of markdown.matchAll(fence)) {
+        const id = /\bid=(\S+)/.exec(info)?.[1];
+        const name = id ? `Block ${id}` : `An unnamed ${lang} block`;
+        for (const pattern of FIXED_WIDTH) {
+            const hit = [...code.matchAll(pattern)].find((m) => Number(m[1]) > PHONE_MAX_PX);
+            if (hit) {
+                warnings.push(`${name} sets ${hit[0].trim()}; it overflows a 390px phone. Use max-width or a fluid layout.`);
+                break;
+            }
+        }
+        const tall = /(?<![\w-])(?:min-h-screen|h-screen)(?![\w-])|(?<![\w.-])100vh\b/.exec(code);
+        if (tall) warnings.push(`${name} uses ${tall[0]}, which is wrong in a note's frame. Size to the content height.`);
+    }
+    return warnings;
+}
+
 function assertWritable(grants: AgentGrants, note: NoteForEdit | null, id: string): asserts note is NoteForEdit {
     const access = note ? noteAccess(grants, note.summary) : 'none';
     if (!note || access === 'none') throw new Error(`Note not found: ${id}`);

@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import * as readTools from './tools/read';
 import * as writeTools from './tools/write';
-import type { WriteDeps } from './tools/write';
+import { liveBlockLayoutWarnings, type WriteDeps } from './tools/write';
 import { CALLOUT_VARIANTS } from '@/components/editor/nodes/calloutVariants';
 // The full authoring reference (#519), inlined at build time so the packaged server carries it.
 // mcpServer.test.ts checks it names every live-block language, react import and CDN host in code.
@@ -25,7 +25,7 @@ A note can hold:
 - Covers: set_note_cover and clear_note_cover, not an image at the top of the body.
 - Live blocks: a fenced block in mermaid (diagrams), svg (a static drawing), html (a sandboxed page with script) or react (a JSX component that can import recharts, lucide-react, d3, three, lodash, mathjs, papaparse and the journal-ui kit). Put an id after the language (\`\`\`html id=k3f9) and keep it when rewriting the block: it keys the block's saved state.
 
-Interactive tools, calculators, dashboards, charts, simulations and small games are welcome in a note: build them as an html or react block. Use a native block (table, callout, toggle, task list, mermaid) when it can carry the content. Design a live block for the ~650px note column with a fluid layout (it is also shown at 390px); add \`wide\` to its fence (\`\`\`react wide id=k3f9) only when the content needs horizontal room, and keep it when rewriting the block.
+Interactive tools, calculators, dashboards, charts, simulations and small games are welcome in a note: build them as an html or react block. Use a native block (table, callout, toggle, task list, mermaid) when it can carry the content. Design a live block for the ~650px note column with a fluid layout (it is also shown at 390px: single column, nothing wider than the frame, tap targets usable without hover, so check it at 390px before you finish); add \`wide\` to its fence (\`\`\`react wide id=k3f9) only when the content needs horizontal room, and keep it when rewriting the block.
 
 To change part of a note, call get_note with format "blocks" and edit_block that one block, table cell or attribute; everything else stays as it is.
 
@@ -42,8 +42,10 @@ const BODY_IMAGES =
     '`https://` image URLs are kept as they are, not fetched or uploaded.';
 
 /** A tool result carrying `x` as pretty-printed JSON text. */
-function json(x: unknown) {
-    return { content: [{ type: 'text' as const, text: JSON.stringify(x, null, 2) }] };
+function json(x: unknown, notes: string[] = []) {
+    return {
+        content: [{ type: 'text' as const, text: JSON.stringify(x, null, 2) }, ...notes.map((text) => ({ type: 'text' as const, text }))],
+    };
 }
 
 /**
@@ -131,7 +133,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
                 tags: z.array(z.string()).optional(),
             },
         },
-        async ({ title, markdown, folderId, tags }) => json(await writeTools.createNote(deps, { title, markdown, folderId, tags }))
+        async ({ title, markdown, folderId, tags }) => json(await writeTools.createNote(deps, { title, markdown, folderId, tags }), liveBlockLayoutWarnings(markdown))
     );
 
     server.registerTool(
@@ -154,7 +156,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
                 RICH_BLOCKS,
             inputSchema: { id: z.string(), markdown: z.string() },
         },
-        async ({ id, markdown }) => json(await writeTools.appendToNote(deps, { id, markdown }))
+        async ({ id, markdown }) => json(await writeTools.appendToNote(deps, { id, markdown }), liveBlockLayoutWarnings(markdown))
     );
 
     server.registerTool(
@@ -168,7 +170,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
                 RICH_BLOCKS,
             inputSchema: { id: z.string(), old_text: z.string(), new_text: z.string() },
         },
-        async ({ id, old_text, new_text }) => json(await writeTools.replaceInNote(deps, { id, old_text, new_text }))
+        async ({ id, old_text, new_text }) => json(await writeTools.replaceInNote(deps, { id, old_text, new_text }), liveBlockLayoutWarnings(new_text))
     );
 
     server.registerTool(
@@ -190,7 +192,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
             },
         },
         async ({ id, markdown, title, tags, expectedModified }) =>
-            json(await writeTools.updateNote(deps, { id, markdown, title, tags, expectedModified }))
+            json(await writeTools.updateNote(deps, { id, markdown, title, tags, expectedModified }), liveBlockLayoutWarnings(markdown ?? ''))
     );
 
     const index = z.number().int().min(0);
@@ -232,7 +234,10 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
             },
         },
         async ({ note_id, block_id, op, expectedModified }) =>
-            json(await writeTools.editBlock(deps, { note_id, block_id, op, expectedModified }))
+            json(
+                await writeTools.editBlock(deps, { note_id, block_id, op, expectedModified }),
+                liveBlockLayoutWarnings('markdown' in op ? op.markdown : op.type === 'insert_row' ? (op.cells ?? []).join('\n\n') : '')
+            )
     );
 
     server.registerTool(
