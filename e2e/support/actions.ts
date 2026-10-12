@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { assertTestOrigin } from './origin-guard';
 
 // Previously open notes stay mounted as background tabs (so switching tabs is
@@ -50,12 +50,18 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
     const editor = activeEditor(page);
     await editor.click();
     await editor.pressSequentially(text);
-    // Local persistence of the Yjs update to PGlite is not synchronous with
-    // typing — navigating away right after typing can lose the last
-    // keystrokes (confirmed: reloading immediately after showed only the
-    // first couple of characters). No DOM-observable signal exists for it,
-    // so a short settle wait is the practical fix.
-    await page.waitForTimeout(1000);
+    await waitForNoteSaved(page);
+}
+
+/**
+ * Wait until every edit made so far has been written to PGlite, so a reload or
+ * navigation right after cannot lose it (typing then reloading immediately kept
+ * only the first couple of characters). Uses the e2e hooks the app exposes.
+ */
+export async function waitForNoteSaved(page: Page): Promise<void> {
+    await expect.poll(() => page.evaluate(() => window.__journalE2E!.hasUnsavedEdits())).toBe(false);
+    // A commit returns before PGlite has flushed it to IndexedDB; a reload before that loses it.
+    await page.evaluate(() => window.__journalE2E!.syncToDisk());
 }
 
 /** Paste `text` as plain text at the editor's cursor, through a synthetic paste event. */
@@ -135,4 +141,34 @@ export async function unshareNotePublicly(page: Page, title: string): Promise<vo
     // The real makeNotePrivate() drive call happens here — give it real network time.
     await expect(page.getByRole('button', { name: 'Make Note Public' })).toBeVisible({ timeout: 15_000 });
     await page.keyboard.press('Escape');
+}
+
+export const THEMES = ['light', 'dark'] as const;
+export type Theme = (typeof THEMES)[number];
+
+/**
+ * Run `body` once per theme on the same page (light, then dark), so a behaviour whose
+ * assertions do not depend on the theme is exercised once and only the evidence is taken
+ * twice. A sandbox frame reloads on a theme change, so `body` should re-check what it
+ * needs before taking its screenshots. Leaves the page in dark.
+ */
+export async function inBothThemes(page: Page, body: (theme: Theme) => Promise<unknown>): Promise<void> {
+    for (const theme of THEMES) {
+        await page.emulateMedia({ colorScheme: theme });
+        await expect(page.locator('html')).toHaveClass(new RegExp(theme));
+        await body(theme);
+    }
+}
+
+/** `inBothThemes` with one full-page screenshot per theme, named by `fileName`. */
+export async function screenshotInBothThemes(
+    page: Page,
+    fileName: (theme: Theme) => string,
+    settle?: (theme: Theme) => Promise<void>,
+    options: Omit<Parameters<Page['screenshot']>[0] & object, 'path'> = {}
+): Promise<void> {
+    await inBothThemes(page, async (theme) => {
+        await settle?.(theme);
+        await page.screenshot({ ...options, path: test.info().outputPath(fileName(theme)) });
+    });
 }

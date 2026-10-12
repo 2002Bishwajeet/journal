@@ -2,14 +2,13 @@ import { readFile } from 'node:fs/promises';
 import type { FrameLocator, Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeEditor, createNote, pastePlainText } from '../support/actions';
+import { activeEditor, createNote, pastePlainText, screenshotInBothThemes, THEMES, waitForNoteSaved } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #557: an html or react block can ask for the full width of the pane with `wide` in its
 // fence, in the editor and on the share page. Takes the screenshots the issue asks for:
 // light and dark, 1280px and 390px.
 
-const THEMES = ['light', 'dark'] as const;
 const VIEWPORTS = { 1280: { width: 1280, height: 900 }, 390: { width: 390, height: 844 } } as const;
 // The side gutter a wide block keeps: the editor column's own padding, px-6 and md:px-12.
 const GUTTER = { 1280: 48, 390: 24 } as const;
@@ -81,68 +80,63 @@ async function expectCapped(page: Page, block: Locator, paragraph: Locator): Pro
   expect(Math.abs(wide.x + wide.width / 2 - (column.x + column.width / 2))).toBeLessThanOrEqual(2);
 }
 
-for (const theme of THEMES) {
-  test(`editor: a wide html block spans the pane and keeps wide in its markdown, ${theme} theme`, async ({ app }) => {
-    // The theme preference defaults to "system", which follows prefers-color-scheme.
-    await app.emulateMedia({ colorScheme: theme });
-    await app.setViewportSize(VIEWPORTS[1280]);
-    const title = `Wide block ${theme} ${Date.now()}`;
-    await createNote(app, { title, body: PARAGRAPH });
-    await app.keyboard.press('Enter');
-    await pastePlainText(app, '```html wide\n' + COUNTER + '\n```');
-    await expect(app.locator('html')).toHaveClass(new RegExp(theme));
+test('editor: a wide html block spans the pane and keeps wide in its markdown', async ({ app }) => {
+  await app.setViewportSize(VIEWPORTS[1280]);
+  const title = `Wide block ${Date.now()}`;
+  await createNote(app, { title, body: PARAGRAPH });
+  await app.keyboard.press('Enter');
+  await pastePlainText(app, '```html wide\n' + COUNTER + '\n```');
 
-    const editor = activeEditor(app);
-    const block = editor.locator('[data-live-block="html"]');
-    const paragraph = editor.getByText(PARAGRAPH);
-    await expect(block).toHaveAttribute('data-live-block-wide', '');
-    await expect(htmlFrame(block).locator('#out')).toHaveText('count: 0');
-    // The note's tab in the desktop tab bar: gone in the mobile layout.
-    const closeTab = app.getByRole('button', { name: `Close ${title}`, exact: true });
-    await expect(closeTab).toBeVisible();
-    await app.setViewportSize(BIG_MONITOR);
-    await expect(() => expectCapped(app, block, paragraph)).toPass();
+  const editor = activeEditor(app);
+  const block = editor.locator('[data-live-block="html"]');
+  const paragraph = editor.getByText(PARAGRAPH);
+  await expect(block).toHaveAttribute('data-live-block-wide', '');
+  await expect(htmlFrame(block).locator('#out')).toHaveText('count: 0');
+  // The note's tab in the desktop tab bar: gone in the mobile layout.
+  const closeTab = app.getByRole('button', { name: `Close ${title}`, exact: true });
+  await expect(closeTab).toBeVisible();
+  await app.setViewportSize(BIG_MONITOR);
+  await expect(() => expectCapped(app, block, paragraph)).toPass();
 
-    for (const viewport of [1280, 390] as const) {
-      await app.setViewportSize(VIEWPORTS[viewport]);
-      if (viewport === 390) {
-        // Below 768px the app swaps to its mobile layout: the desktop tab bar goes, and the
-        // note remounts in the router outlet with a new frame. Wait for that remount, then for
-        // the new frame to have loaded its count, before measuring.
-        await expect(closeTab).toBeHidden();
-        await expect(app.getByText('Loading document...')).toHaveCount(0);
-      }
-      await expect(htmlFrame(block).locator('#out')).toHaveText(/^count: \d+$/);
-      // The layout settles over a few frames (the sidebar's transition); measure until it has.
-      await expect(() => expectWide(app, block, paragraph, viewport)).toPass();
-      await block.evaluate((el) => el.scrollIntoView({ block: 'center' }));
-      await app.screenshot({ path: test.info().outputPath(`wide-editor-${theme}-${viewport}.png`) });
+  for (const viewport of [1280, 390] as const) {
+    await app.setViewportSize(VIEWPORTS[viewport]);
+    if (viewport === 390) {
+      // Below 768px the app swaps to its mobile layout: the desktop tab bar goes, and the
+      // note remounts in the router outlet with a new frame. Wait for that remount, then for
+      // the new frame to have loaded its count, before measuring.
+      await expect(closeTab).toBeHidden();
+      await expect(app.getByText('Loading document...')).toHaveCount(0);
     }
+    await expect(htmlFrame(block).locator('#out')).toHaveText(/^count: \d+$/);
+    // The layout settles over a few frames (the sidebar's transition); measure until it has.
+    await expect(() => expectWide(app, block, paragraph, viewport)).toPass();
+    await block.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await screenshotInBothThemes(app, (theme) => `wide-editor-${theme}-${viewport}.png`);
+  }
 
-    // A count the block saves is in the note, and gives the block its id. Same wait as
-    // e2e/editor/live-html-storage.spec.ts: the save reaches PGlite a moment after the note.
-    await app.setViewportSize(VIEWPORTS[1280]);
-    await expect(app.getByText('Loading document...')).toHaveCount(0);
-    await htmlFrame(block).getByRole('button', { name: 'Add one' }).click();
-    await expect(htmlFrame(block).locator('#out')).toHaveText('count: 1');
-    await app.waitForTimeout(1500);
-    await app.reload();
-    await waitForAppReady(app);
-    await expect(htmlFrame(activeEditor(app).locator('[data-live-block="html"]')).locator('#out')).toHaveText('count: 1');
+  // A count the block saves is in the note, and gives the block its id. Same wait as
+  // e2e/editor/live-html-storage.spec.ts: wait for the save to reach PGlite.
+  await app.setViewportSize(VIEWPORTS[1280]);
+  await expect(app.getByText('Loading document...')).toHaveCount(0);
+  await htmlFrame(block).getByRole('button', { name: 'Add one' }).click();
+  await expect(htmlFrame(block).locator('#out')).toHaveText('count: 1');
+  await waitForNoteSaved(app);
+  await app.reload();
+  await waitForAppReady(app);
+  await expect(htmlFrame(activeEditor(app).locator('[data-live-block="html"]')).locator('#out')).toHaveText('count: 1');
 
-    // `wide` stays in the fence, next to the id the block got on its first save. The rest of
-    // the round trip (get_note, update_note) is in src/__tests__/liveBlockState.test.ts.
-    const [download] = await Promise.all([
-      app.waitForEvent('download'),
-      (async () => {
-        await app.getByRole('button').filter({ hasText: title }).first().click({ button: 'right' });
-        await app.getByRole('menuitem', { name: 'Export to Markdown' }).click();
-      })(),
-    ]);
-    const markdown = await readFile(await download.path(), 'utf8');
-    expect(markdown).toMatch(/^```html wide id=[a-z0-9]{8}\n<style>body\{margin:16px\}<\/style>$/m);
-  });
-}
+  // `wide` stays in the fence, next to the id the block got on its first save. The rest of
+  // the round trip (get_note, update_note) is in src/__tests__/liveBlockState.test.ts.
+  const [download] = await Promise.all([
+    app.waitForEvent('download'),
+    (async () => {
+      await app.getByRole('button').filter({ hasText: title }).first().click({ button: 'right' });
+      await app.getByRole('menuitem', { name: 'Export to Markdown' }).click();
+    })(),
+  ]);
+  const markdown = await readFile(await download.path(), 'utf8');
+  expect(markdown).toMatch(/^```html wide id=[a-z0-9]{8}\n<style>body\{margin:16px\}<\/style>$/m);
+});
 
 // The share page reads a public note from its author's identity: the GETs of one read,
 // answered with canned values on a *.homebase.test identity, as in e2e/editor/live-html-storage.spec.ts.
@@ -194,8 +188,9 @@ async function openSharedNote(page: Page): Promise<Locator> {
   return article;
 }
 
-for (const theme of THEMES) {
-  test(`share page: a wide html block spans the page with the owner's state, ${theme} theme`, async ({ anonPage }) => {
+// The share page reads the theme when it loads, so each theme loads it again (in one test).
+test(`share page: a wide html block spans the page with the owner's state`, async ({ anonPage }) => {
+  for (const theme of THEMES) {
     await anonPage.emulateMedia({ colorScheme: theme });
     await anonPage.setViewportSize(VIEWPORTS[1280]);
     const article = await openSharedNote(anonPage);
@@ -218,5 +213,5 @@ for (const theme of THEMES) {
       await block.evaluate((el) => el.scrollIntoView({ block: 'center' }));
       await anonPage.screenshot({ path: test.info().outputPath(`wide-share-${theme}-${viewport}.png`) });
     }
-  });
-}
+  }
+});

@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, screenshotInBothThemes } from '../support/actions';
 
 // Settings → Appearance: editor font and width apply immediately and survive a
 // reload (#394).
@@ -70,36 +70,32 @@ const SHOT_BODY =
   'The morning light came through the window and settled on the desk, where a half-finished cup of tea had gone cold. I wrote down everything I could remember about the walk to the station, the smell of rain on the pavement, and the way the street lamps flickered on one by one.\n' +
   'Later that evening I reread the pages and noticed how much of the day had already blurred together. Small details like these are the reason I keep a journal at all, so that a quiet Tuesday does not disappear without a trace.';
 
-for (const colorScheme of ['light', 'dark'] as const) {
-  test(`screenshots: appearance and editor typography (${colorScheme})`, async ({ app }) => {
-    test.setTimeout(90_000);
-    await app.setViewportSize({ width: 1920, height: 1080 });
-    await app.emulateMedia({ colorScheme });
-    const shot = (name: string) => app.screenshot({ path: test.info().outputPath(name) });
+// One run; every state is screenshotted in both themes.
+test('screenshots: appearance and editor typography', async ({ app }) => {
+  test.setTimeout(90_000);
+  await app.setViewportSize({ width: 1920, height: 1080 });
+  const shot = (name: string) => screenshotInBothThemes(app, (theme) => `${name}-${theme}.png`);
 
-    await createNote(app, { title: 'A quiet Tuesday', body: SHOT_BODY });
-    const pick = async (font: string, width: string) => {
-      const d = await openAppearance(app);
-      await d.getByRole('radiogroup', { name: 'Editor font' }).getByText(font, { exact: true }).click();
-      await d.getByRole('radiogroup', { name: 'Editor width' }).getByText(width, { exact: true }).click();
-      await closeSettings(app);
-    };
-
-    const dialog = await openAppearance(app);
-    await expect(dialog.getByRole('radiogroup', { name: 'Editor font' })).toBeVisible();
-    await expect(dialog.getByRole('radiogroup', { name: 'Editor width' })).toBeVisible();
-    await shot(`appearance-section-${colorScheme}.png`);
+  await createNote(app, { title: 'A quiet Tuesday', body: SHOT_BODY });
+  const pick = async (font: string, width: string) => {
+    const d = await openAppearance(app);
+    await d.getByRole('radiogroup', { name: 'Editor font' }).getByText(font, { exact: true }).click();
+    await d.getByRole('radiogroup', { name: 'Editor width' }).getByText(width, { exact: true }).click();
     await closeSettings(app);
-    await shot(`editor-default-${colorScheme}.png`);
+  };
 
-    await pick('Serif', 'Narrow');
-    await expect.poll(() => activeEditor(app).evaluate(fontOf)).toMatch(/Georgia/);
-    await shot(`editor-serif-narrow-${colorScheme}.png`);
+  const dialog = await openAppearance(app);
+  await expect(dialog.getByRole('radiogroup', { name: 'Editor font' })).toBeVisible();
+  await expect(dialog.getByRole('radiogroup', { name: 'Editor width' })).toBeVisible();
+  await shot('appearance-section');
+  await closeSettings(app);
+  await shot('editor-default');
 
-    if (colorScheme === 'light') {
-      await pick('Mono', 'Full');
-      await expect.poll(() => activeEditor(app).evaluate(fontOf)).toMatch(/mono/i);
-      await shot('editor-mono-full-light.png');
-    }
-  });
-}
+  await pick('Serif', 'Narrow');
+  await expect.poll(() => activeEditor(app).evaluate(fontOf)).toMatch(/Georgia/);
+  await shot('editor-serif-narrow');
+
+  await pick('Mono', 'Full');
+  await expect.poll(() => activeEditor(app).evaluate(fontOf)).toMatch(/mono/i);
+  await shot('editor-mono-full');
+});

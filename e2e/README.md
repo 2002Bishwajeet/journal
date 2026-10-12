@@ -52,7 +52,8 @@ On failure, the job uploads `playwright-report/` and `test-results/` (traces, sc
 - Import `test`/`expect` from `../fixtures`, never from `@playwright/test` directly.
 - Use the `app` or `anonPage` fixture; call helpers from `e2e/support/actions.ts` instead of re-deriving selectors.
 - Selectors: `getByRole`/`getByLabel`/`getByText` first; `data-testid` only when there's no accessible name.
-- No `page.waitForTimeout` sleeps for synchronization — wait on an assertion, a fixture, or `waitForAppReady`. (A couple of existing helpers use a short, commented settle wait around a Yjs/PGlite timing gap with no DOM-observable signal — that's a documented exception, not a pattern to copy.)
+- No `page.waitForTimeout` sleeps for synchronization — wait on an assertion, a fixture, or `waitForAppReady`. Before a reload or navigation, wait for the edit to land with `waitForNoteSaved(page)` (it polls `window.__journalE2E.hasUnsavedEdits()`). A `waitForTimeout` is allowed only where nothing observable exists, with a comment saying why.
+- One behaviour run per spec. Do not loop a whole test over `light`/`dark` when only the screenshots differ: run the behaviour once and take the evidence in both themes inside it, with `screenshotInBothThemes(page, (theme) => ...)` or `inBothThemes(page, async (theme) => { ... })` from `support/actions`. Keep both variants (or a theme loop inside the test) only where the assertion itself depends on the theme: token colours, contrast, theme-specific covers.
 - Flaky for a reason you can't fix now: tag the title `@quarantine` and open a bug — never paper over it with a sleep.
 
 ## Evidence for a PR

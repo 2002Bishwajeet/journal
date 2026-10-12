@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { FrameLocator, Locator, Page, Request } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
-import { activeEditor, createNote, pastePlainText } from '../support/actions';
+import { activeEditor, createNote, inBothThemes, pastePlainText, THEMES } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #426: a `react` code block renders a React component on the app's own React, in the
@@ -228,40 +228,46 @@ test('react block: after one render, it still renders offline after a reload', a
   });
 });
 
-for (const theme of ['light', 'dark'] as const) {
-  test(`react block in the editor: the counter, a syntax error and a render error, ${theme} theme`, async ({ app }) => {
-    // The theme preference defaults to "system", which follows prefers-color-scheme.
-    await app.emulateMedia({ colorScheme: theme });
-    await app.setViewportSize({ width: 1280, height: 900 });
-    await createNote(app, { title: `React states ${theme} ${Date.now()}`, body: '```react ' + COUNTER_LINE });
-    for (const source of [SYNTAX_ERROR, THROWS]) {
-      // Enter three times leaves the code block; then the next one.
-      for (let i = 0; i < 3; i++) await app.keyboard.press('Enter');
-      await app.keyboard.type('```react ' + source);
+// One run; the screenshots are taken in both themes.
+test('react block in the editor: the counter, a syntax error and a render error', async ({ app }) => {
+  await app.setViewportSize({ width: 1280, height: 900 });
+  await createNote(app, { title: `React states ${Date.now()}`, body: '```react ' + COUNTER_LINE });
+  for (const source of [SYNTAX_ERROR, THROWS]) {
+    // Enter three times leaves the code block; then the next one.
+    for (let i = 0; i < 3; i++) await app.keyboard.press('Enter');
+    await app.keyboard.type('```react ' + source);
+  }
+  // Each typed block starts in Code.
+  for (let i = 0; i < 3; i++) await app.getByRole('button', { name: 'Preview', exact: true }).nth(i).click();
+  const [counter, syntaxError, renderError] = [0, 1, 2].map((i) => reactBlocks(app).nth(i));
+
+  await expect(reactFrame(counter).getByText('Count: 0')).toBeVisible();
+  await reactFrame(counter).getByRole('button', { name: 'Add one' }).click();
+  await expect(reactFrame(counter).getByText('Count: 1')).toBeVisible();
+
+  // A compile error is text in place of the frame: its line and message.
+  const alert = syntaxError.locator('[data-live-block-preview="react"] [role="alert"]');
+  await expect(alert).toContainText('Couldn’t compile this component.');
+  await expect(alert).toContainText('Line 1: Unterminated JSX contents');
+  await expect(syntaxError.locator('iframe')).toHaveCount(0);
+
+  // A render error is the component's own message, inside the frame.
+  await expect(reactFrame(renderError).getByRole('alert')).toContainText('Error: The counter broke');
+
+  await inBothThemes(app, async (theme) => {
+    // The frames reload on a theme change, so the counter starts again.
+    await expect(reactFrame(counter).getByText(/Count: [01]/)).toBeVisible();
+    if (await reactFrame(counter).getByText('Count: 0').isVisible()) {
+      await reactFrame(counter).getByRole('button', { name: 'Add one' }).click();
     }
-    // Each typed block starts in Code.
-    for (let i = 0; i < 3; i++) await app.getByRole('button', { name: 'Preview', exact: true }).nth(i).click();
-    await expect(app.locator('html')).toHaveClass(new RegExp(theme));
-    const [counter, syntaxError, renderError] = [0, 1, 2].map((i) => reactBlocks(app).nth(i));
-
-    await expect(reactFrame(counter).getByText('Count: 0')).toBeVisible();
-    await reactFrame(counter).getByRole('button', { name: 'Add one' }).click();
     await expect(reactFrame(counter).getByText('Count: 1')).toBeVisible();
-
-    // A compile error is text in place of the frame: its line and message.
-    const alert = syntaxError.locator('[data-live-block-preview="react"] [role="alert"]');
-    await expect(alert).toContainText('Couldn’t compile this component.');
     await expect(alert).toContainText('Line 1: Unterminated JSX contents');
-    await expect(syntaxError.locator('iframe')).toHaveCount(0);
-
-    // A render error is the component's own message, inside the frame.
     await expect(reactFrame(renderError).getByRole('alert')).toContainText('Error: The counter broke');
-
     await shoot(app, counter, `react-counter-editor-${theme}-desktop.png`);
     await shoot(app, syntaxError, `react-syntax-error-editor-${theme}-desktop.png`);
     await shoot(app, renderError, `react-render-error-editor-${theme}-desktop.png`);
   });
-}
+});
 
 // The share page reads a public note from its author's identity: the GETs of one read,
 // answered with canned values on a *.homebase.test identity, as in
@@ -318,8 +324,9 @@ async function openSharedNote(page: Page): Promise<Locator> {
   return article;
 }
 
-for (const theme of ['light', 'dark'] as const) {
-  test(`react block on the share page: the counter counts, and both errors show, ${theme} theme`, async ({ anonPage }) => {
+// The share page reads the theme when it loads, so each theme loads it again (in one test).
+test('react block on the share page: the counter counts, and both errors show', async ({ anonPage }) => {
+  for (const theme of THEMES) {
     await anonPage.emulateMedia({ colorScheme: theme });
     await anonPage.setViewportSize({ width: 1280, height: 900 });
     const article = await openSharedNote(anonPage);
@@ -340,5 +347,5 @@ for (const theme of ['light', 'dark'] as const) {
     await shoot(anonPage, counter, `react-counter-share-${theme}-desktop.png`);
     await shoot(anonPage, syntaxError, `react-syntax-error-share-${theme}-desktop.png`);
     await shoot(anonPage, renderError, `react-render-error-share-${theme}-desktop.png`);
-  });
-}
+  }
+});

@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, waitForAppReady } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { inBothThemes, type Theme } from '../support/actions';
 
 // Screenshot evidence for the settings visual pass (#395): every section, in
 // both themes, at desktop and phone width. Written to test-results/ via
@@ -22,7 +23,11 @@ const SECTIONS: { id: string; tab: string; desktopOnly?: boolean }[] = [
   { id: 'about', tab: 'About' },
 ];
 
-async function capture(page: Page, name: string): Promise<void> {
+async function capture(page: Page, name: (theme: Theme) => string): Promise<void> {
+  await inBothThemes(page, (theme) => captureTheme(page, name(theme)));
+}
+
+async function captureTheme(page: Page, name: string): Promise<void> {
   const scroller = page.getByRole('dialog').getByRole('tabpanel').locator('..');
   await scroller.evaluate((el) => el.scrollTo(0, 0));
   for (let part = 1; ; part++) {
@@ -39,44 +44,42 @@ async function capture(page: Page, name: string): Promise<void> {
   }
 }
 
-for (const colorScheme of ['light', 'dark'] as const) {
-  for (const [viewport, size] of Object.entries(VIEWPORTS)) {
-    test(`screenshots: every settings section (${colorScheme}, ${viewport})`, async ({ app }) => {
-      test.setTimeout(120_000);
-      const isMobile = viewport === 'mobile';
-      // A model download must never start from a screenshot run.
-      await app.route('https://huggingface.co/**', (route) => route.abort());
-      await app.emulateMedia({ colorScheme });
-      await app.setViewportSize(size);
+// One walk per viewport; every section is captured in both themes.
+for (const [viewport, size] of Object.entries(VIEWPORTS)) {
+  test(`screenshots: every settings section (${viewport})`, async ({ app }) => {
+    test.setTimeout(120_000);
+    const isMobile = viewport === 'mobile';
+    // A model download must never start from a screenshot run.
+    await app.route('https://huggingface.co/**', (route) => route.abort());
+    await app.setViewportSize(size);
 
-      const open = async () => {
-        await app.getByRole('button', { name: 'Settings' }).click();
-        return app.getByRole('dialog');
-      };
-      let dialog = await open();
+    const open = async () => {
+      await app.getByRole('button', { name: 'Settings' }).click();
+      return app.getByRole('dialog');
+    };
+    let dialog = await open();
 
-      for (const section of SECTIONS) {
-        if (isMobile && section.desktopOnly) continue;
-        await dialog.getByRole('tab', { name: section.tab, exact: true }).click();
-        const panel = dialog.getByRole('tabpanel');
-        await expect(panel.getByRole('heading', { name: section.tab, exact: true })).toBeVisible();
-        if (section.id === 'data') await expect(panel.getByText('Storage used')).toBeVisible();
-        await capture(app, `${section.id}-${colorScheme}-${viewport}`);
-      }
+    for (const section of SECTIONS) {
+      if (isMobile && section.desktopOnly) continue;
+      await dialog.getByRole('tab', { name: section.tab, exact: true }).click();
+      const panel = dialog.getByRole('tabpanel');
+      await expect(panel.getByRole('heading', { name: section.tab, exact: true })).toBeVisible();
+      if (section.id === 'data') await expect(panel.getByText('Storage used')).toBeVisible();
+      await capture(app, (theme) => `${section.id}-${theme}-${viewport}`);
+    }
 
-      // AI switched on (desktop only: phones can't run it). The model host is
-      // blocked, so this is the section with its error + Retry line showing.
-      if (isMobile) return;
-      await assertTestOrigin(app);
-      await app.evaluate(() => {
-        localStorage.setItem('journal-ai-settings', JSON.stringify({ enabled: true, _v: 2 }));
-      });
-      await app.reload();
-      await waitForAppReady(app);
-      dialog = await open();
-      await dialog.getByRole('tab', { name: 'AI', exact: true }).click();
-      await expect(dialog.getByRole('status')).toContainText("Couldn't load the AI model.");
-      await capture(app, `ai-on-${colorScheme}-${viewport}`);
+    // AI switched on (desktop only: phones can't run it). The model host is
+    // blocked, so this is the section with its error + Retry line showing.
+    if (isMobile) return;
+    await assertTestOrigin(app);
+    await app.evaluate(() => {
+      localStorage.setItem('journal-ai-settings', JSON.stringify({ enabled: true, _v: 2 }));
     });
-  }
+    await app.reload();
+    await waitForAppReady(app);
+    dialog = await open();
+    await dialog.getByRole('tab', { name: 'AI', exact: true }).click();
+    await expect(dialog.getByRole('status')).toContainText("Couldn't load the AI model.");
+    await capture(app, (theme) => `ai-on-${theme}-${viewport}`);
+  });
 }

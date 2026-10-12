@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, waitForNoteSaved, screenshotInBothThemes } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #518: footnotes inserted from the slash menu, numbered by reference order,
@@ -9,7 +9,6 @@ import { assertTestOrigin } from '../support/origin-guard';
 // rendered on the share page with working back links. Screenshots: light,
 // dark, and 390px.
 
-const THEMES = ['light', 'dark'] as const;
 const VIEWPORTS = { desktop: { width: 1280, height: 900 }, mobile: { width: 390, height: 844 } } as const;
 
 const refs = (editor: Locator) => editor.locator('sup[data-type="footnote-reference"]');
@@ -38,61 +37,58 @@ async function insertFootnote(page: Page, note: string) {
   await page.keyboard.type(note);
 }
 
-for (const theme of THEMES) {
-  test(`editor footnotes: insert, renumber, jump and delete, ${theme} theme`, async ({ app }) => {
-    await app.emulateMedia({ colorScheme: theme });
-    await app.setViewportSize(VIEWPORTS.desktop);
-    await createNote(app, { title: `Footnotes ${theme} ${Date.now()}`, body: 'Alpha beta gamma' });
-    const editor = activeEditor(app);
+test('editor footnotes: insert, renumber, jump and delete', async ({ app }) => {
+  await app.setViewportSize(VIEWPORTS.desktop);
+  await createNote(app, { title: `Footnotes ${Date.now()}`, body: 'Alpha beta gamma' });
+  const editor = activeEditor(app);
 
-    await insertFootnote(app, 'Note on gamma');
-    await expect(refs(editor)).toHaveCount(1);
-    await expect(refs(editor).first()).toHaveAttribute('data-number', '1');
-    await expect(notes(editor).first()).toContainText('Note on gamma');
+  await insertFootnote(app, 'Note on gamma');
+  await expect(refs(editor)).toHaveCount(1);
+  await expect(refs(editor).first()).toHaveAttribute('data-number', '1');
+  await expect(notes(editor).first()).toContainText('Note on gamma');
 
-    // A footnote inserted before it becomes 1, and the first one becomes 2.
-    await caretInFirstParagraph(editor, 'Alpha'.length);
-    await insertFootnote(app, 'Note on alpha');
-    await expect(refs(editor)).toHaveCount(2);
-    await expect(refs(editor).nth(0)).toHaveAttribute('data-number', '1');
-    await expect(refs(editor).nth(1)).toHaveAttribute('data-number', '2');
-    await expect(notes(editor).nth(0)).toContainText('Note on alpha');
-    await expect(notes(editor).nth(1)).toContainText('Note on gamma');
+  // A footnote inserted before it becomes 1, and the first one becomes 2.
+  await caretInFirstParagraph(editor, 'Alpha'.length);
+  await insertFootnote(app, 'Note on alpha');
+  await expect(refs(editor)).toHaveCount(2);
+  await expect(refs(editor).nth(0)).toHaveAttribute('data-number', '1');
+  await expect(refs(editor).nth(1)).toHaveAttribute('data-number', '2');
+  await expect(notes(editor).nth(0)).toContainText('Note on alpha');
+  await expect(notes(editor).nth(1)).toContainText('Note on gamma');
 
-    // Reference -> its note (the cursor lands at the end of its text) ...
-    await refs(editor).nth(1).click();
-    await app.keyboard.type('!');
-    await expect(notes(editor).nth(1)).toContainText('Note on gamma!');
-    // ... and the note's back link -> the reference.
-    await notes(editor).nth(1).getByRole('button', { name: 'Back to reference' }).click();
-    await expect(refs(editor).nth(1)).toHaveClass(/ProseMirror-selectednode/);
+  // Reference -> its note (the cursor lands at the end of its text) ...
+  await refs(editor).nth(1).click();
+  await app.keyboard.type('!');
+  await expect(notes(editor).nth(1)).toContainText('Note on gamma!');
+  // ... and the note's back link -> the reference.
+  await notes(editor).nth(1).getByRole('button', { name: 'Back to reference' }).click();
+  await expect(refs(editor).nth(1)).toHaveClass(/ProseMirror-selectednode/);
 
-    await app.screenshot({ path: test.info().outputPath(`footnotes-editor-${theme}-1280.png`) });
-    // The layout swaps at this width and the note remounts.
-    await app.setViewportSize(VIEWPORTS.mobile);
-    await expect(app.getByText('Loading document...')).toBeHidden();
-    await expect(notes(activeEditor(app)).nth(1)).toBeInViewport();
-    await app.screenshot({ path: test.info().outputPath(`footnotes-editor-${theme}-390.png`) });
-    await app.setViewportSize(VIEWPORTS.desktop);
-    await expect(notes(editor).nth(1)).toContainText('Note on gamma!');
+  await screenshotInBothThemes(app, (theme) => `footnotes-editor-${theme}-1280.png`);
+  // The layout swaps at this width and the note remounts.
+  await app.setViewportSize(VIEWPORTS.mobile);
+  await expect(app.getByText('Loading document...')).toBeHidden();
+  await expect(notes(activeEditor(app)).nth(1)).toBeInViewport();
+  await screenshotInBothThemes(app, (theme) => `footnotes-editor-${theme}-390.png`);
+  await app.setViewportSize(VIEWPORTS.desktop);
+  await expect(notes(editor).nth(1)).toContainText('Note on gamma!');
 
-    // Deleting reference 1 drops its note; gamma's becomes 1.
-    await notes(editor).nth(0).getByRole('button', { name: 'Back to reference' }).click();
-    await expect(refs(editor).nth(0)).toHaveClass(/ProseMirror-selectednode/);
-    await app.keyboard.press('Backspace');
-    await expect(refs(editor)).toHaveCount(1);
-    await expect(refs(editor).first()).toHaveAttribute('data-number', '1');
-    await expect(notes(editor)).toHaveCount(1);
-    await expect(notes(editor).first()).toContainText('Note on gamma!');
+  // Deleting reference 1 drops its note; gamma's becomes 1.
+  await notes(editor).nth(0).getByRole('button', { name: 'Back to reference' }).click();
+  await expect(refs(editor).nth(0)).toHaveClass(/ProseMirror-selectednode/);
+  await app.keyboard.press('Backspace');
+  await expect(refs(editor)).toHaveCount(1);
+  await expect(refs(editor).first()).toHaveAttribute('data-number', '1');
+  await expect(notes(editor)).toHaveCount(1);
+  await expect(notes(editor).first()).toContainText('Note on gamma!');
 
-    // Saved like any other content.
-    await app.waitForTimeout(1000);
-    await app.reload();
-    await waitForAppReady(app);
-    await expect(refs(activeEditor(app))).toHaveCount(1);
-    await expect(notes(activeEditor(app)).first()).toContainText('Note on gamma!');
-  });
-}
+  // Saved like any other content.
+  await waitForNoteSaved(app);
+  await app.reload();
+  await waitForAppReady(app);
+  await expect(refs(activeEditor(app))).toHaveCount(1);
+  await expect(notes(activeEditor(app)).first()).toContainText('Note on gamma!');
+});
 
 test('footnotes sync between two tabs on the same note', async ({ app }) => {
   await createNote(app, { title: `Footnotes two tabs ${Date.now()}`, body: 'Shared text' });
@@ -178,8 +174,9 @@ async function openSharedNote(page: Page): Promise<Locator> {
   return article;
 }
 
-for (const theme of THEMES) {
-  test(`share page footnotes: references and back links jump, ${theme} theme`, async ({ anonPage }) => {
+// The share page reads the theme when it loads, so each theme loads it again (in one test).
+test('share page footnotes: references and back links jump', async ({ anonPage }) => {
+  for (const theme of ['light', 'dark'] as const) {
     await anonPage.emulateMedia({ colorScheme: theme });
     await anonPage.setViewportSize(VIEWPORTS.desktop);
     const article = await openSharedNote(anonPage);
@@ -205,5 +202,5 @@ for (const theme of THEMES) {
     await links.nth(0).click();
     await expect(items.nth(0)).toBeInViewport();
     await anonPage.screenshot({ path: test.info().outputPath(`footnotes-share-${theme}-390.png`) });
-  });
-}
+  }
+});

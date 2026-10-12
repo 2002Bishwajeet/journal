@@ -1,5 +1,5 @@
 import { test, expect, waitForAppReady } from '../fixtures';
-import { createNote } from '../support/actions';
+import { createNote, waitForNoteSaved } from '../support/actions';
 
 // On mobile, tapping a tag shows that tag's notes, not just a highlight (#190).
 
@@ -7,8 +7,9 @@ test('tapping a tag on mobile opens its note list', async ({ app }) => {
   await createNote(app, { title: 'Tagged note', body: 'Has a tag' });
   await app.getByPlaceholder('Add tags...').fill('routing');
   await app.getByPlaceholder('Add tags...').press('Enter');
-  // Wait for the debounced title/body writes before reloading.
-  await app.waitForTimeout(1000);
+  // The tag list is a live query on the DB, so the chip showing means the tag row is written.
+  await expect(app.getByRole('navigation', { name: 'Tags' }).getByRole('button', { name: /routing/ })).toBeVisible();
+  await waitForNoteSaved(app);
 
   // Forget the last note so the cold start below stays on the sidebar instead
   // of session restore reopening it.

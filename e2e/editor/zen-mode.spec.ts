@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, screenshotInBothThemes } from '../support/actions';
 
 // Zen (focus) mode: an always-visible Exit button sits in the toolbar row (no
 // hover-only pill, no gap above the toolbar), Esc exits, toolbar tools work, and
@@ -82,16 +82,13 @@ test('Zen: the editor width setting applies as in normal mode', async ({ app }) 
   expect(await fill()).toBe(normalGap);
 });
 
-for (const colorScheme of ['light', 'dark'] as const) {
-  test(`screenshots: Zen mode (${colorScheme})`, async ({ app }) => {
-    await app.setViewportSize({ width: 1440, height: 900 });
-    await app.emulateMedia({ colorScheme });
-    await createNote(app, {
-      title: 'A quiet Tuesday',
-      body: 'The morning light came through the window and settled on the desk, where a half-finished cup of tea had gone cold.',
-    });
-    await enterZen(app);
-    await expect(exitPill(app)).toBeVisible();
-    await app.screenshot({ path: test.info().outputPath(`zen-${colorScheme}.png`) });
+test('screenshots: Zen mode', async ({ app }) => {
+  await app.setViewportSize({ width: 1440, height: 900 });
+  await createNote(app, {
+    title: 'A quiet Tuesday',
+    body: 'The morning light came through the window and settled on the desk, where a half-finished cup of tea had gone cold.',
   });
-}
+  await enterZen(app);
+  await expect(exitPill(app)).toBeVisible();
+  await screenshotInBothThemes(app, (colorScheme) => `zen-${colorScheme}.png`);
+});

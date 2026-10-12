@@ -119,14 +119,20 @@ async function pasteBlocks(page: Page, blocks: [language: string, code: string][
   await expect(editor.locator('[data-live-block]')).toHaveCount(blocks.length);
 }
 
-for (const theme of THEMES) {
-  test(`editor: mermaid, svg and html blocks, ${theme} theme`, async ({ app }) => {
+// One note, checked in light and then in dark: the blocks are drawn again in the new theme.
+test('editor: mermaid, svg and html blocks', async ({ app }) => {
+  await app.setViewportSize(VIEWPORTS.desktop);
+  await createNote(app, { title: `Live blocks ${Date.now()}`, body: 'Live blocks in the editor.' });
+  await pasteBlocks(app, [...KINDS.map((kind): [string, string] => [kind, SOURCES[kind]]), ['mermaid', BROKEN_MERMAID]]);
+
+  for (const theme of THEMES) {
     // The theme preference defaults to "system", which follows prefers-color-scheme.
     await app.emulateMedia({ colorScheme: theme });
-    await app.setViewportSize(VIEWPORTS.desktop);
-    await createNote(app, { title: `Live blocks ${theme} ${Date.now()}`, body: 'Live blocks in the editor.' });
-    await pasteBlocks(app, [...KINDS.map((kind): [string, string] => [kind, SOURCES[kind]]), ['mermaid', BROKEN_MERMAID]]);
     await expect(app.locator('html')).toHaveClass(new RegExp(theme));
+    // A diagram on screen is redrawn in the new colours when the theme changes.
+    await expect
+      .poll(() => diagram(activeEditor(app)).evaluate((svg) => getComputedStyle(svg.querySelector('.node rect')!).fill))
+      .toBe(NODE_FILL[theme]);
 
     for (const viewport of ['desktop', 'mobile'] as const) {
       await app.setViewportSize(VIEWPORTS[viewport]);
@@ -153,14 +159,10 @@ for (const theme of THEMES) {
     await expect(html.getByRole('button', { name: 'Preview', exact: true })).toBeFocused();
     await shoot(app, html, `html-toggle-focus-editor-${theme}-desktop.png`);
 
-    // A diagram on screen is redrawn in the new colours when the theme changes.
-    const other = theme === 'light' ? 'dark' : 'light';
-    await app.emulateMedia({ colorScheme: other });
-    await expect
-      .poll(() => diagram(editor).evaluate((svg) => getComputedStyle(svg.querySelector('.node rect')!).fill))
-      .toBe(NODE_FILL[other]);
-  });
-}
+    // Back to the preview for the next theme.
+    await html.getByRole('button', { name: 'Preview', exact: true }).click();
+  }
+});
 
 // The share page reads a public note from its author's identity. There is no
 // fake drive (#196): these are the three GETs of one read, answered with canned
@@ -207,11 +209,13 @@ async function mockPublicNote(page: Page): Promise<void> {
   });
 }
 
-for (const theme of THEMES) {
-  test(`share page: mermaid, svg and html blocks, ${theme} theme`, async ({ anonPage }) => {
+// The share page reads the theme when it loads, so each theme loads it again (in one test).
+test('share page: mermaid, svg and html blocks', async ({ anonPage }) => {
+  await mockPublicNote(anonPage);
+
+  for (const theme of THEMES) {
     await anonPage.emulateMedia({ colorScheme: theme });
     await anonPage.setViewportSize(VIEWPORTS.desktop);
-    await mockPublicNote(anonPage);
     await anonPage.goto(`/share/${AUTHOR}/${NOTE_ID}`);
     await assertTestOrigin(anonPage);
     const article = anonPage.getByRole('article');
@@ -225,5 +229,5 @@ for (const theme of THEMES) {
       if (viewport === 'mobile') await expectTouchTargets(article);
       for (const kind of KINDS) await shoot(anonPage, liveBlock(article, kind), `${kind}-share-${theme}-${viewport}.png`);
     }
-  });
-}
+  }
+});

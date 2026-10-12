@@ -1,6 +1,6 @@
 import type { FrameLocator, Page, Request } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote, pastePlainText } from '../support/actions';
+import { activeEditor, createNote, inBothThemes, pastePlainText } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #558: a react block can import d3, three, lodash, mathjs, papaparse and journal-ui (a UI kit in
@@ -180,55 +180,63 @@ async function shoot(page: Page, index: number, name: string): Promise<void> {
   await page.screenshot({ path: test.info().outputPath(name) });
 }
 
-for (const theme of ['light', 'dark'] as const) {
-  test(`react block libraries: a d3 chart, a three.js cube, a papaparse table and mathjs with lodash, each loaded only when imported, ${theme} theme`, async ({ app }) => {
-    const requests: Request[] = [];
-    app.on('request', (request) => requests.push(request));
-    await app.emulateMedia({ colorScheme: theme });
-    await app.setViewportSize({ width: 1280, height: 900 });
-    await createNote(app, { title: `React counter ${theme} ${Date.now()}`, body: 'Intro' });
-    await expect(app.locator('html')).toHaveClass(new RegExp(theme));
+// Nothing here depends on the theme, so the behaviour runs once and the screenshots are
+// taken in both themes.
+test('react block libraries: a d3 chart, a three.js cube, a papaparse table and mathjs with lodash, each loaded only when imported', async ({ app }) => {
+  const requests: Request[] = [];
+  app.on('request', (request) => requests.push(request));
+  await app.setViewportSize({ width: 1280, height: 900 });
+  await createNote(app, { title: `React counter ${Date.now()}`, body: 'Intro' });
 
-    // A block that imports only react loads no library.
-    await pasteBlock(app, COUNTER);
-    await expect(reactFrame(app, 0).getByRole('button', { name: 'Count: 0' })).toBeVisible();
-    expect(librariesRequested(requests)).toEqual([]);
+  // A block that imports only react loads no library.
+  await pasteBlock(app, COUNTER);
+  await expect(reactFrame(app, 0).getByRole('button', { name: 'Count: 0' })).toBeVisible();
+  expect(librariesRequested(requests)).toEqual([]);
 
-    await createNote(app, { title: `React libraries ${theme} ${Date.now()}`, body: 'Intro' });
-    await pasteBlocks(app, [D3_CHART, THREE_CUBE, PAPA_TABLE, MATHJS]);
-    await expect(reactBlocks(app)).toHaveCount(4);
+  await createNote(app, { title: `React libraries ${Date.now()}`, body: 'Intro' });
+  await pasteBlocks(app, [D3_CHART, THREE_CUBE, PAPA_TABLE, MATHJS]);
+  await expect(reactBlocks(app)).toHaveCount(4);
 
+  await expect(reactFrame(app, 0).locator('#d3-chart rect')).toHaveCount(4);
+
+  const cube = reactFrame(app, 1);
+  await expect(cube.locator('#three-cube canvas')).toBeVisible();
+  // The cube spins: its rotation grows from one frame to the next, drawn by WebGL.
+  const rotation = () => cube.locator('body').evaluate(() => (window as unknown as { cube: { rotation: { y: number } } }).cube.rotation.y);
+  const first = await rotation();
+  await expect.poll(rotation).toBeGreaterThan(first);
+  expect(await cube.locator('canvas').evaluate((canvas: HTMLCanvasElement) => !!(canvas.getContext('webgl2') ?? canvas.getContext('webgl')))).toBe(true);
+
+  const table = reactFrame(app, 2).locator('#papa-table');
+  await expect(table.locator('tbody tr')).toHaveCount(3);
+  await expect(table.locator('tbody tr').nth(2)).toHaveText('tired, but ok4');
+
+  const math = reactFrame(app, 3);
+  await expect(math.locator('#math-result')).toHaveText('= 12');
+  await expect(math.locator('#lodash-result')).toHaveText('1+2 | 3+4 | 5');
+  await math.getByRole('textbox', { name: 'Expression' }).fill('1/3');
+  await expect(math.locator('#math-result')).toHaveText('= 0.3333');
+
+  // Each library came from the app's origin when a block first imported it; no frame made a request.
+  expect(librariesRequested(requests)).toEqual(['d3', 'lodash', 'mathjs', 'papaparse', 'three']);
+  const origin = new URL(app.url()).origin;
+  expect(requests.filter((request) => LIBRARY_URL.test(request.url())).every((request) => new URL(request.url()).origin === origin)).toBe(true);
+  expect(requests.filter(fromFrame).map((request) => request.url())).toEqual([]);
+
+  await inBothThemes(app, async (theme) => {
+    // The frames reload on a theme change: wait for them to draw again.
     await expect(reactFrame(app, 0).locator('#d3-chart rect')).toHaveCount(4);
-
-    const cube = reactFrame(app, 1);
     await expect(cube.locator('#three-cube canvas')).toBeVisible();
-    // The cube spins: its rotation grows from one frame to the next, drawn by WebGL.
-    const rotation = () => cube.locator('body').evaluate(() => (window as unknown as { cube: { rotation: { y: number } } }).cube.rotation.y);
-    const first = await rotation();
-    await expect.poll(rotation).toBeGreaterThan(first);
-    expect(await cube.locator('canvas').evaluate((canvas: HTMLCanvasElement) => !!(canvas.getContext('webgl2') ?? canvas.getContext('webgl')))).toBe(true);
-
-    const table = reactFrame(app, 2).locator('#papa-table');
     await expect(table.locator('tbody tr')).toHaveCount(3);
-    await expect(table.locator('tbody tr').nth(2)).toHaveText('tired, but ok4');
-
-    const math = reactFrame(app, 3);
-    await expect(math.locator('#math-result')).toHaveText('= 12');
-    await expect(math.locator('#lodash-result')).toHaveText('1+2 | 3+4 | 5');
     await math.getByRole('textbox', { name: 'Expression' }).fill('1/3');
     await expect(math.locator('#math-result')).toHaveText('= 0.3333');
-
-    // Each library came from the app's origin when a block first imported it; no frame made a request.
-    expect(librariesRequested(requests)).toEqual(['d3', 'lodash', 'mathjs', 'papaparse', 'three']);
-    const origin = new URL(app.url()).origin;
-    expect(requests.filter((request) => LIBRARY_URL.test(request.url())).every((request) => new URL(request.url()).origin === origin)).toBe(true);
-    expect(requests.filter(fromFrame).map((request) => request.url())).toEqual([]);
-
     await shoot(app, 0, `react-d3-${theme}-desktop.png`);
     await shoot(app, 1, `react-three-${theme}-desktop.png`);
     await shoot(app, 3, `react-papaparse-mathjs-${theme}-desktop.png`);
   });
+});
 
+for (const theme of ['light', 'dark'] as const) {
   test(`react block journal-ui: the kit in Journal's theme, and its controls work, ${theme} theme`, async ({ app }) => {
     const requests: Request[] = [];
     app.on('request', (request) => requests.push(request));

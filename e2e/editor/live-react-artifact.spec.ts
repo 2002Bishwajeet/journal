@@ -1,6 +1,6 @@
 import type { FrameLocator, Page, Request } from '@playwright/test';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
-import { activeEditor, createNote, pastePlainText } from '../support/actions';
+import { activeEditor, createNote, pastePlainText, waitForNoteSaved } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #427: a react block written like a Claude artifact (Tailwind classes, a Recharts chart with
@@ -195,6 +195,7 @@ test('react block: after one render, the artifact with its chart and icon still 
       .poll(() => page.evaluate(async () => ((await caches.has('react-block')) ? (await (await caches.open('react-block')).keys()).length : 0)))
       .toBe(5);
 
+    await waitForNoteSaved(page);
     await page.context().setOffline(true);
     try {
       await page.reload();

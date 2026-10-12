@@ -25,10 +25,20 @@ export class PGliteProvider {
     // Trailing write window: keystrokes within it are merged into one row.
     private static readonly WRITE_WINDOW_MS = 300;
     private unsubscribe: (() => void) | null = null;
+    private static live = new Set<PGliteProvider>();
+
+    /** True while any open provider holds edits not yet written to PGlite (the e2e hooks poll this). */
+    static hasUnpersistedUpdates(): boolean {
+        for (const p of PGliteProvider.live) {
+            if (p.pendingUpdates.length > 0 || p.isSaving || p.saveTimer) return true;
+        }
+        return false;
+    }
 
     constructor(docId: string, doc: Y.Doc) {
         this.docId = docId;
         this.doc = doc;
+        PGliteProvider.live.add(this);
 
         // Listen for local updates
         this.doc.on('update', this.handleUpdate);
@@ -279,5 +289,6 @@ export class PGliteProvider {
         if (this.updateCount > 1) {
             await this.compact();
         }
+        PGliteProvider.live.delete(this);
     }
 }

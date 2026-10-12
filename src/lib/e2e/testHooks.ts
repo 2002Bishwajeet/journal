@@ -63,9 +63,22 @@ async function renderCard(...args: Parameters<JournalE2EHooks['renderCard']>): P
     return renderCardImage(...args);
 }
 
+/** True while an edit is still queued for, or being written to, PGlite (the document and the editor's search-index write). */
+async function hasUnsavedEdits(): Promise<boolean> {
+    const { PGliteProvider } = await import('@/lib/yjs/provider');
+    const { hasPendingEditorWrites } = await import('@/lib/yjs/pendingEditorWrites');
+    return PGliteProvider.hasUnpersistedUpdates() || hasPendingEditorWrites();
+}
+
+/** Resolves once PGlite has flushed everything it committed to IndexedDB (a commit returns before that). */
+async function syncToDisk(): Promise<void> {
+    const { getDatabase } = await import('@/lib/db/pglite');
+    await (await getDatabase()).syncToFs();
+}
+
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk }),
         writable: false,
         configurable: false,
         enumerable: false,
