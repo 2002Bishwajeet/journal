@@ -170,6 +170,7 @@ export function ImageNodeView({
     input.onchange = () => {
       const file = input.files?.[0];
       const pos = getPos();
+      // chain(), not commands: the compiler memoizes on editor.commands, which throws once the editor is destroyed (#247)
       if (file && pos !== undefined) editor.chain().replaceImageFile(pos, file).run();
     };
     input.click();
