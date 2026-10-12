@@ -156,6 +156,15 @@ export async function inBothThemes(page: Page, body: (theme: Theme) => Promise<u
     for (const theme of THEMES) {
         await page.emulateMedia({ colorScheme: theme });
         await expect(page.locator('html')).toHaveClass(new RegExp(theme));
+        // Colour transitions keep running after the class flips; let them finish so shots show the settled theme.
+        await page.evaluate(() =>
+            Promise.all(
+                document
+                    .getAnimations()
+                    .filter((a) => a instanceof CSSTransition)
+                    .map((a) => a.finished.catch(() => undefined))
+            )
+        );
         await body(theme);
     }
 }
