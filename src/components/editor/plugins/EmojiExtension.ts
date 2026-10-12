@@ -4,7 +4,8 @@ import Suggestion, { type SuggestionKeyDownProps } from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { type Instance } from 'tippy.js';
 import { EmojiList } from './EmojiList';
-import { suggestionItems } from './emojiData';
+import { loadEmojiKeywords, searchEmojis, suggestionItems } from './emojiData';
+import { createSpacedSuggestionMatch } from './suggestionSearch';
 import { PluginKey } from '@tiptap/pm/state';
 import type { Editor, Range } from '@tiptap/core';
 
@@ -31,6 +32,14 @@ export const EmojiExtension = Extension.create({
             suggestion: {
                 char: ':',
                 pluginKey: EmojiPluginKey,
+                // `:thumbs up` keeps the menu open; a double space or a
+                // query with no match closes it.
+                allowSpaces: true,
+                findSuggestionMatch: createSpacedSuggestionMatch(':'),
+                shouldShow: ({ query }: { query: string }) => {
+                    void loadEmojiKeywords();
+                    return searchEmojis(query).length > 0;
+                },
                 command: ({ editor, range, props }: { editor: Editor; range: Range; props: { emoji: string } }) => {
                     editor
                         .chain()

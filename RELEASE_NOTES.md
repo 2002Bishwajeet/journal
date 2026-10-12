@@ -15,6 +15,12 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- In the emoji and slash menus, you can search with more than one word, for example ":thumbs up" or "/heading 4".
+- The emoji and slash menus show the best match first. They also find common words, for example ":lol", "/todo" or "/img".
+- The emoji and slash menus close when no item matches your text. Then Enter starts a new line as usual.
+
 ## 2.8.0 (2026-10-12)
 
 ### New

@@ -11,7 +11,7 @@ import { assertTestOrigin } from '../support/origin-guard';
 const THEMES = ['light', 'dark'] as const;
 const LEVELS = [1, 2, 3, 4, 5, 6] as const;
 const VIEWPORTS = { desktop: { width: 1280, height: 900 }, mobile: { width: 390, height: 844 } } as const;
-// A slash query that lists only that heading (no spaces: the menu closes on one).
+// A slash query that lists only that heading.
 const SLASH_QUERY = { 4: 'sub-section', 5: 'minor', 6: 'smallest' } as const;
 
 type Style = { size: number; weight: number; color: string; transform: string };
