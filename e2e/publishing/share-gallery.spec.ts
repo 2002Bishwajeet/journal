@@ -164,11 +164,12 @@ for (const theme of THEMES) {
         await block.getByRole('button', { name: 'Show image 1 of 3' }).click();
         await expect.poll(at).toBe(0);
       }
+      if (layout === 'carousel') await article.locator('.gallery-nav').scrollIntoViewIfNeeded();
       await anonPage.screenshot({ path: test.info().outputPath(`share-${layout}-${theme}-1280.png`) });
 
       await anonPage.setViewportSize(VIEWPORTS.mobile);
       expect(await anonPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      await gallery.scrollIntoViewIfNeeded();
+      await (layout === 'carousel' ? article.locator('.gallery-nav') : gallery).scrollIntoViewIfNeeded();
       await anonPage.screenshot({ path: test.info().outputPath(`share-${layout}-${theme}-390.png`) });
     });
   }

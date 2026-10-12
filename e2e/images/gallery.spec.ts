@@ -170,6 +170,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expect(nav.locator('.gallery-dots > button')).toHaveCount(5);
     const at = () => carousel.evaluate((el) => Math.round(el.scrollLeft / el.clientWidth));
     await expect.poll(at).toBe(0);
+    await nav.scrollIntoViewIfNeeded();
     await app.screenshot({ path: test.info().outputPath(`gallery-carousel-${colorScheme}-1280.png`) });
     await nav.getByRole('button', { name: 'Next image' }).click();
     await expect.poll(at).toBe(1);
@@ -181,7 +182,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await nav.getByRole('button', { name: 'Previous image' }).click();
     await expect.poll(at).toBe(1);
     await app.setViewportSize({ width: 390, height: 844 });
-    await expect(() => carousel.scrollIntoViewIfNeeded()).toPass();
+    await expect(() => nav.scrollIntoViewIfNeeded()).toPass();
     await app.screenshot({ path: test.info().outputPath(`gallery-carousel-${colorScheme}-390.png`) });
     await app.setViewportSize({ width: 1280, height: 800 });
 

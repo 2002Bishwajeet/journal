@@ -18,20 +18,24 @@ function ShareGallery(props: ComponentProps<'div'>) {
 function ShareCarousel(props: ComponentProps<'div'>) {
   const block = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const slot = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!block.current || !scroller.current) return;
-    const { nav, destroy } = createCarouselNav(scroller.current, block.current);
-    block.current.append(nav);
+    const holder = slot.current;
+    if (!block.current || !scroller.current || !holder) return;
+    const made = createCarouselNav(scroller.current, block.current);
+    holder.replaceChildren(made.nav);
     const stopAspect = watchGalleryAspect(scroller.current);
     return () => {
-      destroy();
+      made.destroy();
       stopAspect();
-      nav.remove();
+      holder.replaceChildren();
     };
   }, []);
   return (
     <div ref={block} className="gallery-block" tabIndex={0} role="group" aria-roledescription="carousel" aria-label="Image gallery">
       <div ref={scroller} {...props} />
+      {/* Empty and React-owned: the nav is built imperatively and lives only in here. */}
+      <div ref={slot} />
     </div>
   );
 }

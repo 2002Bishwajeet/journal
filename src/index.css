@@ -484,11 +484,17 @@ img.ProseMirror-separator {
 [data-gallery='carousel'] > * {
   flex: 0 0 100%;
   scroll-snap-align: center;
+  /* Every slide is the same height, so the strip (and the nav under it) doesn't jump. */
+  height: 20rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 /* A tall image is shown whole, letterboxed, rather than stretching the strip. */
 .prose [data-gallery='carousel'] img {
-  max-height: 28rem;
+  max-height: 18rem;
   object-fit: contain;
 }
 
