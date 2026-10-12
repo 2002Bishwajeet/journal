@@ -112,6 +112,7 @@ describe('createJournalMcpServer', () => {
             'Math',
             'Footnotes',
             'Body images',
+            'Galleries',
             'Covers',
             'set_note_cover',
             'mermaid',

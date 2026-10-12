@@ -7,6 +7,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeKatex from 'rehype-katex';
 import rehypeSanitize from 'rehype-sanitize';
 import { sanitizeSchema } from '@/lib/utils/shareSanitizeSchema';
+import { galleryRowBreaks } from '@/components/editor/nodes/galleryLayout';
 
 const lowlight = createLowlight(common);
 // A `react` live block's code is JSX, which the javascript grammar highlights (#426).
@@ -113,6 +114,43 @@ function rehypeRestoreCodeMeta() {
     };
 }
 
+/**
+ * An image gallery (#601) holds its images in a paragraph: make them its own children,
+ * with the row breaks between them that the editor draws (galleryLayout.ts). Runs after
+ * the sanitizer, which would strip the breaks' attribute.
+ */
+function rehypeGalleryRows() {
+    return (tree: Root) => {
+        const images = (parent: Element): Element[] =>
+            parent.children.flatMap((child) =>
+                child.type !== 'element' ? [] : child.tagName === 'img' ? [child] : images(child),
+            );
+        const walk = (parent: Root | Element) => {
+            for (const child of parent.children) {
+                if (child.type !== 'element') continue;
+                if (child.tagName !== 'div' || child.properties.dataGallery === undefined) {
+                    walk(child);
+                    continue;
+                }
+                const imgs = images(child);
+                const breaks = new Map(galleryRowBreaks(imgs.length).map((b) => [b.index, b.modes.join(' ')]));
+                child.children = imgs.flatMap((img, i): Element[] => {
+                    const modes = breaks.get(i);
+                    if (!modes) return [img];
+                    const rowBreak: Element = {
+                        type: 'element',
+                        tagName: 'span',
+                        properties: { className: ['gallery-break'], dataRowBreak: modes, ariaHidden: 'true' },
+                        children: [],
+                    };
+                    return [rowBreak, img];
+                });
+            }
+        };
+        walk(tree);
+    };
+}
+
 const CLOBBER_PREFIX = 'user-content-';
 
 /**
@@ -139,14 +177,15 @@ function rehypeSingleClobberPrefix() {
 
 export const shareRemarkPlugins: Options['remarkPlugins'] = [remarkGfm, remarkMath];
 
-// Order: parse raw HTML -> sanitize -> highlight code -> render math. Highlighting
-// and KaTeX run after the sanitizer so their trusted markup isn't stripped.
+// Order: parse raw HTML -> sanitize -> highlight code -> render math. Highlighting,
+// gallery rows and KaTeX run after the sanitizer so their trusted markup isn't stripped.
 export const shareRehypePlugins: Options['rehypePlugins'] = [
     rehypeKeepCodeMeta,
     rehypeRaw,
     [rehypeSanitize, sanitizeSchema],
     rehypeRestoreCodeMeta,
     rehypeSingleClobberPrefix,
+    rehypeGalleryRows,
     rehypeDropEmptyThead,
     rehypeLowlight,
     rehypeKatex,

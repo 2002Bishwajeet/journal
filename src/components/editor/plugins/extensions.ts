@@ -31,6 +31,7 @@ import { NoteLink } from '../nodes/NoteLinkNode';
 import { LinkPreview } from '../nodes/LinkPreviewNode';
 import { Toggle } from '../nodes/ToggleNode';
 import { Callout } from '../nodes/CalloutNode';
+import { Gallery } from '../nodes/GalleryNode';
 import { Footnote, FootnoteReference, Footnotes } from '../nodes/FootnoteNodes';
 import { parseCodeInfo } from '@/lib/liveBlocks';
 
@@ -389,6 +390,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         }),
 
         options?.image ?? ImageSchema,
+        Gallery,
 
         CodeBlockLowlight.configure({
             lowlight: infoStringLowlight,

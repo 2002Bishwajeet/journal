@@ -119,6 +119,21 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
   `![alt](src)`.
 - An image shows its alt text centred under it as a caption. `data-caption="Text"` on the
   `<img>` shows that text instead; `data-caption=""` hides the caption. Plain text only.
+- A gallery shows two or more images side by side in a row, with the images on one line
+  between `<div data-gallery="row">` and `</div>`, blank lines around them:
+
+  ```
+  <div data-gallery="row">
+
+  ![Beach](/abs/beach.jpg) ![Pier](/abs/pier.jpg) <img src="attachment://…" alt="Dunes" data-caption="Dunes at dusk">
+
+  </div>
+  ```
+
+  Each image is written as above (`![]()` or `<img>`) and keeps its caption. Up to three
+  images share a row and more wrap to the next; on a phone, two per row. A gallery with
+  only one image becomes a plain image. A gallery holds only images: text or links inside
+  it are dropped.
 - An image edited in Journal keeps its crop, rotation and flip as attributes on the `<img>`;
   the stored image is the original. `data-crop="x,y,w,h"` is the part shown, as fractions
   of the original from 0 to 1 (`data-crop="0,0.2,1,0.5625"` keeps a band across the

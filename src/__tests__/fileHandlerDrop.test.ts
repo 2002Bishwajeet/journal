@@ -71,12 +71,27 @@ describe('FileHandler drop position (#180)', () => {
         expect(imageNodes(e)[0].pos).toBe(3);
     });
 
-    it('inserts several dropped files in order at the drop position', async () => {
-        drop(e, [file('a.png'), file('b.png')], 3);
+    it('puts several dropped files in one gallery, in order, at the drop position (#601)', async () => {
+        drop(e, [file('a.png'), file('b.png'), file('c.png')], 3);
+
+        await vi.waitFor(() => expect(imageNodes(e)).toHaveLength(3));
+        expect(imageNodes(e).map(n => n.src)).toEqual(['blob:a.png', 'blob:b.png', 'blob:c.png']);
+        // "He" | gallery | "llo"
+        expect(e.state.doc.content.content.map((n) => n.type.name)).toEqual(['paragraph', 'gallery', 'paragraph']);
+        expect(e.state.doc.child(1).childCount).toBe(3);
+    });
+
+    it('puts several pasted files in one gallery (#601)', async () => {
+        const files = [file('a.png'), file('b.png')];
+        const event = new Event('paste') as ClipboardEvent;
+        Object.defineProperty(event, 'clipboardData', {
+            value: { items: files.map((f) => ({ kind: 'file', type: f.type, getAsFile: () => f })) },
+        });
+        e.view.someProp('handlePaste', (f) => f(e.view, event, e.state.doc.slice(0, 0)));
 
         await vi.waitFor(() => expect(imageNodes(e)).toHaveLength(2));
-        const nodes = imageNodes(e);
-        expect(nodes.map(n => n.src)).toEqual(['blob:a.png', 'blob:b.png']);
-        expect(nodes[0].pos).toBe(3);
+        let galleries = 0;
+        e.state.doc.descendants((n) => { if (n.type.name === 'gallery') galleries++; });
+        expect(galleries).toBe(1);
     });
 });

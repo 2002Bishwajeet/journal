@@ -12,6 +12,7 @@ import { PublicNoteImage } from '@/components/share/PublicNoteImage';
 import { EditedImage } from '@/components/EditedImage';
 import { hasEdits, parseEditData } from '@/lib/images/imageEdits';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
+import { GalleryAwareDiv } from '@/components/share/GalleryAwareDiv';
 import { ReaderTaskCheckbox } from '@/components/share/ReaderTaskCheckbox';
 import { LiveBlockAwarePre } from '@/components/share/LiveBlockAwarePre';
 import { LiveBlockStatesContext } from '@/components/share/liveBlockStatesContext';
@@ -112,6 +113,7 @@ export default function SharePage() {
                             urlTransform={(url) => (url.startsWith('attachment://') ? url : defaultUrlTransform(url))}
                             components={{
                                 blockquote: CalloutAwareBlockquote,
+                                div: GalleryAwareDiv,
                                 pre: LiveBlockAwarePre,
                                 input: ReaderTaskCheckbox,
                                 img: ({ src, alt, node, width, ...rest }) => {

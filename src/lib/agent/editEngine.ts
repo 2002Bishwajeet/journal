@@ -20,6 +20,7 @@ import { getNewId } from '@/lib/utils';
 import { editAttrs, parseEditData } from '@/lib/images/imageEdits';
 import { parseCodeInfo } from '@/lib/liveBlocks';
 import { CALLOUT_VARIANTS, type CalloutVariant } from '@/components/editor/nodes/calloutVariants';
+import { GALLERY } from '@/components/editor/nodes/GalleryNode';
 
 const FRAGMENT = 'prosemirror';
 
@@ -92,9 +93,25 @@ function restoreHtmlImages(node: JSONContent) {
   node.content.forEach(restoreHtmlImages);
 }
 
+/**
+ * A gallery keeps only its images (the parser leaves the spaces between them as text);
+ * one with fewer than two is a plain paragraph, as the editor unwraps it (#601).
+ */
+function finishGalleries(node: JSONContent) {
+  if (!node.content) return;
+  node.content = node.content.flatMap((child): JSONContent[] => {
+    if (child.type !== GALLERY) return [child];
+    const images = (child.content ?? []).filter((c) => c.type === 'image');
+    if (images.length >= 2) return [{ ...child, content: images }];
+    return images.length ? [{ type: 'paragraph', content: images }] : [];
+  });
+  node.content.forEach(finishGalleries);
+}
+
 function parseJson(markdown: string): JSONContent {
   const json = md.parse(markdown);
   restoreHtmlImages(json);
+  finishGalleries(json);
   wrapBlockImages(json);
   unwrapListItemCards(json);
   return json;

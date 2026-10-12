@@ -41,6 +41,7 @@ describe('ImageNodeView alt text — plain image', () => {
             node: { attrs: { src: 'https://example.com/kite.png', alt, width: null, align: null } },
             updateAttributes: () => {},
             selected: false,
+            getPos: () => undefined,
         } as unknown as NodeViewProps;
         await act(async () => { root.render(h(ImageNodeView, props)); });
     }
@@ -82,6 +83,7 @@ describe('ImageNodeView alt text — plain image', () => {
             node: { attrs: { src: 'https://example.com/kite.png', alt: null, width: null, align: null } },
             updateAttributes: (attrs: Record<string, unknown>) => { saved = attrs; },
             selected: false,
+            getPos: () => undefined,
         } as unknown as NodeViewProps;
         await act(async () => { root.render(h(ImageNodeView, props)); });
 
@@ -110,6 +112,7 @@ describe('ImageNodeView alt text — attachment (remote) image', () => {
             node: { attrs: { src: 'attachment://file-1/jrnl_img0', alt: 'A red kite', width: null, align: null } },
             updateAttributes: () => {},
             selected: false,
+            getPos: () => undefined,
         } as unknown as NodeViewProps;
 
         await act(async () => { root.render(h(ImageNodeView, props)); });
