@@ -57,7 +57,7 @@ function unwrapListItemCards(node: JSONContent) {
 
 const HTML_IMG = /<img\s[^>]*>/g;
 const HTML_ATTR = /([\w-]+)="([^"]*)"/g;
-const unescapeAttr = (v: string) => v.replace(/&lt;/g, '<').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+const unescapeAttr = (v: string) => v.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 
 /** `<img src alt title width data-align>` (how the serializer writes a sized or aligned image, #581) to an image node. */
 function htmlImage(tag: string): JSONContent | null {

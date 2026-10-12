@@ -20,8 +20,7 @@ function footnoteNumbers(xmlFragment: Y.XmlFragment): Map<string, number> {
 }
 
 /**
- * Serializes a TipTap Y.XmlFragment to markdown. Lossy: a
- * link preview's description and image have no markdown form and are dropped. Pass `numbers`
+ * Serializes a TipTap Y.XmlFragment to markdown. Lossy: a link preview's description and image have no markdown form and are dropped. Pass `numbers`
  * when the fragment is only part of a note, so its footnotes keep the note's numbers.
  * A note link is `[label](journal:note/<id>)` (#561); with `canSee`, a link to a note
  * it rejects is only its label.
@@ -106,7 +105,7 @@ export function fragmentToMarkdown(
               // Width and float have no markdown form: an <img> keeps them (#581).
               const attrs = [['src', src], ['alt', alt], ['title', title], ['width', width], ['data-align', align]]
                 .filter(([, v]) => v)
-                .map(([k, v]) => `${k}="${String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}"`);
+                .map(([k, v]) => `${k}="${escapeHtml(String(v))}"`);
               out += `<img ${attrs.join(' ')}>`;
             } else {
               out += `![${alt}](${src}${title ? ` "${title}"` : ''})`;

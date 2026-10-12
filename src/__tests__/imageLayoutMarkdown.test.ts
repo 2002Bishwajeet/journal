@@ -46,6 +46,12 @@ describe('image width and alignment in markdown', () => {
     expect(imageAttrs(md)).toMatchObject({ alt: 'say "hi" & bye', width: 150 });
     expect(roundTrip(md)).toBe(md);
   });
+
+  it('round-trips an alt and title containing >', () => {
+    const md = '<img src="https://e.com/a.png" alt="a &gt; b" title="x &gt; y" width="320">';
+    expect(imageAttrs(md)).toMatchObject({ alt: 'a > b', title: 'x > y', width: 320 });
+    expect(roundTrip(md)).toBe(md);
+  });
 });
 
 describe('share page', () => {
