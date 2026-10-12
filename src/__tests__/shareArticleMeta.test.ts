@@ -16,6 +16,10 @@ describe('countWords', () => {
         expect(countWords(md)).toBe(4);
     });
 
+    it('ignores a sized or aligned <img> image', () => {
+        expect(countWords('Hello <img src="attachment://f/k" alt="a cat" width="320" data-align="right"> world')).toBe(2);
+    });
+
     it('returns 0 for empty markdown', () => {
         expect(countWords('')).toBe(0);
     });

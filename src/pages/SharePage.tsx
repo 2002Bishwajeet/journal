@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -111,13 +112,20 @@ export default function SharePage() {
                                 blockquote: CalloutAwareBlockquote,
                                 pre: LiveBlockAwarePre,
                                 input: ReaderTaskCheckbox,
-                                img: ({ src, alt, node, ...rest }) => {
+                                img: ({ src, alt, node, width, ...rest }) => {
                                     // `node` is react-markdown's own extra prop, not a DOM attribute —
                                     // exclude it before spreading the rest (title, etc.) onto <img>.
                                     void node;
+                                    // The editor's width and float (#581); the box carries both, the image fills it.
+                                    const align = (rest as { 'data-align'?: string })['data-align'];
+                                    const px = Number(width) > 0 ? Number(width) : undefined;
                                     return (
                                         // Kept in the column; `block` so the image sits on its own line.
-                                        <span className="share-wide block">
+                                        <span
+                                            className="share-wide share-img block"
+                                            data-align={align}
+                                            style={px ? ({ '--share-img-width': `${px}px` } as CSSProperties) : undefined}
+                                        >
                                             {src?.startsWith('attachment://') ? (
                                                 <PublicNoteImage
                                                     key={src}
@@ -126,9 +134,10 @@ export default function SharePage() {
                                                     lastModified={note.lastModified}
                                                     src={src}
                                                     alt={alt}
+                                                    className={px ? 'w-full' : undefined}
                                                 />
                                             ) : (
-                                                <img src={src} alt={alt} loading="lazy" {...rest} />
+                                                <img src={src} alt={alt} loading="lazy" className={px ? 'w-full' : undefined} {...rest} />
                                             )}
                                         </span>
                                     );

@@ -20,8 +20,7 @@ function footnoteNumbers(xmlFragment: Y.XmlFragment): Map<string, number> {
 }
 
 /**
- * Serializes a TipTap Y.XmlFragment to markdown. Lossy: image layout attrs and a
- * link preview's description and image have no markdown form and are dropped. Pass `numbers`
+ * Serializes a TipTap Y.XmlFragment to markdown. Lossy: a link preview's description and image have no markdown form and are dropped. Pass `numbers`
  * when the fragment is only part of a note, so its footnotes keep the note's numbers.
  * A note link is `[label](journal:note/<id>)` (#561); with `canSee`, a link to a note
  * it rejects is only its label.
@@ -99,7 +98,18 @@ export function fragmentToMarkdown(
             const src = child.getAttribute('src') || '';
             const alt = child.getAttribute('alt') || '';
             const title = child.getAttribute('title');
-            if (src) out += `![${alt}](${src}${title ? ` "${title}"` : ''})`;
+            const width = child.getAttribute('width');
+            const align = child.getAttribute('align');
+            if (!src) break;
+            if (width || align) {
+              // Width and float have no markdown form: an <img> keeps them (#581).
+              const attrs = [['src', src], ['alt', alt], ['title', title], ['width', width], ['data-align', align]]
+                .filter(([, v]) => v)
+                .map(([k, v]) => `${k}="${escapeHtml(String(v))}"`);
+              out += `<img ${attrs.join(' ')}>`;
+            } else {
+              out += `![${alt}](${src}${title ? ` "${title}"` : ''})`;
+            }
             break;
           }
           case 'inlineMath': {

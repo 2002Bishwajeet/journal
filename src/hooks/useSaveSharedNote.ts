@@ -11,6 +11,8 @@ const FILE_ID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{1
 
 // `attachment://` images belong to the author's drive and are not copied; the alt text stays.
 const ATTACHMENT_IMAGE = /!\[([^\]]*)\]\(attachment:\/\/[^)\s]*(?:\s+"[^"]*")?\)/g;
+// The same for a sized or aligned image, written as <img src alt width data-align> (#581)
+const ATTACHMENT_IMG_TAG = /<img\s[^>]*?\bsrc="attachment:\/\/[^"]*"[^>]*>/g;
 
 export const isValidShareLink = (identity: string | null, file: string | null): identity is string =>
     !!identity && !!file && IDENTITY.test(identity) && FILE_ID.test(file);
@@ -31,7 +33,9 @@ export async function copySharedNote(identity: string, file: string, origin: str
     const note = await shareProvider.getPublicNote(identity, file);
     if (!note) throw new Error('This note is not shared any more, or the link is not right.');
 
-    const body = note.content.replace(ATTACHMENT_IMAGE, '$1');
+    const body = note.content
+        .replace(ATTACHMENT_IMAGE, '$1')
+        .replace(ATTACHMENT_IMG_TAG, (tag) => tag.match(/\balt="([^"]*)"/)?.[1] ?? '');
     const title = `${note.title} (copy)`;
     const shareUrl = `${origin}/share/${identity}/${file}`;
     const { docId, folderId } = await createNoteFromMarkdownInDb({

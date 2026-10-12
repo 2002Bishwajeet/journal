@@ -161,6 +161,9 @@ async function importMarkdown(
 
 // ![alt](target "title"); the target may hold spaces, as export writes titles into asset names
 const MD_IMAGE = /!\[([^\]]*)\]\(\s*(<[^>]*>|[^)]*?)(\s+"[^"]*")?\s*\)/g;
+// <img src="target" ...>, how a sized or aligned image is written (#581); its attributes are HTML-escaped
+const HTML_IMAGE = /<img\s[^>]*?\bsrc="([^"]*)"[^>]*>/g;
+const unescapeAttr = (v: string) => v.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
 // The types the editor accepts on paste/drop (FileHandler), by file extension
 const IMAGE_TYPES: Record<string, string> = {
@@ -223,7 +226,11 @@ async function queueImportedImages(
     docId: string
 ): Promise<{ markdown: string; pendingIds: Map<string, string> }> {
     const queued = new Map<string, { src: string; pendingId: string } | null>(); // zip path -> queued image
-    for (const [, , target] of markdown.matchAll(MD_IMAGE)) {
+    const targets = [
+        ...Array.from(markdown.matchAll(MD_IMAGE), (m) => m[2]),
+        ...Array.from(markdown.matchAll(HTML_IMAGE), (m) => unescapeAttr(m[1])),
+    ];
+    for (const target of targets) {
         const path = resolveImagePath(notePath, target);
         if (path !== null && !queued.has(path)) queued.set(path, await queueImage(assets.get(path), docId));
     }
@@ -236,6 +243,13 @@ async function queueImportedImages(
         if (!image) return alt || path;
         pendingIds.set(image.src, image.pendingId);
         return `![${alt}](${image.src}${title})`;
+    }).replace(HTML_IMAGE, (full, target: string) => {
+        const path = resolveImagePath(notePath, unescapeAttr(target));
+        if (path === null) return full;
+        const image = queued.get(path);
+        if (!image) return unescapeAttr(full.match(/\balt="([^"]*)"/)?.[1] ?? '') || path;
+        pendingIds.set(image.src, image.pendingId);
+        return full.replace(`src="${target}"`, `src="${image.src}"`);
     });
     return { markdown: rewritten, pendingIds };
 }

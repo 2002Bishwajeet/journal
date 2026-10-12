@@ -14,6 +14,11 @@ import { defaultSchema } from 'rehype-sanitize';
 export const sanitizeSchema = {
     ...defaultSchema,
     tagNames: [...(defaultSchema.tagNames ?? []), 'u', 'sub', 'sup'],
+    // An image's width and float alignment (#581): exactly these two, no style.
+    attributes: {
+        ...defaultSchema.attributes,
+        img: [...(defaultSchema.attributes?.img ?? []), 'width', 'dataAlign'],
+    },
     protocols: {
         ...defaultSchema.protocols,
         src: [...(defaultSchema.protocols?.src ?? []), 'attachment'],

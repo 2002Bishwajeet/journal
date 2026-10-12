@@ -55,8 +55,44 @@ function unwrapListItemCards(node: JSONContent) {
   node.content.forEach(unwrapListItemCards);
 }
 
+const HTML_IMG = /<img\s[^>]*>/g;
+const HTML_ATTR = /([\w-]+)="([^"]*)"/g;
+const unescapeAttr = (v: string) => v.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+
+/** `<img src alt title width data-align>` (how the serializer writes a sized or aligned image, #581) to an image node. */
+function htmlImage(tag: string): JSONContent | null {
+  const a: Record<string, string> = {};
+  for (const [, k, v] of tag.matchAll(HTML_ATTR)) a[k] = unescapeAttr(v);
+  if (!a.src) return null;
+  const width = parseInt(a.width ?? '', 10);
+  const align = ['left', 'center', 'right'].includes(a['data-align']) ? a['data-align'] : null;
+  return { type: 'image', attrs: { src: a.src, alt: a.alt ?? null, title: a.title ?? null, width: width > 0 ? width : null, align } };
+}
+
+/** The markdown parser leaves raw `<img>` HTML as text: turn it back into image nodes. */
+function restoreHtmlImages(node: JSONContent) {
+  if (!node.content || node.type === 'codeBlock') return;
+  node.content = node.content.flatMap((child): JSONContent[] => {
+    if (child.type !== 'text' || !child.text || child.marks?.some((m) => m.type === 'code')) return [child];
+    const out: JSONContent[] = [];
+    let last = 0;
+    for (const m of child.text.matchAll(HTML_IMG)) {
+      const image = htmlImage(m[0]);
+      if (!image) continue;
+      if (m.index > last) out.push({ ...child, text: child.text.slice(last, m.index) });
+      out.push(image);
+      last = m.index + m[0].length;
+    }
+    if (!out.length) return [child];
+    if (last < child.text.length) out.push({ ...child, text: child.text.slice(last) });
+    return out;
+  });
+  node.content.forEach(restoreHtmlImages);
+}
+
 function parseJson(markdown: string): JSONContent {
   const json = md.parse(markdown);
+  restoreHtmlImages(json);
   wrapBlockImages(json);
   unwrapListItemCards(json);
   return json;

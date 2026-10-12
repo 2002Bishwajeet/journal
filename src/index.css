@@ -903,6 +903,33 @@ img.ProseMirror-separator {
   padding: 0;
 }
 
+/* An image's width and alignment (#581): the box is as wide as the editor's
+   image, never wider than the column. Left/right float so text wraps, but only
+   where there is room: below 600px every image is a full-width block. */
+.share-article .share-img {
+  max-width: 100%;
+}
+
+@media (min-width: 600px) {
+  .share-article .share-img {
+    width: var(--share-img-width, auto);
+  }
+
+  .share-article .share-img[data-align="center"] {
+    margin-inline: auto;
+  }
+
+  .share-article .share-img[data-align="left"] {
+    float: left;
+    margin: 0 1rem 0.5rem 0;
+  }
+
+  .share-article .share-img[data-align="right"] {
+    float: right;
+    margin: 0 0 0.5rem 1rem;
+  }
+}
+
 /* Share page task lists and toggles (#517). Readers can tick a box or open a
    toggle; the state is local to the page. Looks like the editor's task list. */
 .share-article ul.contains-task-list {
