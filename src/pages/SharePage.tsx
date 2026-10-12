@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Markdown, { defaultUrlTransform } from 'react-markdown';
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
 import { EditedImage } from '@/components/EditedImage';
-import { hasEdits, parseEditData } from '@/lib/images/imageEdits';
+import { editDataAttrs, hasEdits, parseEditData } from '@/lib/images/imageEdits';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
 import { GalleryAwareDiv } from '@/components/share/GalleryAwareDiv';
 import { ReaderTaskCheckbox } from '@/components/share/ReaderTaskCheckbox';
@@ -148,6 +148,7 @@ export default function SharePage() {
                                         <span
                                             className="share-wide share-img block"
                                             data-align={align}
+                                            {...Object.fromEntries(editDataAttrs(edits))}
                                             style={px ? ({ '--share-img-width': `${px}px` } as CSSProperties) : undefined}
                                         >
                                             {edited ? (

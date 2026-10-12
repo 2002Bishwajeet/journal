@@ -10,7 +10,7 @@ import Markdown from 'react-markdown';
 import { Editor } from '@tiptap/core';
 import { yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
-import { galleryRowBreaks } from '@/components/editor/nodes/galleryLayout';
+import { galleryRowBreaks, watchGalleryAspect } from '@/components/editor/nodes/galleryLayout';
 import { editorSchema, toMarkdown, createDoc } from '@/lib/agent/editEngine';
 import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
 
@@ -113,5 +113,37 @@ describe('gallery in the editor', () => {
     expect(first.type.name).toBe('paragraph');
     expect(first.childCount).toBe(1);
     expect(first.firstChild!.attrs.alt).toBe('img1');
+  });
+});
+
+describe('gallery item aspect (#607)', () => {
+  const setup = () => {
+    const root = document.createElement('div');
+    root.innerHTML =
+      '<div data-gallery="row"><span class="item" data-crop="0,0,0.5,1"><img></span><span class="item" data-rotate="90"><img></span></div>';
+    for (const img of root.querySelectorAll('img')) {
+      Object.defineProperty(img, 'naturalWidth', { value: 900 });
+      Object.defineProperty(img, 'naturalHeight', { value: 450 });
+      Object.defineProperty(img, 'complete', { value: true });
+    }
+    return root;
+  };
+  const ar = (root: HTMLElement, i: number) => Number(root.querySelectorAll<HTMLElement>('.item')[i].style.getPropertyValue('--ar'));
+
+  it('uses the edited size: a crop and a quarter turn change the ratio', () => {
+    const root = setup();
+    const stop = watchGalleryAspect(root);
+    expect(ar(root, 0)).toBeCloseTo(1);
+    expect(ar(root, 1)).toBeCloseTo(0.5);
+    stop();
+  });
+
+  it('re-flows when the edit attributes change', async () => {
+    const root = setup();
+    const stop = watchGalleryAspect(root);
+    root.querySelector('.item')!.removeAttribute('data-crop');
+    await new Promise((r) => setTimeout(r));
+    expect(ar(root, 0)).toBeCloseTo(2);
+    stop();
   });
 });

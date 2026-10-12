@@ -23,7 +23,7 @@ import { useImageDownload } from "@/hooks/image/useImageDownload";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { EditedImage } from "@/components/EditedImage";
-import { editAttrs, hasEdits, readEdits, type ImageEdits } from "@/lib/images/imageEdits";
+import { editAttrs, editDataAttrs, hasEdits, readEdits, type ImageEdits } from "@/lib/images/imageEdits";
 import {
   ALIGN_STYLE,
   MIN_IMAGE_WIDTH,
@@ -525,7 +525,7 @@ export function ImageNodeView({
   );
 
   return (
-    <NodeViewWrapper className="image-node" data-drag-handle>
+    <NodeViewWrapper className="image-node" data-drag-handle {...Object.fromEntries(editDataAttrs(edits))}>
       {resizable(
         edited ? (
           // Keyed by src: a replaced image is measured afresh
