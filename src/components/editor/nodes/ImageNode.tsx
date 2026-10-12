@@ -10,7 +10,7 @@
 import { useContext, useRef, useState, type ReactNode } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { yUndoPluginKey } from "y-prosemirror";
-import { AlignCenter, AlignLeft, AlignRight, Captions, Crop, Download, ImageUp, Loader2, Maximize2 } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, ArrowLeft, ArrowRight, Captions, Crop, Download, ImageUp, Loader2, Maximize2 } from "lucide-react";
 import { JOURNAL_DRIVE } from "@/lib/homebase/config";
 import { useDotYouClientContext } from "@/components/auth";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
@@ -36,6 +36,7 @@ import {
 import { ImageOwnerContext } from "./imageOwnerContext";
 import { ImageLightbox } from "./ImageLightbox";
 import { GALLERY } from "./GalleryNode";
+import { dispatchUndoStep, moveGalleryImage } from "./galleryDrag";
 import { ImageEditDialog } from "./ImageEditDialog";
 
 // Corner, the edge it drags, and the diagonal cursor for it.
@@ -50,6 +51,12 @@ const ALIGN_BUTTONS = [
   { align: "left", icon: AlignLeft, label: "Float left" },
   { align: "center", icon: AlignCenter, label: "Center" },
   { align: "right", icon: AlignRight, label: "Float right" },
+] as const;
+
+// Keyboard alternative to dragging within a gallery (#603)
+const MOVE_BUTTONS = [
+  { dir: -1, icon: ArrowLeft, label: "Move left" },
+  { dir: 1, icon: ArrowRight, label: "Move right" },
 ] as const;
 
 const PENDING_LABEL = {
@@ -186,6 +193,12 @@ export function ImageNodeView({
     };
     input.click();
   };
+  // Read at click time: this view doesn't re-render when a neighbour moves.
+  const move = (dir: -1 | 1) => {
+    const pos = getPos();
+    const tr = pos === undefined ? null : moveGalleryImage(editor.state, pos, dir);
+    if (tr) dispatchUndoStep(editor.view, tr);
+  };
   // Its own undo step, so each Apply undoes on its own (#584).
   const applyEdits = (next: ImageEdits) => {
     const undoManager = yUndoPluginKey.getState(editor.state)?.undoManager;
@@ -296,6 +309,17 @@ export function ImageNodeView({
             "rounded p-1 hover:bg-accent hover:text-accent-foreground",
             align === value && "bg-accent text-accent-foreground",
           )}
+        >
+          <Icon className="h-4 w-4" />
+        </button>
+      ))}
+      {inGallery && MOVE_BUTTONS.map(({ dir, icon: Icon, label }) => (
+        <button
+          key={dir}
+          type="button"
+          aria-label={label}
+          onClick={() => move(dir)}
+          className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
         >
           <Icon className="h-4 w-4" />
         </button>
