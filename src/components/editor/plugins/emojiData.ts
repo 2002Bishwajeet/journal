@@ -1,5 +1,6 @@
 
 import { gemoji } from 'gemoji';
+import { normalizeSearchText, rankSearch, type SearchTerms } from './suggestionSearch';
 
 export interface EmojiItem {
     name: string;
@@ -41,18 +42,50 @@ export function applySkinTone(emoji: string, tone: string): string {
     return base + tone;
 }
 
-export const suggestionItems = ({ query }: { query: string }) => {
-    if (query.length === 0) {
-        return emojis.slice(0, 5); // Return top 5 when no query
+/** Max rows in the `:` menu (the list scrolls). */
+const SUGGESTION_LIMIT = 50;
+
+const baseEmoji = (emoji: string) => emoji.replace(/️/g, '');
+
+/** emojilib keywords per emoji (variation selectors stripped), once loaded. */
+let extraKeywords: Map<string, string[]> | null = null;
+let keywordsLoad: Promise<void> | null = null;
+const termsCache = new Map<EmojiItem, SearchTerms>();
+
+/** Load emojilib's keyword lists on first use (kept out of the main bundle). */
+export function loadEmojiKeywords(): Promise<void> {
+    keywordsLoad ??= import('emojilib').then(
+        ({ default: lib }) => {
+            extraKeywords = new Map(Object.entries(lib).map(([e, words]) => [baseEmoji(e), words]));
+            termsCache.clear();
+        },
+        (err) => {
+            // Search still works with gemoji's own tags.
+            console.warn('[emoji] keyword data failed to load:', err);
+        },
+    );
+    return keywordsLoad;
+}
+
+function emojiTerms(item: EmojiItem): SearchTerms {
+    let terms = termsCache.get(item);
+    if (!terms) {
+        terms = {
+            names: [item.name, ...item.shortcodes.map(code => code.slice(1, -1))].map(normalizeSearchText),
+            keywords: [...item.tags, ...(extraKeywords?.get(baseEmoji(item.emoji)) ?? [])].map(normalizeSearchText),
+        };
+        termsCache.set(item, terms);
     }
+    return terms;
+}
 
-    const lowerQuery = query.toLowerCase();
+/** Ranked emoji matches for a `:` query. Uses emojilib keywords once loaded. */
+export function searchEmojis(query: string): EmojiItem[] {
+    if (!query.trim()) return emojis.slice(0, 5); // Return top 5 when no query
+    return rankSearch(emojis, query, emojiTerms, SUGGESTION_LIMIT);
+}
 
-    return emojis
-        .filter(item =>
-            item.name.toLowerCase().includes(lowerQuery) ||
-            item.shortcodes.some(code => code.includes(lowerQuery)) ||
-            item.tags.some(tag => tag.startsWith(lowerQuery))
-        )
-        .slice(0, 10);
+export const suggestionItems = async ({ query }: { query: string }) => {
+    await loadEmojiKeywords();
+    return searchEmojis(query);
 };

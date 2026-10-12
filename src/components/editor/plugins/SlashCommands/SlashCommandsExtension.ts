@@ -11,7 +11,8 @@ import Suggestion, { type SuggestionOptions } from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import { SlashCommandList, type SlashCommandListRef } from './SlashCommandList';
-import { slashCommandItems } from './slashCommandItems';
+import { slashCommandItems, filterCommands } from './slashCommandItems';
+import { createSpacedSuggestionMatch } from '../suggestionSearch';
 
 export interface SlashCommandsOptions {
     suggestion: Partial<SuggestionOptions>;
@@ -24,7 +25,11 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
         return {
             suggestion: {
                 char: '/',
-                allowSpaces: false,
+                // `/heading 4` keeps the menu open; a double space or a
+                // query with no match closes it, so prose after `/` is left alone.
+                allowSpaces: true,
+                findSuggestionMatch: createSpacedSuggestionMatch('/'),
+                shouldShow: ({ query }) => filterCommands(slashCommandItems, query).length > 0,
                 startOfLine: false, // Allow slash anywhere, not just start of line
                 command: ({ editor, range, props }) => {
                     // This is called when a command is selected
@@ -43,17 +48,7 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
                 // with the note-link suggestion and crashes the editor.
                 pluginKey: new PluginKey('slash-commands'),
                 ...this.options.suggestion,
-                items: ({ query }) => {
-                    // Filter items based on query
-                    const lowerQuery = query.toLowerCase().trim();
-                    if (!lowerQuery) return slashCommandItems;
-
-                    return slashCommandItems.filter(
-                        item =>
-                            item.title.toLowerCase().includes(lowerQuery) ||
-                            item.description.toLowerCase().includes(lowerQuery)
-                    );
-                },
+                items: ({ query }) => filterCommands(slashCommandItems, query),
                 render: () => {
                     let component: ReactRenderer<SlashCommandListRef> | null = null;
                     let popup: TippyInstance[] | null = null;
