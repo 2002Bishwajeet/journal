@@ -25,7 +25,7 @@ describe('liveBlockLayoutWarnings (#591)', () => {
     });
 
     it('ignores max-width, small widths and fluid values', () => {
-        const body = '<div style="max-width: 800px; width: 360px; min-width: 200px; width: 100%">x</div><svg width="300"></svg>';
+        const body = '<div style="max-width: 800px; width: 360px; min-width: 200px; width: 100%; max-height: 60vh; height: 50vh">x</div><svg width="300"></svg>';
         expect(liveBlockLayoutWarnings(block(body))).toEqual([]);
     });
 

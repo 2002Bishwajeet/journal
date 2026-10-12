@@ -119,7 +119,7 @@ export function liveBlockLayoutWarnings(markdown: string): string[] {
                 break;
             }
         }
-        const tall = /(?<![\w-])(?:min-h-screen|h-screen)(?![\w-])|\b\d+vh\b/.exec(code);
+        const tall = /(?<![\w-])(?:min-h-screen|h-screen)(?![\w-])|(?<![\w.-])100vh\b/.exec(code);
         if (tall) warnings.push(`${name} uses ${tall[0]}, which is wrong in a note's frame. Size to the content height.`);
     }
     return warnings;
