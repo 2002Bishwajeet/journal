@@ -139,6 +139,12 @@ export default function SharePage() {
                                             ) : (
                                                 <img src={src} alt={alt} loading="lazy" className={px ? 'w-full' : undefined} {...rest} />
                                             )}
+                                            {/* The alt text doubles as the caption, as in the editor */}
+                                            {alt && (
+                                                <span aria-hidden="true" className="mt-1.5 block text-center text-sm text-muted-foreground">
+                                                    {alt}
+                                                </span>
+                                            )}
                                         </span>
                                     );
                                 },
