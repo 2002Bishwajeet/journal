@@ -94,4 +94,20 @@ describe('useImageDeletionTracker', () => {
 
         expect(mockSavePendingImageDeletion).toHaveBeenCalledWith(DOC_ID, 'jrnl_img0');
     });
+
+    it('queues the old payload when a replace swaps the src in place', async () => {
+        const doc = new Y.Doc();
+        const fragment = doc.getXmlFragment('prosemirror');
+        const el = image('attachment://file-B/jrnl_img0');
+        fragment.insert(0, [el]);
+        const root = createRoot(document.createElement('div'));
+        await act(async () => { root.render(h(Tracker, { yXmlFragment: fragment })); });
+
+        el.setAttribute('src', 'blob:new');
+        await act(async () => { await vi.advanceTimersByTimeAsync(2500); });
+
+        expect(mockSavePendingImageDeletion).toHaveBeenCalledWith(DOC_ID, 'jrnl_img0');
+        await act(async () => root.unmount());
+        doc.destroy();
+    });
 });
