@@ -46,7 +46,9 @@ function ZoomStage({ src, alt, onClose }: { src: string; alt: string; onClose: (
     >
       <div
         data-testid="lightbox-zoom"
-        className="max-w-full"
+        // w-full, not shrink-wrapped: OdinImage is 100% of this box, so a
+        // shrink-wrapped box collapses both to 0×0 and the image never shows.
+        className="flex w-full justify-center"
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
       >
         {isAttachment ? (

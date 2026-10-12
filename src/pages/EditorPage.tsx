@@ -11,7 +11,7 @@ import { TocPanel } from "@/components/editor/TocPanel";
 import { FindReplaceBar } from "@/components/editor/FindReplaceBar";
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Minimize2 } from "lucide-react";
 import { CollaborativePopover } from '@/components/editor/CollaborativePopover';
 import { LinkedMentions } from "@/components/editor/LinkedMentions";
 import HistoryModal from "@/components/modals/HistoryModal";
@@ -40,12 +40,14 @@ function EditorLayout({
   noteId,
   onBack,
   focusMode = false,
+  onExitFocusMode,
   isActive,
   isPeerNote,
 }: {
   noteId: string;
   onBack: () => void;
   focusMode?: boolean;
+  onExitFocusMode?: () => void;
   isActive: boolean;
   isPeerNote: boolean;
 }) {
@@ -85,8 +87,7 @@ function EditorLayout({
   }
 
   return (
-    // Zen: leave room above the toolbar for the exit pill (JournalLayout).
-    <div className={cn("flex flex-col h-full w-full bg-background relative", focusMode && "pt-12")}>
+    <div className="flex flex-col h-full w-full bg-background relative">
       {/* Mobile Editor Header */}
       <div
         className={
@@ -133,6 +134,18 @@ function EditorLayout({
         {collaborativePopover && (
           <div className="ml-auto px-3">{collaborativePopover}</div>
         )}
+        {focusMode && onExitFocusMode && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onExitFocusMode}
+            title="Exit Focus (Esc or Cmd+Shift+F)"
+            className={cn("mr-3 shrink-0 gap-1.5 text-xs text-muted-foreground", !collaborativePopover && "ml-auto")}
+          >
+            <Minimize2 className="h-3.5 w-3.5" />
+            Exit Focus
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 flex min-h-0 w-full overflow-hidden">
@@ -176,11 +189,13 @@ export default function EditorPage({
   overrideNoteId,
   overrideFolderId,
   focusMode = false,
+  onExitFocusMode,
   onCloseMissing,
 }: {
   overrideNoteId?: string;
   overrideFolderId?: string;
   focusMode?: boolean;
+  onExitFocusMode?: () => void;
   /** Desktop tabs: closes this tab — "Back to list" wouldn't change the active tab. */
   onCloseMissing?: () => void;
 } = {}) {
@@ -323,7 +338,7 @@ export default function EditorPage({
       onGetAutocompleteSuggestion={handleGetAutocompleteSuggestion}
       onCheckGrammar={handleCheckGrammar}
     >
-      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} isActive={isActiveTab} isPeerNote={isPeerNote} />
+      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} onExitFocusMode={onExitFocusMode} isActive={isActiveTab} isPeerNote={isPeerNote} />
     </EditorProvider>
   );
 }

@@ -351,8 +351,22 @@ export function ImageNodeView({
         setLightboxOpen(true);
       }}
     >
-      {children}
-      {CORNERS.map(corner)}
+      {/* The handles sit on the image's corners, not below the caption */}
+      <div className="relative">
+        {children}
+        {CORNERS.map(corner)}
+      </div>
+      {alt && (
+        // w-0 min-w-full: wraps to the image's width instead of widening the box
+        <span
+          contentEditable={false}
+          data-testid="image-caption"
+          aria-hidden="true"
+          className="mt-1.5 block w-0 min-w-full text-center text-sm text-muted-foreground"
+        >
+          {alt}
+        </span>
+      )}
       {alignBar}
       <ImageLightbox open={lightboxOpen} onOpenChange={setLightboxOpen} src={src} alt={alt} />
     </div>
