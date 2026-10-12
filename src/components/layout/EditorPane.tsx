@@ -15,6 +15,7 @@ interface EditorPaneProps {
   isEditorVisibleOnMobile: boolean;
   focusMode: boolean;
   onEnterFocusMode: () => void;
+  onExitFocusMode: () => void;
   folderId?: string;
   noteId?: string;
   openTabs: TabInfo[];
@@ -32,6 +33,7 @@ export function EditorPane({
   isEditorVisibleOnMobile,
   focusMode,
   onEnterFocusMode,
+  onExitFocusMode,
   folderId,
   noteId,
   openTabs,
@@ -136,6 +138,7 @@ export function EditorPane({
                 overrideNoteId={tab.docId}
                 overrideFolderId={folderId}
                 focusMode={focusMode}
+                onExitFocusMode={onExitFocusMode}
                 onCloseMissing={() => onTabClose(tab.docId)}
               />
             </div>

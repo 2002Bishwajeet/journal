@@ -7,6 +7,7 @@ interface KeyboardShortcutsConfig {
     onKeyboardHelp?: () => void;
     onFocusMode?: () => void;
     onDailyNote?: () => void;
+    onEscape?: () => void;
 }
 
 /**
@@ -17,6 +18,7 @@ interface KeyboardShortcutsConfig {
  * - Cmd/Ctrl+S: Save current note
  * - Cmd/Ctrl+/: Keyboard shortcuts help
  * - Cmd/Ctrl+Shift+T: Open today's daily note
+ * - Esc: onEscape, unless something else (a dialog, menu or popup) already handled it
  */
 export function useKeyboardShortcuts({
     onSearch,
@@ -25,9 +27,16 @@ export function useKeyboardShortcuts({
     onKeyboardHelp,
     onFocusMode,
     onDailyNote,
+    onEscape,
 }: KeyboardShortcutsConfig) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Radix dialogs/popovers and ProseMirror menus preventDefault the Esc they consume
+            if (e.key === 'Escape' && onEscape && !e.defaultPrevented) {
+                onEscape();
+                return;
+            }
+
             const isMod = e.metaKey || e.ctrlKey;
 
             if (!isMod) return;
@@ -74,5 +83,5 @@ export function useKeyboardShortcuts({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onSearch, onNewNote, onSave, onKeyboardHelp, onFocusMode, onDailyNote]);
+    }, [onSearch, onNewNote, onSave, onKeyboardHelp, onFocusMode, onDailyNote, onEscape]);
 }

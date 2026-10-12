@@ -21,6 +21,18 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - The emoji and slash menus show the best match first. They also find common words, for example ":lol", "/todo" or "/img".
 - The emoji and slash menus close when no item matches your text. Then Enter starts a new line as usual.
 
+## 2.9.0 (2026-10-12)
+
+### New
+
+- An image with a description shows the description under it, in the editor and on shared notes.
+
+### Fixed
+
+- Zen mode has an "Exit Focus" button in the toolbar. You can also press Esc to leave Zen mode.
+- Zen mode no longer adds empty space above the toolbar.
+- The full-size view of an uploaded image shows the image again.
+
 ## 2.8.0 (2026-10-12)
 
 ### New

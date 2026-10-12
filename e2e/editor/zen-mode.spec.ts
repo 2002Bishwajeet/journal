@@ -2,9 +2,9 @@ import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { activeEditor, createNote } from '../support/actions';
 
-// Zen (focus) mode: the exit pill's wrapper must not swallow clicks on the
-// toolbar under it, the visible pill must not cover the toolbar, and the
-// Settings → Appearance width applies as in normal mode (#578).
+// Zen (focus) mode: an always-visible Exit button sits in the toolbar row (no
+// hover-only pill, no gap above the toolbar), Esc exits, toolbar tools work, and
+// the Settings → Appearance width applies as in normal mode (#578).
 
 const enterZen = (page: Page) => page.getByTitle('Focus Mode (Cmd+Shift+F)').click();
 const exitPill = (page: Page) => page.getByRole('button', { name: /Exit Focus/ });
@@ -19,27 +19,18 @@ async function chooseWidth(page: Page, name: string): Promise<void> {
   await expect(dialog).toBeHidden();
 }
 
-test('Zen: toolbar buttons at the top are clickable and the pill does not cover them', async ({ app }) => {
+test('Zen: Exit is visible in the toolbar row, Esc exits, and toolbar buttons work', async ({ app }) => {
   await app.setViewportSize({ width: 1440, height: 900 });
   await createNote(app, { title: `Zen ${Date.now()}`, body: 'Zen body text' });
   await enterZen(app);
-  await expect(exitPill(app)).toBeAttached();
 
-  // The hit target at the toolbar's centre is the toolbar, not the exit wrapper.
-  const hit = await bold(app).evaluate((btn) => {
-    const row = btn.closest('.border-b')!;
-    const r = row.getBoundingClientRect();
-    const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)!;
-    return { inToolbar: row.contains(el), inExitWrapper: !!el.closest('.group\\/focus') };
-  });
-  expect(hit).toEqual({ inToolbar: true, inExitWrapper: false });
-
-  // The pill, once revealed by hover, sits above the toolbar rather than on it.
-  await exitPill(app).hover();
-  await expect(exitPill(app)).toHaveCSS('opacity', '1');
-  const pill = (await exitPill(app).boundingBox())!;
-  const toolbarTop = (await bold(app).evaluate((btn) => btn.closest('.border-b')!.getBoundingClientRect().top));
-  expect(pill.y + pill.height).toBeLessThanOrEqual(toolbarTop);
+  // Visible without hovering, in the same row as the toolbar, which starts at the top.
+  await expect(exitPill(app)).toBeVisible();
+  const row = await bold(app).evaluate((btn) => btn.closest('.border-b')!.parentElement!.getBoundingClientRect());
+  const exit = (await exitPill(app).boundingBox())!;
+  expect(row.top).toBeLessThanOrEqual(1);
+  expect(exit.y).toBeGreaterThanOrEqual(row.top);
+  expect(exit.y + exit.height).toBeLessThanOrEqual(row.bottom);
 
   // Bold and a heading button apply.
   const editor = activeEditor(app);
@@ -50,11 +41,15 @@ test('Zen: toolbar buttons at the top are clickable and the pill does not cover 
   await app.getByTitle('Heading 1').click();
   await expect(editor.locator('h1')).toHaveText('Zen body text');
 
-  // The pill exits Zen; Cmd+Shift+F toggles it back on and off.
+  // Exit button, Esc and Cmd+Shift+F all leave Zen.
   await exitPill(app).click();
   await expect(exitPill(app)).toHaveCount(0);
   await app.keyboard.press('ControlOrMeta+Shift+KeyF');
-  await expect(exitPill(app)).toBeAttached();
+  await expect(exitPill(app)).toBeVisible();
+  await app.keyboard.press('Escape');
+  await expect(exitPill(app)).toHaveCount(0);
+  await app.keyboard.press('ControlOrMeta+Shift+KeyF');
+  await expect(exitPill(app)).toBeVisible();
   await app.keyboard.press('ControlOrMeta+Shift+KeyF');
   await expect(exitPill(app)).toHaveCount(0);
 });
@@ -96,8 +91,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       body: 'The morning light came through the window and settled on the desk, where a half-finished cup of tea had gone cold.',
     });
     await enterZen(app);
-    await exitPill(app).hover();
-    await expect(exitPill(app)).toHaveCSS('opacity', '1');
+    await expect(exitPill(app)).toBeVisible();
     await app.screenshot({ path: test.info().outputPath(`zen-${colorScheme}.png`) });
   });
 }
