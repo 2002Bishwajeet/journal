@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, withFencedPage, liveIdentityOrigin } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
-import { activeEditor, createNote, shareNotePublicly } from '../support/actions';
+import { activeEditor, createNote, shareNotePublicly, waitForNoteSaved } from '../support/actions';
 
 // #390: a public share page renders mermaid, svg and html code blocks as
 // previews (built from the code text), with a "View source" toggle.
@@ -35,8 +35,8 @@ async function pasteHtml(page: Page, html: string): Promise<void> {
         el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
     }, html);
     await expect(editor.locator('pre')).toHaveCount(3, { includeHidden: true });
-    // Same settle wait as typeInEditor: local Yjs persistence is async.
-    await page.waitForTimeout(1500);
+    // Local Yjs persistence is async: wait for the write.
+    await waitForNoteSaved(page);
 }
 
 test('shared note renders mermaid, svg and html blocks as previews (#390)', async ({ liveRun, browser }, testInfo) => {

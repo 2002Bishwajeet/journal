@@ -1,6 +1,6 @@
 import type { FrameLocator, Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote, pastePlainText } from '../support/actions';
+import { activeEditor, createNote, inBothThemes, pastePlainText } from '../support/actions';
 
 // #559: a react block keeps Journal's look by default, and goes further when it asks:
 // real shadows, arbitrary values, `md:` in a `wide` block (#557), and
@@ -125,20 +125,23 @@ for (const theme of ['light', 'dark'] as const) {
     await shoot(reactBlock(app), `react-bold-normal-${theme}-1280.png`);
   });
 
-  test(`react block styling: md: applies in a wide block, ${theme} theme`, async ({ app }) => {
-    await app.emulateMedia({ colorScheme: theme });
-    // md: is 768px of frame: with the sidebar and the note list open, a wide block is that wide on a 1600px window.
-    await app.setViewportSize({ width: 1600, height: 900 });
-    await createNote(app, { title: `React styling wide ${theme} ${Date.now()}`, body: 'Intro' });
-    await expect(app.locator('html')).toHaveClass(new RegExp(theme));
+}
 
-    await pasteBlock(app, BOLD_BLOCK, 'react wide');
-    await expect(reactBlock(app)).toHaveAttribute('data-live-block-wide', '');
-    const wide = reactFrame(app);
+// The column count does not depend on the theme: one run, the screenshot in both.
+test('react block styling: md: applies in a wide block', async ({ app }) => {
+  // md: is 768px of frame: with the sidebar and the note list open, a wide block is that wide on a 1600px window.
+  await app.setViewportSize({ width: 1600, height: 900 });
+  await createNote(app, { title: `React styling wide ${Date.now()}`, body: 'Intro' });
+
+  await pasteBlock(app, BOLD_BLOCK, 'react wide');
+  await expect(reactBlock(app)).toHaveAttribute('data-live-block-wide', '');
+  const wide = reactFrame(app);
+  await expect(wide.locator('#poster')).toBeVisible();
+  const cols = await columns(wide);
+  expect(cols).toHaveLength(3);
+  expect(Math.max(...cols) - Math.min(...cols)).toBeLessThanOrEqual(1);
+  await inBothThemes(app, async (theme) => {
     await expect(wide.locator('#poster')).toBeVisible();
-    const cols = await columns(wide);
-    expect(cols).toHaveLength(3);
-    expect(Math.max(...cols) - Math.min(...cols)).toBeLessThanOrEqual(1);
     await shoot(reactBlock(app), `react-bold-wide-${theme}-1600.png`);
   });
-}
+});

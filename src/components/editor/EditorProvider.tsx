@@ -13,6 +13,7 @@ import * as Y from "yjs";
 import { ySyncPluginKey } from "y-prosemirror";
 import { PGliteProvider } from "@/lib/yjs";
 import { flushPendingSaveOnTeardown } from "@/lib/yjs/flushPendingSave";
+import { registerPendingEditorWrite } from "@/lib/yjs/pendingEditorWrites";
 import { upsertSearchIndex, savePendingImageUpload, savePendingImageDeletion, updateSyncStatus } from "@/lib/db";
 import { getNewId } from "@/lib/utils";
 import { prepareImageForUpload, UnsupportedImageError } from "@/lib/images/imageIngest";
@@ -472,6 +473,7 @@ export function EditorProvider({
       }
 
       searchIndexTimeoutRef.current = setTimeout(() => {
+        searchIndexTimeoutRef.current = null;
         const currentDocId = docIdRef.current;
         const currentMetadata = metadataRef.current;
         // Use passed plainText if available, otherwise fallback
@@ -522,6 +524,9 @@ export function EditorProvider({
       }
     }, 2000);
   }, []);
+
+  // Let the e2e hooks see this editor's pending search-index write.
+  useEffect(() => registerPendingEditorWrite(searchIndexTimeoutRef), []);
 
   // Clean up all timeouts on unmount
   useEffect(() => {

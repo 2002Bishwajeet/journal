@@ -1,7 +1,7 @@
 import type { Page, TestInfo } from '@playwright/test';
 import { test, expect, withFencedPage, liveIdentityOrigin } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
-import { activeEditor, createNote, shareNotePublicly } from '../support/actions';
+import { activeEditor, createNote, shareNotePublicly, waitForNoteSaved } from '../support/actions';
 
 // #221: the public share page reads as an article — author byline (profile
 // name + avatar), no horizontal page scroll at phone width with a wide table,
@@ -50,8 +50,8 @@ async function pasteHtml(page: Page, html: string): Promise<void> {
     }, html);
     await expect(editor.locator('table')).toBeVisible();
     await expect(editor.locator('pre')).toBeVisible();
-    // Same settle wait as typeInEditor: local Yjs persistence is async.
-    await page.waitForTimeout(1500);
+    // Local Yjs persistence is async: wait for the write.
+    await waitForNoteSaved(page);
 }
 
 async function screenshot(page: Page, testInfo: TestInfo, name: string): Promise<void> {

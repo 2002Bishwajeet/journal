@@ -1,7 +1,7 @@
 import type { ConsoleMessage, Locator, Page, TestInfo } from '@playwright/test';
 import { test, expect, waitForAppReady, withFencedPage, liveIdentityOrigin, LIVE_STORAGE_STATE } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
-import { activeTitleInput, createFolder, createNote, selectFolder, shareNotePublicly } from '../support/actions';
+import { activeTitleInput, createFolder, createNote, selectFolder, shareNotePublicly, waitForNoteSaved } from '../support/actions';
 import { makeSolidPng } from '../support/png';
 
 // #219: the owner adds, repositions, changes and removes a note's cover on a
@@ -54,9 +54,9 @@ async function screenshot(page: Page, testInfo: TestInfo, name: string): Promise
     await testInfo.attach(name, { path, contentType: 'image/png' });
 }
 
-// Local Yjs/PGlite persistence is async (see typeInEditor) — let it settle before reloading.
+// Local Yjs/PGlite persistence is async: wait for it before reloading.
 async function reloadNote(page: Page): Promise<void> {
-    await page.waitForTimeout(1500);
+    await waitForNoteSaved(page);
     await page.reload();
     await assertTestOrigin(page);
     await waitForAppReady(page);

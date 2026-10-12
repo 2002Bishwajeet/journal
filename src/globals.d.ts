@@ -41,6 +41,10 @@ declare module 'virtual:react-block-*' {
 interface JournalE2EHooks {
   /** Resolves once boot phase db-ready has fired and the boot splash has been replaced by the app UI. */
   ready(): Promise<void>;
+  /** True while an edit is still queued for, or being written to, PGlite. */
+  hasUnsavedEdits(): Promise<boolean>;
+  /** Resolves once PGlite has flushed everything it committed to IndexedDB. */
+  syncToDisk(): Promise<void>;
   /** Draws a 1200×630 link card JPEG, as src/lib/share/cardImage.ts's renderCardImage does. */
   renderCard(
     text: { title: string; excerpt?: string; author: string },

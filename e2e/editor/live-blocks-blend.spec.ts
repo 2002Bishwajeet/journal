@@ -258,37 +258,44 @@ async function noteWithHtmlBlock(app: Page, entry: keyof typeof ENTRIES, source:
   return htmlFrame(activeEditor(app));
 }
 
-for (const theme of THEMES) {
-  for (const entry of ['pasted', 'typed'] as const) {
-    test(`editor: an html block ${entry} into a note takes the note's look, ${theme} theme`, async ({ app }) => {
-      // The theme preference defaults to "system", which follows prefers-color-scheme.
-      await app.emulateMedia({ colorScheme: theme });
-      await expect(app.locator('html')).toHaveClass(new RegExp(theme));
+// Each test starts in light and switches to dark on the same note, so one run covers both
+// themes (and the switch between them) instead of one run per starting theme.
+for (const entry of ['pasted', 'typed'] as const) {
+  test(`editor: an html block ${entry} into a note takes the note's look`, async ({ app }) => {
+    // The theme preference defaults to "system", which follows prefers-color-scheme.
+    await app.emulateMedia({ colorScheme: 'light' });
+    await expect(app.locator('html')).toHaveClass(/light/);
 
-      const unstyled = await noteWithHtmlBlock(app, entry, UNSTYLED);
-      await expectNoteLook(unstyled, activeEditor(app).getByText(PARAGRAPH));
-      await expect(unstyled.locator('html')).toHaveCSS('color-scheme', theme);
+    const unstyled = await noteWithHtmlBlock(app, entry, UNSTYLED);
+    await expectNoteLook(unstyled, activeEditor(app).getByText(PARAGRAPH));
+    await expect(unstyled.locator('html')).toHaveCSS('color-scheme', 'light');
 
-      const styled = await noteWithHtmlBlock(app, entry, TOKEN_STYLED);
-      await expectTokenColours(app, styled);
-      const before = await token(app, '--muted');
+    const styled = await noteWithHtmlBlock(app, entry, TOKEN_STYLED);
+    await expectTokenColours(app, styled);
+    const before = await token(app, '--muted');
 
-      // The page is rebuilt in the new theme's values.
-      const other = theme === 'light' ? 'dark' : 'light';
-      await app.emulateMedia({ colorScheme: other });
-      await expect(app.locator('html')).toHaveClass(new RegExp(other));
-      expect(await token(app, '--muted')).not.toBe(before);
-      await expectTokenColours(app, styled);
-      await expect(styled.locator('body')).toHaveCSS('color', await token(app, '--foreground'));
-    });
+    // The page is rebuilt in the new theme's values.
+    await app.emulateMedia({ colorScheme: 'dark' });
+    await expect(app.locator('html')).toHaveClass(/dark/);
+    expect(await token(app, '--muted')).not.toBe(before);
+    await expectTokenColours(app, styled);
+    await expect(styled.locator('body')).toHaveCSS('color', await token(app, '--foreground'));
 
-    test(`editor: unstyled form controls ${entry} into a note look like Journal's, ${theme} theme`, async ({ app }) => {
-      await app.emulateMedia({ colorScheme: theme });
-      await expect(app.locator('html')).toHaveClass(new RegExp(theme));
-      const frame = await noteWithHtmlBlock(app, entry, FORM);
-      await expectJournalControls(app, frame, activeEditor(app).getByText(PARAGRAPH));
-    });
-  }
+    // An unstyled block in a note opened in dark takes the dark look.
+    const unstyledDark = await noteWithHtmlBlock(app, entry, UNSTYLED);
+    await expectNoteLook(unstyledDark, activeEditor(app).getByText(PARAGRAPH));
+    await expect(unstyledDark.locator('html')).toHaveCSS('color-scheme', 'dark');
+  });
+
+  test(`editor: unstyled form controls ${entry} into a note look like Journal's`, async ({ app }) => {
+    await app.emulateMedia({ colorScheme: 'light' });
+    await expect(app.locator('html')).toHaveClass(/light/);
+    const frame = await noteWithHtmlBlock(app, entry, FORM);
+    await expectJournalControls(app, frame, activeEditor(app).getByText(PARAGRAPH));
+    await app.emulateMedia({ colorScheme: 'dark' });
+    await expect(app.locator('html')).toHaveClass(/dark/);
+    await expectJournalControls(app, frame, activeEditor(app).getByText(PARAGRAPH));
+  });
 }
 
 test("editor: a block's own button style wins over Journal's (#424)", async ({ app }) => {
@@ -315,33 +322,35 @@ test('editor: the block is labelled and its toggles stay in view, with the point
   await app.screenshot({ path: test.info().outputPath('toggle-focus-editor-light-1280.png') });
 });
 
-for (const theme of THEMES) {
-  test(`editor: a note of every kind of block has no card around any of them, ${theme} theme`, async ({ app }) => {
+// One note, checked in light and then in dark.
+test('editor: a note of every kind of block has no card around any of them', async ({ app }) => {
+  await app.emulateMedia({ colorScheme: 'light' });
+  await app.setViewportSize(VIEWPORTS[1280]);
+  await createNote(app, { title: `Blend ${Date.now()}`, body: PARAGRAPH });
+
+  // Through the editor's real paste path (ProseMirror parses text/html).
+  const editor = activeEditor(app);
+  await app.keyboard.press('Enter');
+  await assertTestOrigin(app);
+  await editor.evaluate(
+    (el, pasted) => {
+      const data = new DataTransfer();
+      data.setData('text/html', pasted);
+      data.setData('text/plain', '');
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    },
+    [
+      `<div data-type="callout" data-variant="info"><p>${CALLOUT}</p></div>`,
+      `<table>${TABLE.map((row, r) => `<tr>${row.map((cell) => (r === 0 ? `<th>${cell}</th>` : `<td>${cell}</td>`)).join('')}</tr>`).join('')}</table>`,
+      ...LIVE_BLOCKS.map(([language, code]) => `<pre><code class="language-${language}">${escapeHtml(code)}</code></pre>`),
+    ].join(''),
+  );
+  await expect(editor.locator('[data-type="callout"]')).toContainText(CALLOUT);
+  await expect(editor.getByRole('table')).toBeVisible();
+
+  for (const theme of THEMES) {
     await app.emulateMedia({ colorScheme: theme });
-    await app.setViewportSize(VIEWPORTS[1280]);
-    await createNote(app, { title: `Blend ${theme} ${Date.now()}`, body: PARAGRAPH });
-
-    // Through the editor's real paste path (ProseMirror parses text/html).
-    const editor = activeEditor(app);
-    await app.keyboard.press('Enter');
-    await assertTestOrigin(app);
-    await editor.evaluate(
-      (el, pasted) => {
-        const data = new DataTransfer();
-        data.setData('text/html', pasted);
-        data.setData('text/plain', '');
-        el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
-      },
-      [
-        `<div data-type="callout" data-variant="info"><p>${CALLOUT}</p></div>`,
-        `<table>${TABLE.map((row, r) => `<tr>${row.map((cell) => (r === 0 ? `<th>${cell}</th>` : `<td>${cell}</td>`)).join('')}</tr>`).join('')}</table>`,
-        ...LIVE_BLOCKS.map(([language, code]) => `<pre><code class="language-${language}">${escapeHtml(code)}</code></pre>`),
-      ].join(''),
-    );
-    await expect(editor.locator('[data-type="callout"]')).toContainText(CALLOUT);
-    await expect(editor.getByRole('table')).toBeVisible();
     await expect(app.locator('html')).toHaveClass(new RegExp(theme));
-
     for (const width of [1280, 390] as const) {
       await app.setViewportSize(VIEWPORTS[width]);
       await expectDrawn(editor);
@@ -352,8 +361,8 @@ for (const theme of THEMES) {
     await app.setViewportSize(VIEWPORTS[1280]);
     await expectJournalControls(app, htmlFrame(editor, 2), editor.getByText(PARAGRAPH));
     await shootFormAndPie(app, editor, 'editor', theme);
-  });
-}
+  }
+});
 
 // #430: a chart drawn with the palette, and a strip of the palette's five colours with the
 // values the block was given.
@@ -378,63 +387,67 @@ async function shootBlock(block: Locator, name: string): Promise<void> {
   await block.screenshot({ path: test.info().outputPath(name) });
 }
 
-for (const theme of THEMES) {
-  test(`editor: an html chart drawn with the chart palette has five colours that follow the theme, ${theme} theme`, async ({ app }) => {
-    await app.emulateMedia({ colorScheme: theme });
-    await app.setViewportSize(VIEWPORTS[1280]);
-    await createNote(app, { title: `Chart palette ${theme} ${Date.now()}`, body: PARAGRAPH });
-    const editor = activeEditor(app);
-    await app.keyboard.press('Enter');
-    await assertTestOrigin(app);
-    await editor.evaluate(
-      (el, pasted) => {
-        const data = new DataTransfer();
-        data.setData('text/html', pasted);
-        data.setData('text/plain', '');
-        el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
-      },
-      [
-        ['html', BARS],
-        ['html', SWATCHES],
-        ['mermaid', FLOWCHART],
-      ]
-        .map(([language, code]) => `<pre><code class="language-${language}">${escapeHtml(code)}</code></pre>`)
-        .join(''),
-    );
-    await expect(app.locator('html')).toHaveClass(new RegExp(theme));
+// One run: light first, then the same note in dark (the palette must change under the blocks).
+test('editor: an html chart drawn with the chart palette has five colours that follow the theme', async ({ app }) => {
+  const theme = 'light';
+  await app.emulateMedia({ colorScheme: theme });
+  await app.setViewportSize(VIEWPORTS[1280]);
+  await createNote(app, { title: `Chart palette ${Date.now()}`, body: PARAGRAPH });
+  const editor = activeEditor(app);
+  await app.keyboard.press('Enter');
+  await assertTestOrigin(app);
+  await editor.evaluate(
+    (el, pasted) => {
+      const data = new DataTransfer();
+      data.setData('text/html', pasted);
+      data.setData('text/plain', '');
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    },
+    [
+      ['html', BARS],
+      ['html', SWATCHES],
+      ['mermaid', FLOWCHART],
+    ]
+      .map(([language, code]) => `<pre><code class="language-${language}">${escapeHtml(code)}</code></pre>`)
+      .join(''),
+  );
+  await expect(app.locator('html')).toHaveClass(new RegExp(theme));
 
-    const bars = htmlFrame(editor, 0).locator('#bars > div');
-    await editor.locator('[data-live-block="html"] iframe').first().scrollIntoViewIfNeeded();
-    await expect(bars).toHaveCount(5);
-    const chart = await chartTokens(app);
-    expect(new Set(chart).size).toBe(5);
-    for (const [i, colour] of chart.entries()) await expect(bars.nth(i)).toHaveCSS('background-color', colour);
+  const bars = htmlFrame(editor, 0).locator('#bars > div');
+  await editor.locator('[data-live-block="html"] iframe').first().scrollIntoViewIfNeeded();
+  await expect(bars).toHaveCount(5);
+  const chart = await chartTokens(app);
+  expect(new Set(chart).size).toBe(5);
+  for (const [i, colour] of chart.entries()) await expect(bars.nth(i)).toHaveCSS('background-color', colour);
 
-    const swatches = htmlFrame(editor, 1).locator('#swatches > div');
-    await editor.locator('[data-live-block="html"] iframe').nth(1).scrollIntoViewIfNeeded();
-    await expect(swatches).toHaveCount(5);
-    const flowchart = editor.locator('[data-live-block="mermaid"]');
-    await expect(flowchart.locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
-    // The flowchart keeps the theme's own colours: its nodes are filled with `--secondary`.
-    await expect(flowchart.locator('.node rect').first()).toHaveCSS('fill', await token(app, '--secondary'));
+  const swatches = htmlFrame(editor, 1).locator('#swatches > div');
+  await editor.locator('[data-live-block="html"] iframe').nth(1).scrollIntoViewIfNeeded();
+  await expect(swatches).toHaveCount(5);
+  const flowchart = editor.locator('[data-live-block="mermaid"]');
+  await expect(flowchart.locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
+  // The flowchart keeps the theme's own colours: its nodes are filled with `--secondary`.
+  await expect(flowchart.locator('.node rect').first()).toHaveCSS('fill', await token(app, '--secondary'));
 
-    const blocks = editor.locator('[data-live-block]');
-    await shootBlock(blocks.nth(0), `bars-editor-${theme}-1280.png`);
-    await shootBlock(blocks.nth(1), `swatches-editor-${theme}-1280.png`);
-    await shootBlock(blocks.nth(2), `flowchart-editor-${theme}-1280.png`);
+  const blocks = editor.locator('[data-live-block]');
+  await shootBlock(blocks.nth(0), `bars-editor-${theme}-1280.png`);
+  await shootBlock(blocks.nth(1), `swatches-editor-${theme}-1280.png`);
+  await shootBlock(blocks.nth(2), `flowchart-editor-${theme}-1280.png`);
 
-    // The frame is rebuilt in the other theme's palette: five colours again, each a new one.
-    const other = theme === 'light' ? 'dark' : 'light';
-    await app.emulateMedia({ colorScheme: other });
-    await expect(app.locator('html')).toHaveClass(new RegExp(other));
-    const otherChart = await chartTokens(app);
-    expect(new Set(otherChart).size).toBe(5);
-    for (const [i, colour] of otherChart.entries()) {
-      expect(colour).not.toBe(chart[i]);
-      await expect(bars.nth(i)).toHaveCSS('background-color', colour);
-    }
-  });
-}
+  // The frame is rebuilt in the other theme's palette: five colours again, each a new one.
+  await app.emulateMedia({ colorScheme: 'dark' });
+  await expect(app.locator('html')).toHaveClass(/dark/);
+  const otherChart = await chartTokens(app);
+  expect(new Set(otherChart).size).toBe(5);
+  for (const [i, colour] of otherChart.entries()) {
+    expect(colour).not.toBe(chart[i]);
+    await expect(bars.nth(i)).toHaveCSS('background-color', colour);
+  }
+  await expect(swatches).toHaveCount(5);
+  await expect(flowchart.locator('.node rect').first()).toHaveCSS('fill', await token(app, '--secondary'));
+  await shootBlock(blocks.nth(0), 'bars-editor-dark-1280.png');
+  await shootBlock(blocks.nth(1), 'swatches-editor-dark-1280.png');
+  await shootBlock(blocks.nth(2), 'flowchart-editor-dark-1280.png');
+});
 
 // The share page reads a public note from its author's identity. There is no
 // fake drive (#196): these are the GETs of one read, answered with canned values
@@ -493,11 +506,13 @@ async function mockPublicNote(page: Page): Promise<void> {
   });
 }
 
-for (const theme of THEMES) {
-  test(`share page: the same note has the same look, ${theme} theme`, async ({ anonPage }) => {
+// The share page reads the theme when it loads, so each theme loads it again (in one test).
+test('share page: the same note has the same look', async ({ anonPage }) => {
+  await mockPublicNote(anonPage);
+
+  for (const theme of THEMES) {
     await anonPage.emulateMedia({ colorScheme: theme });
     await anonPage.setViewportSize(VIEWPORTS[1280]);
-    await mockPublicNote(anonPage);
     await anonPage.goto(`/share/${AUTHOR}/${NOTE_ID}`);
     await assertTestOrigin(anonPage);
     const article = anonPage.getByRole('article');
@@ -520,7 +535,6 @@ for (const theme of THEMES) {
     await shootFormAndPie(anonPage, article, 'share', theme);
 
     // A reader sees no View source on an html block.
-    await anonPage.setViewportSize(VIEWPORTS[1280]);
     await expect(article.locator('[data-live-block="html"]').first().getByRole('button', { name: 'View source', exact: true })).toHaveCount(0);
 
     // The svg block's toggle: out of sight, there on hover, and there when the Tab key reaches it.
@@ -542,5 +556,5 @@ for (const theme of THEMES) {
     await expect(toggle).toBeFocused();
     await expect(controls).toHaveCSS('opacity', '1');
     await anonPage.screenshot({ path: test.info().outputPath(`toggle-focus-share-${theme}-1280.png`) });
-  });
-}
+  }
+});

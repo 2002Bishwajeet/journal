@@ -72,10 +72,12 @@ setup('bootstrap a fresh dev identity non-interactively and save storage state',
                 const button = page.getByRole('button', { name: /^(Allow|Next|Login)$/ });
                 if (await button.first().isVisible().catch(() => false)) {
                     await button.first().click();
+                    // Let the consent page navigate away before looking for the next button.
                     await page.waitForTimeout(1_000);
                     continue;
                 }
             }
+            // Polling a redirect chain across origins: no single element or event to wait on.
             await page.waitForTimeout(500);
         }
         throw new Error(`Consent loop timed out at ${page.url()}`);

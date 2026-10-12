@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, screenshotInBothThemes } from '../support/actions';
 
 // #447: a table with no saved column widths sizes its columns to content, its
 // cells are compact, and a wide table scrolls inside itself. The share page
@@ -8,7 +8,6 @@ import { activeEditor, createNote } from '../support/actions';
 // two places look alike. Takes the screenshots the issue asks for: a two-column
 // key/value table and a three-column table, light and dark, at 1280px and 390px.
 
-const THEMES = ['light', 'dark'] as const;
 const VIEWPORTS = { desktop: { width: 1280, height: 900 }, mobile: { width: 390, height: 844 } } as const;
 // A sub-pixel of rounding between two measured boxes.
 const SLACK = 0.5;
@@ -32,7 +31,11 @@ const THREE_COLUMNS = [
   ['Analysis', 'Interviews', 'anonymised_transcripts_twelve_participants.pdf'],
 ];
 
-const box = async (locator: Locator) => (await locator.boundingBox())!;
+// boundingBox() does not wait: after a viewport change the note can still be loading.
+const box = async (locator: Locator) => {
+  await expect(locator).toBeVisible();
+  return (await locator.boundingBox())!;
+};
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const tableHtml = (rows: string[][]) =>
@@ -62,60 +65,55 @@ async function buildNote(page: Page, title: string): Promise<{ editor: Locator; 
 /** The wrapper TipTap puts around a table. */
 const wrapperOf = (table: Locator) => table.locator('xpath=..');
 
-for (const theme of THEMES) {
-  test(`editor: tables size to content, are compact and scroll inside themselves, ${theme} theme`, async ({ app }) => {
-    // The theme preference defaults to "system", which follows prefers-color-scheme.
-    await app.emulateMedia({ colorScheme: theme });
-    await app.setViewportSize(VIEWPORTS.desktop);
-    const { editor, keyValue, threeColumns } = await buildNote(app, `Tables ${theme} ${Date.now()}`);
-    await expect(app.locator('html')).toHaveClass(new RegExp(theme));
+// The layout does not depend on the theme: one run, the screenshots in both.
+test('editor: tables size to content, are compact and scroll inside themselves', async ({ app }) => {
+  await app.setViewportSize(VIEWPORTS.desktop);
+  const { editor, keyValue, threeColumns } = await buildNote(app, `Tables ${Date.now()}`);
 
-    for (const viewport of ['desktop', 'mobile'] as const) {
-      await app.setViewportSize(VIEWPORTS[viewport]);
-      // The text column: the editor's content box.
-      const text = await box(editor.getByText(INTRO));
-      const column = { left: text.x, right: text.x + text.width };
+  for (const viewport of ['desktop', 'mobile'] as const) {
+    await app.setViewportSize(VIEWPORTS[viewport]);
+    // The text column: the editor's content box.
+    const text = await box(editor.getByText(INTRO));
+    const column = { left: text.x, right: text.x + text.width };
 
-      for (const table of [keyValue, threeColumns]) {
-        // Lines up with the text and is never wider than the text column.
-        const wrapper = await box(wrapperOf(table));
-        expect(wrapper.x).toBeGreaterThanOrEqual(column.left - SLACK);
-        expect(wrapper.x).toBeLessThanOrEqual(column.left + SLACK);
-        expect(wrapper.x + wrapper.width).toBeLessThanOrEqual(column.right + SLACK);
-        expect((await box(table)).x).toBeCloseTo(wrapper.x, 0);
+    for (const table of [keyValue, threeColumns]) {
+      // Lines up with the text and is never wider than the text column.
+      const wrapper = await box(wrapperOf(table));
+      expect(wrapper.x).toBeGreaterThanOrEqual(column.left - SLACK);
+      expect(wrapper.x).toBeLessThanOrEqual(column.left + SLACK);
+      expect(wrapper.x + wrapper.width).toBeLessThanOrEqual(column.right + SLACK);
+      expect((await box(table)).x).toBeCloseTo(wrapper.x, 0);
 
-        // Compact cells: the cell's padding alone, no paragraph margin.
-        const cell = table.locator('td').first();
-        expect(await cell.evaluate((el) => {
-          const { paddingTop, paddingRight, paddingBottom, paddingLeft } = getComputedStyle(el);
-          return paddingTop === paddingBottom && paddingLeft === paddingRight ? `${paddingTop} ${paddingLeft}` : 'uneven';
-        })).toBe(CELL_PADDING);
-        expect(await cell.locator('p').evaluate((p) => getComputedStyle(p).margin)).toBe('0px');
-        // The header row holds one line of text in every column.
-        expect((await box(table.locator('tr').first())).height).toBeCloseTo(ROW_HEIGHT, 0);
-      }
-
-      // A key column is narrower than its value column.
-      const key = await box(keyValue.locator('th').first());
-      const value = await box(keyValue.locator('th').last());
-      expect(key.width).toBeLessThan(value.width);
-
-      // The wide table scrolls inside its wrapper, not the page.
-      const scrolls = await wrapperOf(threeColumns).evaluate((el) => el.scrollWidth > el.clientWidth);
-      expect(scrolls).toBe(viewport === 'mobile');
-      expect(await app.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-
-      for (const [name, table] of [['key-value', keyValue], ['three-columns', threeColumns]] as const) {
-        await wrapperOf(table).evaluate((el) => el.scrollIntoView({ block: 'center' }));
-        const frame = await box(wrapperOf(table));
-        await app.screenshot({
-          path: test.info().outputPath(`table-${name}-editor-${theme}-${viewport}.png`),
-          clip: { x: Math.max(0, frame.x - 16), y: frame.y - 16, width: Math.min(frame.width + 32, VIEWPORTS[viewport].width), height: frame.height + 32 },
-        });
-      }
+      // Compact cells: the cell's padding alone, no paragraph margin.
+      const cell = table.locator('td').first();
+      expect(await cell.evaluate((el) => {
+        const { paddingTop, paddingRight, paddingBottom, paddingLeft } = getComputedStyle(el);
+        return paddingTop === paddingBottom && paddingLeft === paddingRight ? `${paddingTop} ${paddingLeft}` : 'uneven';
+      })).toBe(CELL_PADDING);
+      expect(await cell.locator('p').evaluate((p) => getComputedStyle(p).margin)).toBe('0px');
+      // The header row holds one line of text in every column.
+      expect((await box(table.locator('tr').first())).height).toBeCloseTo(ROW_HEIGHT, 0);
     }
-  });
-}
+
+    // A key column is narrower than its value column.
+    const key = await box(keyValue.locator('th').first());
+    const value = await box(keyValue.locator('th').last());
+    expect(key.width).toBeLessThan(value.width);
+
+    // The wide table scrolls inside its wrapper, not the page.
+    const scrolls = await wrapperOf(threeColumns).evaluate((el) => el.scrollWidth > el.clientWidth);
+    expect(scrolls).toBe(viewport === 'mobile');
+    expect(await app.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    for (const [name, table] of [['key-value', keyValue], ['three-columns', threeColumns]] as const) {
+      await wrapperOf(table).evaluate((el) => el.scrollIntoView({ block: 'center' }));
+      const frame = await box(wrapperOf(table));
+      await screenshotInBothThemes(app, (theme) => `table-${name}-editor-${theme}-${viewport}.png`, undefined, {
+        clip: { x: Math.max(0, frame.x - 16), y: frame.y - 16, width: Math.min(frame.width + 32, VIEWPORTS[viewport].width), height: frame.height + 32 },
+      });
+    }
+  }
+});
 
 test('editor: a resized column keeps its width after a reload', async ({ app }) => {
   await app.setViewportSize(VIEWPORTS.desktop);

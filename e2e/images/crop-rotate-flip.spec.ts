@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, screenshotInBothThemes } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #584: crop to 16:9, rotate 90° right and flip horizontally, all non-destructive.
@@ -110,69 +110,69 @@ async function openSharePage(page: Page): Promise<Locator> {
   return article.getByTestId('edited-image');
 }
 
-for (const colorScheme of ['light', 'dark'] as const) {
-  test(`crop 16:9, rotate and flip: editor, lightbox and share page agree; undo and reset (${colorScheme})`, async ({ app, anonPage }) => {
-    await app.emulateMedia({ colorScheme });
-    await app.setViewportSize({ width: 1280, height: 900 });
-    await createNote(app, { title: `Crop ${Date.now()}`, body: 'Image below.' });
-    await pasteImage(app);
-    const img = activeEditor(app).locator('img[alt="Quadrants"]');
-    await expect(img).toBeVisible();
-    const frame = activeEditor(app).getByTestId('edited-image');
+test('crop 16:9, rotate and flip: editor, lightbox and share page agree; undo and reset', async ({ app, anonPage }) => {
+  await app.setViewportSize({ width: 1280, height: 900 });
+  await createNote(app, { title: `Crop ${Date.now()}`, body: 'Image below.' });
+  await pasteImage(app);
+  const img = activeEditor(app).locator('img[alt="Quadrants"]');
+  await expect(img).toBeVisible();
+  const frame = activeEditor(app).getByTestId('edited-image');
 
-    // Edit: 16:9, rotate right, flip horizontal, Apply
-    await img.click();
-    await app.getByRole('button', { name: 'Edit image' }).click();
-    const dialog = app.getByRole('dialog', { name: 'Edit image' });
-    await expect(dialog.getByTestId('edited-image')).toBeVisible();
-    await dialog.getByRole('button', { name: '16:9' }).click();
-    await dialog.getByRole('button', { name: 'Rotate right' }).click();
-    await dialog.getByRole('button', { name: 'Flip horizontal' }).click();
-    // The crop now shows turned: a 9:16 rect over the turned 1:2 picture
-    expect(await ratio(dialog.getByTestId('crop-area'))).toBeCloseTo(9 / 16, 1);
-    await app.screenshot({ path: test.info().outputPath(`crop-dialog-${colorScheme}-1280.png`), animations: 'disabled' });
-    await dialog.getByRole('button', { name: 'Apply' }).click();
-    await expect(dialog).toBeHidden();
+  // Edit: 16:9, rotate right, flip horizontal, Apply
+  await img.click();
+  await app.getByRole('button', { name: 'Edit image' }).click();
+  const dialog = app.getByRole('dialog', { name: 'Edit image' });
+  await expect(dialog.getByTestId('edited-image')).toBeVisible();
+  await dialog.getByRole('button', { name: '16:9' }).click();
+  await dialog.getByRole('button', { name: 'Rotate right' }).click();
+  await dialog.getByRole('button', { name: 'Flip horizontal' }).click();
+  // The crop now shows turned: a 9:16 rect over the turned 1:2 picture
+  expect(await ratio(dialog.getByTestId('crop-area'))).toBeCloseTo(9 / 16, 1);
+  await screenshotInBothThemes(app, (colorScheme) => `crop-dialog-${colorScheme}-1280.png`, undefined, { animations: 'disabled' });
+  await dialog.getByRole('button', { name: 'Apply' }).click();
+  await expect(dialog).toBeHidden();
 
-    // Editor: a 320px wide 9:16 box, quadrants turned and mirrored
-    await expect(frame).toBeVisible();
-    await expect.poll(() => ratio(frame)).toBeCloseTo(9 / 16, 2);
-    expect((await frame.boundingBox())!.width).toBeCloseTo(320, 0);
-    await activeEditor(app).getByText('Image below.').click();
-    await app.mouse.move(5, 5);
-    const editorShot = await frame.screenshot();
-    expect(await quadrants(app, editorShot)).toEqual(EXPECTED);
-    await app.screenshot({ path: test.info().outputPath(`crop-editor-${colorScheme}-1280.png`) });
+  // Editor: a 320px wide 9:16 box, quadrants turned and mirrored
+  await expect(frame).toBeVisible();
+  await expect.poll(() => ratio(frame)).toBeCloseTo(9 / 16, 2);
+  expect((await frame.boundingBox())!.width).toBeCloseTo(320, 0);
+  await activeEditor(app).getByText('Image below.').click();
+  await app.mouse.move(5, 5);
+  const editorShot = await frame.screenshot();
+  expect(await quadrants(app, editorShot)).toEqual(EXPECTED);
+  await screenshotInBothThemes(app, (colorScheme) => `crop-editor-${colorScheme}-1280.png`);
 
-    // Lightbox: the same edited view
-    await frame.dblclick();
-    const lightbox = app.getByRole('dialog', { name: 'Quadrants' });
-    const big = lightbox.getByTestId('edited-image');
-    await expect(big).toBeVisible();
-    await expect.poll(() => ratio(big)).toBeCloseTo(9 / 16, 2);
-    expect(await quadrants(app, await big.screenshot())).toEqual(EXPECTED);
-    await app.screenshot({ path: test.info().outputPath(`crop-lightbox-${colorScheme}-1280.png`), animations: 'disabled' });
-    await app.keyboard.press('Escape');
-    await expect(lightbox).toBeHidden();
+  // Lightbox: the same edited view
+  await frame.dblclick();
+  const lightbox = app.getByRole('dialog', { name: 'Quadrants' });
+  const big = lightbox.getByTestId('edited-image');
+  await expect(big).toBeVisible();
+  await expect.poll(() => ratio(big)).toBeCloseTo(9 / 16, 2);
+  expect(await quadrants(app, await big.screenshot())).toEqual(EXPECTED);
+  await screenshotInBothThemes(app, (colorScheme) => `crop-lightbox-${colorScheme}-1280.png`, undefined, { animations: 'disabled' });
+  await app.keyboard.press('Escape');
+  await expect(lightbox).toBeHidden();
 
-    // Undo takes back the Apply (its own step): the original again; redo brings the edit back
-    await activeEditor(app).press('ControlOrMeta+z');
-    await expect(frame).toHaveCount(0);
-    expect(await ratio(img)).toBeCloseTo(2, 1);
-    await activeEditor(app).press('ControlOrMeta+Shift+z');
-    await expect(frame).toBeVisible();
-    await expect.poll(() => ratio(frame)).toBeCloseTo(9 / 16, 2);
+  // Undo takes back the Apply (its own step): the original again; redo brings the edit back
+  await activeEditor(app).press('ControlOrMeta+z');
+  await expect(frame).toHaveCount(0);
+  expect(await ratio(img)).toBeCloseTo(2, 1);
+  await activeEditor(app).press('ControlOrMeta+Shift+z');
+  await expect(frame).toBeVisible();
+  await expect.poll(() => ratio(frame)).toBeCloseTo(9 / 16, 2);
 
-    // Resize acts on the edited box and keeps its shape; float still works
-    await img.click();
-    await app.getByRole('button', { name: 'Resize image (bottom right)' }).focus();
-    await app.keyboard.press('ArrowLeft');
-    await expect.poll(async () => (await frame.boundingBox())!.width).toBeCloseTo(304, 0);
-    expect(await ratio(frame)).toBeCloseTo(9 / 16, 2);
-    await app.getByRole('button', { name: 'Float right' }).click();
-    await expect(frame.locator('xpath=ancestor::div[contains(@class,"group")][1]')).toHaveCSS('float', 'right');
+  // Resize acts on the edited box and keeps its shape; float still works
+  await img.click();
+  await app.getByRole('button', { name: 'Resize image (bottom right)' }).focus();
+  await app.keyboard.press('ArrowLeft');
+  await expect.poll(async () => (await frame.boundingBox())!.width).toBeCloseTo(304, 0);
+  expect(await ratio(frame)).toBeCloseTo(9 / 16, 2);
+  await app.getByRole('button', { name: 'Float right' }).click();
+  await expect(frame.locator('xpath=ancestor::div[contains(@class,"group")][1]')).toHaveCSS('float', 'right');
 
-    // Share page: the same note renders the same way
+  // Share page: the same note renders the same way. It reads the theme when it loads,
+  // so each theme loads it again.
+  for (const colorScheme of ['light', 'dark'] as const) {
     await anonPage.emulateMedia({ colorScheme });
     await anonPage.setViewportSize({ width: 1280, height: 900 });
     const shared = await openSharePage(anonPage);
@@ -182,17 +182,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect((await shared.boundingBox())!.width).toBeCloseTo(320, 0);
     expect(await quadrants(anonPage, await shared.screenshot())).toEqual(EXPECTED);
     await anonPage.screenshot({ path: test.info().outputPath(`crop-share-${colorScheme}-1280.png`) });
+  }
 
-    // Reset restores the original
-    await img.click();
-    await app.getByRole('button', { name: 'Edit image' }).click();
-    await dialog.getByRole('button', { name: 'Reset' }).click();
-    await dialog.getByRole('button', { name: 'Apply' }).click();
-    await expect(dialog).toBeHidden();
-    // The dialog and its dim overlay are gone, not fading out over the image
-    await expect(app.getByRole('dialog')).toHaveCount(0);
-    await expect(frame).toHaveCount(0);
-    await expect.poll(() => ratio(img)).toBeCloseTo(2, 1);
-    await app.screenshot({ path: test.info().outputPath(`crop-reset-${colorScheme}-1280.png`), animations: 'disabled' });
-  });
-}
+  // Reset restores the original
+  await img.click();
+  await app.getByRole('button', { name: 'Edit image' }).click();
+  await dialog.getByRole('button', { name: 'Reset' }).click();
+  await dialog.getByRole('button', { name: 'Apply' }).click();
+  await expect(dialog).toBeHidden();
+  // The dialog and its dim overlay are gone, not fading out over the image
+  await expect(app.getByRole('dialog')).toHaveCount(0);
+  await expect(frame).toHaveCount(0);
+  await expect.poll(() => ratio(img)).toBeCloseTo(2, 1);
+  await screenshotInBothThemes(app, (colorScheme) => `crop-reset-${colorScheme}-1280.png`, undefined, { animations: 'disabled' });
+});

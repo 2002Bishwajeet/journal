@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, waitForNoteSaved, screenshotInBothThemes } from '../support/actions';
 
 // #449: header-row toggle, delete table and a findable column resize handle.
 
@@ -17,8 +17,7 @@ async function openMenu(app: Page, name: 'Row options' | 'Column options', cellI
 }
 
 async function settle(app: Page): Promise<void> {
-  // Local persistence of the Yjs update has no DOM-observable signal (see support/actions.ts).
-  await app.waitForTimeout(1000);
+  await waitForNoteSaved(app);
 }
 
 test('header row toggles on and off and survives a reload', async ({ app }) => {
@@ -88,28 +87,25 @@ test('column resize handle shows at a column border and the width survives a rel
   await expect(activeEditor(app).locator('table td').first()).toHaveAttribute('colwidth', width!);
 });
 
-for (const colorScheme of ['light', 'dark'] as const) {
-  test(`row and column menus, ${colorScheme}`, async ({ app }) => {
-    await app.setViewportSize({ width: 1280, height: 800 });
-    await app.emulateMedia({ colorScheme });
-    await insertTable(app, `Table menus ${colorScheme} ${Date.now()}`);
+test('row and column menus', async ({ app }) => {
+  await app.setViewportSize({ width: 1280, height: 800 });
+  await insertTable(app, `Table menus ${Date.now()}`);
 
-    // Shoot only once the single open popover has finished its fade-in.
-    const popover = app.locator('[role="dialog"][data-state="open"]');
+  // Shoot only once the single open popover has finished its fade-in.
+  const popover = app.locator('[role="dialog"][data-state="open"]');
 
-    await openMenu(app, 'Row options', 0);
-    await expect(popover).toHaveCount(1);
-    await expect(popover.getByRole('button', { name: 'Delete table' })).toBeVisible();
-    await expect(popover.getByRole('button', { name: 'Header row' })).toBeVisible();
-    await expect(popover).toHaveCSS('opacity', '1');
-    await app.screenshot({ path: test.info().outputPath(`row-menu-${colorScheme}-1280.png`) });
-    await app.keyboard.press('Escape');
-    await expect(popover).toHaveCount(0);
+  await openMenu(app, 'Row options', 0);
+  await expect(popover).toHaveCount(1);
+  await expect(popover.getByRole('button', { name: 'Delete table' })).toBeVisible();
+  await expect(popover.getByRole('button', { name: 'Header row' })).toBeVisible();
+  await expect(popover).toHaveCSS('opacity', '1');
+  await screenshotInBothThemes(app, (colorScheme) => `row-menu-${colorScheme}-1280.png`);
+  await app.keyboard.press('Escape');
+  await expect(popover).toHaveCount(0);
 
-    await openMenu(app, 'Column options', 1);
-    await expect(popover).toHaveCount(1);
-    await expect(popover.getByRole('button', { name: 'Delete column' })).toBeVisible();
-    await expect(popover).toHaveCSS('opacity', '1');
-    await app.screenshot({ path: test.info().outputPath(`column-menu-${colorScheme}-1280.png`) });
-  });
-}
+  await openMenu(app, 'Column options', 1);
+  await expect(popover).toHaveCount(1);
+  await expect(popover.getByRole('button', { name: 'Delete column' })).toBeVisible();
+  await expect(popover).toHaveCSS('opacity', '1');
+  await screenshotInBothThemes(app, (colorScheme) => `column-menu-${colorScheme}-1280.png`);
+});

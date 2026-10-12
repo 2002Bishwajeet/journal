@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeEditor, createNote, pastePlainText } from '../support/actions';
+import { activeEditor, createNote, pastePlainText, waitForNoteSaved } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #410: an html block saves small state in the note with journal.storage, and gets it
@@ -47,9 +47,8 @@ test('html block: journal.storage.set survives a reload of the app, and the bloc
   await app.evaluate(() => document.documentElement.classList.toggle('dark'));
   await expect(frame(app).locator('#out')).toHaveText('count: 3');
 
-  // The save reaches the note at once, and PGlite a moment later. Nothing in the DOM shows
-  // when, so wait as typeInEditor does.
-  await app.waitForTimeout(1500);
+  // The save reaches the note at once, and PGlite a moment later; wait for that write.
+  await waitForNoteSaved(app);
   await app.reload();
   await waitForAppReady(app);
   await expect(frame(app).locator('#out')).toHaveText('count: 3');
@@ -74,7 +73,7 @@ test('html block: a value over 64 KB, or one that is not JSON, rejects and saves
   await expect(errors).toContainText('date: journal.storage: a value must be JSON');
   await expect(errors).not.toContainText('saved');
 
-  await app.waitForTimeout(1500);
+  await waitForNoteSaved(app);
   await app.reload();
   await waitForAppReady(app);
   await expect(frame(app).locator('#out')).toHaveText('count: undefined');
@@ -190,8 +189,8 @@ test('react block: journal.storage.set survives a reload of the app', async ({ a
   await reactFrame.getByRole('button', { name: 'Save 3' }).click();
   await expect(reactFrame.locator('#out')).toHaveText('saved');
 
-  // Same wait as the html case: the save reaches PGlite a moment after the note.
-  await app.waitForTimeout(1500);
+  // As in the html case: wait for the save to reach PGlite.
+  await waitForNoteSaved(app);
   await app.reload();
   await waitForAppReady(app);
   await expect(reactFrame.locator('#out')).toHaveText('count: 3');

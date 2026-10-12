@@ -129,18 +129,18 @@ async function openSharedNote(page: Page): Promise<Locator> {
   return article;
 }
 
-for (const theme of THEMES) {
-  test(`share page renders H1-H6 with the same scale, ${theme} theme`, async ({ anonPage }) => {
+test('share page renders H1-H6 with the same scale', async ({ anonPage }) => {
+  for (const theme of THEMES) {
+    // The share page reads the theme when it loads, so each theme loads it again.
     await anonPage.emulateMedia({ colorScheme: theme });
     await anonPage.setViewportSize(VIEWPORTS.desktop);
     const article = await openSharedNote(anonPage);
     await expect(article.getByRole('heading', { level: 6, name: 'Level 6' })).toBeVisible();
-
     await expectScale(article, (n) => `Level ${n}`);
     await anonPage.screenshot({ path: test.info().outputPath(`headings-share-${theme}-1280.png`) });
 
     await anonPage.setViewportSize(VIEWPORTS.mobile);
     await expectScale(article, (n) => `Level ${n}`);
     await anonPage.screenshot({ path: test.info().outputPath(`headings-share-${theme}-390.png`), fullPage: true });
-  });
-}
+  }
+});

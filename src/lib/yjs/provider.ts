@@ -25,10 +25,20 @@ export class PGliteProvider {
     // Trailing write window: keystrokes within it are merged into one row.
     private static readonly WRITE_WINDOW_MS = 300;
     private unsubscribe: (() => void) | null = null;
+    private static live = new Set<PGliteProvider>();
+
+    /** True while any open provider holds edits not yet written to PGlite (the e2e hooks poll this). */
+    static hasUnpersistedUpdates(): boolean {
+        for (const p of PGliteProvider.live) {
+            if (p.pendingUpdates.length > 0 || p.isSaving || p.saveTimer) return true;
+        }
+        return false;
+    }
 
     constructor(docId: string, doc: Y.Doc) {
         this.docId = docId;
         this.doc = doc;
+        PGliteProvider.live.add(this);
 
         // Listen for local updates
         this.doc.on('update', this.handleUpdate);
@@ -271,13 +281,17 @@ export class PGliteProvider {
             document.removeEventListener('visibilitychange', this.handleVisibilityChange);
         }
 
-        // Persist any pending/in-flight updates first so they survive teardown even
-        // when the note has <= 1 stored update (below the compaction threshold).
-        await this.flush();
+        try {
+            // Persist any pending/in-flight updates first so they survive teardown even
+            // when the note has <= 1 stored update (below the compaction threshold).
+            await this.flush();
 
-        // Compact on destroy to save memory for next load
-        if (this.updateCount > 1) {
-            await this.compact();
+            // Compact on destroy to save memory for next load
+            if (this.updateCount > 1) {
+                await this.compact();
+            }
+        } finally {
+            PGliteProvider.live.delete(this);
         }
     }
 }

@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote, pastePlainText } from '../support/actions';
+import { activeEditor, createNote, pastePlainText, screenshotInBothThemes } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #389: an `html` code block previews as a running page in a sandboxed frame
@@ -255,38 +255,45 @@ test('html block: a height report posted by the app page itself changes no block
   await expect(resizable).toHaveCSS('height', '900px');
 });
 
-for (const colorScheme of ['light', 'dark'] as const) {
-  // #424: no full screen. The block is as tall as its content and lives in the note.
-  test(`html block: a 900px page gets a frame of its height and no Full screen control, ${colorScheme} theme`, async ({ app }) => {
-    await app.emulateMedia({ colorScheme });
-    // Tall enough to show the whole 900px block at its natural height.
-    await app.setViewportSize({ width: 1280, height: 1200 });
+// #424: no full screen. The block is as tall as its content and lives in the note.
+// One run; the screenshot is taken in both themes.
+test('html block: a 900px page gets a frame of its height and no Full screen control', async ({ app }) => {
+  // Tall enough to show the whole 900px block at its natural height.
+  await app.setViewportSize({ width: 1280, height: 1200 });
 
-    const frame = await previewProbe(app, TALL);
-    const block = activeEditor(app).locator('[data-live-block="html"]');
-    const resizable = resizableBox(app);
-    await expect(frame.getByRole('heading', { name: 'A page 900px tall' })).toBeVisible();
-    await expect(resizable).toHaveCSS('height', '900px');
-    // Nothing scrolls inside the frame.
-    expect(await frame.locator('html').evaluate((el) => el.scrollHeight - el.clientHeight)).toBe(0);
-    await block.hover();
-    await expect(block.getByRole('button', { name: /full ?screen/i })).toHaveCount(0);
-    await expect(app.locator('html')).toHaveClass(new RegExp(colorScheme));
-    await app.screenshot({ path: test.info().outputPath(`html-tall-${colorScheme}-desktop.png`) });
-  });
-}
+  const frame = await previewProbe(app, TALL);
+  const block = activeEditor(app).locator('[data-live-block="html"]');
+  const resizable = resizableBox(app);
+  await expect(frame.getByRole('heading', { name: 'A page 900px tall' })).toBeVisible();
+  await expect(resizable).toHaveCSS('height', '900px');
+  // Nothing scrolls inside the frame.
+  expect(await frame.locator('html').evaluate((el) => el.scrollHeight - el.clientHeight)).toBe(0);
+  await block.hover();
+  await expect(block.getByRole('button', { name: /full ?screen/i })).toHaveCount(0);
+  // The frame reloads on a theme change; it must come back at the same height.
+  await screenshotInBothThemes(
+    app,
+    (theme) => `html-tall-${theme}-desktop.png`,
+    async () => {
+      await expect(frame.getByRole('heading', { name: 'A page 900px tall' })).toBeVisible();
+      await expect(resizable).toHaveCSS('height', '900px');
+    }
+  );
+});
 
-for (const colorScheme of ['light', 'dark'] as const) {
-  test(`screenshot: running html block, ${colorScheme} theme`, async ({ app }) => {
-    // The theme preference defaults to "system", which follows prefers-color-scheme.
-    await app.emulateMedia({ colorScheme });
-    await app.setViewportSize({ width: 1280, height: 960 });
+// One run; the screenshot is taken in both themes.
+test('screenshot: running html block', async ({ app }) => {
+  await app.setViewportSize({ width: 1280, height: 960 });
 
-    const frame = await previewProbe(app);
-    await expect(frame.locator('#out')).toContainText('fetch: rejected');
-    await expect(frame.locator('#out')).toContainText('img: naturalWidth 0');
-    await expect(app.locator('html')).toHaveClass(new RegExp(colorScheme));
+  const frame = await previewProbe(app);
+  await expect(frame.locator('#out')).toContainText('fetch: rejected');
+  await expect(frame.locator('#out')).toContainText('img: naturalWidth 0');
 
-    await app.screenshot({ path: test.info().outputPath(`live-html-block-${colorScheme}-desktop.png`) });
-  });
-}
+  await screenshotInBothThemes(
+    app,
+    (theme) => `live-html-block-${theme}-desktop.png`,
+    async () => {
+      await expect(frame.locator('#out')).toContainText('img: naturalWidth 0');
+    }
+  );
+});

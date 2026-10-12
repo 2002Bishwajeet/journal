@@ -425,3 +425,21 @@ describe('PGliteProvider write batching', () => {
         await provider.destroy();
     });
 });
+
+describe('PGliteProvider.hasUnpersistedUpdates', () => {
+    it('is true from a local edit until it is written, and false after destroy', async () => {
+        const doc = new Y.Doc();
+        const provider = new PGliteProvider(DOC_ID, doc);
+        await provider.load();
+        expect(PGliteProvider.hasUnpersistedUpdates()).toBe(false);
+
+        doc.getText('body').insert(0, 'hello');
+        expect(PGliteProvider.hasUnpersistedUpdates()).toBe(true);
+
+        await provider.flush();
+        expect(PGliteProvider.hasUnpersistedUpdates()).toBe(false);
+
+        await provider.destroy();
+        doc.destroy();
+    });
+});

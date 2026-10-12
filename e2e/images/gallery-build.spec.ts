@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, waitForNoteSaved, screenshotInBothThemes } from '../support/actions';
 import { makeSolidPng } from '../support/png';
 
 // #603: galleries built by /gallery, by dragging one image beside another (a drop
@@ -76,44 +76,41 @@ test('gallery: /gallery opens a picker that adds several images as one gallery',
   await app.screenshot({ path: test.info().outputPath('gallery-picker-light-1280.png') });
 });
 
-for (const colorScheme of ['light', 'dark'] as const) {
-  test(`gallery: dragging an image beside another merges them by side, dragging it out unwraps (${colorScheme})`, async ({ app }) => {
-    await app.emulateMedia({ colorScheme });
-    await app.setViewportSize({ width: 1280, height: 800 });
-    await createNote(app, { title: `Gallery merge ${Date.now()}`, body: 'Two photos.' });
-    await pasteBody(app, `<p>${img('A')}</p><p>${img('B')}</p><p>After the photos.</p>`);
-    await expect(image(app, 'B')).toBeVisible();
-    await expect(activeEditor(app).locator('[data-gallery]')).toHaveCount(0);
+test('gallery: dragging an image beside another merges them by side, dragging it out unwraps', async ({ app }) => {
+  await app.setViewportSize({ width: 1280, height: 800 });
+  await createNote(app, { title: `Gallery merge ${Date.now()}`, body: 'Two photos.' });
+  await pasteBody(app, `<p>${img('A')}</p><p>${img('B')}</p><p>After the photos.</p>`);
+  await expect(image(app, 'B')).toBeVisible();
+  await expect(activeEditor(app).locator('[data-gallery]')).toHaveCount(0);
 
-    // A onto B's right half: the indicator on B's right edge, then the gallery [B, A]
-    await dragImage(app, 'A', image(app, 'B'), 'right', async () => {
-      await expectIndicator(app, 'B', 'right');
-      await app.screenshot({ path: test.info().outputPath(`drop-indicator-right-${colorScheme}-1280.png`) });
-    });
-    await expect.poll(() => galleryAlts(app)).toEqual(['B', 'A']);
-    await expect(activeEditor(app).locator('[data-drop-side]')).toHaveCount(0);
-    await app.screenshot({ path: test.info().outputPath(`merged-${colorScheme}-1280.png`) });
-
-    // One undo step: the two plain images again
-    await activeEditor(app).press(undoKey);
-    await expect(activeEditor(app).locator('[data-gallery]')).toHaveCount(0);
-    await expect(activeEditor(app).locator('img:not(.ProseMirror-separator)')).toHaveCount(2);
-
-    // A onto B's left half: [A, B]
-    await dragImage(app, 'A', image(app, 'B'), 'left', async () => {
-      await expectIndicator(app, 'B', 'left');
-      await app.screenshot({ path: test.info().outputPath(`drop-indicator-left-${colorScheme}-1280.png`) });
-    });
-    await expect.poll(() => galleryAlts(app)).toEqual(['A', 'B']);
-
-    // Dragged back out into the text below, A is a plain image and the gallery of one unwraps
-    await dragImage(app, 'A', activeEditor(app).getByText('After the photos.'), 'right');
-    await expect(activeEditor(app).locator('[data-gallery]')).toHaveCount(0);
-    await expect(activeEditor(app).locator('img:not(.ProseMirror-separator)')).toHaveCount(2);
-    await activeEditor(app).press(undoKey);
-    await expect.poll(() => galleryAlts(app)).toEqual(['A', 'B']);
+  // A onto B's right half: the indicator on B's right edge, then the gallery [B, A]
+  await dragImage(app, 'A', image(app, 'B'), 'right', async () => {
+    await expectIndicator(app, 'B', 'right');
+    await screenshotInBothThemes(app, (colorScheme) => `drop-indicator-right-${colorScheme}-1280.png`);
   });
-}
+  await expect.poll(() => galleryAlts(app)).toEqual(['B', 'A']);
+  await expect(activeEditor(app).locator('[data-drop-side]')).toHaveCount(0);
+  await screenshotInBothThemes(app, (colorScheme) => `merged-${colorScheme}-1280.png`);
+
+  // One undo step: the two plain images again
+  await activeEditor(app).press(undoKey);
+  await expect(activeEditor(app).locator('[data-gallery]')).toHaveCount(0);
+  await expect(activeEditor(app).locator('img:not(.ProseMirror-separator)')).toHaveCount(2);
+
+  // A onto B's left half: [A, B]
+  await dragImage(app, 'A', image(app, 'B'), 'left', async () => {
+    await expectIndicator(app, 'B', 'left');
+    await screenshotInBothThemes(app, (colorScheme) => `drop-indicator-left-${colorScheme}-1280.png`);
+  });
+  await expect.poll(() => galleryAlts(app)).toEqual(['A', 'B']);
+
+  // Dragged back out into the text below, A is a plain image and the gallery of one unwraps
+  await dragImage(app, 'A', activeEditor(app).getByText('After the photos.'), 'right');
+  await expect(activeEditor(app).locator('[data-gallery]')).toHaveCount(0);
+  await expect(activeEditor(app).locator('img:not(.ProseMirror-separator)')).toHaveCount(2);
+  await activeEditor(app).press(undoKey);
+  await expect.poll(() => galleryAlts(app)).toEqual(['A', 'B']);
+});
 
 test('gallery: reorder by drag and by the toolbar, kept after a reload', async ({ app }) => {
   await app.setViewportSize({ width: 1280, height: 800 });
@@ -151,7 +148,7 @@ test('gallery: reorder by drag and by the toolbar, kept after a reload', async (
   await expect.poll(() => galleryAlts(app)).toEqual(['C', 'A', 'B']);
 
   // Kept after a reload
-  await app.waitForTimeout(2500);
+  await waitForNoteSaved(app);
   await app.reload();
   await expect.poll(() => galleryAlts(app)).toEqual(['C', 'A', 'B']);
 });
