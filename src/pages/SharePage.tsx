@@ -118,9 +118,12 @@ export default function SharePage() {
                                     void node;
                                     // The editor's width and float (#581); the box carries both, the image fills it.
                                     const align = (rest as { 'data-align'?: string })['data-align'];
+                                    const { 'data-caption': captionAttr, ...imgRest } = rest as { 'data-caption'?: string };
+                                    const caption = captionAttr ?? alt;
                                     const px = Number(width) > 0 ? Number(width) : undefined;
                                     return (
-                                        // Kept in the column; `block` so the image sits on its own line.
+                                        // Kept in the column; `block` so the image sits on its own line. A span, not a
+                                        // figure: the img sits inside a paragraph.
                                         <span
                                             className="share-wide share-img block"
                                             data-align={align}
@@ -137,12 +140,12 @@ export default function SharePage() {
                                                     className={px ? 'w-full' : undefined}
                                                 />
                                             ) : (
-                                                <img src={src} alt={alt} loading="lazy" className={px ? 'w-full' : undefined} {...rest} />
+                                                <img src={src} alt={alt} loading="lazy" className={px ? 'w-full' : undefined} {...imgRest} />
                                             )}
-                                            {/* The alt text doubles as the caption, as in the editor */}
-                                            {alt && (
-                                                <span aria-hidden="true" className="mt-1.5 block text-center text-sm text-muted-foreground">
-                                                    {alt}
+                                            {/* The caption, else the alt text, as in the editor (#583); "" hides it */}
+                                            {caption && (
+                                                <span data-testid="share-image-caption" className="mt-1.5 block text-center text-sm text-muted-foreground">
+                                                    {caption}
                                                 </span>
                                             )}
                                         </span>

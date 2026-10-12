@@ -115,8 +115,10 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
 - An image with a width or a float alignment is an HTML tag:
   `<img src="attachment://…" alt="alt" width="320" data-align="right">` (`width` in px,
   `data-align` is `left`, `center` or `right`; either may be left out). `get_note` returns
-  it that way; keep the tag as it is to keep the layout. An image with neither stays
+  it that way; keep the tag as it is to keep the layout. An image with none of these stays
   `![alt](src)`.
+- An image shows its alt text centred under it as a caption. `data-caption="Text"` on the
+  `<img>` shows that text instead; `data-caption=""` hides the caption. Plain text only.
 
 ### Covers
 

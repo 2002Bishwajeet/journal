@@ -14,10 +14,10 @@ import { defaultSchema } from 'rehype-sanitize';
 export const sanitizeSchema = {
     ...defaultSchema,
     tagNames: [...(defaultSchema.tagNames ?? []), 'u', 'sub', 'sup'],
-    // An image's width and float alignment (#581): exactly these two, no style.
+    // An image's width and float alignment (#581): exactly these, no style; the caption is plain text (#583).
     attributes: {
         ...defaultSchema.attributes,
-        img: [...(defaultSchema.attributes?.img ?? []), 'width', 'dataAlign'],
+        img: [...(defaultSchema.attributes?.img ?? []), 'width', 'dataAlign', 'dataCaption'],
     },
     protocols: {
         ...defaultSchema.protocols,
