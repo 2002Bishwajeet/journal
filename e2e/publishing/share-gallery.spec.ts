@@ -32,20 +32,20 @@ function element(name: string, children: (Y.XmlElement | Y.XmlText)[], attribute
   return el;
 }
 
-function noteContent(): Buffer {
+function noteContent(layout = 'row'): Buffer {
   const doc = new Y.Doc();
   doc.getXmlFragment('prosemirror').push([
     element('paragraph', [new Y.XmlText('Three photos from the trip.')]),
     element(
       'gallery',
       ALTS.map((alt, i) => element('image', [], { src: `attachment://${FILE_ID}/jrnl_img${i}`, alt, ...(i === 1 ? { caption: 'The pier' } : {}) })),
-      { layout: 'row' },
+      { layout },
     ),
   ]);
   return Buffer.from(Y.encodeStateAsUpdate(doc));
 }
 
-async function mockPublicNote(page: Page): Promise<void> {
+async function mockPublicNote(page: Page, layout = 'row'): Promise<void> {
   const header = {
     fileId: FILE_ID,
     fileSystemType: 'Standard',
@@ -69,7 +69,7 @@ async function mockPublicNote(page: Page): Promise<void> {
     const svg = PICTURES[url.searchParams.get('key') ?? ''];
     return svg
       ? route.fulfill({ contentType: 'image/svg+xml', headers: { ...headers, decryptedcontenttype: 'image/svg+xml' }, body: svg })
-      : route.fulfill({ contentType: 'application/octet-stream', headers, body: noteContent() });
+      : route.fulfill({ contentType: 'application/octet-stream', headers, body: noteContent(layout) });
   });
 }
 
@@ -114,4 +114,62 @@ for (const theme of THEMES) {
     await gallery.scrollIntoViewIfNeeded();
     await anonPage.screenshot({ path: test.info().outputPath(`share-gallery-${theme}-390.png`) });
   });
+}
+
+// #602: the other layouts reach the share page too. The carousel is a scroll-snap strip
+// with buttons, dots and arrow keys.
+for (const theme of THEMES) {
+  for (const layout of ['grid', 'masonry', 'carousel'] as const) {
+    test(`share page: a ${layout} gallery, ${theme} theme`, async ({ anonPage }) => {
+      await anonPage.emulateMedia({ colorScheme: theme });
+      await anonPage.setViewportSize(VIEWPORTS.desktop);
+      await mockPublicNote(anonPage, layout);
+      await anonPage.goto(`/share/${AUTHOR}/${NOTE_ID}`);
+      await assertTestOrigin(anonPage);
+      const article = anonPage.getByRole('article');
+      await expect(article.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
+
+      const gallery = article.locator(`[data-gallery="${layout}"]`);
+      await expect(gallery).toHaveCount(1);
+      await expect(article.locator('.gallery-break')).toHaveCount(0);
+      const images = ALTS.map((alt) => gallery.getByRole('img', { name: alt }));
+      for (const img of images) {
+        await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
+      }
+      await gallery.scrollIntoViewIfNeeded();
+
+      if (layout === 'grid') {
+        await expect.poll(async () => {
+          const [a, b, c] = await Promise.all(images.map(box));
+          return near(a.width, a.height) && near(b.width, b.height) && near(c.width, c.height) && near(a.y, b.y) && near(a.y, c.y);
+        }).toBe(true);
+      } else if (layout === 'masonry') {
+        await expect.poll(async () => {
+          const [wide, tall] = await Promise.all(images.slice(0, 2).map(box));
+          return tall.height > wide.height + 20 && near(wide.y, tall.y);
+        }).toBe(true);
+      } else {
+        const block = article.getByRole('group', { name: 'Image gallery' });
+        const at = () => gallery.evaluate((el) => Math.round(el.scrollLeft / el.clientWidth));
+        await expect(block.locator('.gallery-dots > button')).toHaveCount(3);
+        await expect.poll(at).toBe(0);
+        await expect(gallery.getByTestId('share-image-caption').first()).toHaveText('Wide');
+        await block.getByRole('button', { name: 'Next image' }).click();
+        await expect.poll(at).toBe(1);
+        await block.focus();
+        await anonPage.keyboard.press('ArrowRight');
+        await expect.poll(at).toBe(2);
+        await anonPage.keyboard.press('ArrowLeft');
+        await expect.poll(at).toBe(1);
+        await block.getByRole('button', { name: 'Show image 1 of 3' }).click();
+        await expect.poll(at).toBe(0);
+      }
+      await anonPage.screenshot({ path: test.info().outputPath(`share-${layout}-${theme}-1280.png`) });
+
+      await anonPage.setViewportSize(VIEWPORTS.mobile);
+      expect(await anonPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await gallery.scrollIntoViewIfNeeded();
+      await anonPage.screenshot({ path: test.info().outputPath(`share-${layout}-${theme}-390.png`) });
+    });
+  }
 }

@@ -10,7 +10,7 @@ import Markdown from 'react-markdown';
 import { Editor } from '@tiptap/core';
 import { yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
-import { galleryRowBreaks } from '@/components/editor/nodes/galleryLayout';
+import { createCarouselNav, galleryRowBreaks, toGalleryLayout } from '@/components/editor/nodes/galleryLayout';
 import { editorSchema, toMarkdown, createDoc } from '@/lib/agent/editEngine';
 import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
 
@@ -67,6 +67,55 @@ describe('gallery in markdown', () => {
     const doc = pmDoc('<div data-gallery="row">\n\n![A](https://e.com/a.png)\n\n</div>');
     expect(doc.firstChild!.type.name).toBe('paragraph');
     expect(doc.firstChild!.firstChild!.type.name).toBe('image');
+  });
+});
+
+describe('gallery layouts (#602)', () => {
+  const withLayout = (layout: string) => GALLERY_MD.replace('"row"', `"${layout}"`);
+
+  it.each(['row', 'grid', 'masonry', 'carousel'])('keeps the %s layout through the markdown round-trip', (layout) => {
+    expect(pmDoc(withLayout(layout)).firstChild!.attrs.layout).toBe(layout);
+    expect(toMarkdown(createDoc(withLayout(layout)))).toBe(withLayout(layout));
+  });
+
+  it('reads an unknown layout as a row', () => {
+    expect(toGalleryLayout('spiral')).toBe('row');
+    expect(pmDoc(withLayout('spiral')).firstChild!.attrs.layout).toBe('row');
+  });
+
+  it('puts no row breaks into a grid, masonry or carousel on the share page', () => {
+    for (const layout of ['grid', 'masonry', 'carousel']) {
+      const html = share(withLayout(layout).replace('![C]', '![D](https://e.com/d.png) ![C]'));
+      expect(html).toContain(`<div data-gallery="${layout}">`);
+      expect(html).not.toContain('gallery-break');
+    }
+  });
+});
+
+describe('carousel nav', () => {
+  it('has a dot per image and pages with the buttons and the arrow keys', () => {
+    const scroller = document.createElement('div');
+    for (let i = 0; i < 3; i++) scroller.append(document.createElement('img'));
+    Object.defineProperty(scroller, 'clientWidth', { value: 100 });
+    const scrolls: number[] = [];
+    scroller.scrollTo = ((o: ScrollToOptions) => scrolls.push(o.left as number)) as typeof scroller.scrollTo;
+    const keys = document.createElement('div');
+    const { nav } = createCarouselNav(scroller, keys);
+
+    const dots = nav.querySelectorAll<HTMLButtonElement>('.gallery-dots > button');
+    expect(dots).toHaveLength(3);
+    const [prev, next] = [nav.children[0], nav.children[2]] as HTMLButtonElement[];
+    expect(prev.disabled).toBe(true);
+    next.click();
+    expect(scrolls).toEqual([100]);
+    scroller.scrollLeft = 100;
+    scroller.dispatchEvent(new Event('scroll'));
+    expect(dots[1].hasAttribute('aria-current')).toBe(true);
+    keys.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    keys.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+    expect(scrolls).toEqual([100, 200, 0]);
+    dots[2].click();
+    expect(scrolls.at(-1)).toBe(200);
   });
 });
 

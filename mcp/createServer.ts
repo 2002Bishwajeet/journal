@@ -22,7 +22,7 @@ A note can hold:
 - Note links: [label](journal:note/<id>), or [[Note title]] for the one note you can see with that title.
 - Link previews: a link alone on its line followed by <!-- preview -->, e.g. <https://journal.cloudx.run><!-- preview -->.
 - Body images: ![alt](/absolute/path.png) or a data: URI is uploaded; keep the attachment:// srcs get_note returns.
-- Galleries: two or more images side by side, on one line between <div data-gallery="row"> and </div>, with blank lines around them.
+- Galleries: two or more images on one line between <div data-gallery="row"> and </div>, with blank lines around them. data-gallery is row, grid, masonry or carousel.
 - Covers: set_note_cover and clear_note_cover, not an image at the top of the body.
 - Live blocks: a fenced block in mermaid (diagrams), svg (a static drawing), html (a sandboxed page with script) or react (a JSX component that can import recharts, lucide-react, d3, three, lodash, mathjs, papaparse and the journal-ui kit). Put an id after the language (\`\`\`html id=k3f9) and keep it when rewriting the block: it keys the block's saved state.
 

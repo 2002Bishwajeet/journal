@@ -91,3 +91,104 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await app.screenshot({ path: test.info().outputPath(`gallery-editor-${colorScheme}-390.png`) });
   });
 }
+
+// #602: the toolbar above a gallery switches it between row, grid, masonry and carousel;
+// the choice survives a reload, and each layout is drawn as specified.
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`gallery: switching layouts grid, masonry, carousel (${colorScheme})`, async ({ app }) => {
+    await app.emulateMedia({ colorScheme });
+    await app.setViewportSize({ width: 1280, height: 800 });
+    await createNote(app, { title: `Gallery layouts ${Date.now()}`, body: 'Photos below.' });
+
+    const editor = activeEditor(app);
+    const text = await box(editor.getByText('Photos below.'));
+    const pictures = [...PICTURES, { name: 'second.png', base64: PICTURES[0].base64 }, { name: 'third.png', base64: PICTURES[1].base64 }];
+    await editor.evaluate(
+      (el, { pictures, x, y }) => {
+        const data = new DataTransfer();
+        for (const { name, base64 } of pictures) {
+          const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+          data.items.add(new File([bytes], name, { type: 'image/png' }));
+        }
+        el.dispatchEvent(new DragEvent('drop', { dataTransfer: data, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+      },
+      { pictures, x: text.x + text.width - 1, y: text.y + text.height / 2 },
+    );
+    const block = editor.locator('.gallery-block');
+    const layoutOf = (layout: string) => editor.locator(`[data-gallery="${layout}"]`);
+    const images = (layout: string) => layoutOf(layout).locator('img:not(.ProseMirror-separator)');
+    await expect(images('row')).toHaveCount(5);
+    const pick = async (name: string) => {
+      await block.hover();
+      await block.getByRole('button', { name, exact: true }).click();
+    };
+
+    // Grid: square tiles, 3 across on desktop and 2 on a phone
+    await pick('Grid');
+    await expect(layoutOf('grid')).toHaveCount(1);
+    await expect(async () => {
+      const [a, b, c, d] = await Promise.all([0, 1, 2, 3].map((i) => box(images('grid').nth(i))));
+      for (const t of [a, b, c, d]) expect(Math.abs(t.width - t.height)).toBeLessThan(2);
+      expect(Math.abs(a.y - c.y)).toBeLessThan(2);
+      expect(b.x).toBeGreaterThan(a.x);
+      expect(d.y).toBeGreaterThan(a.y + a.height);
+    }).toPass();
+    await app.screenshot({ path: test.info().outputPath(`gallery-grid-${colorScheme}-1280.png`) });
+    await app.setViewportSize({ width: 390, height: 844 });
+    await expect(async () => {
+      const [a, b, c] = await Promise.all([0, 1, 2].map((i) => box(images('grid').nth(i))));
+      expect(Math.abs(a.y - b.y)).toBeLessThan(2);
+      expect(c.y).toBeGreaterThan(a.y + a.height);
+    }).toPass();
+    await expect(() => layoutOf('grid').scrollIntoViewIfNeeded()).toPass();
+    await app.screenshot({ path: test.info().outputPath(`gallery-grid-${colorScheme}-390.png`) });
+
+    // Masonry: columns of natural heights (the wide image is shorter than the tall one)
+    await app.setViewportSize({ width: 1280, height: 800 });
+    await pick('Masonry');
+    await expect(layoutOf('masonry')).toHaveCount(1);
+    await expect(async () => {
+      const boxes = await Promise.all([0, 1, 2, 3, 4].map((i) => box(images('masonry').nth(i))));
+      expect(boxes[1].height).toBeGreaterThan(boxes[0].height + 20);
+      // Columns, not one tall stack: 2 or 3 distinct left edges
+      const columns = new Set(boxes.map((b) => Math.round(b.x)));
+      expect(columns.size).toBeGreaterThanOrEqual(2);
+      expect(columns.size).toBeLessThanOrEqual(3);
+    }).toPass();
+    await app.screenshot({ path: test.info().outputPath(`gallery-masonry-${colorScheme}-1280.png`) });
+    await app.setViewportSize({ width: 390, height: 844 });
+    await expect(() => layoutOf('masonry').scrollIntoViewIfNeeded()).toPass();
+    await app.screenshot({ path: test.info().outputPath(`gallery-masonry-${colorScheme}-390.png`) });
+    await app.setViewportSize({ width: 1280, height: 800 });
+
+    // Carousel: one image at a time; the buttons, the dots and the arrow keys page through
+    await pick('Carousel');
+    const carousel = layoutOf('carousel');
+    await expect(carousel).toHaveCount(1);
+    const nav = block.locator('.gallery-nav');
+    await expect(nav).toBeVisible();
+    await expect(nav.locator('.gallery-dots > button')).toHaveCount(5);
+    const at = () => carousel.evaluate((el) => Math.round(el.scrollLeft / el.clientWidth));
+    await expect.poll(at).toBe(0);
+    await app.screenshot({ path: test.info().outputPath(`gallery-carousel-${colorScheme}-1280.png`) });
+    await nav.getByRole('button', { name: 'Next image' }).click();
+    await expect.poll(at).toBe(1);
+    await nav.getByRole('button', { name: 'Show image 4 of 5' }).click();
+    await expect.poll(at).toBe(3);
+    await nav.getByRole('button', { name: 'Next image' }).focus();
+    await app.keyboard.press('ArrowLeft');
+    await expect.poll(at).toBe(2);
+    await nav.getByRole('button', { name: 'Previous image' }).click();
+    await expect.poll(at).toBe(1);
+    await app.setViewportSize({ width: 390, height: 844 });
+    await expect(() => carousel.scrollIntoViewIfNeeded()).toPass();
+    await app.screenshot({ path: test.info().outputPath(`gallery-carousel-${colorScheme}-390.png`) });
+    await app.setViewportSize({ width: 1280, height: 800 });
+
+    // The layout survives a reload
+    await app.waitForTimeout(2500);
+    await app.reload();
+    await expect(activeEditor(app).locator('[data-gallery="carousel"]')).toHaveCount(1);
+    await expect(activeEditor(app).locator('[data-gallery="row"], [data-gallery="grid"]')).toHaveCount(0);
+  });
+}

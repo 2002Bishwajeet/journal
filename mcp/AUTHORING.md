@@ -119,7 +119,7 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
   `![alt](src)`.
 - An image shows its alt text centred under it as a caption. `data-caption="Text"` on the
   `<img>` shows that text instead; `data-caption=""` hides the caption. Plain text only.
-- A gallery shows two or more images side by side in a row, with the images on one line
+- A gallery shows two or more images side by side, with the images on one line
   between `<div data-gallery="row">` and `</div>`, blank lines around them:
 
   ```
@@ -130,8 +130,12 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
   </div>
   ```
 
-  Each image is written as above (`![]()` or `<img>`) and keeps its caption. Up to three
-  images share a row and more wrap to the next; on a phone, two per row. A gallery with
+  `data-gallery` picks the layout: `row` (the default), `grid` (square tiles, 3 across,
+  2 on a phone), `masonry` (columns of natural heights, 3 across, 2 on a phone) or
+  `carousel` (one image at a time, with arrows, swipe and dots).
+
+  Each image is written as above (`![]()` or `<img>`) and keeps its caption. In a row, up to three
+  images share a line and more wrap to the next; on a phone, two per line. A gallery with
   only one image becomes a plain image. A gallery holds only images: text or links inside
   it are dropped.
 - An image edited in Journal keeps its crop, rotation and flip as attributes on the `<img>`;

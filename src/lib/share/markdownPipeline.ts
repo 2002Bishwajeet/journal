@@ -7,7 +7,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeKatex from 'rehype-katex';
 import rehypeSanitize from 'rehype-sanitize';
 import { sanitizeSchema } from '@/lib/utils/shareSanitizeSchema';
-import { galleryRowBreaks } from '@/components/editor/nodes/galleryLayout';
+import { galleryRowBreaks, toGalleryLayout } from '@/components/editor/nodes/galleryLayout';
 
 const lowlight = createLowlight(common);
 // A `react` live block's code is JSX, which the javascript grammar highlights (#426).
@@ -133,7 +133,7 @@ function rehypeGalleryRows() {
                     continue;
                 }
                 const imgs = images(child);
-                const breaks = new Map(galleryRowBreaks(imgs.length).map((b) => [b.index, b.modes.join(' ')]));
+                const breaks = new Map((toGalleryLayout(child.properties.dataGallery) === 'row' ? galleryRowBreaks(imgs.length) : []).map((b) => [b.index, b.modes.join(' ')]));
                 child.children = imgs.flatMap((img, i): Element[] => {
                     const modes = breaks.get(i);
                     if (!modes) return [img];
