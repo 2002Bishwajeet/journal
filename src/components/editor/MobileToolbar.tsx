@@ -24,6 +24,9 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Heading4,
+  Heading5,
+  Heading6,
   Code,
   Quote,
   Link as LinkIcon,
@@ -188,6 +191,24 @@ export default function MobileToolbar({
     );
   };
 
+  const toggleHeading4 = () => {
+    safeEditorCommand(editor, () =>
+      editor.chain().focus().toggleHeading({ level: 4 }).run(),
+    );
+  };
+
+  const toggleHeading5 = () => {
+    safeEditorCommand(editor, () =>
+      editor.chain().focus().toggleHeading({ level: 5 }).run(),
+    );
+  };
+
+  const toggleHeading6 = () => {
+    safeEditorCommand(editor, () =>
+      editor.chain().focus().toggleHeading({ level: 6 }).run(),
+    );
+  };
+
   const toggleCode = () => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleCode().run());
   };
@@ -318,6 +339,27 @@ export default function MobileToolbar({
           title="Heading 3"
         >
           <Heading3 className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton variant={V}
+          onClick={toggleHeading4}
+          isActive={state.isHeading4}
+          title="Heading 4"
+        >
+          <Heading4 className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton variant={V}
+          onClick={toggleHeading5}
+          isActive={state.isHeading5}
+          title="Heading 5"
+        >
+          <Heading5 className="h-5 w-5" />
+        </ToolbarButton>
+        <ToolbarButton variant={V}
+          onClick={toggleHeading6}
+          isActive={state.isHeading6}
+          title="Heading 6"
+        >
+          <Heading6 className="h-5 w-5" />
         </ToolbarButton>
 
         <ToolbarDivider variant="mobile" />
