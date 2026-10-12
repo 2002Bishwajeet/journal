@@ -335,12 +335,13 @@ export default function JournalLayout() {
         onTabClose={handleTabClose}
       />
 
-      {/* Focus mode exit pill — centered top, auto-fades, reveals on hover */}
+      {/* Focus mode exit pill — centered top, auto-fades, reveals on hover.
+          Only the pill takes clicks; on touch screens (no hover) it stays visible. */}
       {inFocusMode && (
-        <div className="fixed top-0 left-0 right-0 z-40 flex justify-center group/focus">
+        <div className="fixed top-0 left-0 right-0 z-40 flex justify-center group/focus pointer-events-none">
           <button
             onClick={() => setFocusMode(false)}
-            className="mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-foreground/5 backdrop-blur-md border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-all opacity-0 group-hover/focus:opacity-100 -translate-y-2 group-hover/focus:translate-y-0"
+            className="pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:translate-y-0 mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-foreground/5 backdrop-blur-md border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-all opacity-0 group-hover/focus:opacity-100 -translate-y-2 group-hover/focus:translate-y-0"
           >
             <Minimize2 className="h-3 w-3" />
             Exit Focus

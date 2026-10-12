@@ -5,6 +5,7 @@
 import { useState, useCallback, forwardRef, useImperativeHandle, Fragment } from 'react';
 import { FileText, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useScrollSelectedIntoView } from '@/hooks/useScrollSelectedIntoView';
 import type { NoteLinkItem } from './NoteLinkExtension';
 
 export interface NoteLinkListRef {
@@ -20,6 +21,7 @@ interface NoteLinkListProps {
 export const NoteLinkList = forwardRef<NoteLinkListRef, NoteLinkListProps>(
     ({ items, command, query }, ref) => {
         const [selectedIndex, setSelectedIndex] = useState(0);
+        const listRef = useScrollSelectedIntoView<HTMLDivElement>(selectedIndex);
 
         // Reset selection when items change (adjust state during render)
         const [prevItems, setPrevItems] = useState(items);
@@ -69,7 +71,7 @@ export const NoteLinkList = forwardRef<NoteLinkListRef, NoteLinkListProps>(
         }
 
         return (
-            <div className="z-50 w-72 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg animate-in fade-in-0 zoom-in-95">
+            <div ref={listRef} className="z-50 w-72 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg animate-in fade-in-0 zoom-in-95">
                 {items.map((item, index) => {
                     const isSelected = index === selectedIndex;
                     const isCreate = item.type === 'create';
@@ -91,6 +93,7 @@ export const NoteLinkList = forwardRef<NoteLinkListRef, NoteLinkListProps>(
                             </p>
                         )}
                         <button
+                            data-index={index}
                             onClick={() => selectItem(index)}
                             onMouseEnter={() => setSelectedIndex(index)}
                             className={cn(
