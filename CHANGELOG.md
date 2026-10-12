@@ -1,3 +1,9 @@
+## [2.9.1](https://github.com/2002Bishwajeet/journal/compare/v2.9.0...v2.9.1) (2026-10-12)
+
+
+### Features
+
+* **editor:** ranked emoji and slash search with spaces and aliases ([#580](https://github.com/2002Bishwajeet/journal/issues/580)) ([adfd1d8](https://github.com/2002Bishwajeet/journal/commit/adfd1d8d8d3a64368556b08f9962a9eb59310afa))
 # [2.9.0](https://github.com/2002Bishwajeet/journal/compare/v2.8.0...v2.9.0) (2026-10-12)
 
 

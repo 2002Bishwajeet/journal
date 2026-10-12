@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.9.1 (2026-10-12)
+
 ### Changed
 
 - In the emoji and slash menus, you can search with more than one word, for example ":thumbs up" or "/heading 4".
