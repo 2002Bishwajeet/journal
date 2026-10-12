@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.9.0 (2026-10-12)
+
 ### New
 
 - An image with a description shows the description under it, in the editor and on shared notes.

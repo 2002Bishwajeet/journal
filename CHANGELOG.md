@@ -1,3 +1,9 @@
+# [2.9.0](https://github.com/2002Bishwajeet/journal/compare/v2.8.0...v2.9.0) (2026-10-12)
+
+
+### Bug Fixes
+
+* Zen exit button + Esc, lightbox image shows again, alt text as image caption ([615503e](https://github.com/2002Bishwajeet/journal/commit/615503e7d93961daf8c1965caf645f84a601b571)), closes [#582](https://github.com/2002Bishwajeet/journal/issues/582) [#583](https://github.com/2002Bishwajeet/journal/issues/583)
 # [2.8.0](https://github.com/2002Bishwajeet/journal/compare/v2.7.1...v2.8.0) (2026-10-12)
 
 
