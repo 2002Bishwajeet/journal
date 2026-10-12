@@ -15,6 +15,17 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- You can write your own caption for an image. You can also hide the caption.
+- You can crop, rotate and flip an image. The original image stays the same, so you can change or undo the edit later.
+- Put two or more images side by side in a gallery. Drop or paste several images at once, or type "/gallery".
+- A gallery has four layouts: row, grid, masonry and carousel. Select the layout below the gallery.
+- Drag an image onto another image to make a gallery. Drag images in a gallery to change their order.
+- To move an image left or right in a gallery, use the arrow buttons on the image.
+- On a phone, a gallery shows two images in each row.
+- Shared notes show galleries, captions and image edits.
+
 ## 2.9.1 (2026-10-12)
 
 ### Changed
