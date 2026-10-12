@@ -193,3 +193,63 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expect(activeEditor(app).locator('[data-gallery="row"], [data-gallery="grid"]')).toHaveCount(0);
   });
 }
+
+// #607: a cropped (1:1) and a quarter-turned image keep their row's height; applying
+// an edit re-flows the row without a reload.
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`gallery: cropped and rotated images share their row's height (${colorScheme})`, async ({ app }) => {
+    await app.emulateMedia({ colorScheme });
+    await app.setViewportSize({ width: 1280, height: 800 });
+    await createNote(app, { title: `Gallery edits ${Date.now()}`, body: 'Photos below.' });
+
+    // Pasted as inline pictures: an uploading image has no edit toolbar
+    const editor = activeEditor(app);
+    const svg = (w: number, h: number, fill: string) =>
+      `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="${fill}"/></svg>`).toString('base64')}`;
+    const images = [svg(900, 450, '#8fa3ad'), svg(600, 800, '#718968'), svg(700, 700, '#be785a')].map((src, i) => ({
+      type: 'image',
+      attrs: { src, alt: ['Wide', 'Tall', 'Square'][i] },
+    }));
+    // Tiptap leaves its editor on the DOM node
+    await editor.evaluate((el, content) => {
+      (el as unknown as { editor: { commands: { insertContent: (c: unknown) => void } } }).editor.commands.insertContent(content);
+    }, { type: 'gallery', attrs: { layout: 'row' }, content: images });
+    const gallery = editor.locator('[data-gallery="row"]');
+    const items = gallery.locator('.image-node');
+    await expect(items).toHaveCount(3);
+    await expect.poll(() => gallery.evaluate((g) => [...g.children].filter((c) => (c as HTMLElement).style.getPropertyValue('--ar')).length)).toBe(3);
+    // What is drawn: the edited box, else the image
+    const drawn = (i: number) => items.nth(i).locator('[data-testid="edited-image"], img:not(.ProseMirror-separator)').first();
+
+    const edit = async (i: number, action: string) => {
+      await items.nth(i).locator('img').first().click();
+      await items.nth(i).getByRole('button', { name: 'Edit image' }).click();
+      const dialog = app.getByRole('dialog', { name: 'Edit image' });
+      await dialog.getByRole('button', { name: action }).click();
+      await dialog.getByRole('button', { name: 'Apply' }).click();
+      await expect(app.getByRole('dialog')).toHaveCount(0);
+    };
+    await edit(0, '1:1');
+    await edit(1, 'Rotate right');
+
+    await expect(async () => {
+      const [a, b, c] = [await box(drawn(0)), await box(drawn(1)), await box(drawn(2))];
+      expect(Math.abs(a.height - b.height)).toBeLessThan(2);
+      expect(Math.abs(a.height - c.height)).toBeLessThan(2);
+      expect(Math.abs(a.y - c.y)).toBeLessThan(2);
+      expect(Math.abs(b.y - c.y)).toBeLessThan(2);
+      expect(a.width / a.height).toBeCloseTo(1, 1);
+      expect(b.width / b.height).toBeCloseTo(4 / 3, 1);
+    }).toPass();
+    await app.screenshot({ path: test.info().outputPath(`gallery-edited-editor-${colorScheme}-1280.png`) });
+
+    await app.setViewportSize({ width: 390, height: 844 });
+    await expect(async () => {
+      const [a, b] = [await box(drawn(0)), await box(drawn(1))];
+      expect(Math.abs(a.y - b.y)).toBeLessThan(2);
+      expect(Math.abs(a.height - b.height)).toBeLessThan(2);
+      expect(b.x).toBeGreaterThan(a.x);
+    }).toPass();
+    await app.screenshot({ path: test.info().outputPath(`gallery-edited-editor-${colorScheme}-390.png`) });
+  });
+}

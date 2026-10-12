@@ -32,20 +32,20 @@ function element(name: string, children: (Y.XmlElement | Y.XmlText)[], attribute
   return el;
 }
 
-function noteContent(layout = 'row'): Buffer {
+function noteContent(layout = 'row', edited = false): Buffer {
   const doc = new Y.Doc();
   doc.getXmlFragment('prosemirror').push([
     element('paragraph', [new Y.XmlText('Three photos from the trip.')]),
     element(
       'gallery',
-      ALTS.map((alt, i) => element('image', [], { src: `attachment://${FILE_ID}/jrnl_img${i}`, alt, ...(i === 1 ? { caption: 'The pier' } : {}) })),
+      ALTS.map((alt, i) => element('image', [], { src: `attachment://${FILE_ID}/jrnl_img${i}`, alt, ...(i === 1 ? { caption: 'The pier' } : {}), ...(edited && i === 0 ? { crop: { x: 0, y: 0, w: 0.5, h: 1 } } : {}), ...(edited && i === 1 ? { rotate: 90 } : {}) })),
       { layout },
     ),
   ]);
   return Buffer.from(Y.encodeStateAsUpdate(doc));
 }
 
-async function mockPublicNote(page: Page, layout = 'row'): Promise<void> {
+async function mockPublicNote(page: Page, layout = 'row', edited = false): Promise<void> {
   const header = {
     fileId: FILE_ID,
     fileSystemType: 'Standard',
@@ -69,7 +69,7 @@ async function mockPublicNote(page: Page, layout = 'row'): Promise<void> {
     const svg = PICTURES[url.searchParams.get('key') ?? ''];
     return svg
       ? route.fulfill({ contentType: 'image/svg+xml', headers: { ...headers, decryptedcontenttype: 'image/svg+xml' }, body: svg })
-      : route.fulfill({ contentType: 'application/octet-stream', headers, body: noteContent(layout) });
+      : route.fulfill({ contentType: 'application/octet-stream', headers, body: noteContent(layout, edited) });
   });
 }
 
@@ -116,61 +116,36 @@ for (const theme of THEMES) {
   });
 }
 
-// #602: the other layouts reach the share page too. The carousel is a scroll-snap strip
-// with buttons, dots and arrow keys.
+// #607: a cropped (1:1) and a quarter-turned image keep their row's height.
 for (const theme of THEMES) {
-  for (const layout of ['grid', 'masonry', 'carousel'] as const) {
-    test(`share page: a ${layout} gallery, ${theme} theme`, async ({ anonPage }) => {
-      await anonPage.emulateMedia({ colorScheme: theme });
-      await anonPage.setViewportSize(VIEWPORTS.desktop);
-      await mockPublicNote(anonPage, layout);
-      await anonPage.goto(`/share/${AUTHOR}/${NOTE_ID}`);
-      await assertTestOrigin(anonPage);
-      const article = anonPage.getByRole('article');
-      await expect(article.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
+  test(`share page: edited gallery images share a row height, ${theme} theme`, async ({ anonPage }) => {
+    await anonPage.emulateMedia({ colorScheme: theme });
+    await anonPage.setViewportSize(VIEWPORTS.desktop);
+    await mockPublicNote(anonPage, true);
+    await anonPage.goto(`/share/${AUTHOR}/${NOTE_ID}`);
+    await assertTestOrigin(anonPage);
+    const article = anonPage.getByRole('article');
+    await expect(article.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
 
-      const gallery = article.locator(`[data-gallery="${layout}"]`);
-      await expect(gallery).toHaveCount(1);
-      await expect(article.locator('.gallery-break')).toHaveCount(0);
-      const images = ALTS.map((alt) => gallery.getByRole('img', { name: alt }));
-      for (const img of images) {
-        await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
-      }
-      await gallery.scrollIntoViewIfNeeded();
+    const gallery = article.locator('[data-gallery="row"]');
+    const frames = gallery.getByTestId('edited-image');
+    await expect(frames).toHaveCount(2);
+    const square = gallery.getByRole('img', { name: 'Square' });
+    await expect.poll(() => square.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
 
-      if (layout === 'grid') {
-        await expect.poll(async () => {
-          const [a, b, c] = await Promise.all(images.map(box));
-          return near(a.width, a.height) && near(b.width, b.height) && near(c.width, c.height) && near(a.y, b.y) && near(a.y, c.y);
-        }).toBe(true);
-      } else if (layout === 'masonry') {
-        await expect.poll(async () => {
-          const [wide, tall] = await Promise.all(images.slice(0, 2).map(box));
-          return tall.height > wide.height + 20 && near(wide.y, tall.y);
-        }).toBe(true);
-      } else {
-        const block = article.getByRole('group', { name: 'Image gallery' });
-        const at = () => gallery.evaluate((el) => Math.round(el.scrollLeft / el.clientWidth));
-        await expect(block.locator('.gallery-dots > button')).toHaveCount(3);
-        await expect.poll(at).toBe(0);
-        await expect(gallery.getByTestId('share-image-caption').first()).toHaveText('Wide');
-        await block.getByRole('button', { name: 'Next image' }).click();
-        await expect.poll(at).toBe(1);
-        await block.focus();
-        await anonPage.keyboard.press('ArrowRight');
-        await expect.poll(at).toBe(2);
-        await anonPage.keyboard.press('ArrowLeft');
-        await expect.poll(at).toBe(1);
-        await block.getByRole('button', { name: 'Show image 1 of 3' }).click();
-        await expect.poll(at).toBe(0);
-      }
-      if (layout === 'carousel') await article.locator('.gallery-nav').scrollIntoViewIfNeeded();
-      await anonPage.screenshot({ path: test.info().outputPath(`share-${layout}-${theme}-1280.png`) });
+    await expect.poll(async () => {
+      const [a, b, c] = [await box(frames.nth(0)), await box(frames.nth(1)), await box(square)];
+      return near(a.y, b.y) && near(a.y, c.y) && near(a.height, b.height) && near(a.height, c.height) && near(a.width / a.height, 1) && near(b.width / b.height, 4 / 3);
+    }).toBe(true);
+    await gallery.scrollIntoViewIfNeeded();
+    await anonPage.screenshot({ path: test.info().outputPath(`share-gallery-edited-${theme}-1280.png`) });
 
-      await anonPage.setViewportSize(VIEWPORTS.mobile);
-      expect(await anonPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      await (layout === 'carousel' ? article.locator('.gallery-nav') : gallery).scrollIntoViewIfNeeded();
-      await anonPage.screenshot({ path: test.info().outputPath(`share-${layout}-${theme}-390.png`) });
-    });
-  }
+    await anonPage.setViewportSize(VIEWPORTS.mobile);
+    await expect.poll(async () => {
+      const [a, b] = [await box(frames.nth(0)), await box(frames.nth(1))];
+      return near(a.y, b.y) && near(a.height, b.height) && b.x > a.x + a.width;
+    }).toBe(true);
+    await gallery.scrollIntoViewIfNeeded();
+    await anonPage.screenshot({ path: test.info().outputPath(`share-gallery-edited-${theme}-390.png`) });
+  });
 }

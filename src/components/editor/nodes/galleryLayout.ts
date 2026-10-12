@@ -8,6 +8,8 @@
  * apply above 480px, `narrow` ones at or below it.
  */
 
+import { editedSize, parseEditData } from '@/lib/images/imageEdits';
+
 export const GALLERY_LAYOUTS = ['row', 'grid', 'masonry', 'carousel'] as const;
 export type GalleryLayout = (typeof GALLERY_LAYOUTS)[number];
 
@@ -46,13 +48,19 @@ export function galleryRowBreaks(count: number): Array<{ index: number; modes: R
   return breaks;
 }
 
-/** Gives the gallery item holding `img` its aspect ratio, so it grows by it. */
+/**
+ * Gives the gallery item holding `img` its aspect ratio, so it grows by it. The ratio
+ * is that of the edited image (#607): the editor's image node and the share page's image
+ * carry the crop, rotate and flip as data attributes around the img.
+ */
 function setItemAspect(img: HTMLImageElement): void {
   const gallery = img.closest('[data-gallery]');
   if (!gallery || !img.naturalWidth || !img.naturalHeight) return;
   let item: HTMLElement = img;
   while (item.parentElement && item.parentElement !== gallery) item = item.parentElement;
-  item.style.setProperty('--ar', String(img.naturalWidth / img.naturalHeight));
+  const edits = parseEditData((name) => img.closest(`[${name}]`)?.getAttribute(name));
+  const { width, height } = editedSize({ width: img.naturalWidth, height: img.naturalHeight }, edits);
+  item.style.setProperty('--ar', String(width / height));
 }
 
 /**
@@ -68,7 +76,19 @@ export function watchGalleryAspect(root: HTMLElement): () => void {
   root.querySelectorAll<HTMLImageElement>('[data-gallery] img').forEach((img) => {
     if (img.complete) setItemAspect(img);
   });
-  return () => root.removeEventListener('load', onLoad, true);
+  // Applying an edit changes the data attributes, not the image.
+  const observer = new MutationObserver((mutations) => {
+    for (const { target } of mutations) {
+      if (!(target instanceof HTMLElement)) continue;
+      const img = target.querySelector('img');
+      if (img?.complete) setItemAspect(img);
+    }
+  });
+  observer.observe(root, { subtree: true, attributes: true, attributeFilter: ['data-crop', 'data-rotate', 'data-flip'] });
+  return () => {
+    root.removeEventListener('load', onLoad, true);
+    observer.disconnect();
+  };
 }
 
 /**

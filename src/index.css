@@ -415,6 +415,7 @@ img.ProseMirror-separator {
 }
 
 .prose [data-gallery] img,
+.prose [data-gallery] .image-edit,
 .prose [data-gallery] .image-node > div > .overflow-hidden {
   width: 100%;
   margin: 0;
