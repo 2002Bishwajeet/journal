@@ -130,7 +130,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await dialog.getByRole('button', { name: 'Flip horizontal' }).click();
     // The crop now shows turned: a 9:16 rect over the turned 1:2 picture
     expect(await ratio(dialog.getByTestId('crop-area'))).toBeCloseTo(9 / 16, 1);
-    await app.screenshot({ path: test.info().outputPath(`crop-dialog-${colorScheme}-1280.png`) });
+    await app.screenshot({ path: test.info().outputPath(`crop-dialog-${colorScheme}-1280.png`), animations: 'disabled' });
     await dialog.getByRole('button', { name: 'Apply' }).click();
     await expect(dialog).toBeHidden();
 
@@ -151,7 +151,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expect(big).toBeVisible();
     await expect.poll(() => ratio(big)).toBeCloseTo(9 / 16, 2);
     expect(await quadrants(app, await big.screenshot())).toEqual(EXPECTED);
-    await app.screenshot({ path: test.info().outputPath(`crop-lightbox-${colorScheme}-1280.png`) });
+    await app.screenshot({ path: test.info().outputPath(`crop-lightbox-${colorScheme}-1280.png`), animations: 'disabled' });
     await app.keyboard.press('Escape');
     await expect(lightbox).toBeHidden();
 
@@ -188,8 +188,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await app.getByRole('button', { name: 'Edit image' }).click();
     await dialog.getByRole('button', { name: 'Reset' }).click();
     await dialog.getByRole('button', { name: 'Apply' }).click();
+    await expect(dialog).toBeHidden();
+    // The dialog and its dim overlay are gone, not fading out over the image
+    await expect(app.getByRole('dialog')).toHaveCount(0);
     await expect(frame).toHaveCount(0);
     await expect.poll(() => ratio(img)).toBeCloseTo(2, 1);
-    await app.screenshot({ path: test.info().outputPath(`crop-reset-${colorScheme}-1280.png`) });
+    await app.screenshot({ path: test.info().outputPath(`crop-reset-${colorScheme}-1280.png`), animations: 'disabled' });
   });
 }

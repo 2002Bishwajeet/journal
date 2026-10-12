@@ -99,7 +99,11 @@ export function useImageEditDraft(initial: ImageEdits) {
     pickRatio,
     startDrag,
     onKeyDown,
-    rotate: (dir: 1 | -1) => setDraft((d) => rotateEdits(d, dir)),
+    // A quarter turn turns the crop with the picture, so a locked ratio no longer holds.
+    rotate: (dir: 1 | -1) => {
+      setDraft((d) => rotateEdits(d, dir));
+      setRatio(null);
+    },
     flip: (axis: 'flipH' | 'flipV') => setDraft((d) => ({ ...d, [axis]: !d[axis] })),
     reset: () => {
       setDraft(NO_EDITS);
