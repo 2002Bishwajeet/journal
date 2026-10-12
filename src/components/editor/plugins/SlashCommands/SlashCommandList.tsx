@@ -25,7 +25,13 @@ interface SlashCommandListProps {
 export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandListProps>(
   ({ editor, range, query }, ref) => {
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const filteredItems = filterCommands(slashCommandItems, query);
+    // Ranked from the query directly (not the async `items` prop), so the
+    // list never shows an empty in-between state while items resolve.
+    const items = filterCommands(slashCommandItems, query);
+    // Show groups in the order of their best match, so the top-ranked item is
+    // first and highlighted; keyboard indexes follow this display order.
+    const groups = [...new Set(items.map((item) => item.group))];
+    const filteredItems = groups.flatMap((group) => items.filter((item) => item.group === group));
     const listRef = useScrollSelectedIntoView<HTMLDivElement>(selectedIndex);
 
     // Reset selection when query changes (adjust state during render)
@@ -80,10 +86,6 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
       );
     }
 
-    // Group items by category
-    const formattingItems = filteredItems.filter((item) => item.group === 'formatting');
-    const aiItems = filteredItems.filter((item) => item.group === 'ai');
-
     // Calculate absolute index for each item
     let absoluteIndex = 0;
 
@@ -115,28 +117,21 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
 
     return (
       <div ref={listRef} className="z-50 w-72 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg animate-in fade-in-0 zoom-in-95">
-        {formattingItems.length > 0 && (
-          <div className="p-1">
-            <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Formatting</p>
-            {formattingItems.map((item) => {
-              const itemIndex = absoluteIndex++;
-              return renderItem(item, itemIndex);
-            })}
+        {groups.map((group, groupIndex) => (
+          <div key={group} className={cn('p-1', groupIndex > 0 && 'border-t border-border')}>
+            {group === 'formatting' ? (
+              <p className="px-2 py-1 text-xs font-medium text-muted-foreground">Formatting</p>
+            ) : (
+              <p className="px-2 py-1 text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <span>AI Actions</span>
+                <span className="text-[10px] bg-primary/10 text-primary px-1 rounded">Beta</span>
+              </p>
+            )}
+            {items
+              .filter((item) => item.group === group)
+              .map((item) => renderItem(item, absoluteIndex++))}
           </div>
-        )}
-
-        {aiItems.length > 0 && (
-          <div className="p-1 border-t border-border">
-            <p className="px-2 py-1 text-xs font-medium text-muted-foreground flex items-center gap-1">
-              <span>AI Actions</span>
-              <span className="text-[10px] bg-primary/10 text-primary px-1 rounded">Beta</span>
-            </p>
-            {aiItems.map((item) => {
-              const itemIndex = absoluteIndex++;
-              return renderItem(item, itemIndex);
-            })}
-          </div>
-        )}
+        ))}
       </div>
     );
   }

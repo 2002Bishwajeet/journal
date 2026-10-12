@@ -33,10 +33,13 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import { safeEditorCommand } from '../../shared';
+import { normalizeSearchText, rankSearch, type SearchTerms } from '../suggestionSearch';
 
 export interface SlashCommandItem {
     title: string;
     description: string;
+    /** Aliases the search matches as strongly as the title (e.g. `h4`, `todo`). */
+    keywords: string[];
     icon: LucideIcon;
     group: 'formatting' | 'ai';
     command: (props: { editor: Editor; range: { from: number; to: number } }) => void;
@@ -49,6 +52,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Heading 1',
         description: 'Large section heading',
+        keywords: ['h1', 'title', 'header'],
         icon: Heading1,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -58,6 +62,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Heading 2',
         description: 'Medium section heading',
+        keywords: ['h2', 'subtitle', 'header'],
         icon: Heading2,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -67,6 +72,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Heading 3',
         description: 'Small section heading',
+        keywords: ['h3', 'header'],
         icon: Heading3,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -76,6 +82,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Heading 4',
         description: 'Sub-section heading',
+        keywords: ['h4', 'header'],
         icon: Heading4,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -85,6 +92,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Heading 5',
         description: 'Minor heading',
+        keywords: ['h5', 'header'],
         icon: Heading5,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -94,6 +102,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Heading 6',
         description: 'Smallest heading',
+        keywords: ['h6', 'header'],
         icon: Heading6,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -103,6 +112,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Bullet List',
         description: 'Create a bulleted list',
+        keywords: ['ul', 'unordered list', 'bullets'],
         icon: List,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -112,6 +122,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Numbered List',
         description: 'Create a numbered list',
+        keywords: ['ol', 'ordered list', 'numbers'],
         icon: ListOrdered,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -121,6 +132,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Task List',
         description: 'Create a to-do checklist',
+        keywords: ['todo', 'to do', 'checkbox', 'checklist'],
         icon: CheckSquare,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -130,6 +142,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Code Block',
         description: 'Add a code snippet',
+        keywords: ['code', 'snippet', 'pre'],
         icon: Code,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -139,6 +152,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Quote',
         description: 'Add a blockquote',
+        keywords: ['blockquote', 'citation'],
         icon: Quote,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -148,6 +162,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Toggle',
         description: 'Collapsible section',
+        keywords: ['collapse', 'details', 'accordion', 'expand'],
         icon: ListCollapse,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -157,6 +172,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Callout',
         description: 'Highlighted info, tip, warning or error box',
+        keywords: ['info', 'tip', 'warning', 'error', 'alert', 'admonition'],
         icon: MessageSquareWarning,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -166,6 +182,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Footnote',
         description: 'Numbered note at the end of the page',
+        keywords: ['reference', 'endnote'],
         icon: ListEnd,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -175,6 +192,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Table',
         description: 'Insert a table',
+        keywords: ['grid', 'rows', 'columns'],
         icon: Table,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -184,6 +202,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Divider',
         description: 'Add a horizontal rule',
+        keywords: ['hr', 'separator', 'line', 'rule'],
         icon: Minus,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -193,6 +212,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Image',
         description: 'Upload an image',
+        keywords: ['img', 'picture', 'photo'],
         icon: Image,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -210,6 +230,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Subscript',
         description: 'Toggle subscript text',
+        keywords: ['sub'],
         icon: Subscript,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -219,6 +240,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Superscript',
         description: 'Toggle superscript text',
+        keywords: ['sup'],
         icon: Superscript,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -228,6 +250,7 @@ const formattingCommands: SlashCommandItem[] = [
     {
         title: 'Duplicate Block',
         description: 'Duplicate the current block (Cmd+Shift+D)',
+        keywords: ['copy', 'clone'],
         icon: Copy,
         group: 'formatting',
         command: ({ editor, range }) => {
@@ -245,6 +268,7 @@ const aiCommands: SlashCommandItem[] = [
     {
         title: 'Ask AI',
         description: 'Ask AI a question about this note',
+        keywords: ['ai', 'chat', 'question'],
         icon: Sparkles,
         group: 'ai',
         command: ({ editor, range }) => {
@@ -257,6 +281,7 @@ const aiCommands: SlashCommandItem[] = [
     {
         title: 'Summarize',
         description: 'Generate a summary of this note',
+        keywords: ['ai', 'summary', 'tldr'],
         icon: FileText,
         group: 'ai',
         command: ({ editor, range }) => {
@@ -267,6 +292,7 @@ const aiCommands: SlashCommandItem[] = [
     {
         title: 'Rewrite Selection',
         description: 'Rewrite selected text with AI',
+        keywords: ['ai', 'rephrase', 'improve'],
         icon: Wand2,
         group: 'ai',
         command: ({ editor, range }) => {
@@ -284,16 +310,15 @@ export const slashCommandItems: SlashCommandItem[] = [
     ...aiCommands,
 ];
 
+const commandTerms = (item: SlashCommandItem): SearchTerms => ({
+    names: [item.title, ...item.keywords].map(normalizeSearchText),
+    keywords: [normalizeSearchText(item.description)],
+});
+
 /**
- * Filter commands by search query
+ * Filter and rank commands by search query (title and keywords first, then
+ * description).
  */
 export function filterCommands(items: SlashCommandItem[], query: string): SlashCommandItem[] {
-    const lowerQuery = query.toLowerCase().trim();
-    if (!lowerQuery) return items;
-
-    return items.filter(
-        item =>
-            item.title.toLowerCase().includes(lowerQuery) ||
-            item.description.toLowerCase().includes(lowerQuery)
-    );
+    return rankSearch(items, query, commandTerms);
 }
