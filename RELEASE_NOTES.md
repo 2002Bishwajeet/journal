@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.8.0 (2026-10-12)
+
 ### New
 
 - You can replace an image and keep its place, size and description.

@@ -1,3 +1,22 @@
+# [2.8.0](https://github.com/2002Bishwajeet/journal/compare/v2.7.1...v2.8.0) (2026-10-12)
+
+
+### Bug Fixes
+
+* **editor:** distinct h5/h6 scale, H4-H6 on mobile toolbar, real share-page e2e ([#577](https://github.com/2002Bishwajeet/journal/issues/577)) ([2141d3b](https://github.com/2002Bishwajeet/journal/commit/2141d3b3124bfffde249750587579583a92a0145))
+* **editor:** scroll highlighted item into view in slash, emoji and note-link menus ([#579](https://github.com/2002Bishwajeet/journal/issues/579)) ([7d2932c](https://github.com/2002Bishwajeet/journal/commit/7d2932c585a6df2bc77725616faa223b7b8a0fcb))
+* **editor:** style h4-h6 distinctly from body text ([#577](https://github.com/2002Bishwajeet/journal/issues/577)) ([bc5049e](https://github.com/2002Bishwajeet/journal/commit/bc5049e893cbde713a810a4d27aab224013a4d9e))
+* **images:** escape > in img attributes so alt/title round-trip ([ad969c7](https://github.com/2002Bishwajeet/journal/commit/ad969c7f26c22ef49a35511dcd3f86116704446e))
+* **images:** sized/aligned <img> images survive export, import, share copy and mobile share ([#581](https://github.com/2002Bishwajeet/journal/issues/581)) ([92ed52f](https://github.com/2002Bishwajeet/journal/commit/92ed52fa8d8453456224e017d3754e2a3b93b3f4))
+* **mcp:** layout warning only flags 100vh, not other vh values ([267e615](https://github.com/2002Bishwajeet/journal/commit/267e6154c88e6ad1037fd364e8d36937613c646c))
+* **zen:** exit bar no longer blocks the toolbar; width setting applies ([#578](https://github.com/2002Bishwajeet/journal/issues/578)) ([969ce8d](https://github.com/2002Bishwajeet/journal/commit/969ce8d43a37af84c75549fd9cab3c6d3bda472b))
+
+
+### Features
+
+* **images:** replace and download actions, zoom and pan in the lightbox ([#582](https://github.com/2002Bishwajeet/journal/issues/582)) ([2edba9c](https://github.com/2002Bishwajeet/journal/commit/2edba9c9a2f814ca794a8331a46bf3a1ca5d9e4b))
+* **images:** width and alignment survive markdown, MCP and the share page ([#581](https://github.com/2002Bishwajeet/journal/issues/581)) ([ed9b946](https://github.com/2002Bishwajeet/journal/commit/ed9b946136cea9f2936daa8e9281741d2199ca03))
+* **mcp:** tell agents to design live blocks for 390px and warn on fixed widths ([#591](https://github.com/2002Bishwajeet/journal/issues/591)) ([6fd05ca](https://github.com/2002Bishwajeet/journal/commit/6fd05ca7f9dbb90e110c9f0a1ef11bac1d2baa85))
 ## [2.7.1](https://github.com/2002Bishwajeet/journal/compare/v2.7.0...v2.7.1) (2026-10-09)
 
 
