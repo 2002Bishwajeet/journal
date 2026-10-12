@@ -10,11 +10,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e:
+  # The hermetic suite split three ways; `e2e` below is the required check.
+  e2e-shard:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,7 +58,7 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Run E2E (hermetic)
-        run: npm run e2e
+        run: npm run e2e -- --shard=${{ matrix.shard }}/3
         env:
           CI: true
 
@@ -61,15 +66,23 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ github.run_attempt }}
+          name: playwright-report-${{ matrix.shard }}-${{ github.run_attempt }}
           path: |
             playwright-report/
             test-results/
           retention-days: 14
 
       - name: Run quarantined E2E specs (informational)
-        if: always()
+        if: always() && matrix.shard == 1
         continue-on-error: true
         run: npm run e2e:quarantine
         env:
           CI: true
+
+  e2e:
+    needs: e2e-shard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All shards passed
+        run: test "${{ needs.e2e-shard.result }}" = success
