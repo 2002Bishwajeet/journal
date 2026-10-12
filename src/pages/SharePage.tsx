@@ -9,6 +9,8 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Markdown, { defaultUrlTransform } from 'react-markdown';
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
+import { EditedImage } from '@/components/EditedImage';
+import { hasEdits, parseEditData } from '@/lib/images/imageEdits';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
 import { GalleryAwareDiv } from '@/components/share/GalleryAwareDiv';
 import { ReaderTaskCheckbox } from '@/components/share/ReaderTaskCheckbox';
@@ -123,6 +125,23 @@ export default function SharePage() {
                                     const { 'data-caption': captionAttr, ...imgRest } = rest as { 'data-caption'?: string };
                                     const caption = captionAttr ?? alt;
                                     const px = Number(width) > 0 ? Number(width) : undefined;
+                                    // Crop, rotate and flip (#584), drawn as in the editor
+                                    const edits = parseEditData((name) => (rest as Record<string, string | undefined>)[name]);
+                                    const edited = hasEdits(edits);
+                                    const imgClass = edited ? 'block h-full w-full' : px ? 'w-full' : undefined;
+                                    const picture = src?.startsWith('attachment://') ? (
+                                        <PublicNoteImage
+                                            key={src}
+                                            identity={decodeURIComponent(identity)}
+                                            noteFileId={note.fileId}
+                                            lastModified={note.lastModified}
+                                            src={src}
+                                            alt={alt}
+                                            className={imgClass}
+                                        />
+                                    ) : (
+                                        <img src={src} alt={alt} loading="lazy" className={imgClass} {...imgRest} />
+                                    );
                                     return (
                                         // Kept in the column; `block` so the image sits on its own line. A span, not a
                                         // figure: the img sits inside a paragraph.
@@ -131,18 +150,12 @@ export default function SharePage() {
                                             data-align={align}
                                             style={px ? ({ '--share-img-width': `${px}px` } as CSSProperties) : undefined}
                                         >
-                                            {src?.startsWith('attachment://') ? (
-                                                <PublicNoteImage
-                                                    key={src}
-                                                    identity={decodeURIComponent(identity)}
-                                                    noteFileId={note.fileId}
-                                                    lastModified={note.lastModified}
-                                                    src={src}
-                                                    alt={alt}
-                                                    className={px ? 'w-full' : undefined}
-                                                />
+                                            {edited ? (
+                                                <EditedImage key={src} edits={edits}>
+                                                    {picture}
+                                                </EditedImage>
                                             ) : (
-                                                <img src={src} alt={alt} loading="lazy" className={px ? 'w-full' : undefined} {...imgRest} />
+                                                picture
                                             )}
                                             {/* The caption, else the alt text, as in the editor (#583); "" hides it */}
                                             {caption && (

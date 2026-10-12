@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { getNewId } from '@homebase-id/js-lib/helpers';
 import { prepareImageForUpload, UnsupportedImageError } from '@/lib/images/imageIngest';
 import { GALLERY } from '../nodes/GalleryNode';
+import { editAttrs, NO_EDITS } from '@/lib/images/imageEdits';
 
 export interface FileHandlerOptions {
     /** Maximum file size in MB */
@@ -146,6 +147,8 @@ async function replaceImageFile(editor: Editor, options: FileHandlerOptions, pos
     editor.view.dispatch(
         editor.state.tr.setNodeMarkup(pos, undefined, {
             ...node.attrs,
+            // A crop or turn made for the old image (#584) doesn't fit the new one
+            ...editAttrs(NO_EDITS),
             src: URL.createObjectURL(queued.processed),
             'data-pending-id': queued.pendingId,
         }),

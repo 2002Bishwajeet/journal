@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import { toCalloutVariant } from '@/components/editor/nodes/calloutVariants';
 import { previewToMarkdown } from '@/lib/editor/linkPreview';
+import { editDataAttrs, readEdits } from '@/lib/images/imageEdits';
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -90,10 +91,11 @@ export function fragmentToMarkdown(
     const align = node.getAttribute('align');
     const caption = node.getAttribute('caption');
     const hasCaption = typeof caption === 'string';
+    const edits = editDataAttrs(readEdits(node.getAttributes()));
     if (!src) return '';
-    if (width || align || hasCaption) {
-      // Width, float and caption have no markdown form: an <img> keeps them (#581, #583); data-caption="" means hidden.
-      const attrs = [['src', src], ['alt', alt], ['title', title], ['width', width], ['data-align', align], ['data-caption', caption]]
+    if (width || align || hasCaption || edits.length) {
+      // Width, float, caption and edits have no markdown form: an <img> keeps them (#581, #583, #584); data-caption="" means hidden.
+      const attrs = [['src', src], ['alt', alt], ['title', title], ['width', width], ['data-align', align], ['data-caption', caption], ...edits]
         .filter(([k, v]) => v || (k === 'data-caption' && hasCaption))
         .map(([k, v]) => `${k}="${escapeHtml(String(v))}"`);
       return `<img ${attrs.join(' ')}>`;

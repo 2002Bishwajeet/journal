@@ -56,14 +56,16 @@ export function canZoom(mode: ReturnType<typeof imageRenderMode>): boolean {
  * OdinImage is declaratively 100% wide and paints nothing in flow until it has
  * chosen a thumbnail size — which it chooses by measuring this very box. Let the
  * box shrink-wrap and that measurement is 0, so it never chooses a size, never
- * renders, and the image silently disappears.
+ * renders, and the image silently disappears. An edited image (#584) is the same:
+ * its img is positioned inside a frame, so there is nothing to shrink-wrap.
  */
 export function imageBoxWidth(
   mode: ReturnType<typeof imageRenderMode>,
   width?: number | null,
+  edited = false,
 ): number | string {
   if (width) return width;
-  return mode === "attachment" ? "100%" : "fit-content";
+  return mode === "attachment" || edited ? "100%" : "fit-content";
 }
 
 /**

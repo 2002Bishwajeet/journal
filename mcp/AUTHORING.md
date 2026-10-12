@@ -134,6 +134,12 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
   images share a row and more wrap to the next; on a phone, two per row. A gallery with
   only one image becomes a plain image. A gallery holds only images: text or links inside
   it are dropped.
+- An image edited in Journal keeps its crop, rotation and flip as attributes on the `<img>`;
+  the stored image is the original. `data-crop="x,y,w,h"` is the part shown, as fractions
+  of the original from 0 to 1 (`data-crop="0,0.2,1,0.5625"` keeps a band across the
+  middle), `data-rotate` is `90`, `180` or `270` (degrees clockwise) and `data-flip` is
+  `h`, `v` or `hv` (mirrored after the rotation). Keep them to keep the edit; remove all
+  three to show the original.
 
 ### Covers
 

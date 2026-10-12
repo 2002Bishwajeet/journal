@@ -15,9 +15,10 @@ export const sanitizeSchema = {
     ...defaultSchema,
     tagNames: [...(defaultSchema.tagNames ?? []), 'u', 'sub', 'sup'],
     // An image's width and float alignment (#581): exactly these, no style; the caption is plain text (#583).
+    // Crop, rotate and flip (#584) are plain strings the page parses into numbers itself, never CSS.
     attributes: {
         ...defaultSchema.attributes,
-        img: [...(defaultSchema.attributes?.img ?? []), 'width', 'dataAlign', 'dataCaption'],
+        img: [...(defaultSchema.attributes?.img ?? []), 'width', 'dataAlign', 'dataCaption', 'dataCrop', 'dataRotate', 'dataFlip'],
         // An image gallery's layout (#601).
         div: [...(defaultSchema.attributes?.div ?? []), 'dataGallery'],
     },
