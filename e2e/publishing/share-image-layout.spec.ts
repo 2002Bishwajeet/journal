@@ -104,11 +104,11 @@ for (const theme of THEMES) {
     expect((await box(plain)).width).toBeGreaterThan(320);
     await anonPage.screenshot({ path: test.info().outputPath(`share-image-layout-${theme}-1280.png`) });
 
-    // Phone: no float, and the image is no wider than the column.
+    // Phone: no float, and the image is the full column wide.
     await anonPage.setViewportSize(VIEWPORTS.mobile);
     expect(await floatOf(right)).toBe('none');
     const phoneColumn = await box(article.getByText(TEXT.slice(0, 40)));
-    expect((await box(right)).width).toBeLessThanOrEqual(phoneColumn.width + 0.5);
+    expect((await box(right)).width).toBeCloseTo(phoneColumn.width, 0);
     expect(await anonPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await anonPage.screenshot({ path: test.info().outputPath(`share-image-layout-${theme}-390.png`) });
   });

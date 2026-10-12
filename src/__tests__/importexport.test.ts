@@ -10,7 +10,9 @@ import type { DotYouClient } from '@homebase-id/js-lib/core';
 import * as Y from 'yjs';
 import JSZip from 'jszip';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
-import { saveDocumentUpdate, upsertSearchIndex } from '@/lib/db/queries';
+import { saveDocumentUpdate, upsertSearchIndex, getAllDocuments, getDocumentUpdates, getPendingImageUploads } from '@/lib/db/queries';
+import { yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
+import { editorSchema } from '@/lib/agent/editEngine';
 import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
 import type { DocumentMetadata } from '@/types';
 
@@ -26,7 +28,11 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
     return { ...actual, getPayloadBytes: mockGetPayloadBytes };
 });
 
+// happy-dom has no createImageBitmap; the ingest itself is covered in imageIngest.test.ts
+vi.mock('@/lib/images/imageIngest', () => ({ prepareImageForUpload: async (file: File) => file }));
+
 import { ExportService } from '@/lib/importexport/ExportService';
+import { ImportService } from '@/lib/importexport/ImportService';
 
 // Since we can't import the actual module (it has browser dependencies),
 // we'll test the parsing functions directly
@@ -369,7 +375,7 @@ describe('ExportService.exportAllAsZip', () => {
 
     // A paragraph with bold text followed by an attachment:// image, stored as
     // Yjs document_updates the same way extractMarkdownFromYjs reads them back.
-    function noteBlob(fileId: string, payloadKey: string): Uint8Array {
+    function noteBlob(fileId: string, payloadKey: string, layout: Record<string, string> = {}): Uint8Array {
         const doc = new Y.Doc();
         const frag = doc.getXmlFragment('prosemirror');
         const p = new Y.XmlElement('paragraph');
@@ -379,6 +385,7 @@ describe('ExportService.exportAllAsZip', () => {
         const img = new Y.XmlElement('image');
         img.setAttribute('src', `attachment://${fileId}/${payloadKey}`);
         img.setAttribute('alt', 'a');
+        for (const [k, v] of Object.entries(layout)) img.setAttribute(k, v);
         p.insert(0, [t, img]);
         frag.insert(0, [p]);
         const update = Y.encodeStateAsUpdate(doc);
@@ -437,5 +444,54 @@ describe('ExportService.exportAllAsZip', () => {
         expect(result.missingImages).toBe(1);
         const md = await zip.file('My Note.md')!.async('string');
         expect(md).toContain('![a](attachment://remote-file-1/jrnl_img0)');
+    });
+
+    // #581: a sized or aligned image is written as <img src alt width data-align>
+    it('bundles a sized, aligned image and rewrites its <img> src to the asset path', async () => {
+        await saveDocumentUpdate(DOC_ID, noteBlob('remote-file-1', 'jrnl_img0', { width: '320', align: 'right' }));
+        await upsertSearchIndex({ docId: DOC_ID, title: 'My Note', plainTextContent: 'bold', metadata: META() });
+        mockGetPayloadBytes.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' });
+
+        const { result, zip } = await exportedZip(fakeDotYouClient);
+
+        expect(result.missingImages).toBe(0);
+        const md = await zip.file('My Note.md')!.async('string');
+        expect(md).toContain('<img src="assets/My Note-jrnl_img0.jpg" alt="a" width="320" data-align="right">');
+        expect(zip.file('assets/My Note-jrnl_img0.jpg')).not.toBeNull();
+    });
+
+    it('keeps the <img> attachment:// src and counts a missing sized image when the fetch fails', async () => {
+        await saveDocumentUpdate(DOC_ID, noteBlob('remote-file-1', 'jrnl_img0', { width: '320' }));
+        await upsertSearchIndex({ docId: DOC_ID, title: 'My Note', plainTextContent: 'bold', metadata: META() });
+        mockGetPayloadBytes.mockRejectedValue(new Error('404'));
+
+        const { result, zip } = await exportedZip(fakeDotYouClient);
+
+        expect(result.missingImages).toBe(1);
+        const md = await zip.file('My Note.md')!.async('string');
+        expect(md).toContain('<img src="attachment://remote-file-1/jrnl_img0" alt="a" width="320">');
+    });
+
+    it('round-trips a sized, aligned image through export and import', async () => {
+        await saveDocumentUpdate(DOC_ID, noteBlob('remote-file-1', 'jrnl_img0', { width: '320', align: 'right' }));
+        await upsertSearchIndex({ docId: DOC_ID, title: 'My Note', plainTextContent: 'bold', metadata: META() });
+        mockGetPayloadBytes.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' });
+        const { zip } = await exportedZip(fakeDotYouClient);
+
+        const file = new File([await zip.generateAsync({ type: 'blob' })], 'export.zip');
+        expect((await ImportService.importFiles([file])).imported).toBe(1);
+
+        const imported = (await getAllDocuments()).find((d) => d.docId !== DOC_ID)!;
+        const ydoc = new Y.Doc();
+        for (const update of await getDocumentUpdates(imported.docId)) Y.applyUpdate(ydoc, update);
+        const root = yXmlFragmentToProseMirrorRootNode(ydoc.getXmlFragment('prosemirror'), editorSchema);
+        const attrs: Record<string, unknown>[] = [];
+        root.descendants((n) => { if (n.type.name === 'image') attrs.push(n.attrs); });
+
+        const [upload] = await getPendingImageUploads(imported.docId);
+        expect(Array.from(upload.blobData)).toEqual([1, 2, 3]);
+        expect(attrs).toEqual([expect.objectContaining({ alt: 'a', width: 320, align: 'right' })]);
+        // The queue row stores the id as a uuid; the node keeps it as generated
+        expect(String(attrs[0]['data-pending-id']).replace(/-/g, '')).toBe(upload.id.replace(/-/g, ''));
     });
 });

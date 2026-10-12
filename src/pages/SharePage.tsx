@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -123,7 +124,7 @@ export default function SharePage() {
                                         <span
                                             className="share-wide share-img block"
                                             data-align={align}
-                                            style={px ? { width: px } : undefined}
+                                            style={px ? ({ '--share-img-width': `${px}px` } as CSSProperties) : undefined}
                                         >
                                             {src?.startsWith('attachment://') ? (
                                                 <PublicNoteImage

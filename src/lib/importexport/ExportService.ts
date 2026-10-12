@@ -16,12 +16,13 @@ export interface ExportResult {
     missingImages: number;
 }
 
-// ![alt](attachment://fileId/payloadKey) — matches what extractMarkdownFromYjs emits
-// for a synced image.
-const ATTACHMENT_IMAGE_REGEX = /!\[([^\]]*)\]\(attachment:\/\/([^/)\s]+)\/([^)\s]+)\)/g;
-// ![alt](blob:...) — a pending (not-yet-uploaded) image. Its bytes are local only;
-// exporting them is out of scope for #183, so they're just counted as missing.
-const BLOB_IMAGE_REGEX = /!\[([^\]]*)\]\(blob:[^)\s]+\)/g;
+// ![alt](attachment://fileId/payloadKey), or <img src="attachment://fileId/payloadKey" ...>
+// for a sized or aligned image (#581) — matches what extractMarkdownFromYjs emits for a
+// synced image. Group 1 is everything before the src.
+const ATTACHMENT_IMAGE_REGEX = /(!\[[^\]]*\]\(|<img\s[^>]*?\bsrc=")attachment:\/\/([^/)"\s]+)\/([^)"\s]+)(?=[)"\s])/g;
+// ![alt](blob:...) or <img src="blob:..."> — a pending (not-yet-uploaded) image. Its bytes
+// are local only; exporting them is out of scope for #183, so they're just counted as missing.
+const BLOB_IMAGE_REGEX = /(!\[[^\]]*\]\(|<img\s[^>]*?\bsrc=")blob:/g;
 
 /**
  * Service to handle exporting notes and folders
@@ -144,9 +145,11 @@ async function resolveNoteImages(
         }
     }
 
-    const rewritten = markdown.replace(ATTACHMENT_IMAGE_REGEX, (full, alt, fileId, payloadKey) => {
+    const rewritten = markdown.replace(ATTACHMENT_IMAGE_REGEX, (full, before: string, fileId, payloadKey) => {
         const assetFilename = resolved.get(`${fileId}/${payloadKey}`);
-        return assetFilename ? `![${alt}](assets/${assetFilename})` : full;
+        if (!assetFilename) return full;
+        // Inside an <img> attribute, & must be escaped as the serializer does
+        return `${before}assets/${before.startsWith('<') ? assetFilename.replace(/&/g, '&amp;') : assetFilename}`;
     });
 
     missingImages += rewritten.match(BLOB_IMAGE_REGEX)?.length ?? 0;

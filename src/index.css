@@ -905,17 +905,20 @@ img.ProseMirror-separator {
 
 /* An image's width and alignment (#581): the box is as wide as the editor's
    image, never wider than the column. Left/right float so text wraps, but only
-   where there is room (the editor's rule): below 600px every image is a full
-   block. */
+   where there is room: below 600px every image is a full-width block. */
 .share-article .share-img {
   max-width: 100%;
 }
 
-.share-article .share-img[data-align="center"] {
-  margin-inline: auto;
-}
-
 @media (min-width: 600px) {
+  .share-article .share-img {
+    width: var(--share-img-width, auto);
+  }
+
+  .share-article .share-img[data-align="center"] {
+    margin-inline: auto;
+  }
+
   .share-article .share-img[data-align="left"] {
     float: left;
     margin: 0 1rem 0.5rem 0;

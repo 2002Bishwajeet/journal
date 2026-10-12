@@ -105,6 +105,18 @@ describe('copySharedNote', () => {
         expect(ydoc!.getXmlFragment('prosemirror').toString()).not.toContain('attachment://');
     });
 
+    it('keeps the alt text of a sized or aligned attachment image', async () => {
+        vi.mocked(shareProvider.getPublicNote).mockResolvedValue(
+            sharedNote(`Before\n\n<img src="attachment://${FILE}/jrnl_img1" alt="A red bike" width="320" data-align="right">`),
+        );
+        const copy = await copySharedNote(IDENTITY, FILE, ORIGIN);
+        expect(copy.hadImages).toBe(true);
+        const entry = await getSearchIndexEntry(copy.docId);
+        expect(entry?.plainTextContent).toContain('A red bike');
+        const ydoc = await loadLocalYDoc(copy.docId);
+        expect(ydoc!.getXmlFragment('prosemirror').toString()).not.toContain('attachment://');
+    });
+
     it('saves twice as two separate notes', async () => {
         vi.mocked(shareProvider.getPublicNote).mockResolvedValue(sharedNote('Hello'));
         const a = await copySharedNote(IDENTITY, FILE, ORIGIN);

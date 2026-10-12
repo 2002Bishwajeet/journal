@@ -11,6 +11,7 @@ export function countWords(markdown: string): number {
         .replace(/\$\$[\s\S]*?\$\$/g, ' ') // block math
         .replace(/\$[^$\n]+\$/g, ' ') // inline math
         .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ') // images
+        .replace(/<img\s[^>]*>/g, ' ') // sized or aligned images (#581)
         .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // links -> their text
         .replace(/^\s*(?:[-*+]|\d+\.)\s+/gm, ' ') // list markers
         .replace(/[`#*_~>|[\]]/g, ' '); // inline code markers + markdown punctuation

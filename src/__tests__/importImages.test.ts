@@ -88,4 +88,38 @@ describe('zip import with images', () => {
         expect(root.textContent).toContain('Dog');
         expect(root.textContent).not.toContain('missing.png');
     });
+
+    // #581: a sized or aligned image is written as <img src alt width data-align>
+    it('queues an <img> image with its width and align; a missing one becomes its alt text', async () => {
+        saveDocumentUpdate.mockClear();
+        savePendingImageUpload.mockClear();
+        const zip = new JSZip();
+        zip.file('note.md', [
+            '<img src="assets/a &amp; b.png" alt="Cat" width="200" data-align="center">',
+            '',
+            '<img src="assets/missing.png" alt="Dog &amp; co" width="100">',
+            '',
+            '<img src="https://example.com/r.png" alt="Remote" data-align="left">',
+            '',
+        ].join('\n'));
+        zip.file('assets/a & b.png', new Uint8Array([4, 5]));
+        const file = new File([await zip.generateAsync({ type: 'blob' })], 'export.zip');
+
+        expect((await ImportService.importFiles([file])).imported).toBe(1);
+
+        expect(savePendingImageUpload).toHaveBeenCalledTimes(1);
+        const upload = savePendingImageUpload.mock.calls[0][0];
+        const ydoc = new Y.Doc();
+        Y.applyUpdate(ydoc, saveDocumentUpdate.mock.calls[0][1] as Uint8Array);
+        const root = yXmlFragmentToProseMirrorRootNode(ydoc.getXmlFragment('prosemirror'), editorSchema);
+        const images: PMNode[] = [];
+        root.descendants((n) => { if (n.type.name === 'image') images.push(n); });
+
+        expect(images.map((n) => n.attrs)).toEqual([
+            expect.objectContaining({ src: expect.stringMatching(/^blob:/), alt: 'Cat', width: 200, align: 'center', 'data-pending-id': upload.id }),
+            expect.objectContaining({ src: 'https://example.com/r.png', alt: 'Remote', align: 'left' }),
+        ]);
+        expect(root.textContent).toContain('Dog & co');
+        expect(root.textContent).not.toContain('missing.png');
+    });
 });
