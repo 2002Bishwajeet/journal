@@ -5,6 +5,7 @@
  * build the schema without pulling in React.
  */
 import Image from "@tiptap/extension-image";
+import { editDataAttrs, parseEditData, readEdits } from "@/lib/images/imageEdits";
 import { ALIGN_STYLE, type ImageAlign } from "./imageLayout";
 
 export const ImageSchema = Image.extend({
@@ -47,6 +48,29 @@ export const ImageSchema = Image.extend({
           if (attributes.caption === null || attributes.caption === undefined) return {};
           return { "data-caption": attributes.caption };
         },
+      },
+      // Non-destructive crop, rotate and flip (#584), applied at display time;
+      // null = unedited. See src/lib/images/imageEdits.ts.
+      crop: {
+        default: null,
+        parseHTML: element => parseEditData(name => element.getAttribute(name)).crop,
+        renderHTML: () => ({}),
+      },
+      rotate: {
+        default: null,
+        parseHTML: element => parseEditData(name => element.getAttribute(name)).rotate || null,
+        renderHTML: () => ({}),
+      },
+      flipH: {
+        default: null,
+        parseHTML: element => parseEditData(name => element.getAttribute(name)).flipH || null,
+        renderHTML: () => ({}),
+      },
+      flipV: {
+        default: null,
+        parseHTML: element => parseEditData(name => element.getAttribute(name)).flipV || null,
+        // All four render as one set of data attributes.
+        renderHTML: attributes => Object.fromEntries(editDataAttrs(readEdits(attributes))),
       },
       width: {
         default: null,

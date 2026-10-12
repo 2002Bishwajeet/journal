@@ -9,7 +9,8 @@
 
 import { useContext, useRef, useState, type ReactNode } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { AlignCenter, AlignLeft, AlignRight, Captions, Download, ImageUp, Loader2, Maximize2 } from "lucide-react";
+import { yUndoPluginKey } from "y-prosemirror";
+import { AlignCenter, AlignLeft, AlignRight, Captions, Crop, Download, ImageUp, Loader2, Maximize2 } from "lucide-react";
 import { JOURNAL_DRIVE } from "@/lib/homebase/config";
 import { useDotYouClientContext } from "@/components/auth";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
@@ -21,6 +22,8 @@ import { useSyncService } from "@/hooks/useSyncService";
 import { useImageDownload } from "@/hooks/image/useImageDownload";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
+import { EditedImage } from "@/components/EditedImage";
+import { editAttrs, hasEdits, readEdits, type ImageEdits } from "@/lib/images/imageEdits";
 import {
   ALIGN_STYLE,
   MIN_IMAGE_WIDTH,
@@ -32,6 +35,7 @@ import {
 } from "./imageLayout";
 import { ImageOwnerContext } from "./imageOwnerContext";
 import { ImageLightbox } from "./ImageLightbox";
+import { ImageEditDialog } from "./ImageEditDialog";
 
 // Corner, the edge it drags, and the diagonal cursor for it.
 const CORNERS = [
@@ -152,7 +156,10 @@ export function ImageNodeView({
   const captionAttr = (node.attrs.caption as string | null | undefined) ?? null;
   const caption = captionAttr ?? alt;
   const mode = imageRenderMode(src, pendingId);
+  const edits = readEdits(node.attrs);
+  const edited = hasEdits(edits);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const download = useImageDownload(src, alt, pendingId);
 
@@ -163,9 +170,17 @@ export function ImageNodeView({
     input.onchange = () => {
       const file = input.files?.[0];
       const pos = getPos();
-      if (file && pos !== undefined) editor.commands.replaceImageFile(pos, file);
+      // chain(), not commands: the compiler memoizes on editor.commands, which throws once the editor is destroyed (#247)
+      if (file && pos !== undefined) editor.chain().replaceImageFile(pos, file).run();
     };
     input.click();
+  };
+  // Its own undo step, so each Apply undoes on its own (#584).
+  const applyEdits = (next: ImageEdits) => {
+    const undoManager = yUndoPluginKey.getState(editor.state)?.undoManager;
+    undoManager?.stopCapturing();
+    updateAttributes(editAttrs(next));
+    undoManager?.stopCapturing();
   };
   const saveAlt = (value: string) => updateAttributes({ alt: value.trim() || null });
   // Skips unchanged text so a blur after "Hide caption" can't turn "" back into null.
@@ -364,6 +379,18 @@ export function ImageNodeView({
           >
             <ImageUp className="h-4 w-4" />
           </button>
+          <button
+            type="button"
+            aria-label="Edit image"
+            aria-pressed={edited}
+            onClick={() => setEditOpen(true)}
+            className={cn(
+              "rounded p-1 hover:bg-accent hover:text-accent-foreground",
+              edited && "bg-accent text-accent-foreground",
+            )}
+          >
+            <Crop className="h-4 w-4" />
+          </button>
         </>
       )}
       <button
@@ -380,13 +407,44 @@ export function ImageNodeView({
   // Until a width is set the box shrink-wraps the image, so the image keeps its
   // natural size (previous behaviour); once sized, it fills the box.
   const imgClass = width ? "w-full h-auto" : "max-w-full";
+  // Inside an edit frame the image fills the layer EditedImage sizes for it.
+  const fillClass = "block h-full w-full";
+
+  const renderImage = (cls: string, framed: boolean) => {
+    // Mode "pending": not uploaded yet. The blob: src dies with the tab, so the
+    // bytes come from the local upload queue instead.
+    if (mode === "pending" && pendingId) {
+      return <PendingImage pendingId={pendingId} imgClass={cls} alt={alt} onRemove={deleteNode} />;
+    }
+    // Mode "attachment": remote image (attachment://fileId/payloadKey)
+    if (mode === "attachment") {
+      const [fileId, payloadKey] = src.replace("attachment://", "").split("/");
+      return (
+        <AttachmentImage fileId={fileId} payloadKey={payloadKey} imgClass={cls} alt={alt}>
+          <OdinImage
+            dotYouClient={dotYouClient}
+            odinId={owner}
+            targetDrive={JOURNAL_DRIVE}
+            fileId={fileId}
+            fileKey={payloadKey}
+            alt={alt}
+            className={cls}
+            // In a frame the image is scaled past its own size to fill the crop
+            maxWidth={framed ? "none" : undefined}
+          />
+        </AttachmentImage>
+      );
+    }
+    // Mode "plain": regular URL or base64
+    return <img src={src} alt={alt} className={cls} />;
+  };
 
   const resizable = (children: ReactNode) => (
     <div
       ref={boxRef}
       // width last: centering sets `display: block`, which would otherwise
       // stretch the box to the full column instead of hugging the image.
-      style={{ ...(align ? ALIGN_STYLE[align] : {}), width: imageBoxWidth(mode, width) }}
+      style={{ ...(align ? ALIGN_STYLE[align] : {}), width: imageBoxWidth(mode, width, edited) }}
       className={cn(
         "group relative inline-block max-w-full",
         selected && "outline outline-2 outline-primary/60 rounded-sm",
@@ -396,6 +454,8 @@ export function ImageNodeView({
       onDoubleClick={(e) => {
         if (!canZoom(mode)) return;
         if ((e.target as HTMLElement).closest("button")) return;
+        // React bubbles events out of the dialogs' portals too
+        if (!e.currentTarget.contains(e.target as Node)) return;
         setLightboxOpen(true);
       }}
     >
@@ -416,54 +476,31 @@ export function ImageNodeView({
         </span>
       )}
       {alignBar}
-      <ImageLightbox open={lightboxOpen} onOpenChange={setLightboxOpen} src={src} alt={alt} />
+      <ImageLightbox open={lightboxOpen} onOpenChange={setLightboxOpen} src={src} alt={alt} edits={edits} />
+      {canZoom(mode) && (
+        <ImageEditDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          edits={edits}
+          onApply={applyEdits}
+          image={renderImage(fillClass, true)}
+        />
+      )}
     </div>
   );
 
-  // Mode "pending": not uploaded yet. The blob: src dies with the tab, so the
-  // bytes come from the local upload queue instead.
-  if (mode === "pending" && pendingId) {
-    return (
-      <NodeViewWrapper className="image-node" data-drag-handle>
-        {resizable(
-          <PendingImage
-            pendingId={pendingId}
-            imgClass={imgClass}
-            alt={alt}
-            onRemove={deleteNode}
-          />,
-        )}
-      </NodeViewWrapper>
-    );
-  }
-
-  // Mode "attachment": remote image (attachment://fileId/payloadKey)
-  if (mode === "attachment") {
-    const [fileId, payloadKey] = src.replace("attachment://", "").split("/");
-
-    return (
-      <NodeViewWrapper className="image-node" data-drag-handle>
-        {resizable(
-          <AttachmentImage fileId={fileId} payloadKey={payloadKey} imgClass={imgClass} alt={alt}>
-            <OdinImage
-              dotYouClient={dotYouClient}
-              odinId={owner}
-              targetDrive={JOURNAL_DRIVE}
-              fileId={fileId}
-              fileKey={payloadKey}
-              alt={alt}
-              className={imgClass}
-            />
-          </AttachmentImage>,
-        )}
-      </NodeViewWrapper>
-    );
-  }
-
-  // Mode "plain": regular URL or base64
   return (
     <NodeViewWrapper className="image-node" data-drag-handle>
-      {resizable(<img src={src} alt={alt} className={imgClass} />)}
+      {resizable(
+        edited ? (
+          // Keyed by src: a replaced image is measured afresh
+          <EditedImage key={src} edits={edits}>
+            {renderImage(fillClass, true)}
+          </EditedImage>
+        ) : (
+          renderImage(imgClass, false)
+        ),
+      )}
     </NodeViewWrapper>
   );
 }
