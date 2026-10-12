@@ -144,7 +144,7 @@ export default function SharePage() {
                                             )}
                                             {/* The caption, else the alt text, as in the editor (#583); "" hides it */}
                                             {caption && (
-                                                <span data-testid="share-image-caption" className="mt-1.5 block text-center text-sm text-muted-foreground">
+                                                <span data-testid="share-image-caption" aria-hidden={caption === alt || undefined} className="mt-1.5 block text-center text-sm text-muted-foreground">
                                                     {caption}
                                                 </span>
                                             )}
