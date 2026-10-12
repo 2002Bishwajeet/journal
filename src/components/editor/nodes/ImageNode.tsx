@@ -168,7 +168,11 @@ export function ImageNodeView({
     input.click();
   };
   const saveAlt = (value: string) => updateAttributes({ alt: value.trim() || null });
-  const saveCaption = (value: string) => updateAttributes({ caption: value.trim() || null });
+  // Skips unchanged text so a blur after "Hide caption" can't turn "" back into null.
+  const saveCaption = (value: string) => {
+    if (value.trim() === (captionAttr ?? "")) return;
+    updateAttributes({ caption: value.trim() || null });
+  };
 
   // The column the image sits in — the widest it may become.
   const maxWidth = () => boxRef.current?.parentElement?.offsetWidth ?? Infinity;
@@ -317,6 +321,7 @@ export function ImageNodeView({
         </PopoverTrigger>
         <PopoverContent className="w-56 space-y-2 p-2">
           <Input
+            key={captionAttr ?? "alt"}
             defaultValue={captionAttr ?? ""}
             placeholder={alt || "Add a caption"}
             aria-label="Caption text"

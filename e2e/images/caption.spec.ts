@@ -29,6 +29,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await app.getByRole('textbox', { name: 'Caption text' }).fill('Our new logo');
     await app.keyboard.press('Enter');
     await expect(caption).toHaveText('Our new logo');
+    await app.keyboard.press('Escape');
+    await expect(app.getByRole('textbox', { name: 'Caption text' })).toHaveCount(0);
     await app.screenshot({ path: test.info().outputPath(`caption-custom-${colorScheme}-1280.png`) });
 
     // Survives a reload
@@ -41,6 +43,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await app.getByRole('button', { name: 'Caption', exact: true }).click();
     await app.getByRole('button', { name: 'Hide caption' }).click();
     await expect(activeEditor(app).getByTestId('image-caption')).toHaveCount(0);
+    // Closing the popover (blur) must not bring the caption back
+    await app.keyboard.press('Escape');
+    await expect(app.getByRole('textbox', { name: 'Caption text' })).toHaveCount(0);
+    await app.mouse.click(5, 400);
+    await expect(activeEditor(app).getByTestId('image-caption')).toHaveCount(0);
     await app.screenshot({ path: test.info().outputPath(`caption-hidden-${colorScheme}-1280.png`) });
+
+    // ...and stays hidden after a reload
+    await app.waitForTimeout(2500);
+    await app.reload();
+    await expect(activeEditor(app).locator('img[alt="Journal logo"]')).toBeVisible();
+    await expect(activeEditor(app).getByTestId('image-caption')).toHaveCount(0);
   });
 }
