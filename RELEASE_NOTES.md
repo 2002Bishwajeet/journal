@@ -25,6 +25,7 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - To move an image left or right in a gallery, use the arrow buttons on the image.
 - On a phone, a gallery shows two images in each row.
 - Shared notes show galleries, captions and image edits.
+- AI agents that use the Journal MCP can make galleries. They keep the captions, sizes and edits of images.
 
 ## 2.9.1 (2026-10-12)
 
