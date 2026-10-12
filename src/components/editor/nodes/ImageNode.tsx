@@ -113,11 +113,17 @@ function PendingImage({
         contentEditable={false}
         // Clicking Retry/Remove must not move the selection onto the image.
         onMouseDown={(e) => e.preventDefault()}
-        className="absolute inset-0 flex items-center justify-center bg-black/20"
+        className="absolute inset-0 flex items-center justify-center bg-black/20 p-1"
       >
-        <span className="text-xs bg-black/60 text-white px-2 py-1 rounded flex items-center gap-1">
-          {state === "uploading" && <Loader2 className="h-3 w-3 animate-spin" />}
-          {PENDING_LABEL[state]}
+        {/* max-w-full + truncate: a narrow gallery image keeps the pill inside it */}
+        <span
+          data-testid="pending-image-label"
+          className="text-xs bg-black/60 text-white px-2 py-1 rounded flex flex-wrap items-center justify-center gap-1 max-w-full"
+        >
+          <span className="flex min-w-0 items-center gap-1">
+            {state === "uploading" && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+            <span className="truncate">{PENDING_LABEL[state]}</span>
+          </span>
           {state === "failed" && (
             <>
               <button type="button" className={actionClass} onClick={retry}>

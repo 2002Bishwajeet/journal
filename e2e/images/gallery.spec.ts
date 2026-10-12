@@ -77,6 +77,15 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expectRowOf(reloaded, 2);
     expect((await box(reloaded.nth(2))).y).toBeGreaterThan((await box(reloaded.nth(0))).y + 10);
     await reloaded.first().scrollIntoViewIfNeeded();
+    // A not-yet-uploaded image's status pill stays inside its (narrow) image
+    const items = activeEditor(app).locator('[data-gallery="row"] .image-node');
+    for (let i = 0; i < 3; i++) {
+      const label = items.nth(i).getByTestId('pending-image-label');
+      if (!(await label.count())) continue;
+      const [l, img] = [await box(label), await box(items.nth(i).locator('img').first())];
+      expect(l.x).toBeGreaterThanOrEqual(img.x - 0.5);
+      expect(l.x + l.width).toBeLessThanOrEqual(img.x + img.width + 0.5);
+    }
     await app.screenshot({ path: test.info().outputPath(`gallery-editor-${colorScheme}-390.png`) });
   });
 }
