@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.10.0 (2026-10-12)
+
 ### New
 
 - You can write your own caption for an image. You can also hide the caption.

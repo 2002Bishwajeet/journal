@@ -1,3 +1,25 @@
+# [2.10.0](https://github.com/2002Bishwajeet/journal/compare/v2.9.1...v2.10.0) (2026-10-12)
+
+
+### Bug Fixes
+
+* hidden image caption stays hidden after popover closes ([5697406](https://github.com/2002Bishwajeet/journal/commit/5697406ac1a4eac8d7568e9dd7e2b6cd82616dc0))
+* **images:** a cropped or rotated image keeps its gallery row height ([#607](https://github.com/2002Bishwajeet/journal/issues/607)) ([050edcb](https://github.com/2002Bishwajeet/journal/commit/050edcbccb06ae861f217eb782871600bf91b8e8))
+* **images:** an odd last gallery image fills its row on a phone ([#601](https://github.com/2002Bishwajeet/journal/issues/601)) ([ccd43da](https://github.com/2002Bishwajeet/journal/commit/ccd43da86c9b122cb3bad02a7896d3792e6b791a))
+* **images:** carousel slides share one height so the nav sits under the image; screenshots show the controls ([#602](https://github.com/2002Bishwajeet/journal/issues/602)) ([14ce637](https://github.com/2002Bishwajeet/journal/commit/14ce637fe2bc235411e3c0ccf69df09fd0f7d368))
+* **images:** edited gallery items align with unedited ones ([#607](https://github.com/2002Bishwajeet/journal/issues/607)) ([e9bd073](https://github.com/2002Bishwajeet/journal/commit/e9bd07306ad1d47a07fd58064720636e8f5c5634))
+* **images:** keep the pending-upload pill inside a narrow gallery image ([#601](https://github.com/2002Bishwajeet/journal/issues/601)) ([1edb669](https://github.com/2002Bishwajeet/journal/commit/1edb669637392bb77b70c17c07d21ff01a3dbb2e))
+* **images:** settled e2e screenshots; rotate clears a locked crop ratio ([#584](https://github.com/2002Bishwajeet/journal/issues/584)) ([4af48d3](https://github.com/2002Bishwajeet/journal/commit/4af48d3914dd50064063cdbf17f95cd9710667d1))
+* **share:** hide caption from screen readers when it repeats the alt text ([fe7c943](https://github.com/2002Bishwajeet/journal/commit/fe7c943d97711192791a401eb5861e42d3829259))
+
+
+### Features
+
+* **images:** build galleries by /gallery, drag-merge and reorder ([#603](https://github.com/2002Bishwajeet/journal/issues/603)) ([cfdd244](https://github.com/2002Bishwajeet/journal/commit/cfdd24433451954f88144e28e9594a1543fee069))
+* **images:** captions under images, alt text by default, in markdown/MCP and share page ([#583](https://github.com/2002Bishwajeet/journal/issues/583)) ([e8786fc](https://github.com/2002Bishwajeet/journal/commit/e8786fc825897b4cfdd90b2df56d1ac215ee8b01))
+* **images:** gallery block with row layout ([#601](https://github.com/2002Bishwajeet/journal/issues/601)) ([34b2f86](https://github.com/2002Bishwajeet/journal/commit/34b2f863580529d9a12a5657c892740e6574a6ad))
+* **images:** gallery grid, masonry and carousel layouts ([#602](https://github.com/2002Bishwajeet/journal/issues/602)) ([4918b29](https://github.com/2002Bishwajeet/journal/commit/4918b29826ed527421c0cd6623c535bdf1156da1))
+* **images:** non-destructive crop, rotate and flip ([#584](https://github.com/2002Bishwajeet/journal/issues/584)) ([2fe0511](https://github.com/2002Bishwajeet/journal/commit/2fe05111b46efaf2fca8653b549a26da22302372))
 ## [2.9.1](https://github.com/2002Bishwajeet/journal/compare/v2.9.0...v2.9.1) (2026-10-12)
 
 
