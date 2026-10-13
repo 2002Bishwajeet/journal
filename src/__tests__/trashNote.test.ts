@@ -77,6 +77,31 @@ describe('NotesDriveProvider.setNoteArchivalStatus', () => {
         expect(payloads ?? []).toHaveLength(0);
     });
 
+    // A public note is stored unencrypted, but its header still carries an (empty) key
+    // header. Passing it makes the SDK encrypt the metadata and the server refuses it.
+    it('trashes a public note without a key header, so the patch stays unencrypted', async () => {
+        const header = ownerHeader();
+        header.fileMetadata.isEncrypted = false;
+        header.sharedSecretEncryptedKeyHeader = { encryptionVersion: 1, type: 'aes', iv: 'AAAAAAAAAAAAAAAAAAAAAA==', encryptedAesKey: '' };
+        mockGetHeader.mockResolvedValue(header);
+
+        await provider.setNoteArchivalStatus(NOTE_ID, 2);
+
+        expect(mockPatchFile).toHaveBeenCalledTimes(1);
+        expect(mockPatchFile.mock.calls[0][1]).toBeUndefined();
+        expect(mockPatchFile.mock.calls[0][3].isEncrypted).toBe(false);
+        expect(mockPatchFile.mock.calls[0][3].appData.archivalStatus).toBe(2);
+    });
+
+    it('still passes the key header when trashing an encrypted note', async () => {
+        const header = ownerHeader();
+        mockGetHeader.mockResolvedValue(header);
+
+        await provider.setNoteArchivalStatus(NOTE_ID, 2);
+
+        expect(mockPatchFile.mock.calls[0][1]).toBe(header.sharedSecretEncryptedKeyHeader);
+    });
+
     // #293: trashing a just-created note — the uniqueId lookup can still 404.
     it('trashes a just-created note by its known fileId when the uniqueId lookup 404s', async () => {
         mockGetHeader.mockResolvedValue(null);

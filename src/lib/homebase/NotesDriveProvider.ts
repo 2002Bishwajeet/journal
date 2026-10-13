@@ -736,7 +736,10 @@ export class NotesDriveProvider {
             };
             result = await patchFile(
                 this.#dotYouClient,
-                existingHeader.sharedSecretEncryptedKeyHeader,
+                // Only an encrypted file has a key header. A public (unencrypted) note's
+                // header still carries an empty one, and passing it makes the SDK encrypt
+                // the metadata, so the server refuses the patch: trashing a public note failed.
+                isEncrypted ? existingHeader.sharedSecretEncryptedKeyHeader : undefined,
                 instructions,
                 uploadMetadata,
                 [],
