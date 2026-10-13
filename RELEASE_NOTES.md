@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- On your public page, each shared folder shows in its own box. The box shows the folder name, the number of notes and a link to open the folder.
+
 ## 2.11.4 (2026-10-13)
 
 ### New

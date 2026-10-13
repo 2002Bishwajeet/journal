@@ -124,6 +124,9 @@ describe('shared folders on the author page (#632)', () => {
         const folderUrl = `${ORIGIN}/share/${IDENTITY}/f/${fid(1)}`;
         expect(html).toContain(`<h3><a href="${folderUrl}">Blog &lt;1&gt;</a></h3>`);
         expect(html).toContain(`<a href="${folderUrl}">All 7 notes →</a>`);
+        // Each folder is its own card with its note count, so its name doesn't read as one more note.
+        expect(html).toContain('<section class="folder">');
+        expect(html).toContain('<span class="count">7 notes</span>');
         expect(html.match(/<li>/g)).toHaveLength(6);
         expect(html.indexOf('Folders')).toBeLessThan(html.indexOf('Blog'));
         expect(html.indexOf('Blog')).toBeLessThan(html.indexOf('>Notes<'));
@@ -136,6 +139,8 @@ describe('shared folders on the author page (#632)', () => {
         );
         expect(html).not.toContain('>Notes<');
         expect(html).not.toContain('All ');
+        expect(html).toContain('<span class="count">2 notes</span>');
+        expect(html).toContain('>Open folder →</a>');
     });
 
     it('should list the folder page in the sitemap', () => {

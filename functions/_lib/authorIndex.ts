@@ -284,6 +284,11 @@ const noteUrl = (origin: string, identity: string, noteId: string) => `${origin}
 const formatDate = (iso: string) =>
     new Intl.DateTimeFormat('en-US', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(iso));
 
+// A folder (lucide's folder-open), drawn as a mask so it takes the muted colour in both themes.
+const FOLDER_ICON = `url("data:image/svg+xml,${encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>',
+)}")`;
+
 // The share page's palette (src/index.css), light and dark.
 const STYLE = `
 :root{color-scheme:light dark;--bg:#FDFCF8;--fg:#2C2B29;--muted:#8A8780;--border:#E6E4DD}
@@ -311,6 +316,19 @@ h2{font-size:1.5rem;line-height:1.3;margin:2rem 0 .75rem;font-weight:700}
 h2:first-of-type{margin-top:0}
 h3{font-size:1.125rem;margin:1.5rem 0 .5rem}
 .more{margin:.5rem 0 0;font-size:.875rem}
+.folder{border:1px solid var(--border);border-radius:.75rem;padding:1rem 1.25rem .75rem;margin:0 0 1.25rem}
+.folder-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.25rem 1rem;padding-bottom:.75rem}
+.folder h3{display:flex;align-items:center;gap:.5rem;margin:0;font-family:'Playfair Display',Georgia,'Times New Roman',serif;font-size:1.375rem;line-height:1.3}
+.folder h3::before{content:"";flex-shrink:0;width:1.125rem;height:1.125rem;background:var(--muted);-webkit-mask:${FOLDER_ICON} center/contain no-repeat;mask:${FOLDER_ICON} center/contain no-repeat}
+.folder h3 a{text-decoration:none}
+.folder h3 a:hover{text-decoration:underline;text-underline-offset:4px}
+.count{color:var(--muted);font-size:.875rem;white-space:nowrap}
+.folder li{padding:.75rem 0}
+.folder li:last-child{border-bottom:0}
+.folder li a{font-size:1rem;font-weight:500}
+.folder .more{margin:0;padding-top:.75rem;border-top:1px solid var(--border)}
+.folder .more a{color:var(--muted);text-decoration:none}
+.folder .more a:hover{color:var(--fg);text-decoration:underline;text-underline-offset:4px}
 footer{border-top:1px solid var(--border);margin-top:4rem}
 footer p{margin:0;padding:2rem 0;color:var(--muted);font-size:.75rem}
 `;
@@ -353,11 +371,13 @@ export function buildAuthorIndexHtml(index: AuthorIndex, origin: string): string
         const folderSections = folders
             .map((f) => {
                 const url = escapeHtml(folderUrl(origin, identity, f.id));
-                const more =
-                    f.notes.length > MAX_FOLDER_PAGE_NOTES
-                        ? `\n<p class="more"><a href="${url}">All ${f.notes.length} notes →</a></p>`
-                        : '';
-                return `<h3><a href="${url}">${escapeHtml(f.name)}</a></h3>\n${list(f.notes.slice(0, MAX_FOLDER_PAGE_NOTES))}${more}`;
+                // A card per folder, so its name reads as the heading of the notes under it, not as one more note.
+                const count = `${f.notes.length} ${f.notes.length === 1 ? 'note' : 'notes'}`;
+                const more = f.notes.length > MAX_FOLDER_PAGE_NOTES ? `All ${f.notes.length} notes →` : 'Open folder →';
+                return (
+                    `<section class="folder">\n<div class="folder-head"><h3><a href="${url}">${escapeHtml(f.name)}</a></h3><span class="count">${count}</span></div>\n` +
+                    `${list(f.notes.slice(0, MAX_FOLDER_PAGE_NOTES))}\n<p class="more"><a href="${url}">${more}</a></p>\n</section>`
+                );
             })
             .join('\n');
         body = `<h2 class="serif">Folders</h2>\n${folderSections}${notes.length ? `\n<h2 class="serif">Notes</h2>\n${list(notes)}` : ''}`;
