@@ -186,10 +186,8 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto(`/share/${IDENTITY}/f/${BLOG}`);
       await expect(page.getByRole('heading', { level: 1, name: 'Blog' })).toBeVisible();
       await expect(page.getByRole('listitem')).toHaveCount(3);
-      await expect(page.getByRole('link', { name: 'Newest post' })).toHaveAttribute(
-        'href',
-        new RegExp(`/share/${IDENTITY.replaceAll('.', '\\.')}/${noteId(3)}$`),
-      );
+      const href = await page.getByRole('link', { name: 'Newest post' }).getAttribute('href');
+      expect(href?.endsWith(`/share/${IDENTITY}/${noteId(3)}`)).toBe(true);
       const logo = page.getByRole('banner').locator('img');
       await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
