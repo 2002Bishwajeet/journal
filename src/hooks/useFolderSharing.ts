@@ -144,8 +144,8 @@ export function useFolderSharing() {
         }
     };
 
-    /** How many notes stopping sharing `folderId` would make private (for its confirm dialog). */
-    const countPublicNotes = async (folderId: string) => (await getFolderNotesToShare(folderId, false)).length;
+    /** How many notes changing `folderId`'s sharing would flip: to public when `toPublic`, else to private (for its dialogs). */
+    const countPublicNotes = async (folderId: string, toPublic = false) => (await getFolderNotesToShare(folderId, toPublic)).length;
 
     return { setFolderShared, countPublicNotes };
 }

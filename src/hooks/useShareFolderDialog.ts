@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/auth';
 import { useFolderSharing } from '@/hooks/useFolderSharing';
@@ -7,12 +7,22 @@ import { folderShareUrl } from '@/lib/share/sharedFolder';
 import { folderShareDescription } from '../../functions/_lib/folderShare';
 
 /** State and actions of the Share folder dialog (#631). */
-export function useShareFolderDialog(folder: { id: string; name: string } | null) {
+export function useShareFolderDialog(folder: { id: string; name: string; isPublic?: boolean } | null) {
     const { getIdentity } = useAuth();
     const identity = getIdentity() || 'unknown';
     const author = usePublicAuthor(identity);
     const { setFolderShared, countPublicNotes } = useFolderSharing();
     const [publicNotes, setPublicNotes] = useState<number | null>(null);
+
+    const [toShare, setToShare] = useState<number | null>(null);
+    const folderId = folder?.id;
+    useEffect(() => {
+        if (!folderId) return;
+        let stale = false;
+        countPublicNotes(folderId, true).then((n) => !stale && setToShare(n)).catch(() => {});
+        return () => { stale = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [folderId, folder?.isPublic]);
 
     const url = folder ? folderShareUrl(window.location.origin, identity, folder.id) : '';
     // The same text the folder page serves as og:description.
@@ -31,6 +41,8 @@ export function useShareFolderDialog(folder: { id: string; name: string } | null
     return {
         url,
         description,
+        /** Notes that sharing would make public; null until counted. */
+        toShare,
         copy,
         share: () => folder && setFolderShared(folder.id, true),
         /** Asks first: loads the count the confirmation shows. */

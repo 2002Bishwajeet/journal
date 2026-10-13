@@ -47,6 +47,7 @@ test('sharing a folder makes its notes public, new notes in it start public, and
   // Private state: the explanation, the link preview and a Share folder button.
   const dialog = app.getByRole('dialog', { name: 'Share Folder' });
   await expect(dialog).toContainText('Private');
+  await expect(dialog).toContainText('2 notes in this folder will become public, and new notes in this folder start public');
   await expect(dialog.getByText(FOLDER, { exact: true })).toBeVisible();
   await expect(dialog.getByText(/Notes in the folder Blog by .+, shared with Journal/)).toBeVisible();
   await shot(app, 'share-folder-dialog-private', DESKTOP.width);

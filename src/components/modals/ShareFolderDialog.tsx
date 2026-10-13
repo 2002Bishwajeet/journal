@@ -19,7 +19,7 @@ interface ShareFolderDialogProps {
 
 /** Share a folder, or stop (#631): its state, link and the preview people see, laid out like the note Share dialog. */
 export default function ShareFolderDialog({ folder, onClose }: ShareFolderDialogProps) {
-    const { url, description, copy, share, askToStop, publicNotes, cancelStop, stop } = useShareFolderDialog(folder);
+    const { url, description, toShare, copy, share, askToStop, publicNotes, cancelStop, stop } = useShareFolderDialog(folder);
     const isPublic = !!folder?.isPublic;
 
     return (
@@ -44,7 +44,7 @@ export default function ShareFolderDialog({ folder, onClose }: ShareFolderDialog
                                     <>
                                         <p className="flex gap-3 rounded-lg border bg-muted/40 px-4 py-3 text-sm leading-relaxed text-pretty">
                                             <Globe className="mt-1 size-4 shrink-0 text-muted-foreground" />
-                                            <span>The notes in this folder will become public, and new notes in this folder start public.</span>
+                                            <span>{toShare === null ? 'The notes' : `${toShare} ${toShare === 1 ? 'note' : 'notes'}`} in this folder will become public, and new notes in this folder start public.</span>
                                         </p>
                                         <Button size="lg" className="w-full max-sm:h-11" onClick={share}>
                                             <Globe />
