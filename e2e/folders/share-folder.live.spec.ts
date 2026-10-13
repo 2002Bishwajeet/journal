@@ -48,8 +48,10 @@ test('sharing a folder publishes its notes and new ones, and stopping sharing ma
     }
 
     await foldersNav(page).getByRole('button', { name: folder, exact: true }).click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Share folder' }).click();
+    await page.getByRole('menuitem', { name: 'Share folder…' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Share folder', exact: true }).click();
     await expect(page.getByText('Folder shared. 3 notes made public.')).toBeVisible({ timeout: 60_000 });
+    await page.keyboard.press('Escape');
     for (const note of notes) await isPublic(browser, note.url, note.title);
 
     // A new note in the shared folder starts public; its first push uploads it so.
@@ -66,10 +68,12 @@ test('sharing a folder publishes its notes and new ones, and stopping sharing ma
     await isPrivate(browser, shareUrlOfOpenNote(page));
 
     await foldersNav(page).getByRole('button', { name: folder, exact: true }).click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Stop sharing folder' }).click();
+    await page.getByRole('menuitem', { name: 'Share folder…' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Stop sharing (make private)' }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('4 notes will become private');
     await dialog.getByRole('button', { name: 'Stop sharing', exact: true }).click();
     await expect(page.getByText('Folder is private again. 4 notes made private.')).toBeVisible({ timeout: 60_000 });
+    await page.keyboard.press('Escape');
     for (const note of notes) await isPrivate(browser, note.url);
 });

@@ -1,6 +1,6 @@
 import type { Locator } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote, waitForNoteSaved, screenshotInBothThemes } from '../support/actions';
+import { activeEditor, createNote, reloadNote, waitForNoteSaved, screenshotInBothThemes } from '../support/actions';
 import { makeSolidPng } from '../support/png';
 
 // #601: dropping 3 images at once makes one row gallery: the three side by side at
@@ -64,7 +64,7 @@ test('gallery: dropping 3 images makes one row that survives a reload', async ({
 
   // Persists: the same gallery after a reload
   await waitForNoteSaved(app);
-  await app.reload();
+  await reloadNote(app);
   await expect(activeEditor(app).locator('[data-gallery="row"]')).toHaveCount(1);
   const reloaded = activeEditor(app).locator('[data-gallery="row"] img:not(.ProseMirror-separator)');
   await expect(reloaded).toHaveCount(3);
@@ -183,7 +183,7 @@ test('gallery: switching layouts grid, masonry, carousel', async ({ app }) => {
 
   // The layout survives a reload
   await waitForNoteSaved(app);
-  await app.reload();
+  await reloadNote(app);
   await expect(activeEditor(app).locator('[data-gallery="carousel"]')).toHaveCount(1);
   await expect(activeEditor(app).locator('[data-gallery="row"], [data-gallery="grid"]')).toHaveCount(0);
 });

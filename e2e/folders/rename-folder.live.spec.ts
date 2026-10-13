@@ -15,8 +15,10 @@ test('a renamed shared folder keeps its share and shows the new name on a second
     await selectFolder(page, base);
     await createNote(page, { title: `Rename live ${Date.now()}`, body: 'x' });
     await foldersNav(page).getByRole('button', { name: base, exact: true }).click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Share folder' }).click();
+    await page.getByRole('menuitem', { name: 'Share folder…' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Share folder', exact: true }).click();
     await expect(page.getByText(/^Folder shared\./)).toBeVisible({ timeout: 60_000 });
+    await page.keyboard.press('Escape');
 
     await foldersNav(page).getByRole('button', { name: base, exact: true }).click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Rename Folder' }).click();
