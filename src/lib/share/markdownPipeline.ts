@@ -175,6 +175,18 @@ function rehypeSingleClobberPrefix() {
   };
 }
 
+const NOTE_LINK_HREF = /^journal:note\/([\w-]+)$/;
+
+/**
+ * A note link (`journal:note/<id>`, #616) becomes the linked note's share page on the
+ * same author's identity; any other url is returned unchanged. No lookup: a private
+ * note's page shows the not-public state.
+ */
+export function shareNoteLinkHref(url: string, identity: string): string {
+    const id = NOTE_LINK_HREF.exec(url)?.[1];
+    return id ? `/share/${encodeURIComponent(identity)}/${id}` : url;
+}
+
 export const shareRemarkPlugins: Options['remarkPlugins'] = [remarkGfm, remarkMath];
 
 // Order: parse raw HTML -> sanitize -> highlight code -> render math. Highlighting,
