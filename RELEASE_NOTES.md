@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- You can drag an image onto a note to set its cover. Drop it on the cover to replace the cover.
+
 ### Fixed
 
 - You can move a public note to Trash. Before, Journal showed "Couldn't move note to Trash". AI agents can also move public notes to Trash now.
