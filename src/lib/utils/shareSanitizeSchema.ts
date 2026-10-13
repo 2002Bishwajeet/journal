@@ -25,5 +25,7 @@ export const sanitizeSchema = {
     protocols: {
         ...defaultSchema.protocols,
         src: [...(defaultSchema.protocols?.src ?? []), 'attachment'],
+        // A note link (#616); SharePage's urlTransform rewrites it to the linked note's share URL.
+        href: [...(defaultSchema.protocols?.href ?? []), 'journal'],
     },
 };
