@@ -45,7 +45,9 @@ describe('service worker navigation fallback', () => {
         '/share/alice.example/',
         '/share/alice.example?ref=note',
         '/share/alice.example/sitemap.xml',
-    ])('lets %s reach the network (author index / sitemap)', (path) => {
+        '/share/alice.example/f/0d8f6f3e-1b2c-4d5e-8f90-123456789abc',
+        '/share/alice.example/f/0d8f6f3e-1b2c-4d5e-8f90-123456789abc/',
+    ])('lets %s reach the network (author index / sitemap / folder page)', (path) => {
         expect(servesShell(path)).toBe(false);
     });
 
