@@ -50,6 +50,16 @@ test('sharing a folder makes its notes public, new notes in it start public, and
   await expect(publicBadge(app, 'Second post')).toHaveCount(1);
   await shot(app, 'shared-folder-indicator', DESKTOP.width);
 
+  // #619: a shared folder shows its public page link, with copy and open buttons.
+  await folderButton(app, FOLDER).click({ button: 'right' });
+  await app.getByRole('menuitem', { name: 'Folder link' }).click();
+  const linkDialog = app.getByRole('dialog', { name: 'Folder link' });
+  await expect(linkDialog.getByRole('textbox', { name: 'Folder link' })).toHaveValue(/\/share\/[^/]+\/f\/[0-9a-f-]{36}$/);
+  await expect(linkDialog.getByRole('button', { name: 'Copy link' })).toBeVisible();
+  await expect(linkDialog.getByRole('button', { name: 'Open in New Tab' })).toBeVisible();
+  await shot(app, 'folder-link-dialog', DESKTOP.width);
+  await app.keyboard.press('Escape');
+
   // The live rule: a note created in the shared folder starts public...
   await createNote(app, { title: 'Third post', body: 'New' });
   await expect(publicBadge(app, 'Third post')).toHaveCount(1);
@@ -77,6 +87,10 @@ test('sharing a folder makes its notes public, new notes in it start public, and
   await folderButton(app, FOLDER).click({ button: 'right' });
   await expect(app.getByRole('menuitem', { name: 'Stop sharing folder' })).toBeVisible();
   await shot(app, 'stop-sharing-folder-menu', MOBILE.width);
+  await app.getByRole('menuitem', { name: 'Folder link' }).click();
+  await shot(app, 'folder-link-dialog', MOBILE.width);
+  await app.keyboard.press('Escape');
+  await folderButton(app, FOLDER).click({ button: 'right' });
   await app.getByRole('menuitem', { name: 'Stop sharing folder' }).click();
 
   const dialog = app.getByRole('dialog');

@@ -27,3 +27,8 @@ export function publicAfterMove(
     const toShared = !!to?.isPublic;
     return fromShared === toShared ? !!wasPublic : toShared;
 }
+
+/** The public page of a shared folder (#619): its notes, newest first, logged out. */
+export function folderShareUrl(origin: string, identity: string, folderId: string): string {
+    return `${origin}/share/${encodeURIComponent(identity)}/f/${folderId}`;
+}
