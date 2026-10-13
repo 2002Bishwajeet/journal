@@ -67,6 +67,18 @@ export async function upsertFolder(id: string, name: string): Promise<void> {
     );
 }
 
+/** Rename a folder locally. Returns false when the folder doesn't exist or the name is empty/unchanged. */
+export async function renameFolder(id: string, name: string): Promise<boolean> {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    const db = await getDatabase();
+    const result = await db.query(
+        'UPDATE folders SET name = $2 WHERE id = $1 AND name <> $2',
+        [id, trimmed]
+    );
+    return (result.affectedRows ?? 0) > 0;
+}
+
 export async function deleteFolder(id: string): Promise<void> {
     // Prevent deleting the Main folder
     if (id === MAIN_FOLDER_ID) {

@@ -134,12 +134,15 @@ export async function pushFolder(ctx: SyncContext, record: SyncRecord): Promise<
     const onVersionConflict = async () => {
         console.warn(`[SyncService] Version conflict detected for folder ${record.localId}, will update`);
 
-        const existingFile = await ctx.folderProvider.getFolder(record.localId, { decrypt: false });
+        const existingFile = await ctx.folderProvider.getFolder(record.localId);
         if (!existingFile) throw new Error('Remote folder not found during conflict resolution');
+        // Keep fields this device doesn't track (colour, ...): only the name comes from local
+        const remote: unknown = existingFile.fileMetadata.appData.content;
+        const remoteContent = (typeof remote === 'string' ? tryJsonParse<FolderFile>(remote) : remote) ?? {};
         return await ctx.folderProvider.updateFolder(
             existingFile.fileId,
             existingFile.fileMetadata.versionTag,
-            folderFile
+            { ...remoteContent, ...folderFile }
         );
     }
 

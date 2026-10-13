@@ -3,6 +3,8 @@ import { useMemo } from 'react';
 import {
     createFolder,
     deleteFolder,
+    renameFolder,
+    getSyncRecord,
     getAllDocIdsByFolder,
     getFolderByName,
     upsertSyncRecord,
@@ -106,6 +108,20 @@ export function useFolders() {
         },
     });
 
+    // Keeps the existing sync record (remote file id, version tag) and re-marks it pending;
+    // pushFolder merges the new name over the remote FolderFile so other fields survive.
+    const renameFolderMutation = useMutation<void, Error, { id: string; name: string }>({
+        mutationFn: async ({ id, name }) => {
+            if (id === MAIN_FOLDER_ID) throw new Error('Cannot rename Main folder');
+            if (!(await renameFolder(id, name))) return;
+            const existing = await getSyncRecord(id);
+            await upsertSyncRecord({
+                ...(existing ?? { localId: id, entityType: 'folder' as const }),
+                syncStatus: 'pending',
+            });
+        },
+    });
+
     // Remote-first: deleting locally before a confirmed remote delete would let
     // the orphaned remote folder/notes resurface on the next pull.
     const deleteFolderMutation = useMutation<void, Error, string>({
@@ -137,6 +153,7 @@ export function useFolders() {
     return {
         get: query,
         createFolder: createFolderMutation,
+        renameFolder: renameFolderMutation,
         deleteFolder: deleteFolderMutation,
     };
 }

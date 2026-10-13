@@ -12,6 +12,7 @@ import {
   Settings,
   LogOut,
   Trash2,
+  Pencil,
   Archive,
   Users,
 } from "lucide-react";
@@ -45,6 +46,7 @@ interface SidebarProps {
   onSelectFolder: (folderId: string) => void;
   onCreateFolder: () => void;
   onDeleteFolder?: (id: string) => void;
+  onRenameFolder?: (id: string) => void;
   onOpenToday?: () => void;
   collaborativeCount?: number;
   onSelectShared?: () => void;
@@ -78,6 +80,7 @@ export default function Sidebar({
   onSelectFolder,
   onCreateFolder,
   onDeleteFolder,
+  onRenameFolder,
   onOpenToday,
   onSearch,
   onSettings,
@@ -319,6 +322,10 @@ export default function Sidebar({
                       </Tooltip>
                     </ContextMenuTrigger>
                     <ContextMenuContent>
+                      <ContextMenuItem onClick={() => onRenameFolder?.(folder.id)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Rename Folder
+                      </ContextMenuItem>
                       <ContextMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={(e) => {
