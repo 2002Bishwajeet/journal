@@ -16,13 +16,16 @@ import {
 
 // Copy of JOURNAL_FILE_TYPE in src/lib/homebase/config.ts.
 export const JOURNAL_FILE_TYPE = 605;
+// Copy of FOLDER_FILE_TYPE in src/lib/homebase/config.ts.
+export const FOLDER_FILE_TYPE = 606;
+export const MAX_FOLDER_PAGE_NOTES = 5;
 export const MAX_INDEX_NOTES = 500;
 const MAX_QUERY_BYTES = 8 * 1024 * 1024;
 const MAX_FOLDER_BYTES = 262144;
 
 // `indexable` is the note's "Hide from search engines" switch: it only decides
 // the sitemap, never the author page (which lists every public note).
-export type IndexNote = { noteId: string; title: string; indexable: boolean; published?: string; modified?: string };
+export type IndexNote = { noteId: string; groupId?: string; title: string; indexable: boolean; published?: string; modified?: string };
 
 // `folder` is set for a shared folder's page (#619): the notes are that folder's.
 export type AuthorIndex = {
@@ -30,7 +33,11 @@ export type AuthorIndex = {
     authorName: string;
     notes: IndexNote[];
     folder?: { id: string; name: string };
+    // The author page's shared folders (#632), each with its notes; `notes` then holds the rest.
+    folders?: IndexFolder[];
 };
+
+export type IndexFolder = { id: string; name: string; notes: IndexNote[] };
 
 export type AuthorPath = { identity: string | null; kind: 'index' | 'sitemap' } | { identity: string | null; kind: 'folder'; folderId: string | null };
 
@@ -79,6 +86,7 @@ function toIndexNote(file: QueryFile, folderId?: string): IndexNote | null {
         const title = (typeof content.title === 'string' && content.title.trim()) || 'Untitled';
         return {
             noteId: appData.uniqueId.toLowerCase(),
+            ...(typeof appData.groupId === 'string' ? { groupId: appData.groupId.toLowerCase() } : {}),
             title: title.slice(0, 200),
             indexable: content.card?.indexable === true,
             published: isoDate(appData.userDate ?? metadata.created),
@@ -110,13 +118,77 @@ async function fetchFolderName(base: string, folderId: string, fetchImpl: typeof
         if (text.length > MAX_FOLDER_BYTES) return null;
         const metadata = (JSON.parse(text) as QueryFile).fileMetadata;
         if (!metadata || metadata.isEncrypted !== false || metadata.appData?.archivalStatus === 2) return null;
-        const raw = metadata.appData?.content;
-        const content = (typeof raw === 'string' ? JSON.parse(raw) : raw ?? {}) as { name?: unknown; isPublic?: unknown };
-        if (content.isPublic !== true || typeof content.name !== 'string' || !content.name.trim()) return null;
-        return content.name.trim().slice(0, 200);
+        return sharedFolderName(metadata.appData?.content);
     } catch {
         return null;
     }
+}
+
+/** A folder file's name when its content says it is shared (`isPublic`) and named. */
+function sharedFolderName(raw: unknown): string | null {
+    const content = (typeof raw === 'string' ? JSON.parse(raw) : raw ?? {}) as { name?: unknown; isPublic?: unknown };
+    if (content.isPublic !== true || typeof content.name !== 'string' || !content.name.trim()) return null;
+    return content.name.trim().slice(0, 200);
+}
+
+/**
+ * The author's shared folders (id and name), from one guest query. Null on any
+ * failure, so the page falls back to the flat list.
+ */
+async function fetchSharedFolders(base: string, fetchImpl: typeof fetch): Promise<{ id: string; name: string }[] | null> {
+    try {
+        const query = new URLSearchParams({
+            alias: JOURNAL_DRIVE_ALIAS,
+            type: JOURNAL_DRIVE_TYPE,
+            fileType: String(FOLDER_FILE_TYPE),
+            fileState: '1',
+            maxRecords: '100',
+            includeMetadataHeader: 'true',
+        });
+        const res = await fetchImpl(`${base}/api/guest/v1/drive/query/batch?${query}`, {
+            redirect: 'manual',
+            signal: AbortSignal.timeout(3000),
+            headers: { accept: 'application/json' },
+        });
+        if (res.status !== 200) return null;
+        const text = await res.text();
+        if (text.length > MAX_QUERY_BYTES) return null;
+        const results = (JSON.parse(text) as { searchResults?: unknown }).searchResults;
+        if (!Array.isArray(results)) return null;
+        const folders: { id: string; name: string }[] = [];
+        for (const file of results as QueryFile[]) {
+            try {
+                const metadata = file.fileMetadata;
+                const appData = metadata?.appData;
+                if (!metadata || !appData || metadata.isEncrypted !== false || appData.archivalStatus === 2) continue;
+                if (typeof appData.uniqueId !== 'string' || !NOTE_ID_RE.test(appData.uniqueId)) continue;
+                const name = sharedFolderName(appData.content);
+                if (name) folders.push({ id: appData.uniqueId.toLowerCase(), name });
+            } catch {
+                // A malformed folder file is skipped.
+            }
+        }
+        return folders;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Splits notes (newest first) into the shared folders that hold them, in the
+ * folders' order, and the rest. Folders without notes are left out.
+ */
+export function groupNotesByFolder(
+    notes: IndexNote[],
+    folders: { id: string; name: string }[],
+): { folders: IndexFolder[]; rest: IndexNote[] } {
+    const byId = new Map<string, IndexFolder>(folders.map((folder) => [folder.id, { ...folder, notes: [] }]));
+    const rest: IndexNote[] = [];
+    for (const note of notes) {
+        const folder = note.groupId ? byId.get(note.groupId) : undefined;
+        (folder ? folder.notes : rest).push(note);
+    }
+    return { folders: [...byId.values()].filter((folder) => folder.notes.length > 0), rest };
 }
 
 /**
@@ -142,7 +214,7 @@ export async function fetchAuthorIndex(
             ordering: 'newestFirst',
         });
         if (folderId) query.set('groupId', folderId);
-        const [queryRes, authorName, folderName] = await Promise.all([
+        const [queryRes, authorName, folderName, sharedFolders] = await Promise.all([
             fetchImpl(`${base}/api/guest/v1/drive/query/batch?${query}`, {
                 redirect: 'manual',
                 signal: AbortSignal.timeout(3000),
@@ -150,6 +222,7 @@ export async function fetchAuthorIndex(
             }),
             fetchAuthorName(`${base}/pub/profile`, fetchImpl),
             folderId ? fetchFolderName(base, folderId, fetchImpl) : undefined,
+            folderId ? undefined : fetchSharedFolders(base, fetchImpl),
         ]);
 
         if (folderId && !folderName) return null;
@@ -165,10 +238,12 @@ export async function fetchAuthorIndex(
             .filter((note): note is IndexNote => note !== null)
             .sort((a, b) => (b.published ?? '').localeCompare(a.published ?? ''))
             .slice(0, MAX_INDEX_NOTES);
+        const grouped = sharedFolders?.length ? groupNotesByFolder(notes, sharedFolders) : null;
         return {
             identity,
             authorName: authorName ?? identity,
-            notes,
+            notes: grouped?.folders.length ? grouped.rest : notes,
+            ...(grouped?.folders.length ? { folders: grouped.folders } : {}),
             ...(folderId && folderName ? { folder: { id: folderId, name: folderName } } : {}),
         };
     } catch {
@@ -176,6 +251,7 @@ export async function fetchAuthorIndex(
     }
 }
 
+const folderUrl = (origin: string, identity: string, folderId: string) => `${origin}/share/${identity}/f/${folderId}`;
 const noteUrl = (origin: string, identity: string, noteId: string) => `${origin}/share/${identity}/${noteId}`;
 
 const formatDate = (iso: string) =>
@@ -204,6 +280,10 @@ li{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-betwee
 li a{font-size:1.125rem;font-weight:600;text-decoration:none}
 li a:hover{text-decoration:underline;text-underline-offset:4px}
 time,.empty{color:var(--muted);font-size:.875rem}
+h2{font-size:1.5rem;line-height:1.3;margin:2rem 0 .75rem;font-weight:700}
+h2:first-of-type{margin-top:0}
+h3{font-size:1.125rem;margin:1.5rem 0 .5rem}
+.more{margin:.5rem 0 0;font-size:.875rem}
 footer{border-top:1px solid var(--border);margin-top:4rem}
 footer p{margin:0;padding:2rem 0;color:var(--muted);font-size:.75rem}
 `;
@@ -219,14 +299,33 @@ export function buildAuthorIndexHtml(index: AuthorIndex, origin: string): string
     const property = (name: string, content: string) => `<meta property="${name}" content="${escapeHtml(content)}" />`;
     const named = (name: string, content: string) => `<meta name="${name}" content="${escapeHtml(content)}" />`;
 
-    const items = notes
-        .map((note) => {
-            const date = note.published
-                ? `<time datetime="${note.published}">${escapeHtml(formatDate(note.published))}</time>`
-                : '';
-            return `<li><a href="${escapeHtml(noteUrl(origin, identity, note.noteId))}">${escapeHtml(note.title)}</a>${date}</li>`;
-        })
-        .join('\n');
+    const list = (items: IndexNote[]) =>
+        `<ol>\n${items
+            .map((note) => {
+                const date = note.published
+                    ? `<time datetime="${note.published}">${escapeHtml(formatDate(note.published))}</time>`
+                    : '';
+                return `<li><a href="${escapeHtml(noteUrl(origin, identity, note.noteId))}">${escapeHtml(note.title)}</a>${date}</li>`;
+            })
+            .join('\n')}\n</ol>`;
+    const folders = index.folders ?? [];
+    const allNotes = [...notes, ...folders.flatMap((f) => f.notes)];
+    let body: string;
+    if (folders.length) {
+        const folderSections = folders
+            .map((f) => {
+                const url = escapeHtml(folderUrl(origin, identity, f.id));
+                const more =
+                    f.notes.length > MAX_FOLDER_PAGE_NOTES
+                        ? `\n<p class="more"><a href="${url}">All ${f.notes.length} notes →</a></p>`
+                        : '';
+                return `<h3><a href="${url}">${escapeHtml(f.name)}</a></h3>\n${list(f.notes.slice(0, MAX_FOLDER_PAGE_NOTES))}${more}`;
+            })
+            .join('\n');
+        body = `<h2 class="serif">Folders</h2>\n${folderSections}${notes.length ? `\n<h2 class="serif">Notes</h2>\n${list(notes)}` : ''}`;
+    } else {
+        body = notes.length ? list(notes) : '<p class="empty">No public notes listed.</p>';
+    }
 
     return `<!doctype html>
 <html lang="en">
@@ -236,7 +335,7 @@ export function buildAuthorIndexHtml(index: AuthorIndex, origin: string): string
 <title>${escapeHtml(title)} · Journal</title>
 ${named('description', description)}
 <link rel="canonical" href="${escapeHtml(pageUrl)}" />
-${notes.some((note) => note.indexable) ? '' : `${named('robots', 'noindex')}\n`}${property('og:type', 'website')}
+${allNotes.some((note) => note.indexable) ? '' : `${named('robots', 'noindex')}\n`}${property('og:type', 'website')}
 ${property('og:site_name', folder ? authorName : 'Journal')}
 ${property('og:title', title)}
 ${property('og:description', description)}
@@ -253,7 +352,7 @@ ${named('twitter:description', description)}
 <main class="wrap">
 <h1 class="serif">${escapeHtml(folder ? folder.name : authorName)}</h1>
 <p class="sub">${folder ? `Shared folder by <a href="${escapeHtml(`${origin}/share/${identity}`)}">${escapeHtml(authorName)}</a>` : `Public notes by ${escapeHtml(identity)}`}</p>
-${notes.length ? `<ol>\n${items}\n</ol>` : '<p class="empty">No public notes listed.</p>'}
+${body}
 </main>
 <footer><div class="wrap"><p>Published by ${escapeHtml(identity)}. Content is the author's own and is not reviewed by Journal.</p></div></footer>
 </body>
@@ -263,6 +362,12 @@ ${notes.length ? `<ol>\n${items}\n</ol>` : '<p class="empty">No public notes lis
 
 /** The indexable notes as a sitemap, with each note's last change as `<lastmod>`. */
 export function buildSitemapXml(index: AuthorIndex, origin: string): string {
+    const folderUrls = (index.folders ?? [])
+        .filter((f) => f.notes.some((note) => note.indexable))
+        .map((f) => {
+            const lastmod = f.notes.map((n) => n.modified ?? n.published ?? '').sort().pop();
+            return `  <url><loc>${escapeHtml(folderUrl(origin, index.identity, f.id))}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</url>`;
+        });
     const urls = index.notes
         .filter((note) => note.indexable)
         .map((note) => {
@@ -272,9 +377,10 @@ export function buildSitemapXml(index: AuthorIndex, origin: string): string {
             }</url>`;
         })
         .join('\n');
+    const all = [...folderUrls, urls].filter(Boolean).join('\n');
     return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls}
+${all}
 </urlset>
 `;
 }
