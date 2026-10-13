@@ -1,3 +1,19 @@
+## [2.11.1](https://github.com/2002Bishwajeet/journal/compare/v2.11.0...v2.11.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **e2e:** wait for the note to load after reload; open table menus on first hover ([#630](https://github.com/2002Bishwajeet/journal/issues/630)) ([0a72f42](https://github.com/2002Bishwajeet/journal/commit/0a72f422b38e6f111e94167f03a27e01bcb9273c))
+* **folders:** recount the share dialog after sharing or stopping ([#631](https://github.com/2002Bishwajeet/journal/issues/631)) ([950612e](https://github.com/2002Bishwajeet/journal/commit/950612e29b80ea0a54c87e02a982ecd899a8bdd8))
+* **folders:** show note count in the share folder dialog's private state ([#631](https://github.com/2002Bishwajeet/journal/issues/631)) ([4bba0df](https://github.com/2002Bishwajeet/journal/commit/4bba0dfe68afe60bd394eeb8ffd03f6b848a3c68))
+* **share:** keep folder notes in the author sitemap ([733b5b6](https://github.com/2002Bishwajeet/journal/commit/733b5b64e3dee109e6d71685acc77b48a548eed9))
+
+
+### Features
+
+* **folders:** Share folder dialog with link and preview; share notes in parallel ([#631](https://github.com/2002Bishwajeet/journal/issues/631)) ([a3a8b1b](https://github.com/2002Bishwajeet/journal/commit/a3a8b1bb3546edaf306747b31e56504315fcbd98))
+* **share:** author page lists shared folders with their notes, then notes shared one by one ([#632](https://github.com/2002Bishwajeet/journal/issues/632)) ([fdd0cd4](https://github.com/2002Bishwajeet/journal/commit/fdd0cd4e77b18e63f527dfc85f573cfb9316250e))
+* **share:** unlisted notes, public by link but off the author and folder pages ([#639](https://github.com/2002Bishwajeet/journal/issues/639)) ([420e890](https://github.com/2002Bishwajeet/journal/commit/420e890d2fa9b5901e114c8e0840bc7fb362ad72))
 # [2.11.0](https://github.com/2002Bishwajeet/journal/compare/v2.10.0...v2.11.0) (2026-10-13)
 
 
