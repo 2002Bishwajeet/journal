@@ -31,6 +31,7 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/yjs-utils', () => ({ extractMarkdownFromYjs: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+import { toast } from 'sonner';
 import ShareDialog from '@/components/modals/ShareDialog';
 
 const NOTE_ID = 'note-1';
@@ -98,5 +99,42 @@ describe('ShareDialog make public', () => {
 
         expect((makeNotePublic.mock.calls as unknown[][])[0][2]).not.toHaveProperty('indexable');
         expect(mutateAsync).not.toHaveBeenCalled();
+    });
+
+    describe('private linked notes', () => {
+        const button = (label: string) => [...document.querySelectorAll('button')].find((b) => b.textContent?.includes(label));
+
+        beforeEach(() => {
+            syncRecord.current = { remoteFileId: 'file-1' };
+            notes.current = [
+                { docId: NOTE_ID, title: 'A', metadata: { shareIndexable: true, linkedNoteIds: ['b', 'c'] } },
+                { docId: 'b', title: 'Private B', metadata: { shareIndexable: true } },
+                { docId: 'c', title: 'Public C', metadata: { shareIndexable: true, isPublic: true } },
+            ] as never;
+        });
+
+        it('asks first and lists only the private linked notes', async () => {
+            await clickMakePublic();
+
+            expect(makeNotePublic).not.toHaveBeenCalled();
+            expect(document.body.textContent).toContain('links to 1 private note');
+            expect(document.body.textContent).toContain('Private B');
+            expect(document.body.textContent).not.toContain('Public C');
+        });
+
+        it('makes the note and the listed notes public with one toast', async () => {
+            await clickMakePublic();
+            await act(async () => { button('Make these public too')?.click(); });
+
+            expect(makeNotePublic.mock.calls.map((c) => (c as unknown[])[0])).toEqual([NOTE_ID, 'b']);
+            expect(toast.success).toHaveBeenCalledTimes(1);
+        });
+
+        it('makes only the note public on Continue anyway', async () => {
+            await clickMakePublic();
+            await act(async () => { button('Continue anyway')?.click(); });
+
+            expect(makeNotePublic.mock.calls.map((c) => (c as unknown[])[0])).toEqual([NOTE_ID]);
+        });
     });
 });
