@@ -30,6 +30,8 @@ export interface PublicCard {
     cardImageKey?: string;
     cardImageFrom?: CardImageFrom;
     indexable?: boolean;
+    /** Public by link only: the Pages Function leaves it off the author page, folder page and sitemap. */
+    unlisted?: boolean;
 }
 
 const TEXT_BLOCKS = new Set(['paragraph', 'blockquote']);
@@ -70,7 +72,7 @@ export function truncateAtWord(text: string, max = 200): string {
 
 export function buildPublicCard(
     yjsBlob: Uint8Array | undefined,
-    meta: Pick<DocumentMetadata, 'shareDescription' | 'shareIndexable'> & { title?: string }
+    meta: Pick<DocumentMetadata, 'shareDescription' | 'shareIndexable' | 'shareUnlisted'> & { title?: string }
 ): PublicCard {
     const card: PublicCard = {};
 
@@ -108,6 +110,7 @@ export function buildPublicCard(
     }
 
     if (meta.shareIndexable === true) card.indexable = true;
+    if (meta.shareUnlisted === true) card.unlisted = true;
     return card;
 }
 
@@ -123,15 +126,17 @@ export function fallbackShareDescription(author: string): string {
 export interface ShareCardPatch {
     shareDescription?: string;
     shareIndexable?: boolean;
+    shareUnlisted?: boolean;
 }
 
 /** Apply a share-dialog edit to note metadata. A blank description is stored as undefined. */
-export function mergeShareCard<T extends Pick<DocumentMetadata, 'shareDescription' | 'shareIndexable'>>(
+export function mergeShareCard<T extends Pick<DocumentMetadata, 'shareDescription' | 'shareIndexable' | 'shareUnlisted'>>(
     metadata: T,
     patch: ShareCardPatch
 ): T {
     const next = { ...metadata };
     if (patch.shareDescription !== undefined) next.shareDescription = patch.shareDescription.trim() || undefined;
     if (patch.shareIndexable !== undefined) next.shareIndexable = patch.shareIndexable;
+    if (patch.shareUnlisted !== undefined) next.shareUnlisted = patch.shareUnlisted || undefined;
     return next;
 }

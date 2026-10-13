@@ -49,6 +49,7 @@ export function noteFileContent(metadata: DocumentMetadata): NoteFileContent {
         isPublic: metadata.isPublic,
         shareDescription: metadata.shareDescription,
         shareIndexable: metadata.shareIndexable,
+        shareUnlisted: metadata.shareUnlisted,
     };
 }
 

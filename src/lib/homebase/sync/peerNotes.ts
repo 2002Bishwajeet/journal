@@ -250,6 +250,7 @@ async function bootstrapCollaborativeNote(
         isPinned: content?.isPinned,
         shareDescription: content?.shareDescription,
         shareIndexable: content?.shareIndexable,
+        shareUnlisted: content?.shareUnlisted,
         isCollaborative: true,
         circleIds: content?.circleIds,
         recipients: content?.recipients,
