@@ -11,6 +11,11 @@ describe('isPublicSharePath', () => {
         expect(isPublicSharePath('/share/bishwajeetparhi.dev/e5b899be')).toBe(true);
     });
 
+    it('matches the author index and a shared folder page (#619)', () => {
+        expect(isPublicSharePath('/share/bishwajeetparhi.dev')).toBe(true);
+        expect(isPublicSharePath('/share/bishwajeetparhi.dev/f/e5b899be-0000-4000-8000-000000000000')).toBe(true);
+    });
+
     it('does not match the authenticated share-target route', () => {
         expect(isPublicSharePath('/share-target')).toBe(false);
     });
