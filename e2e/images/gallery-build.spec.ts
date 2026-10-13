@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote, waitForNoteSaved, screenshotInBothThemes } from '../support/actions';
+import { activeEditor, createNote, reloadNote, waitForNoteSaved, screenshotInBothThemes } from '../support/actions';
 import { makeSolidPng } from '../support/png';
 
 // #603: galleries built by /gallery, by dragging one image beside another (a drop
@@ -149,6 +149,6 @@ test('gallery: reorder by drag and by the toolbar, kept after a reload', async (
 
   // Kept after a reload
   await waitForNoteSaved(app);
-  await app.reload();
+  await reloadNote(app);
   await expect.poll(() => galleryAlts(app)).toEqual(['C', 'A', 'B']);
 });

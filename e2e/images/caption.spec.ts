@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote, waitForNoteSaved, screenshotInBothThemes } from '../support/actions';
+import { activeEditor, createNote, reloadNote, waitForNoteSaved, screenshotInBothThemes } from '../support/actions';
 
 // #583: alt text shows centred under an image by default; a caption replaces it;
 // "Hide caption" removes it. Edits survive a reload.
@@ -33,7 +33,7 @@ test('image caption: alt shows, caption overrides, hide, reload', async ({ app }
 
   // Survives a reload
   await waitForNoteSaved(app);
-  await app.reload();
+  await reloadNote(app);
   await expect(activeEditor(app).getByTestId('image-caption')).toHaveText('Our new logo');
 
   // Hide
@@ -50,7 +50,7 @@ test('image caption: alt shows, caption overrides, hide, reload', async ({ app }
 
   // ...and stays hidden after a reload
   await waitForNoteSaved(app);
-  await app.reload();
+  await reloadNote(app);
   await expect(activeEditor(app).locator('img[alt="Journal logo"]')).toBeVisible();
   await expect(activeEditor(app).getByTestId('image-caption')).toHaveCount(0);
 });

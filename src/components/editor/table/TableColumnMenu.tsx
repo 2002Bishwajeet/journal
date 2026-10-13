@@ -33,13 +33,7 @@ export function TableColumnMenu({ editor }: TableColumnMenuProps) {
   }
 
   const shouldBeOpen = !!(hoveredCell || isMenuHovered || handleOpen);
-  const [prevShouldBeOpen, setPrevShouldBeOpen] = useState(false);
-  if (shouldBeOpen !== prevShouldBeOpen) {
-    setPrevShouldBeOpen(shouldBeOpen);
-    if (shouldBeOpen) {
-      setIsOpen(true);
-    }
-  }
+  const open = shouldBeOpen || isOpen;
 
   // Virtual element for the Menu's reference (based on hovered column)
   const virtualElement = useMemo(() => {
@@ -80,14 +74,18 @@ export function TableColumnMenu({ editor }: TableColumnMenuProps) {
   }, [hoveredCell, activeCell]);
 
   useEffect(() => {
-    if (!shouldBeOpen) {
-      const t = setTimeout(() => setIsOpen(false), 200);
-      return () => clearTimeout(t);
+    if (shouldBeOpen) {
+      // Hover started: stay open through the close delay after it ends.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- latch the open state; the close timer below clears it
+      setIsOpen(true);
+      return;
     }
+    const t = setTimeout(() => setIsOpen(false), 200);
+    return () => clearTimeout(t);
   }, [shouldBeOpen]);
 
   const { refs, floatingStyles } = useFloating({
-    open: isOpen,
+    open,
     placement: 'top',
     middleware: [
         offset(2),
@@ -101,7 +99,7 @@ export function TableColumnMenu({ editor }: TableColumnMenuProps) {
       refs.setPositionReference(virtualElement);
   }, [virtualElement, refs]);
 
-  if (!isOpen || !virtualElement) return null;
+  if (!open || !virtualElement) return null;
 
   return (
     <div 
