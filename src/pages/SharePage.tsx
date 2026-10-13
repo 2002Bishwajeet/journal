@@ -16,7 +16,7 @@ import { GalleryAwareDiv } from '@/components/share/GalleryAwareDiv';
 import { ReaderTaskCheckbox } from '@/components/share/ReaderTaskCheckbox';
 import { LiveBlockAwarePre } from '@/components/share/LiveBlockAwarePre';
 import { LiveBlockStatesContext } from '@/components/share/liveBlockStatesContext';
-import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
+import { shareNoteLinkHref, shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
 import { formatShareDate, showUpdated } from '@/lib/share/articleMeta';
 import 'katex/dist/katex.min.css';
 
@@ -110,8 +110,16 @@ export default function SharePage() {
                         <Markdown
                             remarkPlugins={shareRemarkPlugins}
                             rehypePlugins={shareRehypePlugins}
-                            urlTransform={(url) => (url.startsWith('attachment://') ? url : defaultUrlTransform(url))}
+                            urlTransform={(url) => {
+                                const href = shareNoteLinkHref(url, decodeURIComponent(identity));
+                                return href.startsWith('attachment://') || href.startsWith('/share/') ? href : defaultUrlTransform(href);
+                            }}
                             components={{
+                                // A note link (#616) is an in-app link, same tab.
+                                a: ({ node, href, ...rest }) => {
+                                    void node;
+                                    return href?.startsWith('/share/') ? <Link to={href} {...rest} /> : <a href={href} {...rest} />;
+                                },
                                 blockquote: CalloutAwareBlockquote,
                                 div: GalleryAwareDiv,
                                 pre: LiveBlockAwarePre,

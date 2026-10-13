@@ -202,7 +202,8 @@ export default function Sidebar({
 
         <Separator />
 
-        <ScrollArea className="flex-1 min-h-0">
+        {/* Radix wraps the content in a display:table div that grows to the longest folder name; block keeps names truncating. */}
+        <ScrollArea className="flex-1 min-h-0 [&_[data-slot=scroll-area-viewport]>div]:!block">
           <PullToRefresh onRefresh={handleRefresh} className="min-h-full">
           {collaborativeCount != null && collaborativeCount > 0 && (
             <div className="px-2 pt-2 pb-1">
@@ -292,7 +293,7 @@ export default function Sidebar({
                           <Button
                             variant={isSelected ? "secondary" : "ghost"}
                             className={cn(
-                              "w-full h-10 group relative transition-all duration-200 flex items-center",
+                              "w-full min-w-0 h-10 group relative transition-all duration-200 flex items-center",
                               isCollapsed
                                 ? "justify-center px-0"
                                 : "justify-start px-2",
@@ -310,7 +311,7 @@ export default function Sidebar({
                               )}
                             />
                             {!isCollapsed && (
-                              <span className="text-sm truncate flex-1 text-left">
+                              <span className="text-sm truncate flex-1 text-left" title={folder.name}>
                                 {folder.name}
                               </span>
                             )}
