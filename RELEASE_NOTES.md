@@ -15,6 +15,13 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- A shared note shows "On this page" next to the text. It lists the sections of the note. Select a section to go to it. You can hide the list.
+- On a phone, "On this page" is a list above the text. Open it to see the sections.
+- A link to a section of a shared note opens the note at that section.
+- A shared folder has its own link preview. It shows the folder name, the number of notes and the author.
+
 ### Fixed
 
 - A shared folder's link opens the folder page. Before, the app opened instead of the folder page.
