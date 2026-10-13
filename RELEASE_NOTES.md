@@ -23,6 +23,11 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - On your public page, each shared folder shows in its own box. The box shows the folder name, the number of notes and a link to open the folder.
 
+### Fixed
+
+- You can move a public note to Trash. Before, Journal showed "Couldn't move note to Trash". AI agents can also move public notes to Trash now.
+- You can restore a public note from Trash.
+
 ## 2.11.4 (2026-10-13)
 
 ### New
