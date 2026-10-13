@@ -1,7 +1,7 @@
 import { toast } from 'sonner';
 import { useDotYouClientContext } from '@/components/auth';
 import { useSyncService } from '@/hooks/useSyncService';
-import { setNoteShared } from '@/hooks/useFolderSharing';
+import { refreshFolderCard, setNoteShared } from '@/hooks/useFolderSharing';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { getFolderById, getSearchIndexEntry, setNoteFolderLocal, updateSyncStatus } from '@/lib/db';
 import { publicAfterMove } from '@/lib/share/sharedFolder';
@@ -14,7 +14,7 @@ import { publicAfterMove } from '@/lib/share/sharedFolder';
  */
 export function useMoveNote() {
     const dotYouClient = useDotYouClientContext();
-    const { syncNote } = useSyncService();
+    const { syncNote, syncFolder } = useSyncService();
 
     return async (docId: string, toFolderId: string): Promise<boolean> => {
         const entry = await getSearchIndexEntry(docId);
@@ -51,6 +51,9 @@ export function useMoveNote() {
         // Push the new folder now; if it fails the note stays pending and the next sync retries.
         await updateSyncStatus(docId, 'pending');
         await syncNote(docId).catch((err) => console.warn('[useMoveNote] Push after move failed, will retry:', err));
+
+        // A shared folder's link card shows how many public notes it has.
+        await Promise.all([fromFolderId, toFolderId].map((id) => refreshFolderCard(syncFolder, id)));
 
         if (visibilityFailed) {
             toast.warning(`Moved to ${to.name}, but couldn't make the note ${isPublic ? 'public' : 'private'}.`);

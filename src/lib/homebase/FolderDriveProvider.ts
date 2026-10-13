@@ -13,16 +13,28 @@ import {
     type UpdateInstructionSet,
     type AccessControlList,
     getFileHeader,
+    getPayloadBytes,
     deleteFilesByGroupId
 } from '@homebase-id/js-lib/core';
 import { getRandom16ByteArray } from '@homebase-id/js-lib/helpers';
+import { GetProfileCard } from '@homebase-id/js-lib/public';
 import { tryJsonParse } from '@/lib/utils';
 import {
     JOURNAL_DRIVE,
     FOLDER_FILE_TYPE,
     FOLDER_DATA_TYPE,
+    PAYLOAD_KEY_CARD_IMAGE,
 } from './config';
 import type { FolderFile } from '@/types';
+import { folderCardExcerpt, sameFolderCardFrom, type FolderCard, type FolderCardFrom } from '@/lib/share/folderCard';
+
+/** A new folder card image to store with the folder file, and the content that names it. */
+export interface FolderCardUpload {
+    image: Blob;
+    card: FolderCard;
+}
+
+const cardPayloads = (upload?: FolderCardUpload) => (upload ? [{ key: PAYLOAD_KEY_CARD_IMAGE, payload: upload.image }] : []);
 
 /**
  * A shared folder (#618) is stored Anonymous + unencrypted, so its public page can read
@@ -107,6 +119,7 @@ export class FolderDriveProvider {
         options?: {
             onVersionConflict?: () => void;
             encrypt?: boolean;
+            cardImage?: Blob;
         }
     ): Promise<{ fileId: string; versionTag: string }> {
         // A shared folder is never encrypted, whatever `encrypt` says (mirrors createNote).
@@ -134,7 +147,7 @@ export class FolderDriveProvider {
             this.#dotYouClient,
             instructionSet,
             uploadMetadata,
-            [], [], isEncrypted, options?.onVersionConflict
+            cardPayloads(options?.cardImage && { image: options.cardImage, card: folder.card! }), [], isEncrypted, options?.onVersionConflict
         );
 
         if (!result) {
@@ -157,8 +170,10 @@ export class FolderDriveProvider {
     async updateFolder(
         fileId: string,
         versionTag: string,
-        folder: FolderFile
+        folder: FolderFile,
+        cardImage?: Blob
     ): Promise<{ versionTag: string }> {
+        const upload = cardImage && { image: cardImage, card: folder.card! };
         const isEncrypted = !folder.isPublic;
         // Fetch existing file header to get encryption key
         const existingHeader = await getFileHeader<string>(
@@ -168,7 +183,7 @@ export class FolderDriveProvider {
             { decrypt: false }
         );
         if (existingHeader && existingHeader.fileMetadata.isEncrypted !== isEncrypted) {
-            return this.#reuploadFolder(fileId, folder);
+            return this.#reuploadFolder(fileId, folder, upload);
         }
 
         const uploadMetadata: UploadFileMetadata = {
@@ -198,7 +213,7 @@ export class FolderDriveProvider {
             isEncrypted ? existingHeader?.sharedSecretEncryptedKeyHeader : undefined,
             updateInstructions,
             uploadMetadata,
-            []
+            cardPayloads(upload)
         );
 
         if (!result) {
@@ -213,7 +228,7 @@ export class FolderDriveProvider {
      * for a note: read it decrypted, keep every appData field and every content field
      * `folder` doesn't set (its colour), and write it back over the same file.
      */
-    async #reuploadFolder(fileId: string, folder: FolderFile): Promise<{ versionTag: string }> {
+    async #reuploadFolder(fileId: string, folder: FolderFile, upload?: FolderCardUpload): Promise<{ versionTag: string }> {
         const existing = await getFileHeader<FolderFile>(this.#dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true });
         if (!existing) throw new Error('Failed to update folder: not found');
         const appData = existing.fileMetadata.appData;
@@ -234,7 +249,7 @@ export class FolderDriveProvider {
             storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: fileId },
         };
 
-        const result = await uploadFile(this.#dotYouClient, instructions, uploadMetadata, [], [], isEncrypted);
+        const result = await uploadFile(this.#dotYouClient, instructions, uploadMetadata, cardPayloads(upload), [], isEncrypted);
         if (!result) {
             throw new Error('Failed to update folder');
         }
@@ -267,5 +282,51 @@ export class FolderDriveProvider {
             return null;
 
         }
+    }
+
+    /**
+     * The link card (#644) a push of `folder` stores: null when the one already drawn
+     * (`folder.card`, from the folder's content) shows the same name and count, or when it
+     * can't be drawn here (no canvas, or drawing fails: sharing and renaming carry on).
+     */
+    async drawCardIfStale(folder: FolderFile, count: number, current: FolderCard | undefined): Promise<FolderCardUpload | null> {
+        const from = { name: folder.name, count };
+        if (current && sameFolderCardFrom(current.from, from)) return null;
+        const image = await this.#drawCardImage(from);
+        return image && { image, card: { cardImageKey: PAYLOAD_KEY_CARD_IMAGE, from } };
+    }
+
+    async #drawCardImage(from: FolderCardFrom): Promise<Blob | null> {
+        try {
+            const { canRenderCardImage, renderCardImage } = await import('@/lib/share/cardImage');
+            if (!canRenderCardImage()) return null;
+            const identity = this.#dotYouClient.getHostIdentity();
+            const profile = await GetProfileCard(identity).catch(() => undefined);
+            return await renderCardImage({ title: from.name, excerpt: folderCardExcerpt(from.count), author: profile?.name || identity });
+        } catch (e) {
+            console.warn('[FolderDriveProvider] could not draw the card image', e);
+            return null;
+        }
+    }
+
+    /**
+     * The card the Share folder dialog previews: the uploaded one when it was drawn from
+     * `from`, else the same card drawn here. `fileId` is absent for a folder not pushed yet.
+     */
+    async getCardImage(fileId: string | undefined, from: FolderCardFrom): Promise<Blob | null> {
+        if (fileId) {
+            const header = await getFileHeader<string>(this.#dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: false });
+            const raw: unknown = header?.fileMetadata.appData.content;
+            const content = typeof raw === 'string' ? tryJsonParse<FolderFile>(raw) : (raw as FolderFile | undefined);
+            const payload = header?.fileMetadata.payloads?.find((p) => p.key === PAYLOAD_KEY_CARD_IMAGE);
+            if (payload && sameFolderCardFrom(content?.card?.from, from)) {
+                const data = await getPayloadBytes(this.#dotYouClient, JOURNAL_DRIVE, fileId, PAYLOAD_KEY_CARD_IMAGE, {
+                    decrypt: false,
+                    lastModified: payload.lastModified,
+                });
+                if (data) return new Blob([new Uint8Array(data.bytes)], { type: data.contentType });
+            }
+        }
+        return this.#drawCardImage(from);
     }
 }
