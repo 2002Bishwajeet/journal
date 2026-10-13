@@ -11,6 +11,7 @@ export interface DocumentMetadata {
     isPublic?: boolean;      // Shared via public link (ACL = Anonymous)
     shareDescription?: string; // Owner override for the public link-card description
     shareIndexable?: boolean;  // Owner opt-in: allow search engines to index the public note
+    shareUnlisted?: boolean;   // Public by link only: left off the author page, folder page and sitemap
     linkedNoteIds?: string[]; // docIds this note links to via [[ internal links (powers backlinks)
     archivalStatus?: number; // Homebase ArchivalStatus: 0 active, 2 trashed (Removed)
     // Collaboration fields
@@ -88,6 +89,7 @@ export interface NoteFileContent {
     isPublic?: boolean;      // Shared via public link (ACL = Anonymous)
     shareDescription?: string;
     shareIndexable?: boolean;
+    shareUnlisted?: boolean;
     // Collaboration fields
     isCollaborative?: boolean;
     circleIds?: string[];
