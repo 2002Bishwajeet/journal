@@ -1,3 +1,9 @@
+## [2.11.3](https://github.com/2002Bishwajeet/journal/compare/v2.11.2...v2.11.3) (2026-10-13)
+
+
+### Bug Fixes
+
+* **sidebar:** expand without overshooting; folder letters on the collapsed rail ([8fa389b](https://github.com/2002Bishwajeet/journal/commit/8fa389bd60cf8fce745cf2ffee89ec0a2cd79ec1))
 ## [2.11.2](https://github.com/2002Bishwajeet/journal/compare/v2.11.1...v2.11.2) (2026-10-13)
 
 

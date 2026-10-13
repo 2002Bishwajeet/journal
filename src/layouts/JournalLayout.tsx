@@ -299,7 +299,7 @@ export default function JournalLayout() {
           onDeleteTag={(tag) => {
             deleteTag(tag).catch(() => toast.error("Couldn't delete tag"));
           }}
-          className="w-full h-full"
+          className="h-full"
         />
       </div>
 
