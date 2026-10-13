@@ -1,3 +1,17 @@
+## [2.11.4](https://github.com/2002Bishwajeet/journal/compare/v2.11.3...v2.11.4) (2026-10-13)
+
+
+### Bug Fixes
+
+* **share:** keep a shared folder's card payload when unsharing re-uploads it ([#644](https://github.com/2002Bishwajeet/journal/issues/644)) ([5330280](https://github.com/2002Bishwajeet/journal/commit/5330280215dcfd15cf202a892730657adad6340b))
+* **share:** outline ignores prose list/link styles, visible toggle in dark, 1280px check ([#643](https://github.com/2002Bishwajeet/journal/issues/643)) ([bcc9171](https://github.com/2002Bishwajeet/journal/commit/bcc9171369275cb16af21a0211a558cf37398218))
+* **sw:** let shared folder pages reach the share Function ([273851e](https://github.com/2002Bishwajeet/journal/commit/273851e05490026d034f30540c59bee8655f8296))
+
+
+### Features
+
+* **share:** a link card of its own for each shared folder ([#644](https://github.com/2002Bishwajeet/journal/issues/644)) ([0b847cc](https://github.com/2002Bishwajeet/journal/commit/0b847cc46c59c2cdec2b7c625a9f6cfa720e9800))
+* **share:** add a hideable On this page outline to the share page ([#643](https://github.com/2002Bishwajeet/journal/issues/643)) ([d61f6d8](https://github.com/2002Bishwajeet/journal/commit/d61f6d81b8cec7048010932d485e8dec89dd8f26))
 ## [2.11.3](https://github.com/2002Bishwajeet/journal/compare/v2.11.2...v2.11.3) (2026-10-13)
 
 

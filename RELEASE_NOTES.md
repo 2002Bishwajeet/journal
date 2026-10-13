@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.11.4 (2026-10-13)
+
 ### New
 
 - A shared note shows "On this page" next to the text. It lists the sections of the note. Select a section to go to it. You can hide the list.
