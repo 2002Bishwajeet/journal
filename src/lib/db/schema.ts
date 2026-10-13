@@ -10,7 +10,7 @@ import { MAIN_FOLDER_ID } from '../homebase/config';
 import { SYNC_ERRORS_ACTIVE_INDEX_SQL } from './syncErrorsSchema';
 
 // Bump whenever a new statement is added to runMigrations().
-export const SCHEMA_VERSION = '5';
+export const SCHEMA_VERSION = '6';
 
 // pg_trgm and its GIN indexes. Run on demand by ensureTrigramSearch() in
 // pglite.ts, not at boot (loading the extension costs ~1–2s).
@@ -446,6 +446,15 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     `);
   } catch {
     // Table might already exist
+  }
+
+  // Shared folders (#618): every note in a public folder is public.
+  try {
+    await database.exec(`
+      ALTER TABLE folders ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT FALSE;
+    `);
+  } catch (error) {
+    console.warn('[DB Migration] Could not add folders.is_public column:', error);
   }
 
   // Version history: full-state snapshots taken before compaction (#158). Local only.

@@ -176,7 +176,7 @@ export async function handleRemoteFolder(ctx: SyncContext, remoteFile: HomebaseF
 
     if (!existingRecord) {
         // New folder from remote
-        await upsertFolder(uniqueId, folderName);
+        await upsertFolder(uniqueId, folderName, content.isPublic === true);
         await upsertSyncRecord({
             localId: uniqueId,
             entityType: 'folder',
@@ -188,7 +188,7 @@ export async function handleRemoteFolder(ctx: SyncContext, remoteFile: HomebaseF
         });
     } else {
         // Update existing - remote wins for folders (simple content)
-        await upsertFolder(uniqueId, folderName);
+        await upsertFolder(uniqueId, folderName, content.isPublic === true);
         await markSynced(uniqueId, remoteFile.fileId, remoteFile.fileMetadata.versionTag, undefined, serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader));
     }
 }

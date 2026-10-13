@@ -129,26 +129,34 @@ export async function pushFolder(ctx: SyncContext, record: SyncRecord): Promise<
         name: folder.name,
         isCollaborative: false, // TODO: V2 placeholder
         needsPassword: false,   // TODO: V2 placeholder
+        isPublic: folder.isPublic,
     };
 
-    const onVersionConflict = async () => {
-        console.warn(`[SyncService] Version conflict detected for folder ${record.localId}, will update`);
-
+    // Updates the folder on Homebase over its latest version.
+    const updateExisting = async () => {
         const existingFile = await ctx.folderProvider.getFolder(record.localId);
         if (!existingFile) throw new Error('Remote folder not found during conflict resolution');
         // Keep fields this device doesn't track (colour, ...): only the name comes from local
         const remote: unknown = existingFile.fileMetadata.appData.content;
         const remoteContent = (typeof remote === 'string' ? tryJsonParse<FolderFile>(remote) : remote) ?? {};
-        return await ctx.folderProvider.updateFolder(
+        const updated = await ctx.folderProvider.updateFolder(
             existingFile.fileId,
             existingFile.fileMetadata.versionTag,
             { ...remoteContent, ...folderFile }
         );
-    }
+        return { fileId: existingFile.fileId, ...updated };
+    };
+    const onVersionConflict = async () => {
+        console.warn(`[SyncService] Version conflict detected for folder ${record.localId}, will update`);
+        return updateExisting();
+    };
 
-    const result = await ctx.folderProvider.createFolder(record.localId, folderFile, {
-        onVersionConflict,
-    });
+    // An already-pushed folder is updated: a create with its uniqueId is rejected
+    // (existingFileWithUniqueId), so sharing or renaming it would never reach Homebase.
+    // ponytail: one header fetch per folder push, so remote-only fields (colour) survive.
+    const result = record.remoteFileId
+        ? await updateExisting()
+        : await ctx.folderProvider.createFolder(record.localId, folderFile, { onVersionConflict });
     await markSynced(record.localId, result.fileId, result.versionTag);
 
 }

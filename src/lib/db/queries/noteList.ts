@@ -46,10 +46,13 @@ export function clearNoteListEntryCache(): void {
     noteEntryCache.clear();
 }
 
-export const toFolder = (row: { id: string; name: string; created_at: Date }): Folder => ({
+export type FolderRow = { id: string; name: string; created_at: Date; is_public: boolean };
+
+export const toFolder = (row: FolderRow): Folder => ({
     id: row.id,
     name: row.name,
     createdAt: row.created_at,
+    isPublic: row.is_public,
 });
 
 const PINNED_THEN_MODIFIED = `ORDER BY (metadata->>'isPinned')::boolean DESC NULLS LAST, (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`;
@@ -88,7 +91,7 @@ export const NOTE_COUNTS_SQL = `
 
 export type NoteCountsRow = { trashed: number; archived: number; collaborative: number };
 
-export const FOLDERS_SQL = `SELECT id, name, created_at FROM folders ORDER BY name ASC`;
+export const FOLDERS_SQL = `SELECT id, name, created_at, is_public FROM folders ORDER BY name ASC`;
 
 // Active notes' id → title/folder, for live-resolving internal-link titles.
 // Active-only: links to archived/trashed notes resolve as "broken" rather than

@@ -14,14 +14,13 @@ import {
     FOLDERS_SQL,
     FOLDER_ROW_KEY,
     toFolder,
+    type FolderRow,
 } from '@/lib/db';
 import { getNewId } from '@/lib/utils';
 import { MAIN_FOLDER_ID, COLLABORATIVE_FOLDER_ID } from '@/lib/homebase';
 import { useSyncService } from '@/hooks/useSyncService';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import { useLiveQuery } from './useLiveQuery';
-
-type FolderRow = { id: string; name: string; created_at: Date };
 
 /**
  * Find a folder by name, creating it (with a pending sync record) if absent, and

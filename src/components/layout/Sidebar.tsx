@@ -6,7 +6,9 @@ import {
   ChevronRight,
   CalendarDays,
   FolderOpen,
+  Globe,
   Hash,
+  Lock,
   Plus,
   Search,
   Settings,
@@ -20,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { FEATURES } from "@/lib/featureFlags";
-import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
+import { MAIN_FOLDER_ID, PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import {
   Tooltip,
   TooltipContent,
@@ -38,6 +40,7 @@ import { cn } from "@/lib/utils";
 import type { Folder } from "@/types";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
+import { useFolderSharing } from "@/hooks/useFolderSharing";
 import { OwnerImage } from "@/components/author/AuthorImage";
 
 interface SidebarProps {
@@ -101,6 +104,8 @@ export default function Sidebar({
   const { collapsed, toggle } = useSidebarCollapse();
   const isCollapsed = collapsed.sidebar;
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+  const [folderToUnshare, setFolderToUnshare] = useState<{ id: string; publicNotes: number } | null>(null);
+  const { setFolderShared, countPublicNotes } = useFolderSharing();
   const [tagToDelete, setTagToDelete] = useState<string | null>(null);
   const tagToDeleteCount = tagToDelete ? tagCounts?.[tagToDelete] ?? 0 : 0;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -299,6 +304,7 @@ export default function Sidebar({
                                 "bg-accent text-accent-foreground font-medium hover:bg-accent"
                             )}
                             onClick={() => onSelectFolder(folder.id)}
+                            aria-description={folder.isPublic ? "Shared publicly" : undefined}
                           >
                             <FolderOpen
                               className={cn(
@@ -312,6 +318,9 @@ export default function Sidebar({
                                 {folder.name}
                               </span>
                             )}
+                            {!isCollapsed && folder.isPublic && (
+                              <Globe aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+                            )}
                           </Button>
                         </TooltipTrigger>
                         {isCollapsed && (
@@ -322,10 +331,33 @@ export default function Sidebar({
                       </Tooltip>
                     </ContextMenuTrigger>
                     <ContextMenuContent>
+                      {folder.id !== MAIN_FOLDER_ID && (
                       <ContextMenuItem onClick={() => onRenameFolder?.(folder.id)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Rename Folder
                       </ContextMenuItem>
+                      )}
+                      {folder.id !== MAIN_FOLDER_ID && (folder.isPublic ? (
+                        <ContextMenuItem
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setFolderToUnshare({ id: folder.id, publicNotes: await countPublicNotes(folder.id) });
+                          }}
+                        >
+                          <Lock className="mr-2 h-4 w-4" />
+                          Stop sharing folder
+                        </ContextMenuItem>
+                      ) : (
+                        <ContextMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void setFolderShared(folder.id, true);
+                          }}
+                        >
+                          <Globe className="mr-2 h-4 w-4" />
+                          Share folder
+                        </ContextMenuItem>
+                      ))}
                       <ContextMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={(e) => {
@@ -414,6 +446,19 @@ export default function Sidebar({
           title="Delete Folder?"
           description="Are you sure you want to delete this folder? All notes in this folder will also be permanently deleted. This action cannot be undone."
           confirmText="Delete"
+        />
+
+        <ConfirmDialog
+          isOpen={!!folderToUnshare}
+          onClose={() => setFolderToUnshare(null)}
+          onConfirm={() => {
+            if (folderToUnshare) void setFolderShared(folderToUnshare.id, false);
+          }}
+          title="Stop sharing folder?"
+          description={folderToUnshare
+            ? `${folderToUnshare.publicNotes} ${folderToUnshare.publicNotes === 1 ? "note" : "notes"} will become private, and new notes in this folder will stay private.`
+            : ""}
+          confirmText="Stop sharing"
         />
 
         <ConfirmDialog
