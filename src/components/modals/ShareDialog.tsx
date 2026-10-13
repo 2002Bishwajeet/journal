@@ -128,6 +128,8 @@ export default function ShareDialog({
 
     // The card fields ride on the note's metadata, so a normal push publishes them.
     // Push this note directly: a full sync() is debounced and skipped while another runs.
+    const unlisted = noteMetadata?.shareUnlisted === true;
+
     const saveShareCard = async (patch: ShareCardPatch) => {
         try {
             await setShareCard.mutateAsync({ docId: noteId, ...patch });
@@ -328,19 +330,38 @@ export default function ShareDialog({
 
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0 space-y-1">
+                                            <Label htmlFor="share-listed" className="leading-5">
+                                                Show on my public page
+                                            </Label>
+                                            <p id="share-listed-help" className="text-xs leading-relaxed text-muted-foreground">
+                                                Off keeps the note public by link only, off your author page and folder page.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            id="share-listed"
+                                            aria-describedby="share-listed-help"
+                                            className="mt-0.5"
+                                            checked={!unlisted}
+                                            disabled={isMakingPrivate}
+                                            onCheckedChange={(listed) => saveShareCard({ shareUnlisted: !listed })}
+                                        />
+                                    </div>
+
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="min-w-0 space-y-1">
                                             <Label htmlFor="share-indexable" className="leading-5">
                                                 Hide from search engines
                                             </Label>
                                             <p id="share-indexable-help" className="text-xs leading-relaxed text-muted-foreground">
-                                                Your author page lists it either way. Link previews work either way.
+                                                Link previews work either way. An unlisted note is always hidden from search engines.
                                             </p>
                                         </div>
                                         <Switch
                                             id="share-indexable"
                                             aria-describedby="share-indexable-help"
                                             className="mt-0.5"
-                                            checked={!noteMetadata?.shareIndexable}
-                                            disabled={isMakingPrivate}
+                                            checked={unlisted || !noteMetadata?.shareIndexable}
+                                            disabled={isMakingPrivate || unlisted}
                                             onCheckedChange={(hide) => saveShareCard({ shareIndexable: !hide })}
                                         />
                                     </div>

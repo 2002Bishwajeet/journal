@@ -155,6 +155,21 @@ describe('fetchAuthorIndex', () => {
         });
     });
 
+    it('should drop unlisted notes from the list', async () => {
+        const { impl } = mockFetch({
+            status: 200,
+            body: {
+                searchResults: [
+                    file(1),
+                    file(2, { content: { title: 'Unlisted', card: { indexable: true, unlisted: true } } }),
+                    file(3, { content: { title: 'Explicitly listed', card: { indexable: true, unlisted: false } } }),
+                ],
+            },
+        });
+        const result = await fetchAuthorIndex(IDENTITY, impl);
+        expect(result?.notes.map((n) => n.noteId)).toEqual([id(3), id(1)]);
+    });
+
     it('should query the journal drive as a guest for up to 500 active notes', async () => {
         const { impl, urls } = mockFetch({ status: 200, body: { searchResults: [] } });
         await fetchAuthorIndex(IDENTITY, impl);

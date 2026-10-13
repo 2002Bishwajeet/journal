@@ -25,7 +25,9 @@ const MAX_QUERY_BYTES = 8 * 1024 * 1024;
 const MAX_FOLDER_BYTES = 262144;
 
 // `indexable` is the note's "Hide from search engines" switch: it only decides
-// the sitemap, never the author page (which lists every public note).
+// the sitemap, never the author page (which lists every listed public note;
+// an unlisted note (`card.unlisted`) is dropped everywhere). A folder whose
+// notes are all unlisted is left out of the author page.
 export type IndexNote = { noteId: string; groupId?: string; title: string; indexable: boolean; published?: string; modified?: string };
 
 // `folder` is set for a shared folder's page (#619): the notes are that folder's.
@@ -82,8 +84,10 @@ function toIndexNote(file: QueryFile, folderId?: string): IndexNote | null {
         const raw = appData.content;
         const content = (typeof raw === 'string' ? JSON.parse(raw) : raw ?? {}) as {
             title?: unknown;
-            card?: { indexable?: unknown };
+            card?: { indexable?: unknown; unlisted?: unknown };
         };
+        // Unlisted: public by link only, so it is on no list and not in the sitemap.
+        if (content.card?.unlisted === true) return null;
         const title = (typeof content.title === 'string' && content.title.trim()) || 'Untitled';
         return {
             noteId: appData.uniqueId.toLowerCase(),

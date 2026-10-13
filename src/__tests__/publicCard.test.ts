@@ -98,6 +98,12 @@ describe('buildPublicCard', () => {
         expect(buildPublicCard(new Uint8Array([1, 2, 3]), {})).toEqual({});
     });
 
+    it('sets unlisted only when shareUnlisted is true', () => {
+        expect(buildPublicCard(undefined, { shareUnlisted: true })).toEqual({ unlisted: true });
+        expect(buildPublicCard(undefined, { shareUnlisted: false })).toEqual({});
+        expect(buildPublicCard(undefined, {})).not.toHaveProperty('unlisted');
+    });
+
     it('sets indexable only when shareIndexable is true', () => {
         expect(buildPublicCard(undefined, { shareIndexable: true })).toEqual({ indexable: true });
         expect(buildPublicCard(undefined, { shareIndexable: false })).toEqual({});

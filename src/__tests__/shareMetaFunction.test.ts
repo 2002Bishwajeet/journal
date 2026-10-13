@@ -115,6 +115,14 @@ describe('fetchShareMeta', () => {
         expect(result?.indexable).toBe(false);
     });
 
+    it('should not be indexable when the note is unlisted, even with the search switch on', async () => {
+        const body = (card: object) => headerJson({ content: JSON.stringify({ title: 'T', card }) });
+        const listed = mockFetch({ status: 200, body: body({ indexable: true }) });
+        expect((await fetchShareMeta(IDENTITY, GUID, listed.impl))?.indexable).toBe(true);
+        const unlisted = mockFetch({ status: 200, body: body({ indexable: true, unlisted: true }) });
+        expect((await fetchShareMeta(IDENTITY, GUID, unlisted.impl))?.indexable).toBe(false);
+    });
+
     it('should drop a cover key that is not one of the payloads', async () => {
         const { impl } = mockFetch({
             status: 200,

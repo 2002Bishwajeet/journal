@@ -82,7 +82,7 @@ type HeaderJson = {
 
 type NoteContent = {
     title?: unknown;
-    card?: { description?: unknown; coverKey?: unknown; cardImageKey?: unknown; indexable?: unknown };
+    card?: { description?: unknown; coverKey?: unknown; cardImageKey?: unknown; indexable?: unknown; unlisted?: unknown };
 };
 
 export async function fetchShareMeta(
@@ -143,7 +143,8 @@ export async function fetchShareMeta(
             description,
             coverKey,
             cardImageKey,
-            indexable: card.indexable === true,
+            // An unlisted note is noindex even when its search-engine switch is on.
+            indexable: card.indexable === true && card.unlisted !== true,
             published: isoDate(metadata.appData?.userDate ?? metadata.created),
             modified: isoDate(metadata.updated),
             authorName: authorName ?? identity,
