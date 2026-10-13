@@ -15,6 +15,19 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- "Share folder" opens a window. It shows the folder link and a preview of the link. You can copy the link there.
+- Your public page shows your shared folders and their notes. Notes that you share one by one show below them.
+
+### Changed
+
+- Journal shares the notes in a folder faster. It shares 4 notes at the same time.
+
+### Fixed
+
+- The menu of a table row or column opens the first time that you put the pointer on it.
+
 ## 2.11.0 (2026-10-13)
 
 ### New
