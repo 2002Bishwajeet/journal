@@ -15,6 +15,22 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- You can share a folder. All notes in the folder become public. New notes that you make in the folder are also public.
+- When you stop sharing a folder, all notes in it become private again.
+- A shared folder has a public page that shows a list of its notes. Select "Folder link" in the folder menu to copy the link.
+- You can rename a folder. Right-click the folder and select "Rename Folder".
+- You can move a note to a different folder. Right-click the note and select "Move to folder".
+- A note that you move into a shared folder becomes public. A note that you move out of a shared folder becomes private.
+- When you share a note that links to private notes, Journal shows them. You can make them public too, or continue without them.
+- AI agents that use the Journal MCP make public notes when they write in a shared folder.
+
+### Fixed
+
+- Links to other notes work on shared notes. They open the shared page of the linked note.
+- A long folder name in the sidebar ends with "…". Put the pointer on the name to see all of it.
+
 ## 2.10.0 (2026-10-12)
 
 ### New
