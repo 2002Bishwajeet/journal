@@ -368,7 +368,7 @@ export function buildSitemapXml(index: AuthorIndex, origin: string): string {
             const lastmod = f.notes.map((n) => n.modified ?? n.published ?? '').sort().pop();
             return `  <url><loc>${escapeHtml(folderUrl(origin, index.identity, f.id))}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</url>`;
         });
-    const urls = index.notes
+    const urls = [...index.notes, ...(index.folders ?? []).flatMap((f) => f.notes)]
         .filter((note) => note.indexable)
         .map((note) => {
             const lastmod = note.modified ?? note.published;

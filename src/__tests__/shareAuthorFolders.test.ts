@@ -141,5 +141,6 @@ describe('shared folders on the author page (#632)', () => {
     it('should list the folder page in the sitemap', () => {
         const xml = buildSitemapXml(index({ notes: [], folders: [{ id: fid(1), name: 'Blog', notes: [note(2, fid(1))] }] }), ORIGIN);
         expect(xml).toContain(`<loc>${ORIGIN}/share/${IDENTITY}/f/${fid(1)}</loc>`);
+        expect(xml).toContain(`<loc>${ORIGIN}/share/${IDENTITY}/${id(2)}</loc>`);
     });
 });
