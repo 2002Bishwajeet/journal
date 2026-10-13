@@ -129,6 +129,7 @@ export async function pushFolder(ctx: SyncContext, record: SyncRecord): Promise<
         name: folder.name,
         isCollaborative: false, // TODO: V2 placeholder
         needsPassword: false,   // TODO: V2 placeholder
+        isPublic: folder.isPublic,
     };
 
     const onVersionConflict = async () => {
@@ -143,9 +144,11 @@ export async function pushFolder(ctx: SyncContext, record: SyncRecord): Promise<
         );
     }
 
-    const result = await ctx.folderProvider.createFolder(record.localId, folderFile, {
-        onVersionConflict,
-    });
+    // An already-pushed folder is updated: a create with its uniqueId is rejected
+    // (existingFileWithUniqueId), so sharing or renaming it would never reach Homebase.
+    const result = record.remoteFileId
+        ? { fileId: record.remoteFileId, ...(await ctx.folderProvider.updateFolder(record.remoteFileId, record.versionTag ?? '', folderFile).catch(onVersionConflict)) }
+        : await ctx.folderProvider.createFolder(record.localId, folderFile, { onVersionConflict });
     await markSynced(record.localId, result.fileId, result.versionTag);
 
 }

@@ -11,16 +11,26 @@ import {
     type UploadFileMetadata,
     type UploadInstructionSet,
     type UpdateInstructionSet,
+    type AccessControlList,
     getFileHeader,
     deleteFilesByGroupId
 } from '@homebase-id/js-lib/core';
 import { getRandom16ByteArray } from '@homebase-id/js-lib/helpers';
+import { tryJsonParse } from '@/lib/utils';
 import {
     JOURNAL_DRIVE,
     FOLDER_FILE_TYPE,
     FOLDER_DATA_TYPE,
 } from './config';
 import type { FolderFile } from '@/types';
+
+/**
+ * A shared folder (#618) is stored Anonymous + unencrypted, so its public page can read
+ * its name logged out; every other folder stays Owner-only.
+ */
+const folderAcl = (folder: FolderFile): AccessControlList => ({
+    requiredSecurityGroup: folder.isPublic ? SecurityGroupType.Anonymous : SecurityGroupType.Owner,
+});
 
 /**
  * FolderDriveProvider handles all folder operations with Homebase.
@@ -99,6 +109,8 @@ export class FolderDriveProvider {
             encrypt?: boolean;
         }
     ): Promise<{ fileId: string; versionTag: string }> {
+        // A shared folder is never encrypted, whatever `encrypt` says (mirrors createNote).
+        const isEncrypted = folder.isPublic ? false : (options?.encrypt ?? true);
         const uploadMetadata: UploadFileMetadata = {
             allowDistribution: false,
             appData: {
@@ -108,11 +120,8 @@ export class FolderDriveProvider {
                 userDate: Date.now(),
                 content: JSON.stringify(folder),
             },
-            isEncrypted: options?.encrypt ?? true,
-            accessControlList: {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            },
-
+            isEncrypted,
+            accessControlList: folderAcl(folder),
         };
 
         const instructionSet: UploadInstructionSet = {
@@ -125,7 +134,7 @@ export class FolderDriveProvider {
             this.#dotYouClient,
             instructionSet,
             uploadMetadata,
-            [], [], options?.encrypt ?? true, options?.onVersionConflict
+            [], [], isEncrypted, options?.onVersionConflict
         );
 
         if (!result) {
@@ -142,12 +151,15 @@ export class FolderDriveProvider {
      * Update an existing folder using patchFile.
      * versionTag is required for updates to handle optimistic locking.
      * Fetches existing file header to get encryption key.
+     * Sharing or unsharing it (#618) changes its encryption, which a patch can't do:
+     * that re-uploads it instead (see #reuploadFolder).
      */
     async updateFolder(
         fileId: string,
         versionTag: string,
         folder: FolderFile
     ): Promise<{ versionTag: string }> {
+        const isEncrypted = !folder.isPublic;
         // Fetch existing file header to get encryption key
         const existingHeader = await getFileHeader<string>(
             this.#dotYouClient,
@@ -155,6 +167,9 @@ export class FolderDriveProvider {
             fileId,
             { decrypt: false }
         );
+        if (existingHeader && existingHeader.fileMetadata.isEncrypted !== isEncrypted) {
+            return this.#reuploadFolder(fileId, folder);
+        }
 
         const uploadMetadata: UploadFileMetadata = {
             versionTag,
@@ -166,10 +181,8 @@ export class FolderDriveProvider {
                 content: JSON.stringify(folder),
                 uniqueId: existingHeader?.fileMetadata.appData.uniqueId,
             },
-            isEncrypted: true,
-            accessControlList: {
-                requiredSecurityGroup: SecurityGroupType.Owner,
-            },
+            isEncrypted,
+            accessControlList: folderAcl(folder),
         };
 
         // UpdateLocalInstructionSet for patchFile
@@ -181,12 +194,47 @@ export class FolderDriveProvider {
 
         const result = await patchFile(
             this.#dotYouClient,
-            existingHeader?.sharedSecretEncryptedKeyHeader,
+            // No key header for a shared folder: it is stored unencrypted.
+            isEncrypted ? existingHeader?.sharedSecretEncryptedKeyHeader : undefined,
             updateInstructions,
             uploadMetadata,
             []
         );
 
+        if (!result) {
+            throw new Error('Failed to update folder');
+        }
+
+        return { versionTag: result.newVersionTag };
+    }
+
+    /**
+     * Re-upload a folder file with `folder`'s encryption and ACL, as makeNotePublic does
+     * for a note: read it decrypted, keep every appData field and every content field
+     * `folder` doesn't set (its colour), and write it back over the same file.
+     */
+    async #reuploadFolder(fileId: string, folder: FolderFile): Promise<{ versionTag: string }> {
+        const existing = await getFileHeader<FolderFile>(this.#dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true });
+        if (!existing) throw new Error('Failed to update folder: not found');
+        const appData = existing.fileMetadata.appData;
+        // Content may come back as a string or an already-parsed object.
+        const raw: unknown = appData.content;
+        const existingContent = (typeof raw === 'string' ? tryJsonParse<FolderFile>(raw) : (raw as FolderFile | undefined));
+        const isEncrypted = !folder.isPublic;
+
+        const uploadMetadata: UploadFileMetadata = {
+            versionTag: existing.fileMetadata.versionTag,
+            allowDistribution: false,
+            appData: { ...appData, content: JSON.stringify({ ...existingContent, ...folder }) },
+            isEncrypted,
+            accessControlList: folderAcl(folder),
+        };
+        const instructions: UploadInstructionSet = {
+            transferIv: getRandom16ByteArray(),
+            storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: fileId },
+        };
+
+        const result = await uploadFile(this.#dotYouClient, instructions, uploadMetadata, [], [], isEncrypted);
         if (!result) {
             throw new Error('Failed to update folder');
         }

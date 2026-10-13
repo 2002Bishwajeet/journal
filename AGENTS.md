@@ -391,7 +391,7 @@ Defined in `src/lib/db/schema.ts`: base tables in `initializeSchema()`, later co
 - Indexes: btree on title, GIN on search_vector, expression indexes on `metadata->>'folderId'` and modified time; GIN trigram on title + content is created lazily on first fuzzy search (`ensureTrigramSearch()`)
 
 ### `folders`
-- `id` UUID PK, `name` TEXT, `created_at` TIMESTAMPTZ
+- `id` UUID PK, `name` TEXT, `created_at` TIMESTAMPTZ, `is_public` BOOLEAN (shared folder, #618)
 - Main folder auto-created: `06cf9262-4eae-4276-b0d1-8ca3cf5be6f4`
 
 ### `sync_records` — Local-to-remote mapping
@@ -668,6 +668,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 - The page: `/share/:identity/:noteId` → `src/pages/SharePage.tsx` reads the note with the SDK guest client (`src/lib/providers/ShareProvider.ts`) and renders it as an article: cover (the dark-mode cover in dark mode, read from the Yjs payload), byline, dates, reading time, highlighted code, live blocks (`src/components/share/`, `src/lib/share/`).
 - Link previews: the Pages Function `functions/share/[[path]].ts`, limited to `/share/*` by `public/_routes.json`, fetches the SPA shell through `env.ASSETS` (so `public/_headers` still applies), validates the identity and note id, reads the public header and profile (`functions/_lib/shareMeta.ts`, short timeouts, no redirects) and injects `<title>`, `og:*`, `twitter:*`, `robots` and JSON-LD. Meta is cached 5 min (60 s for misses); any failure serves the plain shell.
 - Author index (#515): the same Function renders `/share/<identity>` (HTML, no client JS) and `/share/<identity>/sitemap.xml` from a guest `drive/query/batch` of the journal drive (`functions/_lib/authorIndex.ts`): every unencrypted, non-trashed note, newest first, up to 500. `card.indexable` ("Hide from search engines") only filters the sitemap; the page is `noindex` when no listed note is indexable. Cached like share meta; any failure is a 404, not the shell. The share header's "More notes" links there.
+- Shared folders (#618): Share folder / Stop sharing folder in a folder's context menu (`useFolderSharing`). The folder's `is_public` flag is local-first and syncs in the folder file (`FolderFile.isPublic`), which `FolderDriveProvider` stores Anonymous + unencrypted while shared (a flip re-uploads it). Sharing then makes each non-trashed note in it public one at a time, as the Share dialog does; a note created in a shared folder starts public (`newNoteShareFields`, `src/lib/share/sharedFolder.ts`: new note, templates, import, MCP `create_note`). No rule on pull or move.
 - Specs: `e2e/publishing/` and `e2e/edge/` (`npm run e2e:edge`, `wrangler pages dev` on `127.0.0.1:8788`).
 
 ## Metadata Schema (JSONB in search_index)

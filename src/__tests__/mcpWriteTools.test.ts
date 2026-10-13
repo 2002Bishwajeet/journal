@@ -403,6 +403,13 @@ describe('write tools: metadata and attribution', () => {
         await createNote(deps, { title: 'T', markdown: 'b', folderId: 'FW', tags: ['a', 'b'] });
         expect(creates[0].metadata.tags).toEqual(['a', 'b']);
     });
+
+    it('create_note in a shared folder creates the note public, as the app does (#618)', async () => {
+        const { deps, creates } = makeDrive();
+        deps.listFolders = async () => FOLDERS.map((f) => (f.id === 'FW' ? { ...f, isPublic: true } : f));
+        await createNote(deps, { title: 'T', markdown: 'b', folderId: 'FW' });
+        expect(creates[0].metadata).toMatchObject({ isPublic: true, shareIndexable: true });
+    });
 });
 
 describe('write tools: create_folder', () => {

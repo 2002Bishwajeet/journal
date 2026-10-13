@@ -18,7 +18,8 @@ export interface NoteSummary {
 
 export interface ReadDeps {
     loadGrants(): Promise<AgentGrants>;
-    listFolders(): Promise<{ id: string; name: string }[]>;
+    /** `isPublic`: a shared folder, whose new notes start public (#618). */
+    listFolders(): Promise<{ id: string; name: string; isPublic?: boolean }[]>;
     listNotes(): Promise<NoteSummary[]>;
     /** With `targets`, a link to a note not in it is only its label in the markdown (#561). */
     getNote(id: string, targets?: readonly LinkTarget[]): Promise<{ summary: NoteSummary; markdown: string } | null>;
