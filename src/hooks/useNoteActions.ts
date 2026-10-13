@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useNotes } from '@/hooks/useNotes';
+import { useMoveNote } from '@/hooks/useMoveNote';
 import { resolveNoteFolderId } from '@/hooks/useFolders';
 import { useDotYouClientContext } from '@/components/auth';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
@@ -38,6 +39,7 @@ export function useNoteActions({
 }: UseNoteActionsOptions) {
     const navigate = useNavigate();
     const dotYouClient = useDotYouClientContext();
+    const moveNote = useMoveNote();
 
     const {
         createNote: { mutateAsync: createNote },
@@ -151,6 +153,13 @@ export function useNoteActions({
             navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
     };
 
+    /** Move a note to another folder; if it's the open note, the URL follows it there. */
+    const moveToFolder = async (id: string, targetFolderId: string) => {
+        if (!(await moveNote(id, targetFolderId)) || noteId !== id) return;
+        const tag = selectedTag ? `?tag=${encodeURIComponent(selectedTag)}` : '';
+        navigate(`/${targetFolderId}/${id}${tag}`, { viewTransition: true });
+    };
+
     const revokeCollaboration = async (note: NoteListEntry | null) => {
         if (!note || !dotYouClient) return;
         try {
@@ -188,6 +197,7 @@ export function useNoteActions({
         moveArchivedToTrash,
         deleteAndSelectNeighbour,
         createAndOpen,
+        moveToFolder,
         revokeCollaboration,
     };
 }

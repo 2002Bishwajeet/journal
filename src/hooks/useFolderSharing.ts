@@ -18,6 +18,52 @@ import { buildPublicCard } from '@/lib/share/publicCard';
 const notes = (n: number) => `${n} ${n === 1 ? 'note' : 'notes'}`;
 
 /**
+ * Make one note public or private, as the Share dialog does (also used when a note moves
+ * into or out of a shared folder, #622). Throws if the server refuses.
+ */
+export async function setNoteShared(
+    provider: NotesDriveProvider,
+    syncNote: (docId: string) => Promise<void>,
+    docId: string,
+    isPublic: boolean
+): Promise<void> {
+    // A note still within its debounced save window isn't on the server yet: push it first.
+    let record = await getSyncRecord(docId);
+    if (!record?.remoteFileId) {
+        await syncNote(docId);
+        record = await getSyncRecord(docId);
+    }
+    const entry = await getSearchIndexEntry(docId);
+    if (!entry) return;
+    // New publishes are indexable unless the owner opted out (as in the Share dialog).
+    const shareFields = isPublic ? { isPublic, shareIndexable: entry.metadata.shareIndexable ?? true } : { isPublic };
+
+    if (!record?.remoteFileId) {
+        // Still not on the server (offline): its first push uploads it with this flag.
+        await updateSearchIndexMetadata(docId, entry.title, { ...entry.metadata, ...shareFields });
+        await updateSyncStatus(docId, 'pending');
+        return;
+    }
+
+    if (!isPublic) {
+        await setNotePublicLocal({ docId, isPublic, rekeyed: await provider.makeNotePrivate(docId, record.remoteFileId) });
+        return;
+    }
+
+    const updates = await getDocumentUpdates(docId);
+    const blob = updates.length > 0 ? Y.mergeUpdates(updates) : undefined;
+    const rekeyed = await provider.makeNotePublic(docId, record.remoteFileId, buildPublicCard(blob, { ...entry.metadata, ...shareFields }));
+    // The re-key is recorded before anything marks the note pending, so no push uses the old key.
+    await setNotePublicLocal({ docId, isPublic, rekeyed });
+    if (entry.metadata.shareIndexable === undefined) {
+        // Persist it so later pushes rebuild the card with the same flag.
+        const current = await getSearchIndexEntry(docId);
+        if (current) await updateSearchIndexMetadata(docId, current.title, { ...current.metadata, shareIndexable: true });
+        await updateSyncStatus(docId, 'pending');
+    }
+}
+
+/**
  * Share a folder, or stop sharing it (#618). The folder's flag is local-first and syncs
  * like its name (its push re-uploads the folder file Anonymous or Owner-only); then
  * every non-trashed note in it is made public or private one at a time, as the Share
@@ -26,43 +72,6 @@ const notes = (n: number) => `${n} ${n === 1 ? 'note' : 'notes'}`;
 export function useFolderSharing() {
     const dotYouClient = useDotYouClientContext();
     const { syncNote, syncFolder } = useSyncService();
-
-    const setNoteShared = async (provider: NotesDriveProvider, docId: string, isPublic: boolean) => {
-        // A note still within its debounced save window isn't on the server yet: push it first.
-        let record = await getSyncRecord(docId);
-        if (!record?.remoteFileId) {
-            await syncNote(docId);
-            record = await getSyncRecord(docId);
-        }
-        const entry = await getSearchIndexEntry(docId);
-        if (!entry) return;
-        // New publishes are indexable unless the owner opted out (as in the Share dialog).
-        const shareFields = isPublic ? { isPublic, shareIndexable: entry.metadata.shareIndexable ?? true } : { isPublic };
-
-        if (!record?.remoteFileId) {
-            // Still not on the server (offline): its first push uploads it with this flag.
-            await updateSearchIndexMetadata(docId, entry.title, { ...entry.metadata, ...shareFields });
-            await updateSyncStatus(docId, 'pending');
-            return;
-        }
-
-        if (!isPublic) {
-            await setNotePublicLocal({ docId, isPublic, rekeyed: await provider.makeNotePrivate(docId, record.remoteFileId) });
-            return;
-        }
-
-        const updates = await getDocumentUpdates(docId);
-        const blob = updates.length > 0 ? Y.mergeUpdates(updates) : undefined;
-        const rekeyed = await provider.makeNotePublic(docId, record.remoteFileId, buildPublicCard(blob, { ...entry.metadata, ...shareFields }));
-        // The re-key is recorded before anything marks the note pending, so no push uses the old key.
-        await setNotePublicLocal({ docId, isPublic, rekeyed });
-        if (entry.metadata.shareIndexable === undefined) {
-            // Persist it so later pushes rebuild the card with the same flag.
-            const current = await getSearchIndexEntry(docId);
-            if (current) await updateSearchIndexMetadata(docId, current.title, { ...current.metadata, shareIndexable: true });
-            await updateSyncStatus(docId, 'pending');
-        }
-    };
 
     const setFolderShared = async (folderId: string, isPublic: boolean) => {
         if (!dotYouClient) {
@@ -82,7 +91,7 @@ export function useFolderSharing() {
             for (const [i, docId] of docIds.entries()) {
                 toast.loading(`Making notes ${target} (${i + 1}/${docIds.length})…`, { id: toastId });
                 try {
-                    await setNoteShared(provider, docId, isPublic);
+                    await setNoteShared(provider, syncNote, docId, isPublic);
                 } catch (err) {
                     console.error(`[useFolderSharing] Failed to make note ${docId} ${target}:`, err);
                     failed++;

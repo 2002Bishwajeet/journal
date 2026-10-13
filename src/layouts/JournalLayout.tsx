@@ -33,6 +33,7 @@ import {
   KeyboardShortcutsModal,
   ExtendPermissionDialog,
 } from "@/components/modals";
+import MoveToFolderDialog from "@/components/modals/MoveToFolderDialog";
 
 const SettingsModal = lazy(() => import("@/components/modals/SettingsModal"));
 const ShareDialog = lazy(() => import("@/components/modals/ShareDialog"));
@@ -135,6 +136,7 @@ export default function JournalLayout() {
   const [revokeNote, setRevokeNote] = useState<NoteListEntry | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [shareNote, setShareNote] = useState<NoteListEntry | null>(null);
+  const [moveNote, setMoveNote] = useState<NoteListEntry | null>(null);
 
   const [searchParams] = useSearchParams();
 
@@ -311,6 +313,7 @@ export default function JournalLayout() {
         isListLoading={isListLoading}
         noteActions={noteActions}
         onShareNote={setShareNote}
+        onMoveToFolder={setMoveNote}
         onMarkCollaborative={(note) => {
           if (note.metadata.isCollaborative) {
             setRevokeNote(note);
@@ -394,6 +397,19 @@ export default function JournalLayout() {
             noteTitle={shareNote.title || "Untitled"}
           />
         </Suspense>
+      )}
+
+      {moveNote && (
+        <MoveToFolderDialog
+          isOpen
+          onClose={() => setMoveNote(null)}
+          noteTitle={moveNote.title || "Untitled"}
+          currentFolderId={moveNote.metadata.folderId}
+          folders={folders}
+          onMove={(targetFolderId) =>
+            void noteActions.moveToFolder(moveNote.docId, targetFolderId)
+          }
+        />
       )}
 
       {collaborativeNote && (
