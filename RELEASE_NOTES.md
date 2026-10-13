@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.11.3 (2026-10-13)
+
 ### Changed
 
 - When you collapse the sidebar, each folder shows the first letter of its name. A dot shows a shared folder.
