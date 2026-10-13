@@ -8,6 +8,7 @@ import {
   FolderOpen,
   Globe,
   Hash,
+  Link2,
   Lock,
   Plus,
   Search,
@@ -35,7 +36,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { ConfirmDialog, SignOutConfirmDialog } from "@/components/modals";
+import { ConfirmDialog, FolderLinkDialog, SignOutConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
 import type { Folder } from "@/types";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -105,6 +106,7 @@ export default function Sidebar({
   const isCollapsed = collapsed.sidebar;
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [folderToUnshare, setFolderToUnshare] = useState<{ id: string; publicNotes: number } | null>(null);
+  const [folderLink, setFolderLink] = useState<{ id: string; name: string } | null>(null);
   const { setFolderShared, countPublicNotes } = useFolderSharing();
   const [tagToDelete, setTagToDelete] = useState<string | null>(null);
   const tagToDeleteCount = tagToDelete ? tagCounts?.[tagToDelete] ?? 0 : 0;
@@ -338,15 +340,26 @@ export default function Sidebar({
                       </ContextMenuItem>
                       )}
                       {folder.id !== MAIN_FOLDER_ID && (folder.isPublic ? (
-                        <ContextMenuItem
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            setFolderToUnshare({ id: folder.id, publicNotes: await countPublicNotes(folder.id) });
-                          }}
-                        >
-                          <Lock className="mr-2 h-4 w-4" />
-                          Stop sharing folder
-                        </ContextMenuItem>
+                        <>
+                          <ContextMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFolderLink({ id: folder.id, name: folder.name });
+                            }}
+                          >
+                            <Link2 className="mr-2 h-4 w-4" />
+                            Folder link
+                          </ContextMenuItem>
+                          <ContextMenuItem
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setFolderToUnshare({ id: folder.id, publicNotes: await countPublicNotes(folder.id) });
+                            }}
+                          >
+                            <Lock className="mr-2 h-4 w-4" />
+                            Stop sharing folder
+                          </ContextMenuItem>
+                        </>
                       ) : (
                         <ContextMenuItem
                           onClick={(e) => {
@@ -447,6 +460,8 @@ export default function Sidebar({
           description="Are you sure you want to delete this folder? All notes in this folder will also be permanently deleted. This action cannot be undone."
           confirmText="Delete"
         />
+
+        <FolderLinkDialog folder={folderLink} onClose={() => setFolderLink(null)} />
 
         <ConfirmDialog
           isOpen={!!folderToUnshare}

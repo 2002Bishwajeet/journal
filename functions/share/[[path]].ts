@@ -4,7 +4,13 @@ import {
     injectShareMeta,
     parseSharePath,
 } from '../_lib/shareMeta';
-import { buildAuthorIndexHtml, buildSitemapXml, fetchAuthorIndex, parseAuthorPath } from '../_lib/authorIndex';
+import {
+    buildAuthorIndexHtml,
+    buildSitemapXml,
+    fetchAuthorIndex,
+    parseAuthorPath,
+    type AuthorPath,
+} from '../_lib/authorIndex';
 import type { ShareContext } from '../_lib/types';
 
 // Serves the SPA shell for /share/* with the note's own title, description,
@@ -12,7 +18,8 @@ import type { ShareContext } from '../_lib/types';
 // the note. Every user agent gets the same bytes. Any failure serves the plain
 // shell: a share link never errors because of this.
 // /share/<identity> and /share/<identity>/sitemap.xml are the author's index
-// instead (#515), rendered here; any failure there is a 404.
+// instead (#515), rendered here; any failure there is a 404. So is
+// /share/<identity>/f/<folderId> (#619), a shared folder's notes.
 export async function onRequest(context: ShareContext): Promise<Response> {
     const { request, env } = context;
     if (request.method !== 'GET' && request.method !== 'HEAD') return context.next();
@@ -49,19 +56,23 @@ export async function onRequest(context: ShareContext): Promise<Response> {
     }
 }
 
-async function serveAuthorIndex(
-    context: ShareContext,
-    { identity, kind }: { identity: string | null; kind: 'index' | 'sitemap' },
-): Promise<Response> {
+const FOLDER_PAGE_TTL = 30;
+
+async function serveAuthorIndex(context: ShareContext, path: AuthorPath): Promise<Response> {
+    const { identity, kind } = path;
+    const folderId = path.kind === 'folder' ? path.folderId : undefined;
     const notFound = () =>
         new Response('Not found', {
             status: 404,
             headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-cache' },
         });
     try {
-        if (!identity) return notFound();
-        const index = await cached(context, `https://share-index.invalid/${identity}`, () =>
-            fetchAuthorIndex(identity, fetch, context.env.HOMEBASE_UPSTREAM_OVERRIDE),
+        if (!identity || folderId === null) return notFound();
+        const key = folderId ? `${identity}/f/${folderId}` : identity;
+        const index = await cached(context, `https://share-index.invalid/${key}`, () =>
+            fetchAuthorIndex(identity, fetch, context.env.HOMEBASE_UPSTREAM_OVERRIDE, folderId),
+            // A folder's list changes as notes move in and out: keep it fresher.
+            folderId ? FOLDER_PAGE_TTL : undefined,
         );
         if (!index) return notFound();
 
@@ -79,8 +90,13 @@ async function serveAuthorIndex(
     }
 }
 
-/** `load()`, cached for 5 min (60 s for a null). */
-async function cached<T extends object>(context: ShareContext, key: string, load: () => Promise<T | null>): Promise<T | null> {
+/** `load()`, cached for `ttl` seconds (5 min by default; 60 s for a null). */
+async function cached<T extends object>(
+    context: ShareContext,
+    key: string,
+    load: () => Promise<T | null>,
+    ttl = 300,
+): Promise<T | null> {
     // The Cache API may be unavailable (e.g. on *.pages.dev); that must not matter.
     const cache = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
     const request = new Request(key);
@@ -103,7 +119,7 @@ async function cached<T extends object>(context: ShareContext, key: string, load
                     .put(
                         request,
                         new Response(JSON.stringify(value ?? { missing: true }), {
-                            headers: { 'cache-control': value ? 'max-age=300' : 'max-age=60' },
+                            headers: { 'cache-control': value ? `max-age=${ttl}` : 'max-age=60' },
                         }),
                     )
                     .catch(() => undefined),
