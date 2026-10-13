@@ -23,9 +23,15 @@ async function shot(page: Page, what: string, width: number) {
 }
 
 async function openPicker(page: Page, title: string, width: number, shoot: boolean) {
-  await noteRow(page, title).click({ button: 'right' });
+  // Right-click near the row's left edge: Radix only shifts a side=right menu on the y axis, so a
+  // click at the row centre pushes the w-64 menu off a 390px viewport.
+  await noteRow(page, title).click({ button: 'right', position: { x: 12, y: 12 } });
   const item = page.getByRole('menuitem', { name: 'Move to folder…' });
   await expect(item).toBeVisible();
+  const box = await page.getByRole('menu').boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(width);
   if (shoot) await shot(page, 'move-note-menu', width);
   await item.click();
   const dialog = page.getByRole('dialog');
