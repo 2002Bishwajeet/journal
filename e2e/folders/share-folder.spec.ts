@@ -112,6 +112,8 @@ test('sharing a folder makes its notes public, new notes in it start public, and
   // Back to Private in the same dialog.
   const again = app.getByRole('dialog', { name: 'Share Folder' });
   await expect(again.getByRole('button', { name: 'Share folder', exact: true })).toBeVisible();
+  // Counted after the notes went private, not before.
+  await expect(again).toContainText('3 notes in this folder will become public');
   await shot(app, 'share-folder-dialog-private', MOBILE.width);
   await app.keyboard.press('Escape');
   await expect(folderButton(app, FOLDER)).not.toHaveAttribute('aria-description');
