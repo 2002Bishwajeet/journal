@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { assertTestOrigin } from './origin-guard';
+import { waitForAppReady } from '../fixtures';
 
 // Previously open notes stay mounted as background tabs (so switching tabs is
 // instant), each with its own title input and `.ProseMirror`. Both a
@@ -180,4 +181,11 @@ export async function screenshotInBothThemes(
         await settle?.(theme);
         await page.screenshot({ ...options, path: test.info().outputPath(fileName(theme)) });
     });
+}
+
+/** Reload, wait for the app to boot (CI takes ~6-7s) and for the note's editor to show. */
+export async function reloadNote(page: Page): Promise<void> {
+    await page.reload();
+    await waitForAppReady(page);
+    await expect(activeEditor(page)).toBeVisible({ timeout: 15_000 });
 }

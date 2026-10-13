@@ -324,6 +324,7 @@ test('editor: the block is labelled and its toggles stay in view, with the point
 
 // One note, checked in light and then in dark.
 test('editor: a note of every kind of block has no card around any of them', async ({ app }) => {
+  test.slow(); // ~32s on CI against the 30s default
   await app.emulateMedia({ colorScheme: 'light' });
   await app.setViewportSize(VIEWPORTS[1280]);
   await createNote(app, { title: `Blend ${Date.now()}`, body: PARAGRAPH });
