@@ -10,7 +10,7 @@
  * Reposition moves the cover the current theme shows.
  */
 
-import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent, type PointerEvent } from "react";
 import { ImagePlus, Moon, Move, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,8 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
   // Position shown while a drag is in progress; null otherwise.
   const [dragY, setDragY] = useState<number | null>(null);
   const dragStart = useRef<{ clientY: number; positionY: number } | null>(null);
+  // A file is being dragged over the cover (or the Add cover row).
+  const [dropping, setDropping] = useState(false);
 
   const isPeerNote = !!metadata.authorOdinId && metadata.authorOdinId !== getIdentity();
 
@@ -81,15 +83,44 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
     fileInputRef.current?.click();
   };
 
+  const setCover = (file: File, variant: CoverVariant) => {
+    setCoverFromFile(file, variant)
+      .then(() => hintIfSmall(file))
+      .catch((err: Error) => toast.error(err.message));
+  };
+
   const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     // Reset so picking the same file again still fires a change.
     e.target.value = "";
-    if (!file) return;
-    setCoverFromFile(file, pickingFor.current)
-      .then(() => hintIfSmall(file))
-      .catch((err: Error) => toast.error(err.message));
+    if (file) setCover(file, pickingFor.current);
   };
+
+  // Drop an image file to set the cover the current theme shows. Only file drags are
+  // taken, so text or a note image dragged across the cover is left alone.
+  const dropHandlers = (variant: CoverVariant) => ({
+    onDragOver: (e: DragEvent<HTMLDivElement>) => {
+      if (!e.dataTransfer.types.includes("Files")) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      setDropping(true);
+    },
+    onDragLeave: (e: DragEvent<HTMLDivElement>) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false);
+    },
+    onDrop: (e: DragEvent<HTMLDivElement>) => {
+      if (!e.dataTransfer.types.includes("Files")) return;
+      e.preventDefault();
+      setDropping(false);
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        toast.error("Drop an image file to use it as the cover.");
+        return;
+      }
+      setCover(file, variant);
+    },
+  });
 
   const fileInput = (
     <input
@@ -105,7 +136,12 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
   if (!cover) {
     if (isPeerNote) return null;
     return (
-      <div className="px-4 pt-3">
+      <div className="px-4 pt-3" {...dropHandlers("light")}>
+        {dropping && (
+          <div className="pointer-events-none mb-2 flex h-40 items-center justify-center rounded-md border-2 border-dashed border-primary/60 bg-muted text-sm text-muted-foreground sm:h-56">
+            Drop image to add a cover
+          </div>
+        )}
         <Button
           type="button"
           variant="ghost"
@@ -114,7 +150,7 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
           onClick={() => pickFile("light")}
           className={cn(
             "text-xs text-muted-foreground transition-opacity duration-200",
-            !isTouch && "opacity-0 focus-visible:opacity-100 group-hover/header:opacity-100",
+            !isTouch && !dropping && "opacity-0 focus-visible:opacity-100 group-hover/header:opacity-100",
           )}
         >
           <ImagePlus />
@@ -162,6 +198,7 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
+      {...(isPeerNote || repositioning ? {} : dropHandlers(themeVariant))}
       className={cn(
         "group relative h-40 w-full overflow-hidden bg-muted sm:h-56",
         repositioning && "cursor-grab touch-none select-none active:cursor-grabbing",
@@ -195,6 +232,14 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
           />
         )}
       </div>
+
+      {dropping && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center border-2 border-dashed border-primary/60 bg-black/40">
+          <span className="rounded bg-black/60 px-2 py-1 text-xs text-white">
+            {themeVariant === "dark" ? "Drop image to replace the dark mode cover" : "Drop image to replace the cover"}
+          </span>
+        </div>
+      )}
 
       {repositioning && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

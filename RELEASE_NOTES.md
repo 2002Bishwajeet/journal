@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- You can drag an image onto a note to set its cover. Drop it on the cover to replace the cover.
+
 ### Changed
 
 - On your public page, each shared folder shows in its own box. The box shows the folder name, the number of notes and a link to open the folder.
