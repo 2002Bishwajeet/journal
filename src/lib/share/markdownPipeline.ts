@@ -175,6 +175,46 @@ function rehypeSingleClobberPrefix() {
   };
 }
 
+/** A heading's text as an id: lowercase, spaces to `-`, other punctuation dropped; `section` when nothing is left. */
+export function slugifyHeading(text: string): string {
+    const slug = text
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/[^\p{L}\p{N}_-]/gu, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+    return slug || 'section';
+}
+
+/**
+ * Gives every `h2`-`h4` without an id a slug id (#643), `-2`, `-3` on repeats. Runs after the
+ * sanitizer so the ids aren't prefixed; a heading that already has one (the footnotes label) keeps it.
+ */
+export function rehypeHeadingIds() {
+    return (tree: Root) => {
+        const used = new Set<string>();
+        const headings: Element[] = [];
+        const walk = (parent: Root | Element) => {
+            for (const child of parent.children) {
+                if (child.type !== 'element') continue;
+                if (/^h[2-4]$/.test(child.tagName)) headings.push(child);
+                walk(child);
+            }
+        };
+        walk(tree);
+        for (const h of headings) if (typeof h.properties.id === 'string') used.add(h.properties.id);
+        for (const h of headings) {
+            if (typeof h.properties.id === 'string') continue;
+            const base = slugifyHeading(textOf(h));
+            let id = base;
+            for (let n = 2; used.has(id); n++) id = `${base}-${n}`;
+            used.add(id);
+            h.properties.id = id;
+        }
+    };
+}
+
 const NOTE_LINK_HREF = /^journal:note\/([\w-]+)$/;
 
 /**
@@ -197,6 +237,7 @@ export const shareRehypePlugins: Options['rehypePlugins'] = [
     [rehypeSanitize, sanitizeSchema],
     rehypeRestoreCodeMeta,
     rehypeSingleClobberPrefix,
+    rehypeHeadingIds,
     rehypeGalleryRows,
     rehypeDropEmptyThead,
     rehypeLowlight,

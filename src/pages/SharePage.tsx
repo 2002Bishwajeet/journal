@@ -1,8 +1,10 @@
-import type { CSSProperties } from 'react';
+import { useRef, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSharePage } from '@/hooks/useSharePage';
+import { useShareOutline } from '@/hooks/useShareOutline';
+import { ShareOutline } from '@/components/share/ShareOutline';
 import { ShareHeader } from '@/components/share/ShareHeader';
 import { ShareFooter } from '@/components/share/ShareFooter';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -26,6 +28,8 @@ import 'katex/dist/katex.min.css';
 export default function SharePage() {
     const { identity, noteId, note, isLoading, error, author, readingMinutes, cover } = useSharePage();
     useDocumentTitle(note?.title ?? 'Shared note');
+    const articleRef = useRef<HTMLElement>(null);
+    const outline = useShareOutline(articleRef, note?.content ?? '');
 
     if (isLoading) {
         return (
@@ -86,7 +90,7 @@ export default function SharePage() {
                     </div>
                 )}
                 {/* `share-article`: see src/index.css, "Share page". */}
-                <article className="share-article prose prose-neutral dark:prose-invert max-w-none">
+                <article ref={articleRef} className="share-article prose relative prose-neutral dark:prose-invert max-w-none">
                     <h1>{note.title}</h1>
                     <div className="not-prose mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                         <Avatar className="h-8 w-8">
@@ -105,6 +109,8 @@ export default function SharePage() {
                         )}
                         {readingMinutes > 0 && <span>· {readingMinutes} min read</span>}
                     </div>
+
+                    <ShareOutline headings={outline.headings} activeId={outline.activeId} hidden={outline.hidden} onToggleHidden={outline.toggleHidden} />
 
                     <LiveBlockStatesContext.Provider value={note.blockStates ?? {}}>
                         <Markdown
