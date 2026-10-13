@@ -171,6 +171,19 @@ test('html block: the frame cannot reach the network, storage, the parent docume
   expect(await app.evaluate(() => localStorage.getItem('e2e-secret'))).toBe('storage-value');
 });
 
+test('html block: a clicked web link opens in a new tab, and the frame stays put', async ({ app }) => {
+  const url = 'https://example.com/linked';
+  // Answered here, so the new tab never meets the fixture's network fence.
+  await app.context().route(url, (route) => route.fulfill({ contentType: 'text/html', body: 'linked page' }));
+  const frame = await previewProbe(app, `<p id="ran">ready</p><a href="${url}">Open</a>`);
+  await expect(frame.locator('#ran')).toHaveText('ready');
+
+  const [tab] = await Promise.all([app.context().waitForEvent('page'), frame.getByRole('link', { name: 'Open' }).click()]);
+  await expect(tab).toHaveURL(url);
+  // The block's page did not navigate away.
+  await expect(frame.locator('#ran')).toHaveText('ready');
+});
+
 test('html block: an external image does not load', async ({ app }) => {
   const frame = await previewProbe(app);
 

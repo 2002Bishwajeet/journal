@@ -87,6 +87,16 @@ const STORAGE_SCRIPT =
   '} };' +
   '})();</script>';
 
+// A sandboxed frame can't open a tab, so a click on a web or mail link asks the app to open it.
+// Any other link (an in-page `#anchor`) behaves as before.
+const LINK_SCRIPT =
+  "<script>addEventListener('click', function (event) {" +
+  "var link = event.target.closest && event.target.closest('a[href]');" +
+  'if (!link || !/^(https?|mailto):$/.test(link.protocol)) return;' +
+  'event.preventDefault();' +
+  "parent.postMessage({ journalLiveBlock: 1, link: link.href }, '*');" +
+  '});</script>';
+
 /** The theme tokens an `html` block's frame gets as `:root` variables, under the app's own names. */
 export const FRAME_TOKENS = [
   '--background',
@@ -169,7 +179,7 @@ export function buildSrcdoc(source: string, theme: FrameTheme): string {
     'table{border-collapse:collapse}' +
     'th,td{border:1px solid var(--border);padding:0.5rem 0.75rem;text-align:left}' +
     'img{max-width:100%}';
-  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${STORAGE_SCRIPT}${source}${HEIGHT_REPORT_SCRIPT}`;
+  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${STORAGE_SCRIPT}${source}${HEIGHT_REPORT_SCRIPT}${LINK_SCRIPT}`;
 }
 
 // A script's text ends at the first `</script`, and `<!--` can move that end. `\x3C` is `<`
@@ -279,4 +289,21 @@ export function storageRequestFromMessage(event: Pick<MessageEvent<unknown>, 'so
   if (data?.journalLiveBlock !== 1 || (data.storage !== 'get' && data.storage !== 'set')) return null;
   if (typeof data.request !== 'number' || !Number.isFinite(data.request)) return null;
   return { request: data.request, storage: data.storage, key: data.key, value: data.value };
+}
+
+/**
+ * The link a block's own frame asks the app to open, from a `message` event, or null for
+ * anything else. The source is untrusted, so only http(s) and mailto URLs pass: never a
+ * `javascript:` one. The browser still blocks the tab unless the user just clicked.
+ */
+export function linkFromMessage(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null): string | null {
+  if (!frame || event.source !== frame) return null;
+  const data = event.data as { journalLiveBlock?: unknown; link?: unknown } | null | undefined;
+  if (data?.journalLiveBlock !== 1 || typeof data.link !== 'string') return null;
+  try {
+    const url = new URL(data.link);
+    return ['http:', 'https:', 'mailto:'].includes(url.protocol) ? url.href : null;
+  } catch {
+    return null;
+  }
 }
