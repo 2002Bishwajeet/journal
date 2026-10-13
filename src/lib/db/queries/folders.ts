@@ -46,6 +46,18 @@ export async function upsertFolder(id: string, name: string, isPublic = false): 
     );
 }
 
+/** Rename a folder locally. Returns false when the folder doesn't exist or the name is empty/unchanged. */
+export async function renameFolder(id: string, name: string): Promise<boolean> {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    const db = await getDatabase();
+    const result = await db.query(
+        'UPDATE folders SET name = $2 WHERE id = $1 AND name <> $2',
+        [id, trimmed]
+    );
+    return (result.affectedRows ?? 0) > 0;
+}
+
 /** Share or unshare a folder locally (#618); the caller marks it pending so the flag syncs. */
 export async function setFolderPublicLocal(id: string, isPublic: boolean): Promise<void> {
     const db = await getDatabase();
