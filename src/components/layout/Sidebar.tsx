@@ -119,7 +119,8 @@ export default function Sidebar({
         aria-label="Sidebar"
         className={cn(
           "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 overflow-hidden pt-[env(safe-area-inset-top)]",
-          isCollapsed ? "w-14 items-center" : "w-full md:w-60", // Centered items when collapsed
+          // Fixed widths on desktop, so the width transition runs between two lengths, not from a percentage.
+          isCollapsed ? "w-full md:w-14 items-center" : "w-full md:w-60", // Centered items when collapsed
           className
         )}
       >
@@ -277,6 +278,7 @@ export default function Sidebar({
               </Tooltip>
             </div>
 
+            {isCollapsed && <Separator className="mx-auto mb-2 w-8!" />}
             <nav
               id="sidebar-folders"
               aria-label="Folders"
@@ -301,15 +303,28 @@ export default function Sidebar({
                                 "bg-accent text-accent-foreground font-medium hover:bg-accent"
                             )}
                             onClick={() => onSelectFolder(folder.id)}
+                            aria-label={isCollapsed ? folder.name : undefined}
                             aria-description={folder.isPublic ? "Shared publicly" : undefined}
                           >
-                            <FolderOpen
-                              className={cn(
-                                "h-4 w-4 shrink-0",
-                                !isCollapsed && "mr-2",
-                                isSelected && "text-primary"
-                              )}
-                            />
+                            {isCollapsed ? (
+                              // Collapsed, every folder icon would look the same: show its first letter instead.
+                              <span
+                                aria-hidden
+                                className={cn(
+                                  "relative flex size-7 shrink-0 items-center justify-center rounded-md border border-sidebar-border text-xs font-semibold uppercase text-muted-foreground",
+                                  isSelected && "border-primary bg-primary text-primary-foreground"
+                                )}
+                              >
+                                {Array.from(folder.name.trim())[0] ?? "?"}
+                                {folder.isPublic && (
+                                  <span className="absolute -right-1 -top-1 size-2 rounded-full bg-primary ring-2 ring-sidebar" />
+                                )}
+                              </span>
+                            ) : (
+                              <FolderOpen
+                                className={cn("h-4 w-4 shrink-0 mr-2", isSelected && "text-primary")}
+                              />
+                            )}
                             {!isCollapsed && (
                               <span className="text-sm truncate flex-1 text-left" title={folder.name}>
                                 {folder.name}
@@ -322,7 +337,7 @@ export default function Sidebar({
                         </TooltipTrigger>
                         {isCollapsed && (
                           <TooltipContent side="right">
-                            {folder.name}
+                            {folder.name}{folder.isPublic ? " · Shared" : ""}
                           </TooltipContent>
                         )}
                       </Tooltip>
