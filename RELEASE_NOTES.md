@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- You can drag an image onto a note to set its cover. Drop it on the cover to replace the cover.
+
 ## 2.11.4 (2026-10-13)
 
 ### New
