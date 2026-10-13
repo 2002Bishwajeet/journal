@@ -42,7 +42,8 @@ test('rename a folder from the sidebar menu', async ({ app }) => {
   for (const vp of viewports) {
     await app.setViewportSize({ width: vp.width, height: vp.height });
     // Mobile shows the sidebar only at the root, so step back out of the folder view.
-    if (vp.name === 'mobile') await app.getByRole('button').first().click();
+    if (vp.name === 'mobile') await app.getByRole('button', { name: 'Back to notes' }).click();
+    await expect(foldersNav(app).getByRole('button', { name: 'Trips', exact: true })).toBeVisible();
     for (const scheme of ['light', 'dark'] as const) {
       await app.emulateMedia({ colorScheme: scheme });
       await openRename(app, 'Trips');
