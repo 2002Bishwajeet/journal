@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import { Copy, ExternalLink, Check, Eye, Loader2, Globe, Lock, type LucideIcon } from 'lucide-react';
+import { Copy, ExternalLink, Check, Eye, Loader2, Globe, Lock, Link2, type LucideIcon } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -18,11 +18,11 @@ import { useDotYouClientContext } from '@/components/auth';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { useNotes } from '@/hooks/useNotes';
 import { useSyncService } from '@/hooks/useSyncService';
+import { useMakeNotesPublic } from '@/hooks/useMakeNotesPublic';
 import { useShareCardPreview } from '@/hooks/useShareCardPreview';
 import { useShareCardImage } from '@/hooks/useShareCardImage';
-import * as Y from 'yjs';
-import { getDocumentUpdates, getSyncRecord } from '@/lib/db';
-import { buildPublicCard, type ShareCardPatch } from '@/lib/share/publicCard';
+import { getSyncRecord } from '@/lib/db';
+import type { ShareCardPatch } from '@/lib/share/publicCard';
 import { toast } from 'sonner';
 
 // Focus returns to the note row on close. The dialog opens from the row's context menu,
@@ -55,11 +55,11 @@ export default function ShareDialog({
     const dotYouClient = useDotYouClientContext();
     const { get, setNotePublic, setShareCard } = useNotes();
     const { syncNote } = useSyncService();
+    const { privateLinks, isMakingPublic, makePublic } = useMakeNotesPublic(noteId);
     const cardPreview = useShareCardPreview(noteId);
     const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     const [copied, setCopied] = useState(false);
-    const [isMakingPublic, setIsMakingPublic] = useState(false);
     const [isMakingPrivate, setIsMakingPrivate] = useState(false);
 
     // Derived from the cached note metadata (kept current by make-public/private),
@@ -96,42 +96,12 @@ export default function ShareDialog({
         controlsRef.current?.querySelector<HTMLElement>('input, button:enabled')?.focus();
     }, [isPublic, isMakingPublic, isMakingPrivate]);
 
-    const handleMakePublic = async () => {
-        if (!dotYouClient) {
-            toast.error('Not authenticated');
-            return;
-        }
-
-        setIsMakingPublic(true);
-        try {
-            const provider = new NotesDriveProvider(dotYouClient);
-            // Pass the synced fileId: a just-created note's uniqueId lookup can 404 (#293)
-            let record = await getSyncRecord(noteId);
-            // A note shared within its debounced save window isn't on the server yet: push it first.
-            if (!record?.remoteFileId) {
-                await syncNote(noteId);
-                record = await getSyncRecord(noteId);
-            }
-            const updates = await getDocumentUpdates(noteId);
-            const blob = updates.length > 0 ? Y.mergeUpdates(updates) : undefined;
-            const metadata = get.data?.find((n) => n.docId === noteId)?.metadata;
-            // New publishes are indexable unless the owner opts out; a stored value is kept as is.
-            const publishIndexable = metadata?.shareIndexable ?? true;
-            const rekeyed = await provider.makeNotePublic(
-                noteId,
-                record?.remoteFileId,
-                buildPublicCard(blob, { ...metadata, shareIndexable: publishIndexable })
-            );
-            // Persist it so later pushes rebuild the card with the same flag.
-            if (metadata?.shareIndexable === undefined) await setShareCard.mutateAsync({ docId: noteId, shareIndexable: true });
-            setNotePublic.mutate({ docId: noteId, isPublic: true, rekeyed });
-            toast.success('Note is now publicly accessible');
-        } catch (err) {
-            console.error('Failed to make note public:', err);
-            toast.error('Failed to make note public');
-        } finally {
-            setIsMakingPublic(false);
-        }
+    // Clicking Make Note Public with private linked notes asks about them first.
+    const [askingAboutLinks, setAskingAboutLinks] = useState(false);
+    const showLinksStep = askingAboutLinks && privateLinks.length > 0;
+    const handleMakePublic = async (withLinks = false) => {
+        setAskingAboutLinks(false);
+        await makePublic(withLinks ? privateLinks.map((n) => n.docId) : []);
     };
 
     const handleMakePrivate = async () => {
@@ -244,10 +214,32 @@ export default function ShareDialog({
                                         Making this note public will allow anyone with the link to view it.
                                     </Notice>
 
+                                    {showLinksStep ? (
+                                        <div className="flex flex-col gap-3" role="group" aria-labelledby="share-links-heading">
+                                            <Notice id="share-links-heading" icon={Link2}>
+                                                This note links to {privateLinks.length} private {privateLinks.length === 1 ? 'note' : 'notes'}. Readers won't be able to open {privateLinks.length === 1 ? 'it' : 'them'}.
+                                            </Notice>
+                                            <ul className="flex flex-col gap-1 text-sm">
+                                                {privateLinks.map((n) => (
+                                                    <li key={n.docId} className="flex items-center gap-2">
+                                                        <Lock className="size-3.5 shrink-0 text-muted-foreground" />
+                                                        <span className="truncate">{n.title || 'Untitled'}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                            <Button size="lg" className="w-full max-sm:h-11" onClick={() => handleMakePublic(true)} disabled={isMakingPublic}>
+                                                <Globe />
+                                                Make these public too
+                                            </Button>
+                                            <Button size="lg" variant="outline" className="w-full max-sm:h-11" onClick={() => handleMakePublic()} disabled={isMakingPublic}>
+                                                Continue anyway
+                                            </Button>
+                                        </div>
+                                    ) : (
                                     <Button
                                         size="lg"
                                         className="w-full max-sm:h-11"
-                                        onClick={handleMakePublic}
+                                        onClick={() => (privateLinks.length > 0 ? setAskingAboutLinks(true) : handleMakePublic())}
                                         disabled={isMakingPublic}
                                     >
                                         {isMakingPublic ? (
@@ -262,6 +254,7 @@ export default function ShareDialog({
                                             </>
                                         )}
                                     </Button>
+                                    )}
                                 </div>
                             ) : (
                                 <>
