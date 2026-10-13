@@ -14,20 +14,24 @@ interface CreateFolderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (name: string) => void;
+  /** Rename mode: pre-fills the name. Pass a `key` so it resets per folder. */
+  initialName?: string;
 }
 
 export default function CreateFolderModal({
   isOpen,
   onClose,
   onCreate,
+  initialName,
 }: CreateFolderModalProps) {
-  const [name, setName] = useState("");
+  const isRename = initialName !== undefined;
+  const [name, setName] = useState(initialName ?? "");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {
       onCreate(name.trim());
-      setName("");
+      setName(initialName ?? "");
       onClose();
     }
   };
@@ -36,9 +40,9 @@ export default function CreateFolderModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-106.25">
         <DialogHeader>
-          <DialogTitle>Create New Folder</DialogTitle>
+          <DialogTitle>{isRename ? "Rename Folder" : "Create New Folder"}</DialogTitle>
           <DialogDescription>
-            Enter a name for your new folder.
+            {isRename ? "Enter a new name for this folder." : "Enter a name for your new folder."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -57,7 +61,7 @@ export default function CreateFolderModal({
               Cancel
             </Button>
             <Button type="submit" disabled={!name.trim()}>
-              Create
+              {isRename ? "Rename" : "Create"}
             </Button>
           </DialogFooter>
         </form>

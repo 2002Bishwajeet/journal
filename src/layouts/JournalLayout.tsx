@@ -103,6 +103,7 @@ export default function JournalLayout() {
   const {
     get: { data: folders = [], isLoading: isFolderLoading },
     createFolder: { mutateAsync: createNewFolder },
+    renameFolder: { mutate: renameFolder },
     deleteFolder: { mutate: deleteFolder },
   } = useFolders();
 
@@ -131,6 +132,7 @@ export default function JournalLayout() {
   const [showSearch, setShowSearch] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [folderToRename, setFolderToRename] = useState<string | null>(null);
   const [collaborativeNote, setCollaborativeNote] =
     useState<NoteListEntry | null>(null);
   const [revokeNote, setRevokeNote] = useState<NoteListEntry | null>(null);
@@ -273,6 +275,7 @@ export default function JournalLayout() {
           }}
           onCreateFolder={() => setShowCreateFolder(true)}
           onDeleteFolder={(id) => deleteFolder(id)}
+          onRenameFolder={setFolderToRename}
           onOpenToday={handleOpenToday}
           collaborativeCount={counts.collaborative}
           onSelectShared={() => navigate("/shared")}
@@ -376,6 +379,17 @@ export default function JournalLayout() {
         onCreate={(name) => {
           createNewFolder(name);
           setShowCreateFolder(false);
+        }}
+      />
+
+      <CreateFolderModal
+        key={folderToRename ?? "none"}
+        isOpen={!!folderToRename}
+        initialName={folders.find((f) => f.id === folderToRename)?.name ?? ""}
+        onClose={() => setFolderToRename(null)}
+        onCreate={(name) => {
+          if (folderToRename) renameFolder({ id: folderToRename, name });
+          setFolderToRename(null);
         }}
       />
 
