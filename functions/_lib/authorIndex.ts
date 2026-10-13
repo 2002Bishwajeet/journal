@@ -3,6 +3,7 @@
 // one shared folder (#619): /share/<identity>/f/<folderId>.
 // Pure code with no Workers globals, so vitest can run it under node.
 
+import { folderShareDescription } from './folderShare';
 import {
     IDENTITY_RE,
     JOURNAL_DRIVE_ALIAS,
@@ -214,7 +215,7 @@ export function buildAuthorIndexHtml(index: AuthorIndex, origin: string): string
     const pageUrl = folder ? `${origin}/share/${identity}/f/${folder.id}` : `${origin}/share/${identity}`;
     const title = folder ? folder.name : `Notes by ${authorName}`;
     const description = folder
-        ? `Notes in the folder ${folder.name} by ${authorName}, shared with Journal`
+        ? folderShareDescription(folder.name, authorName)
         : `Public notes by ${authorName}, shared with Journal`;
     const property = (name: string, content: string) => `<meta property="${name}" content="${escapeHtml(content)}" />`;
     const named = (name: string, content: string) => `<meta name="${name}" content="${escapeHtml(content)}" />`;

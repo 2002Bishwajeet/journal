@@ -47,8 +47,10 @@ test('moving a note to another folder shows it there, and its public state follo
   await createFolder(app, SHARED);
   await createFolder(app, PRIVATE);
   await foldersNav(app).getByRole('button', { name: SHARED, exact: true }).click({ button: 'right' });
-  await app.getByRole('menuitem', { name: 'Share folder' }).click();
+  await app.getByRole('menuitem', { name: 'Share folder…' }).click();
+  await app.getByRole('dialog').getByRole('button', { name: 'Share folder', exact: true }).click();
   await expect(app.getByText('Folder shared.')).toBeVisible();
+  await app.keyboard.press('Escape');
 
   await selectFolder(app, PRIVATE);
   await createNote(app, { title: 'Traveller', body: 'Moves around' });

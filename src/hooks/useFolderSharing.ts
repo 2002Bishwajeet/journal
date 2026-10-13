@@ -63,10 +63,40 @@ export async function setNoteShared(
     }
 }
 
+/** Notes changed at once when sharing or unsharing a folder. */
+const SHARE_CONCURRENCY = 4;
+
+/**
+ * Run `work` over `items` with at most `limit` in flight. `onSettled(done)` fires as each
+ * finishes; returns how many threw (each is logged by the caller via `work`'s own catch).
+ */
+export async function runLimited<T>(
+    items: T[],
+    limit: number,
+    work: (item: T) => Promise<void>,
+    onSettled: (done: number) => void
+): Promise<number> {
+    let next = 0;
+    let done = 0;
+    let failed = 0;
+    const worker = async () => {
+        while (next < items.length) {
+            try {
+                await work(items[next++]);
+            } catch {
+                failed++;
+            }
+            onSettled(++done);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    return failed;
+}
+
 /**
  * Share a folder, or stop sharing it (#618). The folder's flag is local-first and syncs
  * like its name (its push re-uploads the folder file Anonymous or Owner-only); then
- * every non-trashed note in it is made public or private one at a time, as the Share
+ * every non-trashed note in it is made public or private four at a time, as the Share
  * dialog does. A note that fails is counted in the summary toast and the rest carry on.
  */
 export function useFolderSharing() {
@@ -87,16 +117,20 @@ export function useFolderSharing() {
             const docIds = await getFolderNotesToShare(folderId, isPublic);
             const provider = new NotesDriveProvider(dotYouClient);
             const target = isPublic ? 'public' : 'private';
-            let failed = 0;
-            for (const [i, docId] of docIds.entries()) {
-                toast.loading(`Making notes ${target} (${i + 1}/${docIds.length})…`, { id: toastId });
-                try {
-                    await setNoteShared(provider, syncNote, docId, isPublic);
-                } catch (err) {
-                    console.error(`[useFolderSharing] Failed to make note ${docId} ${target}:`, err);
-                    failed++;
-                }
-            }
+            toast.loading(`Making notes ${target} (0/${docIds.length})…`, { id: toastId });
+            const failed = await runLimited(
+                docIds,
+                SHARE_CONCURRENCY,
+                async (docId) => {
+                    try {
+                        await setNoteShared(provider, syncNote, docId, isPublic);
+                    } catch (err) {
+                        console.error(`[useFolderSharing] Failed to make note ${docId} ${target}:`, err);
+                        throw err;
+                    }
+                },
+                (n) => toast.loading(`Making notes ${target} (${n}/${docIds.length})…`, { id: toastId })
+            );
 
             const done = isPublic ? 'Folder shared' : 'Folder is private again';
             if (failed > 0) {
@@ -110,8 +144,8 @@ export function useFolderSharing() {
         }
     };
 
-    /** How many notes stopping sharing `folderId` would make private (for its confirm dialog). */
-    const countPublicNotes = async (folderId: string) => (await getFolderNotesToShare(folderId, false)).length;
+    /** How many notes changing `folderId`'s sharing would flip: to public when `toPublic`, else to private (for its dialogs). */
+    const countPublicNotes = async (folderId: string, toPublic = false) => (await getFolderNotesToShare(folderId, toPublic)).length;
 
     return { setFolderShared, countPublicNotes };
 }
