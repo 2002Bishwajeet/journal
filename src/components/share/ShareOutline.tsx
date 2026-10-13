@@ -11,13 +11,13 @@ interface ShareOutlineProps {
     onToggleHidden: () => void;
 }
 
-const INDENT: Record<number, string> = { 2: '', 3: 'pl-3', 4: 'pl-6' };
+const INDENT: Record<number, string> = { 2: '', 3: 'pl-4', 4: 'pl-8' };
 
 function OutlineList({ headings, activeId, onPick, tall }: { headings: OutlineHeading[]; activeId: string | undefined; onPick: (id: string) => void; tall?: boolean }) {
     return (
-        <ul className="m-0 list-none p-0">
+        <ul className="m-0! list-none! p-0!">
             {headings.map((h) => (
-                <li key={h.id}>
+                <li key={h.id} className="m-0!">
                     <a
                         href={`#${h.id}`}
                         aria-current={h.id === activeId ? 'location' : undefined}
@@ -26,9 +26,9 @@ function OutlineList({ headings, activeId, onPick, tall }: { headings: OutlineHe
                             onPick(h.id);
                         }}
                         className={cn(
-                            'flex items-center border-l-2 py-1 pr-2 text-sm leading-snug no-underline outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                            'flex items-center border-l-2 py-1 pr-2 text-sm leading-snug no-underline! outline-none hover:opacity-100! hover:text-foreground! focus-visible:ring-[3px] focus-visible:ring-ring/50',
                             tall && 'min-h-11',
-                            h.id === activeId ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground',
+                            h.id === activeId ? 'border-primary text-foreground!' : 'border-transparent text-muted-foreground!',
                         )}
                     >
                         <span className={cn('pl-2', INDENT[h.level])}>{h.text}</span>
@@ -54,7 +54,7 @@ export function ShareOutline({ headings, activeId, hidden, onToggleHidden }: Sha
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="size-8"
+                            className="size-8 text-muted-foreground hover:text-foreground"
                             aria-expanded={!hidden}
                             aria-controls={hidden ? undefined : 'share-outline-list'}
                             aria-label={hidden ? 'Show contents' : 'Hide contents'}

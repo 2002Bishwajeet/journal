@@ -59,6 +59,7 @@ async function shots(page: Page, name: (theme: string) => string): Promise<void>
     await page.emulateMedia({ colorScheme: theme as 'light' | 'dark' });
     await page.evaluate((t) => document.documentElement.classList.remove('light', 'dark', t), theme);
     await page.evaluate((t) => document.documentElement.classList.add(t), theme);
+    await page.waitForTimeout(400); // let the header's colour transition finish
     await page.screenshot({ path: test.info().outputPath(name(theme)) });
   }
   await page.emulateMedia({ colorScheme: 'light' });
@@ -156,6 +157,14 @@ test('outline panel at 1440px: entries, jump, scroll-spy, hide and show', async 
   await panel(page).getByRole('button', { name: 'Show contents' }).click();
   await expect(links).toHaveCount(4);
   await expect(panel(page).getByRole('button', { name: 'Hide contents' })).toHaveAttribute('aria-expanded', 'true');
+});
+
+test('outline panel fits at the xl edge, 1280px', async ({ anonPage: page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open(page, NOTES.four);
+  await expect(panel(page)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await shots(page, (theme) => `share-outline-panel-${theme}-1280.png`);
 });
 
 test('outline at 390px: inline toggle, no side panel', async ({ anonPage: page }) => {
