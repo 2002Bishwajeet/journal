@@ -6,6 +6,7 @@ import {
   HTML_BLOCK_CDN_HOSTS,
   buildSrcdoc,
   frameHeightFromMessage,
+  linkFromMessage,
   liveBlockKind,
   svgDataUri,
   type FrameTheme,
@@ -55,7 +56,9 @@ describe('buildSrcdoc', () => {
   const CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; style-src 'unsafe-inline' ${CDN}; img-src data: blob:; font-src data: ${CDN}; media-src data: blob:; form-action 'none'; base-uri 'none'`;
   const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
   const HEIGHT_SCRIPT =
-    "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - 24 }, '*')).observe(document.documentElement)</script>";
+    "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - 24 }, '*')).observe(document.documentElement)</script>" +
+    // Then the link bridge: a clicked web or mail link is passed to the app to open.
+    "<script>addEventListener('click', function (event) {var link = event.target.closest && event.target.closest('a[href]');if (!link || !/^(https?|mailto):$/.test(link.protocol)) return;event.preventDefault();parent.postMessage({ journalLiveBlock: 1, link: link.href }, '*');});</script>";
 
   // The dark theme's values in src/index.css.
   const THEME: FrameTheme = {
@@ -273,3 +276,26 @@ describe('LiveBlockPreview html', () => {
     expect(render()).not.toContain('bg-');
   });
 });
+
+describe('linkFromMessage', () => {
+  const frame = {} as Window;
+  const link = (href: unknown) => ({ journalLiveBlock: 1, link: href });
+
+  it('should return a web or mail link its own frame asked to open', () => {
+    expect(linkFromMessage({ source: frame, data: link('https://example.com/a') }, frame)).toBe('https://example.com/a');
+    expect(linkFromMessage({ source: frame, data: link('http://example.com/') }, frame)).toBe('http://example.com/');
+    expect(linkFromMessage({ source: frame, data: link('mailto:a@b.c') }, frame)).toBe('mailto:a@b.c');
+  });
+
+  it('should refuse any other scheme, so a block can never run script in the app', () => {
+    expect(linkFromMessage({ source: frame, data: link('javascript:alert(1)') }, frame)).toBeNull();
+    expect(linkFromMessage({ source: frame, data: link('data:text/html,hi') }, frame)).toBeNull();
+    expect(linkFromMessage({ source: frame, data: link('not a url') }, frame)).toBeNull();
+    expect(linkFromMessage({ source: frame, data: link(42) }, frame)).toBeNull();
+  });
+
+  it('should ignore a message from another window', () => {
+    expect(linkFromMessage({ source: {} as Window, data: link('https://example.com/') }, frame)).toBeNull();
+  });
+});
+

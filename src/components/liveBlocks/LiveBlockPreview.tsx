@@ -14,10 +14,10 @@
  *   cannot reach the app's DOM, storage or cookies, and the CSP from
  *   buildSrcdoc lets it load scripts, styles and fonts from three CDN hosts
  *   and reach nothing else on the network. Never add another sandbox token;
- *   e2e/editor/live-html-sandbox.spec.ts holds the proof. Two things cross the
- *   boundary: the frame's report of its content height (#412), and the block's
+ *   e2e/editor/live-html-sandbox.spec.ts holds the proof. Three things cross
+ *   the boundary: the frame's report of its content height (#412), the block's
  *   `journal.storage` requests for its own saved state (#410), which the app
- *   answers from `store`. Only the frame's own window is ever answered.
+ *   answers from `store`, and a clicked web link, which the app opens in a new tab. Only the frame's own window is ever answered.
  * - react: the JSX is compiled in the app by the lazily imported
  *   reactBlockCompiler, then runs in the same frame as an html block, on the
  *   app's own React: vite.config.ts builds it into a script that is inlined in
@@ -32,6 +32,7 @@ import { CALLOUT_CLASSES } from '@/components/editor/nodes/calloutVariants';
 import {
   buildSrcdoc,
   frameHeightFromMessage,
+  linkFromMessage,
   reactBlockDocument,
   svgDataUri,
   FRAME_TOKENS,
@@ -118,6 +119,8 @@ function HtmlPreview({ source, title, store, onHeight, wide }: Pick<LiveBlockPre
       const frameWindow = frame?.contentWindow ?? null;
       const height = frameHeightFromMessage(event, frameWindow, wide);
       if (height !== null) onHeight?.(height);
+      const link = linkFromMessage(event, frameWindow);
+      if (link) window.open(link, '_blank', 'noopener,noreferrer');
       const reply = replyToStorageMessage(event, frameWindow, session, blockStore);
       // The frame's origin is opaque, so there is no origin to name.
       if (reply) frameWindow?.postMessage(reply, '*');
