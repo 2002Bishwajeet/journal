@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
     createNote: vi.fn(async (folderId?: string) => ({ docId: 'new', folderId: folderId ?? '' })),
     updateNote: vi.fn<(params: unknown) => Promise<void>>(async () => {}),
     revokeNoteCollaboration: vi.fn<(docId: string, odinId: string) => Promise<void>>(async () => {}),
+    moveNote: vi.fn<(docId: string, folderId: string) => Promise<boolean>>(async () => true),
     lists: {} as Record<string, unknown[]>,
 }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => mocks.navigate }));
@@ -25,6 +26,7 @@ vi.mock('sonner', () => ({ toast: { error: mocks.toastError, success: mocks.toas
 vi.mock('@/components/auth', () => ({
     useDotYouClientContext: () => ({ getHostIdentity: () => 'me.id' }),
 }));
+vi.mock('@/hooks/useMoveNote', () => ({ useMoveNote: () => mocks.moveNote }));
 vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
     NotesDriveProvider: class {
         revokeNoteCollaboration = mocks.revokeNoteCollaboration;
@@ -150,6 +152,26 @@ describe('useNoteActions', () => {
         expect(closeTab).toHaveBeenCalledWith('b');
         expect(mocks.trashNote).toHaveBeenCalledWith('b');
         expect(mocks.navigate).toHaveBeenCalledWith('/f1/c', { viewTransition: true });
+        await unmount();
+    });
+
+    it('follows the open note into the folder it was moved to, keeping the tag filter', async () => {
+        const { api, unmount } = await actions({ selectedTag: 'work' });
+        await act(async () => api().moveToFolder('b', 'f2'));
+
+        expect(mocks.moveNote).toHaveBeenCalledWith('b', 'f2');
+        expect(mocks.navigate).toHaveBeenCalledWith('/f2/b?tag=work', { viewTransition: true });
+        await unmount();
+    });
+
+    it("doesn't navigate when a note that isn't open is moved, or the move didn't happen", async () => {
+        const { api, unmount } = await actions();
+        await act(async () => api().moveToFolder('a', 'f2'));
+        mocks.moveNote.mockResolvedValueOnce(false);
+        await act(async () => api().moveToFolder('b', 'f2'));
+
+        expect(mocks.moveNote).toHaveBeenCalledTimes(2);
+        expect(mocks.navigate).not.toHaveBeenCalled();
         await unmount();
     });
 

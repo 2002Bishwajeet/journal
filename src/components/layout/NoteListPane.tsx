@@ -22,6 +22,7 @@ interface NoteListPaneProps {
   isListLoading: boolean;
   noteActions: ReturnType<typeof useNoteActions>;
   onShareNote: (note: NoteListEntry) => void;
+  onMoveToFolder: (note: NoteListEntry) => void;
   onMarkCollaborative: (note: NoteListEntry) => void;
 }
 
@@ -39,6 +40,7 @@ export function NoteListPane({
   isListLoading,
   noteActions,
   onShareNote,
+  onMoveToFolder,
   onMarkCollaborative,
 }: NoteListPaneProps) {
   const navigate = useNavigate();
@@ -124,6 +126,7 @@ export function NoteListPane({
           onCreateNote={() => noteActions.createAndOpen(folderId)}
           onDeleteNote={noteActions.deleteAndSelectNeighbour}
           onShareNote={onShareNote}
+          onMoveToFolder={onMoveToFolder}
           onMarkCollaborative={onMarkCollaborative}
           onArchive={noteActions.archive}
           isLoading={isListLoading}

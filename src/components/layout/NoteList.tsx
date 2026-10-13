@@ -7,6 +7,7 @@ import {
   Download,
   Users,
   Archive,
+  FolderInput,
   Globe,
   Pin,
   PinOff,
@@ -48,6 +49,7 @@ interface NoteListProps {
   onCreateNote: () => void;
   onDeleteNote: (docId: string) => void;
   onShareNote: (note: NoteListEntry) => void;
+  onMoveToFolder?: (note: NoteListEntry) => void;
   onMarkCollaborative?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
   isLoading?: boolean;
@@ -63,6 +65,7 @@ export default function NoteList({
   onCreateNote,
   onDeleteNote,
   onShareNote,
+  onMoveToFolder,
   onMarkCollaborative,
   onArchive,
   isLoading = false,
@@ -283,6 +286,7 @@ export default function NoteList({
                           onSelectNote={onSelectNote}
                           onDeleteNote={handleDeleteNote}
                           onShareNote={onShareNote}
+                          onMoveToFolder={onMoveToFolder}
                           onTogglePin={handleTogglePin}
                           onMarkCollaborative={onMarkCollaborative}
                           onArchive={onArchive}
@@ -323,6 +327,7 @@ const NoteItem = memo(function NoteItem({
   onSelectNote,
   onDeleteNote,
   onShareNote,
+  onMoveToFolder,
   onTogglePin,
   onMarkCollaborative,
   onArchive,
@@ -332,6 +337,7 @@ const NoteItem = memo(function NoteItem({
   onSelectNote: (id: string) => void;
   onDeleteNote: (id: string) => void;
   onShareNote: (note: NoteListEntry) => void;
+  onMoveToFolder?: (note: NoteListEntry) => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
   onMarkCollaborative?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
@@ -345,6 +351,9 @@ const NoteItem = memo(function NoteItem({
   const minSwipeDistance = 50;
   const maxSwipeDistance = 80;
   const agentName = agentDisplayName(note.metadata.lastEditedBy);
+  const isPeerNote =
+    !!note.metadata.authorOdinId &&
+    note.metadata.authorOdinId !== dotYouClient.getHostIdentity();
 
   const triggerHaptic = (duration = 10) => {
     if ("vibrate" in navigator) {
@@ -429,6 +438,17 @@ const NoteItem = memo(function NoteItem({
             icon: Share2,
             action: () => onShareNote(note),
           },
+          // Collaborative notes live in the shared folder and notes from other people
+          // aren't ours to file: neither has a Move item.
+          ...(note.metadata.isCollaborative || isPeerNote || !onMoveToFolder
+            ? []
+            : [
+                {
+                  label: "Move to folder…",
+                  icon: FolderInput,
+                  action: () => onMoveToFolder(note),
+                },
+              ]),
           {
             label: "Export to Markdown",
             icon: Download,
