@@ -14,11 +14,12 @@ import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
 
-const { mockDsr, mockCreateFolder } = vi.hoisted(() => ({ mockDsr: vi.fn(), mockCreateFolder: vi.fn() }));
+const { mockDsr, mockCreateFolder, mockUpdateFolder } = vi.hoisted(() => ({ mockDsr: vi.fn(), mockCreateFolder: vi.fn(), mockUpdateFolder: vi.fn() }));
 vi.mock('@/lib/homebase/FolderDriveProvider', () => ({
     FolderDriveProvider: class FolderDriveProvider {
         dsrToFolderFileContent = mockDsr;
         createFolder = mockCreateFolder;
+        updateFolder = mockUpdateFolder;
         constructor() {}
     },
 }));
@@ -82,5 +83,18 @@ describe('push', () => {
 
         expect(mockCreateFolder).toHaveBeenCalledWith(F, expect.objectContaining({ name: 'Blog', isPublic: true }), expect.anything());
         expect((await getSyncRecord(F))?.syncStatus).toBe('synced');
+    });
+
+    it('updates a folder already on Homebase instead of re-creating it', async () => {
+        await createFolder(F, 'Blog');
+        await setFolderPublicLocal(F, true);
+        await upsertSyncRecord({ localId: F, entityType: 'folder', remoteFileId: 'folder-file-1', versionTag: 'v1', syncStatus: 'pending' });
+        mockUpdateFolder.mockResolvedValue({ versionTag: 'v2' });
+
+        await svc().pushFolder((await getSyncRecord(F))!);
+
+        expect(mockCreateFolder).not.toHaveBeenCalled();
+        expect(mockUpdateFolder).toHaveBeenCalledWith('folder-file-1', 'v1', expect.objectContaining({ isPublic: true }));
+        expect(await getSyncRecord(F)).toMatchObject({ syncStatus: 'synced', versionTag: 'v2' });
     });
 });
