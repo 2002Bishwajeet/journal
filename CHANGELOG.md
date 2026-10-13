@@ -1,3 +1,22 @@
+# [2.11.0](https://github.com/2002Bishwajeet/journal/compare/v2.10.0...v2.11.0) (2026-10-13)
+
+
+### Bug Fixes
+
+* **e2e:** wait for the text before measuring a table; drop a provider from the unsaved set even when teardown throws ([#612](https://github.com/2002Bishwajeet/journal/issues/612)) ([86de3a4](https://github.com/2002Bishwajeet/journal/commit/86de3a4bbbb5c3e120493dc82f3a4e74358b5bc6))
+* **folders:** push a rename right away, and a live spec for it ([#620](https://github.com/2002Bishwajeet/journal/issues/620)) ([0f5e153](https://github.com/2002Bishwajeet/journal/commit/0f5e1537aa18fa6c26c0ded491bffedadd91ac81))
+* **sidebar:** long folder names truncate instead of clipping at the sidebar edge ([e8c8167](https://github.com/2002Bishwajeet/journal/commit/e8c816741beaa597738fe7e1ef39e0224abc46fc))
+* **sync:** push an already-synced folder as an update, not a create ([#618](https://github.com/2002Bishwajeet/journal/issues/618)) ([287ed12](https://github.com/2002Bishwajeet/journal/commit/287ed12a084c48920a5491c8a4a532a007852f3b))
+
+
+### Features
+
+* **folders:** move a note to another folder ([#622](https://github.com/2002Bishwajeet/journal/issues/622)) ([79f79bd](https://github.com/2002Bishwajeet/journal/commit/79f79bd510bdeb1da5b129a0672c931f2083b8fd))
+* **folders:** rename a folder from its sidebar menu ([#620](https://github.com/2002Bishwajeet/journal/issues/620)) ([7b0be2a](https://github.com/2002Bishwajeet/journal/commit/7b0be2a6f65d1128625c4bca694f4755fc48b516))
+* **folders:** share a folder, every note in it public and new notes start public ([#618](https://github.com/2002Bishwajeet/journal/issues/618)) ([c879814](https://github.com/2002Bishwajeet/journal/commit/c87981479256ac5c9abf31055fcd97f602d58600))
+* **share:** note links on a share page open the linked note's share page ([#616](https://github.com/2002Bishwajeet/journal/issues/616)) ([75904ca](https://github.com/2002Bishwajeet/journal/commit/75904caa1b87568966d0a5c1d28ad4dfdf31fb5d))
+* **share:** offer to share the private notes a note links to ([#617](https://github.com/2002Bishwajeet/journal/issues/617)) ([fb6de76](https://github.com/2002Bishwajeet/journal/commit/fb6de76c5a550712b6baccdfc2df576dd190a352))
+* **share:** public folder page /share/:identity/f/:folderId ([#619](https://github.com/2002Bishwajeet/journal/issues/619)) ([afe899d](https://github.com/2002Bishwajeet/journal/commit/afe899dbdb4491ffb2bd471a7cb2b8a7cb7fe5d5))
 # [2.10.0](https://github.com/2002Bishwajeet/journal/compare/v2.9.1...v2.10.0) (2026-10-12)
 
 

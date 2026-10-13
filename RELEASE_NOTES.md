@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.11.0 (2026-10-13)
+
 ### New
 
 - You can share a folder. All notes in the folder become public. New notes that you make in the folder are also public.
