@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.11.1 (2026-10-13)
+
 ### New
 
 - "Share folder" opens a window. It shows the folder link and a preview of the link. You can copy the link there.
