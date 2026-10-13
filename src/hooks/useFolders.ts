@@ -84,7 +84,7 @@ export function isUnknownFolderRoute(
  * PGlite, which updates the UI via the live query, then reconcile remotely).
  */
 export function useFolders() {
-    const { deleteFolderRemote } = useSyncService();
+    const { deleteFolderRemote, syncFolder } = useSyncService();
 
     // --- Query (live) ---
 
@@ -118,6 +118,8 @@ export function useFolders() {
                 ...(existing ?? { localId: id, entityType: 'folder' as const }),
                 syncStatus: 'pending',
             });
+            // Push now, as sharing does; offline, the pending record retries on the next sync.
+            await syncFolder(id);
         },
     });
 
