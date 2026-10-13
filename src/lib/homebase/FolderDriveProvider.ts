@@ -237,10 +237,24 @@ export class FolderDriveProvider {
         const existingContent = (typeof raw === 'string' ? tryJsonParse<FolderFile>(raw) : (raw as FolderFile | undefined));
         const isEncrypted = !folder.isPublic;
 
+        // An overwrite drops payloads it isn't given: keep the card already drawn (its bytes
+        // re-encrypted with the file) unless a new one replaces it. If it can't be read, the
+        // content must not name it.
+        let payloads = cardPayloads(upload);
+        let card = folder.card ?? existingContent?.card;
+        if (!upload) {
+            const old = existing.fileMetadata.payloads?.find((p) => p.key === PAYLOAD_KEY_CARD_IMAGE);
+            const data = old && await getPayloadBytes(this.#dotYouClient, JOURNAL_DRIVE, fileId, PAYLOAD_KEY_CARD_IMAGE, { decrypt: true, lastModified: old.lastModified });
+            if (data) payloads = [{ key: PAYLOAD_KEY_CARD_IMAGE, payload: new Blob([new Uint8Array(data.bytes)], { type: data.contentType }) }];
+            else card = undefined;
+        }
+        const content = { ...existingContent, ...folder, card };
+        if (!card) delete content.card;
+
         const uploadMetadata: UploadFileMetadata = {
             versionTag: existing.fileMetadata.versionTag,
             allowDistribution: false,
-            appData: { ...appData, content: JSON.stringify({ ...existingContent, ...folder }) },
+            appData: { ...appData, content: JSON.stringify(content) },
             isEncrypted,
             accessControlList: folderAcl(folder),
         };
@@ -249,7 +263,7 @@ export class FolderDriveProvider {
             storageOptions: { drive: JOURNAL_DRIVE, overwriteFileId: fileId },
         };
 
-        const result = await uploadFile(this.#dotYouClient, instructions, uploadMetadata, cardPayloads(upload), [], isEncrypted);
+        const result = await uploadFile(this.#dotYouClient, instructions, uploadMetadata, payloads, [], isEncrypted);
         if (!result) {
             throw new Error('Failed to update folder');
         }
