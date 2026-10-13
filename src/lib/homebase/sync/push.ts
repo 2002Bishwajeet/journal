@@ -129,6 +129,7 @@ export async function pushFolder(ctx: SyncContext, record: SyncRecord): Promise<
         name: folder.name,
         isCollaborative: false, // TODO: V2 placeholder
         needsPassword: false,   // TODO: V2 placeholder
+        isPublic: folder.isPublic,
     };
 
     const onVersionConflict = async () => {

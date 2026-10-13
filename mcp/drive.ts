@@ -68,7 +68,7 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
             const items = page.folders.map((file) => {
                 const uniqueId = file.fileMetadata.appData.uniqueId;
                 const content = file.fileMetadata.appData.content;
-                return uniqueId && content ? { id: uniqueId, name: content.name } : null;
+                return uniqueId && content ? { id: uniqueId, name: content.name, isPublic: content.isPublic === true } : null;
             });
             return { items, cursor: page.cursor };
         });

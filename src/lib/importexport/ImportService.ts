@@ -4,6 +4,7 @@ import { saveDocumentUpdate, upsertSearchIndex, createFolder, getAllFolders, sav
 import { prepareImageForUpload } from '@/lib/images/imageIngest';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
+import { newNoteShareFields } from '@/lib/share/sharedFolder';
 import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import * as Y from 'yjs';
 import type { DocumentMetadata } from '@/types';
@@ -29,13 +30,15 @@ export const ImportService = {
         const existingFolders = await getAllFolders();
         const folderNameMap = new Map<string, string>(); // Name -> ID
         existingFolders.forEach(f => folderNameMap.set(f.name.toLowerCase(), f.id));
+        // Notes imported into a shared folder start public, like any note created there (#618)
+        const publicFolderIds = new Set(existingFolders.filter(f => f.isPublic).map(f => f.id));
 
         for (const file of fileList) {
             try {
                 if (file.name.endsWith('.zip')) {
-                    await importZip(file, folderNameMap, result);
+                    await importZip(file, folderNameMap, publicFolderIds, result);
                 } else if (file.name.endsWith('.md')) {
-                    await importMarkdown(file, MAIN_FOLDER_ID, result);
+                    await importMarkdown(file, MAIN_FOLDER_ID, publicFolderIds, result);
                 } else {
                     // Skip unsupported files without erroring the whole batch
                     result.failed++;
@@ -58,6 +61,7 @@ export const ImportService = {
 async function importZip(
     file: File,
     folderNameMap: Map<string, string>,
+    publicFolderIds: ReadonlySet<string>,
     result: ImportResult
 ): Promise<void> {
     const zip = await JSZip.loadAsync(file);
@@ -105,7 +109,7 @@ async function importZip(
         const content = await entry.async('string');
         const fileObj = new File([content], parts[parts.length - 1], { type: 'text/markdown' });
 
-        await importMarkdown(fileObj, folderId, result, { path: filename, assets });
+        await importMarkdown(fileObj, folderId, publicFolderIds, result, { path: filename, assets });
     }
 }
 
@@ -115,6 +119,7 @@ async function importZip(
 async function importMarkdown(
     file: File,
     targetFolderId: string,
+    publicFolderIds: ReadonlySet<string>,
     result: ImportResult,
     // Where the note sits in its zip, and the zip's files; a loose .md has neither
     source: { path: string; assets: Map<string, JSZipObject> } = { path: file.name, assets: new Map() }
@@ -124,6 +129,7 @@ async function importMarkdown(
 
     // Override folderId with target
     metadata.folderId = targetFolderId;
+    Object.assign(metadata, newNoteShareFields({ isPublic: publicFolderIds.has(targetFolderId) }));
     // Update timestamps if missing
     if (!metadata.timestamps.created) {
         metadata.timestamps.created = new Date().toISOString();

@@ -14,6 +14,7 @@ import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import { getNewId } from '@/lib/utils';
 import { folderAccess, type AgentAccess, type AgentGrants } from '@/lib/agent/grants';
 import { agentEditor } from '@/lib/agent/attribution';
+import { newNoteShareFields } from '@/lib/share/sharedFolder';
 import {
     appendMarkdown,
     replaceInNote as replaceInDoc,
@@ -261,9 +262,8 @@ export async function createNote(
 ): Promise<{ id: string; title: string; folderId: string }> {
     const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
     const targets = linkTargets(grants, notes);
-    const writable =
-        folderAccess(grants, params.folderId) === 'write' &&
-        (await deps.listFolders()).some((folder) => folder.id === params.folderId);
+    const folder = (await deps.listFolders()).find((f) => f.id === params.folderId);
+    const writable = folderAccess(grants, params.folderId) === 'write' && !!folder;
     if (!writable) throw new Error(`Folder not found: ${params.folderId}`);
 
     const id = formatGuidId(getNewId());
@@ -277,6 +277,8 @@ export async function createNote(
         excludeFromAI: false,
         isPinned: false,
         lastEditedBy: agentEditor(deps.clientName()),
+        // A note created in a shared folder starts public, as in the app (#618).
+        ...newNoteShareFields(folder),
     };
     const images = await loadBodyImages(params.markdown);
     // Built before anything is created, so a note link that can't be resolved fails the call first.

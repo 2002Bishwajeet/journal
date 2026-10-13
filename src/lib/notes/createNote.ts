@@ -4,6 +4,7 @@ import {
     upsertSyncRecord,
     saveDocumentUpdate,
     getSearchIndexEntry,
+    isFolderPublic,
 } from '@/lib/db';
 import { getNewId } from '@/lib/utils';
 import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
@@ -11,6 +12,7 @@ import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 import { DATE_TOKEN, pushContentBlocks, substituteDateTokens } from '@/lib/yjs/noteContent';
 import type { DocumentMetadata } from '@/types';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
+import { newNoteShareFields } from '@/lib/share/sharedFolder';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 
 export interface CreateNoteResult {
@@ -49,6 +51,8 @@ async function persistNewNote({
         excludeFromAI: false,
         isPinned: false,
     };
+    // A note created in a shared folder starts public (#618).
+    Object.assign(metadata, newNoteShareFields({ isPublic: await isFolderPublic(metadata.folderId) }));
 
     const plainTextContent = await extractPreviewTextFromYjs(docId, updateBlob);
 

@@ -65,6 +65,7 @@ export interface Folder {
     id: string;
     name: string;
     createdAt: Date;
+    isPublic?: boolean; // Shared folder: every note in it is public (#618)
 }
 
 
@@ -74,6 +75,7 @@ export interface FolderFile {
     isCollaborative: boolean; // V2 placeholder
     needsPassword: boolean;   // V2 placeholder
     color?: string;
+    isPublic?: boolean;       // Shared folder: stored unencrypted with an Anonymous ACL (#618)
 }
 
 // Note file content stored in Homebase header

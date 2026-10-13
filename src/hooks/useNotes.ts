@@ -9,6 +9,7 @@ import {
     updateSyncStatus,
     getTrashedNotes,
     getSearchIndexEntry,
+    isFolderPublic,
     setNoteArchivalStatusLocal,
     clearCachedKeyHeader,
     recordNoteRekey,
@@ -26,6 +27,7 @@ import {
     type CreateNoteWithContentParams,
 } from '@/lib/notes/createNote';
 import { mergeShareCard, type ShareCardPatch } from '@/lib/share/publicCard';
+import { newNoteShareFields } from '@/lib/share/sharedFolder';
 import type { NoteListEntry, SearchIndexEntry, DocumentMetadata } from '@/types';
 import { MAIN_FOLDER_ID, isPseudoFolder } from '@/lib/homebase';
 import { useSyncService } from '@/hooks/useSyncService';
@@ -51,6 +53,36 @@ export function useLiveNoteList(
     const { data: rows, isLoading } = useLiveQuery<NoteListRow>(sql, params, NOTE_ROW_KEY, enabled);
     const data = useMemo(() => rows.map(toNoteListEntry), [rows]);
     return { data, isLoading };
+}
+
+export interface SetNotePublicParams {
+    docId: string;
+    isPublic: boolean;
+    /** makeNotePublic/makeNotePrivate's result, when this toggle re-uploaded the file. */
+    rekeyed?: { versionTag: string; previousVersionTag: string };
+}
+
+/**
+ * Reflect public-share status locally for the list badge. The flag is already
+ * persisted remotely by makeNotePublic/makeNotePrivate, so this is a LOCAL-only
+ * update — we intentionally do NOT mark the note 'pending' (a normal sync push
+ * could disturb the Anonymous ACL).
+ */
+export async function setNotePublicLocal({ docId, isPublic, rekeyed }: SetNotePublicParams): Promise<void> {
+    const current = await getSearchIndexEntry(docId);
+    if (!current) return;
+
+    // Both makeNotePublic and makeNotePrivate re-upload the file, which re-keys
+    // it (public = no key header at all, private = a brand-new one). The cached
+    // header is now the WRONG key — validateKeyHeader only checks shape, so the
+    // next push would happily encrypt the payload with it and every later read
+    // would fail decryption ("OperationError" / "operation not permitted").
+    // Written first: the re-upload's websocket echo follows within about a second.
+    if (rekeyed) await recordNoteRekey(docId, rekeyed.previousVersionTag, rekeyed.versionTag);
+    else await clearCachedKeyHeader(docId);
+
+    const updatedMetadata = { ...current.metadata, isPublic };
+    await updateSearchIndexMetadata(docId, current.title, updatedMetadata);
 }
 
 /**
@@ -101,6 +133,8 @@ export function useNotes() {
                 timestamps: { created: now, modified: now },
                 excludeFromAI: false,
                 isPinned: false,
+                // A note created in a shared folder starts public (#618).
+                ...newNoteShareFields({ isPublic: await isFolderPublic(targetFolderId || MAIN_FOLDER_ID) }),
             };
 
             const newNote: SearchIndexEntry = {
@@ -175,32 +209,8 @@ export function useNotes() {
         },
     });
 
-    // Reflect public-share status locally for the list badge. The flag is already
-    // persisted remotely by makeNotePublic/makeNotePrivate, so this is a LOCAL-only
-    // update — we intentionally do NOT mark the note 'pending' (a normal sync push
-    // could disturb the Anonymous ACL).
-    const setNotePublicMutation = useMutation<void, Error, {
-        docId: string;
-        isPublic: boolean;
-        /** makeNotePublic/makeNotePrivate's result, when this toggle re-uploaded the file. */
-        rekeyed?: { versionTag: string; previousVersionTag: string };
-    }>({
-        mutationFn: async ({ docId, isPublic, rekeyed }) => {
-            const current = await getSearchIndexEntry(docId);
-            if (!current) return;
-
-            // Both makeNotePublic and makeNotePrivate re-upload the file, which re-keys
-            // it (public = no key header at all, private = a brand-new one). The cached
-            // header is now the WRONG key — validateKeyHeader only checks shape, so the
-            // next push would happily encrypt the payload with it and every later read
-            // would fail decryption ("OperationError" / "operation not permitted").
-            // Written first: the re-upload's websocket echo follows within about a second.
-            if (rekeyed) await recordNoteRekey(docId, rekeyed.previousVersionTag, rekeyed.versionTag);
-            else await clearCachedKeyHeader(docId);
-
-            const updatedMetadata = { ...current.metadata, isPublic };
-            await updateSearchIndexMetadata(docId, current.title, updatedMetadata);
-        },
+    const setNotePublicMutation = useMutation<void, Error, SetNotePublicParams>({
+        mutationFn: setNotePublicLocal,
     });
 
     // Link-card edits from the share dialog. Unlike isPublic these live only in the
