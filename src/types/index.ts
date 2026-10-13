@@ -1,3 +1,5 @@
+import type { FolderCard } from '@/lib/share/folderCard';
+
 export interface DocumentMetadata {
     title: string;
     folderId: string; // 'main'  UUID
@@ -77,6 +79,7 @@ export interface FolderFile {
     needsPassword: boolean;   // V2 placeholder
     color?: string;
     isPublic?: boolean;       // Shared folder: stored unencrypted with an Anonymous ACL (#618)
+    card?: FolderCard;        // Its link card image payload and what it was drawn from (#644)
 }
 
 // Note file content stored in Homebase header

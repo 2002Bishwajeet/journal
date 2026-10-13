@@ -20,11 +20,16 @@ const BLOG = folderId(1);
 const EMPTY = folderId(2);
 const UNSHARED = folderId(3);
 const UNKNOWN = folderId(4);
+const CARDED = folderId(5);
+const CARD_NAMED_ONLY = folderId(6);
 
 // Folder files the guest can read. UNSHARED is Owner-only on the server, so it is absent.
-const FOLDERS: Record<string, { name: string }> = {
+// `card` is what the content names (#644); `payload` whether the jrnl_card payload exists.
+const FOLDERS: Record<string, { name: string; card?: object; payload?: boolean }> = {
   [BLOG]: { name: 'Blog' },
   [EMPTY]: { name: 'Empty folder' },
+  [CARDED]: { name: 'Carded', card: { cardImageKey: 'jrnl_card', from: { name: 'Carded', count: 3 } }, payload: true },
+  [CARD_NAMED_ONLY]: { name: 'Card lost', card: { cardImageKey: 'jrnl_card', from: { name: 'Card lost', count: 3 } } },
 };
 
 type Stub = { title: string; group: string; day: number; isEncrypted?: boolean; archivalStatus?: number };
@@ -58,7 +63,9 @@ test.beforeAll(async () => {
         fileId: 'bbbbbbbb-0000-0000-0000-000000000001',
         fileMetadata: {
           isEncrypted: false,
-          appData: { uniqueId: id, archivalStatus: 0, content: JSON.stringify({ ...folder, isPublic: true }) },
+          updated: 1_700_000_000_000,
+          payloads: folder.payload ? [{ key: 'jrnl_card' }] : [],
+          appData: { uniqueId: id, archivalStatus: 0, content: JSON.stringify({ name: folder.name, card: folder.card, isPublic: true }) },
         },
       });
     }
@@ -133,6 +140,33 @@ test('a shared folder page lists its public notes, newest first, and each link o
     expect(note.status(), href).toBe(200);
     expect(await note.text(), href).toContain('id="root"');
   }
+});
+
+// #644: a folder whose file carries a card serves it as og:image; one without keeps the banner.
+test('a shared folder page serves its own link card as og:image, and the banner without one', async ({ request, baseURL }) => {
+  const carded = await (await request.get(`/share/${IDENTITY}/f/${CARDED}`)).text();
+  const image = /property="og:image" content="([^"]+)"/.exec(carded)?.[1].replace(/&amp;/g, '&');
+  const url = new URL(image ?? 'about:blank');
+  expect(url.host).toBe(IDENTITY);
+  expect(url.pathname).toBe('/api/guest/v1/drive/files/payload');
+  expect(url.searchParams.get('fileId')).toBe('bbbbbbbb-0000-0000-0000-000000000001');
+  expect(url.searchParams.get('key')).toBe('jrnl_card');
+  expect(url.searchParams.get('v')).toBe('1700000000000');
+  expect(carded).toContain('property="og:image:width" content="1200"');
+  expect(carded).toContain('property="og:image:height" content="630"');
+  expect(carded).toContain('name="twitter:card" content="summary_large_image"');
+
+  // No card at all, or one the content names whose payload is gone: the banner.
+  for (const id of [BLOG, CARD_NAMED_ONLY]) {
+    const html = await (await request.get(`/share/${IDENTITY}/f/${id}`)).text();
+    expect(html, id).toContain(`property="og:image" content="${baseURL}/banner.webp"`);
+    expect(html, id).toContain('name="twitter:card" content="summary"');
+  }
+
+  // The author page is unchanged.
+  const index = await (await request.get(`/share/${IDENTITY}`)).text();
+  expect(index).toContain(`property="og:image" content="${baseURL}/banner.webp"`);
+  expect(index).toContain('name="twitter:card" content="summary"');
 });
 
 test('the author index and a note page are served as before', async ({ request }) => {

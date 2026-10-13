@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import {
     getFolderById,
+    getFolderNotesToShare,
     getSearchIndexEntry,
     getDocumentUpdates,
     replaceDocumentUpdates,
@@ -132,6 +133,19 @@ export async function pushFolder(ctx: SyncContext, record: SyncRecord): Promise<
         isPublic: folder.isPublic,
     };
 
+    // A shared folder's link card (#644), redrawn when its name or public-note count changed
+    // since it was drawn. The card the remote file names is what it was last drawn from.
+    let remoteCard: FolderFile['card'];
+    if (folder.isPublic && record.remoteFileId) {
+        const existing = await ctx.folderProvider.getFolder(record.localId).catch(() => null);
+        const raw: unknown = existing?.fileMetadata.appData.content;
+        remoteCard = (typeof raw === 'string' ? tryJsonParse<FolderFile>(raw) : (raw as FolderFile | undefined))?.card;
+    }
+    const cardUpload = folder.isPublic
+        ? await ctx.folderProvider.drawCardIfStale(folderFile, (await getFolderNotesToShare(record.localId, false)).length, remoteCard)
+        : null;
+    if (cardUpload) folderFile.card = cardUpload.card;
+
     // Updates the folder on Homebase over its latest version.
     const updateExisting = async () => {
         const existingFile = await ctx.folderProvider.getFolder(record.localId);
@@ -142,7 +156,8 @@ export async function pushFolder(ctx: SyncContext, record: SyncRecord): Promise<
         const updated = await ctx.folderProvider.updateFolder(
             existingFile.fileId,
             existingFile.fileMetadata.versionTag,
-            { ...remoteContent, ...folderFile }
+            { ...remoteContent, ...folderFile },
+            cardUpload?.image
         );
         return { fileId: existingFile.fileId, ...updated };
     };
@@ -156,7 +171,7 @@ export async function pushFolder(ctx: SyncContext, record: SyncRecord): Promise<
     // ponytail: one header fetch per folder push, so remote-only fields (colour) survive.
     const result = record.remoteFileId
         ? await updateExisting()
-        : await ctx.folderProvider.createFolder(record.localId, folderFile, { onVersionConflict });
+        : await ctx.folderProvider.createFolder(record.localId, folderFile, { onVersionConflict, cardImage: cardUpload?.image });
     await markSynced(record.localId, result.fileId, result.versionTag);
 
 }

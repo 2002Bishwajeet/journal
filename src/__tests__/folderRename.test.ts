@@ -77,6 +77,6 @@ describe('pushFolder after a rename', () => {
         const svc = new SyncService(fakeDotYouClient(), fakeOnlineContext());
         await svc.pushFolder({ localId: F, entityType: 'folder', syncStatus: 'pending' });
 
-        expect(mockUpdate).toHaveBeenCalledWith('file-1', 'v1', expect.objectContaining({ name: 'New', color: 'red' }));
+        expect(mockUpdate).toHaveBeenCalledWith('file-1', 'v1', expect.objectContaining({ name: 'New', color: 'red' }), undefined);
     });
 });

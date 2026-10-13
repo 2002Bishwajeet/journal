@@ -19,7 +19,7 @@ interface ShareFolderDialogProps {
 
 /** Share a folder, or stop (#631): its state, link and the preview people see, laid out like the note Share dialog. */
 export default function ShareFolderDialog({ folder, onClose }: ShareFolderDialogProps) {
-    const { url, description, toShare, copy, share, askToStop, publicNotes, cancelStop, stop } = useShareFolderDialog(folder);
+    const { url, description, cardImage, toShare, copy, share, askToStop, publicNotes, cancelStop, stop } = useShareFolderDialog(folder);
     const isPublic = !!folder?.isPublic;
 
     return (
@@ -88,7 +88,7 @@ export default function ShareFolderDialog({ folder, onClose }: ShareFolderDialog
                                         title={folder?.name ?? ''}
                                         description={description}
                                         domain={window.location.host}
-                                        image={<img src="/banner.webp" alt="" className="h-full w-full object-cover" />}
+                                        image={<img src={cardImage ?? '/banner.webp'} alt="" className="h-full w-full object-cover" />}
                                     />
                                 </div>
                             </section>

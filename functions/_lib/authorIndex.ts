@@ -5,6 +5,7 @@
 
 import { folderShareDescription } from './folderShare';
 import {
+    CARD_IMAGE_KEY,
     IDENTITY_RE,
     JOURNAL_DRIVE_ALIAS,
     JOURNAL_DRIVE_TYPE,
@@ -35,10 +36,13 @@ export type AuthorIndex = {
     identity: string;
     authorName: string;
     notes: IndexNote[];
-    folder?: { id: string; name: string };
+    folder?: { id: string; name: string; cardImage?: FolderCardImage };
     // The author page's shared folders (#632), each with its notes; `notes` then holds the rest.
     folders?: IndexFolder[];
 };
+
+// A shared folder's own 1200x630 link card: the `jrnl_card` payload of its file, `version` busting crawler caches.
+export type FolderCardImage = { fileId: string; version?: number };
 
 export type IndexFolder = { id: string; name: string; notes: IndexNote[] };
 
@@ -64,7 +68,9 @@ export function parseAuthorPath(pathname: string): AuthorPath | null {
 }
 
 type QueryFile = {
+    fileId?: string;
     fileMetadata?: {
+        payloads?: { key?: string }[];
         created?: number;
         updated?: number;
         isEncrypted?: boolean;
@@ -103,10 +109,14 @@ function toIndexNote(file: QueryFile, folderId?: string): IndexNote | null {
 }
 
 /**
- * A shared folder's name, from its guest-readable file. Null when the folder is
+ * A shared folder's name and link card, from its guest-readable file. Null when the folder is
  * unknown or not shared (its file is Owner-only then, so the guest read fails).
  */
-async function fetchFolderName(base: string, folderId: string, fetchImpl: typeof fetch): Promise<string | null> {
+async function fetchSharedFolder(
+    base: string,
+    folderId: string,
+    fetchImpl: typeof fetch,
+): Promise<{ name: string; cardImage?: FolderCardImage } | null> {
     try {
         const query = new URLSearchParams({
             alias: JOURNAL_DRIVE_ALIAS,
@@ -121,12 +131,24 @@ async function fetchFolderName(base: string, folderId: string, fetchImpl: typeof
         if (res.status !== 200) return null;
         const text = await res.text();
         if (text.length > MAX_FOLDER_BYTES) return null;
-        const metadata = (JSON.parse(text) as QueryFile).fileMetadata;
+        const file = JSON.parse(text) as QueryFile;
+        const metadata = file.fileMetadata;
         if (!metadata || metadata.isEncrypted !== false || metadata.appData?.archivalStatus === 2) return null;
-        return sharedFolderName(metadata.appData?.content);
+        const name = sharedFolderName(metadata.appData?.content);
+        if (!name) return null;
+        // The card counts only when the content names it and the payload is there.
+        const hasCard =
+            !!file.fileId && folderCardKey(metadata.appData?.content) === CARD_IMAGE_KEY && !!metadata.payloads?.some((p) => p.key === CARD_IMAGE_KEY);
+        return { name, ...(hasCard ? { cardImage: { fileId: file.fileId!, version: metadata.updated } } : {}) };
     } catch {
         return null;
     }
+}
+
+/** The payload key a folder file's content names for its card image, if any. */
+function folderCardKey(raw: unknown): unknown {
+    const content = (typeof raw === 'string' ? JSON.parse(raw) : raw ?? {}) as { card?: { cardImageKey?: unknown } };
+    return content.card?.cardImageKey;
 }
 
 /** A folder file's name when its content says it is shared (`isPublic`) and named. */
@@ -219,18 +241,18 @@ export async function fetchAuthorIndex(
             ordering: 'newestFirst',
         });
         if (folderId) query.set('groupId', folderId);
-        const [queryRes, authorName, folderName, sharedFolders] = await Promise.all([
+        const [queryRes, authorName, sharedFolder, sharedFolders] = await Promise.all([
             fetchImpl(`${base}/api/guest/v1/drive/query/batch?${query}`, {
                 redirect: 'manual',
                 signal: AbortSignal.timeout(3000),
                 headers: { accept: 'application/json' },
             }),
             fetchAuthorName(`${base}/pub/profile`, fetchImpl),
-            folderId ? fetchFolderName(base, folderId, fetchImpl) : undefined,
+            folderId ? fetchSharedFolder(base, folderId, fetchImpl) : undefined,
             folderId ? undefined : fetchSharedFolders(base, fetchImpl),
         ]);
 
-        if (folderId && !folderName) return null;
+        if (folderId && !sharedFolder) return null;
         if (queryRes.status !== 200) return null;
         if (Number(queryRes.headers.get('content-length') ?? 0) > MAX_QUERY_BYTES) return null;
         const text = await queryRes.text();
@@ -249,7 +271,7 @@ export async function fetchAuthorIndex(
             authorName: authorName ?? identity,
             notes: grouped?.folders.length ? grouped.rest : notes,
             ...(grouped?.folders.length ? { folders: grouped.folders } : {}),
-            ...(folderId && folderName ? { folder: { id: folderId, name: folderName } } : {}),
+            ...(folderId && sharedFolder ? { folder: { id: folderId, ...sharedFolder } } : {}),
         };
     } catch {
         return null;
@@ -301,6 +323,17 @@ export function buildAuthorIndexHtml(index: AuthorIndex, origin: string): string
     const description = folder
         ? folderShareDescription(folder.name, authorName)
         : `Public notes by ${authorName}, shared with Journal`;
+    // A shared folder with a drawn card shows it; every other page keeps the site banner.
+    const cardImage = folder?.cardImage;
+    const cardUrl = cardImage
+        ? `https://${identity}/api/guest/v1/drive/files/payload?${new URLSearchParams({
+              alias: JOURNAL_DRIVE_ALIAS,
+              type: JOURNAL_DRIVE_TYPE,
+              fileId: cardImage.fileId,
+              key: CARD_IMAGE_KEY,
+              ...(cardImage.version ? { v: String(cardImage.version) } : {}),
+          })}`
+        : undefined;
     const property = (name: string, content: string) => `<meta property="${name}" content="${escapeHtml(content)}" />`;
     const named = (name: string, content: string) => `<meta name="${name}" content="${escapeHtml(content)}" />`;
 
@@ -345,8 +378,8 @@ ${property('og:site_name', folder ? authorName : 'Journal')}
 ${property('og:title', title)}
 ${property('og:description', description)}
 ${property('og:url', pageUrl)}
-${property('og:image', `${origin}/banner.webp`)}
-${named('twitter:card', 'summary')}
+${property('og:image', cardUrl ?? `${origin}/banner.webp`)}${cardUrl ? `\n${property('og:image:width', '1200')}\n${property('og:image:height', '630')}` : ''}
+${named('twitter:card', cardUrl ? 'summary_large_image' : 'summary')}
 ${named('twitter:title', title)}
 ${named('twitter:description', description)}
 <link rel="icon" href="/favicon.ico" sizes="any" />

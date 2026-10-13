@@ -122,3 +122,36 @@ test('sharing a folder makes its notes public, new notes in it start public, and
   await expect(app.getByTestId('note-row')).toHaveCount(3);
   await expect(app.getByTestId('note-row').locator('svg.lucide-globe')).toHaveCount(0);
 });
+
+// #644: the dialog previews the folder's own 1200x630 link card (drawn in the browser,
+// so a blob: URL), not the site banner, and draws it again when the folder is renamed.
+test('the Share folder dialog previews the folder card and redraws it after a rename', async ({ app }) => {
+  await app.setViewportSize(DESKTOP);
+  await createFolder(app, 'Cards');
+  await selectFolder(app, 'Cards');
+  await createNote(app, { title: 'One', body: 'Hello' });
+
+  const openShare = async (name: string) => {
+    await folderButton(app, name).click({ button: 'right' });
+    await app.getByRole('menuitem', { name: 'Share folder…' }).click();
+    return app.getByRole('dialog', { name: 'Share Folder' });
+  };
+
+  const before = await openShare('Cards');
+  const card = before.locator('img[src^="blob:"]');
+  await expect(card).toHaveCount(1);
+  await expect(before.locator('img[src="/banner.webp"]')).toHaveCount(0);
+  await app.screenshot({ path: test.info().outputPath('folder-card-preview-light-1280.png'), animations: 'disabled' });
+  const firstSrc = await card.getAttribute('src');
+  await app.keyboard.press('Escape');
+
+  await folderButton(app, 'Cards').click({ button: 'right' });
+  await app.getByRole('menuitem', { name: 'Rename Folder' }).click();
+  const input = app.getByRole('dialog').getByPlaceholder('Folder Name');
+  await input.fill('Renamed cards');
+  await input.press('Enter');
+
+  const after = await openShare('Renamed cards');
+  await expect(after.locator('img[src^="blob:"]')).toHaveCount(1);
+  expect(await after.locator('img[src^="blob:"]').getAttribute('src')).not.toBe(firstSrc);
+});
