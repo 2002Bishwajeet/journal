@@ -1,3 +1,10 @@
+## [2.11.2](https://github.com/2002Bishwajeet/journal/compare/v2.11.1...v2.11.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **live-blocks:** open clicked links in html and react blocks in a new tab ([9063904](https://github.com/2002Bishwajeet/journal/commit/90639043db6e307e398763418f3407a3db1b2948))
+* **mcp:** say Node 20+ is needed instead of failing with 'crypto is not defined' ([7bcf799](https://github.com/2002Bishwajeet/journal/commit/7bcf7993e79671f5d5742c55bd7d3d22df6b80a0))
 ## [2.11.1](https://github.com/2002Bishwajeet/journal/compare/v2.11.0...v2.11.1) (2026-10-13)
 
 

@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.11.2 (2026-10-13)
+
 ### Fixed
 
 - Links in HTML and React blocks open in a new tab when you click them.
