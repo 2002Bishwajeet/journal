@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- A shared folder's link opens the folder page. Before, the app opened instead of the folder page.
+
 ## 2.11.3 (2026-10-13)
 
 ### Changed
