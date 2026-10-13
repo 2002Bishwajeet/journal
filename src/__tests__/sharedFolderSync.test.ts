@@ -14,13 +14,14 @@ import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
 
-const { mockDsr, mockCreateFolder, mockUpdateFolder, mockGetFolder } = vi.hoisted(() => ({ mockDsr: vi.fn(), mockCreateFolder: vi.fn(), mockUpdateFolder: vi.fn(), mockGetFolder: vi.fn() }));
+const { mockDsr, mockCreateFolder, mockUpdateFolder, mockGetFolder, mockDrawCard } = vi.hoisted(() => ({ mockDsr: vi.fn(), mockCreateFolder: vi.fn(), mockUpdateFolder: vi.fn(), mockGetFolder: vi.fn(), mockDrawCard: vi.fn() }));
 vi.mock('@/lib/homebase/FolderDriveProvider', () => ({
     FolderDriveProvider: class FolderDriveProvider {
         dsrToFolderFileContent = mockDsr;
         createFolder = mockCreateFolder;
         updateFolder = mockUpdateFolder;
         getFolder = mockGetFolder;
+        drawCardIfStale = mockDrawCard;
         constructor() {}
     },
 }));
@@ -51,6 +52,7 @@ afterAll(async () => { await closeTestDatabase(); });
 beforeEach(async () => {
     await resetTestDatabase();
     vi.clearAllMocks();
+    mockDrawCard.mockResolvedValue(null);
 });
 
 describe('pull', () => {
@@ -96,7 +98,7 @@ describe('push', () => {
         await svc().pushFolder((await getSyncRecord(F))!);
 
         expect(mockCreateFolder).not.toHaveBeenCalled();
-        expect(mockUpdateFolder).toHaveBeenCalledWith('folder-file-1', 'v1', expect.objectContaining({ isPublic: true, color: 'red' }));
+        expect(mockUpdateFolder).toHaveBeenCalledWith('folder-file-1', 'v1', expect.objectContaining({ isPublic: true, color: 'red' }), undefined);
         expect(await getSyncRecord(F)).toMatchObject({ syncStatus: 'synced', versionTag: 'v2' });
     });
 });

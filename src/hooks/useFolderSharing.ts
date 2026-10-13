@@ -9,6 +9,7 @@ import {
     getFolderNotesToShare,
     getSearchIndexEntry,
     getSyncRecord,
+    isFolderPublic,
     setFolderPublicLocal,
     updateSearchIndexMetadata,
     updateSyncStatus,
@@ -61,6 +62,17 @@ export async function setNoteShared(
         if (current) await updateSearchIndexMetadata(docId, current.title, { ...current.metadata, shareIndexable: true });
         await updateSyncStatus(docId, 'pending');
     }
+}
+
+/**
+ * Push a shared folder again so its link card (#644) follows the number of public notes
+ * in it: the push redraws the card only when the name or count changed. No-op for a
+ * private folder. A failed push stays pending and the next sync retries it.
+ */
+export async function refreshFolderCard(syncFolder: (folderId: string) => Promise<void>, folderId: string): Promise<void> {
+    if (!(await isFolderPublic(folderId))) return;
+    await updateSyncStatus(folderId, 'pending');
+    await syncFolder(folderId).catch((err) => console.warn('[useFolderSharing] folder card refresh failed, will retry:', err));
 }
 
 /** Notes changed at once when sharing or unsharing a folder. */
@@ -131,6 +143,8 @@ export function useFolderSharing() {
                 },
                 (n) => toast.loading(`Making notes ${target} (${n}/${docIds.length})…`, { id: toastId })
             );
+
+            if (isPublic) await refreshFolderCard(syncFolder, folderId);
 
             const done = isPublic ? 'Folder shared' : 'Folder is private again';
             if (failed > 0) {

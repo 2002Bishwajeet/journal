@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/auth';
 import { useFolderSharing } from '@/hooks/useFolderSharing';
+import { useFolderCardImage } from '@/hooks/useFolderCardImage';
 import { usePublicAuthor } from '@/hooks/usePublicAuthor';
 import { folderShareUrl } from '@/lib/share/sharedFolder';
 import { folderShareDescription } from '../../functions/_lib/folderShare';
@@ -25,6 +26,19 @@ export function useShareFolderDialog(folder: { id: string; name: string; isPubli
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [folderId]);
 
+    // The card shows the notes the folder has (or will have) public.
+    const [publicCount, setPublicCount] = useState<number | null>(null);
+    const isPublic = !!folder?.isPublic;
+    useEffect(() => {
+        if (!folderId || !isPublic) return;
+        let stale = false;
+        countPublicNotes(folderId).then((n) => !stale && setPublicCount(n)).catch(() => {});
+        return () => { stale = true; };
+        // Recounts when the share just finished (toShare changes then).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [folderId, isPublic, toShare]);
+    const cardImage = useFolderCardImage(folder, isPublic ? publicCount : toShare);
+
     const url = folder ? folderShareUrl(window.location.origin, identity, folder.id) : '';
     // The same text the folder page serves as og:description.
     const description = folder ? folderShareDescription(folder.name, author.name) : '';
@@ -42,6 +56,8 @@ export function useShareFolderDialog(folder: { id: string; name: string; isPubli
     return {
         url,
         description,
+        /** The folder's link card as an object URL; undefined while it loads or can't be drawn. */
+        cardImage,
         /** Notes that sharing would make public; null until counted. */
         toShare,
         copy,
