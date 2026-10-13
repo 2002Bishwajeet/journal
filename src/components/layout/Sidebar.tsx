@@ -8,8 +8,6 @@ import {
   FolderOpen,
   Globe,
   Hash,
-  Link2,
-  Lock,
   Plus,
   Search,
   Settings,
@@ -36,12 +34,11 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { ConfirmDialog, FolderLinkDialog, SignOutConfirmDialog } from "@/components/modals";
+import { ConfirmDialog, ShareFolderDialog, SignOutConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
 import type { Folder } from "@/types";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
-import { useFolderSharing } from "@/hooks/useFolderSharing";
 import { OwnerImage } from "@/components/author/AuthorImage";
 
 interface SidebarProps {
@@ -105,9 +102,7 @@ export default function Sidebar({
   const { collapsed, toggle } = useSidebarCollapse();
   const isCollapsed = collapsed.sidebar;
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
-  const [folderToUnshare, setFolderToUnshare] = useState<{ id: string; publicNotes: number } | null>(null);
-  const [folderLink, setFolderLink] = useState<{ id: string; name: string } | null>(null);
-  const { setFolderShared, countPublicNotes } = useFolderSharing();
+  const [shareFolderId, setShareFolderId] = useState<string | null>(null);
   const [tagToDelete, setTagToDelete] = useState<string | null>(null);
   const tagToDeleteCount = tagToDelete ? tagCounts?.[tagToDelete] ?? 0 : 0;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -339,38 +334,17 @@ export default function Sidebar({
                         Rename Folder
                       </ContextMenuItem>
                       )}
-                      {folder.id !== MAIN_FOLDER_ID && (folder.isPublic ? (
-                        <>
-                          <ContextMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setFolderLink({ id: folder.id, name: folder.name });
-                            }}
-                          >
-                            <Link2 className="mr-2 h-4 w-4" />
-                            Folder link
-                          </ContextMenuItem>
-                          <ContextMenuItem
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              setFolderToUnshare({ id: folder.id, publicNotes: await countPublicNotes(folder.id) });
-                            }}
-                          >
-                            <Lock className="mr-2 h-4 w-4" />
-                            Stop sharing folder
-                          </ContextMenuItem>
-                        </>
-                      ) : (
+                      {folder.id !== MAIN_FOLDER_ID && (
                         <ContextMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
-                            void setFolderShared(folder.id, true);
+                            setShareFolderId(folder.id);
                           }}
                         >
                           <Globe className="mr-2 h-4 w-4" />
-                          Share folder
+                          Share folder…
                         </ContextMenuItem>
-                      ))}
+                      )}
                       <ContextMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={(e) => {
@@ -461,20 +435,7 @@ export default function Sidebar({
           confirmText="Delete"
         />
 
-        <FolderLinkDialog folder={folderLink} onClose={() => setFolderLink(null)} />
-
-        <ConfirmDialog
-          isOpen={!!folderToUnshare}
-          onClose={() => setFolderToUnshare(null)}
-          onConfirm={() => {
-            if (folderToUnshare) void setFolderShared(folderToUnshare.id, false);
-          }}
-          title="Stop sharing folder?"
-          description={folderToUnshare
-            ? `${folderToUnshare.publicNotes} ${folderToUnshare.publicNotes === 1 ? "note" : "notes"} will become private, and new notes in this folder will stay private.`
-            : ""}
-          confirmText="Stop sharing"
-        />
+        <ShareFolderDialog folder={folders.find((f) => f.id === shareFolderId) ?? null} onClose={() => setShareFolderId(null)} />
 
         <ConfirmDialog
           isOpen={!!tagToDelete}

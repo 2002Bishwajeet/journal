@@ -14,8 +14,10 @@ test('a folder shared on one device is shared on a second device', async ({ live
     await selectFolder(page, folder);
     await createNote(page, { title: `Shared on device A ${Date.now()}`, body: 'x' });
     await foldersNav(page).getByRole('button', { name: folder, exact: true }).click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Share folder' }).click();
+    await page.getByRole('menuitem', { name: 'Share folder…' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Share folder', exact: true }).click();
     await expect(page.getByText(/^Folder shared\./)).toBeVisible({ timeout: 60_000 });
+    await page.keyboard.press('Escape');
 
     // A fresh context has the login but an empty local database: a second device.
     await withFencedPage(browser, { storageState: LIVE_STORAGE_STATE }, async (other) => {

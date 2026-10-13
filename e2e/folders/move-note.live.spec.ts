@@ -48,8 +48,10 @@ test('moving a note into a shared folder publishes it, moving it out makes it pr
     await createFolder(page, shared);
     await createFolder(page, privateFolder);
     await foldersNav(page).getByRole('button', { name: shared, exact: true }).click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Share folder' }).click();
+    await page.getByRole('menuitem', { name: 'Share folder…' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Share folder', exact: true }).click();
     await expect(page.getByText(/^Folder shared\./)).toBeVisible({ timeout: 60_000 });
+    await page.keyboard.press('Escape');
 
     await selectFolder(page, privateFolder);
     const title = `Moved note ${Date.now()}`;
