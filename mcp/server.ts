@@ -13,6 +13,13 @@ const USAGE = `Usage: journal-mcp [login [--no-browser] [identity] | logout | --
 `;
 
 async function main(): Promise<void> {
+    // Node 18 has no global crypto or File; without this it fails later as "crypto is not defined".
+    const nodeMajor = Number(process.versions.node.split('.')[0]);
+    if (nodeMajor < 20) {
+        console.error(`Journal MCP needs Node 20 or newer (found ${process.versions.node}). Install Node 20+ or remove the old version, then restart your MCP client.`);
+        process.exit(1);
+    }
+
     const [, , command, ...rest] = process.argv;
 
     if (command === '--help' || command === '-h') {
