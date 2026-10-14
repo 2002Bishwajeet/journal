@@ -1,3 +1,9 @@
+## [2.11.7](https://github.com/2002Bishwajeet/journal/compare/v2.11.6...v2.11.7) (2026-10-14)
+
+
+### Bug Fixes
+
+* **share:** highlight short last sections in the outline at the end of the page ([#655](https://github.com/2002Bishwajeet/journal/issues/655)) ([9e042b4](https://github.com/2002Bishwajeet/journal/commit/9e042b48f457cf27a52d779839e59fc76c93642a))
 ## [2.11.6](https://github.com/2002Bishwajeet/journal/compare/v2.11.5...v2.11.6) (2026-10-14)
 
 
