@@ -268,6 +268,16 @@ describe('saving a public note: the card image', () => {
         expect(patchedCard().cardImageFrom).toEqual(drawn);
     });
 
+    it('deletes a card drawn over a replaced cover where none can be drawn (MCP), so link previews show the new cover', async () => {
+        mockGetHeader.mockResolvedValue(header(['jrnl_txt', 'jrnl_img0', 'jrnl_img1', 'jrnl_card'], coverAt(50)));
+        mockCanRender.mockReturnValue(false);
+
+        await save(noteBlob({ src: `attachment://${FILE_ID}/jrnl_img1`, positionY: 50 }));
+
+        expect(patchedDeletes()).toContain('jrnl_card');
+        expect(patchedCard().coverKey).toBe('jrnl_img1');
+    });
+
     it('is not looked at for a private note', async () => {
         await save(noteBlob({ src: COVER, positionY: 30 }), { title: 'Note', tags: [] } as unknown as DocumentMetadata);
 
