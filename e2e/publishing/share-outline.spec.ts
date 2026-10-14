@@ -41,6 +41,12 @@ const NOTES = {
     title: 'Two sections',
     body: content([['h2', 'One'], ...fill(10), ['h2', 'Two'], ...fill(10)]),
   },
+  tail: {
+    noteId: '6a1d7c20-5b3e-4f86-9a12-c0e8d3b7f544',
+    fileId: '6b2e8d31-6c4f-4097-8b23-d1f9e4c8a655',
+    title: 'Short last sections',
+    body: content([['h2', 'Long'], ...fill(30), ['h2', 'Limits'], ...fill(2), ['h2', 'Next'], ...fill(2)]),
+  },
   odd: {
     noteId: '3a1d7c20-5b3e-4f86-9a12-c0e8d3b7f543',
     fileId: '3b2e8d31-6c4f-4097-8b23-d1f9e4c8a654',
@@ -157,6 +163,15 @@ test('outline panel at 1440px: entries, jump, scroll-spy, hide and show', async 
   await panel(page).getByRole('button', { name: 'Show contents' }).click();
   await expect(links).toHaveCount(4);
   await expect(panel(page).getByRole('button', { name: 'Hide contents' })).toHaveAttribute('aria-expanded', 'true');
+});
+
+test('short last sections still get highlighted at the end of the page', async ({ anonPage: page }) => {
+  await page.setViewportSize(DESKTOP);
+  await open(page, NOTES.tail);
+  const links = panel(page).getByRole('link');
+  await expect(links).toHaveText(['Long', 'Limits', 'Next']);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect(links.nth(2)).toHaveAttribute('aria-current', 'location');
 });
 
 test('outline panel fits at the xl edge, 1280px', async ({ anonPage: page }) => {

@@ -56,7 +56,11 @@ export function useShareOutline(articleRef: RefObject<HTMLElement | null>, conte
 
         if (els.length < MIN_OUTLINE_HEADINGS) return;
         const update = () => {
-            const passed = els.filter((el) => el.getBoundingClientRect().top <= READING_LINE);
+            // In the last screen the line slides down to the viewport bottom, so short last
+            // sections that can never reach READING_LINE still get their turn.
+            const left = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
+            const line = Math.max(READING_LINE, window.innerHeight - left);
+            const passed = els.filter((el) => el.getBoundingClientRect().top <= line);
             setActiveId((passed.at(-1) ?? els[0]).id);
         };
         update();

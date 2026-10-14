@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- On a shared note, "On this page" marks the last sections when you scroll to the end of the note.
+
 ## 2.11.6 (2026-10-14)
 
 ### Fixed
