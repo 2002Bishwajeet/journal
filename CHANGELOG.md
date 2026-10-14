@@ -1,3 +1,15 @@
+## [2.11.5](https://github.com/2002Bishwajeet/journal/compare/v2.11.4...v2.11.5) (2026-10-14)
+
+
+### Bug Fixes
+
+* **notes:** trash and restore public notes ([ce5e8c4](https://github.com/2002Bishwajeet/journal/commit/ce5e8c46759440882b7bc4783044fa35305e6146))
+* **share:** show each folder on the author page as its own card ([92542a4](https://github.com/2002Bishwajeet/journal/commit/92542a4db5286a5575ea3c625cdec2a06ca66da2))
+
+
+### Features
+
+* **cover:** drop an image file to set or replace a note's cover ([1b03009](https://github.com/2002Bishwajeet/journal/commit/1b0300918e932e5742ae1afaa03a5b1c87c69996))
 ## [2.11.4](https://github.com/2002Bishwajeet/journal/compare/v2.11.3...v2.11.4) (2026-10-13)
 
 
