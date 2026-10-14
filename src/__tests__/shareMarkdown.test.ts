@@ -12,6 +12,7 @@ import Markdown from 'react-markdown';
 import { extractMarkdownFromYjs, extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
+import { createDoc, toMarkdown } from '@/lib/agent/editEngine';
 
 function buildBlob(build: (frag: Y.XmlFragment) => void): Uint8Array {
   const doc = new Y.Doc();
@@ -427,5 +428,29 @@ describe('share page markdown pipeline', () => {
     const html = render('hi <script>alert(1)</script>');
 
     expect(html).not.toContain('<script');
+  });
+});
+
+describe('literal dollar signs', () => {
+  const render = (md: string) =>
+    renderToStaticMarkup(
+      createElement(Markdown, { remarkPlugins: shareRemarkPlugins, rehypePlugins: shareRehypePlugins }, md)
+    );
+
+  it('keeps plain-text $ amounts as text on the share page, not inline math', async () => {
+    const blob = buildBlob((frag) => frag.insert(0, [para('Opus about $756, Sonnet about $181')]));
+
+    const html = render(await extractMarkdownFromYjs('x', blob));
+
+    expect(html).not.toContain('katex');
+    expect(html).toContain('Opus about $756, Sonnet about $181');
+  });
+
+  it('round-trips plain-text $ back to text through the agent edit engine', () => {
+    const doc = createDoc('Opus about $756, Sonnet about $181');
+    const again = createDoc(toMarkdown(doc));
+
+    expect(again.getXmlFragment('prosemirror').toString()).not.toContain('inlineMath');
+    expect(toMarkdown(again)).toBe(toMarkdown(doc));
   });
 });
