@@ -458,7 +458,11 @@ export class NotesDriveProvider {
         const { canRenderCardImage } = await import('@/lib/share/cardImage');
         if (!canRenderCardImage()) {
             const hasCard = !!header?.fileMetadata.payloads?.some((p) => p.key === PAYLOAD_KEY_CARD_IMAGE);
-            return hasCard && header ? { remove: false, kept: true, keptFrom: drawnCardImageFrom(header) } : { remove: false };
+            if (!hasCard || !header) return { remove: false };
+            const keptFrom = drawnCardImageFrom(header);
+            // A card drawn over a replaced cover shows the old photo: delete it so og:image falls back to the new cover until the app redraws.
+            if (keptFrom?.cover && from?.cover?.src !== keptFrom.cover.src) return { remove: true };
+            return { remove: false, kept: true, keptFrom };
         }
         const upload = from ? await this.#drawCardImage(fileId, from, (key) => this.#readPayloadBlob(fileId, key, header)) : null;
         if (upload) return { upload, remove: false };
