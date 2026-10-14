@@ -99,7 +99,7 @@
     "yjs": "^13.6.32"
   },
   "devDependencies": {
-    "@babel/core": "^8.0.5",
+    "@babel/core": "^8.0.7",
     "@eslint/js": "^10.0.1",
     "@modelcontextprotocol/sdk": "1.32.1",
     "@napi-rs/keyring": "2.1.0",
