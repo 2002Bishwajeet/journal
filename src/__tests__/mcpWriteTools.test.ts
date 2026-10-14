@@ -563,7 +563,7 @@ describe('write tools: set_note_cover / clear_note_cover (#516)', () => {
         expect(readFileSync(fixturePath('cover-exif.jpg')).includes('Exif')).toBe(true);
 
         const result = await setNoteCover(deps, { id: 'nw', image: fixturePath('cover-exif.jpg') });
-        expect(result).toEqual({ id: 'nw', variant: 'light', src: 'attachment://file-nw/jrnl_img0', positionY: 50 });
+        expect(result).toMatchObject({ id: 'nw', variant: 'light', src: 'attachment://file-nw/jrnl_img0', positionY: 50 });
 
         expect(images).toHaveLength(1);
         const uploaded = images[0].image;
@@ -677,14 +677,27 @@ describe('write tools: set_note_cover / clear_note_cover (#516)', () => {
         expect(uploads).toHaveLength(0);
     });
 
-    it('says the link card is not redrawn when setting the light cover of a public note', async () => {
+    it('advises cropping and resizing a cover that is too small or the wrong shape', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const small = await setNoteCover(deps, { id: 'nw', image: fixturePath('cover-exif.jpg') });
+        expect(small.note).toMatch(/40×24, below the 1200×630 minimum.*resize it to 2400×1260/);
+
+        const portrait = await setNoteCover(deps, { id: 'nw', image: fixturePath('cover-portrait.jpg') });
+        expect(portrait.note).toMatch(/1260×2400; the cover shows a strip of about 1\.9:1.*sips/);
+
+        const fits = await setNoteCover(deps, { id: 'nw', image: fixturePath('cover-2400.jpg') });
+        expect(fits.note).toBeUndefined();
+    });
+
+        it('says the link card is not redrawn when setting the light cover of a public note', async () => {
         const { deps, put, putDoc } = makeDrive();
         put('np', 'Body', metadataFor('FW', { isPublic: true }));
-        const light = await setNoteCover(deps, { id: 'np', image: fixturePath('cover-plain.webp') });
+        const light = await setNoteCover(deps, { id: 'np', image: fixturePath('cover-2400.jpg') });
         expect(light.note).toMatch(/public.*link-preview card image can't be drawn here/);
 
         putDoc('npd', withCovers, metadataFor('FW', { isPublic: true }));
-        const dark = await setNoteCover(deps, { id: 'npd', image: fixturePath('cover-plain.webp'), dark: true });
+        const dark = await setNoteCover(deps, { id: 'npd', image: fixturePath('cover-2400.jpg'), dark: true });
         expect(dark.note).toBeUndefined();
     });
 
