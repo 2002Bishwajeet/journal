@@ -90,7 +90,12 @@ export default function SharePage() {
                     </div>
                 )}
                 {/* `share-article`: see src/index.css, "Share page". */}
-                <article ref={articleRef} className="share-article prose relative prose-neutral dark:prose-invert max-w-none">
+                {/* `data-outline-panel`: a wide block keeps clear of the panel (src/index.css, "Live blocks"). */}
+                <article
+                    ref={articleRef}
+                    data-outline-panel={outline.headings.length > 0 && !outline.hidden ? '' : undefined}
+                    className="share-article prose relative prose-neutral dark:prose-invert max-w-none"
+                >
                     <h1>{note.title}</h1>
                     <div className="not-prose mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                         <Avatar className="h-8 w-8">
