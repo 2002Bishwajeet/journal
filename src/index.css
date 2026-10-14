@@ -1119,6 +1119,17 @@ img.ProseMirror-separator {
     --live-block-gutter: 3rem;
   }
 }
+/* From xl the share page's "On this page" panel (#643) sits in the right margin, so
+   while it shows a wide block grows to the left only: its right edge stays on the
+   column's, clear of the panel. Same gutter and 72rem cap as above. */
+@media (width >= 80rem) {
+  @container live-blocks (width >= 0) {
+    .share-article[data-outline-panel] [data-live-block-wide] {
+      margin-right: 0;
+      margin-left: min(0px, max(calc(50% - 50cqw + var(--live-block-gutter)), calc(100% - 72rem)));
+    }
+  }
+}
 
 /* Centred, never wider than the column, and not so tall that an svg with no
    size of its own (which would fill the column) takes over the page. */
