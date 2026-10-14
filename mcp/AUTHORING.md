@@ -154,6 +154,13 @@ recommended 2400×1260 and at least 1200×630, `positionY` 0 to 100 for the foca
 `clear_note_cover`. Use a cover rather than an image at the top of the body: it also feeds
 the link preview of a public note.
 
+The image is uploaded as is: the server does not crop or resize it. The cover shows a strip
+of about 1.9:1, cut around `positionY`, so prepare the image first: crop it to about 1.9:1,
+resize it to 2400×1260, and save it as JPEG or WebP to stay well under 5 MB. On macOS:
+`sips -c <height> <width> in.jpg --out crop.jpg` then `sips -z 1260 2400 crop.jpg`. With
+ImageMagick: `magick in.jpg -resize 2400x1260^ -gravity center -extent 2400x1260 out.jpg`.
+The result has a `note` when the image is too small or far from that shape.
+
 ### Editing one block
 
 To change part of an existing note, edit just that block rather than rewriting the note.
