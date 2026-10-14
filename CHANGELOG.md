@@ -1,3 +1,9 @@
+## [2.11.6](https://github.com/2002Bishwajeet/journal/compare/v2.11.5...v2.11.6) (2026-10-14)
+
+
+### Bug Fixes
+
+* **share:** keep wide blocks clear of the On this page panel ([#654](https://github.com/2002Bishwajeet/journal/issues/654)) ([1166d9a](https://github.com/2002Bishwajeet/journal/commit/1166d9a603d0eb6d96dda872b1a48b1323cd2e2a)), closes [#643](https://github.com/2002Bishwajeet/journal/issues/643) [#557](https://github.com/2002Bishwajeet/journal/issues/557)
 ## [2.11.5](https://github.com/2002Bishwajeet/journal/compare/v2.11.4...v2.11.5) (2026-10-14)
 
 

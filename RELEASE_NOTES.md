@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.11.6 (2026-10-14)
+
 ### Fixed
 
 - On a shared note, wide blocks no longer run under the "On this page" list.
