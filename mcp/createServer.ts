@@ -259,6 +259,7 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName'>)
             description:
                 "Set the cover image of a Journal note with Read+write access, replacing its cover. `image` is an absolute path to a file on this computer (preferred: it costs no tokens) or a base64 `data:` URI. " +
                 'PNG, JPEG or WebP, at most 5 MB; metadata such as EXIF and GPS is removed before upload. Recommended size 2400×1260, at least 1200×630. ' +
+                'The image is uploaded as is (not resized): crop it to about 1.9:1 and resize it to 2400×1260 first; the result has a `note` when it is too small or the wrong shape. ' +
                 '`positionY` is the vertical focal point, 0 (top) to 100 (bottom), default 50. ' +
                 "`dark: true` sets the cover shown in dark mode instead; the note must already have a cover. " +
                 'Use this rather than an image in an html block: the cover also feeds the link preview of a public note.',

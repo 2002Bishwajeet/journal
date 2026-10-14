@@ -32,6 +32,7 @@ import {
     clearCover,
     clearDarkCover,
     getCover,
+    isBelowMinCoverSize,
     readNextImageIndex,
     setCover,
     setDarkCover,
@@ -423,6 +424,22 @@ function unusedImageKeys(doc: Y.Doc, fileId: string, removed: (CoverImage | null
     return [...new Set(keys)].filter((key): key is string => !!key && !inUse.has(key));
 }
 
+/** Advice for a cover image the server can't resize itself: too small, or far from the ~1.9:1 frame. */
+function coverSizeAdvice(width: number, height: number): string | undefined {
+    const fix = 'Crop it to about 1.9:1 and resize it to 2400×1260 before setting it, e.g. on macOS ' +
+        '`sips -c <h> <w> in.jpg --out crop.jpg && sips -z 1260 2400 crop.jpg`, or ImageMagick ' +
+        '`magick in.jpg -resize 2400x1260^ -gravity center -extent 2400x1260 out.jpg`.';
+    if (isBelowMinCoverSize(width, height)) {
+        return `This image is ${width}×${height}, below the 1200×630 minimum, so the cover looks soft. Use a larger image. ${fix}`;
+    }
+    const ratio = width / height;
+    // ponytail: fixed band around the 1.9:1 card shape; the editor's cover strip is wider still on desktop.
+    if (ratio < 1.5 || ratio > 2.5) {
+        return `This image is ${width}×${height}; the cover shows a strip of about 1.9:1, so most of it is cut off around positionY. ${fix}`;
+    }
+    return undefined;
+}
+
 const noCover = (id: string) => new Error(`Note has no cover; set the light cover before the dark one: ${id}`);
 
 /**
@@ -461,12 +478,8 @@ export async function setNoteCover(
     const publicNote =
         "This note is public. Its link-preview card image can't be drawn here, so link previews show " +
         'the plain cover until the note is next saved in the Journal app, which redraws the card.';
-    return {
-        id,
-        variant: dark ? 'dark' : 'light',
-        ...next,
-        ...(note.metadata.isPublic && !dark ? { note: publicNote } : {}),
-    };
+    const notes = [coverSizeAdvice(image.width, image.height), note.metadata.isPublic && !dark ? publicNote : undefined].filter(Boolean);
+    return { id, variant: dark ? 'dark' : 'light', ...next, ...(notes.length ? { note: notes.join(' ') } : {}) };
 }
 
 /** Removes a note's cover (and its dark cover with it), or with `dark` only the dark cover. */
