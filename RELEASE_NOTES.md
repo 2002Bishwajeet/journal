@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.11.8 (2026-10-14)
+
 ### Fixed
 
 - On a shared note, dollar amounts such as "$756" now show as text, not as math.

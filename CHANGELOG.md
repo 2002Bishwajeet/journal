@@ -1,3 +1,15 @@
+## [2.11.8](https://github.com/2002Bishwajeet/journal/compare/v2.11.7...v2.11.8) (2026-10-14)
+
+
+### Bug Fixes
+
+* **share:** drop a stale card image when an MCP cover change can't redraw it ([#658](https://github.com/2002Bishwajeet/journal/issues/658)) ([6a389fd](https://github.com/2002Bishwajeet/journal/commit/6a389fdc320c61686d8c4e65a35a38380206ae60))
+* **share:** keep literal dollar signs as text, not inline math ([#656](https://github.com/2002Bishwajeet/journal/issues/656)) ([4cbef15](https://github.com/2002Bishwajeet/journal/commit/4cbef15ac9d32fa35f56378b5af02b901a82588d))
+
+
+### Features
+
+* **mcp:** advise cropping and resizing cover images ([#657](https://github.com/2002Bishwajeet/journal/issues/657)) ([26a4e48](https://github.com/2002Bishwajeet/journal/commit/26a4e48807cff269c938e88d0cbe8ad37f8e94d6))
 ## [2.11.7](https://github.com/2002Bishwajeet/journal/compare/v2.11.6...v2.11.7) (2026-10-14)
 
 
