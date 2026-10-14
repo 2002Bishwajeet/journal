@@ -446,6 +446,15 @@ describe('literal dollar signs', () => {
     expect(html).toContain('Opus about $756, Sonnet about $181');
   });
 
+  it('keeps a backslash right before $ as text too', async () => {
+    const blob = buildBlob((frag) => frag.insert(0, [para('a\\$1 and b\\$2')]));
+
+    const html = render(await extractMarkdownFromYjs('x', blob));
+
+    expect(html).not.toContain('katex');
+    expect(html).toContain('a\\$1 and b\\$2');
+  });
+
   it('round-trips plain-text $ back to text through the agent edit engine', () => {
     const doc = createDoc('Opus about $756, Sonnet about $181');
     const again = createDoc(toMarkdown(doc));
