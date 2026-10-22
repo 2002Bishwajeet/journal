@@ -1,4 +1,3 @@
-import { useCallback, memo } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useCircle } from '@/hooks/circles/useCircle';
 import type { CircleDefinition } from '@homebase-id/js-lib/network';
@@ -10,7 +9,7 @@ interface CircleOptionProps {
     onSelect: (circle: CircleDefinition, members: string[]) => void;
 }
 
-export const CircleOption = memo(function CircleOption({
+export function CircleOption({
     circle,
     isActive,
     onSelect,
@@ -18,16 +17,16 @@ export const CircleOption = memo(function CircleOption({
     const { fetchMembers } = useCircle({ circleId: circle.id });
     const members = fetchMembers.data;
 
-    const handleClick = useCallback(() => {
+    const handleClick = () => {
         onSelect(circle, (members || []).map(m => m.domain));
-    }, [circle, members, onSelect]);
+    };
 
-    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             handleClick();
         }
-    }, [handleClick]);
+    };
 
     return (
         <div
@@ -84,4 +83,4 @@ export const CircleOption = memo(function CircleOption({
             </div>
         </div>
     );
-});
+}

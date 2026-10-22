@@ -4,9 +4,6 @@ import { toast } from 'sonner';
 import { useNotes } from '@/hooks/useNotes';
 import { useMoveNote } from '@/hooks/useMoveNote';
 import { resolveNoteFolderId } from '@/hooks/useFolders';
-import { useDotYouClientContext } from '@/components/auth';
-import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
-import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
 import type { NoteListEntry } from '@/types';
 
 interface UseNoteActionsOptions {
@@ -26,7 +23,7 @@ interface UseNoteActionsOptions {
  * Note actions for the layout's note list, Trash/Archive views and dialogs:
  * opening a note from the list (keeping a tag filter), trash/archive
  * transitions with user-visible error feedback, delete then open
- * the neighbour, create then open, and revoking collaboration.
+ * the neighbour, and create then open.
  */
 export function useNoteActions({
     folderId,
@@ -38,7 +35,6 @@ export function useNoteActions({
     handleTabClose,
 }: UseNoteActionsOptions) {
     const navigate = useNavigate();
-    const dotYouClient = useDotYouClientContext();
     const moveNote = useMoveNote();
 
     const {
@@ -49,7 +45,6 @@ export function useNoteActions({
         archiveNote: { mutateAsync: archiveNote },
         unarchiveNote: { mutateAsync: unarchiveNote },
         emptyTrash: { mutateAsync: emptyTrashMutation },
-        updateNote: { mutateAsync: updateNoteMetadata },
     } = useNotes();
 
     // Trash / Archive actions — stable handlers with user-visible error feedback.
@@ -160,33 +155,6 @@ export function useNoteActions({
         navigate(`/${targetFolderId}/${id}${tag}`, { viewTransition: true });
     };
 
-    const revokeCollaboration = async (note: NoteListEntry | null) => {
-        if (!note || !dotYouClient) return;
-        try {
-            const provider = new NotesDriveProvider(dotYouClient);
-            const editorOdinId = dotYouClient.getHostIdentity() || '';
-            await provider.revokeNoteCollaboration(
-                note.docId,
-                editorOdinId,
-            );
-            await updateNoteMetadata({
-                docId: note.docId,
-                metadata: {
-                    ...note.metadata,
-                    folderId: MAIN_FOLDER_ID,
-                    isCollaborative: false,
-                    circleIds: undefined,
-                    recipients: undefined,
-                    lastEditedBy: editorOdinId,
-                },
-            });
-            toast.success('Collaboration revoked');
-        } catch (err) {
-            console.error('Failed to revoke collaboration:', err);
-            toast.error('Failed to revoke collaboration');
-        }
-    };
-
     return {
         selectNote,
         restoreFromTrash,
@@ -198,6 +166,5 @@ export function useNoteActions({
         deleteAndSelectNeighbour,
         createAndOpen,
         moveToFolder,
-        revokeCollaboration,
     };
 }

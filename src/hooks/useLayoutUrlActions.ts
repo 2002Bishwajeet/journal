@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { resolveNoteFolderId } from '@/hooks/useFolders';
-import { PENDING_COLLAB_NOTE_KEY, readString, removeKey } from '@/lib/storage';
 import type { NoteListEntry } from '@/types';
 
 interface UseLayoutUrlActionsOptions {
@@ -16,8 +15,7 @@ interface UseLayoutUrlActionsOptions {
 
 /**
  * URL action params (`?action=search|new|collaborate`, from PWA shortcuts and
- * permission redirects) and the pending collaborative note stored before a
- * permission redirect.
+ * permission redirects).
  */
 export function useLayoutUrlActions({
     folders,
@@ -36,17 +34,9 @@ export function useLayoutUrlActions({
     useEffect(() => {
         notesRef.current = notes;
     }, [notes]);
-
-    // Handle pending collaborative note from localStorage (after permission redirect)
-    useEffect(() => {
-        if (notes.length === 0) return;
-        const pendingNoteId = readString(PENDING_COLLAB_NOTE_KEY);
-        if (!pendingNoteId) return;
-        const note = notes.find((n) => n.docId === pendingNoteId);
-        if (!note) return;
-        removeKey(PENDING_COLLAB_NOTE_KEY);
-        queueMicrotask(() => openCollaborate(note));
-    }, [notes, openCollaborate]);
+    // ?action=collaborate waits for the notes: after the permission redirect the
+    // app reloads, and they arrive from PGlite after the first run of the effect.
+    const hasNotes = notes.length > 0;
 
     // One note per ?action=new: the effect re-runs mid-await (folders/searchParams
     // change, StrictMode). Reset once `action` clears.
@@ -111,5 +101,6 @@ export function useLayoutUrlActions({
         searchParams,
         openSearch,
         openCollaborate,
+        hasNotes,
     ]);
 }
