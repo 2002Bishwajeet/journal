@@ -333,6 +333,13 @@ footer{border-top:1px solid var(--border);margin-top:4rem}
 footer p{margin:0;padding:2rem 0;color:var(--muted);font-size:.75rem}
 `;
 
+/**
+ * The author and folder pages' Content-Security-Policy, Report-Only for now (#671): no
+ * script, an inline <style> and our own images. public/_headers has the app's policy,
+ * but it does not apply to a Function's response.
+ */
+export const AUTHOR_INDEX_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
 /** The server-rendered author index page. No client JS. */
 export function buildAuthorIndexHtml(index: AuthorIndex, origin: string): string {
     const { identity, authorName, notes, folder } = index;
