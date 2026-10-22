@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import { useAIPreferences } from "@/hooks/useAIPreferences";
-import { getModelInfo } from "@/lib/webllm";
+import ModelDownloadDialog from "@/components/modals/ModelDownloadDialog";
+import { getModelInfo, getModelsForJob } from "@/lib/webllm";
 import { SectionHeader } from "../SectionHeader";
 import { SettingsRow } from "../SettingsRow";
 import AIModelList from "./AIModelList";
@@ -21,6 +22,8 @@ export default function AISection() {
     retry,
     setEnabled,
     selectModel,
+    selectAgentModel,
+    downloadDialogProps,
     setAutocomplete,
     setGrammar,
     clearCache,
@@ -102,16 +105,32 @@ export default function AISection() {
 
       {/* Model Selection */}
       {settings.enabled && (
-        <div className="space-y-4">
-          <SectionHeader subtitle="Choose a model based on your device capabilities">
-            Model
-          </SectionHeader>
-          <AIModelList
-            selectedModelId={settings.modelId}
-            onSelect={selectModel}
-            disabled={isAILoading}
-          />
-        </div>
+        <>
+          <div className="space-y-4">
+            <SectionHeader subtitle="Used for autocomplete, grammar and rewrites">
+              Writing help
+            </SectionHeader>
+            <AIModelList
+              label="Writing help"
+              models={getModelsForJob("editor")}
+              selectedModelId={settings.modelId}
+              onSelect={selectModel}
+              disabled={isAILoading}
+            />
+          </div>
+          <div className="space-y-4">
+            <SectionHeader subtitle="A larger model for the assistant. It downloads the first time you use the assistant.">
+              Assistant
+            </SectionHeader>
+            <AIModelList
+              label="Assistant"
+              models={getModelsForJob("agent")}
+              selectedModelId={settings.agentModelId}
+              onSelect={selectAgentModel}
+              disabled={false}
+            />
+          </div>
+        </>
       )}
 
       {/* Feature Toggles */}
@@ -146,6 +165,8 @@ export default function AISection() {
           </div>
         </div>
       )}
+
+      <ModelDownloadDialog {...downloadDialogProps} />
 
       {/* Model files */}
       <div className="space-y-4">

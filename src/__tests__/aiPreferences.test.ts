@@ -12,16 +12,22 @@ import { useAIPreferences, type UseAIPreferencesReturn } from '@/hooks/useAIPref
 import { STORAGE_KEY, DEFAULT_SETTINGS } from '@/hooks/useAISettings';
 import { clearModelCache } from '@/lib/webllm/engine';
 import * as webllm from '@/lib/webllm';
+import * as requirements from '@/lib/webllm/requirements';
 
 // Stub the WebLLM engine boundary: the real one downloads a model into a worker.
-const engine = vi.hoisted(() => ({ ready: false }));
+const engine = vi.hoisted(() => ({ ready: false, cached: true }));
 vi.mock('@/lib/webllm', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/lib/webllm')>()),
     isWebLLMReady: vi.fn(() => engine.ready),
     isWebLLMLoading: vi.fn(() => false),
+    isModelCached: vi.fn(async () => engine.cached),
     initWebLLM: vi.fn(async () => { engine.ready = true; return true; }),
     unloadWebLLM: vi.fn(async () => { engine.ready = false; }),
     clearModelCache: vi.fn(async () => { engine.ready = false; }),
+}));
+vi.mock('@/lib/webllm/requirements', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/lib/webllm/requirements')>()),
+    probeDevice: vi.fn(async (isMobile: boolean) => ({ isMobile, hasWebGPU: true, shaderF16: true })),
 }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -65,30 +71,6 @@ describe('useAIPreferences', () => {
         window.innerWidth = 500;
     });
 
-    it('setEnabled(true) persists enabled: true under journal-ai-settings', async () => {
-        const harness = renderAIPreferences();
-        await harness.mount();
-
-        await act(async () => { harness.get().setEnabled(true); });
-
-        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-        expect(stored.enabled).toBe(true);
-
-        await harness.cleanup();
-    });
-
-    it('selectModel(id) persists the new modelId', async () => {
-        const harness = renderAIPreferences();
-        await harness.mount();
-
-        await act(async () => { await harness.get().selectModel('some-other-model-id'); });
-
-        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-        expect(stored.modelId).toBe('some-other-model-id');
-
-        await harness.cleanup();
-    });
-
     it('reports AI as unsupported on a phone-width screen', async () => {
         const harness = renderAIPreferences();
         await harness.mount();
@@ -108,8 +90,17 @@ describe('useAIPreferences on a supported (desktop) screen', () => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, enabled: true }));
         window.innerWidth = 1280;
         engine.ready = false;
+        engine.cached = true;
         vi.clearAllMocks();
     });
+
+    /** Mounts with AI disabled; the model counts as cached unless a test says otherwise. */
+    async function mountDisabled() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, enabled: false }));
+        const harness = renderAIPreferences();
+        await harness.mount();
+        return harness;
+    }
 
     /** Mounts with AI enabled and waits for the auto-init to load the model. */
     async function mountReady() {
@@ -119,6 +110,91 @@ describe('useAIPreferences on a supported (desktop) screen', () => {
         expect(harness.get().isReady).toBe(true);
         return harness;
     }
+
+    it('setEnabled(true) persists enabled: true under journal-ai-settings', async () => {
+        const harness = await mountDisabled();
+
+        await act(async () => { await harness.get().setEnabled(true); });
+
+        expect(storedSettings().enabled).toBe(true);
+
+        await harness.cleanup();
+    });
+
+    it('selectModel(id) persists the new modelId', async () => {
+        const harness = await mountDisabled();
+
+        await act(async () => { await harness.get().selectModel('SmolLM2-360M-Instruct-q4f16_1-MLC'); });
+
+        expect(storedSettings().modelId).toBe('SmolLM2-360M-Instruct-q4f16_1-MLC');
+
+        await harness.cleanup();
+    });
+
+    it('setEnabled(true) on an uncached model waits for Continue before saving or loading', async () => {
+        engine.cached = false;
+        const harness = await mountDisabled();
+
+        let done: Promise<void> | undefined;
+        await act(async () => { done = harness.get().setEnabled(true); await wait(0); });
+
+        expect(harness.get().downloadDialogProps.pending?.model.id).toBe(DEFAULT_SETTINGS.modelId);
+        expect(storedSettings().enabled).toBe(false);
+        expect(webllm.initWebLLM).not.toHaveBeenCalled();
+
+        await act(async () => { harness.get().downloadDialogProps.onContinue(); await done; });
+        await wait(0);
+
+        expect(harness.get().downloadDialogProps.pending).toBeNull();
+        expect(storedSettings().enabled).toBe(true);
+        expect(webllm.initWebLLM).toHaveBeenCalled();
+
+        await harness.cleanup();
+    });
+
+    it('Cancel leaves AI off and loads nothing', async () => {
+        engine.cached = false;
+        const harness = await mountDisabled();
+
+        let done: Promise<void> | undefined;
+        await act(async () => { done = harness.get().setEnabled(true); await wait(0); });
+        await act(async () => { harness.get().downloadDialogProps.onCancel(); await done; });
+        await wait(0);
+
+        expect(harness.get().downloadDialogProps.pending).toBeNull();
+        expect(storedSettings().enabled).toBe(false);
+        expect(webllm.initWebLLM).not.toHaveBeenCalled();
+
+        await harness.cleanup();
+    });
+
+    it('an unsupported device never saves the setting or loads', async () => {
+        vi.mocked(requirements.probeDevice).mockResolvedValueOnce({ isMobile: false, hasWebGPU: false });
+        const harness = await mountDisabled();
+
+        let done: Promise<void> | undefined;
+        await act(async () => { done = harness.get().setEnabled(true); await wait(0); });
+
+        expect(harness.get().downloadDialogProps.pending?.result.verdict).toBe('unsupported');
+
+        await act(async () => { harness.get().downloadDialogProps.onCancel(); await done; });
+
+        expect(storedSettings().enabled).toBe(false);
+        expect(webllm.initWebLLM).not.toHaveBeenCalled();
+
+        await harness.cleanup();
+    });
+
+    it('selectAgentModel only saves the choice', async () => {
+        const harness = await mountDisabled();
+
+        act(() => { harness.get().selectAgentModel('Qwen3-4B-q4f16_1-MLC'); });
+
+        expect(storedSettings().agentModelId).toBe('Qwen3-4B-q4f16_1-MLC');
+        expect(webllm.initWebLLM).not.toHaveBeenCalled();
+
+        await harness.cleanup();
+    });
 
     it('setEnabled(false) unloads the loaded model', async () => {
         const harness = await mountReady();
@@ -151,7 +227,7 @@ describe('useAIPreferences on a supported (desktop) screen', () => {
         await act(async () => { await harness.get().selectModel('SmolLM2-360M-Instruct-q4f16_1-MLC'); });
 
         expect(storedSettings().modelId).toBe(DEFAULT_SETTINGS.modelId);
-        expect(toast.error).toHaveBeenCalledWith("Couldn't switch to SmolLM2 360M. Kept Qwen 2.5 1.5B.");
+        expect(toast.error).toHaveBeenCalledWith("Couldn't switch to SmolLM2 360M. Kept Qwen 2.5 0.5B.");
 
         await harness.cleanup();
     });
