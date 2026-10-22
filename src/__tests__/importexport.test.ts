@@ -31,7 +31,7 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
 // happy-dom has no createImageBitmap; the ingest itself is covered in imageIngest.test.ts
 vi.mock('@/lib/images/imageIngest', () => ({ prepareImageForUpload: async (file: File) => file }));
 
-import { ExportService } from '@/lib/importexport/ExportService';
+import { ExportService, uniqueName } from '@/lib/importexport/ExportService';
 import { ImportService } from '@/lib/importexport/ImportService';
 
 // Since we can't import the actual module (it has browser dependencies),
@@ -493,5 +493,44 @@ describe('ExportService.exportAllAsZip', () => {
         expect(attrs).toEqual([expect.objectContaining({ alt: 'a', width: 320, align: 'right' })]);
         // The queue row stores the id as a uuid; the node keeps it as generated
         expect(String(attrs[0]['data-pending-id']).replace(/-/g, '')).toBe(upload.id.replace(/-/g, ''));
+    });
+
+    it('exports same-title notes in one folder under distinct names, each with its own image', async () => {
+        const ID2 = '22222222-2222-2222-2222-222222222222';
+        await saveDocumentUpdate(DOC_ID, noteBlob('file-a', 'jrnl_img0'));
+        await saveDocumentUpdate(ID2, noteBlob('file-b', 'jrnl_img0'));
+        await upsertSearchIndex({ docId: DOC_ID, title: 'Same', plainTextContent: 'bold', metadata: META() });
+        await upsertSearchIndex({ docId: ID2, title: 'same', plainTextContent: 'bold', metadata: META() });
+        mockGetPayloadBytes.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]), contentType: 'image/jpeg' });
+
+        const { result, zip } = await exportedZip(fakeDotYouClient);
+
+        expect(result.count).toBe(2);
+        const mds = Object.keys(zip.files).filter((f) => f.endsWith('.md'));
+        expect(mds).toHaveLength(2);
+        const assets = Object.keys(zip.files).filter((f) => f.startsWith('assets/') && !f.endsWith('/'));
+        expect(new Set(assets.map((a) => a.toLowerCase())).size).toBe(2);
+        for (const md of mds) {
+            const text = await zip.file(md)!.async('string');
+            const link = /\(<?assets\/(.+?)>?\)\s*$/m.exec(text)![1];
+            expect(zip.file(`assets/${link}`)).not.toBeNull();
+            expect(link.startsWith(md.replace(/\.md$/, ''))).toBe(true);
+        }
+
+        const file = new File([await zip.generateAsync({ type: 'blob' })], 'export.zip');
+        expect((await ImportService.importFiles([file])).imported).toBe(2);
+    });
+});
+
+describe('uniqueName', () => {
+    it('suffixes repeated names and treats case-insensitive clashes as taken', () => {
+        const taken = new Set<string>();
+        expect(uniqueName(taken, 'Same')).toBe('Same');
+        expect(uniqueName(taken, 'Same')).toBe('Same (2)');
+        expect(uniqueName(taken, 'Same')).toBe('Same (3)');
+        expect(uniqueName(taken, 'same')).toBe('same (4)');
+        expect(uniqueName(taken, 'Same (2)')).toBe('Same (2) (2)');
+        expect(uniqueName(taken, 'Untitled')).toBe('Untitled');
+        expect(uniqueName(taken, 'Untitled')).toBe('Untitled (2)');
     });
 });
