@@ -24,7 +24,10 @@ test('same-title notes export as Same.md and "Same (2).md" and round-trip', asyn
     buffer: Buffer.from(`---\ntitle: ${title}\n---\n${body}\n`),
   });
   await input.setInputFiles([md('Same', 'first'), md('Same', 'second'), md('Other', 'third')]);
-  await expect(app.getByText('Successfully imported 3 notes')).toBeVisible();
+  const imported = app.getByText('Successfully imported 3 notes');
+  await expect(imported).toBeVisible();
+  // The re-import shows the same toast text, so the first one must be gone first
+  await expect(imported).toBeHidden({ timeout: 15_000 });
 
   const download = app.waitForEvent('download');
   await panel.getByRole('button', { name: 'Export All Notes' }).click();
@@ -42,5 +45,5 @@ test('same-title notes export as Same.md and "Same (2).md" and round-trip', asyn
     mimeType: 'application/zip',
     buffer: await readFile(path),
   });
-  await expect(app.getByText('Successfully imported 3 notes').last()).toBeVisible();
+  await expect(imported).toBeVisible();
 });

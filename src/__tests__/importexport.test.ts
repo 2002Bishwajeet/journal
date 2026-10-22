@@ -519,6 +519,9 @@ describe('ExportService.exportAllAsZip', () => {
 
         const file = new File([await zip.generateAsync({ type: 'blob' })], 'export.zip');
         expect((await ImportService.importFiles([file])).imported).toBe(2);
+        // Re-imported notes keep their front-matter titles, not the "(2)" file names
+        const titles = (await getAllDocuments()).map((d) => d.title).sort();
+        expect(titles).toEqual(['Same', 'Same', 'same', 'same']);
     });
 });
 
