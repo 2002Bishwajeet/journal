@@ -179,6 +179,9 @@ export async function handleInvitation(ctx: SyncContext, remoteFile: HomebaseFil
         return;
     }
 
+    // The invite is also stored on the owner's drive: it is not an incoming share
+    if (content.authorOdinId === ctx.hostIdentity) return;
+
     await bootstrapCollaborativeNote(
         ctx,
         content.noteUniqueId,

@@ -64,7 +64,7 @@ export function MarkCollaborativeDialog({
   );
   const isLoading = circlesFetch.isLoading;
 
-  function handleCircleSelect(circle: CircleDefinition & { id: string }, members: string[]) {
+  function handleCircleSelect(circle: CircleDefinition & { id: string }) {
     setSelectedCircles((prev) => {
       const existing = prev.find((c) => c.circleId === circle.id);
       if (existing) {
@@ -72,7 +72,7 @@ export function MarkCollaborativeDialog({
         return prev.filter((c) => c.circleId !== circle.id);
       } else {
         // Select with members
-        return [...prev, { circleId: circle.id, members }];
+        return [...prev, { circleId: circle.id, name: circle.name }];
       }
     });
   }
@@ -167,7 +167,7 @@ export function MarkCollaborativeDialog({
                           key={circle.id}
                           circle={circle}
                           isActive={selectedCircleIdSet.has(circle.id)}
-                          onSelect={(_, members) => handleCircleSelect(circle, members)}
+                          onSelect={() => handleCircleSelect(circle)}
                         />
                       ))}
                     </div>

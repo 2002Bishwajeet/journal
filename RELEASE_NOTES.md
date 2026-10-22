@@ -15,6 +15,11 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- When you share a note with a circle, every member of the circle gets the invite.
+- When you revoke a shared note, it leaves the "Shared with me" list of each member.
+
 ## 2.11.8 (2026-10-14)
 
 ### Fixed

@@ -19,7 +19,9 @@ const mocks = vi.hoisted(() => ({
     setNotePublic: vi.fn(),
     updateNote: vi.fn(),
     notes: [] as unknown[],
+    fetchMembersOfCircle: vi.fn(),
 }));
+vi.mock('@homebase-id/js-lib/network', () => ({ fetchMembersOfCircle: mocks.fetchMembersOfCircle }));
 vi.mock('sonner', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
 vi.mock('@/components/auth', () => ({
     useDotYouClientContext: () => ({ getHostIdentity: () => 'me.id' }),
@@ -62,6 +64,7 @@ beforeEach(() => {
     mocks.setNotePublic.mockImplementation(record('unpublish'));
     mocks.updateNote.mockImplementation(record('metadata'));
     mocks.notes = [];
+    mocks.fetchMembersOfCircle.mockImplementation(async (_c: unknown, id: string) => MEMBERS[id]);
 });
 
 async function mountHook() {
@@ -77,9 +80,13 @@ async function mountHook() {
 }
 
 const CIRCLES = [
-    { circleId: 'c1', members: ['a.id', 'b.id'] },
-    { circleId: 'c2', members: ['b.id', ''] },
+    { circleId: 'c1', name: 'One' },
+    { circleId: 'c2', name: 'Two' },
 ];
+const MEMBERS: Record<string, { domain: string }[]> = {
+    c1: [{ domain: 'a.id' }, { domain: 'b.id' }],
+    c2: [{ domain: 'b.id' }, { domain: '' }],
+};
 
 describe('share', () => {
     it('flushes, reads the sync record, calls the provider, unpublishes, then writes local metadata', async () => {
@@ -118,6 +125,28 @@ describe('share', () => {
         await unmount();
     });
 
+    it('fetches the members of every selected circle itself and dedupes them', async () => {
+        const { api, unmount } = await mountHook();
+        await act(async () => { await api().share('n1', CIRCLES); });
+
+        expect(mocks.fetchMembersOfCircle).toHaveBeenCalledTimes(2);
+        expect(mocks.makeNoteCollaborative).toHaveBeenCalledWith('n1', ['c1', 'c2'], ['a.id', 'b.id'], 'me.id', 'file-1');
+        await unmount();
+    });
+
+    it('blocks the share when a selected circle has no members', async () => {
+        MEMBERS.c2 = [];
+        const { api, unmount } = await mountHook();
+        let shared = true;
+        await act(async () => { shared = await api().share('n1', CIRCLES); });
+
+        expect(shared).toBe(false);
+        expect(mocks.toastError).toHaveBeenCalledWith('Two has no members');
+        expect(mocks.makeNoteCollaborative).not.toHaveBeenCalled();
+        MEMBERS.c2 = [{ domain: 'b.id' }, { domain: '' }];
+        await unmount();
+    });
+
     it('rejects an empty selection without calling anything', async () => {
         const { api, unmount } = await mountHook();
         let shared = true;
@@ -146,9 +175,9 @@ describe('share', () => {
 describe('revoke', () => {
     it('revokes collaboration and moves the note back to Main', async () => {
         const { api, unmount } = await mountHook();
-        await act(async () => api().revoke(note('s', { folderId: 'shared' })));
+        await act(async () => api().revoke(note('s', { folderId: 'shared', recipients: ['a.id'] })));
 
-        expect(mocks.revokeNoteCollaboration).toHaveBeenCalledWith('s', 'me.id');
+        expect(mocks.revokeNoteCollaboration).toHaveBeenCalledWith('s', 'me.id', ['a.id']);
         expect(mocks.updateNote).toHaveBeenCalledWith({
             docId: 's',
             metadata: expect.objectContaining({
