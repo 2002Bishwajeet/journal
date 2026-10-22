@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Editor } from '@tiptap/core';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { createTrackedEditor } from './trackedEditor';
 import * as Y from 'yjs';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
@@ -44,6 +45,14 @@ describe('y-prosemirror undo/redo', () => {
 
   it('undo works immediately after typing (no capture pause)', () => {
     editor.commands.insertContent('abc');
+    expect(undo(editor.state)).toBe(true);
+    expect(editor.getText()).toBe('');
+  });
+
+  it('undo survives a plugin being registered after the editor is created', () => {
+    // @tiptap/react registers a plugin on mount, which recreates every plugin view.
+    editor.registerPlugin(new Plugin({ key: new PluginKey('lateRegistered') }));
+    editor.commands.insertContent('after registration');
     expect(undo(editor.state)).toBe(true);
     expect(editor.getText()).toBe('');
   });
