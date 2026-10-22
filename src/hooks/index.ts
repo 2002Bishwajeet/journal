@@ -13,6 +13,7 @@ export { useTabRouting } from './useTabRouting';
 export { useLayoutUrlActions } from './useLayoutUrlActions';
 export { useNoteListView } from './useNoteListView';
 export { useNoteActions } from './useNoteActions';
+export { useNoteCollaboration } from './useNoteCollaboration';
 export { useThemePreference } from './useThemePreference';
 export type { ThemePreference } from './useThemePreference';
 export { useDeviceType } from './useDeviceType';

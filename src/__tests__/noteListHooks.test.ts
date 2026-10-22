@@ -3,8 +3,7 @@
  * The layout's note list and note actions live in two hooks. These pin the
  * behaviour the layout relies on: which list each route shows, deleting the
  * open note opens its neighbour, creating a note from a pseudo-folder lands in
- * Main, opening a note keeps the tag filter, and revoking collaboration moves
- * the note back to Main.
+ * Main, and opening a note keeps the tag filter.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createElement as h, act } from 'react';
@@ -13,25 +12,14 @@ import { createRoot } from 'react-dom/client';
 const mocks = vi.hoisted(() => ({
     navigate: vi.fn(),
     toastError: vi.fn(),
-    toastSuccess: vi.fn(),
     trashNote: vi.fn<(id: string) => Promise<void>>(async () => {}),
     createNote: vi.fn(async (folderId?: string) => ({ docId: 'new', folderId: folderId ?? '' })),
-    updateNote: vi.fn<(params: unknown) => Promise<void>>(async () => {}),
-    revokeNoteCollaboration: vi.fn<(docId: string, odinId: string) => Promise<void>>(async () => {}),
     moveNote: vi.fn<(docId: string, folderId: string) => Promise<boolean>>(async () => true),
     lists: {} as Record<string, unknown[]>,
 }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => mocks.navigate }));
-vi.mock('sonner', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
-vi.mock('@/components/auth', () => ({
-    useDotYouClientContext: () => ({ getHostIdentity: () => 'me.id' }),
-}));
+vi.mock('sonner', () => ({ toast: { error: mocks.toastError } }));
 vi.mock('@/hooks/useMoveNote', () => ({ useMoveNote: () => mocks.moveNote }));
-vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
-    NotesDriveProvider: class {
-        revokeNoteCollaboration = mocks.revokeNoteCollaboration;
-    },
-}));
 vi.mock('@/hooks/useFolders', () => ({
     resolveNoteFolderId: (folderId: string | undefined, folders: ReadonlyArray<{ id: string }>) =>
         folderId && folders.some((f) => f.id === folderId) ? folderId : 'main',
@@ -56,7 +44,6 @@ vi.mock('@/hooks/useNotes', () => ({
         archiveNote: mutation(vi.fn(async () => {})),
         unarchiveNote: mutation(vi.fn(async () => {})),
         emptyTrash: mutation(vi.fn(async () => {})),
-        updateNote: mutation(mocks.updateNote),
     }),
 }));
 vi.mock('@/hooks/useTags', () => ({
@@ -216,23 +203,6 @@ describe('useNoteActions', () => {
         api().selectNote('t1');
 
         expect(mocks.navigate).toHaveBeenCalledWith('/f9/t1?tag=x%20y', { viewTransition: true });
-        await unmount();
-    });
-
-    it('revokes collaboration and moves the note back to Main', async () => {
-        const { api, unmount } = await actions();
-        await act(async () => api().revokeCollaboration(note('s', 'shared')));
-
-        expect(mocks.revokeNoteCollaboration).toHaveBeenCalledWith('s', 'me.id');
-        expect(mocks.updateNote).toHaveBeenCalledWith({
-            docId: 's',
-            metadata: expect.objectContaining({
-                folderId: 'main',
-                isCollaborative: false,
-                lastEditedBy: 'me.id',
-            }),
-        });
-        expect(mocks.toastSuccess).toHaveBeenCalledWith('Collaboration revoked');
         await unmount();
     });
 });
