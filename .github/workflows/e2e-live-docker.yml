@@ -23,6 +23,9 @@ jobs:
     env:
       IMAGE: ghcr.io/homebase-id/odin-core@sha256:ee63bcd309cf4c90450354697764db38640a6b6d76d07da797fb0425c7a84061
       E2E_LIVE_IDENTITY: frodo.dotyou.cloud
+      # The e2e/sharing peer and outsider (#676), on the same container.
+      E2E_LIVE_PEER_IDENTITY: sam.dotyou.cloud
+      E2E_LIVE_OUTSIDER_IDENTITY: merry.dotyou.cloud
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -76,7 +79,10 @@ jobs:
           # The host answers TLS only for the apex, capi. and file. (api./www.
           # refuse the handshake) — map only what this run actually visits,
           # not public DNS or a Docker network alias.
-          echo "127.0.0.1 ${E2E_LIVE_IDENTITY} capi.${E2E_LIVE_IDENTITY} file.${E2E_LIVE_IDENTITY} e2e.dotyou.cloud" | sudo tee -a /etc/hosts
+          for id in "$E2E_LIVE_IDENTITY" "$E2E_LIVE_PEER_IDENTITY" "$E2E_LIVE_OUTSIDER_IDENTITY"; do
+            echo "127.0.0.1 ${id} capi.${id} file.${id}"
+          done | sudo tee -a /etc/hosts
+          echo "127.0.0.1 e2e.dotyou.cloud" | sudo tee -a /etc/hosts
 
       - name: Trust the per-run CA in Chromium's NSS DB
         run: |
@@ -85,7 +91,7 @@ jobs:
           certutil -d "sql:$HOME/.pki/nssdb" -N --empty-password
           certutil -d "sql:$HOME/.pki/nssdb" -A -t "C,," -n journal-e2e-live-ca -i "$CERTS/ca.crt"
 
-      - name: Bootstrap owner identity and authorise Journal
+      - name: Bootstrap owner, peer and outsider identities, connect them and authorise Journal
         run: npx playwright test -c playwright.live.config.ts --project=live-ci-setup
         env:
           CI: true
@@ -122,5 +128,6 @@ jobs:
             test-results/cover-screenshots/
             test-results/share-cover-screenshots/
             test-results/account-screenshots/
+            test-results/sharing-circle-share*/*.png
           if-no-files-found: ignore
           retention-days: 14
