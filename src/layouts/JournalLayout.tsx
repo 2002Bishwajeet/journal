@@ -16,6 +16,7 @@ import {
   useLayoutUrlActions,
   useNoteListView,
   useNoteActions,
+  useNoteCollaboration,
   useSessionPersistence,
   useDeviceType,
   useSyncService,
@@ -177,6 +178,7 @@ export default function JournalLayout() {
     closeTab,
     handleTabClose,
   });
+  const { revoke: revokeCollaboration } = useNoteCollaboration();
 
   // Focus mode hides all chrome to spotlight the editor; management views have
   // no editor, so its effect is suppressed there (otherwise: blank screen).
@@ -449,7 +451,7 @@ export default function JournalLayout() {
         description={`This will remove circle access to "${revokeNote?.title || "Untitled"}" and move it out of the shared folder — it will no longer be accessible to collaborators.`}
         confirmText="Revoke"
         variant="destructive"
-        onConfirm={() => noteActions.revokeCollaboration(revokeNote)}
+        onConfirm={() => revokeCollaboration(revokeNote)}
       />
       <KeyboardShortcutsModal
         isOpen={showKeyboardHelp}

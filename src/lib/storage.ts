@@ -9,7 +9,6 @@ import { tryJsonParse } from '@/lib/utils';
 export const TABS_STORAGE_KEY = 'journal-open-tabs';
 export const SESSION_STORAGE_KEY = 'journal-session-state';
 export const SEARCH_CONSENT_KEY = 'journal-search-consent';
-export const PENDING_COLLAB_NOTE_KEY = 'pendingCollaborativeNoteId';
 export const RECENT_EMOJIS_KEY = 'journal-recent-emojis';
 export const SIDEBAR_COLLAPSE_KEY = 'journal-sidebar-collapse';
 export const AI_SETTINGS_KEY = 'journal-ai-settings';

@@ -39,7 +39,7 @@ import {
 import type { NoteFileContent, DocumentMetadata } from '@/types';
 import { buildPublicCard, sameCardImageFrom, type CardImageFrom, type PublicCard } from '@/lib/share/publicCard';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
-import { noteAcl, noteAppData, noteFileContent } from './noteUploadMetadata';
+import { noteAcl, noteAppData, noteFileContent, sharedAcl } from './noteUploadMetadata';
 import { buildContentPayloads, buildImagePayload } from './noteImagePayloads';
 import { InvitationDriveProvider } from './InvitationDriveProvider';
 
@@ -913,10 +913,7 @@ export class NotesDriveProvider {
             },
             groupId: COLLABORATIVE_FOLDER_ID, // Move to collaborative folder
             isEncrypted: true,
-            acl: {
-                requiredSecurityGroup: SecurityGroupType.Connected,
-                circleIdList: circleIds,
-            },
+            acl: sharedAcl({ circleIds }),
             // Collaborative notes must be encrypted; a public note is re-uploaded
             // encrypted first, since a header-only patch can't encrypt its payload.
             ensureEncrypted: true,
@@ -945,7 +942,8 @@ export class NotesDriveProvider {
      */
     async revokeNoteCollaboration(
         uniqueId: string,
-        editorOdinId: string
+        editorOdinId: string,
+        recipients?: string[]
     ): Promise<{ versionTag: string }> {
         const result = await this.#rewriteNoteHeader(uniqueId, {
             mode: 'patch',
@@ -963,7 +961,7 @@ export class NotesDriveProvider {
             errorMessage: 'Failed to revoke note collaboration',
         });
 
-        await this.#invitations.deleteInvitation(uniqueId);
+        await this.#invitations.deleteInvitation(uniqueId, recipients);
 
         return result;
     }

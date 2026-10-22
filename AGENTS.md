@@ -142,6 +142,7 @@ src/
 │   ├── useLiveQuery.ts         # Shared, ref-counted PGlite live queries
 │   ├── useMountedTabs.ts       # Desktop tab keep-alive policy
 │   ├── useNoteActions.ts       # Open / trash / archive / delete actions for lists and dialogs
+│   ├── useNoteCollaboration.ts # Share a note with circles / revoke it (remote, invite, local metadata)
 │   ├── useNoteListView.ts      # Note list for the current route (folder, tag, Shared, Trash, Archive)
 │   ├── useNoteTitleMap.ts      # Live id → title map for note-link chips
 │   ├── useNotes.ts             # Note list + CRUD, pin, trash/archive, publish
@@ -292,6 +293,7 @@ scripts/                        # check-precache, release-notes, check-doc-paths
 | `src/hooks/useTabManager.ts` | Multi-tab editing state |
 | `src/hooks/useTabRouting.ts` | Tabs kept in sync with the URL (open, click, close) |
 | `src/hooks/useLayoutUrlActions.ts` | `?action=search\|new\|collaborate` URL params |
+| `src/hooks/useNoteCollaboration.ts` | Share a note with circles, revoke it |
 | `src/hooks/useSessionPersistence.ts` | Last note and folder |
 | `src/hooks/useSyncService.ts` | Sync context consumer |
 | `src/hooks/useJournalWebsocket.ts` | Own-drive websocket notifications → sync |

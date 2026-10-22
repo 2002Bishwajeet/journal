@@ -3,7 +3,6 @@ import {
     patchFile,
     deleteFile,
     getFileHeaderByUniqueId,
-    SecurityGroupType,
     type DotYouClient,
     type UploadFileMetadata,
     type UploadInstructionSet,
@@ -19,6 +18,7 @@ import {
     COLLABORATION_INVITE_DATA_TYPE,
     COLLABORATIVE_FOLDER_ID,
 } from './config';
+import { sharedAcl } from './noteUploadMetadata';
 import type { CollaborationInviteContent } from '@/types';
 
 /**
@@ -56,24 +56,20 @@ export class InvitationDriveProvider {
             { decrypt: false }
         );
 
-        if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
-            const uploadMetadata: UploadFileMetadata = {
-                versionTag: existingInvite.fileMetadata.versionTag,
-                allowDistribution: true,
-                appData: {
-                    fileType: COLLABORATION_INVITE_FILE_TYPE,
-                    dataType: COLLABORATION_INVITE_DATA_TYPE,
-                    uniqueId: inviteUniqueId,
-                    groupId: COLLABORATIVE_FOLDER_ID,
-                    content: JSON.stringify(inviteContent),
-                },
-                isEncrypted: true,
-                accessControlList: {
-                    requiredSecurityGroup: SecurityGroupType.Connected,
-                    circleIdList: circleIds,
-                },
-            };
+        const uploadMetadata: UploadFileMetadata = {
+            allowDistribution: true,
+            appData: {
+                fileType: COLLABORATION_INVITE_FILE_TYPE,
+                dataType: COLLABORATION_INVITE_DATA_TYPE,
+                uniqueId: inviteUniqueId,
+                groupId: COLLABORATIVE_FOLDER_ID,
+                content: JSON.stringify(inviteContent),
+            },
+            isEncrypted: true,
+            accessControlList: sharedAcl({ circleIds }),
+        };
 
+        if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
             const updateInstructions: UpdateInstructionSet = {
                 locale: 'local',
                 file: { fileId: existingInvite.fileId, targetDrive: JOURNAL_DRIVE },
@@ -85,25 +81,9 @@ export class InvitationDriveProvider {
                 this.#dotYouClient,
                 existingInvite.sharedSecretEncryptedKeyHeader,
                 updateInstructions,
-                uploadMetadata,
+                { versionTag: existingInvite.fileMetadata.versionTag, ...uploadMetadata },
             );
         } else {
-            const uploadMetadata: UploadFileMetadata = {
-                allowDistribution: true,
-                appData: {
-                    fileType: COLLABORATION_INVITE_FILE_TYPE,
-                    dataType: COLLABORATION_INVITE_DATA_TYPE,
-                    uniqueId: inviteUniqueId,
-                    groupId: COLLABORATIVE_FOLDER_ID,
-                    content: JSON.stringify(inviteContent),
-                },
-                isEncrypted: true,
-                accessControlList: {
-                    requiredSecurityGroup: SecurityGroupType.Connected,
-                    circleIdList: circleIds,
-                },
-            };
-
             const instructionSet: UploadInstructionSet = {
                 transferIv: getRandom16ByteArray(),
                 storageOptions: { drive: JOURNAL_DRIVE },
@@ -126,7 +106,7 @@ export class InvitationDriveProvider {
         }
     }
 
-    async deleteInvitation(noteUniqueId: string): Promise<void> {
+    async deleteInvitation(noteUniqueId: string, recipients?: string[]): Promise<void> {
         const inviteUniqueId = toGuidId(`collab-invite-${noteUniqueId}`);
         const existingInvite = await getFileHeaderByUniqueId(
             this.#dotYouClient,
@@ -136,7 +116,7 @@ export class InvitationDriveProvider {
         );
 
         if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
-            await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, existingInvite.fileId);
+            await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, existingInvite.fileId, recipients);
         }
     }
 }
