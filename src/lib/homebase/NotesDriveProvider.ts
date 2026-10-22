@@ -942,7 +942,8 @@ export class NotesDriveProvider {
      */
     async revokeNoteCollaboration(
         uniqueId: string,
-        editorOdinId: string
+        editorOdinId: string,
+        recipients?: string[]
     ): Promise<{ versionTag: string }> {
         const result = await this.#rewriteNoteHeader(uniqueId, {
             mode: 'patch',
@@ -960,7 +961,7 @@ export class NotesDriveProvider {
             errorMessage: 'Failed to revoke note collaboration',
         });
 
-        await this.#invitations.deleteInvitation(uniqueId);
+        await this.#invitations.deleteInvitation(uniqueId, recipients);
 
         return result;
     }
