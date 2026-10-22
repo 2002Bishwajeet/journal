@@ -10,12 +10,9 @@ import base from './playwright.config';
 // domain at Chromium's resolver instead of /etc/hosts, which that flow never
 // touches — see e2e/live/docker.sh. Hand-login (`npm run e2e:live`) targets
 // whatever identity the user logged into, so it must NOT force that identity
-// onto 127.0.0.1.
-const identity = process.env.E2E_LIVE_IDENTITY;
-const dockerMap =
-  process.env.E2E_LIVE_DOCKER && identity
-    ? `,MAP ${identity} 127.0.0.1,MAP capi.${identity} 127.0.0.1,MAP file.${identity} 127.0.0.1`
-    : '';
+// onto 127.0.0.1. The container serves every preconfigured dev identity (the
+// owner, plus the e2e/sharing peer and outsider), so map them all.
+const dockerMap = process.env.E2E_LIVE_DOCKER ? ',MAP *.dotyou.cloud 127.0.0.1' : '';
 const use = {
   ...devices['Desktop Chrome'],
   baseURL: 'https://e2e.dotyou.cloud:4443',
