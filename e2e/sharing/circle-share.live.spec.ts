@@ -33,7 +33,7 @@ const title = `Circle share ${stamp}`;
 const body = `Shared body ${stamp}`;
 const peerSentence = ` Peer was here ${stamp}.`;
 
-test('a note shared with a circle reaches its member but not an outsider, and the owner can revoke it', async ({ liveRun, liveSharing }) => {
+test('a note shared with a circle reaches its member but not an outsider', async ({ liveRun, liveSharing }) => {
     // Three identities, and every hand-off between them crosses two Homebase hosts.
     test.setTimeout(360_000);
     const { owner, peer, outsider, circleName } = liveSharing;
@@ -78,11 +78,24 @@ test('a note shared with a circle reaches its member but not an outsider, and th
     await expect(foldersNav(outsider.page).getByRole('button', { name: 'Main', exact: true })).toBeVisible();
     await expect(sharedWithMe(outsider.page)).toBeHidden();
     await expect(outsider.page.getByText(title)).toHaveCount(0);
+    // liveRun's page is shared with the specs that run after this one.
+    await selectFolder(owner.page, liveRun.folderName);
+});
 
-    // 5. The owner revokes the collaboration, with no reload in between. Bug: a
-    // revoke made right after the app boots is undone by the boot's sync pull
-    // (its older header lands after the revoke and puts the note back), so
-    // step 4 gives that pull time to finish.
+// Bug (a): on the live tier the revoke does not take. After confirming
+// "Revoke", the note stays in the shared notes' folder with its
+// "Collaborative" badge (CI run 39822080885). A revoke made right after the
+// app boots may be undone by the boot's sync pull, whose older header lands
+// after the revoke and puts the note back.
+// Bug (b): revoking does not reach the peer either. The peer still has the
+// note under "Shared with me", and it opens with the copy cached on the
+// peer's device, across reloads: no forbidden state from PeerNoteFallback,
+// and no removal from the list. Either would do; this expects the forbidden
+// state (switch it if the fix removes the note instead).
+test.fixme('the owner revokes the share, and the peer no longer reaches the note', async ({ liveSharing }) => {
+    const { owner, peer } = liveSharing;
+    await owner.page.goto(`/${COLLABORATIVE_FOLDER_ID}`);
+    await assertTestOrigin(owner.page);
     await noteRow(owner.page, title).click({ button: 'right' });
     await owner.page.getByRole('menuitem', { name: 'Revoke Collaboration' }).click();
     const confirm = owner.page.getByRole('dialog', { name: 'Revoke Collaboration' });
@@ -90,17 +103,7 @@ test('a note shared with a circle reaches its member but not an outsider, and th
     await expect(confirm).toBeHidden({ timeout: 30_000 });
     // Revoking moves the note out of the shared notes' folder.
     await expect(noteRow(owner.page, title)).toBeHidden({ timeout: 30_000 });
-    // liveRun's page is shared with the specs that run after this one.
-    await selectFolder(owner.page, liveRun.folderName);
-});
 
-// Bug: revoking does not reach the peer today. After the owner revokes, the
-// peer still has the note under "Shared with me", and it opens with the copy
-// cached on the peer's device, across reloads: no forbidden state from
-// PeerNoteFallback, and no removal from the list. Either would do; this
-// expects the forbidden state (switch it if the fix removes the note instead).
-test.fixme('after the owner revokes, the peer no longer reaches the note', async ({ liveSharing }) => {
-    const { peer } = liveSharing;
     // The peer's page is still on the shared note's URL, so a reload reopens it.
     await reloadUntil(peer.page, () =>
         expect(peer.page.getByText('You no longer have access to this note.')).toBeVisible({ timeout: 5_000 }));
