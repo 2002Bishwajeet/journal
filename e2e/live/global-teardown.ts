@@ -3,10 +3,11 @@
 // leftover `e2e-*` folder older than 24h is swept too (e.g. a crashed prior
 // run that never reached its own cleanup). Runs after tests but while the
 // webServer is still up (Playwright tears servers down after globalTeardown).
+// Then it removes the peer/outsider storage state the e2e/sharing specs used.
 import { chromium, type FullConfig } from '@playwright/test';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { assertTestOrigin } from '../support/origin-guard';
-import { waitForAppReady } from '../fixtures';
+import { waitForAppReady, LIVE_SHARING_IDENTITIES } from '../fixtures';
 import { foldersNav, deleteFolder } from '../support/actions';
 
 const SWEEP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -15,6 +16,20 @@ const SWEEP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const FOLDER_NAME_RE = /^e2e-(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)-[0-9a-z]{6}-w\d+$/;
 
 export default async function globalTeardown(config: FullConfig): Promise<void> {
+    try {
+        await deleteRunFolders(config);
+    } finally {
+        // Not after e2e:live:docker's setup-only invocation (--project=live-ci-setup):
+        // it writes these files for the `live` invocation that follows. The
+        // owner's live.json stays — the hand-login tier reuses it, and the Docker
+        // script's cleanup removes it.
+        if (!process.argv.some((arg) => arg.includes('live-ci-setup'))) {
+            for (const { storageState } of LIVE_SHARING_IDENTITIES) rmSync(storageState, { force: true });
+        }
+    }
+}
+
+async function deleteRunFolders(config: FullConfig): Promise<void> {
     const live = config.projects.find((p) => p.name === 'live');
     const storageState = live?.use.storageState as string | undefined;
     // No identity or no session to act with (login never ran) — nothing to clean up.

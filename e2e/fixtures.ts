@@ -2,10 +2,24 @@ import { test as base, expect, type Browser, type BrowserContextOptions, type Pa
 import { assertAllowedOrigin, assertTestOrigin, isRemoteEdgeRun } from './support/origin-guard';
 import { installNetworkFence, assertNoFenceViolations } from './support/network-fence';
 import { createFolder, selectFolder } from './support/actions';
+import { existsSync } from 'node:fs';
 
 export { expect };
 
 export const LIVE_STORAGE_STATE = 'e2e/.auth/live.json';
+export const LIVE_PEER_STORAGE_STATE = 'e2e/.auth/live-peer.json';
+export const LIVE_OUTSIDER_STORAGE_STATE = 'e2e/.auth/live-outsider.json';
+export const LIVE_CIRCLE_NAME = 'E2E collaborators';
+
+// The other two dev identities the e2e/sharing specs need (#676), next to the
+// owner (E2E_LIVE_IDENTITY). Only e2e/live/ci-bootstrap.ts (Docker tier) writes
+// their storage state.
+export const LIVE_SHARING_IDENTITIES = [
+  { role: 'peer', identity: process.env.E2E_LIVE_PEER_IDENTITY || 'sam.dotyou.cloud', storageState: LIVE_PEER_STORAGE_STATE },
+  { role: 'outsider', identity: process.env.E2E_LIVE_OUTSIDER_IDENTITY || 'merry.dotyou.cloud', storageState: LIVE_OUTSIDER_STORAGE_STATE },
+] as const;
+
+export type LiveIdentityPage = { page: Page; identity: string };
 
 // The real identity the live tier may talk to, beyond the app origin.
 export function liveIdentityOrigin(): string {
@@ -53,6 +67,7 @@ export const test = base.extend<{
   anonPage: Page;
 }, {
   liveRun: { page: Page; folderName: string };
+  liveSharing: { owner: LiveIdentityPage; peer: LiveIdentityPage; outsider: LiveIdentityPage; circleName: string };
 }>({
   assertBaseUrlIsTestOrigin: [
     async ({ baseURL }, use, testInfo) => {
@@ -107,6 +122,54 @@ export const test = base.extend<{
         await selectFolder(page, folderName);
         await use({ page, folderName });
       }, [liveIdentityOrigin()]);
+    },
+    { scope: 'worker' },
+  ],
+
+  // Three signed-in pages for the e2e/sharing specs (#676): the owner (liveRun's
+  // page, in the run folder), a peer in the owner's LIVE_CIRCLE_NAME circle, and
+  // an outsider connected to the owner but in no circle. Each page may reach only
+  // its own identity. Only the Docker tier (ci-bootstrap.ts) writes the peer and
+  // outsider storage state, so the hand-login tier skips these specs.
+  liveSharing: [
+    async ({ browser, liveRun }, use) => {
+      const missing = LIVE_SHARING_IDENTITIES.filter(({ storageState }) => !existsSync(storageState));
+      base.skip(
+        missing.length > 0,
+        `needs ${missing.map((m) => m.storageState).join(' and ')}, which only npm run e2e:live:docker's setup writes`,
+      );
+      const [peer, outsider] = LIVE_SHARING_IDENTITIES;
+      const owner = { page: liveRun.page, identity: process.env.E2E_LIVE_IDENTITY! };
+      const identities = [owner.identity, peer.identity, outsider.identity];
+      // Two things the app fetches straight from another person's identity:
+      // their avatar (public /pub/image, for circle members and note authors),
+      // and, on a peer's page, the author's guest websocket for realtime peer
+      // updates (usePeerNoteWebsocket). Answer both here so nothing reaches the
+      // network and each page still reaches only its own identity; the spec
+      // reloads instead of relying on realtime. Registered on the context after
+      // the fence (so they win, and service-worker fetches are caught too).
+      const stubOtherIdentities = async ({ page, identity }: LiveIdentityPage) => {
+        for (const other of identities.filter((id) => id !== identity)) {
+          await page.context().route(`https://${other}/pub/image**`, (route) => route.fulfill({ status: 404 }));
+          await page.context().routeWebSocket(`wss://${other}/api/guest/v1/notify/peer/ws**`, (ws) => ws.close());
+        }
+      };
+      const signedIn = (
+        { identity, storageState }: (typeof LIVE_SHARING_IDENTITIES)[number],
+        body: (signedInPage: LiveIdentityPage) => Promise<void>,
+      ) =>
+        withFencedPage(browser, { storageState }, async (page) => {
+          await stubOtherIdentities({ page, identity });
+          await page.goto('/');
+          await assertTestOrigin(page);
+          await waitForAppReady(page);
+          await body({ page, identity });
+        }, [`https://${identity}`]);
+
+      await stubOtherIdentities(owner);
+      await signedIn(peer, (peerPage) =>
+        signedIn(outsider, (outsiderPage) =>
+          use({ owner, peer: peerPage, outsider: outsiderPage, circleName: LIVE_CIRCLE_NAME })));
     },
     { scope: 'worker' },
   ],

@@ -20,6 +20,14 @@ const createdUserDate = (metadata: DocumentMetadata): number => {
     return Number.isNaN(parsed) ? Date.now() : parsed;
 };
 
+/** The ACL of a note shared with circles, and of its invite. */
+export function sharedAcl({ circleIds }: { circleIds: string[] }): AccessControlList {
+    return {
+        requiredSecurityGroup: SecurityGroupType.Connected,
+        circleIdList: circleIds,
+    };
+}
+
 /**
  * A public note is stored Anonymous (+ unencrypted); a collaborative note is shared
  * with its circles; everything else stays Owner-only.
@@ -31,10 +39,7 @@ export function noteAcl(
         return { requiredSecurityGroup: SecurityGroupType.Anonymous };
     }
     if (metadata.isCollaborative && metadata.circleIds?.length) {
-        return {
-            requiredSecurityGroup: SecurityGroupType.Connected,
-            circleIdList: metadata.circleIds,
-        };
+        return sharedAcl({ circleIds: metadata.circleIds });
     }
     return { requiredSecurityGroup: SecurityGroupType.Owner };
 }

@@ -49,6 +49,9 @@ export function fragmentToMarkdown(
   // rehype-raw. Surrounding whitespace stays OUTSIDE the markers — CommonMark
   // won't open/close emphasis directly next to a space (e.g. `**word **`).
   function serializeRun(raw: string, attrs?: Record<string, unknown>): string {
+    // A literal `$` would pair with the next one as remark-math inline math ("$756 … $181").
+    // Backslashes right before it are doubled too, or `\$` would read as an escaped backslash and a bare `$`.
+    if (!attrs?.code) raw = raw.replace(/\\*\$/g, (run) => run.slice(0, -1).replace(/\\/g, '\\\\') + '\\$');
     if (!attrs) return raw;
     const leading = raw.match(/^\s*/)?.[0] ?? '';
     const trailing = raw.match(/\s*$/)?.[0] ?? '';
