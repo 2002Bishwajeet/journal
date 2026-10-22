@@ -32,7 +32,7 @@
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/playfair-display": "^5.3.0",
     "@homebase-id/js-lib": "^0.0.7-alpha.86",
-    "@mlc-ai/web-llm": "^0.2.84",
+    "@mlc-ai/web-llm": "^0.2.86",
     "@radix-ui/react-avatar": "^1.2.6",
     "@radix-ui/react-context-menu": "^2.3.7",
     "@radix-ui/react-dialog": "^1.1.23",
