@@ -166,7 +166,14 @@ describe('deleteInvitation', () => {
         await provider.deleteInvitation(NOTE_ID);
 
         expect(mockGetHeader).toHaveBeenCalledWith(fakeClient, JOURNAL_DRIVE, INVITE_ID, { decrypt: false });
-        expect(mockDelete).toHaveBeenCalledWith(fakeClient, JOURNAL_DRIVE, 'invite-file-1');
+        expect(mockDelete).toHaveBeenCalledWith(fakeClient, JOURNAL_DRIVE, 'invite-file-1', undefined);
+    });
+
+    it('sends the delete to the recipients', async () => {
+        mockGetHeader.mockResolvedValue(existingHeader(COLLABORATION_INVITE_FILE_TYPE));
+        await provider.deleteInvitation(NOTE_ID, RECIPIENTS);
+
+        expect(mockDelete).toHaveBeenCalledWith(fakeClient, JOURNAL_DRIVE, 'invite-file-1', RECIPIENTS);
     });
 
     it('does nothing when there is no invite, or the header is another file type', async () => {
