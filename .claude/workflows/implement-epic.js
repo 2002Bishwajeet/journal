@@ -27,6 +27,7 @@ const IMPL_SCHEMA = {
     branch: { type: 'string' },
     summary: { type: 'string' },
     changedFiles: { type: 'array', items: { type: 'string' } },
+    linesChanged: { type: 'number', description: 'insertions + deletions from git diff --shortstat origin/main...HEAD' },
     condition: { type: 'string', description: 'the STOP condition that matched, if stopped' },
     details: { type: 'string' },
   },
@@ -78,13 +79,13 @@ function implementPrompt(issue) {
   return `You are implementing GitHub issue #${issue.number} of ${REPO}: "${issue.title}".
 
 1. You are in a fresh git worktree. Run \`pwd\` and \`git checkout -b ${branch} origin/main\`. If \`node_modules\` is missing, \`ln -s ${repoRoot}/node_modules node_modules\`.
-2. Read the issue: \`gh issue view ${issue.number} -R ${REPO} --comments\`. Read AGENTS.md. Follow the issue exactly, including its STOP conditions. If a STOP condition applies, stop and return status "stopped" with the condition and details — do not improvise around it.
+2. Read the issue: \`gh issue view ${issue.number} -R ${REPO} --comments\`. Read only the AGENTS.md sections relevant to the issue (\`grep -n '^#' AGENTS.md\` first). Follow the issue exactly, including its STOP conditions. If a STOP condition applies, stop and return status "stopped" with the condition and details — do not improvise around it.
 3. ${HEAVY}
 4. Stay inside this worktree — never edit files under ${repoRoot} itself. Stay inside the issue's Scope.
 5. ${SHOTS}
 6. Commit your work on the branch (conventional commit message referencing #${issue.number}; no Co-Authored-By or other attribution lines). Do NOT push, do NOT open a PR — a later stage does that.
 
-Return the worktree path, branch, summary, changed files.`
+Return the worktree path, branch, summary, changed files, and linesChanged (insertions + deletions from \`git diff --shortstat origin/main...HEAD\`).`
 }
 
 // Not the /simplify skill: its reviewer forks inherit the task and commit/push over the worktree.
@@ -131,8 +132,8 @@ No PR. Return result "stopped: <condition>".`
   return `Open the PR for issue #${issue.number} of ${REPO}. ${cdInto(impl)}. Do exactly this:
 1. \`gh label create agent-harness --color 5319E7 --description "PR opened by the agent harness" -R ${REPO} 2>/dev/null || true\`
 2. \`git push -u origin ${impl.branch}\` (never push to main).
-3. For each evidence file in ${JSON.stringify(verdict.evidence || [])}: if \`gh api repos/${REPO}/releases -q '.[]|select(.name=="Agent evidence")|.id'\` prints nothing, \`gh release create agent-evidence --draft --title "Agent evidence" --notes "" -R ${REPO}\` (drafts aren't found by tag, so never create blindly); copy it to \`${issue.number}-<basename>\`, \`gh release upload agent-evidence <that file> --clobber -R ${REPO}\`, and note its asset URL (\`gh release view agent-evidence -R ${REPO} --json assets\`).
-4. Write the PR body to a file: first line \`Closes #${issue.number}\`; a \`## Summary\` for a reviewer: what changed and why, rewritten from the implementer notes below (drop anything about commits, pushing or PRs); a markdown table \`command | exit | result\` for every check below; each check's tail in a \`<details><summary>command</summary>\` block with a fenced code block; the e2e list output verbatim if present; owner-only items as unchecked \`- [ ]\` boxes; evidence asset links. No attribution lines (no "Generated with Claude Code", no Co-Authored-By).
+3. For each evidence file in ${JSON.stringify(verdict.evidence || [])}: commit it to the \`agent-evidence\` branch (images on a draft release don't render in PR bodies) with \`gh api -X PUT repos/${REPO}/contents/${issue.number}/<basename> -f branch=agent-evidence -f message="evidence: #${issue.number} <basename>" -f content="$(base64 < <file>)"\`, adding \`-f sha=<sha>\` when \`gh api "repos/${REPO}/contents/${issue.number}/<basename>?ref=agent-evidence" -q .sha\` prints one; on a 409, repeat once. Its image URL is \`https://raw.githubusercontent.com/${REPO}/agent-evidence/${issue.number}/<basename>\`.
+4. Write the PR body to a file: first line \`Closes #${issue.number}\`; a \`## Summary\` for a reviewer: what changed and why, rewritten from the implementer notes below (drop anything about commits, pushing or PRs); a markdown table \`command | exit | result\` for every check below; each check's tail in a \`<details><summary>command</summary>\` block with a fenced code block; the e2e list output verbatim if present; owner-only items as unchecked \`- [ ]\` boxes; a \`## Evidence\` section showing every evidence image inline, never as bare links: a table with one row per state and one column per theme/viewport, each cell \`<a href="<url>"><img src="<url>" width="260"></a>\` (width 110 for phone-width shots). No attribution lines (no "Generated with Claude Code", no Co-Authored-By).
 5. \`gh pr create -R ${REPO} --base main --head ${impl.branch} --label agent-harness --title ${JSON.stringify(`${issue.title} (#${issue.number})`)} --body-file <file>\`
 Never merge. Return the PR URL.
 
@@ -142,16 +143,23 @@ e2e list: ${JSON.stringify(verdict.e2eList || '')}
 Owner-only: ${JSON.stringify(verdict.ownerOnly || [])}`
 }
 
+// Simplify when the issue isn't S, or the diff is big (>150 lines / >4 files) or touches complex code.
+const COMPLEX = /^(src\/lib\/(homebase|db|sync)|src\/lib\/editor|src\/components\/editor\/plugins|mcp\/|functions\/)/
+function needsSimplify(issue, impl) {
+  const files = impl.changedFiles || []
+  return issue.size !== 'S' || (impl.linesChanged || 0) > 150 || files.length > 4 || files.some(f => COMPLEX.test(f))
+}
+
 async function runIssue(issue) {
   const tag = `#${issue.number}`
   const effort = issue.effort || EFFORT[issue.size] || 'high'
-  const model = issue.model || 'opus'
+  const model = issue.model || (issue.size === 'S' ? 'sonnet' : 'opus')
   let impl = await agent(implementPrompt(issue), {
     label: `implement ${tag}`, phase: 'Implement', schema: IMPL_SCHEMA, isolation: 'worktree', model, effort,
   })
   if (!impl) return { issue: issue.number, result: 'stopped: implementer died' }
 
-  if (impl.status === 'done') {
+  if (impl.status === 'done' && needsSimplify(issue, impl)) {
     const simp = await agent(simplifyPrompt(issue, impl), {
       label: `simplify ${tag}`, phase: 'Simplify', schema: IMPL_SCHEMA, model: 'sonnet', effort: 'medium',
     })
@@ -161,7 +169,7 @@ async function runIssue(issue) {
   let verdict = null
   for (let round = 0; impl.status === 'done'; round++) {
     verdict = await agent(verifyPrompt(issue, impl), {
-      label: `verify ${tag}${round ? ` (round ${round + 1})` : ''}`, phase: 'Verify', schema: VERIFY_SCHEMA, model: 'sonnet', effort: 'high',
+      label: `verify ${tag}${round ? ` (round ${round + 1})` : ''}`, phase: 'Verify', schema: VERIFY_SCHEMA, model: 'sonnet', effort: issue.size === 'S' ? 'medium' : 'high',
     })
     if (!verdict) { impl = { ...impl, status: 'stopped', condition: 'verifier died' }; break }
     if (verdict.verdict === 'pass') break
