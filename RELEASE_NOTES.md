@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- A new note keeps its title when you start to type the text right after the title. Before, the note list sometimes showed it as "Untitled".
+
 ## 2.11.8 (2026-10-14)
 
 ### Fixed
