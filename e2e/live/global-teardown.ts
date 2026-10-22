@@ -1,6 +1,6 @@
 // Cleans up the live tier's isolation folder(s) on the real identity: this
 // run's own folder(s) (named by global-setup.ts) are always removed, and any
-// leftover `e2e-*` folder older than 24h is swept too (e.g. a crashed prior
+// leftover `e2e-*` folder older than 1h is swept too (e.g. a crashed prior
 // run that never reached its own cleanup). Runs after tests but while the
 // webServer is still up (Playwright tears servers down after globalTeardown).
 // Then it removes the peer/outsider storage state the e2e/sharing specs used.
@@ -8,9 +8,9 @@ import { chromium, type FullConfig } from '@playwright/test';
 import { existsSync, rmSync } from 'node:fs';
 import { assertTestOrigin } from '../support/origin-guard';
 import { waitForAppReady, LIVE_SHARING_IDENTITIES } from '../fixtures';
-import { foldersNav, deleteFolder } from '../support/actions';
+import { foldersNav, deleteFolder, unshareFolderIfShared } from '../support/actions';
 
-const SWEEP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const SWEEP_MAX_AGE_MS = 60 * 60 * 1000;
 // Matches only the `e2e-<ISO date>-<random 6>-w<worker>` names the `liveRun`
 // fixture creates — nothing else on the identity is ever deleted.
 const FOLDER_NAME_RE = /^e2e-(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)-[0-9a-z]{6}-w\d+$/;
@@ -50,6 +50,8 @@ async function deleteRunFolders(config: FullConfig): Promise<void> {
             const match = FOLDER_NAME_RE.exec(name);
             if (!match) continue;
             if (name.startsWith(runPrefix) || Date.now() - new Date(match[1]).getTime() > SWEEP_MAX_AGE_MS) {
+                // Unshare first so the notes leave the demo author page's public index.
+                await unshareFolderIfShared(page, name);
                 await deleteFolder(page, name);
             }
         }
