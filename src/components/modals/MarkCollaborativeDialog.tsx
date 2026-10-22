@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useSyncService } from "@/hooks";
 import { Users, ExternalLink, Loader2, Check, Info } from "lucide-react";
 import {
   Dialog,
@@ -13,24 +12,18 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useDotYouClientContext } from "@/components/auth";
 import { useCircles } from "@/hooks/circles/useCircles";
 import { useMissingPermissions } from "@/hooks/auth/useMissingPermissions";
-import { NotesDriveProvider } from "@/lib/homebase/NotesDriveProvider";
 import {
   JOURNAL_APP_ID,
   JOURNAL_APP_NAME,
   COLLABORATION_PERMISSIONS,
-  COLLABORATIVE_FOLDER_ID,
   CONTACT_TARGET_DRIVE_REQUEST,
 } from "@/lib/homebase/config";
 import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
-import { PENDING_COLLAB_NOTE_KEY, writeString } from "@/lib/storage";
-import { toast } from "sonner";
 import type { CircleDefinition } from "@homebase-id/js-lib/network";
 import { CircleOption } from "@/components/circles/CircleOption";
-import { useNotes } from "@/hooks/useNotes";
-import { getSyncRecord } from "@/lib/db";
+import { useNoteCollaboration, type SelectedCircle } from "@/hooks/useNoteCollaboration";
 
 interface MarkCollaborativeDialogProps {
   isOpen: boolean;
@@ -40,11 +33,6 @@ interface MarkCollaborativeDialogProps {
   onSuccess?: () => void;
 }
 
-interface SelectedCircle {
-  circleId: string;
-  members: string[];
-}
-
 export function MarkCollaborativeDialog({
   isOpen,
   onClose,
@@ -52,13 +40,7 @@ export function MarkCollaborativeDialog({
   noteTitle,
   onSuccess,
 }: MarkCollaborativeDialogProps) {
-  const dotYouClient = useDotYouClientContext();
-  const { syncService } = useSyncService();
-  const {
-    get: { data: notes = [] },
-    updateNote: { mutateAsync: updateNoteMetadata },
-    setNotePublic: { mutateAsync: setNotePublic },
-  } = useNotes();
+  const { share } = useNoteCollaboration();
   const { fetch: circlesFetch } = useCircles(true);
   const [selectedCircles, setSelectedCircles] = useState<SelectedCircle[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,77 +78,12 @@ export function MarkCollaborativeDialog({
   }
 
   async function handleSubmit() {
-    if (selectedCircles.length === 0) {
-      toast.error("Please select at least one circle");
-      return;
-    }
-
-    if (!dotYouClient) {
-      toast.error("Not authenticated");
-      return;
-    }
-
     setIsSubmitting(true);
-    try {
-      // Extract circleIds and unique recipients from selected circles
-      const circleIds = selectedCircles.map((c) => c.circleId);
-      const allMembers = selectedCircles.flatMap((c) => c.members);
-      const recipients = [...new Set(allMembers)].filter(Boolean);
-
-      const provider = new NotesDriveProvider(dotYouClient);
-      const editorOdinId = dotYouClient.getHostIdentity() || "";
-
-      // Ensure the note body is on the server BEFORE we send the invite, so
-      // recipients bootstrap real content instead of an empty note.
-      if (syncService) {
-        await syncService.flushAndSyncNote(noteId);
-      }
-
-      // The note may have just been created by the flush above: pass its fileId,
-      // since a fresh note's uniqueId lookup can 404 (#293)
-      const record = await getSyncRecord(noteId);
-      await provider.makeNoteCollaborative(
-        noteId,
-        circleIds,
-        recipients,
-        editorOdinId,
-        record?.remoteFileId,
-      );
-
-      const existingNote = notes.find((n) => n.docId === noteId);
-      if (existingNote) {
-        if (existingNote.metadata.isPublic) {
-          // makeNoteCollaborative re-uploaded the public note encrypted, which re-keys
-          // it: drop the public flag and the now-stale cached key header (#161)
-          await setNotePublic({ docId: noteId, isPublic: false });
-        }
-        await updateNoteMetadata({
-          docId: noteId,
-          metadata: {
-            ...existingNote.metadata,
-            // Without this the next push re-publishes the note unencrypted (#161)
-            isPublic: false,
-            folderId: COLLABORATIVE_FOLDER_ID,
-            isCollaborative: true,
-            circleIds,
-            recipients,
-            lastEditedBy: editorOdinId,
-          },
-        });
-      } else {
-        console.warn(
-          "[MarkCollaborative] Note not found locally, remote ACL updated but local state may be stale",
-        );
-      }
-
-      toast.success("Note is now collaborative");
+    const shared = await share(noteId, selectedCircles);
+    setIsSubmitting(false);
+    if (shared) {
       onSuccess?.();
       onClose();
-    } catch (err) {
-      console.error("Failed to make note collaborative:", err);
-      toast.error("Failed to make note collaborative");
-    } finally {
-      setIsSubmitting(false);
     }
   }
 
@@ -212,7 +129,6 @@ export function MarkCollaborativeDialog({
                 <a
                   href={extendPermissionUrl}
                   aria-label="Grant Permissions in Homebase (opens Homebase)"
-                  onClick={() => writeString(PENDING_COLLAB_NOTE_KEY, noteId)}
                   className="flex items-center gap-2"
                 >
                   Grant Permissions <ExternalLink className="h-4 w-4" />

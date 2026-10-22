@@ -6,7 +6,7 @@
  * drops the param.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createElement as h, act } from 'react';
+import { createElement as h, act, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 const mocks = vi.hoisted(() => ({
@@ -18,8 +18,14 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/db', () => ({ getAppState: mocks.getAppState }));
 vi.mock('react-router-dom', () => ({
     useNavigate: () => mocks.navigate,
-    useSearchParams: () => [new URLSearchParams(mocks.search), mocks.setSearchParams],
+    // Stable per search string, like react-router's memoized searchParams.
+    useSearchParams: () => [searchParamsFor(mocks.search), mocks.setSearchParams],
 }));
+const paramsCache = new Map<string, URLSearchParams>();
+function searchParamsFor(search: string) {
+    if (!paramsCache.has(search)) paramsCache.set(search, new URLSearchParams(search));
+    return paramsCache.get(search)!;
+}
 
 import { useTabRouting } from '@/hooks/useTabRouting';
 import { useLayoutUrlActions } from '@/hooks/useLayoutUrlActions';
@@ -116,6 +122,26 @@ describe('useLayoutUrlActions', () => {
         expect(openCollaborate).toHaveBeenCalledWith(NOTES[2]);
         expect(mocks.setSearchParams).toHaveBeenCalled();
 
+        await unmount();
+    });
+
+    it('opens the collaborate dialog once the notes load after the redirect', async () => {
+        mocks.search = '?action=collaborate&noteId=c';
+        const openCollaborate = vi.fn();
+        const openSearch = vi.fn();
+        let notes: NoteListEntry[] = [];
+        let rerender = () => {};
+        const unmount = await mount(() => {
+            const [, setTick] = useState(0);
+            rerender = () => setTick((t) => t + 1);
+            useLayoutUrlActions({ ...options, notes, openSearch, openCollaborate });
+        });
+        expect(openCollaborate).not.toHaveBeenCalled();
+
+        notes = NOTES;
+        await act(async () => rerender());
+
+        expect(openCollaborate).toHaveBeenCalledWith(NOTES[2]);
         await unmount();
     });
 });
