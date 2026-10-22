@@ -4,8 +4,8 @@ import * as Y from 'yjs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createJournalMcpServer } from '../../mcp/createServer';
-import type { NoteSummary } from '../../mcp/tools/read';
-import type { WriteDeps } from '../../mcp/tools/write';
+import type { NoteSummary } from '@/lib/agent/tools/read';
+import type { WriteDeps } from '@/lib/agent/tools/write';
 import type { AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
 import { createDoc, toMarkdown } from '@/lib/agent/editEngine';
@@ -25,7 +25,7 @@ interface Stored {
 }
 
 function makeDeps(): {
-    deps: Omit<WriteDeps, 'clientName'>;
+    deps: Omit<WriteDeps, 'clientName' | 'loadImage'>;
     uploadedImages: () => number;
     store: Map<string, Stored>;
     docOf: (note: Stored) => Y.Doc;
@@ -44,7 +44,7 @@ function makeDeps(): {
         tags: note.metadata.tags ?? [],
         modified: note.metadata.timestamps.modified,
     });
-    const deps: Omit<WriteDeps, 'clientName'> = {
+    const deps: Omit<WriteDeps, 'clientName' | 'loadImage'> = {
         loadGrants: async () => GRANTS,
         listFolders: async () => [{ id: 'F1', name: 'Notes' }],
         listNotes: async () => [...store].map(([id, note]) => summaryOf(id, note)),
@@ -76,7 +76,7 @@ function makeDeps(): {
     return { deps, uploadedImages: () => images, store, docOf };
 }
 
-async function connect(deps: Omit<WriteDeps, 'clientName'>): Promise<Client> {
+async function connect(deps: Omit<WriteDeps, 'clientName' | 'loadImage'>): Promise<Client> {
     const server = createJournalMcpServer(deps);
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: 'round-trip', version: '0.0.0' });
