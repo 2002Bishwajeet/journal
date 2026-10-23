@@ -1,6 +1,6 @@
 import { test, expect, waitForAppReady } from '../fixtures';
 import type { Page } from '@playwright/test';
-import { createNote, typeInEditor, activeEditor, screenshotInBothThemes, foldersNav, selectFolder } from '../support/actions';
+import { createNote, typeInEditor, activeEditor, screenshotInBothThemes, foldersNav, selectFolder, trashNote } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // Baseline for today's circle-share flow (#676), so #678's sharing rework and
@@ -100,4 +100,9 @@ test('the owner revokes the share, and the peer no longer reaches the note', asy
         if (await sharedWithMe(peer.page).isVisible()) await sharedWithMe(peer.page).click();
         await expect(noteRow(peer.page, title)).toHaveCount(0, { timeout: 5_000 });
     });
+
+    // The revoke left the note in Main, outside the run folder: remove it.
+    await selectFolder(owner.page, 'Main');
+    await trashNote(owner.page, title);
+    await expect(noteRow(owner.page, title)).toBeHidden({ timeout: 30_000 });
 });
