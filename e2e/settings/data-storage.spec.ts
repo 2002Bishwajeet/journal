@@ -51,8 +51,9 @@ test('zip import turns relative images into note images', async ({ app }) => {
 
   const folder = `Imported ${Date.now()}`;
   const zip = new JSZip();
-  zip.file(`${folder}/Trip.md`, '# Trip\n\n![Red square](assets/red%20square.png)\n\n![Gone](assets/gone.png)\n');
-  zip.file(`${folder}/assets/red square.png`, makeSolidPng(800, 600, [200, 30, 30]));
+  // Under one top-level folder, as a zipped vault: that folder is stripped (#593)
+  zip.file(`Vault/${folder}/Trip.md`, '# Trip\n\n![Red square](assets/red%20square.png)\n\n![Gone](assets/gone.png)\n');
+  zip.file(`Vault/${folder}/assets/red square.png`, makeSolidPng(800, 600, [200, 30, 30]));
 
   await app.getByRole('button', { name: 'Settings' }).click();
   const dialog = app.getByRole('dialog');
