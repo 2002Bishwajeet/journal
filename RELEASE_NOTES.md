@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.15.1 (2026-10-23)
+
 ### Fixed
 
 - When you export all notes and import the file again, quotes in note titles stay correct.
