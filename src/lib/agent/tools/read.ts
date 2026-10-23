@@ -23,6 +23,8 @@ export interface ReadDeps {
     listNotes(): Promise<NoteSummary[]>;
     /** With `targets`, a link to a note not in it is only its label in the markdown (#561). */
     getNote(id: string, targets?: readonly LinkTarget[]): Promise<{ summary: NoteSummary; markdown: string } | null>;
+    /** Ranked full-text hits with a short snippet. When absent, `searchNotes` scans note bodies instead. */
+    searchNotes?(query: string, limit: number): Promise<{ summary: NoteSummary; snippet: string }[]>;
 }
 
 export interface FolderResult {
@@ -38,6 +40,10 @@ export interface NoteListResult {
     modified: string;
     tags: string[];
     access: AgentAccess;
+}
+
+export interface NoteSearchResult extends NoteListResult {
+    snippet?: string;
 }
 
 export interface NoteResult extends NoteListResult {
@@ -99,8 +105,15 @@ export async function getNote(deps: ReadDeps, params: { id: string }): Promise<N
 export async function searchNotes(
     deps: ReadDeps,
     params: { query: string; limit?: number }
-): Promise<NoteListResult[]> {
+): Promise<NoteSearchResult[]> {
     const limit = params.limit ?? DEFAULT_SEARCH_LIMIT;
+    if (deps.searchNotes) {
+        const [grants, hits] = await Promise.all([deps.loadGrants(), deps.searchNotes(params.query, limit)]);
+        return hits
+            .map(({ summary, snippet }) => ({ ...toListResult(summary, noteAccess(grants, summary)), snippet }))
+            .filter((note) => note.access !== 'none')
+            .slice(0, limit);
+    }
     const query = params.query.toLowerCase();
     const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
     const targets = linkTargets(grants, notes);
