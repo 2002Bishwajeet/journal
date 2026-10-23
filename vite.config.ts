@@ -29,6 +29,10 @@ const restorePgliteProcessGuard = {
   },
 };
 
+// The app's Report-Only CSP (#671), read from public/_headers so dev and preview send
+// what Cloudflare Pages sends.
+const APP_CSP = fs.readFileSync(path.join(import.meta.dirname, 'public/_headers'), 'utf8').match(/^\s+Content-Security-Policy-Report-Only: (.+)$/m)![1];
+
 // The React a `react` live block runs on (#426): the app's own installed react and
 // react-dom/client as the text of one classic script, which sets window.React and
 // window.ReactDOM (react-dom/client with react-dom's own exports, such as the createPortal
@@ -295,6 +299,7 @@ export default defineConfig(({ mode }) => ({
       // Required for OPFS/WebLLM and SharedArrayBuffer
       'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy': 'same-origin',
+      'Content-Security-Policy-Report-Only': APP_CSP,
     },
     fs: {
       allow: ['..'],
@@ -372,6 +377,7 @@ export default defineConfig(({ mode }) => ({
     headers: {
       'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy': 'same-origin',
+      'Content-Security-Policy-Report-Only': APP_CSP,
     },
     // The `live`/`live-setup` projects preview the e2e build over HTTPS on
     // e2e.dotyou.cloud:4443 (see e2e/support/make-cert.mjs); every other
