@@ -272,6 +272,15 @@ function markPendingImages(node: Y.XmlFragment | Y.XmlElement, pendingIds: Map<s
     }
 }
 
+// One front-matter list item: "double quoted" (with \" and \\ escapes), 'single quoted', or bare
+const TAG_ITEM = /"((?:[^"\\]|\\.)*)"|'([^']*)'|([^,\s][^,]*)/g;
+const unescapeQuoted = (v: string) => v.replace(/\\(["\\])/g, '$1');
+/** A front-matter value without its quotes; undoes the escapes export writes inside "...". */
+function unquote(value: string): string {
+    const quoted = /^"((?:[^"\\]|\\.)*)"$/.exec(value);
+    return quoted ? unescapeQuoted(quoted[1]) : value.replace(/^'|'$/g, '');
+}
+
 /**
  * Parse Markdown with Frontmatter
  */
@@ -304,8 +313,7 @@ function parseMarkdown(text: string): { metadata: DocumentMetadata; content: str
             const key = parts[0].trim();
             const value = parts.slice(1).join(':').trim(); // Rejoin in case value has colons (like dates)
 
-            // Handle quotes
-            const cleanValue = value.replace(/^["']|["']$/g, '');
+            const cleanValue = unquote(value);
 
             if (key === 'title') metadata.title = cleanValue;
             if (key === 'created') metadata.timestamps.created = cleanValue;
@@ -316,7 +324,7 @@ function parseMarkdown(text: string): { metadata: DocumentMetadata; content: str
                 // Remove brackets and split
                 // [tag1, tag2]
                 const cleanTags = value.replace(/^\[|\]$/g, '');
-                metadata.tags = cleanTags.split(',').map(t => t.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+                metadata.tags = Array.from(cleanTags.matchAll(TAG_ITEM), m => (m[1] !== undefined ? unescapeQuoted(m[1]) : m[2] ?? m[3].trim())).filter(Boolean);
             }
         }
     }

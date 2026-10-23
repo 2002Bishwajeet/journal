@@ -40,81 +40,6 @@ import { ImportService } from '@/lib/importexport/ImportService';
 describe('Import/Export Logic', () => {
 
     // ============================================
-    // Markdown Parsing Tests
-    // ============================================
-    describe('Markdown Frontmatter Parsing', () => {
-        interface Parsed {
-            title: string;
-            tags: string[];
-            content: string;
-        }
-
-        function parseMarkdownWithFrontmatter(text: string, filename: string): Parsed {
-            let content = text;
-            let title = filename.replace(/\.md$/, '');
-            const tags: string[] = [];
-
-            const frontmatterMatch = text.match(/^---\n([\s\S]*?)\n---\n/);
-            if (frontmatterMatch) {
-                content = text.slice(frontmatterMatch[0].length);
-
-                const titleMatch = frontmatterMatch[1].match(/title:\s*"?([^"\n]+)"?/);
-                if (titleMatch) title = titleMatch[1];
-
-                const tagsMatch = frontmatterMatch[1].match(/tags:\s*\[(.*?)\]/);
-                if (tagsMatch) {
-                    tagsMatch[1].split(',').forEach(tag => {
-                        const cleaned = tag.trim().replace(/^["']|["']$/g, '');
-                        if (cleaned) tags.push(cleaned);
-                    });
-                }
-            }
-
-            return { title, tags, content };
-        }
-
-        it('should parse frontmatter with title', () => {
-            const markdown = `---
-title: "My Note Title"
----
-This is the content.`;
-
-            const result = parseMarkdownWithFrontmatter(markdown, 'file.md');
-            expect(result.title).toBe('My Note Title');
-            expect(result.content).toBe('This is the content.');
-        });
-
-        it('should use filename if no frontmatter title', () => {
-            const markdown = `Just content without frontmatter.`;
-
-            const result = parseMarkdownWithFrontmatter(markdown, 'my-note.md');
-            expect(result.title).toBe('my-note');
-        });
-
-        it('should parse tags from frontmatter', () => {
-            const markdown = `---
-title: "Tagged Note"
-tags: ["work", "important", "project"]
----
-Content`;
-
-            const result = parseMarkdownWithFrontmatter(markdown, 'file.md');
-            expect(result.tags).toEqual(['work', 'important', 'project']);
-        });
-
-        it('should handle empty tags array', () => {
-            const markdown = `---
-title: "No Tags"
-tags: []
----
-Content`;
-
-            const result = parseMarkdownWithFrontmatter(markdown, 'file.md');
-            expect(result.tags).toEqual([]);
-        });
-    });
-
-    // ============================================
     // Obsidian Import Parsing Tests
     // ============================================
     describe('Obsidian Format Parsing', () => {
@@ -325,35 +250,6 @@ E,F`;
         it('should return unknown for non-markdown', () => {
             const files = ['image.png', 'document.pdf'];
             expect(detectFormat(files)).toBe('unknown');
-        });
-    });
-
-    // ============================================
-    // Filename Sanitization Tests
-    // ============================================
-    describe('Filename Sanitization', () => {
-        function sanitizeFilename(name: string): string {
-            return name.replace(/[/\\?%*:|"<>]/g, '-').trim() || 'Untitled';
-        }
-
-        it('should remove invalid characters', () => {
-            expect(sanitizeFilename('my/note')).toBe('my-note');
-            expect(sanitizeFilename('file:name')).toBe('file-name');
-            expect(sanitizeFilename('test<>file')).toBe('test--file');
-        });
-
-        it('should handle multiple invalid characters', () => {
-            expect(sanitizeFilename('a/b\\c?d')).toBe('a-b-c-d');
-        });
-
-        it('should return Untitled for empty string', () => {
-            expect(sanitizeFilename('')).toBe('Untitled');
-            expect(sanitizeFilename('   ')).toBe('Untitled');
-        });
-
-        it('should preserve valid characters', () => {
-            expect(sanitizeFilename('My Note (2023)')).toBe('My Note (2023)');
-            expect(sanitizeFilename('Notes-Archive_v2')).toBe('Notes-Archive_v2');
         });
     });
 });

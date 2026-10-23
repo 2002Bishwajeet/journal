@@ -182,19 +182,24 @@ function extensionForContentType(contentType: string): string {
     return 'bin';
 }
 
+/** A double-quoted front-matter value; \ and " are escaped so the importer can read it back. */
+function quote(value: string): string {
+    return `"${value.replace(/[\\"]/g, '\\$&')}"`;
+}
+
 /**
  * Generate Markdown content with Frontmatter
  */
 function generateMarkdown(note: SearchIndexEntry, body: string): string {
     const frontmatter = [
         '---',
-        `title: "${note.title.replace(/"/g, '\\"')}"`,
+        `title: ${quote(note.title)}`,
         `created: "${note.metadata.timestamps.created}"`,
         `modified: "${note.metadata.timestamps.modified}"`,
     ];
 
     if (note.metadata.tags && note.metadata.tags.length > 0) {
-        frontmatter.push(`tags: [${note.metadata.tags.map(t => `"${t}"`).join(', ')}]`);
+        frontmatter.push(`tags: [${note.metadata.tags.map(quote).join(', ')}]`);
     }
 
     if (note.metadata.excludeFromAI) {
