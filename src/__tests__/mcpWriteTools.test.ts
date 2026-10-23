@@ -17,8 +17,9 @@ import {
     getNoteBlocks,
     VersionConflictError,
     type WriteDeps,
-} from '../../mcp/tools/write';
-import type { NoteSummary } from '../../mcp/tools/read';
+} from '@/lib/agent/tools/write';
+import type { NoteSummary } from '@/lib/agent/tools/read';
+import { loadImage } from '../../mcp/imageSource';
 import type { AgentAccess, AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
 import { createDoc, appendMarkdown, localImageSources, toMarkdown } from '@/lib/agent/editEngine';
@@ -148,6 +149,7 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
             trashed.push({ id, fileId });
             store.delete(id); // gone from the agent's view, like the real drive's lists
         },
+        loadImage,
         clientName: () => opts.clientName ?? '',
     };
 
