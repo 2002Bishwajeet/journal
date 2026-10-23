@@ -158,17 +158,4 @@ describe('unenroll and members', () => {
         expect(post).toHaveBeenCalledWith(`${V2}/revoke`, { circleId: SHARES_ID, odinId: 'a.id' });
         expect(post).toHaveBeenCalledWith(`${V2}/revoke`, { circleId: SHARES_ID, odinId: 'b.id' });
     });
-
-    it('lists members and pending members of the share circle', async () => {
-        routePosts(() => SHARES_ID);
-        get.mockResolvedValue({
-            data: [
-                { circle: { id: 'aaaaaaaa000000000000000000000001', slug: 'journal-shares' }, members: ['a.id'], pendingMembers: [{ odinId: 'b.id' }, { odinId: 'a.id' }] },
-                { circle: { id: 'other', slug: 'friends' }, members: ['c.id'] },
-            ],
-        });
-
-        expect(await new ShareCircleProvider(client).members()).toEqual(['a.id', 'b.id']);
-        expect(get).toHaveBeenCalledWith(`${V2}/with-members`);
-    });
 });

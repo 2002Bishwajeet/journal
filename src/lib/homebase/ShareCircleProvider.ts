@@ -147,10 +147,4 @@ export class ShareCircleProvider {
             }
         }
     }
-
-    /** Members, including those whose grant hasn't converted yet. */
-    async members(): Promise<string[]> {
-        const { circleId } = await this.ensureShareCircle();
-        return membersOf((await this.#circles()).find((c) => stringGuidsEqual(c.circle.id, circleId)));
-    }
 }
