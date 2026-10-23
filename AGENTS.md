@@ -389,7 +389,7 @@ Defined in `src/lib/db/schema.ts`: base tables in `initializeSchema()`, later co
 - Index: `idx_document_updates_doc_id` on doc_id
 
 ### `search_index` — Derived state for FTS and list rendering
-- `doc_id` UUID PK, `title` TEXT, `plain_text_content` TEXT, `metadata` JSONB, `vector_embedding` REAL[], `search_vector` tsvector, `updated_at` TIMESTAMPTZ
+- `doc_id` UUID PK, `title` TEXT, `plain_text_content` TEXT, `metadata` JSONB, `search_vector` tsvector, `updated_at` TIMESTAMPTZ
 - Indexes: btree on title, GIN on search_vector, expression indexes on `metadata->>'folderId'` and modified time; GIN trigram on title + content is created lazily on first fuzzy search (`ensureTrigramSearch()`)
 
 ### `folders`
