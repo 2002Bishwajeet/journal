@@ -106,14 +106,24 @@ test('a note shared with the outsider by identity reaches only them, and the pee
     // them out. They must be refused a read and a patch over peer.
     const before = await owner.page.evaluate((id) => window.__journalE2E!.noteHeader(id), docId);
     expect(before?.globalTransitId, 'the note has a globalTransitId to address a peer update by').toBeTruthy();
+    // A peer update goes through the peer's own outbox: the peer's server answers
+    // "enqueued", and the owner's server accepts or refuses it later, host to host.
+    // So the patch is refused when the owner's note never changes.
+    const patchResponse = peer.page.waitForResponse((r) => r.url().includes('/drive/files/update'));
     const probe = await peer.page.evaluate(
         ([author, id, globalTransitId, versionTag]) =>
             window.__journalE2E!.probePeerNote(author, id, globalTransitId, versionTag),
         [owner.identity, docId, before!.globalTransitId!, before!.versionTag] as const,
     );
-    test.info().annotations.push({ type: 'security check (peer, not named)', description: JSON.stringify(probe) });
+    const { recipientStatus } = await (await patchResponse).json();
+    test.info().annotations.push({
+        type: 'security check (peer, not named)',
+        description: JSON.stringify({ ...probe, recipientStatus }),
+    });
     expect(probe.read, 'the peer reads the note').not.toBe('read');
-    expect(probe.patch, 'the peer patches the note').not.toMatch(/^accepted/);
+    // A member's peer update lands within seconds (circle-share.live.spec.ts step 3);
+    // nothing signals a refused one, so wait a minute, then check the note is unchanged.
+    await owner.page.waitForTimeout(60_000);
     const after = await owner.page.evaluate((id) => window.__journalE2E!.noteHeader(id), docId);
     expect(after?.versionTag, 'the note changed').toBe(before!.versionTag);
 
