@@ -1,3 +1,9 @@
+# [2.14.0](https://github.com/2002Bishwajeet/journal/compare/v2.13.1...v2.14.0) (2026-10-23)
+
+
+### Features
+
+* **ai:** the chat panel becomes the local agent with tool steps and Stop, web search removed ([#699](https://github.com/2002Bishwajeet/journal/issues/699)) ([32d5ac6](https://github.com/2002Bishwajeet/journal/commit/32d5ac653e7b02fa210f24b4cf7c082517d56885))
 ## [2.13.1](https://github.com/2002Bishwajeet/journal/compare/v2.13.0...v2.13.1) (2026-10-23)
 
 
