@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.15.2 (2026-10-23)
+
 ### Fixed
 
 - The narrow sidebar shows all folders in full. A long folder list scrolls. Each folder shows two letters, and a globe marks a shared folder.
