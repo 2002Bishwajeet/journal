@@ -166,7 +166,8 @@ test('a wide banner cover gets a whole-width 1200×630 card image, and the dialo
         const canvas = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
         const ctx = canvas.getContext('2d')!;
         ctx.drawImage(img, 0, 0);
-        const at = (x: number) => [...ctx.getImageData(x, 315, 1, 1).data.slice(0, 3)];
+        // Above the title's scrim (#434), which darkens the card's lower half; the banner spans y 115-515.
+        const at = (x: number) => [...ctx.getImageData(x, 160, 1, 1).data.slice(0, 3)];
         return { hash, left: at(8), middle: at(600), right: at(1191) };
     });
     expect(shown.hash).toBe(createHash('sha256').update(ogBytes).digest('hex'));
