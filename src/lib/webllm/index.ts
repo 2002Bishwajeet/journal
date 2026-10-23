@@ -16,6 +16,8 @@ export {
 
 export type { RewriteStyle, ChatMessage } from './engine';
 
+export { createAgentEngine } from './agentEngine';
+
 export {
     AVAILABLE_MODELS,
     DEFAULT_MODEL_ID,
