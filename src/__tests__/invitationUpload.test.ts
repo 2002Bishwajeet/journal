@@ -20,11 +20,12 @@ import {
     COLLABORATIVE_FOLDER_ID,
 } from '@/lib/homebase/config';
 
-const { mockPatch, mockUpload, mockDelete, mockGetHeader } = vi.hoisted(() => ({
+const { mockPatch, mockUpload, mockDelete, mockGetHeader, mockDeleteOverPeer } = vi.hoisted(() => ({
     mockPatch: vi.fn(),
     mockUpload: vi.fn(),
     mockDelete: vi.fn(),
     mockGetHeader: vi.fn(),
+    mockDeleteOverPeer: vi.fn(),
 }));
 
 vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
@@ -38,7 +39,10 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
     };
 });
 
+vi.mock('@homebase-id/js-lib/peer', () => ({ deleteFileOverPeer: mockDeleteOverPeer }));
+
 import { InvitationDriveProvider } from '@/lib/homebase/InvitationDriveProvider';
+import { shareRecipients } from '@/lib/homebase/shareTargets';
 
 const NOTE_ID = '11111111-1111-1111-1111-111111111111';
 const INVITE_ID = toGuidId(`collab-invite-${NOTE_ID}`);
@@ -75,12 +79,12 @@ function existingHeader(fileType: number) {
     return {
         fileId: 'invite-file-1',
         sharedSecretEncryptedKeyHeader: KEY_HEADER,
-        fileMetadata: { versionTag: 'v-existing', appData: { fileType } },
+        fileMetadata: { versionTag: 'v-existing', globalTransitId: 'gtid-1', appData: { fileType } },
     };
 }
 
 const share = (provider: InvitationDriveProvider) =>
-    provider.createOrUpdateInvitation(NOTE_ID, 'Title', 'p'.repeat(200), CIRCLES, RECIPIENTS, AUTHOR);
+    provider.createOrUpdateInvitation(NOTE_ID, 'Title', 'p'.repeat(200), { circleIds: CIRCLES, odinIds: [] }, RECIPIENTS, AUTHOR);
 
 describe('createOrUpdateInvitation', () => {
     let provider: InvitationDriveProvider;
@@ -145,6 +149,20 @@ describe('createOrUpdateInvitation', () => {
         expect(Object.keys(metadata)[0]).toBe('versionTag');
     });
 
+    // #681: the invite of a person share names them, as the note does
+    it('a share with circles and identities sends both lists', async () => {
+        mockGetHeader.mockResolvedValue(null);
+        await provider.createOrUpdateInvitation(
+            NOTE_ID, 'Title', '', { circleIds: CIRCLES, odinIds: ['sam.id'] }, ['sam.id'], AUTHOR,
+        );
+
+        expect(mockUpload.mock.calls[0][2].accessControlList).toStrictEqual({
+            requiredSecurityGroup: SecurityGroupType.Connected,
+            circleIdList: CIRCLES,
+            odinIdList: ['sam.id'],
+        });
+    });
+
     it('a header of another file type counts as no invite (create path)', async () => {
         mockGetHeader.mockResolvedValue(existingHeader(605));
         await share(provider);
@@ -183,5 +201,36 @@ describe('deleteInvitation', () => {
         await provider.deleteInvitation(NOTE_ID);
 
         expect(mockDelete).not.toHaveBeenCalled();
+    });
+});
+
+describe('withdrawInvitation', () => {
+    let provider: InvitationDriveProvider;
+    beforeEach(() => {
+        vi.clearAllMocks();
+        provider = new InvitationDriveProvider(fakeClient);
+    });
+
+    // #681: someone taken off a share loses their copy; the owner's invite stays for the rest
+    it('sends a delete of the invite to those recipients only, by its global transit id', async () => {
+        mockGetHeader.mockResolvedValue(existingHeader(COLLABORATION_INVITE_FILE_TYPE));
+        await provider.withdrawInvitation(NOTE_ID, ['sam.id']);
+
+        expect(mockDeleteOverPeer).toHaveBeenCalledWith(fakeClient, JOURNAL_DRIVE, 'gtid-1', ['sam.id']);
+        expect(mockDelete).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when there is no invite', async () => {
+        mockGetHeader.mockResolvedValue(null);
+        await provider.withdrawInvitation(NOTE_ID, ['sam.id']);
+
+        expect(mockDeleteOverPeer).not.toHaveBeenCalled();
+    });
+});
+
+describe('shareRecipients', () => {
+    it('is the circle members and the named identities, once each, without the owner', () => {
+        expect(shareRecipients(['a.id', 'me.id', 'b.id', ''], ['b.id', 'c.id', 'me.id'], 'me.id'))
+            .toEqual(['a.id', 'b.id', 'c.id']);
     });
 });

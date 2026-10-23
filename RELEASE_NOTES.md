@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- You can share a note with a person. Type their Homebase identity in "Add a person" in the collaboration dialog. The person must be one of your connections. To change who can see a shared note, use "Edit Sharing".
+
 ### Fixed
 
 - A new note keeps its title when you start to type the text right after the title. Before, the note list sometimes showed it as "Untitled".

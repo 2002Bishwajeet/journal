@@ -198,9 +198,10 @@ async function circleMembers(page: Page, identity: string, circle: string): Prom
 
 // Opens Journal's collaboration dialog on a throwaway note, follows its
 // "Grant Permissions" link and approves the owner-console app-update consent
-// (COLLABORATION_PERMISSIONS plus the circle drives), the same way a person
-// would the first time they share.
-async function grantCollaborationPermissions(page: Page, identity: string) {
+// (COLLABORATION_PERMISSIONS, the circle drives and, since #681, the all
+// connected identities circle), the same way a person would the first time
+// they share. `circle` is one the dialog lists once it is granted.
+async function grantCollaborationPermissions(page: Page, identity: string, circle: string | null = LIVE_CIRCLE_NAME) {
     await page.goto('/');
     await assertTestOrigin(page);
     const appOrigin = new URL(page.url()).origin;
@@ -217,8 +218,8 @@ async function grantCollaborationPermissions(page: Page, identity: string) {
     await page.waitForURL((url) => url.hostname === identity, { timeout: 30_000 });
     // The consent returns with ?action=collaborate, which reopens the dialog,
     // now listing circles (ReadCircleMembership).
-    const circle = page.getByRole('dialog').getByText(LIVE_CIRCLE_NAME);
-    await consentUntil(page, identity, appOrigin, () => circle.isVisible());
+    const granted = page.getByRole('dialog').getByText(circle ?? 'Select Circles', { exact: !circle });
+    await consentUntil(page, identity, appOrigin, () => granted.isVisible());
 }
 
 // Circle page -> "Apps that <circle> can use" -> Journal. Its members then get
@@ -284,4 +285,13 @@ setup('grant Journal what circle collaboration needs, on the owner and on the pe
             await authorizeCircleForJournal(page, identity, LIVE_CIRCLE_NAME);
         });
     }
+});
+
+// The outsider files the owner under no circle, so only the all connected
+// identities grant lets the owner's invite of a person share (#681) into the
+// outsider's Journal drive, and the outsider's app read the note over peer.
+setup('grant Journal what person sharing needs, on the outsider', async ({ browser }) => {
+    const [, outsider] = LIVE_SHARING_IDENTITIES;
+    await withIdentity(browser, outsider.storageState, (page) =>
+        grantCollaborationPermissions(page, outsider.identity, null));
 });

@@ -346,6 +346,7 @@ export class NotesDriveProvider {
             ...noteFileContent(metadata),
             isCollaborative: metadata.isCollaborative,
             circleIds: metadata.circleIds,
+            odinIds: metadata.odinIds,
             recipients: metadata.recipients,
             lastEditedBy: metadata.lastEditedBy,
         };
@@ -892,19 +893,24 @@ export class NotesDriveProvider {
         }
     }
     /**
-     * Make a note collaborative, granting access to specified circles.
-     * Changes ACL to Connected with circleIds and moves to COLLABORATIVE_FOLDER_ID.
+     * Share a note with circles and named identities, or change who an existing share
+     * names. Changes ACL to Connected with those lists and moves to COLLABORATIVE_FOLDER_ID,
+     * then sends the invite to every recipient and takes it back from `removedRecipients`.
      *
      * @param uniqueId - The unique ID of the note
-     * @param circleIds - Array of circle IDs to grant access
+     * @param share - Circles and identities to grant access, and who gets or loses the invite
      * @param editorOdinId - OdinId of the user making this change
      * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
      * @returns The new version tag after update
      */
     async makeNoteCollaborative(
         uniqueId: string,
-        circleIds: string[],
-        recipients: string[],
+        { circleIds, odinIds, recipients, removedRecipients = [] }: {
+            circleIds: string[];
+            odinIds: string[];
+            recipients: string[];
+            removedRecipients?: string[];
+        },
         editorOdinId: string,
         fileId?: string
     ): Promise<{ versionTag: string }> {
@@ -918,14 +924,16 @@ export class NotesDriveProvider {
                     ...existing,
                     isPublic: false,
                     isCollaborative: true,
-                    circleIds,
+                    // An empty list is left out, so a circle-only share stores what it did before #681
+                    circleIds: circleIds.length > 0 ? circleIds : undefined,
+                    odinIds: odinIds.length > 0 ? odinIds : undefined,
                     recipients,
                     lastEditedBy: editorOdinId,
                 };
             },
             groupId: COLLABORATIVE_FOLDER_ID, // Move to collaborative folder
             isEncrypted: true,
-            acl: sharedAcl({ circleIds }),
+            acl: sharedAcl({ circleIds, odinIds }),
             // Collaborative notes must be encrypted; a public note is re-uploaded
             // encrypted first, since a header-only patch can't encrypt its payload.
             ensureEncrypted: true,
@@ -936,10 +944,13 @@ export class NotesDriveProvider {
             uniqueId,
             title,
             '',
-            circleIds,
+            { circleIds, odinIds },
             recipients,
             editorOdinId,
         );
+        if (removedRecipients.length > 0) {
+            await this.#invitations.withdrawInvitation(uniqueId, removedRecipients);
+        }
 
         return result;
     }
@@ -964,6 +975,7 @@ export class NotesDriveProvider {
                 isPublic: false,
                 isCollaborative: false,
                 circleIds: undefined,
+                odinIds: undefined,
                 recipients: undefined,
                 lastEditedBy: editorOdinId,
             }),

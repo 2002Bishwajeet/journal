@@ -688,6 +688,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
   "isPinned": "boolean",
   "isCollaborative": "boolean",
   "circleIds": ["UUID"],
+  "odinIds": ["OdinId"],
   "recipients": ["OdinId"],
   "lastEditedBy": "OdinId"
 }

@@ -50,6 +50,15 @@ interface JournalE2EHooks {
     text: { title: string; excerpt?: string; author: string },
     cover?: { image: Blob; positionY: number },
   ): Promise<Blob>;
+  /** This identity's note as its server has it: the ids a peer update addresses. */
+  noteHeader(docId: string): Promise<{ globalTransitId?: string; versionTag: string } | null>;
+  /** The #681 security check: reads, then patches, another identity's note over peer, and says what each got. */
+  probePeerNote(
+    authorOdinId: string,
+    docId: string,
+    globalTransitId: string,
+    versionTag: string,
+  ): Promise<{ read: string; patch: string }>;
 }
 
 interface Window {
