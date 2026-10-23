@@ -21,6 +21,13 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - You can stop the assistant while it works.
 - The assistant has no web search. Your questions stay on your device.
 
+## 2.13.0 (2026-10-23)
+
+### New
+
+- You can import a Notion export. In Notion, export as Markdown & CSV, then import the .zip file in Settings, Data & storage.
+- The import keeps page titles, links between pages and images. Notion databases become tables.
+
 ## 2.12.0 (2026-10-23)
 
 ### New
