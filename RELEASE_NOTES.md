@@ -15,6 +15,11 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- The app shows a shared note under the person who really sent it.
+- The app ignores a share invite that names a different person as the sender.
+
 ## 2.12.0 (2026-10-23)
 
 ### New
