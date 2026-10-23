@@ -85,6 +85,7 @@ const LINK_TITLE = 'An example article';
 const PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
 test('signed in: notes, live blocks and a link preview violate nothing', async ({ app }) => {
+  test.slow(); // five notes in one test: ~34s on CI against the 30s default
   const collector = await collectViolations(app);
   await app.reload();
   await assertTestOrigin(app);
