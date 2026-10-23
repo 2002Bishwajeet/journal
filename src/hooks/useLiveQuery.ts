@@ -55,6 +55,13 @@ let emissions = 0;
 // Nesting depth of suspendLiveQueries(); live subscriptions are off while > 0.
 let suspendDepth = 0;
 
+// While suspended, each in-use query is re-run once per this interval, so a
+// local write made during a long pull (a folder or note created during the
+// first sync of a big account, #637) shows up before the pull ends.
+const SUSPENDED_REFRESH_MS = 1000;
+let refreshTimer: ReturnType<typeof setInterval> | undefined;
+let refreshing = false;
+
 export function getLiveQueryStats(): { emissions: number } {
   return { emissions };
 }
@@ -163,6 +170,34 @@ function subscribe(
   })();
 }
 
+// One-shot re-run of every suspended entry still in use. A tick is skipped while
+// the previous one is still running; gen fences results that land after a
+// resume, park or newer subscription.
+async function refreshSuspended(): Promise<void> {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    const db = await getLiveDatabase();
+    await Promise.all(
+      [...registry].map(async ([cacheKey, e]) => {
+        if (!e.suspended || e.refs <= 0) return;
+        const gen = e.gen;
+        try {
+          const res = await db.query(e.sql, e.params as unknown[]);
+          emissions += 1;
+          if (registry.get(cacheKey) !== e || e.gen !== gen || !e.suspended) return;
+          e.ready = true;
+          notify(e, res.rows);
+        } catch (err) {
+          console.error('[useLiveQuery] suspended refresh failed:', err);
+        }
+      }),
+    );
+  } finally {
+    refreshing = false;
+  }
+}
+
 /**
  * Acquire a shared PGlite live subscription for `cacheKey`, registering
  * `listener` for updates. Returns the current cached rows (empty until the first
@@ -240,10 +275,10 @@ export function acquireLiveQuery(
 /**
  * Suspend every live subscription for the duration of a bulk write (a sync pull),
  * so PGlite doesn't re-run each subscribed query after every written row.
- * Consumers keep their cached rows; entries acquired meanwhile subscribe later.
+ * Consumers keep their cached rows, refreshed by a one-shot re-run every
+ * SUSPENDED_REFRESH_MS; entries acquired meanwhile subscribe later.
  * Returns an idempotent resume; when the last nested suspend resumes, every
- * suspended entry still in use re-subscribes once (its initial result is the
- * single refresh).
+ * suspended entry still in use re-subscribes once.
  */
 export function suspendLiveQueries(): () => void {
   suspendDepth += 1;
@@ -259,6 +294,7 @@ export function suspendLiveQueries(): () => void {
       e.subscribing = false;
       e.suspended = true;
     }
+    refreshTimer = setInterval(() => void refreshSuspended(), SUSPENDED_REFRESH_MS);
   }
   let resumed = false;
   return () => {
@@ -266,6 +302,8 @@ export function suspendLiveQueries(): () => void {
     resumed = true;
     suspendDepth -= 1;
     if (suspendDepth > 0) return;
+    clearInterval(refreshTimer);
+    refreshTimer = undefined;
     for (const [cacheKey, e] of registry) {
       if (!e.suspended) continue;
       e.suspended = false;

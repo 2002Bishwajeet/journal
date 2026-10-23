@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createJournalMcpServer } from '../../mcp/createServer';
-import type { NoteSummary } from '../../mcp/tools/read';
-import type { WriteDeps } from '../../mcp/tools/write';
+import type { NoteSummary } from '@/lib/agent/tools/read';
+import type { WriteDeps } from '@/lib/agent/tools/write';
 import type { AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
 import * as Y from 'yjs';
@@ -19,7 +19,7 @@ const WRITE_GRANTS: AgentGrants = { version: 1, folders: { F1: 'write' }, notes:
 
 const NOTES: NoteSummary[] = [{ id: 'n1', title: 'Note One', folderId: 'F1', tags: [], modified: '2024-01-01T00:00:00.000Z' }];
 
-type ServerDeps = Omit<WriteDeps, 'clientName'>;
+type ServerDeps = Omit<WriteDeps, 'clientName' | 'loadImage'>;
 
 /** The write tools that take markdown, sorted. */
 const MARKDOWN_TOOLS = ['append_to_note', 'create_note', 'edit_block', 'replace_in_note', 'update_note'];

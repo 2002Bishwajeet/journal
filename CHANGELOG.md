@@ -1,3 +1,47 @@
+## [2.13.1](https://github.com/2002Bishwajeet/journal/compare/v2.13.0...v2.13.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **sharing:** take invite author from the sender, not invite content ([#733](https://github.com/2002Bishwajeet/journal/issues/733)) ([8cff47e](https://github.com/2002Bishwajeet/journal/commit/8cff47ee3e654a9e45909c9333407519b80a154b))
+# [2.13.0](https://github.com/2002Bishwajeet/journal/compare/v2.12.0...v2.13.0) (2026-10-23)
+
+
+### Bug Fixes
+
+* **import:** escape backslashes in Notion table cells and link labels ([#595](https://github.com/2002Bishwajeet/journal/issues/595)) ([5713ec9](https://github.com/2002Bishwajeet/journal/commit/5713ec91a00467378fe0193184ebb272c51b2e7a))
+
+
+### Features
+
+* **agent:** local ReadDeps over PGlite with FTS search snippets ([#697](https://github.com/2002Bishwajeet/journal/issues/697)) ([c385d1d](https://github.com/2002Bishwajeet/journal/commit/c385d1de9d1030c10b895b2938e1222a43758df1))
+* **ai:** editor-operation tools for the open note ([#700](https://github.com/2002Bishwajeet/journal/issues/700)) ([88e05ab](https://github.com/2002Bishwajeet/journal/commit/88e05ab3f56f4d6a9753db3dbd25c89363cdb20e))
+* **ai:** local agent loop with schema-forced tool calls, step cap and trimming ([#698](https://github.com/2002Bishwajeet/journal/issues/698)) ([a5b2fc1](https://github.com/2002Bishwajeet/journal/commit/a5b2fc11a7974b4f12bab8d123312d290f79eaca))
+* **import:** import Notion Markdown & CSV exports ([#595](https://github.com/2002Bishwajeet/journal/issues/595)) ([0580fb6](https://github.com/2002Bishwajeet/journal/commit/0580fb69bf8f709687efac1c5a06d012b9605c1b))
+# [2.12.0](https://github.com/2002Bishwajeet/journal/compare/v2.11.8...v2.12.0) (2026-10-23)
+
+
+### Bug Fixes
+
+* **e2e:** live teardown unshares and deletes e2e folders older than 1h ([#638](https://github.com/2002Bishwajeet/journal/issues/638)) ([09d828c](https://github.com/2002Bishwajeet/journal/commit/09d828cfed8072c668e98430ddfca0e4026ce45c))
+* **editor:** the content save no longer writes a stale title back ([#686](https://github.com/2002Bishwajeet/journal/issues/686)) ([30cf8bd](https://github.com/2002Bishwajeet/journal/commit/30cf8bde019598d304b567134692fcd82c43380a)), closes [#441](https://github.com/2002Bishwajeet/journal/issues/441)
+* **export:** de-duplicate note and asset names in the export zip ([#592](https://github.com/2002Bishwajeet/journal/issues/592)) ([0899015](https://github.com/2002Bishwajeet/journal/commit/0899015e3d23b582f37874d5dbda31fedd292af6))
+* **sharing:** invites reach all circle members, revoke reaches recipients, ignore own invite ([#680](https://github.com/2002Bishwajeet/journal/issues/680)) ([1b8fed9](https://github.com/2002Bishwajeet/journal/commit/1b8fed966b4ed493c4014918451a373dc59e0e5e))
+* **sharing:** keep a revoke that lands right after a peer edit ([#689](https://github.com/2002Bishwajeet/journal/issues/689)) ([a5bd2fa](https://github.com/2002Bishwajeet/journal/commit/a5bd2fa9a2d6a0414eecf589d3329977fdb1d5fa))
+* **sync:** show folders and notes made during a bulk first pull ([#637](https://github.com/2002Bishwajeet/journal/issues/637)) ([26984f8](https://github.com/2002Bishwajeet/journal/commit/26984f87126ea305153870bab85955a946e7ac72)), closes [#153](https://github.com/2002Bishwajeet/journal/issues/153)
+
+
+### Features
+
+* **ai:** a model per job and a requirements check before any download ([#695](https://github.com/2002Bishwajeet/journal/issues/695)) ([46aa7f7](https://github.com/2002Bishwajeet/journal/commit/46aa7f7cd0f733d8d8225349c64a52f9858b06ed))
+* **harness:** inline evidence images and cheaper runs for small issues ([#667](https://github.com/2002Bishwajeet/journal/issues/667)) ([161de48](https://github.com/2002Bishwajeet/journal/commit/161de4814b93a553cb93130ae7cd4f46505d13de))
+* **import:** resolve Obsidian vault wiki links, embeds, tags and callouts ([#593](https://github.com/2002Bishwajeet/journal/issues/593)) ([467726f](https://github.com/2002Bishwajeet/journal/commit/467726fcb4b23c7fb3814f5a3713bcfe235432da))
+* **security:** ship a Report-Only Content-Security-Policy for the app and share pages ([#671](https://github.com/2002Bishwajeet/journal/issues/671)) ([247cee8](https://github.com/2002Bishwajeet/journal/commit/247cee8c3b769e8783ce29b4a1da68e752009e45))
+
+
+### Performance Improvements
+
+* **editor:** load KaTeX and code grammars only when a note has math or code ([#673](https://github.com/2002Bishwajeet/journal/issues/673)) ([2c29229](https://github.com/2002Bishwajeet/journal/commit/2c29229ad3d0ae00095352b80cb9d8da644214fb))
 ## [2.11.8](https://github.com/2002Bishwajeet/journal/compare/v2.11.7...v2.11.8) (2026-10-14)
 
 

@@ -8,11 +8,17 @@ import { newNoteShareFields } from '@/lib/share/sharedFolder';
 import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import * as Y from 'yjs';
 import type { DocumentMetadata } from '@/types';
+import {
+    IMAGE_TYPES, commonRoot, convertMarkdown, databaseCsvs, databaseTable, dropTitleHeading, folderOf, inlineTags,
+    isSkippedPath, parseFrontMatter, resolveImagePath, stripNotionId, titleOf,
+} from './markdownImport';
 
 export interface ImportResult {
     imported: number;
     foldersCreated: number;
     failed: number;
+    /** Zip entries left out because they are not Markdown, CSV or an image (#595) */
+    skipped: number;
     errors: { file: string; message: string }[];
 }
 
@@ -24,7 +30,7 @@ export const ImportService = {
      * Import files (Markdown or Zip)
      */
     async importFiles(fileList: Iterable<File>): Promise<ImportResult> {
-        const result: ImportResult = { imported: 0, foldersCreated: 0, failed: 0, errors: [] };
+        const result: ImportResult = { imported: 0, foldersCreated: 0, failed: 0, skipped: 0, errors: [] };
 
         // Cache existing folders to avoid re-fetching
         const existingFolders = await getAllFolders();
@@ -38,7 +44,9 @@ export const ImportService = {
                 if (file.name.endsWith('.zip')) {
                     await importZip(file, folderNameMap, publicFolderIds, result);
                 } else if (file.name.endsWith('.md')) {
-                    await importMarkdown(file, MAIN_FOLDER_ID, publicFolderIds, result);
+                    // A batch of one, dated by the file
+                    const source = { path: file.name, text: await file.text(), date: new Date(file.lastModified) };
+                    await importNotes([source], new Map(), publicFolderIds, result, async () => MAIN_FOLDER_ID);
                 } else {
                     // Skip unsupported files without erroring the whole batch
                     result.failed++;
@@ -56,7 +64,7 @@ export const ImportService = {
 };
 
 /**
- * Import a Zip file containing Markdown notes and folders
+ * Import a Zip file of Markdown notes, such as a Journal export or a zipped Obsidian vault
  */
 async function importZip(
     file: File,
@@ -64,105 +72,105 @@ async function importZip(
     publicFolderIds: ReadonlySet<string>,
     result: ImportResult
 ): Promise<void> {
-    const zip = await JSZip.loadAsync(file);
+    const filesOf = (zip: JSZip) => Object.values(zip.files).filter((entry) => !entry.dir && !isSkippedPath(entry.name));
+    const isZip = (entry: JSZipObject) => entry.name.toLowerCase().endsWith('.zip');
+    const outer = filesOf(await JSZip.loadAsync(file));
+    // A large Notion export is a zip of `…-Part-N.zip` parts: each part joins this batch (one level
+    // deep: a zip inside a part is skipped)
+    const entries = outer.filter((entry) => !isZip(entry));
+    for (const part of outer.filter(isZip)) entries.push(...filesOf(await JSZip.loadAsync(await part.async('uint8array'))));
+    // Every file, by its path in the zip: images the notes reference
+    const assets = new Map(entries.map((entry) => [entry.name, entry]));
+    // A zipped vault has everything under `Vault/`: its top-level folders become Journal folders
+    const root = commonRoot(entries.map((entry) => entry.name));
+    const databases = new Set(databaseCsvs(entries.map((entry) => entry.name).filter((name) => name.endsWith('.csv'))));
 
-    // Iterate through all files in the zip
-    // We use Promise.all to handle them, but sequentially might be safer for DB if massive
-    // For now, simple iteration
-    const entries = Object.keys(zip.files);
-    // Every other file, by its path in the zip: images the notes reference relatively
-    const assets = new Map(entries.filter(name => !zip.files[name].dir).map(name => [name, zip.files[name]]));
-
-    for (const filename of entries) {
-        const entry = zip.files[filename];
-
-        if (entry.dir) continue; // Skip directory entries themselves
-        if (!filename.endsWith('.md')) continue; // Skip non-markdown files
-        if (filename.startsWith('__MACOSX') || filename.includes('.DS_Store')) continue; // Skip system files
-
-        // Determine folder from path
-        // Structure: "FolderName/NoteName.md" or "NoteName.md"
-        const parts = filename.split('/');
-        let folderId = MAIN_FOLDER_ID;
-
-        if (parts.length > 1) {
-            // It's inside a folder
-            const folderName = parts[0];
-            // Check if we need to create it
-            const normalizedName = folderName.toLowerCase();
-
-            const existingFolderId = folderNameMap.get(normalizedName);
-            if (existingFolderId) {
-                folderId = existingFolderId;
-            } else {
-                // Create new folder
-                // Dashed, as Postgres returns UUID ids: the note's folderId must match the folder row
-                const newFolderId = formatGuidId(getNewId());
-                await createFolder(newFolderId, folderName);
-                await upsertSyncRecord({ localId: newFolderId, entityType: 'folder', syncStatus: 'pending' });
-                folderNameMap.set(normalizedName, newFolderId);
-                folderId = newFolderId;
-                result.foldersCreated++;
-            }
+    const sources: SourceNote[] = [];
+    for (const entry of entries) {
+        if (entry.name.endsWith('.md') || databases.has(entry.name)) {
+            sources.push({ path: entry.name, text: await entry.async('string'), date: entry.date });
+        } else if (!entry.name.endsWith('.csv') && !IMAGE_TYPES[entry.name.split('.').pop()!.toLowerCase()]) {
+            result.skipped++;
         }
-
-        const content = await entry.async('string');
-        const fileObj = new File([content], parts[parts.length - 1], { type: 'text/markdown' });
-
-        await importMarkdown(fileObj, folderId, publicFolderIds, result, { path: filename, assets });
     }
+    await importNotes(sources, assets, publicFolderIds, result,
+        (path) => folderIdFor(stripNotionId(folderOf(path, root)), folderNameMap, result));
+}
+
+/** The id of the folder named `name` (matched case-insensitively), created if there is none; Main for ''. */
+async function folderIdFor(name: string, folderNameMap: Map<string, string>, result: ImportResult): Promise<string> {
+    if (!name) return MAIN_FOLDER_ID;
+    const existing = folderNameMap.get(name.toLowerCase());
+    if (existing) return existing;
+    // Dashed, as Postgres returns UUID ids: the note's folderId must match the folder row
+    const id = formatGuidId(getNewId());
+    await createFolder(id, name);
+    await upsertSyncRecord({ localId: id, entityType: 'folder', syncStatus: 'pending' });
+    folderNameMap.set(name.toLowerCase(), id);
+    result.foldersCreated++;
+    return id;
+}
+
+/** A Markdown file to import: its path in the zip (or its name), text, and file date. */
+interface SourceNote {
+    path: string;
+    text: string;
+    date: Date;
 }
 
 /**
- * Import a single Markdown file into a specific folder
+ * Imports a batch of notes in two passes: the first gives every note its id, so that
+ * links between notes of the batch resolve in the second, which builds and saves them.
  */
-async function importMarkdown(
-    file: File,
-    targetFolderId: string,
+async function importNotes(
+    sources: readonly SourceNote[],
+    assets: Map<string, JSZipObject>,
     publicFolderIds: ReadonlySet<string>,
     result: ImportResult,
-    // Where the note sits in its zip, and the zip's files; a loose .md has neither
-    source: { path: string; assets: Map<string, JSZipObject> } = { path: file.name, assets: new Map() }
+    folderFor: (path: string) => Promise<string>
 ): Promise<void> {
-    const text = await file.text();
-    const { metadata, content } = parseMarkdown(text);
-
-    // Override folderId with target
-    metadata.folderId = targetFolderId;
-    Object.assign(metadata, newNoteShareFields({ isPublic: publicFolderIds.has(targetFolderId) }));
-    // Update timestamps if missing
-    if (!metadata.timestamps.created) {
-        metadata.timestamps.created = new Date().toISOString();
-        metadata.timestamps.modified = new Date().toISOString();
-    }
-
-    // Use filename as title if none in frontmatter (fallback)
-    if (!metadata.title) {
-        metadata.title = file.name.replace(/\.md$/, '');
-    }
-
-    // Always create new ID to avoid conflicts
-    const docId = formatGuidId(getNewId());
-
-    // Create Yjs doc, with relative images queued as this note's own uploads
+    // Always new ids, to avoid conflicts
+    const notes = sources.map(({ path, text, date }) => ({ path, date, id: formatGuidId(getNewId()), ...parseFrontMatter(text) }));
+    const files = [...assets.keys()];
     const { createDoc } = await import('@/lib/agent/editEngine');
-    const images = await queueImportedImages(content, source.path, source.assets, docId);
-    const doc = createDoc(images.markdown);
-    markPendingImages(doc.getXmlFragment('prosemirror'), images.pendingIds);
-    const updateBlob = Y.encodeStateAsUpdate(doc);
 
-    // Save to DB
-    await saveDocumentUpdate(docId, updateBlob);
-    await upsertSearchIndex({
-        docId,
-        title: metadata.title,
-        // From the built note, so the list preview and search read text, not markdown syntax
-        plainTextContent: await extractPreviewTextFromYjs(docId, updateBlob),
-        metadata
-    });
-    await upsertSyncRecord({ localId: docId, entityType: 'note', syncStatus: 'pending' });
+    for (const note of notes) {
+        const folderId = await folderFor(note.path);
+        const date = note.date.toISOString();
+        // The file name (without a Notion id) when the front-matter has no title
+        const title = note.title || titleOf(note.path);
+        const database = note.path.endsWith('.csv');
+        const content = database ? '' : dropTitleHeading(note.content, title);
+        const metadata: DocumentMetadata = {
+            title,
+            folderId,
+            tags: [...new Set([...note.tags, ...inlineTags(content)])],
+            timestamps: { created: note.created || date, modified: note.modified || date },
+            excludeFromAI: note.excludeFromAI,
+            ...newNoteShareFields({ isPublic: publicFolderIds.has(folderId) }),
+        };
 
-    result.imported++;
+        // Create Yjs doc, with relative images queued as this note's own uploads
+        // A Notion database (CSV) is one note: a table of its rows
+        const markdown = database ? databaseTable(note.content, note.path, notes) : convertMarkdown(content, note.path, notes, files);
+        const images = await queueImportedImages(markdown, note.path, assets, note.id);
+        const doc = createDoc(images.markdown);
+        markPendingImages(doc.getXmlFragment('prosemirror'), images.pendingIds);
+        const updateBlob = Y.encodeStateAsUpdate(doc);
+
+        // Save to DB
+        await saveDocumentUpdate(note.id, updateBlob);
+        await upsertSearchIndex({
+            docId: note.id,
+            title: metadata.title,
+            // From the built note, so the list preview and search read text, not markdown syntax
+            plainTextContent: await extractPreviewTextFromYjs(note.id, updateBlob),
+            metadata
+        });
+        await upsertSyncRecord({ localId: note.id, entityType: 'note', syncStatus: 'pending' });
+
+        result.imported++;
+    }
 }
 
 // ![alt](target "title"); the target may hold spaces, as export writes titles into asset names
@@ -171,30 +179,8 @@ const MD_IMAGE = /!\[([^\]]*)\]\(\s*(<[^>]*>|[^)]*?)(\s+"[^"]*")?\s*\)/g;
 const HTML_IMAGE = /<img\s[^>]*?\bsrc="([^"]*)"[^>]*>/g;
 const unescapeAttr = (v: string) => v.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
-// The types the editor accepts on paste/drop (FileHandler), by file extension
-const IMAGE_TYPES: Record<string, string> = {
-    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
-    webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
-};
 // FileHandler's paste/drop limit
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
-
-/**
- * The zip path an image target points at, relative to the note at `notePath`;
- * null for a URL (http:, data:, attachment:, ...), which stays as it is.
- */
-export function resolveImagePath(notePath: string, target: string): string | null {
-    const src = target.replace(/^<|>$/g, '').replace(/[?#].*$/, '');
-    if (/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(src)) return null;
-    let decoded = src;
-    try { decoded = decodeURIComponent(src); } catch { /* keep the raw path */ }
-    const parts = decoded.startsWith('/') ? [] : notePath.split('/').slice(0, -1);
-    for (const segment of decoded.split('/')) {
-        if (segment === '..') parts.pop();
-        else if (segment && segment !== '.') parts.push(segment);
-    }
-    return parts.join('/');
-}
 
 /** Ingests and queues one image as the paste/drop path does; null if it can't be used. */
 async function queueImage(entry: JSZipObject | undefined, docId: string): Promise<{ src: string; pendingId: string } | null> {
@@ -270,64 +256,4 @@ function markPendingImages(node: Y.XmlFragment | Y.XmlElement, pendingIds: Map<s
         const child = node.get(i);
         if (child instanceof Y.XmlElement || child instanceof Y.XmlFragment) markPendingImages(child, pendingIds);
     }
-}
-
-// One front-matter list item: "double quoted" (with \" and \\ escapes), 'single quoted', or bare
-const TAG_ITEM = /"((?:[^"\\]|\\.)*)"|'([^']*)'|([^,\s][^,]*)/g;
-const unescapeQuoted = (v: string) => v.replace(/\\(["\\])/g, '$1');
-/** A front-matter value without its quotes; undoes the escapes export writes inside "...". */
-function unquote(value: string): string {
-    const quoted = /^"((?:[^"\\]|\\.)*)"$/.exec(value);
-    return quoted ? unescapeQuoted(quoted[1]) : value.replace(/^'|'$/g, '');
-}
-
-/**
- * Parse Markdown with Frontmatter
- */
-function parseMarkdown(text: string): { metadata: DocumentMetadata; content: string } {
-    const frontmatterRegex = /^---\n([\s\S]*?)\n---\n/;
-    const match = text.match(frontmatterRegex);
-
-    const now = new Date().toISOString();
-    const metadata: DocumentMetadata = {
-        title: '',
-        folderId: MAIN_FOLDER_ID,
-        tags: [],
-        timestamps: { created: now, modified: now },
-        excludeFromAI: false
-    };
-
-    let content = text;
-
-    if (match) {
-        // Parse frontmatter
-        const frontmatterBlock = match[1];
-        content = text.slice(match[0].length); // Remove frontmatter from content
-
-        // Simple line parser for YAML-like syntax
-        const lines = frontmatterBlock.split('\n');
-        for (const line of lines) {
-            const parts = line.split(':');
-            if (parts.length < 2) continue;
-
-            const key = parts[0].trim();
-            const value = parts.slice(1).join(':').trim(); // Rejoin in case value has colons (like dates)
-
-            const cleanValue = unquote(value);
-
-            if (key === 'title') metadata.title = cleanValue;
-            if (key === 'created') metadata.timestamps.created = cleanValue;
-            if (key === 'modified') metadata.timestamps.modified = cleanValue;
-            if (key === 'excludeFromAI') metadata.excludeFromAI = cleanValue === 'true';
-
-            if (key === 'tags') {
-                // Remove brackets and split
-                // [tag1, tag2]
-                const cleanTags = value.replace(/^\[|\]$/g, '');
-                metadata.tags = Array.from(cleanTags.matchAll(TAG_ITEM), m => (m[1] !== undefined ? unescapeQuoted(m[1]) : m[2] ?? m[3].trim())).filter(Boolean);
-            }
-        }
-    }
-
-    return { metadata, content: content.trim() };
 }

@@ -7,6 +7,7 @@ export {
     getActionSuggestions,
     isWebLLMReady,
     isWebLLMLoading,
+    isModelCached,
     rewriteText,
     chat,
     getCurrentModelId,
@@ -15,4 +16,14 @@ export {
 
 export type { RewriteStyle, ChatMessage } from './engine';
 
-export { AVAILABLE_MODELS, DEFAULT_MODEL_ID, getModelInfo, type ModelInfo } from './models';
+export { createAgentEngine } from './agentEngine';
+
+export {
+    AVAILABLE_MODELS,
+    DEFAULT_MODEL_ID,
+    DEFAULT_AGENT_MODEL_ID,
+    getModelInfo,
+    getModelsForJob,
+    type ModelInfo,
+    type ModelJob,
+} from './models';
