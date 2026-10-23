@@ -40,6 +40,7 @@ import type { Folder } from "@/types";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
 import { OwnerImage } from "@/components/author/AuthorImage";
+import { folderInitials } from "@/lib/folderInitials";
 
 interface SidebarProps {
   folders: Folder[];
@@ -167,9 +168,10 @@ export default function Sidebar({
         <div className="px-2 py-2">
           <Button
             variant="ghost"
+            aria-label={isCollapsed ? "Search" : undefined}
             className={cn(
-              "w-full text-muted-foreground transition-all duration-200",
-              isCollapsed ? "justify-center px-0" : "justify-start px-2"
+              "text-muted-foreground transition-all duration-200",
+              isCollapsed ? "size-9 px-0" : "w-full justify-start px-2"
             )}
             onClick={onSearch}
           >
@@ -187,8 +189,8 @@ export default function Sidebar({
                   variant="ghost"
                   aria-label="Open today's daily note"
                   className={cn(
-                    "w-full text-muted-foreground transition-all duration-200",
-                    isCollapsed ? "justify-center px-0" : "justify-start px-2"
+                    "text-muted-foreground transition-all duration-200",
+                    isCollapsed ? "size-9 px-0" : "w-full justify-start px-2"
                   )}
                   onClick={onOpenToday}
                 >
@@ -204,17 +206,18 @@ export default function Sidebar({
         <Separator />
 
         {/* Radix wraps the content in a display:table div that grows to the longest folder name; block keeps names truncating. */}
-        <ScrollArea className="flex-1 min-h-0 [&_[data-slot=scroll-area-viewport]>div]:!block">
+        <ScrollArea className="flex-1 min-h-0 w-full [&_[data-slot=scroll-area-viewport]>div]:!block">
           <PullToRefresh onRefresh={handleRefresh} className="min-h-full">
           {collaborativeCount != null && collaborativeCount > 0 && (
-            <div className="px-2 pt-2 pb-1">
+            <div className={cn("px-2 pt-2 pb-1", isCollapsed && "flex justify-center")}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant={selectedFolderId === PSEUDO_FOLDERS.shared ? "secondary" : "ghost"}
+                    aria-label={isCollapsed ? "Shared with me" : undefined}
                     className={cn(
-                      "w-full h-10 group relative transition-all duration-200 flex items-center",
-                      isCollapsed ? "justify-center px-0" : "justify-start px-2",
+                      "group relative transition-all duration-200 flex items-center",
+                      isCollapsed ? "size-9 px-0" : "w-full h-10 justify-start px-2",
                       selectedFolderId === PSEUDO_FOLDERS.shared && "bg-accent text-accent-foreground font-medium hover:bg-accent"
                     )}
                     onClick={onSelectShared}
@@ -268,7 +271,12 @@ export default function Sidebar({
                     variant="ghost"
                     size="icon"
                     aria-label="New folder"
-                    className="h-6 w-6 shrink-0"
+                    className={cn(
+                      "shrink-0",
+                      isCollapsed
+                        ? "size-9 rounded-lg border border-dashed border-sidebar-border text-muted-foreground hover:border-solid hover:text-foreground"
+                        : "h-6 w-6"
+                    )}
                     onClick={onCreateFolder}
                   >
                     <Plus className="h-4 w-4" />
@@ -278,48 +286,52 @@ export default function Sidebar({
               </Tooltip>
             </div>
 
-            {isCollapsed && <Separator className="mx-auto mb-2 w-8!" />}
+            {isCollapsed && <Separator className="mx-auto my-2 w-6!" />}
             <nav
               id="sidebar-folders"
               aria-label="Folders"
               hidden={!isCollapsed && collapsed.folders}
-              className="space-y-0.5"
+              className={isCollapsed ? "flex flex-col items-center gap-1.5" : "space-y-0.5"}
             >
               {folders.map((folder) => {
                 const isSelected = selectedFolderId === folder.id;
                 return (
                   <ContextMenu key={folder.id}>
-                    <ContextMenuTrigger className="w-full flex">
+                    <ContextMenuTrigger className={cn("flex", isCollapsed ? "justify-center" : "w-full")}>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
                             variant={isSelected ? "secondary" : "ghost"}
                             className={cn(
-                              "w-full min-w-0 h-10 group relative transition-all duration-200 flex items-center",
+                              "group relative transition-all duration-200 flex items-center",
                               isCollapsed
-                                ? "justify-center px-0"
-                                : "justify-start px-2",
+                                ? // The button is the tile, so its focus ring and the badge are never clipped by an inner box.
+                                  "size-9 px-0 rounded-lg border border-sidebar-border text-[11px] font-semibold tracking-wide text-muted-foreground hover:text-foreground"
+                                : "w-full min-w-0 h-10 justify-start px-2",
                               isSelected &&
-                                "bg-accent text-accent-foreground font-medium hover:bg-accent"
+                                (isCollapsed
+                                  ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground dark:hover:bg-primary/90"
+                                  : "bg-accent text-accent-foreground font-medium hover:bg-accent")
                             )}
                             onClick={() => onSelectFolder(folder.id)}
+                            aria-current={isSelected ? "page" : undefined}
                             aria-label={isCollapsed ? folder.name : undefined}
                             aria-description={folder.isPublic ? "Shared publicly" : undefined}
                           >
                             {isCollapsed ? (
-                              // Collapsed, every folder icon would look the same: show its first letter instead.
-                              <span
-                                aria-hidden
-                                className={cn(
-                                  "relative flex size-7 shrink-0 items-center justify-center rounded-md border border-sidebar-border text-xs font-semibold uppercase text-muted-foreground",
-                                  isSelected && "border-primary bg-primary text-primary-foreground"
-                                )}
-                              >
-                                {Array.from(folder.name.trim())[0] ?? "?"}
+                              <>
+                                {/* Two letters, so folders that share a first letter still look different. */}
+                                <span aria-hidden>{folderInitials(folder.name)}</span>
                                 {folder.isPublic && (
-                                  <span className="absolute -right-1 -top-1 size-2 rounded-full bg-primary ring-2 ring-sidebar" />
+                                  <span
+                                    aria-hidden
+                                    data-testid="folder-public-badge"
+                                    className="absolute -bottom-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-sidebar text-muted-foreground ring-1 ring-sidebar-border"
+                                  >
+                                    <Globe className="size-2.5" />
+                                  </span>
                                 )}
-                              </span>
+                              </>
                             ) : (
                               <FolderOpen
                                 className={cn("h-4 w-4 shrink-0 mr-2", isSelected && "text-primary")}
@@ -337,7 +349,7 @@ export default function Sidebar({
                         </TooltipTrigger>
                         {isCollapsed && (
                           <TooltipContent side="right">
-                            {folder.name}{folder.isPublic ? " · Shared" : ""}
+                            {folder.name}{folder.isPublic ? " · Shared publicly" : ""}
                           </TooltipContent>
                         )}
                       </Tooltip>
@@ -474,9 +486,6 @@ export default function Sidebar({
           pendingTotal={pendingCount.total}
         />
 
-        {/* Spacer when collapsed to push footer down if ScrollArea is hidden */}
-        {isCollapsed && <div className="flex-1" />}
-
         {/* Footer */}
         <div
           className={cn(
@@ -486,7 +495,7 @@ export default function Sidebar({
               : "p-2 mt-auto"
           )}
         >
-          {!isCollapsed && <Separator className="mb-2" />}
+          <Separator className={isCollapsed ? "mb-2 w-6!" : "mb-2"} />
 
           <Tooltip>
             {/* Archive */}
@@ -500,6 +509,7 @@ export default function Sidebar({
                   selectedFolderId === PSEUDO_FOLDERS.archive &&
                     "bg-accent text-accent-foreground font-medium hover:bg-accent"
                 )}
+                aria-label={isCollapsed ? "Archive" : undefined}
                 onClick={onSelectArchive}
               >
                 <Archive className="h-4 w-4" />
@@ -534,6 +544,7 @@ export default function Sidebar({
                   selectedFolderId === PSEUDO_FOLDERS.trash &&
                     "bg-accent text-accent-foreground font-medium hover:bg-accent"
                 )}
+                aria-label={isCollapsed ? "Trash" : undefined}
                 onClick={onSelectTrash}
               >
                 <Trash2 className="h-4 w-4" />
@@ -566,6 +577,7 @@ export default function Sidebar({
                     ? "h-9 w-9 justify-center px-0"
                     : "w-full justify-start px-2 h-8 text-muted-foreground"
                 )}
+                aria-label={isCollapsed ? "Settings" : undefined}
                 onClick={onSettings}
               >
                 <Settings className="h-4 w-4" />
@@ -587,6 +599,7 @@ export default function Sidebar({
                     ? "h-9 w-9 justify-center px-0 text-destructive"
                     : "w-full justify-start px-2 h-8 text-destructive hover:text-destructive"
                 )}
+                aria-label={isCollapsed ? "Log out" : undefined}
                 onClick={() => setShowLogoutConfirm(true)}
               >
                 <LogOut className="h-4 w-4" />
