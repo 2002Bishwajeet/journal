@@ -21,6 +21,13 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - You can stop the assistant while it works.
 - The assistant has no web search. Your questions stay on your device.
 
+## 2.13.1 (2026-10-23)
+
+### Fixed
+
+- The app shows a shared note under the person who really sent it.
+- The app ignores a share invite that names a different person as the sender.
+
 ## 2.13.0 (2026-10-23)
 
 ### New

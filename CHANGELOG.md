@@ -1,3 +1,9 @@
+## [2.13.1](https://github.com/2002Bishwajeet/journal/compare/v2.13.0...v2.13.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **sharing:** take invite author from the sender, not invite content ([#733](https://github.com/2002Bishwajeet/journal/issues/733)) ([8cff47e](https://github.com/2002Bishwajeet/journal/commit/8cff47ee3e654a9e45909c9333407519b80a154b))
 # [2.13.0](https://github.com/2002Bishwajeet/journal/compare/v2.12.0...v2.13.0) (2026-10-23)
 
 
