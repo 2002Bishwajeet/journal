@@ -31,11 +31,9 @@ export async function createNote(page: Page, { title, body }: { title: string; b
     await expect(input).toHaveValue('Untitled');
     await input.fill(title);
     // A freshly created note's Yjs document is still settling right after the
-    // title fill (its editor briefly loses focus/keystrokes if typed into
-    // immediately — confirmed by typing "Hello" and seeing only "H" land).
-    // No DOM-observable readiness signal exists for this, so a short wait is
-    // the practical fix.
-    await page.waitForTimeout(500);
+    // title fill (its editor briefly loses keystrokes if typed into immediately),
+    // so wait for the title to be written before typing.
+    await expect.poll(() => page.evaluate(() => window.__journalE2E!.hasUnsavedEdits())).toBe(false);
     await typeInEditor(page, body);
 }
 

@@ -64,8 +64,10 @@ export async function withFencedPage(
 export const test = base.extend<{
   assertBaseUrlIsTestOrigin: void;
   app: Page;
+  reusedApp: Page;
   anonPage: Page;
 }, {
+  bootedApp: Page;
   liveRun: { page: Page; folderName: string };
   liveSharing: { owner: LiveIdentityPage; peer: LiveIdentityPage; outsider: LiveIdentityPage; circleName: string };
 }>({
@@ -101,6 +103,36 @@ export const test = base.extend<{
         await waitForAppReady(page);
         await use(page);
       }),
+    {},
+  ],
+
+  // `app` booted once per worker and shared by the tests that ask for it (#612):
+  // the boot is ~3 s of each test. Only for specs whose tests don't depend on a
+  // clean drive (each makes its own uniquely titled note) or on a test-scoped
+  // option (a viewport or colour scheme). Between tests it puts back the viewport,
+  // colour scheme and tabs.
+  bootedApp: [
+    async ({ browser }, use) =>
+      withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
+        await page.goto('/');
+        await assertTestOrigin(page);
+        await waitForAppReady(page);
+        await use(page);
+      }),
+    { scope: 'worker' },
+  ],
+
+  reusedApp: [
+    async ({ bootedApp }, use) => {
+      const viewport = bootedApp.viewportSize();
+      await use(bootedApp);
+      if (viewport) await bootedApp.setViewportSize(viewport);
+      await bootedApp.emulateMedia({ colorScheme: null });
+      // Open notes stay mounted as background tabs, which makes unscoped locators
+      // (a toolbar button, say) match once per tab.
+      const closeTab = bootedApp.getByRole('button', { name: /^Close (?!assistant)/ });
+      while ((await closeTab.count()) > 0) await closeTab.first().click();
+    },
     {},
   ],
 

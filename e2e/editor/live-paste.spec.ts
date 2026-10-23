@@ -10,7 +10,7 @@ async function noteWithEmptyLine(app: Page, title: string) {
   await app.keyboard.press('Enter');
 }
 
-test('pasting bare html into an empty paragraph previews it as an html block', async ({ app }) => {
+test('pasting bare html into an empty paragraph previews it as an html block', async ({ reusedApp: app }) => {
   await noteWithEmptyLine(app, 'Paste html');
   await pastePlainText(app, '<div style="padding:16px">\n  <h2>Hello</h2>\n  <p>From a div</p>\n</div>');
 
@@ -21,7 +21,7 @@ test('pasting bare html into an empty paragraph previews it as an html block', a
   await app.screenshot({ path: test.info().outputPath('paste-html.png') });
 });
 
-test('pasting a fenced mermaid block previews the diagram', async ({ app }) => {
+test('pasting a fenced mermaid block previews the diagram', async ({ reusedApp: app }) => {
   await noteWithEmptyLine(app, 'Paste fence');
   await pastePlainText(app, '```mermaid\ngraph TD; A-->B\n```');
 
@@ -29,7 +29,7 @@ test('pasting a fenced mermaid block previews the diagram', async ({ app }) => {
   await expect(activeEditor(app)).not.toContainText('```');
 });
 
-test('pasting markup into a paragraph that already has text stays text', async ({ app }) => {
+test('pasting markup into a paragraph that already has text stays text', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Paste inline ${Date.now()}`, body: 'See ' });
   await pastePlainText(app, '<div>literal</div>');
 
@@ -37,7 +37,7 @@ test('pasting markup into a paragraph that already has text stays text', async (
   await expect(activeEditor(app).locator('iframe')).toHaveCount(0);
 });
 
-test('a blockquote uses the body font, upright', async ({ app }) => {
+test('a blockquote uses the body font, upright', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Quote ${Date.now()}`, body: '> Status. Experimental, with `inline code` inside the quote.' });
 
   const quote = activeEditor(app).locator('blockquote');

@@ -3,7 +3,7 @@ import { activeEditor, createNote, screenshotInBothThemes, typeInEditor } from '
 
 // #388: code blocks whose language is `mermaid` or `svg` get a Preview / Code toggle.
 
-test('mermaid block: previews as an svg, toggles to code, and previews again after reload', async ({ app }) => {
+test('mermaid block: previews as an svg, toggles to code, and previews again after reload', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Mermaid ${Date.now()}`, body: '```mermaid graph TD; A-->B' });
 
   const editor = activeEditor(app);
@@ -24,7 +24,7 @@ test('mermaid block: previews as an svg, toggles to code, and previews again aft
   await expect(activeEditor(app).locator('[data-live-block-preview] svg')).toBeVisible();
 });
 
-test('svg block: previews through an img with a data URI', async ({ app }) => {
+test('svg block: previews through an img with a data URI', async ({ reusedApp: app }) => {
   await createNote(app, {
     title: `Svg ${Date.now()}`,
     body: '```svg <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="10"/></svg>',
@@ -37,14 +37,14 @@ test('svg block: previews through an img with a data URI', async ({ app }) => {
   await expect(img).toHaveAttribute('alt', 'SVG preview');
 });
 
-test('js block: no preview toggle', async ({ app }) => {
+test('js block: no preview toggle', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Js ${Date.now()}`, body: '```js const a = 1' });
 
   await expect(activeEditor(app).locator('pre code')).toContainText('const a = 1');
   await expect(app.getByRole('button', { name: 'Preview', exact: true })).toHaveCount(0);
 });
 
-test('invalid mermaid: shows an error in the preview and the editor stays usable', async ({ app }) => {
+test('invalid mermaid: shows an error in the preview and the editor stays usable', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Bad mermaid ${Date.now()}`, body: '```mermaid this is not a diagram' });
 
   await app.getByRole('button', { name: 'Preview', exact: true }).click();
@@ -59,7 +59,7 @@ test('invalid mermaid: shows an error in the preview and the editor stays usable
 });
 
 // One run; the screenshot is taken in both themes.
-test('screenshot: mermaid and svg blocks in preview', async ({ app }) => {
+test('screenshot: mermaid and svg blocks in preview', async ({ reusedApp: app }) => {
   // Tall enough that the svg block is not cut off in the screenshot.
   await app.setViewportSize({ width: 1280, height: 960 });
   await createNote(app, { title: `Shots ${Date.now()}`, body: '```mermaid graph TD; A-->B' });
