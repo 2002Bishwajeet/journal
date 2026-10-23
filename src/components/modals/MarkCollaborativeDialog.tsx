@@ -54,7 +54,6 @@ export function MarkCollaborativeDialog({
     drives: [journalDriveRequest, CONTACT_TARGET_DRIVE_REQUEST],
     permissions: COLLABORATION_PERMISSIONS,
     circleDrives: [journalDriveRequest, CONTACT_TARGET_DRIVE_REQUEST],
-    needsAllConnected: false,
     returnUrl,
   });
 

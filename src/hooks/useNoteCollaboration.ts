@@ -4,8 +4,9 @@ import { useDotYouClientContext } from '@/components/auth';
 import { useSyncService } from '@/hooks/useSyncService';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
-import { COLLABORATIVE_FOLDER_ID, MAIN_FOLDER_ID } from '@/lib/homebase/config';
-import { getSyncRecord } from '@/lib/db';
+import { ShareCircleProvider, type EnrollResult } from '@/lib/homebase/ShareCircleProvider';
+import { COLLABORATIVE_FOLDER_ID, JOURNAL_DRIVE, MAIN_FOLDER_ID } from '@/lib/homebase/config';
+import { getRecipientsOfOwnNotes, getSyncRecord } from '@/lib/db';
 import type { NoteListEntry } from '@/types';
 
 export interface SelectedCircle {
@@ -13,9 +14,35 @@ export interface SelectedCircle {
     name: string;
 }
 
+/** One toast per person the share circle refused; the share itself still saves (#730). */
+function reportEnrollment(results: EnrollResult[]) {
+    for (const { odinId, status } of results) {
+        if (status === 'contactNotReviewed') {
+            toast.error(`Review ${odinId} in Homebase (Connections) so they can open shared notes.`);
+        } else if (status === 'notAConnectedIdentity') {
+            toast.error(`${odinId} isn't connected to you, so they can't open shared notes.`);
+        } else if (status === 'failed') {
+            toast.error(`Couldn't give ${odinId} access to shared notes.`);
+        }
+    }
+}
+
+/** Removes the people in `candidates` who no longer have any of the owner's notes shared with them. */
+async function unenrollUnshared(shareCircle: ShareCircleProvider, ownerOdinId: string, candidates: string[]) {
+    if (candidates.length === 0) return;
+    try {
+        const stillShared = new Set(await getRecipientsOfOwnNotes(ownerOdinId));
+        const unshared = candidates.filter((odinId) => odinId !== ownerOdinId && !stillShared.has(odinId));
+        if (unshared.length > 0) await shareCircle.unenroll(unshared);
+    } catch (err) {
+        console.error('[ShareCircle] Could not remove people from the share circle:', err);
+    }
+}
+
 /**
- * Sharing a note with circles and revoking it: the remote upload, the invite and
- * the local metadata, with user-visible toasts.
+ * Sharing a note with circles and revoking it: the remote upload, the drive access
+ * through Journal's share circle, the invite and the local metadata, with
+ * user-visible toasts.
  */
 export function useNoteCollaboration() {
     const dotYouClient = useDotYouClientContext();
@@ -53,7 +80,21 @@ export function useNoteCollaboration() {
             const recipients = [...new Set(memberLists.flatMap((l) => (l ?? []).map((m) => m.domain)))].filter(Boolean);
 
             const provider = new NotesDriveProvider(dotYouClient);
+            const shareCircle = new ShareCircleProvider(dotYouClient);
             const editorOdinId = dotYouClient.getHostIdentity() || '';
+
+            // Recipients get drive access through Journal's own circle before the invite
+            // sends them to the note. A failure here doesn't stop the share (#730).
+            let canEdit = true;
+            const enrollRecipients = async () => {
+                try {
+                    ({ canEdit } = await shareCircle.ensureShareCircle());
+                    reportEnrollment(await shareCircle.enroll(recipients.filter((r) => r !== editorOdinId)));
+                } catch (err) {
+                    console.error('[ShareCircle] Could not give recipients access:', err);
+                    toast.error("Couldn't give the people you shared with access to the note.");
+                }
+            };
 
             // Ensure the note body is on the server BEFORE we send the invite, so
             // recipients bootstrap real content instead of an empty note.
@@ -70,6 +111,7 @@ export function useNoteCollaboration() {
                 recipients,
                 editorOdinId,
                 record?.remoteFileId,
+                enrollRecipients,
             );
 
             const existingNote = notes.find((n) => n.docId === noteId);
@@ -92,6 +134,8 @@ export function useNoteCollaboration() {
                         lastEditedBy: editorOdinId,
                     },
                 });
+                const dropped = (existingNote.metadata.recipients ?? []).filter((r) => !recipients.includes(r));
+                await unenrollUnshared(shareCircle, editorOdinId, dropped);
             } else {
                 console.warn(
                     '[MarkCollaborative] Note not found locally, remote ACL updated but local state may be stale',
@@ -99,6 +143,15 @@ export function useNoteCollaboration() {
             }
 
             toast.success('Note is now collaborative');
+            if (!canEdit) {
+                // The drive belongs to the owner console, so Journal's circle can grant Read only
+                const driveUrl = `${dotYouClient.getRoot()}/owner/drives/${JOURNAL_DRIVE.alias}_${JOURNAL_DRIVE.type}`;
+                toast.info("People you share with can read this note but can't edit it yet.", {
+                    description: 'To let them edit, open the Journal drive in Homebase and make Journal the app that owns it.',
+                    action: { label: 'Open drive settings', onClick: () => window.open(driveUrl, '_blank', 'noopener') },
+                    duration: 15000,
+                });
+            }
             return true;
         } catch (err) {
             console.error('Failed to make note collaborative:', err);
@@ -131,6 +184,7 @@ export function useNoteCollaboration() {
                     lastEditedBy: editorOdinId,
                 },
             });
+            await unenrollUnshared(new ShareCircleProvider(dotYouClient), editorOdinId, note.metadata.recipients ?? []);
             toast.success('Collaboration revoked');
         } catch (err) {
             console.error('Failed to revoke collaboration:', err);
