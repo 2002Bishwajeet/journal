@@ -29,6 +29,19 @@ const restorePgliteProcessGuard = {
   },
 };
 
+// @tiptap/extension-mathematics imports katex at its top, which put KaTeX on every note
+// open. Inside that package only, `katex` is src/lib/katexLazy.ts, which loads KaTeX and
+// its CSS when math first renders (#673). Pre-bundling would skip this hook, so the
+// package is excluded from optimizeDeps below.
+const lazyKatexForMath = {
+  name: 'lazy-katex-for-math',
+  enforce: 'pre' as const,
+  resolveId: (source: string, importer: string | undefined) =>
+    source === 'katex' && importer?.includes('/@tiptap/extension-mathematics/')
+      ? path.resolve(import.meta.dirname, 'src/lib/katexLazy.ts')
+      : null,
+};
+
 // The React a `react` live block runs on (#426): the app's own installed react and
 // react-dom/client as the text of one classic script, which sets window.React and
 // window.ReactDOM (react-dom/client with react-dom's own exports, such as the createPortal
@@ -158,6 +171,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     restorePgliteProcessGuard,
+    lazyKatexForMath,
     reactBlockPieces,
     react(),
     ...(mode === 'production' || mode === 'e2e'
@@ -278,7 +292,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    exclude: ['@electric-sql/pglite', 'pglite-v4', '@electric-sql/pglite-tools'],
+    exclude: ['@electric-sql/pglite', 'pglite-v4', '@electric-sql/pglite-tools', '@tiptap/extension-mathematics'],
   },
   server: {
     // e2e mode serves plain HTTP on 127.0.0.1 (set by the e2e script via
