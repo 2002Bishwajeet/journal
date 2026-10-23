@@ -1,5 +1,6 @@
 import type * as WebLLMTypes from '@mlc-ai/web-llm';
 import { DEFAULT_MODEL_ID } from './models';
+import { resolveModelId } from './requirements';
 
 let webllmModule: typeof WebLLMTypes | null = null;
 let engine: WebLLMTypes.MLCEngineInterface | null = null;
@@ -146,7 +147,7 @@ export async function initWebLLM(
             engine.setInitProgressCallback(onProgress);
         }
 
-        await engine.reload(currentModelId);
+        await engine.reload(await resolveModelId(currentModelId));
 
         isLoading = false;
         modelLoaded = true;
@@ -157,6 +158,21 @@ export async function initWebLLM(
         console.error('[WebLLM] Failed to initialize:', error);
         isLoading = false;
         modelLoaded = false;
+        return false;
+    }
+}
+
+/**
+ * True when the weights for `modelId` are already in the browser cache,
+ * so loading it downloads nothing.
+ */
+export async function isModelCached(modelId: string): Promise<boolean> {
+    try {
+        if (!webllmModule) {
+            webllmModule = await import('@mlc-ai/web-llm');
+        }
+        return await webllmModule.hasModelInCache(modelId);
+    } catch {
         return false;
     }
 }

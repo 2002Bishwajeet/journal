@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures';
+import { stubWebGPU } from '../support/webgpu';
 
 // Settings → AI with the real WebLLM worker and huggingface.co unreachable (#212):
 // the status is truthful (no "Model Active"), the error is visible, Retry re-attempts.
@@ -12,6 +13,7 @@ test('desktop: AI off shows no status; a blocked model download shows the error,
     return route.abort();
   });
 
+  await stubWebGPU(app);
   await app.getByRole('button', { name: 'Settings' }).click();
   const dialog = app.getByRole('dialog');
   await dialog.getByRole('tab', { name: 'AI', exact: true }).click();
@@ -23,6 +25,7 @@ test('desktop: AI off shows no status; a blocked model download shows the error,
   await expect(dialog.getByText(/Model Active/)).toHaveCount(0);
 
   await toggle.click();
+  await app.getByRole('dialog', { name: /^Download / }).getByRole('button', { name: 'Continue' }).click();
   await expect(status).toContainText("Couldn't load the AI model.");
   const retry = status.getByRole('button', { name: 'Retry' });
   await expect(retry).toBeVisible();

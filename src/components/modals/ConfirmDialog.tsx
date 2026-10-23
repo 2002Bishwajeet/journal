@@ -17,6 +17,8 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   variant?: 'default' | 'destructive';
+  /** Show only the cancel button, for a dialog that can only be dismissed. */
+  hideConfirm?: boolean;
   /** Where focus goes once the dialog has closed (Radix default: back to the opener). */
   onCloseAutoFocus?: (event: Event) => void;
 }
@@ -30,6 +32,7 @@ export default function ConfirmDialog({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'destructive',
+  hideConfirm = false,
   onCloseAutoFocus,
 }: ConfirmDialogProps) {
   return (
@@ -43,15 +46,17 @@ export default function ConfirmDialog({
           <Button variant="outline" onClick={onClose}>
             {cancelText}
           </Button>
-          <Button
-            variant={variant}
-            onClick={() => {
-              onConfirm();
-              onClose();
-            }}
-          >
-            {confirmText}
-          </Button>
+          {!hideConfirm && (
+            <Button
+              variant={variant}
+              onClick={() => {
+                onConfirm();
+                onClose();
+              }}
+            >
+              {confirmText}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

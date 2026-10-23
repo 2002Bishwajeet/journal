@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { DEFAULT_MODEL_ID, DEFAULT_AGENT_MODEL_ID, LEGACY_LLAMA_MODEL_ID } from '@/lib/webllm/models';
 import { AI_SETTINGS_KEY, LEGACY_WEBLLM_ENABLED_KEY, readString, writeString, removeKey } from '@/lib/storage';
 
 const STORAGE_KEY = AI_SETTINGS_KEY;
@@ -6,28 +7,31 @@ const CURRENT_VERSION = 2;
 
 export interface AISettings {
   enabled: boolean;
+  /** The model for autocomplete, grammar and rewrite. */
   modelId: string;
+  /** The model for the assistant. */
+  agentModelId: string;
   autocompleteEnabled: boolean;
   grammarEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: AISettings = {
   enabled: false,
-  modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+  modelId: DEFAULT_MODEL_ID,
+  agentModelId: DEFAULT_AGENT_MODEL_ID,
   autocompleteEnabled: true,
   grammarEnabled: false,
 };
 
 function migrateSettings(raw: Record<string, unknown>): AISettings {
-  const version = typeof raw._v === 'number' ? raw._v : 1;
-
-  if (version < 2 && raw.modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC') {
+  if (raw.modelId === LEGACY_LLAMA_MODEL_ID) {
     raw.modelId = DEFAULT_SETTINGS.modelId;
   }
 
   return {
     enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_SETTINGS.enabled,
     modelId: typeof raw.modelId === 'string' ? raw.modelId : DEFAULT_SETTINGS.modelId,
+    agentModelId: typeof raw.agentModelId === 'string' ? raw.agentModelId : DEFAULT_SETTINGS.agentModelId,
     autocompleteEnabled: typeof raw.autocompleteEnabled === 'boolean' ? raw.autocompleteEnabled : DEFAULT_SETTINGS.autocompleteEnabled,
     grammarEnabled: typeof raw.grammarEnabled === 'boolean' ? raw.grammarEnabled : DEFAULT_SETTINGS.grammarEnabled,
   };

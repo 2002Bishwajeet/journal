@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { useAISettings, type AISettings } from './useAISettings';
 import { useWebLLM } from './useWebLLM';
+import { useModelDownloadGate } from './useModelDownloadGate';
 import { clearModelCache, getModelInfo, unloadWebLLM } from '@/lib/webllm';
 
 export interface UseAIPreferencesReturn {
@@ -14,6 +15,9 @@ export interface UseAIPreferencesReturn {
     retry: () => Promise<boolean>;
     setEnabled: (checked: boolean) => Promise<void>;
     selectModel: (id: string) => Promise<void>;
+    selectAgentModel: (id: string) => void;
+    /** Props for the `ModelDownloadDialog` that confirms a download before it starts. */
+    downloadDialogProps: ReturnType<typeof useModelDownloadGate>['dialogProps'];
     setAutocomplete: (checked: boolean) => void;
     setGrammar: (checked: boolean) => void;
     clearCache: () => Promise<void>;
@@ -34,7 +38,11 @@ export function useAIPreferences(): UseAIPreferencesReturn {
         switchModel,
     } = useWebLLM();
 
+    const { confirmDownload, dialogProps: downloadDialogProps } = useModelDownloadGate();
+
     const setEnabled = async (checked: boolean) => {
+        // Nothing is saved or downloaded until the device passed the check and the user said Continue.
+        if (checked && !(await confirmDownload(settings.modelId))) return;
         updateSettings({ enabled: checked });
         // Not gated on isReady: it stays true after an unload. initialize()
         // itself returns early when the engine is already loaded.
@@ -48,12 +56,18 @@ export function useAIPreferences(): UseAIPreferencesReturn {
 
     const selectModel = async (id: string) => {
         if (isLoading || id === settings.modelId) return;
+        if (!(await confirmDownload(id))) return;
         const previousId = settings.modelId;
         updateSettings({ modelId: id });
         if (isReady && !(await switchModel(id))) {
             updateSettings({ modelId: previousId });
             toast.error(`Couldn't switch to ${modelName(id)}. Kept ${modelName(previousId)}.`);
         }
+    };
+
+    // Only saved: the assistant downloads its model on first use, through the same gate.
+    const selectAgentModel = (id: string) => {
+        updateSettings({ agentModelId: id });
     };
 
     // Loads the model this panel has selected: useWebLLM's own copy of the
@@ -86,6 +100,8 @@ export function useAIPreferences(): UseAIPreferencesReturn {
         retry,
         setEnabled,
         selectModel,
+        selectAgentModel,
+        downloadDialogProps,
         setAutocomplete,
         setGrammar,
         clearCache,
