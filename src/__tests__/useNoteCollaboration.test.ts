@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
     getSyncRecord: vi.fn(),
     makeNoteCollaborative: vi.fn(),
     revokeNoteCollaboration: vi.fn(),
+    supersedeNoteHeaders: vi.fn(),
     setNotePublic: vi.fn(),
     updateNote: vi.fn(),
     notes: [] as unknown[],
@@ -27,7 +28,9 @@ vi.mock('@/components/auth', () => ({
     useDotYouClientContext: () => ({ getHostIdentity: () => 'me.id' }),
 }));
 vi.mock('@/hooks/useSyncService', () => ({
-    useSyncService: () => ({ syncService: { flushAndSyncNote: mocks.flushAndSyncNote } }),
+    useSyncService: () => ({
+        syncService: { flushAndSyncNote: mocks.flushAndSyncNote, supersedeNoteHeaders: mocks.supersedeNoteHeaders },
+    }),
 }));
 vi.mock('@/lib/db', () => ({ getSyncRecord: mocks.getSyncRecord }));
 vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
@@ -60,7 +63,11 @@ beforeEach(() => {
     mocks.flushAndSyncNote.mockImplementation(record('flush'));
     mocks.getSyncRecord.mockImplementation(async () => { mocks.calls.push('record'); return { remoteFileId: 'file-1' }; });
     mocks.makeNoteCollaborative.mockImplementation(record('provider'));
-    mocks.revokeNoteCollaboration.mockImplementation(record('revoke'));
+    mocks.revokeNoteCollaboration.mockImplementation(async () => {
+        mocks.calls.push('revoke');
+        return { versionTag: 'v3', previousUpdated: 2000 };
+    });
+    mocks.supersedeNoteHeaders.mockImplementation(() => { mocks.calls.push('supersede'); });
     mocks.setNotePublic.mockImplementation(record('unpublish'));
     mocks.updateNote.mockImplementation(record('metadata'));
     mocks.notes = [];
@@ -187,6 +194,27 @@ describe('revoke', () => {
             }),
         });
         expect(mocks.toastSuccess).toHaveBeenCalledWith('Collaboration revoked');
+        await unmount();
+    });
+
+    // #689: a pull holding the pre-revoke header must not undo the local write
+    it('supersedes the replaced header before writing local metadata', async () => {
+        const { api, unmount } = await mountHook();
+        await act(async () => api().revoke(note('s', { folderId: 'shared' })));
+
+        expect(mocks.supersedeNoteHeaders).toHaveBeenCalledWith('s', 2000);
+        expect(mocks.calls).toEqual(['revoke', 'supersede', 'metadata']);
+        await unmount();
+    });
+
+    it('reports a failed revoke and leaves local metadata alone', async () => {
+        mocks.revokeNoteCollaboration.mockRejectedValue(new Error('versionTagMismatch'));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const { api, unmount } = await mountHook();
+        await act(async () => api().revoke(note('s', { folderId: 'shared' })));
+
+        expect(mocks.updateNote).not.toHaveBeenCalled();
+        expect(mocks.toastError).toHaveBeenCalledWith('Failed to revoke collaboration');
         await unmount();
     });
 });
