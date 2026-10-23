@@ -4,7 +4,7 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
-import { upsertSearchIndex, searchNotesForPicker, getFrequentlyLinkedNotes, advancedSearch, updateSearchIndexMetadata, getSearchIndexEntry } from '@/lib/db/queries';
+import { upsertSearchIndex, searchNotesForPicker, getFrequentlyLinkedNotes, advancedSearch, updateSearchIndexMetadata, updateSearchIndexContent, getSearchIndexEntry } from '@/lib/db/queries';
 
 const SELF = '50000000-0000-0000-0000-0000000000ff';
 const N1 = '50000000-0000-0000-0000-000000000001';
@@ -124,6 +124,49 @@ describe('updateSearchIndexMetadata preserves the remote-owned isPublic flag', (
 
         const entry = await getSearchIndexEntry(N1);
         expect(entry?.metadata.isPublic).toBeUndefined();
+    });
+});
+
+describe('updateSearchIndexContent writes only editor-owned fields', () => {
+    // #686: the editor's content save carried a metadata snapshot from before the
+    // title write landed, and wrote "Untitled" back over the new title.
+    it('keeps a title written after the editor took its snapshot', async () => {
+        await addNote(N1, 'Untitled');
+        await updateSearchIndexMetadata(N1, 'Real title', {
+            title: 'Real title',
+            folderId: 'main',
+            timestamps: { created: '2026-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z' },
+            excludeFromAI: false,
+            isPinned: true,
+        });
+
+        await updateSearchIndexContent(N1, 'The body', {
+            linkedNoteIds: [N2],
+            modified: '2026-02-02T00:00:00.000Z',
+        });
+
+        const entry = await getSearchIndexEntry(N1);
+        expect(entry?.title).toBe('Real title');
+        expect(entry?.plainTextContent).toBe('The body');
+        expect(entry?.metadata).toMatchObject({
+            title: 'Real title',
+            isPinned: true,
+            linkedNoteIds: [N2],
+            timestamps: { created: '2026-01-01T00:00:00.000Z', modified: '2026-02-02T00:00:00.000Z' },
+        });
+        // The search vector is rebuilt from the kept title and the new body.
+        expect((await searchNotesForPicker('body')).map((n) => n.docId)).toContain(N1);
+    });
+
+    it('sets lastEditedBy when given and removes it when not', async () => {
+        await addNote(N1, 'Shared');
+        const edit = { linkedNoteIds: [], modified: new Date().toISOString() };
+
+        await updateSearchIndexContent(N1, 'v1', { ...edit, lastEditedBy: 'frodo.dotyou.cloud' });
+        expect((await getSearchIndexEntry(N1))?.metadata.lastEditedBy).toBe('frodo.dotyou.cloud');
+
+        await updateSearchIndexContent(N1, 'v2', edit);
+        expect((await getSearchIndexEntry(N1))?.metadata.lastEditedBy).toBeUndefined();
     });
 });
 

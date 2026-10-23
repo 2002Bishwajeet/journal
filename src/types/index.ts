@@ -40,7 +40,6 @@ export interface SearchIndexEntry {
     title: string;
     plainTextContent: string;
     metadata: DocumentMetadata;
-    vectorEmbedding?: number[];
 }
 
 /** Lightweight version for list rendering — no full content */

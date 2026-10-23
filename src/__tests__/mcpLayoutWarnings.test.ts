@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { liveBlockLayoutWarnings } from '../../mcp/tools/write';
+import { liveBlockLayoutWarnings } from '@/lib/agent/tools/write';
 import GUIDE from '../../mcp/AUTHORING.md?raw';
 
 const block = (body: string, info = 'html id=d4sh') => '```' + info + '\n' + body + '\n```';

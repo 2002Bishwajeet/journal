@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { JOURNAL_DRIVE, JOURNAL_FILE_TYPE as APP_FILE_TYPE } from '@/lib/homebase/config';
 import {
+    AUTHOR_INDEX_CSP,
     JOURNAL_FILE_TYPE,
     buildAuthorIndexHtml,
     buildSitemapXml,
@@ -316,6 +317,9 @@ describe('author index in the share Pages Function', () => {
         const html = await res.text();
         expect(res.status).toBe(200);
         expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8');
+        // #671: its own policy, Report-Only; public/_headers does not reach a Function's response.
+        expect(res.headers.get('content-security-policy-report-only')).toBe(AUTHOR_INDEX_CSP);
+        expect(res.headers.get('content-security-policy')).toBeNull();
         expect(html).toContain(`/share/${IDENTITY}/${id(1)}`);
         expect(html).toContain(`/share/${IDENTITY}/${id(2)}`);
         expect(html).toContain(`/share/${IDENTITY}/${id(3)}`);
