@@ -8,12 +8,17 @@ import { newNoteShareFields } from '@/lib/share/sharedFolder';
 import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import * as Y from 'yjs';
 import type { DocumentMetadata } from '@/types';
-import { IMAGE_TYPES, commonRoot, convertMarkdown, folderOf, inlineTags, isSkippedPath, parseFrontMatter, resolveImagePath } from './markdownImport';
+import {
+    IMAGE_TYPES, commonRoot, convertMarkdown, databaseCsvs, databaseTable, dropTitleHeading, folderOf, inlineTags,
+    isSkippedPath, parseFrontMatter, resolveImagePath, stripNotionId, titleOf,
+} from './markdownImport';
 
 export interface ImportResult {
     imported: number;
     foldersCreated: number;
     failed: number;
+    /** Zip entries left out because they are not Markdown, CSV or an image (#595) */
+    skipped: number;
     errors: { file: string; message: string }[];
 }
 
@@ -25,7 +30,7 @@ export const ImportService = {
      * Import files (Markdown or Zip)
      */
     async importFiles(fileList: Iterable<File>): Promise<ImportResult> {
-        const result: ImportResult = { imported: 0, foldersCreated: 0, failed: 0, errors: [] };
+        const result: ImportResult = { imported: 0, foldersCreated: 0, failed: 0, skipped: 0, errors: [] };
 
         // Cache existing folders to avoid re-fetching
         const existingFolders = await getAllFolders();
@@ -67,19 +72,29 @@ async function importZip(
     publicFolderIds: ReadonlySet<string>,
     result: ImportResult
 ): Promise<void> {
-    const zip = await JSZip.loadAsync(file);
-    const entries = Object.values(zip.files).filter((entry) => !entry.dir && !isSkippedPath(entry.name));
+    const filesOf = (zip: JSZip) => Object.values(zip.files).filter((entry) => !entry.dir && !isSkippedPath(entry.name));
+    const isZip = (entry: JSZipObject) => entry.name.toLowerCase().endsWith('.zip');
+    const outer = filesOf(await JSZip.loadAsync(file));
+    // A large Notion export is a zip of `…-Part-N.zip` parts: each part joins this batch (one level
+    // deep: a zip inside a part is skipped)
+    const entries = outer.filter((entry) => !isZip(entry));
+    for (const part of outer.filter(isZip)) entries.push(...filesOf(await JSZip.loadAsync(await part.async('uint8array'))));
     // Every file, by its path in the zip: images the notes reference
     const assets = new Map(entries.map((entry) => [entry.name, entry]));
     // A zipped vault has everything under `Vault/`: its top-level folders become Journal folders
     const root = commonRoot(entries.map((entry) => entry.name));
+    const databases = new Set(databaseCsvs(entries.map((entry) => entry.name).filter((name) => name.endsWith('.csv'))));
 
     const sources: SourceNote[] = [];
     for (const entry of entries) {
-        if (entry.name.endsWith('.md')) sources.push({ path: entry.name, text: await entry.async('string'), date: entry.date });
+        if (entry.name.endsWith('.md') || databases.has(entry.name)) {
+            sources.push({ path: entry.name, text: await entry.async('string'), date: entry.date });
+        } else if (!entry.name.endsWith('.csv') && !IMAGE_TYPES[entry.name.split('.').pop()!.toLowerCase()]) {
+            result.skipped++;
+        }
     }
     await importNotes(sources, assets, publicFolderIds, result,
-        (path) => folderIdFor(folderOf(path, root), folderNameMap, result));
+        (path) => folderIdFor(stripNotionId(folderOf(path, root)), folderNameMap, result));
 }
 
 /** The id of the folder named `name` (matched case-insensitively), created if there is none; Main for ''. */
@@ -122,18 +137,22 @@ async function importNotes(
     for (const note of notes) {
         const folderId = await folderFor(note.path);
         const date = note.date.toISOString();
+        // The file name (without a Notion id) when the front-matter has no title
+        const title = note.title || titleOf(note.path);
+        const database = note.path.endsWith('.csv');
+        const content = database ? '' : dropTitleHeading(note.content, title);
         const metadata: DocumentMetadata = {
-            // The file name when the front-matter has no title
-            title: note.title || note.path.split('/').pop()!.replace(/\.md$/, ''),
+            title,
             folderId,
-            tags: [...new Set([...note.tags, ...inlineTags(note.content)])],
+            tags: [...new Set([...note.tags, ...inlineTags(content)])],
             timestamps: { created: note.created || date, modified: note.modified || date },
             excludeFromAI: note.excludeFromAI,
             ...newNoteShareFields({ isPublic: publicFolderIds.has(folderId) }),
         };
 
         // Create Yjs doc, with relative images queued as this note's own uploads
-        const markdown = convertMarkdown(note.content, note.path, notes, files);
+        // A Notion database (CSV) is one note: a table of its rows
+        const markdown = database ? databaseTable(note.content, note.path, notes) : convertMarkdown(content, note.path, notes, files);
         const images = await queueImportedImages(markdown, note.path, assets, note.id);
         const doc = createDoc(images.markdown);
         markPendingImages(doc.getXmlFragment('prosemirror'), images.pendingIds);

@@ -20,6 +20,13 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - The app shows a shared note under the person who really sent it.
 - The app ignores a share invite that names a different person as the sender.
 
+## 2.13.0 (2026-10-23)
+
+### New
+
+- You can import a Notion export. In Notion, export as Markdown & CSV, then import the .zip file in Settings, Data & storage.
+- The import keeps page titles, links between pages and images. Notion databases become tables.
+
 ## 2.12.0 (2026-10-23)
 
 ### New
