@@ -2,8 +2,8 @@
 export { useKeyboardShortcuts } from './useKeyboardShortcuts';
 export { useWebLLM } from './useWebLLM';
 export type { RewriteStyle } from './useWebLLM';
-export { useChatSession, COMMANDS } from './useChatSession';
-export type { ChatCommand } from './useChatSession';
+export { useAgentSession, COMMANDS } from "./useAgentSession";
+export type { ChatCommand } from "./useAgentSession";
 export { useSessionPersistence } from './useSessionPersistence';
 export { useDocumentTitle } from './useDocumentTitle';
 export { useTabManager } from './useTabManager';

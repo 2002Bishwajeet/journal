@@ -18,7 +18,7 @@ Name the integration test(s) first in every issue's Verification. Add an E2E spe
 |---|---|
 | Config | `playwright.config.ts` (repo root); TS config `e2e/tsconfig.json` |
 | Projects | `hermetic` (backend-free, `127.0.0.1`) · `recorded` (HAR replay) · `live` / `live-setup` (real Homebase) · `edge` (Pages) · `quarantine` |
-| Specs | `e2e/<area>/<feature>.spec.ts` (backend-free) · `e2e/<area>/<feature>.recorded.spec.ts` (layer 2) · `e2e/<area>/<feature>.live.spec.ts` (layer 3) · `e2e/edge/<feature>.spec.ts` — area ∈ `boot, editor, sync, images, links, routing, publishing, pwa, agent-access, folders, sharing` |
+| Specs | `e2e/<area>/<feature>.spec.ts` (backend-free) · `e2e/<area>/<feature>.recorded.spec.ts` (layer 2) · `e2e/<area>/<feature>.live.spec.ts` (layer 3) · `e2e/edge/<feature>.spec.ts` — area ∈ `boot, ai, editor, sync, images, links, routing, publishing, pwa, agent-access, folders, sharing` |
 | Recordings | `e2e/har/<area>/<spec-basename>.har` + `e2e/har/meta.json` + `e2e/har/replay-auth.json`; how-to in `e2e/har/README.md` |
 | Imports in specs | `import { test, expect } from '../fixtures';` — never from `@playwright/test` directly |
 | Fixtures | `app` (signed-in page, booted), `anonPage` (signed-out), `liveRun` (run-scoped folder on a real identity), `liveSharing` (owner, peer and outsider pages on the Docker tier) |

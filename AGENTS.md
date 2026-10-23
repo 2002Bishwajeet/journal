@@ -71,7 +71,7 @@ src/
 │   │   ├── TipTapEditor.tsx
 │   │   └── TocPanel.tsx        # Table of contents
 │   ├── layout/
-│   │   ├── ChatBot.tsx         # Per-note AI chat sidebar (logic in useChatSession)
+│   │   ├── ChatBot.tsx         # Per-note AI assistant panel (logic in useAgentSession)
 │   │   ├── HiddenNotesView.tsx # Trash / Archive management list
 │   │   ├── NoteList.tsx        # Date-grouped notes, swipe/context menu, pull-to-refresh
 │   │   ├── Sidebar.tsx         # Folders, search, settings
@@ -125,7 +125,7 @@ src/
 │   ├── useAgentGrants.ts       # Settings → Agent access (load/save grants file)
 │   ├── useAIPreferences.ts     # Settings → AI panel state
 │   ├── useAISettings.ts        # AI feature toggles (localStorage, cross-tab sync)
-│   ├── useChatSession.ts       # ChatBot state and behaviour
+│   ├── useAgentSession.ts      # ChatBot state and behaviour: runs the local agent, steps, Stop
 │   ├── useContact.ts
 │   ├── useDailyNote.ts         # Behind featureFlags.dailyNotes
 │   ├── useDeviceType.ts        # mobile | tablet | desktop detection
@@ -211,7 +211,7 @@ src/
 │   │   └── ImportService.ts
 │   ├── notes/createNote.ts     # Save Yjs blob, index, queue for sync
 │   ├── providers/              # ContactProvider, ContactSourceProvider, ShareProvider (guest reads)
-│   ├── search/                 # searchService.ts (web search via SearXNG), findReplace.ts
+│   ├── search/                 # findReplace.ts
 │   ├── share/                  # articleMeta, cardImage, markdownPipeline, publicCard (share page + card)
 │   ├── sync/                   # WebSocketProcessQueue
 │   ├── utils/                  # attachmentSrc, chunkReload, hash, imageProxy, initLogging, markdownTableParser,
@@ -461,7 +461,7 @@ Current state: the `pglite-v4` alias (0.4.x) is a dependency, used only for migr
 - **Grammar checking**: GrammarPlugin with inline wavy underlines, 3s debounce, hallucination filtering
 - **Autocomplete**: Ghost text via AutocompletePlugin, 500 ms debounce, Tab to accept
 - **Rewrite**: 8 styles — Proofread, Rewrite, Friendly, Professional, Concise, Summary, Key Points, List/Table
-- **Chat**: Per-note AI chat sidebar (ChatBot component)
+- **Chat**: The ChatBot panel is the local agent (`useAgentSession` → `runAgent`): it calls the notes tools on this device, shows each step, and has Stop. No web search; nothing leaves the device
 - **Slash commands**: `/ask`, `/summarize`, `/rewrite` via AI suggestion overlay
 - **Idle GC**: Auto-unloads model after 5 minutes idle to reclaim ~2-3 GB memory
 - **Mobile**: Disabled on mobile devices (insufficient memory)
