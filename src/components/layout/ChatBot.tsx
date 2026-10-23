@@ -2,13 +2,28 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Send, Loader2, Bot, MessageCircle, ChevronLeft, Globe, AlertTriangle } from "lucide-react";
+import { X, Send, Loader2, Bot, MessageCircle, ChevronLeft, Square } from "lucide-react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useChatSession } from "@/hooks/useChatSession";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAgentSession, type AgentStep } from "@/hooks/useAgentSession";
+import ModelDownloadDialog from "@/components/modals/ModelDownloadDialog";
 
 interface ChatBotProps {
   activeNoteId?: string | null;
+}
+
+function StepText({ step }: { step: AgentStep }) {
+  return (
+    <>
+      {step.before}
+      {step.note && (
+        <Link to={step.note.href} className="underline underline-offset-2 hover:text-foreground">
+          {step.note.title}
+        </Link>
+      )}
+      {step.after}
+    </>
+  );
 }
 
 export function ChatBot({ activeNoteId }: ChatBotProps) {
@@ -19,18 +34,14 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
     input,
     setInput,
     isGenerating,
-    isSearching,
+    modelStatus,
+    downloadDialogProps,
     suggestions,
-    consent,
     send,
+    stop,
     selectCommand,
     handleKeyDown,
-    isReady,
-    isLoading,
-    loadingProgress,
-    loadingMessage,
-    initialize,
-  } = useChatSession(activeNoteId ?? undefined);
+  } = useAgentSession(activeNoteId ?? undefined);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -42,19 +53,14 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
     if (isOpen) {
       scrollToBottom();
     }
-  }, [messages, isOpen, isGenerating, isSearching]);
+  }, [messages, isOpen, isGenerating, modelStatus]);
 
-  const toggleChat = () => {
-    if (!isOpen && !isReady && !isLoading) {
-      initialize();
-    }
-    setIsOpen(!isOpen);
-  };
+  const toggleChat = () => setIsOpen(!isOpen);
 
   return (
     <div className="z-50">
       {isOpen && (
-        <div className="fixed inset-0 z-50 lg:inset-auto lg:bottom-20 lg:right-4 w-full h-full lg:w-100 lg:h-137.5 bg-background lg:border lg:rounded-lg shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-full lg:slide-in-from-bottom-2 fade-in duration-300">
+        <div role="region" aria-label="Assistant" className="fixed inset-0 z-50 lg:inset-auto lg:bottom-20 lg:right-4 w-full h-full lg:w-100 lg:h-137.5 bg-background lg:border lg:rounded-lg shadow-xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-full lg:slide-in-from-bottom-2 fade-in duration-300">
           {/* Header - Mobile/Tablet with back button, Desktop with X */}
           <div className="flex items-center h-12 px-3 border-b border-border gap-2 shrink-0 pt-[env(safe-area-inset-top)] lg:pt-0 bg-muted/30">
             {/* Mobile/Tablet: Back button */}
@@ -88,38 +94,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
           {/* Messages Area */}
           <ScrollArea className="flex-1 min-h-0">
             <div className="flex flex-col gap-4 p-4 min-h-full">
-              {!isReady && (
-                <div className="flex flex-col items-center justify-center flex-1 text-center space-y-4 py-8 text-muted-foreground">
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">
-                          {loadingMessage || "Loading AI Model..."}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {Math.round(loadingProgress * 100)}%
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-sm">
-                        AI model needs to be initialized.
-                      </p>
-                      <Button
-                        onClick={() => initialize()}
-                        variant="outline"
-                        size="sm"
-                      >
-                        Initialize AI
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {messages.length === 0 && isReady && (
+              {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center flex-1 text-center text-muted-foreground text-sm py-12 opacity-60">
                   <MessageCircle className="w-12 h-12 mb-4 opacity-50" />
                   <p>Ask me anything about your notes!</p>
@@ -139,25 +114,45 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
                 >
                   <div
                     className={cn(
-                      "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
+                      "max-w-[85%] rounded-lg px-3 py-2 text-sm",
                       msg.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted"
                     )}
                   >
-                    {msg.content}
+                    {msg.pending ? (
+                      <div className="text-xs flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                        <span>
+                          {modelStatus
+                            ? `${modelStatus.message || "Loading AI model..."} ${Math.round(modelStatus.progress * 100)}%`
+                            : msg.steps?.length
+                              ? <StepText step={msg.steps[msg.steps.length - 1]} />
+                              : "Thinking..."}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                        {msg.steps && msg.steps.length > 0 && (
+                          <details className="mt-2 text-xs text-muted-foreground">
+                            <summary className="cursor-pointer select-none">
+                              {msg.steps.length} {msg.steps.length === 1 ? "step" : "steps"}
+                            </summary>
+                            <ol className="mt-1 list-decimal pl-4 space-y-0.5">
+                              {msg.steps.map((step, j) => (
+                                <li key={j}>
+                                  <StepText step={step} />
+                                </li>
+                              ))}
+                            </ol>
+                          </details>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
-
-              {isGenerating && (
-                <div className="flex justify-start">
-                  <div className="bg-muted rounded-lg px-3 py-2 text-xs flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    <span>Thinking...</span>
-                  </div>
-                </div>
-              )}
               <div ref={messagesEndRef} className="h-1" />
             </div>
           </ScrollArea>
@@ -193,21 +188,31 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={
-                  isReady ? "Type a message or /help..." : "Waiting for AI..."
-                }
-                disabled={!isReady || isGenerating || isSearching}
+                placeholder="Type a message or /help..."
+                disabled={isGenerating}
                 className="flex-1 h-9 text-sm"
               />
-              <Button
-                size="icon"
-                aria-label="Send message"
-                className="h-9 w-9"
-                onClick={send}
-                disabled={!isReady || (isGenerating && !isSearching) || !input.trim()}
-              >
-                <Send className="w-4 h-4" />
-              </Button>
+              {isGenerating ? (
+                <Button
+                  size="icon"
+                  variant="outline"
+                  aria-label="Stop"
+                  className="h-9 w-9"
+                  onClick={stop}
+                >
+                  <Square className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button
+                  size="icon"
+                  aria-label="Send message"
+                  className="h-9 w-9"
+                  onClick={send}
+                  disabled={!input.trim()}
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -217,6 +222,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
         <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 flex flex-col items-end gap-2">
             <Button
             size="lg"
+            aria-label="Open assistant"
             className="rounded-full h-14 w-14 shadow-lg animate-in fade-in zoom-in duration-300"
             onClick={toggleChat}
             >
@@ -225,33 +231,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
         </div>
       )}
 
-      <Dialog open={consent.open} onOpenChange={(open) => !open && consent.cancel()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Globe className="w-5 h-5 text-blue-500" />
-              Enable Web Search?
-            </DialogTitle>
-            <DialogDescription className="pt-2">
-              You are about to use the web search feature. Unlike the AI chat which runs purely on your device, this will send your query to an external search provider.
-            </DialogDescription>
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-900/50 flex gap-2">
-              <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 shrink-0" />
-              <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                Your search query "{consent.query}" will be sent to a public SearXNG instance.
-              </p>
-            </div>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={consent.cancel}>
-              Cancel
-            </Button>
-            <Button onClick={consent.confirm}>
-              I Understand, Continue
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ModelDownloadDialog {...downloadDialogProps} />
     </div>
   );
 }

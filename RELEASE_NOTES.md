@@ -15,6 +15,12 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- The assistant now looks things up in your notes. Each answer shows the steps it took.
+- You can stop the assistant while it works.
+- The assistant has no web search. Your questions stay on your device.
+
 ## 2.13.1 (2026-10-23)
 
 ### Fixed
