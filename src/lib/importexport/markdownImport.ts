@@ -242,8 +242,9 @@ export function parseCsv(text: string): string[][] {
     return rows.filter((r) => r.some((cell) => cell.trim()));
 }
 
-// A table cell's text: `|` escaped, line breaks as `<br>`
-const escapeCell = (value: string) => value.trim().replace(/\|/g, '\\|').replace(/\r\n?|\n/g, '<br>');
+// A table cell's text: `\` and `|` escaped, line breaks as `<br>`
+const escapeCell = (value: string) =>
+    value.trim().replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r\n?|\n/g, '<br>');
 
 /** CSV rows as a Markdown table; a first-column cell links to the note id `link` gives for it. */
 export function csvTable(rows: readonly string[][], link: (cell: string) => string | undefined): string {
@@ -256,8 +257,9 @@ export function csvTable(rows: readonly string[][], link: (cell: string) => stri
         `|${' --- |'.repeat(width)}`,
         ...body.map(([first = '', ...rest]) => {
             const id = first.trim() ? link(first.trim()) : undefined;
-            const cell = escapeCell(first);
-            return line([id ? `[${cell.replace(/[[\]]/g, '\\$&')}](journal:note/${id})` : cell, ...rest.map(escapeCell)]);
+            // A link label also escapes `[` and `]`, in the same pass as `\` and `|`
+            const label = first.trim().replace(/[\\[\]|]/g, '\\$&').replace(/\r\n?|\n/g, '<br>');
+            return line([id ? `[${label}](journal:note/${id})` : escapeCell(first), ...rest.map(escapeCell)]);
         }),
     ].join('\n');
 }
