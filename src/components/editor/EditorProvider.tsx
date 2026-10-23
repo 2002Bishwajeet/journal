@@ -54,7 +54,6 @@ import {
   SlashCommandsExtension,
 } from "./plugins";
 
-import "katex/dist/katex.min.css";
 import { joinPreviewText } from "@/lib/previewText";
 
 /** Prose first, code/live-block text after a separator (see previewText.ts). */

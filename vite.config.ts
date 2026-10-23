@@ -29,6 +29,19 @@ const restorePgliteProcessGuard = {
   },
 };
 
+// @tiptap/extension-mathematics imports katex at its top, which put KaTeX on every note
+// open. Inside that package only, `katex` is src/lib/katexLazy.ts, which loads KaTeX and
+// its CSS when math first renders (#673). Pre-bundling would skip this hook, so the
+// package is excluded from optimizeDeps below.
+const lazyKatexForMath = {
+  name: 'lazy-katex-for-math',
+  enforce: 'pre' as const,
+  resolveId: (source: string, importer: string | undefined) =>
+    source === 'katex' && importer?.includes('/@tiptap/extension-mathematics/')
+      ? path.resolve(import.meta.dirname, 'src/lib/katexLazy.ts')
+      : null,
+};
+
 // The app's Report-Only CSP (#671), read from public/_headers so dev and preview send
 // what Cloudflare Pages sends.
 const APP_CSP = fs.readFileSync(path.join(import.meta.dirname, 'public/_headers'), 'utf8').match(/^\s+Content-Security-Policy-Report-Only: (.+)$/m)![1];
@@ -162,6 +175,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     restorePgliteProcessGuard,
+    lazyKatexForMath,
     reactBlockPieces,
     react(),
     ...(mode === 'production' || mode === 'e2e'
@@ -282,7 +296,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   optimizeDeps: {
-    exclude: ['@electric-sql/pglite', 'pglite-v4', '@electric-sql/pglite-tools'],
+    exclude: ['@electric-sql/pglite', 'pglite-v4', '@electric-sql/pglite-tools', '@tiptap/extension-mathematics'],
   },
   server: {
     // e2e mode serves plain HTTP on 127.0.0.1 (set by the e2e script via

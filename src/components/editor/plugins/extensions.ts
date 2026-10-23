@@ -7,6 +7,7 @@
 
 import { Extension, type AnyExtension, type RawCommands, type CommandProps } from '@tiptap/core';
 import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
+import type { DecorationSet } from '@tiptap/pm/view';
 import { Fragment, Slice, type Node as PMNode, type Schema } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -38,9 +39,8 @@ import { parseCodeInfo } from '@/lib/liveBlocks';
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';
 
-// Initialize lowlight for code syntax highlighting
-import { common } from 'lowlight';
-const lowlight = createLowlight(common);
+// Lowlight for code syntax highlighting. Its grammars load with the first code block (#673).
+const lowlight = createLowlight();
 
 // GFM has no headerless table, so an all-empty header line means "no header row" (#446).
 const baseTableParseMarkdown = Table.config.parseMarkdown;
@@ -51,8 +51,6 @@ const HeaderlessAwareTable = Table.extend({
         return baseTableParseMarkdown!(emptyHeader ? { ...token, header: undefined } : token, helpers);
     },
 });
-// A `react` live block's code is JSX, which the javascript grammar highlights (#426).
-lowlight.registerAlias({ javascript: ['react'] });
 // The `language` attribute is the fence's whole info string (```html id=k3f9, #410):
 // highlight by its first word, the language.
 const codeLanguage = (info: string) => parseCodeInfo(info).language ?? '';
@@ -61,6 +59,72 @@ const infoStringLowlight = {
     registered: (info: string) => lowlight.registered(codeLanguage(info)),
     highlight: (info: string, value: string) => lowlight.highlight(codeLanguage(info), value),
 };
+
+let grammars: Promise<void> | undefined;
+/** Registers highlight.js's common grammars, fetched once on first use. */
+function loadGrammars(): Promise<void> {
+    grammars ??= import('./lowlightGrammars').then(
+        ({ common }) => {
+            lowlight.register(common);
+            // A `react` live block's code is JSX, which the javascript grammar highlights (#426).
+            lowlight.registerAlias({ javascript: ['react'] });
+        },
+        (error) => {
+            grammars = undefined; // the next code block tries again
+            throw error;
+        },
+    );
+    return grammars;
+}
+
+/** True when `doc` has a code block, which is when the grammars are worth fetching. */
+export function docHasCodeBlock(doc: PMNode): boolean {
+    let found = false;
+    doc.descendants((node) => {
+        if (node.type.name === 'codeBlock') found = true;
+        return !found;
+    });
+    return found;
+}
+
+const grammarsLoaded = new PluginKey('grammarsLoaded');
+
+/**
+ * CodeBlockLowlight with its grammars fetched on demand (#673): once a note has a code
+ * block they load, then a transaction that only carries a meta flag redraws the
+ * highlights. It changes no doc, so it writes no Yjs update and leaves the note saved.
+ * Until then lowlight knows no language and code shows as plain text.
+ */
+export const CodeBlockHighlight = CodeBlockLowlight.extend({
+    addProseMirrorPlugins() {
+        const plugins = this.parent?.() ?? [];
+        // CodeBlockLowlight adds its decoration plugin last; it redraws only on a doc change.
+        const highlight = (plugins.pop() as Plugin<DecorationSet>).spec.state!;
+        const plugin: Plugin<DecorationSet> = new Plugin({
+            key: new PluginKey('codeHighlight'),
+            state: {
+                init: highlight.init,
+                apply: (tr, value, oldState, newState) =>
+                    tr.getMeta(grammarsLoaded) ? highlight.init({}, newState) : highlight.apply(tr, value, oldState, newState),
+            },
+            props: { decorations: (state) => plugin.getState(state) },
+            view(view) {
+                let waiting = false;
+                const loadIfNeeded = () => {
+                    if (waiting || lowlight.listLanguages().length > 0 || !docHasCodeBlock(view.state.doc)) return;
+                    waiting = true;
+                    loadGrammars().then(
+                        () => { if (!view.isDestroyed) view.dispatch(view.state.tr.setMeta(grammarsLoaded, true)); },
+                        () => { waiting = false; },
+                    );
+                };
+                loadIfNeeded();
+                return { update: (_, prevState) => { if (view.state.doc !== prevState.doc) loadIfNeeded(); } };
+            },
+        });
+        return [...plugins, plugin];
+    },
+});
 
 declare module '@tiptap/core' {
     interface Commands<ReturnType> {
@@ -392,7 +456,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         options?.image ?? ImageSchema,
         Gallery,
 
-        CodeBlockLowlight.configure({
+        CodeBlockHighlight.configure({
             lowlight: infoStringLowlight,
         }),
 

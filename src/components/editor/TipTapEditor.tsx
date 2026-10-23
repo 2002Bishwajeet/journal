@@ -23,9 +23,6 @@ import { TableRowMenu } from "./table/TableRowMenu";
 import { TagInput } from "./TagInput";
 import { NoteCover } from "./NoteCover";
 
-// Import KaTeX styles for math rendering
-import "katex/dist/katex.min.css";
-
 interface TipTapEditorProps {
   noteId: string;
   metadata: DocumentMetadata;
