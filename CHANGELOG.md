@@ -1,3 +1,10 @@
+# [2.15.0](https://github.com/2002Bishwajeet/journal/compare/v2.14.0...v2.15.0) (2026-10-23)
+
+
+### Features
+
+* **sharing:** app-owned Journal shares circle gives recipients drive access ([#730](https://github.com/2002Bishwajeet/journal/issues/730)) ([157b8f0](https://github.com/2002Bishwajeet/journal/commit/157b8f0c7ecf6a5956e751d2f71018111729f3e2))
+* **sharing:** show the Read-only message once in the share dialog ([#730](https://github.com/2002Bishwajeet/journal/issues/730)) ([c1d109f](https://github.com/2002Bishwajeet/journal/commit/c1d109fa6fa2466f963be97eace0f1e7c6d2096d))
 # [2.14.0](https://github.com/2002Bishwajeet/journal/compare/v2.13.1...v2.14.0) (2026-10-23)
 
 

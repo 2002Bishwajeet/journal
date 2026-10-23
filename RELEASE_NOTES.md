@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.15.0 (2026-10-23)
+
 ### Changed
 
 - When you share a note, the people you share with get access to it. You do not change settings in Homebase first.
