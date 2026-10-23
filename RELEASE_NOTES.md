@@ -18,7 +18,7 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 ### New
 
 - You can import a Notion export. In Notion, export as Markdown & CSV, then import the .zip file in Settings, Data & storage.
-- The import keeps tables, images and tags. Notes in subpages go into the folder of their top-level page.
+- The import keeps page titles, links between pages and images. Notion databases become tables.
 
 ## 2.12.0 (2026-10-23)
 
