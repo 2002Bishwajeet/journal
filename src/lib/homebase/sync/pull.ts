@@ -306,6 +306,7 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             archivalStatus: remoteFile.fileMetadata.appData.archivalStatus ?? 0,
             isCollaborative: content?.isCollaborative,
             circleIds: content?.circleIds,
+            odinIds: content?.odinIds,
             recipients: content?.recipients,
             lastEditedBy: content?.lastEditedBy,
         };
@@ -374,6 +375,7 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             archivalStatus: remoteFile.fileMetadata.appData.archivalStatus ?? 0,
             isCollaborative: content?.isCollaborative,
             circleIds: content?.circleIds,
+            odinIds: content?.odinIds,
             recipients: content?.recipients,
             lastEditedBy: content?.lastEditedBy,
         };

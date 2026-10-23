@@ -326,6 +326,7 @@ export default function JournalLayout() {
             setCollaborativeNote(note);
           }
         }}
+        onEditSharing={setCollaborativeNote}
       />
 
       <EditorPane
@@ -440,6 +441,8 @@ export default function JournalLayout() {
             }}
             noteId={collaborativeNote.docId}
             noteTitle={collaborativeNote.title || "Untitled"}
+            circleIds={collaborativeNote.metadata.circleIds}
+            odinIds={collaborativeNote.metadata.odinIds}
           />
         </Suspense>
       )}

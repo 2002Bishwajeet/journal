@@ -1,11 +1,12 @@
 import { toast } from 'sonner';
-import { fetchMembersOfCircle } from '@homebase-id/js-lib/network';
+import { fetchMembersOfCircle, getConnectionInfo } from '@homebase-id/js-lib/network';
 import { useDotYouClientContext } from '@/components/auth';
 import { useSyncService } from '@/hooks/useSyncService';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { COLLABORATIVE_FOLDER_ID, MAIN_FOLDER_ID } from '@/lib/homebase/config';
 import { getSyncRecord } from '@/lib/db';
+import { normalizeOdinId, shareRecipients } from '@/lib/homebase/shareTargets';
 import type { NoteListEntry } from '@/types';
 
 export interface SelectedCircle {
@@ -13,9 +14,16 @@ export interface SelectedCircle {
     name: string;
 }
 
+/** Who a note is shared with: circles, and connections named by identity (#681). */
+export interface ShareTargets {
+    circles: SelectedCircle[];
+    odinIds: string[];
+}
+
 /**
- * Sharing a note with circles and revoking it: the remote upload, the invite and
- * the local metadata, with user-visible toasts.
+ * Sharing a note with circles and people, changing who it is shared with, and
+ * revoking it: the remote upload, the invite and the local metadata, with
+ * user-visible toasts.
  */
 export function useNoteCollaboration() {
     const dotYouClient = useDotYouClientContext();
@@ -26,10 +34,19 @@ export function useNoteCollaboration() {
         setNotePublic: { mutateAsync: setNotePublic },
     } = useNotes();
 
-    /** Shares the note with the circles; resolves true when it succeeded. */
-    const share = async (noteId: string, circles: SelectedCircle[]): Promise<boolean> => {
-        if (circles.length === 0) {
-            toast.error('Please select at least one circle');
+    /**
+     * Shares the note with the circles and identities, or changes who an existing share
+     * names (naming no one stops sharing); resolves true when it succeeded.
+     */
+    const share = async (noteId: string, targets: ShareTargets): Promise<boolean> => {
+        const { circles } = targets;
+        const odinIds = [...new Set(targets.odinIds.map(normalizeOdinId))];
+        const existingNote = notes.find((n) => n.docId === noteId);
+        const wasShared = !!existingNote?.metadata.isCollaborative;
+
+        if (circles.length === 0 && odinIds.length === 0) {
+            if (wasShared) return revoke(existingNote);
+            toast.error('Choose at least one circle or person');
             return false;
         }
 
@@ -38,7 +55,22 @@ export function useNoteCollaboration() {
             return false;
         }
 
+        const editorOdinId = dotYouClient.getHostIdentity() || '';
+        if (odinIds.includes(editorOdinId)) {
+            toast.error("You can't share a note with yourself");
+            return false;
+        }
+
         try {
+            // The server refuses a named identity that isn't a connection anyway, but
+            // only when they read: say so now instead.
+            const connections = await Promise.all(odinIds.map((id) => getConnectionInfo(dotYouClient, id)));
+            const stranger = odinIds.find((_, i) => connections[i]?.status.toLowerCase() !== 'connected');
+            if (stranger) {
+                toast.error(`${stranger} is not one of your connections`);
+                return false;
+            }
+
             // Resolve members now, not from the rows' queries: a row clicked before its
             // members loaded would otherwise invite nobody
             const circleIds = circles.map((c) => c.circleId);
@@ -50,10 +82,16 @@ export function useNoteCollaboration() {
                 toast.error(`${empty.name} has no members`);
                 return false;
             }
-            const recipients = [...new Set(memberLists.flatMap((l) => (l ?? []).map((m) => m.domain)))].filter(Boolean);
+            const recipients = shareRecipients(
+                memberLists.flatMap((l) => (l ?? []).map((m) => m.domain)),
+                odinIds,
+                editorOdinId,
+            );
+            // People taken off the share lose the invite, so it leaves their list (#681)
+            const removedRecipients = (existingNote?.metadata.recipients ?? [])
+                .filter((r) => !recipients.includes(r));
 
             const provider = new NotesDriveProvider(dotYouClient);
-            const editorOdinId = dotYouClient.getHostIdentity() || '';
 
             // Ensure the note body is on the server BEFORE we send the invite, so
             // recipients bootstrap real content instead of an empty note.
@@ -66,13 +104,11 @@ export function useNoteCollaboration() {
             const record = await getSyncRecord(noteId);
             await provider.makeNoteCollaborative(
                 noteId,
-                circleIds,
-                recipients,
+                { circleIds, odinIds, recipients, removedRecipients },
                 editorOdinId,
                 record?.remoteFileId,
             );
 
-            const existingNote = notes.find((n) => n.docId === noteId);
             if (existingNote) {
                 if (existingNote.metadata.isPublic) {
                     // makeNoteCollaborative re-uploaded the public note encrypted, which re-keys
@@ -87,7 +123,8 @@ export function useNoteCollaboration() {
                         isPublic: false,
                         folderId: COLLABORATIVE_FOLDER_ID,
                         isCollaborative: true,
-                        circleIds,
+                        circleIds: circleIds.length > 0 ? circleIds : undefined,
+                        odinIds: odinIds.length > 0 ? odinIds : undefined,
                         recipients,
                         lastEditedBy: editorOdinId,
                     },
@@ -98,7 +135,7 @@ export function useNoteCollaboration() {
                 );
             }
 
-            toast.success('Note is now collaborative');
+            toast.success(wasShared ? 'Sharing updated' : 'Note is now collaborative');
             return true;
         } catch (err) {
             console.error('Failed to make note collaborative:', err);
@@ -107,8 +144,9 @@ export function useNoteCollaboration() {
         }
     };
 
-    const revoke = async (note: NoteListEntry | null) => {
-        if (!note || !dotYouClient) return;
+    /** Stops sharing the note; resolves true when it succeeded. */
+    const revoke = async (note: NoteListEntry | null | undefined): Promise<boolean> => {
+        if (!note || !dotYouClient) return false;
         try {
             const provider = new NotesDriveProvider(dotYouClient);
             const editorOdinId = dotYouClient.getHostIdentity() || '';
@@ -127,14 +165,17 @@ export function useNoteCollaboration() {
                     folderId: MAIN_FOLDER_ID,
                     isCollaborative: false,
                     circleIds: undefined,
+                    odinIds: undefined,
                     recipients: undefined,
                     lastEditedBy: editorOdinId,
                 },
             });
             toast.success('Collaboration revoked');
+            return true;
         } catch (err) {
             console.error('Failed to revoke collaboration:', err);
             toast.error('Failed to revoke collaboration');
+            return false;
         }
     };
 

@@ -4,6 +4,7 @@ import {
     deleteFile,
     getFileHeaderByUniqueId,
     type DotYouClient,
+    type HomebaseFile,
     type UploadFileMetadata,
     type UploadInstructionSet,
     type UpdateInstructionSet,
@@ -11,6 +12,7 @@ import {
     PriorityOptions,
     SendContents,
 } from '@homebase-id/js-lib/core';
+import { deleteFileOverPeer } from '@homebase-id/js-lib/peer';
 import { getRandom16ByteArray, toGuidId } from '@homebase-id/js-lib/helpers';
 import {
     JOURNAL_DRIVE,
@@ -36,7 +38,7 @@ export class InvitationDriveProvider {
         noteUniqueId: string,
         noteTitle: string,
         notePreview: string,
-        circleIds: string[],
+        share: { circleIds: string[]; odinIds: string[] },
         recipients: string[],
         authorOdinId: string,
     ): Promise<void> {
@@ -49,12 +51,7 @@ export class InvitationDriveProvider {
             sharedAt: new Date().toISOString(),
         };
 
-        const existingInvite = await getFileHeaderByUniqueId(
-            this.#dotYouClient,
-            JOURNAL_DRIVE,
-            inviteUniqueId,
-            { decrypt: false }
-        );
+        const existingInvite = await this.#findInvite(noteUniqueId);
 
         const uploadMetadata: UploadFileMetadata = {
             allowDistribution: true,
@@ -66,10 +63,10 @@ export class InvitationDriveProvider {
                 content: JSON.stringify(inviteContent),
             },
             isEncrypted: true,
-            accessControlList: sharedAcl({ circleIds }),
+            accessControlList: sharedAcl(share),
         };
 
-        if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
+        if (existingInvite) {
             const updateInstructions: UpdateInstructionSet = {
                 locale: 'local',
                 file: { fileId: existingInvite.fileId, targetDrive: JOURNAL_DRIVE },
@@ -107,16 +104,30 @@ export class InvitationDriveProvider {
     }
 
     async deleteInvitation(noteUniqueId: string, recipients?: string[]): Promise<void> {
-        const inviteUniqueId = toGuidId(`collab-invite-${noteUniqueId}`);
-        const existingInvite = await getFileHeaderByUniqueId(
-            this.#dotYouClient,
-            JOURNAL_DRIVE,
-            inviteUniqueId,
-            { decrypt: false }
-        );
-
-        if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
+        const existingInvite = await this.#findInvite(noteUniqueId);
+        if (existingInvite) {
             await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, existingInvite.fileId, recipients);
         }
+    }
+
+    /**
+     * Deletes the recipients' copies of the invite, for people taken off a share that
+     * goes on (#681). The owner's invite stays for everyone still on it.
+     */
+    async withdrawInvitation(noteUniqueId: string, recipients: string[]): Promise<void> {
+        const globalTransitId = (await this.#findInvite(noteUniqueId))?.fileMetadata.globalTransitId;
+        if (globalTransitId) {
+            await deleteFileOverPeer(this.#dotYouClient, JOURNAL_DRIVE, globalTransitId, recipients);
+        }
+    }
+
+    async #findInvite(noteUniqueId: string): Promise<HomebaseFile<string> | null> {
+        const invite = await getFileHeaderByUniqueId<string>(
+            this.#dotYouClient,
+            JOURNAL_DRIVE,
+            toGuidId(`collab-invite-${noteUniqueId}`),
+            { decrypt: false }
+        );
+        return invite?.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE ? invite : null;
     }
 }

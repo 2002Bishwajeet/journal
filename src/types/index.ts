@@ -19,7 +19,8 @@ export interface DocumentMetadata {
     // Collaboration fields
     isCollaborative?: boolean;
     circleIds?: string[];    // Circles granted access (multiple)
-    recipients?: string[];   // OdinIds of collaborators (from circle members)
+    odinIds?: string[];      // Identities named on the share, lowercased (#681)
+    recipients?: string[];   // OdinIds of collaborators (circle members and named identities)
     lastEditedBy?: string;   // OdinId of last editor
     authorOdinId?: string;     // Identity that owns the note (for peer fetch)
 }
@@ -95,7 +96,8 @@ export interface NoteFileContent {
     // Collaboration fields
     isCollaborative?: boolean;
     circleIds?: string[];
-    recipients?: string[];   // OdinIds of collaborators (from circle members)
+    odinIds?: string[];      // Identities named on the share (#681)
+    recipients?: string[];   // OdinIds of collaborators (circle members and named identities)
     lastEditedBy?: string;
 }
 
