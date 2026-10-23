@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.13.1 (2026-10-23)
+
 ### Fixed
 
 - The app shows a shared note under the person who really sent it.
