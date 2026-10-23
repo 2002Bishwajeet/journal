@@ -2,60 +2,13 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
 import { stubWebGPU } from '../support/webgpu';
+import { finishLoad, reloads, stubWebLLMWorker } from '../support/webllm-worker';
 
 // Settings → AI tells the truth about the model (#212): status only while AI is
 // on, a visible error with Retry, a notice on phones, and a ConfirmDialog (no
 // page reload) before removing model files. Nothing downloads until the device
 // passed the requirements check (#695) and the user chose Continue; the specs
 // stub navigator.gpu so the check does not depend on the machine.
-
-// Stands in for the WebLLM engine worker (src/lib/webllm/worker.ts), speaking
-// the WebWorkerMLCEngine message protocol. A reload reports progress, then waits
-// for the test to post 'ok' or 'fail' on the `e2e-webllm` BroadcastChannel;
-// every reload's model id is posted on `e2e-webllm-log`.
-const FAKE_WORKER = `
-const pending = [];
-const log = new BroadcastChannel('e2e-webllm-log');
-new BroadcastChannel('e2e-webllm').onmessage = ({ data }) => {
-  for (const uuid of pending.splice(0)) {
-    self.postMessage(data === 'ok'
-      ? { kind: 'return', uuid, content: null }
-      : { kind: 'throw', uuid, content: 'stub load failure' });
-  }
-};
-self.onmessage = ({ data }) => {
-  if (data.kind !== 'reload') {
-    self.postMessage({ kind: 'return', uuid: data.uuid, content: null });
-    return;
-  }
-  log.postMessage(data.content.modelId[0]);
-  self.postMessage({ kind: 'initProgressCallback', uuid: data.uuid, content: { progress: 0.42, timeElapsed: 0, text: 'Fetching stub model' } });
-  pending.push(data.uuid);
-};
-`;
-
-// Preview build: /assets/worker-<hash>.js (not pglite-worker-*); dev server: the source file.
-const isWebLLMWorker = (url: URL) => /\/(assets\/worker-[\w-]+\.js|src\/lib\/webllm\/worker\.ts)$/.test(url.pathname);
-
-async function stubWebLLMWorker(page: Page): Promise<void> {
-  // Keep the served headers: under the app's COEP a worker script without one is blocked.
-  await page.context().route(isWebLLMWorker, async (route) =>
-    route.fulfill({ response: await route.fetch(), body: FAKE_WORKER }),
-  );
-  await assertTestOrigin(page);
-  await page.evaluate(() => {
-    const w = window as Window & { __webllmReloads?: string[] };
-    w.__webllmReloads = [];
-    new BroadcastChannel('e2e-webllm-log').onmessage = ({ data }) => w.__webllmReloads!.push(data);
-  });
-}
-
-async function finishLoad(page: Page, outcome: 'ok' | 'fail'): Promise<void> {
-  await page.evaluate((o) => new BroadcastChannel('e2e-webllm').postMessage(o), outcome);
-}
-
-const reloads = (page: Page) =>
-  page.evaluate(() => (window as Window & { __webllmReloads?: string[] }).__webllmReloads);
 
 const EDITOR_DEFAULT = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
 
