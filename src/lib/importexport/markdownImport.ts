@@ -214,7 +214,7 @@ export function titleOf(path: string): string {
 
 /** The body without its first line when that is a `# Heading` equal to the title, as Notion starts every page. */
 export function dropTitleHeading(content: string, title: string): string {
-    const match = /^#[ \t]+(.*?)[ \t]*(?:\n|$)/.exec(content);
+    const match = /^#[ \t]+(.*?)[ \t]*(?:\r?\n|$)/.exec(content);
     return match && match[1] === title ? content.slice(match[0].length).trim() : content;
 }
 

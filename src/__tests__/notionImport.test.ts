@@ -52,6 +52,7 @@ describe('Notion names', () => {
     it('drops the first heading only when it is the title', () => {
         expect(dropTitleHeading('# Project\n\nBody', 'Project')).toBe('Body');
         expect(dropTitleHeading('# Project', 'Project')).toBe('');
+        expect(dropTitleHeading('# Project\r\n\r\nBody', 'Project')).toBe('Body');
         expect(dropTitleHeading('# Other\n\nBody', 'Project')).toBe('# Other\n\nBody');
         expect(dropTitleHeading('Intro\n# Project', 'Project')).toBe('Intro\n# Project');
         expect(dropTitleHeading('## Project\nBody', 'Project')).toBe('## Project\nBody');

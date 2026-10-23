@@ -36,6 +36,7 @@ test('Notion export: clean names, page links, images and database tables', async
   part.file(`Tasks ${ID2}_all.csv`, '﻿Name,Status,Notes\nWrite,Done,"a, b"\nShip,Todo,"say ""go"""\n');
   part.file(`Tasks ${ID2}/Write ${ID}.md`, '# Write\n\nStatus: Done');
   part.file(`Tasks ${ID2}/Ship ${ID}.md`, '# Ship\n\nStatus: Todo');
+  part.file(`Project ${ID}/notes.pdf`, '%PDF-1.4');
   const outer = new JSZip();
   outer.file(`Export-${ID}-Part-1.zip`, await part.generateAsync({ type: 'nodebuffer' }));
 
@@ -47,7 +48,7 @@ test('Notion export: clean names, page links, images and database tables', async
     mimeType: 'application/zip',
     buffer: await outer.generateAsync({ type: 'nodebuffer' }),
   });
-  await expect(app.getByText('Successfully imported 5 notes and created 2 folders.')).toBeVisible();
+  await expect(app.getByText('Successfully imported 5 notes and created 2 folders. 1 file was skipped (not Markdown, CSV or an image).')).toBeVisible();
   await app.keyboard.press('Escape');
 
   // Folders take the page and database names, without Notion's ids
