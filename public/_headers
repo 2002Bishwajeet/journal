@@ -4,9 +4,39 @@
 # NOTE: require-corp blocks cross-origin subresources that lack CORP/CORS.
 # External images are proxied via the service worker to satisfy this; if Google
 # Fonts ever break, switch require-corp -> credentialless (still enables SAB in Chrome).
+#
+# Content-Security-Policy, Report-Only for now (#671): violations show in the
+# console, nothing is blocked. Enforcing it is renaming the header. vite.config.ts
+# reads the value from this line for dev and preview, and a unit test checks its
+# CDN hosts equal HTML_BLOCK_CDN_HOSTS (src/lib/liveBlocks.ts). Each source:
+#   default-src 'self'          anything not listed below stays on our origin
+#   script-src 'self'           the Vite bundle, workers' imports
+#     'unsafe-inline'           the theme guard in index.html, and every html/react
+#                               live block: an about:srcdoc frame inherits this
+#                               policy on top of its own, so its inline scripts
+#                               need it here too (a hash or nonce would switch it off)
+#     'wasm-unsafe-eval'        PGlite and WebLLM compile WASM
+#     <CDN hosts>               scripts an html block loads (same srcdoc inheritance)
+#   style-src 'unsafe-inline'   React style=, TipTap, framer-motion, mermaid's <style>,
+#                               and live blocks' inline styles; CDN hosts for blocks
+#   font-src 'self' data:       @fontsource fonts; data: and CDN hosts for blocks
+#   img-src 'self' data: blob:  remote images come through the SW's /proxy-image/;
+#                               link previews and svg blocks are data:, share page
+#                               images blob:
+#   media-src 'self' data: blob: as img-src
+#   connect-src https: wss:     the Homebase identity is on any domain (REST, the
+#                               notification websocket), WebLLM model downloads
+#   worker-src 'self' blob:     the PGlite and WebLLM workers, the service worker
+#   frame-src 'self'            live-block frames are srcdoc (no other frames)
+#   object-src 'none', base-uri 'self', form-action 'self', frame-ancestors 'none',
+#   manifest-src 'self'         no plugins, no <base> hijack, no off-site posts, no
+#                               framing of the app, our own manifest
+# The author and folder pages that functions/share/[[path]].ts builds itself do
+# not get these headers: they set their own policy (functions/_lib/authorIndex.ts).
 /*
   Cross-Origin-Embedder-Policy: require-corp
   Cross-Origin-Opener-Policy: same-origin
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' https: wss:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'
 
 # Hashed build assets are immutable — cache them aggressively.
 /assets/*
