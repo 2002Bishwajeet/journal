@@ -20,6 +20,7 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - A new note keeps its title when you start to type the text right after the title. Before, the note list sometimes showed it as "Untitled".
 - When you share a note with a circle, every member of the circle gets the invite.
 - When you revoke a shared note, it leaves the "Shared with me" list of each member.
+- Export keeps every note when two notes in one folder have the same title. The second file gets a number, for example "Same (2).md".
 
 ## 2.11.8 (2026-10-14)
 
