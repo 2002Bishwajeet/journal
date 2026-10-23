@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.13.0 (2026-10-23)
+
 ### New
 
 - You can import a Notion export. In Notion, export as Markdown & CSV, then import the .zip file in Settings, Data & storage.
