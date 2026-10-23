@@ -15,8 +15,16 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.12.0 (2026-10-23)
+
+### New
+
+- You can import an Obsidian vault. Export the vault as a .zip file, then import it in Settings, Data & storage.
+- The import keeps links between notes, embedded images, tags and callouts.
+
 ### Changed
 
+- Notes without math or code open faster. The app loads math and code highlighting only when a note needs them.
 - Before the app downloads an AI model, it shows the download size and what your device needs.
 - The app does not start the download until you choose Continue.
 - On a device without WebGPU, the app tells you and downloads nothing.
@@ -30,6 +38,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - When you share a note with a circle, every member of the circle gets the invite.
 - When you revoke a shared note, it leaves the "Shared with me" list of each member.
 - Export keeps every note when two notes in one folder have the same title. The second file gets a number, for example "Same (2).md".
+- When you revoke a shared note right after a member edits it, the revoke always takes.
+- On a new device, a folder that you make during the first sync stays after the sync ends.
 
 ## 2.11.8 (2026-10-14)
 
