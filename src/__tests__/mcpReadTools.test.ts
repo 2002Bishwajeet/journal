@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { listFolders, listNotes, getNote, searchNotes, type ReadDeps, type NoteSummary } from '../../mcp/tools/read';
+import { listFolders, listNotes, getNote, searchNotes, type ReadDeps, type NoteSummary } from '@/lib/agent/tools/read';
 import type { AgentGrants } from '@/lib/agent/grants';
 
 // F1 granted read, F2 granted none.

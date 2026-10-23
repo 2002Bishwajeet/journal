@@ -5,6 +5,7 @@ import {
     parseSharePath,
 } from '../_lib/shareMeta';
 import {
+    AUTHOR_INDEX_CSP,
     buildAuthorIndexHtml,
     buildSitemapXml,
     fetchAuthorIndex,
@@ -83,6 +84,7 @@ async function serveAuthorIndex(context: ShareContext, path: AuthorPath): Promis
             headers: {
                 'content-type': kind === 'sitemap' ? 'application/xml; charset=utf-8' : 'text/html; charset=utf-8',
                 'cache-control': 'no-cache',
+                'content-security-policy-report-only': AUTHOR_INDEX_CSP,
             },
         });
     } catch {
