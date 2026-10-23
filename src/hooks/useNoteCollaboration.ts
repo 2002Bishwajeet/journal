@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { fetchMembersOfCircle } from '@homebase-id/js-lib/network';
 import { useDotYouClientContext } from '@/components/auth';
 import { useSyncService } from '@/hooks/useSyncService';
 import { useNotes } from '@/hooks/useNotes';
@@ -9,7 +10,7 @@ import type { NoteListEntry } from '@/types';
 
 export interface SelectedCircle {
     circleId: string;
-    members: string[];
+    name: string;
 }
 
 /**
@@ -38,10 +39,18 @@ export function useNoteCollaboration() {
         }
 
         try {
-            // Extract circleIds and unique recipients from selected circles
+            // Resolve members now, not from the rows' queries: a row clicked before its
+            // members loaded would otherwise invite nobody
             const circleIds = circles.map((c) => c.circleId);
-            const allMembers = circles.flatMap((c) => c.members);
-            const recipients = [...new Set(allMembers)].filter(Boolean);
+            const memberLists = await Promise.all(
+                circles.map((c) => fetchMembersOfCircle(dotYouClient, c.circleId)),
+            );
+            const empty = circles.find((_, i) => !memberLists[i]?.some((m) => m.domain));
+            if (empty) {
+                toast.error(`${empty.name} has no members`);
+                return false;
+            }
+            const recipients = [...new Set(memberLists.flatMap((l) => (l ?? []).map((m) => m.domain)))].filter(Boolean);
 
             const provider = new NotesDriveProvider(dotYouClient);
             const editorOdinId = dotYouClient.getHostIdentity() || '';
@@ -106,6 +115,7 @@ export function useNoteCollaboration() {
             await provider.revokeNoteCollaboration(
                 note.docId,
                 editorOdinId,
+                note.metadata.recipients,
             );
             await updateNoteMetadata({
                 docId: note.docId,
