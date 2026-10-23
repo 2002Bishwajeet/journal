@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.14.0 (2026-10-23)
+
 ### Changed
 
 - The assistant now looks things up in your notes. Each answer shows the steps it took.
