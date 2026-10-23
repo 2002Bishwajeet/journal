@@ -14,6 +14,8 @@ export const SIDEBAR_COLLAPSE_KEY = 'journal-sidebar-collapse';
 export const AI_SETTINGS_KEY = 'journal-ai-settings';
 export const LEGACY_WEBLLM_ENABLED_KEY = 'webllm-enabled';
 export const SW_RELOAD_COUNT_KEY = 'sw_safety_reload_count';
+/** The identity that already saw the share dialog's Read-only message on this device (#730). */
+export const READ_ONLY_SHARE_NOTICE_KEY = 'journal-read-only-share-notice';
 
 /** Reads JSON, yielding null when there is nothing stored or storage throws (private browsing). */
 export function readJson<T>(key: string): T | null {

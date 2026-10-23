@@ -7,11 +7,21 @@ import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { ShareCircleProvider, type EnrollResult } from '@/lib/homebase/ShareCircleProvider';
 import { COLLABORATIVE_FOLDER_ID, JOURNAL_DRIVE, MAIN_FOLDER_ID } from '@/lib/homebase/config';
 import { getRecipientsOfOwnNotes, getSyncRecord } from '@/lib/db';
+import { READ_ONLY_SHARE_NOTICE_KEY, readString, writeString } from '@/lib/storage';
 import type { NoteListEntry } from '@/types';
 
 export interface SelectedCircle {
     circleId: string;
     name: string;
+}
+
+export interface ShareResult {
+    shared: boolean;
+    /**
+     * Set once per identity on this device when recipients got Read only because the
+     * Journal drive isn't Journal's: the owner console page where the owner can adopt it.
+     */
+    readOnlyDriveUrl?: string;
 }
 
 /** One toast per person the share circle refused; the share itself still saves (#730). */
@@ -53,16 +63,16 @@ export function useNoteCollaboration() {
         setNotePublic: { mutateAsync: setNotePublic },
     } = useNotes();
 
-    /** Shares the note with the circles; resolves true when it succeeded. */
-    const share = async (noteId: string, circles: SelectedCircle[]): Promise<boolean> => {
+    /** Shares the note with the circles. */
+    const share = async (noteId: string, circles: SelectedCircle[]): Promise<ShareResult> => {
         if (circles.length === 0) {
             toast.error('Please select at least one circle');
-            return false;
+            return { shared: false };
         }
 
         if (!dotYouClient) {
             toast.error('Not authenticated');
-            return false;
+            return { shared: false };
         }
 
         try {
@@ -75,7 +85,7 @@ export function useNoteCollaboration() {
             const empty = circles.find((_, i) => !memberLists[i]?.some((m) => m.domain));
             if (empty) {
                 toast.error(`${empty.name} has no members`);
-                return false;
+                return { shared: false };
             }
             const recipients = [...new Set(memberLists.flatMap((l) => (l ?? []).map((m) => m.domain)))].filter(Boolean);
 
@@ -143,20 +153,17 @@ export function useNoteCollaboration() {
             }
 
             toast.success('Note is now collaborative');
-            if (!canEdit) {
-                // The drive belongs to the owner console, so Journal's circle can grant Read only
-                const driveUrl = `${dotYouClient.getRoot()}/owner/drives/${JOURNAL_DRIVE.alias}_${JOURNAL_DRIVE.type}`;
-                toast.info("People you share with can read this note but can't edit it yet.", {
-                    description: 'To let them edit, open the Journal drive in Homebase and make Journal the app that owns it.',
-                    action: { label: 'Open drive settings', onClick: () => window.open(driveUrl, '_blank', 'noopener') },
-                    duration: 15000,
-                });
-            }
-            return true;
+            // The drive belongs to the owner console, so Journal's circle can grant Read only
+            if (canEdit || readString(READ_ONLY_SHARE_NOTICE_KEY) === editorOdinId) return { shared: true };
+            writeString(READ_ONLY_SHARE_NOTICE_KEY, editorOdinId);
+            return {
+                shared: true,
+                readOnlyDriveUrl: `${dotYouClient.getRoot()}/owner/drives/${JOURNAL_DRIVE.alias}_${JOURNAL_DRIVE.type}`,
+            };
         } catch (err) {
             console.error('Failed to make note collaborative:', err);
             toast.error('Failed to make note collaborative');
-            return false;
+            return { shared: false };
         }
     };
 

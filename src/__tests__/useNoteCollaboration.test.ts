@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => ({
     calls: [] as string[],
     toastError: vi.fn(),
     toastSuccess: vi.fn(),
-    toastInfo: vi.fn(),
     ensureShareCircle: vi.fn(),
     enroll: vi.fn(),
     unenroll: vi.fn(),
@@ -28,7 +27,7 @@ const mocks = vi.hoisted(() => ({
     fetchMembersOfCircle: vi.fn(),
 }));
 vi.mock('@homebase-id/js-lib/network', () => ({ fetchMembersOfCircle: mocks.fetchMembersOfCircle }));
-vi.mock('sonner', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess, info: mocks.toastInfo } }));
+vi.mock('sonner', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
 vi.mock('@/components/auth', () => ({
     useDotYouClientContext: () => ({ getHostIdentity: () => 'me.id', getRoot: () => 'https://me.id' }),
 }));
@@ -75,6 +74,7 @@ const record = (name: string) => vi.fn(async () => { mocks.calls.push(name); ret
 beforeEach(() => {
     (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     vi.clearAllMocks();
+    localStorage.clear();
     mocks.calls = [];
     mocks.flushAndSyncNote.mockImplementation(record('flush'));
     mocks.getSyncRecord.mockImplementation(async () => { mocks.calls.push('record'); return { remoteFileId: 'file-1' }; });
@@ -132,7 +132,7 @@ describe('share', () => {
         const { api, unmount } = await mountHook();
 
         let shared = false;
-        await act(async () => { shared = await api().share('n1', CIRCLES); });
+        await act(async () => { shared = (await api().share('n1', CIRCLES)).shared; });
 
         expect(shared).toBe(true);
         expect(mocks.calls).toEqual(['flush', 'record', 'provider', 'circle', 'enroll', 'invite', 'unpublish', 'metadata']);
@@ -176,7 +176,7 @@ describe('share', () => {
         MEMBERS.c2 = [];
         const { api, unmount } = await mountHook();
         let shared = true;
-        await act(async () => { shared = await api().share('n1', CIRCLES); });
+        await act(async () => { shared = (await api().share('n1', CIRCLES)).shared; });
 
         expect(shared).toBe(false);
         expect(mocks.toastError).toHaveBeenCalledWith('Two has no members');
@@ -188,7 +188,7 @@ describe('share', () => {
     it('rejects an empty selection without calling anything', async () => {
         const { api, unmount } = await mountHook();
         let shared = true;
-        await act(async () => { shared = await api().share('n1', []); });
+        await act(async () => { shared = (await api().share('n1', [])).shared; });
 
         expect(shared).toBe(false);
         expect(mocks.calls).toEqual([]);
@@ -216,7 +216,7 @@ describe('share', () => {
         ]);
         const { api, unmount } = await mountHook();
         let shared = false;
-        await act(async () => { shared = await api().share('n1', CIRCLES); });
+        await act(async () => { shared = (await api().share('n1', CIRCLES)).shared; });
 
         expect(shared).toBe(true);
         expect(mocks.updateNote).toHaveBeenCalled();
@@ -232,7 +232,7 @@ describe('share', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const { api, unmount } = await mountHook();
         let shared = false;
-        await act(async () => { shared = await api().share('n1', CIRCLES); });
+        await act(async () => { shared = (await api().share('n1', CIRCLES)).shared; });
 
         expect(shared).toBe(true);
         expect(mocks.calls).toContain('invite');
@@ -241,16 +241,36 @@ describe('share', () => {
         await unmount();
     });
 
-    it("tells the owner once that recipients can only read while the drive isn't Journal's", async () => {
+    it('returns no read-only notice when recipients can edit', async () => {
+        const { api, unmount } = await mountHook();
+        let result: unknown;
+        await act(async () => { result = await api().share('n1', CIRCLES); });
+        expect(result).toEqual({ shared: true });
+        await unmount();
+    });
+
+    it("returns the drive settings link once per identity while the drive isn't Journal's", async () => {
         mocks.ensureShareCircle.mockResolvedValue({ circleId: 'read', canEdit: false });
         const { api, unmount } = await mountHook();
-        await act(async () => { await api().share('n1', CIRCLES); });
+        const results: unknown[] = [];
+        await act(async () => { results.push(await api().share('n1', CIRCLES)); });
+        await act(async () => { results.push(await api().share('n1', CIRCLES)); });
 
-        expect(mocks.toastInfo).toHaveBeenCalledTimes(1);
-        expect(mocks.toastInfo).toHaveBeenCalledWith(
-            "People you share with can read this note but can't edit it yet.",
-            expect.objectContaining({ action: expect.objectContaining({ label: 'Open drive settings' }) }),
-        );
+        expect(results).toEqual([
+            { shared: true, readOnlyDriveUrl: 'https://me.id/owner/drives/alias_type' },
+            { shared: true },
+        ]);
+        expect(localStorage.getItem('journal-read-only-share-notice')).toBe('me.id');
+        await unmount();
+    });
+
+    it('shows the read-only notice again to another identity on the same device', async () => {
+        localStorage.setItem('journal-read-only-share-notice', 'someone-else.id');
+        mocks.ensureShareCircle.mockResolvedValue({ circleId: 'read', canEdit: false });
+        const { api, unmount } = await mountHook();
+        let url: string | undefined;
+        await act(async () => { url = (await api().share('n1', CIRCLES)).readOnlyDriveUrl; });
+        expect(url).toBe('https://me.id/owner/drives/alias_type');
         await unmount();
     });
 
@@ -271,7 +291,7 @@ describe('share', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const { api, unmount } = await mountHook();
         let shared = true;
-        await act(async () => { shared = await api().share('n1', CIRCLES); });
+        await act(async () => { shared = (await api().share('n1', CIRCLES)).shared; });
 
         expect(shared).toBe(false);
         expect(mocks.updateNote).not.toHaveBeenCalled();
