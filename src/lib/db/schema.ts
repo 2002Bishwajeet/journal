@@ -10,7 +10,7 @@ import { MAIN_FOLDER_ID } from '../homebase/config';
 import { SYNC_ERRORS_ACTIVE_INDEX_SQL } from './syncErrorsSchema';
 
 // Bump whenever a new statement is added to runMigrations().
-export const SCHEMA_VERSION = '6';
+export const SCHEMA_VERSION = '7';
 
 // pg_trgm and its GIN indexes. Run on demand by ensureTrigramSearch() in
 // pglite.ts, not at boot (loading the extension costs ~1–2s).
@@ -74,7 +74,6 @@ export async function initializeSchema(database: PGliteInterface): Promise<void>
       title TEXT NOT NULL DEFAULT 'Untitled',
       plain_text_content TEXT DEFAULT '',
       metadata JSONB NOT NULL DEFAULT '{}',
-      vector_embedding REAL[],
       search_vector tsvector,
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
@@ -193,14 +192,14 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
   // pg_trgm and its trigram indexes are enabled lazily on first search via
   // ensureTrigramSearch() — intentionally not created here.
 
-  // Add vector_embedding column if it doesn't exist
+  // Drop the unused vector_embedding column (nothing reads or writes it)
   try {
     await database.exec(`
-      ALTER TABLE search_index ADD COLUMN IF NOT EXISTS vector_embedding REAL[];
+      ALTER TABLE search_index DROP COLUMN IF EXISTS vector_embedding;
     `);
-    console.log('[DB Migration] vector_embedding column ensured');
+    console.log('[DB Migration] vector_embedding column dropped');
   } catch (error) {
-    console.warn('[DB Migration] Could not add vector_embedding column:', error);
+    console.warn('[DB Migration] Could not drop vector_embedding column:', error);
   }
 
   // Add search_vector column for FTS if it doesn't exist
