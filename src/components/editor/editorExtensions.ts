@@ -1,7 +1,6 @@
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { CodeBlockNodeView } from './nodes/CodeBlockNodeView';
-import { createBaseExtensions } from './plugins/extensions';
+import { CodeBlockHighlight, createBaseExtensions } from './plugins/extensions';
 import { ImageSchema } from './nodes/imageSchema';
 import { ImageNodeView } from './nodes/ImageNode';
 import { NoteLink } from './nodes/NoteLinkNode';
@@ -50,7 +49,7 @@ const CalloutWithView = Callout.extend({
 });
 
 /** The headless code block plus the React node view (CodeBlockNodeView.tsx). */
-const CodeBlockWithView = CodeBlockLowlight.extend({
+const CodeBlockWithView = CodeBlockHighlight.extend({
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockNodeView);
   },
@@ -73,5 +72,5 @@ export function createEditorExtensions() {
   });
   // The headless code block is configured in plugins/extensions.ts (shared with
   // the edit engine); extend it in place so its lowlight options carry over.
-  return extensions.map((ext) => (ext.name === CodeBlockLowlight.name ? CodeBlockWithView.configure(ext.options) : ext));
+  return extensions.map((ext) => (ext.name === CodeBlockHighlight.name ? CodeBlockWithView.configure(ext.options) : ext));
 }
