@@ -28,6 +28,7 @@ import { useDotYouClientContext } from "@/components/auth";
 import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
 import { useAISettings } from "@/hooks/useAISettings";
+import { useRegisterActiveEditor } from "@/hooks/useRegisterActiveEditor";
 
 // EditorProvider auto-saves, so Cmd+S only needs swallowing. A module constant
 // keeps the handler's identity stable: every mounted tab rebinds the window
@@ -65,6 +66,12 @@ function EditorLayout({
   // We can trust specific noteId exists because parent checks it
   const selectedNote = notes.find((n) => n.docId === noteId);
   const selectedNoteMetadata = selectedNote?.metadata;
+  useRegisterActiveEditor(editor, {
+    docId: noteId,
+    isActive,
+    editable: !!editor?.isEditable && selectedNoteMetadata?.archivalStatus !== 2,
+    excludeFromAI: selectedNoteMetadata?.excludeFromAI === true,
+  });
 
   const collaborativePopover = selectedNoteMetadata?.isCollaborative ? (
     <CollaborativePopover

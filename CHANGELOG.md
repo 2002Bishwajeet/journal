@@ -1,3 +1,23 @@
+## [2.13.1](https://github.com/2002Bishwajeet/journal/compare/v2.13.0...v2.13.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **sharing:** take invite author from the sender, not invite content ([#733](https://github.com/2002Bishwajeet/journal/issues/733)) ([8cff47e](https://github.com/2002Bishwajeet/journal/commit/8cff47ee3e654a9e45909c9333407519b80a154b))
+# [2.13.0](https://github.com/2002Bishwajeet/journal/compare/v2.12.0...v2.13.0) (2026-10-23)
+
+
+### Bug Fixes
+
+* **import:** escape backslashes in Notion table cells and link labels ([#595](https://github.com/2002Bishwajeet/journal/issues/595)) ([5713ec9](https://github.com/2002Bishwajeet/journal/commit/5713ec91a00467378fe0193184ebb272c51b2e7a))
+
+
+### Features
+
+* **agent:** local ReadDeps over PGlite with FTS search snippets ([#697](https://github.com/2002Bishwajeet/journal/issues/697)) ([c385d1d](https://github.com/2002Bishwajeet/journal/commit/c385d1de9d1030c10b895b2938e1222a43758df1))
+* **ai:** editor-operation tools for the open note ([#700](https://github.com/2002Bishwajeet/journal/issues/700)) ([88e05ab](https://github.com/2002Bishwajeet/journal/commit/88e05ab3f56f4d6a9753db3dbd25c89363cdb20e))
+* **ai:** local agent loop with schema-forced tool calls, step cap and trimming ([#698](https://github.com/2002Bishwajeet/journal/issues/698)) ([a5b2fc1](https://github.com/2002Bishwajeet/journal/commit/a5b2fc11a7974b4f12bab8d123312d290f79eaca))
+* **import:** import Notion Markdown & CSV exports ([#595](https://github.com/2002Bishwajeet/journal/issues/595)) ([0580fb6](https://github.com/2002Bishwajeet/journal/commit/0580fb69bf8f709687efac1c5a06d012b9605c1b))
 # [2.12.0](https://github.com/2002Bishwajeet/journal/compare/v2.11.8...v2.12.0) (2026-10-23)
 
 

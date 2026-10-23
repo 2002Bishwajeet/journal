@@ -20,6 +20,20 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - When you share a note, the people you share with get access to it. You do not change settings in Homebase first.
 - When you stop sharing a note, the app removes access for people who have no other note from you.
 
+## 2.13.1 (2026-10-23)
+
+### Fixed
+
+- The app shows a shared note under the person who really sent it.
+- The app ignores a share invite that names a different person as the sender.
+
+## 2.13.0 (2026-10-23)
+
+### New
+
+- You can import a Notion export. In Notion, export as Markdown & CSV, then import the .zip file in Settings, Data & storage.
+- The import keeps page titles, links between pages and images. Notion databases become tables.
+
 ## 2.12.0 (2026-10-23)
 
 ### New
