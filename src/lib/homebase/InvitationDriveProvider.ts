@@ -106,7 +106,7 @@ export class InvitationDriveProvider {
         }
     }
 
-    async deleteInvitation(noteUniqueId: string): Promise<void> {
+    async deleteInvitation(noteUniqueId: string, recipients?: string[]): Promise<void> {
         const inviteUniqueId = toGuidId(`collab-invite-${noteUniqueId}`);
         const existingInvite = await getFileHeaderByUniqueId(
             this.#dotYouClient,
@@ -116,7 +116,7 @@ export class InvitationDriveProvider {
         );
 
         if (existingInvite && existingInvite.fileMetadata.appData.fileType === COLLABORATION_INVITE_FILE_TYPE) {
-            await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, existingInvite.fileId);
+            await deleteFile(this.#dotYouClient, JOURNAL_DRIVE, existingInvite.fileId, recipients);
         }
     }
 }
