@@ -15,6 +15,11 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- When you share a note, the people you share with get access to it. You do not change settings in Homebase first.
+- When you stop sharing a note, the app removes access for people who have no other note from you.
+
 ## 2.14.0 (2026-10-23)
 
 ### Changed
