@@ -15,6 +15,15 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- Before the app downloads an AI model, it shows the download size and what your device needs.
+- The app does not start the download until you choose Continue.
+- On a device without WebGPU, the app tells you and downloads nothing.
+- Settings has two AI model lists: one for writing help and one for the assistant.
+- New users get the smaller Qwen 2.5 0.5B model for writing help.
+- The app removes Llama 3.2 1B from the list. If you chose it, the app uses Qwen 2.5 0.5B.
+
 ### Fixed
 
 - A new note keeps its title when you start to type the text right after the title. Before, the note list sometimes showed it as "Untitled".
