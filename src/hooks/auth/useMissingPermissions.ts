@@ -74,10 +74,11 @@ export const useMissingPermissions = ({
 
     const missingPermissions = permissions?.filter((key) => permissionKeys?.indexOf(key) === -1);
 
-    const hasAllConnectedCircle = context?.caller.isGrantedConnectedIdentitiesSystemCircle;
-    const missingAllConnectedCircle = (needsAllConnected && !hasAllConnectedCircle) || false;
-    if (missingDrives.length === 0 && missingPermissions.length === 0 && !missingAllConnectedCircle)
-        return;
+    // The all connected identities grant is requested along with anything else that is
+    // missing, but never counts as missing on its own: odin-core sets
+    // `caller.isGrantedConnectedIdentitiesSystemCircle` from the caller's circles, and an
+    // app-token caller has none, so the flag is false even when the grant is in place.
+    if (missingDrives.length === 0 && missingPermissions.length === 0) return;
 
     const extendPermissionUrl = getExtendAppRegistrationUrl(
         host,
@@ -86,7 +87,7 @@ export const useMissingPermissions = ({
         circleDrives,
         missingPermissions,
         returnUrl || window.location.href,
-        missingAllConnectedCircle,
+        needsAllConnected,
         circleOdinIds,
     );
 
