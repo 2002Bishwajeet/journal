@@ -7,13 +7,14 @@ const FIRST_NAMED_IDENTITY_RELEASE = [0, 1, 966];
 /**
  * Whether a server of this version honours a file's `odinIdList`. An older one stores the
  * list but then refuses every reader, and the owner can't tell (decision 8 on #678). A
- * version that isn't a release number, as a branch build such as the bleeding-edge
- * servers reports ("-.-.-"), is taken to be new enough.
+ * version that isn't a release number is taken to be new enough: a branch build
+ * reports "-.-.-", and the bleeding-edge demo servers report "0.0.0".
  */
 export function supportsNamedIdentities(version: string): boolean {
     const match = /^"?v?(\d+)\.(\d+)\.(\d+)/.exec(version.trim());
     if (!match) return true;
     const parts = match.slice(1).map(Number);
+    if (parts.every((part) => part === 0)) return true;
     const differs = parts.findIndex((part, i) => part !== FIRST_NAMED_IDENTITY_RELEASE[i]);
     return differs === -1 || parts[differs] > FIRST_NAMED_IDENTITY_RELEASE[differs];
 }

@@ -19,6 +19,8 @@ describe('supportsNamedIdentities', () => {
     it('is true for a branch build, which reports no release number', () => {
         expect(supportsNamedIdentities('-.-.-')).toBe(true);
         expect(supportsNamedIdentities('')).toBe(true);
+        // The bleeding-edge demo servers (2026-10-23)
+        expect(supportsNamedIdentities('0.0.0')).toBe(true);
     });
 });
 
