@@ -47,6 +47,8 @@ test('collapsed rail shows the selected folder tile and its badge in full', asyn
   // Initials collide on purpose (Health/Habits, Movies/Main), like the owner's report.
   for (const name of ['Garden', 'Health', 'Habits', 'Movies', 'Projects']) await createFolder(app, name);
   await shareFolder(app, 'Projects');
+  // An unselected shared folder too, so the shots show its badge on a plain tile.
+  await shareFolder(app, 'Garden');
 
   await rail(app).getByRole('button', { name: 'Collapse sidebar' }).click();
   await expect(rail(app).getByRole('button', { name: 'Expand sidebar' })).toBeVisible();
@@ -62,7 +64,10 @@ test('collapsed rail shows the selected folder tile and its badge in full', asyn
   await expect(tile).toHaveAttribute('aria-current', 'page');
   await expectFullyVisible(app, tile);
   // The public badge hangs off the tile's corner but stays inside the rail.
-  expectInside(await box(tile.getByTestId('folder-public-badge')), await box(railViewport(app)));
+  const viewport = await box(railViewport(app));
+  expectInside(await box(tile.getByTestId('folder-public-badge')), viewport);
+  const garden = foldersNav(app).getByRole('button', { name: 'Garden', exact: true });
+  expectInside(await box(garden.getByTestId('folder-public-badge')), viewport);
 
   // Keyboard focus names the folder in a tooltip.
   await app.keyboard.press('Shift+Tab');

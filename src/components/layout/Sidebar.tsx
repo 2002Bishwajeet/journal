@@ -206,7 +206,13 @@ export default function Sidebar({
         <Separator />
 
         {/* Radix wraps the content in a display:table div that grows to the longest folder name; block keeps names truncating. */}
-        <ScrollArea className="flex-1 min-h-0 w-full [&_[data-slot=scroll-area-viewport]>div]:!block">
+        <ScrollArea
+          className={cn(
+            "flex-1 min-h-0 w-full [&_[data-slot=scroll-area-viewport]>div]:!block",
+            // A thinner scrollbar in the rail, so it never covers a tile's badge.
+            isCollapsed && "[&_[data-slot=scroll-area-scrollbar]]:w-1.5"
+          )}
+        >
           <PullToRefresh onRefresh={handleRefresh} className="min-h-full">
           {collaborativeCount != null && collaborativeCount > 0 && (
             <div className={cn("px-2 pt-2 pb-1", isCollapsed && "flex justify-center")}>
@@ -306,8 +312,11 @@ export default function Sidebar({
                               "group relative transition-all duration-200 flex items-center",
                               isCollapsed
                                 ? // The button is the tile, so its focus ring and the badge are never clipped by an inner box.
-                                  "size-9 px-0 rounded-lg border border-sidebar-border text-[11px] font-semibold tracking-wide text-muted-foreground hover:text-foreground"
+                                  "size-9 px-0 rounded-lg border text-[11px] font-semibold tracking-wide"
                                 : "w-full min-w-0 h-10 justify-start px-2",
+                              // Light mode needs a stronger edge and darker letters than the muted tokens give on the sidebar (4.5:1 text).
+                              isCollapsed && !isSelected &&
+                                "border-muted-foreground/50 text-sidebar-foreground/80 hover:text-sidebar-foreground dark:border-sidebar-border dark:text-muted-foreground dark:hover:text-foreground",
                               isSelected &&
                                 (isCollapsed
                                   ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground dark:hover:bg-primary/90"
@@ -326,9 +335,9 @@ export default function Sidebar({
                                   <span
                                     aria-hidden
                                     data-testid="folder-public-badge"
-                                    className="absolute -bottom-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-sidebar text-muted-foreground ring-1 ring-sidebar-border"
+                                    className="absolute -bottom-1 -right-0.5 flex size-4 items-center justify-center rounded-full bg-sidebar text-sidebar-foreground/80 ring-1 ring-muted-foreground/50"
                                   >
-                                    <Globe className="size-2.5" />
+                                    <Globe className="size-3" />
                                   </span>
                                 )}
                               </>
