@@ -389,7 +389,7 @@ Defined in `src/lib/db/schema.ts`: base tables in `initializeSchema()`, later co
 - Index: `idx_document_updates_doc_id` on doc_id
 
 ### `search_index` — Derived state for FTS and list rendering
-- `doc_id` UUID PK, `title` TEXT, `plain_text_content` TEXT, `metadata` JSONB, `vector_embedding` REAL[], `search_vector` tsvector, `updated_at` TIMESTAMPTZ
+- `doc_id` UUID PK, `title` TEXT, `plain_text_content` TEXT, `metadata` JSONB, `search_vector` tsvector, `updated_at` TIMESTAMPTZ
 - Indexes: btree on title, GIN on search_vector, expression indexes on `metadata->>'folderId'` and modified time; GIN trigram on title + content is created lazily on first fuzzy search (`ensureTrigramSearch()`)
 
 ### `folders`
@@ -634,7 +634,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 - Edits are minimal Yjs diffs (`src/lib/agent/editEngine.ts`, `updateYFragment`), uploaded with the fetched version tag and retried on conflict, so concurrent edits merge. Agent writes set `lastEditedBy` to `agent:<client>`, shown as "Edited by …" (`src/lib/agent/attribution.ts`).
 - Block edits (#560): `get_note` with `format: "blocks"` lists top-level blocks by id, the Yjs item id (`client:clock`) of the block's element, which sync keeps since it only merges updates. `edit_block` (`editBlock` in `editEngine.ts`) writes Yjs at that block, table row, column or cell only, so other blocks and cells keep their items and column widths.
 - Covers (#516): `set_note_cover` / `clear_note_cover`. The image (file path or `data:` URI) is read by `mcp/imageSource.ts` and checked by `src/lib/images/imageBytes.ts` (PNG/JPEG/WebP by magic bytes, ≤ 5 MB, metadata stripped without a canvas), then uploaded through `addImageToNote` with the image as its own thumbnail. Reuse both for body images.
-- Body images (#415): in markdown passed to `create_note`, `append_to_note`, `replace_in_note` (`new_text`) and `update_note`, `![alt](<path or data: URI>)` is uploaded (`editWithBodyImages` in `mcp/tools/write.ts`) and swapped to `attachment://…` by the markdown parse (`imageSrcs` in `editEngine.ts`) before the Yjs write. All images are read and checked first, so a bad one fails the call with nothing written; `create_note` creates the note empty, then writes the body, and trashes it if that fails.
+- Body images (#415): in markdown passed to `create_note`, `append_to_note`, `replace_in_note` (`new_text`) and `update_note`, `![alt](<path or data: URI>)` is uploaded (`editWithBodyImages` in `src/lib/agent/tools/write.ts`) and swapped to `attachment://…` by the markdown parse (`imageSrcs` in `editEngine.ts`) before the Yjs write. All images are read and checked first, so a bad one fails the call with nothing written; `create_note` creates the note empty, then writes the body, and trashes it if that fails.
 - What agents are told (#519): `initialize` instructions (a ~20-line feature summary in `mcp/createServer.ts`) and `get_authoring_guide`, which returns `mcp/AUTHORING.md` (inlined via `?raw`). The markdown tools' descriptions only point to it. Document a new block, react import or CDN host there: `mcpServer.test.ts` fails otherwise, and `mcpRoundTrip.test.ts` round-trips every documented feature through the server.
 - Specs: `e2e/agent-access/` (live tier). Not done: live co-editing with agent presence (#171, needs design).
 

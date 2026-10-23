@@ -7,8 +7,8 @@ import { setFolderAccess, type AgentAccess } from '@/lib/agent/grants';
 import type { HomebaseFile } from '@homebase-id/js-lib/core';
 import type { PreparedImage } from '@/lib/images/imageBytes';
 import type { DocumentMetadata, NoteFileContent } from '@/types';
-import type { NoteSummary } from './tools/read';
-import { VersionConflictError, type NoteEdit, type NoteForEdit, type WriteDeps } from './tools/write';
+import type { NoteSummary } from '@/lib/agent/tools/read';
+import { VersionConflictError, type NoteEdit, type NoteForEdit, type WriteDeps } from '@/lib/agent/tools/write';
 import type { McpCredentials } from './credentials';
 import { createClient } from './client';
 
@@ -48,12 +48,12 @@ export async function collectPages<T>(
 }
 
 /**
- * Implements ReadDeps (mcp/tools/read.ts) and the drive half of WriteDeps
- * (mcp/tools/write.ts; `clientName` comes from the MCP server) against the real Homebase drive, using the same
+ * Implements ReadDeps (src/lib/agent/tools/read.ts) and the drive half of WriteDeps
+ * (src/lib/agent/tools/write.ts; `clientName` comes from the MCP server) against the real Homebase drive, using the same
  * NotesDriveProvider/FolderDriveProvider the app uses (imported directly, not through the
  * @/lib/homebase barrel, which also re-exports SyncService and pulls in PGlite).
  */
-export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientName'> {
+export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientName' | 'loadImage'> {
     const client = createClient(creds);
     const notesProvider = new NotesDriveProvider(client);
     const folderProvider = new FolderDriveProvider(client);

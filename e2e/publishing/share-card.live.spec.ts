@@ -60,7 +60,8 @@ test('share dialog link card: preview, custom description, indexing (#222)', asy
 
     try {
         const dialog = await openShareDialog(page, title);
-        const preview = dialog.locator('div.rounded-lg.border').filter({ has: page.locator('img[src="/logo.webp"]') });
+        // The card's text under its image (#434 draws an image for every public note, so the logo fallback goes).
+        const preview = dialog.getByRole('region', { name: 'Link preview' });
         await expect(preview).toContainText(title);
         await expect(preview).toContainText(firstParagraph);
 
