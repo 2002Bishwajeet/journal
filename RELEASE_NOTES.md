@@ -15,6 +15,11 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- You can import a Notion export. In Notion, export as Markdown & CSV, then import the .zip file in Settings, Data & storage.
+- The import keeps tables, images and tags. Notes in subpages go into the folder of their top-level page.
+
 ## 2.12.0 (2026-10-23)
 
 ### New
