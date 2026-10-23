@@ -103,6 +103,22 @@ export async function deleteFolder(page: Page, name: string): Promise<void> {
     await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
 }
 
+/** Stop sharing a folder if it is shared (no-op when private), so its notes leave the public index. */
+export async function unshareFolderIfShared(page: Page, name: string): Promise<void> {
+    await assertTestOrigin(page);
+    await foldersNav(page).getByRole('button', { name, exact: true }).click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Share folder…' }).click();
+    const dialog = page.getByRole('dialog');
+    const stop = dialog.getByRole('button', { name: 'Stop sharing (make private)' });
+    await expect(dialog.getByRole('button', { name: /^(Share folder|Stop sharing \(make private\))$/ })).toBeVisible();
+    if (await stop.isVisible()) {
+        await stop.click();
+        await dialog.getByRole('button', { name: 'Stop sharing', exact: true }).click();
+        await expect(page.getByText(/Folder is private again/)).toBeVisible({ timeout: 60_000 });
+    }
+    await page.keyboard.press('Escape');
+}
+
 /** Make a note public via the note list's "Share" context-menu item, returning its share URL. */
 export async function shareNotePublicly(page: Page, title: string): Promise<string> {
     await assertTestOrigin(page);

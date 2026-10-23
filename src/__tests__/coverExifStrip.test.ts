@@ -26,7 +26,7 @@ vi.mock('@/lib/yjs', () => ({
 }));
 vi.mock('@/lib/yjs/flushPendingSave', () => ({ flushPendingSaveOnTeardown: vi.fn() }));
 vi.mock('@/lib/db', () => ({
-  upsertSearchIndex: vi.fn(),
+  updateSearchIndexContent: vi.fn(),
   savePendingImageUpload: (...args: unknown[]) => savePendingImageUpload(...args),
   savePendingImageDeletion: vi.fn(),
   updateSyncStatus: vi.fn(),

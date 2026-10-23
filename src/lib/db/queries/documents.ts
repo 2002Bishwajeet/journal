@@ -177,6 +177,32 @@ export async function updateSearchIndexMetadata(
     );
 }
 
+/**
+ * The editor's content save: writes the preview text and the editor-owned metadata keys
+ * (`linkedNoteIds`, `lastEditedBy`, `timestamps.modified`) onto the row, keeping its title
+ * and every other metadata key. The editor's own metadata snapshot can be older than a
+ * title or flag write still on its way through the live query, and writing that snapshot
+ * back reverted the title (#686).
+ */
+export async function updateSearchIndexContent(
+    docId: string,
+    plainTextContent: string,
+    edit: { linkedNoteIds: string[]; lastEditedBy?: string; modified: string },
+): Promise<void> {
+    const db = await getDatabase();
+    const { modified, ...keys } = edit;
+    await db.query(
+        `UPDATE search_index
+         SET plain_text_content = $2,
+             metadata = jsonb_set((metadata - 'lastEditedBy') || $3::jsonb, '{timestamps,modified}', to_jsonb($4::text)),
+             search_vector = setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
+                             setweight(to_tsvector('english', COALESCE($2, '')), 'B'),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE doc_id = $1`,
+        [docId, plainTextContent, JSON.stringify(keys), modified]
+    );
+}
+
 export async function getSearchIndexEntry(docId: string): Promise<SearchIndexEntry | null> {
     const db = await getDatabase();
     const result = await db.query<{

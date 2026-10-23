@@ -282,6 +282,59 @@ describe('note header transitions (#161)', () => {
         expect(JSON.parse(metadata.appData.content).isPublic).toBe(false);
     });
 
+    // #689: a peer's edit landing between the header fetch and the patch made the
+    // revoke's patch conflict. It is rebuilt once from the fresh header.
+    describe('revokeNoteCollaboration on a version conflict', () => {
+        const sharedAcl = { requiredSecurityGroup: SecurityGroupType.Connected, circleIdList: ['circle-1'] };
+        const peerEdited = () => {
+            const header = noteHeader('object', { acl: sharedAcl });
+            header.fileMetadata.versionTag = 'v2';
+            (header.fileMetadata as Record<string, unknown>).updated = 2000;
+            header.fileMetadata.appData.content = { ...CONTENT, title: 'Peer title' };
+            return header;
+        };
+        // The SDK hands a versionTagMismatch to the onVersionConflict argument, and throws without one.
+        const conflictOnce = (onConflict: () => void) => {
+            mockPatchFile.mockImplementationOnce(async (...args: unknown[]) => {
+                onConflict();
+                const handler = args[7] as (() => Promise<unknown>) | undefined;
+                if (!handler) throw new Error('versionTagMismatch');
+                return handler();
+            });
+        };
+
+        it('retries the patch against the fresh header and still revokes', async () => {
+            let current = noteHeader('object', { acl: sharedAcl });
+            mockGetHeader.mockImplementation(async (_c: unknown, _d: unknown, uniqueId: string) =>
+                uniqueId === NOTE_ID ? current : null
+            );
+            conflictOnce(() => { current = peerEdited(); });
+
+            await expect(provider.revokeNoteCollaboration(NOTE_ID, 'me.id')).resolves.toEqual({
+                versionTag: 'v3',
+                previousVersionTag: 'v2',
+                previousUpdated: 2000,
+            });
+
+            expect(mockPatchFile).toHaveBeenCalledTimes(2);
+            const [, , instructions, metadata] = mockPatchFile.mock.calls[1];
+            expect(instructions.versionTag).toBe('v2');
+            expect(metadata.versionTag).toBe('v2');
+            expect(metadata.appData.groupId).toBe(MAIN_FOLDER_ID);
+            expect(metadata.accessControlList).toEqual({ requiredSecurityGroup: SecurityGroupType.Owner });
+            expect(JSON.parse(metadata.appData.content)).toMatchObject({ title: 'Peer title', isCollaborative: false });
+        });
+
+        it('fails, instead of doing nothing, when the retry conflicts too', async () => {
+            serveNote(noteHeader('object', { acl: sharedAcl }));
+            conflictOnce(() => {});
+            conflictOnce(() => {});
+
+            await expect(provider.revokeNoteCollaboration(NOTE_ID, 'me.id')).rejects.toThrow('versionTagMismatch');
+            expect(mockPatchFile).toHaveBeenCalledTimes(2);
+        });
+    });
+
     it.each([
         ['makeNotePublic', () => provider.makeNotePublic(NOTE_ID), mockReUpload],
         ['makeNotePrivate', () => provider.makeNotePrivate(NOTE_ID), mockReUpload],
