@@ -191,7 +191,89 @@ export function convertMarkdown(
         })
         .replace(MD_LINK, (full, label: string, target: string) => {
             const path = resolveImagePath(notePath, target);
-            const note = path?.toLowerCase().endsWith('.md') ? notes.find((n) => n.path === path) : undefined;
-            return note ? noteLink(label || baseName(path!).replace(/\.md$/i, ''), note.id) : full;
+            // A Notion database's link names `X.csv`, though the note may be its `X_all.csv`
+            const note = path && /\.(md|csv)$/i.test(path)
+                ? notes.find((n) => n.path === path || n.path === path.replace(/\.csv$/i, '_all.csv'))
+                : undefined;
+            return note ? noteLink(stripNotionId(label) || titleOf(path!), note.id) : full;
         }));
+}
+
+// Notion's page id: a space and 32 hex characters at the end of a file or folder name (#595)
+const NOTION_ID = / [0-9a-f]{32}$/i;
+
+/** A file or folder name (no extension) without Notion's id suffix: `Project 0123…cdef` → `Project`. */
+export function stripNotionId(name: string): string {
+    return name.replace(NOTION_ID, '');
+}
+
+/** A note's title from its path: the file name without its extension (and a CSV's `_all`) or Notion id. */
+export function titleOf(path: string): string {
+    return stripNotionId(baseName(path).replace(/(_all)?\.csv$|\.md$/i, ''));
+}
+
+/** The body without its first line when that is a `# Heading` equal to the title, as Notion starts every page. */
+export function dropTitleHeading(content: string, title: string): string {
+    const match = /^#[ \t]+(.*?)[ \t]*(?:\n|$)/.exec(content);
+    return match && match[1] === title ? content.slice(match[0].length).trim() : content;
+}
+
+/** CSV rows: quoted fields may hold commas, newlines and `""`; a leading BOM is dropped. */
+export function parseCsv(text: string): string[][] {
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let field = '';
+    let quoted = false;
+    const src = text.replace(/^\uFEFF/, '');
+    for (let i = 0; i < src.length; i++) {
+        const c = src[i];
+        if (quoted) {
+            if (c === '"' && src[i + 1] === '"') { field += '"'; i++; }
+            else if (c === '"') quoted = false;
+            else field += c;
+        } else if (c === '"') quoted = true;
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\n' || c === '\r') {
+            if (c === '\r' && src[i + 1] === '\n') i++;
+            row.push(field); rows.push(row); row = []; field = '';
+        } else field += c;
+    }
+    if (field || row.length) { row.push(field); rows.push(row); }
+    return rows.filter((r) => r.some((cell) => cell.trim()));
+}
+
+// A table cell's text: `|` escaped, line breaks as `<br>`
+const escapeCell = (value: string) => value.trim().replace(/\|/g, '\\|').replace(/\r\n?|\n/g, '<br>');
+
+/** CSV rows as a Markdown table; a first-column cell links to the note id `link` gives for it. */
+export function csvTable(rows: readonly string[][], link: (cell: string) => string | undefined): string {
+    if (rows.length === 0) return '';
+    const width = Math.max(...rows.map((r) => r.length));
+    const line = (cells: readonly string[]) => `| ${Array.from({ length: width }, (_, i) => cells[i] ?? '').join(' | ')} |`;
+    const [header, ...body] = rows;
+    return [
+        line(header.map(escapeCell)),
+        `|${' --- |'.repeat(width)}`,
+        ...body.map(([first = '', ...rest]) => {
+            const id = first.trim() ? link(first.trim()) : undefined;
+            const cell = escapeCell(first);
+            return line([id ? `[${cell.replace(/[[\]]/g, '\\$&')}](journal:note/${id})` : cell, ...rest.map(escapeCell)]);
+        }),
+    ].join('\n');
+}
+
+/** The CSVs to import as databases: Notion's `X_all.csv` (every row) in place of `X.csv` (one view's rows). */
+export function databaseCsvs(paths: readonly string[]): string[] {
+    const replaced = new Set(paths.filter((p) => /_all\.csv$/i.test(p)).map((p) => p.replace(/_all\.csv$/i, '.csv')));
+    return paths.filter((p) => !replaced.has(p));
+}
+
+/**
+ * A Notion database's note body: its CSV as a table, each first cell linked to its
+ * row's page (the note named like the cell in the `X <id>/` folder beside the CSV).
+ */
+export function databaseTable(csv: string, csvPath: string, notes: readonly ImportedNote[]): string {
+    const rowFolder = csvPath.replace(/(_all)?\.csv$/i, '/');
+    const rowPages = notes.filter((n) => n.path.startsWith(rowFolder) && !n.path.slice(rowFolder.length).includes('/'));
+    return csvTable(parseCsv(csv), (cell) => rowPages.find((n) => titleOf(n.path) === cell)?.id);
 }
