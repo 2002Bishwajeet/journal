@@ -140,6 +140,12 @@ describe('parseFrontMatter', () => {
         });
     });
 
+    it('undoes the \\" and \\\\ escapes export writes, and keeps a comma inside a quoted tag (#672)', () => {
+        const fm = parseFrontMatter('---\ntitle: "Say \\"hi\\" \\\\ bye"\ntags: ["a, b", "q\\"t", plain]\n---\n');
+        expect(fm.title).toBe('Say "hi" \\ bye');
+        expect(fm.tags).toEqual(['a, b', 'q"t', 'plain']);
+    });
+
     it('treats text without front-matter as the body', () => {
         expect(parseFrontMatter('Just text\r\n')).toEqual({ title: '', tags: [], excludeFromAI: false, content: 'Just text' });
     });

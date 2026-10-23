@@ -228,3 +228,38 @@ describe('export all -> import the zip (#672)', () => {
         });
     });
 });
+
+// Known limit (#593's vault-root rule): when every note sits in one folder and there are no images,
+// the zip has one top-level folder, which import reads as a zipped vault's root and strips.
+describe('export all -> import, every note in one folder', () => {
+    afterAll(async () => {
+        vi.restoreAllMocks();
+        await closeTestDatabase();
+    });
+
+    it('brings the notes back in Main, not in the folder', async () => {
+        const db = await createTestDatabase();
+        // @ts-expect-error test-only setter
+        pgliteModule.setTestDb(db);
+        await createFolder(FOLDER_ID, 'Trips');
+        const docId = 'bbbbbbbb-0000-0000-0000-000000000001';
+        await saveDocumentUpdate(docId, Y.encodeStateAsUpdate(createDoc('Only note.')));
+        await upsertSearchIndex({
+            docId, title: 'Only note', plainTextContent: '',
+            metadata: { title: 'Only note', folderId: FOLDER_ID, tags: [], timestamps: { created: CREATED, modified: MODIFIED }, excludeFromAI: false },
+        });
+        let exported: Blob | undefined;
+        vi.spyOn(URL, 'createObjectURL').mockImplementation((obj: Blob | MediaSource) => {
+            exported ??= obj as Blob;
+            return 'blob:mock';
+        });
+        vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+        await ExportService.exportAllAsZip({} as DotYouClient);
+        await ImportService.importFiles([new File([exported!], 'export.zip')]);
+
+        const copy = (await getAllDocuments()).find((d) => d.docId !== docId)!;
+        expect(copy.title).toBe('Only note');
+        expect(copy.metadata.folderId).toBe(MAIN_FOLDER_ID);
+    });
+});
