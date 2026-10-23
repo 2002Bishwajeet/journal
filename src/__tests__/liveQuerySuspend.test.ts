@@ -92,7 +92,8 @@ beforeAll(async () => {
     CREATE TABLE IF NOT EXISTS folders (
       id UUID PRIMARY KEY,
       name TEXT NOT NULL,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      is_public BOOLEAN NOT NULL DEFAULT FALSE
     );
     CREATE TABLE IF NOT EXISTS sync_records (
       local_id UUID PRIMARY KEY,
@@ -187,5 +188,27 @@ describe('suspendLiveQueries — bulk pull skips per-write re-execution', () => 
     await waitFor(() => byFolder.state.rows.length === 1);
 
     byFolder.release();
+  });
+
+  it('shows a local write made during a long suspension before it resumes (#637)', async () => {
+    const LOCAL_FOLDER = '70000000-0000-0000-0000-0000000000aa';
+    const folders = track<{ id: string }>(FOLDER_ROW_KEY, FOLDERS_SQL);
+    await waitFor(() => folders.state.calls > 0);
+
+    const resume = suspendLiveQueries();
+    // A list first opened mid-pull leaves "Loading..." without waiting for the pull
+    const list = track<{ doc_id: string }>(NOTE_ROW_KEY, NOTE_LIST_SQL.active);
+    await db.query(`INSERT INTO folders (id, name) VALUES ($1, 'Made mid-pull')`, [LOCAL_FOLDER]);
+    await insertNote();
+
+    await waitFor(() => folders.state.rows.some((f) => f.id === LOCAL_FOLDER), 5000);
+    await waitFor(() => list.state.rows.length === 1, 5000);
+
+    resume();
+    await insertNote();
+    await waitFor(() => list.state.rows.length === 2);
+
+    folders.release();
+    list.release();
   });
 });
