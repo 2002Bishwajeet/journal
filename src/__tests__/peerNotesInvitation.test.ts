@@ -25,6 +25,9 @@ import { handleInvitation } from '@/lib/homebase/sync/peerNotes';
 import type { SyncContext } from '@/lib/homebase/sync/context';
 import type { HomebaseFile } from '@homebase-id/js-lib/core';
 
+const fileFrom = (senderOdinId?: string) =>
+    ({ fileId: 'f', fileMetadata: { senderOdinId } }) as unknown as HomebaseFile<string>;
+
 const HOST = 'sam.dotyou.cloud';
 
 function ctxWithInviteFrom(authorOdinId: string) {
@@ -48,7 +51,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe('handleInvitation', () => {
     it('writes nothing for an invite the host authored', async () => {
-        await handleInvitation(ctxWithInviteFrom(HOST), { fileId: 'f' } as HomebaseFile<string>);
+        await handleInvitation(ctxWithInviteFrom(HOST), fileFrom(HOST));
 
         expect(mocks.upsertSearchIndex).not.toHaveBeenCalled();
         expect(mocks.saveDocumentUpdate).not.toHaveBeenCalled();
@@ -57,8 +60,34 @@ describe('handleInvitation', () => {
 
     it('still bootstraps an invite from someone else', async () => {
         vi.spyOn(console, 'warn').mockImplementation(() => {});
-        await handleInvitation(ctxWithInviteFrom('frodo.dotyou.cloud'), { fileId: 'f' } as HomebaseFile<string>);
+        await handleInvitation(ctxWithInviteFrom('frodo.dotyou.cloud'), fileFrom('frodo.dotyou.cloud'));
 
         expect(mocks.upsertSearchIndex).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores an invite whose sender differs from the claimed author', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const ctx = ctxWithInviteFrom('frodo.dotyou.cloud');
+        await handleInvitation(ctx, fileFrom('sauron.dotyou.cloud'));
+
+        expect(warn).toHaveBeenCalled();
+        expect(ctx.notesProvider.getNote).not.toHaveBeenCalled();
+        expect(mocks.upsertSearchIndex).not.toHaveBeenCalled();
+    });
+
+    it('ignores an invite with no sender', async () => {
+        const ctx = ctxWithInviteFrom('frodo.dotyou.cloud');
+        await handleInvitation(ctx, fileFrom(undefined));
+
+        expect(ctx.notesProvider.getNote).not.toHaveBeenCalled();
+        expect(mocks.upsertSearchIndex).not.toHaveBeenCalled();
+    });
+
+    it('fetches the note from the sender', async () => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const ctx = ctxWithInviteFrom('frodo.dotyou.cloud');
+        await handleInvitation(ctx, fileFrom('frodo.dotyou.cloud'));
+
+        expect(ctx.notesProvider.getNote).toHaveBeenCalledWith('note-1', 'frodo.dotyou.cloud', { decrypt: true });
     });
 });
