@@ -8,6 +8,11 @@ export interface SyncContext {
     notesProvider: NotesDriveProvider;
     inboxProcessor: InboxProcessor;
     hostIdentity: string;
+    /**
+     * Per note: remote headers last updated at or before this time predate a header
+     * rewrite this device made (a revoke), so their metadata must not overwrite it (#689).
+     */
+    supersededNoteHeaders: Map<string, number>;
     /** Calls SyncService.logSyncError on the instance. */
     logSyncError: (
         entityId: string,

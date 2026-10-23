@@ -61,6 +61,7 @@ export class SyncService {
             notesProvider: new NotesDriveProvider(dotYouClient),
             inboxProcessor: new InboxProcessor(dotYouClient),
             hostIdentity: dotYouClient.getHostIdentity(),
+            supersededNoteHeaders: new Map(),
             // Called through the instance so a spy on logSyncError still sees it
             logSyncError: (...args) => this.logSyncError(...args),
         };
@@ -202,6 +203,15 @@ export class SyncService {
 
     async handleDeletedInvitation(deleted: pull.DeletedFileRef): Promise<void> {
         return peer.handleDeletedInvitation(deleted);
+    }
+
+    /**
+     * This device just rewrote the note's header (a revoke): a pull or websocket
+     * notification already holding a header last updated at or before `updated`
+     * must not write that stale sharing state over the local change (#689).
+     */
+    supersedeNoteHeaders(docId: string, updated: number): void {
+        this.#ctx.supersededNoteHeaders.set(docId, updated);
     }
 
     async handleRemoteNote(remoteFile: HomebaseFile<unknown>): Promise<void> {

@@ -9,7 +9,6 @@ vi.mock('@/components/editor/EditorContext', () => ({
   useEditorContext: () => ({ editor: null, isLoading: false }),
 }));
 vi.mock('@/hooks', () => ({ useDeviceType: () => 'desktop' }));
-vi.mock('katex/dist/katex.min.css', () => ({}));
 vi.mock('@/components/editor/EditorToolbar', () => ({ default: () => null }));
 vi.mock('@/components/editor/MobileToolbar', () => ({ default: () => null }));
 vi.mock('@/components/editor/BubbleMenuToolbar', () => ({ default: () => null }));

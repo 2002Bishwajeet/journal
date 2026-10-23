@@ -112,11 +112,14 @@ export function useNoteCollaboration() {
         try {
             const provider = new NotesDriveProvider(dotYouClient);
             const editorOdinId = dotYouClient.getHostIdentity() || '';
-            await provider.revokeNoteCollaboration(
+            const { previousUpdated } = await provider.revokeNoteCollaboration(
                 note.docId,
                 editorOdinId,
                 note.metadata.recipients,
             );
+            // A pull that fetched the note before the revoke (say, with a peer's last
+            // edit) would otherwise put it back in the shared folder (#689)
+            syncService?.supersedeNoteHeaders(note.docId, previousUpdated);
             await updateNoteMetadata({
                 docId: note.docId,
                 metadata: {

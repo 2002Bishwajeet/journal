@@ -111,7 +111,7 @@ Runs the `*.live.spec.ts` specs (config: `playwright.live.config.ts`, so `npm ru
    npm run e2e:live
    ```
 
-   Runs serially (`workers: 1`, `retries: 1`). Each run creates its own `e2e-<ISO date>-<random>-w<worker>` folder through the UI and every spec creates notes only inside it; `e2e/live/global-teardown.ts` deletes that folder afterward and, as a safety sweep, any leftover `e2e-*` folder older than 24h (e.g. from a run that crashed before its own cleanup).
+   Runs serially (`workers: 1`, `retries: 1`). Each run creates its own `e2e-<ISO date>-<random>-w<worker>` folder through the UI and every spec creates notes only inside it; `e2e/live/global-teardown.ts` deletes that folder afterward and, as a safety sweep, any leftover `e2e-*` folder older than 1h (e.g. from a run that crashed before its own cleanup), unsharing each before deleting it so the public index stays clean.
 
 3. **Re-running later:** `e2e/.auth/live.json` is reused until the identity revokes the app or the token expires — re-run step 1 if `npm run e2e:live` starts failing to sign in.
 

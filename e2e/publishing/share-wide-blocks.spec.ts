@@ -309,6 +309,34 @@ test('share page: Copy puts a code block’s exact text on the clipboard', async
   expect(await clipboard()).toBe(SHORT_CODE);
 });
 
+// #673: the editor loads KaTeX and the code grammars lazily; the share page still
+// highlights code and typesets math.
+test('share page: code is highlighted and math is typeset', async ({ anonPage }) => {
+  await mockPublicNote(anonPage);
+  const doc = new Y.Doc();
+  doc.getXmlFragment('prosemirror').push([
+    element('paragraph', [new Y.XmlText('Energy is '), element('inlineMath', [], { latex: 'E = mc^2' })]),
+    element('blockMath', [], { latex: '\\int_0^1 x\\,dx' }),
+    codeBlock('ts', SHORT_CODE),
+  ]);
+  const content = Buffer.from(Y.encodeStateAsUpdate(doc));
+  // Registered after mockPublicNote's, so it answers first; the note's header still comes from that one.
+  await anonPage.route(`https://${AUTHOR}/api/guest/v1/drive/**`, (route) => {
+    if (!new URL(route.request().url()).pathname.endsWith('/payload')) return route.fallback();
+    return route.fulfill({
+      contentType: 'application/octet-stream',
+      headers: { 'access-control-allow-origin': new URL(anonPage.url()).origin, 'access-control-allow-credentials': 'true' },
+      body: content,
+    });
+  });
+  await anonPage.goto(`/share/${AUTHOR}/${NOTE_ID}`);
+  await assertTestOrigin(anonPage);
+  const article = anonPage.getByRole('article');
+  await expect(article.locator('pre .hljs-keyword').first()).toHaveText('const', { timeout: 15_000 });
+  await expect(article.locator('.katex')).toHaveCount(2);
+  await expect(article.locator('.katex-display')).toHaveCount(1);
+});
+
 // #447: a table sizes its columns to content, its cells are compact, and a wide
 // table scrolls inside its wrapper. The editor asserts the same numbers
 // (e2e/editor/table-layout.spec.ts), so the two places look alike.

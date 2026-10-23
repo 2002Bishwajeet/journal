@@ -385,6 +385,11 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
         const localAhead = existingRecord.syncStatus !== 'synced'
             || (!!mergedBlob && !!remoteBlob && hasChangesMissingFrom(mergedBlob, remoteBlob));
 
+        // This header predates a header rewrite made here since it was fetched (a revoke
+        // right after a peer's edit, #689): keep the merged content, not its metadata.
+        // Checked right before the write, with no await in between.
+        if (remoteFile.fileMetadata.updated <= (ctx.supersededNoteHeaders.get(uniqueId) ?? -Infinity)) return;
+
         await upsertSearchIndex({
             docId: uniqueId,
             title: noteTitle,
