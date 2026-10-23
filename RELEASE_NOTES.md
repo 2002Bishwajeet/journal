@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.12.0 (2026-10-23)
+
 ### New
 
 - You can import an Obsidian vault. Export the vault as a .zip file, then import it in Settings, Data & storage.
