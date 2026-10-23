@@ -14,7 +14,6 @@ interface ExtendPermissionDialogProps {
   drives: TargetDriveAccessRequest[];
   circleDrives?: TargetDriveAccessRequest[];
   permissions: AppPermissionType[];
-  needsAllConnected?: boolean;
 }
 
 export const ExtendPermissionDialog = ({
@@ -23,7 +22,6 @@ export const ExtendPermissionDialog = ({
   drives,
   circleDrives,
   permissions,
-  needsAllConnected,
 }: ExtendPermissionDialogProps) => {
   const queryClient = useQueryClient();
   const extendPermissionUrl = useMissingPermissions({
@@ -31,7 +29,6 @@ export const ExtendPermissionDialog = ({
     drives,
     circleDrives,
     permissions,
-    needsAllConnected,
   });
 
   if (!extendPermissionUrl) return null;
