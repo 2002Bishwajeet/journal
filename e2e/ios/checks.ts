@@ -99,7 +99,8 @@ export function layoutProblems(m: Layout, keyboardUp: boolean): string[] {
     else if (!onScreen(m.toolbar)) problems.push(`the mobile toolbar (${span(m.toolbar)}) is outside the visual viewport (${visible})`);
   }
   const usableBottom = Math.min(m.innerHeight, visibleBottom) - m.insets.bottom;
-  if (m.sidebarFooter && m.sidebarFooter.bottom > usableBottom + SLACK) {
+  // With a field focused the keyboard covers the bottom of the page, the sidebar footer included.
+  if (!m.focused && m.sidebarFooter && m.sidebarFooter.bottom > usableBottom + SLACK) {
     problems.push(`the sidebar footer ends at ${Math.round(m.sidebarFooter.bottom)}, below the usable bottom ${Math.round(usableBottom)} (viewport minus the safe area)`);
   }
   if (m.foreignRequests.length) {

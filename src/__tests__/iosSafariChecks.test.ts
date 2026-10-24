@@ -55,6 +55,11 @@ describe('iOS Safari layout checks', () => {
     expect(problems[0]).toMatch(/below the usable bottom 625/);
   });
 
+  it('should not flag the sidebar footer under the keyboard while a dialog field is focused', () => {
+    const dialogField = { ...ok, viewport: { top: 0, height: 436 }, focused: { name: 'input[Folder Name]', fontSize: 16 }, sidebarFooter: { top: 619, bottom: 651, left: 8, right: 385 } };
+    expect(layoutProblems(dialogField, false)).toEqual([]);
+  });
+
   it('should flag a caret or toolbar hidden behind the keyboard', () => {
     const problems = layoutProblems(
       { ...keyboard, caret: { top: 400, bottom: 420, left: 20, right: 20 }, toolbar: { top: 611, bottom: 659, left: 0, right: 393 } },
