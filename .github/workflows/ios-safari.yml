@@ -9,7 +9,9 @@ on:
     types: [opened, synchronize, reopened, labeled]
 
 concurrency:
-  group: ios-safari-${{ github.ref }}
+  # A run the job `if` will skip (some other label added) gets its own group, so it
+  # can't cancel a real run in progress.
+  group: ios-safari-${{ github.ref }}-${{ github.event.action == 'labeled' && github.event.label.name != 'ios-check' && github.run_id || 'run' }}
   cancel-in-progress: true
 
 jobs:
@@ -96,4 +98,5 @@ jobs:
 
       - name: Link the screenshots in the summary
         if: always() && steps.upload.outputs.artifact-url
-        run: echo "Screenshots and logs: ${{ steps.upload.outputs.artifact-url }}" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "Screenshots and logs: ${{ steps.upload.outputs.artifact-url }}" >> "$GITHUB_STEP_SUMMARY"
