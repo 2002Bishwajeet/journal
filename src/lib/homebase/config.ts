@@ -36,6 +36,9 @@ export const JOURNAL_APP_NAME = `Journal${import.meta.env.PROD ? '' : ' (Local D
 // Fixed: a recipient subscribes to each connection with this id, and the sender pushes with it (#743, #745)
 export const JOURNAL_PEER_SUBSCRIPTION_ID = '5b0c7a1e-2f3d-4e8a-9c61-7d4f0a9b8e23';
 
+// Tag of the one quiet notification the service worker shows for other Homebase apps' pushes
+export const OTHER_APPS_NOTIFICATION_TAG = 'homebase-other';
+
 // Fixed: the push typeId of Settings > Notifications' "Send test" (the sw opens the app, not a note)
 export const JOURNAL_TEST_PUSH_TYPE_ID = 'e4a7c2d9-3b1f-4c86-9a05-6d2e8f1b7c34';
 
