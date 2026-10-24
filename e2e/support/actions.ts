@@ -175,14 +175,15 @@ export async function inBothThemes(page: Page, body: (theme: Theme) => Promise<u
         await page.emulateMedia({ colorScheme: theme });
         await expect(page.locator('html')).toHaveClass(new RegExp(theme));
         // Colour transitions keep running after the class flips; let them finish so shots show the settled theme.
-        await page.evaluate(() =>
-            Promise.all(
-                document
-                    .getAnimations()
-                    .filter((a) => a instanceof CSSTransition)
-                    .map((a) => a.finished.catch(() => undefined))
-            )
-        );
+        // Some start a frame later (a button's text colour did, #768), so wait until a frame starts none.
+        await page.evaluate(async () => {
+            for (;;) {
+                await new Promise(requestAnimationFrame);
+                const running = document.getAnimations().filter((a) => a instanceof CSSTransition);
+                if (!running.length) return;
+                await Promise.all(running.map((a) => a.finished.catch(() => undefined)));
+            }
+        });
         await body(theme);
     }
 }

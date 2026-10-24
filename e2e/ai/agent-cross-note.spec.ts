@@ -1,9 +1,9 @@
 import type { Page } from '@playwright/test';
-import { test, expect } from '../fixtures';
+import { test, expect, waitForAppReady } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
 import { stubWebGPU } from '../support/webgpu';
 import { finishLoad, queueReply, reloads, stubWebLLMWorker } from '../support/webllm-worker';
-import { activeEditor, openNote, screenshotInBothThemes, selectFolder } from '../support/actions';
+import { activeEditor, openNote, reloadNote, screenshotInBothThemes, selectFolder } from '../support/actions';
 
 // The assistant adds to a note that is not open and makes new notes (#702). Each shows as a card in
 // the panel with Accept and Reject, and nothing is written until Accept. A scripted engine worker
@@ -113,4 +113,51 @@ test('the assistant appends to another note and creates a note, each only after 
   await expect(panel.getByText('Made it.')).toBeVisible();
   await createCard.getByRole('link', { name: 'Ideas' }).click();
   await expect(activeEditor(app)).toContainText('first idea');
+});
+
+test('an accepted append shows once in another tab that has the note open, and survives a reload', async ({ app }) => {
+  test.slow();
+  await app.setViewportSize({ width: 1280, height: 800 });
+  await stubWebLLMWorker(app);
+  await stubWebGPU(app);
+
+  await importNotes(app);
+  await selectFolder(app, 'Main');
+  await openNote(app, 'Packing list');
+  await expect(activeEditor(app)).toContainText('Passport and charger.');
+  const packingUrl = app.url();
+  const packingId = new URL(packingUrl).pathname.split('/').filter(Boolean).pop()!;
+  await openNote(app, 'Weekend notes');
+  await expect(activeEditor(app)).toContainText('First paragraph here.');
+
+  // Tab B has the note open while tab A's assistant appends to it.
+  const tabB = await app.context().newPage();
+  await tabB.goto(packingUrl);
+  await assertTestOrigin(tabB);
+  await waitForAppReady(tabB);
+  await expect(activeEditor(tabB)).toContainText('Passport and charger.');
+
+  await app.getByRole('button', { name: 'Open assistant' }).click();
+  const panel = app.getByRole('region', { name: 'Assistant' });
+  const box = panel.getByPlaceholder('Type a message or /help...');
+  await box.fill("add 'buy socks' to my packing list");
+  await box.press('Enter');
+  await app.getByRole('dialog', { name: /^Download / }).getByRole('button', { name: 'Continue' }).click();
+  await expect.poll(() => reloads(app)).toHaveLength(1);
+  await finishLoad(app, 'ok');
+  await assertTestOrigin(app);
+  await queueReply(app, { tool: 'append_to_note', args: { id: packingId, markdown: 'buy socks' } });
+  await queueReply(app, { answer: 'Added it.' });
+  const card = panel.getByRole('group', { name: "Review the assistant's proposal: Append to 'Packing list'" });
+  await card.getByRole('button', { name: 'Accept' }).click();
+  await expect(panel.getByText('Added it.')).toBeVisible();
+
+  const socks = (page: Page) => activeEditor(page).getByText('buy socks', { exact: true });
+  await expect(socks(tabB)).toHaveCount(1);
+  await expect(activeEditor(tabB)).toContainText('Passport and charger.');
+
+  await reloadNote(tabB);
+  await expect(activeEditor(tabB)).toContainText('Passport and charger.');
+  await expect(socks(tabB)).toHaveCount(1);
+  await tabB.close();
 });
