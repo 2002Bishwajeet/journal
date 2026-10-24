@@ -13,6 +13,8 @@ export const SIDEBAR_COLLAPSE_KEY = 'journal-sidebar-collapse';
 export const AI_SETTINGS_KEY = 'journal-ai-settings';
 export const LEGACY_WEBLLM_ENABLED_KEY = 'webllm-enabled';
 export const SW_RELOAD_COUNT_KEY = 'sw_safety_reload_count';
+/** Whether this device lets the browser's AI agent use Journal through WebMCP (#705). */
+export const WEBMCP_ENABLED_KEY = 'journal-webmcp-enabled';
 /** The identity that already saw the share dialog's Read-only message on this device (#730). */
 export const READ_ONLY_SHARE_NOTICE_KEY = 'journal-read-only-share-notice';
 /** Per identity: the missing-permission set that identity chose "Not now" for. */

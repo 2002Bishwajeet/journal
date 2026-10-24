@@ -39,6 +39,9 @@ export const JOURNAL_PEER_SUBSCRIPTION_ID = '5b0c7a1e-2f3d-4e8a-9c61-7d4f0a9b8e2
 // Fixed: the push type of "a collaborator edited your shared note" (#746)
 export const JOURNAL_PUSH_TYPE_EDIT = '3c9e5a74-8b1d-4f26-a07e-d15b6c92f840';
 
+// Fixed: the push typeId of Settings > Notifications' "Send test" (the sw opens the app, not a note)
+export const JOURNAL_TEST_PUSH_TYPE_ID = 'e4a7c2d9-3b1f-4c86-9a05-6d2e8f1b7c34';
+
 // Drive constants per spec
 export const JOURNAL_FILE_TYPE = 605;
 export const JOURNAL_DATA_TYPE = 706;
