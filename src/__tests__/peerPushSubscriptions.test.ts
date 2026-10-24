@@ -33,7 +33,7 @@ type Body = { identity: string; subscriptionId: string };
 let subscribed: Body[];
 const api = {
     get: vi.fn(async () => ({ data: subscribed })),
-    post: vi.fn(async (...args: [string, Body]) => ({ data: args })),
+    post: vi.fn<(url: string, body: Body) => Promise<{ data: unknown }>>(async () => ({ data: {} })),
     delete: vi.fn(async (...args: [string, { data: Body }]) => ({ data: args })),
 };
 const client = { createAxiosClient: () => api } as unknown as DotYouClient;
