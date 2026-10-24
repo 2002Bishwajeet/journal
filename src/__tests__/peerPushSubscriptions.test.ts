@@ -126,6 +126,14 @@ describe('runPeerPushPass', () => {
         expect(api.post).toHaveBeenCalledTimes(101);
     });
 
+    it('subscribes every connection and unsubscribes no one when the server refuses the list', async () => {
+        api.get.mockRejectedValueOnce({ response: { status: 403 } });
+        await pass();
+        expect(api.post).toHaveBeenCalledTimes(2);
+        expect(api.delete).not.toHaveBeenCalled();
+        expect(mocks.saveAppState).toHaveBeenCalledTimes(1);
+    });
+
     it('does not write app_state when the connection list fails', async () => {
         mocks.getConnections.mockRejectedValue(new Error('offline'));
         await pass();
