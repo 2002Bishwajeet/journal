@@ -28,7 +28,7 @@ async function expectRowOf(images: Locator, count: number) {
   }).toPass();
 }
 
-test('gallery: dropping 3 images makes one row that survives a reload', async ({ app }) => {
+test('gallery: dropping 3 images makes one row that survives a reload', async ({ reusedApp: app }) => {
   await app.setViewportSize({ width: 1280, height: 800 });
   await createNote(app, { title: `Gallery ${Date.now()}`, body: 'Photos below.' });
 
@@ -91,7 +91,7 @@ test('gallery: dropping 3 images makes one row that survives a reload', async ({
 
 // #602: the toolbar above a gallery switches it between row, grid, masonry and carousel;
 // the choice survives a reload, and each layout is drawn as specified.
-test('gallery: switching layouts grid, masonry, carousel', async ({ app }) => {
+test('gallery: switching layouts grid, masonry, carousel', async ({ reusedApp: app }) => {
   await app.setViewportSize({ width: 1280, height: 800 });
   await createNote(app, { title: `Gallery layouts ${Date.now()}`, body: 'Photos below.' });
 
@@ -190,7 +190,7 @@ test('gallery: switching layouts grid, masonry, carousel', async ({ app }) => {
 
 // #607: a cropped (1:1) and a quarter-turned image keep their row's height; applying
 // an edit re-flows the row without a reload.
-test(`gallery: cropped and rotated images share their row's height`, async ({ app }) => {
+test(`gallery: cropped and rotated images share their row's height`, async ({ reusedApp: app }) => {
   await app.setViewportSize({ width: 1280, height: 800 });
   await createNote(app, { title: `Gallery edits ${Date.now()}`, body: 'Photos below.' });
 

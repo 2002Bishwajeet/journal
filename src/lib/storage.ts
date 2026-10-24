@@ -15,6 +15,8 @@ export const LEGACY_WEBLLM_ENABLED_KEY = 'webllm-enabled';
 export const SW_RELOAD_COUNT_KEY = 'sw_safety_reload_count';
 /** The identity that already saw the share dialog's Read-only message on this device (#730). */
 export const READ_ONLY_SHARE_NOTICE_KEY = 'journal-read-only-share-notice';
+/** Per identity: the missing-permission set that identity chose "Not now" for. */
+export const PERMISSION_PROMPT_DISMISSED_KEY = 'journal-permission-prompt-dismissed';
 
 /** Reads JSON, yielding null when there is nothing stored or storage throws (private browsing). */
 export function readJson<T>(key: string): T | null {

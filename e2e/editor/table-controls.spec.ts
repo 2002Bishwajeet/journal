@@ -20,7 +20,7 @@ async function settle(app: Page): Promise<void> {
   await waitForNoteSaved(app);
 }
 
-test('header row toggles on and off and survives a reload', async ({ app }) => {
+test('header row toggles on and off and survives a reload', async ({ reusedApp: app }) => {
   await insertTable(app, `Table header ${Date.now()}`);
   const table = activeEditor(app).locator('table');
 
@@ -51,7 +51,7 @@ test('header row toggles on and off and survives a reload', async ({ app }) => {
   await expect(activeEditor(app).locator('table th')).toHaveCount(0);
 });
 
-test('Delete table removes the table and keeps the rest of the note', async ({ app }) => {
+test('Delete table removes the table and keeps the rest of the note', async ({ reusedApp: app }) => {
   await insertTable(app, `Table delete ${Date.now()}`);
   await openMenu(app, 'Row options', 0);
   await app.getByRole('button', { name: 'Delete table' }).click();
@@ -61,7 +61,7 @@ test('Delete table removes the table and keeps the rest of the note', async ({ a
   await expect(editor).toContainText('Before');
 });
 
-test('column resize handle shows at a column border and the width survives a reload', async ({ app }) => {
+test('column resize handle shows at a column border and the width survives a reload', async ({ reusedApp: app }) => {
   await insertTable(app, `Table resize ${Date.now()}`);
   const cell = activeEditor(app).locator('table td').first();
   const box = (await cell.boundingBox())!;
@@ -87,7 +87,7 @@ test('column resize handle shows at a column border and the width survives a rel
   await expect(activeEditor(app).locator('table td').first()).toHaveAttribute('colwidth', width!);
 });
 
-test('row and column menus', async ({ app }) => {
+test('row and column menus', async ({ reusedApp: app }) => {
   await app.setViewportSize({ width: 1280, height: 800 });
   await insertTable(app, `Table menus ${Date.now()}`);
 
