@@ -15,6 +15,33 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.15.3 (2026-10-24)
+
+### Fixed
+
+- When all your notes are in one folder, export and import keep them in that folder.
+
+## 2.15.2 (2026-10-23)
+
+### Fixed
+
+- The narrow sidebar shows all folders in full. A long folder list scrolls. Each folder shows two letters, and a globe marks a shared folder.
+- In Agent access settings, the access lists have the same width. The arrow no longer covers the text.
+
+## 2.15.1 (2026-10-23)
+
+### Fixed
+
+- When you export all notes and import the file again, quotes in note titles stay correct.
+- Tags with a comma or a quote also stay correct after export and import.
+
+## 2.15.0 (2026-10-23)
+
+### Changed
+
+- When you share a note, the people you share with get access to it. You do not change settings in Homebase first.
+- When you stop sharing a note, the app removes access for people who have no other note from you.
+
 ## 2.14.0 (2026-10-23)
 
 ### Changed

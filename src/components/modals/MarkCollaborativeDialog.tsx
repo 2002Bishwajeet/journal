@@ -44,6 +44,8 @@ export function MarkCollaborativeDialog({
   const { fetch: circlesFetch } = useCircles(true);
   const [selectedCircles, setSelectedCircles] = useState<SelectedCircle[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Set after a share whose recipients got Read only: the dialog stays open to say so
+  const [readOnlyDriveUrl, setReadOnlyDriveUrl] = useState<string>();
 
   // Build return URL with noteId for reopening dialog after permission grant
   const returnUrl = `${window.location.origin}${window.location.pathname}?action=collaborate&noteId=${noteId}`;
@@ -54,7 +56,6 @@ export function MarkCollaborativeDialog({
     drives: [journalDriveRequest, CONTACT_TARGET_DRIVE_REQUEST],
     permissions: COLLABORATION_PERMISSIONS,
     circleDrives: [journalDriveRequest, CONTACT_TARGET_DRIVE_REQUEST],
-    needsAllConnected: false,
     returnUrl,
   });
 
@@ -79,12 +80,12 @@ export function MarkCollaborativeDialog({
 
   async function handleSubmit() {
     setIsSubmitting(true);
-    const shared = await share(noteId, selectedCircles);
+    const { shared, readOnlyDriveUrl } = await share(noteId, selectedCircles);
     setIsSubmitting(false);
-    if (shared) {
-      onSuccess?.();
-      onClose();
-    }
+    if (!shared) return;
+    onSuccess?.();
+    if (readOnlyDriveUrl) setReadOnlyDriveUrl(readOnlyDriveUrl);
+    else onClose();
   }
 
   const selectedCircleIdSet = new Set(selectedCircles.map((c) => c.circleId));
@@ -107,15 +108,43 @@ export function MarkCollaborativeDialog({
             <Users className="h-6 w-6 text-collaborative" />
           </div>
           <DialogTitle className="text-center text-xl">
-            Mark as Collaborative
+            {readOnlyDriveUrl ? "Note shared" : "Mark as Collaborative"}
           </DialogTitle>
           <DialogDescription className="text-center pt-2">
-            Share "{noteTitle || "Untitled"}" with selected circles
+            {readOnlyDriveUrl
+              ? "People you share with can read this note but can't edit it yet."
+              : `Share "${noteTitle || "Untitled"}" with selected circles`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {hasMissingPermissions ? (
+          {readOnlyDriveUrl ? (
+            <div className="space-y-4">
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  To let them edit, open the Journal drive in Homebase and make{" "}
+                  {JOURNAL_APP_NAME} the app that owns it.
+                </AlertDescription>
+              </Alert>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={onClose}>
+                  Done
+                </Button>
+                <Button asChild className="flex-1">
+                  <a
+                    href={readOnlyDriveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open drive settings (opens Homebase)"
+                    className="flex items-center gap-2"
+                  >
+                    Open drive settings <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              </div>
+            </div>
+          ) : hasMissingPermissions ? (
             <div className="space-y-4">
               <Alert>
                 <Info className="h-4 w-4" />

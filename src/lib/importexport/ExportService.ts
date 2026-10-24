@@ -4,6 +4,7 @@ import { getAllDocuments, getAllFolders } from '@/lib/db/queries';
 import { JOURNAL_DRIVE, MAIN_FOLDER_ID } from '@/lib/homebase';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
 import type { SearchIndexEntry } from '@/types';
+import { EXPORT_MARKER } from './markdownImport';
 
 /**
  * Result of the export operation
@@ -84,6 +85,9 @@ export const ExportService = {
 
                 count++;
             }
+
+            // Marker: the zip always has a root-level entry, so import never reads one folder as a vault root
+            zip.file(EXPORT_MARKER, JSON.stringify({ format: 'journal-export', version: 1, exportedAt: new Date().toISOString() }));
 
             // Generate zip blob
             const blob = await zip.generateAsync({ type: 'blob' });
@@ -182,19 +186,24 @@ function extensionForContentType(contentType: string): string {
     return 'bin';
 }
 
+/** A double-quoted front-matter value; \ and " are escaped so the importer can read it back. */
+function quote(value: string): string {
+    return `"${value.replace(/[\\"]/g, '\\$&')}"`;
+}
+
 /**
  * Generate Markdown content with Frontmatter
  */
 function generateMarkdown(note: SearchIndexEntry, body: string): string {
     const frontmatter = [
         '---',
-        `title: "${note.title.replace(/"/g, '\\"')}"`,
+        `title: ${quote(note.title)}`,
         `created: "${note.metadata.timestamps.created}"`,
         `modified: "${note.metadata.timestamps.modified}"`,
     ];
 
     if (note.metadata.tags && note.metadata.tags.length > 0) {
-        frontmatter.push(`tags: [${note.metadata.tags.map(t => `"${t}"`).join(', ')}]`);
+        frontmatter.push(`tags: [${note.metadata.tags.map(quote).join(', ')}]`);
     }
 
     if (note.metadata.excludeFromAI) {

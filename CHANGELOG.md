@@ -1,3 +1,24 @@
+## [2.15.3](https://github.com/2002Bishwajeet/journal/compare/v2.15.2...v2.15.3) (2026-10-24)
+
+
+### Bug Fixes
+
+* **export:** add journal-export.json marker so a one-folder export imports into its folder ([#750](https://github.com/2002Bishwajeet/journal/issues/750)) ([1511434](https://github.com/2002Bishwajeet/journal/commit/1511434e9f6a3004432dcfae6cd8e783cbb63c41))
+## [2.15.2](https://github.com/2002Bishwajeet/journal/compare/v2.15.1...v2.15.2) (2026-10-23)
+
+
+### Bug Fixes
+
+* **sidebar:** collapsed rail shows every folder tile in full; agent access selects line up ([c4ca97f](https://github.com/2002Bishwajeet/journal/commit/c4ca97fd3fa8424eb15f10a5d5d2d389aa36f7f6))
+* **sidebar:** stronger light-mode rail tiles and a clearer shared badge ([1fd4fd0](https://github.com/2002Bishwajeet/journal/commit/1fd4fd0b52f5e64fa121d4400ac2974462701afd))
+## [2.15.1](https://github.com/2002Bishwajeet/journal/compare/v2.15.0...v2.15.1) (2026-10-23)
+# [2.15.0](https://github.com/2002Bishwajeet/journal/compare/v2.14.0...v2.15.0) (2026-10-23)
+
+
+### Features
+
+* **sharing:** app-owned Journal shares circle gives recipients drive access ([#730](https://github.com/2002Bishwajeet/journal/issues/730)) ([157b8f0](https://github.com/2002Bishwajeet/journal/commit/157b8f0c7ecf6a5956e751d2f71018111729f3e2))
+* **sharing:** show the Read-only message once in the share dialog ([#730](https://github.com/2002Bishwajeet/journal/issues/730)) ([c1d109f](https://github.com/2002Bishwajeet/journal/commit/c1d109fa6fa2466f963be97eace0f1e7c6d2096d))
 # [2.14.0](https://github.com/2002Bishwajeet/journal/compare/v2.13.1...v2.14.0) (2026-10-23)
 
 

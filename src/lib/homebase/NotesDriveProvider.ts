@@ -899,6 +899,7 @@ export class NotesDriveProvider {
      * @param circleIds - Array of circle IDs to grant access
      * @param editorOdinId - OdinId of the user making this change
      * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
+     * @param beforeInvite - Runs between the ACL upload and the invite (gives recipients drive access, #730)
      * @returns The new version tag after update
      */
     async makeNoteCollaborative(
@@ -906,7 +907,8 @@ export class NotesDriveProvider {
         circleIds: string[],
         recipients: string[],
         editorOdinId: string,
-        fileId?: string
+        fileId?: string,
+        beforeInvite?: () => Promise<void>
     ): Promise<{ versionTag: string }> {
         let title = '';
         const result = await this.#rewriteNoteHeader(uniqueId, {
@@ -931,6 +933,8 @@ export class NotesDriveProvider {
             ensureEncrypted: true,
             errorMessage: 'Failed to make note collaborative',
         });
+
+        await beforeInvite?.();
 
         await this.#invitations.createOrUpdateInvitation(
             uniqueId,
