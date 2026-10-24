@@ -67,7 +67,7 @@ function computedColour(frame: FrameLocator, colour: string): Promise<string> {
 }
 
 for (const theme of ['light', 'dark'] as const) {
-  test(`react block styling: a block written by the default guidance gets only the fixed sheet, as before, ${theme} theme`, async ({ app }) => {
+  test(`react block styling: a block written by the default guidance gets only the fixed sheet, as before, ${theme} theme`, async ({ reusedApp: app }) => {
     await app.emulateMedia({ colorScheme: theme });
     await app.setViewportSize({ width: 1280, height: 900 });
     await createNote(app, { title: `React styling ${theme} ${Date.now()}`, body: 'Intro' });
@@ -92,7 +92,7 @@ for (const theme of ['light', 'dark'] as const) {
     await shoot(reactBlock(app), `react-default-before-${theme}-1280.png`);
   });
 
-  test(`react block styling: a block that asks gets real shadows, arbitrary values, and palette-raw, ${theme} theme`, async ({ app }) => {
+  test(`react block styling: a block that asks gets real shadows, arbitrary values, and palette-raw, ${theme} theme`, async ({ reusedApp: app }) => {
     await app.emulateMedia({ colorScheme: theme });
     await app.setViewportSize({ width: 1280, height: 900 });
     await createNote(app, { title: `React styling bold ${theme} ${Date.now()}`, body: 'Intro' });
@@ -128,7 +128,7 @@ for (const theme of ['light', 'dark'] as const) {
 }
 
 // The column count does not depend on the theme: one run, the screenshot in both.
-test('react block styling: md: applies in a wide block', async ({ app }) => {
+test('react block styling: md: applies in a wide block', async ({ reusedApp: app }) => {
   // md: is 768px of frame: with the sidebar and the note list open, a wide block is that wide on a 1600px window.
   await app.setViewportSize({ width: 1600, height: 900 });
   await createNote(app, { title: `React styling wide ${Date.now()}`, body: 'Intro' });

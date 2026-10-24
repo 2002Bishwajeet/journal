@@ -56,6 +56,9 @@ test('"Make these public too" publishes the note and its private links', async (
     const { a, b, aUrl, bUrl, dialog } = await setUp(liveRun.page, `${Date.now()}`);
     await dialog.getByRole('button', { name: 'Make these public too' }).click();
     await expect(dialog.locator('input[readonly]')).toBeVisible({ timeout: 60_000 });
+    // liveRun's page is shared across the worker's tests: close the dialog for the next one.
+    await liveRun.page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
 
     await loggedOut(browser, aUrl, async (anon) => {
         await heading(anon, a);
@@ -71,6 +74,9 @@ test('"Continue anyway" publishes only the note', async ({ liveRun, browser }) =
     const { a, aUrl, bUrl, dialog } = await setUp(liveRun.page, `${Date.now()}`);
     await dialog.getByRole('button', { name: 'Continue anyway' }).click();
     await expect(dialog.locator('input[readonly]')).toBeVisible({ timeout: 60_000 });
+    // liveRun's page is shared across the worker's tests: close the dialog for the next one.
+    await liveRun.page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
 
     await loggedOut(browser, aUrl, (anon) => heading(anon, a));
     await loggedOut(browser, bUrl, (anon) => heading(anon, 'Note Not Found'));

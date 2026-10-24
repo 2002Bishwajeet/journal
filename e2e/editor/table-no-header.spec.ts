@@ -3,7 +3,7 @@ import { activeEditor, createNote } from '../support/actions';
 
 // #446: a table inserted in the editor has no header row (no th cells).
 
-test('table picker inserts a table with no header row', async ({ app }) => {
+test('table picker inserts a table with no header row', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Table picker ${Date.now()}`, body: 'Before' });
   await app.getByTitle('Insert Table').click();
   await app.getByRole('button', { name: '2 by 3 table' }).click();
@@ -15,7 +15,7 @@ test('table picker inserts a table with no header row', async ({ app }) => {
   await expect(editor.locator('table th')).toHaveCount(0);
 });
 
-test('/table slash command inserts a table with no header row', async ({ app }) => {
+test('/table slash command inserts a table with no header row', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Table slash ${Date.now()}`, body: '/table' });
   await app.keyboard.press('Enter');
 
