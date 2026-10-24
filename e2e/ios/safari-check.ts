@@ -159,7 +159,20 @@ try {
   }
   await check('editor-keyboard', keyboardUp);
 
-  await boot();
+  // Back to the sidebar through in-app history: reloading the page here left
+  // Safari on the splash screen for minutes in CI (first run of #803).
+  await browser.waitUntil(
+    async () => {
+      const atRoot = await browser.execute(() => {
+        const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
+        return !!r && r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1;
+      });
+      if (atRoot) return true;
+      await browser.execute(() => history.back());
+      return false;
+    },
+    { timeout: 30_000, interval: 1_000, timeoutMsg: 'timed out going back to the sidebar' },
+  );
   await tap('button=Settings');
   await waitFor('Settings', dialogOpen);
   const tabs = await browser.execute(() => [...document.querySelectorAll('[role="dialog"] [role="tab"]')].map((t) => t.textContent?.trim() ?? ''));
