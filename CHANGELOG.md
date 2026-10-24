@@ -1,3 +1,22 @@
+## [2.23.1](https://github.com/2002Bishwajeet/journal/compare/v2.23.0...v2.23.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **editor:** hide AI slash commands on phones ([#793](https://github.com/2002Bishwajeet/journal/issues/793)) ([a6613e5](https://github.com/2002Bishwajeet/journal/commit/a6613e56d356978d4dd296dc994bb2103d2dae51))
+# [2.23.0](https://github.com/2002Bishwajeet/journal/compare/v2.22.1...v2.23.0) (2026-10-24)
+
+
+### Bug Fixes
+
+* **share:** rebuild a note's publish re-upload once on a version conflict ([#760](https://github.com/2002Bishwajeet/journal/issues/760)) ([7aaf80f](https://github.com/2002Bishwajeet/journal/commit/7aaf80f512c1026e8f84709e9f84747c35cf114f)), closes [#689](https://github.com/2002Bishwajeet/journal/issues/689)
+* **sharing:** remove a revoked shared note and keep a leftover invite from restoring it ([#748](https://github.com/2002Bishwajeet/journal/issues/748)) ([2e1bedf](https://github.com/2002Bishwajeet/journal/commit/2e1bedf7b69bd9505af7a3ff381b40c7fd99a8f6))
+* **sync:** serialize note pushes so publishing an unsynced note cannot race the sync push ([#760](https://github.com/2002Bishwajeet/journal/issues/760)) ([34e3ac6](https://github.com/2002Bishwajeet/journal/commit/34e3ac6270521b6a667d784da1aed702b51d12e7))
+
+
+### Features
+
+* **sync:** push the note owner when a collaborator edits ([#746](https://github.com/2002Bishwajeet/journal/issues/746)) ([2f1b3d9](https://github.com/2002Bishwajeet/journal/commit/2f1b3d951bcec410865816b65862cdf88441f4f8))
 ## [2.22.1](https://github.com/2002Bishwajeet/journal/compare/v2.22.0...v2.22.1) (2026-10-24)
 
 

@@ -42,7 +42,7 @@ function ctxWithInviteFrom(authorOdinId: string) {
                 sharedAt: '2026-01-01T00:00:00.000Z',
             })),
             // Peer fetch fails, so a real share writes the placeholder search-index row
-            getNote: vi.fn(async () => null),
+            getNote: vi.fn(async () => { throw new Error('offline'); }),
         },
     } as unknown as SyncContext;
 }
