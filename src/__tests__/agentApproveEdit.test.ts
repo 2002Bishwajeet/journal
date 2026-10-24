@@ -183,7 +183,22 @@ describe('the preview in the note', () => {
         rejectEdit(pendingEdits.current(editor)!);
 
         void approveEdit(await proposalOf(formatText, { n: 1, find: 'on', mark: 'bold', on: true }));
-        expect(dom().querySelector('.agent-edit-format')?.textContent).toBe('on');
+        const format = dom().querySelector('.agent-edit-format');
+        expect(format?.textContent).toBe('on');
+        expect(format?.tagName).toBe('STRONG');
+        expect(editor.getJSON().content?.[0].content?.[0].marks).toBeUndefined();
+    });
+
+    it('marks formatting that an edit takes away', async () => {
+        open('<p><strong>one</strong></p>');
+        void approveEdit(await proposalOf(formatText, { n: 1, mark: 'bold', on: false }));
+        expect(dom().querySelector('.agent-edit-format')?.getAttribute('data-unmark')).toBe('bold');
+    });
+
+    it('shows the summary before the buttons', async () => {
+        open('<p>one</p>');
+        void approveEdit(await proposalOf(setBlockType, { n: 1, type: 'h2' }));
+        expect(dom().querySelector('.agent-edit-bar')?.firstElementChild?.textContent).toBe('Turn paragraph 1 into h2');
     });
 
     it('moves focus to the bar, Enter accepts, and focus returns to the editor', async () => {

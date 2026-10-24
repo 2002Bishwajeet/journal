@@ -10,7 +10,7 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey, type Transaction } from '@tiptap/pm/state';
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
-import { DOMSerializer, type Node as PMNode } from '@tiptap/pm/model';
+import { DOMSerializer, type Mark, type Node as PMNode } from '@tiptap/pm/model';
 import { AddMarkStep, RemoveMarkStep, ReplaceStep } from '@tiptap/pm/transform';
 import { toast } from 'sonner';
 import { NOT_APPLIED_MESSAGE, acceptEdit, pendingEdits, rejectEdit, type PendingEdit } from '@/lib/agent/approveEdit';
@@ -34,31 +34,38 @@ function button(label: string, className: string, onClick: () => void): HTMLButt
     return el;
 }
 
-/** Stops listening for window resizes once ProseMirror removes a bar. */
-const barCleanups = new WeakMap<HTMLElement, () => void>();
-
 /**
- * On wide screens the assistant panel floats over the right of the note. Narrow the bar so it
- * ends before the panel; the summary then wraps below the buttons and truncates if still too long.
+ * On wide screens the assistant panel floats over the right of the note. Sets
+ * `--agent-edit-right` on the editor, the right inset of the preview's outline and bar
+ * (index.css), so both end 12px before the panel. Without a panel beside the note they
+ * reach 0.5rem past the text, as they do on the left.
  */
-function fitBesidePanel(bar: HTMLElement) {
-    bar.style.maxWidth = '';
+function fitBesidePanel(dom: HTMLElement) {
     const panel = document.querySelector('[role="region"][aria-label="Assistant"]')?.getBoundingClientRect();
-    const rect = bar.getBoundingClientRect();
-    if (panel && panel.left > rect.left && panel.left < rect.right) bar.style.maxWidth = `${panel.left - rect.left - 12}px`;
+    const rect = dom.getBoundingClientRect();
+    const textRight = rect.right - parseFloat(getComputedStyle(dom).paddingRight);
+    const covered = panel && panel.left > rect.left ? textRight - panel.left + 12 : 0;
+    dom.style.setProperty('--agent-edit-right', covered > 0 ? `${covered}px` : '-0.5rem');
+}
+
+/** The tag the note renders `mark` with (strong for bold), so the preview shows the new formatting. */
+function markTag(mark: Mark): string | undefined {
+    const spec = mark.type.spec.toDOM?.(mark, true);
+    return Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : undefined;
 }
 
 /** The bar with the summary and Accept / Reject. It is a widget, so it scrolls with the note. */
 function createBar(view: EditorView, item: PendingEdit): HTMLElement {
     const bar = document.createElement('div');
     bar.className =
-        'agent-edit-bar flex flex-wrap items-center gap-2 rounded-lg border border-border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+        'agent-edit-bar flex flex-wrap items-center gap-2 rounded-lg border border-border bg-popover px-2 py-2 text-sm text-popover-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
     bar.tabIndex = 0;
     bar.setAttribute('role', 'group');
     bar.setAttribute('aria-label', `Review the assistant's edit: ${item.summary}`);
 
     const summary = document.createElement('span');
-    summary.className = 'min-w-0 flex-1 basis-40 truncate';
+    // Summary first, then the buttons. The summary wraps above them when they don't fit on one line.
+    summary.className = 'min-w-0 flex-auto line-clamp-3 break-words';
     summary.textContent = item.summary;
     summary.title = item.summary;
 
@@ -68,12 +75,13 @@ function createBar(view: EditorView, item: PendingEdit): HTMLElement {
         } else rejectEdit(item);
         view.focus();
     };
-    // The buttons come first: the assistant panel can cover the right end of the note.
-    bar.append(
+    const actions = document.createElement('div');
+    actions.className = 'ml-auto flex shrink-0 gap-2';
+    actions.append(
         button('Accept', 'bg-primary text-primary-foreground hover:bg-primary/90', () => void answer(true)),
-        button('Reject', 'border border-border bg-background hover:bg-muted', () => void answer(false)),
-        summary
+        button('Reject', 'border border-border bg-background hover:bg-muted', () => void answer(false))
     );
+    bar.append(summary, actions);
     bar.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             event.preventDefault();
@@ -84,13 +92,7 @@ function createBar(view: EditorView, item: PendingEdit): HTMLElement {
             void answer(true);
         }
     });
-    const fit = () => fitBesidePanel(bar);
-    window.addEventListener('resize', fit);
-    barCleanups.set(bar, () => window.removeEventListener('resize', fit));
-    requestAnimationFrame(() => {
-        fit();
-        bar.focus();
-    });
+    requestAnimationFrame(() => bar.focus());
     return bar;
 }
 
@@ -110,13 +112,7 @@ function createInserted(view: EditorView, content: PMNode['content'], block: boo
  */
 export function previewDecorations(doc: PMNode, item: PendingEdit): DecorationSet {
     const bar = (pos: number) =>
-        Decoration.widget(pos, (view) => createBar(view, item), {
-            key: `agent-edit-bar-${item.id}`,
-            side: 3,
-            stopEvent: () => true,
-            ignoreSelection: true,
-            destroy: (node) => barCleanups.get(node as HTMLElement)?.(),
-        });
+        Decoration.widget(pos, (view) => createBar(view, item), { key: `agent-edit-bar-${item.id}`, side: 3, stopEvent: () => true, ignoreSelection: true });
     // The edit was built for another document (a note that changed while this one waited in line): show only the bar.
     if (!item.tr.before.eq(doc)) return DecorationSet.create(doc, [bar(doc.content.size)]);
 
@@ -146,8 +142,13 @@ export function previewDecorations(doc: PMNode, item: PendingEdit): DecorationSe
                 const key = `agent-edit-new-${item.id}-${decorations.length}`;
                 decorations.push(Decoration.widget(to, (view) => createInserted(view, slice.content, block), { key, side: block ? 1 : 2, ignoreSelection: true }));
             }
-        } else if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) {
-            decorations.push(Decoration.inline(step.from, step.to, { class: 'agent-edit-format' }));
+        } else if (step instanceof AddMarkStep) {
+            // Wrap the text in the mark's tag, so a bold edit previews as bold.
+            const nodeName = markTag(step.mark);
+            decorations.push(Decoration.inline(step.from, step.to, { class: 'agent-edit-format', ...(nodeName && { nodeName }) }));
+            outline(step.from, step.to);
+        } else if (step instanceof RemoveMarkStep) {
+            decorations.push(Decoration.inline(step.from, step.to, { class: 'agent-edit-format', 'data-unmark': step.mark.type.name }));
             outline(step.from, step.to);
         }
     }
@@ -171,12 +172,20 @@ export const AgentEditPreview = Extension.create({
                 state: { init: () => ({ item: null, decorations: DecorationSet.empty }), apply },
                 props: { decorations: (state) => previewKey.getState(state)?.decorations },
                 view: (view) => {
+                    const fit = () => fitBesidePanel(view.dom);
+                    window.addEventListener('resize', fit);
                     const unsubscribe = pendingEdits.subscribe(() => {
                         const item = pendingEdits.current(editor);
                         if (item === previewKey.getState(view.state)?.item) return;
                         view.dispatch(view.state.tr.setMeta(previewKey, { item }).setMeta('addToHistory', false));
+                        if (item) requestAnimationFrame(fit);
                     });
-                    return { destroy: unsubscribe };
+                    return {
+                        destroy: () => {
+                            unsubscribe();
+                            window.removeEventListener('resize', fit);
+                        },
+                    };
                 },
             }),
         ];

@@ -274,9 +274,10 @@ sup[data-type='footnote-reference'].ProseMirror-selectednode {
   background: color-mix(in srgb, var(--primary) 15%, transparent);
 }
 /* The preview of an edit the assistant proposes (#701): added text is underlined in the
-   success colour, removed text is struck through, a changed block is outlined. */
-.ProseMirror .agent-edit-inserted,
-.ProseMirror .agent-edit-format {
+   success colour, removed text is struck through, new formatting shows with a dotted
+   underline, a changed block is outlined. The outline and the bar line up on the left and
+   stop short of the assistant panel on the right (--agent-edit-right, AgentEditPreview.ts). */
+.ProseMirror .agent-edit-inserted {
   text-decoration: underline;
   text-decoration-color: var(--success);
   text-decoration-thickness: 2px;
@@ -286,19 +287,35 @@ sup[data-type='footnote-reference'].ProseMirror-selectednode {
 .ProseMirror .agent-edit-inserted-block {
   display: block;
   margin: 0.5rem 0;
+  background: none; /* The outline marks a new block; a tint would run under the assistant panel. */
 }
 .ProseMirror .agent-edit-removed {
   text-decoration: line-through;
   text-decoration-thickness: 2px;
   color: color-mix(in srgb, var(--foreground) 70%, transparent);
 }
+.ProseMirror .agent-edit-format {
+  border-bottom: 2px dotted var(--success);
+}
+.ProseMirror .agent-edit-format[data-unmark='bold'] {
+  font-weight: 400;
+}
+.ProseMirror .agent-edit-format[data-unmark='italic'] {
+  font-style: normal;
+}
 .ProseMirror .agent-edit-block {
-  border-radius: 0.375rem;
-  outline: 2px solid color-mix(in srgb, var(--success) 55%, transparent);
-  outline-offset: 3px;
+  position: relative;
+}
+.ProseMirror .agent-edit-block::after {
+  content: '';
+  position: absolute;
+  inset: -5px var(--agent-edit-right, -0.5rem) -5px -0.5rem;
+  border: 2px solid color-mix(in srgb, var(--success) 55%, transparent);
+  border-radius: 0.5rem;
+  pointer-events: none;
 }
 .ProseMirror .agent-edit-bar {
-  margin: 0.75rem 0;
+  margin: 0.75rem var(--agent-edit-right, -0.5rem) 0.75rem -0.5rem;
 }
 
 section[data-type='footnotes'],

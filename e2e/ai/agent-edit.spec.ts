@@ -24,6 +24,7 @@ const readNote = { tool: 'read_open_note', args: {} };
 const bold = (n: number) => ({ tool: 'format_text', args: { n, mark: 'bold', on: true } });
 
 test('the assistant previews each edit in the note, and Accept, Reject and undo work from the keyboard too', async ({ app }) => {
+  test.slow();
   await app.setViewportSize({ width: 1280, height: 800 });
   await stubWebLLMWorker(app);
   await stubWebGPU(app);
@@ -62,11 +63,15 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await expect(bar).toContainText('Make paragraph 2 bold');
   await expect(bar).toBeFocused();
   await expect(panel.getByText('Waiting for your OK in the note')).toBeVisible();
-  await expect(editor.locator('.agent-edit-format')).toHaveText('Second paragraph here.');
-  await expect(strong).toHaveCount(0);
-  // The panel floats over the right of the note at 1280px: the whole bar stays left of it.
-  await expect.poll(async () => (await bar.boundingBox())!.x + (await bar.boundingBox())!.width).toBeLessThanOrEqual((await panel.boundingBox())!.x);
+  // The preview shows the text bold, but the note itself has no bold yet.
+  await expect(editor.locator('strong.agent-edit-format')).toHaveText('Second paragraph here.');
+  await expect(editor.locator('strong:not(.agent-edit-format)')).toHaveCount(0);
+  // The panel floats over the right of the note at 1280px: the bar and the block outline stay left of it.
+  const panelLeft = (await panel.boundingBox())!.x;
+  await expect.poll(async () => (await bar.boundingBox())!.x + (await bar.boundingBox())!.width).toBeLessThanOrEqual(panelLeft);
   await expect(bar.getByText('Make paragraph 2 bold')).toBeVisible();
+  const outlineRight = await editor.locator('p.agent-edit-block').evaluate((el) => el.getBoundingClientRect().right - parseFloat(getComputedStyle(el, '::after').right));
+  expect(outlineRight).toBeLessThanOrEqual(panelLeft);
   await screenshotInBothThemes(app, (theme) => `agent-edit-preview-${theme}-1280.png`);
 
   await queueReply(app, { answer: 'I left it as it is.' });
@@ -114,6 +119,7 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await expect(bar).toContainText('Add a paragraph after block 2');
   await expect(activeEditor(app).locator('.agent-edit-inserted-block')).toHaveText('Plan');
   await expect(activeEditor(app).locator('h2')).toHaveCount(0);
+  await screenshotInBothThemes(app, (theme) => `agent-edit-insert-${theme}-1280.png`);
   await queueReply(app, { tool: 'set_block_type', args: { n: 3, type: 'h2' } });
   await queueReply(app, { answer: 'Added the heading.' });
   await bar.getByRole('button', { name: 'Accept' }).click();
@@ -133,6 +139,15 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await expect(activeEditor(app).locator('strong').first()).toHaveText('First paragraph here.');
   await expect(activeEditor(app)).toBeFocused();
 
+  // A removal: the old words are struck through and the new ones underlined. Rejected.
+  await ask('say Next instead of Second', [readNote, { tool: 'replace_text', args: { n: 2, find: 'Second', replace: 'Next' } }, { answer: 'Kept it.' }]);
+  await expect(activeEditor(app).locator('.agent-edit-removed')).toHaveText('Second');
+  await expect(activeEditor(app).locator('.agent-edit-inserted')).toHaveText('Next');
+  await screenshotInBothThemes(app, (theme) => `agent-edit-replace-${theme}-1280.png`);
+  await bar.getByRole('button', { name: 'Reject' }).click();
+  await expect(panel.getByText('Kept it.')).toBeVisible();
+  await expect(activeEditor(app)).toContainText('Second paragraph here.');
+
   await ask('make the list a numbered list', [readNote, { tool: 'set_block_type', args: { n: 4, type: 'numbered' } }, { answer: 'Skipped.' }]);
   await expect(bar).toBeFocused();
   await app.keyboard.press('Escape');
@@ -140,6 +155,41 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await expect(activeEditor(app).locator('ul')).toHaveCount(1);
   await expect(activeEditor(app).locator('ol')).toHaveCount(0);
   await expect(activeEditor(app)).toBeFocused();
+});
+
+// The assistant isn't offered below 768px, so 768px is the narrowest width a preview can show at.
+// There the panel fills the screen: close it to see the preview in the note.
+test('the preview fits the narrowest width with the assistant', async ({ app }) => {
+  await app.setViewportSize({ width: 768, height: 1024 });
+  await stubWebLLMWorker(app);
+  await stubWebGPU(app);
+  await importNote(app);
+  await selectFolder(app, 'Main');
+  await openNote(app, 'Weekend notes');
+  const editor = activeEditor(app);
+  await expect(editor).toContainText('Second paragraph here.');
+
+  await app.getByRole('button', { name: 'Open assistant' }).click();
+  const panel = app.getByRole('region', { name: 'Assistant' });
+  const box = panel.getByPlaceholder('Type a message or /help...');
+  await box.fill('say Next instead of Second');
+  await box.press('Enter');
+  await app.getByRole('dialog', { name: /^Download / }).getByRole('button', { name: 'Continue' }).click();
+  await expect.poll(() => reloads(app)).toHaveLength(1);
+  await finishLoad(app, 'ok');
+  await queueReply(app, readNote);
+  await queueReply(app, { tool: 'replace_text', args: { n: 2, find: 'Second', replace: 'Next' } });
+  await expect(panel.getByText('Waiting for your OK in the note')).toBeVisible();
+  await app.getByRole('button', { name: 'Close assistant' }).click();
+
+  const bar = editor.getByRole('group', { name: /^Review the assistant's edit/ });
+  await expect(bar).toBeVisible();
+  await expect(bar.getByRole('button', { name: 'Reject' })).toBeInViewport({ ratio: 1 });
+  await expect(editor.locator('.agent-edit-removed')).toHaveText('Second');
+  await screenshotInBothThemes(app, (theme) => `agent-edit-replace-${theme}-768.png`);
+  await bar.getByRole('button', { name: 'Reject' }).click();
+  await expect(bar).toHaveCount(0);
+  await expect(editor).toContainText('Second paragraph here.');
 });
 
 /** The tag names of the editor's top-level blocks, in order. */
