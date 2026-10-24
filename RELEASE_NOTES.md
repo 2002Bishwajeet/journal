@@ -15,6 +15,12 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.21.0 (2026-10-24)
+
+### New
+
+- You can send a test notification in Settings > Notifications. The button shows when notifications are on for this device. All devices with notifications on get the test.
+
 ## 2.20.0 (2026-10-24)
 
 ### New
