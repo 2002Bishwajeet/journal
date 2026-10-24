@@ -45,6 +45,8 @@ interface JournalE2EHooks {
   hasUnsavedEdits(): Promise<boolean>;
   /** Resolves once PGlite has flushed everything it committed to IndexedDB. */
   syncToDisk(): Promise<void>;
+  /** Skips incoming invites until the page reloads, so a share arrives only through the shared pull (#732). */
+  ignoreInvites(): void;
   /** Draws a 1200×630 link card JPEG, as src/lib/share/cardImage.ts's renderCardImage does. */
   renderCard(
     text: { title: string; excerpt?: string; author: string },

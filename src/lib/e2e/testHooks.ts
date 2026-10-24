@@ -4,10 +4,12 @@
  * module (and its `window.__journalE2E` global) never ships in the production
  * bundle. See src/globals.d.ts for the public type.
  *
- * Nothing here mutates app state — the hooks only read signals the app
- * already maintains (bootProgress and the boot splash) or draw a link card.
+ * The hooks only read signals the app already maintains (bootProgress and the
+ * boot splash) or draw a link card. The one exception is the ignoreInvites
+ * switch, which lasts until the page reloads.
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
+import { e2eSwitches } from './switches';
 
 const E2E_ORIGINS = [
     'http://127.0.0.1:4173',
@@ -76,9 +78,14 @@ async function syncToDisk(): Promise<void> {
     await (await getDatabase()).syncToFs();
 }
 
+/** Skip incoming invites until the page reloads, so a share arrives only through the shared pull (#732). */
+function ignoreInvites(): void {
+    e2eSwitches.ignoreInvites = true;
+}
+
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites }),
         writable: false,
         configurable: false,
         enumerable: false,
