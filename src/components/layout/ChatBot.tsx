@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAgentSession, type AgentStep } from "@/hooks/useAgentSession";
 import ModelDownloadDialog from "@/components/modals/ModelDownloadDialog";
+import { AgentWriteCard } from "@/components/layout/AgentWriteCard";
 
 interface ChatBotProps {
   activeNoteId?: string | null;
@@ -150,6 +151,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
                         )}
                       </>
                     )}
+                    {msg.steps?.map((step, j) => step.write && <AgentWriteCard key={j} step={step} />)}
                   </div>
                 </div>
               ))}

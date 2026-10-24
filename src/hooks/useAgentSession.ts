@@ -3,6 +3,7 @@ import { useAISettings } from "@/hooks/useAISettings";
 import { useModelDownloadGate } from "@/hooks/useModelDownloadGate";
 import { getSearchIndexEntry } from "@/lib/db";
 import type { AgentEvent } from "@/lib/agent/loop/agentLoop";
+import { approveWrite, type WrittenNote } from "@/lib/agent/approveWrite";
 
 export interface ChatCommand {
   label: string;
@@ -24,6 +25,8 @@ export interface AgentStep {
   note?: { title: string; href: string };
   /** An edit to the open note: what the user is asked to accept or reject in the note. */
   summary?: string;
+  /** An append to another note or a new note (#702): the card the user accepts or rejects in the panel. */
+  write?: { markdown: string; state: "pending" | "accepted" | "rejected" | "notApplied"; note?: { title: string; href: string } };
   /** The tool was called and has not answered yet. */
   open?: boolean;
 }
@@ -45,6 +48,10 @@ function describeCall(tool: string, args: unknown): AgentStep {
       return { before: "Read a note", after: "" };
     case "list_notes":
       return { before: "Listed notes", after: "" };
+    case "append_to_note":
+      return { before: "Prepared an addition to a note", after: "" };
+    case "create_note":
+      return { before: "Prepared a new note", after: "" };
     case "list_folders":
       return { before: "Listed folders", after: "" };
     case "read_open_note":
@@ -60,10 +67,16 @@ function describeCall(tool: string, args: unknown): AgentStep {
 }
 
 /** The tool result is the data as JSON on its first line, then any advisory notes. */
-function describeResult(step: AgentStep, tool: string, result: string): AgentStep {
+function describeResult(step: AgentStep, tool: string, result: string, written?: WrittenNote): AgentStep {
   if (step.summary !== undefined) {
-    const outcome = result.startsWith("accepted") ? "Accepted" : result.startsWith("rejected") ? "Rejected" : "Not applied";
-    return { before: `${outcome}: ${step.summary}`, after: "" };
+    const state = result.startsWith("accepted") ? "accepted" : result.startsWith("rejected") ? "rejected" : "notApplied";
+    const outcome = { accepted: "Accepted", rejected: "Rejected", notApplied: "Not applied" }[state];
+    const note = written && { title: written.title, href: `/${written.folderId}/${written.id}` };
+    return {
+      before: `${outcome}: ${step.summary}`,
+      after: "",
+      ...(step.write && { summary: step.summary, write: { ...step.write, state, note } }),
+    };
   }
   if (tool !== "get_note") return step;
   try {
@@ -83,11 +96,17 @@ function applyEvent(steps: AgentStep[], event: AgentEvent): AgentStep[] {
     case "proposal":
       return steps.map((step, i) =>
         i === last && event.proposal.summary !== undefined
-          ? { before: "Waiting for your OK in the note", after: "", summary: event.proposal.summary, open: true }
+          ? {
+              before: event.proposal.write ? "Waiting for your OK" : "Waiting for your OK in the note",
+              after: "",
+              summary: event.proposal.summary,
+              ...(event.proposal.write && { write: { markdown: event.proposal.write.markdown, state: "pending" as const } }),
+              open: true,
+            }
           : step
       );
     case "toolResult":
-      return steps.map((step, i) => (i === last ? { ...describeResult(step, event.tool, event.result), open: false } : step));
+      return steps.map((step, i) => (i === last ? { ...describeResult(step, event.tool, event.result, event.note), open: false } : step));
     case "error": {
       const failed = { before: `Could not finish a step: ${event.error.replace(/: [0-9a-f-]{36}$/i, "")}`, after: "" };
       // A tool that throws fails its own step; a bad reply from the model is a step of its own.
@@ -174,23 +193,28 @@ export function useAgentSession(activeNoteId: string | undefined) {
     let capped = false;
     let content: string;
     try {
-      const [{ runAgent, MAX_TOOL_STEPS }, { approveEdit }, { createLocalDeps }, { createAgentEngine }] = await Promise.all([
-        import("@/lib/agent/loop/agentLoop"),
-        import("@/lib/agent/approveEdit"),
-        import("@/lib/agent/local/localDeps"),
-        import("@/lib/webllm"),
-      ]);
+      const [{ runAgent, MAX_TOOL_STEPS }, { approveEdit }, { createLocalWriteDeps }, { createAgentEngine }] =
+        await Promise.all([
+          import("@/lib/agent/loop/agentLoop"),
+          import("@/lib/agent/approveEdit"),
+          import("@/lib/agent/local/localWriteDeps"),
+          import("@/lib/webllm"),
+        ]);
       // A note kept from AI is not even named to the model.
       const entry = activeNoteId ? await getSearchIndexEntry(activeNoteId) : null;
       const context = entry && !entry.metadata.excludeFromAI ? `Open note: "${entry.title}" (id: ${entry.docId})\n` : "";
 
+      const writeDeps = createLocalWriteDeps();
       const answer = await runAgent(context + request, {
         engine: createAgentEngine(settings.agentModelId, (report) =>
           setModelStatus({ progress: report.progress, message: report.text })
         ),
-        deps: createLocalDeps(),
-        // Each edit to the open note shows in the note for the user to accept or reject.
-        approve: (proposal) => approveEdit(proposal, controller.signal),
+        deps: writeDeps,
+        writeDeps,
+        // An edit to the open note shows in the note, an append to another note or a new note shows as a
+        // card in this panel; the user accepts or rejects each.
+        approve: (proposal) =>
+          proposal.write ? approveWrite(proposal.write, controller.signal) : approveEdit(proposal, controller.signal),
         signal: controller.signal,
         onEvent: (event) => {
           if (event.type === "step" && event.step > MAX_TOOL_STEPS) capped = true;

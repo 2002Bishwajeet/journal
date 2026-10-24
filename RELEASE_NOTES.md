@@ -20,6 +20,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - The assistant can change the note that you have open. It shows each change in the note first.
 - You choose Accept or Reject for each change. The note stays the same until you accept.
 - One undo (Cmd+Z or Ctrl+Z) takes back an accepted change.
+- The assistant can add text to a note that is not open, and it can make a new note. It shows the text in the chat first, and writes it only when you accept.
+- Version history keeps the note as it was before the assistant added text.
 
 ## 2.15.3 (2026-10-24)
 

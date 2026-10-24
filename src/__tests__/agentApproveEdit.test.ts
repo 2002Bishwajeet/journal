@@ -301,7 +301,7 @@ describe('the agent loop with the edit tools', () => {
     it('lists at most 8 tools, with the editor tools in', () => {
         expect(AGENT_TOOLS.length).toBeLessThanOrEqual(8);
         expect(AGENT_TOOLS.map((t) => t.name)).toEqual(
-            expect.arrayContaining(['read_open_note', 'insert_paragraph', 'set_block_type', 'replace_text', 'format_text'])
+            expect.arrayContaining(['read_open_note', 'insert_paragraph', 'replace_text', 'format_text', 'append_to_note', 'create_note'])
         );
     });
 });
