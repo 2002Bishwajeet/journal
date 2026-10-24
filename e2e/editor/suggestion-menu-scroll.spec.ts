@@ -36,17 +36,17 @@ async function walkMenu(page: Page, steps: number) {
   }
 }
 
-test('slash menu keeps the highlighted item visible', async ({ app }) => {
+test('slash menu keeps the highlighted item visible', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Slash scroll ${Date.now()}`, body: '/' });
   await walkMenu(app, 40);
 });
 
-test('emoji menu keeps the highlighted item visible', async ({ app }) => {
+test('emoji menu keeps the highlighted item visible', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Emoji scroll ${Date.now()}`, body: ':sm' });
   await walkMenu(app, 40);
 });
 
-test('note-link menu keeps the highlighted item visible', async ({ app }) => {
+test('note-link menu keeps the highlighted item visible', async ({ reusedApp: app }) => {
   // Seeding notes through the UI is slow; 8 matches (the picker's limit) plus
   // the "create" row already overflow the menu.
   test.slow();

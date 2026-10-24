@@ -17,12 +17,14 @@ interface WhatsNewDialogProps {
 export default function WhatsNewDialog({ entries, onClose }: WhatsNewDialogProps) {
   return (
     <Dialog open={entries.length > 0} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[85dvh] grid-rows-[auto_minmax(0,1fr)_auto]">
+      {/* A flex column, not DialogContent's grid: Safari sizes a grid row to its content
+          and ignores max-h, so the list never scrolls there. */}
+      <DialogContent className="flex max-h-[85dvh] flex-col">
         <DialogHeader>
           <DialogTitle>What's new</DialogTitle>
           <DialogDescription>Changes in the latest versions of Journal.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-5 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain pr-1">
           {entries.map((entry) => (
             <section key={entry.version} className="space-y-2">
               <h3 className="text-sm font-semibold">
