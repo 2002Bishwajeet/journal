@@ -4,7 +4,7 @@
  * Chrome never shows its "updated in the background" notice.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { JOURNAL_APP_ID } from '@/lib/homebase/config';
+import { COLLABORATIVE_FOLDER_ID, JOURNAL_APP_ID, JOURNAL_PUSH_TYPE_EDIT } from '@/lib/homebase/config';
 
 vi.mock('workbox-precaching', () => ({
     precacheAndRoute: vi.fn(),
@@ -128,6 +128,13 @@ describe('sw notificationclick', () => {
         const close = await fireClick(data);
         expect(close).toHaveBeenCalled();
         expect(openWindow).toHaveBeenCalledWith(url);
+    });
+
+    it('opens the owner note at its collaborative-folder route for an edit push (#746)', async () => {
+        const client = { focus: vi.fn(async () => {}), navigate: vi.fn(async () => null) };
+        matchAll.mockResolvedValue([client]);
+        await fireClick({ senderId: 'sam.dotyou.cloud', typeId: JOURNAL_PUSH_TYPE_EDIT, tagId: 'note-1' });
+        expect(client.navigate).toHaveBeenCalledWith(`/${COLLABORATIVE_FOLDER_ID}/note-1`);
     });
 
     it("focuses Journal without navigating for another app's notification", async () => {
