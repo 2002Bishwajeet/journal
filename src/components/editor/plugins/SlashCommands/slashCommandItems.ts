@@ -6,6 +6,7 @@
  */
 
 import type { Editor } from '@tiptap/react';
+import { aiRequests } from '@/lib/agent/aiRequests';
 import {
     Heading1,
     Heading2,
@@ -277,8 +278,7 @@ const formattingCommands: SlashCommandItem[] = [
 ];
 
 /**
- * AI commands - these trigger AI-powered actions
- * The actual AI processing is handled by the component that receives these commands
+ * AI commands - these ask the assistant panel or the AI menu to act (see aiRequests)
  */
 const aiCommands: SlashCommandItem[] = [
     {
@@ -288,10 +288,8 @@ const aiCommands: SlashCommandItem[] = [
         icon: Sparkles,
         group: 'ai',
         command: ({ editor, range }) => {
-            // Delete the slash command, AI action will be handled by parent
             editor.chain().focus().deleteRange(range).run();
-            // Dispatch custom event for AI action
-            window.dispatchEvent(new CustomEvent('ai-slash-command', { detail: { action: 'ask' } }));
+            aiRequests.emit('ask');
         },
     },
     {
@@ -302,7 +300,7 @@ const aiCommands: SlashCommandItem[] = [
         group: 'ai',
         command: ({ editor, range }) => {
             editor.chain().focus().deleteRange(range).run();
-            window.dispatchEvent(new CustomEvent('ai-slash-command', { detail: { action: 'summarize' } }));
+            aiRequests.emit('summarize');
         },
     },
     {
@@ -313,7 +311,7 @@ const aiCommands: SlashCommandItem[] = [
         group: 'ai',
         command: ({ editor, range }) => {
             editor.chain().focus().deleteRange(range).run();
-            window.dispatchEvent(new CustomEvent('ai-slash-command', { detail: { action: 'rewrite' } }));
+            aiRequests.emit('rewrite');
         },
     },
 ];

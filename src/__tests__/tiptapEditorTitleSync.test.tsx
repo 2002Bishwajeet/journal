@@ -12,7 +12,6 @@ vi.mock('@/hooks', () => ({ useDeviceType: () => 'desktop' }));
 vi.mock('@/components/editor/EditorToolbar', () => ({ default: () => null }));
 vi.mock('@/components/editor/MobileToolbar', () => ({ default: () => null }));
 vi.mock('@/components/editor/BubbleMenuToolbar', () => ({ default: () => null }));
-vi.mock('@/components/editor/AISuggestionOverlay', () => ({ AISuggestionOverlay: () => null }));
 vi.mock('@/components/editor/table/TableColumnMenu', () => ({ TableColumnMenu: () => null }));
 vi.mock('@/components/editor/table/TableRowMenu', () => ({ TableRowMenu: () => null }));
 vi.mock('@/components/editor/TagInput', () => ({ TagInput: () => null }));
