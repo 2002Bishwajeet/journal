@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- In Settings, Agent access, you can let your browser's AI agent use the notes you granted. This needs a browser with WebMCP.
+
 ## 2.19.0 (2026-10-24)
 
 ### Changed
@@ -29,8 +33,6 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - The app now looks for notes that your connections share with you. A shared note shows in "Shared with me" within a few minutes. Select the refresh button next to "Shared with me" to look now. A note that is no longer shared with you goes away from the list.
 
 ### New
-
-- In Settings, Agent access, you can let your browser's AI agent use the notes you granted. This needs a browser with WebMCP.
 
 - You can turn on notifications in Settings > Notifications. Then Journal tells you when someone shares a note with you. Click the notification to open the note.
 
