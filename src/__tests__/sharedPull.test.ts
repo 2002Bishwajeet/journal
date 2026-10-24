@@ -29,7 +29,7 @@ vi.mock('@/lib/db', async (importOriginal) => {
     return { ...actual, saveAppState: mocks.saveAppState };
 });
 
-import { pullShared, pullOwnerNow, SHARED_PULL_STATE_KEY } from '@/lib/homebase/sync/sharedPull';
+import { pullShared, SHARED_PULL_STATE_KEY } from '@/lib/homebase/sync/sharedPull';
 import { handleInvitation } from '@/lib/homebase/sync/peerNotes';
 import { getAppState, getSearchIndexEntry, getSyncRecord } from '@/lib/db';
 import type { SyncContext } from '@/lib/homebase/sync/context';
@@ -254,32 +254,6 @@ describe('the full pass (revoke)', () => {
         await run(ctx(), true);
 
         expect(await getSearchIndexEntry(SHARED)).not.toBeNull();
-    });
-});
-
-describe('pullOwnerNow', () => {
-    it('queries only that owner, ignores its backoff, imports a new share and writes app_state once', async () => {
-        drives[OTHER] = [];
-        drives[OWNER] = new Error('404');
-        await run(ctx());
-        mocks.queryModifiedOverPeer.mockClear();
-        mocks.saveAppState.mockClear();
-        drives[OWNER] = [sharedNote()];
-
-        await pullOwnerNow(ctx(), client, OWNER);
-
-        expect(mocks.getConnections).toHaveBeenCalledTimes(1); // only the first pass's
-        expect(queriedOwners()).toEqual([OWNER]);
-        expect(await getSearchIndexEntry(SHARED)).not.toBeNull();
-        expect(mocks.saveAppState).toHaveBeenCalledTimes(1);
-        expect((await ownerState(OWNER))?.failures).toBe(0);
-    });
-
-    it('uses the stored cursor', async () => {
-        await run(ctx());
-        await pullOwnerNow(ctx(), client, OWNER);
-
-        expect(mocks.queryModifiedOverPeer.mock.calls[1][3].cursor).toBe(`cursor-${OWNER}`);
     });
 });
 

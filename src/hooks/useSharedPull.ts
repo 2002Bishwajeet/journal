@@ -45,9 +45,5 @@ export function useSharedPull() {
         }
     };
 
-    const pullOwnerNow = async (odinId: string) => {
-        await syncService?.pullOwnerNow(odinId);
-    };
-
-    return { canPull, isRefreshing, refresh, pullOwnerNow };
+    return { canPull, isRefreshing, refresh };
 }
