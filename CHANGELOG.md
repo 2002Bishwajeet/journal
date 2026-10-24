@@ -1,3 +1,9 @@
+## [2.15.3](https://github.com/2002Bishwajeet/journal/compare/v2.15.2...v2.15.3) (2026-10-24)
+
+
+### Bug Fixes
+
+* **export:** add journal-export.json marker so a one-folder export imports into its folder ([#750](https://github.com/2002Bishwajeet/journal/issues/750)) ([1511434](https://github.com/2002Bishwajeet/journal/commit/1511434e9f6a3004432dcfae6cd8e783cbb63c41))
 ## [2.15.2](https://github.com/2002Bishwajeet/journal/compare/v2.15.1...v2.15.2) (2026-10-23)
 
 
