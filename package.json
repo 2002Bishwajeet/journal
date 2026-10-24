@@ -119,7 +119,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.12.0",
-    "happy-dom": "^21.0.3",
+    "happy-dom": "^21.0.4",
     "lucide-react": "^1.48.0",
     "pglite-v3": "npm:@electric-sql/pglite@^0.3.14",
     "tailwind-merge": "^3.6.0",
