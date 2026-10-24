@@ -19,6 +19,20 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - People you shared notes with before this update now get access to them. The app does this once, with no action from you.
 
+## 2.15.2 (2026-10-23)
+
+### Fixed
+
+- The narrow sidebar shows all folders in full. A long folder list scrolls. Each folder shows two letters, and a globe marks a shared folder.
+- In Agent access settings, the access lists have the same width. The arrow no longer covers the text.
+
+## 2.15.1 (2026-10-23)
+
+### Fixed
+
+- When you export all notes and import the file again, quotes in note titles stay correct.
+- Tags with a comma or a quote also stay correct after export and import.
+
 ## 2.15.0 (2026-10-23)
 
 ### Changed
