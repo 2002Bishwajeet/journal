@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- The app uses a newer version of a data-check library that fixes a security problem.
+
 ## 2.17.1 (2026-10-24)
 
 ### Fixed
