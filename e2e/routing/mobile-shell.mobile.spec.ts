@@ -40,6 +40,14 @@ test('a notch keeps the sidebar content out of the unsafe area', async ({ browse
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, bottom: 34 } });
     await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
+
+    const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+    // The sidebar animates its padding (transition-all), so poll until the inset settles.
+    await expect.poll(async () => (await sidebar.getByRole('button').first().boundingBox())!.y).toBeGreaterThanOrEqual(59);
+    const logout = await sidebar.getByRole('button', { name: /Log out/ }).boundingBox();
+    expect(logout!.y + logout!.height).toBeLessThanOrEqual(852 - 34);
+
     await page.screenshot({ path: test.info().outputPath('notch-sidebar-dark-393x852.png') });
   });
 });
@@ -55,6 +63,8 @@ test('in landscape, a left inset moves the sidebar content clear of the notch', 
     await expect(first).toBeVisible();
     const box = await first.boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(47);
+    const sidebarBox = await page.getByRole('complementary', { name: 'Sidebar' }).boundingBox();
+    expect(sidebarBox!.x + sidebarBox!.width).toBeLessThanOrEqual(852 - 47);
 
     await page.screenshot({ path: test.info().outputPath('landscape-sidebar-light-852x393.png') });
   });
