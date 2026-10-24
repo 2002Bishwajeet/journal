@@ -4,6 +4,7 @@ import { registerRoute, NavigationRoute, Route } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
+import { JOURNAL_APP_ID } from './lib/homebase/config';
 
 declare let self: ServiceWorkerGlobalScope & {
     __WB_DISABLE_DEV_LOGS: boolean;
@@ -257,4 +258,73 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+});
+
+// Web push from the identity (#744). Payload: odin-core `PushNotificationContent`, serialized
+// camelCase with GUIDs as lowercase dashed strings (OdinSystemSerializer, GuidConverter).
+// The server sends every app's push to every subscription of the identity (no per-app filter),
+// and with `userVisibleOnly` Chrome shows "This site has been updated in the background" for a
+// push that shows nothing. So other apps' pushes get a generic notification, as in the owner
+// console's service worker.
+interface PushPayload {
+    senderId: string;
+    appDisplayName?: string;
+    options: { appId: string; typeId: string; tagId: string; unEncryptedMessage?: string };
+}
+
+const isJournalPush = (p: PushPayload) =>
+    p.options?.appId?.replace(/-/g, '').toLowerCase() === JOURNAL_APP_ID;
+
+const otherAppNotification = (p: PushPayload) =>
+    self.registration.showNotification(p.appDisplayName || 'Homebase', {
+        body: `${p.senderId} sent you a notification via ${p.appDisplayName || 'Homebase'}`,
+        tag: p.options?.tagId,
+    });
+
+self.addEventListener('push', (event) => {
+    let payloads: PushPayload[] = [];
+    try {
+        payloads = (event.data?.json() as { payloads?: PushPayload[] })?.payloads ?? [];
+    } catch {
+        // Unreadable push: still show something (below)
+    }
+    const journal = payloads.filter(isJournalPush);
+    event.waitUntil(
+        (async () => {
+            const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            for (const payload of journal) {
+                for (const client of windows) client.postMessage({ type: 'journal-push', payload });
+            }
+            const shown = payloads.map((p) =>
+                isJournalPush(p)
+                    ? self.registration.showNotification(p.senderId, {
+                          body: p.options.unEncryptedMessage,
+                          tag: p.options.tagId,
+                          data: { senderId: p.senderId, typeId: p.options.typeId, tagId: p.options.tagId },
+                      })
+                    : otherAppNotification(p)
+            );
+            if (shown.length === 0) shown.push(self.registration.showNotification('Homebase', { body: 'You have a new notification' }));
+            await Promise.all(shown);
+        })()
+    );
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    // Other apps' notifications have no data: just bring Journal up
+    const { senderId, tagId } = (event.notification.data ?? {}) as { senderId?: string; tagId?: string };
+    const url = tagId ? `/shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId ?? '')}` : undefined;
+    event.waitUntil(
+        (async () => {
+            const [client] = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            if (client) {
+                await client.focus();
+                // navigate() rejects for a window this worker does not control yet
+                if (url) await client.navigate(url).catch(() => self.clients.openWindow(url));
+            } else {
+                await self.clients.openWindow(url ?? '/');
+            }
+        })()
+    );
 });

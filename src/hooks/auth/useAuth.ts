@@ -10,6 +10,7 @@ import {
     STORAGE_KEY_AUTH_TOKEN,
     STORAGE_KEY_SHARED_SECRET,
 } from '@/lib/homebase/config';
+import { removeWebPush } from '@/lib/homebase/WebPushProvider';
 import { SESSION_STORAGE_KEY, TABS_STORAGE_KEY } from '@/lib/storage';
 import { useVerifyToken } from './useVerifyToken';
 import { useOnlineContext } from '../useOnlineContext';
@@ -83,6 +84,8 @@ export function useAuth() {
     const logout = useCallback(async (): Promise<void> => {
         const client = getDotYouClient();
         if (client) {
+            // Before the token ends: the server drops a device subscription only for a live token
+            await removeWebPush(client);
             try {
                 await homebaseLogout(client);
             } catch {
