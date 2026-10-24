@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- People you shared notes with before this update now get access to them. The app does this once, with no action from you.
+
 ## 2.15.0 (2026-10-23)
 
 ### Changed
