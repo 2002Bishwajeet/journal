@@ -23,7 +23,8 @@ vi.mock('@/lib/db/queries', () => ({
 const { prepareImageForUpload } = vi.hoisted(() => ({ prepareImageForUpload: vi.fn(async (file: File) => file) }));
 vi.mock('@/lib/images/imageIngest', () => ({ prepareImageForUpload }));
 
-import { ImportService, resolveImagePath } from '@/lib/importexport/ImportService';
+import { ImportService } from '@/lib/importexport/ImportService';
+import { resolveImagePath } from '@/lib/importexport/markdownImport';
 
 describe('resolveImagePath', () => {
     it('resolves relative to the note, URL-decoded', () => {

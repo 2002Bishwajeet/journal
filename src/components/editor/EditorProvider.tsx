@@ -14,7 +14,7 @@ import { ySyncPluginKey } from "y-prosemirror";
 import { PGliteProvider } from "@/lib/yjs";
 import { flushPendingSaveOnTeardown } from "@/lib/yjs/flushPendingSave";
 import { registerPendingEditorWrite } from "@/lib/yjs/pendingEditorWrites";
-import { upsertSearchIndex, savePendingImageUpload, savePendingImageDeletion, updateSyncStatus } from "@/lib/db";
+import { updateSearchIndexContent, savePendingImageUpload, savePendingImageDeletion, updateSyncStatus } from "@/lib/db";
 import { getNewId } from "@/lib/utils";
 import { prepareImageForUpload, UnsupportedImageError } from "@/lib/images/imageIngest";
 import { formatGuidId } from "@homebase-id/js-lib/helpers";
@@ -54,7 +54,6 @@ import {
   SlashCommandsExtension,
 } from "./plugins";
 
-import "katex/dist/katex.min.css";
 import { joinPreviewText } from "@/lib/previewText";
 
 /** Prose first, code/live-block text after a separator (see previewText.ts). */
@@ -481,24 +480,14 @@ export function EditorProvider({
         // Recompute outgoing internal links — powers the backlinks live query.
         const linkedNoteIds = extractNoteLinkIds(editorInstance.getJSON());
 
-        upsertSearchIndex({
-          docId: currentDocId,
-          title: currentMetadata.title,
-          plainTextContent: plainText,
-          metadata: {
-            ...currentMetadata,
-            title: currentMetadata.title,
-            timestamps: {
-              ...currentMetadata.timestamps,
-              modified: new Date().toISOString(),
-            },
-            linkedNoteIds,
-            lastEditedBy: currentMetadata.isCollaborative
-              ? editorOdinId
-              : isAgentEditor(currentMetadata.lastEditedBy)
-                ? undefined
-                : currentMetadata.lastEditedBy,
-          },
+        updateSearchIndexContent(currentDocId, plainText, {
+          modified: new Date().toISOString(),
+          linkedNoteIds,
+          lastEditedBy: currentMetadata.isCollaborative
+            ? editorOdinId
+            : isAgentEditor(currentMetadata.lastEditedBy)
+              ? undefined
+              : currentMetadata.lastEditedBy,
         });
 
         // Mark the note pending (bumps dirty_generation) on a real content edit so
@@ -560,7 +549,7 @@ export function EditorProvider({
         return;
       }
 
-      // upsertSearchIndex (above) writes to PGlite; the note list live query
+      // updateSearchIndexContent (above) writes to PGlite; the note list live query
       // picks up the title/preview change with no manual invalidation.
       // Plain text is computed lazily inside the 500 ms debounce (updateSearchIndex's
       // fallback) — at most once per window, instead of an O(document) getText() per

@@ -43,7 +43,6 @@ import { collectImageRefs } from '@/lib/yjs/imageRefs';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import type { PreparedImage } from '@/lib/images/imageBytes';
 import type { DocumentMetadata } from '@/types';
-import { loadImage } from '../imageSource';
 import { linkTargets, noteAccess, toListResult, type ReadDeps, type NoteSummary, type NoteListResult } from './read';
 
 /** Thrown by `uploadNoteEdit` when the note's versionTag is stale. */
@@ -88,6 +87,12 @@ export type WriteDeps = ReadDeps & {
     trashNote(id: string, fileId: string): Promise<void>;
     /** Sets one folder's grant in the grants file, keeping every other grant. */
     grantFolder(folderId: string, access: AgentAccess): Promise<void>;
+    /**
+     * Reads and checks an image an agent hands a tool: a path to a file on this computer or a
+     * base64 `data:` URI. The MCP server supplies it (mcp/imageSource.ts), so these handlers
+     * stay free of Node APIs.
+     */
+    loadImage(image: string): Promise<PreparedImage>;
     /** The MCP client's `clientInfo.name` from the initialize handshake ('' if absent). */
     clientName(): string;
 };
@@ -189,11 +194,11 @@ async function editWithRetry(
  * Reads and checks every local image (file path or data: URI) in `markdown`, before
  * anything is written: one bad image rejects the whole call.
  */
-async function loadBodyImages(markdown: string | undefined): Promise<Map<string, PreparedImage>> {
+async function loadBodyImages(deps: WriteDeps, markdown: string | undefined): Promise<Map<string, PreparedImage>> {
     const loaded = new Map<string, PreparedImage>();
     for (const src of markdown ? localImageSources(markdown) : []) {
         try {
-            loaded.set(src, await loadImage(src));
+            loaded.set(src, await deps.loadImage(src));
         } catch (err) {
             const label = src.startsWith('data:') ? 'data: URI' : src;
             throw new Error(`Image ${label}: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
@@ -281,7 +286,7 @@ export async function createNote(
         // A note created in a shared folder starts public, as in the app (#618).
         ...newNoteShareFields(folder),
     };
-    const images = await loadBodyImages(params.markdown);
+    const images = await loadBodyImages(deps, params.markdown);
     // Built before anything is created, so a note link that can't be resolved fails the call first.
     const doc = createDoc(params.markdown, targets);
     if (images.size === 0) {
@@ -318,7 +323,7 @@ export async function createFolder(deps: WriteDeps, params: { name: string }): P
 }
 
 export async function appendToNote(deps: WriteDeps, params: { id: string; markdown: string }): Promise<{ id: string }> {
-    const [images, targets] = await Promise.all([loadBodyImages(params.markdown), loadLinkTargets(deps)]);
+    const [images, targets] = await Promise.all([loadBodyImages(deps, params.markdown), loadLinkTargets(deps)]);
     await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) => appendMarkdown(doc, params.markdown, imageSrcs, targets));
     return { id: params.id };
 }
@@ -328,7 +333,7 @@ export async function replaceInNote(
     deps: WriteDeps,
     params: { id: string; old_text: string; new_text: string }
 ): Promise<{ id: string }> {
-    const [images, targets] = await Promise.all([loadBodyImages(params.new_text), loadLinkTargets(deps)]);
+    const [images, targets] = await Promise.all([loadBodyImages(deps, params.new_text), loadLinkTargets(deps)]);
     await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) =>
         replaceInDoc(doc, params.old_text, params.new_text, imageSrcs, targets)
     );
@@ -355,7 +360,7 @@ export async function updateNote(
     // into any refetch: re-diffing against a refetched note would delete a concurrent edit.
     let rewrite: Uint8Array | undefined;
     const [images, targets] = await Promise.all([
-        loadBodyImages(markdown),
+        loadBodyImages(deps, markdown),
         markdown === undefined ? undefined : loadLinkTargets(deps),
     ]);
     const apply = (doc: Y.Doc, imageSrcs?: Map<string, string>) => {
@@ -388,7 +393,7 @@ export async function editBlock(
     const { note_id, block_id, op, expectedModified } = params;
     const markdown = 'markdown' in op ? op.markdown : op.type === 'insert_row' ? op.cells?.join('\n\n') : undefined;
     let blockIds: string[] = [];
-    const [images, targets] = await Promise.all([loadBodyImages(markdown), loadLinkTargets(deps)]);
+    const [images, targets] = await Promise.all([loadBodyImages(deps, markdown), loadLinkTargets(deps)]);
     await editWithBodyImages(
         deps,
         note_id,
@@ -458,7 +463,7 @@ export async function setNoteCover(
     const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
     assertWritable(grants, note, id);
     if (dark && !getCover(note.doc)) throw noCover(id);
-    const image = await loadImage(params.image);
+    const image = await deps.loadImage(params.image);
 
     const payloadKey = await deps.uploadNoteImage(id, note.versionTag, image, readNextImageIndex(note.doc));
     const next: CoverImage = { src: `attachment://${note.fileId}/${payloadKey}`, positionY };

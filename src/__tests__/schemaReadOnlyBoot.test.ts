@@ -61,4 +61,35 @@ describe('initializeSchema read-only boot', () => {
     const t = await db.query<{ present: boolean }>(`SELECT to_regclass('job_queue') IS NOT NULL AS present`);
     expect(t.rows[0].present).toBe(true);
   });
+
+  it('drops vector_embedding from a version-6 database and keeps its rows', async () => {
+    db = new PGlite();
+    await initializeSchema(db);
+    await db.exec(`
+      ALTER TABLE search_index ADD COLUMN vector_embedding REAL[];
+      INSERT INTO search_index (doc_id, title, plain_text_content, metadata, search_vector, vector_embedding)
+      VALUES ('00000000-0000-0000-0000-000000000001', 'Kept', 'body', '{"a":1}', to_tsvector('english', 'hello world'), '{1.5}');
+      UPDATE schema_meta SET version = '6' WHERE id = 1;
+    `);
+
+    await initializeSchema(db);
+
+    const cols = await db.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_name = 'search_index' AND column_name = 'vector_embedding'`,
+    );
+    expect(cols.rows).toHaveLength(0);
+    const rows = await db.query(`SELECT title, plain_text_content, metadata, search_vector::text AS sv FROM search_index`);
+    expect(rows.rows).toEqual([
+      { title: 'Kept', plain_text_content: 'body', metadata: { a: 1 }, sv: "'hello':1 'world':2" },
+    ]);
+  });
+
+  it('a fresh database has no vector_embedding column', async () => {
+    db = new PGlite();
+    await initializeSchema(db);
+    const cols = await db.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_name = 'search_index' AND column_name = 'vector_embedding'`,
+    );
+    expect(cols.rows).toHaveLength(0);
+  });
 });

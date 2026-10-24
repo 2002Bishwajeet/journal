@@ -360,7 +360,7 @@ export default function JournalLayout() {
       )}
 
       {/* Modals */}
-      {noteId ? <ChatBot activeNoteId={noteId} /> : null}
+      {noteId && deviceType !== "mobile" ? <ChatBot activeNoteId={noteId} /> : null}
 
       <SearchModal
         isOpen={showSearch}

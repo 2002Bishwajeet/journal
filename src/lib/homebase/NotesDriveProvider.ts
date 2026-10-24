@@ -646,6 +646,8 @@ export class NotesDriveProvider {
      * - `fileId`: the note's remote fileId, when known (sync record). The header is read
      *   by fileId first: the server's uniqueId lookup can 404 for a few seconds right
      *   after the note is created (#293). Falls back to the uniqueId lookup.
+     * - A patch that hits a version conflict (a save or a peer's edit landed after the
+     *   header fetch, #689) is rebuilt once from the fresh header.
      */
     async #rewriteNoteHeader(uniqueId: string, spec: {
         fileId?: string;
@@ -659,7 +661,7 @@ export class NotesDriveProvider {
         /** Reupload only: change the payloads written back. */
         payloads?: (payloads: PayloadFile[], fileId: string) => Promise<PayloadFile[]>;
         errorMessage: string;
-    }): Promise<{ versionTag: string; previousVersionTag: string }> {
+    }, isRetry = false): Promise<{ versionTag: string; previousVersionTag: string; previousUpdated: number }> {
         const fetchHeader = async () => {
             const header =
                 (spec.fileId
@@ -722,6 +724,7 @@ export class NotesDriveProvider {
         };
 
         let result;
+        let retried: { versionTag: string; previousVersionTag: string; previousUpdated: number } | undefined;
         if (spec.mode === 'reupload') {
             // Full re-upload: re-encrypts (or decrypts) the payloads to match isEncrypted.
             const instructions: UploadInstructionSet = {
@@ -747,15 +750,24 @@ export class NotesDriveProvider {
                 instructions,
                 uploadMetadata,
                 [],
-                undefined
+                undefined,
+                undefined,
+                isRetry ? undefined : async () => {
+                    retried = await this.#rewriteNoteHeader(uniqueId, spec, true);
+                }
             );
         }
+        if (retried) return retried;
 
         if (!result) {
             throw new Error(spec.errorMessage);
         }
 
-        return { versionTag: result.newVersionTag, previousVersionTag: versionTag };
+        return {
+            versionTag: result.newVersionTag,
+            previousVersionTag: versionTag,
+            previousUpdated: existingHeader.fileMetadata.updated,
+        };
     }
 
     /**
@@ -887,6 +899,7 @@ export class NotesDriveProvider {
      * @param circleIds - Array of circle IDs to grant access
      * @param editorOdinId - OdinId of the user making this change
      * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
+     * @param beforeInvite - Runs between the ACL upload and the invite (gives recipients drive access, #730)
      * @returns The new version tag after update
      */
     async makeNoteCollaborative(
@@ -894,7 +907,8 @@ export class NotesDriveProvider {
         circleIds: string[],
         recipients: string[],
         editorOdinId: string,
-        fileId?: string
+        fileId?: string,
+        beforeInvite?: () => Promise<void>
     ): Promise<{ versionTag: string }> {
         let title = '';
         const result = await this.#rewriteNoteHeader(uniqueId, {
@@ -920,6 +934,8 @@ export class NotesDriveProvider {
             errorMessage: 'Failed to make note collaborative',
         });
 
+        await beforeInvite?.();
+
         await this.#invitations.createOrUpdateInvitation(
             uniqueId,
             title,
@@ -938,13 +954,13 @@ export class NotesDriveProvider {
      *
      * @param uniqueId - The unique ID of the note
      * @param editorOdinId - OdinId of the user making this change
-     * @returns The new version tag after update
+     * @returns The new version tag after update, and when the header it replaced was last updated
      */
     async revokeNoteCollaboration(
         uniqueId: string,
         editorOdinId: string,
         recipients?: string[]
-    ): Promise<{ versionTag: string }> {
+    ): Promise<{ versionTag: string; previousUpdated: number }> {
         const result = await this.#rewriteNoteHeader(uniqueId, {
             mode: 'patch',
             content: (existing) => ({

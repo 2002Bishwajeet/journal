@@ -4,6 +4,7 @@ import { getAllDocuments, getAllFolders } from '@/lib/db/queries';
 import { JOURNAL_DRIVE, MAIN_FOLDER_ID } from '@/lib/homebase';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
 import type { SearchIndexEntry } from '@/types';
+import { EXPORT_MARKER } from './markdownImport';
 
 /**
  * Result of the export operation
@@ -52,6 +53,7 @@ export const ExportService = {
 
             let count = 0;
             let missingImages = 0;
+            const takenNames = new Map<string, Set<string>>(); // folder name -> lowercased base names used
 
             for (const note of notes) {
                 // Determine path based on folder
@@ -63,7 +65,9 @@ export const ExportService = {
                     }
                 }
 
-                const sanitizedTitle = sanitizeFilename(note.title || 'Untitled');
+                let taken = takenNames.get(folderName.toLowerCase());
+                if (!taken) takenNames.set(folderName.toLowerCase(), taken = new Set());
+                const sanitizedTitle = uniqueName(taken, sanitizeFilename(note.title) || 'Untitled');
                 const body = await extractMarkdownFromYjs(note.docId);
                 const images = await resolveNoteImages(body, { dotYouClient, zip, sanitizedTitle, folderName });
                 missingImages += images.missingImages;
@@ -81,6 +85,9 @@ export const ExportService = {
 
                 count++;
             }
+
+            // Marker: the zip always has a root-level entry, so import never reads one folder as a vault root
+            zip.file(EXPORT_MARKER, JSON.stringify({ format: 'journal-export', version: 1, exportedAt: new Date().toISOString() }));
 
             // Generate zip blob
             const blob = await zip.generateAsync({ type: 'blob' });
@@ -103,6 +110,18 @@ export const ExportService = {
         }
     }
 };
+
+/**
+ * Returns `base`, or `base (2)`, `base (3)`... when `base` is already in `taken`
+ * (compared case-insensitively, since macOS and Windows unzip into case-insensitive
+ * file systems). The returned name is added to `taken`.
+ */
+export function uniqueName(taken: Set<string>, base: string): string {
+    let name = base;
+    for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base} (${n})`;
+    taken.add(name.toLowerCase());
+    return name;
+}
 
 /**
  * Fetches every attachment:// image referenced in a note's markdown, writes it to
@@ -149,7 +168,9 @@ async function resolveNoteImages(
         const assetFilename = resolved.get(`${fileId}/${payloadKey}`);
         if (!assetFilename) return full;
         // Inside an <img> attribute, & must be escaped as the serializer does
-        return `${before}assets/${before.startsWith('<') ? assetFilename.replace(/&/g, '&amp;') : assetFilename}`;
+        if (before.startsWith('<')) return `${before}assets/${assetFilename.replace(/&/g, '&amp;')}`;
+        // A ")" in the name (e.g. "Same (2)") would end the link early; <...> keeps it whole
+        return /[()]/.test(assetFilename) ? `${before}<assets/${assetFilename}>` : `${before}assets/${assetFilename}`;
     });
 
     missingImages += rewritten.match(BLOB_IMAGE_REGEX)?.length ?? 0;
@@ -165,19 +186,24 @@ function extensionForContentType(contentType: string): string {
     return 'bin';
 }
 
+/** A double-quoted front-matter value; \ and " are escaped so the importer can read it back. */
+function quote(value: string): string {
+    return `"${value.replace(/[\\"]/g, '\\$&')}"`;
+}
+
 /**
  * Generate Markdown content with Frontmatter
  */
 function generateMarkdown(note: SearchIndexEntry, body: string): string {
     const frontmatter = [
         '---',
-        `title: "${note.title.replace(/"/g, '\\"')}"`,
+        `title: ${quote(note.title)}`,
         `created: "${note.metadata.timestamps.created}"`,
         `modified: "${note.metadata.timestamps.modified}"`,
     ];
 
     if (note.metadata.tags && note.metadata.tags.length > 0) {
-        frontmatter.push(`tags: [${note.metadata.tags.map(t => `"${t}"`).join(', ')}]`);
+        frontmatter.push(`tags: [${note.metadata.tags.map(quote).join(', ')}]`);
     }
 
     if (note.metadata.excludeFromAI) {

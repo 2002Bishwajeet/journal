@@ -17,6 +17,7 @@ import { pg_trgm as pg_trgm_v4 } from 'pglite-v4/contrib/pg_trgm';
 import { pgDump } from '@electric-sql/pglite-tools/pg_dump';
 import { PG_DUMP_ARGS, openLegacyDatabase, dumpLegacyDataDir } from '../lib/db/pglite-migrate';
 import { restoreLegacyDump } from '../lib/db/pglite';
+import { initializeSchema } from '../lib/db/schema';
 
 const DOC_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -165,6 +166,27 @@ describe('legacy PGlite dump → PGlite 0.5 restore', () => {
     expect(await restoreLegacyDump(target, sql)).toBe(false);
     const rows = await target.query<{ c: number }>(`SELECT count(*)::int AS c FROM document_updates`);
     expect(rows.rows[0].c).toBe(3);
+    await target.close();
+  });
+
+  it('drops vector_embedding when initializeSchema runs after the restore, rows intact', async () => {
+    const legacy = await PGliteV4.create({ extensions: { pg_trgm: pg_trgm_v4 } });
+    await legacy.exec(LEGACY_SEED);
+    const sql = await dumpSql(legacy);
+    await legacy.close();
+
+    const target = await newTarget();
+    await restoreLegacyDump(target, sql);
+    await initializeSchema(target);
+
+    const cols = await target.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_name = 'search_index' AND column_name = 'vector_embedding'`,
+    );
+    expect(cols.rows).toHaveLength(0);
+    const rows = await target.query<{ title: string; sv: string }>(
+      `SELECT title, search_vector::text AS sv FROM search_index`,
+    );
+    expect(rows.rows).toEqual([{ title: "héllo 'quoted' 🎉", sv: "'hello':1 'world':2" }]);
     await target.close();
   });
 

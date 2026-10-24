@@ -253,6 +253,15 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
     // Deleted here; the remote delete is still being retried (#265)
     if (existingRecord?.syncStatus === 'pending_delete') return;
 
+    // Share-circle members can write anywhere on the owner's drive (#730), and a peer
+    // update keeps the creator as sender: a note new here that someone else created
+    // was planted, not shared with us. Shared-with-me notes are known locally already.
+    const sender = remoteFile.fileMetadata.senderOdinId;
+    if (!existingRecord && sender && sender !== ctx.hostIdentity && !(await getSearchIndexEntry(uniqueId))) {
+        console.warn(`[SyncService] Skipped note ${uniqueId}: ${sender} created it on your drive`);
+        return;
+    }
+
     // Unchanged note: skip decryption and payload fetch entirely, unless it was
     // filed before its folder arrived and can be filed properly now (#365)
     if (stringGuidsEqual(remoteFile.fileMetadata.versionTag, existingRecord?.versionTag)
@@ -384,6 +393,11 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
         // Local edits the server lacks keep the note pending so the next push uploads them.
         const localAhead = existingRecord.syncStatus !== 'synced'
             || (!!mergedBlob && !!remoteBlob && hasChangesMissingFrom(mergedBlob, remoteBlob));
+
+        // This header predates a header rewrite made here since it was fetched (a revoke
+        // right after a peer's edit, #689): keep the merged content, not its metadata.
+        // Checked right before the write, with no await in between.
+        if (remoteFile.fileMetadata.updated <= (ctx.supersededNoteHeaders.get(uniqueId) ?? -Infinity)) return;
 
         await upsertSearchIndex({
             docId: uniqueId,

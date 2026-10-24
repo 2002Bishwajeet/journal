@@ -13,4 +13,10 @@ updates:
       tiptap: { patterns: ["@tiptap/*"] }
       radix: { patterns: ["@radix-ui/*", "radix-ui"] }
       tanstack: { patterns: ["@tanstack/*"] }
+      react: { patterns: ["react", "react-dom", "@types/react", "@types/react-dom"] }
       dev-tooling: { patterns: ["eslint*", "typescript*", "vitest", "@vitest/*", "vite", "@vitejs/*"] }
+    ignore:
+      # typescript-eslint's peer range stops below TS 7; TS 7 comes in through the
+      # typescript-7 alias instead. Drop this once typescript-eslint supports TS 7.
+      - dependency-name: "typescript"
+        versions: [">=7"]

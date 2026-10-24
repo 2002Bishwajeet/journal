@@ -75,7 +75,7 @@ export default function DataSection() {
       )}
 
       <div className="space-y-4">
-        <SectionHeader subtitle="Add Markdown files (.md) or a ZIP of Markdown files. Imported notes are added alongside existing ones; folders in a ZIP are matched by name.">
+        <SectionHeader subtitle="Add Markdown files (.md) or a ZIP of Markdown files, such as an Obsidian vault (zip the vault folder) or a Notion export (Markdown & CSV). Imported notes are added alongside existing ones; folders in a ZIP are matched by name.">
           Import
         </SectionHeader>
         <input
