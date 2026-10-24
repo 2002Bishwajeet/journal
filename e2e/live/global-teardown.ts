@@ -77,7 +77,7 @@ async function deleteRunFolders(config: FullConfig): Promise<void> {
                         // Unshare first so the notes leave the demo author page's public index.
                         await unshareFolderIfShared(page, name);
                         await deleteFolder(page, name);
-                        // The delete is remote-first: wait for it before the context closes.
+                        // Let the app finish the delete before the context closes.
                         await expect(foldersNav(page).getByRole('button', { name, exact: true })).toHaveCount(0, { timeout: 60_000 });
                         console.log(`[live teardown] deleted folder ${name}`);
                     });
