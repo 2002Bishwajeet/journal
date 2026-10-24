@@ -19,6 +19,16 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - The slash menu on a phone no longer shows Ask AI, Summarize and Rewrite. The assistant is not available on phones.
 
+## 2.23.0 (2026-10-24)
+
+### New
+
+- When a person edits a note that you shared with them, Journal sends you a notification. You get one notification for each note every 15 minutes. Click it to open the note.
+
+### Fixed
+
+- A note that its owner stops sharing with you now goes away from your devices. The app tells you when you open it. A saved invite does not bring the note back.
+
 ## 2.22.1 (2026-10-24)
 
 ### Changed

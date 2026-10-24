@@ -36,6 +36,9 @@ export const JOURNAL_APP_NAME = `Journal${import.meta.env.PROD ? '' : ' (Local D
 // Fixed: a recipient subscribes to each connection with this id, and the sender pushes with it (#743, #745)
 export const JOURNAL_PEER_SUBSCRIPTION_ID = '5b0c7a1e-2f3d-4e8a-9c61-7d4f0a9b8e23';
 
+// Fixed: the push type of "a collaborator edited your shared note" (#746)
+export const JOURNAL_PUSH_TYPE_EDIT = '3c9e5a74-8b1d-4f26-a07e-d15b6c92f840';
+
 // Tag of the one quiet notification the service worker shows for other Homebase apps' pushes
 export const OTHER_APPS_NOTIFICATION_TAG = 'homebase-other';
 
