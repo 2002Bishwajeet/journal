@@ -116,7 +116,9 @@ export async function unshareFolderIfShared(page: Page, name: string): Promise<v
         await dialog.getByRole('button', { name: 'Stop sharing', exact: true }).click();
         await expect(page.getByText(/Folder is private again/)).toBeVisible({ timeout: 60_000 });
     }
-    await page.keyboard.press('Escape');
+    // Not Escape: it is sometimes ignored, and the open dialog then blocks the next click.
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(dialog).toBeHidden();
 }
 
 /** Make a note public via the note list's "Share" context-menu item, returning its share URL. */

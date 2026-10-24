@@ -36,6 +36,13 @@ export async function waitForAppReady(page: Page): Promise<void> {
   await page.evaluate(() => window.__journalE2E!.ready());
 }
 
+// Marks every release as already seen, so the "What's new" dialog never covers
+// a live page whose storage state predates the current version. Call before
+// the first navigation.
+export async function skipWhatsNew(page: Page): Promise<void> {
+  await page.context().addInitScript(() => localStorage.setItem('journal-last-seen-version', '999.0.0'));
+}
+
 // Runs `body` with a page in a new fenced context. The context is closed even
 // if `body` throws, so a failed boot doesn't leak it.
 export async function withFencedPage(
@@ -115,6 +122,7 @@ export const test = base.extend<{
     async ({ browser }, use, { workerIndex }) => {
       const folderName = `${process.env.E2E_LIVE_RUN_FOLDER}-w${workerIndex}`;
       await withFencedPage(browser, { storageState: LIVE_STORAGE_STATE }, async (page) => {
+        await skipWhatsNew(page);
         await page.goto('/');
         await assertTestOrigin(page);
         await waitForAppReady(page);
@@ -160,6 +168,7 @@ export const test = base.extend<{
       ) =>
         withFencedPage(browser, { storageState }, async (page) => {
           await stubOtherIdentities({ page, identity });
+          await skipWhatsNew(page);
           await page.goto('/');
           await assertTestOrigin(page);
           await waitForAppReady(page);
