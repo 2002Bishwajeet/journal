@@ -67,8 +67,10 @@ const waitFor = (what: string, condition: () => boolean, timeout = 30_000) =>
   browser.waitUntil(() => browser.execute(condition), { timeout, interval: 250, timeoutMsg: `timed out waiting for ${what}` });
 
 async function tap(selector: string, index = 0) {
-  await browser.$(selector).waitForDisplayed({ timeout: 30_000 });
+  // $$ and an index: WebdriverIO 10's $() fails when the selector matches several elements.
+  await browser.waitUntil(async () => (await browser.$$(selector)).length > index, { timeout: 30_000, timeoutMsg: `timed out waiting for ${selector}` });
   const el = (await browser.$$(selector))[index];
+  await el.waitForDisplayed({ timeout: 30_000 });
   await browser.execute((e) => e.scrollIntoView({ block: 'nearest', inline: 'center' }), el);
   await el.click();
 }
