@@ -43,18 +43,13 @@ const MarkCollaborativeDialog = lazy(() =>
     default: m.MarkCollaborativeDialog,
   })),
 );
-import {
-  JOURNAL_APP_ID,
-  JOURNAL_APP_NAME,
-  COLLABORATION_PERMISSIONS,
-  CONTACT_TARGET_DRIVE_REQUEST,
-  PSEUDO_FOLDERS,
-} from "@/lib/homebase/config";
+import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
 import { useNotes } from "@/hooks/useNotes";
 import { getMobilePane } from "@/layouts/mobilePane";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
+import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
 import { useAuth } from "@/hooks/auth";
 import { useAutoWhatsNew } from "@/hooks/useWhatsNew";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
@@ -63,11 +58,6 @@ import { useThemePreference } from "@/hooks/useThemePreference";
 import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
-import { journalDriveRequest } from "@/hooks/auth/useYouAuthAuthorization";
-
-const BASE_DRIVES = [journalDriveRequest];
-const COLLAB_DRIVES = [journalDriveRequest, CONTACT_TARGET_DRIVE_REQUEST];
-const NO_PERMISSIONS: [] = [];
 
 export default function JournalLayout() {
   // Initialize theme preference & system listener at root level
@@ -125,6 +115,9 @@ export default function JournalLayout() {
 
   // Homebase sync - auto-syncs on mount and focus
   useSyncService();
+
+  // Subscribe to each connection's Journal peer push
+  usePeerPushSubscriptions();
 
   // Focus / Zen mode state
   const [focusMode, setFocusMode] = useState(false);
@@ -458,19 +451,7 @@ export default function JournalLayout() {
         onClose={() => setShowKeyboardHelp(false)}
       />
 
-      <ExtendPermissionDialog
-        appId={JOURNAL_APP_ID}
-        appName={JOURNAL_APP_NAME}
-        drives={counts.collaborative > 0 ? COLLAB_DRIVES : BASE_DRIVES}
-        circleDrives={
-          counts.collaborative > 0 ? COLLAB_DRIVES : NO_PERMISSIONS
-        }
-        permissions={
-          counts.collaborative > 0
-            ? COLLABORATION_PERMISSIONS
-            : NO_PERMISSIONS
-        }
-      />
+      <ExtendPermissionDialog />
     </div>
   );
 }

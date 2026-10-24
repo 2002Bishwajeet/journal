@@ -130,7 +130,7 @@ async function listenForHeightReport(app: Page, min: number): Promise<() => Prom
   return () => listening.evaluate(({ delivered }) => delivered);
 }
 
-test("html block: its inline script runs in the frame under the app's COEP headers", async ({ app }) => {
+test("html block: its inline script runs in the frame under the app's COEP headers", async ({ reusedApp: app }) => {
   // True only when the page was served with COOP same-origin + COEP require-corp.
   expect(await app.evaluate(() => window.crossOriginIsolated)).toBe(true);
 
@@ -152,7 +152,7 @@ test("html block: its inline script runs in the frame under the app's COEP heade
   await expect(resizable).toHaveCSS('height', `${fitted + 100}px`);
 });
 
-test('html block: the frame cannot reach the network, storage, the parent document or cookies', async ({ app }) => {
+test('html block: the frame cannot reach the network, storage, the parent document or cookies', async ({ reusedApp: app }) => {
   const frame = await previewProbe(app);
   const out = frame.locator('#out');
 
@@ -171,7 +171,7 @@ test('html block: the frame cannot reach the network, storage, the parent docume
   expect(await app.evaluate(() => localStorage.getItem('e2e-secret'))).toBe('storage-value');
 });
 
-test('html block: a clicked web link opens in a new tab, and the frame stays put', async ({ app }) => {
+test('html block: a clicked web link opens in a new tab, and the frame stays put', async ({ reusedApp: app }) => {
   const url = 'https://example.com/linked';
   // Answered here, so the new tab never meets the fixture's network fence.
   await app.context().route(url, (route) => route.fulfill({ contentType: 'text/html', body: 'linked page' }));
@@ -184,14 +184,14 @@ test('html block: a clicked web link opens in a new tab, and the frame stays put
   await expect(frame.locator('#ran')).toHaveText('ready');
 });
 
-test('html block: an external image does not load', async ({ app }) => {
+test('html block: an external image does not load', async ({ reusedApp: app }) => {
   const frame = await previewProbe(app);
 
   await expect(frame.locator('#out')).toContainText('img: naturalWidth 0');
   await expect(frame.locator('#img')).toHaveJSProperty('naturalWidth', 0);
 });
 
-test('html block: typed, a script from an allowlisted CDN host runs', async ({ app }) => {
+test('html block: typed, a script from an allowlisted CDN host runs', async ({ reusedApp: app }) => {
   const requests = await serveFakeScripts(app);
   const frame = await previewProbe(app, CDN_SOURCE);
 
@@ -203,7 +203,7 @@ for (const [how, pasted] of [
   ['bare markup', CDN_SOURCE],
   ['a whole html fence', '```html\n' + CDN_SOURCE + '\n```'],
 ] as const) {
-  test(`html block: pasted as ${how}, it opens in Preview and the CDN script runs`, async ({ app }) => {
+  test(`html block: pasted as ${how}, it opens in Preview and the CDN script runs`, async ({ reusedApp: app }) => {
     const requests = await serveFakeScripts(app);
     await createNote(app, { title: `Html paste ${Date.now()}`, body: 'Intro' });
     await app.keyboard.press('Enter');
@@ -221,7 +221,7 @@ for (const [how, pasted] of [
   });
 }
 
-test('html block: a script from any other host does not run, and fetch to an allowlisted host rejects', async ({ app }) => {
+test('html block: a script from any other host does not run, and fetch to an allowlisted host rejects', async ({ reusedApp: app }) => {
   const requests = await serveFakeScripts(app);
   const frame = await previewProbe(app, CDN_LIMITS);
   const out = frame.locator('#out');
@@ -233,7 +233,7 @@ test('html block: a script from any other host does not run, and fetch to an all
   expect(new Set(requests)).toEqual(new Set([`script ${CDN_SCRIPT_URL}`]));
 });
 
-test('html block: is as tall as its content and grows with it, until the user resizes it', async ({ app }) => {
+test('html block: is as tall as its content and grows with it, until the user resizes it', async ({ reusedApp: app }) => {
   // Tall enough that the resize handle of a grown block is on screen.
   await app.setViewportSize({ width: 1280, height: 1800 });
   const frame = await previewProbe(app, TALL);
@@ -256,7 +256,7 @@ test('html block: is as tall as its content and grows with it, until the user re
   await expect(resizable).toHaveCSS('height', '1200px');
 });
 
-test('html block: a height report posted by the app page itself changes no block', async ({ app }) => {
+test('html block: a height report posted by the app page itself changes no block', async ({ reusedApp: app }) => {
   await previewProbe(app, TALL);
   const resizable = resizableBox(app);
   await expect(resizable).toHaveCSS('height', '900px');
@@ -270,7 +270,7 @@ test('html block: a height report posted by the app page itself changes no block
 
 // #424: no full screen. The block is as tall as its content and lives in the note.
 // One run; the screenshot is taken in both themes.
-test('html block: a 900px page gets a frame of its height and no Full screen control', async ({ app }) => {
+test('html block: a 900px page gets a frame of its height and no Full screen control', async ({ reusedApp: app }) => {
   // Tall enough to show the whole 900px block at its natural height.
   await app.setViewportSize({ width: 1280, height: 1200 });
 
@@ -295,7 +295,7 @@ test('html block: a 900px page gets a frame of its height and no Full screen con
 });
 
 // One run; the screenshot is taken in both themes.
-test('screenshot: running html block', async ({ app }) => {
+test('screenshot: running html block', async ({ reusedApp: app }) => {
   await app.setViewportSize({ width: 1280, height: 960 });
 
   const frame = await previewProbe(app);

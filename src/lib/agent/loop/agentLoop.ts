@@ -9,6 +9,9 @@
 import type { ReadDeps } from '@/lib/agent/tools/read';
 import type { WriteDeps } from '@/lib/agent/tools/write';
 import { TOOLS, toJsonSchema, type AnyJournalTool, type ToolOutput } from '@/lib/agent/tools/registry';
+import { formatText, insertParagraph, readOpenNote, replaceText, setBlockType, type EditorTool } from '@/lib/agent/tools/editor';
+import { activeEditor, type ActiveEditorStore } from '@/lib/agent/activeEditor';
+import type { BuiltEdit, EditOutcome, EditProposal } from '@/lib/agent/approveEdit';
 import { CONTEXT_WINDOW, estimateTokens, trimToBudget, type AgentMessage } from './trim';
 
 export type { AgentMessage } from './trim';
@@ -17,9 +20,17 @@ export interface AgentEngine {
     generate(messages: AgentMessage[], options: { schema: object; maxTokens: number; signal?: AbortSignal }): Promise<string>;
 }
 
+/** A tool of the notes (WriteDeps) or of the open note's editor (#700). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tools with different input shapes share one list
+export type AgentTool = AnyJournalTool | EditorTool<any>;
+
 export interface AgentProposal {
     tool: string;
     args: unknown;
+    /** One line for an edit to the open note, as the user sees it. */
+    summary?: string;
+    /** Set for an edit to the open note: what the user previews and accepts. */
+    edit?: EditProposal;
 }
 
 export type AgentEvent =
@@ -33,16 +44,25 @@ export type AgentEvent =
 export interface RunAgentOptions {
     engine: AgentEngine;
     deps: ReadDeps;
-    /** Asked before any `readOnly: false` tool; the loop never runs one itself. */
-    approve(proposal: AgentProposal): Promise<boolean>;
+    /** Asked before any `readOnly: false` tool; the loop never runs a notes tool itself, and an edit tool only builds its proposal. */
+    approve(proposal: AgentProposal): Promise<EditOutcome>;
     signal?: AbortSignal;
     onEvent?(event: AgentEvent): void;
-    tools?: AnyJournalTool[];
+    tools?: AgentTool[];
+    /** The open note's editor, for the editor tools. */
+    editor?: ActiveEditorStore;
 }
 
-const AGENT_TOOL_NAMES = ['search_notes', 'get_note', 'list_notes', 'list_folders'];
+const AGENT_TOOL_NAMES = ['search_notes', 'get_note', 'list_notes'];
 /** At most 8 (#698): each tool adds to the schema and the system prompt. */
-export const AGENT_TOOLS = AGENT_TOOL_NAMES.map((name) => TOOLS.find((tool) => tool.name === name)!);
+export const AGENT_TOOLS: AgentTool[] = [
+    ...AGENT_TOOL_NAMES.map((name) => TOOLS.find((tool) => tool.name === name)!),
+    readOpenNote,
+    insertParagraph,
+    setBlockType,
+    replaceText,
+    formatText,
+];
 
 export const MAX_TOOL_STEPS = 6;
 export const MAX_TOKENS = 512;
@@ -57,14 +77,15 @@ const ANSWER_SCHEMA = {
     additionalProperties: false,
 };
 
-function argsSchema(tool: AnyJournalTool): object {
+function argsSchema(tool: AgentTool): object {
     const schema = { ...toJsonSchema(tool) };
     delete schema.$schema;
-    return schema;
+    // zod writes the largest safe integer as the maximum of every int(); it only costs prompt tokens.
+    return JSON.parse(JSON.stringify(schema, (key, value) => (key === 'maximum' && value === Number.MAX_SAFE_INTEGER ? undefined : value)));
 }
 
 /** One `anyOf` branch per tool, plus the answer. */
-export function turnSchema(tools: AnyJournalTool[]): object {
+export function turnSchema(tools: AgentTool[]): object {
     return {
         anyOf: [
             ...tools.map((tool) => ({
@@ -80,7 +101,7 @@ export function turnSchema(tools: AnyJournalTool[]): object {
 
 const firstSentence = (text: string) => text.split(/(?<=\.)\s/)[0];
 
-function systemPrompt(tools: AnyJournalTool[]): string {
+function systemPrompt(tools: AgentTool[]): string {
     return [
         "You are the assistant in Journal, a notes app. You answer questions about the user's notes using tools.",
         'Tools:',
@@ -88,6 +109,7 @@ function systemPrompt(tools: AnyJournalTool[]): string {
         'Rules:',
         '- Reply with one JSON object: {"tool": "<name>", "args": {...}} to call a tool, or {"answer": "<text>"} to reply.',
         '- Use note ids from earlier results. Never invent an id.',
+        '- To change the open note, read it with read_open_note, then call one edit tool. The user accepts or rejects each edit.',
         '- Answer as soon as you know enough. Keep the answer short and plain.',
     ].join('\n');
 }
@@ -112,11 +134,16 @@ export function formatToolResult(name: string, output: ToolOutput): string {
     return [text, ...(output.notes ?? [])].join('\n');
 }
 
+function describeOutcome(outcome: EditOutcome): string {
+    if (outcome === 'accepted') return 'accepted';
+    return outcome === 'rejected' ? 'rejected by the user' : `not applied: ${outcome.notApplied}`;
+}
+
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** Runs one request to an answer. Resolves to null when aborted or when no answer came. */
 export async function runAgent(request: string, options: RunAgentOptions): Promise<string | null> {
-    const { engine, deps, approve, signal, onEvent = () => {}, tools = AGENT_TOOLS } = options;
+    const { engine, deps, approve, signal, onEvent = () => {}, tools = AGENT_TOOLS, editor = activeEditor } = options;
     const system: AgentMessage = { role: 'system', content: systemPrompt(tools) };
     const user: AgentMessage = { role: 'user', content: request };
     const history: AgentMessage[] = [];
@@ -163,19 +190,33 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
 
         const args = capArgs(tool.name, parsed.data);
         onEvent({ type: 'toolCall', tool: tool.name, args });
-        let result: string;
-        if (tool.readOnly) {
-            try {
-                // Only read-only tools run here, and they use only the ReadDeps half.
-                result = formatToolResult(tool.name, await tool.execute(deps as WriteDeps, args));
-            } catch (error) {
-                fail(output, errorMessage(error));
-                continue;
+        // A tool gives back its result, or a proposal for the user to answer.
+        const call = async (): Promise<string | AgentProposal> => {
+            if ('editor' in tool) {
+                const run = () => tool.execute(editor, args);
+                const first = await run();
+                if (tool.readOnly) return formatToolResult(tool.name, first);
+                // The tool built the edit without applying it; the user previews it before it is applied.
+                const built = first.data as BuiltEdit;
+                const rebuild = async () => (await run()).data as BuiltEdit;
+                return { tool: tool.name, args, summary: built.summary, edit: { built, rebuild } };
             }
-        } else {
-            const proposal = { tool: tool.name, args };
-            onEvent({ type: 'proposal', proposal });
-            result = (await approve(proposal)) ? 'accepted' : 'rejected by the user';
+            // Only read-only tools run here, and they use only the ReadDeps half.
+            if (tool.readOnly) return formatToolResult(tool.name, await tool.execute(deps as WriteDeps, args));
+            return { tool: tool.name, args };
+        };
+        let called: string | AgentProposal;
+        try {
+            called = await call();
+        } catch (error) {
+            fail(output, errorMessage(error));
+            continue;
+        }
+        let result: string;
+        if (typeof called === 'string') result = called;
+        else {
+            onEvent({ type: 'proposal', proposal: called });
+            result = describeOutcome(await approve(called));
             if (signal?.aborted) return null;
         }
         onEvent({ type: 'toolResult', tool: tool.name, result });

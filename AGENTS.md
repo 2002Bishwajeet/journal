@@ -438,8 +438,8 @@ PGlite runs in a **Web Worker** (`src/lib/db/pglite-worker.ts`) via `PGliteWorke
 
 **IMPORTANT — When bumping PGlite:**
 
-1. `@electric-sql/pglite` and `@electric-sql/pglite-tools` must move together: pglite-tools pins an **exact** pglite peer version (pglite-tools 0.4.8 ↔ pglite 0.5.8). Don't let Dependabot bump one without the other.
-2. `src/lib/db/pgliteWorkerHost.ts` is a fork of pglite 0.5.8's worker leader loop. Its drift guard (`src/__tests__/pgliteWorkerHost.test.ts`) fails on any pglite bump; re-port the listed changes onto the new upstream code.
+1. `@electric-sql/pglite` and `@electric-sql/pglite-tools` must move together: pglite-tools pins an **exact** pglite peer version (pglite-tools 0.4.10 ↔ pglite 0.5.10). Don't let Dependabot bump one without the other.
+2. `src/lib/db/pgliteWorkerHost.ts` is a fork of pglite 0.5.10's worker leader loop. Its drift guard (`src/__tests__/pgliteWorkerHost.test.ts`) fails on any pglite bump; re-port the listed changes onto the new upstream code.
 3. If the Postgres major changes: install the outgoing engine as an alias (`npm install pglite-vN@npm:@electric-sql/pglite@0.N.x`), point `DATA_DIR` in `src/lib/db/pglite.ts` at a new dir, bump `PGLITE_VERSION`, and teach `openLegacyDatabase()` the old stamp.
 4. In `vite.config.ts`, claim the alias's chunk before the `@electric-sql/pglite` rule and add its chunk plus hashed `.wasm`/`.data`/`initdb`/`pg_trgm` assets to `injectManifest.globIgnores` — by **exact** hashed name, since the live engine's files share those prefixes and must stay precached.
 5. `src/__tests__/pgliteLegacyDump.test.ts` runs the real engines end to end (dump → restore); it must pass.
@@ -462,6 +462,7 @@ Current state: the `pglite-v4` alias (0.4.x) is a dependency, used only for migr
 - **Autocomplete**: Ghost text via AutocompletePlugin, 500 ms debounce, Tab to accept
 - **Rewrite**: 8 styles — Proofread, Rewrite, Friendly, Professional, Concise, Summary, Key Points, List/Table
 - **Chat**: The ChatBot panel is the local agent (`useAgentSession` → `runAgent`): it calls the notes tools on this device, shows each step, and has Stop. No web search; nothing leaves the device
+- **Agent edits (#701)**: the editor tools (`read_open_note`, `insert_paragraph`, `set_block_type`, `replace_text`, `format_text`) only build a proposal. `approveEdit` (`src/lib/agent/approveEdit.ts`) queues it; the `AgentEditPreview` plugin (`src/components/editor/plugins/AgentEditPreview.ts`) shows it in the note with a bar to Accept (Enter) or Reject (Escape). Accept rebuilds the edit against the current note and applies it with `dispatchUndoStep`, so one Cmd+Z undoes it. Closing the note, switching tabs or Stop rejects it
 - **Slash commands**: `/ask`, `/summarize`, `/rewrite` via AI suggestion overlay
 - **Idle GC**: Auto-unloads model after 5 minutes idle to reclaim ~2-3 GB memory
 - **Mobile**: Disabled on mobile devices (insufficient memory)

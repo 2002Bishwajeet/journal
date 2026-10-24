@@ -261,7 +261,7 @@ async function noteWithHtmlBlock(app: Page, entry: keyof typeof ENTRIES, source:
 // Each test starts in light and switches to dark on the same note, so one run covers both
 // themes (and the switch between them) instead of one run per starting theme.
 for (const entry of ['pasted', 'typed'] as const) {
-  test(`editor: an html block ${entry} into a note takes the note's look`, async ({ app }) => {
+  test(`editor: an html block ${entry} into a note takes the note's look`, async ({ reusedApp: app }) => {
     // The theme preference defaults to "system", which follows prefers-color-scheme.
     await app.emulateMedia({ colorScheme: 'light' });
     await expect(app.locator('html')).toHaveClass(/light/);
@@ -287,7 +287,7 @@ for (const entry of ['pasted', 'typed'] as const) {
     await expect(unstyledDark.locator('html')).toHaveCSS('color-scheme', 'dark');
   });
 
-  test(`editor: unstyled form controls ${entry} into a note look like Journal's`, async ({ app }) => {
+  test(`editor: unstyled form controls ${entry} into a note look like Journal's`, async ({ reusedApp: app }) => {
     await app.emulateMedia({ colorScheme: 'light' });
     await expect(app.locator('html')).toHaveClass(/light/);
     const frame = await noteWithHtmlBlock(app, entry, FORM);
@@ -298,12 +298,12 @@ for (const entry of ['pasted', 'typed'] as const) {
   });
 }
 
-test("editor: a block's own button style wins over Journal's (#424)", async ({ app }) => {
+test("editor: a block's own button style wins over Journal's (#424)", async ({ reusedApp: app }) => {
   const frame = await noteWithHtmlBlock(app, 'pasted', RED_BUTTON);
   await expect(frame.getByRole('button', { name: 'Red' })).toHaveCSS('background-color', 'rgb(255, 0, 0)');
 });
 
-test('editor: the block is labelled and its toggles stay in view, with the pointer and focus elsewhere', async ({ app }) => {
+test('editor: the block is labelled and its toggles stay in view, with the pointer and focus elsewhere', async ({ reusedApp: app }) => {
   await noteWithHtmlBlock(app, 'pasted', TOKEN_STYLED);
   const block = activeEditor(app).locator('[data-live-block="html"]');
   const controls = controlsOf(block);
@@ -323,7 +323,7 @@ test('editor: the block is labelled and its toggles stay in view, with the point
 });
 
 // One note, checked in light and then in dark.
-test('editor: a note of every kind of block has no card around any of them', async ({ app }) => {
+test('editor: a note of every kind of block has no card around any of them', async ({ reusedApp: app }) => {
   test.slow(); // ~32s on CI against the 30s default
   await app.emulateMedia({ colorScheme: 'light' });
   await app.setViewportSize(VIEWPORTS[1280]);
@@ -389,7 +389,7 @@ async function shootBlock(block: Locator, name: string): Promise<void> {
 }
 
 // One run: light first, then the same note in dark (the palette must change under the blocks).
-test('editor: an html chart drawn with the chart palette has five colours that follow the theme', async ({ app }) => {
+test('editor: an html chart drawn with the chart palette has five colours that follow the theme', async ({ reusedApp: app }) => {
   const theme = 'light';
   await app.emulateMedia({ colorScheme: theme });
   await app.setViewportSize(VIEWPORTS[1280]);

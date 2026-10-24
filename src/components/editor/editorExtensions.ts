@@ -12,6 +12,7 @@ import { ToggleNodeView } from './nodes/ToggleNodeView';
 import { Callout } from './nodes/CalloutNode';
 import { CalloutNodeView } from './nodes/CalloutNodeView';
 import { EmojiExtension } from './plugins/EmojiExtension';
+import { AgentEditPreview } from './plugins/AgentEditPreview';
 
 /** ImageSchema's attrs plus the React node view (ImageNode.tsx). */
 const CustomImage = ImageSchema.extend({
@@ -58,8 +59,8 @@ const CodeBlockWithView = CodeBlockHighlight.extend({
 /**
  * The editor's full extension list (#316): createBaseExtensions()'s headless
  * schema with the React node views (image, noteLink, linkPreview, toggle, callout,
- * codeBlock) and the emoji suggestion popup. Only the editor imports this — headless
- * code (the agent edit engine) stays on createBaseExtensions() so it never pulls in React.
+ * codeBlock), the emoji suggestion popup and the agent edit preview (#701). Only the editor
+ * imports this — headless code (the agent edit engine) stays on createBaseExtensions() so it never pulls in React.
  */
 export function createEditorExtensions() {
   const extensions = createBaseExtensions({
@@ -68,7 +69,7 @@ export function createEditorExtensions() {
     linkPreview: LinkPreviewWithView,
     toggle: ToggleWithView,
     callout: CalloutWithView,
-    uiExtensions: [EmojiExtension],
+    uiExtensions: [EmojiExtension, AgentEditPreview],
   });
   // The headless code block is configured in plugins/extensions.ts (shared with
   // the edit engine); extend it in place so its lowlight options carry over.

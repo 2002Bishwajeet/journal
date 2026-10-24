@@ -20,6 +20,7 @@ import {
   markPendingDelete,
 } from "@/lib/db";
 import { STORAGE_KEY_LAST_SYNC } from "@/lib/homebase";
+import { migrateShareCircle } from "@/lib/homebase/shareCircleMigration";
 import { SyncContext, type SyncContextType } from "@/hooks/useSyncService";
 import type { SyncProgress } from "@/types";
 import { useOnlineContext } from "@/hooks/useOnlineContext";
@@ -51,6 +52,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // Refs for tracking state
   const hasInitialSynced = useRef(false);
   const hasMigrated = useRef(false);
+  const hasMigratedShareCircle = useRef(false);
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSyncAttempt = useRef<number>(0);
   const syncFnRef = useRef<(() => Promise<void>) | null>(null);
@@ -165,6 +167,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         scheduleRetry(Math.max(result.nextRetryAt - Date.now(), 1000));
       }
 
+      // Once per sign-in, after a pull that worked: the local notes are complete (#734)
+      if (result.errors.length === 0 && !hasMigratedShareCircle.current && dotYouClient) {
+        hasMigratedShareCircle.current = true;
+        migrateShareCircle(dotYouClient, dotYouClient.getHostIdentity() || "").catch((error) =>
+          console.error("[SyncProvider] Share circle migration error:", error),
+        );
+      }
+
       await refreshPendingCount();
     } catch (error) {
       console.error("[SyncProvider] Sync error:", error);
@@ -172,7 +182,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setSyncStatus("error");
       scheduleRetry();
     }
-  }, [syncService, refreshPendingCount, scheduleRetry]);
+  }, [syncService, dotYouClient, refreshPendingCount, scheduleRetry]);
 
   // WebSocket for real-time updates — active when sync service is ready
   useJournalWebsocket({ isEnabled: !!syncService, syncService, onReconnect: sync });
