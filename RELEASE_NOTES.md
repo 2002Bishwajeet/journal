@@ -15,6 +15,13 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.22.0 (2026-10-24)
+
+### New
+
+- The assistant can add text to a note that is not open, and it can make a new note. It shows the text in the chat first, and writes it only when you accept.
+- Version history keeps the note as it was before the assistant added text.
+
 ## 2.21.0 (2026-10-24)
 
 ### New

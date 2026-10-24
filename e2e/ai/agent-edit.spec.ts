@@ -106,10 +106,10 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await expect(activeEditor(app)).toContainText('First paragraph here.');
   await expect(activeEditor(app).locator('li')).toHaveCount(2);
 
-  // Two proposals, answered one after the other: a heading "Plan" above the list.
+  // Two proposals, answered one after the other: a line "Plan" above the list, then a longer one.
   await app.getByRole('button', { name: 'Open assistant' }).click();
   await stubWebLLMWorker(app);
-  await box.fill('add a heading Plan above the list');
+  await box.fill('add a line Plan above the list');
   await box.press('Enter');
   await download.getByRole('button', { name: 'Continue' }).click();
   await expect.poll(() => reloads(app)).toHaveLength(1);
@@ -118,18 +118,16 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await queueReply(app, { tool: 'insert_paragraph', args: { after: 2, text: 'Plan' } });
   await expect(bar).toContainText('Add a paragraph after block 2');
   await expect(activeEditor(app).locator('.agent-edit-inserted-block')).toHaveText('Plan');
-  await expect(activeEditor(app).locator('h2')).toHaveCount(0);
   await screenshotInBothThemes(app, (theme) => `agent-edit-insert-${theme}-1280.png`);
-  await queueReply(app, { tool: 'set_block_type', args: { n: 3, type: 'h2' } });
-  await queueReply(app, { answer: 'Added the heading.' });
+  await queueReply(app, { tool: 'replace_text', args: { n: 3, find: 'Plan', replace: 'Plan ahead' } });
+  await queueReply(app, { answer: 'Added the line.' });
   await bar.getByRole('button', { name: 'Accept' }).click();
-  await expect(bar).toContainText('Turn paragraph 3 into h2');
+  await expect(bar).toContainText('Replace "Plan" with "Plan ahead"');
   await bar.getByRole('button', { name: 'Accept' }).click();
-  await expect(panel.getByText('Added the heading.')).toBeVisible();
-  const heading = activeEditor(app).locator('h2');
-  await expect(heading).toHaveText('Plan');
+  await expect(panel.getByText('Added the line.')).toBeVisible();
+  await expect(activeEditor(app).getByText('Plan ahead', { exact: true })).toBeVisible();
   await expect(activeEditor(app).locator('ul')).toHaveCount(1);
-  expect((await orderOf(activeEditor(app))).slice(0, 4)).toEqual(['p', 'p', 'h2', 'ul']);
+  expect((await orderOf(activeEditor(app))).slice(0, 4)).toEqual(['p', 'p', 'p', 'ul']);
 
   // Keyboard only: Enter accepts, Escape rejects, and focus goes back to the editor.
   await ask('bold the first paragraph', [readNote, bold(1), { answer: 'Bold.' }]);
@@ -148,12 +146,12 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await expect(panel.getByText('Kept it.')).toBeVisible();
   await expect(activeEditor(app)).toContainText('Second paragraph here.');
 
-  await ask('make the list a numbered list', [readNote, { tool: 'set_block_type', args: { n: 4, type: 'numbered' } }, { answer: 'Skipped.' }]);
+  await ask('add a line Top above everything', [readNote, { tool: 'insert_paragraph', args: { after: 0, text: 'Top' } }, { answer: 'Skipped.' }]);
   await expect(bar).toBeFocused();
   await app.keyboard.press('Escape');
   await expect(panel.getByText('Skipped.')).toBeVisible();
   await expect(activeEditor(app).locator('ul')).toHaveCount(1);
-  await expect(activeEditor(app).locator('ol')).toHaveCount(0);
+  await expect(activeEditor(app).getByText('Top', { exact: true })).toHaveCount(0);
   await expect(activeEditor(app)).toBeFocused();
 });
 
