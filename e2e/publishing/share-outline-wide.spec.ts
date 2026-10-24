@@ -87,6 +87,7 @@ const tableWrapper = (page: Page) => page.getByRole('article').getByRole('table'
 /** Scrolls the block to the panel's height, so the sticky panel is beside it. */
 async function besidePanel(page: Page, block: Locator): Promise<void> {
   await block.evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 100));
+  // Let the scroll-driven sticky panel settle before the screenshot.
   await page.waitForTimeout(200);
 }
 
@@ -95,6 +96,7 @@ async function shots(page: Page, name: (theme: string) => string): Promise<void>
     await page.emulateMedia({ colorScheme: theme as 'light' | 'dark' });
     await page.evaluate((t) => document.documentElement.classList.remove('light', 'dark', t), theme);
     await page.evaluate((t) => document.documentElement.classList.add(t), theme);
+    // Let the theme transition finish before the screenshot.
     await page.waitForTimeout(400);
     await page.screenshot({ path: test.info().outputPath(name(theme)) });
   }

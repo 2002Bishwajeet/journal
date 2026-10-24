@@ -61,13 +61,19 @@ export async function withFencedPage(
 // Auto fixture: fails fast, before any test body runs, if the configured
 // baseURL isn't one of the allowlisted test origins. Catches a misconfigured
 // run (e.g. E2E_SERVER pointed somewhere else) before it can touch a page.
+// A booted page that has served many tests (mounted editors, a long note list)
+// slows until hovers time out, and a reload doesn't cure it, so the shared page
+// is replaced by a fresh context after this many tests.
+const REUSED_APP_RECYCLE_EVERY = 8;
+type AppPool = { next(): Promise<Page> };
+
 export const test = base.extend<{
   assertBaseUrlIsTestOrigin: void;
   app: Page;
   reusedApp: Page;
   anonPage: Page;
 }, {
-  bootedApp: Page;
+  bootedApp: AppPool;
   liveRun: { page: Page; folderName: string };
   liveSharing: { owner: LiveIdentityPage; peer: LiveIdentityPage; outsider: LiveIdentityPage; circleName: string };
 }>({
@@ -112,25 +118,49 @@ export const test = base.extend<{
   // option (a viewport or colour scheme). Between tests it puts back the viewport,
   // colour scheme and tabs.
   bootedApp: [
-    async ({ browser }, use) =>
-      withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
-        await page.goto('/');
-        await assertTestOrigin(page);
-        await waitForAppReady(page);
-        await use(page);
-      }),
+    async ({ browser }, use) => {
+      let release: (() => void) | undefined;
+      let done: Promise<void> | undefined;
+      let uses = 0;
+      let current: Page | undefined;
+      const open = () =>
+        new Promise<Page>((resolve, reject) => {
+          done = withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
+            await page.goto('/');
+            await assertTestOrigin(page);
+            await waitForAppReady(page);
+            resolve(page);
+            await new Promise<void>((r) => (release = r));
+          }).catch(reject);
+        });
+      const close = async () => {
+        release?.();
+        await done;
+        current = undefined;
+      };
+      await use({
+        async next() {
+          if (current && uses >= REUSED_APP_RECYCLE_EVERY) await close();
+          if (!current) uses = 0;
+          uses++;
+          return (current ??= await open());
+        },
+      });
+      await close();
+    },
     { scope: 'worker' },
   ],
 
   reusedApp: [
     async ({ bootedApp }, use) => {
-      const viewport = bootedApp.viewportSize();
-      await use(bootedApp);
-      if (viewport) await bootedApp.setViewportSize(viewport);
-      await bootedApp.emulateMedia({ colorScheme: null });
+      const page = await bootedApp.next();
+      const viewport = page.viewportSize();
+      await use(page);
+      if (viewport) await page.setViewportSize(viewport);
+      await page.emulateMedia({ colorScheme: null });
       // Open notes stay mounted as background tabs, which makes unscoped locators
       // (a toolbar button, say) match once per tab.
-      const closeTab = bootedApp.getByRole('button', { name: /^Close (?!assistant)/ });
+      const closeTab = page.getByRole('button', { name: /^Close (?!assistant)/ });
       while ((await closeTab.count()) > 0) await closeTab.first().click();
     },
     {},
