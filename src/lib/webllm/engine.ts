@@ -260,49 +260,6 @@ export async function getAutocompleteSuggestion(text: string): Promise<string> {
 }
 
 /**
- * Get action suggestions (e.g., "Add to calendar", "Create todo")
- */
-export async function getActionSuggestions(text: string): Promise<string[]> {
-    const engine = editorEngine();
-    if (!engine) return [];
-    trackActivity();
-
-    try {
-        const response = await engine.chat.completions.create({
-            messages: [
-                {
-                    role: 'system',
-                    content: `Analyze the note and suggest 0-3 actions. Return ONLY a JSON array.
-Valid actions: "Add to calendar", "Create todo", "Set reminder", "Add tag", "Create checklist"
-If no actions are relevant, return: []
-Output format: ["action1", "action2"]`,
-                },
-                {
-                    role: 'user',
-                    content: text.slice(0, 500),
-                },
-            ],
-            max_tokens: 60,
-            temperature: 0.1,
-        });
-
-        const result = response.choices[0]?.message?.content || '[]';
-        try {
-            const parsed = JSON.parse(result);
-            if (!Array.isArray(parsed)) return [];
-            return parsed
-                .filter((e: unknown): e is string => typeof e === 'string' && e.length < 100)
-                .slice(0, 3);
-        } catch {
-            return [];
-        }
-    } catch (error) {
-        console.error('[WebLLM] Action suggestions failed:', error);
-        return [];
-    }
-}
-
-/**
  * Check if WebLLM is available and model is loaded
  */
 export function isWebLLMReady(): boolean {

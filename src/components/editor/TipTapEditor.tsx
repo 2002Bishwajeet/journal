@@ -12,12 +12,10 @@ import type { DocumentMetadata } from "@/types";
 import { debounce } from "@/lib/utils";
 import { readingTimeMinutes } from "@/lib/editor/extractHeadings";
 import { useEditorContext } from "./EditorContext";
-import { useDeviceType } from "@/hooks";
 
 import EditorToolbar from "./EditorToolbar";
 import MobileToolbar from "./MobileToolbar";
 import BubbleMenuToolbar from "./BubbleMenuToolbar";
-import { AISuggestionOverlay } from "./AISuggestionOverlay";
 import { TableColumnMenu } from "./table/TableColumnMenu";
 import { TableRowMenu } from "./table/TableRowMenu";
 import { TagInput } from "./TagInput";
@@ -39,7 +37,6 @@ export default function TipTapEditor({
   className = "",
 }: TipTapEditorProps) {
   const { editor, isLoading } = useEditorContext();
-  const deviceType = useDeviceType();
   const [title, setTitle] = useState(metadata.title);
   const titleInputRef = useRef<HTMLTextAreaElement>(null);
   // Re-sync the field when the title changes elsewhere (MCP, another tab),
@@ -159,9 +156,6 @@ export default function TipTapEditor({
       {/* Table Handles */}
       {editor && <TableColumnMenu editor={editor} />}
       {editor && <TableRowMenu editor={editor} />}
-
-      {/* AI Suggestion Overlay - shows inline suggestions from slash commands */}
-      {editor && deviceType !== 'mobile' && <AISuggestionOverlay editor={editor} />}
 
       {/* Word Count Status Bar */}
       {editor && (

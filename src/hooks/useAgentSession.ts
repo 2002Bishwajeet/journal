@@ -214,8 +214,9 @@ export function useAgentSession(activeNoteId: string | undefined) {
     update(key, (entries) => entries.map((e) => (e.pending ? { ...e, content, pending: false } : e)));
   };
 
-  const send = async () => {
-    const text = input.trim();
+  /** Sends `value` as the user's message. The Send button and Enter send the input; a slash command sends its own text. */
+  const submit = async (value: string) => {
+    const text = value.trim();
     if (!text || controllers.current.size > 0) return;
 
     setShowSuggestions(false);
@@ -245,6 +246,8 @@ export function useAgentSession(activeNoteId: string | undefined) {
     setInputValue("");
     await run(text, request);
   };
+
+  const send = () => submit(input);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (showSuggestions) {
@@ -291,6 +294,7 @@ export function useAgentSession(activeNoteId: string | undefined) {
       setSelectedIndex,
     },
     send,
+    submit,
     stop,
     selectCommand,
     handleKeyDown,
