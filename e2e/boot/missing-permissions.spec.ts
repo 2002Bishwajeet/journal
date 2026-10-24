@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { test, expect, waitForAppReady } from '../fixtures';
 import { screenshotInBothThemes } from '../support/actions';
 
-// The "Journal needs N new permissions" prompt: it lists each missing permission with
+// The "Journal needs N permissions" prompt: it lists each missing permission with
 // its reason, "Not now" hides it for this identity and this missing set, Settings keeps
 // a way to grant, and a changed missing set brings the prompt back.
 
@@ -45,7 +45,7 @@ test('missing permissions: list, Not now, Settings, and a changed set', async ({
 
   const dialog = prompt(app);
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('heading')).toHaveText('Journal needs 2 new permissions');
+  await expect(dialog.getByRole('heading')).toHaveText('Journal needs 2 permissions');
   const items = dialog.getByRole('list', { name: 'Missing permissions' }).getByRole('listitem');
   await expect(items).toHaveCount(2);
   await expect(items.nth(0)).toContainText('See your connections');
@@ -64,6 +64,11 @@ test('missing permissions: list, Not now, Settings, and a changed set', async ({
   await app.setViewportSize({ width: 1280, height: 800 });
   await screenshotInBothThemes(app, (theme) => `prompt-${theme}-desktop.png`, undefined, { animations: 'disabled' });
 
+  await expect(dialog).toContainText("Journal doesn't have some access it needs. Some features won't work until you grant them.");
+  // A backdrop tap does not dismiss it.
+  await app.mouse.click(10, 10);
+  await expect(dialog).toBeVisible();
+
   await dialog.getByRole('button', { name: 'Not now' }).click();
   await expect(dialog).toBeHidden();
 
@@ -72,7 +77,7 @@ test('missing permissions: list, Not now, Settings, and a changed set', async ({
   await app.getByRole('button', { name: 'Settings' }).click();
   const settings = app.getByRole('dialog');
   await settings.getByRole('tab', { name: 'Account', exact: true }).click();
-  await expect(settings.getByText('Journal needs 2 new permissions. Some features do not work without them.')).toBeVisible();
+  await expect(settings.getByText("Journal needs 2 permissions. Some features won't work until you grant them.")).toBeVisible();
   await expect(settings.getByRole('link', { name: 'Grant' })).toHaveAttribute('href', /\/owner\/appupdate\?/);
   await expect(prompt(app)).toHaveCount(0);
   await screenshotInBothThemes(app, (theme) => `settings-${theme}-desktop.png`, undefined, { animations: 'disabled' });
@@ -81,6 +86,6 @@ test('missing permissions: list, Not now, Settings, and a changed set', async ({
   // A new missing set (the drive grant is gone too) shows the prompt again.
   await stubSecurityContext(app, { withDrive: false });
   await reloadApp(app);
-  await expect(prompt(app).getByRole('heading')).toHaveText('Journal needs 3 new permissions');
+  await expect(prompt(app).getByRole('heading')).toHaveText('Journal needs 3 permissions');
   await expect(prompt(app).getByRole('listitem').nth(2)).toContainText('Store your notes');
 });

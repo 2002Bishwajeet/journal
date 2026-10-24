@@ -17,6 +17,8 @@ export const ExtendPermissionDialog = () => {
         showCloseButton={false}
         className="gap-5 sm:max-w-md"
         // Radix skips links and would ring "Not now" on open; focus the dialog itself instead.
+        // A stray backdrop tap must not save a dismissal; Escape and "Not now" still do.
+        onInteractOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           (e.currentTarget as HTMLElement).focus();
@@ -27,10 +29,10 @@ export const ExtendPermissionDialog = () => {
             <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
           </div>
           <DialogTitle className="text-xl leading-tight text-balance">
-            Journal needs {count} new {noun}
+            Journal needs {count} {noun}
           </DialogTitle>
           <DialogDescription className="text-pretty">
-            A recent update added features that need more access. Without it, these features do not work.
+            Journal doesn't have some access it needs. Some features won't work until you grant {count === 1 ? "it" : "them"}.
           </DialogDescription>
         </DialogHeader>
 

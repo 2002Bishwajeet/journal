@@ -67,8 +67,8 @@ export default function AccountSection() {
           label="Permissions"
           description={
             permissions.items.length === 1
-              ? "Journal needs 1 new permission. Some features do not work without it."
-              : `Journal needs ${permissions.items.length} new permissions. Some features do not work without them.`
+              ? "Journal needs 1 permission. Some features won't work until you grant it."
+              : `Journal needs ${permissions.items.length} permissions. Some features won't work until you grant them.`
           }
           control={
             <Button asChild variant="outline" size="sm" className="min-h-11 md:min-h-0">
