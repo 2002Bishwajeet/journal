@@ -101,7 +101,7 @@ describe('usePushNotifications', () => {
         stubPushSupport('default', 'granted');
         await render();
         expect(requestPermission).not.toHaveBeenCalled();
-        expect(host.textContent).toContain('Off on this device');
+        expect(host.textContent).toContain('Off for this device');
     });
 
     it('asks for permission, subscribes with the VAPID key, then registers the device', async () => {
@@ -117,7 +117,7 @@ describe('usePushNotifications', () => {
             p256dh: 'p256-1',
             friendlyName: expect.stringMatching(/^Journal PWA/),
         }));
-        expect(host.textContent).toContain('On on this device');
+        expect(host.textContent).toContain('On for this device');
         expect(button('Turn off')).toBeTruthy();
     });
 
@@ -138,7 +138,7 @@ describe('usePushNotifications', () => {
         await act(async () => { button('Turn off')!.click(); });
 
         expect(calls).toEqual(['post /notify/push/unsubscribe', 'browser unsubscribe']);
-        expect(host.textContent).toContain('Off on this device');
+        expect(host.textContent).toContain('Off for this device');
     });
 
     it('shows the Home Screen hint in an iOS Safari tab', async () => {

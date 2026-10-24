@@ -4,9 +4,9 @@ import { usePushNotifications, type PushStatus } from "@/hooks/usePushNotificati
 import { SettingsRow } from "../SettingsRow";
 
 const STATUS_TEXT: Record<PushStatus, string> = {
-  on: "On on this device",
-  off: "Off on this device",
-  blocked: "Blocked by the browser. Allow notifications for Journal in the site settings.",
+  on: "On for this device",
+  off: "Off for this device",
+  blocked: "Blocked by the browser. Allow notifications for Journal in your browser's site settings.",
   "ios-hint": "Add Journal to your Home Screen to get notifications",
   unsupported: "This browser cannot show notifications",
 };
