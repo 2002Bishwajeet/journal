@@ -86,8 +86,6 @@ test('export all, delete the folder, import the zip: the note comes back whole',
 
   const folder = `Round trip ${Date.now()}`;
   const title = `Trip "${Date.now()}"`;
-  // A Main note too: a zip with every note under one folder reads as a vault root, which import strips
-  await createNote(app, { title: `Main ${Date.now()}`, body: 'In Main.' });
   await createFolder(app, folder);
   await selectFolder(app, folder);
   await createNote(app, { title, body: 'Body line.' });

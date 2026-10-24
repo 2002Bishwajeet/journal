@@ -22,6 +22,8 @@ export interface AgentStep {
   before: string;
   after: string;
   note?: { title: string; href: string };
+  /** An edit to the open note: what the user is asked to accept or reject in the note. */
+  summary?: string;
   /** The tool was called and has not answered yet. */
   open?: boolean;
 }
@@ -45,6 +47,13 @@ function describeCall(tool: string, args: unknown): AgentStep {
       return { before: "Listed notes", after: "" };
     case "list_folders":
       return { before: "Listed folders", after: "" };
+    case "read_open_note":
+      return { before: "Read the open note", after: "" };
+    case "insert_paragraph":
+    case "set_block_type":
+    case "replace_text":
+    case "format_text":
+      return { before: "Prepared an edit to the open note", after: "" };
     default:
       return { before: `Used ${tool}`, after: "" };
   }
@@ -52,6 +61,10 @@ function describeCall(tool: string, args: unknown): AgentStep {
 
 /** The tool result is the data as JSON on its first line, then any advisory notes. */
 function describeResult(step: AgentStep, tool: string, result: string): AgentStep {
+  if (step.summary !== undefined) {
+    const outcome = result.startsWith("accepted") ? "Accepted" : result.startsWith("rejected") ? "Rejected" : "Not applied";
+    return { before: `${outcome}: ${step.summary}`, after: "" };
+  }
   if (tool !== "get_note") return step;
   try {
     const { id, folderId, title } = JSON.parse(result.split("\n")[0]);
@@ -67,6 +80,12 @@ function applyEvent(steps: AgentStep[], event: AgentEvent): AgentStep[] {
   switch (event.type) {
     case "toolCall":
       return [...steps, { ...describeCall(event.tool, event.args), open: true }];
+    case "proposal":
+      return steps.map((step, i) =>
+        i === last && event.proposal.summary !== undefined
+          ? { before: "Waiting for your OK in the note", after: "", summary: event.proposal.summary, open: true }
+          : step
+      );
     case "toolResult":
       return steps.map((step, i) => (i === last ? { ...describeResult(step, event.tool, event.result), open: false } : step));
     case "error": {
@@ -155,8 +174,9 @@ export function useAgentSession(activeNoteId: string | undefined) {
     let capped = false;
     let content: string;
     try {
-      const [{ runAgent, MAX_TOOL_STEPS }, { createLocalDeps }, { createAgentEngine }] = await Promise.all([
+      const [{ runAgent, MAX_TOOL_STEPS }, { approveEdit }, { createLocalDeps }, { createAgentEngine }] = await Promise.all([
         import("@/lib/agent/loop/agentLoop"),
+        import("@/lib/agent/approveEdit"),
         import("@/lib/agent/local/localDeps"),
         import("@/lib/webllm"),
       ]);
@@ -169,7 +189,8 @@ export function useAgentSession(activeNoteId: string | undefined) {
           setModelStatus({ progress: report.progress, message: report.text })
         ),
         deps: createLocalDeps(),
-        approve: async () => false,
+        // Each edit to the open note shows in the note for the user to accept or reject.
+        approve: (proposal) => approveEdit(proposal, controller.signal),
         signal: controller.signal,
         onEvent: (event) => {
           if (event.type === "step" && event.step > MAX_TOOL_STEPS) capped = true;

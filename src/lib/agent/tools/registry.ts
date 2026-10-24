@@ -49,7 +49,7 @@ function defineTool<Shape extends z.ZodRawShape>(tool: JournalTool<Shape>): AnyJ
 }
 
 /** The JSON Schema of a tool's input, for WebMCP's `inputSchema`. */
-export function toJsonSchema(tool: AnyJournalTool): z.core.JSONSchema.BaseSchema {
+export function toJsonSchema(tool: Pick<AnyJournalTool, 'input'>): z.core.JSONSchema.BaseSchema {
     return z.toJSONSchema(tool.input);
 }
 
