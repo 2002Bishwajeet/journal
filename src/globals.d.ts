@@ -61,8 +61,3 @@ interface Window {
     snapshot(): void;
   };
 }
-
-interface WindowEventMap {
-  /** Dispatched by the AI slash commands, handled by AISuggestionOverlay. */
-  'ai-slash-command': CustomEvent<{ action: string }>;
-}

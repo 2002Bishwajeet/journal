@@ -51,7 +51,6 @@ src/
 │   │   ├── shared/             # ToolbarButton, ToolbarPopover, useToolbarState
 │   │   ├── table/              # TableColumnMenu, TableRowMenu
 │   │   ├── AIMenu.tsx          # AI rewrite dropdown
-│   │   ├── AISuggestionOverlay.tsx
 │   │   ├── BubbleMenuToolbar.tsx
 │   │   ├── CollaborativePopover.tsx
 │   │   ├── EditorContext.tsx
@@ -463,7 +462,8 @@ Current state: the `pglite-v4` alias (0.4.x) is a dependency, used only for migr
 - **Rewrite**: 8 styles — Proofread, Rewrite, Friendly, Professional, Concise, Summary, Key Points, List/Table
 - **Chat**: The ChatBot panel is the local agent (`useAgentSession` → `runAgent`): it calls the notes tools on this device, shows each step, and has Stop. No web search; nothing leaves the device
 - **Agent edits (#701)**: the editor tools (`read_open_note`, `insert_paragraph`, `set_block_type`, `replace_text`, `format_text`) only build a proposal. `approveEdit` (`src/lib/agent/approveEdit.ts`) queues it; the `AgentEditPreview` plugin (`src/components/editor/plugins/AgentEditPreview.ts`) shows it in the note with a bar to Accept (Enter) or Reject (Escape). Accept rebuilds the edit against the current note and applies it with `dispatchUndoStep`, so one Cmd+Z undoes it. Closing the note, switching tabs or Stop rejects it
-- **Slash commands**: `/ask`, `/summarize`, `/rewrite` via AI suggestion overlay
+- **Rewrite (#703)**: `AIMenu` runs `rewriteText` on the editor model and turns the result into a proposal (`src/lib/agent/rewriteEdit.ts`) for `approveEdit`, so it shows and is accepted like an agent edit
+- **Slash commands**: `/ask` and `/summarize` open the ChatBot panel (`/summarize` sends the request); `/rewrite` opens the AI menu for the selection. They talk through `aiRequests` (`src/lib/agent/aiRequests.ts`)
 - **Idle GC**: Auto-unloads model after 5 minutes idle to reclaim ~2-3 GB memory
 - **Mobile**: Disabled on mobile devices (insufficient memory)
 

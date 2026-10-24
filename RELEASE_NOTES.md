@@ -21,6 +21,11 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - You choose Accept or Reject for each change. The note stays the same until you accept.
 - One undo (Cmd+Z or Ctrl+Z) takes back an accepted change.
 
+### Changed
+
+- The AI menu in the editor shows its rewrite in the note first. You choose Accept or Reject.
+- The /ask and /summarize commands open the assistant. The /rewrite command opens the AI menu for the selected text.
+
 ## 2.15.3 (2026-10-24)
 
 ### Fixed
