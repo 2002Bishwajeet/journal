@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- The app now looks for notes that your connections share with you. A shared note shows in "Shared with me" within a few minutes. Select the refresh button next to "Shared with me" to look now. A note that is no longer shared with you goes away from the list.
+
 ## 2.17.3 (2026-10-24)
 
 ### Changed

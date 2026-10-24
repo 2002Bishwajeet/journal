@@ -5,10 +5,12 @@
  * bundle. See src/globals.d.ts for the public type.
  *
  * The hooks read signals the app already maintains (bootProgress and the boot
- * splash) or draw a link card. Only deleteFilesNamed writes: the live tier's
- * teardown uses it to remove what the sharing specs leave on an identity.
+ * splash) or draw a link card. Two exceptions: the ignoreInvites switch, which
+ * lasts until the page reloads, and deleteFilesNamed, which the live tier's
+ * teardown uses to remove what the sharing specs leave on an identity.
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
+import { e2eSwitches } from './switches';
 
 const E2E_ORIGINS = [
     'http://127.0.0.1:4173',
@@ -77,6 +79,11 @@ async function syncToDisk(): Promise<void> {
     await (await getDatabase()).syncToFs();
 }
 
+/** Skip incoming invites until the page reloads, so a share arrives only through the shared pull (#732). */
+function ignoreInvites(): void {
+    e2eSwitches.ignoreInvites = true;
+}
+
 /**
  * Deletes the signed-in identity's folders (with their notes), notes and collaboration
  * invites whose name matches `namePattern`, straight on the server; returns the names.
@@ -125,7 +132,7 @@ export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
 
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, deleteFilesNamed }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, deleteFilesNamed }),
         writable: false,
         configurable: false,
         enumerable: false,
