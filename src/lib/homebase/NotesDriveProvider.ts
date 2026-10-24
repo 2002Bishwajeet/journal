@@ -35,8 +35,13 @@ import {
     PAYLOAD_KEY_CARD_IMAGE,
     COLLABORATIVE_FOLDER_ID,
     MAIN_FOLDER_ID,
+    JOURNAL_APP_ID,
+    JOURNAL_PUSH_TYPE_EDIT,
 } from './config';
 import type { NoteFileContent, DocumentMetadata } from '@/types';
+
+// js-lib's PushNotificationOptions lacks the server's collapse option
+type AppNotificationOptions = NonNullable<UpdateInstructionSet['appNotificationOptions']> & { collapseId?: string };
 import { buildPublicCard, sameCardImageFrom, type CardImageFrom, type PublicCard } from '@/lib/share/publicCard';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import { noteAcl, noteAppData, noteFileContent, sharedAcl } from './noteUploadMetadata';
@@ -337,6 +342,8 @@ export class NotesDriveProvider {
         options?: {
             onVersionConflict?: () => void;
             toDeletePayloads?: { key: string }[];
+            /** Peer update only: also push the note owner (#746). */
+            notifyOwner?: boolean;
         }
     ): Promise<{ versionTag: string; encryptedKeyHeader?: EncryptedKeyHeader }> {
         const hostIdentity = this.#dotYouClient.getHostIdentity();
@@ -407,6 +414,19 @@ export class NotesDriveProvider {
                 },
                 recipients: [authorOdinId],
                 versionTag,
+                ...(options?.notifyOwner && {
+                    useAppNotification: true,
+                    // No note title: the push passes through the server in the clear.
+                    // collapseId/timeToLiveSeconds are server options js-lib does not type yet.
+                    appNotificationOptions: {
+                        appId: JOURNAL_APP_ID,
+                        typeId: JOURNAL_PUSH_TYPE_EDIT,
+                        tagId: uniqueId,
+                        silent: false,
+                        unEncryptedMessage: 'Edited a shared note',
+                        collapseId: uniqueId,
+                    } as AppNotificationOptions,
+                }),
             }
             : {
                 locale: 'local' as const,

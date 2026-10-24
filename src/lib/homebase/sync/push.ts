@@ -29,6 +29,10 @@ import type { SyncService } from '../SyncService';
 import type { SyncContext } from './context';
 import { mergeYjsDocuments, resolveNoteFolderId } from './merge';
 
+// When this tab last sent the owner an edit push, per note. In memory only: a reload may push once more (#746).
+const EDIT_PUSH_WINDOW_MS = 15 * 60 * 1000;
+const lastEditPushAt = new Map<string, number>();
+
 /** Methods pushChanges calls on the SyncService instance, so spies and overrides on it still apply. */
 type PushHandlers = Pick<SyncService, 'pushFolder' | 'pushNote' | 'deleteFolderRemote' | 'deleteNoteRemote'>;
 
@@ -374,6 +378,11 @@ async function pushNoteNow(ctx: SyncContext, record: SyncRecord): Promise<void> 
                 return result;
             };
 
+            // A collaborator's edit pushes the owner, at most once per note per window (#746)
+            const isCollaboratorEdit = !!record.authorOdinId && record.authorOdinId !== ctx.hostIdentity;
+            const notifyOwner = isCollaboratorEdit
+                && Date.now() - (lastEditPushAt.get(record.localId) ?? -Infinity) >= EDIT_PUSH_WINDOW_MS;
+
             const result = await ctx.notesProvider.updateNote(
                 record.localId,
                 record.remoteFileId,
@@ -383,8 +392,9 @@ async function pushNoteNow(ctx: SyncContext, record: SyncRecord): Promise<void> 
                 record.globalTransitId,
                 yjsBlob,
                 cachedKeyHeader,
-                { onVersionConflict, toDeletePayloads }
+                { onVersionConflict, toDeletePayloads, notifyOwner }
             );
+            if (notifyOwner) lastEditPushAt.set(record.localId, Date.now());
 
             // Determine final values based on whether conflict resolution occurred
             const finalHash = conflictResult?.mergedHash || currentHash;
