@@ -191,13 +191,16 @@ export default function AgentAccessSection() {
       </div>
 
       {webMcp.supported && (
-        <div className="overflow-hidden rounded-xl border bg-card">
-          <SettingsRow
-            id="webmcp-enabled"
-            label="Let this browser's AI agent use Journal (WebMCP)"
-            description="The agent sees only the notes you granted above. With Read + write, it can propose edits to the note you have open, and you accept each one in the note. The browser's agent may send what it reads to its provider."
-            control={<Switch checked={webMcp.enabled} onCheckedChange={webMcp.setEnabled} />}
-          />
+        <div className="space-y-4">
+          <SectionHeader>Browser agent</SectionHeader>
+          <div className="overflow-hidden rounded-xl border bg-card">
+            <SettingsRow
+              id="webmcp-enabled"
+              label="Let this browser's AI agent use Journal (WebMCP)"
+              description="The agent sees only the notes you granted above. With Read + write, it can propose edits to the note you have open, and you accept each one in the note. The browser's agent may send what it reads to its provider."
+              control={<Switch checked={webMcp.enabled} onCheckedChange={webMcp.setEnabled} />}
+            />
+          </div>
         </div>
       )}
     </div>

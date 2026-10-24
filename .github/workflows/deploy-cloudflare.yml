@@ -50,6 +50,8 @@ jobs:
         run: npm run build
         env:
           CI: true
+          # WebMCP origin-trial token for journal.cloudx.run (#705); unset = no token, WebMCP stays off.
+          VITE_WEBMCP_OT_TOKEN: ${{ vars.WEBMCP_OT_TOKEN }}
 
       # Pages 308s /index.html -> /, and a redirected response served to a
       # navigation is a hard network error — every share link dies with "This
