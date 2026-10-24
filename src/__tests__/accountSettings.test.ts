@@ -24,6 +24,8 @@ vi.mock('@/hooks/useSyncService', () => ({
     }),
 }));
 
+vi.mock('@/hooks/auth/useJournalPermissions', () => ({ useJournalPermissions: () => null }));
+
 import AccountSection from '@/components/settings/sections/AccountSection';
 
 function buttonByText(text: string) {

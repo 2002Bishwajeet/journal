@@ -82,6 +82,9 @@ test('gallery: dragging an image beside another merges them by side, dragging it
   await pasteBody(app, `<p>${img('A')}</p><p>${img('B')}</p><p>After the photos.</p>`);
   await expect(image(app, 'B')).toBeVisible();
   await expect(activeEditor(app).locator('[data-gallery]')).toHaveCount(0);
+  // No blank line above an image alone on its line (prosemirror-view's separator before it)
+  const gapAbove = await image(app, 'B').evaluate((el) => el.closest('.node-image')!.getBoundingClientRect().top - el.closest('p')!.getBoundingClientRect().top);
+  expect(gapAbove).toBeLessThan(1);
 
   // A onto B's right half: the indicator on B's right edge, then the gallery [B, A]
   await dragImage(app, 'A', image(app, 'B'), 'right', async () => {

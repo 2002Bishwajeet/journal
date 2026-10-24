@@ -411,6 +411,12 @@ img.ProseMirror-separator {
   margin: 0 !important;
 }
 
+/* prosemirror-view 1.42.6 also puts one before an image at the start of a line;
+   beside the line-wide image node view it would be a blank line above the image. */
+.ProseMirror img.ProseMirror-separator:has(+ .node-image) {
+  display: none !important;
+}
+
 /* Image gallery, row layout (#601), in the editor and on the share page. Each
    image grows by its aspect ratio (--ar, set on load by galleryLayout.ts), so a
    row's images share one height. A row ends at a .gallery-break: the `wide` ones
