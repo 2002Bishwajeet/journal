@@ -36,6 +36,9 @@ export const JOURNAL_APP_NAME = `Journal${import.meta.env.PROD ? '' : ' (Local D
 // Fixed: a recipient subscribes to each connection with this id, and the sender pushes with it (#743, #745)
 export const JOURNAL_PEER_SUBSCRIPTION_ID = '5b0c7a1e-2f3d-4e8a-9c61-7d4f0a9b8e23';
 
+// Tag of the one quiet notification the service worker shows for other Homebase apps' pushes
+export const OTHER_APPS_NOTIFICATION_TAG = 'homebase-other';
+
 // Drive constants per spec
 export const JOURNAL_FILE_TYPE = 605;
 export const JOURNAL_DATA_TYPE = 706;

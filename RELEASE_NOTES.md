@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- Notifications from your other Homebase apps now show as one quiet notification. Journal notifications do not change. Open Journal to remove the quiet notification.
+
 ## 2.19.0 (2026-10-24)
 
 ### Changed
