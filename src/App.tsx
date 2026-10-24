@@ -29,6 +29,7 @@ import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 // lazily loaded JournalLayout chunk.
 import { BootErrorScreen } from "@/components/layout/SplashScreen";
 import { isPublicSharePath } from "@/lib/sharePath";
+import { useCloseOtherAppNotifications } from "@/hooks/useCloseOtherAppNotifications";
 
 // Computed once at boot, not per route: UpdatePrompt sits outside BrowserRouter.
 // A visitor who clicks from a share page into the app gets the SW registered
@@ -56,6 +57,7 @@ const persister = createAsyncStoragePersister({
 });
 
 function App() {
+  useCloseOtherAppNotifications();
   return (
     <MotionConfig reducedMotion="user">
       <PersistQueryClientProvider

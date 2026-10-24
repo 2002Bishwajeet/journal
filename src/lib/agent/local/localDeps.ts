@@ -31,6 +31,19 @@ const isTrashed = (metadata: DocumentMetadata) => metadata.archivalStatus === TR
 const toSnippet = (highlight: string | undefined) =>
     (highlight ?? '').replace(/<\/?mark>/g, '').slice(0, SNIPPET_LENGTH);
 
+/** One note's summary, metadata and Yjs doc; null when it is missing, trashed or has no stored updates. */
+export async function loadLocalNote(id: string) {
+    const db = await getDatabase();
+    const { rows } = await db.query<{ title: string; metadata: DocumentMetadata }>(
+        'SELECT title, metadata FROM search_index WHERE doc_id = $1',
+        [id]
+    );
+    if (rows.length === 0 || isTrashed(rows[0].metadata)) return null;
+    const doc = await loadLocalYDoc(id);
+    if (!doc) return null;
+    return { summary: toSummary(id, rows[0].title, rows[0].metadata), metadata: rows[0].metadata, doc };
+}
+
 export function createLocalDeps(): ReadDeps {
     const listFolders = async () => (await getAllFolders()).map(({ id, name, isPublic }) => ({ id, name, isPublic }));
 
@@ -52,15 +65,8 @@ export function createLocalDeps(): ReadDeps {
         },
 
         async getNote(id, targets) {
-            const db = await getDatabase();
-            const { rows } = await db.query<{ title: string; metadata: DocumentMetadata }>(
-                'SELECT title, metadata FROM search_index WHERE doc_id = $1',
-                [id]
-            );
-            if (rows.length === 0 || isTrashed(rows[0].metadata)) return null;
-            const doc = await loadLocalYDoc(id);
-            if (!doc) return null;
-            return { summary: toSummary(id, rows[0].title, rows[0].metadata), markdown: toMarkdown(doc, targets) };
+            const note = await loadLocalNote(id);
+            return note && { summary: note.summary, markdown: toMarkdown(note.doc, targets) };
         },
 
         async searchNotes(query) {

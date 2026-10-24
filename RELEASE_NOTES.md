@@ -20,6 +20,30 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - The app now fits the full phone screen. The Settings and Log out buttons no longer hide under the browser toolbar.
 - On a phone in landscape, the notch no longer covers the sidebar and note list.
 - The Exit Focus button stays below the status bar. It does not show a keyboard shortcut on touch screens.
+- The slash menu on a phone no longer shows Ask AI, Summarize and Rewrite. The assistant is not available on phones.
+
+## 2.23.0 (2026-10-24)
+
+### New
+
+- When a person edits a note that you shared with them, Journal sends you a notification. You get one notification for each note every 15 minutes. Click it to open the note.
+
+### Fixed
+
+- A note that its owner stops sharing with you now goes away from your devices. The app tells you when you open it. A saved invite does not bring the note back.
+
+## 2.22.1 (2026-10-24)
+
+### Changed
+
+- Notifications from your other Homebase apps now show as one quiet notification. Journal notifications do not change. Open Journal to remove the quiet notification.
+
+## 2.22.0 (2026-10-24)
+
+### New
+
+- The assistant can add text to a note that is not open, and it can make a new note. It shows the text in the chat first, and writes it only when you accept.
+- Version history keeps the note as it was before the assistant added text.
 
 ## 2.21.0 (2026-10-24)
 

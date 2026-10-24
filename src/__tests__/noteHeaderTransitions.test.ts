@@ -22,7 +22,7 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
         // Invitation uploads create a new file and stay on mockUploadFile.
         uploadFile: (...args: unknown[]) =>
             (args[1] as { storageOptions?: { overwriteFileId?: string } }).storageOptions?.overwriteFileId
-                ? mockReUpload(args[0], args[1], args[2], args[5])
+                ? mockReUpload(args[0], args[1], args[2], args[5], args[6])
                 : mockUploadFile(...args),
         deleteFile: mockDeleteFile,
     };
@@ -332,6 +332,49 @@ describe('note header transitions (#161)', () => {
 
             await expect(provider.revokeNoteCollaboration(NOTE_ID, 'me.id')).rejects.toThrow('versionTagMismatch');
             expect(mockPatchFile).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    // #760: the sync push of a just-edited note landing between the publish's header
+    // fetch and its re-upload made the publish fail. It is rebuilt once from the fresh header.
+    describe('makeNotePublic on a version conflict', () => {
+        // The SDK hands a versionTagMismatch to the onVersionConflict argument, and throws without one.
+        const conflictOnce = (onConflict: () => void) => {
+            mockReUpload.mockImplementationOnce(async (...args: unknown[]) => {
+                onConflict();
+                const handler = args[4] as (() => Promise<unknown>) | undefined;
+                if (!handler) throw new Error('versionTagMismatch');
+                return handler();
+            });
+        };
+
+        it('re-uploads against the fresh header and still publishes', async () => {
+            let current = noteHeader('object');
+            mockGetHeader.mockImplementation(async (_c: unknown, _d: unknown, uniqueId: string) =>
+                uniqueId === NOTE_ID ? current : null
+            );
+            conflictOnce(() => {
+                current = noteHeader('object');
+                current.fileMetadata.versionTag = 'v1b';
+                current.fileMetadata.appData.content = { ...CONTENT, title: 'Pushed title' };
+            });
+
+            await expect(provider.makeNotePublic(NOTE_ID)).resolves.toMatchObject({ versionTag: 'v2', previousVersionTag: 'v1b' });
+
+            expect(mockReUpload).toHaveBeenCalledTimes(2);
+            const metadata = mockReUpload.mock.calls[1][2];
+            expect(metadata.versionTag).toBe('v1b');
+            expect(metadata.isEncrypted).toBe(false);
+            expect(JSON.parse(metadata.appData.content)).toMatchObject({ title: 'Pushed title', isPublic: true });
+        });
+
+        it('fails when the retry conflicts too', async () => {
+            serveNote(noteHeader('object'));
+            conflictOnce(() => {});
+            conflictOnce(() => {});
+
+            await expect(provider.makeNotePublic(NOTE_ID)).rejects.toThrow('versionTagMismatch');
+            expect(mockReUpload).toHaveBeenCalledTimes(2);
         });
     });
 
