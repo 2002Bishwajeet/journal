@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.23.1 (2026-10-24)
+
 ### Fixed
 
 - The slash menu on a phone no longer shows Ask AI, Summarize and Rewrite. The assistant is not available on phones.

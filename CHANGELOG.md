@@ -1,3 +1,9 @@
+## [2.23.1](https://github.com/2002Bishwajeet/journal/compare/v2.23.0...v2.23.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **editor:** hide AI slash commands on phones ([#793](https://github.com/2002Bishwajeet/journal/issues/793)) ([a6613e5](https://github.com/2002Bishwajeet/journal/commit/a6613e56d356978d4dd296dc994bb2103d2dae51))
 # [2.23.0](https://github.com/2002Bishwajeet/journal/compare/v2.22.1...v2.23.0) (2026-10-24)
 
 
