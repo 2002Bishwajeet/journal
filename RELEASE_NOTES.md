@@ -19,6 +19,18 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - In Settings, Agent access, you can let your browser's AI agent use the notes you granted. This needs a browser with WebMCP.
 
+## 2.17.3 (2026-10-24)
+
+### Changed
+
+- When Journal needs a permission, the app tells you which permission and why. You can select "Not now" and grant it later in Settings.
+
+## 2.17.2 (2026-10-24)
+
+### Fixed
+
+- The app uses a newer version of a data-check library that fixes a security problem.
+
 ## 2.17.1 (2026-10-24)
 
 ### Fixed

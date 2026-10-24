@@ -57,7 +57,7 @@ export function MarkCollaborativeDialog({
     permissions: COLLABORATION_PERMISSIONS,
     circleDrives: [journalDriveRequest, CONTACT_TARGET_DRIVE_REQUEST],
     returnUrl,
-  });
+  })?.url;
 
   const hasMissingPermissions = !!extendPermissionUrl;
   const circles = (circlesFetch.data || []).filter(

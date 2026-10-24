@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SignOutConfirmDialog from "@/components/modals/SignOutConfirmDialog";
 import { useAccountSettings } from "@/hooks/useAccountSettings";
+import { useJournalPermissions } from "@/hooks/auth/useJournalPermissions";
 import { cn, formatRelativeTime } from "@/lib/utils/index";
 import { SettingsRow } from "../SettingsRow";
 
 export default function AccountSection() {
   const { identity, syncStatus, lastSyncedAt, pendingTotal, syncNow, signOut } =
     useAccountSettings();
+  const permissions = useJournalPermissions();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const isSyncing = syncStatus === "syncing";
 
@@ -59,6 +61,24 @@ export default function AccountSection() {
           </Button>
         }
       />
+      {permissions && (
+        <SettingsRow
+          id="account-permissions"
+          label="Permissions"
+          description={
+            permissions.items.length === 1
+              ? "Journal needs 1 permission. Some features won't work until you grant it."
+              : `Journal needs ${permissions.items.length} permissions. Some features won't work until you grant them.`
+          }
+          control={
+            <Button asChild variant="outline" size="sm" className="min-h-11 md:min-h-0">
+              <a href={permissions.url} onClick={permissions.onGrant}>
+                Grant <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              </a>
+            </Button>
+          }
+        />
+      )}
       <SettingsRow
         id="account-sign-out"
         label="Sign out"

@@ -117,7 +117,7 @@ test("react block: typed, the counter runs on the app's own React, and nothing l
   expect(requests.some((request) => RUNTIME_URL.test(request.url()))).toBe(true);
 });
 
-test('react block: pasted as a fence into an empty line, it opens in Preview and counts', async ({ app }) => {
+test('react block: pasted as a fence into an empty line, it opens in Preview and counts', async ({ reusedApp: app }) => {
   await createNote(app, { title: `React paste ${Date.now()}`, body: 'Intro' });
   await app.keyboard.press('Enter');
   await pastePlainText(app, '```react\n' + COUNTER + '\n```');
@@ -134,7 +134,7 @@ test('react block: pasted as a fence into an empty line, it opens in Preview and
   await expect(activeEditor(app)).not.toContainText('```');
 });
 
-test('react block: the frame cannot reach storage, the parent document, cookies or the network, or open a popup', async ({ app }) => {
+test('react block: the frame cannot reach storage, the parent document, cookies or the network, or open a popup', async ({ reusedApp: app }) => {
   const popups: string[] = [];
   app.context().on('page', (page) => popups.push(page.url()));
   await createNote(app, { title: `React probe ${Date.now()}`, body: 'Intro' });
@@ -229,7 +229,7 @@ test('react block: after one render, it still renders offline after a reload', a
 });
 
 // One run; the screenshots are taken in both themes.
-test('react block in the editor: the counter, a syntax error and a render error', async ({ app }) => {
+test('react block in the editor: the counter, a syntax error and a render error', async ({ reusedApp: app }) => {
   await app.setViewportSize({ width: 1280, height: 900 });
   await createNote(app, { title: `React states ${Date.now()}`, body: '```react ' + COUNTER_LINE });
   for (const source of [SYNTAX_ERROR, THROWS]) {

@@ -1,67 +1,62 @@
-
-import { useQueryClient } from "@tanstack/react-query";
-import { type TargetDriveAccessRequest } from "@homebase-id/js-lib/auth";
-import { type AppPermissionType } from "@homebase-id/js-lib/network";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useMissingPermissions } from "@/hooks/auth/useMissingPermissions";
-import { ExternalLink, ShieldAlert } from "lucide-react";
+import { useJournalPermissions } from "@/hooks/auth/useJournalPermissions";
+import { ExternalLink, ShieldCheck } from "lucide-react";
 
+export const ExtendPermissionDialog = () => {
+  const permissions = useJournalPermissions();
 
-interface ExtendPermissionDialogProps {
-  appId: string;
-  appName: string;
-  drives: TargetDriveAccessRequest[];
-  circleDrives?: TargetDriveAccessRequest[];
-  permissions: AppPermissionType[];
-}
+  if (!permissions || permissions.isDismissed) return null;
 
-export const ExtendPermissionDialog = ({
-  appId,
-  appName,
-  drives,
-  circleDrives,
-  permissions,
-}: ExtendPermissionDialogProps) => {
-  const queryClient = useQueryClient();
-  const extendPermissionUrl = useMissingPermissions({
-    appId,
-    drives,
-    circleDrives,
-    permissions,
-  });
-
-  if (!extendPermissionUrl) return null;
+  const count = permissions.items.length;
+  const noun = count === 1 ? "permission" : "permissions";
 
   return (
-    <Dialog open={!!extendPermissionUrl} onOpenChange={() => {}}>
-      <DialogContent showCloseButton={false} className="sm:max-w-md">
-        <DialogHeader>
-          <div className="mx-auto bg-secondary p-3 rounded-full mb-4 w-fit">
-             <ShieldAlert className="h-6 w-6 text-primary" />
+    <Dialog open onOpenChange={(open) => !open && permissions.dismiss()}>
+      <DialogContent
+        showCloseButton={false}
+        className="gap-5 sm:max-w-md"
+        // Radix skips links and would ring "Not now" on open; focus the dialog itself instead.
+        // A stray backdrop tap must not save a dismissal; Escape and "Not now" still do.
+        onInteractOutside={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement).focus();
+        }}
+      >
+        <DialogHeader className="text-left sm:text-left">
+          <div className="mb-1 w-fit rounded-full bg-secondary p-2.5">
+            <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
           </div>
-          <DialogTitle className="text-center text-xl">Missing permissions</DialogTitle>
-          <DialogDescription className="text-center pt-2">
-            The {appName} app is missing permissions. Without the necessary permissions the functionality of {appName} will be limited.
+          <DialogTitle className="text-xl leading-tight text-balance">
+            Journal needs {count} {noun}
+          </DialogTitle>
+          <DialogDescription className="text-pretty">
+            Journal doesn't have some access it needs. Some features won't work until you grant {count === 1 ? "it" : "them"}.
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="text-muted-foreground text-sm text-center px-4 pb-4">
-           This can happen when the app adds new features that require additional permissions or if permissions were revoked manually.
-        </div>
 
-        <div className="flex justify-center mt-2">
-          <Button asChild className="w-full sm:w-auto min-w-[200px]" size="lg">
-            <a 
-              href={extendPermissionUrl} 
-              className="flex items-center gap-2"
-              onClick={() => {
-                queryClient.invalidateQueries({ queryKey: ['security-context'], exact: false });
-              }}
-            >
-              Extend permissions <ExternalLink className="h-4 w-4" />
+        <ul className="space-y-2" aria-label={`Missing ${noun}`}>
+          {permissions.items.map((item) => (
+            <li key={item.id} className="rounded-lg bg-muted/60 px-3 py-2.5 text-left">
+              <p className="text-sm font-medium">{item.label}</p>
+              <p className="text-sm text-muted-foreground text-pretty">{item.reason}</p>
+            </li>
+          ))}
+        </ul>
+
+        <div className="flex flex-col gap-2">
+          <Button asChild size="lg" className="w-full">
+            <a href={permissions.url} onClick={permissions.onGrant}>
+              Grant {noun} <ExternalLink className="h-4 w-4" aria-hidden="true" />
             </a>
           </Button>
+          <Button variant="ghost" size="lg" className="w-full" onClick={permissions.dismiss}>
+            Not now
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            You can grant {count === 1 ? "it" : "them"} later in Settings, under Account.
+          </p>
         </div>
       </DialogContent>
     </Dialog>

@@ -43,12 +43,11 @@ export { FileHandler } from './FileHandler';
 const lowlight = createLowlight();
 
 // GFM has no headerless table, so an all-empty header line means "no header row" (#446).
-const baseTableParseMarkdown = Table.config.parseMarkdown;
 const HeaderlessAwareTable = Table.extend({
-    parseMarkdown: (token, helpers) => {
+    parseMarkdown(token, helpers) {
         const header = token.header as { text?: string }[] | undefined;
         const emptyHeader = !!header && header.every((cell) => !cell.text?.trim());
-        return baseTableParseMarkdown!(emptyHeader ? { ...token, header: undefined } : token, helpers);
+        return this.parent!(emptyHeader ? { ...token, header: undefined } : token, helpers);
     },
 });
 // The `language` attribute is the fence's whole info string (```html id=k3f9, #410):

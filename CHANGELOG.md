@@ -1,3 +1,16 @@
+## [2.17.3](https://github.com/2002Bishwajeet/journal/compare/v2.17.2...v2.17.3) (2026-10-24)
+
+
+### Bug Fixes
+
+* neutral permission prompt copy; a backdrop tap no longer dismisses it ([74a4fdc](https://github.com/2002Bishwajeet/journal/commit/74a4fdc2b07f7a7a3ab2d026de097453748d0c59))
+* say which permissions are missing and why, and allow Not now ([2eac676](https://github.com/2002Bishwajeet/journal/commit/2eac67692a52f8ccc4ae6d2c950744ab3d98b538))
+## [2.17.2](https://github.com/2002Bishwajeet/journal/compare/v2.17.1...v2.17.2) (2026-10-24)
+
+
+### Bug Fixes
+
+* **deps:** bump zod to 4.6.7 (security alert [#146](https://github.com/2002Bishwajeet/journal/issues/146)) ([a8392f7](https://github.com/2002Bishwajeet/journal/commit/a8392f7ea57c7acdcb5d5e9afb4b1f1ffd8daecf))
 ## [2.17.1](https://github.com/2002Bishwajeet/journal/compare/v2.17.0...v2.17.1) (2026-10-24)
 
 

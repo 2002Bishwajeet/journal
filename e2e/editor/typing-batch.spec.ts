@@ -14,7 +14,7 @@ async function typeNoSettle(page: Page, text: string): Promise<void> {
   await editor.pressSequentially(text);
 }
 
-test('typed sentence survives closing and reopening the note', async ({ app }) => {
+test('typed sentence survives closing and reopening the note', async ({ reusedApp: app }) => {
   const title = `Batch close ${Date.now()}`;
   await createNote(app, { title, body: 'Start.' });
 
@@ -30,7 +30,7 @@ test('typed sentence survives closing and reopening the note', async ({ app }) =
 // #152 makes the pagehide/visibilitychange flush best-effort only (an async
 // PGlite/IndexedDB write during unload is not guaranteed to commit), and
 // main loses the tail on an immediate reload too (see typeInEditor's comment).
-test('typed sentence survives a reload right after typing @quarantine', async ({ app }) => {
+test('typed sentence survives a reload right after typing @quarantine', async ({ reusedApp: app }) => {
   const title = `Batch reload ${Date.now()}`;
   await createNote(app, { title, body: 'Start.' });
 

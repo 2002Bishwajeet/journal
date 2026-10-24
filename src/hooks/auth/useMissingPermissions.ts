@@ -74,7 +74,7 @@ export const useMissingPermissions = ({
     if (missingDrives.length === 0 && missingPermissions.length === 0)
         return;
 
-    const extendPermissionUrl = getExtendAppRegistrationUrl(
+    const url = getExtendAppRegistrationUrl(
         host,
         appId,
         missingDrives,
@@ -84,5 +84,5 @@ export const useMissingPermissions = ({
         circleOdinIds,
     );
 
-    return extendPermissionUrl;
+    return { url, permissions: missingPermissions, drives: missingDrives };
 };

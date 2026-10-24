@@ -30,12 +30,11 @@ export async function createNote(page: Page, { title, body }: { title: string; b
     const input = activeTitleInput(page);
     await expect(input).toHaveValue('Untitled');
     await input.fill(title);
-    // A freshly created note's Yjs document is still settling right after the
-    // title fill (its editor briefly loses focus/keystrokes if typed into
-    // immediately — confirmed by typing "Hello" and seeing only "H" land).
-    // No DOM-observable readiness signal exists for this, so a short wait is
-    // the practical fix.
-    await page.waitForTimeout(500);
+    // A freshly created note is still settling right after the title fill (its
+    // editor briefly loses keystrokes, and the note list has no row for it yet, so
+    // a later right-click by title lands on the tab instead). Wait for the list
+    // row carrying the new title before typing.
+    await expect(page.getByTestId('note-row').filter({ hasText: title })).toBeVisible();
     await typeInEditor(page, body);
 }
 
