@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.20.0 (2026-10-24)
+
 ### New
 
 - In Settings, Agent access, you can let your browser's AI agent use the notes you granted. This needs a browser with WebMCP.
