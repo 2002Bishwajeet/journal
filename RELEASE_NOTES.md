@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.23.0 (2026-10-24)
+
 ### New
 
 - When a person edits a note that you shared with them, Journal sends you a notification. You get one notification for each note every 15 minutes. Click it to open the note.
