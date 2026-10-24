@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- When Journal needs a permission, the app tells you which permission and why. You can select "Not now" and grant it later in Settings.
+
 ## 2.17.2 (2026-10-24)
 
 ### Fixed
