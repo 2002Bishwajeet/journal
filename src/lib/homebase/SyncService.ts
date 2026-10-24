@@ -112,7 +112,7 @@ export class SyncService {
     async revalidatePeerNote(
         docId: string,
         authorOdinId: string | undefined,
-    ): Promise<'skipped' | 'unchanged' | 'updated'> {
+    ): Promise<'skipped' | 'unchanged' | 'updated' | 'removed'> {
         return peer.revalidatePeerNote(this.#ctx, docId, authorOdinId);
     }
 
@@ -205,7 +205,7 @@ export class SyncService {
     }
 
     async handleDeletedInvitation(deleted: pull.DeletedFileRef): Promise<void> {
-        return peer.handleDeletedInvitation(deleted);
+        return peer.handleDeletedInvitation(deleted, this.#ctx.hostIdentity);
     }
 
     /** Find notes shared with the host on its connections' drives, and drop revoked ones (#732). */

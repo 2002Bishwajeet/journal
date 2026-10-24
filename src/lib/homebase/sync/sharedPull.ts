@@ -5,7 +5,7 @@ import { getAppState, saveAppState, getSharedNoteIdsFrom } from '@/lib/db';
 import type { NoteFileContent } from '@/types';
 import { JOURNAL_DRIVE, JOURNAL_FILE_TYPE } from '../config';
 import type { SyncContext } from './context';
-import { bootstrapCollaborativeNote, handleDeletedInvitation } from './peerNotes';
+import { bootstrapCollaborativeNote, removeLocalPeerNote } from './peerNotes';
 
 /**
  * "Shared with me" from the owners' side (#732): each connection's Journal drive is
@@ -111,7 +111,7 @@ async function pullOwners(
             }
             if (full) {
                 for (const docId of await getSharedNoteIdsFrom(owner)) {
-                    if (!shared.has(docId)) await handleDeletedInvitation({ fileMetadata: { appData: { uniqueId: docId } } });
+                    if (!shared.has(docId)) await removeLocalPeerNote(docId);
                 }
             }
             after = { cursor: cursor ?? before?.cursor, failures: 0, nextAttemptAt: 0 };

@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
 import { usePeerNoteContent } from "@/hooks/usePeerNoteContent";
+import { toast } from "sonner";
 import { PeerNoteLoading, PeerNoteError } from "@/components/editor/PeerNoteFallback";
 import {
   isPeerContentFailure,
@@ -245,6 +246,10 @@ export default function EditorPage({
     authorOdinId: selectedNoteMetadata?.authorOdinId,
     isEnabled: isPeerNote,
     syncService,
+    onRevoked: () => {
+      toast.info("This note is no longer shared with you");
+      (onCloseMissing ?? handleBackToNotes)();
+    },
   });
 
   // Keyboard shortcuts — only the active tab handles them, otherwise every open
