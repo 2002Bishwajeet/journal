@@ -71,11 +71,16 @@ test('a note shared with a circle reaches its member but not an outsider', async
         expect(activeEditor(owner.page)).toContainText(peerSentence.trim(), { timeout: 5_000 }));
 
     // 4. The outsider is connected to the owner but in no circle, so is not a
-    // recipient: by the time the peer had the note, the outsider has nothing.
+    // recipient: by the time the peer had the note, the outsider has nothing,
+    // even after pulling from its connections (#732: the owner's server must not
+    // return the note to a connection its ACL does not admit).
     await outsider.page.reload();
     await waitForAppReady(outsider.page);
     await expect(foldersNav(outsider.page).getByRole('button', { name: 'Main', exact: true })).toBeVisible();
-    await expect(sharedWithMe(outsider.page)).toBeHidden();
+    const refresh = outsider.page.getByRole('button', { name: 'Refresh shared notes' });
+    await refresh.click();
+    await expect(refresh).toHaveAttribute('aria-busy', 'false', { timeout: 60_000 });
+    await sharedWithMe(outsider.page).click();
     await expect(outsider.page.getByText(title)).toHaveCount(0);
     // liveRun's page is shared with the specs that run after this one.
     await selectFolder(owner.page, liveRun.folderName);

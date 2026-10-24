@@ -29,6 +29,9 @@ test('"Refresh" in "Shared with me" finds a shared note without its invite', asy
     await dialog.getByRole('button').filter({ hasText: circleName }).click();
     await dialog.getByRole('button', { name: 'Share with 1 circle' }).click();
     await expect(dialog).toBeHidden({ timeout: 30_000 });
+    // On an identity whose Journal drive another app owns, the same dialog stays open as "Note shared".
+    const readOnly = owner.page.getByRole('dialog', { name: 'Note shared' });
+    if (await readOnly.isVisible()) await readOnly.getByRole('button', { name: 'Done' }).click();
 
     const refresh = peer.page.getByRole('button', { name: 'Refresh shared notes' });
     await expect(async () => {
