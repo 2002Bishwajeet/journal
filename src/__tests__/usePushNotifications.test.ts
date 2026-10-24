@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act, createElement } from 'react';
+import { AxiosError, type AxiosResponse } from 'axios';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -39,6 +40,7 @@ vi.mock('@/lib/db', () => ({ clearAllLocalData: vi.fn(async () => {}) }));
 import NotificationsSection from '@/components/settings/sections/NotificationsSection';
 import { WebPushProvider } from '@/lib/homebase/WebPushProvider';
 import { useAuth } from '@/hooks/auth/useAuth';
+import { JOURNAL_APP_ID, JOURNAL_TEST_PUSH_TYPE_ID } from '@/lib/homebase/config';
 
 const VAPID_KEY = 'BEl62iUYgUivxIkv69yViEuiBIa';
 
@@ -150,6 +152,63 @@ describe('usePushNotifications', () => {
         expect(host.textContent).toContain('Add Journal to your Home Screen to get notifications');
         expect(button('Turn on')).toBeUndefined();
         delete (navigator as { userAgent?: string }).userAgent;
+    });
+});
+
+describe('send test notification', () => {
+    const testButton = () => host.querySelector<HTMLButtonElement>('button[aria-label="Send test notification"]');
+    const httpError = (status: number) => new AxiosError('Request failed', String(status), undefined, undefined, { status } as AxiosResponse);
+
+    async function renderOn() {
+        stubPushSupport('granted', 'granted');
+        currentSubscription = fakeSubscription();
+        await render();
+    }
+
+    it('shows no test button when notifications are off', async () => {
+        stubPushSupport('default', 'granted');
+        await render();
+        expect(testButton()).toBeNull();
+    });
+
+    it('pushes a Journal notification to the identity itself and says every device gets it', async () => {
+        await renderOn();
+        expect(host.textContent).toContain('Every device where you turned on notifications gets it.');
+        await act(async () => { testButton()!.click(); });
+
+        expect(post).toHaveBeenCalledWith('/notify/push/push', {
+            appId: JOURNAL_APP_ID,
+            typeId: JOURNAL_TEST_PUSH_TYPE_ID,
+            tagId: expect.any(String),
+            silent: false,
+            unEncryptedMessage: 'Test notification from Journal',
+        }, undefined);
+        expect(host.textContent).toContain('Sent. Every device where you turned on notifications gets it.');
+    });
+
+    it('disables the button while the request runs', async () => {
+        await renderOn();
+        let resolve!: (value: { data: null }) => void;
+        post.mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
+        await act(async () => { testButton()!.click(); });
+        expect(testButton()!.disabled).toBe(true);
+
+        await act(async () => { resolve({ data: null }); });
+        expect(testButton()!.disabled).toBe(false);
+    });
+
+    it('points a 403 to the Grant flow', async () => {
+        await renderOn();
+        post.mockRejectedValueOnce(httpError(403));
+        await act(async () => { testButton()!.click(); });
+        expect(host.textContent).toContain('Journal does not have permission to send notifications. Grant it in Settings > Account > Permissions.');
+    });
+
+    it('names the HTTP status of any other failure', async () => {
+        await renderOn();
+        post.mockRejectedValueOnce(httpError(500));
+        await act(async () => { testButton()!.click(); });
+        expect(host.textContent).toContain('Homebase did not send the test notification (error 500). Try again.');
     });
 });
 
