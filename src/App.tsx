@@ -67,7 +67,7 @@ function App() {
             <OnlineProvider>
               <DotYouClientProvider>
                 <Suspense
-                  fallback={<div className="min-h-screen bg-background" />}
+                  fallback={<div className="min-h-dvh bg-background" />}
                 >
                   <Routes>
                     {/* Protected route */}
