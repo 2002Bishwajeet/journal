@@ -4,6 +4,7 @@ import { getAllDocuments, getAllFolders } from '@/lib/db/queries';
 import { JOURNAL_DRIVE, MAIN_FOLDER_ID } from '@/lib/homebase';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
 import type { SearchIndexEntry } from '@/types';
+import { EXPORT_MARKER } from './markdownImport';
 
 /**
  * Result of the export operation
@@ -84,6 +85,9 @@ export const ExportService = {
 
                 count++;
             }
+
+            // Marker: the zip always has a root-level entry, so import never reads one folder as a vault root
+            zip.file(EXPORT_MARKER, JSON.stringify({ format: 'journal-export', version: 1, exportedAt: new Date().toISOString() }));
 
             // Generate zip blob
             const blob = await zip.generateAsync({ type: 'blob' });

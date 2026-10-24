@@ -21,6 +21,12 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - You choose Accept or Reject for each change. The note stays the same until you accept.
 - One undo (Cmd+Z or Ctrl+Z) takes back an accepted change.
 
+## 2.15.3 (2026-10-24)
+
+### Fixed
+
+- When all your notes are in one folder, export and import keep them in that folder.
+
 ## 2.15.2 (2026-10-23)
 
 ### Fixed
