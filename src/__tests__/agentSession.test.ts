@@ -38,8 +38,8 @@ vi.mock('@/lib/agent/approveEdit', () => ({
 vi.mock('@/lib/webllm', () => ({
     createAgentEngine: () => engineHolder.current,
 }));
-vi.mock('@/lib/agent/local/localDeps', () => ({
-    createLocalDeps: (): ReadDeps => ({
+vi.mock('@/lib/agent/local/localWriteDeps', () => ({
+    createLocalWriteDeps: (): ReadDeps => ({
         listFolders: async () => [{ id: 'folder-1', name: 'Main' }],
         loadGrants: async () => ({ version: 1, folders: { 'folder-1': 'write' }, notes: {} }),
         listNotes: async () => [PACKING],
