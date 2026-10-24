@@ -17,8 +17,9 @@ const PACKING: NoteSummary = {
     modified: '2026-10-01T00:00:00.000Z',
 };
 
-const { engineHolder, entryHolder } = vi.hoisted(() => ({
+const { engineHolder, entryHolder, outcomeHolder } = vi.hoisted(() => ({
     engineHolder: { current: null as unknown as AgentEngine },
+    outcomeHolder: { current: 'accepted' as 'accepted' | 'rejected' | { notApplied: string } },
     entryHolder: { current: null as null | { docId: string; title: string; metadata: { excludeFromAI: boolean } } },
 }));
 
@@ -30,6 +31,9 @@ vi.mock('@/hooks/useModelDownloadGate', () => ({
 }));
 vi.mock('@/lib/db', () => ({
     getSearchIndexEntry: vi.fn(async () => entryHolder.current),
+}));
+vi.mock('@/lib/agent/approveEdit', () => ({
+    approveEdit: async () => outcomeHolder.current,
 }));
 vi.mock('@/lib/webllm', () => ({
     createAgentEngine: () => engineHolder.current,
@@ -44,6 +48,10 @@ vi.mock('@/lib/agent/local/localDeps', () => ({
     }),
 }));
 
+import { EditorState } from '@tiptap/pm/state';
+import type { Editor } from '@tiptap/react';
+import { editorSchema } from '@/lib/agent/editEngine';
+import { registerActiveEditor } from '@/lib/agent/activeEditor';
 import { useAgentSession } from '@/hooks/useAgentSession';
 import { MAX_TOOL_STEPS } from '@/lib/agent/loop/agentLoop';
 
@@ -219,6 +227,38 @@ describe('useAgentSession — steps', () => {
 
         expect(latest.current!.messages[1].content).toContain(`I stopped after ${MAX_TOOL_STEPS} steps`);
 
+        await cleanup();
+    });
+});
+
+describe('useAgentSession — edits to the open note', () => {
+    it.each([
+        ['accepted', 'Accepted: Make paragraph 1 bold'],
+        ['rejected', 'Rejected: Make paragraph 1 bold'],
+        [{ notApplied: 'gone' }, 'Not applied: Make paragraph 1 bold'],
+    ] as const)('ends the edit step as %j', async (outcome, text) => {
+        outcomeHolder.current = outcome;
+        const doc = editorSchema.nodeFromJSON({
+            type: 'doc',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'one' }] }],
+        });
+        const off = registerActiveEditor({
+            docId: 'note-a',
+            editor: { state: EditorState.create({ doc }) } as unknown as Editor,
+            editable: true,
+            excludeFromAI: false,
+        });
+        scriptedEngine([call('format_text', { n: 1, mark: 'bold', on: true }), answer('Done.')]);
+        const { latest, render, cleanup, ask } = mountSession();
+        await render('note-a');
+
+        await ask('bold it');
+
+        expect(latest.current!.messages[1].steps).toEqual([
+            { before: text, after: '', open: false },
+        ]);
+
+        off();
         await cleanup();
     });
 });

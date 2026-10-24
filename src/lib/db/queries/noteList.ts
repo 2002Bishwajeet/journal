@@ -222,3 +222,19 @@ export async function getRecipientsOfOwnNotes(hostOdinId: string): Promise<strin
     );
     return result.rows.map((row) => row.odin_id);
 }
+
+/** The circles the host's own collaborative notes are shared with (#734). Same ownership rule as {@link getRecipientsOfOwnNotes}. */
+export async function getCircleIdsOfOwnNotes(hostOdinId: string): Promise<string[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ circle_id: string }>(
+        `SELECT DISTINCT c.circle_id FROM search_index,
+            jsonb_array_elements_text(CASE WHEN jsonb_typeof(metadata->'circleIds') = 'array'
+                THEN metadata->'circleIds' ELSE '[]'::jsonb END) AS c(circle_id)
+        WHERE (metadata->>'isCollaborative')::boolean = true
+            AND COALESCE(metadata->>'authorOdinId',
+                (SELECT sr.author_odin_id FROM sync_records sr WHERE sr.local_id = search_index.doc_id),
+                $1) = $1`,
+        [hostOdinId],
+    );
+    return result.rows.map((row) => row.circle_id);
+}

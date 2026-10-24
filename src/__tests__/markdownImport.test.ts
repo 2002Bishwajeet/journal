@@ -317,6 +317,19 @@ describe('ImportService: zipped Obsidian vault', () => {
         expect(callout.attrs.variant).toBe('tip');
     });
 
+    it('keeps the folder of a one-folder export and does not count the marker as skipped', async () => {
+        const zip = new JSZip();
+        zip.file('journal-export.json', '{"format":"journal-export","version":1,"exportedAt":"2026-01-01T00:00:00.000Z"}');
+        zip.file('Trips/Plan.md', '# Plan');
+        const file = new File([await zip.generateAsync({ type: 'blob' })], 'journal-export.zip');
+
+        expect(await ImportService.importFiles([file])).toMatchObject({ imported: 1, skipped: 0, foldersCreated: 1 });
+        const docs = await getAllDocuments();
+        const trips = (await getAllFolders()).find((f) => f.name === 'Trips')!;
+        expect(docs).toHaveLength(1);
+        expect(docs[0].metadata.folderId).toBe(trips.id);
+    });
+
     it('dates a loose .md file by its last-modified time', async () => {
         const file = new File(['# Loose'], 'Loose.md', { lastModified: entryDate.getTime() });
         expect((await ImportService.importFiles([file])).imported).toBe(1);
