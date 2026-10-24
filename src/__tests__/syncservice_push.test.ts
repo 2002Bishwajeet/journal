@@ -481,6 +481,71 @@ describe('SyncService.syncNote clears push backoff on success (#146)', () => {
     });
 });
 
+describe('SyncService.pushNote concurrent pushes of one note (#760)', () => {
+    let svc: SyncService;
+    beforeEach(async () => {
+        await resetTestDatabase();
+        vi.clearAllMocks();
+        svc = new SyncService(dotYouClient, fakeOnline);
+    });
+
+    it('does not create the file twice when two pushes start before the first finishes', async () => {
+        await seedNote({ updates: [textUpdate('fresh')], plainText: 'fresh', metadata: META(), record: {} });
+        // A server that rejects a second create with the same uniqueId
+        let created = false;
+        mockCreateNote.mockImplementation(async () => {
+            if (created) throw new Error('existingFileWithUniqueId');
+            await new Promise((r) => setTimeout(r, 20));
+            created = true;
+            return { fileId: 'file-1', versionTag: 'v1' };
+        });
+        mockUpdateNote.mockResolvedValue({ versionTag: 'v2' });
+
+        // The sync engine's push and the publish's forced push, both holding the unsynced record
+        const record = (await getSyncRecord(DOC_ID))!;
+        const results = await Promise.allSettled([svc.pushNote(record), svc.pushNote({ ...record })]);
+
+        expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
+        expect(mockCreateNote).toHaveBeenCalledTimes(1);
+        const after = await getSyncRecord(DOC_ID);
+        expect(after?.remoteFileId).toBe('file-1');
+        expect(after?.syncStatus).toBe('synced');
+    });
+
+    it('does not upload over a stale version tag when two pushes start together', async () => {
+        await seedNote({
+            updates: [textUpdate('edited')], plainText: 'edited', metadata: META(),
+            record: { remoteFileId: 'file-1', versionTag: 'v1', contentHash: 'stale', encryptedKeyHeader: VALID_KEY_HEADER },
+        });
+        let serverTag = 'v1';
+        mockUpdateNote.mockImplementation(async (_id: string, _file: string, versionTag: string) => {
+            if (versionTag !== serverTag) throw new Error('versionTagMismatch');
+            await new Promise((r) => setTimeout(r, 20));
+            serverTag = 'v2';
+            return { versionTag: 'v2' };
+        });
+
+        const record = (await getSyncRecord(DOC_ID))!;
+        const results = await Promise.allSettled([svc.pushNote(record), svc.pushNote({ ...record })]);
+
+        expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
+        expect(mockUpdateNote).toHaveBeenCalledTimes(1);
+        expect((await getSyncRecord(DOC_ID))?.versionTag).toBe('v2');
+    });
+
+    it('lets a later push run after the earlier one failed', async () => {
+        await seedNote({ updates: [textUpdate('fresh')], plainText: 'fresh', metadata: META(), record: {} });
+        mockCreateNote.mockRejectedValueOnce(new Error('network down'));
+        mockCreateNote.mockResolvedValueOnce({ fileId: 'file-1', versionTag: 'v1' });
+
+        const record = (await getSyncRecord(DOC_ID))!;
+        const results = await Promise.allSettled([svc.pushNote(record), svc.pushNote({ ...record })]);
+
+        expect(results.map((r) => r.status)).toEqual(['rejected', 'fulfilled']);
+        expect((await getSyncRecord(DOC_ID))?.remoteFileId).toBe('file-1');
+    });
+});
+
 describe('SyncService.logSyncError', () => {
     let svc: SyncService;
     beforeEach(async () => {
