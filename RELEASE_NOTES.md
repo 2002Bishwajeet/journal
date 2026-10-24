@@ -15,6 +15,19 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.19.0 (2026-10-24)
+
+### Changed
+
+- The AI menu in the editor shows its rewrite in the note first. You choose Accept or Reject.
+- The /ask and /summarize commands open the assistant. The /rewrite command opens the AI menu for the selected text.
+
+## 2.18.0 (2026-10-24)
+
+### Changed
+
+- The app now looks for notes that your connections share with you. A shared note shows in "Shared with me" within a few minutes. Select the refresh button next to "Shared with me" to look now. A note that is no longer shared with you goes away from the list.
+
 ### New
 
 - In Settings, Agent access, you can let your browser's AI agent use the notes you granted. This needs a browser with WebMCP.

@@ -12,7 +12,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useWebLLM, type RewriteStyle } from '@/hooks';
 import { toast } from 'sonner';
-import { parseMarkdownTable, looksLikeMarkdownTable } from '@/lib/utils/markdownTableParser';
+import { activeEditor } from '@/lib/agent/activeEditor';
+import { aiRequests } from '@/lib/agent/aiRequests';
+import { approveEdit } from '@/lib/agent/approveEdit';
+import { rewriteProposal } from '@/lib/agent/rewriteEdit';
 
 const REWRITE_OPTIONS: { label: string; style: RewriteStyle; group: 'transform' | 'tone' | 'extract' }[] = [
   { label: 'Proofread', style: 'proofread', group: 'transform' },
@@ -34,6 +37,16 @@ export default function AIMenu({ editor }: AIMenuProps) {
   const { isReady, isLoading, loadingProgress, initialize, rewrite } = useWebLLM();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedText, setSelectedText] = useState('');
+  const [open, setOpen] = useState(false);
+
+  // The /rewrite slash command opens the menu for the selection, in the note the user is looking at.
+  useEffect(
+    () =>
+      aiRequests.subscribe((request) => {
+        if (request === 'rewrite' && activeEditor.get()?.editor === editor && !editor.state.selection.empty) setOpen(true);
+      }),
+    [editor]
+  );
 
   // Track editor selection
   useEffect(() => {
@@ -61,25 +74,22 @@ export default function AIMenu({ editor }: AIMenuProps) {
   const handleRewrite = async (style: RewriteStyle) => {
     if (!selectedText.trim()) return;
     
+    const { from, to } = editor.state.selection;
     setIsProcessing(true);
     try {
       const result = await rewrite(selectedText, style);
-      
+
       // Validate result - check if AI actually returned something useful
       if (!result || result.trim() === selectedText.trim()) {
         toast.error("AI couldn't transform the text. Try again or select different text.");
         return;
       }
-      
-      // Apply changes to editor
+
+      // The result shows in the note as a preview; the note changes when the user accepts it.
       if (!editor.isDestroyed) {
-        // For table style, try to parse markdown table into TipTap table
-        if (style === 'table' && looksLikeMarkdownTable(result)) {
-          const tableContent = parseMarkdownTable(result);
-          editor.chain().focus().deleteSelection().insertContent(tableContent).run();
-        } else {
-          editor.chain().focus().deleteSelection().insertContent(result).run();
-        }
+        const label = REWRITE_OPTIONS.find((o) => o.style === style)?.label ?? style;
+        const edit = rewriteProposal(editor, { from, to, original: selectedText }, result, { asTable: style === 'table', label });
+        void approveEdit({ edit });
       }
     } catch (error) {
       console.error('[AIMenu] Rewrite failed:', error);
@@ -98,7 +108,7 @@ export default function AIMenu({ editor }: AIMenuProps) {
   const extractOptions = REWRITE_OPTIONS.filter(o => o.group === 'extract');
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"

@@ -21,6 +21,7 @@ import { documentBroadcast } from '@/lib/broadcast';
 import type { SyncContext } from './context';
 import { mergeYjsDocuments } from './merge';
 import type { DeletedFileRef } from './pull';
+import { e2eSwitches } from '@/lib/e2e/switches';
 
 export type EnsureNoteContentStatus =
     | 'local' | 'fetched' | 'offline' | 'forbidden' | 'notfound' | 'empty' | 'error';
@@ -173,6 +174,7 @@ export async function revalidatePeerNote(
 }
 
 export async function handleInvitation(ctx: SyncContext, remoteFile: HomebaseFile<string>): Promise<void> {
+    if (e2eSwitches.ignoreInvites) return;
     const content = await ctx.notesProvider.dsrToContent<CollaborationInviteContent>(remoteFile, true);
     if (!content || !content.noteUniqueId) {
         console.error('[SyncService] Invalid invitation file', remoteFile.fileId);
@@ -200,7 +202,12 @@ export async function handleInvitation(ctx: SyncContext, remoteFile: HomebaseFil
     );
 }
 
-async function bootstrapCollaborativeNote(
+/**
+ * Import a note shared with the host, from its invite or from the shared pull (#732).
+ * A note already synced here is left to the peer-note update path, so the second
+ * of the two to arrive does nothing.
+ */
+export async function bootstrapCollaborativeNote(
     ctx: SyncContext,
     noteUniqueId: string,
     authorOdinId: string,
@@ -208,6 +215,8 @@ async function bootstrapCollaborativeNote(
     invitePreview: string,
     sharedAt: string,
 ): Promise<void> {
+    if (await getSyncRecord(noteUniqueId)) return;
+
     let peerNote;
     try {
         peerNote = await ctx.notesProvider.getNote(noteUniqueId, authorOdinId, { decrypt: true });
