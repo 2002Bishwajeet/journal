@@ -3,24 +3,27 @@
 // leftover `e2e-*` folder older than 1h is swept too (e.g. a crashed prior
 // run that never reached its own cleanup). Runs after tests but while the
 // webServer is still up (Playwright tears servers down after globalTeardown).
-// Then, on the owner and on each peer with a storage state, it deletes the notes
-// and invites the e2e/sharing specs create outside the run folder (the shared
-// note moves out of it, and the peer keeps its own copy and invite after a
-// revoke), and removes the peer/outsider storage state those specs used. Each
-// deleted item is logged; any item that can't be deleted is named and fails
-// the run.
-import { chromium, type Browser, type FullConfig, type Page } from '@playwright/test';
+// Folders are unshared and deleted through the UI, so their notes leave the
+// public index. Then, on the owner and on each peer with a storage state, the
+// e2e hook deletes straight on the server whatever of this run is still there:
+// its folders (the UI's remote delete can fail silently and be left to a later
+// sync), and the notes and invites the e2e/sharing specs create outside the run
+// folder (the peer keeps its own copy and invite after a revoke). Finally it
+// removes the peer/outsider storage state those specs used. Each deleted item
+// is logged; any item that can't be deleted is named and fails the run.
+import { chromium, expect, type Browser, type FullConfig, type Page } from '@playwright/test';
 import { existsSync, rmSync } from 'node:fs';
 import { assertTestOrigin } from '../support/origin-guard';
 import { waitForAppReady, skipWhatsNew, LIVE_SHARING_IDENTITIES } from '../fixtures';
 import { foldersNav, deleteFolder, unshareFolderIfShared } from '../support/actions';
 
 const SWEEP_MAX_AGE_MS = 60 * 60 * 1000;
-// Matches only the `e2e-<ISO date>-<random 6>-w<worker>` names the `liveRun`
-// fixture creates — nothing else on the identity is ever deleted.
-const FOLDER_NAME_RE = /^e2e-(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)-[0-9a-z]{6}-w\d+$/;
-// The note title e2e/sharing/circle-share.live.spec.ts uses, and nothing else.
-const SHARED_NOTE_TITLE_RE = /^Circle share \d+$/;
+// Matches only the `e2e-<ISO date>-<random 6>-w<worker>[-<suffix>]` names the
+// `liveRun` fixture and the folder specs create (e.g. `-w300-shared`) —
+// nothing else on the identity is ever deleted.
+const FOLDER_NAME_RE = /^e2e-(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)-[0-9a-z]{6}-w\d+(?:-[0-9a-z]+)?$/;
+// The note title e2e/sharing/circle-share.live.spec.ts uses.
+const SHARED_NOTE_TITLE = String.raw`Circle share \d+`;
 
 export default async function globalTeardown(config: FullConfig): Promise<void> {
     try {
@@ -56,9 +59,17 @@ async function deleteRunFolders(config: FullConfig): Promise<void> {
     const browser = await chromium.launch(live.use.launchOptions);
     try {
         await withSignedInPage(browser, storageState, live.use.baseURL!, async (page) => {
-            const names = await foldersNav(page).getByRole('button').allTextContents();
             const runPrefix = `${process.env.E2E_LIVE_RUN_FOLDER}-w`;
-            for (const name of names.map((n) => n.trim())) {
+            const folders = foldersNav(page).getByRole('button');
+            // A fresh context pulls the folder list after boot: wait for this run's own folder
+            // (if it never shows, the server sweep below still deletes it).
+            await expect(foldersNav(page).getByRole('button', { name: runPrefix }).first())
+                .toBeVisible({ timeout: 120_000 })
+                .catch(() => console.log(`[live teardown] no folder listed with prefix ${runPrefix}`));
+            // The accessible name, as the collapsed rail shows only initials.
+            const names = await folders.evaluateAll((buttons) =>
+                buttons.map((button) => (button.getAttribute('aria-label') ?? button.textContent ?? '').trim()));
+            for (const name of names) {
                 const match = FOLDER_NAME_RE.exec(name);
                 if (!match) continue;
                 if (name.startsWith(runPrefix) || Date.now() - new Date(match[1]).getTime() > SWEEP_MAX_AGE_MS) {
@@ -66,6 +77,8 @@ async function deleteRunFolders(config: FullConfig): Promise<void> {
                         // Unshare first so the notes leave the demo author page's public index.
                         await unshareFolderIfShared(page, name);
                         await deleteFolder(page, name);
+                        // The delete is remote-first: wait for it before the context closes.
+                        await expect(foldersNav(page).getByRole('button', { name, exact: true })).toHaveCount(0, { timeout: 60_000 });
                         console.log(`[live teardown] deleted folder ${name}`);
                     });
                 }
@@ -76,11 +89,14 @@ async function deleteRunFolders(config: FullConfig): Promise<void> {
             { identity: process.env.E2E_LIVE_IDENTITY, storageState },
             ...LIVE_SHARING_IDENTITIES.filter((peer) => existsSync(peer.storageState)),
         ];
+        // This run's folders, by the same names FOLDER_NAME_RE accepts, and the shared notes.
+        const runFolder = process.env.E2E_LIVE_RUN_FOLDER!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = `^(${runFolder}-w\\d+(-[0-9a-z]+)?|${SHARED_NOTE_TITLE})$`;
         for (const { identity, storageState: state } of identities) {
-            await attempt(`shared notes and invites on ${identity}`, () =>
+            await attempt(`this run's folders, notes and invites on ${identity}`, () =>
                 withSignedInPage(browser, state, live.use.baseURL!, async (page) => {
-                    const titles = await page.evaluate((pattern) => window.__journalE2E!.deleteFilesTitled(pattern), SHARED_NOTE_TITLE_RE.source);
-                    for (const title of titles) console.log(`[live teardown] deleted "${title}" on ${identity}`);
+                    const names = await page.evaluate((source) => window.__journalE2E!.deleteFilesNamed(source), pattern);
+                    for (const name of names) console.log(`[live teardown] deleted "${name}" on ${identity} (server)`);
                 }));
         }
     } finally {

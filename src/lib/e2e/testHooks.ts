@@ -5,7 +5,7 @@
  * bundle. See src/globals.d.ts for the public type.
  *
  * The hooks read signals the app already maintains (bootProgress and the boot
- * splash) or draw a link card. Only deleteFilesTitled writes: the live tier's
+ * splash) or draw a link card. Only deleteFilesNamed writes: the live tier's
  * teardown uses it to remove what the sharing specs leave on an identity.
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
@@ -77,12 +77,16 @@ async function syncToDisk(): Promise<void> {
     await (await getDatabase()).syncToFs();
 }
 
-/** Deletes the signed-in identity's notes and collaboration invites whose title matches `titlePattern`; returns their titles. */
-export async function deleteFilesTitled(titlePattern: string): Promise<string[]> {
-    const { DotYouClient, ApiType, queryBatch, getContentFromHeaderOrPayload, deleteFile } = await import('@homebase-id/js-lib/core');
+/**
+ * Deletes the signed-in identity's folders (with their notes), notes and collaboration
+ * invites whose name matches `namePattern`, straight on the server; returns the names.
+ */
+export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
+    const { DotYouClient, ApiType, queryBatch, getContentFromHeaderOrPayload, deleteFile, deleteFilesByGroupId } =
+        await import('@homebase-id/js-lib/core');
     const { retrieveIdentity } = await import('@homebase-id/js-lib/auth');
     const { base64ToUint8Array } = await import('@homebase-id/js-lib/helpers');
-    const { JOURNAL_DRIVE, JOURNAL_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE, STORAGE_KEY_AUTH_TOKEN, STORAGE_KEY_SHARED_SECRET } =
+    const { JOURNAL_DRIVE, JOURNAL_FILE_TYPE, FOLDER_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE, STORAGE_KEY_AUTH_TOKEN, STORAGE_KEY_SHARED_SECRET } =
         await import('@/lib/homebase/config');
     const client = new DotYouClient({
         api: ApiType.App,
@@ -90,31 +94,38 @@ export async function deleteFilesTitled(titlePattern: string): Promise<string[]>
         sharedSecret: base64ToUint8Array(localStorage.getItem(STORAGE_KEY_SHARED_SECRET)!),
         headers: { bx0900: localStorage.getItem(STORAGE_KEY_AUTH_TOKEN)! },
     });
-    const pattern = new RegExp(titlePattern);
-    const matches: { fileId: string; title: string }[] = [];
+    const pattern = new RegExp(namePattern);
+    const matches: { fileId: string; name: string; folderId?: string }[] = [];
     let cursorState: string | undefined;
     for (;;) {
         const page = await queryBatch(
             client,
-            { targetDrive: JOURNAL_DRIVE, fileType: [JOURNAL_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE] },
+            { targetDrive: JOURNAL_DRIVE, fileType: [JOURNAL_FILE_TYPE, FOLDER_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE] },
             { maxRecords: 100, cursorState, includeMetadataHeader: true },
         );
         for (const file of page.searchResults) {
-            // A note names itself in `title`, an invite names its note in `noteTitle`.
-            const content = await getContentFromHeaderOrPayload<{ title?: string; noteTitle?: string }>(client, JOURNAL_DRIVE, file, true);
-            const title = content?.title ?? content?.noteTitle;
-            if (title && pattern.test(title)) matches.push({ fileId: file.fileId, title });
+            // A folder's content has `name`, a note's `title`, and an invite names its note in `noteTitle`.
+            const content = await getContentFromHeaderOrPayload<{ name?: string; title?: string; noteTitle?: string }>(client, JOURNAL_DRIVE, file, true);
+            const name = content?.name ?? content?.title ?? content?.noteTitle;
+            if (!name || !pattern.test(name)) continue;
+            const isFolder = file.fileMetadata.appData.fileType === FOLDER_FILE_TYPE;
+            matches.push({ fileId: file.fileId, name, folderId: isFolder ? file.fileMetadata.appData.uniqueId : undefined });
         }
         if (page.searchResults.length < 100) break;
         cursorState = page.cursorState;
     }
-    for (const { fileId } of matches) await deleteFile(client, JOURNAL_DRIVE, fileId);
-    return matches.map(({ title }) => title);
+    // Folders last: deleting one deletes its notes too.
+    matches.sort((a, b) => Number(!!a.folderId) - Number(!!b.folderId));
+    for (const { fileId, folderId } of matches) {
+        if (folderId) await deleteFilesByGroupId(client, JOURNAL_DRIVE, [folderId]);
+        await deleteFile(client, JOURNAL_DRIVE, fileId);
+    }
+    return matches.map(({ name }) => name);
 }
 
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, deleteFilesTitled }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, deleteFilesNamed }),
         writable: false,
         configurable: false,
         enumerable: false,
