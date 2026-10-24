@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.17.1 (2026-10-24)
+
 ### Fixed
 
 - On a phone, you can scroll the What's new list to see older versions.
