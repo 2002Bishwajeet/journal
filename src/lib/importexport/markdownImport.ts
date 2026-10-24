@@ -27,6 +27,9 @@ export const IMAGE_TYPES: Record<string, string> = {
     webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
 };
 
+/** The file at the root of every Journal export zip. */
+export const EXPORT_MARKER = 'journal-export.json';
+
 /** A path Obsidian or macOS keeps for itself: `.obsidian/`, `.trash/`, any dot segment, `__MACOSX/`. */
 export function isSkippedPath(path: string): boolean {
     return path.split('/').some((segment) => segment.startsWith('.') || segment === '__MACOSX');

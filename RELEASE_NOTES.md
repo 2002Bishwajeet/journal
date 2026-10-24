@@ -19,6 +19,46 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - The app now looks for notes that your connections share with you. A shared note shows in "Shared with me" within a few minutes. Select the refresh button next to "Shared with me" to look now. A note that is no longer shared with you goes away from the list.
 
+## 2.17.3 (2026-10-24)
+
+### Changed
+
+- When Journal needs a permission, the app tells you which permission and why. You can select "Not now" and grant it later in Settings.
+
+## 2.17.2 (2026-10-24)
+
+### Fixed
+
+- The app uses a newer version of a data-check library that fixes a security problem.
+
+## 2.17.1 (2026-10-24)
+
+### Fixed
+
+- On a phone, you can scroll the What's new list to see older versions.
+
+## 2.17.0 (2026-10-24)
+
+### Changed
+
+- Journal now asks to read your connections and send notifications when you sign in. This lets the app get shared notes faster.
+
+- People you shared notes with before this update now get access to them. The app does this once, with no action from you.
+
+## 2.16.0 (2026-10-24)
+
+### New
+
+- The assistant can change the note that you have open. It shows each change in the note first.
+- You choose Accept or Reject for each change. The note stays the same until you accept.
+- One undo (Cmd+Z or Ctrl+Z) takes back an accepted change.
+
+## 2.15.3 (2026-10-24)
+
+### Fixed
+
+- When all your notes are in one folder, export and import keep them in that folder.
+
 ## 2.15.2 (2026-10-23)
 
 ### Fixed

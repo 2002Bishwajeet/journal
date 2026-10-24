@@ -229,15 +229,14 @@ describe('export all -> import the zip (#672)', () => {
     });
 });
 
-// Known limit (#593's vault-root rule): when every note sits in one folder and there are no images,
-// the zip has one top-level folder, which import reads as a zipped vault's root and strips.
+// The marker file (#750) gives the zip a root entry, so one folder is not read as a zipped vault's root.
 describe('export all -> import, every note in one folder', () => {
     afterAll(async () => {
         vi.restoreAllMocks();
         await closeTestDatabase();
     });
 
-    it('brings the notes back in Main, not in the folder', async () => {
+    it('brings the notes back in their folder', async () => {
         const db = await createTestDatabase();
         // @ts-expect-error test-only setter
         pgliteModule.setTestDb(db);
@@ -260,6 +259,6 @@ describe('export all -> import, every note in one folder', () => {
 
         const copy = (await getAllDocuments()).find((d) => d.docId !== docId)!;
         expect(copy.title).toBe('Only note');
-        expect(copy.metadata.folderId).toBe(MAIN_FOLDER_ID);
+        expect(copy.metadata.folderId).toBe(FOLDER_ID);
     });
 });

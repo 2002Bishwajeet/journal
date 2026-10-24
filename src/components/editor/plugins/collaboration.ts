@@ -7,8 +7,8 @@
 
 import { Extension } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
-import { ySyncPlugin, ySyncPluginKey, yUndoPlugin, undo, redo, type ProsemirrorBinding } from 'y-prosemirror';
-import type { XmlFragment } from 'yjs';
+import { ySyncPlugin, ySyncPluginKey, yUndoPlugin, yUndoPluginKey, undo, redo, type ProsemirrorBinding } from 'y-prosemirror';
+import type { UndoManager, XmlFragment } from 'yjs';
 
 /**
  * After an undo, redo or remote change y-prosemirror restores the selection, a node
@@ -32,6 +32,40 @@ function nodeSelectionsAsText(): Plugin {
     });
 }
 
+type StackItemEvent = { stackItem: UndoManager['undoStack'][number] };
+
+/**
+ * yUndoPlugin, with an UndoManager that outlives its plugin view. ProseMirror
+ * recreates every plugin view whenever a plugin is registered (@tiptap/react does
+ * on mount since 3.32), and y-prosemirror's view destroys the UndoManager with it,
+ * which silently ends undo. This view does the same selection bookkeeping and
+ * leaves the UndoManager to the extension's onDestroy.
+ */
+function lastingUndoPlugin(): Plugin {
+    const plugin = yUndoPlugin();
+    plugin.spec.view = (view) => {
+        const undoManager: UndoManager = yUndoPluginKey.getState(view.state)!.undoManager;
+        const binding = (): ProsemirrorBinding | undefined => ySyncPluginKey.getState(view.state)?.binding;
+        const onAdded = ({ stackItem }: StackItemEvent) => {
+            const b = binding();
+            if (b) stackItem.meta.set(b, yUndoPluginKey.getState(view.state)?.prevSel);
+        };
+        const onPopped = ({ stackItem }: StackItemEvent) => {
+            const b = binding();
+            if (b) b.beforeTransactionSelection = stackItem.meta.get(b) || b.beforeTransactionSelection;
+        };
+        undoManager.on('stack-item-added', onAdded);
+        undoManager.on('stack-item-popped', onPopped);
+        return {
+            destroy: () => {
+                undoManager.off('stack-item-added', onAdded);
+                undoManager.off('stack-item-popped', onPopped);
+            },
+        };
+    };
+    return plugin;
+}
+
 /**
  * Creates a collaboration extension for the given Y.js XML fragment.
  * This extension:
@@ -53,10 +87,14 @@ export function createCollaborationExtension(yXmlFragment: XmlFragment) {
         addProseMirrorPlugins() {
             return [
                 ySyncPlugin(yXmlFragment),
-                // Let y-prosemirror create and manage the UndoManager internally
-                yUndoPlugin(),
+                // Let y-prosemirror create the UndoManager internally
+                lastingUndoPlugin(),
                 nodeSelectionsAsText(),
             ];
+        },
+
+        onDestroy() {
+            yUndoPluginKey.getState(this.editor.state)?.undoManager.destroy();
         },
 
         addKeyboardShortcuts() {

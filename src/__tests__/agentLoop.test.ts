@@ -64,7 +64,7 @@ function run(request: string, engine: AgentEngine, extra: Partial<RunAgentOption
     const result = runAgent(request, {
         engine,
         deps: createLocalDeps(),
-        approve: async () => true,
+        approve: async () => 'accepted',
         onEvent: (event) => events.push(event),
         ...extra,
     });
@@ -140,7 +140,7 @@ describe('runAgent', () => {
             readOnly: false,
             execute,
         };
-        const approve = vi.fn(async () => false);
+        const approve = vi.fn(async () => 'rejected' as const);
         const { engine, calls } = scriptedEngine([
             { tool: 'rename_note', args: { id: GARDEN, title: 'Veg' } },
             { answer: 'Not renamed.' },
@@ -180,7 +180,8 @@ describe('runAgent', () => {
         expect(AGENT_TOOLS.length).toBeLessThanOrEqual(8);
     });
 
-    it('should keep the turn schema under ~600 tokens', () => {
-        expect(estimateTokens(JSON.stringify(turnSchema(AGENT_TOOLS)))).toBeLessThan(600);
+    it('should keep the turn schema under ~850 tokens', () => {
+        // Was 600 with 4 notes tools; the 5 editor tools (#701) bring it to about 815.
+        expect(estimateTokens(JSON.stringify(turnSchema(AGENT_TOOLS)))).toBeLessThan(850);
     });
 });
