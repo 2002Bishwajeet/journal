@@ -1,7 +1,7 @@
 /**
  * Leader side of PGlite's multi-tab worker — the `worker()` entry point.
  *
- * Adapted from @electric-sql/pglite 0.5.8, src/worker/index.ts (`worker`,
+ * Adapted from @electric-sql/pglite 0.5.10, src/worker/index.ts (`worker`,
  * `connectTab`, `makeWorkerApi`, `acquireLock`).
  * Copyright ElectricSQL; licensed under the Apache License, Version 2.0
  * (http://www.apache.org/licenses/LICENSE-2.0). Modified as listed below.
@@ -24,7 +24,7 @@
 import type { PGlite } from '@electric-sql/pglite';
 import type { PGliteWorkerOptions, WorkerOptions } from '@electric-sql/pglite/worker';
 
-export const ADAPTED_FROM_PGLITE_VERSION = '0.5.8';
+export const ADAPTED_FROM_PGLITE_VERSION = '0.5.10';
 
 export async function worker({ init }: WorkerOptions) {
   // Send a message to the main thread to let it know we are here
