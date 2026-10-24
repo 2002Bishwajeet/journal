@@ -11,12 +11,13 @@ describe('SETTINGS_SECTIONS', () => {
         expect(SETTINGS_SECTIONS[0].id).toBe('account');
     });
 
-    it('is in the order account, appearance, ai, agent-access, data, shortcuts, about', () => {
+    it('is in the order account, appearance, ai, agent-access, notifications, data, shortcuts, about', () => {
         expect(SETTINGS_SECTIONS.map((s) => s.id)).toEqual([
             'account',
             'appearance',
             'ai',
             'agent-access',
+            'notifications',
             'data',
             'shortcuts',
             'about',
