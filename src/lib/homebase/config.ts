@@ -2,6 +2,12 @@ import type { TargetDriveAccessRequest } from "@homebase-id/js-lib/auth";
 import { DrivePermissionType, type TargetDrive } from "@homebase-id/js-lib/core";
 import { AppPermissionType, ContactConfig } from "@homebase-id/js-lib/network";
 
+// Every signed-in user: connections to subscribe to, and the key that allows peer push (#743)
+export const BASE_PERMISSIONS = [
+    AppPermissionType.ReadConnections,
+    AppPermissionType.SendPushNotifications,
+];
+
 // Collaboration permissions required for circle-based sharing
 export const COLLABORATION_PERMISSIONS = [
     AppPermissionType.SendDataToOtherIdentitiesOnMyBehalf,
@@ -26,6 +32,9 @@ export const JOURNAL_APP_ID = import.meta.env.PROD ? 'c762ee784274473480919d8080
 // Permanent: the server never renames an app's slug, and it is first-come per identity
 export const JOURNAL_APP_SLUG = import.meta.env.PROD ? 'journal' : 'journal-dev';
 export const JOURNAL_APP_NAME = `Journal${import.meta.env.PROD ? '' : ' (Local Dev)'}`;
+
+// Fixed: a recipient subscribes to each connection with this id, and the sender pushes with it (#743, #745)
+export const JOURNAL_PEER_SUBSCRIPTION_ID = '5b0c7a1e-2f3d-4e8a-9c61-7d4f0a9b8e23';
 
 // Drive constants per spec
 export const JOURNAL_FILE_TYPE = 605;

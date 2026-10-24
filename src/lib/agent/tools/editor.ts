@@ -1,6 +1,6 @@
 /**
  * The in-app agent's tools for the open note (#700). Their deps are the active-editor bridge,
- * not WriteDeps, so they are not in TOOLS; #701 adds them to AGENT_TOOLS. The edit tools
+ * not WriteDeps, so they are not in TOOLS; AGENT_TOOLS has them (#701). The edit tools
  * return a proposal ({ tr, summary }) and never dispatch it.
  */
 import { z } from 'zod';
@@ -9,6 +9,8 @@ import { BLOCK_TYPES, MARKS, buildEdit, readBlocks, type EditOp } from '@/lib/ag
 import type { ToolOutput } from './registry';
 
 export interface EditorTool<Shape extends z.ZodRawShape = z.ZodRawShape> {
+    /** Tells the agent loop to run this tool on the open note's editor, not on WriteDeps. */
+    editor: true;
     name: string;
     title: string;
     description: string;
@@ -33,6 +35,7 @@ function editTool<Shape extends z.ZodRawShape>(
 ): EditorTool<Shape> {
     return {
         ...spec,
+        editor: true,
         readOnly: false,
         execute: async (deps, args) => {
             const result = buildEdit(openEditor(deps).state, toOp(args));
@@ -43,6 +46,7 @@ function editTool<Shape extends z.ZodRawShape>(
 }
 
 export const readOpenNote: EditorTool = {
+    editor: true,
     name: 'read_open_note',
     title: 'Read open note',
     description: 'The top-level blocks of the note the user has open, as [{ n, type, text }]. n counts from 1; text is cut to 200 characters.',

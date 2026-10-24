@@ -47,6 +47,7 @@ import {
   JOURNAL_APP_ID,
   JOURNAL_APP_NAME,
   COLLABORATION_PERMISSIONS,
+  BASE_PERMISSIONS,
   CONTACT_TARGET_DRIVE_REQUEST,
   PSEUDO_FOLDERS,
 } from "@/lib/homebase/config";
@@ -55,6 +56,7 @@ import { useNotes } from "@/hooks/useNotes";
 import { getMobilePane } from "@/layouts/mobilePane";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
+import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
 import { useAuth } from "@/hooks/auth";
 import { useAutoWhatsNew } from "@/hooks/useWhatsNew";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
@@ -125,6 +127,9 @@ export default function JournalLayout() {
 
   // Homebase sync - auto-syncs on mount and focus
   useSyncService();
+
+  // Subscribe to each connection's Journal peer push
+  usePeerPushSubscriptions();
 
   // Focus / Zen mode state
   const [focusMode, setFocusMode] = useState(false);
@@ -468,7 +473,7 @@ export default function JournalLayout() {
         permissions={
           counts.collaborative > 0
             ? COLLABORATION_PERMISSIONS
-            : NO_PERMISSIONS
+            : BASE_PERMISSIONS
         }
       />
     </div>
