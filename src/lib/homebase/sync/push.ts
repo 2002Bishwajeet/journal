@@ -10,6 +10,7 @@ import {
     clearCachedKeyHeader,
     deleteSyncRecord,
     getPendingSyncRecords,
+    getSyncRecord,
     resolveSyncErrorsForEntity,
     getEntityIdsInBackoff,
     getPendingImageDeletions,
@@ -176,11 +177,40 @@ export async function pushFolder(ctx: SyncContext, record: SyncRecord): Promise<
 
 }
 
+/** Per note, the push in flight (or queued last): a second push waits for it (#760). */
+const noteQueues = new Map<string, Promise<void>>();
+
+/**
+ * Push a local note to remote, one push per note at a time. The sync engine's push and
+ * a publish's forced push of the same unsynced note would otherwise both create the file
+ * (existingFileWithUniqueId) or upload over the same version tag (versionTagMismatch).
+ * A push that had to wait re-reads its sync record, which the push before it updated.
+ */
+export async function pushNote(ctx: SyncContext, record: SyncRecord): Promise<void> {
+    const id = record.localId;
+    const previous = noteQueues.get(id);
+    const run = (async () => {
+        if (previous) {
+            await previous;
+            const fresh = await getSyncRecord(id);
+            if (!fresh) return; // note and record were removed while waiting
+            record = fresh;
+        }
+        await pushNoteNow(ctx, record);
+    })();
+    const tail = run.catch(() => undefined);
+    noteQueues.set(id, tail);
+    void tail.then(() => {
+        if (noteQueues.get(id) === tail) noteQueues.delete(id);
+    });
+    return run;
+}
+
 /**
  * Push a local note to remote.
  * Always verifies remote file existence before updating.
  */
-export async function pushNote(ctx: SyncContext, record: SyncRecord): Promise<void> {
+async function pushNoteNow(ctx: SyncContext, record: SyncRecord): Promise<void> {
     const doc = await getSearchIndexEntry(record.localId);
 
     if (!doc) {
