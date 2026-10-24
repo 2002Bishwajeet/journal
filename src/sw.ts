@@ -4,7 +4,7 @@ import { registerRoute, NavigationRoute, Route } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
-import { JOURNAL_APP_ID, OTHER_APPS_NOTIFICATION_TAG } from './lib/homebase/config';
+import { JOURNAL_APP_ID, JOURNAL_TEST_PUSH_TYPE_ID, OTHER_APPS_NOTIFICATION_TAG } from './lib/homebase/config';
 
 declare let self: ServiceWorkerGlobalScope & {
     __WB_DISABLE_DEV_LOGS: boolean;
@@ -318,9 +318,9 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    // Other apps' notifications have no data: just bring Journal up
-    const { senderId, tagId } = (event.notification.data ?? {}) as { senderId?: string; tagId?: string };
-    const url = tagId ? `/shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId ?? '')}` : undefined;
+    // Other apps' notifications have no data, and a test push has no note: just bring Journal up
+    const { senderId, typeId, tagId } = (event.notification.data ?? {}) as { senderId?: string; typeId?: string; tagId?: string };
+    const url = tagId && typeId?.toLowerCase() !== JOURNAL_TEST_PUSH_TYPE_ID ? `/shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId ?? '')}` : undefined;
     event.waitUntil(
         (async () => {
             const [client] = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

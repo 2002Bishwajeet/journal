@@ -19,6 +19,18 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - Notifications from your other Homebase apps now show as one quiet notification. Journal notifications do not change. Open Journal to remove the quiet notification.
 
+## 2.21.0 (2026-10-24)
+
+### New
+
+- You can send a test notification in Settings > Notifications. The button shows when notifications are on for this device. All devices with notifications on get the test.
+
+## 2.20.0 (2026-10-24)
+
+### New
+
+- In Settings, Agent access, you can let your browser's AI agent use the notes you granted. This needs a browser with WebMCP.
+
 ## 2.19.0 (2026-10-24)
 
 ### Changed

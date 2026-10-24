@@ -1,3 +1,15 @@
+# [2.21.0](https://github.com/2002Bishwajeet/journal/compare/v2.20.0...v2.21.0) (2026-10-24)
+
+
+### Features
+
+* **settings:** send a test notification from Settings > Notifications ([f3d25f8](https://github.com/2002Bishwajeet/journal/commit/f3d25f81ad5a7790aaa2b4be8bbc609b5be51130))
+# [2.20.0](https://github.com/2002Bishwajeet/journal/compare/v2.19.0...v2.20.0) (2026-10-24)
+
+
+### Features
+
+* **ai:** register Journal's tools with WebMCP where the browser supports it ([#705](https://github.com/2002Bishwajeet/journal/issues/705)) ([181a002](https://github.com/2002Bishwajeet/journal/commit/181a002a5b5056f10f7d11613a5f192478e4236e))
 # [2.19.0](https://github.com/2002Bishwajeet/journal/compare/v2.18.0...v2.19.0) (2026-10-24)
 
 

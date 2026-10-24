@@ -5,7 +5,7 @@
  * background" notice and Safari keeps the subscription.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { JOURNAL_APP_ID } from '@/lib/homebase/config';
+import { JOURNAL_APP_ID, JOURNAL_TEST_PUSH_TYPE_ID } from '@/lib/homebase/config';
 
 vi.mock('workbox-precaching', () => ({
     precacheAndRoute: vi.fn(),
@@ -141,6 +141,19 @@ describe('sw notificationclick', () => {
         const close = await fireClick(data);
         expect(close).toHaveBeenCalled();
         expect(openWindow).toHaveBeenCalledWith(url);
+    });
+
+    it('opens the app, not a note, for a test notification', async () => {
+        const test = { senderId: 'frodo.dotyou.cloud', typeId: JOURNAL_TEST_PUSH_TYPE_ID.toUpperCase(), tagId: 'b1d3f0a2' };
+        const client = { focus: vi.fn(async () => {}), navigate: vi.fn(async () => null) };
+        matchAll.mockResolvedValue([client]);
+        await fireClick(test);
+        expect(client.focus).toHaveBeenCalled();
+        expect(client.navigate).not.toHaveBeenCalled();
+
+        matchAll.mockResolvedValue([]);
+        await fireClick(test);
+        expect(openWindow).toHaveBeenCalledWith('/');
     });
 
     it("focuses Journal without navigating for another app's notification", async () => {
