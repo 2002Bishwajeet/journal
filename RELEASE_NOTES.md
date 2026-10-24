@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- When all your notes are in one folder, export and import keep them in that folder.
+
 ## 2.15.1 (2026-10-23)
 
 ### Fixed
