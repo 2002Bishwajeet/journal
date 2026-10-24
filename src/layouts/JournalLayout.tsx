@@ -50,6 +50,7 @@ import { getMobilePane } from "@/layouts/mobilePane";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
 import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
+import { useWebMcpBridge } from "@/hooks/useWebMcp";
 import { useAuth } from "@/hooks/auth";
 import { useAutoWhatsNew } from "@/hooks/useWhatsNew";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
@@ -118,6 +119,7 @@ export default function JournalLayout() {
 
   // Subscribe to each connection's Journal peer push
   usePeerPushSubscriptions();
+  useWebMcpBridge();
 
   // Focus / Zen mode state
   const [focusMode, setFocusMode] = useState(false);
