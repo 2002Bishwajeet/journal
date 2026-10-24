@@ -9,7 +9,7 @@ import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import * as Y from 'yjs';
 import type { DocumentMetadata } from '@/types';
 import {
-    IMAGE_TYPES, commonRoot, convertMarkdown, databaseCsvs, databaseTable, dropTitleHeading, folderOf, inlineTags,
+    EXPORT_MARKER, IMAGE_TYPES, commonRoot, convertMarkdown, databaseCsvs, databaseTable, dropTitleHeading, folderOf, inlineTags,
     isSkippedPath, parseFrontMatter, resolveImagePath, stripNotionId, titleOf,
 } from './markdownImport';
 
@@ -81,12 +81,14 @@ async function importZip(
     for (const part of outer.filter(isZip)) entries.push(...filesOf(await JSZip.loadAsync(await part.async('uint8array'))));
     // Every file, by its path in the zip: images the notes reference
     const assets = new Map(entries.map((entry) => [entry.name, entry]));
-    // A zipped vault has everything under `Vault/`: its top-level folders become Journal folders
+    // A zipped vault has everything under `Vault/`: its top-level folders become Journal folders.
+    // A Journal export has the marker at its root, so it has no such root.
     const root = commonRoot(entries.map((entry) => entry.name));
     const databases = new Set(databaseCsvs(entries.map((entry) => entry.name).filter((name) => name.endsWith('.csv'))));
 
     const sources: SourceNote[] = [];
     for (const entry of entries) {
+        if (entry.name === EXPORT_MARKER) continue;
         if (entry.name.endsWith('.md') || databases.has(entry.name)) {
             sources.push({ path: entry.name, text: await entry.async('string'), date: entry.date });
         } else if (!entry.name.endsWith('.csv') && !IMAGE_TYPES[entry.name.split('.').pop()!.toLowerCase()]) {
