@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { useState, type ComponentProps } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useFolders } from "@/hooks/useFolders";
 import { useNotesByFolder } from "@/hooks/useNotes";
@@ -13,8 +13,24 @@ import type { Folder } from "@/types";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "../SectionHeader";
 
-const selectClass =
-  "min-h-11 md:min-h-0 rounded-md border border-border bg-background text-foreground text-sm px-2 py-1.5 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed";
+/**
+ * A native select drawn like the app's Input: its own chevron in reserved right padding,
+ * and one width for every row, so no label runs under the arrow and the column lines up.
+ */
+function AccessSelect(props: ComponentProps<"select">) {
+  return (
+    <div className="relative w-40 shrink-0">
+      <select
+        {...props}
+        className="h-11 md:h-9 w-full appearance-none rounded-md border border-border bg-background pl-3 pr-8 text-sm text-foreground shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
+      />
+      <ChevronDown
+        aria-hidden="true"
+        className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+      />
+    </div>
+  );
+}
 
 function FolderAccessRow({
   folder,
@@ -44,16 +60,15 @@ function FolderAccessRow({
           </button>
           <Label className="truncate text-sm leading-5 font-medium">{folder.name}</Label>
         </div>
-        <select
+        <AccessSelect
           aria-label={`Agent access for ${folder.name}`}
           value={folderAccess(grants, folder.id)}
           onChange={(e) => onSetFolder(folder.id, e.target.value as AgentAccess)}
-          className={selectClass}
         >
           <option value="none">None</option>
           <option value="read">Read</option>
           <option value="write">Read + write</option>
-        </select>
+        </AccessSelect>
       </div>
 
       {isOpen && <FolderNotes folderId={folder.id} grants={grants} onSetNote={onSetNote} />}
@@ -105,29 +120,27 @@ function NoteAccessRow({
         )}
       </div>
       {note.locked ? (
-        <select
+        <AccessSelect
           aria-label={`Agent access for ${note.title}`}
           value="hidden"
           disabled
-          className={selectClass}
         >
           <option value="hidden">Hidden from AI</option>
-        </select>
+        </AccessSelect>
       ) : (
-        <select
+        <AccessSelect
           aria-label={`Agent access for ${note.title}`}
           value={note.override ?? "inherit"}
           onChange={(e) => {
             const value = e.target.value;
             onSetNote(note.noteId, value === "inherit" ? null : (value as AgentAccess));
           }}
-          className={selectClass}
         >
           <option value="inherit">Same as folder</option>
           <option value="none">None</option>
           <option value="read">Read</option>
           <option value="write">Read + write</option>
-        </select>
+        </AccessSelect>
       )}
     </div>
   );

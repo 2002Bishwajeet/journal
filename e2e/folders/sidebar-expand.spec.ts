@@ -37,11 +37,11 @@ for (const width of [1280, 1100]) {
   });
 }
 
-test('collapsed sidebar: each folder shows its first letter, named for its folder', async ({ app }) => {
+test('collapsed sidebar: each folder shows its initials, named for its folder', async ({ app }) => {
   await assertTestOrigin(app);
   const sidebar = app.getByRole('complementary', { name: 'Sidebar' });
   await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
   const folders = sidebar.getByRole('navigation', { name: 'Folders' });
-  // Every identity has Main; collapsed, its button is still named and shows "M".
-  await expect(folders.getByRole('button', { name: 'Main', exact: true })).toHaveText('M');
+  // Every identity has Main; collapsed, its button is still named and shows "Ma".
+  await expect(folders.getByRole('button', { name: 'Main', exact: true })).toHaveText('Ma');
 });

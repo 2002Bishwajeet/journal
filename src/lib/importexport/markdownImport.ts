@@ -62,7 +62,14 @@ export function resolveImagePath(notePath: string, target: string): string | nul
     return parts.join('/');
 }
 
-const unquote = (v: string) => v.trim().replace(/^["']|["']$/g, '');
+/** A front-matter value without its quotes; undoes the `\"` and `\\` escapes export writes inside "...". */
+function unquote(value: string): string {
+    const v = value.trim();
+    const quoted = /^"((?:[^"\\]|\\.)*)"$/.exec(v);
+    return quoted ? quoted[1].replace(/\\(["\\])/g, '$1') : v.replace(/^["']|["']$/g, '');
+}
+// One item of an inline list: "double quoted" (commas and escapes inside), 'single quoted', or bare
+const LIST_ITEM = /\s*(?:"(?:[^"\\]|\\.)*"|'[^']*'|[^,]+)/g;
 
 /** Front-matter (LF or CRLF) and the body after it. Tags may be `[a, b]`, `a, b` or a YAML list. */
 export function parseFrontMatter(text: string): FrontMatter {
@@ -88,7 +95,7 @@ export function parseFrontMatter(text: string): FrontMatter {
         if (key === 'created') result.created = unquote(value);
         if (key === 'modified') result.modified = unquote(value);
         if (key === 'excludeFromAI') result.excludeFromAI = unquote(value) === 'true';
-        if (key === 'tags') tags.push(...value.replace(/^\[|\]$/g, '').split(','));
+        if (key === 'tags') tags.push(...(value.replace(/^\[|\]$/g, '').match(LIST_ITEM) ?? []));
     }
     result.tags = [...new Set(tags.map((t) => unquote(t).replace(/^#/, '')).filter(Boolean))];
     return { ...result, content: normalized.slice(match[0].length).trim() };
