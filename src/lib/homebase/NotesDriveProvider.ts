@@ -666,8 +666,9 @@ export class NotesDriveProvider {
      * - `fileId`: the note's remote fileId, when known (sync record). The header is read
      *   by fileId first: the server's uniqueId lookup can 404 for a few seconds right
      *   after the note is created (#293). Falls back to the uniqueId lookup.
-     * - A patch that hits a version conflict (a save or a peer's edit landed after the
-     *   header fetch, #689) is rebuilt once from the fresh header.
+     * - A write that hits a version conflict (a save or a peer's edit landed after the
+     *   header fetch, #689; the sync push of a just-edited note landed while publishing
+     *   it, #760) is rebuilt once from the fresh header.
      */
     async #rewriteNoteHeader(uniqueId: string, spec: {
         fileId?: string;
@@ -753,7 +754,17 @@ export class NotesDriveProvider {
             };
             const { payloads: existingPayloads, thumbnails } = await this.#readAllPayloads(existingHeader);
             const payloads = spec.payloads ? await spec.payloads(existingPayloads, existingHeader.fileId) : existingPayloads;
-            result = await uploadFile(this.#dotYouClient, instructions, uploadMetadata, payloads, thumbnails, isEncrypted);
+            result = await uploadFile(
+                this.#dotYouClient,
+                instructions,
+                uploadMetadata,
+                payloads,
+                thumbnails,
+                isEncrypted,
+                isRetry ? undefined : async () => {
+                    retried = await this.#rewriteNoteHeader(uniqueId, spec, true);
+                }
+            );
         } else {
             // Header-only patch — never changes payload encryption.
             const instructions: UpdateInstructionSet = {
