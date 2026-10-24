@@ -17,6 +17,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ### Changed
 
+- Journal now asks to read your connections and send notifications when you sign in. This lets the app get shared notes faster.
+
 - People you shared notes with before this update now get access to them. The app does this once, with no action from you.
 
 ## 2.16.0 (2026-10-24)

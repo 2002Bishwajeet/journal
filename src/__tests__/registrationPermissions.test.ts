@@ -34,6 +34,7 @@ describe('registration permission set (#246)', () => {
         const params = await useYouAuthAuthorization().getAuthorizationParameters('https://journal.test/');
         const request = JSON.parse(params.permission_request);
 
-        expect(ownerConsolePermissionSet(request.p)).toEqual({ keys: [] });
+        // #743: the base set is never empty, so the permission set is never null
+        expect(ownerConsolePermissionSet(request.p)).toEqual({ keys: [10, 405] });
     });
 });
