@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.16.0 (2026-10-24)
+
 ### New
 
 - The assistant can change the note that you have open. It shows each change in the note first.

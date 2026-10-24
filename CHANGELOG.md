@@ -1,3 +1,15 @@
+# [2.16.0](https://github.com/2002Bishwajeet/journal/compare/v2.15.3...v2.16.0) (2026-10-24)
+
+
+### Bug Fixes
+
+* **ai:** keep the Accept/Reject bar left of the assistant panel ([#701](https://github.com/2002Bishwajeet/journal/issues/701)) ([5264da5](https://github.com/2002Bishwajeet/journal/commit/5264da55345e1b7608d8197a0545051ab60262b2))
+* **ai:** polish the edit preview after visual review ([#701](https://github.com/2002Bishwajeet/journal/issues/701)) ([93e39b8](https://github.com/2002Bishwajeet/journal/commit/93e39b8fa45459a3ab176d7e1fc3c0c468dd6be8))
+
+
+### Features
+
+* **ai:** preview agent edits in the note with Accept / Reject and one-step undo ([#701](https://github.com/2002Bishwajeet/journal/issues/701)) ([90f1782](https://github.com/2002Bishwajeet/journal/commit/90f1782b4cc55dbd974b41bd3186e4bd6416a20c))
 ## [2.15.3](https://github.com/2002Bishwajeet/journal/compare/v2.15.2...v2.15.3) (2026-10-24)
 
 
