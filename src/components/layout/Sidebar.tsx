@@ -257,16 +257,21 @@ export default function Sidebar({
                 )}
               </Tooltip>
               {!isCollapsed && sharedPull.canPull && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Refresh shared notes"
-                  aria-busy={sharedPull.isRefreshing}
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={sharedPull.refresh}
-                >
-                  <RefreshCw className={cn("h-4 w-4", sharedPull.isRefreshing && "animate-spin")} />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Refresh shared notes"
+                      aria-busy={sharedPull.isRefreshing}
+                      className="size-11 md:size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={sharedPull.refresh}
+                    >
+                      <RefreshCw className={cn("h-4 w-4", sharedPull.isRefreshing && "animate-spin")} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Refresh shared notes</TooltipContent>
+                </Tooltip>
               )}
             </div>
           )}
