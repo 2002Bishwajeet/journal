@@ -18,6 +18,7 @@ const SECTIONS: { id: string; tab: string; desktopOnly?: boolean }[] = [
   { id: 'appearance', tab: 'Appearance' },
   { id: 'ai', tab: 'AI' },
   { id: 'agent-access', tab: 'Agent access' },
+  { id: 'notifications', tab: 'Notifications' },
   { id: 'data', tab: 'Data & storage' },
   { id: 'shortcuts', tab: 'Keyboard shortcuts', desktopOnly: true },
   { id: 'about', tab: 'About' },

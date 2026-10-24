@@ -19,6 +19,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - In Settings, Agent access, you can let your browser's AI agent use the notes you granted. This needs a browser with WebMCP.
 
+- You can turn on notifications in Settings > Notifications. Then Journal tells you when someone shares a note with you. Click the notification to open the note.
+
 ## 2.17.3 (2026-10-24)
 
 ### Changed
