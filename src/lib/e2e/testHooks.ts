@@ -4,10 +4,13 @@
  * module (and its `window.__journalE2E` global) never ships in the production
  * bundle. See src/globals.d.ts for the public type.
  *
- * Nothing here mutates app state — the hooks only read signals the app
- * already maintains (bootProgress and the boot splash) or draw a link card.
+ * The hooks read signals the app already maintains (bootProgress and the boot
+ * splash) or draw a link card. Two exceptions: the ignoreInvites switch, which
+ * lasts until the page reloads, and deleteFilesNamed, which the live tier's
+ * teardown uses to remove what the sharing specs leave on an identity.
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
+import { e2eSwitches } from './switches';
 
 const E2E_ORIGINS = [
     'http://127.0.0.1:4173',
@@ -76,9 +79,60 @@ async function syncToDisk(): Promise<void> {
     await (await getDatabase()).syncToFs();
 }
 
+/** Skip incoming invites until the page reloads, so a share arrives only through the shared pull (#732). */
+function ignoreInvites(): void {
+    e2eSwitches.ignoreInvites = true;
+}
+
+/**
+ * Deletes the signed-in identity's folders (with their notes), notes and collaboration
+ * invites whose name matches `namePattern`, straight on the server; returns the names.
+ */
+export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
+    const { DotYouClient, ApiType, queryBatch, getContentFromHeaderOrPayload, deleteFile, deleteFilesByGroupId } =
+        await import('@homebase-id/js-lib/core');
+    const { retrieveIdentity } = await import('@homebase-id/js-lib/auth');
+    const { base64ToUint8Array } = await import('@homebase-id/js-lib/helpers');
+    const { JOURNAL_DRIVE, JOURNAL_FILE_TYPE, FOLDER_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE, STORAGE_KEY_AUTH_TOKEN, STORAGE_KEY_SHARED_SECRET } =
+        await import('@/lib/homebase/config');
+    const client = new DotYouClient({
+        api: ApiType.App,
+        hostIdentity: retrieveIdentity()!,
+        sharedSecret: base64ToUint8Array(localStorage.getItem(STORAGE_KEY_SHARED_SECRET)!),
+        headers: { bx0900: localStorage.getItem(STORAGE_KEY_AUTH_TOKEN)! },
+    });
+    const pattern = new RegExp(namePattern);
+    const matches: { fileId: string; name: string; folderId?: string }[] = [];
+    let cursorState: string | undefined;
+    for (;;) {
+        const page = await queryBatch(
+            client,
+            { targetDrive: JOURNAL_DRIVE, fileType: [JOURNAL_FILE_TYPE, FOLDER_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE] },
+            { maxRecords: 100, cursorState, includeMetadataHeader: true },
+        );
+        for (const file of page.searchResults) {
+            // A folder's content has `name`, a note's `title`, and an invite names its note in `noteTitle`.
+            const content = await getContentFromHeaderOrPayload<{ name?: string; title?: string; noteTitle?: string }>(client, JOURNAL_DRIVE, file, true);
+            const name = content?.name ?? content?.title ?? content?.noteTitle;
+            if (!name || !pattern.test(name)) continue;
+            const isFolder = file.fileMetadata.appData.fileType === FOLDER_FILE_TYPE;
+            matches.push({ fileId: file.fileId, name, folderId: isFolder ? file.fileMetadata.appData.uniqueId : undefined });
+        }
+        if (page.searchResults.length < 100) break;
+        cursorState = page.cursorState;
+    }
+    // Folders last: deleting one deletes its notes too.
+    matches.sort((a, b) => Number(!!a.folderId) - Number(!!b.folderId));
+    for (const { fileId, folderId } of matches) {
+        if (folderId) await deleteFilesByGroupId(client, JOURNAL_DRIVE, [folderId]);
+        await deleteFile(client, JOURNAL_DRIVE, fileId);
+    }
+    return matches.map(({ name }) => name);
+}
+
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, deleteFilesNamed }),
         writable: false,
         configurable: false,
         enumerable: false,

@@ -16,6 +16,7 @@ import {
   Pencil,
   Archive,
   Users,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -39,6 +40,7 @@ import { cn } from "@/lib/utils";
 import type { Folder } from "@/types";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
+import { useSharedPull } from "@/hooks/useSharedPull";
 import { OwnerImage } from "@/components/author/AuthorImage";
 import { folderInitials } from "@/lib/folderInitials";
 
@@ -108,6 +110,8 @@ export default function Sidebar({
   const tagToDeleteCount = tagToDelete ? tagCounts?.[tagToDelete] ?? 0 : 0;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { sync, pendingCount } = useSyncService();
+  const sharedPull = useSharedPull();
+  const hasShared = collaborativeCount != null && collaborativeCount > 0;
 
   const handleRefresh = async () => {
     // The folder list is a live query — a sync pull surfaces new folders automatically.
@@ -214,8 +218,8 @@ export default function Sidebar({
           )}
         >
           <PullToRefresh onRefresh={handleRefresh} className="min-h-full">
-          {collaborativeCount != null && collaborativeCount > 0 && (
-            <div className={cn("px-2 pt-2 pb-1", isCollapsed && "flex justify-center")}>
+          {(hasShared || sharedPull.canPull) && (
+            <div className={cn("px-2 pt-2 pb-1 flex", isCollapsed ? "justify-center" : "items-center gap-1")}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -223,7 +227,7 @@ export default function Sidebar({
                     aria-label={isCollapsed ? "Shared with me" : undefined}
                     className={cn(
                       "group relative transition-all duration-200 flex items-center",
-                      isCollapsed ? "size-9 px-0" : "w-full h-10 justify-start px-2",
+                      isCollapsed ? "size-9 px-0" : "flex-1 min-w-0 h-10 justify-start px-2",
                       selectedFolderId === PSEUDO_FOLDERS.shared && "bg-accent text-accent-foreground font-medium hover:bg-accent"
                     )}
                     onClick={onSelectShared}
@@ -237,19 +241,38 @@ export default function Sidebar({
                     {!isCollapsed && (
                       <>
                         <span className="text-sm truncate flex-1 text-left">Shared with me</span>
-                        <span className="ml-auto text-xs bg-collaborative text-white px-1.5 py-0.5 rounded-full font-medium">
-                          {collaborativeCount}
-                        </span>
+                        {hasShared && (
+                          <span className="ml-auto text-xs bg-collaborative text-white px-1.5 py-0.5 rounded-full font-medium">
+                            {collaborativeCount}
+                          </span>
+                        )}
                       </>
                     )}
                   </Button>
                 </TooltipTrigger>
                 {isCollapsed && (
                   <TooltipContent side="right">
-                    Shared with me ({collaborativeCount})
+                    Shared with me ({collaborativeCount ?? 0})
                   </TooltipContent>
                 )}
               </Tooltip>
+              {!isCollapsed && sharedPull.canPull && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Refresh shared notes"
+                      aria-busy={sharedPull.isRefreshing}
+                      className="size-11 md:size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={sharedPull.refresh}
+                    >
+                      <RefreshCw className={cn("h-4 w-4", sharedPull.isRefreshing && "animate-spin")} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Refresh shared notes</TooltipContent>
+                </Tooltip>
+              )}
             </div>
           )}
           <div className="px-2 py-2">

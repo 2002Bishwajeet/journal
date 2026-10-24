@@ -24,6 +24,7 @@ import * as pull from './sync/pull';
 import * as push from './sync/push';
 import * as images from './sync/imageUploads';
 import * as merge from './sync/merge';
+import * as sharedPull from './sync/sharedPull';
 
 export { classifyPeerFetchError } from './sync/peerNotes';
 export type { EnsureNoteContentStatus, EnsureNoteContentResult } from './sync/peerNotes';
@@ -52,6 +53,7 @@ export interface SyncResult {
  */
 export class SyncService {
     #ctx: SyncContext;
+    #dotYouClient: DotYouClient;
     #status: SyncStatus = 'idle';
     #onlineContext: OnlineContextType;
 
@@ -65,6 +67,7 @@ export class SyncService {
             // Called through the instance so a spy on logSyncError still sees it
             logSyncError: (...args) => this.logSyncError(...args),
         };
+        this.#dotYouClient = dotYouClient;
         this.#onlineContext = onlineContext;
     }
 
@@ -203,6 +206,19 @@ export class SyncService {
 
     async handleDeletedInvitation(deleted: pull.DeletedFileRef): Promise<void> {
         return peer.handleDeletedInvitation(deleted);
+    }
+
+    /** Find notes shared with the host on its connections' drives, and drop revoked ones (#732). */
+    async pullShared(options: sharedPull.SharedPullOptions): Promise<void> {
+        // Offline, every owner would fail and back off
+        if (!this.isOnline()) return;
+        return sharedPull.pullShared(this.#ctx, this.#dotYouClient, options);
+    }
+
+    /** The shared pull for one owner only, ignoring its backoff (#745 calls it on a share push). */
+    async pullOwnerNow(odinId: string): Promise<void> {
+        if (!this.isOnline()) return;
+        return sharedPull.pullOwnerNow(this.#ctx, this.#dotYouClient, odinId);
     }
 
     /**

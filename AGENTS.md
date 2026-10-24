@@ -437,8 +437,8 @@ PGlite runs in a **Web Worker** (`src/lib/db/pglite-worker.ts`) via `PGliteWorke
 
 **IMPORTANT — When bumping PGlite:**
 
-1. `@electric-sql/pglite` and `@electric-sql/pglite-tools` must move together: pglite-tools pins an **exact** pglite peer version (pglite-tools 0.4.8 ↔ pglite 0.5.8). Don't let Dependabot bump one without the other.
-2. `src/lib/db/pgliteWorkerHost.ts` is a fork of pglite 0.5.8's worker leader loop. Its drift guard (`src/__tests__/pgliteWorkerHost.test.ts`) fails on any pglite bump; re-port the listed changes onto the new upstream code.
+1. `@electric-sql/pglite` and `@electric-sql/pglite-tools` must move together: pglite-tools pins an **exact** pglite peer version (pglite-tools 0.4.10 ↔ pglite 0.5.10). Don't let Dependabot bump one without the other.
+2. `src/lib/db/pgliteWorkerHost.ts` is a fork of pglite 0.5.10's worker leader loop. Its drift guard (`src/__tests__/pgliteWorkerHost.test.ts`) fails on any pglite bump; re-port the listed changes onto the new upstream code.
 3. If the Postgres major changes: install the outgoing engine as an alias (`npm install pglite-vN@npm:@electric-sql/pglite@0.N.x`), point `DATA_DIR` in `src/lib/db/pglite.ts` at a new dir, bump `PGLITE_VERSION`, and teach `openLegacyDatabase()` the old stamp.
 4. In `vite.config.ts`, claim the alias's chunk before the `@electric-sql/pglite` rule and add its chunk plus hashed `.wasm`/`.data`/`initdb`/`pg_trgm` assets to `injectManifest.globIgnores` — by **exact** hashed name, since the live engine's files share those prefixes and must stay precached.
 5. `src/__tests__/pgliteLegacyDump.test.ts` runs the real engines end to end (dump → restore); it must pass.

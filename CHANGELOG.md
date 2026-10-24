@@ -1,3 +1,65 @@
+# [2.18.0](https://github.com/2002Bishwajeet/journal/compare/v2.17.3...v2.18.0) (2026-10-24)
+
+
+### Bug Fixes
+
+* clearer notification status copy ([56fbc22](https://github.com/2002Bishwajeet/journal/commit/56fbc22c403324228496a57660622cbe69ce1d40))
+* **editor:** call the parent table markdown parser through this.parent ([3195dbe](https://github.com/2002Bishwajeet/journal/commit/3195dbe7a3547db498a55c27140f74522a452e23))
+* **editor:** keep the gallery drop indicator through Chrome's spurious dragleave ([c3c6389](https://github.com/2002Bishwajeet/journal/commit/c3c6389eaa982b9505e87c56ed21e9094075a506))
+* **editor:** keep the Yjs UndoManager alive when plugin views are recreated ([e4cd6b7](https://github.com/2002Bishwajeet/journal/commit/e4cd6b7bc00b8ee89aa92433aed66345c06a5d43))
+* **editor:** no blank line above an image alone on its line ([631a5a9](https://github.com/2002Bishwajeet/journal/commit/631a5a97024ced411b9495de5660ee20e5bb4e36))
+* **pwa:** show a notification for every push, so Chrome never shows its background notice ([#744](https://github.com/2002Bishwajeet/journal/issues/744)) ([bcf3a3f](https://github.com/2002Bishwajeet/journal/commit/bcf3a3f21d1cdde59a98091c4901aef271c20f46))
+* **sharing:** restore pullOwnerNow for [#745](https://github.com/2002Bishwajeet/journal/issues/745) ([#732](https://github.com/2002Bishwajeet/journal/issues/732)) ([8fbf317](https://github.com/2002Bishwajeet/journal/commit/8fbf317283b0bb1e46300b6ce39de88626562aa1))
+* **sidebar:** 44px tap target and tooltip for the shared-notes refresh button ([01d34b4](https://github.com/2002Bishwajeet/journal/commit/01d34b4d71018693e93843f3b15281d0f60dd89c))
+
+
+### Features
+
+* **pwa:** show Journal web pushes and add a Notifications opt-in ([#744](https://github.com/2002Bishwajeet/journal/issues/744)) ([a7b2098](https://github.com/2002Bishwajeet/journal/commit/a7b2098ddaac56aca3d0f431c6bd6ee986ed199f))
+* **sharing:** find shared notes by pulling from connections ([#732](https://github.com/2002Bishwajeet/journal/issues/732)) ([369e736](https://github.com/2002Bishwajeet/journal/commit/369e736254f9f6e17d9ee4a351430fc3ac990913)), closes [#745](https://github.com/2002Bishwajeet/journal/issues/745)
+## [2.17.3](https://github.com/2002Bishwajeet/journal/compare/v2.17.2...v2.17.3) (2026-10-24)
+
+
+### Bug Fixes
+
+* neutral permission prompt copy; a backdrop tap no longer dismisses it ([74a4fdc](https://github.com/2002Bishwajeet/journal/commit/74a4fdc2b07f7a7a3ab2d026de097453748d0c59))
+* say which permissions are missing and why, and allow Not now ([2eac676](https://github.com/2002Bishwajeet/journal/commit/2eac67692a52f8ccc4ae6d2c950744ab3d98b538))
+## [2.17.2](https://github.com/2002Bishwajeet/journal/compare/v2.17.1...v2.17.2) (2026-10-24)
+
+
+### Bug Fixes
+
+* **deps:** bump zod to 4.6.7 (security alert [#146](https://github.com/2002Bishwajeet/journal/issues/146)) ([a8392f7](https://github.com/2002Bishwajeet/journal/commit/a8392f7ea57c7acdcb5d5e9afb4b1f1ffd8daecf))
+## [2.17.1](https://github.com/2002Bishwajeet/journal/compare/v2.17.0...v2.17.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **whats-new:** let the What's new list scroll on phones ([61e95ee](https://github.com/2002Bishwajeet/journal/commit/61e95eec03004f7062940454d7299e94a21ef906))
+# [2.17.0](https://github.com/2002Bishwajeet/journal/compare/v2.16.0...v2.17.0) (2026-10-24)
+
+
+### Bug Fixes
+
+* **sharing:** subscribe peer push when the server refuses the list; share the app socket ([#743](https://github.com/2002Bishwajeet/journal/issues/743)) ([e0c2d68](https://github.com/2002Bishwajeet/journal/commit/e0c2d68c18a4da0c88e1ce9071d989473ed8a55a))
+
+
+### Features
+
+* **sharing:** enroll recipients of existing shares in the app circle once ([#734](https://github.com/2002Bishwajeet/journal/issues/734)) ([f71b369](https://github.com/2002Bishwajeet/journal/commit/f71b3696d795075c919ed0ca7d858ec0a7d5d715))
+* **sharing:** subscribe to each connection's peer push and ask for SendPushNotifications at sign-in ([#743](https://github.com/2002Bishwajeet/journal/issues/743)) ([09cf8b3](https://github.com/2002Bishwajeet/journal/commit/09cf8b3a3a6c65b8ed8e64ade11ae2f7d6b9d677))
+# [2.16.0](https://github.com/2002Bishwajeet/journal/compare/v2.15.3...v2.16.0) (2026-10-24)
+
+
+### Bug Fixes
+
+* **ai:** keep the Accept/Reject bar left of the assistant panel ([#701](https://github.com/2002Bishwajeet/journal/issues/701)) ([5264da5](https://github.com/2002Bishwajeet/journal/commit/5264da55345e1b7608d8197a0545051ab60262b2))
+* **ai:** polish the edit preview after visual review ([#701](https://github.com/2002Bishwajeet/journal/issues/701)) ([93e39b8](https://github.com/2002Bishwajeet/journal/commit/93e39b8fa45459a3ab176d7e1fc3c0c468dd6be8))
+
+
+### Features
+
+* **ai:** preview agent edits in the note with Accept / Reject and one-step undo ([#701](https://github.com/2002Bishwajeet/journal/issues/701)) ([90f1782](https://github.com/2002Bishwajeet/journal/commit/90f1782b4cc55dbd974b41bd3186e4bd6416a20c))
 ## [2.15.3](https://github.com/2002Bishwajeet/journal/compare/v2.15.2...v2.15.3) (2026-10-24)
 
 

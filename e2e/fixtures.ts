@@ -36,6 +36,13 @@ export async function waitForAppReady(page: Page): Promise<void> {
   await page.evaluate(() => window.__journalE2E!.ready());
 }
 
+// Marks every release as already seen, so the "What's new" dialog never covers
+// a live page whose storage state predates the current version. Call before
+// the first navigation.
+export async function skipWhatsNew(page: Page): Promise<void> {
+  await page.context().addInitScript(() => localStorage.setItem('journal-last-seen-version', '999.0.0'));
+}
+
 // Runs `body` with a page in a new fenced context. The context is closed even
 // if `body` throws, so a failed boot doesn't leak it.
 export async function withFencedPage(
@@ -61,11 +68,19 @@ export async function withFencedPage(
 // Auto fixture: fails fast, before any test body runs, if the configured
 // baseURL isn't one of the allowlisted test origins. Catches a misconfigured
 // run (e.g. E2E_SERVER pointed somewhere else) before it can touch a page.
+// A booted page that has served many tests (mounted editors, a long note list)
+// slows until hovers time out, and a reload doesn't cure it, so the shared page
+// is replaced by a fresh context after this many tests.
+const REUSED_APP_RECYCLE_EVERY = 8;
+type AppPool = { next(): Promise<Page> };
+
 export const test = base.extend<{
   assertBaseUrlIsTestOrigin: void;
   app: Page;
+  reusedApp: Page;
   anonPage: Page;
 }, {
+  bootedApp: AppPool;
   liveRun: { page: Page; folderName: string };
   liveSharing: { owner: LiveIdentityPage; peer: LiveIdentityPage; outsider: LiveIdentityPage; circleName: string };
 }>({
@@ -104,6 +119,60 @@ export const test = base.extend<{
     {},
   ],
 
+  // `app` booted once per worker and shared by the tests that ask for it (#612):
+  // the boot is ~3 s of each test. Only for specs whose tests don't depend on a
+  // clean drive (each makes its own uniquely titled note) or on a test-scoped
+  // option (a viewport or colour scheme). Between tests it puts back the viewport,
+  // colour scheme and tabs.
+  bootedApp: [
+    async ({ browser }, use) => {
+      let release: (() => void) | undefined;
+      let done: Promise<void> | undefined;
+      let uses = 0;
+      let current: Page | undefined;
+      const open = () =>
+        new Promise<Page>((resolve, reject) => {
+          done = withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
+            await page.goto('/');
+            await assertTestOrigin(page);
+            await waitForAppReady(page);
+            resolve(page);
+            await new Promise<void>((r) => (release = r));
+          }).catch(reject);
+        });
+      const close = async () => {
+        release?.();
+        await done;
+        current = undefined;
+      };
+      await use({
+        async next() {
+          if (current && uses >= REUSED_APP_RECYCLE_EVERY) await close();
+          if (!current) uses = 0;
+          uses++;
+          return (current ??= await open());
+        },
+      });
+      await close();
+    },
+    { scope: 'worker' },
+  ],
+
+  reusedApp: [
+    async ({ bootedApp }, use) => {
+      const page = await bootedApp.next();
+      const viewport = page.viewportSize();
+      await use(page);
+      if (viewport) await page.setViewportSize(viewport);
+      await page.emulateMedia({ colorScheme: null });
+      // Open notes stay mounted as background tabs, which makes unscoped locators
+      // (a toolbar button, say) match once per tab.
+      const closeTab = page.getByRole('button', { name: /^Close (?!assistant)/ });
+      while ((await closeTab.count()) > 0) await closeTab.first().click();
+    },
+    {},
+  ],
+
   // A signed-out page: same origin allowlist and network fence, no storageState.
   anonPage: [async ({ browser }, use) => withFencedPage(browser, {}, use), {}],
 
@@ -115,6 +184,7 @@ export const test = base.extend<{
     async ({ browser }, use, { workerIndex }) => {
       const folderName = `${process.env.E2E_LIVE_RUN_FOLDER}-w${workerIndex}`;
       await withFencedPage(browser, { storageState: LIVE_STORAGE_STATE }, async (page) => {
+        await skipWhatsNew(page);
         await page.goto('/');
         await assertTestOrigin(page);
         await waitForAppReady(page);
@@ -160,6 +230,7 @@ export const test = base.extend<{
       ) =>
         withFencedPage(browser, { storageState }, async (page) => {
           await stubOtherIdentities({ page, identity });
+          await skipWhatsNew(page);
           await page.goto('/');
           await assertTestOrigin(page);
           await waitForAppReady(page);
