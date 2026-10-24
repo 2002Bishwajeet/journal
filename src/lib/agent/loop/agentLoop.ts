@@ -6,12 +6,16 @@
  * Every model turn is forced by a JSON Schema to be one tool call or an answer, so a
  * 4,096-token model never has to produce free-form function-call syntax.
  */
+import { z } from 'zod';
 import type { ReadDeps } from '@/lib/agent/tools/read';
 import type { WriteDeps } from '@/lib/agent/tools/write';
 import { TOOLS, toJsonSchema, type AnyJournalTool, type ToolOutput } from '@/lib/agent/tools/registry';
-import { formatText, insertParagraph, readOpenNote, replaceText, setBlockType, type EditorTool } from '@/lib/agent/tools/editor';
+import { formatText, insertParagraph, readOpenNote, replaceText, type EditorTool } from '@/lib/agent/tools/editor';
 import { activeEditor, type ActiveEditorStore } from '@/lib/agent/activeEditor';
 import type { BuiltEdit, EditOutcome, EditProposal } from '@/lib/agent/approveEdit';
+import type { WriteProposal, WrittenNote } from '@/lib/agent/approveWrite';
+import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
+import { proposeWrite } from './proposeWrite';
 import { CONTEXT_WINDOW, estimateTokens, trimToBudget, type AgentMessage } from './trim';
 
 export type { AgentMessage } from './trim';
@@ -31,12 +35,15 @@ export interface AgentProposal {
     summary?: string;
     /** Set for an edit to the open note: what the user previews and accepts. */
     edit?: EditProposal;
+    /** Set for an append to another note or a new note: what the user accepts or rejects in the panel (#702). */
+    write?: WriteProposal;
 }
 
 export type AgentEvent =
     | { type: 'step'; step: number }
     | { type: 'toolCall'; tool: string; args: unknown }
-    | { type: 'toolResult'; tool: string; result: string }
+    /** `note`: the note an accepted write touched. */
+    | { type: 'toolResult'; tool: string; result: string; note?: WrittenNote }
     | { type: 'proposal'; proposal: AgentProposal }
     | { type: 'answer'; answer: string }
     | { type: 'error'; error: string };
@@ -51,15 +58,32 @@ export interface RunAgentOptions {
     tools?: AgentTool[];
     /** The open note's editor, for the editor tools. */
     editor?: ActiveEditorStore;
+    /** Runs a write tool once the user accepts it. Without it, a write tool only asks `approve`. */
+    writeDeps?: WriteDeps;
 }
 
-const AGENT_TOOL_NAMES = ['search_notes', 'get_note', 'list_notes'];
-/** At most 8 (#698): each tool adds to the schema and the system prompt. */
+const registryTool = (name: string) => TOOLS.find((tool) => tool.name === name)!;
+
+const createNote = registryTool('create_note');
+/** `create_note` for the in-app agent: no folder means Main, and no tags (each field costs prompt tokens). */
+const agentCreateNote: AnyJournalTool = {
+    ...createNote,
+    description: 'Create a new note from markdown. Without folderId it goes to Main.',
+    input: z.object({ title: z.string(), markdown: z.string(), folderId: z.string().optional() }),
+    execute: (deps, args) => createNote.execute(deps, { ...args, folderId: args.folderId ?? MAIN_FOLDER_ID }),
+};
+
+/**
+ * At most 8 (#698): each tool adds to the schema and the system prompt. The two writes to other
+ * notes (#702) took the places of list_notes (search_notes finds notes too) and set_block_type.
+ */
 export const AGENT_TOOLS: AgentTool[] = [
-    ...AGENT_TOOL_NAMES.map((name) => TOOLS.find((tool) => tool.name === name)!),
+    registryTool('search_notes'),
+    registryTool('get_note'),
+    registryTool('append_to_note'),
+    agentCreateNote,
     readOpenNote,
     insertParagraph,
-    setBlockType,
     replaceText,
     formatText,
 ];
@@ -109,6 +133,7 @@ function systemPrompt(tools: AgentTool[]): string {
         'Rules:',
         '- Reply with one JSON object: {"tool": "<name>", "args": {...}} to call a tool, or {"answer": "<text>"} to reply.',
         '- Use note ids from earlier results. Never invent an id.',
+        '- To add to another note, use append_to_note; for a new note, use create_note. The user accepts or rejects each one.',
         '- To change the open note, read it with read_open_note, then call one edit tool. The user accepts or rejects each edit.',
         '- Answer as soon as you know enough. Keep the answer short and plain.',
     ].join('\n');
@@ -143,7 +168,7 @@ const errorMessage = (error: unknown) => (error instanceof Error ? error.message
 
 /** Runs one request to an answer. Resolves to null when aborted or when no answer came. */
 export async function runAgent(request: string, options: RunAgentOptions): Promise<string | null> {
-    const { engine, deps, approve, signal, onEvent = () => {}, tools = AGENT_TOOLS, editor = activeEditor } = options;
+    const { engine, deps, approve, signal, onEvent = () => {}, tools = AGENT_TOOLS, editor = activeEditor, writeDeps } = options;
     const system: AgentMessage = { role: 'system', content: systemPrompt(tools) };
     const user: AgentMessage = { role: 'user', content: request };
     const history: AgentMessage[] = [];
@@ -203,7 +228,10 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
             }
             // Only read-only tools run here, and they use only the ReadDeps half.
             if (tool.readOnly) return formatToolResult(tool.name, await tool.execute(deps as WriteDeps, args));
-            return { tool: tool.name, args };
+            // A write waits for the user; it runs, with WriteDeps, only when they accept.
+            if (!writeDeps) return { tool: tool.name, args };
+            const write = await proposeWrite(tool, args, { deps, writeDeps, openNoteId: editor.get()?.docId });
+            return { tool: tool.name, args, summary: write.summary, write };
         };
         let called: string | AgentProposal;
         try {
@@ -213,13 +241,17 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
             continue;
         }
         let result: string;
+        let written: WrittenNote | undefined;
         if (typeof called === 'string') result = called;
         else {
             onEvent({ type: 'proposal', proposal: called });
-            result = describeOutcome(await approve(called));
+            const outcome = await approve(called);
             if (signal?.aborted) return null;
+            result = describeOutcome(outcome);
+            written = outcome === 'accepted' ? called.write?.applied : undefined;
+            if (written) result += ` (note id: ${written.id})`;
         }
-        onEvent({ type: 'toolResult', tool: tool.name, result });
+        onEvent({ type: 'toolResult', tool: tool.name, result, ...(written && { note: written }) });
         history.push({ role: 'assistant', content: output }, { role: 'user', content: `Result of ${tool.name}: ${result}` });
     }
 
