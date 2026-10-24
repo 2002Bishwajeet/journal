@@ -215,6 +215,12 @@ export class SyncService {
         return sharedPull.pullShared(this.#ctx, this.#dotYouClient, options);
     }
 
+    /** The shared pull for one owner only, ignoring its backoff (#745 calls it on a share push). */
+    async pullOwnerNow(odinId: string): Promise<void> {
+        if (!this.isOnline()) return;
+        return sharedPull.pullOwnerNow(this.#ctx, this.#dotYouClient, odinId);
+    }
+
     /**
      * This device just rewrote the note's header (a revoke): a pull or websocket
      * notification already holding a header last updated at or before `updated`
