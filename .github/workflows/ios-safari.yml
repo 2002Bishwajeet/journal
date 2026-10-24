@@ -1,0 +1,99 @@
+name: iOS Safari
+
+# Real Mobile Safari in the iOS Simulator (#799): e2e/ios/safari-check.ts drives
+# the e2e build through Appium's XCUITest driver, screenshots each flow and fails
+# on clear mobile layout bugs. Not a required check. See e2e/README.md.
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+concurrency:
+  group: ios-safari-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-safari:
+    # PRs run only with the ios-check label, and adding some other label doesn't rerun it.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (contains(github.event.pull_request.labels.*.name, 'ios-check') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'ios-check'))
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Authenticate to Github packages
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+
+      - name: Install dependencies
+        run: npm ci --include=optional
+
+      # The e2e build has the test hooks (window.__journalE2E) the hermetic
+      # Playwright suite uses, and is what that suite serves on 127.0.0.1:4173.
+      - name: Build (e2e mode)
+        run: npx vite build --mode e2e --outDir dist-e2e
+
+      - name: Serve the build on 127.0.0.1:4173
+        run: |
+          nohup npx vite preview --mode e2e --outDir dist-e2e --host 127.0.0.1 --port 4173 --strictPort > preview.log 2>&1 &
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4173/ > /dev/null && exit 0; sleep 1; done
+          cat preview.log; exit 1
+
+      - name: Boot an iPhone 15 simulator
+        run: |
+          RUNTIME=$(xcrun simctl list runtimes available -j | jq -r '[.runtimes[] | select(.platform == "iOS" and (.version | test("^1[78]\\.")))] | sort_by(.version | split(".") | map(tonumber)) | last | .identifier // empty')
+          if [ -z "$RUNTIME" ]; then xcrun simctl list runtimes; echo "::error::No iOS 17 or 18 simulator runtime on this image"; exit 1; fi
+          UDID=$(xcrun simctl create ios-check com.apple.CoreSimulator.SimDeviceType.iPhone-15 "$RUNTIME")
+          # The software keyboard only shows with the hardware keyboard disconnected
+          # (the global setting, and the per-device one newer Simulators read).
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+          defaults write com.apple.iphonesimulator DevicePreferences -dict-add "$UDID" '<dict><key>ConnectHardwareKeyboard</key><false/></dict>'
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          echo "IOS_UDID=$UDID" >> "$GITHUB_ENV"
+          echo "Booted iPhone 15 on $RUNTIME ($UDID)"
+
+      # Kept out of package.json: only this job needs them, and every other install would pull Appium's tree.
+      - name: Install Appium, the XCUITest driver and WebdriverIO
+        run: |
+          npm install -g appium@3
+          appium driver install xcuitest
+          npm install --no-save webdriverio@10
+
+      - name: Start Appium
+        run: |
+          nohup appium --address 127.0.0.1 --port 4723 --log-level info > appium.log 2>&1 &
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4723/status > /dev/null && exit 0; sleep 1; done
+          cat appium.log; exit 1
+
+      - name: Run the iOS Safari check
+        run: node e2e/ios/safari-check.ts
+
+      - name: Upload screenshots
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-safari-${{ github.run_attempt }}
+          path: |
+            test-results/ios-safari/
+            appium.log
+            preview.log
+          retention-days: 14
+
+      - name: Link the screenshots in the summary
+        if: always() && steps.upload.outputs.artifact-url
+        run: echo "Screenshots and logs: ${{ steps.upload.outputs.artifact-url }}" >> "$GITHUB_STEP_SUMMARY"
