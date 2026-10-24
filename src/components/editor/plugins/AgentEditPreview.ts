@@ -34,6 +34,20 @@ function button(label: string, className: string, onClick: () => void): HTMLButt
     return el;
 }
 
+/** Stops listening for window resizes once ProseMirror removes a bar. */
+const barCleanups = new WeakMap<HTMLElement, () => void>();
+
+/**
+ * On wide screens the assistant panel floats over the right of the note. Narrow the bar so it
+ * ends before the panel; the summary then wraps below the buttons and truncates if still too long.
+ */
+function fitBesidePanel(bar: HTMLElement) {
+    bar.style.maxWidth = '';
+    const panel = document.querySelector('[role="region"][aria-label="Assistant"]')?.getBoundingClientRect();
+    const rect = bar.getBoundingClientRect();
+    if (panel && panel.left > rect.left && panel.left < rect.right) bar.style.maxWidth = `${panel.left - rect.left - 12}px`;
+}
+
 /** The bar with the summary and Accept / Reject. It is a widget, so it scrolls with the note. */
 function createBar(view: EditorView, item: PendingEdit): HTMLElement {
     const bar = document.createElement('div');
@@ -44,8 +58,9 @@ function createBar(view: EditorView, item: PendingEdit): HTMLElement {
     bar.setAttribute('aria-label', `Review the assistant's edit: ${item.summary}`);
 
     const summary = document.createElement('span');
-    summary.className = 'min-w-0 flex-1 basis-40';
+    summary.className = 'min-w-0 flex-1 basis-40 truncate';
     summary.textContent = item.summary;
+    summary.title = item.summary;
 
     const answer = async (accept: boolean) => {
         if (accept) {
@@ -69,7 +84,13 @@ function createBar(view: EditorView, item: PendingEdit): HTMLElement {
             void answer(true);
         }
     });
-    requestAnimationFrame(() => bar.focus());
+    const fit = () => fitBesidePanel(bar);
+    window.addEventListener('resize', fit);
+    barCleanups.set(bar, () => window.removeEventListener('resize', fit));
+    requestAnimationFrame(() => {
+        fit();
+        bar.focus();
+    });
     return bar;
 }
 
@@ -89,7 +110,13 @@ function createInserted(view: EditorView, content: PMNode['content'], block: boo
  */
 export function previewDecorations(doc: PMNode, item: PendingEdit): DecorationSet {
     const bar = (pos: number) =>
-        Decoration.widget(pos, (view) => createBar(view, item), { key: `agent-edit-bar-${item.id}`, side: 3, stopEvent: () => true, ignoreSelection: true });
+        Decoration.widget(pos, (view) => createBar(view, item), {
+            key: `agent-edit-bar-${item.id}`,
+            side: 3,
+            stopEvent: () => true,
+            ignoreSelection: true,
+            destroy: (node) => barCleanups.get(node as HTMLElement)?.(),
+        });
     // The edit was built for another document (a note that changed while this one waited in line): show only the bar.
     if (!item.tr.before.eq(doc)) return DecorationSet.create(doc, [bar(doc.content.size)]);
 

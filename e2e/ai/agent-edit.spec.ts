@@ -64,6 +64,9 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await expect(panel.getByText('Waiting for your OK in the note')).toBeVisible();
   await expect(editor.locator('.agent-edit-format')).toHaveText('Second paragraph here.');
   await expect(strong).toHaveCount(0);
+  // The panel floats over the right of the note at 1280px: the whole bar stays left of it.
+  await expect.poll(async () => (await bar.boundingBox())!.x + (await bar.boundingBox())!.width).toBeLessThanOrEqual((await panel.boundingBox())!.x);
+  await expect(bar.getByText('Make paragraph 2 bold')).toBeVisible();
   await screenshotInBothThemes(app, (theme) => `agent-edit-preview-${theme}-1280.png`);
 
   await queueReply(app, { answer: 'I left it as it is.' });
