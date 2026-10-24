@@ -19,6 +19,19 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - When a person edits a note that you shared with them, Journal sends you a notification. You get one notification for each note every 15 minutes. Click it to open the note.
 
+## 2.22.1 (2026-10-24)
+
+### Changed
+
+- Notifications from your other Homebase apps now show as one quiet notification. Journal notifications do not change. Open Journal to remove the quiet notification.
+
+## 2.22.0 (2026-10-24)
+
+### New
+
+- The assistant can add text to a note that is not open, and it can make a new note. It shows the text in the chat first, and writes it only when you accept.
+- Version history keeps the note as it was before the assistant added text.
+
 ## 2.21.0 (2026-10-24)
 
 ### New

@@ -1,3 +1,15 @@
+## [2.22.1](https://github.com/2002Bishwajeet/journal/compare/v2.22.0...v2.22.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **sw:** show other Homebase apps' pushes as one quiet notification ([638ff4c](https://github.com/2002Bishwajeet/journal/commit/638ff4c592a169336f44a911c92ca976c413c210)), closes [homebase-id/odin-core#2006](https://github.com/homebase-id/odin-core/issues/2006)
+# [2.22.0](https://github.com/2002Bishwajeet/journal/compare/v2.21.0...v2.22.0) (2026-10-24)
+
+
+### Features
+
+* **ai:** agent appends to other notes and creates notes through approval ([#702](https://github.com/2002Bishwajeet/journal/issues/702)) ([9555458](https://github.com/2002Bishwajeet/journal/commit/95554584654c29bb8deec18b7735fcb37f11c55e))
 # [2.21.0](https://github.com/2002Bishwajeet/journal/compare/v2.20.0...v2.21.0) (2026-10-24)
 
 
