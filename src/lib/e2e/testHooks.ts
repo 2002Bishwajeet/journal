@@ -4,8 +4,9 @@
  * module (and its `window.__journalE2E` global) never ships in the production
  * bundle. See src/globals.d.ts for the public type.
  *
- * Nothing here mutates app state — the hooks only read signals the app
- * already maintains (bootProgress and the boot splash) or draw a link card.
+ * The hooks read signals the app already maintains (bootProgress and the boot
+ * splash) or draw a link card. Only deleteFilesTitled writes: the live tier's
+ * teardown uses it to remove what the sharing specs leave on an identity.
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
 
@@ -76,9 +77,44 @@ async function syncToDisk(): Promise<void> {
     await (await getDatabase()).syncToFs();
 }
 
+/** Deletes the signed-in identity's notes and collaboration invites whose title matches `titlePattern`; returns their titles. */
+export async function deleteFilesTitled(titlePattern: string): Promise<string[]> {
+    const { DotYouClient, ApiType, queryBatch, getContentFromHeaderOrPayload, deleteFile } = await import('@homebase-id/js-lib/core');
+    const { retrieveIdentity } = await import('@homebase-id/js-lib/auth');
+    const { base64ToUint8Array } = await import('@homebase-id/js-lib/helpers');
+    const { JOURNAL_DRIVE, JOURNAL_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE, STORAGE_KEY_AUTH_TOKEN, STORAGE_KEY_SHARED_SECRET } =
+        await import('@/lib/homebase/config');
+    const client = new DotYouClient({
+        api: ApiType.App,
+        hostIdentity: retrieveIdentity()!,
+        sharedSecret: base64ToUint8Array(localStorage.getItem(STORAGE_KEY_SHARED_SECRET)!),
+        headers: { bx0900: localStorage.getItem(STORAGE_KEY_AUTH_TOKEN)! },
+    });
+    const pattern = new RegExp(titlePattern);
+    const matches: { fileId: string; title: string }[] = [];
+    let cursorState: string | undefined;
+    for (;;) {
+        const page = await queryBatch(
+            client,
+            { targetDrive: JOURNAL_DRIVE, fileType: [JOURNAL_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE] },
+            { maxRecords: 100, cursorState, includeMetadataHeader: true },
+        );
+        for (const file of page.searchResults) {
+            // A note names itself in `title`, an invite names its note in `noteTitle`.
+            const content = await getContentFromHeaderOrPayload<{ title?: string; noteTitle?: string }>(client, JOURNAL_DRIVE, file, true);
+            const title = content?.title ?? content?.noteTitle;
+            if (title && pattern.test(title)) matches.push({ fileId: file.fileId, title });
+        }
+        if (page.searchResults.length < 100) break;
+        cursorState = page.cursorState;
+    }
+    for (const { fileId } of matches) await deleteFile(client, JOURNAL_DRIVE, fileId);
+    return matches.map(({ title }) => title);
+}
+
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, deleteFilesTitled }),
         writable: false,
         configurable: false,
         enumerable: false,

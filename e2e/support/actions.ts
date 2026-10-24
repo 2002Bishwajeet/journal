@@ -103,13 +103,6 @@ export async function deleteFolder(page: Page, name: string): Promise<void> {
     await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
 }
 
-/** Move a note to Trash via its row's context menu (the note list must show it). */
-export async function trashNote(page: Page, title: string): Promise<void> {
-    await assertTestOrigin(page);
-    await page.getByTestId('note-row').filter({ hasText: title }).first().click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Move to Trash' }).click();
-}
-
 /** Stop sharing a folder if it is shared (no-op when private), so its notes leave the public index. */
 export async function unshareFolderIfShared(page: Page, name: string): Promise<void> {
     await assertTestOrigin(page);
