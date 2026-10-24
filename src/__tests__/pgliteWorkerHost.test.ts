@@ -32,7 +32,10 @@ class FakeLocks {
   }
 }
 
-const ID = 'host-test';
+// A fresh leader id per test: earlier tests' leaders are never torn down and
+// would otherwise answer this test's tabs too.
+let ID = '';
+let run = 0;
 const tick = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 const channels: BroadcastChannel[] = [];
 
@@ -95,6 +98,7 @@ describe('pgliteWorkerHost', () => {
   let db: PGlite;
 
   beforeEach(() => {
+    ID = `host-test-${run++}`;
     locks = new FakeLocks();
     vi.stubGlobal('navigator', { locks });
     vi.stubGlobal('postMessage', () => {});
@@ -142,6 +146,7 @@ describe('pgliteWorkerHost', () => {
     tab.close();
     const other = await openTab(locks, 'b');
     expect(await withinMs(other.rpc('_acquireQueryLock'), 2_000)).not.toBe('timed out');
+    await other.rpc('_releaseQueryLock'); // db.close() waits for held query locks
   });
 });
 

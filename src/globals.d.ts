@@ -45,6 +45,8 @@ interface JournalE2EHooks {
   hasUnsavedEdits(): Promise<boolean>;
   /** Resolves once PGlite has flushed everything it committed to IndexedDB. */
   syncToDisk(): Promise<void>;
+  /** Deletes the signed-in identity's folders (with their notes), notes and invites whose name matches the regex source; returns the names. */
+  deleteFilesNamed(namePattern: string): Promise<string[]>;
   /** Draws a 1200×630 link card JPEG, as src/lib/share/cardImage.ts's renderCardImage does. */
   renderCard(
     text: { title: string; excerpt?: string; author: string },
