@@ -1,3 +1,22 @@
+# [2.18.0](https://github.com/2002Bishwajeet/journal/compare/v2.17.3...v2.18.0) (2026-10-24)
+
+
+### Bug Fixes
+
+* clearer notification status copy ([56fbc22](https://github.com/2002Bishwajeet/journal/commit/56fbc22c403324228496a57660622cbe69ce1d40))
+* **editor:** call the parent table markdown parser through this.parent ([3195dbe](https://github.com/2002Bishwajeet/journal/commit/3195dbe7a3547db498a55c27140f74522a452e23))
+* **editor:** keep the gallery drop indicator through Chrome's spurious dragleave ([c3c6389](https://github.com/2002Bishwajeet/journal/commit/c3c6389eaa982b9505e87c56ed21e9094075a506))
+* **editor:** keep the Yjs UndoManager alive when plugin views are recreated ([e4cd6b7](https://github.com/2002Bishwajeet/journal/commit/e4cd6b7bc00b8ee89aa92433aed66345c06a5d43))
+* **editor:** no blank line above an image alone on its line ([631a5a9](https://github.com/2002Bishwajeet/journal/commit/631a5a97024ced411b9495de5660ee20e5bb4e36))
+* **pwa:** show a notification for every push, so Chrome never shows its background notice ([#744](https://github.com/2002Bishwajeet/journal/issues/744)) ([bcf3a3f](https://github.com/2002Bishwajeet/journal/commit/bcf3a3f21d1cdde59a98091c4901aef271c20f46))
+* **sharing:** restore pullOwnerNow for [#745](https://github.com/2002Bishwajeet/journal/issues/745) ([#732](https://github.com/2002Bishwajeet/journal/issues/732)) ([8fbf317](https://github.com/2002Bishwajeet/journal/commit/8fbf317283b0bb1e46300b6ce39de88626562aa1))
+* **sidebar:** 44px tap target and tooltip for the shared-notes refresh button ([01d34b4](https://github.com/2002Bishwajeet/journal/commit/01d34b4d71018693e93843f3b15281d0f60dd89c))
+
+
+### Features
+
+* **pwa:** show Journal web pushes and add a Notifications opt-in ([#744](https://github.com/2002Bishwajeet/journal/issues/744)) ([a7b2098](https://github.com/2002Bishwajeet/journal/commit/a7b2098ddaac56aca3d0f431c6bd6ee986ed199f))
+* **sharing:** find shared notes by pulling from connections ([#732](https://github.com/2002Bishwajeet/journal/issues/732)) ([369e736](https://github.com/2002Bishwajeet/journal/commit/369e736254f9f6e17d9ee4a351430fc3ac990913)), closes [#745](https://github.com/2002Bishwajeet/journal/issues/745)
 ## [2.17.3](https://github.com/2002Bishwajeet/journal/compare/v2.17.2...v2.17.3) (2026-10-24)
 
 
