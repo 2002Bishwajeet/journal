@@ -1,3 +1,10 @@
+## [2.15.2](https://github.com/2002Bishwajeet/journal/compare/v2.15.1...v2.15.2) (2026-10-23)
+
+
+### Bug Fixes
+
+* **sidebar:** collapsed rail shows every folder tile in full; agent access selects line up ([c4ca97f](https://github.com/2002Bishwajeet/journal/commit/c4ca97fd3fa8424eb15f10a5d5d2d389aa36f7f6))
+* **sidebar:** stronger light-mode rail tiles and a clearer shared badge ([1fd4fd0](https://github.com/2002Bishwajeet/journal/commit/1fd4fd0b52f5e64fa121d4400ac2974462701afd))
 ## [2.15.1](https://github.com/2002Bishwajeet/journal/compare/v2.15.0...v2.15.1) (2026-10-23)
 # [2.15.0](https://github.com/2002Bishwajeet/journal/compare/v2.14.0...v2.15.0) (2026-10-23)
 
