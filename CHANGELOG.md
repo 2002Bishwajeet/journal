@@ -1,3 +1,15 @@
+# [2.17.0](https://github.com/2002Bishwajeet/journal/compare/v2.16.0...v2.17.0) (2026-10-24)
+
+
+### Bug Fixes
+
+* **sharing:** subscribe peer push when the server refuses the list; share the app socket ([#743](https://github.com/2002Bishwajeet/journal/issues/743)) ([e0c2d68](https://github.com/2002Bishwajeet/journal/commit/e0c2d68c18a4da0c88e1ce9071d989473ed8a55a))
+
+
+### Features
+
+* **sharing:** enroll recipients of existing shares in the app circle once ([#734](https://github.com/2002Bishwajeet/journal/issues/734)) ([f71b369](https://github.com/2002Bishwajeet/journal/commit/f71b3696d795075c919ed0ca7d858ec0a7d5d715))
+* **sharing:** subscribe to each connection's peer push and ask for SendPushNotifications at sign-in ([#743](https://github.com/2002Bishwajeet/journal/issues/743)) ([09cf8b3](https://github.com/2002Bishwajeet/journal/commit/09cf8b3a3a6c65b8ed8e64ade11ae2f7d6b9d677))
 # [2.16.0](https://github.com/2002Bishwajeet/journal/compare/v2.15.3...v2.16.0) (2026-10-24)
 
 
