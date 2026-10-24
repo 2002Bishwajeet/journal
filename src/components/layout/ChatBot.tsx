@@ -5,7 +5,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Send, Loader2, Bot, MessageCircle, ChevronLeft, Square } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useAgentSession, type AgentStep } from "@/hooks/useAgentSession";
+import { SUMMARIZE_REQUEST, useAgentSession, type AgentStep } from "@/hooks/useAgentSession";
+import { aiRequests } from "@/lib/agent/aiRequests";
 import ModelDownloadDialog from "@/components/modals/ModelDownloadDialog";
 import { AgentWriteCard } from "@/components/layout/AgentWriteCard";
 
@@ -39,12 +40,25 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
     downloadDialogProps,
     suggestions,
     send,
+    submit,
     stop,
     selectCommand,
     handleKeyDown,
   } = useAgentSession(activeNoteId ?? undefined);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // The /ask and /summarize slash commands in the note open the panel (#703).
+  useEffect(
+    () =>
+      aiRequests.subscribe((request) => {
+        if (request === "rewrite") return;
+        setIsOpen(true);
+        if (request === "summarize") void submit(SUMMARIZE_REQUEST);
+        else requestAnimationFrame(() => inputRef.current?.focus());
+      })
+  );
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -187,6 +201,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
 
             <div className="flex gap-2">
               <Input
+                ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}

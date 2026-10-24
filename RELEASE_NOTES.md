@@ -17,6 +17,36 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ### New
 
+- The assistant can add text to a note that is not open, and it can make a new note. It shows the text in the chat first, and writes it only when you accept.
+- Version history keeps the note as it was before the assistant added text.
+
+## 2.21.0 (2026-10-24)
+
+### New
+
+- You can send a test notification in Settings > Notifications. The button shows when notifications are on for this device. All devices with notifications on get the test.
+
+## 2.20.0 (2026-10-24)
+
+### New
+
+- In Settings, Agent access, you can let your browser's AI agent use the notes you granted. This needs a browser with WebMCP.
+
+## 2.19.0 (2026-10-24)
+
+### Changed
+
+- The AI menu in the editor shows its rewrite in the note first. You choose Accept or Reject.
+- The /ask and /summarize commands open the assistant. The /rewrite command opens the AI menu for the selected text.
+
+## 2.18.0 (2026-10-24)
+
+### Changed
+
+- The app now looks for notes that your connections share with you. A shared note shows in "Shared with me" within a few minutes. Select the refresh button next to "Shared with me" to look now. A note that is no longer shared with you goes away from the list.
+
+### New
+
 - You can turn on notifications in Settings > Notifications. Then Journal tells you when someone shares a note with you. Click the notification to open the note.
 
 ## 2.17.3 (2026-10-24)
@@ -52,8 +82,6 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - The assistant can change the note that you have open. It shows each change in the note first.
 - You choose Accept or Reject for each change. The note stays the same until you accept.
 - One undo (Cmd+Z or Ctrl+Z) takes back an accepted change.
-- The assistant can add text to a note that is not open, and it can make a new note. It shows the text in the chat first, and writes it only when you accept.
-- Version history keeps the note as it was before the assistant added text.
 
 ## 2.15.3 (2026-10-24)
 
