@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- A note that its owner stops sharing with you now goes away from your devices. The app tells you when you open it. A saved invite does not bring the note back.
+
 ## 2.18.0 (2026-10-24)
 
 ### Changed
