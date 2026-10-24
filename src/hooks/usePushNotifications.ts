@@ -1,9 +1,18 @@
 import { useEffect, useState } from 'react';
+import { isAxiosError } from 'axios';
+import { SendNotification } from '@homebase-id/js-lib/core';
 import { useDotYouClientContext } from '@/components/auth';
+import { JOURNAL_APP_ID, JOURNAL_TEST_PUSH_TYPE_ID } from '@/lib/homebase/config';
+import { getNewId } from '@/lib/utils';
 import { WebPushProvider, getPushSubscription } from '@/lib/homebase/WebPushProvider';
 
 /** `ios-hint`: iOS Safari in a tab, where web push works only from the Home Screen app. */
 export type PushStatus = 'unsupported' | 'ios-hint' | 'blocked' | 'on' | 'off';
+
+/** The last "Send test": `forbidden` is a 403, the app lacks `SendPushNotifications`. */
+export type TestPush =
+    | { state: 'idle' | 'sending' | 'sent' | 'forbidden' }
+    | { state: 'failed'; httpStatus?: number };
 
 function getSupport(): 'supported' | 'ios-hint' | 'unsupported' {
     if ('PushManager' in window && 'serviceWorker' in navigator && 'Notification' in window) return 'supported';
@@ -25,6 +34,7 @@ export function usePushNotifications() {
     const [subscribed, setSubscribed] = useState(false);
     const [busy, setBusy] = useState(false);
     const [failed, setFailed] = useState(false);
+    const [testPush, setTestPush] = useState<TestPush>({ state: 'idle' });
 
     useEffect(() => {
         if (support !== 'supported') return;
@@ -83,5 +93,24 @@ export function usePushNotifications() {
             setSubscribed(false);
         });
 
-    return { status, busy, failed, turnOn, turnOff };
+    // The identity pushes to itself through the app push API, so every subscribed device gets it
+    const sendTest = async () => {
+        setTestPush({ state: 'sending' });
+        try {
+            await SendNotification(dotYouClient, {
+                appId: JOURNAL_APP_ID,
+                typeId: JOURNAL_TEST_PUSH_TYPE_ID,
+                tagId: getNewId(),
+                silent: false,
+                unEncryptedMessage: 'Test notification from Journal',
+            });
+            setTestPush({ state: 'sent' });
+        } catch (error) {
+            console.warn('[Push] Test failed:', error);
+            const httpStatus = isAxiosError(error) ? error.response?.status : undefined;
+            setTestPush(httpStatus === 403 ? { state: 'forbidden' } : { state: 'failed', httpStatus });
+        }
+    };
+
+    return { status, busy, failed, turnOn, turnOff, testPush, sendTest };
 }

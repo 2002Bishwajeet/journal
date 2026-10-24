@@ -4,7 +4,6 @@ export {
     clearModelCache,
     checkGrammar,
     getAutocompleteSuggestion,
-    getActionSuggestions,
     isWebLLMReady,
     isWebLLMLoading,
     isModelCached,

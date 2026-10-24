@@ -32,7 +32,6 @@ interface UseWebLLMResult {
     switchModel: (modelId: string) => Promise<boolean>;
     runGrammarCheck: (text: string) => Promise<void>;
     rewrite: (text: string, style: RewriteStyle) => Promise<string>;
-    getSuggestions: (text: string) => Promise<string[]>;
     chat: (messages: ChatMessage[]) => Promise<string>;
 }
 
@@ -244,12 +243,6 @@ export function useWebLLM(): UseWebLLMResult {
         return mod.rewriteText(text, style);
     }, [initialize, isMobile]);
 
-    const getSuggestions = useCallback(async (text: string): Promise<string[]> => {
-        if (isMobile) return [];
-        if (!webllmModule || !webllmModule.isWebLLMReady()) return [];
-        return webllmModule.getActionSuggestions(text);
-    }, [isMobile]);
-
     const chat = useCallback(async (messages: ChatMessage[]): Promise<string> => {
         if (isMobile) throw new Error('AI not supported on mobile');
 
@@ -284,7 +277,6 @@ export function useWebLLM(): UseWebLLMResult {
         switchModel,
         runGrammarCheck,
         rewrite,
-        getSuggestions,
         chat,
     };
 }

@@ -19,6 +19,25 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - A note that its owner stops sharing with you now goes away from your devices. The app tells you when you open it. A saved invite does not bring the note back.
 
+## 2.21.0 (2026-10-24)
+
+### New
+
+- You can send a test notification in Settings > Notifications. The button shows when notifications are on for this device. All devices with notifications on get the test.
+
+## 2.20.0 (2026-10-24)
+
+### New
+
+- In Settings, Agent access, you can let your browser's AI agent use the notes you granted. This needs a browser with WebMCP.
+
+## 2.19.0 (2026-10-24)
+
+### Changed
+
+- The AI menu in the editor shows its rewrite in the note first. You choose Accept or Reject.
+- The /ask and /summarize commands open the assistant. The /rewrite command opens the AI menu for the selected text.
+
 ## 2.18.0 (2026-10-24)
 
 ### Changed
