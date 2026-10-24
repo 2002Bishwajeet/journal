@@ -1,22 +1,26 @@
 import { cn } from "@/lib/utils";
 import { Download, HardDrive, CheckCircle2 } from "lucide-react";
-import { AVAILABLE_MODELS } from "@/lib/webllm";
+import type { ModelInfo } from "@/lib/webllm";
 
 const capabilityLabel = (capability: string) =>
   capability[0].toUpperCase() + capability.slice(1);
 
 export default function AIModelList({
+  label,
+  models,
   selectedModelId,
   onSelect,
   disabled,
 }: {
+  label: string;
+  models: ModelInfo[];
   selectedModelId: string;
-  onSelect: (id: string) => Promise<void>;
+  onSelect: (id: string) => void | Promise<void>;
   disabled: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label="Model" aria-disabled={disabled} className="space-y-3">
-      {AVAILABLE_MODELS.map((model) => {
+    <div role="radiogroup" aria-label={label} aria-disabled={disabled} className="space-y-3">
+      {models.map((model) => {
         const isSelected = selectedModelId === model.id;
         return (
           <label
@@ -31,7 +35,7 @@ export default function AIModelList({
           >
             <input
               type="radio"
-              name="model"
+              name={label}
               value={model.id}
               checked={isSelected}
               disabled={disabled}

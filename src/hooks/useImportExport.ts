@@ -44,15 +44,19 @@ export function useImportExport(): UseImportExportReturn {
             // Upload the imported notes (and then their images) now, not on the next sync trigger.
             if (result.imported > 0 || result.foldersCreated > 0) void sync();
 
+            // Files a zip held that aren't notes, tables or images, so "0 notes" is never unexplained (#595)
+            const skipped = result.skipped > 0
+                ? ` ${result.skipped} ${result.skipped === 1 ? "file was" : "files were"} skipped (not Markdown, CSV or an image).`
+                : "";
             if (result.failed > 0) {
                 const noun = result.failed === 1 ? "file" : "files";
                 const example = result.errors[0] ? ` (e.g. ${result.errors[0].file})` : "";
                 toast.warning(
-                    `Imported ${result.imported} notes. ${result.failed} ${noun} couldn't be imported${example}.`
+                    `Imported ${result.imported} notes. ${result.failed} ${noun} couldn't be imported${example}.${skipped}`
                 );
             } else {
                 toast.success(
-                    `Successfully imported ${result.imported} notes and created ${result.foldersCreated} folders.`
+                    `Successfully imported ${result.imported} notes and created ${result.foldersCreated} folders.${skipped}`
                 );
             }
         } catch (error) {

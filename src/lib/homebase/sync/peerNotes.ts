@@ -182,10 +182,18 @@ export async function handleInvitation(ctx: SyncContext, remoteFile: HomebaseFil
     // The invite is also stored on the owner's drive: it is not an incoming share
     if (content.authorOdinId === ctx.hostIdentity) return;
 
+    // The invite content is written by the sender: trust only the server-recorded sender
+    const senderOdinId = remoteFile.fileMetadata?.senderOdinId;
+    if (!senderOdinId) return;
+    if (senderOdinId !== content.authorOdinId) {
+        console.warn(`[SyncService] Ignoring invitation ${remoteFile.fileId}: sender ${senderOdinId} does not match claimed author ${content.authorOdinId}`);
+        return;
+    }
+
     await bootstrapCollaborativeNote(
         ctx,
         content.noteUniqueId,
-        content.authorOdinId,
+        senderOdinId,
         content.noteTitle,
         content.notePreview,
         content.sharedAt,

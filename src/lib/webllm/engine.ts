@@ -1,5 +1,6 @@
 import type * as WebLLMTypes from '@mlc-ai/web-llm';
-import { DEFAULT_MODEL_ID } from './models';
+import { DEFAULT_MODEL_ID, getModelInfo } from './models';
+import { resolveModelId } from './requirements';
 
 let webllmModule: typeof WebLLMTypes | null = null;
 let engine: WebLLMTypes.MLCEngineInterface | null = null;
@@ -146,7 +147,7 @@ export async function initWebLLM(
             engine.setInitProgressCallback(onProgress);
         }
 
-        await engine.reload(currentModelId);
+        await engine.reload(await resolveModelId(currentModelId));
 
         isLoading = false;
         modelLoaded = true;
@@ -162,10 +163,26 @@ export async function initWebLLM(
 }
 
 /**
+ * True when the weights for `modelId` are already in the browser cache,
+ * so loading it downloads nothing.
+ */
+export async function isModelCached(modelId: string): Promise<boolean> {
+    try {
+        if (!webllmModule) {
+            webllmModule = await import('@mlc-ai/web-llm');
+        }
+        return await webllmModule.hasModelInCache(modelId);
+    } catch {
+        return false;
+    }
+}
+
+/**
  * Check grammar and spelling
  */
 export async function checkGrammar(text: string): Promise<string[]> {
-    if (!engine || !modelLoaded) return [];
+    const engine = editorEngine();
+    if (!engine) return [];
     trackActivity();
 
     try {
@@ -212,7 +229,8 @@ Output format: ["error 1", "error 2"]`,
  * Get autocomplete suggestion
  */
 export async function getAutocompleteSuggestion(text: string): Promise<string> {
-    if (!engine || !modelLoaded) return '';
+    const engine = editorEngine();
+    if (!engine) return '';
     trackActivity();
 
     try {
@@ -245,7 +263,8 @@ export async function getAutocompleteSuggestion(text: string): Promise<string> {
  * Get action suggestions (e.g., "Add to calendar", "Create todo")
  */
 export async function getActionSuggestions(text: string): Promise<string[]> {
-    if (!engine || !modelLoaded) return [];
+    const engine = editorEngine();
+    if (!engine) return [];
     trackActivity();
 
     try {
@@ -287,7 +306,22 @@ Output format: ["action1", "action2"]`,
  * Check if WebLLM is available and model is loaded
  */
 export function isWebLLMReady(): boolean {
-    return engine !== null && modelLoaded;
+    return editorEngine() !== null;
+}
+
+/**
+ * The loaded engine, unless it holds an agent model (#698): autocomplete, grammar and
+ * rewrite never prompt it, and the editor model loads again on their next initialize.
+ */
+function editorEngine(): WebLLMTypes.MLCEngineInterface | null {
+    return modelLoaded && getModelInfo(currentModelId)?.job !== 'agent' ? engine : null;
+}
+
+/** The loaded engine, for the agent adapter. Counts as activity for the idle unload. */
+export function getLoadedEngine(): WebLLMTypes.MLCEngineInterface | null {
+    if (!engine || !modelLoaded) return null;
+    trackActivity();
+    return engine;
 }
 
 /**
@@ -358,7 +392,8 @@ export async function chat(messages: ChatMessage[]): Promise<string> {
  * Rewrite text with a specific style
  */
 export async function rewriteText(text: string, style: RewriteStyle): Promise<string> {
-    if (!engine || !modelLoaded) return text;
+    const engine = editorEngine();
+    if (!engine) return text;
     trackActivity();
 
     try {

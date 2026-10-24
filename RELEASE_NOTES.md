@@ -15,12 +15,80 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.15.3 (2026-10-24)
+
+### Fixed
+
+- When all your notes are in one folder, export and import keep them in that folder.
+
+## 2.15.2 (2026-10-23)
+
+### Fixed
+
+- The narrow sidebar shows all folders in full. A long folder list scrolls. Each folder shows two letters, and a globe marks a shared folder.
+- In Agent access settings, the access lists have the same width. The arrow no longer covers the text.
+
+## 2.15.1 (2026-10-23)
+
+### Fixed
+
+- When you export all notes and import the file again, quotes in note titles stay correct.
+- Tags with a comma or a quote also stay correct after export and import.
+
+## 2.15.0 (2026-10-23)
+
+### Changed
+
+- When you share a note, the people you share with get access to it. You do not change settings in Homebase first.
+- When you stop sharing a note, the app removes access for people who have no other note from you.
+
+## 2.14.0 (2026-10-23)
+
+### Changed
+
+- The assistant now looks things up in your notes. Each answer shows the steps it took.
+- You can stop the assistant while it works.
+- The assistant has no web search. Your questions stay on your device.
+
+## 2.13.1 (2026-10-23)
+
+### Fixed
+
+- The app shows a shared note under the person who really sent it.
+- The app ignores a share invite that names a different person as the sender.
+
+## 2.13.0 (2026-10-23)
+
+### New
+
+- You can import a Notion export. In Notion, export as Markdown & CSV, then import the .zip file in Settings, Data & storage.
+- The import keeps page titles, links between pages and images. Notion databases become tables.
+
+## 2.12.0 (2026-10-23)
+
+### New
+
+- You can import an Obsidian vault. Export the vault as a .zip file, then import it in Settings, Data & storage.
+- The import keeps links between notes, embedded images, tags and callouts.
+
+### Changed
+
+- Notes without math or code open faster. The app loads math and code highlighting only when a note needs them.
+- Before the app downloads an AI model, it shows the download size and what your device needs.
+- The app does not start the download until you choose Continue.
+- On a device without WebGPU, the app tells you and downloads nothing.
+- Settings has two AI model lists: one for writing help and one for the assistant.
+- New users get the smaller Qwen 2.5 0.5B model for writing help.
+- The app removes Llama 3.2 1B from the list. If you chose it, the app uses Qwen 2.5 0.5B.
+
 ### Fixed
 
 - A new note keeps its title when you start to type the text right after the title. Before, the note list sometimes showed it as "Untitled".
 - When you share a note with a circle, every member of the circle gets the invite.
 - When you revoke a shared note, it leaves the "Shared with me" list of each member.
 - Export keeps every note when two notes in one folder have the same title. The second file gets a number, for example "Same (2).md".
+- When you revoke a shared note right after a member edits it, the revoke always takes.
+- On a new device, a folder that you make during the first sync stays after the sync ends.
 
 ## 2.11.8 (2026-10-14)
 

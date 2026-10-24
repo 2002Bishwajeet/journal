@@ -3,25 +3,34 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { AVAILABLE_MODELS, DEFAULT_MODEL_ID, getModelInfo } from '@/lib/webllm/models';
 import { DEFAULT_SETTINGS, STORAGE_KEY, loadSettings } from '@/hooks/useAISettings';
 
+const EDITOR_DEFAULT = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+const AGENT_DEFAULT = 'Qwen3-1.7B-q4f16_1-MLC';
+
 describe('Model Registry', () => {
   it('should have at least one model', () => {
     expect(AVAILABLE_MODELS.length).toBeGreaterThan(0);
   });
 
-  it('should have exactly one recommended model', () => {
-    const recommended = AVAILABLE_MODELS.filter((m) => m.recommended);
-    expect(recommended).toHaveLength(1);
+  it('should have exactly one recommended model for each job', () => {
+    for (const job of ['editor', 'agent']) {
+      expect(AVAILABLE_MODELS.filter((m) => m.job === job && m.recommended)).toHaveLength(1);
+    }
   });
 
-  it('DEFAULT_MODEL_ID should match the recommended model', () => {
-    const recommended = AVAILABLE_MODELS.find((m) => m.recommended);
+  it('should not list Llama 3.2 1B any more', () => {
+    expect(getModelInfo('Llama-3.2-1B-Instruct-q4f16_1-MLC')).toBeUndefined();
+  });
+
+  it('DEFAULT_MODEL_ID should match the recommended editor model', () => {
+    const recommended = AVAILABLE_MODELS.find((m) => m.job === 'editor' && m.recommended);
     expect(recommended?.id).toBe(DEFAULT_MODEL_ID);
+    expect(DEFAULT_MODEL_ID).toBe(EDITOR_DEFAULT);
   });
 
   it('getModelInfo should return model for valid ID', () => {
     const model = getModelInfo(DEFAULT_MODEL_ID);
     expect(model).toBeDefined();
-    expect(model?.name).toBe('Qwen 2.5 1.5B');
+    expect(model?.name).toBe('Qwen 2.5 0.5B');
   });
 
   it('getModelInfo should return undefined for invalid ID', () => {
@@ -76,6 +85,29 @@ describe('AI Settings - loadSettings', () => {
     localStorage.setItem('webllm-enabled', 'true');
     const settings = loadSettings();
     expect(settings.modelId).toBe(DEFAULT_SETTINGS.modelId);
+  });
+
+  it('should default agentModelId to the agent default', () => {
+    expect(DEFAULT_SETTINGS.agentModelId).toBe(AGENT_DEFAULT);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, enabled: true, modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' }));
+    expect(loadSettings().agentModelId).toBe(AGENT_DEFAULT);
+  });
+
+  it('should keep a saved agentModelId', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, agentModelId: 'Qwen3-4B-q4f16_1-MLC' }));
+    expect(loadSettings().agentModelId).toBe('Qwen3-4B-q4f16_1-MLC');
+  });
+
+  it('should fall back to the editor default for a saved Llama 3.2 1B choice', () => {
+    const saved = { _v: 2, enabled: true, modelId: 'Llama-3.2-1B-Instruct-q4f16_1-MLC' };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+    expect(loadSettings().modelId).toBe(EDITOR_DEFAULT);
+  });
+
+  it('should keep a saved Qwen 2.5 1.5B choice', () => {
+    const saved = { _v: 2, enabled: true, modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+    expect(loadSettings().modelId).toBe('Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
   });
 
   it('should handle corrupted data gracefully', () => {
