@@ -1,3 +1,15 @@
+## [2.17.2](https://github.com/2002Bishwajeet/journal/compare/v2.17.1...v2.17.2) (2026-10-24)
+
+
+### Bug Fixes
+
+* **deps:** bump zod to 4.6.7 (security alert [#146](https://github.com/2002Bishwajeet/journal/issues/146)) ([a8392f7](https://github.com/2002Bishwajeet/journal/commit/a8392f7ea57c7acdcb5d5e9afb4b1f1ffd8daecf))
+## [2.17.1](https://github.com/2002Bishwajeet/journal/compare/v2.17.0...v2.17.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **whats-new:** let the What's new list scroll on phones ([61e95ee](https://github.com/2002Bishwajeet/journal/commit/61e95eec03004f7062940454d7299e94a21ef906))
 # [2.17.0](https://github.com/2002Bishwajeet/journal/compare/v2.16.0...v2.17.0) (2026-10-24)
 
 
