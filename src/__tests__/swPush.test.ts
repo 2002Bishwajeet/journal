@@ -1,6 +1,7 @@
 /**
- * #744: the service worker shows Journal's web pushes (and only Journal's), and a click on
- * one opens the shared note.
+ * #744: the service worker shows Journal's web pushes, and a click on one opens the shared
+ * note. Other apps' pushes reach this subscription too and get a generic notification, so
+ * Chrome never shows its "updated in the background" notice.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { JOURNAL_APP_ID } from '@/lib/homebase/config';
@@ -78,15 +79,15 @@ describe('sw push', () => {
         expect(showNotification).toHaveBeenCalledTimes(1);
     });
 
-    it("shows nothing for another app's payload", async () => {
+    it("shows a generic notification for another app's payload and does not tell open windows", async () => {
         const client = { postMessage: vi.fn() };
         matchAll.mockResolvedValue([client]);
-        await firePush({ payloads: [payload('00000000000000000000000000000001', 'chat-1')] });
-        expect(showNotification).not.toHaveBeenCalled();
+        await firePush({ payloads: [{ ...payload('2d781401-3804-4b57-b4aa-d8e4e2ef39f4', 'chat-1'), appDisplayName: 'Chat' }] });
+        expect(showNotification).toHaveBeenCalledWith('Chat', { body: 'sam.dotyou.cloud sent you a notification via Chat', tag: 'chat-1' });
         expect(client.postMessage).not.toHaveBeenCalled();
     });
 
-    it('shows one notification per Journal payload in a push with several', async () => {
+    it('shows one notification per payload in a push with several', async () => {
         matchAll.mockResolvedValue([]);
         await firePush({
             payloads: [
@@ -95,8 +96,16 @@ describe('sw push', () => {
                 payload(JOURNAL_APP_ID, 'note-2', 'pippin.dotyou.cloud'),
             ],
         });
-        expect(showNotification).toHaveBeenCalledTimes(2);
+        expect(showNotification).toHaveBeenCalledTimes(3);
         expect(showNotification).toHaveBeenCalledWith('pippin.dotyou.cloud', expect.objectContaining({ tag: 'note-2' }));
+    });
+
+    it('still shows a notification for a push it cannot read', async () => {
+        matchAll.mockResolvedValue([]);
+        let done: Promise<unknown> = Promise.resolve();
+        listeners.push({ data: { json: () => { throw new SyntaxError('bad'); } }, waitUntil: (p: Promise<unknown>) => { done = p; } });
+        await done;
+        expect(showNotification).toHaveBeenCalledWith('Homebase', { body: 'You have a new notification' });
     });
 });
 
@@ -119,5 +128,17 @@ describe('sw notificationclick', () => {
         const close = await fireClick(data);
         expect(close).toHaveBeenCalled();
         expect(openWindow).toHaveBeenCalledWith(url);
+    });
+
+    it("focuses Journal without navigating for another app's notification", async () => {
+        const client = { focus: vi.fn(async () => {}), navigate: vi.fn(async () => null) };
+        matchAll.mockResolvedValue([client]);
+        await fireClick(undefined);
+        expect(client.focus).toHaveBeenCalled();
+        expect(client.navigate).not.toHaveBeenCalled();
+
+        matchAll.mockResolvedValue([]);
+        await fireClick(undefined);
+        expect(openWindow).toHaveBeenCalledWith('/');
     });
 });
