@@ -18,14 +18,21 @@ async function showToastOverSettings(page: Page) {
 test('mobile: tapping a toast keeps Settings open and the toast clears the safe area', async ({ browser }) => {
   await withFencedPage(
     browser,
-    { storageState: 'e2e/fixtures/hermetic-auth.json', viewport: { width: 393, height: 852 }, hasTouch: true, isMobile: true },
+    { storageState: 'e2e/fixtures/hermetic-auth.json', viewport: { width: 393, height: 852 }, hasTouch: true, isMobile: true, permissions: ['clipboard-read', 'clipboard-write'] },
     async (page) => {
+      // iPhone 15 notch and home indicator (Chromium only).
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, bottom: 34 } });
       await page.goto('/');
       await assertTestOrigin(page);
       await waitForAppReady(page);
       const { dialog, toast } = await showToastOverSettings(page);
       await expect(page.locator('[data-sonner-toaster]')).not.toHaveCSS('pointer-events', 'none');
       await expect(toast).not.toHaveCSS('pointer-events', 'none');
+      await expect.poll(async () => {
+        const b = (await toast.boundingBox())!;
+        return b.y + b.height;
+      }).toBeLessThanOrEqual(852 - 34);
       await inBothThemes(page, async (theme) => {
         await page.screenshot({ path: test.info().outputPath(`toast-${theme}-393.png`) });
       });
