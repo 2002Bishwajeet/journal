@@ -4,7 +4,7 @@
  * [A, B] or [B, A] by side, or adds A to B's gallery (which also reorders it); a
  * gallery image moves left/right from its toolbar; each is one undo step.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import type { Editor } from '@tiptap/core';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { NodeSelection } from '@tiptap/pm/state';
@@ -117,6 +117,29 @@ describe('dropping an image beside another', () => {
     const a = editor.state.doc.nodeAt(posOf('A'))!;
     editor.view.dispatch(dropImageBeside(editor.state, a, null, { pos: posOf('B'), side: 'right' })!);
     expect(outline()).toBe('paragraph[A] gallery[B A]');
+  });
+});
+
+describe('the drop indicator', () => {
+  /** Shows the indicator on the right of image `alt`, as a dragover would. */
+  function showIndicator(alt: string) {
+    const key = editor.state.plugins.find((p) => (p.spec.key as unknown as { key: string } | undefined)?.key === 'galleryDrop$')!.spec.key!;
+    editor.view.dispatch(editor.state.tr.setMeta(key, { pos: posOf(alt), side: 'right' }));
+  }
+  const shown = () => editor.view.dom.querySelectorAll('[data-drop-side]').length;
+  const leave = () => editor.view.dom.dispatchEvent(new Event('dragleave', { bubbles: true }));
+
+  it('stays on a dragleave without a relatedTarget while the pointer is still over the editor', () => {
+    mk(`<p>${img('A')}</p><p>${img('B')}</p>`);
+    showIndicator('B');
+    expect(shown()).toBe(1);
+    const under = vi.spyOn(document, 'elementFromPoint').mockReturnValue(editor.view.dom.querySelector('img[alt="B"]'));
+    leave();
+    expect(shown()).toBe(1);
+    under.mockReturnValue(null);
+    leave();
+    expect(shown()).toBe(0);
+    under.mockRestore();
   });
 });
 

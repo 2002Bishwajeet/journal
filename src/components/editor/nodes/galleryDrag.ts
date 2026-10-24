@@ -148,7 +148,10 @@ export function galleryDropPlugin(): Plugin<DropTarget | null> {
           return false;
         },
         dragleave: (view, event) => {
-          if (!view.dom.contains(event.relatedTarget as Node | null)) showTarget(view, null);
+          // No relatedTarget also when Chrome refires dragleave after the indicator's DOM
+          // update under a pointer that never moved: what is under the pointer decides
+          const to = (event.relatedTarget as Node | null) ?? view.root.elementFromPoint(event.clientX, event.clientY);
+          if (!view.dom.contains(to)) showTarget(view, null);
           return false;
         },
         dragend: (view) => {
