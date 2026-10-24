@@ -37,7 +37,7 @@ async function insertFootnote(page: Page, note: string) {
   await page.keyboard.type(note);
 }
 
-test('editor footnotes: insert, renumber, jump and delete', async ({ app }) => {
+test('editor footnotes: insert, renumber, jump and delete', async ({ reusedApp: app }) => {
   await app.setViewportSize(VIEWPORTS.desktop);
   await createNote(app, { title: `Footnotes ${Date.now()}`, body: 'Alpha beta gamma' });
   const editor = activeEditor(app);
@@ -90,7 +90,7 @@ test('editor footnotes: insert, renumber, jump and delete', async ({ app }) => {
   await expect(notes(activeEditor(app)).first()).toContainText('Note on gamma!');
 });
 
-test('footnotes sync between two tabs on the same note', async ({ app }) => {
+test('footnotes sync between two tabs on the same note', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Footnotes two tabs ${Date.now()}`, body: 'Shared text' });
   const pageB = await app.context().newPage();
   await pageB.goto(app.url());

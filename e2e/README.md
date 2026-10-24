@@ -54,6 +54,7 @@ On failure, the job uploads `playwright-report/` and `test-results/` (traces, sc
 - Selectors: `getByRole`/`getByLabel`/`getByText` first; `data-testid` only when there's no accessible name.
 - No `page.waitForTimeout` sleeps for synchronization — wait on an assertion, a fixture, or `waitForAppReady`. Before a reload or navigation, wait for the edit to land with `waitForNoteSaved(page)` (it polls `window.__journalE2E.hasUnsavedEdits()`). A `waitForTimeout` is allowed only where nothing observable exists, with a comment saying why.
 - One behaviour run per spec. Do not loop a whole test over `light`/`dark` when only the screenshots differ: run the behaviour once and take the evidence in both themes inside it, with `screenshotInBothThemes(page, (theme) => ...)` or `inBothThemes(page, async (theme) => { ... })` from `support/actions`. Keep both variants (or a theme loop inside the test) only where the assertion itself depends on the theme: token colours, contrast, theme-specific covers.
+- Boot is ~3 s of a ~6 s test. A test that makes its own uniquely titled note and needs neither a clean drive nor a fresh browser (it asserts no first-load requests, no empty note list, no theme-loop where the second pass would hit a cache) can take `reusedApp` instead of `app`: one booted app per worker, with viewport, colour scheme and tabs reset after each test. Profile with `--reporter=json` before converting more.
 - Flaky for a reason you can't fix now: tag the title `@quarantine` and open a bug — never paper over it with a sleep.
 
 ## Evidence for a PR

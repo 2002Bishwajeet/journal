@@ -3,7 +3,7 @@ import { activeEditor, createNote } from '../support/actions';
 
 // #159: toggle and callout blocks inserted from the slash menu.
 
-test('toggle block: title, collapse, and reload (open state is not synced)', async ({ app }) => {
+test('toggle block: title, collapse, and reload (open state is not synced)', async ({ reusedApp: app }) => {
   const title = `Toggle ${Date.now()}`;
   await createNote(app, { title, body: '/toggle' });
   await app.keyboard.press('Enter');
@@ -31,7 +31,7 @@ test('toggle block: title, collapse, and reload (open state is not synced)', asy
   await expect(activeEditor(app).getByText('Inner text')).toBeVisible();
 });
 
-test('callout block: switch variant to warning and reload', async ({ app }) => {
+test('callout block: switch variant to warning and reload', async ({ reusedApp: app }) => {
   const title = `Callout ${Date.now()}`;
   await createNote(app, { title, body: '/callout' });
   await app.keyboard.press('Enter');

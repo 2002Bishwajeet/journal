@@ -24,7 +24,7 @@ async function dropFile(page: Page, target: Locator, file: { name: string; mimeT
 
 const coverSrc = (page: Page) => page.getByRole('img', { name: 'Note cover' }).locator('img').first().getAttribute('src');
 
-test('dropping an image adds the cover, and dropping another replaces it', async ({ app }) => {
+test('dropping an image adds the cover, and dropping another replaces it', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Cover drop ${Date.now()}`, body: 'Cover above.' });
   await assertTestOrigin(app);
 
@@ -49,7 +49,7 @@ test('dropping an image adds the cover, and dropping another replaces it', async
   await expect(band.getByText('Drop image to replace the cover')).toHaveCount(0);
 });
 
-test('dropping a file that is not an image leaves the cover alone and says why', async ({ app }) => {
+test('dropping a file that is not an image leaves the cover alone and says why', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Cover drop text ${Date.now()}`, body: 'No cover.' });
   await assertTestOrigin(app);
 
