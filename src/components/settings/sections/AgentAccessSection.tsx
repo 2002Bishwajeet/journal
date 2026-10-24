@@ -1,6 +1,7 @@
 import { useState, type ComponentProps } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useFolders } from "@/hooks/useFolders";
 import { useNotesByFolder } from "@/hooks/useNotes";
 import {
@@ -11,7 +12,9 @@ import {
 import { folderAccess, type AgentAccess, type AgentGrants } from "@/lib/agent/grants";
 import type { Folder } from "@/types";
 import { cn } from "@/lib/utils";
+import { useWebMcpSetting } from "@/hooks/useWebMcp";
 import { SectionHeader } from "../SectionHeader";
+import { SettingsRow } from "../SettingsRow";
 
 /**
  * A native select drawn like the app's Input: its own chevron in reserved right padding,
@@ -149,6 +152,7 @@ function NoteAccessRow({
 export default function AgentAccessSection() {
   const { grants, isLoaded, setFolder, setNote } = useAgentGrants();
   const { data: folders } = useFolders().get;
+  const webMcp = useWebMcpSetting();
 
   return (
     <div className="space-y-10">
@@ -185,6 +189,17 @@ export default function AgentAccessSection() {
           </div>
         )}
       </div>
+
+      {webMcp.supported && (
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <SettingsRow
+            id="webmcp-enabled"
+            label="Let this browser's AI agent use Journal (WebMCP)"
+            description="The agent sees only the notes you granted above. With Read + write, it can propose edits to the note you have open, and you accept each one in the note. The browser's agent may send what it reads to its provider."
+            control={<Switch checked={webMcp.enabled} onCheckedChange={webMcp.setEnabled} />}
+          />
+        </div>
+      )}
     </div>
   );
 }
