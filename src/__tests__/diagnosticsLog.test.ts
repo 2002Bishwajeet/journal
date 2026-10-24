@@ -98,14 +98,41 @@ describe('console capture', () => {
         expect(originalWarn).toHaveBeenCalledWith('[Sync] slow', { count: 2 });
         expect(originalError).toHaveBeenCalled();
         const [warn, error] = getLogSnapshot();
-        expect(warn).toMatchObject({ level: 'warn', message: '[Sync] slow {"count":2}' });
+        expect(warn).toMatchObject({ level: 'warn', message: '[Sync] slow [Object]' });
         expect(error).toMatchObject({ level: 'error', message: '[Sync] failed Error: boom' });
     });
 
     it('formats strings, errors and objects, even a circular one', () => {
         const circular: Record<string, unknown> = {};
         circular.self = circular;
-        expect(formatLogArgs(['a', new TypeError('b'), { c: 1 }])).toBe('a TypeError: b {"c":1}');
-        expect(formatLogArgs([circular])).toBe('[object Object]');
+        expect(formatLogArgs(['a', new TypeError('b'), { c: 1 }, [1, 2], 3, null])).toBe(
+            'a TypeError: b [Object] [Array(2)] 3 null',
+        );
+        expect(formatLogArgs([circular])).toBe('[Object]');
+    });
+
+    it('never puts the contents of a logged file object in the log', () => {
+        const dsr = {
+            fileId: 'f1',
+            fileMetadata: {
+                appData: { content: { title: 'Secret diary entry', preview: 'dear diary, today I' } },
+            },
+            sharedSecretEncryptedKeyHeader: { iv: 'AbCdEf0123456789AbCdEf0123456789', encryptedAesKey: 'zzzz' },
+        };
+        const message = formatLogArgs(['[Notes] failed to get the content of a dsr', dsr, new Error('HTTP 500')]);
+        expect(message).toBe('[Notes] failed to get the content of a dsr [Object] Error: HTTP 500');
+    });
+
+    it('retries loading the saved log after the database was not ready', async () => {
+        const appState = await import('@/lib/db/queries/appState');
+        const spy = vi.spyOn(appState, 'getAppState').mockRejectedValueOnce(new Error('db not ready'));
+        appendLog('info', 'this session', 1);
+        await getLogEntries();
+        await db.query(`INSERT INTO app_state (key, value) VALUES ($1, $2)`, [
+            LOG_STATE_KEY,
+            JSON.stringify([{ at: 0, level: 'info', message: 'earlier session' }]),
+        ]);
+        expect((await getLogEntries()).map((e) => e.message)).toEqual(['earlier session', 'this session']);
+        spy.mockRestore();
     });
 });

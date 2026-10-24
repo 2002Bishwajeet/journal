@@ -51,7 +51,9 @@ function ensureLoaded(): Promise<void> {
                 notify();
             }
         } catch {
-            // No database yet (signed out, still booting): the log starts empty.
+            // No database yet (signed out, still booting): retry on the next call, so a
+            // later save does not overwrite an earlier session's log with only this one's.
+            loaded = null;
         }
     })();
     return loaded;
@@ -95,16 +97,19 @@ export async function getLogEntries(): Promise<readonly LogEntry[]> {
     return entries;
 }
 
+/**
+ * Objects are reduced to their type, never serialised: callers log whole
+ * HomebaseFile objects (note titles, previews, key headers) next to an error,
+ * and the log ends up in a report the owner pastes elsewhere.
+ */
 export function formatLogArgs(args: unknown[]): string {
     return args
         .map((arg) => {
             if (typeof arg === 'string') return arg;
             if (arg instanceof Error) return `${arg.name}: ${arg.message}`;
-            try {
-                return JSON.stringify(arg) ?? String(arg);
-            } catch {
-                return String(arg);
-            }
+            if (Array.isArray(arg)) return `[Array(${arg.length})]`;
+            if (typeof arg === 'object' && arg !== null) return '[Object]';
+            return String(arg);
         })
         .join(' ');
 }

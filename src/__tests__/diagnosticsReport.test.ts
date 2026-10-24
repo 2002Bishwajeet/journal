@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildReport, explainSyncError, redactText } from '@/lib/diagnostics/report';
 import type { PendingSyncItem } from '@/lib/db/queries/diagnostics';
-import type { LogEntry } from '@/lib/diagnostics/logBuffer';
+import { formatLogArgs, type LogEntry } from '@/lib/diagnostics/logBuffer';
 
 // Fixture secrets, each in the shape it takes in real errors and logs.
 const SHARED_SECRET = 'c2hhcmVkU2VjcmV0S2V5MTIzNDU2Nzg5MA==';
@@ -110,6 +110,24 @@ describe('buildReport', () => {
         expect(report).toContain('line 79');
         expect(report).toContain('line 30');
         expect(report).not.toContain('line 29');
+    });
+
+    it('keeps a logged dsr (title, preview, key header) out of the report even with titles off', () => {
+        const dsr = {
+            fileMetadata: { appData: { content: { title: 'Unrelated private note', preview: 'my private preview text' } } },
+            sharedSecretEncryptedKeyHeader: { iv: 'AbCdEf0123456789AbCdEf0123456789', encryptedAesKey: 'Zm9vYmFyMTIzNDU2Nzg5MGFiY2RlZg==' },
+        };
+        const captured: LogEntry = {
+            at: 1,
+            level: 'error',
+            message: formatLogArgs(['failed to get the content of a dsr', dsr, new Error('HTTP 500')]),
+        };
+        const report = buildReport({ status, items, log: [captured], includeTitles: false });
+
+        for (const leak of ['Unrelated private note', 'my private preview text', 'AbCdEf0123456789', 'Zm9vYmFy', 'encryptedAesKey']) {
+            expect(report).not.toContain(leak);
+        }
+        expect(report).toContain('failed to get the content of a dsr [Object] Error: HTTP 500');
     });
 
     it('says so when nothing is pending or logged', () => {
