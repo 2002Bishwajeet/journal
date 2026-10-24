@@ -1,14 +1,15 @@
 import type { ComponentType } from "react";
-import { UserRound, Monitor, Sparkles, Bot, Database, Keyboard, Info, type LucideIcon } from "lucide-react";
+import { UserRound, Monitor, Sparkles, Bot, Bell, Database, Keyboard, Info, type LucideIcon } from "lucide-react";
 import AccountSection from "./sections/AccountSection";
 import AppearanceSection from "./sections/AppearanceSection";
 import AISection from "./sections/AISection";
 import AgentAccessSection from "./sections/AgentAccessSection";
+import NotificationsSection from "./sections/NotificationsSection";
 import DataSection from "./sections/DataSection";
 import ShortcutsSection from "./sections/ShortcutsSection";
 import AboutSection from "./sections/AboutSection";
 
-export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "data" | "shortcuts" | "about";
+export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "data" | "shortcuts" | "about";
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -48,6 +49,13 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "Choose what AI agents can read or edit",
     icon: Bot,
     Component: AgentAccessSection,
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    description: "Notifications on this device",
+    icon: Bell,
+    Component: NotificationsSection,
   },
   {
     id: "data",

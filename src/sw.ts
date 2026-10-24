@@ -4,6 +4,7 @@ import { registerRoute, NavigationRoute, Route } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
+import { JOURNAL_APP_ID } from './lib/homebase/config';
 
 declare let self: ServiceWorkerGlobalScope & {
     __WB_DISABLE_DEV_LOGS: boolean;
@@ -257,4 +258,54 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+});
+
+// Web push from the identity (#744). The server sends every push of every app to every
+// subscription, so show only Journal's. GUIDs may arrive with dashes: compare without them.
+interface JournalPushPayload {
+    senderId: string;
+    options: { appId: string; typeId: string; tagId: string; unEncryptedMessage?: string };
+}
+
+const isJournalPush = (p: JournalPushPayload) =>
+    p.options?.appId?.replace(/-/g, '').toLowerCase() === JOURNAL_APP_ID;
+
+self.addEventListener('push', (event) => {
+    const payloads = ((event.data?.json() as { payloads?: JournalPushPayload[] })?.payloads ?? []).filter(isJournalPush);
+    if (payloads.length === 0) return;
+    event.waitUntil(
+        (async () => {
+            const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            for (const payload of payloads) {
+                for (const client of windows) client.postMessage({ type: 'journal-push', payload });
+            }
+            await Promise.all(
+                payloads.map(({ senderId, options }) =>
+                    self.registration.showNotification(senderId, {
+                        body: options.unEncryptedMessage,
+                        tag: options.tagId,
+                        data: { senderId, typeId: options.typeId, tagId: options.tagId },
+                    })
+                )
+            );
+        })()
+    );
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const { senderId, tagId } = event.notification.data as { senderId: string; tagId: string };
+    const url = `/shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId)}`;
+    event.waitUntil(
+        (async () => {
+            const [client] = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            if (client) {
+                await client.focus();
+                // navigate() rejects for a window this worker does not control yet
+                await client.navigate(url).catch(() => self.clients.openWindow(url));
+            } else {
+                await self.clients.openWindow(url);
+            }
+        })()
+    );
 });
