@@ -68,6 +68,8 @@
   --collaborative: #b45309; /* Warm amber — sharing/connection */
   --collaborative-foreground: #FFFFFF;
 
+  --success: #15803d; /* Added text in an edit preview (#701) */
+
   --border: #E6E4DD; /* Soft Border */
   --input: #FFFFFF;  /* Input BG */
   --ring: #2C2B29;
@@ -120,6 +122,8 @@
 
   --collaborative: #fbbf24; /* Warm gold — lighter for dark mode */
   --collaborative-foreground: #1C1B1A;
+
+  --success: #4ade80;
 
   --border: #3E3D3A; /* Dark Border */
   --input: #242321;
@@ -269,6 +273,51 @@ sup[data-type='footnote-reference'].ProseMirror-selectednode {
   border-radius: 0.25rem;
   background: color-mix(in srgb, var(--primary) 15%, transparent);
 }
+/* The preview of an edit the assistant proposes (#701): added text is underlined in the
+   success colour, removed text is struck through, new formatting shows with a dotted
+   underline, a changed block is outlined. The outline and the bar line up on the left and
+   stop short of the assistant panel on the right (--agent-edit-right, AgentEditPreview.ts). */
+.ProseMirror .agent-edit-inserted {
+  text-decoration: underline;
+  text-decoration-color: var(--success);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+}
+.ProseMirror .agent-edit-inserted-block {
+  display: block;
+  margin: 0.5rem 0;
+  background: none; /* The outline marks a new block; a tint would run under the assistant panel. */
+}
+.ProseMirror .agent-edit-removed {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  color: color-mix(in srgb, var(--foreground) 70%, transparent);
+}
+.ProseMirror .agent-edit-format {
+  border-bottom: 2px dotted var(--success);
+}
+.ProseMirror .agent-edit-format[data-unmark='bold'] {
+  font-weight: 400;
+}
+.ProseMirror .agent-edit-format[data-unmark='italic'] {
+  font-style: normal;
+}
+.ProseMirror .agent-edit-block {
+  position: relative;
+}
+.ProseMirror .agent-edit-block::after {
+  content: '';
+  position: absolute;
+  inset: -5px var(--agent-edit-right, -0.5rem) -5px -0.5rem;
+  border: 2px solid color-mix(in srgb, var(--success) 55%, transparent);
+  border-radius: 0.5rem;
+  pointer-events: none;
+}
+.ProseMirror .agent-edit-bar {
+  margin: 0.75rem var(--agent-edit-right, -0.5rem) 0.75rem -0.5rem;
+}
+
 section[data-type='footnotes'],
 .share-article section.footnotes {
   margin-top: 2.5rem;
@@ -811,6 +860,8 @@ img.ProseMirror-separator {
 
   --color-collaborative: var(--collaborative);
   --color-collaborative-foreground: var(--collaborative-foreground);
+
+  --color-success: var(--success);
   
   --color-border: var(--border);
   --color-input: var(--input);

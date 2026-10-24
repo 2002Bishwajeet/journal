@@ -15,6 +15,12 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### New
+
+- The assistant can change the note that you have open. It shows each change in the note first.
+- You choose Accept or Reject for each change. The note stays the same until you accept.
+- One undo (Cmd+Z or Ctrl+Z) takes back an accepted change.
+
 ## 2.15.3 (2026-10-24)
 
 ### Fixed
