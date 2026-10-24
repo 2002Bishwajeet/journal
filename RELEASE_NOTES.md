@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.19.0 (2026-10-24)
+
 ### Changed
 
 - The AI menu in the editor shows its rewrite in the note first. You choose Accept or Reject.

@@ -1,3 +1,9 @@
+# [2.19.0](https://github.com/2002Bishwajeet/journal/compare/v2.18.0...v2.19.0) (2026-10-24)
+
+
+### Features
+
+* **ai:** editor rewrite uses the agent's edit preview, remove AISuggestionOverlay ([#703](https://github.com/2002Bishwajeet/journal/issues/703)) ([4fb3c11](https://github.com/2002Bishwajeet/journal/commit/4fb3c11a448b2b96c0b09a91a5416e1e2e525a89))
 # [2.18.0](https://github.com/2002Bishwajeet/journal/compare/v2.17.3...v2.18.0) (2026-10-24)
 
 
