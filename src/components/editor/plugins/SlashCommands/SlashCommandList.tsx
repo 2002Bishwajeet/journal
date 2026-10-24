@@ -9,7 +9,7 @@ import { useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { Editor } from '@tiptap/react';
 import { cn } from '@/lib/utils';
 import { useScrollSelectedIntoView } from '@/hooks/useScrollSelectedIntoView';
-import { slashCommandItems, filterCommands, type SlashCommandItem } from './slashCommandItems';
+import { availableSlashItems, filterCommands, type SlashCommandItem } from './slashCommandItems';
 
 export interface SlashCommandListRef {
   onKeyDown: (props: { event: KeyboardEvent }) => boolean;
@@ -27,7 +27,7 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
     const [selectedIndex, setSelectedIndex] = useState(0);
     // Ranked from the query directly (not the async `items` prop), so the
     // list never shows an empty in-between state while items resolve.
-    const items = filterCommands(slashCommandItems, query);
+    const items = filterCommands(availableSlashItems(), query);
     // Show groups in the order of their best match, so the top-ranked item is
     // first and highlighted; keyboard indexes follow this display order.
     const groups = [...new Set(items.map((item) => item.group))];
