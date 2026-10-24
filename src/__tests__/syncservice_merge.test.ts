@@ -98,7 +98,7 @@ describe('SyncService.handleRemoteNote', () => {
         mockDsr.mockResolvedValue({ title: 'Remote Note', tags: ['t'] });
         mockGetNotePayload.mockResolvedValue(textUpdate('hello from remote'));
 
-        await svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v1' }));
+        await svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v1', sender: HOST }));
 
         const idx = await getSearchIndexEntry(DOC_ID);
         expect(idx?.title).toBe('Remote Note');
@@ -111,6 +111,34 @@ describe('SyncService.handleRemoteNote', () => {
         const updates = await getDocumentUpdates(DOC_ID);
         expect(updates.length).toBe(1);
         expect(bodyOf(updates[0])).toBe('hello from remote');
+    });
+
+    // #730: share-circle members can write the whole drive
+    it('skips a note new here that someone else created on the drive', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        await svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v1', sender: FRODO }));
+
+        expect(mockDsr).not.toHaveBeenCalled();
+        expect(mockGetNotePayload).not.toHaveBeenCalled();
+        expect(await getSyncRecord(DOC_ID)).toBeNull();
+        expect(await getSearchIndexEntry(DOC_ID)).toBeNull();
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining(FRODO));
+        warn.mockRestore();
+    });
+
+    it('still applies an update by someone else to a note it already has', async () => {
+        await upsertSyncRecord({
+            localId: DOC_ID, entityType: 'note', remoteFileId: 'remote-file-1', versionTag: 'v1',
+            lastSyncedAt: new Date().toISOString(), syncStatus: 'synced',
+        });
+        mockDsr.mockResolvedValue({ title: 'Edited by Frodo', tags: [] });
+        mockGetNotePayload.mockResolvedValue(textUpdate('from frodo'));
+
+        await svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v2', sender: FRODO }));
+
+        expect((await getSyncRecord(DOC_ID))?.versionTag).toBe('v2');
+        expect(bodyOf((await getDocumentUpdates(DOC_ID))[0])).toBe('from frodo');
     });
 
     it('is a no-op when the remote versionTag equals the stored one', async () => {
@@ -147,7 +175,7 @@ describe('SyncService.handleRemoteNote', () => {
     it('rejects when the remote note content cannot be read, so the pull records a retry (#147)', async () => {
         mockDsr.mockResolvedValue(null);
 
-        await expect(svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v1' })))
+        await expect(svc.handleRemoteNote(makeRemoteFile({ versionTag: 'v1', sender: HOST })))
             .rejects.toThrow('Could not read remote note content');
 
         expect(mockGetNotePayload).not.toHaveBeenCalled();

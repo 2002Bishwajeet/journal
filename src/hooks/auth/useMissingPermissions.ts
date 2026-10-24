@@ -11,7 +11,6 @@ const getExtendAppRegistrationUrl = (
     circleDrives: TargetDriveAccessRequest[] | undefined,
     permissionKeys: number[],
     returnUrl: string,
-    needsAllConnected?: boolean,
     circleOdinIds?: string[] | undefined,
 ) => {
     const params = getExtendAppRegistrationParams(
@@ -19,7 +18,7 @@ const getExtendAppRegistrationUrl = (
         drives,
         circleDrives,
         permissionKeys,
-        circleOdinIds || needsAllConnected,
+        circleOdinIds,
         returnUrl
     );
 
@@ -31,7 +30,6 @@ export const useMissingPermissions = ({
     drives,
     circleDrives,
     permissions,
-    needsAllConnected,
     circleOdinIds,
     returnUrl,
 }: {
@@ -39,7 +37,6 @@ export const useMissingPermissions = ({
     drives: TargetDriveAccessRequest[];
     circleDrives?: TargetDriveAccessRequest[] | undefined;
     permissions: AppPermissionType[];
-    needsAllConnected?: boolean;
     circleOdinIds?: string[] | undefined;
     returnUrl?: string;
 }) => {
@@ -74,9 +71,7 @@ export const useMissingPermissions = ({
 
     const missingPermissions = permissions?.filter((key) => permissionKeys?.indexOf(key) === -1);
 
-    const hasAllConnectedCircle = context?.caller.isGrantedConnectedIdentitiesSystemCircle;
-    const missingAllConnectedCircle = (needsAllConnected && !hasAllConnectedCircle) || false;
-    if (missingDrives.length === 0 && missingPermissions.length === 0 && !missingAllConnectedCircle)
+    if (missingDrives.length === 0 && missingPermissions.length === 0)
         return;
 
     const extendPermissionUrl = getExtendAppRegistrationUrl(
@@ -86,7 +81,6 @@ export const useMissingPermissions = ({
         circleDrives,
         missingPermissions,
         returnUrl || window.location.href,
-        missingAllConnectedCircle,
         circleOdinIds,
     );
 

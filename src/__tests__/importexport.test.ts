@@ -34,37 +34,6 @@ vi.mock('@/lib/images/imageIngest', () => ({ prepareImageForUpload: async (file:
 import { ExportService, uniqueName } from '@/lib/importexport/ExportService';
 import { ImportService } from '@/lib/importexport/ImportService';
 
-describe('Import/Export Logic', () => {
-    // ============================================
-    // Filename Sanitization Tests
-    // ============================================
-    describe('Filename Sanitization', () => {
-        function sanitizeFilename(name: string): string {
-            return name.replace(/[/\\?%*:|"<>]/g, '-').trim() || 'Untitled';
-        }
-
-        it('should remove invalid characters', () => {
-            expect(sanitizeFilename('my/note')).toBe('my-note');
-            expect(sanitizeFilename('file:name')).toBe('file-name');
-            expect(sanitizeFilename('test<>file')).toBe('test--file');
-        });
-
-        it('should handle multiple invalid characters', () => {
-            expect(sanitizeFilename('a/b\\c?d')).toBe('a-b-c-d');
-        });
-
-        it('should return Untitled for empty string', () => {
-            expect(sanitizeFilename('')).toBe('Untitled');
-            expect(sanitizeFilename('   ')).toBe('Untitled');
-        });
-
-        it('should preserve valid characters', () => {
-            expect(sanitizeFilename('My Note (2023)')).toBe('My Note (2023)');
-            expect(sanitizeFilename('Notes-Archive_v2')).toBe('Notes-Archive_v2');
-        });
-    });
-});
-
 // ============================================
 // ExportService.exportAllAsZip (real markdown + images)
 // ============================================
