@@ -15,6 +15,12 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- The app now fits the full phone screen. The Settings and Log out buttons no longer hide under the browser toolbar.
+- On a phone in landscape, the notch no longer covers the sidebar and note list.
+- The Exit Focus button stays below the status bar. It does not show a keyboard shortcut on touch screens.
+
 ## 2.24.0 (2026-10-25)
 
 ### New
@@ -25,9 +31,6 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ### Fixed
 
-- The app now fits the full phone screen. The Settings and Log out buttons no longer hide under the browser toolbar.
-- On a phone in landscape, the notch no longer covers the sidebar and note list.
-- The Exit Focus button stays below the status bar. It does not show a keyboard shortcut on touch screens.
 - The slash menu on a phone no longer shows Ask AI, Summarize and Rewrite. The assistant is not available on phones.
 
 ## 2.23.0 (2026-10-24)
