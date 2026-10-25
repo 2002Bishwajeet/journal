@@ -3,6 +3,7 @@ import './lib/utils/sw-safety';
 import { reloadOnceForChunkError } from './lib/utils/chunkReload';
 import { reportBootPhase } from './lib/bootProgress';
 import { isPublicSharePath } from './lib/sharePath';
+import { installConsoleCapture } from './lib/diagnostics/logBuffer';
 import { addOriginTrialToken } from './lib/agent/modelContext';
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -25,6 +26,9 @@ import './lib/utils/memoryMonitor'
 // A public share page never touches IndexedDB, so skip it there.
 if (!isPublicSharePath(location.pathname)) {
   navigator.storage?.persist?.();
+  // Settings → Diagnostics shows these warnings and errors on a phone (#800). The log is saved
+  // to the local database, which a public share page never opens.
+  installConsoleCapture();
 }
 
 // WebMCP is a Chrome origin trial: the token must be on the page before the browser sets up the API.

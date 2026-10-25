@@ -15,6 +15,8 @@ export interface SyncContextType {
     syncProgress: SyncProgress | null;
     /** Timestamp of the last successful sync */
     lastSyncedAt: Date | null;
+    /** Whether the realtime websocket to the Homebase is connected */
+    websocketConnected: boolean;
     /** Trigger a full sync */
     sync: () => Promise<void>;
     /** Sync a single note (for debounced saves) */
