@@ -25,6 +25,7 @@ import { SyncContext, type SyncContextType } from "@/hooks/useSyncService";
 import type { SyncProgress } from "@/types";
 import { useOnlineContext } from "@/hooks/useOnlineContext";
 import { useJournalWebsocket } from "@/hooks/useJournalWebsocket";
+import { appendLog } from "@/lib/diagnostics/logBuffer";
 
 export interface PendingCount {
   notes: number;
@@ -134,6 +135,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     setSyncStatus("syncing");
     setSyncProgress(null); // Reset progress
+    appendLog("info", "[SyncProvider] Sync started");
     try {
       // Safe progress updater that avoids synchronous updates during render
       const handleProgress = (progress: SyncProgress) => {
@@ -144,6 +146,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
       const result = await syncService.sync(handleProgress);
       setLastSyncResult(result);
+      appendLog(
+        "info",
+        `[SyncProvider] Sync finished: pulled ${result.pulled.folders} folders, ${result.pulled.notes} notes; pushed ${result.pushed.folders} folders, ${result.pushed.notes} notes; ${result.errors.length} errors`,
+      );
 
       // Clear progress safely
       requestAnimationFrame(() => {
@@ -185,7 +191,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [syncService, dotYouClient, refreshPendingCount, scheduleRetry]);
 
   // WebSocket for real-time updates — active when sync service is ready
-  useJournalWebsocket({ isEnabled: !!syncService, syncService, onReconnect: sync });
+  const websocketConnected = useJournalWebsocket({ isEnabled: !!syncService, syncService, onReconnect: sync });
 
   // Keep ref in sync with the latest sync function
   useEffect(() => {
@@ -342,6 +348,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     lastSyncResult,
     syncProgress,
     lastSyncedAt,
+    websocketConnected,
     sync,
     syncNote,
     syncFolder,
