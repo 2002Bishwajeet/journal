@@ -1,3 +1,9 @@
+# [2.27.0](https://github.com/2002Bishwajeet/journal/compare/v2.26.1...v2.27.0) (2026-10-25)
+
+
+### Bug Fixes
+
+* **editor:** open version history on a phone from a More menu ([#792](https://github.com/2002Bishwajeet/journal/issues/792)) ([073c389](https://github.com/2002Bishwajeet/journal/commit/073c389de0fd76c8f40b88eb6e447fe369169d19))
 ## [2.26.1](https://github.com/2002Bishwajeet/journal/compare/v2.26.0...v2.26.1) (2026-10-25)
 
 

@@ -153,3 +153,8 @@ export function debounce<T extends (...args: never[]) => void>(
         timeoutId = setTimeout(() => fn(...args), delay);
     };
 }
+
+/** True when the primary input is a finger: there is no keyboard shortcut to press and focusing the editor opens the on-screen keyboard. */
+export function isTouchDevice(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+}

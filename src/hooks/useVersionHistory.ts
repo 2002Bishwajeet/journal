@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/react';
 import { toast } from 'sonner';
 import { getSnapshots } from '@/lib/db';
 import { restoreSnapshot } from '@/lib/history/restore';
+import { isTouchDevice } from '@/lib/utils';
 
 /**
  * Version history for one note: the snapshots saved on this device, and
@@ -21,7 +22,7 @@ export function useVersionHistory(editor: Editor, docId: string, open: boolean, 
         try {
             await restoreSnapshot(editor, docId, snapshotId);
             onRestored();
-            toast.success('Version restored — press Cmd+Z to undo');
+            toast.success(isTouchDevice() ? 'Version restored' : 'Version restored — press Cmd+Z to undo');
         } catch (error) {
             console.error('[useVersionHistory] Restore failed:', error);
             toast.error('Could not restore this version');
