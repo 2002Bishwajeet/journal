@@ -78,7 +78,7 @@ export function TagInput({ docId, metadata }: TagInputProps) {
           onKeyDown={handleKeyDown}
           onFocus={() => setShowSuggestions(true)}
           placeholder={tags.length === 0 ? 'Add tags...' : '#'}
-          className="bg-transparent text-xs outline-none placeholder:text-muted-foreground/50 w-24"
+          className="bg-transparent text-base md:text-xs outline-none placeholder:text-muted-foreground/50 w-24"
         />
         {showSuggestions && suggestions.length > 0 && (
           <div className="absolute top-full left-0 mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg py-1 min-w-40">

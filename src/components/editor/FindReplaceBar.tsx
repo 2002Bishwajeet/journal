@@ -142,7 +142,7 @@ export function FindReplaceBar() {
             onClick={() => setIsReplaceOpen(!isReplaceOpen)}
             aria-label={isReplaceOpen ? "Hide replace" : "Show replace"}
             aria-expanded={isReplaceOpen}
-            className="h-7 w-5 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0"
+            className="h-7 w-5 pointer-coarse:h-11 pointer-coarse:w-8 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0"
           >
             <ChevronRight
               className={`h-3.5 w-3.5 transition-transform duration-200 ${isReplaceOpen ? "rotate-90" : ""}`}
@@ -160,7 +160,7 @@ export function FindReplaceBar() {
             aria-label="Find in note"
             autoComplete="off"
             spellCheck={false}
-            className="flex-1 min-w-0 h-7 px-2 text-sm bg-muted/50 border border-border rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground/60"
+            className="flex-1 min-w-0 h-7 pointer-coarse:h-11 px-2 text-base md:text-sm bg-muted/50 border border-border rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground/60"
           />
 
           {/* Match count */}
@@ -179,7 +179,7 @@ export function FindReplaceBar() {
             onClick={handlePrev}
             disabled={!hasMatches}
             aria-label="Previous match (Shift+Enter)"
-            className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0"
+            className="h-7 w-7 pointer-coarse:size-11 inline-flex items-center justify-center rounded hover:bg-muted disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0"
           >
             <ChevronUp className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -188,7 +188,7 @@ export function FindReplaceBar() {
             onClick={handleNext}
             disabled={!hasMatches}
             aria-label="Next match (Enter)"
-            className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0"
+            className="h-7 w-7 pointer-coarse:size-11 inline-flex items-center justify-center rounded hover:bg-muted disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0"
           >
             <ChevronDown className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -198,7 +198,7 @@ export function FindReplaceBar() {
             onClick={() => setCaseSensitive(!caseSensitive)}
             aria-label="Match case"
             aria-pressed={caseSensitive}
-            className={`h-7 w-7 inline-flex items-center justify-center rounded text-xs font-semibold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0 transition-colors duration-100 ${
+            className={`h-7 w-7 pointer-coarse:size-11 inline-flex items-center justify-center rounded text-xs font-semibold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0 transition-colors duration-100 ${
               caseSensitive
                 ? "bg-accent text-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -212,7 +212,7 @@ export function FindReplaceBar() {
             onClick={() => setWholeWord(!wholeWord)}
             aria-label="Match whole word"
             aria-pressed={wholeWord}
-            className={`h-7 px-1 inline-flex items-center justify-center rounded text-xs font-bold tracking-tight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0 transition-colors duration-100 ${
+            className={`h-7 px-1 pointer-coarse:h-11 pointer-coarse:min-w-11 inline-flex items-center justify-center rounded text-xs font-bold tracking-tight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0 transition-colors duration-100 ${
               wholeWord
                 ? "bg-accent text-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -243,14 +243,14 @@ export function FindReplaceBar() {
                 aria-label="Replace"
                 autoComplete="off"
                 spellCheck={false}
-                className="flex-1 min-w-0 h-7 px-2 text-sm bg-muted/50 border border-border rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground/60"
+                className="flex-1 min-w-0 h-7 pointer-coarse:h-11 px-2 text-base md:text-sm bg-muted/50 border border-border rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground/60"
               />
 
               <button
                 onClick={handleReplace}
                 disabled={!canReplace}
                 aria-label="Replace current match"
-                className="h-7 px-2 text-xs rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0"
+                className="h-7 pointer-coarse:h-11 px-2 text-xs rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0"
               >
                 Replace
               </button>
@@ -259,7 +259,7 @@ export function FindReplaceBar() {
                 onClick={handleReplaceAll}
                 disabled={!canReplace}
                 aria-label="Replace all matches"
-                className="h-7 px-2 text-xs rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0 whitespace-nowrap"
+                className="h-7 pointer-coarse:h-11 px-2 text-xs rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0 whitespace-nowrap"
               >
                 Replace All
               </button>
@@ -272,7 +272,7 @@ export function FindReplaceBar() {
         <button
           onClick={handleClose}
           aria-label="Close find (Escape)"
-          className="absolute top-2 right-2 h-7 w-7 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation"
+          className="absolute top-2 right-2 h-7 w-7 pointer-coarse:size-11 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>

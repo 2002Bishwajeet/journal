@@ -23,7 +23,7 @@ interface PreviewState {
 const previewKey = new PluginKey<PreviewState>('agentEditPreview');
 
 const BUTTON =
-    'inline-flex h-8 items-center rounded-md px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+    'inline-flex h-8 pointer-coarse:h-11 items-center rounded-md px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 
 function button(label: string, className: string, onClick: () => void): HTMLButtonElement {
     const el = document.createElement('button');
