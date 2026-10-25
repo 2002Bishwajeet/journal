@@ -110,7 +110,7 @@ describe('DiagnosticsSection', () => {
         setDiagnostics([item({})]);
         await render();
 
-        await act(async () => { buttonByText('Groceries')?.click(); });
+        await act(async () => { document.querySelector<HTMLButtonElement>('button[aria-label="Groceries"]')?.click(); });
         expect(navigate).toHaveBeenCalledWith('/folder-1/id-1');
         expect(close).toHaveBeenCalled();
     });

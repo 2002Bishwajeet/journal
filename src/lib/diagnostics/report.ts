@@ -7,7 +7,7 @@ export interface StatusRow {
 }
 
 const MAX_TEXT_LENGTH = 300;
-export const REPORT_LOG_LINES = 50;
+const REPORT_LOG_LINES = 50;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,14 +20,16 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export function redactText(text: string, titles: readonly string[] = []): string {
     let out = text
-        .replace(/\bBearer\s+[^\s,;"']+/gi, 'Bearer [redacted]')
+        .replace(/\b(Bearer|Basic)\s+[^\s,;"']+/gi, '$1 [redacted]')
+        // A cookie header holds several name=value pairs: drop the rest of the line.
+        .replace(/(\bcookie["']?\s*[:=]\s*)[^\n]*/gi, '$1[redacted]')
         .replace(
-            /([\w-]*(?:authorization|cookie|secret|token|password|passwd|api[-_]?key|bx0900|key[-_]?header)[\w-]*["']?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;&]+)/gi,
+            /([\w-]*(?:authorization|secret|token|password|passwd|api[-_]?key|aes[-_]?key|bx0900|dy0810|key[-_]?header)[\w-]*["']?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,;&]+)/gi,
             '$1[redacted]',
         )
         .replace(/([?&][^=\s&]+=)[^&\s"']+/g, '$1[redacted]')
         .replace(/[A-Za-z0-9+/=_-]{24,}/g, (run) =>
-            UUID.test(run) || !/\d/.test(run) || !/[A-Za-z]/.test(run) ? run : '[redacted]',
+            UUID.test(run) || (!/=$/.test(run) && (!/\d/.test(run) || !/[A-Za-z]/.test(run))) ? run : '[redacted]',
         );
     for (const title of titles) {
         if (title.trim().length >= 3) out = out.split(title).join('[title]');

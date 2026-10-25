@@ -57,6 +57,11 @@ describe('redactText', () => {
         ['a query-string token', `GET /x?token=${AUTH_TOKEN}&y=1`, AUTH_TOKEN],
         ['a bare token-like run', `failed for ${AUTH_TOKEN} twice`, AUTH_TOKEN],
         ['a data URI', `src=data:image/png;base64,${KEY_HEADER}`, KEY_HEADER],
+        ['basic auth credentials', 'Authorization: Basic dXNlcjpwYXNz', 'dXNlcjpwYXNz'],
+        ['an AES key with no digits', '{"encryptedAesKey":"abcdefghijABCDEFGHIJabcdefghij"}', 'abcdefghijABCDEFGHIJ'],
+        ['a padded base64 run with no digits', 'iv QUJDREVGR0hJSktMTU5PUFFSU1RV==', 'QUJDREVGR0hJSktMTU5PUFFSU1RV'],
+        ['every pair in a cookie header', 'Cookie: theme=dark; DY0810=ownercookie; BX0900=appcookie', 'ownercookie'],
+        ['an owner cookie on its own', 'sent DY0810=ownercookie', 'ownercookie'],
     ])('removes %s', (_name, text, secret) => {
         const out = redactText(text);
         expect(out).not.toContain(secret);

@@ -61,24 +61,30 @@ function PendingRow({
     item.nextRetryAt ? `next retry ${retryIn(item.nextRetryAt)}` : null,
     item.lastSyncedAt ? `last synced ${formatRelativeTime(item.lastSyncedAt)}` : "never synced",
   ].filter(Boolean);
+  const heading = (
+    <>
+      <span className="line-clamp-2 text-sm leading-5 font-medium wrap-anywhere underline-offset-4 group-hover:underline">
+        {itemTitle(item)}
+      </span>
+      <span className="block text-xs leading-relaxed text-muted-foreground">{details.join(" · ")}</span>
+    </>
+  );
 
   return (
     <li data-testid="pending-item" className="space-y-2 border-b px-4 py-3 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-0.5">
-          {item.noteId ? (
-            <button
-              type="button"
-              onClick={onOpen}
-              className="min-h-11 max-w-full text-left text-sm leading-5 font-medium wrap-anywhere underline-offset-4 hover:underline md:min-h-0"
-            >
-              {itemTitle(item)}
-            </button>
-          ) : (
-            <p className="text-sm leading-5 font-medium wrap-anywhere">{itemTitle(item)}</p>
-          )}
-          <p className="text-xs leading-relaxed text-muted-foreground">{details.join(" · ")}</p>
-        </div>
+        {item.noteId ? (
+          <button
+            type="button"
+            onClick={onOpen}
+            aria-label={itemTitle(item)}
+            className="group min-h-11 min-w-0 flex-1 space-y-0.5 text-left md:min-h-0"
+          >
+            {heading}
+          </button>
+        ) : (
+          <div className="min-w-0 flex-1 space-y-0.5">{heading}</div>
+        )}
         <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", STATUS_STYLE[item.status])}>
           {STATUS_LABEL[item.status]}
         </span>

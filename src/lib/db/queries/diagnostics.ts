@@ -204,7 +204,7 @@ export async function getDatabaseInfo(): Promise<DatabaseInfo> {
         `SELECT version() AS version, pg_database_size(current_database()) AS size`,
     );
     const row = result.rows[0];
-    const size = row?.size === null || row?.size === undefined ? NaN : Number(row.size);
+    const size = Number(row?.size ?? NaN);
     return {
         engine: row?.version.match(/PostgreSQL [\d.]+/)?.[0] ?? 'PostgreSQL',
         sizeBytes: Number.isFinite(size) ? size : null,
