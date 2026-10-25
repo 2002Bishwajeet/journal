@@ -1,6 +1,6 @@
 /**
  * Shows the edit the in-app agent proposes for the note as a preview in the note itself (#701):
- * added text is underlined in the success colour, removed text is struck through, a changed
+ * added text is underlined in the success colour, removed text is struck through in red, a changed
  * block is outlined, and a bar below the change has the summary with Accept and Reject.
  * The note's content is not touched until Accept. Enter accepts and Escape rejects while the
  * bar has focus; the bar takes focus when it appears and gives it back to the editor.
@@ -34,20 +34,6 @@ function button(label: string, className: string, onClick: () => void): HTMLButt
     return el;
 }
 
-/**
- * On wide screens the assistant panel floats over the right of the note. Sets
- * `--agent-edit-right` on the editor, the right inset of the preview's outline and bar
- * (index.css), so both end 12px before the panel. Without a panel beside the note they
- * reach 0.5rem past the text, as they do on the left.
- */
-function fitBesidePanel(dom: HTMLElement) {
-    const panel = document.querySelector('[role="region"][aria-label="Assistant"]')?.getBoundingClientRect();
-    const rect = dom.getBoundingClientRect();
-    const textRight = rect.right - parseFloat(getComputedStyle(dom).paddingRight);
-    const covered = panel && panel.left > rect.left ? textRight - panel.left + 12 : 0;
-    dom.style.setProperty('--agent-edit-right', covered > 0 ? `${covered}px` : '-0.5rem');
-}
-
 /** The tag the note renders `mark` with (strong for bold), so the preview shows the new formatting. */
 function markTag(mark: Mark): string | undefined {
     const spec = mark.type.spec.toDOM?.(mark, true);
@@ -58,7 +44,7 @@ function markTag(mark: Mark): string | undefined {
 function createBar(view: EditorView, item: PendingEdit): HTMLElement {
     const bar = document.createElement('div');
     bar.className =
-        'agent-edit-bar flex flex-wrap items-center gap-2 rounded-lg border border-border bg-popover px-2 py-2 text-sm text-popover-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+        'agent-edit-bar flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border bg-popover py-1.5 pl-3 pr-1.5 text-sm text-popover-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
     bar.tabIndex = 0;
     bar.setAttribute('role', 'group');
     bar.setAttribute('aria-label', `Review the assistant's edit: ${item.summary}`);
@@ -77,9 +63,14 @@ function createBar(view: EditorView, item: PendingEdit): HTMLElement {
     };
     const actions = document.createElement('div');
     actions.className = 'ml-auto flex shrink-0 gap-2';
+    // The colours of Button's default and outline variants, as on the panel's proposal card (AgentWriteCard).
     actions.append(
         button('Accept', 'bg-primary text-primary-foreground hover:bg-primary/90', () => void answer(true)),
-        button('Reject', 'border border-border bg-background hover:bg-muted', () => void answer(false))
+        button(
+            'Reject',
+            'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
+            () => void answer(false)
+        )
     );
     bar.append(summary, actions);
     bar.addEventListener('keydown', (event) => {
@@ -172,20 +163,12 @@ export const AgentEditPreview = Extension.create({
                 state: { init: () => ({ item: null, decorations: DecorationSet.empty }), apply },
                 props: { decorations: (state) => previewKey.getState(state)?.decorations },
                 view: (view) => {
-                    const fit = () => fitBesidePanel(view.dom);
-                    window.addEventListener('resize', fit);
                     const unsubscribe = pendingEdits.subscribe(() => {
                         const item = pendingEdits.current(editor);
                         if (item === previewKey.getState(view.state)?.item) return;
                         view.dispatch(view.state.tr.setMeta(previewKey, { item }).setMeta('addToHistory', false));
-                        if (item) requestAnimationFrame(fit);
                     });
-                    return {
-                        destroy: () => {
-                            unsubscribe();
-                            window.removeEventListener('resize', fit);
-                        },
-                    };
+                    return { destroy: unsubscribe };
                 },
             }),
         ];
