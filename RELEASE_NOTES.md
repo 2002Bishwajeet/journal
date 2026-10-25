@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- The local AI assistant answers again. Before, every step failed with "The reply was not valid JSON" until it ran out of steps. If a model still can't follow the assistant's format, the assistant now stops after two tries and suggests a larger model.
+
 ## 2.26.0 (2026-10-25)
 
 ### Changed
@@ -24,10 +28,6 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - On phones, Settings fills the screen. The section tabs scroll sideways and always show the selected tab in full.
 
 - When you remove a connection, Journal stops notifications from that person on your next sync.
-
-### Fixed
-
-- The local AI assistant answers again. Before, every step failed with "The reply was not valid JSON" until it ran out of steps. If a model still can't follow the assistant's format, the assistant now stops after two tries and suggests a larger model.
 
 ## 2.25.0 (2026-10-25)
 
