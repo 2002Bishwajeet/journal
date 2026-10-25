@@ -11,14 +11,21 @@ import { TocPanel } from "@/components/editor/TocPanel";
 import { FindReplaceBar } from "@/components/editor/FindReplaceBar";
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Minimize2 } from "lucide-react";
+import { ChevronLeft, History, MoreHorizontal, Minimize2 } from "lucide-react";
 import { CollaborativePopover } from '@/components/editor/CollaborativePopover';
 import { LinkedMentions } from "@/components/editor/LinkedMentions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import HistoryModal from "@/components/modals/HistoryModal";
 import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
 import { usePeerNoteContent } from "@/hooks/usePeerNoteContent";
+import { useShareLinkPull } from "@/hooks/useSharePush";
 import { toast } from "sonner";
 import { PeerNoteLoading, PeerNoteError } from "@/components/editor/PeerNoteFallback";
 import {
@@ -118,6 +125,21 @@ function EditorLayout({
         </span>
         {collaborativePopover}
         <SyncStatus />
+        {!isPeerNote && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="More" className="h-11 w-11 -mr-2 shrink-0">
+                <MoreHorizontal className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem className="min-h-11" onSelect={() => setHistoryOpen(true)}>
+                <History className="h-4 w-4" />
+                Version history
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* Desktop Toolbar */}
@@ -217,7 +239,7 @@ export default function EditorPage({
   
   const navigate = useNavigate();
   const {
-    get: { data: notes = [] },
+    get: { data: notes = [], isLoading: isNotesLoading },
     updateNote: { mutateAsync: updateNoteMetadata },
   } = useNotes();
   const { syncNote, syncService } = useSyncService();
@@ -230,6 +252,8 @@ export default function EditorPage({
   // Find the selected note metadata from the notes list
   const selectedNote = notes.find((n) => n.docId === noteId);
   const selectedNoteMetadata = selectedNote?.metadata;
+  // A share notification's link: a note not here yet is pulled from its owner first (#745)
+  const isPullingShare = useShareLinkPull(isActiveTab ? noteId : undefined, isNotesLoading, !!selectedNoteMetadata);
 
   // Peer WebSocket for collaborative notes from other identities
   const isPeerNote = !!selectedNoteMetadata?.authorOdinId &&
@@ -309,6 +333,7 @@ export default function EditorPage({
   }
 
   if (!selectedNoteMetadata) {
+    if (isPullingShare) return <PeerNoteLoading />;
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
         <p className="text-sm font-medium mb-3">Note not found</p>

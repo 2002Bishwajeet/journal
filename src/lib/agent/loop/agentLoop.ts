@@ -46,7 +46,9 @@ export type AgentEvent =
     | { type: 'toolResult'; tool: string; result: string; note?: WrittenNote }
     | { type: 'proposal'; proposal: AgentProposal }
     | { type: 'answer'; answer: string }
-    | { type: 'error'; error: string };
+    | { type: 'error'; error: string }
+    /** The run ended without an answer; `message` is what to tell the user. */
+    | { type: 'failed'; message: string };
 
 export interface RunAgentOptions {
     engine: AgentEngine;
@@ -93,6 +95,7 @@ export const MAX_TOKENS = 512;
 const SEARCH_LIMIT = 5;
 const LIST_LIMIT = 20;
 const NOTE_LENGTH = 1500;
+export const FORMAT_FAILED = 'This model could not follow the assistant format. Try a larger model in Settings > AI.';
 
 const ANSWER_SCHEMA = {
     type: 'object',
@@ -179,12 +182,14 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
         return engine.generate(messages, { schema, maxTokens: MAX_TOKENS, signal });
     };
 
-    const fail = (output: string, error: string) => {
+    /** `fix`: told to the model after the error, not shown to the user. */
+    const fail = (output: string, error: string, fix = '') => {
         onEvent({ type: 'error', error });
-        history.push({ role: 'assistant', content: output }, { role: 'user', content: `Error: ${error}` });
+        history.push({ role: 'assistant', content: output }, { role: 'user', content: `Error: ${error}${fix}` });
     };
 
     const schema = turnSchema(tools);
+    let notJson = 0;
     for (let step = 1; step <= MAX_TOOL_STEPS; step++) {
         if (signal?.aborted) return null;
         onEvent({ type: 'step', step });
@@ -195,9 +200,13 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
         try {
             turn = JSON.parse(output);
         } catch {
-            fail(output, 'The reply was not valid JSON.');
-            continue;
+            fail(output, 'The reply was not valid JSON.', ' Reply with one JSON object only.');
+            // Two bad replies in a row: the model can't follow the format, and more steps won't change that.
+            if (++notJson < 2) continue;
+            onEvent({ type: 'failed', message: FORMAT_FAILED });
+            return null;
         }
+        notJson = 0;
         if (typeof turn?.answer === 'string') {
             onEvent({ type: 'answer', answer: turn.answer });
             return turn.answer;

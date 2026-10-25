@@ -5,6 +5,7 @@ import { useSyncService } from '@/hooks/useSyncService';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { ShareCircleProvider, type EnrollResult } from '@/lib/homebase/ShareCircleProvider';
+import { SharePushProvider } from '@/lib/homebase/SharePushProvider';
 import { COLLABORATIVE_FOLDER_ID, JOURNAL_DRIVE, MAIN_FOLDER_ID } from '@/lib/homebase/config';
 import { getRecipientsOfOwnNotes, getSyncRecord } from '@/lib/db';
 import { READ_ONLY_SHARE_NOTICE_KEY, readString, writeString } from '@/lib/storage';
@@ -125,6 +126,9 @@ export function useNoteCollaboration() {
             );
 
             const existingNote = notes.find((n) => n.docId === noteId);
+            // Best-effort and never throws: the people just added get a push (#745)
+            await new SharePushProvider(dotYouClient).send(noteId, recipients, existingNote?.metadata.recipients);
+
             if (existingNote) {
                 if (existingNote.metadata.isPublic) {
                     // makeNoteCollaborative re-uploaded the public note encrypted, which re-keys

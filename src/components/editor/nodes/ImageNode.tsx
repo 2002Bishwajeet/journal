@@ -268,7 +268,7 @@ export function ImageNodeView({
       className={cn(
         // 20px hit target around a 10px square — big enough for a finger,
         // small enough not to cover the corner of the image.
-        "absolute flex h-5 w-5 items-center justify-center",
+        "absolute flex h-5 w-5 items-center justify-center pointer-coarse:size-11",
         "opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100",
         selected && "opacity-100",
         pos,
@@ -291,6 +291,8 @@ export function ImageNodeView({
       className={cn(
         "absolute -top-9 left-1/2 z-10 flex -translate-x-1/2 gap-0.5",
         "rounded-md border bg-popover p-0.5 shadow-md",
+        // 44px buttons do not fit in one row on a phone: wrap, and grow upward from the image.
+        "pointer-coarse:bottom-full pointer-coarse:top-auto pointer-coarse:left-0 pointer-coarse:mb-1 pointer-coarse:w-max pointer-coarse:max-w-[calc(100vw-5rem)] pointer-coarse:translate-x-0 pointer-coarse:flex-wrap",
         "opacity-0 transition-opacity group-hover:opacity-100",
         selected && "opacity-100",
       )}
@@ -306,7 +308,7 @@ export function ImageNodeView({
             updateAttributes({ align: align === value ? null : value })
           }
           className={cn(
-            "rounded p-1 hover:bg-accent hover:text-accent-foreground",
+            "rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground",
             align === value && "bg-accent text-accent-foreground",
           )}
         >
@@ -319,7 +321,7 @@ export function ImageNodeView({
           type="button"
           aria-label={label}
           onClick={() => move(dir)}
-          className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
+          className="rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground"
         >
           <Icon className="h-4 w-4" />
         </button>
@@ -331,7 +333,7 @@ export function ImageNodeView({
             aria-label="Alt text"
             aria-pressed={!!alt}
             className={cn(
-              "rounded p-1 text-xs font-semibold hover:bg-accent hover:text-accent-foreground",
+              "rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center text-xs font-semibold hover:bg-accent hover:text-accent-foreground",
               alt && "bg-accent text-accent-foreground",
             )}
           >
@@ -362,7 +364,7 @@ export function ImageNodeView({
             aria-label="Caption"
             aria-pressed={!!caption}
             className={cn(
-              "rounded p-1 hover:bg-accent hover:text-accent-foreground",
+              "rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground",
               caption && "bg-accent text-accent-foreground",
             )}
           >
@@ -401,7 +403,7 @@ export function ImageNodeView({
             type="button"
             aria-label="View full size"
             onClick={() => setLightboxOpen(true)}
-            className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
+            className="rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground"
           >
             <Maximize2 className="h-4 w-4" />
           </button>
@@ -410,7 +412,7 @@ export function ImageNodeView({
             type="button"
             aria-label="Replace image"
             onClick={pickReplacement}
-            className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
+            className="rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground"
           >
             <ImageUp className="h-4 w-4" />
           </button>
@@ -420,7 +422,7 @@ export function ImageNodeView({
             aria-pressed={edited}
             onClick={() => setEditOpen(true)}
             className={cn(
-              "rounded p-1 hover:bg-accent hover:text-accent-foreground",
+              "rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground",
               edited && "bg-accent text-accent-foreground",
             )}
           >
@@ -432,7 +434,7 @@ export function ImageNodeView({
         type="button"
         aria-label="Download image"
         onClick={download}
-        className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
+        className="rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground"
       >
         <Download className="h-4 w-4" />
       </button>

@@ -51,6 +51,10 @@ interface JournalE2EHooks {
   seedPendingSync(): Promise<void>;
   /** Deletes the signed-in identity's folders (with their notes), notes and invites whose name matches the regex source; returns the names. */
   deleteFilesNamed(namePattern: string): Promise<string[]>;
+  /** Subscribes to that identity's Journal peer push now (#743). */
+  subscribePeerPush(odinId: string): Promise<void>;
+  /** The newest entries of the signed-in identity's Journal notification list (#745). */
+  journalNotifications(): Promise<{ id: string; senderId: string; unread: boolean; typeId: string; tagId: string }[]>;
   /** Draws a 1200×630 link card JPEG, as src/lib/share/cardImage.ts's renderCardImage does. */
   renderCard(
     text: { title: string; excerpt?: string; author: string },
