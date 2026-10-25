@@ -6,5 +6,7 @@
     "lib": ["ES2023", "DOM"],
     "types": ["node"]
   },
-  "include": ["**/*.ts", "../playwright*.config.ts", "../src/globals.d.ts"]
+  "include": ["**/*.ts", "../playwright*.config.ts", "../src/globals.d.ts"],
+  // CI-only script; webdriverio is installed --no-save on the macOS runner (#799).
+  "exclude": ["ios/safari-check.ts"]
 }

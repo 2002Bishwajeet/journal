@@ -62,6 +62,12 @@ jobs:
         env:
           CI: true
 
+      - name: Run mobile E2E (chromium)
+        if: matrix.shard == 1
+        run: npm run e2e:mobile
+        env:
+          CI: true
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
@@ -71,6 +77,15 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 14
+
+      - name: Run mobile E2E (webkit, informational)
+        if: always() && matrix.shard == 1
+        continue-on-error: true
+        run: |
+          npx playwright install --with-deps webkit
+          npm run e2e:mobile:webkit
+        env:
+          CI: true
 
       - name: Run quarantined E2E specs (informational)
         if: always() && matrix.shard == 1

@@ -19,6 +19,14 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - The local AI assistant answers again. Before, every step failed with "The reply was not valid JSON" until it ran out of steps. If a model still can't follow the assistant's format, the assistant now stops after two tries and suggests a larger model.
 
+## 2.25.0 (2026-10-25)
+
+### Fixed
+
+- The app now fits the full phone screen. The Settings and Log out buttons no longer hide under the browser toolbar.
+- On a phone in landscape, the notch no longer covers the sidebar and note list.
+- The Exit Focus button stays below the status bar. It does not show a keyboard shortcut on touch screens.
+
 ## 2.24.0 (2026-10-25)
 
 ### New
