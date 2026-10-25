@@ -1,3 +1,15 @@
+# [2.24.0](https://github.com/2002Bishwajeet/journal/compare/v2.23.1...v2.24.0) (2026-10-25)
+
+
+### Bug Fixes
+
+* **diagnostics:** close redaction gaps, align tappable item rows ([35a3320](https://github.com/2002Bishwajeet/journal/commit/35a3320cb660e7410dda4a41c51223ddce21e099))
+* **diagnostics:** keep logged objects out of the report and retry log load ([#800](https://github.com/2002Bishwajeet/journal/issues/800)) ([3a31f9f](https://github.com/2002Bishwajeet/journal/commit/3a31f9fd4adff24e62e8537a271887506a6c69ec))
+
+
+### Features
+
+* **settings:** add Diagnostics for pending sync items, errors, retry and a redacted report ([#800](https://github.com/2002Bishwajeet/journal/issues/800)) ([33c65d8](https://github.com/2002Bishwajeet/journal/commit/33c65d81b26de97e9dc77d3f029eb0f65f5f9678))
 ## [2.23.1](https://github.com/2002Bishwajeet/journal/compare/v2.23.0...v2.23.1) (2026-10-24)
 
 
