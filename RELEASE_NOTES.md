@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- Settings › Diagnostics now tells you when your journal drive blocks share notifications. It shows how to turn them on in your owner console.
+
 ## 2.28.0 (2026-10-25)
 
 ### New

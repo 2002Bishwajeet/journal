@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Loader2, RefreshCw, Share2 } from "lucide-react";
+import { Copy, ExternalLink, Loader2, RefreshCw, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useDiagnostics } from "@/hooks/useDiagnostics";
@@ -168,6 +168,24 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
           Retry now
         </Button>
       </div>
+
+      {diagnostics.shareNotificationsFixUrl && (
+        <div className="space-y-4" data-testid="share-notifications-off">
+          <SectionHeader subtitle="People you share a note with still get it the next time Journal checks, just not right away.">
+            Share notifications are off
+          </SectionHeader>
+          <p className="text-sm leading-relaxed text-pretty">
+            Your Homebase refused the notification because this journal's drive doesn't allow subscriptions. Open the
+            drive on your owner console, choose the edit (pencil) button and turn on Allow subscriptions.
+          </p>
+          <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto md:min-h-9">
+            <a href={diagnostics.shareNotificationsFixUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink />
+              Open drive settings
+            </a>
+          </Button>
+        </div>
+      )}
 
       <div className="space-y-4">
         <SectionHeader>Status</SectionHeader>
