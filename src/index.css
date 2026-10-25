@@ -1000,6 +1000,19 @@ img.ProseMirror-separator {
   display: none;  /* Chrome, Safari, Opera */
 }
 
+/* Settings tab strip (phones): fade the edge that has more tabs past it. */
+@media (max-width: 767px) {
+  .settings-tab-fade[data-fade-start="true"] {
+    mask-image: linear-gradient(to right, transparent, #000 1.25rem);
+  }
+  .settings-tab-fade[data-fade-end="true"] {
+    mask-image: linear-gradient(to left, transparent, #000 1.25rem);
+  }
+  .settings-tab-fade[data-fade-start="true"][data-fade-end="true"] {
+    mask-image: linear-gradient(to right, transparent, #000 1.25rem, #000 calc(100% - 1.25rem), transparent);
+  }
+}
+
 /* Scroll containment - prevents scroll chaining to parent/body */
 .scroll-contained {
   overscroll-behavior: contain;

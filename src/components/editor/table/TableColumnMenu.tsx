@@ -115,16 +115,16 @@ export function TableColumnMenu({ editor }: TableColumnMenuProps) {
                 variant="ghost" 
                 size="icon" 
                 aria-label="Column options"
-                className={TABLE_HANDLE_CLASS + ' h-4 w-6'}
+                className={TABLE_HANDLE_CLASS + ' h-4 w-6 relative pointer-coarse:before:absolute pointer-coarse:before:-inset-x-2.5 pointer-coarse:before:-inset-y-3.5'}
             >
                 <GripHorizontal />
            </Button>
          </PopoverTrigger>
          <PopoverContent className={TABLE_MENU_CLASS} side="top" align="center">
-             <Button variant="ghost" size="icon" aria-label="Insert column left" title="Insert column left" className="h-7 w-7" onClick={() => editor.chain().focus().addColumnBefore().run()}>
+             <Button variant="ghost" size="icon" aria-label="Insert column left" title="Insert column left" className="h-7 w-7 pointer-coarse:size-11" onClick={() => editor.chain().focus().addColumnBefore().run()}>
                 <ArrowLeft />
              </Button>
-             <Button variant="ghost" size="icon" aria-label="Insert column right" title="Insert column right" className="h-7 w-7" onClick={() => editor.chain().focus().addColumnAfter().run()}>
+             <Button variant="ghost" size="icon" aria-label="Insert column right" title="Insert column right" className="h-7 w-7 pointer-coarse:size-11" onClick={() => editor.chain().focus().addColumnAfter().run()}>
                 <ArrowRight />
              </Button>
              <Separator orientation="vertical" className="h-4 my-auto" />

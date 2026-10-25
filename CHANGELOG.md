@@ -1,3 +1,39 @@
+## [2.26.1](https://github.com/2002Bishwajeet/journal/compare/v2.26.0...v2.26.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **ai:** drop web-llm's empty think block and stop after two non-JSON replies ([#796](https://github.com/2002Bishwajeet/journal/issues/796)) ([47052c1](https://github.com/2002Bishwajeet/journal/commit/47052c1dde8b7258f775d862136bcd996aaab016))
+# [2.26.0](https://github.com/2002Bishwajeet/journal/compare/v2.25.0...v2.26.0) (2026-10-25)
+
+
+### Bug Fixes
+
+* **editor:** make table, image, find-bar and edit-preview controls tappable on phones ([#791](https://github.com/2002Bishwajeet/journal/issues/791)) ([0b747c0](https://github.com/2002Bishwajeet/journal/commit/0b747c08517fd47e60041f0a083dc4c7d1cccf72))
+* **push:** keep tracked connections tracked when re-subscribe fails ([f3ed907](https://github.com/2002Bishwajeet/journal/commit/f3ed907ca2221c06e14183e2188443e6a486a01d))
+* **settings:** full-screen sheet at 640-767px; scroll active tab only on section change ([#782](https://github.com/2002Bishwajeet/journal/issues/782)) ([dc04683](https://github.com/2002Bishwajeet/journal/commit/dc046831cd9e67f3f64f4f77672727dfd37ef820))
+* **settings:** keep a manually scrolled tab strip across re-renders ([#782](https://github.com/2002Bishwajeet/journal/issues/782)) ([8c95593](https://github.com/2002Bishwajeet/journal/commit/8c95593992fe5dbddd43a7421aa2b40b9b096a89))
+* **settings:** pin the phone sheet to the corner so 393px leaves no seam ([#782](https://github.com/2002Bishwajeet/journal/issues/782)) ([12207c4](https://github.com/2002Bishwajeet/journal/commit/12207c47607da13d4692d16032a7d0fe8bb77291))
+* **sharing:** unsubscribe a removed connection's Journal peer push ([#757](https://github.com/2002Bishwajeet/journal/issues/757)) ([fceb8ca](https://github.com/2002Bishwajeet/journal/commit/fceb8cadb0fe9f570d1a5dd7b37099cf0824c49e))
+
+
+### Features
+
+* **settings:** full-screen sheet and scroll-aware tab strip on phones ([#782](https://github.com/2002Bishwajeet/journal/issues/782)) ([60cf035](https://github.com/2002Bishwajeet/journal/commit/60cf035a508c82be63d305b14743f57b88cdbe91))
+
+
+### Reverts
+
+* Revert "TEMP: known-bad page to prove the iOS checks fail (revert)" ([e8d4bb9](https://github.com/2002Bishwajeet/journal/commit/e8d4bb95151706e22945f31533ab761728455ff7))
+* Revert "TEMP: h-dvh shell to prove the iOS job can go green (revert; real fix is #775)" ([aebe061](https://github.com/2002Bishwajeet/journal/commit/aebe061014622b9f0e49fccfab3351f902fa282b)), closes [#775](https://github.com/2002Bishwajeet/journal/issues/775)
+# [2.25.0](https://github.com/2002Bishwajeet/journal/compare/v2.24.0...v2.25.0) (2026-10-25)
+
+
+### Bug Fixes
+
+* **mobile:** fit the real screen with dvh, one viewport meta and side safe areas ([#775](https://github.com/2002Bishwajeet/journal/issues/775)) ([97faf84](https://github.com/2002Bishwajeet/journal/commit/97faf8468079b87063fcb8c53d2100a445484173))
+* **mobile:** sidebar background runs under the home indicator; focus exit pill sits below the note header ([#775](https://github.com/2002Bishwajeet/journal/issues/775)) ([dc8d631](https://github.com/2002Bishwajeet/journal/commit/dc8d63123834afd55c7a449240f22d3a015a649c))
+* **ui:** keep dialogs open when a toast is tapped, add toast safe-area offset and 44px buttons ([#786](https://github.com/2002Bishwajeet/journal/issues/786)) ([88ea12e](https://github.com/2002Bishwajeet/journal/commit/88ea12e6bf52c835ffc39cc82ed05b31dd696be8))
 # [2.24.0](https://github.com/2002Bishwajeet/journal/compare/v2.23.1...v2.24.0) (2026-10-25)
 
 

@@ -17,7 +17,7 @@ vi.mock('@homebase-id/js-lib/network', async (orig) => ({
     getConnections: mocks.getConnections,
 }));
 
-import { runPeerPushPass } from '@/hooks/usePeerPushSubscriptions';
+import { runPeerPushPass, PEER_PUSH_SUBSCRIBED_KEY } from '@/hooks/usePeerPushSubscriptions';
 import {
     BASE_PERMISSIONS,
     COLLABORATION_PERMISSIONS,
@@ -88,7 +88,7 @@ describe('runPeerPushPass', () => {
         });
         await pass();
         expect(api.post).toHaveBeenCalledTimes(3);
-        expect(mocks.saveAppState).toHaveBeenCalledTimes(1);
+        expect(mocks.saveAppState).toHaveBeenCalledWith(PEER_PUSH_SUBSCRIBED_KEY, ['a.example.com', 'c.example.com']);
     });
 
     it('makes no calls without SendPushNotifications', async () => {
@@ -99,9 +99,9 @@ describe('runPeerPushPass', () => {
         expect(mocks.saveAppState).not.toHaveBeenCalled();
     });
 
-    it('writes app_state once per pass', async () => {
+    it('saves the subscribed list and last-run time each pass', async () => {
         await pass();
-        expect(mocks.saveAppState).toHaveBeenCalledTimes(1);
+        expect(mocks.saveAppState).toHaveBeenCalledTimes(2);
     });
 
     it('skips a non-forced pass that ran within a day', async () => {
@@ -131,7 +131,44 @@ describe('runPeerPushPass', () => {
         await pass();
         expect(api.post).toHaveBeenCalledTimes(2);
         expect(api.delete).not.toHaveBeenCalled();
-        expect(mocks.saveAppState).toHaveBeenCalledTimes(1);
+        expect(mocks.saveAppState).toHaveBeenCalledWith(PEER_PUSH_SUBSCRIBED_KEY, ['a.example.com', 'b.example.com']);
+    });
+
+    it('unsubscribes a removed connection even when the server refuses the list', async () => {
+        api.get.mockRejectedValueOnce({ response: { status: 403 } });
+        mocks.getAppState.mockImplementation(async (key) =>
+            key === PEER_PUSH_SUBSCRIBED_KEY ? ['a.example.com', 'gone.example.com'] : null
+        );
+        await pass();
+        expect(api.delete).toHaveBeenCalledTimes(1);
+        expect(api.delete.mock.calls[0][1].data.identity).toBe('gone.example.com');
+        expect(mocks.saveAppState).toHaveBeenCalledWith(PEER_PUSH_SUBSCRIBED_KEY, ['a.example.com', 'b.example.com']);
+    });
+
+    it('keeps an already-tracked connection tracked when its re-subscribe fails', async () => {
+        setConnections('a.example.com', 'bad.example.com');
+        api.get.mockRejectedValueOnce({ response: { status: 403 } });
+        mocks.getAppState.mockImplementation(async (key) =>
+            key === PEER_PUSH_SUBSCRIBED_KEY ? ['bad.example.com'] : null
+        );
+        api.post.mockImplementation(async (_u, body) => {
+            if (body.identity === 'bad.example.com') throw new Error('boom');
+            return { data: {} };
+        });
+        await pass();
+        expect(mocks.saveAppState).toHaveBeenCalledWith(PEER_PUSH_SUBSCRIBED_KEY, ['a.example.com', 'bad.example.com']);
+    });
+
+    it('keeps a removed connection tracked when its unsubscribe fails', async () => {
+        api.get.mockRejectedValueOnce({ response: { status: 403 } });
+        mocks.getAppState.mockImplementation(async (key) =>
+            key === PEER_PUSH_SUBSCRIBED_KEY ? ['gone.example.com'] : null
+        );
+        api.delete.mockRejectedValueOnce(new Error('boom'));
+        await pass();
+        expect(mocks.saveAppState).toHaveBeenCalledWith(PEER_PUSH_SUBSCRIBED_KEY, [
+            'a.example.com', 'b.example.com', 'gone.example.com',
+        ]);
     });
 
     it('does not write app_state when the connection list fails', async () => {
