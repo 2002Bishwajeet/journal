@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- On phones, Settings fills the screen. The section tabs scroll sideways and always show the selected tab in full.
+
 ## 2.24.0 (2026-10-25)
 
 ### New
