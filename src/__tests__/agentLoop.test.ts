@@ -12,8 +12,14 @@ import { upsertSearchIndex, saveDocumentUpdate, createFolder } from '@/lib/db/qu
 import { createLocalDeps } from '@/lib/agent/local/localDeps';
 import { appendMarkdown } from '@/lib/agent/editEngine';
 import type { AnyJournalTool } from '@/lib/agent/tools/registry';
+import { EditorState } from '@tiptap/pm/state';
+import type { Editor } from '@tiptap/react';
+import { editorSchema } from '@/lib/agent/editEngine';
+import type { ActiveEditorStore } from '@/lib/agent/activeEditor';
 import {
     AGENT_TOOLS,
+    FORMAT_FAILED,
+    MAX_TOKENS,
     MAX_TOOL_STEPS,
     runAgent,
     turnSchema,
@@ -22,7 +28,7 @@ import {
     type AgentMessage,
     type RunAgentOptions,
 } from '@/lib/agent/loop/agentLoop';
-import { estimateTokens } from '@/lib/agent/loop/trim';
+import { CONTEXT_WINDOW, estimatePrompt, estimateTokens } from '@/lib/agent/loop/trim';
 
 const FOLDER = '10000000-0000-0000-0000-000000000001';
 const GARDEN = '30000000-0000-0000-0000-000000000001';
@@ -183,5 +189,60 @@ describe('runAgent', () => {
     it('should keep the turn schema under ~850 tokens', () => {
         // Was 600 with 4 notes tools; the 5 editor tools (#701) bring it to about 815.
         expect(estimateTokens(JSON.stringify(turnSchema(AGENT_TOOLS)))).toBeLessThan(850);
+    });
+});
+
+describe('runAgent — replies that are not JSON (#796)', () => {
+    /** A reply cut off at max_tokens: the answer string never closes. */
+    const cutOff = `{"answer": "${'This note is about '.repeat(100)}`;
+
+    it('should parse a reply padded with whitespace', async () => {
+        const { engine } = scriptedEngine([`\n\n  {"answer":\n\n   "Zucchini."}  ${' '.repeat(300)}\n`]);
+        expect(await run('Hi', engine).result).toBe('Zucchini.');
+    });
+
+    it('should tell the model to reply with one JSON object after a bad reply, and go on', async () => {
+        const { engine, calls } = scriptedEngine([cutOff, { answer: 'A garden plan.' }]);
+        expect(await run('what is this about?', engine).result).toBe('A garden plan.');
+        expect(resultsSent(calls[1]).join('\n')).toContain('not valid JSON. Reply with one JSON object only.');
+    });
+
+    it('should end the run after two bad replies in a row with a plain message', async () => {
+        const { engine, calls } = scriptedEngine([cutOff, cutOff, { answer: 'never' }]);
+        const { result, events } = run('what is this about?', engine);
+
+        expect(await result).toBeNull();
+        expect(calls).toHaveLength(2);
+        expect(events.filter((e) => e.type === 'error')).toEqual([
+            { type: 'error', error: 'The reply was not valid JSON.' },
+            { type: 'error', error: 'The reply was not valid JSON.' },
+        ]);
+        expect(events.at(-1)).toEqual({ type: 'failed', message: FORMAT_FAILED });
+    });
+
+    it('should keep every step of "what is this about?" on a two-page open note inside the context window', async () => {
+        // About two pages: 4 headings and 24 paragraphs of ~300 characters.
+        const paragraph = 'The project review covered the schedule, the budget and the open risks in detail. '.repeat(4);
+        const content = Array.from({ length: 4 }, (_, i) => [
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: `Section ${i + 1}` }] },
+            ...Array.from({ length: 6 }, () => ({ type: 'paragraph', content: [{ type: 'text', text: paragraph }] })),
+        ]).flat();
+        const doc = editorSchema.nodeFromJSON({ type: 'doc', content });
+        const editor: ActiveEditorStore = {
+            get: () => ({ docId: GARDEN, editor: { state: EditorState.create({ doc }) } as unknown as Editor, editable: true, excludeFromAI: false }),
+            subscribe: () => () => {},
+        };
+        const { engine, calls } = scriptedEngine([
+            { tool: 'read_open_note', args: {} },
+            { tool: 'get_note', args: { id: GARDEN } },
+            { answer: 'A project review.' },
+        ]);
+
+        expect(await run(`Open note: "Review" (id: ${GARDEN})\nwhat is this about?`, engine, { editor }).result).toBe('A project review.');
+        const schemaTokens = estimateTokens(JSON.stringify(turnSchema(AGENT_TOOLS)));
+        // The prompt estimate (characters / 3) of each step, schema included, leaves room for the reply.
+        for (const call of calls) expect(estimatePrompt(call.messages) + schemaTokens).toBeLessThanOrEqual(CONTEXT_WINDOW - MAX_TOKENS);
+        // The note read in full: no step was trimmed away.
+        expect(resultsSent(calls[2]).join('\n')).toContain('Section 4');
     });
 });

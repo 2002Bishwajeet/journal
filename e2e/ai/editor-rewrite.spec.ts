@@ -31,11 +31,22 @@ test('the AI menu previews its rewrite in the note, and Accept and one undo work
   const editor = activeEditor(app);
   await expect(editor).toContainText('Second paragraph here.');
 
-  // Select the first paragraph's sentence.
+  // Select the first paragraph's sentence. ProseMirror's 20 ms focus timer can undo a key sent right
+  // after the click (the menu then sees no selection, or only part of it), so retry until the
+  // editor's own selection is the whole sentence.
+  type View = { editor: { state: { doc: { textBetween: (from: number, to: number) => string }; selection: { from: number; to: number } } } };
+  const selectedText = () =>
+    editor.evaluate((el) => {
+      const { state } = (el as unknown as View).editor;
+      return state.doc.textBetween(state.selection.from, state.selection.to);
+    });
   const selectFirstParagraph = async () => {
-    await editor.locator('p').first().click();
-    await app.keyboard.press('Home');
-    await app.keyboard.press('Shift+End');
+    await expect(async () => {
+      await editor.locator('p').first().click();
+      await app.keyboard.press('Home');
+      await app.keyboard.press('Shift+End');
+      await expect.poll(selectedText, { timeout: 1000 }).toBe('This is a very long and wordy sentence that says little.');
+    }).toPass();
   };
   await selectFirstParagraph();
   await assertTestOrigin(app);
