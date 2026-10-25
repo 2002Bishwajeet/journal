@@ -75,6 +75,17 @@ test('tablet 800px: the dialog keeps a 16px margin', async ({ browser }) => {
   });
 });
 
+test('narrow tablet 700px: still a full-screen sheet', async ({ browser }) => {
+  await withFencedPage(browser, { storageState: AUTH, viewport: { width: 700, height: 900 } }, async (page) => {
+    const dialog = await openSettings(page);
+    const box = (await dialog.boundingBox())!;
+    expect(Math.abs(box.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.width - 700)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box.height - 900)).toBeLessThanOrEqual(1);
+  });
+});
+
 test('desktop 1280px: screenshot for comparison', async ({ browser }) => {
   await withFencedPage(browser, { storageState: AUTH, viewport: { width: 1280, height: 800 } }, async (page) => {
     await openSettings(page);
