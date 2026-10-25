@@ -15,6 +15,12 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- The sidebar no longer shows a collapse button on phones and tablets.
+- The sidebar fills the full width on tablets.
+- Sidebar buttons and rows are now large enough to tap on touch screens.
+
 ## 2.25.0 (2026-10-25)
 
 ### Fixed
