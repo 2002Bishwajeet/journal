@@ -930,7 +930,7 @@ export class NotesDriveProvider {
      * @param circleIds - Array of circle IDs to grant access
      * @param editorOdinId - OdinId of the user making this change
      * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
-     * @param beforeInvite - Runs between the ACL upload and the invite (gives recipients drive access, #730)
+     * @param beforeInvite - Runs after the ACL upload (gives recipients drive access, #730)
      * @returns The new version tag after update
      */
     async makeNoteCollaborative(
@@ -941,21 +941,17 @@ export class NotesDriveProvider {
         fileId?: string,
         beforeInvite?: () => Promise<void>
     ): Promise<{ versionTag: string }> {
-        let title = '';
         const result = await this.#rewriteNoteHeader(uniqueId, {
             fileId,
             mode: 'patch',
-            content: (existing) => {
-                title = existing.title || '';
-                return {
-                    ...existing,
-                    isPublic: false,
-                    isCollaborative: true,
-                    circleIds,
-                    recipients,
-                    lastEditedBy: editorOdinId,
-                };
-            },
+            content: (existing) => ({
+                ...existing,
+                isPublic: false,
+                isCollaborative: true,
+                circleIds,
+                recipients,
+                lastEditedBy: editorOdinId,
+            }),
             groupId: COLLABORATIVE_FOLDER_ID, // Move to collaborative folder
             isEncrypted: true,
             acl: sharedAcl({ circleIds }),
@@ -965,16 +961,8 @@ export class NotesDriveProvider {
             errorMessage: 'Failed to make note collaborative',
         });
 
+        // No invite file is sent any more (#747): recipients find the note by pull and push.
         await beforeInvite?.();
-
-        await this.#invitations.createOrUpdateInvitation(
-            uniqueId,
-            title,
-            '',
-            circleIds,
-            recipients,
-            editorOdinId,
-        );
 
         return result;
     }

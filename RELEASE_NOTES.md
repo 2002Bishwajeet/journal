@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- Sharing a note no longer sends an invite file. Your friends still see the note under "Shared with me".
+
 ## 2.28.0 (2026-10-25)
 
 ### New
