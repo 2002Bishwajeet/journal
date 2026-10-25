@@ -90,8 +90,10 @@ export async function runPeerPushPass(
         );
         const stale = [...new Set([...subscribed, ...tracked])].filter((id) => !connections.has(id));
         const unsubscribeFailed = await runLimited(stale, (id) => provider.unsubscribe(id));
+        // A failed upsert keeps an already-tracked id: it is still subscribed server-side, so a later removal must unsubscribe it.
+        // Connections subscribed by #743 before this list existed are only picked up after their next successful pass.
         await saveAppState(PEER_PUSH_SUBSCRIBED_KEY, [
-            ...[...connections].filter((id) => !subscribeFailed.includes(id)),
+            ...[...connections].filter((id) => !subscribeFailed.includes(id) || tracked.includes(id)),
             ...unsubscribeFailed,
         ]);
         await saveAppState(PEER_PUSH_LAST_RUN_KEY, now);
