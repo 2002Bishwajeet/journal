@@ -67,7 +67,7 @@ function SearchResultItem({
       key={result.docId}
       id={`search-result-${index}`}
       onClick={onSelect}
-      onMouseEnter={onHover}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') onHover(); }}
       className={cn(
         "flex items-start gap-3 w-full px-3 py-3 text-left rounded-md transition-colors",
         isSelected ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"
@@ -125,7 +125,7 @@ function SearchResultItem({
 
       {isSelected && (
         <div className="self-center shrink-0 text-muted-foreground opacity-50 px-2">
-          <span className="text-[10px]">↵</span>
+          <span className="text-[10px] pointer-coarse:hidden">↵</span>
         </div>
       )}
     </button>
@@ -158,7 +158,10 @@ export default function SearchModal({
       onClick={handleClose}
     >
       <div
-        className="fixed left-1/2 top-[10%] -translate-x-1/2 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl border border-border sm:rounded-xl overflow-hidden flex flex-col max-h-[85vh] animation-in fade-in zoom-in-95 duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search notes"
+        className="fixed inset-0 h-dvh pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:inset-auto sm:left-1/2 sm:top-[10%] sm:-translate-x-1/2 sm:h-auto sm:pt-0 sm:pb-0 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl sm:border border-border sm:rounded-xl overflow-hidden flex flex-col sm:max-h-[85vh] animation-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input - Large and clean */}
@@ -179,10 +182,17 @@ export default function SearchModal({
           <div className="hidden sm:flex items-center gap-1.5 ">
             <Kbd>Esc</Kbd>
           </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="sm:hidden h-11 px-2 -mr-2 text-sm font-medium text-primary shrink-0 touch-manipulation"
+          >
+            Cancel
+          </button>
         </div>
 
         {/* Results */}
-        <div className="flex-1 overflow-y-auto min-h-0 py-2">
+        <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 py-2">
           {isLoading ? (
             <div className="py-12 text-center text-sm text-muted-foreground flex flex-col items-center justify-center gap-3">
               <Loader2 className="h-6 w-6 animate-spin opacity-50" />

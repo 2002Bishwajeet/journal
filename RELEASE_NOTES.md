@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- On a phone, Search now fills the whole screen and has a Cancel button. The results stay above the keyboard.
+
 ### Fixed
 
 - On a phone, you can now open Version history. Tap the "More" button at the top of a note, then "Version history". The list fills the screen, the Restore buttons are bigger, and closing the list no longer opens the keyboard.
