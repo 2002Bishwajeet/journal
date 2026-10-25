@@ -50,6 +50,7 @@ import { getMobilePane } from "@/layouts/mobilePane";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
 import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
+import { useSharePush } from "@/hooks/useSharePush";
 import { useWebMcpBridge } from "@/hooks/useWebMcp";
 import { useSettingsOpener } from "@/hooks/useSettingsOpener";
 import { useAuth } from "@/hooks/auth";
@@ -120,6 +121,8 @@ export default function JournalLayout() {
 
   // Subscribe to each connection's Journal peer push
   usePeerPushSubscriptions();
+  // Pull the owner of each share push (#745)
+  useSharePush();
   useWebMcpBridge();
 
   // Focus / Zen mode state

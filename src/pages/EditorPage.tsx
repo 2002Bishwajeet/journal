@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
 import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
 import { usePeerNoteContent } from "@/hooks/usePeerNoteContent";
+import { useShareLinkPull } from "@/hooks/useSharePush";
 import { toast } from "sonner";
 import { PeerNoteLoading, PeerNoteError } from "@/components/editor/PeerNoteFallback";
 import {
@@ -217,7 +218,7 @@ export default function EditorPage({
   
   const navigate = useNavigate();
   const {
-    get: { data: notes = [] },
+    get: { data: notes = [], isLoading: isNotesLoading },
     updateNote: { mutateAsync: updateNoteMetadata },
   } = useNotes();
   const { syncNote, syncService } = useSyncService();
@@ -230,6 +231,8 @@ export default function EditorPage({
   // Find the selected note metadata from the notes list
   const selectedNote = notes.find((n) => n.docId === noteId);
   const selectedNoteMetadata = selectedNote?.metadata;
+  // A share notification's link: a note not here yet is pulled from its owner first (#745)
+  const isPullingShare = useShareLinkPull(isActiveTab ? noteId : undefined, isNotesLoading, !!selectedNoteMetadata);
 
   // Peer WebSocket for collaborative notes from other identities
   const isPeerNote = !!selectedNoteMetadata?.authorOdinId &&
@@ -309,6 +312,7 @@ export default function EditorPage({
   }
 
   if (!selectedNoteMetadata) {
+    if (isPullingShare) return <PeerNoteLoading />;
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
         <p className="text-sm font-medium mb-3">Note not found</p>
