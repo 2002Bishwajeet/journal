@@ -46,12 +46,12 @@ export const ExtendPermissionDialog = () => {
         </ul>
 
         <div className="flex flex-col gap-2">
-          <Button asChild size="lg" className="w-full">
+          <Button asChild size="lg" className="w-full max-sm:h-11">
             <a href={permissions.url} onClick={permissions.onGrant}>
               Grant {noun} <ExternalLink className="h-4 w-4" aria-hidden="true" />
             </a>
           </Button>
-          <Button variant="ghost" size="lg" className="w-full" onClick={permissions.dismiss}>
+          <Button variant="ghost" size="lg" className="w-full max-sm:h-11" onClick={permissions.dismiss}>
             Not now
           </Button>
           <p className="text-center text-xs text-muted-foreground">

@@ -4,6 +4,7 @@ import { assertTestOrigin } from '../support/origin-guard';
 import type { Page } from '@playwright/test';
 
 const PHONE = { width: 393, height: 852 };
+const DESKTOP = { width: 1280, height: 800 };
 
 async function boot(browser: Parameters<typeof withFencedPage>[0], body: (page: Page) => Promise<void>) {
   await withFencedPage(
@@ -36,22 +37,30 @@ async function expectTouchSized(page: Page, dialogName: string | RegExp, footerB
   expect(await title.evaluate((el) => getComputedStyle(el).textAlign)).toBe('left');
 }
 
+/**
+ * One screenshot per theme at 393 px and 1280 px. `inBothThemes` waits for the theme class and
+ * its colour transitions, and the file is named from the theme that is showing.
+ */
+async function shootBothSizes(page: Page, name: string) {
+  for (const [size, tag] of [[PHONE, '393'], [DESKTOP, '1280']] as const) {
+    await page.setViewportSize(size);
+    await inBothThemes(page, (theme) => page.screenshot({ path: test.info().outputPath(`${name}-${theme}-${tag}.png`) }));
+  }
+  await page.setViewportSize(PHONE);
+}
+
 test('New folder dialog has 44px targets and a left-aligned header', async ({ browser }) => {
   await boot(browser, async (page) => {
     await page.getByRole('button', { name: 'New folder' }).click();
     await expectTouchSized(page, /folder/i, ['Create', 'Cancel']);
-    await inBothThemes(page, async (theme) => {
-      await page.screenshot({ path: test.info().outputPath(`new-folder-${theme}-393.png`) });
-    });
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await page.screenshot({ path: test.info().outputPath('new-folder-light-1280.png') });
+    await shootBothSizes(page, 'new-folder');
   });
 });
 
 test('Move to Trash confirm has 44px targets and a visible dark outline', async ({ browser }) => {
   await boot(browser, async (page) => {
     // Make the note at desktop width (the phone layout has no inline "New" list), then go phone-sized.
-    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setViewportSize(DESKTOP);
     await page.reload();
     await waitForAppReady(page);
     await createNote(page, { title: 'Dialog audit note', body: 'body' });
@@ -68,10 +77,8 @@ test('Move to Trash confirm has 44px targets and a visible dark outline', async 
       if (theme === 'dark') {
         expect(await dialog.evaluate((el) => getComputedStyle(el).getPropertyValue('--input').trim().toLowerCase())).toBe('#3e3d3a');
       }
-      await page.screenshot({ path: test.info().outputPath(`trash-confirm-${theme}-393.png`) });
     });
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await page.screenshot({ path: test.info().outputPath('trash-confirm-light-1280.png') });
+    await shootBothSizes(page, 'trash-confirm');
   });
 });
 
@@ -85,11 +92,7 @@ test("What's new fits inside the viewport", async ({ browser }) => {
     const box = (await dialog.boundingBox())!;
     expect(box.y).toBeGreaterThanOrEqual(0);
     expect(box.y + box.height).toBeLessThanOrEqual(PHONE.height);
-    await inBothThemes(page, async (theme) => {
-      await page.screenshot({ path: test.info().outputPath(`whats-new-${theme}-393.png`) });
-    });
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await page.screenshot({ path: test.info().outputPath('whats-new-light-1280.png') });
+    await shootBothSizes(page, 'whats-new');
   });
 });
 

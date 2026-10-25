@@ -108,7 +108,7 @@ export function ImageLightbox({ open, onOpenChange, src, alt, edits = NO_EDITS }
           // The box covers the viewport, so treat clicks on the empty area as outside clicks.
           if (e.target === e.currentTarget) onOpenChange(false);
         }}
-        className="flex max-h-none h-[95vh] w-[95vw] max-w-[95vw] sm:max-w-[95vw] flex-col items-center justify-center gap-3 p-0 bg-transparent border-0 shadow-none"
+        className="flex h-[95vh] w-[95vw] max-w-[95vw] sm:max-w-[95vw] flex-col items-center justify-center gap-3 p-0 bg-transparent border-0 shadow-none"
       >
         <button
           type="button"

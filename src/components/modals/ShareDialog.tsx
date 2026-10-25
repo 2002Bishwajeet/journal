@@ -173,7 +173,7 @@ export default function ShareDialog({
                 would never scroll. The close button gets a 44px target on phones and sits level
                 with the title. `share-dialog` scopes this dialog's token overrides (src/index.css). */}
             <DialogContent
-                className="share-dialog max-h-none gap-0 overflow-hidden p-0 max-sm:h-dvh max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:border-0 sm:max-w-[min(960px,calc(100vw-2rem))] max-sm:[&>[data-slot=dialog-close]]:top-2 max-sm:[&>[data-slot=dialog-close]]:right-1.5 sm:[&>[data-slot=dialog-close]]:top-5.5"
+                className="share-dialog max-h-none top-1/2 gap-0 overflow-hidden p-0 max-sm:h-dvh max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:border-0 sm:max-w-[min(960px,calc(100vw-2rem))] max-sm:[&>[data-slot=dialog-close]]:top-2 max-sm:[&>[data-slot=dialog-close]]:right-1.5 sm:[&>[data-slot=dialog-close]]:top-5.5"
                 onCloseAutoFocus={(e) => {
                     e.preventDefault();
                     lastFocusOutside?.focus();

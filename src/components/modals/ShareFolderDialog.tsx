@@ -25,7 +25,7 @@ export default function ShareFolderDialog({ folder, onClose }: ShareFolderDialog
     return (
         <>
             <Dialog open={!!folder} onOpenChange={(open) => !open && onClose()}>
-                <DialogContent className="share-dialog max-h-none gap-0 overflow-hidden p-0 max-sm:h-dvh max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:border-0 sm:max-w-[min(960px,calc(100vw-2rem))]">
+                <DialogContent className="share-dialog max-h-none top-1/2 gap-0 overflow-hidden p-0 max-sm:h-dvh max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:border-0 sm:max-w-[min(960px,calc(100vw-2rem))]">
                     <div className="flex h-dvh min-w-0 flex-col sm:h-[min(520px,90dvh)]">
                         <DialogHeader className="shrink-0 gap-1.5 border-b px-6 py-4 pr-14 text-left">
                             <div className="flex min-w-0 items-center gap-3">
