@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { UserRound, Monitor, Sparkles, Bot, Bell, Database, Keyboard, Info, type LucideIcon } from "lucide-react";
+import { UserRound, Monitor, Sparkles, Bot, Bell, Database, Keyboard, Info, Activity, type LucideIcon } from "lucide-react";
 import AccountSection from "./sections/AccountSection";
 import AppearanceSection from "./sections/AppearanceSection";
 import AISection from "./sections/AISection";
@@ -8,15 +8,17 @@ import NotificationsSection from "./sections/NotificationsSection";
 import DataSection from "./sections/DataSection";
 import ShortcutsSection from "./sections/ShortcutsSection";
 import AboutSection from "./sections/AboutSection";
+import DiagnosticsSection from "./sections/DiagnosticsSection";
 
-export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "data" | "shortcuts" | "about";
+export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "data" | "shortcuts" | "about" | "diagnostics";
 
 export interface SettingsSection {
   id: SettingsSectionId;
   label: string;
   description: string;
   icon: LucideIcon;
-  Component: ComponentType;
+  /** `close` shuts the Settings dialog, for a section that navigates away. */
+  Component: ComponentType<{ close: () => void }>;
   /** Hidden on phones (e.g. keyboard shortcuts — phones have no keyboard). */
   desktopOnly?: boolean;
 }
@@ -78,5 +80,12 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "Version, privacy, and links",
     icon: Info,
     Component: AboutSection,
+  },
+  {
+    id: "diagnostics",
+    label: "Diagnostics",
+    description: "Pending sync items, errors and a report to share",
+    icon: Activity,
+    Component: DiagnosticsSection,
   },
 ];

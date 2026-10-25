@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { slashCommandItems, filterCommands } from '@/components/editor/plugins/SlashCommands/slashCommandItems';
+// @vitest-environment happy-dom
+import { describe, it, expect, afterEach } from 'vitest';
+import { slashCommandItems, availableSlashItems, filterCommands } from '@/components/editor/plugins/SlashCommands/slashCommandItems';
 
 describe('Slash Command Items', () => {
   it('should include H1-H6 headings', () => {
@@ -106,5 +107,24 @@ describe('filterCommands', () => {
     const titles = results.map(r => r.title);
     expect(titles).toContain('Subscript');
     expect(titles).toContain('Superscript');
+  });
+});
+
+describe('AI group by device', () => {
+  const original = window.innerWidth;
+  const setWidth = (w: number) => Object.defineProperty(window, 'innerWidth', { value: w, configurable: true });
+  afterEach(() => setWidth(original));
+
+  it('hides the ai group on phones for "", "ai" and "summ"', () => {
+    setWidth(393);
+    for (const q of ['', 'ai', 'summ']) {
+      expect(filterCommands(availableSlashItems(), q).some((i) => i.group === 'ai')).toBe(false);
+    }
+  });
+
+  it('keeps all items on desktop', () => {
+    setWidth(1280);
+    expect(availableSlashItems()).toEqual(slashCommandItems);
+    expect(filterCommands(availableSlashItems(), 'summ').some((i) => i.group === 'ai')).toBe(true);
   });
 });

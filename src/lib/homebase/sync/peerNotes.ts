@@ -9,6 +9,7 @@ import {
     getSyncRecord,
     upsertSyncRecord,
     deleteSyncRecord,
+    getSharedNoteIds,
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader } from '@/lib/utils';
@@ -16,7 +17,7 @@ import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import { COLLABORATIVE_FOLDER_ID } from '../config';
 import { httpStatus } from '../httpStatus';
 import type { CollaborationInviteContent } from '@/types';
-import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
+import { stringGuidsEqual, toGuidId } from '@homebase-id/js-lib/helpers';
 import { documentBroadcast } from '@/lib/broadcast';
 import type { SyncContext } from './context';
 import { mergeYjsDocuments } from './merge';
@@ -130,16 +131,25 @@ export async function revalidatePeerNote(
     ctx: SyncContext,
     docId: string,
     authorOdinId: string | undefined,
-): Promise<'skipped' | 'unchanged' | 'updated'> {
+): Promise<'skipped' | 'unchanged' | 'updated' | 'removed'> {
     if (!authorOdinId || authorOdinId === ctx.hostIdentity) return 'skipped';
 
     let header;
     try {
         header = await ctx.notesProvider.getNote(docId, authorOdinId, { decrypt: false });
-    } catch {
-        return 'skipped'; // best-effort; offline/forbidden → keep the local copy
+    } catch (err) {
+        // The owner answered 403/404: the share is revoked. Anything else (offline, 5xx) keeps the copy.
+        const status = classifyPeerFetchError(err);
+        if (status !== 'forbidden' && status !== 'notfound') return 'skipped';
+        await removeLocalPeerNote(docId);
+        return 'removed';
     }
-    if (!header || !header.fileId) return 'skipped';
+    // A successful call with no header is a 404: the owner no longer has the note shared with us
+    if (!header) {
+        await removeLocalPeerNote(docId);
+        return 'removed';
+    }
+    if (!header.fileId) return 'skipped';
 
     const record = await getSyncRecord(docId);
     if (record?.versionTag && stringGuidsEqual(header.fileMetadata.versionTag, record.versionTag)) {
@@ -222,7 +232,12 @@ export async function bootstrapCollaborativeNote(
         peerNote = await ctx.notesProvider.getNote(noteUniqueId, authorOdinId, { decrypt: true });
     } catch (err) {
         console.error(`[SyncService] bootstrapCollaborativeNote peer fetch failed for ${noteUniqueId}:`, err);
+        // The owner answered 403/404: the share is revoked, so a leftover invite must not bring the note back
+        const status = classifyPeerFetchError(err);
+        if (status === 'forbidden' || status === 'notfound') return;
     }
+    // A successful call with no header is a 404: the share is revoked
+    if (peerNote === null) return;
     if (!peerNote || !peerNote.fileId) {
         console.warn(`[SyncService] Could not fetch peer note ${noteUniqueId} from ${authorOdinId} — author may be offline`);
         await upsertSearchIndex({
@@ -302,14 +317,27 @@ export async function bootstrapCollaborativeNote(
     ]);
 }
 
-export async function handleDeletedInvitation(deleted: DeletedFileRef): Promise<void> {
-    const uniqueId = deleted.fileMetadata.appData.uniqueId;
-    if (!uniqueId) return;
-
+/** Remove the local copy of a note shared with the host: search index, document updates and sync record. */
+export async function removeLocalPeerNote(noteId: string): Promise<void> {
     // async-parallel: independent DB operations
     await Promise.all([
-        deleteSearchIndexEntry(uniqueId),
-        deleteDocumentUpdates(uniqueId),
-        deleteSyncRecord(uniqueId),
+        deleteSearchIndexEntry(noteId),
+        deleteDocumentUpdates(noteId),
+        deleteSyncRecord(noteId),
     ]);
+}
+
+/**
+ * The deleted invite file only carries its own id, `toGuidId('collab-invite-' + noteId)`.
+ * Match it against the ids of the notes shared with the host to find the note it named.
+ */
+export async function handleDeletedInvitation(deleted: DeletedFileRef, hostIdentity: string): Promise<void> {
+    const inviteId = deleted.fileMetadata.appData.uniqueId;
+    if (!inviteId) return;
+
+    for (const noteId of await getSharedNoteIds(hostIdentity)) {
+        if (stringGuidsEqual(toGuidId(`collab-invite-${noteId}`), inviteId)) {
+            await removeLocalPeerNote(noteId);
+        }
+    }
 }

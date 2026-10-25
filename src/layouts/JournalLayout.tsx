@@ -51,6 +51,7 @@ import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
 import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
 import { useWebMcpBridge } from "@/hooks/useWebMcp";
+import { useSettingsOpener } from "@/hooks/useSettingsOpener";
 import { useAuth } from "@/hooks/auth";
 import { useAutoWhatsNew } from "@/hooks/useWhatsNew";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
@@ -126,7 +127,7 @@ export default function JournalLayout() {
 
   // Modal states
   const [showSearch, setShowSearch] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const settings = useSettingsOpener();
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [folderToRename, setFolderToRename] = useState<string | null>(null);
   const [collaborativeNote, setCollaborativeNote] =
@@ -281,7 +282,7 @@ export default function JournalLayout() {
           onSelectArchive={() => navigate("/archive")}
           archivedCount={counts.archived}
           onSearch={() => setShowSearch(true)}
-          onSettings={() => setShowSettings(true)}
+          onSettings={settings.open}
           onLogout={logout}
           tags={tags}
           tagCounts={tagCounts}
@@ -392,8 +393,9 @@ export default function JournalLayout() {
 
       <Suspense fallback={null}>
         <SettingsModal
-          isOpen={showSettings}
-          onClose={() => setShowSettings(false)}
+          isOpen={settings.isOpen}
+          initialSection={settings.section}
+          onClose={settings.close}
         />
       </Suspense>
 
