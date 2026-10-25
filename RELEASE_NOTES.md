@@ -19,6 +19,18 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - On a phone, dialogs are easier to use. The close button and the dialog buttons are bigger and easier to tap. A dialog never gets taller than the screen. When you type in a dialog, its buttons stay above the keyboard. In dark mode, buttons and fields in dialogs have outlines that you can see.
 
+## 2.28.0 (2026-10-25)
+
+### New
+
+- When you share a note, each new person gets a notification. Their Journal shows the note under "Shared with me" at once, or when they next open Journal.
+
+## 2.27.0 (2026-10-25)
+
+### Fixed
+
+- On a phone, you can now open Version history. Tap the "More" button at the top of a note, then "Version history". The list fills the screen, the Restore buttons are bigger, and closing the list no longer opens the keyboard.
+
 ## 2.26.1 (2026-10-25)
 
 ### Fixed
