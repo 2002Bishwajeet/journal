@@ -245,7 +245,7 @@ export default function JournalLayout() {
       {/* Sidebar */}
       <div
         className={cn(
-          "h-full border-r bg-muted/10 transition-all duration-300 ease-in-out pb-[env(safe-area-inset-bottom)]",
+          "h-full border-r bg-muted/10 transition-all duration-300 ease-in-out",
           // Desktop: Always visible
           isDesktop ? "flex static" : "hidden",
           // Mobile: Visible only at the root (no folder, tag or note)
@@ -342,7 +342,7 @@ export default function JournalLayout() {
 
       {/* Focus mode exit pill for touch layouts; desktop has an Exit button in the toolbar. */}
       {inFocusMode && !isDesktop && (
-        <div className="fixed top-[env(safe-area-inset-top)] left-0 right-0 z-40 flex justify-center pointer-events-none">
+        <div className="fixed top-[calc(env(safe-area-inset-top)+3rem)] left-0 right-0 z-40 flex justify-center pointer-events-none">
           <button
             onClick={() => setFocusMode(false)}
             className="pointer-events-auto mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-foreground/5 backdrop-blur-md border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-colors"

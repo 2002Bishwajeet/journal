@@ -47,6 +47,9 @@ test('a notch keeps the sidebar content out of the unsafe area', async ({ browse
     await expect.poll(async () => (await sidebar.getByRole('button').first().boundingBox())!.y).toBeGreaterThanOrEqual(59);
     const logout = await sidebar.getByRole('button', { name: /Log out/ }).boundingBox();
     expect(logout!.y + logout!.height).toBeLessThanOrEqual(852 - 34);
+    // The sidebar's background still runs under the home indicator.
+    const sidebarBox = await sidebar.boundingBox();
+    expect(sidebarBox!.y + sidebarBox!.height).toBe(852);
 
     await page.screenshot({ path: test.info().outputPath('notch-sidebar-dark-393x852.png') });
   });
@@ -70,3 +73,23 @@ test('in landscape, a left inset moves the sidebar content clear of the notch', 
   });
 });
 
+test('under a status bar, the focus-mode exit pill sits below the note header', async ({ browser, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Emulation.setSafeAreaInsetsOverride is Chromium only');
+  await withMobilePage(browser, async (page) => {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, bottom: 34 } });
+    await page.getByRole('complementary', { name: 'Sidebar' }).getByText('Main', { exact: true }).click();
+    await page.getByRole('button', { name: 'New', exact: true }).click();
+    const back = page.getByRole('button', { name: 'Back' }).filter({ visible: true });
+    await expect(back).toBeVisible();
+    await page.keyboard.press('ControlOrMeta+Shift+KeyF');
+    const pill = page.getByRole('button', { name: /Exit Focus/ });
+    await expect(pill).toBeVisible();
+
+    const header = (await back.evaluate((el) => el.parentElement!.getBoundingClientRect().toJSON())) as DOMRect;
+    expect(header.top).toBeGreaterThanOrEqual(59);
+    await expect.poll(async () => (await pill.boundingBox())!.y).toBeGreaterThanOrEqual(header.bottom);
+
+    await page.screenshot({ path: test.info().outputPath('focus-pill-light-393x852.png') });
+  });
+});
