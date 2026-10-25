@@ -324,18 +324,18 @@ export default function Sidebar({
               className={isCollapsed ? "flex flex-col items-center gap-1.5" : "space-y-0.5"}
             >
               {folders.map((folder) => {
-                const folderMenuItems = (id: string): ContextMenuItemConfig[] => [
-                  ...(id !== MAIN_FOLDER_ID
+                const folderMenuItems: ContextMenuItemConfig[] = [
+                  ...(folder.id !== MAIN_FOLDER_ID
                     ? [
-                        { label: "Rename Folder", icon: Pencil, action: () => onRenameFolder?.(id) },
-                        { label: "Share folder…", icon: Globe, action: () => setShareFolderId(id) },
+                        { label: "Rename Folder", icon: Pencil, action: () => onRenameFolder?.(folder.id) },
+                        { label: "Share folder…", icon: Globe, action: () => setShareFolderId(folder.id) },
                       ]
                     : []),
-                  { label: "Delete Folder", icon: Trash2, action: () => setFolderToDelete(id), variant: "destructive" as const },
+                  { label: "Delete Folder", icon: Trash2, action: () => setFolderToDelete(folder.id), variant: "destructive" as const },
                 ];
                 const isSelected = selectedFolderId === folder.id;
                 return (
-                  <ContextMenuWrapper key={folder.id} items={folderMenuItems(folder.id)}>
+                  <ContextMenuWrapper key={folder.id} items={folderMenuItems}>
                     <div className={cn("flex", isCollapsed ? "justify-center" : "w-full")}>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -396,7 +396,7 @@ export default function Sidebar({
                         )}
                       </Tooltip>
                       {!isCollapsed && (
-                        <RowOptionsMenu items={folderMenuItems(folder.id)} label="Folder options" />
+                        <RowOptionsMenu items={folderMenuItems} label="Folder options" />
                       )}
                     </div>
                   </ContextMenuWrapper>
