@@ -19,6 +19,30 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - On a phone, the table, image, find and edit-preview buttons are bigger and easier to tap. The tag field and the find fields use bigger text, so iOS does not zoom the page.
 
+- On phones, Settings fills the screen. The section tabs scroll sideways and always show the selected tab in full.
+
+- When you remove a connection, Journal stops notifications from that person on your next sync.
+
+## 2.25.0 (2026-10-25)
+
+### Fixed
+
+- The app now fits the full phone screen. The Settings and Log out buttons no longer hide under the browser toolbar.
+- On a phone in landscape, the notch no longer covers the sidebar and note list.
+- The Exit Focus button stays below the status bar. It does not show a keyboard shortcut on touch screens.
+
+## 2.24.0 (2026-10-25)
+
+### New
+
+- Settings now has a Diagnostics page. It shows each change that is waiting to sync, and why it has not synced. You can retry a change and copy a report to share. Tap the sync icon, then "Pending items", to open it.
+
+## 2.23.1 (2026-10-24)
+
+### Fixed
+
+- The slash menu on a phone no longer shows Ask AI, Summarize and Rewrite. The assistant is not available on phones.
+
 ## 2.23.0 (2026-10-24)
 
 ### New

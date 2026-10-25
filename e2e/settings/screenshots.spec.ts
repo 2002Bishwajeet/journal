@@ -22,6 +22,7 @@ const SECTIONS: { id: string; tab: string; desktopOnly?: boolean }[] = [
   { id: 'data', tab: 'Data & storage' },
   { id: 'shortcuts', tab: 'Keyboard shortcuts', desktopOnly: true },
   { id: 'about', tab: 'About' },
+  { id: 'diagnostics', tab: 'Diagnostics' },
 ];
 
 async function capture(page: Page, name: (theme: Theme) => string): Promise<void> {

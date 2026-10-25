@@ -6,4 +6,5 @@ export * from './appState';
 export * from './syncRecords';
 export * from './images';
 export * from './syncErrors';
+export * from './diagnostics';
 export * from './tags';

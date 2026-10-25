@@ -11,7 +11,7 @@ describe('SETTINGS_SECTIONS', () => {
         expect(SETTINGS_SECTIONS[0].id).toBe('account');
     });
 
-    it('is in the order account, appearance, ai, agent-access, notifications, data, shortcuts, about', () => {
+    it('is in the order account, appearance, ai, agent-access, notifications, data, shortcuts, about, diagnostics', () => {
         expect(SETTINGS_SECTIONS.map((s) => s.id)).toEqual([
             'account',
             'appearance',
@@ -21,12 +21,13 @@ describe('SETTINGS_SECTIONS', () => {
             'data',
             'shortcuts',
             'about',
+            'diagnostics',
         ]);
     });
 
-    it('puts shortcuts immediately before about, and about last', () => {
+    it('puts shortcuts immediately before about, and diagnostics last', () => {
         const ids = SETTINGS_SECTIONS.map((s) => s.id);
-        expect(ids[ids.length - 1]).toBe('about');
+        expect(ids[ids.length - 1]).toBe('diagnostics');
         expect(ids[ids.indexOf('about') - 1]).toBe('shortcuts');
     });
 

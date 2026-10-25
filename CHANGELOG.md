@@ -1,3 +1,29 @@
+# [2.25.0](https://github.com/2002Bishwajeet/journal/compare/v2.24.0...v2.25.0) (2026-10-25)
+
+
+### Bug Fixes
+
+* **mobile:** fit the real screen with dvh, one viewport meta and side safe areas ([#775](https://github.com/2002Bishwajeet/journal/issues/775)) ([97faf84](https://github.com/2002Bishwajeet/journal/commit/97faf8468079b87063fcb8c53d2100a445484173))
+* **mobile:** sidebar background runs under the home indicator; focus exit pill sits below the note header ([#775](https://github.com/2002Bishwajeet/journal/issues/775)) ([dc8d631](https://github.com/2002Bishwajeet/journal/commit/dc8d63123834afd55c7a449240f22d3a015a649c))
+* **ui:** keep dialogs open when a toast is tapped, add toast safe-area offset and 44px buttons ([#786](https://github.com/2002Bishwajeet/journal/issues/786)) ([88ea12e](https://github.com/2002Bishwajeet/journal/commit/88ea12e6bf52c835ffc39cc82ed05b31dd696be8))
+# [2.24.0](https://github.com/2002Bishwajeet/journal/compare/v2.23.1...v2.24.0) (2026-10-25)
+
+
+### Bug Fixes
+
+* **diagnostics:** close redaction gaps, align tappable item rows ([35a3320](https://github.com/2002Bishwajeet/journal/commit/35a3320cb660e7410dda4a41c51223ddce21e099))
+* **diagnostics:** keep logged objects out of the report and retry log load ([#800](https://github.com/2002Bishwajeet/journal/issues/800)) ([3a31f9f](https://github.com/2002Bishwajeet/journal/commit/3a31f9fd4adff24e62e8537a271887506a6c69ec))
+
+
+### Features
+
+* **settings:** add Diagnostics for pending sync items, errors, retry and a redacted report ([#800](https://github.com/2002Bishwajeet/journal/issues/800)) ([33c65d8](https://github.com/2002Bishwajeet/journal/commit/33c65d81b26de97e9dc77d3f029eb0f65f5f9678))
+## [2.23.1](https://github.com/2002Bishwajeet/journal/compare/v2.23.0...v2.23.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **editor:** hide AI slash commands on phones ([#793](https://github.com/2002Bishwajeet/journal/issues/793)) ([a6613e5](https://github.com/2002Bishwajeet/journal/commit/a6613e56d356978d4dd296dc994bb2103d2dae51))
 # [2.23.0](https://github.com/2002Bishwajeet/journal/compare/v2.22.1...v2.23.0) (2026-10-24)
 
 

@@ -51,6 +51,7 @@ import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
 import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
 import { useWebMcpBridge } from "@/hooks/useWebMcp";
+import { useSettingsOpener } from "@/hooks/useSettingsOpener";
 import { useAuth } from "@/hooks/auth";
 import { useAutoWhatsNew } from "@/hooks/useWhatsNew";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
@@ -126,7 +127,7 @@ export default function JournalLayout() {
 
   // Modal states
   const [showSearch, setShowSearch] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const settings = useSettingsOpener();
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [folderToRename, setFolderToRename] = useState<string | null>(null);
   const [collaborativeNote, setCollaborativeNote] =
@@ -235,7 +236,7 @@ export default function JournalLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden relative">
+    <div className="flex h-dvh bg-background overflow-hidden relative pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow focus:outline-none focus:ring-2 focus:ring-ring"
@@ -245,13 +246,13 @@ export default function JournalLayout() {
       {/* Sidebar */}
       <div
         className={cn(
-          "h-full border-r bg-muted/10 transition-all duration-300 ease-in-out pb-[env(safe-area-inset-bottom)]",
+          "h-full border-r bg-muted/10 transition-all duration-300 ease-in-out",
           // Desktop: Always visible
           isDesktop ? "flex static" : "hidden",
           // Mobile: Visible only at the root (no folder, tag or note)
           !isDesktop &&
             mobilePane === "sidebar" &&
-            "flex absolute inset-0 z-30 w-full bg-background",
+            "flex absolute inset-y-0 left-[env(safe-area-inset-left)] right-[env(safe-area-inset-right)] z-30 bg-background",
           inFocusMode && "hidden!",
         )}
       >
@@ -281,7 +282,7 @@ export default function JournalLayout() {
           onSelectArchive={() => navigate("/archive")}
           archivedCount={counts.archived}
           onSearch={() => setShowSearch(true)}
-          onSettings={() => setShowSettings(true)}
+          onSettings={settings.open}
           onLogout={logout}
           tags={tags}
           tagCounts={tagCounts}
@@ -342,14 +343,14 @@ export default function JournalLayout() {
 
       {/* Focus mode exit pill for touch layouts; desktop has an Exit button in the toolbar. */}
       {inFocusMode && !isDesktop && (
-        <div className="fixed top-0 left-0 right-0 z-40 flex justify-center pointer-events-none">
+        <div className="fixed top-[calc(env(safe-area-inset-top)+3rem)] left-0 right-0 z-40 flex justify-center pointer-events-none">
           <button
             onClick={() => setFocusMode(false)}
             className="pointer-events-auto mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-foreground/5 backdrop-blur-md border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-colors"
           >
             <Minimize2 className="h-3 w-3" />
             Exit Focus
-            <Kbd>⌘⇧F</Kbd>
+            <Kbd className="pointer-coarse:hidden">⌘⇧F</Kbd>
           </button>
         </div>
       )}
@@ -392,8 +393,9 @@ export default function JournalLayout() {
 
       <Suspense fallback={null}>
         <SettingsModal
-          isOpen={showSettings}
-          onClose={() => setShowSettings(false)}
+          isOpen={settings.isOpen}
+          initialSection={settings.section}
+          onClose={settings.close}
         />
       </Suspense>
 

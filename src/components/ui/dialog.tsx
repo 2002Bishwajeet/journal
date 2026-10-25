@@ -62,6 +62,13 @@ function DialogContent({
           className
         )}
         {...props}
+        onInteractOutside={(event) => {
+          // Toasts live outside the dialog; touching one is not an outside click.
+          if ((event.target as Element | null)?.closest?.("[data-sonner-toaster]")) {
+            event.preventDefault()
+          }
+          props.onInteractOutside?.(event)
+        }}
       >
         {children}
         {showCloseButton && (
