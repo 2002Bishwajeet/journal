@@ -1,3 +1,11 @@
+# [2.25.0](https://github.com/2002Bishwajeet/journal/compare/v2.24.0...v2.25.0) (2026-10-25)
+
+
+### Bug Fixes
+
+* **mobile:** fit the real screen with dvh, one viewport meta and side safe areas ([#775](https://github.com/2002Bishwajeet/journal/issues/775)) ([97faf84](https://github.com/2002Bishwajeet/journal/commit/97faf8468079b87063fcb8c53d2100a445484173))
+* **mobile:** sidebar background runs under the home indicator; focus exit pill sits below the note header ([#775](https://github.com/2002Bishwajeet/journal/issues/775)) ([dc8d631](https://github.com/2002Bishwajeet/journal/commit/dc8d63123834afd55c7a449240f22d3a015a649c))
+* **ui:** keep dialogs open when a toast is tapped, add toast safe-area offset and 44px buttons ([#786](https://github.com/2002Bishwajeet/journal/issues/786)) ([88ea12e](https://github.com/2002Bishwajeet/journal/commit/88ea12e6bf52c835ffc39cc82ed05b31dd696be8))
 # [2.24.0](https://github.com/2002Bishwajeet/journal/compare/v2.23.1...v2.24.0) (2026-10-25)
 
 

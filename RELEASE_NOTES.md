@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.25.0 (2026-10-25)
+
 ### Fixed
 
 - The app now fits the full phone screen. The Settings and Log out buttons no longer hide under the browser toolbar.
