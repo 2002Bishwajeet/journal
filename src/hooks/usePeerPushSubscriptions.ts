@@ -10,6 +10,7 @@ import { useSecurityContext } from './securityContext/useSecurityContext';
 import { useWebsocketSubscriber } from './useWebsocketSubscriber';
 
 export const PEER_PUSH_LAST_RUN_KEY = 'peer_push_last_run';
+export const PEER_PUSH_SUBSCRIBED_KEY = 'peer_push_subscribed';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const PAGE_SIZE = 100;
 const MAX_PARALLEL = 4;
@@ -31,18 +32,22 @@ async function getAllConnectionIds(client: DotYouClient): Promise<Set<string>> {
     return ids;
 }
 
-async function runLimited(items: string[], task: (item: string) => Promise<void>) {
+/** Runs `task` for each item, a few at a time. Returns the items whose task failed. */
+async function runLimited(items: string[], task: (item: string) => Promise<void>): Promise<string[]> {
+    const failed: string[] = [];
     const queue = [...items];
     const worker = async () => {
         for (let item = queue.shift(); item !== undefined; item = queue.shift()) {
             try {
                 await task(item);
             } catch (error) {
+                failed.push(item);
                 console.warn('[PeerPush] Subscription call failed for', item, error);
             }
         }
     };
     await Promise.all(Array.from({ length: Math.min(MAX_PARALLEL, items.length) }, worker));
+    return failed;
 }
 
 /**
@@ -65,19 +70,30 @@ export async function runPeerPushPass(
         const provider = new PeerPushSubscriptionProvider(client);
         const connections = await getAllConnectionIds(client);
         // odin-core lists subscriptions only for apps with SendIntroductions, which Journal doesn't ask for.
-        // Without the list, subscribe every connection (an upsert) and unsubscribe no one.
+        // Without the list, subscribe every connection (an upsert). Unsubscribe from the identities
+        // this device subscribed earlier, which it keeps in app_state.
         const listed = await provider.list().catch((error) => {
             if (httpStatus(error) === 403) return undefined;
             throw error;
         });
+        const stored = await getAppState<string[]>(PEER_PUSH_SUBSCRIBED_KEY);
+        const tracked = Array.isArray(stored) ? stored : [];
         const subscribed = new Set(
             (listed ?? [])
                 .filter((s) => s.subscriptionId?.toLowerCase() === JOURNAL_PEER_SUBSCRIPTION_ID)
                 .map((s) => s.identity.toLowerCase())
         );
 
-        await runLimited([...connections].filter((id) => !subscribed.has(id)), (id) => provider.subscribe(id));
-        await runLimited([...subscribed].filter((id) => !connections.has(id)), (id) => provider.unsubscribe(id));
+        const subscribeFailed = await runLimited(
+            [...connections].filter((id) => !subscribed.has(id)),
+            (id) => provider.subscribe(id)
+        );
+        const stale = [...new Set([...subscribed, ...tracked])].filter((id) => !connections.has(id));
+        const unsubscribeFailed = await runLimited(stale, (id) => provider.unsubscribe(id));
+        await saveAppState(PEER_PUSH_SUBSCRIBED_KEY, [
+            ...[...connections].filter((id) => !subscribeFailed.includes(id)),
+            ...unsubscribeFailed,
+        ]);
         await saveAppState(PEER_PUSH_LAST_RUN_KEY, now);
     } catch (error) {
         console.warn('[PeerPush] Pass failed', error);
