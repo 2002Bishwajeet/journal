@@ -91,7 +91,7 @@ test('mobile: every Settings control is at least 44 x 44 px', async ({ app }) =>
   await app.getByRole('button', { name: 'Settings' }).click();
   const dialog = app.getByRole('dialog');
 
-  const sections = ['Account', 'Appearance', 'AI', 'Agent access', 'Data & storage', 'About'];
+  const sections = ['Account', 'Appearance', 'AI', 'Agent access', 'Data & storage', 'About', 'Diagnostics'];
   for (const section of sections) {
     await dialog.getByRole('tab', { name: section, exact: true }).click();
     const panel = dialog.getByRole('tabpanel');

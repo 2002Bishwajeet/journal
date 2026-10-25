@@ -59,3 +59,18 @@ test('emoji menu: ":" followed by prose closes the menu and Enter makes a new li
   await expect(paragraphs.nth(0)).toHaveText(':this is prose');
   await expect(paragraphs.nth(1)).toHaveText('next line');
 });
+
+// #793: the assistant is not mounted on phones, so the slash menu hides the AI group there.
+test('slash menu: "Ask AI" is hidden on a phone and shown on desktop', async ({ reusedApp: app }) => {
+  await createNote(app, { title: `Slash AI phone ${Date.now()}`, body: '' });
+  await app.setViewportSize({ width: 393, height: 852 });
+  await activeEditor(app).click();
+  await app.keyboard.type('/ask');
+  await expect(app.getByText('Heading 1')).toHaveCount(0);
+  await expect(app.getByText('Ask AI')).toHaveCount(0);
+  await app.setViewportSize({ width: 1280, height: 800 });
+  await activeEditor(app).click();
+  await app.keyboard.press('Backspace');
+  await app.keyboard.type('k');
+  await expect(menuItems(app).filter({ hasText: 'Ask AI' })).toHaveCount(1);
+});

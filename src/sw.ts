@@ -4,7 +4,7 @@ import { registerRoute, NavigationRoute, Route } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
-import { JOURNAL_APP_ID, JOURNAL_TEST_PUSH_TYPE_ID } from './lib/homebase/config';
+import { COLLABORATIVE_FOLDER_ID, JOURNAL_APP_ID, JOURNAL_PUSH_TYPE_EDIT, JOURNAL_TEST_PUSH_TYPE_ID, OTHER_APPS_NOTIFICATION_TAG } from './lib/homebase/config';
 
 declare let self: ServiceWorkerGlobalScope & {
     __WB_DISABLE_DEV_LOGS: boolean;
@@ -264,8 +264,9 @@ self.addEventListener('message', (event) => {
 // camelCase with GUIDs as lowercase dashed strings (OdinSystemSerializer, GuidConverter).
 // The server sends every app's push to every subscription of the identity (no per-app filter),
 // and with `userVisibleOnly` Chrome shows "This site has been updated in the background" for a
-// push that shows nothing. So other apps' pushes get a generic notification, as in the owner
-// console's service worker.
+// push that shows nothing. So other apps' pushes (and unreadable ones) share one quiet notification
+// that each new push replaces; the app closes it when Journal opens. The full fix is a per-app
+// filter on the server (homebase-id/odin-core#2006).
 interface PushPayload {
     senderId: string;
     appDisplayName?: string;
@@ -275,10 +276,15 @@ interface PushPayload {
 const isJournalPush = (p: PushPayload) =>
     p.options?.appId?.replace(/-/g, '').toLowerCase() === JOURNAL_APP_ID;
 
-const otherAppNotification = (p: PushPayload) =>
-    self.registration.showNotification(p.appDisplayName || 'Homebase', {
-        body: `${p.senderId} sent you a notification via ${p.appDisplayName || 'Homebase'}`,
-        tag: p.options?.tagId,
+// Always shown, even when a Journal window is visible. Chrome would allow skipping it then, but
+// Safari revokes the subscription after a few pushes that show nothing (no visible-page exemption)
+// and Firefox takes each one from its background-push quota. `renotify` defaults to false, so a
+// replacement does not alert again.
+const otherAppNotification = () =>
+    self.registration.showNotification('Homebase', {
+        body: 'New activity in your other Homebase apps',
+        tag: OTHER_APPS_NOTIFICATION_TAG,
+        silent: true,
     });
 
 self.addEventListener('push', (event) => {
@@ -302,9 +308,9 @@ self.addEventListener('push', (event) => {
                           tag: p.options.tagId,
                           data: { senderId: p.senderId, typeId: p.options.typeId, tagId: p.options.tagId },
                       })
-                    : otherAppNotification(p)
+                    : otherAppNotification()
             );
-            if (shown.length === 0) shown.push(self.registration.showNotification('Homebase', { body: 'You have a new notification' }));
+            if (shown.length === 0) shown.push(otherAppNotification());
             await Promise.all(shown);
         })()
     );
@@ -313,8 +319,12 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     // Other apps' notifications have no data, and a test push has no note: just bring Journal up
-    const { senderId, typeId, tagId } = (event.notification.data ?? {}) as { senderId?: string; typeId?: string; tagId?: string };
-    const url = tagId && typeId?.toLowerCase() !== JOURNAL_TEST_PUSH_TYPE_ID ? `/shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId ?? '')}` : undefined;
+    const { senderId, tagId, typeId } = (event.notification.data ?? {}) as { senderId?: string; tagId?: string; typeId?: string };
+    const type = typeId?.toLowerCase();
+    // An edit push: tagId is the note id, and the owner's copy sits in the collaborative folder (#746)
+    const url = !tagId || type === JOURNAL_TEST_PUSH_TYPE_ID ? undefined
+        : type === JOURNAL_PUSH_TYPE_EDIT ? `/${COLLABORATIVE_FOLDER_ID}/${encodeURIComponent(tagId)}`
+        : `/shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId ?? '')}`;
     event.waitUntil(
         (async () => {
             const [client] = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

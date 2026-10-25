@@ -35,8 +35,13 @@ import {
     PAYLOAD_KEY_CARD_IMAGE,
     COLLABORATIVE_FOLDER_ID,
     MAIN_FOLDER_ID,
+    JOURNAL_APP_ID,
+    JOURNAL_PUSH_TYPE_EDIT,
 } from './config';
 import type { NoteFileContent, DocumentMetadata } from '@/types';
+
+// js-lib's PushNotificationOptions lacks the server's collapse option
+type AppNotificationOptions = NonNullable<UpdateInstructionSet['appNotificationOptions']> & { collapseId?: string };
 import { buildPublicCard, sameCardImageFrom, type CardImageFrom, type PublicCard } from '@/lib/share/publicCard';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import { noteAcl, noteAppData, noteFileContent, sharedAcl } from './noteUploadMetadata';
@@ -337,6 +342,8 @@ export class NotesDriveProvider {
         options?: {
             onVersionConflict?: () => void;
             toDeletePayloads?: { key: string }[];
+            /** Peer update only: also push the note owner (#746). */
+            notifyOwner?: boolean;
         }
     ): Promise<{ versionTag: string; encryptedKeyHeader?: EncryptedKeyHeader }> {
         const hostIdentity = this.#dotYouClient.getHostIdentity();
@@ -407,6 +414,19 @@ export class NotesDriveProvider {
                 },
                 recipients: [authorOdinId],
                 versionTag,
+                ...(options?.notifyOwner && {
+                    useAppNotification: true,
+                    // No note title: the push passes through the server in the clear.
+                    // collapseId/timeToLiveSeconds are server options js-lib does not type yet.
+                    appNotificationOptions: {
+                        appId: JOURNAL_APP_ID,
+                        typeId: JOURNAL_PUSH_TYPE_EDIT,
+                        tagId: uniqueId,
+                        silent: false,
+                        unEncryptedMessage: 'Edited a shared note',
+                        collapseId: uniqueId,
+                    } as AppNotificationOptions,
+                }),
             }
             : {
                 locale: 'local' as const,
@@ -646,8 +666,9 @@ export class NotesDriveProvider {
      * - `fileId`: the note's remote fileId, when known (sync record). The header is read
      *   by fileId first: the server's uniqueId lookup can 404 for a few seconds right
      *   after the note is created (#293). Falls back to the uniqueId lookup.
-     * - A patch that hits a version conflict (a save or a peer's edit landed after the
-     *   header fetch, #689) is rebuilt once from the fresh header.
+     * - A write that hits a version conflict (a save or a peer's edit landed after the
+     *   header fetch, #689; the sync push of a just-edited note landed while publishing
+     *   it, #760) is rebuilt once from the fresh header.
      */
     async #rewriteNoteHeader(uniqueId: string, spec: {
         fileId?: string;
@@ -733,7 +754,17 @@ export class NotesDriveProvider {
             };
             const { payloads: existingPayloads, thumbnails } = await this.#readAllPayloads(existingHeader);
             const payloads = spec.payloads ? await spec.payloads(existingPayloads, existingHeader.fileId) : existingPayloads;
-            result = await uploadFile(this.#dotYouClient, instructions, uploadMetadata, payloads, thumbnails, isEncrypted);
+            result = await uploadFile(
+                this.#dotYouClient,
+                instructions,
+                uploadMetadata,
+                payloads,
+                thumbnails,
+                isEncrypted,
+                isRetry ? undefined : async () => {
+                    retried = await this.#rewriteNoteHeader(uniqueId, spec, true);
+                }
+            );
         } else {
             // Header-only patch — never changes payload encryption.
             const instructions: UpdateInstructionSet = {

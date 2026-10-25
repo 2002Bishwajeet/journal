@@ -8,6 +8,8 @@ interface UsePeerNoteContentOptions {
     authorOdinId: string | undefined;
     isEnabled: boolean;
     syncService: SyncService | null;
+    /** Called once the owner reports the note is no longer shared and the local copy is gone. */
+    onRevoked?: () => void;
 }
 
 /**
@@ -23,6 +25,7 @@ export function usePeerNoteContent({
     authorOdinId,
     isEnabled,
     syncService,
+    onRevoked,
 }: UsePeerNoteContentOptions) {
     const [resolved, setResolved] = useState<{ key: string; status: EnsureNoteContentStatus } | null>(null);
     const [attempt, setAttempt] = useState(0);
@@ -47,10 +50,15 @@ export function usePeerNoteContent({
             // fetch ('fetched') is already current; 'empty'/failures have nothing
             // to revalidate. No-op when unchanged; merges + broadcasts when newer.
             if (!cancelled && result.status === 'local') {
-                try { await syncService.revalidatePeerNote(docId, authorOdinId); } catch { /* best-effort */ }
+                try {
+                    const outcome = await syncService.revalidatePeerNote(docId, authorOdinId);
+                    if (outcome === 'removed') onRevoked?.();
+                } catch { /* best-effort */ }
             }
         })();
         return () => { cancelled = true; };
+    // onRevoked is an inline callback: listing it would re-run the fetch on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [active, requestKey, docId, authorOdinId, syncService]);
 
     // Derived: 'idle' while inactive, 'loading' until the current request resolves.
