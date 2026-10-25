@@ -104,11 +104,6 @@ async function closeDialog() {
 }
 
 try {
-  // TEMP (#803): a known-bad page (100vh shell, 14px input) must fail the checks.
-  await browser.url(`${BASE}/ios-known-bad.html`);
-  await tap('input');
-  await check('known-bad');
-
   // Sign in with the hermetic fake identity, as the Playwright `app` fixture does.
   const auth = JSON.parse(readFileSync('e2e/fixtures/hermetic-auth.json', 'utf8')) as {
     origins: { origin: string; localStorage: { name: string; value: string }[] }[];
