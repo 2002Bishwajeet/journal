@@ -11,9 +11,15 @@ import { TocPanel } from "@/components/editor/TocPanel";
 import { FindReplaceBar } from "@/components/editor/FindReplaceBar";
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Minimize2 } from "lucide-react";
+import { ChevronLeft, History, MoreHorizontal, Minimize2 } from "lucide-react";
 import { CollaborativePopover } from '@/components/editor/CollaborativePopover';
 import { LinkedMentions } from "@/components/editor/LinkedMentions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import HistoryModal from "@/components/modals/HistoryModal";
 import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
@@ -118,6 +124,21 @@ function EditorLayout({
         </span>
         {collaborativePopover}
         <SyncStatus />
+        {!isPeerNote && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="More" className="h-11 w-11 -mr-2 shrink-0">
+                <MoreHorizontal className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem className="min-h-11" onSelect={() => setHistoryOpen(true)}>
+                <History className="h-4 w-4" />
+                Version history
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* Desktop Toolbar */}
