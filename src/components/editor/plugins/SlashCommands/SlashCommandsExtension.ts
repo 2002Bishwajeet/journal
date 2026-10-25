@@ -11,7 +11,7 @@ import Suggestion, { type SuggestionOptions } from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import { SlashCommandList, type SlashCommandListRef } from './SlashCommandList';
-import { slashCommandItems, filterCommands } from './slashCommandItems';
+import { availableSlashItems, filterCommands } from './slashCommandItems';
 import { createSpacedSuggestionMatch } from '../suggestionSearch';
 
 export interface SlashCommandsOptions {
@@ -29,7 +29,7 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
                 // query with no match closes it, so prose after `/` is left alone.
                 allowSpaces: true,
                 findSuggestionMatch: createSpacedSuggestionMatch('/'),
-                shouldShow: ({ query }) => filterCommands(slashCommandItems, query).length > 0,
+                shouldShow: ({ query }) => filterCommands(availableSlashItems(), query).length > 0,
                 startOfLine: false, // Allow slash anywhere, not just start of line
                 command: ({ editor, range, props }) => {
                     // This is called when a command is selected
@@ -48,7 +48,7 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
                 // with the note-link suggestion and crashes the editor.
                 pluginKey: new PluginKey('slash-commands'),
                 ...this.options.suggestion,
-                items: ({ query }) => filterCommands(slashCommandItems, query),
+                items: ({ query }) => filterCommands(availableSlashItems(), query),
                 render: () => {
                     let component: ReactRenderer<SlashCommandListRef> | null = null;
                     let popup: TippyInstance[] | null = null;

@@ -236,6 +236,19 @@ export async function getSharedNoteIdsFrom(authorOdinId: string): Promise<string
     return result.rows.map((row) => row.doc_id);
 }
 
+/** Ids of every note another identity shared with the host, trashed and archived included (#748). */
+export async function getSharedNoteIds(hostOdinId: string): Promise<string[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ doc_id: string }>(
+        `SELECT doc_id FROM search_index
+        WHERE (metadata->>'isCollaborative')::boolean = true
+            AND COALESCE(metadata->>'authorOdinId',
+                (SELECT sr.author_odin_id FROM sync_records sr WHERE sr.local_id = search_index.doc_id)) <> $1`,
+        [hostOdinId],
+    );
+    return result.rows.map((row) => row.doc_id);
+}
+
 /** The circles the host's own collaborative notes are shared with (#734). Same ownership rule as {@link getRecipientsOfOwnNotes}. */
 export async function getCircleIdsOfOwnNotes(hostOdinId: string): Promise<string[]> {
     const db = await getDatabase();

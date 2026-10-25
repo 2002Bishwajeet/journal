@@ -4,7 +4,7 @@ import { registerRoute, NavigationRoute, Route } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
-import { JOURNAL_APP_ID, JOURNAL_TEST_PUSH_TYPE_ID, OTHER_APPS_NOTIFICATION_TAG } from './lib/homebase/config';
+import { COLLABORATIVE_FOLDER_ID, JOURNAL_APP_ID, JOURNAL_PUSH_TYPE_EDIT, JOURNAL_TEST_PUSH_TYPE_ID, OTHER_APPS_NOTIFICATION_TAG } from './lib/homebase/config';
 
 declare let self: ServiceWorkerGlobalScope & {
     __WB_DISABLE_DEV_LOGS: boolean;
@@ -319,8 +319,12 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     // Other apps' notifications have no data, and a test push has no note: just bring Journal up
-    const { senderId, typeId, tagId } = (event.notification.data ?? {}) as { senderId?: string; typeId?: string; tagId?: string };
-    const url = tagId && typeId?.toLowerCase() !== JOURNAL_TEST_PUSH_TYPE_ID ? `/shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId ?? '')}` : undefined;
+    const { senderId, tagId, typeId } = (event.notification.data ?? {}) as { senderId?: string; tagId?: string; typeId?: string };
+    const type = typeId?.toLowerCase();
+    // An edit push: tagId is the note id, and the owner's copy sits in the collaborative folder (#746)
+    const url = !tagId || type === JOURNAL_TEST_PUSH_TYPE_ID ? undefined
+        : type === JOURNAL_PUSH_TYPE_EDIT ? `/${COLLABORATIVE_FOLDER_ID}/${encodeURIComponent(tagId)}`
+        : `/shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId ?? '')}`;
     event.waitUntil(
         (async () => {
             const [client] = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

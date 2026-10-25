@@ -10,6 +10,7 @@ import {
     clearCachedKeyHeader,
     deleteSyncRecord,
     getPendingSyncRecords,
+    getSyncRecord,
     resolveSyncErrorsForEntity,
     getEntityIdsInBackoff,
     getPendingImageDeletions,
@@ -27,6 +28,10 @@ import type { FolderFile, SyncRecord, SyncProgress } from '@/types';
 import type { SyncService } from '../SyncService';
 import type { SyncContext } from './context';
 import { mergeYjsDocuments, resolveNoteFolderId } from './merge';
+
+// When this tab last sent the owner an edit push, per note. In memory only: a reload may push once more (#746).
+const EDIT_PUSH_WINDOW_MS = 15 * 60 * 1000;
+const lastEditPushAt = new Map<string, number>();
 
 /** Methods pushChanges calls on the SyncService instance, so spies and overrides on it still apply. */
 type PushHandlers = Pick<SyncService, 'pushFolder' | 'pushNote' | 'deleteFolderRemote' | 'deleteNoteRemote'>;
@@ -176,11 +181,40 @@ export async function pushFolder(ctx: SyncContext, record: SyncRecord): Promise<
 
 }
 
+/** Per note, the push in flight (or queued last): a second push waits for it (#760). */
+const noteQueues = new Map<string, Promise<void>>();
+
+/**
+ * Push a local note to remote, one push per note at a time. The sync engine's push and
+ * a publish's forced push of the same unsynced note would otherwise both create the file
+ * (existingFileWithUniqueId) or upload over the same version tag (versionTagMismatch).
+ * A push that had to wait re-reads its sync record, which the push before it updated.
+ */
+export async function pushNote(ctx: SyncContext, record: SyncRecord): Promise<void> {
+    const id = record.localId;
+    const previous = noteQueues.get(id);
+    const run = (async () => {
+        if (previous) {
+            await previous;
+            const fresh = await getSyncRecord(id);
+            if (!fresh) return; // note and record were removed while waiting
+            record = fresh;
+        }
+        await pushNoteNow(ctx, record);
+    })();
+    const tail = run.catch(() => undefined);
+    noteQueues.set(id, tail);
+    void tail.then(() => {
+        if (noteQueues.get(id) === tail) noteQueues.delete(id);
+    });
+    return run;
+}
+
 /**
  * Push a local note to remote.
  * Always verifies remote file existence before updating.
  */
-export async function pushNote(ctx: SyncContext, record: SyncRecord): Promise<void> {
+async function pushNoteNow(ctx: SyncContext, record: SyncRecord): Promise<void> {
     const doc = await getSearchIndexEntry(record.localId);
 
     if (!doc) {
@@ -344,6 +378,11 @@ export async function pushNote(ctx: SyncContext, record: SyncRecord): Promise<vo
                 return result;
             };
 
+            // A collaborator's edit pushes the owner, at most once per note per window (#746)
+            const isCollaboratorEdit = !!record.authorOdinId && record.authorOdinId !== ctx.hostIdentity;
+            const notifyOwner = isCollaboratorEdit
+                && Date.now() - (lastEditPushAt.get(record.localId) ?? -Infinity) >= EDIT_PUSH_WINDOW_MS;
+
             const result = await ctx.notesProvider.updateNote(
                 record.localId,
                 record.remoteFileId,
@@ -353,8 +392,9 @@ export async function pushNote(ctx: SyncContext, record: SyncRecord): Promise<vo
                 record.globalTransitId,
                 yjsBlob,
                 cachedKeyHeader,
-                { onVersionConflict, toDeletePayloads }
+                { onVersionConflict, toDeletePayloads, notifyOwner }
             );
+            if (notifyOwner) lastEditPushAt.set(record.localId, Date.now());
 
             // Determine final values based on whether conflict resolution occurred
             const finalHash = conflictResult?.mergedHash || currentHash;

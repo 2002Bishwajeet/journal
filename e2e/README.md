@@ -17,8 +17,8 @@ Name the integration test(s) first in every issue's Verification. Add an E2E spe
 | Thing | Value |
 |---|---|
 | Config | `playwright.config.ts` (repo root); TS config `e2e/tsconfig.json` |
-| Projects | `hermetic` (backend-free, `127.0.0.1`) · `recorded` (HAR replay) · `live` / `live-setup` (real Homebase) · `edge` (Pages) · `quarantine` |
-| Specs | `e2e/<area>/<feature>.spec.ts` (backend-free) · `e2e/<area>/<feature>.recorded.spec.ts` (layer 2) · `e2e/<area>/<feature>.live.spec.ts` (layer 3) · `e2e/edge/<feature>.spec.ts` — area ∈ `boot, ai, editor, sync, images, links, routing, publishing, pwa, agent-access, folders, sharing` |
+| Projects | `hermetic` (backend-free, `127.0.0.1`) · `recorded` (HAR replay) · `live` / `live-setup` (real Homebase) · `edge` (Pages) · `quarantine` · `mobile-chromium` / `mobile-webkit` (`*.mobile.spec.ts`) |
+| Specs | `e2e/<area>/<feature>.spec.ts` (backend-free) · `e2e/<area>/<feature>.mobile.spec.ts` (iPhone 15 shell, see Mobile) · `e2e/<area>/<feature>.recorded.spec.ts` (layer 2) · `e2e/<area>/<feature>.live.spec.ts` (layer 3) · `e2e/edge/<feature>.spec.ts` — area ∈ `boot, ai, editor, sync, images, links, routing, publishing, pwa, agent-access, folders, sharing` |
 | Recordings | `e2e/har/<area>/<spec-basename>.har` + `e2e/har/meta.json` + `e2e/har/replay-auth.json`; how-to in `e2e/har/README.md` |
 | Imports in specs | `import { test, expect } from '../fixtures';` — never from `@playwright/test` directly |
 | Fixtures | `app` (signed-in page, booted), `anonPage` (signed-out), `liveRun` (run-scoped folder on a real identity), `liveSharing` (owner, peer and outsider pages on the Docker tier) |
@@ -38,6 +38,10 @@ This is the full epic contract (#196) — other issues rely on these names, so d
 The `E2E` GitHub Actions check (`.github/workflows/e2e.yml`) runs the `hermetic` project (the same `npm run e2e`) on every push/PR to `main`, with 2 retries. It also runs `npm run e2e:quarantine` as a following, `continue-on-error` step — its result is informational only and never blocks the check.
 
 On failure, the job uploads `playwright-report/` and `test-results/` (traces, screenshots, videos) as an artifact named `playwright-report-<run attempt>`, kept for 14 days. Download it from the failed run's Summary page (Artifacts section), unzip, then open `index.html` for the report or run `npx playwright show-trace <trace.zip>` for a specific trace.
+
+## Mobile
+
+`*.mobile.spec.ts` specs run only in the `mobile-chromium` and `mobile-webkit` projects (`hermetic` ignores them). A spec opens its page with `withMobilePage(browser, async (page) => …)` from `e2e/support/mobile.ts`: an iPhone 15 profile (393x852, `isMobile`, `hasTouch`) in a fenced context, with the hermetic storage state and the same boot as the `app` fixture. Run them with `npm run e2e:mobile` (Chromium) and `npm run e2e:mobile:webkit` (needs `npx playwright install --with-deps webkit`). CI runs `mobile-chromium` as a required step; `mobile-webkit` is an informational step. Safe-area insets are Chromium only: use a CDP session and `Emulation.setSafeAreaInsetsOverride`, and skip the test in WebKit.
 
 ## iOS Safari (#799)
 
