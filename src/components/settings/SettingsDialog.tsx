@@ -43,7 +43,7 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
     >
       {/* `settings-dialog` scopes this dialog's token overrides (see src/index.css).
           On phones the close button grows to a 44px touch target. */}
-      <DialogContent className="settings-dialog sm:max-w-[900px] p-0 gap-0 overflow-hidden border-0 shadow-2xl bg-background max-md:[&>[data-slot=dialog-close]]:top-1.5 max-md:[&>[data-slot=dialog-close]]:right-1.5 max-md:[&>[data-slot=dialog-close]]:p-3.5">
+      <DialogContent className="settings-dialog max-h-none sm:max-w-[900px] p-0 gap-0 overflow-hidden border-0 shadow-2xl bg-background max-md:[&>[data-slot=dialog-close]]:top-1.5 max-md:[&>[data-slot=dialog-close]]:right-1.5 max-md:[&>[data-slot=dialog-close]]:p-3.5">
         <DialogDescription className="sr-only">
           Manage your application preferences and data.
         </DialogDescription>
