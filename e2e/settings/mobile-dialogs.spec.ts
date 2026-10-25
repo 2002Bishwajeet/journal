@@ -40,7 +40,11 @@ test('New folder dialog has 44px targets and a left-aligned header', async ({ br
   await boot(browser, async (page) => {
     await page.getByRole('button', { name: 'New folder' }).click();
     await expectTouchSized(page, /folder/i, ['Create', 'Cancel']);
-    await page.screenshot({ path: test.info().outputPath('new-folder-light-393.png') });
+    await inBothThemes(page, async (theme) => {
+      await page.screenshot({ path: test.info().outputPath(`new-folder-${theme}-393.png`) });
+    });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.screenshot({ path: test.info().outputPath('new-folder-light-1280.png') });
   });
 });
 
@@ -66,6 +70,8 @@ test('Move to Trash confirm has 44px targets and a visible dark outline', async 
       }
       await page.screenshot({ path: test.info().outputPath(`trash-confirm-${theme}-393.png`) });
     });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.screenshot({ path: test.info().outputPath('trash-confirm-light-1280.png') });
   });
 });
 
@@ -79,7 +85,11 @@ test("What's new fits inside the viewport", async ({ browser }) => {
     const box = (await dialog.boundingBox())!;
     expect(box.y).toBeGreaterThanOrEqual(0);
     expect(box.y + box.height).toBeLessThanOrEqual(PHONE.height);
-    await page.screenshot({ path: test.info().outputPath('whats-new-light-393.png') });
+    await inBothThemes(page, async (theme) => {
+      await page.screenshot({ path: test.info().outputPath(`whats-new-${theme}-393.png`) });
+    });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.screenshot({ path: test.info().outputPath('whats-new-light-1280.png') });
   });
 });
 
