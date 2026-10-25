@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.27.0 (2026-10-25)
+
 ### Fixed
 
 - On a phone, you can now open Version history. Tap the "More" button at the top of a note, then "Version history". The list fills the screen, the Restore buttons are bigger, and closing the list no longer opens the keyboard.
