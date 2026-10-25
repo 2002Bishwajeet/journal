@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.26.1 (2026-10-25)
+
 ### Fixed
 
 - The local AI assistant answers again. Before, every step failed with "The reply was not valid JSON" until it ran out of steps. If a model still can't follow the assistant's format, the assistant now stops after two tries and suggests a larger model.

@@ -1,3 +1,9 @@
+## [2.26.1](https://github.com/2002Bishwajeet/journal/compare/v2.26.0...v2.26.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **ai:** drop web-llm's empty think block and stop after two non-JSON replies ([#796](https://github.com/2002Bishwajeet/journal/issues/796)) ([47052c1](https://github.com/2002Bishwajeet/journal/commit/47052c1dde8b7258f775d862136bcd996aaab016))
 # [2.26.0](https://github.com/2002Bishwajeet/journal/compare/v2.25.0...v2.26.0) (2026-10-25)
 
 
