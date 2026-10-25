@@ -22,9 +22,9 @@ const SWEEP_MAX_AGE_MS = 60 * 60 * 1000;
 // `liveRun` fixture and the folder specs create (e.g. `-w300-shared`) —
 // nothing else on the identity is ever deleted.
 const FOLDER_NAME_RE = /^e2e-(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)-[0-9a-z]{6}-w\d+(?:-[0-9a-z]+)?$/;
-// The note titles e2e/sharing/circle-share.live.spec.ts and shared-pull.live.spec.ts use:
+// The note titles e2e/sharing/circle-share, shared-pull and share-push .live.spec.ts use:
 // sharing moves the note out of the run folder, so the folder's delete misses it.
-const SHARED_NOTE_TITLE = String.raw`(Circle|Pulled) share \d+`;
+const SHARED_NOTE_TITLE = String.raw`(Circle|Pulled|Pushed) share \d+`;
 
 export default async function globalTeardown(config: FullConfig): Promise<void> {
     try {
