@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.26.0 (2026-10-25)
+
 ### Changed
 
 - On a phone, the table, image, find and edit-preview buttons are bigger and easier to tap. The tag field and the find fields use bigger text, so iOS does not zoom the page.
