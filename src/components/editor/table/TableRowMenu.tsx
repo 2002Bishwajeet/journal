@@ -129,16 +129,16 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
                 variant="ghost" 
                 size="icon" 
                 aria-label="Row options"
-                className={TABLE_HANDLE_CLASS + ' h-6 w-4'}
+                className={TABLE_HANDLE_CLASS + ' h-6 w-4 relative pointer-coarse:before:absolute pointer-coarse:before:-inset-x-3.5 pointer-coarse:before:-inset-y-2.5'}
             >
                 <GripVertical />
            </Button>
          </PopoverTrigger>
          <PopoverContent className={TABLE_MENU_CLASS} side="left" align="center">
-             <Button variant="ghost" size="icon" aria-label="Insert row above" title="Insert row above" className="h-7 w-7" onClick={() => editor.chain().focus().addRowBefore().run()}>
+             <Button variant="ghost" size="icon" aria-label="Insert row above" title="Insert row above" className="h-7 w-7 pointer-coarse:size-11" onClick={() => editor.chain().focus().addRowBefore().run()}>
                 <ArrowUp />
              </Button>
-             <Button variant="ghost" size="icon" aria-label="Insert row below" title="Insert row below" className="h-7 w-7" onClick={() => editor.chain().focus().addRowAfter().run()}>
+             <Button variant="ghost" size="icon" aria-label="Insert row below" title="Insert row below" className="h-7 w-7 pointer-coarse:size-11" onClick={() => editor.chain().focus().addRowAfter().run()}>
                 <ArrowDown />
              </Button>
              <Button

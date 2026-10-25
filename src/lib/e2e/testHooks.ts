@@ -5,9 +5,10 @@
  * bundle. See src/globals.d.ts for the public type.
  *
  * The hooks read signals the app already maintains (bootProgress and the boot
- * splash) or draw a link card. Two exceptions: the ignoreInvites switch, which
- * lasts until the page reloads, and deleteFilesNamed, which the live tier's
- * teardown uses to remove what the sharing specs leave on an identity.
+ * splash) or draw a link card. The exceptions: the ignoreInvites switch, which
+ * lasts until the page reloads, deleteFilesNamed, which the live tier's
+ * teardown uses to remove what the sharing specs leave on an identity, and
+ * subscribePeerPush / journalNotifications for the share push spec (#745).
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
 import { e2eSwitches } from './switches';
@@ -130,23 +131,44 @@ async function seedPendingSync(): Promise<void> {
     );
 }
 
-/**
- * Deletes the signed-in identity's folders (with their notes), notes and collaboration
- * invites whose name matches `namePattern`, straight on the server; returns the names.
- */
-export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
-    const { DotYouClient, ApiType, queryBatch, getContentFromHeaderOrPayload, deleteFile, deleteFilesByGroupId } =
-        await import('@homebase-id/js-lib/core');
+/** The signed-in identity's app client, built from the stored token like the app's own. */
+async function appClient() {
+    const { DotYouClient, ApiType } = await import('@homebase-id/js-lib/core');
     const { retrieveIdentity } = await import('@homebase-id/js-lib/auth');
     const { base64ToUint8Array } = await import('@homebase-id/js-lib/helpers');
-    const { JOURNAL_DRIVE, JOURNAL_FILE_TYPE, FOLDER_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE, STORAGE_KEY_AUTH_TOKEN, STORAGE_KEY_SHARED_SECRET } =
-        await import('@/lib/homebase/config');
-    const client = new DotYouClient({
+    const { STORAGE_KEY_AUTH_TOKEN, STORAGE_KEY_SHARED_SECRET } = await import('@/lib/homebase/config');
+    return new DotYouClient({
         api: ApiType.App,
         hostIdentity: retrieveIdentity()!,
         sharedSecret: base64ToUint8Array(localStorage.getItem(STORAGE_KEY_SHARED_SECRET)!),
         headers: { bx0900: localStorage.getItem(STORAGE_KEY_AUTH_TOKEN)! },
     });
+}
+
+/** Subscribes to `odinId`'s Journal peer push now, as the app's daily pass does (#743). */
+async function subscribePeerPush(odinId: string): Promise<void> {
+    const { PeerPushSubscriptionProvider } = await import('@/lib/homebase/PeerPushSubscriptionProvider');
+    await new PeerPushSubscriptionProvider(await appClient()).subscribe(odinId);
+}
+
+/** The newest entries of the identity's notification list for Journal (#745). */
+async function journalNotifications(): Promise<{ id: string; senderId: string; unread: boolean; typeId: string; tagId: string }[]> {
+    const { GetNotifications } = await import('@homebase-id/js-lib/core');
+    const { JOURNAL_APP_ID } = await import('@/lib/homebase/config');
+    const { results } = await GetNotifications(await appClient(), JOURNAL_APP_ID, 100, undefined);
+    return results.map(({ id, senderId, unread, options }) => ({ id, senderId, unread, typeId: options.typeId, tagId: options.tagId }));
+}
+
+/**
+ * Deletes the signed-in identity's folders (with their notes), notes and collaboration
+ * invites whose name matches `namePattern`, straight on the server; returns the names.
+ */
+export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
+    const { queryBatch, getContentFromHeaderOrPayload, deleteFile, deleteFilesByGroupId } =
+        await import('@homebase-id/js-lib/core');
+    const { JOURNAL_DRIVE, JOURNAL_FILE_TYPE, FOLDER_FILE_TYPE, COLLABORATION_INVITE_FILE_TYPE } =
+        await import('@/lib/homebase/config');
+    const client = await appClient();
     const pattern = new RegExp(namePattern);
     const matches: { fileId: string; name: string; folderId?: string }[] = [];
     let cursorState: string | undefined;
@@ -178,7 +200,7 @@ export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
 
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, seedPendingSync, deleteFilesNamed }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, seedPendingSync, deleteFilesNamed, subscribePeerPush, journalNotifications }),
         writable: false,
         configurable: false,
         enumerable: false,

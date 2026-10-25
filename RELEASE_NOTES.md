@@ -20,6 +20,34 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - On a phone, the formatting bar now sits directly on top of the keyboard. It follows the keyboard and shows in every keyboard mode.
 - Tapping a button on the formatting bar no longer closes the keyboard.
 
+## 2.28.0 (2026-10-25)
+
+### New
+
+- When you share a note, each new person gets a notification. Their Journal shows the note under "Shared with me" at once, or when they next open Journal.
+
+## 2.27.0 (2026-10-25)
+
+### Fixed
+
+- On a phone, you can now open Version history. Tap the "More" button at the top of a note, then "Version history". The list fills the screen, the Restore buttons are bigger, and closing the list no longer opens the keyboard.
+
+## 2.26.1 (2026-10-25)
+
+### Fixed
+
+- The local AI assistant answers again. Before, every step failed with "The reply was not valid JSON" until it ran out of steps. If a model still can't follow the assistant's format, the assistant now stops after two tries and suggests a larger model.
+
+## 2.26.0 (2026-10-25)
+
+### Changed
+
+- On a phone, the table, image, find and edit-preview buttons are bigger and easier to tap. The tag field and the find fields use bigger text, so iOS does not zoom the page.
+
+- On phones, Settings fills the screen. The section tabs scroll sideways and always show the selected tab in full.
+
+- When you remove a connection, Journal stops notifications from that person on your next sync.
+
 ## 2.25.0 (2026-10-25)
 
 ### Fixed

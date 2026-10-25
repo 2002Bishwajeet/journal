@@ -43,6 +43,16 @@ On failure, the job uploads `playwright-report/` and `test-results/` (traces, sc
 
 `*.mobile.spec.ts` specs run only in the `mobile-chromium` and `mobile-webkit` projects (`hermetic` ignores them). A spec opens its page with `withMobilePage(browser, async (page) => …)` from `e2e/support/mobile.ts`: an iPhone 15 profile (393x852, `isMobile`, `hasTouch`) in a fenced context, with the hermetic storage state and the same boot as the `app` fixture. Run them with `npm run e2e:mobile` (Chromium) and `npm run e2e:mobile:webkit` (needs `npx playwright install --with-deps webkit`). CI runs `mobile-chromium` as a required step; `mobile-webkit` is an informational step. Safe-area insets are Chromium only: use a CDP session and `Emulation.setSafeAreaInsetsOverride`, and skip the test in WebKit.
 
+## iOS Safari (#799)
+
+Playwright's WebKit is not iOS Safari: viewport units, safe areas, the software keyboard (`visualViewport`), zoom into small inputs and standalone mode all differ. The "iOS Safari" workflow (`.github/workflows/ios-safari.yml`) runs the e2e build in real Mobile Safari, on an iPhone 15 simulator (iOS 17 or 18) on a GitHub macOS runner. It is never a required check.
+
+- **Request it on a PR:** add the `ios-check` label (do this on mobile layout PRs, e.g. the #775–#793 audit fixes). It reruns on every push while the label is on. Or run it by hand: `gh workflow run ios-safari.yml --ref <branch>`.
+- **How:** the job serves `dist-e2e` on `http://127.0.0.1:4173` (same build and origin as the hermetic suite), signs in with `e2e/fixtures/hermetic-auth.json`, and drives Safari with `e2e/ios/safari-check.ts` (WebdriverIO + Appium's XCUITest driver; taps are real touches). It boots to the sidebar (also in landscape), opens the folder options and the note list, creates a note, taps into the editor and types on the software keyboard, opens Settings and each tab, and taps into the New folder dialog's field.
+- **Checks** (`e2e/ios/checks.ts`, unit-tested in `src/__tests__/iosSafariChecks.test.ts`): no sideways scroll; no focused field under 16px; with the keyboard up, the caret and the mobile toolbar inside `visualViewport`; a non-zero safe area in portrait or landscape; the sidebar footer above the bottom safe area; no request to an origin other than the app (Safari can't be fenced like Playwright, so the job checks afterwards).
+- **Results:** the run summary has a table of steps, screenshots and problems, and links the `ios-safari-<run attempt>` artifact (screenshots, `appium.log`, `preview.log`; 14 days). If the software keyboard never shows, the keyboard checks are skipped with a warning instead of failing.
+- **Locally:** needs a Mac with Xcode. Do the workflow's steps: serve the e2e build, boot a simulator, start Appium 3 with the `xcuitest` driver, `npm install --no-save webdriverio@10`, then `IOS_UDID=<udid> node e2e/ios/safari-check.ts` (Node 22.18+).
+
 ## Agent loop
 
 1. Iterate: `npm run e2e:dev -- <spec>` (Vite dev server on `:5174`, HMR, server reused across runs).

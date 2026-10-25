@@ -9,6 +9,9 @@ import { getLoadedEngine, initWebLLM } from './engine';
 
 type CompletionEngine = Pick<WebLLMTypes.MLCEngineInterface, 'chat' | 'interruptGenerate'>;
 
+/** With `enable_thinking: false`, web-llm starts the reply with the empty thinking block it added to the prompt (#796). */
+const THINK_BLOCK = /^\s*<think>[\s\S]*?<\/think>\s*/;
+
 /** `load` resolves to an engine with the agent model loaded. */
 export function toAgentEngine(load: () => Promise<CompletionEngine>): AgentEngine {
     return {
@@ -24,7 +27,7 @@ export function toAgentEngine(load: () => Promise<CompletionEngine>): AgentEngin
                     temperature: 0,
                     extra_body: { enable_thinking: false },
                 });
-                return response.choices[0]?.message?.content ?? '';
+                return (response.choices[0]?.message?.content ?? '').replace(THINK_BLOCK, '');
             } finally {
                 signal?.removeEventListener('abort', interrupt);
             }
