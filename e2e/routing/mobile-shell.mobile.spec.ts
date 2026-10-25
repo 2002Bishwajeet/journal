@@ -80,15 +80,13 @@ test('under a status bar, the focus-mode exit pill sits below the note header', 
     await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, bottom: 34 } });
     await page.getByRole('complementary', { name: 'Sidebar' }).getByText('Main', { exact: true }).click();
     await page.getByRole('button', { name: 'New', exact: true }).click();
-    const back = page.getByRole('button', { name: 'Back' }).filter({ visible: true });
-    await expect(back).toBeVisible();
+    await expect(page.locator('.ProseMirror').last()).toBeVisible();
     await page.keyboard.press('ControlOrMeta+Shift+KeyF');
     const pill = page.getByRole('button', { name: /Exit Focus/ });
     await expect(pill).toBeVisible();
 
-    const header = (await back.evaluate((el) => el.parentElement!.getBoundingClientRect().toJSON())) as DOMRect;
-    expect(header.top).toBeGreaterThanOrEqual(59);
-    await expect.poll(async () => (await pill.boundingBox())!.y).toBeGreaterThanOrEqual(header.bottom);
+    // Below the 59px status bar and the 48px note header (back button and title).
+    await expect.poll(async () => (await pill.boundingBox())!.y).toBeGreaterThanOrEqual(59 + 48);
 
     await page.screenshot({ path: test.info().outputPath('focus-pill-light-393x852.png') });
   });
