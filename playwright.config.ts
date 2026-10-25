@@ -65,7 +65,7 @@ export default defineConfig({
   projects: [
     {
       name: 'hermetic',
-      testIgnore: ['**/*.live.spec.ts', 'edge/**'],
+      testIgnore: ['**/*.live.spec.ts', '**/*.mobile.spec.ts', 'edge/**'],
       grepInvert: /@quarantine/,
       // Service-worker fetches can bypass context.route(), which would let them
       // slip past the network fence. SW behaviour belongs in the live layer.
@@ -76,6 +76,18 @@ export default defineConfig({
       testIgnore: ['**/*.live.spec.ts', 'edge/**'],
       grep: /@quarantine/,
       use: { ...devices['Desktop Chrome'], serviceWorkers: 'block' },
+    },
+    // Mobile shell specs (*.mobile.spec.ts) open their own iPhone 15 page with
+    // e2e/support/mobile.ts, so these projects only pick the browser engine.
+    {
+      name: 'mobile-chromium',
+      testMatch: '**/*.mobile.spec.ts',
+      use: { ...devices['Desktop Chrome'], serviceWorkers: 'block' },
+    },
+    {
+      name: 'mobile-webkit',
+      testMatch: '**/*.mobile.spec.ts',
+      use: { ...devices['Desktop Safari'], serviceWorkers: 'block' },
     },
     {
       name: 'edge',

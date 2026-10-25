@@ -19,6 +19,14 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - When you remove a connection, Journal stops notifications from that person on your next sync.
 
+## 2.25.0 (2026-10-25)
+
+### Fixed
+
+- The app now fits the full phone screen. The Settings and Log out buttons no longer hide under the browser toolbar.
+- On a phone in landscape, the notch no longer covers the sidebar and note list.
+- The Exit Focus button stays below the status bar. It does not show a keyboard shortcut on touch screens.
+
 ## 2.24.0 (2026-10-25)
 
 ### New
