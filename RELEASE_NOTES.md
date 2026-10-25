@@ -17,6 +17,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ### Changed
 
+- On a phone, the table, image, find and edit-preview buttons are bigger and easier to tap. The tag field and the find fields use bigger text, so iOS does not zoom the page.
+
 - On phones, Settings fills the screen. The section tabs scroll sideways and always show the selected tab in full.
 
 - When you remove a connection, Journal stops notifications from that person on your next sync.
