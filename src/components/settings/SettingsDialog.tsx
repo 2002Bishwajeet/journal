@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,11 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
   const currentSection = sections.some((s) => s.id === activeSection)
     ? activeSection
     : sections[0].id;
+
+  // Reset on close so the active tab is scrolled into view again on the next open.
+  useEffect(() => {
+    if (!isOpen) scrolledFor.current = null;
+  }, [isOpen]);
 
   return (
     <Dialog
@@ -69,10 +74,8 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
 
             <TabsList
               ref={(el) => {
-                if (!el) {
-                  scrolledFor.current = null;
-                  return;
-                }
+                // React calls an inline ref with null on every re-render, so don't reset the guard here.
+                if (!el) return;
                 syncTabStrip(el);
                 // Only when the section changes (or the dialog opens), so re-renders don't undo manual scrolling.
                 if (scrolledFor.current === currentSection) return;
