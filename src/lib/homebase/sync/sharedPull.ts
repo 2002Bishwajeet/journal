@@ -67,13 +67,17 @@ export function pullShared(ctx: SyncContext, client: DotYouClient, options: Shar
     });
 }
 
-/** Pull from one owner now, ignoring its backoff (a share push arrived, #745). */
+/**
+ * Pull from one owner now, ignoring its backoff (a share push arrived, #745).
+ * Rejects when the owner did not answer, so the caller can keep the push unread.
+ */
 export function pullOwnerNow(ctx: SyncContext, client: DotYouClient, odinId: string): Promise<void> {
     return serialize(async () => {
         const state = await loadState();
         if (await pullOwners(ctx, client, state, [odinId], false)) {
             await saveAppState(SHARED_PULL_STATE_KEY, state);
         }
+        if (state.owners[odinId]?.failures) throw new Error(`${odinId} did not answer`);
     });
 }
 

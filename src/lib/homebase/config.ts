@@ -39,6 +39,9 @@ export const JOURNAL_PEER_SUBSCRIPTION_ID = '5b0c7a1e-2f3d-4e8a-9c61-7d4f0a9b8e2
 // Fixed: the push type of "a collaborator edited your shared note" (#746)
 export const JOURNAL_PUSH_TYPE_EDIT = '3c9e5a74-8b1d-4f26-a07e-d15b6c92f840';
 
+// Fixed: the push type of "an owner shared a note with you" (#745)
+export const JOURNAL_PUSH_TYPE_SHARE = '8f2d6b13-5c7a-4e90-b4d8-2a1e9c6f0b57';
+
 // Tag of the one quiet notification the service worker shows for other Homebase apps' pushes
 export const OTHER_APPS_NOTIFICATION_TAG = 'homebase-other';
 
@@ -54,6 +57,9 @@ export const FOLDER_DATA_TYPE = 707;
 
 export const COLLABORATION_INVITE_FILE_TYPE = 615; // JOURNAL_FILE_TYPE + 10
 export const COLLABORATION_INVITE_DATA_TYPE = 716; // JOURNAL_DATA_TYPE + 10
+
+// The owner's share-event file: the outbox item of a share push points at it (#745)
+export const SHARE_PUSH_FILE_TYPE = 616;
 
 // agent-access grants (#164)
 export const AGENT_GRANTS_FILE_TYPE = 607;

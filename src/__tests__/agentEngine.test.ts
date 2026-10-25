@@ -46,6 +46,16 @@ describe('toAgentEngine', () => {
         });
     });
 
+    it('should drop the empty thinking block web-llm puts before the JSON (#796)', async () => {
+        const content = '<think>\n\n</think>\n\n{"answer":"hi"}';
+        const fake = {
+            chat: { completions: { create: vi.fn(async () => ({ choices: [{ message: { content } }] })) } },
+            interruptGenerate: vi.fn(),
+        };
+        const output = await toAgentEngine(async () => fake as never).generate([], { schema: {}, maxTokens: 512 });
+        expect(JSON.parse(output)).toEqual({ answer: 'hi' });
+    });
+
     it('should interrupt the generation on abort', async () => {
         const controller = new AbortController();
         const fake = {

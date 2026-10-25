@@ -53,7 +53,7 @@ import type { Editor } from '@tiptap/react';
 import { editorSchema } from '@/lib/agent/editEngine';
 import { registerActiveEditor } from '@/lib/agent/activeEditor';
 import { useAgentSession } from '@/hooks/useAgentSession';
-import { MAX_TOOL_STEPS } from '@/lib/agent/loop/agentLoop';
+import { FORMAT_FAILED, MAX_TOOL_STEPS } from '@/lib/agent/loop/agentLoop';
 
 beforeAll(() => {
     (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -226,6 +226,21 @@ describe('useAgentSession — steps', () => {
         await ask('what folders?');
 
         expect(latest.current!.messages[1].content).toContain(`I stopped after ${MAX_TOOL_STEPS} steps`);
+
+        await cleanup();
+    });
+
+    it('says the model could not follow the format after two bad replies, in one step row (#796)', async () => {
+        const { generate } = scriptedEngine(['{"answer": "cut off', '{"answer": "cut off']);
+        const { latest, render, cleanup, ask } = mountSession();
+        await render('note-a');
+
+        await ask('what is this about?');
+
+        const { content, steps } = latest.current!.messages[1];
+        expect(generate).toHaveBeenCalledTimes(2);
+        expect(content).toBe(FORMAT_FAILED);
+        expect(steps!.map((s) => s.before)).toEqual(['Could not finish a step: The reply was not valid JSON.']);
 
         await cleanup();
     });

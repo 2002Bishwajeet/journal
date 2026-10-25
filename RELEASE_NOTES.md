@@ -19,6 +19,24 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - On a phone, folder rows and note rows have a "More" button. It opens the same menu as a long press. The menus stay on the screen, and their items are bigger and easier to tap.
 
+## 2.28.0 (2026-10-25)
+
+### New
+
+- When you share a note, each new person gets a notification. Their Journal shows the note under "Shared with me" at once, or when they next open Journal.
+
+## 2.27.0 (2026-10-25)
+
+### Fixed
+
+- On a phone, you can now open Version history. Tap the "More" button at the top of a note, then "Version history". The list fills the screen, the Restore buttons are bigger, and closing the list no longer opens the keyboard.
+
+## 2.26.1 (2026-10-25)
+
+### Fixed
+
+- The local AI assistant answers again. Before, every step failed with "The reply was not valid JSON" until it ran out of steps. If a model still can't follow the assistant's format, the assistant now stops after two tries and suggests a larger model.
+
 ## 2.26.0 (2026-10-25)
 
 ### Changed
