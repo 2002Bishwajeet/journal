@@ -17,6 +17,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ### Changed
 
+- On phones, Settings fills the screen. The section tabs scroll sideways and always show the selected tab in full.
+
 - When you remove a connection, Journal stops notifications from that person on your next sync.
 
 ## 2.25.0 (2026-10-25)

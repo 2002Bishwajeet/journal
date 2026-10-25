@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,12 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useDeviceType } from "@/hooks";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "./sections";
+
+// Fade only the tab-strip edge that has more tabs past it (see .settings-tab-fade in index.css).
+function syncTabStrip(el: HTMLElement) {
+  el.dataset.fadeStart = String(el.scrollLeft > 1);
+  el.dataset.fadeEnd = String(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+}
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -22,6 +28,7 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(
     SETTINGS_SECTIONS[0].id
   );
+  const scrolledFor = useRef<SettingsSectionId | null>(null);
   const [wasOpen, setWasOpen] = useState(isOpen);
   if (isOpen !== wasOpen) {
     setWasOpen(isOpen);
@@ -34,6 +41,11 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
     ? activeSection
     : sections[0].id;
 
+  // Reset on close so the active tab is scrolled into view again on the next open.
+  useEffect(() => {
+    if (!isOpen) scrolledFor.current = null;
+  }, [isOpen]);
+
   return (
     <Dialog
       open={isOpen}
@@ -42,8 +54,9 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
       }}
     >
       {/* `settings-dialog` scopes this dialog's token overrides (see src/index.css).
-          On phones the close button grows to a 44px touch target. */}
-      <DialogContent className="settings-dialog sm:max-w-[900px] p-0 gap-0 overflow-hidden border-0 shadow-2xl bg-background max-md:[&>[data-slot=dialog-close]]:top-1.5 max-md:[&>[data-slot=dialog-close]]:right-1.5 max-md:[&>[data-slot=dialog-close]]:p-3.5">
+          On phones the close button grows to a 44px touch target, and the sheet is pinned
+          to the corner instead of centred, so an odd viewport width leaves no half-pixel seam. */}
+      <DialogContent className="settings-dialog p-0 max-md:inset-0 max-md:translate-x-0 max-md:translate-y-0 max-md:h-dvh max-md:w-screen max-md:max-w-none sm:max-w-none max-md:rounded-none md:max-w-[min(900px,calc(100%-2rem))] gap-0 overflow-hidden border-0 shadow-2xl bg-background max-md:[&>[data-slot=dialog-close]]:top-[calc(0.375rem+env(safe-area-inset-top))] max-md:[&>[data-slot=dialog-close]]:right-1.5 max-md:[&>[data-slot=dialog-close]]:p-3.5">
         <DialogDescription className="sr-only">
           Manage your application preferences and data.
         </DialogDescription>
@@ -55,19 +68,31 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
           onValueChange={(value) => setActiveSection(value as SettingsSectionId)}
           orientation="vertical"
           activationMode="automatic"
-          className="flex flex-col md:flex-row gap-0 h-[min(640px,85dvh)] min-w-0"
+          className="flex flex-col md:flex-row gap-0 h-dvh min-w-0 md:h-[min(640px,85dvh)]"
         >
           {/* ── Navigation: a strip under the title on phones, a left rail from md ── */}
           <nav className="flex min-w-0 shrink-0 flex-col border-b border-border/60 bg-muted/30 md:w-56 md:overflow-y-auto md:border-b-0 md:border-r">
             {/* pr-12 and pb-2 on phones keep the title and tab strip clear of the dialog's close button. */}
-            <div className="pl-5 pr-12 pt-4 pb-2 md:px-6 md:pt-7 md:pb-5">
+            <div className="pl-5 pr-12 pt-[calc(1rem+env(safe-area-inset-top))] pb-2 md:px-6 md:pt-7 md:pb-5">
               <DialogTitle className="font-serif text-xl font-normal tracking-tight text-foreground md:text-2xl">
                 Settings
               </DialogTitle>
               <div className="mt-2 hidden h-0.5 w-8 rounded-full bg-primary md:block" />
             </div>
 
-            <TabsList className="scrollbar-hide h-auto w-full flex-row items-stretch justify-start gap-1 overflow-x-auto rounded-none bg-transparent px-1.5 py-2 md:flex-col md:gap-0.5 md:overflow-visible md:px-3 md:py-0 md:pb-6">
+            <TabsList
+              ref={(el) => {
+                // React calls an inline ref with null on every re-render, so don't reset the guard here.
+                if (!el) return;
+                syncTabStrip(el);
+                // Only when the section changes (or the dialog opens), so re-renders don't undo manual scrolling.
+                if (scrolledFor.current === currentSection) return;
+                scrolledFor.current = currentSection;
+                el.querySelector("[data-state=active]")?.scrollIntoView({ inline: "nearest", block: "nearest" });
+              }}
+              onScroll={(e) => syncTabStrip(e.currentTarget)}
+              className="settings-tab-fade scrollbar-hide scroll-px-5 h-auto w-full flex-row items-stretch justify-start gap-1 overflow-x-auto rounded-none bg-transparent px-5 py-2 md:flex-col md:gap-0.5 md:overflow-visible md:px-3 md:py-0 md:pb-6"
+            >
               {sections.map((section) => {
                 const Icon = section.icon;
                 return (
@@ -98,9 +123,9 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
               <TabsContent
                 key={section.id}
                 value={section.id}
-                className="px-5 pb-8 pt-6 outline-none md:px-10 md:pb-10 md:pt-7"
+                className="px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-6 outline-none md:px-10 md:pb-10 md:pt-7"
               >
-                <h2 className="mb-8 font-serif text-2xl tracking-tight text-balance">
+                <h2 className="mb-8 font-serif max-md:sr-only text-2xl tracking-tight text-balance">
                   {section.label}
                 </h2>
                 <section.Component close={onClose} />
