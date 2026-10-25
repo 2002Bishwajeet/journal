@@ -1,3 +1,9 @@
+# [2.28.0](https://github.com/2002Bishwajeet/journal/compare/v2.27.0...v2.28.0) (2026-10-25)
+
+
+### Features
+
+* **sharing:** send a share push and pull the owner when it arrives ([#745](https://github.com/2002Bishwajeet/journal/issues/745)) ([3b17e47](https://github.com/2002Bishwajeet/journal/commit/3b17e476df4094d5fa3c60c8ed9491d8124eaefb))
 # [2.27.0](https://github.com/2002Bishwajeet/journal/compare/v2.26.1...v2.27.0) (2026-10-25)
 
 

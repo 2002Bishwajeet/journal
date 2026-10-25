@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.28.0 (2026-10-25)
+
 ### New
 
 - When you share a note, each new person gets a notification. Their Journal shows the note under "Shared with me" at once, or when they next open Journal.
