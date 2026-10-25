@@ -15,6 +15,18 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.24.0 (2026-10-25)
+
+### New
+
+- Settings now has a Diagnostics page. It shows each change that is waiting to sync, and why it has not synced. You can retry a change and copy a report to share. Tap the sync icon, then "Pending items", to open it.
+
+## 2.23.1 (2026-10-24)
+
+### Fixed
+
+- The slash menu on a phone no longer shows Ask AI, Summarize and Rewrite. The assistant is not available on phones.
+
 ## 2.23.0 (2026-10-24)
 
 ### New

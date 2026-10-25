@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useSyncService } from "@/hooks";
+import { openSettings } from "@/hooks/useSettingsOpener";
 import {
   Loader2,
   Cloud,
@@ -7,6 +9,7 @@ import {
   RefreshCw,
   Check,
   Clock,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOnlineContext } from "@/hooks/useOnlineContext";
@@ -26,6 +29,7 @@ export function SyncStatus({ className }: SyncStatusProps) {
   const { syncStatus, pendingCount, syncProgress, lastSyncedAt, sync } =
     useSyncService();
   const { isOnline } = useOnlineContext();
+  const [open, setOpen] = useState(false);
 
   const isPending = pendingCount.total > 0;
   const isSyncing = syncStatus === "syncing";
@@ -56,14 +60,21 @@ export function SyncStatus({ className }: SyncStatusProps) {
     return { label: "Synced", icon: Check, color: "text-muted-foreground" };
   };
 
+  // Pending items, errors and the log, for a phone without a console (#800).
+  const showDiagnostics = () => {
+    setOpen(false);
+    openSettings("diagnostics");
+  };
+
   const status = getStatus();
   const StatusIcon = status.icon;
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
+          aria-label="Sync status"
           className={cn(
             "group flex items-center justify-center rounded-md p-2 transition-colors hover:bg-muted/50 focus-visible:outline-none",
             className,
@@ -157,14 +168,30 @@ export function SyncStatus({ className }: SyncStatusProps) {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between text-muted-foreground">
+                <button
+                  type="button"
+                  className="-mx-3 -my-2 flex min-h-11 w-[calc(100%+1.5rem)] items-center justify-between px-3 text-muted-foreground hover:bg-muted/50 md:min-h-9"
+                  onClick={showDiagnostics}
+                >
                   <span>Pending items</span>
-                  <span className="font-medium text-foreground">
+                  <span className="flex items-center gap-1 font-medium text-foreground">
                     {pendingCount.total}
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   </span>
-                </div>
+                </button>
               )}
             </div>
+          )}
+
+          {!isPending && !isSyncing && (
+            <button
+              type="button"
+              className="flex min-h-11 items-center justify-between bg-popover px-3 text-xs text-muted-foreground hover:bg-muted/50 md:min-h-9"
+              onClick={showDiagnostics}
+            >
+              Diagnostics
+              <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
           )}
 
           {/* Footer Status Message */}

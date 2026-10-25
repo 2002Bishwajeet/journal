@@ -17,16 +17,23 @@ function syncTabStrip(el: HTMLElement) {
 
 interface SettingsDialogProps {
   isOpen: boolean;
+  /** Section to show each time the dialog opens; omitted keeps the last one. */
+  initialSection?: SettingsSectionId;
   onClose: () => void;
 }
 
-export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
+export default function SettingsDialog({ isOpen, initialSection, onClose }: SettingsDialogProps) {
   // Keeps the last-selected section for the life of the app (this component
   // stays mounted; only the Dialog's `open` prop toggles).
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(
     SETTINGS_SECTIONS[0].id
   );
   const scrolledFor = useRef<SettingsSectionId | null>(null);
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen && initialSection) setActiveSection(initialSection);
+  }
   const isMobile = useDeviceType() === "mobile";
   const sections = SETTINGS_SECTIONS.filter((s) => !(isMobile && s.desktopOnly));
   // A desktop-only section picked before shrinking to phone width falls back to the first.
@@ -120,7 +127,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                 <h2 className="mb-8 font-serif max-md:sr-only text-2xl tracking-tight text-balance">
                   {section.label}
                 </h2>
-                <section.Component />
+                <section.Component close={onClose} />
               </TabsContent>
             ))}
           </div>

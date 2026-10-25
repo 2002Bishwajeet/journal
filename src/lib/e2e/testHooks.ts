@@ -85,6 +85,52 @@ function ignoreInvites(): void {
 }
 
 /**
+ * Leaves exactly 6 unsynced items for Settings → Diagnostics (#800): three notes, a folder, an
+ * image and a note delete. A note and the folder also carry an error; those two are in backoff, so a
+ * sync pass leaves their messages alone.
+ */
+async function seedPendingSync(): Promise<void> {
+    const { getDatabase } = await import('@/lib/db/pglite');
+    const { upsertSearchIndex, upsertSyncRecord, createFolder, recordSyncError, savePendingImageUpload } =
+        await import('@/lib/db');
+    const { MAIN_FOLDER_ID } = await import('@/lib/homebase');
+    const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const now = new Date().toISOString();
+
+    // Start from an empty queue; the Main folder is unsynced on a fresh app, so mark it synced.
+    await (await getDatabase()).exec('DELETE FROM sync_records; DELETE FROM sync_errors; DELETE FROM pending_image_uploads;');
+    await upsertSyncRecord({ localId: MAIN_FOLDER_ID, entityType: 'folder', syncStatus: 'synced', remoteFileId: 'seeded-main-folder' });
+
+    for (const [n, title] of [[1, 'Seeded note A'], [2, 'Seeded note B'], [3, 'Seeded note C']] as const) {
+        await upsertSearchIndex({
+            docId: id(n),
+            title,
+            plainTextContent: '',
+            metadata: { title, folderId: MAIN_FOLDER_ID, timestamps: { created: now, modified: now }, excludeFromAI: false },
+        });
+        await upsertSyncRecord({ localId: id(n), entityType: 'note', syncStatus: 'pending' });
+    }
+    await createFolder(id(4), 'Seeded folder');
+    await upsertSyncRecord({ localId: id(4), entityType: 'folder', syncStatus: 'pending' });
+    await upsertSyncRecord({ localId: id(6), entityType: 'note', syncStatus: 'pending_delete', remoteFileId: 'seeded-remote-file' });
+    await savePendingImageUpload({
+        id: id(5),
+        noteDocId: id(1),
+        blobData: new Uint8Array([1, 2, 3]),
+        contentType: 'image/png',
+        status: 'pending',
+        retryCount: 0,
+        createdAt: now,
+    });
+
+    await recordSyncError(id(2), 'note', 'push', 'Request failed with status code 403');
+    await recordSyncError(id(4), 'folder', 'push', 'Network Error');
+    await (await getDatabase()).query(
+        `UPDATE sync_errors SET next_retry_at = CURRENT_TIMESTAMP + INTERVAL '1 hour' WHERE resolved_at IS NULL`,
+    );
+}
+
+/**
  * Deletes the signed-in identity's folders (with their notes), notes and collaboration
  * invites whose name matches `namePattern`, straight on the server; returns the names.
  */
@@ -132,7 +178,7 @@ export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
 
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, deleteFilesNamed }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, seedPendingSync, deleteFilesNamed }),
         writable: false,
         configurable: false,
         enumerable: false,
