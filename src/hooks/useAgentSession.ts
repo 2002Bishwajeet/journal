@@ -110,7 +110,9 @@ function applyEvent(steps: AgentStep[], event: AgentEvent): AgentStep[] {
     case "error": {
       const failed = { before: `Could not finish a step: ${event.error.replace(/: [0-9a-f-]{36}$/i, "")}`, after: "" };
       // A tool that throws fails its own step; a bad reply from the model is a step of its own.
-      return steps[last]?.open ? [...steps.slice(0, last), failed] : [...steps, failed];
+      const rest = steps[last]?.open ? steps.slice(0, last) : steps;
+      // The same failure twice in a row shows as one row.
+      return rest.at(-1)?.before === failed.before ? rest : [...rest, failed];
     }
     default:
       return steps;
@@ -191,6 +193,7 @@ export function useAgentSession(activeNoteId: string | undefined) {
     ]);
 
     let capped = false;
+    let failure: string | undefined;
     let content: string;
     try {
       const [{ runAgent, MAX_TOOL_STEPS }, { approveEdit }, { createLocalWriteDeps }, { createAgentEngine }] =
@@ -218,6 +221,7 @@ export function useAgentSession(activeNoteId: string | undefined) {
         signal: controller.signal,
         onEvent: (event) => {
           if (event.type === "step" && event.step > MAX_TOOL_STEPS) capped = true;
+          if (event.type === "failed") failure = event.message;
           if (event.type !== "step") setModelStatus(null);
           update(key, (entries) =>
             entries.map((e) => (e.pending ? { ...e, steps: applyEvent(e.steps ?? [], event) } : e))
@@ -226,6 +230,7 @@ export function useAgentSession(activeNoteId: string | undefined) {
       });
 
       if (controller.signal.aborted) content = "Stopped.";
+      else if (failure) content = failure;
       else if (answer === null) content = `I ran out of steps (${MAX_TOOL_STEPS}) before I could answer.`;
       else content = capped ? `${answer}\n\nI stopped after ${MAX_TOOL_STEPS} steps, so this may be incomplete.` : answer;
     } catch (error) {

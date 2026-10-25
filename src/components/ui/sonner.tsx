@@ -35,7 +35,15 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={theme}
-      className="toaster group"
+      className="toaster group pointer-events-auto"
+      offset={{ bottom: "calc(24px + env(safe-area-inset-bottom))" }}
+      mobileOffset={{ bottom: "calc(16px + env(safe-area-inset-bottom))" }}
+      toastOptions={{
+        classNames: {
+          actionButton: "[@media(pointer:coarse)]:!h-11",
+          cancelButton: "[@media(pointer:coarse)]:!h-11",
+        },
+      }}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,
