@@ -4,6 +4,7 @@ on:
   push:
     branches: [ main ]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: e2e-${{ github.ref }}
@@ -11,15 +12,106 @@ concurrency:
 
 jobs:
   # The hermetic suite split three ways; `e2e` below is the required check.
+  # Step caps are about 1.5x the p90 of 60 runs (#868); they sum to 30 min, plus
+  # 2 min for the uncapped steps that take a second each.
   e2e-shard:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 32
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3]
+    steps:
+      - name: Checkout
+        timeout-minutes: 1
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        timeout-minutes: 1
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Authenticate to Github packages
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+
+      - name: Install dependencies
+        timeout-minutes: 2
+        run: npm ci --include=optional
+
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: |
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "image=$ImageVersion" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        timeout-minutes: 1
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 3
+        run: npx playwright install chromium
+
+      # The Azure apt mirror sometimes serves the ~26 MB of fonts and libs at
+      # ~30 kB/s, which made this step take up to 13.5 min (#868). Keep the .debs.
+      - name: Cache Playwright OS packages
+        timeout-minutes: 1
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-archives
+          key: playwright-apt-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-${{ steps.playwright-version.outputs.image }}
+          restore-keys: playwright-apt-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-
+
+      - name: Install Playwright OS dependencies
+        timeout-minutes: 3
+        run: |
+          mkdir -p ~/apt-archives
+          sudo cp ~/apt-archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+          npx playwright install-deps chromium
+          cp /var/cache/apt/archives/*.deb ~/apt-archives/ 2>/dev/null || true
+
+      - name: Run E2E (hermetic)
+        timeout-minutes: 14
+        run: npm run e2e -- --shard=${{ matrix.shard }}/3
+        env:
+          CI: true
+
+      - name: Run mobile E2E (chromium)
+        if: matrix.shard == 1
+        timeout-minutes: 3
+        run: npm run e2e:mobile
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        if: failure()
+        timeout-minutes: 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.shard }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+  # WebKit and quarantined specs only inform, so they run beside the shards and
+  # `e2e` does not wait for them.
+  e2e-informational:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,55 +132,43 @@ jobs:
 
       - name: Get installed Playwright version
         id: playwright-version
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "image=$ImageVersion" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+          key: playwright-chromium-webkit-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
-      - name: Install Playwright chromium
+      - name: Install Playwright chromium and webkit
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium webkit
+
+      - name: Cache Playwright OS packages
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-archives
+          key: playwright-apt-webkit-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-${{ steps.playwright-version.outputs.image }}
+          restore-keys: playwright-apt-webkit-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-
 
       - name: Install Playwright OS dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-
-      - name: Run E2E (hermetic)
-        run: npm run e2e -- --shard=${{ matrix.shard }}/3
-        env:
-          CI: true
-
-      - name: Run mobile E2E (chromium)
-        if: matrix.shard == 1
-        run: npm run e2e:mobile
-        env:
-          CI: true
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-${{ matrix.shard }}-${{ github.run_attempt }}
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 14
+        run: |
+          mkdir -p ~/apt-archives
+          sudo cp ~/apt-archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+          npx playwright install-deps chromium webkit
+          cp /var/cache/apt/archives/*.deb ~/apt-archives/ 2>/dev/null || true
 
       - name: Run mobile E2E (webkit, informational)
-        if: always() && matrix.shard == 1
         continue-on-error: true
-        run: |
-          npx playwright install --with-deps webkit
-          npm run e2e:mobile:webkit
+        run: npm run e2e:mobile:webkit
         env:
           CI: true
 
       - name: Run quarantined E2E specs (informational)
-        if: always() && matrix.shard == 1
+        if: always()
         continue-on-error: true
         run: npm run e2e:quarantine
         env:
