@@ -71,7 +71,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-background font-sans text-foreground selection:bg-stone-200 selection:text-black">
+    <div className="min-h-dvh w-full flex bg-background font-sans text-foreground selection:bg-stone-200 selection:text-black">
       {/* Left Side - Landing / Branding */}
       <div className="hidden lg:flex w-1/2 bg-secondary/30 relative flex-col justify-between p-16 xl:p-24 border-r border-border/50">
         <div className="z-10">
@@ -117,7 +117,7 @@ export default function LandingPage() {
 
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-24 relative bg-background/50">
-        <div className="w-full max-w-90 space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out fill-mode-forwards">
+        <div className="w-full max-w-90 space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-300 ease-out fill-mode-forwards">
           <div className="text-center space-y-4">
             <div className="lg:hidden flex justify-center mb-8">
               <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center overflow-hidden p-2 border border-border/50 ">
@@ -138,7 +138,7 @@ export default function LandingPage() {
 
           <div className="space-y-6">
             {error && (
-              <div className="p-4 text-sm bg-red-50 text-red-600 border border-red-100 rounded-lg animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-4 text-sm bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/40 rounded-lg animate-in fade-in zoom-in-95 duration-200">
                 {error}
               </div>
             )}
@@ -164,7 +164,7 @@ export default function LandingPage() {
                   aria-autocomplete="list"
                   aria-label="Identity"
                   aria-describedby="identity-description"
-                  className="h-11 px-4 bg-transparent border-input hover:border-foreground/20 focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-input transition-all duration-200 shadow-sm rounded-lg text-sm"
+                  className="h-11 px-4 bg-transparent border-input hover:border-foreground/20 focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-input transition-all duration-200 shadow-sm rounded-lg pointer-fine:text-sm"
                 />
               </div>
             </div>
@@ -191,7 +191,7 @@ export default function LandingPage() {
               href="https://homebase.id"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-foreground font-medium underline-offset-4 hover:underline transition-all"
+              className="inline-flex items-center min-h-11 text-foreground font-medium underline-offset-4 hover:underline transition-all"
             >
               Create an identity
             </a>
@@ -199,8 +199,8 @@ export default function LandingPage() {
         </div>
 
         {/* Footer copyright for mobile/desktop */}
-        <div className="absolute bottom-6 w-full text-center text-[10px] text-muted-foreground/50 uppercase tracking-widest">
-          © 2025 Journal App
+        <div className="absolute bottom-6 pb-[env(safe-area-inset-bottom)] w-full text-center text-xs text-muted-foreground/70 uppercase tracking-widest">
+          © {new Date().getFullYear()} Journal App
         </div>
       </div>
     </div>
