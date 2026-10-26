@@ -234,6 +234,21 @@ async function gesture(name: Gesture, selector: string, index: number, from: [nu
   console.log(`${problems.length ? '✗' : '✓'} gesture-${name} ${JSON.stringify(probe)}${problems.map((p) => `\n    ${p}`).join('')}`);
 }
 
+/** A real one-finger drag on the first `selector` match, `dy` px down (negative: up) from its centre. */
+async function touchDrag(selector: string, dy: number) {
+  const [el] = await browser.$$(selector);
+  await browser
+    .action('pointer', { parameters: { pointerType: 'touch' } })
+    .move({ origin: el, x: 0, y: 0 })
+    .down()
+    .pause(100)
+    .move({ origin: el, x: 0, y: dy, duration: 500 })
+    .up()
+    .perform();
+  // Lets the sheet's spring or exit and any momentum scroll finish.
+  await browser.pause(800);
+}
+
 async function closeDialog() {
   await tap('[role="dialog"] [data-slot="dialog-close"]');
   await waitFor('the dialog to close', dialogClosed);
@@ -395,6 +410,45 @@ try {
   await check('search-sheet-keyboard');
   await tap('button=Cancel');
   await waitFor('the search sheet to close', () => !document.querySelector('[role="dialog"][aria-label="Search notes"]'));
+
+  // The sheet primitive (#823) in real Safari: a drag down on its grabber closes it, a drag on its
+  // body scrolls the body and leaves it open, and with its field focused it sits above the keyboard.
+  const sheetShown = () => !!document.querySelector('[data-slot="sheet-content"]');
+  const openSheet = async () => {
+    assertTestOrigin(await browser.execute(() => location.origin));
+    await browser.execute(() => void window.__journalE2E!.showSheet());
+    await waitFor('the sheet', sheetShown);
+    await browser.pause(500); // its 300 ms slide in
+  };
+  await openSheet();
+  await check('sheet');
+  await touchDrag('[data-slot="sheet-grabber"]', 400);
+  const dragClosed = await waitFor('the sheet to close', () => !document.querySelector('[data-slot="sheet-content"]'), 5_000).then(() => true, () => false);
+  if (!dragClosed) failures.push('sheet: a long drag down on the grabber did not close it');
+  summary.push(`| sheet-drag-to-close | ${await screenshot('sheet-drag-to-close')} | ${dragClosed ? 'closed' : 'still open'} |`);
+
+  await openSheet();
+  const bodyScroll = () => document.querySelector('[data-slot="sheet-body"]')?.scrollTop ?? -1;
+  await touchDrag('[data-slot="sheet-body"]', -250);
+  const scrolledDown = (await browser.execute(bodyScroll)) as number;
+  const openAfterUp = (await browser.execute(sheetShown)) as boolean;
+  await touchDrag('[data-slot="sheet-body"]', 250);
+  const scrolledBack = (await browser.execute(bodyScroll)) as number;
+  const openAfterDown = (await browser.execute(sheetShown)) as boolean;
+  const scrollProblems = [
+    ...(scrolledDown > 50 ? [] : [`a drag up on the body did not scroll it (scrollTop ${scrolledDown})`]),
+    ...(openAfterUp && openAfterDown ? [] : ['a drag on the body closed the sheet']),
+    ...(scrolledBack < scrolledDown ? [] : [`a drag down on the body did not scroll it back (scrollTop ${scrolledDown} -> ${scrolledBack})`]),
+  ];
+  failures.push(...scrollProblems.map((p) => `sheet-scroll: ${p}`));
+  summary.push(`| sheet-scroll | ${await screenshot('sheet-scroll')} | ${scrollProblems.join('<br>') || `none (scrollTop ${scrolledDown} -> ${scrolledBack})`} |`);
+
+  await tap('[data-slot="sheet-content"] input');
+  await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
+  if (await browser.isKeyboardShown()) await check('sheet-keyboard');
+  else warnings.push('The software keyboard did not show after tapping the sheet field, so the sheet keyboard check did not run.');
+  await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await waitFor('the sheet to close', () => !document.querySelector('[data-slot="sheet-content"]'));
 
   // Push and pop slides (#779), slowed to 3 s so each screenshot lands mid-slide:
   // folder -> list -> note -> in-app Back. The system Back (what swipe-back fires)

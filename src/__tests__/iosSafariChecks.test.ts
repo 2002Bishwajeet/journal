@@ -14,6 +14,7 @@ const ok: Layout = {
   toolbar: null,
   dialogFooter: null,
   searchSheet: null,
+  sheet: null,
   sidebarFooter: { top: 610, bottom: 642, left: 8, right: 385 },
   foreignRequests: [],
 };
@@ -75,6 +76,14 @@ describe('iOS Safari layout checks', () => {
     expect(layoutProblems({ ...field, searchSheet: { top: 0, bottom: 420, left: 0, right: 393 } }, false)).toEqual([]);
     expect(layoutProblems({ ...field, searchSheet: { top: 0, bottom: 659, left: 0, right: 393 } }, false)).toEqual([
       'the search sheet (0–659) is outside the visual viewport (0–420)',
+    ]);
+  });
+
+  it('should flag a sheet that stays under the keyboard while its field is focused', () => {
+    const field = { ...ok, viewport: { top: 0, height: 336 }, focused: { name: 'input[Sheet field]', fontSize: 16 }, sidebarFooter: null };
+    expect(layoutProblems({ ...field, sheet: { top: 40, bottom: 336, left: 0, right: 393 } }, false)).toEqual([]);
+    expect(layoutProblems({ ...field, sheet: { top: 40, bottom: 659, left: 0, right: 393 } }, false)).toEqual([
+      'the sheet (40–659) is outside the visual viewport (0–336)',
     ]);
   });
 

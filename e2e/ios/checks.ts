@@ -22,6 +22,8 @@ export type Layout = {
   dialogFooter: Rect | null;
   /** The full-screen Search sheet on a phone (#780). */
   searchSheet: Rect | null;
+  /** An open bottom or full sheet (#823). */
+  sheet: Rect | null;
   /** The sidebar's last button ("Log out"), the bottom of the shell at the root. */
   sidebarFooter: Rect | null;
   /** Requests that left the app origin. Safari can't fence them like Playwright does, so they are caught afterwards. */
@@ -72,6 +74,7 @@ export function measureLayout(): Layout {
     toolbar: box(shown(toolbar)?.getBoundingClientRect()),
     dialogFooter: box(shown(document.querySelector('[role="dialog"] [data-slot="dialog-footer"]'))?.getBoundingClientRect()),
     searchSheet: box(shown(document.querySelector('[role="dialog"][aria-label="Search notes"]'))?.getBoundingClientRect()),
+    sheet: box(shown(document.querySelector('[role="dialog"][data-slot="sheet-content"]'))?.getBoundingClientRect()),
     sidebarFooter: box(shown(logOut)?.getBoundingClientRect()),
     foreignRequests: performance
       .getEntriesByType('resource')
@@ -111,6 +114,10 @@ export function layoutProblems(m: Layout, keyboardUp: boolean): string[] {
   // The Search sheet ends above the keyboard, so its last results can be scrolled into view (#780).
   if (m.focused && m.searchSheet && !onScreen(m.searchSheet)) {
     problems.push(`the search sheet (${span(m.searchSheet)}) is outside the visual viewport (${visible})`);
+  }
+  // A sheet rides up on the keyboard, so its field and footer stay in view (#823).
+  if (m.focused && m.sheet && !onScreen(m.sheet)) {
+    problems.push(`the sheet (${span(m.sheet)}) is outside the visual viewport (${visible})`);
   }
   const usableBottom = Math.min(m.innerHeight, visibleBottom) - m.insets.bottom;
   // With a field focused the keyboard covers the bottom of the page, the sidebar footer included.
