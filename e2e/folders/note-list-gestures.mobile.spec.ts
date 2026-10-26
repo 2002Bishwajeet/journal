@@ -17,7 +17,7 @@ const seedFiles = () =>
     return {
       name: `note-${n}.md`,
       mimeType: 'text/markdown',
-      buffer: Buffer.from(`---\ntitle: Note ${n}\n---\nBody ${n}\n`),
+      buffer: Buffer.from(`---\ntitle: Note ${n} - a long title for the weekly planning and reading list\n---\nBody ${n} keeps going with a few more words so the preview line runs across the whole row\n`),
     };
   });
 
@@ -105,10 +105,19 @@ test('a left swipe opens one row, another swipe or a scroll closes it', async ({
     await expect.poll(async () => (await rowOffsets(rows))[0]).toBe(-80);
     await expect(first.getByRole('button', { name: 'Move to Trash' })).toBeVisible();
 
+    // Waits for the rows' 200ms background transition to settle before each shot.
+    const settled = (scheme: 'light' | 'dark') =>
+      page.evaluate(
+        (s) => document.documentElement.classList.contains('dark') === (s === 'dark') &&
+          getComputedStyle(document.querySelector('[data-testid="note-row"] [role="button"]')!).backgroundColor ===
+            getComputedStyle(document.body).backgroundColor,
+        scheme,
+      );
     await page.emulateMedia({ colorScheme: 'light' });
+    await expect.poll(() => settled('light')).toBe(true);
     await page.screenshot({ path: test.info().outputPath('row-swiped-light-393x852.png') });
     await page.emulateMedia({ colorScheme: 'dark' });
-    await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect.poll(() => settled('dark')).toBe(true);
     await page.screenshot({ path: test.info().outputPath('row-swiped-dark-393x852.png') });
     await page.emulateMedia({ colorScheme: 'light' });
 
