@@ -1,3 +1,9 @@
+## [2.39.1](https://github.com/2002Bishwajeet/journal/compare/v2.39.0...v2.39.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **diagnostics:** one approval also gives Journal its drive when no app owns it ([9315b48](https://github.com/2002Bishwajeet/journal/commit/9315b48f5947b41772bd7c55ab99cd9867bbd7f8)), closes [odin-js#1003](https://github.com/odin-js/issues/1003)
 # [2.39.0](https://github.com/2002Bishwajeet/journal/compare/v2.38.3...v2.39.0) (2026-10-26)
 
 
