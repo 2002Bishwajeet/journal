@@ -69,6 +69,35 @@ async function renderCard(...args: Parameters<JournalE2EHooks['renderCard']>): P
     return renderCardImage(...args);
 }
 
+/** Opens an ActionSheet (#823) over the app, which no screen uses yet; it removes itself once closed. */
+async function showActionSheet(): Promise<void> {
+    const [{ createElement }, { createRoot }, { ActionSheet }, { Pencil, Share2, Trash2 }] = await Promise.all([
+        import('react'),
+        import('react-dom/client'),
+        import('@/components/ui/action-sheet'),
+        import('lucide-react'),
+    ]);
+    const host = document.body.appendChild(document.createElement('div'));
+    const root = createRoot(host);
+    const render = (open: boolean) =>
+        root.render(
+            createElement(ActionSheet, {
+                open,
+                onOpenChange: (next: boolean) => {
+                    render(next);
+                    if (!next) setTimeout(() => { root.unmount(); host.remove(); }, 500);
+                },
+                title: 'Note actions',
+                items: [
+                    { label: 'Rename', icon: Pencil, action: () => {} },
+                    { label: 'Share', icon: Share2, action: () => {} },
+                    { label: 'Delete', icon: Trash2, action: () => {}, variant: 'destructive' },
+                ],
+            }),
+        );
+    render(true);
+}
+
 /** True while an edit is still queued for, or being written to, PGlite (the document and the editor's search-index write). */
 async function hasUnsavedEdits(): Promise<boolean> {
     const { PGliteProvider } = await import('@/lib/yjs/provider');
@@ -247,7 +276,7 @@ export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
 
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications }),
         writable: false,
         configurable: false,
         enumerable: false,

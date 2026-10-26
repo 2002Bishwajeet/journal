@@ -22,3 +22,27 @@ export function followKeyboard(el: HTMLElement | null): (() => void) | undefined
         vv.removeEventListener('scroll', update);
     };
 }
+
+/**
+ * Ref callback for a sheet fixed to the bottom of the screen (SheetContent). iOS Safari does not
+ * shrink the layout viewport for the keyboard, so a bottom-anchored sheet would sit behind it.
+ * While the keyboard is up this sets `--sheet-bottom` (the gap between the visual viewport's
+ * bottom edge and the window's) and `--sheet-h` (the visual viewport's height) on the element;
+ * with the keyboard down it clears them.
+ */
+export function followKeyboardBottom(el: HTMLElement | null): (() => void) | undefined {
+    const vv = window.visualViewport;
+    if (!el || !vv) return;
+    const update = () => {
+        const up = vv.scale === 1 && vv.height < window.innerHeight - 1;
+        el.style.setProperty('--sheet-bottom', up ? `${Math.max(0, window.innerHeight - vv.offsetTop - vv.height)}px` : '');
+        el.style.setProperty('--sheet-h', up ? `${vv.height}px` : '');
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+        vv.removeEventListener('resize', update);
+        vv.removeEventListener('scroll', update);
+    };
+}
