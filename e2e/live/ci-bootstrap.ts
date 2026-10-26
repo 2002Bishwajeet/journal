@@ -16,6 +16,8 @@ import { createNote } from '../support/actions';
 
 const IDENTITY = process.env.E2E_LIVE_IDENTITY;
 const CONSENT_TIMEOUT_MS = 120_000;
+// src/lib/homebase/config.ts's JOURNAL_DRIVE; that module reads import.meta.env, which Playwright's Node has not got.
+const JOURNAL_DRIVE = { alias: 'd5f411fa83fd4854a3bd7e974cc9bca9', type: '30743710039d4b97bbd352f343d1c9df' };
 
 setup.describe.configure({ mode: 'serial' });
 
@@ -284,4 +286,46 @@ setup('grant Journal what circle collaboration needs, on the owner and on the pe
             await authorizeCircleForJournal(page, identity, LIVE_CIRCLE_NAME);
         });
     }
+});
+
+// #845: the owner's host accepts a share push (a peer app notification) only from a drive that
+// has the IsCollaborativeChannel attribute and allows subscriptions. Journal's consent asks for
+// both, but odin-js drops the attributes when the owner console creates the drive at consent,
+// so a fresh identity's drive lacks the attribute and the push gets a 400. Set it through the
+// owner API on this throwaway identity. Only the owner sends pushes.
+setup('mark the owner\'s Journal drive as a collaboration drive that allows subscriptions', async ({ browser }) => {
+    const owner = IDENTITY!;
+    await withIdentity(browser, LIVE_STORAGE_STATE, async (page) => {
+        await openOwnerConsole(page, owner, '/owner');
+        const result = await page.evaluate(async ({ alias, type }) => {
+            const post = (path: string, body: unknown) =>
+                fetch(`/api/owner/v1/drive/mgmt${path}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+            const list = await post('', { pageNumber: 1, pageSize: 1000 });
+            if (!list.ok) throw new Error(`list drives: ${list.status}`);
+            const { results } = (await list.json()) as {
+                results: { targetDriveInfo: { alias: string }; allowSubscriptions: boolean; attributes: Record<string, string> | null }[];
+            };
+            const drive = results.find((d) => d.targetDriveInfo.alias === alias);
+            if (!drive) throw new Error('Journal drive not found');
+            const targetDrive = { alias, type };
+            // updateattributes replaces the whole set, so keep what the drive already has.
+            const attributes = await post('/updateattributes', {
+                targetDrive,
+                attributes: { ...drive.attributes, IsCollaborativeChannel: 'true' },
+            });
+            if (!attributes.ok) throw new Error(`updateattributes: ${attributes.status}`);
+            if (!drive.allowSubscriptions) {
+                const subscriptions = await post('/set-allow-subscriptions', { targetDrive, allowSubscriptions: true });
+                if (!subscriptions.ok) throw new Error(`set-allow-subscriptions: ${subscriptions.status}`);
+            }
+            const after = await (await post('', { pageNumber: 1, pageSize: 1000 })).json();
+            const updated = (after.results as typeof results).find((d) => d.targetDriveInfo.alias === alias)!;
+            return { allowSubscriptions: updated.allowSubscriptions, collaborative: updated.attributes?.IsCollaborativeChannel };
+        }, JOURNAL_DRIVE);
+        expect(result).toEqual({ allowSubscriptions: true, collaborative: 'true' });
+    });
 });
