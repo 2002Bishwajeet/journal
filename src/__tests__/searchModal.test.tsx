@@ -11,9 +11,9 @@ vi.mock('@/hooks/useSearchModal', () => ({
   isAdvancedResult: () => false,
   useSearchModal: () => ({
     query: 'ze',
-    results: [
-      { docId: 'a', title: 'Alpha' },
-      { docId: 'b', title: 'Beta' },
+    entries: [
+      { kind: 'note', section: 'notes', result: { docId: 'a', title: 'Alpha' } },
+      { kind: 'note', section: 'notes', result: { docId: 'b', title: 'Beta' } },
     ],
     selectedIndex: 0,
     isLoading: false,
@@ -21,7 +21,9 @@ vi.mock('@/hooks/useSearchModal', () => ({
     handleQueryChange: vi.fn(),
     handleKeyDown: vi.fn(),
     handleClose,
-    handleSelectResult: vi.fn(),
+    handleSelectEntry: vi.fn(),
+    handleRemoveEntry: vi.fn(),
+    handleClearRecents: vi.fn(),
     setSelectedIndex,
   }),
 }));
