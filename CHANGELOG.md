@@ -1,3 +1,17 @@
+# [2.33.0](https://github.com/2002Bishwajeet/journal/compare/v2.32.1...v2.33.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ai:** do not re-propose an edit the user rejected ([#838](https://github.com/2002Bishwajeet/journal/issues/838)) ([1512f60](https://github.com/2002Bishwajeet/journal/commit/1512f60ad0c4353078d4339bd919181616f83d6a))
+* **ai:** treat a failed edit like a rejected one in the agent loop ([#838](https://github.com/2002Bishwajeet/journal/issues/838)) ([6fd2a1e](https://github.com/2002Bishwajeet/journal/commit/6fd2a1e8cc210dc4ebfcf3ef9bb009d9696c176c))
+* **sharing:** list subscriptions as a maybe when the missing attribute explains a refused push ([#848](https://github.com/2002Bishwajeet/journal/issues/848)) ([0bd382e](https://github.com/2002Bishwajeet/journal/commit/0bd382e08a828e26547109e3e89cc5014bfc8715))
+
+
+### Features
+
+* **pwa:** manifest id, install screenshots, categories, one description, maskable icon ([#855](https://github.com/2002Bishwajeet/journal/issues/855)) ([f898ba1](https://github.com/2002Bishwajeet/journal/commit/f898ba1b41e02b5e15cb3d95029261adc85a066d))
+* **sharing:** guide the owner through all three journal drive fixes for share pushes ([#848](https://github.com/2002Bishwajeet/journal/issues/848)) ([a086539](https://github.com/2002Bishwajeet/journal/commit/a08653906a05747ba8b1c83077b19d963ae9b766))
 ## [2.32.1](https://github.com/2002Bishwajeet/journal/compare/v2.32.0...v2.32.1) (2026-10-26)
 
 

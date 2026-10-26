@@ -16,6 +16,19 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.33.0 (2026-10-26)
+
+### Changed
+
+- When share notifications are off, Settings > Diagnostics shows only the owner console steps that your journal drive still needs.
+- The install dialog in Chrome now shows screenshots of the app.
+- On Android, the app icon fills the shape of the icon mask.
+- On iOS, the Home Screen icon is named "Journal".
+
+### Fixed
+
+- The assistant does not propose an edit again after you reject it or after it fails. After two such edits, it answers the question.
+
 ## 2.32.1 (2026-10-26)
 
 ### Fixed
