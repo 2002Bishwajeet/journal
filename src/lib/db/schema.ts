@@ -7,10 +7,10 @@
  */
 import type { PGliteInterface } from '@electric-sql/pglite';
 import { MAIN_FOLDER_ID } from '../homebase/config';
-import { REQUEUE_OVERSIZED_THUMBNAIL_UPLOADS_SQL, SYNC_ERRORS_ACTIVE_INDEX_SQL } from './syncErrorsSchema';
+import { REQUEUE_THUMBNAIL_FAILURE_UPLOADS_SQL, SYNC_ERRORS_ACTIVE_INDEX_SQL } from './syncErrorsSchema';
 
 // Bump whenever a new statement is added to runMigrations().
-export const SCHEMA_VERSION = '9';
+export const SCHEMA_VERSION = '10';
 
 // pg_trgm and its GIN indexes. Run on demand by ensureTrigramSearch() in
 // pglite.ts, not at boot (loading the extension costs ~1–2s).
@@ -442,9 +442,9 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
   }
 
   try {
-    await database.exec(REQUEUE_OVERSIZED_THUMBNAIL_UPLOADS_SQL);
+    await database.exec(REQUEUE_THUMBNAIL_FAILURE_UPLOADS_SQL);
   } catch (error) {
-    console.warn('[DB Migration] Could not requeue images with an oversized thumbnail:', error);
+    console.warn('[DB Migration] Could not requeue images that failed on their thumbnails:', error);
   }
 
   // Create pending_image_deletions if not exists (for existing dbs)
