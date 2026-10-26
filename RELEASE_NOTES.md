@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.38.3 (2026-10-26)
+
+### Fixed
+
+- The links from Journal to the journal drive and to a note on your owner console open the correct page again.
+
 ## 2.38.2 (2026-10-26)
 
 ### Fixed

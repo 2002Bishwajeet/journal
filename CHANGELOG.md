@@ -1,3 +1,9 @@
+## [2.38.3](https://github.com/2002Bishwajeet/journal/compare/v2.38.2...v2.38.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* owner console drive links use the apps/{app}/drives route ([0bfa091](https://github.com/2002Bishwajeet/journal/commit/0bfa091c408d8fbb0cf9cb558fddc8816e111828))
 ## [2.38.2](https://github.com/2002Bishwajeet/journal/compare/v2.38.1...v2.38.2) (2026-10-26)
 ## [2.38.1](https://github.com/2002Bishwajeet/journal/compare/v2.38.0...v2.38.1) (2026-10-26)
 
