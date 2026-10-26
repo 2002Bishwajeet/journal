@@ -1,3 +1,9 @@
+# [2.38.0](https://github.com/2002Bishwajeet/journal/compare/v2.37.0...v2.38.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **sync:** show the server's reason for a failed upload, stop retrying a 4xx, and let the user discard stuck images ([#874](https://github.com/2002Bishwajeet/journal/issues/874)) ([a14ed0d](https://github.com/2002Bishwajeet/journal/commit/a14ed0d2ce341f2a4eb795ace3115e6bf5a6d218))
 # [2.37.0](https://github.com/2002Bishwajeet/journal/compare/v2.36.1...v2.37.0) (2026-10-26)
 
 
