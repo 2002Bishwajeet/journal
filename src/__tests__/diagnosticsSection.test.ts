@@ -6,17 +6,19 @@ import type { PendingSyncItem } from '@/lib/db/queries/diagnostics';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const { navigate, close, retryAll, retryItem, copyReport, diagnostics } = vi.hoisted(() => ({
+const { navigate, close, retryAll, retryItem, discardImages, copyReport, diagnostics } = vi.hoisted(() => ({
     navigate: vi.fn(),
     close: vi.fn(),
     retryAll: vi.fn(async () => {}),
     retryItem: vi.fn(async () => {}),
+    discardImages: vi.fn(async () => {}),
     copyReport: vi.fn(async () => {}),
     diagnostics: { current: {} as Record<string, unknown> },
 }));
 
-vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }));
+vi.mock('react-router-dom', () => ({ useNavigate: () => navigate, useInRouterContext: () => false }));
 vi.mock('@/hooks/useDiagnostics', () => ({ useDiagnostics: () => diagnostics.current }));
+vi.mock('@/hooks/usePendingImage', () => ({ usePendingImage: () => ({ url: 'blob:thumb', state: 'failed' }) }));
 
 import DiagnosticsSection from '@/components/settings/sections/DiagnosticsSection';
 
@@ -33,6 +35,7 @@ const item = (overrides: Partial<PendingSyncItem>): PendingSyncItem => ({
     retryCount: 0,
     nextRetryAt: null,
     error: null,
+    uploaded: false,
     ...overrides,
 });
 
@@ -49,6 +52,7 @@ function setDiagnostics(items: PendingSyncItem[] | null, extra: Record<string, u
         retrying: null,
         retryAll,
         retryItem,
+        discardImages,
         includeTitles: false,
         setIncludeTitles: vi.fn(),
         copyReport,
@@ -128,6 +132,64 @@ describe('DiagnosticsSection', () => {
         const retryNow = [...document.querySelectorAll('button')].filter((b) => b.textContent?.trim() === 'Retry now').at(-1);
         await act(async () => { retryNow?.click(); });
         expect(retryAll).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows a failed image with its picture and reason, and discards it only after a confirmation that says what is lost (#874)', async () => {
+        const image = item({
+            id: 'img-1',
+            kind: 'image',
+            status: 'failed',
+            title: 'Trip',
+            noteId: 'note-1',
+            contentType: 'image/png',
+            error: {
+                message: 'HTTP 400: Too many Payloads count 26 in FileMetadata max 25',
+                code: 'unhandledScenario',
+                operation: 'upload',
+                since: new Date().toISOString(),
+            },
+        });
+        setDiagnostics([image]);
+        await render();
+
+        const row = document.querySelector('[data-testid="pending-item"]')!;
+        expect(row.textContent).toContain('Image in "Trip"');
+        expect(row.textContent).toContain('Failed');
+        expect(row.textContent).toContain('more images than your Homebase allows');
+        expect(row.textContent).toContain('unhandledScenario · HTTP 400: Too many Payloads count 26');
+        expect(row.querySelector('img')?.getAttribute('src')).toBe('blob:thumb');
+        // One failed image: its own Discard is enough
+        expect([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('Discard all'))).toBe(false);
+
+        await act(async () => { document.querySelector<HTMLButtonElement>('[aria-label=\'Discard Image in "Trip"\']')?.click(); });
+        expect(discardImages).not.toHaveBeenCalled();
+        const dialog = document.querySelector('[role="dialog"]');
+        expect(dialog?.textContent).toContain('Discard this image upload?');
+        expect(dialog?.textContent).toContain("The image stays in its note on this device, but it won't sync");
+
+        await act(async () => { [...dialog!.querySelectorAll('button')].find((b) => b.textContent === 'Discard')?.click(); });
+        expect(discardImages).toHaveBeenCalledWith(['img-1']);
+    });
+
+    it('discards every failed image with Discard all, after one confirmation', async () => {
+        const failed = (id: string, uploaded = false) =>
+            item({ id, kind: 'image', status: 'failed', title: 'Trip', noteId: 'note-1', uploaded });
+        setDiagnostics([item({}), failed('img-1'), failed('img-2', true), item({ id: 'img-3', kind: 'image', status: 'retrying' })]);
+        await render();
+
+        await act(async () => { buttonByText('Discard all 2 failed images')?.click(); });
+        const dialog = document.querySelector('[role="dialog"]');
+        expect(dialog?.textContent).toContain('Discard 2 image uploads?');
+        expect(dialog?.textContent).toContain('Your Homebase already has 1 of them');
+
+        await act(async () => { [...dialog!.querySelectorAll('button')].find((b) => b.textContent === 'Discard')?.click(); });
+        expect(discardImages).toHaveBeenCalledWith(['img-1', 'img-2']);
+    });
+
+    it('offers no Discard for a note or folder', async () => {
+        setDiagnostics([item({ status: 'failed' })]);
+        await render();
+        expect(document.querySelector('[aria-label="Discard Groceries"]')).toBeNull();
     });
 
     it('cannot retry while offline', async () => {

@@ -31,7 +31,10 @@ export interface PendingCount {
   notes: number;
   folders: number;
   images: number;
+  /** Changes a sync will still send. */
   total: number;
+  /** Changes sync stopped retrying (a permanent error, #874); not in `total`. */
+  failed: number;
 }
 
 const RETRY_BACKOFF_MS = 5000; // 5 seconds between retry attempts
@@ -45,6 +48,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     folders: 0,
     images: 0,
     total: 0,
+    failed: 0,
   });
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
@@ -355,6 +359,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     deleteNoteRemote,
     setNoteArchivalStatusRemote,
     deleteFolderRemote,
+    refreshPendingCount,
     syncService,
   };
 

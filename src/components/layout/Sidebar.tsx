@@ -502,7 +502,7 @@ export default function Sidebar({
           isOpen={showLogoutConfirm}
           onClose={() => setShowLogoutConfirm(false)}
           onConfirm={onLogout}
-          pendingTotal={pendingCount.total}
+          pendingTotal={pendingCount.total + pendingCount.failed}
         />
 
         {/* Footer */}

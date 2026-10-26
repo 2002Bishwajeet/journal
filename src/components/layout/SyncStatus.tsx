@@ -32,6 +32,8 @@ export function SyncStatus({ className }: SyncStatusProps) {
   const [open, setOpen] = useState(false);
 
   const isPending = pendingCount.total > 0;
+  // Changes sync stopped retrying (#874): they need the user, in Diagnostics
+  const failed = pendingCount.failed;
   const isSyncing = syncStatus === "syncing";
 
   // Minimalist Status Logic
@@ -51,6 +53,8 @@ export function SyncStatus({ className }: SyncStatusProps) {
       };
     if (syncStatus === "error")
       return { label: "Sync Error", icon: CloudOff, color: "text-destructive" };
+    if (failed > 0)
+      return { label: "Couldn't sync", icon: CloudOff, color: "text-destructive" };
     if (isPending)
       return {
         label: "Changes Pending",
@@ -84,10 +88,15 @@ export function SyncStatus({ className }: SyncStatusProps) {
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : !isOnline ? (
             <WifiOff className="h-4 w-4 text-muted-foreground/70" />
-          ) : isPending ? (
+          ) : isPending || failed > 0 ? (
             <div className="relative">
               <Cloud className="h-4 w-4 text-foreground" />
-              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+              <span
+                className={cn(
+                  "absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-background",
+                  failed > 0 ? "bg-destructive dark:bg-red-400" : "bg-primary",
+                )}
+              />
             </div>
           ) : (
             <Cloud className="h-4 w-4 text-muted-foreground/70 group-hover:text-foreground transition-colors" />
@@ -183,7 +192,21 @@ export function SyncStatus({ className }: SyncStatusProps) {
             </div>
           )}
 
-          {!isPending && !isSyncing && (
+          {failed > 0 && !isSyncing && (
+            <button
+              type="button"
+              className="flex min-h-11 items-center justify-between bg-popover px-3 text-xs text-destructive hover:bg-muted/50 md:min-h-9 dark:text-red-400"
+              onClick={showDiagnostics}
+            >
+              <span>Couldn't sync</span>
+              <span className="flex items-center gap-1 font-medium">
+                {failed}
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
+            </button>
+          )}
+
+          {!isPending && !isSyncing && failed === 0 && (
             <button
               type="button"
               className="flex min-h-11 items-center justify-between bg-popover px-3 text-xs text-muted-foreground hover:bg-muted/50 md:min-h-9"

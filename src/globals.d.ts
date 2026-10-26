@@ -49,6 +49,10 @@ interface JournalE2EHooks {
   ignoreInvites(): void;
   /** Leaves 6 unsynced items, two of them with errors, for the Diagnostics spec (#800). */
   seedPendingSync(): Promise<void>;
+  /** Leaves only image uploads (PNG bytes) in a note already on the server (#874). */
+  seedImageUploads(title: string, images: number[][]): Promise<void>;
+  /** Runs the sync's image upload step once. */
+  uploadPendingImages(): Promise<void>;
   /** Marks the identity's share pushes as refused by its server, so Diagnostics shows the drive fixes (#848). */
   refuseSharePush(): Promise<void>;
   /** Deletes the signed-in identity's folders (with their notes), notes and invites whose name matches the regex source; returns the names. */

@@ -3,12 +3,13 @@ import { ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SignOutConfirmDialog from "@/components/modals/SignOutConfirmDialog";
 import { useAccountSettings } from "@/hooks/useAccountSettings";
+import { openSettings } from "@/hooks/useSettingsOpener";
 import { useJournalPermissions } from "@/hooks/auth/useJournalPermissions";
 import { cn, formatRelativeTime } from "@/lib/utils/index";
 import { SettingsRow } from "../SettingsRow";
 
 export default function AccountSection() {
-  const { identity, syncStatus, lastSyncedAt, pendingTotal, syncNow, signOut } =
+  const { identity, syncStatus, lastSyncedAt, pendingTotal, failedTotal, syncNow, signOut } =
     useAccountSettings();
   const permissions = useJournalPermissions();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -61,6 +62,18 @@ export default function AccountSection() {
           </Button>
         }
       />
+      {failedTotal > 0 && (
+        <SettingsRow
+          id="account-sync-failed"
+          label={`${failedTotal} ${failedTotal === 1 ? "change" : "changes"} couldn't sync`}
+          description="Journal stopped retrying them. See why in Diagnostics, then retry or discard them."
+          control={
+            <Button variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={() => openSettings("diagnostics")}>
+              View
+            </Button>
+          }
+        />
+      )}
       {permissions && (
         <SettingsRow
           id="account-permissions"
@@ -97,7 +110,7 @@ export default function AccountSection() {
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={() => signOut()}
-        pendingTotal={pendingTotal}
+        pendingTotal={pendingTotal + failedTotal}
       />
     </div>
   );
