@@ -222,6 +222,86 @@ describe('runAgent', () => {
         expect(resultsSent(calls[1]).join('\n')).toContain('rejected by the user');
     });
 
+    describe('rejected edits (#838)', () => {
+        const execute = vi.fn();
+        const writeTool: AnyJournalTool = {
+            name: 'rename_note',
+            title: 'Rename note',
+            description: 'Rename a note.',
+            input: z.object({ id: z.string(), title: z.string() }),
+            readOnly: false,
+            execute,
+        };
+        const rename = (title: string) => ({ tool: 'rename_note', args: { id: GARDEN, title } });
+        const withWrite = (approve: RunAgentOptions['approve']) => ({ approve, tools: [...AGENT_TOOLS, writeTool] });
+
+        it('should not show the same edit again after a rejection and send a nudge', async () => {
+            const approve = vi.fn(async () => 'rejected' as const);
+            const { engine, calls } = scriptedEngine([rename('Veg'), rename('Veg'), { answer: 'It is about zucchini.' }]);
+            const { result, events } = run('What is this about?', engine, withWrite(approve));
+
+            expect(await result).toBe('It is about zucchini.');
+            expect(approve).toHaveBeenCalledTimes(1);
+            expect(events.filter((e) => e.type === 'proposal')).toHaveLength(1);
+            expect(events.filter((e) => e.type === 'toolCall')).toHaveLength(1);
+            expect(resultsSent(calls[2]).join('\n')).toContain('The user rejected this edit at step 1. Do not propose it again.');
+            expect(execute).not.toHaveBeenCalled();
+        });
+
+        it('should match the rejected edit whatever the order of the args keys', async () => {
+            const approve = vi.fn(async () => 'rejected' as const);
+            const reordered = { tool: 'rename_note', args: { title: 'Veg', id: GARDEN } };
+            const { engine } = scriptedEngine([rename('Veg'), reordered, { answer: 'ok' }]);
+
+            expect(await run('Q', engine, withWrite(approve)).result).toBe('ok');
+            expect(approve).toHaveBeenCalledTimes(1);
+        });
+
+        it('should keep the repeat history of reads across a rejected write', async () => {
+            const search = { tool: 'search_notes', args: { query: 'zucchini' } };
+            const approve = vi.fn(async () => 'rejected' as const);
+            const { engine } = scriptedEngine([search, rename('Veg'), search, { answer: 'ok' }]);
+            const { result, events } = run('Q', engine, withWrite(approve));
+
+            expect(await result).toBe('ok');
+            expect(events.filter((e) => e.type === 'toolCall' && e.tool === 'search_notes')).toHaveLength(1);
+        });
+
+        it('should force an answer-only turn after two rejections', async () => {
+            const approve = vi.fn(async () => 'rejected' as const);
+            const { engine, calls } = scriptedEngine([rename('Veg'), rename('Herbs'), { answer: 'Nothing changed.' }]);
+            const { result, events } = run('What is this about?', engine, withWrite(approve));
+
+            expect(await result).toBe('Nothing changed.');
+            expect(approve).toHaveBeenCalledTimes(2);
+            expect(calls).toHaveLength(3);
+            expect(calls[2].schema.anyOf).toBeUndefined();
+            expect(calls[2].schema).toMatchObject({ required: ['answer'] });
+            expect(events.filter((e) => e.type === 'error')).toHaveLength(0);
+        });
+
+        it('should end with an answer within the cap when the model keeps proposing the same edit', async () => {
+            const approve = vi.fn(async () => 'rejected' as const);
+            const { engine, calls } = scriptedEngine([rename('Veg'), rename('Veg'), rename('Veg'), { answer: 'It is about zucchini.' }]);
+            const { result, events } = run('What is this about?', engine, withWrite(approve));
+
+            expect(await result).toBe('It is about zucchini.');
+            expect(approve).toHaveBeenCalledTimes(1);
+            expect(calls).toHaveLength(4);
+            expect(calls[3].schema.anyOf).toBeUndefined();
+            expect(events.some((e) => e.type === 'error' || e.type === 'failed')).toBe(false);
+        });
+
+        it('should still run an accepted edit and clear the read history', async () => {
+            const search = { tool: 'search_notes', args: { query: 'zucchini' } };
+            const { engine } = scriptedEngine([search, rename('Veg'), search, { answer: 'ok' }]);
+            const { result, events } = run('Q', engine, withWrite(async () => 'accepted'));
+
+            expect(await result).toBe('ok');
+            expect(events.filter((e) => e.type === 'toolCall' && e.tool === 'search_notes')).toHaveLength(2);
+        });
+    });
+
     it('should stop on abort with no further generate', async () => {
         const controller = new AbortController();
         const { engine, calls } = scriptedEngine([{ tool: 'list_folders', args: {} }, { answer: 'never' }]);

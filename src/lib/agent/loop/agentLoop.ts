@@ -138,6 +138,7 @@ function systemPrompt(tools: AgentTool[]): string {
         '- Use note ids from earlier results. Never invent an id.',
         '- To add to another note, use append_to_note; for a new note, use create_note. The user accepts or rejects each one.',
         '- To change the open note, read it with read_open_note, then call one edit tool. The user accepts or rejects each edit.',
+        '- Propose an edit only when the user asks for a change. For a question, answer it. Never propose an edit the user rejected.',
         '- Answer as soon as you know enough. Keep the answer short and plain.',
     ].join('\n');
 }
@@ -214,8 +215,10 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
 
     const schema = turnSchema(tools);
     let notJson = 0;
-    /** Read-only calls already run, by name and args, with the turn that ran them. A write clears it, as it can change what a read returns. */
+    /** Read-only calls already run, by name and args, with the turn that ran them. A write clears it, as it can change what a read returns. A rejected write changes nothing, so it does not. */
     const seen = new Map<string, number>();
+    /** Edits the user rejected, by name and args, with the turn that proposed them. The model may not propose them again. */
+    const rejected = new Map<string, number>();
     let repeatsInARow = 0;
     // A repeated call does not count as a step, so the cap reflects useful work.
     let step = 0;
@@ -257,12 +260,20 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
         const args = capArgs(tool.name, parsed.data);
         const key = callKey(tool.name, args);
         const earlier = seen.get(key);
-        if (earlier !== undefined) {
+        const rejectedAt = rejected.get(key);
+        if (earlier !== undefined || rejectedAt !== undefined) {
             // Don't run it again or repeat its result: the prompt would grow by the whole result for nothing.
+            // A rejected edit does not reach the user a second time.
             step--;
             history.push(
                 { role: 'assistant', content: output },
-                { role: 'user', content: `You already called ${tool.name} with these arguments (step ${earlier}). Use that result, call a different tool, or answer.` },
+                {
+                    role: 'user',
+                    content:
+                        rejectedAt !== undefined
+                            ? `The user rejected this edit at step ${rejectedAt}. Do not propose it again. Answer the question, or propose a different change only if the user asked for one.`
+                            : `You already called ${tool.name} with these arguments (step ${earlier}). Use that result, call a different tool, or answer.`,
+                },
             );
             // The model ignored the nudge: only an answer is left to ask for.
             if (++repeatsInARow < 2) continue;
@@ -296,6 +307,7 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
             continue;
         }
         let result: string;
+        let wasRejected = false;
         let written: WrittenNote | undefined;
         if (typeof called === 'string') result = called;
         else {
@@ -303,13 +315,17 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
             const outcome = await approve(called);
             if (signal?.aborted) return null;
             result = describeOutcome(outcome);
+            wasRejected = outcome === 'rejected';
             written = outcome === 'accepted' ? called.write?.applied : undefined;
             if (written) result += ` (note id: ${written.id})`;
         }
         if (tool.readOnly) seen.set(key, turns);
+        else if (wasRejected) rejected.set(key, turns);
         else seen.clear();
         onEvent({ type: 'toolResult', tool: tool.name, result, ...(written && { note: written }) });
         history.push({ role: 'assistant', content: output }, { role: 'user', content: `Result of ${tool.name}: ${result}` });
+        // Two rejections: the user does not want an edit, so only an answer is left to ask for.
+        if (rejected.size >= 2) return forceAnswer(turns + 1, 'No answer after rejected edits.');
     }
 
     return forceAnswer(turns + 1, 'No answer after the step limit.');
