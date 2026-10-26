@@ -117,8 +117,8 @@
   --accent: #2C2B29;
   --accent-foreground: #E6E4DD;
 
-  --destructive: #7f1d1d;
-  --destructive-foreground: #E6E4DD;
+  --destructive: #f87171; /* red-400: 5.7:1 on --popover (WCAG AA) */
+  --destructive-foreground: #1C1B1A; /* dark text: 6.2:1 on the lighter red */
 
   --collaborative: #fbbf24; /* Warm gold — lighter for dark mode */
   --collaborative-foreground: #1C1B1A;
