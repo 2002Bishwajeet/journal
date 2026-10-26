@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSidebarCollapse } from "@/hooks/useSidebarCollapse";
+import { useDeviceType } from "@/hooks/useDeviceType";
 import {
   ChevronDown,
   ChevronLeft,
@@ -104,7 +105,9 @@ export default function Sidebar({
   className = "",
 }: SidebarProps) {
   const { collapsed, toggle } = useSidebarCollapse();
-  const isCollapsed = collapsed.sidebar;
+  // The rail only exists on desktop; phones and tablets show the sidebar as a full pane.
+  const isDesktop = useDeviceType() === "desktop";
+  const isCollapsed = collapsed.sidebar && isDesktop;
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [shareFolderId, setShareFolderId] = useState<string | null>(null);
   const [tagToDelete, setTagToDelete] = useState<string | null>(null);
@@ -126,7 +129,7 @@ export default function Sidebar({
         className={cn(
           "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
           // Fixed widths on desktop, so the width transition runs between two lengths, not from a percentage.
-          isCollapsed ? "w-full md:w-14 items-center" : "w-full md:w-60", // Centered items when collapsed
+          isCollapsed ? "w-full lg:w-14 items-center" : "w-full lg:w-60", // Centered items when collapsed
           className
         )}
       >
@@ -153,7 +156,7 @@ export default function Sidebar({
                 variant="ghost"
                 size="icon"
                 aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                className={cn("h-7 w-7", isCollapsed ? "flex" : "md:flex")}
+                className={cn("h-7 w-7 pointer-coarse:size-11", !isCollapsed && "hidden lg:inline-flex")}
                 onClick={() => toggle("sidebar")}
               >
                 {isCollapsed ? (
@@ -176,7 +179,7 @@ export default function Sidebar({
             aria-label={isCollapsed ? "Search" : undefined}
             className={cn(
               "text-muted-foreground transition-all duration-200",
-              isCollapsed ? "size-9 px-0" : "w-full justify-start px-2"
+              isCollapsed ? "size-9 px-0" : "w-full justify-start px-2 pointer-coarse:min-h-11"
             )}
             onClick={onSearch}
           >
@@ -195,7 +198,7 @@ export default function Sidebar({
                   aria-label="Open today's daily note"
                   className={cn(
                     "text-muted-foreground transition-all duration-200",
-                    isCollapsed ? "size-9 px-0" : "w-full justify-start px-2"
+                    isCollapsed ? "size-9 px-0" : "w-full justify-start px-2 pointer-coarse:min-h-11"
                   )}
                   onClick={onOpenToday}
                 >
@@ -228,7 +231,7 @@ export default function Sidebar({
                     aria-label={isCollapsed ? "Shared with me" : undefined}
                     className={cn(
                       "group relative transition-all duration-200 flex items-center",
-                      isCollapsed ? "size-9 px-0" : "flex-1 min-w-0 h-10 justify-start px-2",
+                      isCollapsed ? "size-9 px-0" : "flex-1 min-w-0 h-10 justify-start px-2 pointer-coarse:min-h-11",
                       selectedFolderId === PSEUDO_FOLDERS.shared && "bg-accent text-accent-foreground font-medium hover:bg-accent"
                     )}
                     onClick={onSelectShared}
@@ -265,7 +268,7 @@ export default function Sidebar({
                       size="icon"
                       aria-label="Refresh shared notes"
                       aria-busy={sharedPull.isRefreshing}
-                      className="size-11 md:size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                      className="size-8 pointer-coarse:size-11 shrink-0 text-muted-foreground hover:text-foreground"
                       onClick={sharedPull.refresh}
                     >
                       <RefreshCw className={cn("h-4 w-4", sharedPull.isRefreshing && "animate-spin")} />
@@ -286,7 +289,7 @@ export default function Sidebar({
               {!isCollapsed && (
                 <button
                   type="button"
-                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground uppercase tracking-wide pointer-coarse:min-h-11"
                   aria-expanded={!collapsed.folders}
                   aria-controls="sidebar-folders"
                   onClick={() => toggle("folders")}
@@ -305,7 +308,7 @@ export default function Sidebar({
                       "shrink-0",
                       isCollapsed
                         ? "size-9 rounded-lg border border-dashed border-sidebar-border text-muted-foreground hover:border-solid hover:text-foreground"
-                        : "h-6 w-6"
+                        : "h-6 w-6 pointer-coarse:size-11"
                     )}
                     onClick={onCreateFolder}
                   >
@@ -346,7 +349,7 @@ export default function Sidebar({
                               isCollapsed
                                 ? // The button is the tile, so its focus ring and the badge are never clipped by an inner box.
                                   "size-9 px-0 rounded-lg border text-[11px] font-semibold tracking-wide"
-                                : "w-full min-w-0 shrink h-10 justify-start px-2 [-webkit-touch-callout:none]",
+                                : "w-full min-w-0 shrink h-10 justify-start px-2 pointer-coarse:min-h-11 [-webkit-touch-callout:none]",
                               // Light mode needs a stronger edge and darker letters than the muted tokens give on the sidebar (4.5:1 text).
                               isCollapsed && !isSelected &&
                                 "border-muted-foreground/50 text-sidebar-foreground/80 hover:text-sidebar-foreground dark:border-sidebar-border dark:text-muted-foreground dark:hover:text-foreground",
@@ -412,7 +415,7 @@ export default function Sidebar({
                 <div className="flex items-center justify-between px-2 mb-1">
                   <button
                     type="button"
-                    className="flex items-center gap-1 min-w-0 text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                    className="flex items-center gap-1 min-w-0 flex-1 text-xs font-medium text-muted-foreground uppercase tracking-wide pointer-coarse:min-h-11"
                     aria-expanded={!collapsed.tags}
                     aria-controls="sidebar-tags"
                     onClick={() => toggle("tags")}
@@ -435,7 +438,7 @@ export default function Sidebar({
                         <Button
                           variant={selectedTag === tag ? "secondary" : "ghost"}
                           className={cn(
-                            "w-full h-8 justify-start px-2 text-sm",
+                            "w-full h-8 pointer-coarse:min-h-11 justify-start px-2 text-sm",
                             selectedTag === tag && "bg-accent text-accent-foreground font-medium"
                           )}
                           onClick={() => onSelectTag?.(selectedTag === tag ? null : tag)}
@@ -521,7 +524,7 @@ export default function Sidebar({
                 className={cn(
                   isCollapsed
                     ? "h-9 w-9 justify-center px-0"
-                    : "w-full justify-start px-2 h-8 text-muted-foreground",
+                    : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground",
                   selectedFolderId === PSEUDO_FOLDERS.archive &&
                     "bg-accent text-accent-foreground font-medium hover:bg-accent"
                 )}
@@ -556,7 +559,7 @@ export default function Sidebar({
                 className={cn(
                   isCollapsed
                     ? "h-9 w-9 justify-center px-0"
-                    : "w-full justify-start px-2 h-8 text-muted-foreground",
+                    : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground",
                   selectedFolderId === PSEUDO_FOLDERS.trash &&
                     "bg-accent text-accent-foreground font-medium hover:bg-accent"
                 )}
@@ -591,7 +594,7 @@ export default function Sidebar({
                 className={cn(
                   isCollapsed
                     ? "h-9 w-9 justify-center px-0"
-                    : "w-full justify-start px-2 h-8 text-muted-foreground"
+                    : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground"
                 )}
                 aria-label={isCollapsed ? "Settings" : undefined}
                 onClick={onSettings}
@@ -613,7 +616,7 @@ export default function Sidebar({
                 className={cn(
                   isCollapsed
                     ? "h-9 w-9 justify-center px-0 text-destructive"
-                    : "w-full justify-start px-2 h-8 text-destructive hover:text-destructive"
+                    : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-destructive hover:text-destructive"
                 )}
                 aria-label={isCollapsed ? "Log out" : undefined}
                 onClick={() => setShowLogoutConfirm(true)}
