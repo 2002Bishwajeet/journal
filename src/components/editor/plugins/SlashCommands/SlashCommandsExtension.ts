@@ -13,6 +13,7 @@ import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import { SlashCommandList, type SlashCommandListRef } from './SlashCommandList';
 import { availableSlashItems, filterCommands } from './slashCommandItems';
 import { createSpacedSuggestionMatch } from '../suggestionSearch';
+import { viewportResizeProps } from '../suggestionViewport';
 
 export interface SlashCommandsOptions {
     suggestion: Partial<SuggestionOptions>;
@@ -72,6 +73,7 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
                                 placement: 'bottom-start',
                                 animation: 'shift-away',
                                 offset: [0, 8],
+                                ...viewportResizeProps,
                             });
                         },
 
