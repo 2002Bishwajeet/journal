@@ -108,6 +108,8 @@ test('a dialog closed with its X leaves no stale history entry', async ({ browse
     await expect(page.getByRole('dialog')).toBeHidden();
     // Open a folder, then Back: the sidebar, not a leftover Settings entry.
     await selectFolder(page, 'Main');
+    // The folder opens inside the slide's view transition, a frame later.
+    await expect.poll(() => pathOf(page)).not.toBe('/');
     await page.goBack();
     await expect.poll(() => pathOf(page)).toBe('/');
     await expect(page.getByRole('dialog')).toBeHidden();
