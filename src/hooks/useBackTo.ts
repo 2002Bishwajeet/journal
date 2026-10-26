@@ -1,15 +1,16 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 // Back that behaves like a native stack: pop the previous in-app entry when
 // there is one, otherwise replace the current entry with the parent screen.
-// The initial entry of a session (a deep link, a reload into a fresh tab) has
-// the key "default".
+// BrowserRouter numbers its entries in history.state.idx; the first entry of a
+// session (a deep link, or a reload that session restore redirects with a
+// replace) keeps idx 0.
 export function useBackTo() {
   const navigate = useNavigate();
-  const { key } = useLocation();
 
   return (parent: string) => {
-    if (key !== "default") navigate(-1);
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1);
     else navigate(parent, { replace: true });
   };
 }
