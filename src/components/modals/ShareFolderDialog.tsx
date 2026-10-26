@@ -53,7 +53,7 @@ export default function ShareFolderDialog({ folder, onClose }: ShareFolderDialog
                                     </>
                                 ) : (
                                     <>
-                                        <Input readOnly value={url} aria-label="Folder link" className="min-w-0 bg-muted/40 text-sm max-sm:h-11" />
+                                        <Input readOnly value={url} aria-label="Folder link" className="min-w-0 bg-muted/40 pointer-fine:text-sm max-sm:h-11" />
                                         <div className="flex gap-2">
                                             <Button variant="outline" className="flex-1 max-sm:h-11" onClick={copy}>
                                                 <Copy />
