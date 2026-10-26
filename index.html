@@ -103,7 +103,9 @@
         document.documentElement.style.colorScheme = actualTheme;
       })();
     </script>
-    <div id="root"></div>
+    <!-- Static first frame: the splash logo where the launch images and SplashScreen.tsx put it
+         (128 px, centre 56 px above the screen centre). React replaces it on mount. -->
+    <div id="root"><div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center"><img src="/src/assets/logo_withoutbg.png" alt="" style="width: 128px; height: 128px; object-fit: contain; transform: translateY(-56px)" /></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

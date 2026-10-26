@@ -105,19 +105,12 @@ export function BootErrorScreen() {
 }
 
 export function SplashScreen({ className }: SplashScreenProps) {
-  const [show, setShow] = useState(false);
   // Random start so reloads don't always open on the same quip.
   const [quip, setQuip] = useState(() => Math.floor(Math.random() * BOOT_QUIPS.length));
   // Real boot milestones (bundle parsed → DB worker → DB ready) reported via
   // reportBootPhase. The bar never hits 100% here — the app replacing the
   // splash is the completion signal.
   const progress = useSyncExternalStore(subscribeBootProgress, getBootProgress);
-
-  useEffect(() => {
-    // Small delay to ensure smooth transition
-    const timer = setTimeout(() => setShow(true), 50);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     const id = setInterval(() => setQuip((q) => q + 1), 2500);
@@ -127,13 +120,14 @@ export function SplashScreen({ className }: SplashScreenProps) {
   return (
     <div 
       className={cn(
-        "fixed inset-0 z-50 flex flex-col items-center justify-center bg-background transition-opacity duration-500",
-        show ? "opacity-100" : "opacity-0",
+        "fixed inset-0 z-50 flex flex-col items-center justify-center bg-background",
         className
       )}
     >
       <div className="relative flex flex-col items-center">
-        <div className="relative w-32 h-32 mb-8 animate-in fade-in zoom-in duration-700">
+        {/* No entry animation: the logo is already here in the iOS launch image and
+            index.html's static first frame, so it must not vanish and zoom back in. */}
+        <div className="relative w-32 h-32 mb-8">
           {/* Logo with slight pulse effect */}
           <img 
             src={logo} 
