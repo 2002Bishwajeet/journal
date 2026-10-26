@@ -168,7 +168,7 @@ describe('addImageToNote — full upload metadata', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockPatch.mockResolvedValue({ newVersionTag: 'v2' });
-        mockCreateThumbnails.mockResolvedValue({ additionalThumbnails: [], tinyThumb: undefined });
+        mockCreateThumbnails.mockResolvedValue({ additionalThumbnails: [], tinyThumb: { pixelWidth: 1, pixelHeight: 1, contentType: 'image/webp', content: '' } });
         provider = new NotesDriveProvider(fakeClient);
     });
 

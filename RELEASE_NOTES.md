@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.39.1 (2026-10-26)
+
+### Changed
+
+- When no app owns your journal drive, Settings > Diagnostics shows "Fix in owner console". One approval on your owner console gives the drive to Journal and also fixes share notifications.
+
 ## 2.39.0 (2026-10-26)
 
 ### New

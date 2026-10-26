@@ -32,7 +32,7 @@ vi.mock('@homebase-id/js-lib/media', async (importOriginal) => {
 });
 
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
-import { MAX_THUMBNAIL_BYTES } from '@/lib/homebase/noteImagePayloads';
+import { MAX_PREVIEW_BYTES, MAX_THUMBNAIL_BYTES } from '@/lib/homebase/noteImagePayloads';
 
 const NOTE_ID = '11111111-1111-1111-1111-111111111111';
 const fakeClient = fakeDotYouClient();
@@ -82,7 +82,7 @@ describe('NotesDriveProvider.addImageToNote', () => {
         mockPatch.mockResolvedValue({ newVersionTag: 'v2' });
         mockCreateThumbnails.mockResolvedValue({
             additionalThumbnails: [],
-            tinyThumb: { pixelWidth: 1, pixelHeight: 1, contentType: 'image/png' },
+            tinyThumb: { pixelWidth: 1, pixelHeight: 1, contentType: 'image/png', content: '' },
         });
         provider = new NotesDriveProvider(fakeClient);
     });
@@ -180,7 +180,7 @@ describe('NotesDriveProvider.addImageToNote', () => {
                 { pixelWidth: 16, pixelHeight: 16, contentType: 'image/png', payload: new Blob(), key: 'jrnl_img1' },
                 { pixelWidth: 32, pixelHeight: 32, contentType: 'image/png', payload: new Blob(), key: 'jrnl_img1' },
             ],
-            tinyThumb: { pixelWidth: 1, pixelHeight: 1, contentType: 'image/png' },
+            tinyThumb: { pixelWidth: 1, pixelHeight: 1, contentType: 'image/png', content: '' },
         });
 
         await provider.addImageToNote(NOTE_ID, 'v1', imageBlob());
@@ -201,14 +201,14 @@ describe('NotesDriveProvider.addImageToNote', () => {
                 { pixelWidth: 1080, pixelHeight: 1080, payload: bytes(MAX_THUMBNAIL_BYTES), key: 'jrnl_img0' },
                 { pixelWidth: 1600, pixelHeight: 1600, payload: bytes(1_678_832), key: 'jrnl_img0' },
             ],
-            tinyThumb: { pixelWidth: 1, pixelHeight: 1, contentType: 'image/webp' },
+            tinyThumb: { pixelWidth: 1, pixelHeight: 1, contentType: 'image/webp', content: '' },
         });
 
         await provider.addImageToNote(NOTE_ID, 'v1', imageBlob());
 
         expect(MAX_THUMBNAIL_BYTES).toBeLessThan(1024 * 1024);
         expect(thumbnailsArg().map((t: { pixelWidth: number }) => t.pixelWidth)).toEqual([20, 1080]);
-        expect(payloadsArg()[0].previewThumbnail).toEqual({ pixelWidth: 1, pixelHeight: 1, contentType: 'image/webp' });
+        expect(payloadsArg()[0].previewThumbnail).toEqual({ pixelWidth: 1, pixelHeight: 1, contentType: 'image/webp', content: '' });
     });
 
     it('drops the image as its own thumbnail when it is over the server limit (no canvas)', async () => {
@@ -219,6 +219,41 @@ describe('NotesDriveProvider.addImageToNote', () => {
 
         expect(thumbnailsArg()).toEqual([]);
         expect(payloadsArg()[0].payload).toBe(file);
+    });
+
+    // An image whose thumbnails can't be drawn still uploads, without thumbnails
+    it('uploads the image with no thumbnails when createThumbnails throws', async () => {
+        mockGetHeader.mockResolvedValue(header({ payloadKeys: [] }));
+        mockCreateThumbnails.mockRejectedValue(new Error('The world has ended. A 1x1 thumb in quality 1 takes up more than MaxBytes bytes...'));
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const image = imageBlob();
+
+        await provider.addImageToNote(NOTE_ID, 'v1', image);
+
+        expect(thumbnailsArg()).toEqual([]);
+        expect(payloadsArg()[0].payload).toBe(image.file);
+        expect(payloadsArg()[0].previewThumbnail).toBeUndefined();
+    });
+
+    it('leaves out a preview over the server\'s 1 KiB limit and keeps the thumbnails', async () => {
+        mockGetHeader.mockResolvedValue(header({ payloadKeys: [] }));
+        const thumb = { pixelWidth: 320, pixelHeight: 320, payload: new Blob([new Uint8Array(100)]), key: 'jrnl_img0' };
+        const base64 = (n: number) => btoa(String.fromCharCode(...new Uint8Array(n)));
+        mockCreateThumbnails.mockResolvedValue({
+            additionalThumbnails: [thumb],
+            tinyThumb: { pixelWidth: 1, pixelHeight: 1, contentType: 'image/jpeg', content: base64(MAX_PREVIEW_BYTES + 1) },
+        });
+
+        await provider.addImageToNote(NOTE_ID, 'v1', imageBlob());
+
+        expect(payloadsArg()[0].previewThumbnail).toBeUndefined();
+        expect(thumbnailsArg()).toEqual([thumb]);
+
+        mockPatch.mockClear();
+        const fits = { pixelWidth: 1, pixelHeight: 1, contentType: 'image/png', content: base64(MAX_PREVIEW_BYTES) };
+        mockCreateThumbnails.mockResolvedValue({ additionalThumbnails: [thumb], tinyThumb: fits });
+        await provider.addImageToNote(NOTE_ID, 'v1', imageBlob());
+        expect(payloadsArg()[0].previewThumbnail).toEqual(fits);
     });
 
     // A retry must not resend the thumbnails of a failed attempt: each upload draws them
