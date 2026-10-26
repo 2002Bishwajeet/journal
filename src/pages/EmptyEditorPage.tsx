@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { useNotes } from "@/hooks/useNotes";
 import { useFolders, resolveNoteFolderId } from "@/hooks/useFolders";
 
-export default function EmptyEditorPage() {
+export default function EmptyEditorPage({ overrideFolderId }: { overrideFolderId?: string } = {}) {
   const {
     createNote: { mutateAsync: createNote },
   } = useNotes();
@@ -14,7 +14,8 @@ export default function EmptyEditorPage() {
     get: { data: folders },
   } = useFolders();
   const navigate = useNavigate();
-  const { folderId } = useParams();
+  const params = useParams();
+  const folderId = overrideFolderId ?? params.folderId;
 
   const handleCreateNote = async () => {
     const { docId, folderId: newFolderId } = await createNote(
@@ -74,11 +75,6 @@ export default function EmptyEditorPage() {
           Create New Note
         </Button>
 
-        {!folderId && (
-          <p className="mt-8 text-xs text-muted-foreground/60 uppercase tracking-widest font-medium">
-            Journal v1.0
-          </p>
-        )}
       </motion.div>
     </div>
   );
