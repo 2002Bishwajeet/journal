@@ -144,10 +144,12 @@ async function closeDialog() {
 async function checkZoom(field: string) {
   // Safari's focus zoom animates for about 300 ms.
   await browser.pause(1_000);
-  const { scale, viewport } = await browser.execute(() => ({
-    scale: visualViewport?.scale ?? 1,
-    viewport: document.querySelector('meta[name="viewport"]')?.getAttribute('content') ?? '',
-  }));
+  // Strings: an object property read straight from visualViewport came back undefined from Safari.
+  const [rawScale, viewport] = await browser.execute(() => [
+    String(window.visualViewport ? window.visualViewport.scale : 'none'),
+    document.querySelector('meta[name="viewport"]')?.getAttribute('content') ?? '',
+  ]);
+  const scale = parseFloat(rawScale);
   const problems = zoomProblems(field, scale, viewport);
   failures.push(...problems.map((p) => `zoom: ${p}`));
   summary.push(`| zoom: ${field} | | scale ${scale}${problems.length ? `<br>${problems.join('<br>')}` : ''} |`);

@@ -212,7 +212,8 @@ export function gestureProblems(gesture: Gesture, p: GestureProbe): string[] {
  */
 export function zoomProblems(field: string, scale: number, viewport: string): string[] {
   const problems: string[] = [];
-  if (Math.abs(scale - 1) > 0.01) problems.push(`focusing ${field} zoomed the page to ${scale}x`);
+  if (!Number.isFinite(scale)) problems.push(`could not read visualViewport.scale after focusing ${field}`);
+  else if (Math.abs(scale - 1) > 0.01) problems.push(`focusing ${field} zoomed the page to ${scale}x`);
   if (/maximum-scale|user-scalable\s*=\s*(no|0)/i.test(viewport)) problems.push(`the viewport meta blocks pinch zoom: "${viewport}"`);
   return problems;
 }

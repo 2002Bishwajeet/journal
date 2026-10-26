@@ -158,5 +158,6 @@ describe('iOS Safari note list gesture checks', () => {
     expect(zoomProblems('the sign-in field', 1.12, meta)).toEqual(['focusing the sign-in field zoomed the page to 1.12x']);
     expect(zoomProblems('x', 1, 'width=device-width, maximum-scale=1')).toEqual(['the viewport meta blocks pinch zoom: "width=device-width, maximum-scale=1"']);
     expect(zoomProblems('x', 1, 'width=device-width, user-scalable=no')).toHaveLength(1);
+    expect(zoomProblems('x', NaN, meta)).toEqual(['could not read visualViewport.scale after focusing x']);
   });
 });
