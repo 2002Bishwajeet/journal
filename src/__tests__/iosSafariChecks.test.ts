@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gestureProblems, layoutProblems, safeAreaProblem, type GestureProbe, type Layout } from '../../e2e/ios/checks';
+import { gestureProblems, layoutProblems, safeAreaProblem, zoomProblems, type GestureProbe, type Layout } from '../../e2e/ios/checks';
 
 // A clean iPhone 15 portrait layout in Safari, keyboard down.
 const ok: Layout = {
@@ -150,5 +150,14 @@ describe('iOS Safari note list gesture checks', () => {
 
   it('should flag a list stuck at the top after a pull', () => {
     expect(gestureProblems('scroll-after-pull', still)).toEqual(['the list stuck at the top: it scrolled only 0px after the pull']);
+  });
+
+  it('should flag a focus zoom and a viewport that blocks pinch zoom', () => {
+    const meta = 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content';
+    expect(zoomProblems('the sign-in field', 1, meta)).toEqual([]);
+    expect(zoomProblems('the sign-in field', 1.12, meta)).toEqual(['focusing the sign-in field zoomed the page to 1.12x']);
+    expect(zoomProblems('x', 1, 'width=device-width, maximum-scale=1')).toEqual(['the viewport meta blocks pinch zoom: "width=device-width, maximum-scale=1"']);
+    expect(zoomProblems('x', 1, 'width=device-width, user-scalable=no')).toHaveLength(1);
+    expect(zoomProblems('x', NaN, meta)).toEqual(['could not read visualViewport.scale after focusing x']);
   });
 });

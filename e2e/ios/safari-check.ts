@@ -2,7 +2,7 @@
 // Simulator through Appium's XCUITest driver, screenshots each flow and fails
 // on the layout problems in ./checks.ts. CI only (.github/workflows/ios-safari.yml);
 // see "iOS Safari" in e2e/README.md. Run with Node 22.18+ (it strips the types).
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { remote } from 'webdriverio';
 import {
   gestureProblems,
@@ -14,6 +14,7 @@ import {
   type Gesture,
   type GestureProbe,
   type Layout,
+  zoomProblems,
 } from './checks.ts';
 
 const BASE = 'http://127.0.0.1:4173';
@@ -43,6 +44,8 @@ const capabilities = {
   'appium:wdaLaunchTimeout': 240_000,
   'appium:wdaConnectionTimeout': 240_000,
   'appium:newCommandTimeout': 300,
+  // Collects the Safari console for the safariConsole log type (#806).
+  'appium:showSafariConsoleLog': true,
 };
 
 async function startSession() {
@@ -76,6 +79,8 @@ async function startSession() {
 }
 
 const browser = await startSession();
+// Async scripts (the Web Locks query) otherwise time out at once.
+await browser.setTimeout({ script: 10_000 });
 
 const screenshot = async (name: string) => {
   const file = `${String(++shots).padStart(2, '0')}-${name}.png`;
@@ -119,6 +124,74 @@ async function boot() {
     () => '__journalE2E' in window && !document.querySelector('[role="progressbar"]') && !!document.querySelector('[aria-label="Sidebar"]'),
     120_000,
   );
+}
+
+/** The Safari console since the last call, through Appium's safariConsole log type. */
+async function safariConsole(): Promise<string[]> {
+  // W3C Appium serves logs at se/log; the legacy route is the fallback.
+  for (const route of ['se/log', 'log']) {
+    const res = await fetch(`http://127.0.0.1:4723/session/${browser.sessionId}/${route}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'safariConsole' }),
+    });
+    if (res.ok) return ((await res.json()).value as { level: string; message: string }[]).map((e) => `${e.level} ${e.message}`);
+  }
+  return [];
+}
+
+/**
+ * Reloads the page and checks the app is ready again within 20 s (#806): reloading after
+ * typing in the editor once left Safari on the splash screen for minutes. `how` tells a real
+ * hang (a manual-style location.reload()) from one only WebDriver's refresh() causes; load-root
+ * is WebDriver's navigation to /. Records
+ * the boot timing marks (markBoot in src/lib/bootProgress.ts), the console and a screenshot.
+ */
+async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-root', label: string = how) {
+  const name = `reload-${label}`;
+  assertTestOrigin(await browser.execute(() => location.origin));
+  await safariConsole().catch(() => []); // drop what came before the reload
+  // The marker is gone once the new document has loaded.
+  await browser.execute(() => Object.assign(window, { __journalBeforeReload: true }));
+  const started = Date.now();
+  if (how === 'location.reload') await browser.execute(() => void setTimeout(() => location.reload(), 0));
+  else if (how === 'webdriver-refresh') await browser.refresh();
+  else await browser.url(`${BASE}/`);
+  const problems: string[] = [];
+  await waitFor(
+    'the app to be ready after the reload',
+    () =>
+      !('__journalBeforeReload' in window) &&
+      '__journalE2E' in window &&
+      !document.querySelector('[role="progressbar"], [data-boot-stalled]') &&
+      !!document.querySelector('[aria-label="Sidebar"], .ProseMirror'),
+    20_000,
+  ).catch(() => problems.push('not ready within 20 s of the reload'));
+  const elapsed = Date.now() - started;
+  const marks = (await browser
+    .execute(() =>
+      performance
+        .getEntriesByType('mark')
+        .filter((m) => m.name.startsWith('journal-boot:'))
+        .map((m) => `${m.name.slice('journal-boot:'.length)} ${Math.round(m.startTime)}ms`),
+    )
+    .catch(() => [])) as string[];
+  // The Web Locks held and waited for, to tell a lock wait from a slow step.
+  const locks = (await browser
+    .execute(async () => {
+      const q = await navigator.locks.query();
+      const names = (list?: LockInfo[]) => (list ?? []).map((l) => `${l.name} (${l.mode}, ${l.clientId})`);
+      return [...names(q.held).map((n) => `held ${n}`), ...names(q.pending).map((n) => `pending ${n}`)];
+    })
+    .catch((e: Error) => [`(no locks: ${e.message})`])) as string[];
+  const logs = await safariConsole().catch((e: Error) => [`(no console: ${e.message})`]);
+  writeFileSync(`${OUT}/${name}-console.log`, [...locks, ...logs].join('\n'));
+  if (problems.length) console.log(`    locks: ${locks.join('; ') || 'none'}`);
+  const file = await screenshot(name);
+  failures.push(...problems.map((p) => `${name}: ${p}`));
+  const timing = `${elapsed}ms; marks: ${marks.join(', ') || 'none'}`;
+  summary.push(`| ${name} | ${file} | ${problems.join('<br>') || 'none'} (${timing}) |`);
+  console.log(`${problems.length ? '✗' : '✓'} ${name} ${timing}${problems.map((p) => `\n    ${p}`).join('')}`);
 }
 
 const dialogOpen = () => !!document.querySelector('[role="dialog"]');
@@ -166,6 +239,22 @@ async function closeDialog() {
   await waitFor('the dialog to close', dialogClosed);
 }
 
+/** After a tap into a field: the page must not have zoomed, and pinch zoom must stay allowed (#785). */
+async function checkZoom(field: string) {
+  // Safari's focus zoom animates for about 300 ms.
+  await browser.pause(1_000);
+  // Strings: an object property read straight from visualViewport came back undefined from Safari.
+  const [rawScale, viewport] = await browser.execute(() => [
+    String(window.visualViewport ? window.visualViewport.scale : 'none'),
+    document.querySelector('meta[name="viewport"]')?.getAttribute('content') ?? '',
+  ]);
+  const scale = parseFloat(rawScale);
+  const problems = zoomProblems(field, scale, viewport);
+  failures.push(...problems.map((p) => `zoom: ${p}`));
+  summary.push(`| zoom: ${field} | | scale ${scale}${problems.length ? `<br>${problems.join('<br>')}` : ''} |`);
+  console.log(`${problems.length ? '✗' : '✓'} zoom: ${field} (scale ${scale})${problems.map((p) => `\n    ${p}`).join('')}`);
+}
+
 try {
   // Sign in with the hermetic fake identity, as the Playwright `app` fixture does.
   const auth = JSON.parse(readFileSync('e2e/fixtures/hermetic-auth.json', 'utf8')) as {
@@ -173,6 +262,8 @@ try {
   };
   await browser.url(`${BASE}/welcome`);
   assertTestOrigin(await browser.execute(() => location.origin));
+  await tap('#identity');
+  await checkZoom('the sign-in field');
   await browser.execute((items) => {
     for (const { name, value } of items) localStorage.setItem(name, value);
   }, auth.origins.find((o) => o.origin === BASE)!.localStorage);
@@ -224,20 +315,43 @@ try {
   }
   await check('editor-keyboard', keyboardUp);
 
-  // Back to the sidebar through in-app history: reloading the page here left
-  // Safari on the splash screen for minutes in CI (first run of #803).
-  await browser.waitUntil(
-    async () => {
-      const atRoot = await browser.execute(() => {
-        const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
-        return !!r && r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1;
-      });
-      if (atRoot) return true;
-      await browser.execute(() => history.back());
-      return false;
-    },
-    { timeout: 30_000, interval: 1_000, timeoutMsg: 'timed out going back to the sidebar' },
-  );
+  // In-app Back pops the note's entry instead of pushing the list (#822).
+  const noteIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
+  await tap('button[aria-label="Back"]');
+  await waitFor('the note list', () => location.pathname.split('/').filter(Boolean).length === 1);
+  const listIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
+  if (listIdx !== noteIdx - 1) failures.push(`in-app Back: history idx went ${noteIdx} -> ${listIdx}, expected ${noteIdx - 1} (a pop)`);
+  summary.push(`| in-app Back | | history idx ${noteIdx} -> ${listIdx} |`);
+  await check('back-to-list');
+  // Forward to the note again (a popstate) for the reload checks below.
+  await browser.execute(() => history.forward());
+  await waitFor('the note again', () => !!document.querySelector('.ProseMirror'));
+
+  // Reload right after typing, where a reload once hung on the splash (#806).
+  // Repeated, as one reload may not be enough to hit the hang.
+  for (let i = 1; i <= 3; i++) await reloadCheck('location.reload', `location.reload-${i}`);
+  await reloadCheck('webdriver-refresh');
+  // A reload while the edit is still being saved.
+  await tap('.ProseMirror');
+  await typeOnKeyboard('\nIn flight');
+  await reloadCheck('location.reload', 'during-write');
+  const saved = await waitFor('the typed lines after the reloads', () => document.querySelector('.ProseMirror')?.textContent?.includes('Third line') ?? false, 10_000)
+    .then(() => true, () => false);
+  if (!saved) warnings.push('The lines typed before the reloads were not in the note after them.');
+
+  // Load the root right after typing: the step that first hung on the splash (first run
+  // of #803; Safari's back/forward cache kept the old page's database worker). After a
+  // reload, history.back() loads a new document for each entry, so it is not used here.
+  await tap('.ProseMirror');
+  await typeOnKeyboard('\nBefore the root');
+  await reloadCheck('load-root');
+  // The root opens the last note on a phone: back to the sidebar with the app's own back buttons.
+  await tap('[aria-label="Back"]');
+  await tap('[aria-label="Back to notes"]');
+  await waitFor('the sidebar', () => {
+    const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
+    return !!r && r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1;
+  });
   await tap('button=Settings');
   await waitFor('Settings', dialogOpen);
   const tabs = await browser.execute(() => [...document.querySelectorAll('[role="dialog"] [role="tab"]')].map((t) => t.textContent?.trim() ?? ''));
@@ -251,6 +365,17 @@ try {
   }
   await closeDialog();
 
+  // The system Back, which iOS swipe-back fires, closes a dialog and keeps the screen under it (#822).
+  await tap('button=Settings');
+  await waitFor('Settings', dialogOpen);
+  const under = await browser.execute(() => location.href);
+  await browser.execute(() => history.back());
+  await waitFor('Settings to close on Back', dialogClosed);
+  const after = await browser.execute(() => location.href);
+  if (after !== under) failures.push(`system Back on Settings: the URL changed from ${under} to ${after}`);
+  summary.push(`| system Back on Settings | | ${after === under ? 'closed, same URL' : `URL ${under} -> ${after}`} |`);
+  await check('settings-system-back');
+
   // A dialog with a text field: tapping the field must not zoom the page.
   await tap('[aria-label="New folder"]');
   await waitFor('the New folder dialog', dialogOpen);
@@ -258,6 +383,7 @@ try {
   // The dialog buttons must clear the keyboard (#783); a timeout leaves the check to report it.
   await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
   await check('new-folder-dialog');
+  await checkZoom('the New folder field');
   await closeDialog();
 
   // Search on a phone is a full-screen sheet that ends above the keyboard (#780).
@@ -268,6 +394,54 @@ try {
   await check('search-sheet-keyboard');
   await tap('button=Cancel');
   await waitFor('the search sheet to close', () => !document.querySelector('[role="dialog"][aria-label="Search notes"]'));
+
+  // Push and pop slides (#779), slowed to 3 s so each screenshot lands mid-slide:
+  // folder -> list -> note -> in-app Back. The system Back (what swipe-back fires)
+  // must start no slide of ours, since Safari animates the swipe itself.
+  if (await browser.execute(() => typeof document.startViewTransition !== 'function')) {
+    warnings.push('This Safari has no View Transitions, so the slide step did not run and the app navigates without a slide.');
+  } else {
+    await browser.execute(() => {
+      const style = document.createElement('style');
+      style.id = 'slow-slide';
+      style.textContent = '::view-transition-old(root), ::view-transition-new(root) { animation-duration: 3s !important; }';
+      document.head.appendChild(style);
+      const w = window as unknown as { slides: string[] };
+      w.slides = [];
+      const start = document.startViewTransition.bind(document);
+      document.startViewTransition = ((update: () => Promise<void>) => {
+        w.slides.push(document.documentElement.dataset.nav ?? 'forward');
+        return start(update);
+      }) as typeof document.startViewTransition;
+    });
+    const midSlide = async (name: string) => {
+      await browser.pause(700);
+      summary.push(`| ${name} | ${await screenshot(name)} | mid-slide |`);
+      await browser.pause(3_000);
+    };
+    await tap('[aria-label="Folders"] button');
+    await midSlide('slide-folder-to-list');
+    await tap('button=New');
+    await midSlide('slide-list-to-note');
+    await tap('button[aria-label="Back"]');
+    await midSlide('slide-back-to-list');
+    await browser.execute(() => history.back());
+    await waitFor('the sidebar', () => {
+      const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
+      return !!r && r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1;
+    });
+    await browser.pause(700);
+    summary.push(`| system-back-no-slide | ${await screenshot('system-back-no-slide')} | |`);
+    const slides = await browser.execute(() => {
+      document.getElementById('slow-slide')?.remove();
+      return (window as unknown as { slides: string[] }).slides;
+    });
+    const expected = ['forward', 'forward', 'back'];
+    if (JSON.stringify(slides) !== JSON.stringify(expected)) {
+      failures.push(`slides: started ${JSON.stringify(slides)}, expected ${JSON.stringify(expected)} (none on the system Back)`);
+    }
+    summary.push(`| slides | | ${JSON.stringify(slides)} |`);
+  }
 
   // Note list gestures (#778): import enough notes for the list to scroll, then swipe a
   // row, scroll with sideways drift, pull to refresh at the top and scroll again.
@@ -289,6 +463,8 @@ try {
   await closeDialog();
   await tap('[aria-label="Folders"] button');
   await waitFor('the note rows', () => document.querySelectorAll('[data-testid="note-row"]').length >= 10);
+  // Touches during the push slide (#779) land on its overlay, not the list.
+  await browser.pause(600);
   const row = '[data-testid="note-row"]';
   await gesture('swipe', row, 0, [100, 0], [0, 6]);
   await tap('[aria-label="Sort notes"]');
