@@ -55,6 +55,7 @@ function setDiagnostics(items: PendingSyncItem[] | null, extra: Record<string, u
         canShare: false,
         shareReport: vi.fn(),
         shareNotificationsFixUrl: null,
+        shareDriveFixes: [],
         ...extra,
     };
 }
@@ -135,16 +136,47 @@ describe('DiagnosticsSection', () => {
         expect(document.querySelector<HTMLButtonElement>('[aria-label="Retry Groceries"]')?.disabled).toBe(true);
     });
 
-    it('offers the owner console link when share notifications are off (#817)', async () => {
-        setDiagnostics([], { shareNotificationsFixUrl: 'https://me.id/owner/drives/alias_type' });
+    it('lists all three owner console steps with the drive link when share notifications are off (#817, #848)', async () => {
+        setDiagnostics([], {
+            shareNotificationsFixUrl: 'https://me.id/owner/drives/alias_type',
+            shareDriveFixes: ['subscriptions', 'attribute', 'owner'],
+        });
         await render();
 
         const panel = document.querySelector('[data-testid="share-notifications-off"]');
         expect(panel?.textContent).toContain('Share notifications are off');
-        expect(panel?.textContent).toContain('Allow subscriptions');
+        const steps = [...(panel?.querySelectorAll('ol > li') ?? [])].map((li) => li.textContent);
+        expect(steps).toEqual([
+            'Turn on "Allow subscriptions".',
+            'Add the attribute IsCollaborativeChannel with the value true.',
+            'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.',
+        ]);
         const link = panel?.querySelector('a');
         expect(link?.getAttribute('href')).toBe('https://me.id/owner/drives/alias_type');
         expect(link?.getAttribute('target')).toBe('_blank');
+    });
+
+    it('lists subscriptions last as a maybe when only the refusal points at it', async () => {
+        setDiagnostics([], {
+            shareNotificationsFixUrl: 'https://me.id/owner/drives/alias_type',
+            shareDriveFixes: ['attribute', 'owner', 'maybeSubscriptions'],
+        });
+        await render();
+
+        const steps = [...document.querySelectorAll('[data-testid="share-notifications-off"] li')].map((li) => li.textContent);
+        expect(steps).toEqual([
+            'Add the attribute IsCollaborativeChannel with the value true.',
+            'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.',
+            'If shares still don\'t notify people after this, also turn on "Allow subscriptions".',
+        ]);
+    });
+
+    it('lists only the steps still missing', async () => {
+        setDiagnostics([], { shareNotificationsFixUrl: 'https://me.id/owner/drives/alias_type', shareDriveFixes: ['owner'] });
+        await render();
+
+        const steps = [...document.querySelectorAll('[data-testid="share-notifications-off"] li')].map((li) => li.textContent);
+        expect(steps).toEqual(['Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.']);
     });
 
     it('shows no share notification notice by default', async () => {
