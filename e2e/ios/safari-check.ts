@@ -2,7 +2,7 @@
 // Simulator through Appium's XCUITest driver, screenshots each flow and fails
 // on the layout problems in ./checks.ts. CI only (.github/workflows/ios-safari.yml);
 // see "iOS Safari" in e2e/README.md. Run with Node 22.18+ (it strips the types).
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { remote } from 'webdriverio';
 import {
   gestureProblems,
@@ -47,6 +47,8 @@ const browser = await remote({
     'appium:wdaLaunchTimeout': 600_000,
     'appium:wdaConnectionTimeout': 600_000,
     'appium:newCommandTimeout': 300,
+    // Collects the Safari console for the safariConsole log type (#806).
+    'appium:showSafariConsoleLog': true,
   },
 });
 
@@ -92,6 +94,63 @@ async function boot() {
     () => '__journalE2E' in window && !document.querySelector('[role="progressbar"]') && !!document.querySelector('[aria-label="Sidebar"]'),
     120_000,
   );
+}
+
+/** The Safari console since the last call, through Appium's safariConsole log type. */
+async function safariConsole(): Promise<string[]> {
+  // W3C Appium serves logs at se/log; the legacy route is the fallback.
+  for (const route of ['se/log', 'log']) {
+    const res = await fetch(`http://127.0.0.1:4723/session/${browser.sessionId}/${route}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'safariConsole' }),
+    });
+    if (res.ok) return ((await res.json()).value as { level: string; message: string }[]).map((e) => `${e.level} ${e.message}`);
+  }
+  return [];
+}
+
+/**
+ * Reloads the page and checks the app is ready again within 20 s (#806): reloading after
+ * typing in the editor once left Safari on the splash screen for minutes. `how` tells a real
+ * hang (a manual-style location.reload()) from one only WebDriver's refresh() causes. Records
+ * the boot timing marks (markBoot in src/lib/bootProgress.ts), the console and a screenshot.
+ */
+async function reloadCheck(how: 'location.reload' | 'webdriver-refresh') {
+  const name = `reload-${how}`;
+  assertTestOrigin(await browser.execute(() => location.origin));
+  await safariConsole().catch(() => []); // drop what came before the reload
+  // The marker is gone once the new document has loaded.
+  await browser.execute(() => Object.assign(window, { __journalBeforeReload: true }));
+  const started = Date.now();
+  if (how === 'location.reload') await browser.execute(() => void setTimeout(() => location.reload(), 0));
+  else await browser.refresh();
+  const problems: string[] = [];
+  await waitFor(
+    'the app to be ready after the reload',
+    () =>
+      !('__journalBeforeReload' in window) &&
+      '__journalE2E' in window &&
+      !document.querySelector('[role="progressbar"], [data-boot-stalled]') &&
+      !!document.querySelector('[aria-label="Sidebar"], .ProseMirror'),
+    20_000,
+  ).catch(() => problems.push('not ready within 20 s of the reload'));
+  const elapsed = Date.now() - started;
+  const marks = (await browser
+    .execute(() =>
+      performance
+        .getEntriesByType('mark')
+        .filter((m) => m.name.startsWith('journal-boot:'))
+        .map((m) => `${m.name.slice('journal-boot:'.length)} ${Math.round(m.startTime)}ms`),
+    )
+    .catch(() => [])) as string[];
+  const logs = await safariConsole().catch((e: Error) => [`(no console: ${e.message})`]);
+  writeFileSync(`${OUT}/${name}-console.log`, logs.join('\n'));
+  const file = await screenshot(name);
+  failures.push(...problems.map((p) => `${name}: ${p}`));
+  const timing = `${elapsed}ms; marks: ${marks.join(', ') || 'none'}`;
+  summary.push(`| ${name} | ${file} | ${problems.join('<br>') || 'none'} (${timing}) |`);
+  console.log(`${problems.length ? '✗' : '✓'} ${name} ${timing}${problems.map((p) => `\n    ${p}`).join('')}`);
 }
 
 const dialogOpen = () => !!document.querySelector('[role="dialog"]');
@@ -196,6 +255,10 @@ try {
     warnings.push('The software keyboard did not show after tapping the editor, so the keyboard checks did not run (STOP condition in #799).');
   }
   await check('editor-keyboard', keyboardUp);
+
+  // Reload right after typing, where a reload once hung on the splash (#806).
+  await reloadCheck('location.reload');
+  await reloadCheck('webdriver-refresh');
 
   // Back to the sidebar through in-app history: reloading the page here left
   // Safari on the splash screen for minutes in CI (first run of #803).

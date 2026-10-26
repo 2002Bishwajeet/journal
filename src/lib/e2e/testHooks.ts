@@ -39,8 +39,10 @@ function waitForDbReady(): Promise<void> {
 // element in the app with role="progressbar" — its removal from the DOM is
 // what "the main UI mounted" means in practice, since the splash is replaced
 // by the real layout rather than transitioning through some other signal.
+// Past BOOT_TIMEOUT_MS it becomes the "taking too long" screen, which is no
+// more the main UI than the splash was.
 function isSplashGone(): boolean {
-    return document.querySelector('[role="progressbar"]') === null;
+    return document.querySelector('[role="progressbar"], [data-boot-stalled]') === null;
 }
 
 function waitForSplashGone(): Promise<void> {

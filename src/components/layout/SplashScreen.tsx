@@ -21,6 +21,13 @@ const BOOT_QUIPS = [
 ];
 
 /**
+ * How long the splash shows before it gives way to a "taking too long" screen
+ * with a Reload button (#806): a reload in iOS Safari once left it up for minutes.
+ * The app still replaces that screen if the boot finishes after all.
+ */
+export const BOOT_TIMEOUT_MS = 20_000;
+
+/**
  * Shown when the database can't be opened at all — most often a legacy
  * migration that couldn't run (its engine is fetched on demand, so an offline
  * first launch after the upgrade fails here). The app deliberately does not
@@ -123,6 +130,34 @@ export function SplashScreen({ className }: SplashScreenProps) {
     const id = setInterval(() => setQuip((q) => q + 1), 2500);
     return () => clearInterval(id);
   }, []);
+
+  // From mount, not page load: the splash also covers loads later in a session.
+  const [stalled, setStalled] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setStalled(true), BOOT_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (stalled) {
+    return (
+      <div
+        role="alert"
+        data-boot-stalled=""
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background px-6 text-center"
+      >
+        <img src={logo} alt="" className="h-16 w-16 object-contain opacity-70" />
+        <div className="space-y-1">
+          <h1 className="text-base font-medium">Journal is taking too long to open</h1>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Your notes are safe on this device. Reloading usually gets it going again.
+          </p>
+        </div>
+        <Button onClick={() => window.location.reload()} size="sm">
+          Reload
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div 
