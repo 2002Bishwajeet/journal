@@ -2,7 +2,7 @@ import { PGliteWorker } from '@electric-sql/pglite/worker';
 import type { PGliteInterface } from '@electric-sql/pglite';
 import { live } from '@electric-sql/pglite/live';
 import type { PGliteWithLive } from '@electric-sql/pglite/live';
-import { reportBootPhase, reportBootError, clearBootError } from '../bootProgress';
+import { reportBootPhase, reportBootError, clearBootError, markBoot } from '../bootProgress';
 import {
   dumpLegacyDatabase,
   retireLegacyDatabase,
@@ -148,6 +148,11 @@ function createWorkerInstance(relaxedDurability = true): Promise<PGliteInterface
     // WASM fetched + compiled and the worker leader elected — the slowest
     // step of a cold boot, reported for the splash progress bar.
     reportBootPhase('db-worker');
+    // Boot timing marks (#806): this tab's worker won the leader election, and the
+    // leader's database is open and serving this tab.
+    if (db.isLeader) markBoot('db-leader');
+    else db.onLeaderChange(() => { if (db.isLeader) markBoot('db-leader'); });
+    void db.waitReady.then(() => markBoot('db-connected'));
     return db;
   });
 }

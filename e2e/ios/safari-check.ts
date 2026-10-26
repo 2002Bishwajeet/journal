@@ -173,8 +173,17 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-
         .map((m) => `${m.name.slice('journal-boot:'.length)} ${Math.round(m.startTime)}ms`),
     )
     .catch(() => [])) as string[];
+  // The Web Locks held and waited for, to tell a lock wait from a slow step.
+  const locks = (await browser
+    .execute(async () => {
+      const q = await navigator.locks.query();
+      const names = (list?: LockInfo[]) => (list ?? []).map((l) => `${l.name} (${l.mode}, ${l.clientId})`);
+      return [...names(q.held).map((n) => `held ${n}`), ...names(q.pending).map((n) => `pending ${n}`)];
+    })
+    .catch((e: Error) => [`(no locks: ${e.message})`])) as string[];
   const logs = await safariConsole().catch((e: Error) => [`(no console: ${e.message})`]);
-  writeFileSync(`${OUT}/${name}-console.log`, logs.join('\n'));
+  writeFileSync(`${OUT}/${name}-console.log`, [...locks, ...logs].join('\n'));
+  if (problems.length) console.log(`    locks: ${locks.join('; ') || 'none'}`);
   const file = await screenshot(name);
   failures.push(...problems.map((p) => `${name}: ${p}`));
   const timing = `${elapsed}ms; marks: ${marks.join(', ') || 'none'}`;

@@ -53,6 +53,8 @@ function fakeDb() {
     },
     query: async () => ({ rows: [] }),
     close: async () => void mocks.events.push('close'),
+    isLeader: true,
+    waitReady: Promise.resolve(),
   };
 }
 
@@ -97,6 +99,7 @@ async function loadDatabaseModule() {
     reportBootPhase: () => {},
     reportBootError: () => void mocks.events.push('boot-error'),
     clearBootError: () => {},
+    markBoot: () => {},
   }));
   vi.doMock('../lib/homebase', () => ({ MAIN_FOLDER_ID: '06cf9262-4eae-4276-b0d1-8ca3cf5be6f4' }));
   return import('../lib/db/pglite');
