@@ -18,6 +18,7 @@ import {
 } from '@/lib/db';
 import { SHARED_PULL_STATE_KEY } from '@/lib/homebase/sync/sharedPull';
 import {
+    driveNeedsOwner,
     fetchJournalDriveFacts,
     getShareNotificationsOffHosts,
     missingShareDriveFixes,
@@ -25,6 +26,8 @@ import {
 } from '@/lib/homebase/shareNotifications';
 import { ownerConsoleDriveUrl } from '@/lib/homebase/config';
 import { useDotYouClientContext } from '@/components/auth';
+import { getJournalDriveFixUrl } from '@/hooks/auth/useMissingPermissions';
+import { SHARE_DRIVE_FIX_ATTEMPT_KEY, readString, removeKey, writeString } from '@/lib/storage';
 import { appendLog, getLogSnapshot, subscribeLog } from '@/lib/diagnostics/logBuffer';
 import { buildReport, type StatusRow } from '@/lib/diagnostics/report';
 import { formatRelativeTime } from '@/lib/utils';
@@ -87,6 +90,16 @@ export function useDiagnostics() {
         retry: false,
     });
     const shareDriveFixes = missingShareDriveFixes(driveFacts, shareNotificationsOff);
+    // The owner went to the extend-permissions page for this fix (#870). If the attribute is still missing on
+    // return, that owner console did not merge it (it predates odin-js#993), so the manual steps are the way.
+    const identity = client.getHostIdentity();
+    const driveOwnerFix = driveNeedsOwner(driveFacts);
+    const fixAttempted = readString(SHARE_DRIVE_FIX_ATTEMPT_KEY) === identity;
+    const shareDriveFixFailed = fixAttempted && shareDriveFixes.includes('attribute');
+    const attributeFixed = driveFacts !== null && !shareDriveFixes.includes('attribute');
+    useEffect(() => {
+        if (fixAttempted && attributeFixed) removeKey(SHARE_DRIVE_FIX_ATTEMPT_KEY);
+    }, [fixAttempted, attributeFixed]);
 
     // Re-read the list whenever a sync finishes or the count moves, and after a retry.
     const listKey = `${pendingCount.total}:${syncStatus}:${lastSyncedAt?.getTime() ?? 0}:${reloadCount}`;
@@ -190,7 +203,12 @@ export function useDiagnostics() {
         status,
         // Owner console steps the journal drive still needs for share pushes (#817, #848).
         shareDriveFixes,
-        shareNotificationsFixUrl: shareDriveFixes.length ? ownerConsoleDriveUrl(client.getRoot()) : null,
+        shareDriveFixUrl: shareDriveFixes.length ? getJournalDriveFixUrl(client.getRoot(), window.location.href) : null,
+        shareDriveFixFailed,
+        markShareDriveFixAttempted: () => writeString(SHARE_DRIVE_FIX_ATTEMPT_KEY, identity),
+        driveSettingsUrl: ownerConsoleDriveUrl(client.getRoot()),
+        // The drive belongs to another app, which only the owner console changes. Not needed for share pushes.
+        driveOwnerFix,
         items,
         log,
         isSyncing: syncStatus === 'syncing',

@@ -6,12 +6,13 @@ import type { PendingSyncItem } from '@/lib/db/queries/diagnostics';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const { navigate, close, retryAll, retryItem, copyReport, diagnostics } = vi.hoisted(() => ({
+const { navigate, close, retryAll, retryItem, copyReport, markShareDriveFixAttempted, diagnostics } = vi.hoisted(() => ({
     navigate: vi.fn(),
     close: vi.fn(),
     retryAll: vi.fn(async () => {}),
     retryItem: vi.fn(async () => {}),
     copyReport: vi.fn(async () => {}),
+    markShareDriveFixAttempted: vi.fn(),
     diagnostics: { current: {} as Record<string, unknown> },
 }));
 
@@ -54,8 +55,9 @@ function setDiagnostics(items: PendingSyncItem[] | null, extra: Record<string, u
         copyReport,
         canShare: false,
         shareReport: vi.fn(),
-        shareNotificationsFixUrl: null,
+        shareDriveFixUrl: null,
         shareDriveFixes: [],
+        driveOwnerFix: false,
         ...extra,
     };
 }
@@ -136,53 +138,85 @@ describe('DiagnosticsSection', () => {
         expect(document.querySelector<HTMLButtonElement>('[aria-label="Retry Groceries"]')?.disabled).toBe(true);
     });
 
-    it('lists all three owner console steps with the drive link when share notifications are off (#817, #848)', async () => {
-        setDiagnostics([], {
-            shareNotificationsFixUrl: 'https://me.id/owner/drives/alias_type',
-            shareDriveFixes: ['subscriptions', 'attribute', 'owner'],
-        });
+    const NOTICE = '[data-testid="share-notifications-off"]';
+    const FIX = {
+        shareDriveFixUrl: 'https://me.id/owner/appupdate?appId=x',
+        driveSettingsUrl: 'https://me.id/owner/drives/alias_type',
+        markShareDriveFixAttempted,
+        shareDriveFixFailed: false,
+    };
+
+    it('offers one primary Fix in owner console button, with the manual steps collapsed (#870)', async () => {
+        setDiagnostics([], { ...FIX, shareDriveFixes: ['subscriptions', 'attribute'] });
         await render();
 
-        const panel = document.querySelector('[data-testid="share-notifications-off"]');
+        const panel = document.querySelector(NOTICE);
         expect(panel?.textContent).toContain('Share notifications are off');
-        const steps = [...(panel?.querySelectorAll('ol > li') ?? [])].map((li) => li.textContent);
+        const fix = [...(panel?.querySelectorAll('a') ?? [])].find((a) => a.textContent?.trim() === 'Fix in owner console');
+        expect(fix?.getAttribute('href')).toBe('https://me.id/owner/appupdate?appId=x');
+        expect(fix?.getAttribute('target')).toBeNull();
+        expect(panel?.querySelectorAll('details')).toHaveLength(1);
+        expect(panel?.querySelector('details')?.hasAttribute('open')).toBe(false);
+        expect(panel?.querySelector('summary')?.textContent).toBe('Do it by hand');
+
+        await act(async () => { fix?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); });
+        expect(markShareDriveFixAttempted).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the manual steps and the drive link inside the toggle', async () => {
+        setDiagnostics([], { ...FIX, shareDriveFixes: ['subscriptions', 'attribute'] });
+        await render();
+
+        const details = document.querySelector(`${NOTICE} details`);
+        const steps = [...(details?.querySelectorAll('ol > li') ?? [])].map((li) => li.textContent);
         expect(steps).toEqual([
             'Turn on "Allow subscriptions".',
             'Add the attribute IsCollaborativeChannel with the value true.',
-            'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.',
         ]);
-        const link = panel?.querySelector('a');
+        const link = details?.querySelector('a');
         expect(link?.getAttribute('href')).toBe('https://me.id/owner/drives/alias_type');
         expect(link?.getAttribute('target')).toBe('_blank');
+        expect(document.querySelector(`${NOTICE} [role="status"]`)).toBeNull();
     });
 
     it('lists subscriptions last as a maybe when only the refusal points at it', async () => {
-        setDiagnostics([], {
-            shareNotificationsFixUrl: 'https://me.id/owner/drives/alias_type',
-            shareDriveFixes: ['attribute', 'owner', 'maybeSubscriptions'],
-        });
+        setDiagnostics([], { ...FIX, shareDriveFixes: ['attribute', 'maybeSubscriptions'] });
         await render();
 
-        const steps = [...document.querySelectorAll('[data-testid="share-notifications-off"] li')].map((li) => li.textContent);
+        const steps = [...document.querySelectorAll(`${NOTICE} li`)].map((li) => li.textContent);
         expect(steps).toEqual([
             'Add the attribute IsCollaborativeChannel with the value true.',
-            'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.',
             'If shares still don\'t notify people after this, also turn on "Allow subscriptions".',
         ]);
     });
 
-    it('lists only the steps still missing', async () => {
-        setDiagnostics([], { shareNotificationsFixUrl: 'https://me.id/owner/drives/alias_type', shareDriveFixes: ['owner'] });
+    it('opens the manual steps and says the owner console may need an update when the fix did not take', async () => {
+        setDiagnostics([], { ...FIX, shareDriveFixes: ['attribute'], shareDriveFixFailed: true });
         await render();
 
-        const steps = [...document.querySelectorAll('[data-testid="share-notifications-off"] li')].map((li) => li.textContent);
-        expect(steps).toEqual(['Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.']);
+        expect(document.querySelector(`${NOTICE} details`)?.hasAttribute('open')).toBe(true);
+        expect(document.querySelector(`${NOTICE} [role="status"]`)?.textContent).toContain('may need an update');
+    });
+
+    it('shows the owner step in its own notice, not under share notifications (#870)', async () => {
+        setDiagnostics([], { driveSettingsUrl: 'https://me.id/owner/drives/alias_type', driveOwnerFix: true });
+        await render();
+
+        expect(document.querySelector(NOTICE)).toBeNull();
+        const panel = document.querySelector('[data-testid="drive-owner"]');
+        expect(panel?.textContent).toContain("Journal doesn't own its drive");
+        expect(panel?.textContent).toContain('does not stop share notifications');
+        expect([...(panel?.querySelectorAll('li') ?? [])].map((li) => li.textContent)).toEqual([
+            'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.',
+        ]);
+        expect(panel?.querySelector('a')?.getAttribute('href')).toBe('https://me.id/owner/drives/alias_type');
     });
 
     it('shows no share notification notice by default', async () => {
         setDiagnostics([]);
         await render();
         expect(document.querySelector('[data-testid="share-notifications-off"]')).toBeNull();
+        expect(document.querySelector('[data-testid="drive-owner"]')).toBeNull();
     });
 
     it('says when nothing is waiting', async () => {

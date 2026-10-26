@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, ExternalLink, Loader2, RefreshCw, Share2 } from "lucide-react";
+import { ChevronRight, Copy, ExternalLink, Loader2, RefreshCw, Share2, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useDiagnostics } from "@/hooks/useDiagnostics";
-import { SHARE_DRIVE_FIX_STEPS } from "@/lib/homebase/shareNotifications";
+import { DRIVE_OWNER_STEP, SHARE_DRIVE_FIX_STEPS } from "@/lib/homebase/shareNotifications";
 import { MAIN_FOLDER_ID } from "@/lib/homebase";
 import { explainSyncError } from "@/lib/diagnostics/report";
 import type { PendingItemStatus, PendingSyncItem } from "@/lib/db/queries/diagnostics";
@@ -121,6 +121,17 @@ function PendingRow({
   );
 }
 
+function DriveSettingsLink({ href }: { href: string }) {
+  return (
+    <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto md:min-h-9">
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        <ExternalLink />
+        Open drive settings
+      </a>
+    </Button>
+  );
+}
+
 export default function DiagnosticsSection({ close }: { close: () => void }) {
   const navigate = useNavigate();
   const diagnostics = useDiagnostics();
@@ -170,26 +181,58 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
         </Button>
       </div>
 
-      {diagnostics.shareNotificationsFixUrl && (
+      {diagnostics.shareDriveFixUrl && (
         <div className="space-y-4" data-testid="share-notifications-off">
           <SectionHeader subtitle="People you share a note with still get it the next time Journal checks, just not right away.">
             Share notifications are off
           </SectionHeader>
           <p className="text-sm leading-relaxed text-pretty">
-            Your journal drive isn't set up to send them. On your owner console, open the drive, choose the edit
-            (pencil) button and:
+            Your journal drive isn't set up to send them. Your owner console can fix the drive. You approve the change
+            there.
           </p>
-          <ol className="list-decimal space-y-1 pl-5 text-sm leading-relaxed">
-            {diagnostics.shareDriveFixes.map((fix) => (
-              <li key={fix}>{SHARE_DRIVE_FIX_STEPS[fix]}</li>
-            ))}
-          </ol>
-          <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto md:min-h-9">
-            <a href={diagnostics.shareNotificationsFixUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink />
-              Open drive settings
+          <Button asChild className="min-h-11 w-full sm:w-auto md:min-h-9">
+            <a href={diagnostics.shareDriveFixUrl} onClick={diagnostics.markShareDriveFixAttempted}>
+              <Wrench />
+              Fix in owner console
             </a>
           </Button>
+          {diagnostics.shareDriveFixFailed && (
+            <p role="status" className="text-sm leading-relaxed text-pretty text-destructive dark:text-red-400">
+              The drive still has no IsCollaborativeChannel attribute. If you approved the change, your owner console
+              may need an update. Do it by hand instead.
+            </p>
+          )}
+          <details open={diagnostics.shareDriveFixFailed} className="group space-y-3">
+            <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium md:min-h-0">
+              <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" aria-hidden="true" />
+              Do it by hand
+            </summary>
+            <p className="text-sm leading-relaxed text-pretty">
+              On your owner console, open the drive, choose the edit (pencil) button and:
+            </p>
+            <ol className="list-decimal space-y-1 pl-5 text-sm leading-relaxed">
+              {diagnostics.shareDriveFixes.map((fix) => (
+                <li key={fix}>{SHARE_DRIVE_FIX_STEPS[fix]}</li>
+              ))}
+            </ol>
+            <DriveSettingsLink href={diagnostics.driveSettingsUrl} />
+          </details>
+        </div>
+      )}
+
+      {diagnostics.driveOwnerFix && (
+        <div className="space-y-4" data-testid="drive-owner">
+          <SectionHeader subtitle="This does not stop share notifications. It lets Journal give the people you share with more than read access.">
+            Journal doesn't own its drive
+          </SectionHeader>
+          <p className="text-sm leading-relaxed text-pretty">
+            Your journal drive belongs to another app. The circles that Journal makes can only let people read your
+            notes there. On your owner console, open the drive, choose the edit (pencil) button and:
+          </p>
+          <ol className="list-decimal space-y-1 pl-5 text-sm leading-relaxed">
+            <li>{DRIVE_OWNER_STEP}</li>
+          </ol>
+          <DriveSettingsLink href={diagnostics.driveSettingsUrl} />
         </div>
       )}
 
