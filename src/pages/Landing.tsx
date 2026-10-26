@@ -138,7 +138,7 @@ export default function LandingPage() {
 
           <div className="space-y-6">
             {error && (
-              <div className="p-4 text-sm bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/40 rounded-lg animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-4 text-sm bg-destructive/10 text-foreground border border-destructive/30 rounded-lg animate-in fade-in zoom-in-95 duration-200">
                 {error}
               </div>
             )}

@@ -21,6 +21,13 @@ const BOOT_QUIPS = [
 ];
 
 /**
+ * How long the splash shows before it gives way to a "taking too long" screen
+ * with a Reload button (#806): a reload in iOS Safari once left it up for minutes.
+ * The app still replaces that screen if the boot finishes after all.
+ */
+export const BOOT_TIMEOUT_MS = 20_000;
+
+/**
  * Shown when the database can't be opened at all — most often a legacy
  * migration that couldn't run (its engine is fetched on demand, so an offline
  * first launch after the upgrade fails here). The app deliberately does not
@@ -105,7 +112,6 @@ export function BootErrorScreen() {
 }
 
 export function SplashScreen({ className }: SplashScreenProps) {
-  const [show, setShow] = useState(false);
   // Random start so reloads don't always open on the same quip.
   const [quip, setQuip] = useState(() => Math.floor(Math.random() * BOOT_QUIPS.length));
   // Real boot milestones (bundle parsed → DB worker → DB ready) reported via
@@ -114,26 +120,49 @@ export function SplashScreen({ className }: SplashScreenProps) {
   const progress = useSyncExternalStore(subscribeBootProgress, getBootProgress);
 
   useEffect(() => {
-    // Small delay to ensure smooth transition
-    const timer = setTimeout(() => setShow(true), 50);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     const id = setInterval(() => setQuip((q) => q + 1), 2500);
     return () => clearInterval(id);
   }, []);
 
+  // From mount, not page load: the splash also covers loads later in a session.
+  const [stalled, setStalled] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setStalled(true), BOOT_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (stalled) {
+    return (
+      <div
+        role="alert"
+        data-boot-stalled=""
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background px-6 text-center"
+      >
+        <img src={logo} alt="" className="h-16 w-16 object-contain opacity-70" />
+        <div className="space-y-1">
+          <h1 className="text-base font-medium">Journal is taking too long to open</h1>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Your notes are safe on this device. Reloading usually gets it going again.
+          </p>
+        </div>
+        <Button onClick={() => window.location.reload()} size="sm">
+          Reload
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div 
       className={cn(
-        "fixed inset-0 z-50 flex flex-col items-center justify-center bg-background transition-opacity duration-500",
-        show ? "opacity-100" : "opacity-0",
+        "fixed inset-0 z-50 flex flex-col items-center justify-center bg-background",
         className
       )}
     >
       <div className="relative flex flex-col items-center">
-        <div className="relative w-32 h-32 mb-8 animate-in fade-in zoom-in duration-700">
+        {/* No entry animation: the logo is already here in the iOS launch image and
+            index.html's static first frame, so it must not vanish and zoom back in. */}
+        <div className="relative w-32 h-32 mb-8">
           {/* Logo with slight pulse effect */}
           <img 
             src={logo} 

@@ -1,3 +1,23 @@
+## [2.35.1](https://github.com/2002Bishwajeet/journal/compare/v2.35.0...v2.35.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **boot:** replace a splash stuck past 20 s with a Reload screen; iOS Safari reload check ([#806](https://github.com/2002Bishwajeet/journal/issues/806)) ([d63c8f7](https://github.com/2002Bishwajeet/journal/commit/d63c8f7b3e7ce73cad01dc1be2bd67e44ccc2371))
+* **boot:** stop the database worker when Safari caches the page, so the next page can open the database ([#806](https://github.com/2002Bishwajeet/journal/issues/806)) ([ce98609](https://github.com/2002Bishwajeet/journal/commit/ce986095d700cc8f05440dde2bfbc1b48d2b879e))
+* **ios:** zoom step fails when visualViewport.scale can't be read ([33cfb90](https://github.com/2002Bishwajeet/journal/commit/33cfb900823bb88948079b91502a3a0862c30f2e))
+* **mobile:** sign-in error box uses the theme tokens; iOS step checks focus zoom ([#785](https://github.com/2002Bishwajeet/journal/issues/785)) ([ba5abca](https://github.com/2002Bishwajeet/journal/commit/ba5abca8ac9192dfe354ad597d5576bfe75aac97))
+# [2.35.0](https://github.com/2002Bishwajeet/journal/compare/v2.34.0...v2.35.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **pwa:** keep the splash logo in place from the launch image to the JS splash ([#854](https://github.com/2002Bishwajeet/journal/issues/854)) ([599d255](https://github.com/2002Bishwajeet/journal/commit/599d255fef0b687fafcd9f1b35a8f8dac207a6a7))
+
+
+### Features
+
+* **pwa:** iOS launch images matching the splash, light and dark ([#854](https://github.com/2002Bishwajeet/journal/issues/854)) ([dbd99a8](https://github.com/2002Bishwajeet/journal/commit/dbd99a821ea82e9bc4ba103fba80c37111c3a6c6))
 # [2.34.0](https://github.com/2002Bishwajeet/journal/compare/v2.33.0...v2.34.0) (2026-10-26)
 
 

@@ -205,3 +205,15 @@ export function gestureProblems(gesture: Gesture, p: GestureProbe): string[] {
   }
   return problems;
 }
+
+/**
+ * Focusing a 16 px field must not zoom the page, and the viewport meta must leave
+ * pinch zoom on (#785). `scale` is visualViewport.scale after the focus settles.
+ */
+export function zoomProblems(field: string, scale: number, viewport: string): string[] {
+  const problems: string[] = [];
+  if (!Number.isFinite(scale)) problems.push(`could not read visualViewport.scale after focusing ${field}`);
+  else if (Math.abs(scale - 1) > 0.01) problems.push(`focusing ${field} zoomed the page to ${scale}x`);
+  if (/maximum-scale|user-scalable\s*=\s*(no|0)/i.test(viewport)) problems.push(`the viewport meta blocks pinch zoom: "${viewport}"`);
+  return problems;
+}

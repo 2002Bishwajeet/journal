@@ -16,6 +16,19 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.35.1 (2026-10-26)
+
+### Fixed
+
+- In Safari on iPhone and iPad, Journal no longer stays on the loading screen when it opens a new page of the app.
+- If Journal does not open within 20 seconds, the app shows a Reload button. You are no longer stuck on the loading screen.
+
+## 2.35.0 (2026-10-26)
+
+### New
+
+- On iPhone and iPad, the home screen app now opens with a launch screen that matches the app. It is light or dark to match your phone's appearance when you added the app to the home screen.
+
 ## 2.34.0 (2026-10-26)
 
 ### New

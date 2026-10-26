@@ -256,6 +256,9 @@ export default defineConfig(({ mode }) => ({
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,wasm,data,gz}'],
         globIgnores: [
+          // iOS launch images (index.html apple-touch-startup-image): iOS fetches them
+          // itself when the app is added to the home screen.
+          'splash/**',
           // Install-dialog screenshots (manifest `screenshots`): the browser
           // fetches them only when it shows the install dialog.
           'screenshots/**',
