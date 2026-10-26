@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.39.3 (2026-10-26)
+
+### Fixed
+
+- Desktop: with no note open, the editor shows the Start Writing page with Create New Note again, instead of "No notes open".
+
 ## 2.39.2 (2026-10-26)
 
 ### Fixed
