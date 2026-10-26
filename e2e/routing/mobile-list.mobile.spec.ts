@@ -60,6 +60,9 @@ test('the list screen has one 44 px header, and the group header sticks', async 
     for (const colorScheme of THEMES) {
       await page.emulateMedia({ colorScheme });
       await expect(page.locator('html')).toHaveClass(new RegExp(colorScheme));
+      // Settle colour transitions so the capture shows the final theme.
+      await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important}' });
+      await expect(header).toHaveCSS('background-color', await page.locator('body').evaluate((el) => getComputedStyle(el).backgroundColor));
       await page.screenshot({ path: test.info().outputPath(`list-scrolled-${colorScheme}-393x852.png`) });
     }
   });

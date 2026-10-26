@@ -239,6 +239,7 @@ export default function EditorPage({
   const isActiveTab = !overrideNoteId || overrideNoteId === params.noteId;
   
   const navigate = useNavigate();
+  const deviceType = useDeviceType();
   const {
     get: { data: notes = [], isLoading: isNotesLoading },
     updateNote: { mutateAsync: updateNoteMetadata },
@@ -292,7 +293,9 @@ export default function EditorPage({
   };
 
   const handleBackToNotes = () => {
-    navigateBack(navigate, folderId ? `/${folderId}` : "/");
+    const to = folderId ? `/${folderId}` : "/";
+    if (deviceType === "desktop") navigate(to);
+    else navigateBack(navigate, to);
   };
 
   // AI callbacks

@@ -116,7 +116,7 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
   return (
     <div 
       ref={containerRef} 
-      className={cn("relative h-full flex flex-col overflow-x-clip", className)}
+      className={cn("relative h-full flex flex-col overflow-x-hidden", className)}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

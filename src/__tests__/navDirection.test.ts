@@ -20,4 +20,16 @@ describe("navigateBack", () => {
     vi.advanceTimersByTime(500);
     expect(document.documentElement.dataset.nav).toBeUndefined();
   });
+
+  it("keeps the flag for a second quick call until its own timer fires", () => {
+    vi.useFakeTimers();
+    const navigate = vi.fn();
+    navigateBack(navigate as never, "/a");
+    vi.advanceTimersByTime(300);
+    navigateBack(navigate as never, "/b");
+    vi.advanceTimersByTime(300);
+    expect(document.documentElement.dataset.nav).toBe("back");
+    vi.advanceTimersByTime(200);
+    expect(document.documentElement.dataset.nav).toBeUndefined();
+  });
 });

@@ -266,7 +266,7 @@ export default function NoteList({
 
       {/* Notes list */}
       <ScrollArea className="flex-1 min-h-0 w-full">
-        <PullToRefresh onRefresh={handleRefresh} className="w-full">
+        <PullToRefresh onRefresh={handleRefresh} className="w-full overflow-x-clip">
           {isLoading ? (
             <div className="flex items-center justify-center h-32">
               <span className="text-sm text-muted-foreground">Loading...</span>
