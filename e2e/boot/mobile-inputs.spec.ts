@@ -12,6 +12,37 @@ const AUTH = 'e2e/fixtures/hermetic-auth.json';
 
 const fontSize = (el: Locator) => el.evaluate((n) => parseFloat(getComputedStyle(n).fontSize));
 
+// WCAG contrast of an element's text color over its own background composited on the page background.
+async function contrastRatio(el: Locator) {
+  return el.evaluate((n) => {
+    const canvas = document.createElement('canvas').getContext('2d')!;
+    const rgba = (c: string) => {
+      canvas.clearRect(0, 0, 1, 1);
+      canvas.fillStyle = '#000';
+      canvas.fillStyle = c;
+      canvas.fillRect(0, 0, 1, 1);
+      return Array.from(canvas.getImageData(0, 0, 1, 1).data);
+    };
+    const over = (top: number[], bottom: number[]) => {
+      const a = top[3] / 255;
+      return top.slice(0, 3).map((v, i) => v * a + bottom[i] * (1 - a));
+    };
+    const lum = (c: number[]) => {
+      const [r, g, b] = c.map((v) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const style = getComputedStyle(n);
+    const page = over(rgba(getComputedStyle(document.body).backgroundColor), [255, 255, 255, 255]);
+    const bg = over(rgba(style.backgroundColor), page);
+    const fg = over(rgba(style.color), bg);
+    const [hi, lo] = [lum(fg), lum(bg)].sort((a, b) => b - a);
+    return (hi + 0.05) / (lo + 0.05);
+  });
+}
+
 async function expectAllAtLeast16(els: Locator) {
   await expect(els.first()).toBeVisible();
   for (const el of await els.all()) expect(await fontSize(el)).toBeGreaterThanOrEqual(16);
@@ -77,7 +108,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await assertTestOrigin(page);
       await page.getByLabel('Identity').fill('not a valid identity');
       await page.getByRole('button', { name: 'Continue' }).tap();
-      await expect(page.locator('.text-destructive')).toBeVisible();
+      const box = page.locator('.border-red-500\\/40');
+      await expect(box).toBeVisible();
+      await page.waitForTimeout(400); // let the fade-in finish before sampling colors
+      expect(await contrastRatio(box)).toBeGreaterThanOrEqual(4.5);
       await page.screenshot({ path: testInfo.outputPath(`signin-error-${colorScheme}-phone.png`) });
     });
   });
