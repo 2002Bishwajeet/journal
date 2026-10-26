@@ -32,6 +32,7 @@ vi.mock('@homebase-id/js-lib/media', async (importOriginal) => {
 });
 
 import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
+import { MAX_THUMBNAIL_BYTES } from '@/lib/homebase/noteImagePayloads';
 
 const NOTE_ID = '11111111-1111-1111-1111-111111111111';
 const fakeClient = fakeDotYouClient();
@@ -189,6 +190,50 @@ describe('NotesDriveProvider.addImageToNote', () => {
         expect(thumbs.map((t: { pixelWidth: number; pixelHeight: number }) => `${t.pixelWidth}x${t.pixelHeight}`))
             .toEqual(['16x16', '32x32']);
     });
+    // Homebase refuses the whole upload when one thumbnail is over 1 MiB
+    // ("ThumbnailDescriptor BytesWritten 1678832 too long, max 1048576")
+    it('drops thumbnails over the server limit and keeps the smaller ones', async () => {
+        mockGetHeader.mockResolvedValue(header({ payloadKeys: [] }));
+        const bytes = (n: number) => new Blob([new Uint8Array(n)], { type: 'image/png' });
+        mockCreateThumbnails.mockResolvedValue({
+            additionalThumbnails: [
+                { pixelWidth: 20, pixelHeight: 20, payload: bytes(500), key: 'jrnl_img0' },
+                { pixelWidth: 1080, pixelHeight: 1080, payload: bytes(MAX_THUMBNAIL_BYTES), key: 'jrnl_img0' },
+                { pixelWidth: 1600, pixelHeight: 1600, payload: bytes(1_678_832), key: 'jrnl_img0' },
+            ],
+            tinyThumb: { pixelWidth: 1, pixelHeight: 1, contentType: 'image/webp' },
+        });
+
+        await provider.addImageToNote(NOTE_ID, 'v1', imageBlob());
+
+        expect(MAX_THUMBNAIL_BYTES).toBeLessThan(1024 * 1024);
+        expect(thumbnailsArg().map((t: { pixelWidth: number }) => t.pixelWidth)).toEqual([20, 1080]);
+        expect(payloadsArg()[0].previewThumbnail).toEqual({ pixelWidth: 1, pixelHeight: 1, contentType: 'image/webp' });
+    });
+
+    it('drops the image as its own thumbnail when it is over the server limit (no canvas)', async () => {
+        mockGetHeader.mockResolvedValue(header({ payloadKeys: [] }));
+        const file = new Blob([new Uint8Array(2 * 1024 * 1024)], { type: 'image/png' });
+
+        await provider.addImageToNote(NOTE_ID, 'v1', { file, naturalSize: { pixelWidth: 3000, pixelHeight: 3000 } });
+
+        expect(thumbnailsArg()).toEqual([]);
+        expect(payloadsArg()[0].payload).toBe(file);
+    });
+
+    // A retry must not resend the thumbnails of a failed attempt: each upload draws them
+    // again from the image bytes, with the current createThumbnails
+    it('draws the thumbnails again from the image bytes on every attempt', async () => {
+        mockGetHeader.mockResolvedValue(header({ payloadKeys: [] }));
+        const image = imageBlob();
+
+        await provider.addImageToNote(NOTE_ID, 'v1', image);
+        await provider.addImageToNote(NOTE_ID, 'v1', image);
+
+        expect(mockCreateThumbnails).toHaveBeenCalledTimes(2);
+        for (const [file] of mockCreateThumbnails.mock.calls) expect(file).toBe(image.file);
+    });
+
     // #469: a content save on the same note can land between the header fetch and
     // the patch. The image upload must refetch the header and retry once.
     it('refetches the header and retries once on VersionTagMismatch', async () => {
