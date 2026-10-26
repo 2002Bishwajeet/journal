@@ -2,7 +2,7 @@
 // Simulator through Appium's XCUITest driver, screenshots each flow and fails
 // on the layout problems in ./checks.ts. CI only (.github/workflows/ios-safari.yml);
 // see "iOS Safari" in e2e/README.md. Run with Node 22.18+ (it strips the types).
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { remote } from 'webdriverio';
 import {
   gestureProblems,
@@ -44,6 +44,8 @@ const capabilities = {
   'appium:wdaLaunchTimeout': 240_000,
   'appium:wdaConnectionTimeout': 240_000,
   'appium:newCommandTimeout': 300,
+  // Collects the Safari console for the safariConsole log type (#806).
+  'appium:showSafariConsoleLog': true,
 };
 
 async function startSession() {
@@ -77,6 +79,8 @@ async function startSession() {
 }
 
 const browser = await startSession();
+// Async scripts (the Web Locks query) otherwise time out at once.
+await browser.setTimeout({ script: 10_000 });
 
 const screenshot = async (name: string) => {
   const file = `${String(++shots).padStart(2, '0')}-${name}.png`;
@@ -120,6 +124,74 @@ async function boot() {
     () => '__journalE2E' in window && !document.querySelector('[role="progressbar"]') && !!document.querySelector('[aria-label="Sidebar"]'),
     120_000,
   );
+}
+
+/** The Safari console since the last call, through Appium's safariConsole log type. */
+async function safariConsole(): Promise<string[]> {
+  // W3C Appium serves logs at se/log; the legacy route is the fallback.
+  for (const route of ['se/log', 'log']) {
+    const res = await fetch(`http://127.0.0.1:4723/session/${browser.sessionId}/${route}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'safariConsole' }),
+    });
+    if (res.ok) return ((await res.json()).value as { level: string; message: string }[]).map((e) => `${e.level} ${e.message}`);
+  }
+  return [];
+}
+
+/**
+ * Reloads the page and checks the app is ready again within 20 s (#806): reloading after
+ * typing in the editor once left Safari on the splash screen for minutes. `how` tells a real
+ * hang (a manual-style location.reload()) from one only WebDriver's refresh() causes; load-root
+ * is WebDriver's navigation to /. Records
+ * the boot timing marks (markBoot in src/lib/bootProgress.ts), the console and a screenshot.
+ */
+async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-root', label: string = how) {
+  const name = `reload-${label}`;
+  assertTestOrigin(await browser.execute(() => location.origin));
+  await safariConsole().catch(() => []); // drop what came before the reload
+  // The marker is gone once the new document has loaded.
+  await browser.execute(() => Object.assign(window, { __journalBeforeReload: true }));
+  const started = Date.now();
+  if (how === 'location.reload') await browser.execute(() => void setTimeout(() => location.reload(), 0));
+  else if (how === 'webdriver-refresh') await browser.refresh();
+  else await browser.url(`${BASE}/`);
+  const problems: string[] = [];
+  await waitFor(
+    'the app to be ready after the reload',
+    () =>
+      !('__journalBeforeReload' in window) &&
+      '__journalE2E' in window &&
+      !document.querySelector('[role="progressbar"], [data-boot-stalled]') &&
+      !!document.querySelector('[aria-label="Sidebar"], .ProseMirror'),
+    20_000,
+  ).catch(() => problems.push('not ready within 20 s of the reload'));
+  const elapsed = Date.now() - started;
+  const marks = (await browser
+    .execute(() =>
+      performance
+        .getEntriesByType('mark')
+        .filter((m) => m.name.startsWith('journal-boot:'))
+        .map((m) => `${m.name.slice('journal-boot:'.length)} ${Math.round(m.startTime)}ms`),
+    )
+    .catch(() => [])) as string[];
+  // The Web Locks held and waited for, to tell a lock wait from a slow step.
+  const locks = (await browser
+    .execute(async () => {
+      const q = await navigator.locks.query();
+      const names = (list?: LockInfo[]) => (list ?? []).map((l) => `${l.name} (${l.mode}, ${l.clientId})`);
+      return [...names(q.held).map((n) => `held ${n}`), ...names(q.pending).map((n) => `pending ${n}`)];
+    })
+    .catch((e: Error) => [`(no locks: ${e.message})`])) as string[];
+  const logs = await safariConsole().catch((e: Error) => [`(no console: ${e.message})`]);
+  writeFileSync(`${OUT}/${name}-console.log`, [...locks, ...logs].join('\n'));
+  if (problems.length) console.log(`    locks: ${locks.join('; ') || 'none'}`);
+  const file = await screenshot(name);
+  failures.push(...problems.map((p) => `${name}: ${p}`));
+  const timing = `${elapsed}ms; marks: ${marks.join(', ') || 'none'}`;
+  summary.push(`| ${name} | ${file} | ${problems.join('<br>') || 'none'} (${timing}) |`);
+  console.log(`${problems.length ? '✗' : '✓'} ${name} ${timing}${problems.map((p) => `\n    ${p}`).join('')}`);
 }
 
 const dialogOpen = () => !!document.querySelector('[role="dialog"]');
@@ -243,20 +315,31 @@ try {
   }
   await check('editor-keyboard', keyboardUp);
 
-  // Back to the sidebar through in-app history: reloading the page here left
-  // Safari on the splash screen for minutes in CI (first run of #803).
-  await browser.waitUntil(
-    async () => {
-      const atRoot = await browser.execute(() => {
-        const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
-        return !!r && r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1;
-      });
-      if (atRoot) return true;
-      await browser.execute(() => history.back());
-      return false;
-    },
-    { timeout: 30_000, interval: 1_000, timeoutMsg: 'timed out going back to the sidebar' },
-  );
+  // Reload right after typing, where a reload once hung on the splash (#806).
+  // Repeated, as one reload may not be enough to hit the hang.
+  for (let i = 1; i <= 3; i++) await reloadCheck('location.reload', `location.reload-${i}`);
+  await reloadCheck('webdriver-refresh');
+  // A reload while the edit is still being saved.
+  await tap('.ProseMirror');
+  await typeOnKeyboard('\nIn flight');
+  await reloadCheck('location.reload', 'during-write');
+  const saved = await waitFor('the typed lines after the reloads', () => document.querySelector('.ProseMirror')?.textContent?.includes('Third line') ?? false, 10_000)
+    .then(() => true, () => false);
+  if (!saved) warnings.push('The lines typed before the reloads were not in the note after them.');
+
+  // Load the root right after typing: the step that first hung on the splash (first run
+  // of #803; Safari's back/forward cache kept the old page's database worker). After a
+  // reload, history.back() loads a new document for each entry, so it is not used here.
+  await tap('.ProseMirror');
+  await typeOnKeyboard('\nBefore the root');
+  await reloadCheck('load-root');
+  // The root opens the last note on a phone: back to the sidebar with the app's own back buttons.
+  await tap('[aria-label="Back"]');
+  await tap('[aria-label="Back to notes"]');
+  await waitFor('the sidebar', () => {
+    const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
+    return !!r && r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1;
+  });
   await tap('button=Settings');
   await waitFor('Settings', dialogOpen);
   const tabs = await browser.execute(() => [...document.querySelectorAll('[role="dialog"] [role="tab"]')].map((t) => t.textContent?.trim() ?? ''));

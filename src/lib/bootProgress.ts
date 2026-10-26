@@ -22,7 +22,16 @@ let bootError: Error | null = null;
 let bootFailures = 0;
 const listeners = new Set<() => void>();
 
+/**
+ * A boot timing mark, `journal-boot:<step>` in `performance.getEntriesByType('mark')`,
+ * which the iOS Safari check reads to find the step a stuck boot stalls on (#806).
+ */
+export function markBoot(step: string): void {
+    performance.mark(`journal-boot:${step}`);
+}
+
 export function reportBootPhase(phase: BootPhase): void {
+    markBoot(phase);
     const next = PHASE_PROGRESS[phase];
     if (next <= progress) return;
     progress = next;
