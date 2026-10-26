@@ -43,8 +43,21 @@ describe('missingShareDriveFixes', () => {
     it('says nothing about facts the host did not serve until a push was refused', () => {
         expect(missingShareDriveFixes(null, false)).toEqual([]);
         expect(missingShareDriveFixes({}, false)).toEqual([]);
-        expect(missingShareDriveFixes(null, true)).toEqual(['subscriptions', 'attribute', 'owner']);
+        expect(missingShareDriveFixes(null, true)).toEqual(['attribute', 'owner', 'maybeSubscriptions']);
         expect(missingShareDriveFixes({ allowSubscriptions: true }, true)).toEqual(['attribute', 'owner']);
+    });
+
+    // The live states on a demo identity: an app token reads the attribute and the owner, never subscriptions.
+    const SYSTEM_APP = 'ac126e09000000000000000000000000';
+    const SET = { IsCollaborativeChannel: 'true' };
+    it.each([
+        ['set, owned by System (subscriptions on or off)', { attributes: SET, appId: SYSTEM_APP }, false, ['owner']],
+        ['attribute removed', { attributes: {}, appId: SYSTEM_APP }, false, ['attribute', 'owner']],
+        ['attribute removed, push refused', { attributes: {}, appId: SYSTEM_APP }, true, ['attribute', 'owner', 'maybeSubscriptions']],
+        ['subscriptions off, push refused', { attributes: SET, appId: SYSTEM_APP }, true, ['subscriptions', 'owner']],
+        ['set, owned by Journal', { attributes: SET, appId: JOURNAL_APP_ID }, false, []],
+    ])('as an app token sees it: %s', (_state, drive, refused, fixes) => {
+        expect(missingShareDriveFixes(drive, refused)).toEqual(fixes);
     });
 
     it('shows every step when a push was refused although every fact looks right', () => {

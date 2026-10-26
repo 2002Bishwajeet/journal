@@ -149,11 +149,26 @@ describe('DiagnosticsSection', () => {
         expect(steps).toEqual([
             'Turn on "Allow subscriptions".',
             'Add the attribute IsCollaborativeChannel with the value true.',
-            'Choose "Assign to an app" and pick Journal. The drive keeps its id and your notes.',
+            'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.',
         ]);
         const link = panel?.querySelector('a');
         expect(link?.getAttribute('href')).toBe('https://me.id/owner/drives/alias_type');
         expect(link?.getAttribute('target')).toBe('_blank');
+    });
+
+    it('lists subscriptions last as a maybe when only the refusal points at it', async () => {
+        setDiagnostics([], {
+            shareNotificationsFixUrl: 'https://me.id/owner/drives/alias_type',
+            shareDriveFixes: ['attribute', 'owner', 'maybeSubscriptions'],
+        });
+        await render();
+
+        const steps = [...document.querySelectorAll('[data-testid="share-notifications-off"] li')].map((li) => li.textContent);
+        expect(steps).toEqual([
+            'Add the attribute IsCollaborativeChannel with the value true.',
+            'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.',
+            'If shares still don\'t notify people after this, also turn on "Allow subscriptions".',
+        ]);
     });
 
     it('lists only the steps still missing', async () => {
@@ -161,7 +176,7 @@ describe('DiagnosticsSection', () => {
         await render();
 
         const steps = [...document.querySelectorAll('[data-testid="share-notifications-off"] li')].map((li) => li.textContent);
-        expect(steps).toEqual(['Choose "Assign to an app" and pick Journal. The drive keeps its id and your notes.']);
+        expect(steps).toEqual(['Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.']);
     });
 
     it('shows no share notification notice by default', async () => {

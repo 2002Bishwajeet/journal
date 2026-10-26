@@ -78,18 +78,18 @@ test('desktop: Diagnostics lists the pending items with their errors', async ({ 
   await expect(app).toHaveURL(/00000000-0000-4000-8000-000000000001/);
 });
 
-test('a refused share push lists the three owner console steps for the journal drive (#848)', async ({ app }) => {
+test('a refused share push lists the owner console steps for the journal drive (#848)', async ({ app }) => {
   await app.setViewportSize({ width: 393, height: 852 });
   const { panel } = await openDiagnosticsFromSyncBadge(app);
   await expect(panel.getByTestId('share-notifications-off')).toBeHidden();
 
-  // The backend is unreachable here, so the drive's state is unknown and every step shows.
+  // The backend is unreachable here, so the drive's state is unknown: every step shows, subscriptions as a maybe.
   await app.evaluate(() => window.__journalE2E!.refuseSharePush());
   const notice = panel.getByTestId('share-notifications-off');
   await expect(notice.getByRole('listitem')).toHaveText([
-    'Turn on "Allow subscriptions".',
     'Add the attribute IsCollaborativeChannel with the value true.',
-    'Choose "Assign to an app" and pick Journal. The drive keeps its id and your notes.',
+    'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.',
+    'If shares still don\'t notify people after this, also turn on "Allow subscriptions".',
   ]);
   await expect(notice.getByRole('link', { name: 'Open drive settings' })).toHaveAttribute('href', /\/owner\/drives\//);
 
