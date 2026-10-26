@@ -95,6 +95,12 @@ jobs:
       - name: Run the iOS Safari check
         run: node e2e/ios/safari-check.ts
 
+      # Reports whether iOS picks the launch image by prefers-color-scheme (#854); never fails the job.
+      - name: Check the launch image colour scheme
+        if: always()
+        continue-on-error: true
+        run: node e2e/ios/launch-image-check.ts
+
       - name: Upload screenshots
         id: upload
         if: always()
