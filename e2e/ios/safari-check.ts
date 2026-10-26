@@ -112,6 +112,24 @@ async function tap(selector: string, index = 0) {
   await el.click();
 }
 
+// #862: the editor sometimes took over 30 s, or the tap on New did not open a note.
+async function openNewNote() {
+  const started = Date.now();
+  const hrefBefore = await browser.execute(() => location.href);
+  await tap('button=New');
+  const editor = await browser.$('.ProseMirror');
+  await editor.waitForDisplayed({ timeout: 15_000 }).catch(async () => {
+    if ((await browser.execute(() => location.href)) !== hrefBefore) return;
+    console.log('The tap on New did not open a note within 15 s, tapping again once.');
+    await tap('button=New');
+  });
+  await editor.waitForDisplayed({ timeout: 60_000 }).catch(async (e) => {
+    const url = await browser.execute(() => location.href);
+    throw new Error(`the editor was not displayed ${Math.round((Date.now() - started) / 1000)} s after tapping New (url: ${url}): ${e.message}`);
+  });
+  console.log(`The editor showed ${Math.round((Date.now() - started) / 1000)} s after tapping New.`);
+}
+
 async function boot() {
   await browser.url(`${BASE}/`);
   await waitFor(
@@ -206,8 +224,7 @@ try {
   await browser.$('button=New').waitForDisplayed({ timeout: 30_000 });
   await check('note-list');
 
-  await tap('button=New');
-  await browser.$('.ProseMirror').waitForDisplayed({ timeout: 30_000 });
+  await openNewNote();
   await check('note');
 
   // Tap into the editor, then type through the software keyboard itself.
