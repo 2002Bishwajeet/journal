@@ -196,6 +196,15 @@ try {
   await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
   await check('new-folder-dialog');
   await closeDialog();
+
+  // Search on a phone is a full-screen sheet that ends above the keyboard (#780).
+  await tap('button=Search');
+  await waitFor('the search sheet', () => !!document.querySelector('[role="dialog"][aria-label="Search notes"]'));
+  await tap('[placeholder="Search notes..."]');
+  await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
+  await check('search-sheet-keyboard');
+  await tap('button=Cancel');
+  await waitFor('the search sheet to close', () => !document.querySelector('[role="dialog"][aria-label="Search notes"]'));
 } catch (error) {
   failures.push(`run: ${(error as Error).message}`);
   await screenshot('error').catch(() => {});
