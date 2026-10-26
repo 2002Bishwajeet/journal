@@ -1,3 +1,28 @@
+## [2.30.1](https://github.com/2002Bishwajeet/journal/compare/v2.30.0...v2.30.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **sidebar:** no collapse rail on phones, full width on tablets, 44px tap targets ([#776](https://github.com/2002Bishwajeet/journal/issues/776)) ([1c0f20a](https://github.com/2002Bishwajeet/journal/commit/1c0f20a2996d2f64700e5c87da518f760923d6b3))
+# [2.30.0](https://github.com/2002Bishwajeet/journal/compare/v2.29.1...v2.30.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **sharing:** detect share notifications off on drives without allowSubscriptions ([#817](https://github.com/2002Bishwajeet/journal/issues/817)) ([5fdf9c9](https://github.com/2002Bishwajeet/journal/commit/5fdf9c9d8ca95150204c9f620d93e8bf05e49401)), closes [#763](https://github.com/2002Bishwajeet/journal/issues/763) [homebase-id/odin-core#1999](https://github.com/homebase-id/odin-core/issues/1999)
+
+
+### Features
+
+* **sharing:** stop sending the invite file (615) when sharing a note ([#747](https://github.com/2002Bishwajeet/journal/issues/747)) ([28cc61d](https://github.com/2002Bishwajeet/journal/commit/28cc61d22c60ca1087d9962b741abb4b7e89696a))
+## [2.29.1](https://github.com/2002Bishwajeet/journal/compare/v2.29.0...v2.29.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **dialogs:** 44px close and footer buttons, left header, dvh cap, dark outlines ([#783](https://github.com/2002Bishwajeet/journal/issues/783)) ([141d092](https://github.com/2002Bishwajeet/journal/commit/141d0923c5cb578700d23227152d5eec3eda8a67))
+* **dialogs:** keep footer buttons above the iOS keyboard; fix screenshot theme labels ([#783](https://github.com/2002Bishwajeet/journal/issues/783)) ([deb443b](https://github.com/2002Bishwajeet/journal/commit/deb443b7ec1794e6c174e5c3590ecf46d421099c))
+* **dialogs:** version history sheet opts out of the dvh cap on phones ([#783](https://github.com/2002Bishwajeet/journal/issues/783)) ([ab4de8e](https://github.com/2002Bishwajeet/journal/commit/ab4de8e64ed4be93d659df036561213567cef008))
 # [2.29.0](https://github.com/2002Bishwajeet/journal/compare/v2.28.0...v2.29.0) (2026-10-26)
 
 

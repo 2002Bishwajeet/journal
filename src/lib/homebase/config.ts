@@ -79,6 +79,9 @@ export const JOURNAL_DRIVE: TargetDrive = {
 export const ownerConsoleNoteUrl = (root: string, docId: string) =>
     `${root}/owner/drives/${JOURNAL_DRIVE.alias}_${JOURNAL_DRIVE.type}/${docId}`;
 
+/** The Journal drive's page on the owner console, where its settings (Allow subscriptions) live. */
+export const ownerConsoleDriveUrl = (root: string) => `${root}/owner/drives/${JOURNAL_DRIVE.alias}_${JOURNAL_DRIVE.type}`;
+
 export const MAIN_FOLDER_ID = '06cf9262-4eae-4276-b0d1-8ca3cf5be6f4';
 export const COLLABORATIVE_FOLDER_ID = 'fc360190-4e23-b870-0ea4-ef233aad98ad'; // For shared/collaborative notes V2
 
