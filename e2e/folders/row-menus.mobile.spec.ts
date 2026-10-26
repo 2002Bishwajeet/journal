@@ -69,3 +69,18 @@ test('the note options button opens a menu that is fully on screen', async ({ br
     await screenshotInBothThemes(page, (theme) => `note-menu-${theme}-393x852.png`);
   });
 });
+
+test('a long press in the middle of a folder row opens a menu that is fully on screen', async ({ browser }) => {
+  await withMobilePage(browser, async (page: Page) => {
+    await createFolder(page, 'Trips');
+    const folder = foldersNav(page).getByRole('button', { name: 'Trips', exact: true });
+    const box = (await folder.boundingBox())!;
+    // Radix opens the context menu at the point a long press (contextmenu) fires; the
+    // middle of the row leaves too little room on either side for the menu's width.
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem', { name: 'Delete Folder' })).toBeVisible();
+    await menu.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+    await expectTouchSizedAndOnScreen(menu);
+  });
+});
