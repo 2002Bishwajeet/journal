@@ -69,6 +69,7 @@
   --collaborative-foreground: #FFFFFF;
 
   --success: #15803d; /* Added text in an edit preview (#701) */
+  --removed: #b91c1c; /* Removed text in an edit preview (#704) */
 
   --border: #E6E4DD; /* Soft Border */
   --input: #FFFFFF;  /* Input BG */
@@ -117,13 +118,14 @@
   --accent: #2C2B29;
   --accent-foreground: #E6E4DD;
 
-  --destructive: #7f1d1d;
-  --destructive-foreground: #E6E4DD;
+  --destructive: #f87171; /* red-400: 5.7:1 on --popover (WCAG AA) */
+  --destructive-foreground: #1C1B1A; /* dark text: 6.2:1 on the lighter red */
 
   --collaborative: #fbbf24; /* Warm gold — lighter for dark mode */
   --collaborative-foreground: #1C1B1A;
 
   --success: #4ade80;
+  --removed: #f87171;
 
   --border: #3E3D3A; /* Dark Border */
   --input: #242321;
@@ -274,9 +276,10 @@ sup[data-type='footnote-reference'].ProseMirror-selectednode {
   background: color-mix(in srgb, var(--primary) 15%, transparent);
 }
 /* The preview of an edit the assistant proposes (#701): added text is underlined in the
-   success colour, removed text is struck through, new formatting shows with a dotted
-   underline, a changed block is outlined. The outline and the bar line up on the left and
-   stop short of the assistant panel on the right (--agent-edit-right, AgentEditPreview.ts). */
+   success colour, removed text is struck through in red, new formatting shows with a dotted
+   underline, a changed block is outlined. The line, not the colour, tells them apart, and
+   the text on each tint keeps AA contrast in both themes (#704). The outline and the bar
+   reach 0.5rem past the text on both sides; the assistant sits beside the note, not over it. */
 .ProseMirror .agent-edit-inserted {
   text-decoration: underline;
   text-decoration-color: var(--success);
@@ -287,12 +290,14 @@ sup[data-type='footnote-reference'].ProseMirror-selectednode {
 .ProseMirror .agent-edit-inserted-block {
   display: block;
   margin: 0.5rem 0;
-  background: none; /* The outline marks a new block; a tint would run under the assistant panel. */
+  background: none; /* The outline marks a new block. */
 }
 .ProseMirror .agent-edit-removed {
   text-decoration: line-through;
+  text-decoration-color: var(--removed);
   text-decoration-thickness: 2px;
   color: color-mix(in srgb, var(--foreground) 70%, transparent);
+  background: color-mix(in srgb, var(--removed) 10%, transparent);
 }
 .ProseMirror .agent-edit-format {
   border-bottom: 2px dotted var(--success);
@@ -309,13 +314,33 @@ sup[data-type='footnote-reference'].ProseMirror-selectednode {
 .ProseMirror .agent-edit-block::after {
   content: '';
   position: absolute;
-  inset: -5px var(--agent-edit-right, -0.5rem) -5px -0.5rem;
+  inset: -5px -0.5rem;
   border: 2px solid color-mix(in srgb, var(--success) 55%, transparent);
   border-radius: 0.5rem;
   pointer-events: none;
 }
 .ProseMirror .agent-edit-bar {
-  margin: 0.75rem var(--agent-edit-right, -0.5rem) 0.75rem -0.5rem;
+  margin: 0.75rem -0.5rem;
+}
+/* From lg the assistant is a column beside the note (#704, ChatBot.tsx). It wins over the
+   editor's Contents rail (TocPanel, the only aside in the editor pane): while the assistant
+   is open the rail hides, so the note keeps its width. */
+@media (width >= 64rem) {
+  :root:has([role='region'][aria-label='Assistant']) #main-content aside {
+    display: none;
+  }
+}
+/* The note keeps at least ~480px beside the 360px assistant: below 84rem the notes list hides
+   while the assistant is open, and below 68rem the sidebar hides too. Closing it brings them back. */
+@media (64rem <= width < 84rem) {
+  :root:has([role='region'][aria-label='Assistant']) [data-pane='note-list'] {
+    display: none;
+  }
+}
+@media (64rem <= width < 68rem) {
+  :root:has([role='region'][aria-label='Assistant']) [data-pane='sidebar'] {
+    display: none;
+  }
 }
 
 section[data-type='footnotes'],
@@ -1127,16 +1152,14 @@ img.ProseMirror-separator {
   max-width: none;
 }
 
-/* Settings and Share dialogs: their 12px help text sits on the dialog and on cards,
+/* Every dialog: its 12px help text sits on the dialog and on cards,
    where the app-wide --muted-foreground is under WCAG AA (3.5:1 light, 4.4:1 on a
    dark card). These reach 5.4:1 and 5.9:1. The dark --input is barely lighter than
    the dialog, which would hide outline buttons, fields and unchecked switches. */
-.settings-dialog,
-.share-dialog {
+[data-slot='dialog-content'] {
   --muted-foreground: #6B6862;
 }
-.dark .settings-dialog,
-.dark .share-dialog {
+.dark [data-slot='dialog-content'] {
   --muted-foreground: #A19E96;
   --input: #3E3D3A;
 }

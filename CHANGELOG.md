@@ -1,3 +1,28 @@
+## [2.29.1](https://github.com/2002Bishwajeet/journal/compare/v2.29.0...v2.29.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **dialogs:** 44px close and footer buttons, left header, dvh cap, dark outlines ([#783](https://github.com/2002Bishwajeet/journal/issues/783)) ([141d092](https://github.com/2002Bishwajeet/journal/commit/141d0923c5cb578700d23227152d5eec3eda8a67))
+* **dialogs:** keep footer buttons above the iOS keyboard; fix screenshot theme labels ([#783](https://github.com/2002Bishwajeet/journal/issues/783)) ([deb443b](https://github.com/2002Bishwajeet/journal/commit/deb443b7ec1794e6c174e5c3590ecf46d421099c))
+* **dialogs:** version history sheet opts out of the dvh cap on phones ([#783](https://github.com/2002Bishwajeet/journal/issues/783)) ([ab4de8e](https://github.com/2002Bishwajeet/journal/commit/ab4de8e64ed4be93d659df036561213567cef008))
+# [2.29.0](https://github.com/2002Bishwajeet/journal/compare/v2.28.0...v2.29.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ai:** dedupe repeated agent tool calls and force an answer ([#814](https://github.com/2002Bishwajeet/journal/issues/814)) ([e2e3502](https://github.com/2002Bishwajeet/journal/commit/e2e350263a557f423979daa715e3a1115e0605c8))
+* **ai:** keep the note 480px wide beside the docked assistant, and keep focus in the panel ([#704](https://github.com/2002Bishwajeet/journal/issues/704)) ([2e79b39](https://github.com/2002Bishwajeet/journal/commit/2e79b397b8fcee6f0c3c33ab2a70a351af36b71d))
+* **editor:** keep the mobile formatting toolbar on the keyboard and keep focus on tap ([#789](https://github.com/2002Bishwajeet/journal/issues/789)) ([caca4a4](https://github.com/2002Bishwajeet/journal/commit/caca4a42d100b44fad8d5ea6c2b6c9754deff7e1))
+* **menus:** keep a long-press menu on screen in the middle of a row ([#777](https://github.com/2002Bishwajeet/journal/issues/777)) ([2d7997d](https://github.com/2002Bishwajeet/journal/commit/2d7997df5e9697ee92bc3bd64fb9480f5affc9ff))
+* **sidebar:** keep the folder options button on screen on phones ([#777](https://github.com/2002Bishwajeet/journal/issues/777)) ([8d4b8ae](https://github.com/2002Bishwajeet/journal/commit/8d4b8aeb756eb421cf9d6c63985b5ac277d60850))
+* **theme:** raise the dark destructive token to WCAG AA ([#777](https://github.com/2002Bishwajeet/journal/issues/777)) ([0b2f15f](https://github.com/2002Bishwajeet/journal/commit/0b2f15fb985c3b7ab6360981aa13a78613cfae11)), closes [#7f1d1d](https://github.com/2002Bishwajeet/journal/issues/7f1d1d) [#f87171](https://github.com/2002Bishwajeet/journal/issues/f87171) [#1C1B1A](https://github.com/2002Bishwajeet/journal/issues/1C1B1A)
+
+
+### Features
+
+* **ai:** dock the assistant beside the note and polish its states ([#704](https://github.com/2002Bishwajeet/journal/issues/704)) ([588bb1b](https://github.com/2002Bishwajeet/journal/commit/588bb1becfcec5a1a5f29b6e5ebc67a282e281b7))
+* **mobile:** visible options button for folder and note rows, touch-sized menus ([#777](https://github.com/2002Bishwajeet/journal/issues/777)) ([b717c4a](https://github.com/2002Bishwajeet/journal/commit/b717c4aa44cd59198593dba7c194a47744f2d9ef))
 # [2.28.0](https://github.com/2002Bishwajeet/journal/compare/v2.27.0...v2.28.0) (2026-10-25)
 
 

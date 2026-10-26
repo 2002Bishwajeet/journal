@@ -32,6 +32,19 @@ describe('stampRelease', () => {
     expect(body).toBe('- Only.');
   });
 
+  it('adds the per-PR files, one heading per section in New / Changed / Fixed order', () => {
+    const { body } = stampRelease(doc, '1.0.1', '2026-02-02', [
+      '### Fixed\n\n- Second fix.\n',
+      '### New\n\n- A feature.\n  It wraps.\n\n### Fixed\n\n- Third fix.\n',
+    ]);
+    expect(body).toBe('### New\n\n- A feature.\n  It wraps.\n\n### Fixed\n\n- A fix.\n- Second fix.\n- Third fix.');
+  });
+
+  it('releases from the files alone when Unreleased is empty', () => {
+    const { body } = stampRelease('## Unreleased\n\n## 1.0.0 (2026-01-01)\n- x\n', '1.0.1', '2026-02-02', ['### Changed\n\n- Moved.\n']);
+    expect(body).toBe('### Changed\n\n- Moved.');
+  });
+
   it('refuses an empty Unreleased, so a release never ships without notes', () => {
     expect(() => stampRelease('## Unreleased\n\n## 1.0.0 (2026-01-01)\n- x\n', '1.0.1', '2026-02-02')).toThrow(/empty/);
   });
