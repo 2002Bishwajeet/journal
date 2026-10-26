@@ -111,3 +111,28 @@ test('a dialog closed with its X leaves no stale history entry', async ({ browse
     await expect(page.getByRole('dialog')).toBeHidden();
   });
 });
+
+test('picking a Search result replaces the sheet entry, so Back returns to the list', async ({ browser }) => {
+  await withMobilePage(browser, async (page) => {
+    const title = `Back search ${Date.now()}`;
+    await newNoteInMain(page, title);
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(page.getByTestId('note-row').filter({ hasText: title })).toBeVisible();
+    const listUrl = page.url();
+    const idx = await historyIdx(page);
+
+    await page.keyboard.press('ControlOrMeta+k');
+    const dialog = page.getByRole('dialog', { name: 'Search notes' });
+    await expect(dialog).toBeVisible();
+    await dialog.getByPlaceholder('Search notes...').fill(title);
+    await dialog.getByText(title).click();
+    await expect(dialog).toBeHidden();
+    await expect(activeTitleInput(page)).toHaveValue(title);
+    // The note took the sheet's entry: one step past the list, not two.
+    expect(await historyIdx(page)).toBe(idx + 1);
+
+    await page.goBack();
+    await expect.poll(() => page.url()).toBe(listUrl);
+    await expect(dialog).toBeHidden();
+  });
+});

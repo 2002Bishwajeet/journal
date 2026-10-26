@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createElement as h, act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
-import { useOverlayHistory } from '@/hooks/useOverlayHistory';
+import { useOverlayHistory, overlayEntryOpen } from '@/hooks/useOverlayHistory';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -72,6 +72,26 @@ describe('useOverlayHistory', () => {
         act(() => probe.navigate(-1));
         expect(closeA).toHaveBeenCalledTimes(1);
         expect(probe.path()).toBe('/folder');
+    });
+
+    it('closes without popping when a navigation replaces its entry', () => {
+        const close = vi.fn();
+        const { probe, render } = mount([{ open: false, close }]);
+        render([{ open: true, close }]);
+        expect(overlayEntryOpen({ overlays: probe.stack() })).toBe(true);
+        // Picking a Search result replaces the sheet's entry with the note, and the
+        // close renders before the new location does: the browser entry is already new.
+        window.history.replaceState({ key: 'note' }, '');
+        render([{ open: false, close }]);
+        expect(probe.stack()).toHaveLength(1);
+        act(() => probe.navigate('/folder/note', { replace: true }));
+        window.history.replaceState(null, '');
+        expect(close).toHaveBeenCalledTimes(1);
+        expect(probe.path()).toBe('/folder/note');
+        // No leftover sheet entry: Back returns to the screen under the sheet.
+        act(() => probe.navigate(-1));
+        expect(probe.path()).toBe('/folder');
+        expect(probe.stack()).toHaveLength(0);
     });
 
     it('does nothing on desktop', () => {

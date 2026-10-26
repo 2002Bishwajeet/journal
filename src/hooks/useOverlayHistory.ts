@@ -6,6 +6,17 @@ type OverlayState = { overlays?: string[] };
 
 const stackOf = (state: unknown) => (state as OverlayState | null)?.overlays ?? [];
 
+/** The current entry belongs to an open overlay, so navigating away from it should replace it. */
+export const overlayEntryOpen = (state: unknown) => stackOf(state).length > 0;
+
+// A navigation that replaced the rendered entry (picking a Search result) may not
+// have rendered yet, since React Router updates the location in a transition;
+// then there is no entry of ours to pop. MemoryRouter leaves history.state alone.
+const entryReplaced = (key: string) => {
+  const current = (window.history.state as { key?: string } | null)?.key;
+  return current !== undefined && current !== key;
+};
+
 // Below the desktop breakpoint an open overlay owns one history entry, so the
 // system Back gesture closes it and stays on the same screen.
 // idle -> pushing (entry requested) -> active (entry is the current location).
@@ -35,7 +46,7 @@ export function useOverlayHistory(open: boolean, close: () => void) {
       // System Back removed our entry.
       phase.current = "idle";
       close();
-    } else if (phase.current === "active" && !open && isTop) {
+    } else if (phase.current === "active" && !open && isTop && !entryReplaced(location.key)) {
       // Closed inside the app: pop our own entry.
       phase.current = "idle";
       navigate(-1);
