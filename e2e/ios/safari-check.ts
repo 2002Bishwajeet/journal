@@ -140,10 +140,11 @@ async function safariConsole(): Promise<string[]> {
 /**
  * Reloads the page and checks the app is ready again within 20 s (#806): reloading after
  * typing in the editor once left Safari on the splash screen for minutes. `how` tells a real
- * hang (a manual-style location.reload()) from one only WebDriver's refresh() causes. Records
+ * hang (a manual-style location.reload()) from one only WebDriver's refresh() causes; load-root
+ * is WebDriver's navigation to /. Records
  * the boot timing marks (markBoot in src/lib/bootProgress.ts), the console and a screenshot.
  */
-async function reloadCheck(how: 'location.reload' | 'webdriver-refresh', label: string = how) {
+async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-root', label: string = how) {
   const name = `reload-${label}`;
   assertTestOrigin(await browser.execute(() => location.origin));
   await safariConsole().catch(() => []); // drop what came before the reload
@@ -151,7 +152,8 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh', label: 
   await browser.execute(() => Object.assign(window, { __journalBeforeReload: true }));
   const started = Date.now();
   if (how === 'location.reload') await browser.execute(() => void setTimeout(() => location.reload(), 0));
-  else await browser.refresh();
+  else if (how === 'webdriver-refresh') await browser.refresh();
+  else await browser.url(`${BASE}/`);
   const problems: string[] = [];
   await waitFor(
     'the app to be ready after the reload',
@@ -295,9 +297,12 @@ try {
     .then(() => true, () => false);
   if (!saved) warnings.push('The lines typed before the reloads were not in the note after them.');
 
-  // Back to the sidebar by loading the root: after a reload, history.back() loads a
-  // new document for each entry, and the loop that used it went past the app.
-  await boot();
+  // Back to the sidebar by loading the root right after typing: the step that first
+  // hung on the splash (first run of #803). After a reload, history.back() loads a new
+  // document for each entry, and the loop that replaced this step went past the app.
+  await tap('.ProseMirror');
+  await typeOnKeyboard('\nBefore the root');
+  await reloadCheck('load-root');
   await tap('button=Settings');
   await waitFor('Settings', dialogOpen);
   const tabs = await browser.execute(() => [...document.querySelectorAll('[role="dialog"] [role="tab"]')].map((t) => t.textContent?.trim() ?? ''));
