@@ -1,3 +1,11 @@
+## [2.32.1](https://github.com/2002Bishwajeet/journal/compare/v2.32.0...v2.32.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **editor:** Tab in a paragraph moves focus instead of indenting ([#841](https://github.com/2002Bishwajeet/journal/issues/841)) ([c1a4058](https://github.com/2002Bishwajeet/journal/commit/c1a4058dd707466066ed4523ecab0a241cd1cb2c))
+* **mobile:** 16 px text fields on touch, drop the viewport zoom lock, fit sign-in on phones ([#785](https://github.com/2002Bishwajeet/journal/issues/785)) ([8c4dfc4](https://github.com/2002Bishwajeet/journal/commit/8c4dfc4240413c4e95c98f494dca7aa9a2e05da6))
+* **mobile:** readable sign-in error in both themes, with a contrast check ([#785](https://github.com/2002Bishwajeet/journal/issues/785)) ([274f423](https://github.com/2002Bishwajeet/journal/commit/274f423e4932f9719f926734cc7de03f74ca3a46))
 # [2.32.0](https://github.com/2002Bishwajeet/journal/compare/v2.31.0...v2.32.0) (2026-10-26)
 
 
