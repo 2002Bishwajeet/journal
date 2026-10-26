@@ -98,20 +98,21 @@ const browser = await remote({
     'appium:newCommandTimeout': 300,
   },
 });
-const el = (predicate: string) => browser.$(`-ios predicate string:${predicate}`);
+// The first match: the share sheet has a cell and a label for "Add to Home Screen".
+async function tapFirst(predicate: string) {
+  const find = () => browser.$$(`-ios predicate string:${predicate}`);
+  await browser.waitUntil(async () => (await find()).length > 0, { timeout: 30_000, timeoutMsg: `timed out waiting for ${predicate}` });
+  await (await find())[0].click();
+}
 
 try {
   if (!lightMedia || !darkMedia) throw new Error('index.html has no light and dark iPhone 15 portrait launch images');
   simctl('ui', UDID, 'appearance', 'dark');
   await browser.url(`http://127.0.0.1:${PORT}/`);
   await browser.switchContext('NATIVE_APP');
-  await (await el('name == "ShareButton" OR label == "Share"')).click();
-  const add = await el('label == "Add to Home Screen"');
-  for (let i = 0; i < 4 && !(await add.isDisplayed().catch(() => false)); i++) {
-    await browser.execute('mobile: swipe', { direction: 'up', element: (await el('type == "XCUIElementTypeCollectionView"')).elementId });
-  }
-  await add.click();
-  await (await el('type == "XCUIElementTypeButton" AND label == "Add"')).click();
+  await tapFirst('name == "ShareButton" OR label == "Share"');
+  await tapFirst('label == "Add to Home Screen"');
+  await tapFirst('type == "XCUIElementTypeButton" AND label == "Add"');
   await browser.pause(3_000);
 
   let webApp = '';
@@ -119,11 +120,12 @@ try {
     simctl('ui', UDID, 'appearance', appearance);
     if (webApp) await browser.execute('mobile: terminateApp', { bundleId: webApp });
     await browser.execute('mobile: activateApp', { bundleId: 'com.apple.springboard' });
-    const icon = await el(`type == "XCUIElementTypeIcon" AND label == "${NAME}"`);
-    for (let i = 0; i < 3 && !(await icon.isDisplayed().catch(() => false)); i++) {
+    // The new icon can be on a later Home Screen page.
+    const icon = `type == "XCUIElementTypeIcon" AND label == "${NAME}"`;
+    for (let i = 0; i < 3 && !(await browser.$(`-ios predicate string:${icon}`).isDisplayed().catch(() => false)); i++) {
       await browser.execute('mobile: swipe', { direction: 'left' });
     }
-    await icon.click();
+    await tapFirst(icon);
     await browser.pause(1_500);
     const shot = sample(`launch-${appearance}`);
     webApp ||= ((await browser.execute('mobile: activeAppInfo')) as { bundleId: string }).bundleId;
