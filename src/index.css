@@ -1013,6 +1013,11 @@ img.ProseMirror-separator {
   }
 }
 
+/* A viewport that holds a PullToRefresh draws the pull itself: no native bounce on top of it. */
+[data-radix-scroll-area-viewport]:has([data-pull-to-refresh]) {
+  overscroll-behavior-y: none;
+}
+
 /* Scroll containment - prevents scroll chaining to parent/body */
 .scroll-contained {
   overscroll-behavior: contain;

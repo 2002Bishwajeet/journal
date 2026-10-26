@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, memo } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
 import {
   Plus,
   FileText,
@@ -38,6 +38,7 @@ import { useSyncService } from "@/hooks/useSyncService";
 import { useNotes } from "@/hooks/useNotes";
 import { getNoteGroup } from "@/helpers/dateGrouping";
 import { useIntersection } from "@/hooks/useIntersection";
+import { swipeAxis } from "@/helpers/swipeAxis";
 
 // Rows mounted per render step; the sentinel adds another page as it scrolls into view.
 const PAGE = 100;
@@ -78,6 +79,8 @@ export default function NoteList({
   );
   const { sync } = useSyncService();
   const { togglePin } = useNotes();
+  // One swiped-open row at a time; it closes on scroll and on a tap outside it.
+  const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     () => new Set(),
   );
@@ -112,6 +115,11 @@ export default function NoteList({
   };
 
   const handleDeleteNote = useCallback((id: string) => setNoteToDelete(id), []);
+  const handleSwipeChange = useCallback(
+    (id: string, open: boolean) =>
+      setOpenRowId((cur) => (open ? id : cur === id ? null : cur)),
+    [],
+  );
   const handleTogglePin = useCallback(
     (id: string, isPinned: boolean) => togglePin.mutate({ docId: id, isPinned }),
     [togglePin],
@@ -240,7 +248,10 @@ export default function NoteList({
       </div>
 
       {/* Notes list */}
-      <ScrollArea className="flex-1 min-h-0 w-full">
+      <ScrollArea
+        className="flex-1 min-h-0 w-full"
+        onScrollCapture={() => setOpenRowId(null)}
+      >
         <PullToRefresh onRefresh={handleRefresh} className="w-full">
           {isLoading ? (
             <div className="flex items-center justify-center h-32">
@@ -282,6 +293,8 @@ export default function NoteList({
                         <NoteItem
                           key={note.docId}
                           note={note}
+                          isSwiped={openRowId === note.docId}
+                          onSwipeChange={handleSwipeChange}
                           selectedNoteId={selectedNoteId}
                           onSelectNote={onSelectNote}
                           onDeleteNote={handleDeleteNote}
@@ -320,9 +333,31 @@ export default function NoteList({
   );
 }
 
+const minSwipeDistance = 50;
+const maxSwipeDistance = 80;
+
+// Moves a swiped row to `offset` px. While dragging, the CSS transition is off so
+// the row follows the finger; on release it is back on for the snap.
+function moveRow(
+  content: HTMLElement | null,
+  action: HTMLElement | null,
+  offset: number,
+  dragging: boolean,
+) {
+  if (!content || !action) return;
+  const transition = dragging ? "none" : "";
+  content.style.transition = transition;
+  action.style.transition = transition;
+  content.style.transform = `translateX(-${offset}px)`;
+  action.style.transform = `translateX(${100 - (offset / maxSwipeDistance) * 100}%)`;
+  action.style.opacity = String(Math.min(offset / minSwipeDistance, 1));
+}
+
 // Extracted NoteItem for cleaner swipe logic with enhanced touch implementation
 const NoteItem = memo(function NoteItem({
   note,
+  isSwiped,
+  onSwipeChange,
   selectedNoteId,
   onSelectNote,
   onDeleteNote,
@@ -333,6 +368,8 @@ const NoteItem = memo(function NoteItem({
   onArchive,
 }: {
   note: NoteListEntry;
+  isSwiped: boolean;
+  onSwipeChange: (id: string, open: boolean) => void;
   selectedNoteId: string | null;
   onSelectNote: (id: string) => void;
   onDeleteNote: (id: string) => void;
@@ -343,13 +380,18 @@ const NoteItem = memo(function NoteItem({
   onArchive?: (note: NoteListEntry) => void;
 }) {
   const dotYouClient = useDotYouClientContext();
-  const touchStartRef = useRef<number | null>(null);
-  const touchEndRef = useRef<number | null>(null);
-  const [isSwiped, setIsSwiped] = useState(false);
-  const [swipeOffset, setSwipeOffset] = useState(0);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const actionRef = useRef<HTMLDivElement>(null);
+  // The gesture lives in a ref: the drag writes the transform to the DOM, so a
+  // touchmove does not re-render the row.
+  const gesture = useRef<{
+    x: number;
+    y: number;
+    axis: "x" | "y" | null;
+    offset: number;
+  } | null>(null);
 
-  const minSwipeDistance = 50;
-  const maxSwipeDistance = 80;
   const agentName = agentDisplayName(note.metadata.lastEditedBy);
   const isPeerNote =
     !!note.metadata.authorOdinId &&
@@ -361,66 +403,79 @@ const NoteItem = memo(function NoteItem({
     }
   };
 
+  const applyOffset = (offset: number, dragging: boolean) =>
+    moveRow(contentRef.current, actionRef.current, offset, dragging);
+
+  // Sync the row to the open state, so a close from outside animates too.
+  useEffect(() => {
+    moveRow(contentRef.current, actionRef.current, isSwiped ? maxSwipeDistance : 0, false);
+  }, [isSwiped]);
+
+  // A tap anywhere outside an open row closes it.
+  useEffect(() => {
+    if (!isSwiped) return;
+    const closeOnOutsidePress = (e: PointerEvent) => {
+      if (!rowRef.current?.contains(e.target as Node)) {
+        onSwipeChange(note.docId, false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePress);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePress);
+  }, [isSwiped, note.docId, onSwipeChange]);
+
   const onTouchStart = (e: React.TouchEvent) => {
-    touchEndRef.current = null;
-    touchStartRef.current = e.targetTouches[0].clientX;
-    setSwipeOffset(0);
+    gesture.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      axis: null,
+      offset: isSwiped ? maxSwipeDistance : 0,
+    };
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    const currentX = e.targetTouches[0].clientX;
-    touchEndRef.current = currentX;
+    const g = gesture.current;
+    if (!g || g.axis === "y") return;
+    const dx = e.touches[0].clientX - g.x;
+    const dy = e.touches[0].clientY - g.y;
+    g.axis ??= swipeAxis(dx, dy);
+    // Undecided yet, or a vertical scroll: leave the row alone until touchend.
+    if (g.axis !== "x") return;
 
-    if (touchStartRef.current !== null) {
-      const diff = touchStartRef.current - currentX;
-      if (diff > 0) {
-        const offset =
-          diff > maxSwipeDistance
-            ? maxSwipeDistance + (diff - maxSwipeDistance) * 0.2
-            : diff;
-        setSwipeOffset(Math.min(offset, 100));
-      } else if (isSwiped) {
-        setSwipeOffset(Math.max(maxSwipeDistance + diff, 0));
-      }
-    }
+    const base = isSwiped ? maxSwipeDistance : 0;
+    const raw = base - dx;
+    const offset =
+      raw > maxSwipeDistance
+        ? Math.min(maxSwipeDistance + (raw - maxSwipeDistance) * 0.2, 100)
+        : Math.max(raw, 0);
+    g.offset = offset;
+    applyOffset(offset, true);
   };
 
   const onTouchEnd = () => {
-    if (!touchStartRef.current || !touchEndRef.current) {
-      if (!isSwiped) setSwipeOffset(0);
-      return;
+    const g = gesture.current;
+    gesture.current = null;
+    if (g?.axis !== "x") return;
+
+    const open = isSwiped
+      ? g.offset > maxSwipeDistance - minSwipeDistance
+      : g.offset > minSwipeDistance;
+    applyOffset(open ? maxSwipeDistance : 0, false);
+    if (open !== isSwiped) {
+      onSwipeChange(note.docId, open);
+      triggerHaptic(open ? 15 : 10);
     }
-
-    const distance = touchStartRef.current - touchEndRef.current;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isLeftSwipe && !isSwiped) {
-      setIsSwiped(true);
-      setSwipeOffset(maxSwipeDistance);
-      triggerHaptic(15);
-    } else if (isRightSwipe && isSwiped) {
-      setIsSwiped(false);
-      setSwipeOffset(0);
-      triggerHaptic(10);
-    } else {
-      setSwipeOffset(isSwiped ? maxSwipeDistance : 0);
-    }
-
-    touchStartRef.current = null;
-    touchEndRef.current = null;
   };
 
   const handleGlobalClick = (e: React.MouseEvent) => {
     if (isSwiped) {
       e.stopPropagation();
-      setIsSwiped(false);
-      setSwipeOffset(0);
+      onSwipeChange(note.docId, false);
     }
   };
 
   return (
     <div
+      ref={rowRef}
       data-testid="note-row"
       className="relative overflow-hidden w-full select-none"
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 72px" }}
@@ -493,17 +548,16 @@ const NoteItem = memo(function NoteItem({
         <div className="relative w-full h-full">
           {/* Background Action (Delete) with glow effect */}
           <div
+            ref={actionRef}
             className={cn(
               "absolute inset-y-0 right-0 w-20 bg-destructive flex items-center justify-center text-destructive-foreground",
               "transition-all duration-300 ease-out",
               isSwiped && "shadow-[-4px_0_16px_rgba(239,68,68,0.3)]",
             )}
-            style={{
-              transform: `translateX(${100 - (swipeOffset / maxSwipeDistance) * 100}%)`,
-              opacity: Math.min(swipeOffset / minSwipeDistance, 1),
-            }}
+            style={{ transform: "translateX(100%)", opacity: 0 }}
           >
             <button
+              aria-label="Move to Trash"
               className="w-full h-full flex items-center justify-center active:scale-110 transition-transform"
               onClick={(e) => {
                 e.stopPropagation();
@@ -517,6 +571,7 @@ const NoteItem = memo(function NoteItem({
 
           {/* Note Content */}
           <div
+            ref={contentRef}
             role="button"
             tabIndex={0}
             onClick={() => {
@@ -533,15 +588,14 @@ const NoteItem = memo(function NoteItem({
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchEnd}
             className={cn(
               "relative grid grid-cols-1 w-full px-4 py-3.5 text-left bg-background group cursor-pointer outline-none focus:bg-accent select-none",
               "hover:bg-accent",
               "transition-[transform,background-color] duration-200 ease-out",
               selectedNoteId === note.docId && "bg-accent",
             )}
-            style={{
-              transform: `translateX(-${swipeOffset}px)`,
-            }}
+            style={{ touchAction: "pan-y" }}
           >
             <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
               <span
