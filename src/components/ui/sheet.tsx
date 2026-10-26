@@ -49,17 +49,13 @@ function Sheet({
   )
 }
 
-const SheetClose = DialogClose
-
 function SheetContent({
   variant = "bottom",
-  showCloseButton = variant === "full",
   className,
   children,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   variant?: SheetVariant
-  showCloseButton?: boolean
 }) {
   const { close } = React.useContext(SheetContext)
   const controls = useDragControls()
@@ -127,7 +123,7 @@ function SheetContent({
           >
             {variant === "bottom" && <SheetGrabber />}
             {children}
-            {showCloseButton && (
+            {variant === "full" && (
               <DialogClose
                 data-slot="sheet-close"
                 className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute top-[env(safe-area-inset-top)] right-1 flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-2 [&_svg]:size-5"
@@ -227,7 +223,6 @@ function SheetDescription({
 export {
   Sheet,
   SheetBody,
-  SheetClose,
   SheetContent,
   SheetDescription,
   SheetFooter,

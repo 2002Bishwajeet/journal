@@ -15,13 +15,11 @@ export function ActionSheet({
   onOpenChange,
   title,
   items,
-  cancelLabel = "Cancel",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
   items: ContextMenuItemConfig[]
-  cancelLabel?: string
 }) {
   const renderRow = (item: ContextMenuItemConfig) => {
     const Icon = item.icon
@@ -61,7 +59,7 @@ export function ActionSheet({
             onClick={() => onOpenChange(false)}
             className={cn(row, group, "justify-center font-semibold")}
           >
-            {cancelLabel}
+            Cancel
           </button>
         </div>
       </SheetContent>
