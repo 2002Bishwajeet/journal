@@ -1,5 +1,4 @@
-import { useNavigate } from "react-router-dom";
-import { navigateBack } from "@/lib/navDirection";
+import { useBackTo } from "@/hooks/useBackTo";
 import { ArchiveRestore, Trash2, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
@@ -43,8 +42,8 @@ export function NoteListPane({
   onMoveToFolder,
   onMarkCollaborative,
 }: NoteListPaneProps) {
-  const navigate = useNavigate();
-  const goBack = () => navigateBack(navigate, "/");
+  const backTo = useBackTo();
+  const goBack = () => backTo("/");
 
   return (
     <div

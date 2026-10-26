@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { createNote, inBothThemes } from '../support/actions';
+import { createNote, inBothThemes, selectFolder } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #443: Share is a roomy surface. A wide two-column dialog on desktop, a
@@ -58,8 +58,10 @@ test('mobile: a full-screen sheet in one column', async ({ app }) => {
   const title = `Share sheet ${Date.now()}`;
   await createNote(app, { title, body: 'A note to share.' });
   await app.setViewportSize(MOBILE);
-  // A phone opens the note full screen; go back to the list to reach its menu.
+  // A phone opens the note full screen; go back to reach its menu. Back pops to
+  // where the note was opened (the root, so the sidebar here, #822), so open the folder.
   await app.getByRole('button', { name: 'Back', exact: true }).click();
+  await selectFolder(app, 'Main');
 
   await openNoteMenu(app, title);
   await app.getByRole('menuitem', { name: 'Share' }).click();

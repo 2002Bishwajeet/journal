@@ -4,6 +4,7 @@ import { Search, FileText, Loader2, Sparkles, Type, FileSearch, Wand2 } from "lu
 import { cn } from "@/lib/utils";
 import { followKeyboard } from "@/lib/keyboardViewport";
 import { proseOnly } from "@/lib/previewText";
+import { useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { useSearchModal, isAdvancedResult, type SearchResult } from "@/hooks/useSearchModal";
 
 interface SearchModalProps {
@@ -150,6 +151,7 @@ export default function SearchModal({
     handleSelectResult,
     setSelectedIndex,
   } = useSearchModal({ isOpen, onClose, onSelectNote });
+  useOverlayHistory(isOpen, handleClose);
 
   if (!isOpen) return null;
 

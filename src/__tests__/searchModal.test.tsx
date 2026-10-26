@@ -26,6 +26,9 @@ vi.mock('@/hooks/useSearchModal', () => ({
   }),
 }));
 
+// The sheet's history entry (#822) needs a Router; useOverlayHistory.test.ts covers it.
+vi.mock('@/hooks/useOverlayHistory', () => ({ useOverlayHistory: () => {} }));
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('SearchModal', () => {
