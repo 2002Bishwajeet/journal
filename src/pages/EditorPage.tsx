@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { navigateBack } from "@/lib/navDirection";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   EditorToolbar,
@@ -291,11 +292,7 @@ export default function EditorPage({
   };
 
   const handleBackToNotes = () => {
-    if (folderId) {
-      navigate(`/${folderId}`);
-    } else {
-      navigate("/");
-    }
+    navigateBack(navigate, folderId ? `/${folderId}` : "/");
   };
 
   // AI callbacks

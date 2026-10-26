@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ArchiveRestore, Trash2, Archive } from "lucide-react";
+import { navigateBack } from "@/lib/navDirection";
+import { ArchiveRestore, Trash2, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
 import type { useNoteActions } from "@/hooks";
@@ -44,6 +44,7 @@ export function NoteListPane({
   onMarkCollaborative,
 }: NoteListPaneProps) {
   const navigate = useNavigate();
+  const goBack = () => navigateBack(navigate, "/");
 
   return (
     <div
@@ -65,29 +66,6 @@ export function NoteListPane({
       )}
     >
       <div className="flex flex-col h-full w-full max-w-full min-w-0 overflow-hidden">
-        {/* Mobile Header for NoteList — management views (Trash/Archive) carry
-            their own header with a back button, so skip this one for them. */}
-        <div
-          className={cn(
-            "flex items-center h-12 px-3 border-b border-border gap-2 shrink-0",
-            (isDesktop || isManagementView) && "hidden",
-          )}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Back to notes"
-            className="h-8 w-8"
-            onClick={() => navigate("/")}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <h2 className="text-sm font-medium truncate flex-1 leading-none">
-            {viewLabel || "Notes"}
-          </h2>
-          <SyncStatus />
-        </div>
-
         {folderId === PSEUDO_FOLDERS.trash ? (
           <HiddenNotesView
             title="Trash"
@@ -100,7 +78,7 @@ export function NoteListPane({
               { icon: Trash2, label: "Delete forever", onClick: noteActions.deleteForever, destructive: true },
             ]}
             headerAction={{ label: "Empty Trash", onClick: noteActions.emptyTrash }}
-            onBack={isDesktop ? undefined : () => navigate("/")}
+            onBack={isDesktop ? undefined : goBack}
             className="flex-1"
           />
         ) : folderId === PSEUDO_FOLDERS.archive ? (
@@ -114,7 +92,7 @@ export function NoteListPane({
               { icon: ArchiveRestore, label: "Unarchive note", onClick: noteActions.unarchive },
               { icon: Trash2, label: "Move to Trash", onClick: noteActions.moveArchivedToTrash, destructive: true },
             ]}
-            onBack={isDesktop ? undefined : () => navigate("/")}
+            onBack={isDesktop ? undefined : goBack}
             className="flex-1"
           />
         ) : (
@@ -130,6 +108,9 @@ export function NoteListPane({
           onMarkCollaborative={onMarkCollaborative}
           onArchive={noteActions.archive}
           isLoading={isListLoading}
+          title={isDesktop ? undefined : viewLabel || "Notes"}
+          onBack={isDesktop ? undefined : goBack}
+          trailing={isDesktop ? undefined : <SyncStatus />}
           className="flex-1 w-full border-r-0"
         />
         )}

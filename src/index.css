@@ -1077,9 +1077,39 @@ img.ProseMirror-separator {
   animation-name: fade-in;
 }
 
-/* Mobile Slide Animations applied via classes if needed, 
-   but for now we'll stick to a smooth crossfade which feels 
-   native enough without complex route direction logic */
+/* Phone push and pop (#779): forward slides in from the right; back
+   (data-nav="back", set by navigateBack) slides in from the left. */
+@media (max-width: 1023.98px) and (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.25s;
+    animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  ::view-transition-old(root) {
+    animation-name: slide-to-left;
+  }
+
+  ::view-transition-new(root) {
+    animation-name: slide-from-right;
+  }
+
+  :root[data-nav="back"]::view-transition-old(root) {
+    animation-name: slide-to-right;
+  }
+
+  :root[data-nav="back"]::view-transition-new(root) {
+    animation-name: slide-from-left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+  }
+}
 
 /* Find & Replace highlights */
 .search-highlight {

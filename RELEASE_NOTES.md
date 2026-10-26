@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- On a phone, the note list has one header with Back, Sort and New. The buttons are bigger, and the date headings stay at the top while you scroll. Going back slides the screen to the right.
+
 ## 2.28.0 (2026-10-25)
 
 ### New

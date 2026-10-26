@@ -52,7 +52,7 @@ function HiddenNotesViewComponent({
             variant="ghost"
             size="icon"
             aria-label="Back to notes"
-            className="h-8 w-8 shrink-0"
+            className="h-8 w-8 shrink-0 pointer-coarse:size-11"
             onClick={onBack}
           >
             <ChevronLeft className="h-5 w-5" />
@@ -63,7 +63,7 @@ function HiddenNotesViewComponent({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 text-xs text-destructive hover:text-destructive shrink-0"
+            className="h-7 text-xs text-destructive hover:text-destructive shrink-0 pointer-coarse:h-11"
             onClick={headerAction.onClick}
             disabled={notes.length === 0}
           >
@@ -97,7 +97,7 @@ function HiddenNotesViewComponent({
                     {note.preview || "No content"}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 pointer-coarse:gap-2 shrink-0">
                   {rowActions.map((action) => {
                     const Icon = action.icon;
                     return (
@@ -107,7 +107,7 @@ function HiddenNotesViewComponent({
                         size="icon"
                         aria-label={action.label}
                         className={cn(
-                          "h-7 w-7",
+                          "h-7 w-7 pointer-coarse:size-11",
                           action.destructive && "text-destructive hover:text-destructive"
                         )}
                         onClick={() => action.onClick(note.docId)}
