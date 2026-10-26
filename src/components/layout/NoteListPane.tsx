@@ -124,7 +124,7 @@ export function NoteListPane({
           isLoading={isListLoading}
           title={isDesktop ? undefined : viewLabel || "Notes"}
           onBack={onBack}
-            backLabel={backLabel}
+          backLabel={backLabel}
           trailing={split ? undefined : <SyncStatus />}
           className="flex-1 w-full border-r-0"
         />
