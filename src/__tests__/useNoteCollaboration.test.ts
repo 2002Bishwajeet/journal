@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
     updateNote: vi.fn(),
     notes: [] as unknown[],
     fetchMembersOfCircle: vi.fn(),
+    sendSharePush: vi.fn(),
 }));
 vi.mock('@homebase-id/js-lib/network', () => ({ fetchMembersOfCircle: mocks.fetchMembersOfCircle }));
 vi.mock('sonner', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
@@ -48,6 +49,11 @@ vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
     NotesDriveProvider: class {
         makeNoteCollaborative = mocks.makeNoteCollaborative;
         revokeNoteCollaboration = mocks.revokeNoteCollaboration;
+    },
+}));
+vi.mock('@/lib/homebase/SharePushProvider', () => ({
+    SharePushProvider: class {
+        send = mocks.sendSharePush;
     },
 }));
 vi.mock('@/lib/homebase/config', () => ({
@@ -102,6 +108,7 @@ beforeEach(() => {
     mocks.setNotePublic.mockImplementation(record('unpublish'));
     mocks.updateNote.mockImplementation(record('metadata'));
     mocks.notes = [];
+    mocks.sendSharePush.mockResolvedValue(undefined);
     mocks.fetchMembersOfCircle.mockImplementation(async (_c: unknown, id: string) => MEMBERS[id]);
 });
 
@@ -286,6 +293,17 @@ describe('share', () => {
         await unmount();
     });
 
+    it('sends the share push after the share, with the recipients the note had before (#745)', async () => {
+        mocks.notes = [note('n1', { folderId: 'collab', recipients: ['a.id'] })];
+        mocks.sendSharePush.mockImplementation(record('push'));
+        const { api, unmount } = await mountHook();
+        await act(async () => { await api().share('n1', CIRCLES); });
+
+        expect(mocks.sendSharePush).toHaveBeenCalledWith('n1', ['a.id', 'b.id'], ['a.id']);
+        expect(mocks.calls.indexOf('push')).toBeGreaterThan(mocks.calls.indexOf('invite'));
+        await unmount();
+    });
+
     it('reports a provider failure', async () => {
         mocks.makeNoteCollaborative.mockRejectedValue(new Error('boom'));
         vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -294,6 +312,7 @@ describe('share', () => {
         await act(async () => { shared = (await api().share('n1', CIRCLES)).shared; });
 
         expect(shared).toBe(false);
+        expect(mocks.sendSharePush).not.toHaveBeenCalled();
         expect(mocks.updateNote).not.toHaveBeenCalled();
         expect(mocks.toastError).toHaveBeenCalledWith('Failed to make note collaborative');
         await unmount();

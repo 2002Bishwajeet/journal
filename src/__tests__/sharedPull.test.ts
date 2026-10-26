@@ -281,6 +281,13 @@ describe('pullOwnerNow', () => {
 
         expect(mocks.queryModifiedOverPeer.mock.calls[1][3].cursor).toBe(`cursor-${OWNER}`);
     });
+
+    it('rejects when the owner does not answer, and backs it off', async () => {
+        drives[OWNER] = new Error('404');
+
+        await expect(pullOwnerNow(ctx(), client, OWNER)).rejects.toThrow(OWNER);
+        expect((await ownerState(OWNER))?.failures).toBe(1);
+    });
 });
 
 describe('invite and pull', () => {

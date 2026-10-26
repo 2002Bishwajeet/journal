@@ -127,13 +127,75 @@ describe('runAgent', () => {
     });
 
     it('should force one answer-only generate after 6 tool calls, never a 7th call', async () => {
-        const search = { tool: 'list_folders', args: {} };
-        const { engine, calls } = scriptedEngine([...Array(MAX_TOOL_STEPS).fill(search), { answer: 'Here you go.' }]);
+        const searches = Array.from({ length: MAX_TOOL_STEPS }, (_, i) => ({ tool: 'search_notes', args: { query: `q${i}` } }));
+        const { engine, calls } = scriptedEngine([...searches, { answer: 'Here you go.' }]);
 
         expect(await run('List my folders', engine).result).toBe('Here you go.');
         expect(calls).toHaveLength(MAX_TOOL_STEPS + 1);
         expect(calls[MAX_TOOL_STEPS].schema.anyOf).toBeUndefined();
         expect(calls[MAX_TOOL_STEPS].schema).toMatchObject({ required: ['answer'] });
+    });
+
+    it('should not run a repeated call again, nudge, and let the model go on', async () => {
+        const search = { tool: 'search_notes', args: { query: 'zucchini' } };
+        const { engine, calls } = scriptedEngine([search, search, { answer: 'May.' }]);
+        const { result, events } = run('When?', engine);
+
+        expect(await result).toBe('May.');
+        expect(events.filter((e) => e.type === 'toolCall')).toHaveLength(1);
+        expect(events.filter((e) => e.type === 'toolResult')).toHaveLength(1);
+        const nudge = resultsSent(calls[2]).find((m) => m.includes('You already called'))!;
+        expect(nudge).toContain('You already called search_notes with these arguments (step 1)');
+        // The nudge is short: it does not carry the result again.
+        expect(nudge).not.toContain('Garden plan');
+        expect(calls[2].schema.anyOf).toBeDefined();
+    });
+
+    it('should match a repeat whatever the order of the args keys', async () => {
+        const { engine, calls } = scriptedEngine([
+            { tool: 'search_notes', args: { query: 'zucchini', limit: 3 } },
+            { tool: 'search_notes', args: { limit: 3, query: 'zucchini' } },
+            { answer: 'ok' },
+        ]);
+        const { result, events } = run('When?', engine);
+
+        expect(await result).toBe('ok');
+        expect(calls).toHaveLength(3);
+        expect(events.filter((e) => e.type === 'toolCall')).toHaveLength(1);
+    });
+
+    it('should force an answer-only turn after two repeats in a row and end within the cap', async () => {
+        const search = { tool: 'search_notes', args: { query: 'zucchini' } };
+        const { engine, calls } = scriptedEngine([search, search, search, { answer: 'It is about zucchini.' }]);
+        const { result, events } = run('What is this about?', engine);
+
+        expect(await result).toBe('It is about zucchini.');
+        expect(calls).toHaveLength(4);
+        expect(events.filter((e) => e.type === 'toolCall')).toHaveLength(1);
+        expect(calls[3].schema.anyOf).toBeUndefined();
+        expect(calls[3].schema).toMatchObject({ required: ['answer'] });
+        expect(resultsSent(calls[3]).filter((m) => m.includes('You already called'))).toHaveLength(2);
+        expect(events.filter((e) => e.type === 'error')).toHaveLength(0);
+    });
+
+    it('should not count a repeat as a step', async () => {
+        const search = (query: string) => ({ tool: 'search_notes', args: { query } });
+        // Six real steps with a repeat after the first: the repeat does not use one of the six.
+        const { engine, calls } = scriptedEngine([search('a'), search('a'), search('b'), search('c'), search('d'), search('e'), search('f'), { answer: 'done' }]);
+
+        expect(await run('Go', engine).result).toBe('done');
+        expect(calls).toHaveLength(8);
+        expect(calls[7].schema.anyOf).toBeUndefined();
+    });
+
+    it('should run the same read again after a write', async () => {
+        const search = { tool: 'search_notes', args: { query: 'zucchini' } };
+        const append = { tool: 'append_to_note', args: { id: GARDEN, markdown: 'More.' } };
+        const { engine } = scriptedEngine([search, append, search, { answer: 'ok' }]);
+        const { result, events } = run('Go', engine);
+
+        expect(await result).toBe('ok');
+        expect(events.filter((e) => e.type === 'toolCall' && e.tool === 'search_notes')).toHaveLength(2);
     });
 
     it('should ask approve for a readOnly: false tool and not run it when rejected', async () => {
