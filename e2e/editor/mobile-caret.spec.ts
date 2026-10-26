@@ -22,7 +22,7 @@ const caretBottom = (page: Page) =>
 
 async function typeFiveLinesAboveToolbar(page: Page, simulateKeyboard: () => Promise<void>) {
   await page.getByRole('navigation', { name: 'Folders' }).getByRole('button', { name: 'Main' }).tap();
-  await page.getByRole('button', { name: 'New', exact: true }).tap();
+  await page.getByRole('button', { name: 'New note', exact: true }).tap();
   const editor = activeEditor(page);
   await editor.tap();
   for (let i = 1; i <= 30; i++) {
