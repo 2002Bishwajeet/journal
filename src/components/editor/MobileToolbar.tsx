@@ -1,11 +1,11 @@
 /**
  * Mobile Toolbar Component
  *
- * Appears above the keyboard on touch devices.
+ * Sits on top of the keyboard on touch devices while the editor has focus.
  * Uses shared useToolbarState for optimized re-renders.
  *
  * Features:
- * - Proper safe area inset handling for notched devices
+ * - Safe area inset handling for notched devices (only while no keyboard is up)
  * - Larger touch targets (48px) for accessibility
  * - Comprehensive formatting options matching desktop
  */
@@ -35,6 +35,7 @@ import {
   Redo,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
 import { ToolbarButton, ToolbarDivider, useToolbarState, safeEditorCommand } from "./shared";
 import { EmojiPicker } from "./EmojiPicker";
 import { TablePicker } from "./TablePicker";
@@ -52,65 +53,34 @@ export default function MobileToolbar({
   editor,
   className,
 }: MobileToolbarProps) {
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [isVisible, setIsVisible] = useState(false);
-  const [safeAreaBottom, setSafeAreaBottom] = useState(0);
+  const [hasFocus, setHasFocus] = useState(() => editor.isFocused);
 
   // Use shared toolbar state hook
   const state = useToolbarState(editor);
 
-  // Get safe area insets
-  useEffect(() => {
-    const updateSafeArea = () => {
-      // Get the safe area inset from CSS env() or compute from viewport
-      const testEl = document.createElement("div");
-      testEl.style.cssText =
-        "position:fixed;bottom:0;padding-bottom:env(safe-area-inset-bottom, 0px);";
-      document.body.appendChild(testEl);
-      const computedPadding = window.getComputedStyle(testEl).paddingBottom;
-      document.body.removeChild(testEl);
-      setSafeAreaBottom(parseFloat(computedPadding) || 0);
-    };
-
-    updateSafeArea();
-    window.addEventListener("orientationchange", updateSafeArea);
-    return () =>
-      window.removeEventListener("orientationchange", updateSafeArea);
-  }, []);
-
-  // Detect keyboard visibility using visualViewport API
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-
-    const handleResize = () => {
-      const windowHeight = window.innerHeight;
-      const viewportHeight = viewport.height;
-      const heightDiff = windowHeight - viewportHeight;
-
-      // Keyboard is visible when there's a significant height difference
-      if (heightDiff > 150) {
-        setKeyboardHeight(heightDiff);
-        setIsVisible(true);
-      } else {
-        setKeyboardHeight(0);
-        setIsVisible(false);
-      }
-    };
-
-    viewport.addEventListener("resize", handleResize);
-    viewport.addEventListener("scroll", handleResize, { passive: true });
-    handleResize();
-
-    return () => {
-      viewport.removeEventListener("resize", handleResize);
-      viewport.removeEventListener("scroll", handleResize);
-    };
-  }, []);
-
   // Check if we're on a touch device
   const isTouchDevice =
     "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
+  // Show while the editor (or a picker opened from this toolbar) has focus,
+  // in every keyboard mode: the keyboard height is not a reliable signal.
+  useEffect(() => {
+    const inEditorUi = (target: EventTarget | null) =>
+      target instanceof Element &&
+      (editor.view.dom.contains(target) ||
+        !!target.closest("[data-mobile-toolbar], [data-radix-popper-content-wrapper]"));
+    const onFocusIn = (e: FocusEvent) => setHasFocus(inEditorUi(e.target));
+    const onFocusOut = (e: FocusEvent) => setHasFocus(inEditorUi(e.relatedTarget));
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, [editor]);
+
+  const isVisible = isTouchDevice && hasFocus;
+  useKeyboardOffset(isVisible);
 
   // Action handlers using safeEditorCommand
   const handleUndo = () => {
@@ -240,8 +210,8 @@ export default function MobileToolbar({
     input.click();
   };
 
-  // Don't render on non-touch devices or when keyboard is not visible
-  if (!isTouchDevice || !isVisible) return null;
+  // Don't render on non-touch devices or when the editor has no focus
+  if (!isVisible) return null;
 
   return (
     <div
@@ -249,13 +219,10 @@ export default function MobileToolbar({
         "fixed left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border shadow-lg",
         className,
       )}
+      data-mobile-toolbar
       style={{
-        bottom: keyboardHeight,
-        paddingBottom:
-          safeAreaBottom > 0
-            ? `${safeAreaBottom}px`
-            : "env(safe-area-inset-bottom, 0px)",
-        transition: "bottom 0.1s ease-out",
+        bottom: "var(--keyboard-offset, 0px)",
+        paddingBottom: "var(--keyboard-safe-bottom, env(safe-area-inset-bottom, 0px))",
       }}
     >
       {/* Scrollable toolbar container */}

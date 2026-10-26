@@ -19,6 +19,11 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - On a phone, folder rows and note rows have a "More" button. It opens the same menu as a long press. The menus stay on the screen, and their items are bigger and easier to tap.
 
+### Fixed
+
+- On a phone, the formatting bar now sits directly on top of the keyboard. It follows the keyboard and shows in every keyboard mode.
+- Tapping a button on the formatting bar no longer closes the keyboard.
+
 ## 2.28.0 (2026-10-25)
 
 ### New
