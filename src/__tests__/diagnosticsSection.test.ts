@@ -54,6 +54,7 @@ function setDiagnostics(items: PendingSyncItem[] | null, extra: Record<string, u
         copyReport,
         canShare: false,
         shareReport: vi.fn(),
+        shareNotificationsFixUrl: null,
         ...extra,
     };
 }
@@ -132,6 +133,24 @@ describe('DiagnosticsSection', () => {
         setDiagnostics([item({})], { isOnline: false });
         await render();
         expect(document.querySelector<HTMLButtonElement>('[aria-label="Retry Groceries"]')?.disabled).toBe(true);
+    });
+
+    it('offers the owner console link when share notifications are off (#817)', async () => {
+        setDiagnostics([], { shareNotificationsFixUrl: 'https://me.id/owner/drives/alias_type' });
+        await render();
+
+        const panel = document.querySelector('[data-testid="share-notifications-off"]');
+        expect(panel?.textContent).toContain('Share notifications are off');
+        expect(panel?.textContent).toContain('Allow subscriptions');
+        const link = panel?.querySelector('a');
+        expect(link?.getAttribute('href')).toBe('https://me.id/owner/drives/alias_type');
+        expect(link?.getAttribute('target')).toBe('_blank');
+    });
+
+    it('shows no share notification notice by default', async () => {
+        setDiagnostics([]);
+        await render();
+        expect(document.querySelector('[data-testid="share-notifications-off"]')).toBeNull();
     });
 
     it('says when nothing is waiting', async () => {
