@@ -2,12 +2,30 @@ import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { XIcon } from "lucide-react"
 
+import { useInRouterContext } from "react-router-dom"
+
 import { cn } from "@/lib/utils"
+import { useOverlayHistory } from "@/hooks/useOverlayHistory"
+
+// Renders nothing; gives a controlled dialog its history entry (#822).
+function DialogHistory({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useOverlayHistory(open, onClose)
+  return null
+}
 
 function Dialog({
+  children,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+  const inRouter = useInRouterContext()
+  return (
+    <DialogPrimitive.Root data-slot="dialog" {...props}>
+      {inRouter && props.open !== undefined && (
+        <DialogHistory open={props.open} onClose={() => props.onOpenChange?.(false)} />
+      )}
+      {children}
+    </DialogPrimitive.Root>
+  )
 }
 
 function DialogTrigger({

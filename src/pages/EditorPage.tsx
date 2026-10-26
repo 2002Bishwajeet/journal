@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   EditorToolbar,
   AIMenu,
@@ -37,6 +37,7 @@ import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
 import { useAISettings } from "@/hooks/useAISettings";
 import { useRegisterActiveEditor } from "@/hooks/useRegisterActiveEditor";
+import { useBackTo } from "@/hooks/useBackTo";
 
 // EditorProvider auto-saves, so Cmd+S only needs swallowing. A module constant
 // keeps the handler's identity stable: every mounted tab rebinds the window
@@ -237,7 +238,7 @@ export default function EditorPage({
   // tab the URL is actually on. Mobile renders one page, so it is always active.
   const isActiveTab = !overrideNoteId || overrideNoteId === params.noteId;
   
-  const navigate = useNavigate();
+  const backTo = useBackTo();
   const {
     get: { data: notes = [], isLoading: isNotesLoading },
     updateNote: { mutateAsync: updateNoteMetadata },
@@ -291,11 +292,7 @@ export default function EditorPage({
   };
 
   const handleBackToNotes = () => {
-    if (folderId) {
-      navigate(`/${folderId}`);
-    } else {
-      navigate("/");
-    }
+    backTo(folderId ? `/${folderId}` : "/");
   };
 
   // AI callbacks

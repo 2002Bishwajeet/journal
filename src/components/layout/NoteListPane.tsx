@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useBackTo } from "@/hooks/useBackTo";
 import { ChevronLeft, ArchiveRestore, Trash2, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ export function NoteListPane({
   onMoveToFolder,
   onMarkCollaborative,
 }: NoteListPaneProps) {
-  const navigate = useNavigate();
+  const backTo = useBackTo();
 
   return (
     <div
@@ -78,7 +78,7 @@ export function NoteListPane({
             size="icon"
             aria-label="Back to notes"
             className="h-8 w-8"
-            onClick={() => navigate("/")}
+            onClick={() => backTo("/")}
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
@@ -100,7 +100,7 @@ export function NoteListPane({
               { icon: Trash2, label: "Delete forever", onClick: noteActions.deleteForever, destructive: true },
             ]}
             headerAction={{ label: "Empty Trash", onClick: noteActions.emptyTrash }}
-            onBack={isDesktop ? undefined : () => navigate("/")}
+            onBack={isDesktop ? undefined : () => backTo("/")}
             className="flex-1"
           />
         ) : folderId === PSEUDO_FOLDERS.archive ? (
@@ -114,7 +114,7 @@ export function NoteListPane({
               { icon: ArchiveRestore, label: "Unarchive note", onClick: noteActions.unarchive },
               { icon: Trash2, label: "Move to Trash", onClick: noteActions.moveArchivedToTrash, destructive: true },
             ]}
-            onBack={isDesktop ? undefined : () => navigate("/")}
+            onBack={isDesktop ? undefined : () => backTo("/")}
             className="flex-1"
           />
         ) : (

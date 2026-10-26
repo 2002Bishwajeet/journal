@@ -15,6 +15,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Changed
+
+- On a phone, the Back button and the Back swipe now close a dialog or sheet and stay on the same screen. Back inside a note or a list now goes to the screen you came from.
+
 ## 2.28.0 (2026-10-25)
 
 ### New
