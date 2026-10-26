@@ -1,3 +1,42 @@
+# [2.34.0](https://github.com/2002Bishwajeet/journal/compare/v2.33.0...v2.34.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **search:** 44px Remove/Clear targets on touch; keep focus in the search input ([#820](https://github.com/2002Bishwajeet/journal/issues/820)) ([e7d9f1f](https://github.com/2002Bishwajeet/journal/commit/e7d9f1f6d480de675c0650c1177fb7ee4c3ce018))
+
+
+### Features
+
+* **search:** show recent notes and searches, boost recent notes in ranking ([#820](https://github.com/2002Bishwajeet/journal/issues/820)) ([9167bdc](https://github.com/2002Bishwajeet/journal/commit/9167bdc9d8849abb812dbc579290e5749aa95421))
+# [2.33.0](https://github.com/2002Bishwajeet/journal/compare/v2.32.1...v2.33.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ai:** do not re-propose an edit the user rejected ([#838](https://github.com/2002Bishwajeet/journal/issues/838)) ([1512f60](https://github.com/2002Bishwajeet/journal/commit/1512f60ad0c4353078d4339bd919181616f83d6a))
+* **ai:** treat a failed edit like a rejected one in the agent loop ([#838](https://github.com/2002Bishwajeet/journal/issues/838)) ([6fd2a1e](https://github.com/2002Bishwajeet/journal/commit/6fd2a1e8cc210dc4ebfcf3ef9bb009d9696c176c))
+* **sharing:** list subscriptions as a maybe when the missing attribute explains a refused push ([#848](https://github.com/2002Bishwajeet/journal/issues/848)) ([0bd382e](https://github.com/2002Bishwajeet/journal/commit/0bd382e08a828e26547109e3e89cc5014bfc8715))
+
+
+### Features
+
+* **pwa:** manifest id, install screenshots, categories, one description, maskable icon ([#855](https://github.com/2002Bishwajeet/journal/issues/855)) ([f898ba1](https://github.com/2002Bishwajeet/journal/commit/f898ba1b41e02b5e15cb3d95029261adc85a066d))
+* **sharing:** guide the owner through all three journal drive fixes for share pushes ([#848](https://github.com/2002Bishwajeet/journal/issues/848)) ([a086539](https://github.com/2002Bishwajeet/journal/commit/a08653906a05747ba8b1c83077b19d963ae9b766))
+## [2.32.1](https://github.com/2002Bishwajeet/journal/compare/v2.32.0...v2.32.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **editor:** Tab in a paragraph moves focus instead of indenting ([#841](https://github.com/2002Bishwajeet/journal/issues/841)) ([c1a4058](https://github.com/2002Bishwajeet/journal/commit/c1a4058dd707466066ed4523ecab0a241cd1cb2c))
+* **mobile:** 16 px text fields on touch, drop the viewport zoom lock, fit sign-in on phones ([#785](https://github.com/2002Bishwajeet/journal/issues/785)) ([8c4dfc4](https://github.com/2002Bishwajeet/journal/commit/8c4dfc4240413c4e95c98f494dca7aa9a2e05da6))
+* **mobile:** readable sign-in error in both themes, with a contrast check ([#785](https://github.com/2002Bishwajeet/journal/issues/785)) ([274f423](https://github.com/2002Bishwajeet/journal/commit/274f423e4932f9719f926734cc7de03f74ca3a46))
+# [2.32.0](https://github.com/2002Bishwajeet/journal/compare/v2.31.0...v2.32.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **mobile:** direction-locked swipe-to-delete and non-passive pull-to-refresh in the note list ([#778](https://github.com/2002Bishwajeet/journal/issues/778)) ([4ac1e44](https://github.com/2002Bishwajeet/journal/commit/4ac1e44feea9f6c0283421f7843de77abbbdd321))
 # [2.31.0](https://github.com/2002Bishwajeet/journal/compare/v2.30.1...v2.31.0) (2026-10-26)
 
 

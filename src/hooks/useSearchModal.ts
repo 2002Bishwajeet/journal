@@ -1,6 +1,17 @@
 import { useEffect, useState, useCallback, useRef, useDeferredValue } from "react";
 import { advancedSearch, getAllDocuments } from "@/lib/db";
 import type { SearchIndexEntry, AdvancedSearchResult } from "@/types";
+import {
+    applyRecentBoost,
+    loadRecentNotes,
+    loadRecentSearches,
+    pushRecentSearch,
+    removeRecentNote,
+    removeRecentSearch,
+    resolveRecentNotes,
+    saveRecentNotes,
+    saveRecentSearches,
+} from "@/lib/recentItems";
 
 // Type for results - either basic search index entry or advanced result with highlights
 export type SearchResult = SearchIndexEntry | AdvancedSearchResult;
@@ -8,6 +19,11 @@ export type SearchResult = SearchIndexEntry | AdvancedSearchResult;
 export function isAdvancedResult(result: SearchResult): result is AdvancedSearchResult {
     return 'matchType' in result;
 }
+
+/** One row of the flat list the arrow keys walk, in display order. */
+export type SearchEntry =
+    | { kind: 'note'; section: 'recent' | 'notes'; result: SearchResult }
+    | { kind: 'search'; section: 'searches'; text: string };
 
 export interface UseSearchModalOptions {
     isOpen: boolean;
@@ -18,7 +34,7 @@ export interface UseSearchModalOptions {
 export interface UseSearchModalReturn {
     // State
     query: string;
-    results: SearchResult[];
+    entries: SearchEntry[];
     selectedIndex: number;
     isLoading: boolean;
     inputRef: React.RefObject<HTMLInputElement | null>;
@@ -29,6 +45,9 @@ export interface UseSearchModalReturn {
     handleClose: () => void;
     handleSelectResult: (docId: string) => void;
     setSelectedIndex: (index: number) => void;
+    handleSelectEntry: (entry: SearchEntry) => void;
+    handleRemoveEntry: (entry: SearchEntry) => void;
+    handleClearRecents: () => void;
 }
 
 export function useSearchModal({
@@ -41,6 +60,8 @@ export function useSearchModal({
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [pendingQuery, setPendingQuery] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const [recentNotes, setRecentNotes] = useState(loadRecentNotes);
+    const [recentSearches, setRecentSearches] = useState(loadRecentSearches);
     const requestSeqRef = useRef(0);
 
     const trimmedQuery = query.trim();
@@ -58,10 +79,12 @@ export function useSearchModal({
 
     const handleSelectResult = useCallback(
         (docId: string) => {
+            // A query is worth remembering once it led to a note.
+            if (trimmedQuery) saveRecentSearches(pushRecentSearch(loadRecentSearches(), trimmedQuery));
             onSelectNote(docId);
             handleClose();
         },
-        [onSelectNote, handleClose]
+        [onSelectNote, handleClose, trimmedQuery]
     );
 
     const handleQueryChange = useCallback((value: string) => {
@@ -85,6 +108,9 @@ export function useSearchModal({
         (async () => {
             const docs = await getAllDocuments();
             if (cancelled) return;
+            // Notes opened since the modal last opened.
+            setRecentNotes(loadRecentNotes());
+            setRecentSearches(loadRecentSearches());
             setResults(docs);
         })();
 
@@ -119,7 +145,7 @@ export function useSearchModal({
             const searchResults = await advancedSearch(trimmed);
             if (cancelled || requestSeqRef.current !== requestSeq) return;
             setPendingQuery((current) => (current === trimmed ? null : current));
-            setResults(searchResults);
+            setResults(applyRecentBoost(searchResults, loadRecentNotes().map((n) => n.docId)));
             setSelectedIndex(0);
         }, 150);
 
@@ -129,13 +155,57 @@ export function useSearchModal({
         };
     }, [query, isOpen]);
 
+    const deferredResults = useDeferredValue(results);
+
+    let entries: SearchEntry[];
+    if (trimmedQuery) {
+        entries = deferredResults.map((result) => ({ kind: 'note', section: 'notes', result }));
+    } else {
+        const recent = resolveRecentNotes(recentNotes, deferredResults);
+        const recentIds = new Set(recent.map((r) => r.docId));
+        entries = [
+            ...recent.map((result): SearchEntry => ({ kind: 'note', section: 'recent', result })),
+            ...recentSearches.map((text): SearchEntry => ({ kind: 'search', section: 'searches', text })),
+            ...deferredResults
+                .filter((r) => !recentIds.has(r.docId))
+                .map((result): SearchEntry => ({ kind: 'note', section: 'notes', result })),
+        ];
+    }
+
+    const handleSelectEntry = useCallback(
+        (entry: SearchEntry) => {
+            if (entry.kind === 'search') handleQueryChange(entry.text);
+            else handleSelectResult(entry.result.docId);
+        },
+        [handleQueryChange, handleSelectResult]
+    );
+
+    const handleRemoveEntry = (entry: SearchEntry) => {
+        if (entry.kind === 'search') {
+            const next = removeRecentSearch(loadRecentSearches(), entry.text);
+            saveRecentSearches(next);
+            setRecentSearches(next);
+        } else {
+            const next = removeRecentNote(loadRecentNotes(), entry.result.docId);
+            saveRecentNotes(next);
+            setRecentNotes(next);
+        }
+    };
+
+    const handleClearRecents = () => {
+        saveRecentNotes([]);
+        saveRecentSearches([]);
+        setRecentNotes([]);
+        setRecentSearches([]);
+    };
+
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent) => {
             switch (e.key) {
                 case "ArrowDown": {
                     e.preventDefault();
-                    if (results.length === 0) return;
-                    const nextIndex = Math.min(selectedIndex + 1, results.length - 1);
+                    if (entries.length === 0) return;
+                    const nextIndex = Math.min(selectedIndex + 1, entries.length - 1);
                     setSelectedIndex(nextIndex);
 
                     // Scroll active item into view
@@ -145,7 +215,7 @@ export function useSearchModal({
                 }
                 case "ArrowUp": {
                     e.preventDefault();
-                    if (results.length === 0) return;
+                    if (entries.length === 0) return;
                     const prevIndex = Math.max(selectedIndex - 1, 0);
                     setSelectedIndex(prevIndex);
 
@@ -156,8 +226,8 @@ export function useSearchModal({
                 }
                 case "Enter":
                     e.preventDefault();
-                    if (results[selectedIndex]) {
-                        handleSelectResult(results[selectedIndex].docId);
+                    if (entries[selectedIndex]) {
+                        handleSelectEntry(entries[selectedIndex]);
                     }
                     break;
                 case "Escape":
@@ -166,7 +236,7 @@ export function useSearchModal({
                     break;
             }
         },
-        [results, selectedIndex, handleSelectResult, handleClose]
+        [entries, selectedIndex, handleSelectEntry, handleClose]
     );
 
     // Handle keyboard shortcut (Cmd+K or Ctrl+K)
@@ -183,11 +253,9 @@ export function useSearchModal({
         return () => window.removeEventListener("keydown", handleGlobalKeyDown);
     }, []);
 
-    const deferredResults = useDeferredValue(results);
-
     return {
         query,
-        results: deferredResults,
+        entries,
         selectedIndex,
         isLoading,
         inputRef,
@@ -196,5 +264,8 @@ export function useSearchModal({
         handleClose,
         handleSelectResult,
         setSelectedIndex,
+        handleSelectEntry,
+        handleRemoveEntry,
+        handleClearRecents,
     };
 }

@@ -4,7 +4,17 @@
 // see "iOS Safari" in e2e/README.md. Run with Node 22.18+ (it strips the types).
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { remote } from 'webdriverio';
-import { layoutProblems, measureLayout, safeAreaProblem, type Layout } from './checks.ts';
+import {
+  gestureProblems,
+  layoutProblems,
+  measureLayout,
+  safeAreaProblem,
+  startGestureProbe,
+  stopGestureProbe,
+  type Gesture,
+  type GestureProbe,
+  type Layout,
+} from './checks.ts';
 
 const BASE = 'http://127.0.0.1:4173';
 const OUT = 'test-results/ios-safari';
@@ -17,28 +27,55 @@ let shots = 0;
 
 mkdirSync(OUT, { recursive: true });
 
-const browser = await remote({
-  hostname: '127.0.0.1',
-  port: 4723,
-  path: '/',
-  logLevel: 'warn',
-  // The first session builds WebDriverAgent, which takes minutes.
-  connectionRetryTimeout: 600_000,
-  connectionRetryCount: 0,
-  capabilities: {
-    platformName: 'iOS',
-    browserName: 'Safari',
-    'appium:automationName': 'XCUITest',
-    'appium:udid': process.env.IOS_UDID,
-    // Taps are real touches at the element's position, not script clicks: only a
-    // real tap brings up the software keyboard.
-    'appium:nativeWebTap': true,
-    'appium:forceSimulatorSoftwareKeyboardPresence': true,
-    'appium:wdaLaunchTimeout': 600_000,
-    'appium:wdaConnectionTimeout': 600_000,
-    'appium:newCommandTimeout': 300,
-  },
-});
+// WebDriverAgent is prebuilt by the workflow (WDA_DERIVED_DATA), so a session start
+// only launches it. A slow start (#843) fails fast and is retried with a fresh session.
+const ATTEMPTS = 3;
+const capabilities = {
+  platformName: 'iOS',
+  browserName: 'Safari',
+  'appium:automationName': 'XCUITest',
+  'appium:udid': process.env.IOS_UDID,
+  // Taps are real touches at the element's position, not script clicks: only a
+  // real tap brings up the software keyboard.
+  'appium:nativeWebTap': true,
+  'appium:forceSimulatorSoftwareKeyboardPresence': true,
+  ...(process.env.WDA_DERIVED_DATA && { 'appium:usePrebuiltWDA': true, 'appium:derivedDataPath': process.env.WDA_DERIVED_DATA }),
+  'appium:wdaLaunchTimeout': 240_000,
+  'appium:wdaConnectionTimeout': 240_000,
+  'appium:newCommandTimeout': 300,
+};
+
+async function startSession() {
+  for (let attempt = 1; ; attempt++) {
+    console.log(`Starting the Appium session (attempt ${attempt} of ${ATTEMPTS})`);
+    let session: Awaited<ReturnType<typeof remote>> | undefined;
+    try {
+      const s = await remote({
+        hostname: '127.0.0.1',
+        port: 4723,
+        path: '/',
+        logLevel: 'warn',
+        connectionRetryTimeout: 240_000,
+        connectionRetryCount: 0,
+        capabilities,
+      });
+      session = s;
+      // Safari can open before its remote debugger lists any web application.
+      await s.waitUntil(async () => (await s.getContexts()).some((c) => String(typeof c === 'string' ? c : c.id).startsWith('WEBVIEW')), {
+        timeout: 60_000,
+        interval: 2_000,
+        timeoutMsg: 'no web view context after 60 s',
+      });
+      return s;
+    } catch (error) {
+      console.log(`Attempt ${attempt} failed: ${(error as Error).message}`);
+      await session?.deleteSession().catch(() => {});
+      if (attempt >= ATTEMPTS) throw error;
+    }
+  }
+}
+
+const browser = await startSession();
 
 const screenshot = async (name: string) => {
   const file = `${String(++shots).padStart(2, '0')}-${name}.png`;
@@ -96,6 +133,32 @@ async function typeOnKeyboard(text: string) {
     body: JSON.stringify({ value: [...text] }),
   });
   if (!res.ok) throw new Error(`typing on the keyboard failed: ${res.status} ${await res.text()}`);
+}
+
+/**
+ * A real touch drag on the nth `selector` match, from and to offsets (px) from its centre,
+ * holding `hold` ms before lifting. Records what the note list did and checks it (#778).
+ */
+async function gesture(name: Gesture, selector: string, index: number, from: [number, number], to: [number, number], hold = 0) {
+  const el = (await browser.$$(selector))[index];
+  await browser.execute(startGestureProbe);
+  await browser
+    .action('pointer', { parameters: { pointerType: 'touch' } })
+    .move({ origin: el, x: from[0], y: from[1] })
+    .down()
+    .pause(100)
+    .move({ origin: el, x: to[0], y: to[1], duration: 400 })
+    .pause(hold)
+    .up()
+    .perform();
+  // Lets the snap and the pull's spring finish before the probe stops.
+  await browser.pause(800);
+  const probe = (await browser.execute(stopGestureProbe)) as GestureProbe;
+  const problems = gestureProblems(name, probe);
+  const file = await screenshot(`gesture-${name}`);
+  failures.push(...problems.map((p) => `gesture-${name}: ${p}`));
+  summary.push(`| gesture-${name} | ${file} | ${problems.join('<br>') || 'none'} (${JSON.stringify(probe)}) |`);
+  console.log(`${problems.length ? '✗' : '✓'} gesture-${name} ${JSON.stringify(probe)}${problems.map((p) => `\n    ${p}`).join('')}`);
 }
 
 async function closeDialog() {
@@ -225,6 +288,37 @@ try {
   await check('search-sheet-keyboard');
   await tap('button=Cancel');
   await waitFor('the search sheet to close', () => !document.querySelector('[role="dialog"][aria-label="Search notes"]'));
+
+  // Note list gestures (#778): import enough notes for the list to scroll, then swipe a
+  // row, scroll with sideways drift, pull to refresh at the top and scroll again.
+  await tap('button=Settings');
+  await waitFor('Settings', dialogOpen);
+  await tap('[role="dialog"] [role="tab"]', tabs.findIndex((t) => t.includes('Data')));
+  await waitFor('the import field', () => !!document.querySelector('[role="dialog"] input[type="file"]'));
+  assertTestOrigin(await browser.execute(() => location.origin));
+  await browser.execute((count) => {
+    const files = new DataTransfer();
+    for (let i = 1; i <= count; i++) {
+      files.items.add(new File([`---\ntitle: Gesture note ${i}\n---\nBody ${i}\n`], `gesture-${i}.md`, { type: 'text/markdown' }));
+    }
+    const input = document.querySelector<HTMLInputElement>('[role="dialog"] input[type="file"]')!;
+    input.files = files.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, 20);
+  await waitFor('the import', () => document.body.textContent?.includes('Successfully imported 20 notes') ?? false, 60_000);
+  await closeDialog();
+  await tap('[aria-label="Folders"] button');
+  await waitFor('the note rows', () => document.querySelectorAll('[data-testid="note-row"]').length >= 10);
+  const row = '[data-testid="note-row"]';
+  await gesture('swipe', row, 0, [100, 0], [0, 6]);
+  await tap('[aria-label="Sort notes"]');
+  await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  // Drags stay on the list: one that starts on Safari's bottom toolbar opens its tab overview.
+  await gesture('drift-scroll', row, 3, [60, 0], [20, -260]);
+  await browser.execute((sel) => document.querySelector(sel)!.closest('[data-radix-scroll-area-viewport]')!.scrollTo(0, 0), row);
+  await gesture('pull', row, 0, [0, 0], [0, 150], 600);
+  await waitFor('the refresh to finish', () => !document.querySelector('[data-pull-to-refresh] .animate-spin'), 15_000).catch(() => {});
+  await gesture('scroll-after-pull', row, 3, [0, 0], [0, -260]);
 } catch (error) {
   failures.push(`run: ${(error as Error).message}`);
   await screenshot('error').catch(() => {});

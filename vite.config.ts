@@ -192,7 +192,11 @@ export default defineConfig(({ mode }) => ({
       manifest: {
         name: 'Journal',
         short_name: 'Journal',
-        description: 'Premium markdown note-taking app powered by Homebase',
+        id: '/',
+        start_url: '/',
+        scope: '/',
+        description: 'Offline-first markdown notes, encrypted and synced through your own Homebase identity.',
+        categories: ['productivity', 'utilities'],
         theme_color: '#FDFCF8',
         background_color: '#FDFCF8',
         display: 'standalone',
@@ -207,7 +211,20 @@ export default defineConfig(({ mode }) => ({
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png'
+          },
+          {
+            src: 'pwa-maskable-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
+        ],
+        screenshots: [
+          { src: 'screenshots/narrow-notes.png', sizes: '1170x2532', type: 'image/png', form_factor: 'narrow', label: 'Your notes, organized in folders' },
+          { src: 'screenshots/narrow-note.png', sizes: '1170x2532', type: 'image/png', form_factor: 'narrow', label: 'Write in markdown, even offline' },
+          { src: 'screenshots/narrow-search.png', sizes: '1170x2532', type: 'image/png', form_factor: 'narrow', label: 'Find any note fast' },
+          { src: 'screenshots/wide-note.png', sizes: '2560x1600', type: 'image/png', form_factor: 'wide', label: 'A note beside your folders' },
+          { src: 'screenshots/wide-live-block.png', sizes: '2560x1600', type: 'image/png', form_factor: 'wide', label: 'Live blocks: diagrams and small tools inside a note' }
         ],
         shortcuts: [
           {
@@ -239,6 +256,9 @@ export default defineConfig(({ mode }) => ({
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,wasm,data,gz}'],
         globIgnores: [
+          // Install-dialog screenshots (manifest `screenshots`): the browser
+          // fetches them only when it shows the install dialog.
+          'screenshots/**',
           // WebLLM runtime (~12 MB) — desktop-only, cached on first use by the
           // webllm-runtime route in sw.ts.
           '**/web-llm-*.js',
