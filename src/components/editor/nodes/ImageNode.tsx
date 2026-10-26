@@ -63,6 +63,7 @@ const PENDING_LABEL = {
   offline: "Waiting for connection",
   uploading: "Uploading…",
   failed: "Upload failed",
+  discarded: "Not synced",
 } as const;
 
 /** An uploaded image: from the bytes kept on this device if any (works offline), else the server. */
@@ -135,7 +136,7 @@ function PendingImage({
             {state === "uploading" && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
             <span className="truncate">{PENDING_LABEL[state]}</span>
           </span>
-          {state === "failed" && (
+          {(state === "failed" || state === "discarded") && (
             <>
               <button type="button" className={actionClass} onClick={retry}>
                 Retry

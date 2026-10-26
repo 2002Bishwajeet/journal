@@ -133,6 +133,45 @@ async function seedPendingSync(): Promise<void> {
     );
 }
 
+/**
+ * Leaves only image uploads in a note already on the server, as an image added on this
+ * device does (#874): one per entry of `images` (PNG bytes), in a note titled `title`.
+ */
+async function seedImageUploads(title: string, images: number[][]): Promise<void> {
+    const { getDatabase } = await import('@/lib/db/pglite');
+    const { upsertSearchIndex, upsertSyncRecord, savePendingImageUpload } = await import('@/lib/db');
+    const { MAIN_FOLDER_ID } = await import('@/lib/homebase');
+    const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const now = new Date().toISOString();
+
+    await (await getDatabase()).exec('DELETE FROM sync_records; DELETE FROM sync_errors; DELETE FROM pending_image_uploads;');
+    await upsertSyncRecord({ localId: MAIN_FOLDER_ID, entityType: 'folder', syncStatus: 'synced', remoteFileId: 'seeded-main-folder' });
+    await upsertSearchIndex({
+        docId: id(1),
+        title,
+        plainTextContent: '',
+        metadata: { title, folderId: MAIN_FOLDER_ID, timestamps: { created: now, modified: now }, excludeFromAI: false },
+    });
+    await upsertSyncRecord({ localId: id(1), entityType: 'note', syncStatus: 'synced', remoteFileId: 'seeded-remote-note', versionTag: 'seeded-version' });
+    for (const [i, bytes] of images.entries()) {
+        await savePendingImageUpload({
+            id: id(10 + i),
+            noteDocId: id(1),
+            blobData: new Uint8Array(bytes),
+            contentType: 'image/png',
+            status: 'pending',
+            retryCount: 0,
+            createdAt: now,
+        });
+    }
+}
+
+/** Runs the sync's image upload step once, as a full sync does after its pull and push. */
+async function uploadPendingImages(): Promise<void> {
+    const { SyncService } = await import('@/lib/homebase/SyncService');
+    await new SyncService(await appClient(), { isOnline: true }).processPendingImageUploads();
+}
+
 /** The signed-in identity's app client, built from the stored token like the app's own. */
 async function appClient() {
     const { DotYouClient, ApiType } = await import('@homebase-id/js-lib/core');
@@ -208,7 +247,7 @@ export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
 
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, seedPendingSync, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications }),
         writable: false,
         configurable: false,
         enumerable: false,

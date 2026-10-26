@@ -10,7 +10,7 @@ import { MAIN_FOLDER_ID } from '../homebase/config';
 import { SYNC_ERRORS_ACTIVE_INDEX_SQL } from './syncErrorsSchema';
 
 // Bump whenever a new statement is added to runMigrations().
-export const SCHEMA_VERSION = '7';
+export const SCHEMA_VERSION = '8';
 
 // pg_trgm and its GIN indexes. Run on demand by ensureTrigramSearch() in
 // pglite.ts, not at boot (loading the extension costs ~1–2s).
@@ -154,7 +154,8 @@ export async function initializeSchema(database: PGliteInterface): Promise<void>
       retry_count INTEGER DEFAULT 0,
       next_retry_at TIMESTAMP WITH TIME ZONE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-      resolved_at TIMESTAMP WITH TIME ZONE
+      resolved_at TIMESTAMP WITH TIME ZONE,
+      permanent BOOLEAN NOT NULL DEFAULT FALSE
     );
 
     CREATE INDEX IF NOT EXISTS idx_sync_errors_entity ON sync_errors(entity_id);
@@ -429,6 +430,15 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     console.log('[DB Migration] sync_errors active index ensured');
   } catch (error) {
     console.warn('[DB Migration] Could not create sync_errors active index:', error);
+  }
+
+  // A 4xx the server will keep refusing: no automatic retry until the user asks (#874)
+  try {
+    await database.exec(`
+      ALTER TABLE sync_errors ADD COLUMN IF NOT EXISTS permanent BOOLEAN NOT NULL DEFAULT FALSE;
+    `);
+  } catch (error) {
+    console.warn('[DB Migration] Could not add sync_errors.permanent column:', error);
   }
 
   // Create pending_image_deletions if not exists (for existing dbs)

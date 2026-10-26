@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useDeviceType } from "@/hooks";
+import { OPEN_SETTINGS_EVENT } from "@/hooks/useSettingsOpener";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "./sections";
 
 // Fade only the tab-strip edge that has more tabs past it (see .settings-tab-fade in index.css).
@@ -34,6 +35,12 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
     setWasOpen(isOpen);
     if (isOpen && initialSection) setActiveSection(initialSection);
   }
+  // openSettings(section) while the dialog is already open (Account's "View", #874) switches to it.
+  useEffect(() => {
+    const onOpen = (event: Event) => setActiveSection((event as CustomEvent<SettingsSectionId>).detail);
+    window.addEventListener(OPEN_SETTINGS_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_SETTINGS_EVENT, onOpen);
+  }, []);
   const isMobile = useDeviceType() === "mobile";
   const sections = SETTINGS_SECTIONS.filter((s) => !(isMobile && s.desktopOnly));
   // A desktop-only section picked before shrinking to phone width falls back to the first.

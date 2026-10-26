@@ -1,6 +1,7 @@
 import type { FolderDriveProvider } from '../FolderDriveProvider';
 import type { NotesDriveProvider } from '../NotesDriveProvider';
 import type { InboxProcessor } from '../InboxProcessor';
+import type { SyncErrorInfo } from './syncErrorInfo';
 
 /** What the sync modules need from SyncService; built once in its constructor. */
 export interface SyncContext {
@@ -19,5 +20,5 @@ export interface SyncContext {
         entityType: 'folder' | 'note' | 'image',
         operation: 'push' | 'pull' | 'upload',
         error: unknown,
-    ) => Promise<void>;
+    ) => Promise<SyncErrorInfo>;
 }

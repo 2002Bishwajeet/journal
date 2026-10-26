@@ -32,6 +32,7 @@ const item = (overrides: Partial<PendingSyncItem> = {}): PendingSyncItem => ({
         operation: 'push',
         since: '2026-01-01T00:00:00.000Z',
     },
+    uploaded: false,
     ...overrides,
 });
 

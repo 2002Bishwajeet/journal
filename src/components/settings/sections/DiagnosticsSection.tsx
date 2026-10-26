@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Copy, ExternalLink, Loader2, RefreshCw, Share2, Wrench } from "lucide-react";
+import { ChevronRight, Copy, ExternalLink, Loader2, RefreshCw, Share2, Trash2, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import { useDiagnostics } from "@/hooks/useDiagnostics";
+import { getPendingImageUpload } from "@/lib/db";
 import { DRIVE_OWNER_STEP, SHARE_DRIVE_FIX_STEPS } from "@/lib/homebase/shareNotifications";
 import { MAIN_FOLDER_ID } from "@/lib/homebase";
 import { explainSyncError } from "@/lib/diagnostics/report";
@@ -40,17 +42,54 @@ function itemTitle(item: PendingSyncItem): string {
   return item.isDelete ? "Deleted item" : "Untitled";
 }
 
+/** The queued image itself, read once from the bytes kept on this device (the row has its status). */
+function ImageThumb({ id }: { id: string }) {
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    let objectUrl: string | undefined;
+    let alive = true;
+    void getPendingImageUpload(id).then((row) => {
+      if (!alive || !row) return;
+      objectUrl = URL.createObjectURL(new Blob([new Uint8Array(row.blobData)], { type: row.contentType }));
+      setUrl(objectUrl);
+    });
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [id]);
+  return (
+    <span className="size-11 shrink-0 overflow-hidden rounded-md border bg-muted">
+      {url && <img src={url} alt="" className="size-full object-cover" />}
+    </span>
+  );
+}
+
+/** What discarding these image uploads loses, for the confirmation (#874). */
+function discardDescription(images: PendingSyncItem[]): string {
+  const one = images.length === 1;
+  const uploaded = images.filter((image) => image.uploaded).length;
+  let text = `${one ? "The image stays" : "The images stay"} in ${one ? "its note" : "their notes"} on this device, but ${one ? "it" : "they"} won't sync to your Homebase or your other devices.`;
+  if (uploaded > 0) {
+    const what = uploaded === images.length ? (one ? "it" : "them") : `${uploaded} of them`;
+    text += ` Your Homebase already has ${what}, but the note there won't show ${one ? "it" : "them"}.`;
+  }
+  return text;
+}
+
 function PendingRow({
   item,
   busy,
   canRetry,
   onRetry,
+  onDiscard,
   onOpen,
 }: {
   item: PendingSyncItem;
   busy: boolean;
   canRetry: boolean;
   onRetry: () => void;
+  onDiscard: () => void;
   onOpen: () => void;
 }) {
   const explained = item.error ? explainSyncError(item.error) : null;
@@ -74,6 +113,7 @@ function PendingRow({
   return (
     <li data-testid="pending-item" className="space-y-2 border-b px-4 py-3 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
+        {item.kind === "image" && <ImageThumb id={item.id} />}
         {item.noteId ? (
           <button
             type="button"
@@ -106,17 +146,32 @@ function PendingRow({
         </p>
       )}
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="min-h-11 md:min-h-0"
-        disabled={busy || !canRetry}
-        aria-label={`Retry ${itemTitle(item)}`}
-        onClick={onRetry}
-      >
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-        Retry now
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-11 md:min-h-0"
+          disabled={busy || !canRetry}
+          aria-label={`Retry ${itemTitle(item)}`}
+          onClick={onRetry}
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          Retry now
+        </Button>
+        {item.kind === "image" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-h-11 text-destructive hover:text-destructive md:min-h-0 dark:text-red-400 dark:hover:text-red-400"
+            disabled={busy}
+            aria-label={`Discard ${itemTitle(item)}`}
+            onClick={onDiscard}
+          >
+            <Trash2 className="h-4 w-4" />
+            Discard
+          </Button>
+        )}
+      </div>
     </li>
   );
 }
@@ -136,8 +191,11 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
   const navigate = useNavigate();
   const diagnostics = useDiagnostics();
   const [errorsOnly, setErrorsOnly] = useState(false);
+  // The image uploads waiting for the user to confirm a discard
+  const [toDiscard, setToDiscard] = useState<PendingSyncItem[]>([]);
   const { items, isSyncing, isOnline } = diagnostics;
   const canRetry = isOnline && !isSyncing;
+  const failedImages = (items ?? []).filter((item) => item.kind === "image" && item.status === "failed");
 
   const log = [...diagnostics.log].reverse().filter((entry) => !errorsOnly || entry.level !== "info");
 
@@ -162,6 +220,7 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
                 busy={diagnostics.retrying === item.id}
                 canRetry={canRetry}
                 onRetry={() => diagnostics.retryItem(item)}
+                onDiscard={() => setToDiscard([item])}
                 onOpen={() => {
                   navigate(`/${item.folderId ?? MAIN_FOLDER_ID}/${item.noteId}`);
                   close();
@@ -170,15 +229,35 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
             ))}
           </ul>
         )}
-        <Button
-          variant="outline"
-          className="min-h-11 w-full sm:w-auto md:min-h-9"
-          disabled={!canRetry}
-          onClick={() => diagnostics.retryAll()}
-        >
-          {isSyncing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-          Retry now
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="min-h-11 w-full sm:w-auto md:min-h-9"
+            disabled={!canRetry}
+            onClick={() => diagnostics.retryAll()}
+          >
+            {isSyncing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+            Retry now
+          </Button>
+          {failedImages.length > 1 && (
+            <Button
+              variant="outline"
+              className="min-h-11 w-full text-destructive hover:text-destructive sm:w-auto md:min-h-9 dark:text-red-400 dark:hover:text-red-400"
+              onClick={() => setToDiscard(failedImages)}
+            >
+              <Trash2 />
+              Discard all {failedImages.length} failed images
+            </Button>
+          )}
+        </div>
+        <ConfirmDialog
+          isOpen={toDiscard.length > 0}
+          onClose={() => setToDiscard([])}
+          onConfirm={() => diagnostics.discardImages(toDiscard.map((item) => item.id))}
+          title={toDiscard.length === 1 ? "Discard this image upload?" : `Discard ${toDiscard.length} image uploads?`}
+          description={discardDescription(toDiscard)}
+          confirmText="Discard"
+        />
       </div>
 
       {diagnostics.shareDriveFixUrl && (

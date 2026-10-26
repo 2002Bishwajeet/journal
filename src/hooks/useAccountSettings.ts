@@ -8,6 +8,8 @@ export interface UseAccountSettingsReturn {
     syncStatus: SyncStatus | 'offline';
     lastSyncedAt: Date | null;
     pendingTotal: number;
+    /** Changes sync stopped retrying; Diagnostics lists them (#874). */
+    failedTotal: number;
     syncNow: () => Promise<void>;
     signOut: () => Promise<void>;
 }
@@ -22,6 +24,7 @@ export function useAccountSettings(): UseAccountSettingsReturn {
         syncStatus: isOnline ? syncStatus : 'offline',
         lastSyncedAt,
         pendingTotal: pendingCount.total,
+        failedTotal: pendingCount.failed,
         syncNow: sync,
         signOut: logout,
     };

@@ -31,6 +31,8 @@ export interface PendingSyncItem {
     retryCount: number;
     nextRetryAt: string | null;
     error: PendingItemError | null;
+    /** An image whose bytes already reached the server (only linking it into the note failed). */
+    uploaded: boolean;
 }
 
 type Timestamp = string | Date | null;
@@ -52,6 +54,7 @@ export function derivePendingStatus(
 }
 
 interface ErrorColumns {
+    error_permanent: boolean | null;
     error_message: string | null;
     error_code: string | null;
     error_operation: string | null;
@@ -61,7 +64,7 @@ interface ErrorColumns {
 // The newest unresolved sync_errors row of an entity (at most one per operation).
 const LATEST_ERROR_JOIN = `
     LEFT JOIN LATERAL (
-        SELECT error_message, error_code, operation AS error_operation, created_at AS error_since,
+        SELECT permanent AS error_permanent, error_message, error_code, operation AS error_operation, created_at AS error_since,
                retry_count AS error_retry_count, next_retry_at AS error_next_retry_at
         FROM sync_errors
         WHERE entity_id = ENTITY_ID AND resolved_at IS NULL
@@ -102,7 +105,7 @@ export async function getPendingSyncItems(now = Date.now()): Promise<PendingSync
         `SELECT r.local_id AS id, r.entity_type AS kind, r.sync_status, r.last_synced_at,
                 COALESCE(s.title, f.name) AS title,
                 CASE WHEN r.entity_type = 'note' THEN s.metadata->>'folderId' END AS folder_id,
-                e.error_message, e.error_code, e.error_operation, e.error_since,
+                e.error_permanent, e.error_message, e.error_code, e.error_operation, e.error_since,
                 e.error_retry_count, e.error_next_retry_at
          FROM sync_records r
          LEFT JOIN search_index s ON r.entity_type = 'note' AND s.doc_id = r.local_id
@@ -118,19 +121,20 @@ export async function getPendingSyncItems(now = Date.now()): Promise<PendingSync
             note_doc_id: string;
             content_type: string;
             status: string;
+            uploaded: boolean;
             retry_count: number | null;
             next_retry_at: Timestamp;
             note_title: string | null;
             folder_id: string | null;
         }
     >(
-        `SELECT u.id, u.note_doc_id, u.content_type, u.status, u.retry_count, u.next_retry_at,
-                s.title AS note_title, s.metadata->>'folderId' AS folder_id,
-                e.error_message, e.error_code, e.error_operation, e.error_since
+        `SELECT u.id, u.note_doc_id, u.content_type, u.status, u.payload_key IS NOT NULL AS uploaded,
+                u.retry_count, u.next_retry_at, s.title AS note_title, s.metadata->>'folderId' AS folder_id,
+                e.error_permanent, e.error_message, e.error_code, e.error_operation, e.error_since
          FROM pending_image_uploads u
          LEFT JOIN search_index s ON s.doc_id = u.note_doc_id
          ${LATEST_ERROR_JOIN.replace('ENTITY_ID', 'u.id')}
-         WHERE u.status <> 'synced'
+         WHERE u.status NOT IN ('synced', 'discarded')
          ORDER BY u.created_at`,
     );
 
@@ -141,7 +145,7 @@ export async function getPendingSyncItems(now = Date.now()): Promise<PendingSync
         return {
             id: row.id,
             kind: row.kind,
-            status: derivePendingStatus({ givenUp: false, hasError: error !== null, retryCount, nextRetryAt }, now),
+            status: derivePendingStatus({ givenUp: row.error_permanent === true, hasError: error !== null, retryCount, nextRetryAt }, now),
             isDelete: row.sync_status === 'pending_delete',
             title: row.title,
             noteId: row.kind === 'note' && row.title !== null ? row.id : null,
@@ -151,6 +155,7 @@ export async function getPendingSyncItems(now = Date.now()): Promise<PendingSync
             retryCount,
             nextRetryAt,
             error,
+            uploaded: false,
         };
     });
 
@@ -174,6 +179,7 @@ export async function getPendingSyncItems(now = Date.now()): Promise<PendingSync
             retryCount,
             nextRetryAt,
             error,
+            uploaded: row.uploaded,
         };
     });
 
@@ -182,14 +188,21 @@ export async function getPendingSyncItems(now = Date.now()): Promise<PendingSync
 
 /**
  * Make failed items due now so the next sync pass tries them instead of skipping
- * them for backoff: all of them, or just `entityId`.
+ * them for backoff or a permanent error: all of them, or just `entityId`. An image
+ * given up on goes back in the queue with a fresh attempt budget.
  */
 export async function clearRetryBackoff(entityId?: string): Promise<void> {
     const db = await getDatabase();
     const params = entityId ? [entityId] : [];
     const only = (column: string) => (entityId ? `AND ${column} = $1` : '');
-    await db.query(`UPDATE sync_errors SET next_retry_at = NULL WHERE resolved_at IS NULL ${only('entity_id')}`, params);
-    await db.query(`UPDATE pending_image_uploads SET next_retry_at = NULL WHERE status <> 'synced' ${only('id')}`, params);
+    await db.query(`UPDATE sync_errors SET next_retry_at = NULL, permanent = FALSE WHERE resolved_at IS NULL ${only('entity_id')}`, params);
+    await db.query(
+        `UPDATE pending_image_uploads SET next_retry_at = NULL,
+                retry_count = CASE WHEN status = 'failed_permanent' THEN 0 ELSE retry_count END,
+                status = CASE WHEN status = 'failed_permanent' THEN 'pending' ELSE status END
+         WHERE status NOT IN ('synced', 'discarded') ${only('id')}`,
+        params,
+    );
 }
 
 export interface DatabaseInfo {

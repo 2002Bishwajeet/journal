@@ -9,6 +9,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { formatBytes, useStorageInfo } from '@/hooks/useStorageInfo';
 import {
     clearRetryBackoff,
+    discardPendingImageUploads,
     getAppState,
     getDatabaseInfo,
     getPendingSyncItems,
@@ -67,7 +68,8 @@ function formatWhen(time: Date | number | null): string {
  * errors, the recent log, a status block, and the actions that retry or share them.
  */
 export function useDiagnostics() {
-    const { syncStatus, pendingCount, lastSyncedAt, websocketConnected, sync, syncNote, syncFolder } = useSyncService();
+    const { syncStatus, pendingCount, lastSyncedAt, websocketConnected, sync, syncNote, syncFolder, refreshPendingCount } =
+        useSyncService();
     const { isOnline } = useOnlineContext();
     const { getIdentity } = useAuth();
     const client = useDotYouClientContext();
@@ -104,7 +106,7 @@ export function useDiagnostics() {
     }, [fixAttempted, attributeFixed]);
 
     // Re-read the list whenever a sync finishes or the count moves, and after a retry.
-    const listKey = `${pendingCount.total}:${syncStatus}:${lastSyncedAt?.getTime() ?? 0}:${reloadCount}`;
+    const listKey = `${pendingCount.total}:${pendingCount.failed}:${syncStatus}:${lastSyncedAt?.getTime() ?? 0}:${reloadCount}`;
     useEffect(() => {
         let cancelled = false;
         getPendingSyncItems()
@@ -180,6 +182,14 @@ export function useDiagnostics() {
         }
     };
 
+    // Images only: a note or folder can't be discarded without replacing it with the server copy (#800).
+    const discardImages = async (ids: string[]) => {
+        await discardPendingImageUploads(ids);
+        appendLog('info', `[Diagnostics] Discarded ${ids.length} image ${ids.length === 1 ? 'upload' : 'uploads'}`);
+        // The count change re-reads the list (listKey)
+        await refreshPendingCount();
+    };
+
     const reportText = () => buildReport({ status, items: items ?? [], log, includeTitles });
 
     const copyReport = async () => {
@@ -218,6 +228,7 @@ export function useDiagnostics() {
         retrying,
         retryAll,
         retryItem,
+        discardImages,
         includeTitles,
         setIncludeTitles,
         copyReport,
