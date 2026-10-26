@@ -16,6 +16,26 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.31.0 (2026-10-26)
+
+### Changed
+
+- On a phone, Search now fills the whole screen and has a Cancel button. The results stay above the keyboard.
+
+## 2.30.1 (2026-10-26)
+
+### Fixed
+
+- The sidebar no longer shows a collapse button on phones and tablets.
+- The sidebar fills the full width on tablets.
+- Sidebar buttons and rows are now large enough to tap on touch screens.
+
+## 2.30.0 (2026-10-26)
+
+### Fixed
+
+- Settings › Diagnostics now tells you when your journal drive blocks share notifications. It shows how to turn them on in your owner console.
+
 ## 2.29.1 (2026-10-26)
 
 ### Changed

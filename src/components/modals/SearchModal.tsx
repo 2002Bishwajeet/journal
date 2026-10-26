@@ -2,6 +2,7 @@ import { HighlightedText } from "@/components/ui/HighlightedText";
 import { Kbd } from "@/components/ui/kbd";
 import { Search, FileText, Loader2, Sparkles, Type, FileSearch, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { followKeyboard } from "@/lib/keyboardViewport";
 import { proseOnly } from "@/lib/previewText";
 import { useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { useSearchModal, isAdvancedResult, type SearchResult } from "@/hooks/useSearchModal";
@@ -68,7 +69,7 @@ function SearchResultItem({
       key={result.docId}
       id={`search-result-${index}`}
       onClick={onSelect}
-      onMouseEnter={onHover}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') onHover(); }}
       className={cn(
         "flex items-start gap-3 w-full px-3 py-3 text-left rounded-md transition-colors",
         isSelected ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"
@@ -126,7 +127,7 @@ function SearchResultItem({
 
       {isSelected && (
         <div className="self-center shrink-0 text-muted-foreground opacity-50 px-2">
-          <span className="text-[10px]">↵</span>
+          <span className="text-[10px] pointer-coarse:hidden">↵</span>
         </div>
       )}
     </button>
@@ -163,7 +164,9 @@ export default function SearchModal({
         role="dialog"
         aria-modal="true"
         aria-label="Search notes"
-        className="fixed left-1/2 top-[10%] -translate-x-1/2 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl border border-border sm:rounded-xl overflow-hidden flex flex-col max-h-[85dvh] animate-in fade-in zoom-in-95 duration-200"
+        // On a phone the sheet fills what is left above the keyboard (followKeyboard sets the vars).
+        ref={followKeyboard}
+        className="fixed inset-x-0 top-[var(--dialog-top,50%)] -translate-y-1/2 h-[var(--dialog-max-h,100dvh)] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:inset-x-auto sm:left-1/2 sm:top-[10%] sm:-translate-x-1/2 sm:translate-y-0 sm:h-auto sm:pt-0 sm:pb-0 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl sm:border border-border sm:rounded-xl overflow-hidden flex flex-col sm:max-h-[85dvh] animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input - Large and clean */}
@@ -184,10 +187,17 @@ export default function SearchModal({
           <div className="hidden sm:flex items-center gap-1.5 ">
             <Kbd>Esc</Kbd>
           </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="sm:hidden h-11 px-2 -mr-2 text-sm font-medium text-primary shrink-0 touch-manipulation"
+          >
+            Cancel
+          </button>
         </div>
 
         {/* Results */}
-        <div className="flex-1 overflow-y-auto min-h-0 py-2">
+        <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 py-2">
           {isLoading ? (
             <div className="py-12 text-center text-sm text-muted-foreground flex flex-col items-center justify-center gap-3">
               <Loader2 className="h-6 w-6 animate-spin opacity-50" />

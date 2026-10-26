@@ -1,3 +1,31 @@
+# [2.31.0](https://github.com/2002Bishwajeet/journal/compare/v2.30.1...v2.31.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **search:** keep the phone sheet above the iOS keyboard with followKeyboard, check it in the iOS Safari job ([#780](https://github.com/2002Bishwajeet/journal/issues/780)) ([e2da63e](https://github.com/2002Bishwajeet/journal/commit/e2da63e6160f926dff3802962d2f1763c0ccd806))
+
+
+### Features
+
+* **mobile:** search is a full-screen sheet with Cancel, above the keyboard ([#780](https://github.com/2002Bishwajeet/journal/issues/780)) ([bb92313](https://github.com/2002Bishwajeet/journal/commit/bb92313e77deef3e037ddeebe5c6c240f2fc0a3c))
+## [2.30.1](https://github.com/2002Bishwajeet/journal/compare/v2.30.0...v2.30.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **sidebar:** no collapse rail on phones, full width on tablets, 44px tap targets ([#776](https://github.com/2002Bishwajeet/journal/issues/776)) ([1c0f20a](https://github.com/2002Bishwajeet/journal/commit/1c0f20a2996d2f64700e5c87da518f760923d6b3))
+# [2.30.0](https://github.com/2002Bishwajeet/journal/compare/v2.29.1...v2.30.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **sharing:** detect share notifications off on drives without allowSubscriptions ([#817](https://github.com/2002Bishwajeet/journal/issues/817)) ([5fdf9c9](https://github.com/2002Bishwajeet/journal/commit/5fdf9c9d8ca95150204c9f620d93e8bf05e49401)), closes [#763](https://github.com/2002Bishwajeet/journal/issues/763) [homebase-id/odin-core#1999](https://github.com/homebase-id/odin-core/issues/1999)
+
+
+### Features
+
+* **sharing:** stop sending the invite file (615) when sharing a note ([#747](https://github.com/2002Bishwajeet/journal/issues/747)) ([28cc61d](https://github.com/2002Bishwajeet/journal/commit/28cc61d22c60ca1087d9962b741abb4b7e89696a))
 ## [2.29.1](https://github.com/2002Bishwajeet/journal/compare/v2.29.0...v2.29.1) (2026-10-26)
 
 
