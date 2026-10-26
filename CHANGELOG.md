@@ -1,3 +1,14 @@
+# [2.31.0](https://github.com/2002Bishwajeet/journal/compare/v2.30.1...v2.31.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **search:** keep the phone sheet above the iOS keyboard with followKeyboard, check it in the iOS Safari job ([#780](https://github.com/2002Bishwajeet/journal/issues/780)) ([e2da63e](https://github.com/2002Bishwajeet/journal/commit/e2da63e6160f926dff3802962d2f1763c0ccd806))
+
+
+### Features
+
+* **mobile:** search is a full-screen sheet with Cancel, above the keyboard ([#780](https://github.com/2002Bishwajeet/journal/issues/780)) ([bb92313](https://github.com/2002Bishwajeet/journal/commit/bb92313e77deef3e037ddeebe5c6c240f2fc0a3c))
 ## [2.30.1](https://github.com/2002Bishwajeet/journal/compare/v2.30.0...v2.30.1) (2026-10-26)
 
 

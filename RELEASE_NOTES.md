@@ -16,6 +16,8 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.31.0 (2026-10-26)
+
 ### Changed
 
 - On a phone, Search now fills the whole screen and has a Cancel button. The results stay above the keyboard.
