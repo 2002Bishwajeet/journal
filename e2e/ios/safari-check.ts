@@ -255,11 +255,12 @@ try {
   await gesture('swipe', row, 0, [100, 0], [0, 6]);
   await tap('[aria-label="Sort notes"]');
   await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
-  await gesture('drift-scroll', row, 4, [60, 150], [20, -150]);
+  // Drags stay on the list: one that starts on Safari's bottom toolbar opens its tab overview.
+  await gesture('drift-scroll', row, 3, [60, 0], [20, -260]);
   await browser.execute((sel) => document.querySelector(sel)!.closest('[data-radix-scroll-area-viewport]')!.scrollTo(0, 0), row);
   await gesture('pull', row, 0, [0, 0], [0, 150], 600);
   await waitFor('the refresh to finish', () => !document.querySelector('[data-pull-to-refresh] .animate-spin'), 15_000).catch(() => {});
-  await gesture('scroll-after-pull', row, 4, [0, 150], [0, -150]);
+  await gesture('scroll-after-pull', row, 3, [0, 0], [0, -260]);
 } catch (error) {
   failures.push(`run: ${(error as Error).message}`);
   await screenshot('error').catch(() => {});
