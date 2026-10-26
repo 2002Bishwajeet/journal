@@ -1,3 +1,11 @@
+## [2.29.1](https://github.com/2002Bishwajeet/journal/compare/v2.29.0...v2.29.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **dialogs:** 44px close and footer buttons, left header, dvh cap, dark outlines ([#783](https://github.com/2002Bishwajeet/journal/issues/783)) ([141d092](https://github.com/2002Bishwajeet/journal/commit/141d0923c5cb578700d23227152d5eec3eda8a67))
+* **dialogs:** keep footer buttons above the iOS keyboard; fix screenshot theme labels ([#783](https://github.com/2002Bishwajeet/journal/issues/783)) ([deb443b](https://github.com/2002Bishwajeet/journal/commit/deb443b7ec1794e6c174e5c3590ecf46d421099c))
+* **dialogs:** version history sheet opts out of the dvh cap on phones ([#783](https://github.com/2002Bishwajeet/journal/issues/783)) ([ab4de8e](https://github.com/2002Bishwajeet/journal/commit/ab4de8e64ed4be93d659df036561213567cef008))
 # [2.29.0](https://github.com/2002Bishwajeet/journal/compare/v2.28.0...v2.29.0) (2026-10-26)
 
 

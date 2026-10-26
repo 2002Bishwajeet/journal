@@ -141,7 +141,7 @@ export default function KeyboardShortcutsModal({
 }: KeyboardShortcutsModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[80dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
         </DialogHeader>
