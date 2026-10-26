@@ -47,10 +47,10 @@ test('the share notifications notice has one Fix in owner console button and the
     await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
     await screenshotBothThemes(page, 'diagnostics-share-fix');
 
-    await notice.getByText('Do it by hand').tap();
+    await notice.getByText('Do it by hand', { exact: true }).tap();
     await expect(notice.getByRole('listitem')).toHaveCount(2);
     await expect(notice.getByRole('link', { name: 'Open drive settings' })).toBeVisible();
-    await notice.getByText('Do it by hand').scrollIntoViewIfNeeded();
+    await notice.getByText('Do it by hand', { exact: true }).scrollIntoViewIfNeeded();
     await screenshotBothThemes(page, 'diagnostics-share-fix-manual');
   });
 });

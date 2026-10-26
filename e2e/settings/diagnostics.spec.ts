@@ -98,7 +98,7 @@ test('a refused share push offers the one-tap fix and keeps the manual steps (#8
 
   // The manual steps wait behind a toggle.
   await expect(notice.getByRole('listitem')).toHaveCount(0);
-  await notice.getByText('Do it by hand').click();
+  await notice.getByText('Do it by hand', { exact: true }).click();
   await expect(notice.getByRole('listitem')).toHaveText([
     'Add the attribute IsCollaborativeChannel with the value true.',
     'If shares still don\'t notify people after this, also turn on "Allow subscriptions".',
