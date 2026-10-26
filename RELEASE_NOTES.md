@@ -19,6 +19,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - Sharing a note no longer sends an invite file. Your friends still see the note under "Shared with me".
 
+- On a phone, dialogs are easier to use. The close button and the dialog buttons are bigger and easier to tap. A dialog never gets taller than the screen. When you type in a dialog, its buttons stay above the keyboard. In dark mode, buttons and fields in dialogs have outlines that you can see.
+
 ## 2.29.0 (2026-10-26)
 
 ### Changed
