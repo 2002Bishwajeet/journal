@@ -11,7 +11,7 @@ import {
     STORAGE_KEY_SHARED_SECRET,
 } from '@/lib/homebase/config';
 import { removeWebPush } from '@/lib/homebase/WebPushProvider';
-import { SESSION_STORAGE_KEY, TABS_STORAGE_KEY } from '@/lib/storage';
+import { SESSION_STORAGE_KEY, TABS_STORAGE_KEY, RECENT_NOTES_KEY, RECENT_SEARCHES_KEY } from '@/lib/storage';
 import { useVerifyToken } from './useVerifyToken';
 import { useOnlineContext } from '../useOnlineContext';
 
@@ -116,6 +116,8 @@ export function useAuth() {
         // Device-local UI state that used to be wiped with the app_state table.
         localStorage.removeItem(TABS_STORAGE_KEY);
         localStorage.removeItem(SESSION_STORAGE_KEY);
+        localStorage.removeItem(RECENT_NOTES_KEY);
+        localStorage.removeItem(RECENT_SEARCHES_KEY);
 
         navigate('/welcome');
         window.location.reload();

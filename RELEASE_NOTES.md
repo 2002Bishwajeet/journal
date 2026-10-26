@@ -16,6 +16,51 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.36.1 (2026-10-26)
+
+### Fixed
+
+- Note list (phone): the New button has its compact size again. Its tap area stays 44 px tall.
+
+## 2.36.0 (2026-10-26)
+
+### Changed
+
+- On a phone, the Back button and the Back swipe now close a dialog or sheet and stay on the same screen. Back inside a note or a list now goes to the screen you came from, including after you open a note from Search.
+- On a phone, the note list has one header with Back, Sort and New. The buttons are bigger, and the date headings stay at the top while you scroll. Opening a folder or a note slides the new screen in from the right, and the Back button slides it back. The Back swipe keeps Safari's own animation.
+
+## 2.35.1 (2026-10-26)
+
+### Fixed
+
+- In Safari on iPhone and iPad, Journal no longer stays on the loading screen when it opens a new page of the app.
+- If Journal does not open within 20 seconds, the app shows a Reload button. You are no longer stuck on the loading screen.
+
+## 2.35.0 (2026-10-26)
+
+### New
+
+- On iPhone and iPad, the home screen app now opens with a launch screen that matches the app. It is light or dark to match your phone's appearance when you added the app to the home screen.
+
+## 2.34.0 (2026-10-26)
+
+### New
+
+- Search shows the notes you opened recently and your recent searches. A note you opened recently also ranks a little higher in the results.
+
+## 2.33.0 (2026-10-26)
+
+### Changed
+
+- When share notifications are off, Settings > Diagnostics shows only the owner console steps that your journal drive still needs.
+- The install dialog in Chrome now shows screenshots of the app.
+- On Android, the app icon fills the shape of the icon mask.
+- On iOS, the Home Screen icon is named "Journal".
+
+### Fixed
+
+- The assistant does not propose an edit again after you reject it or after it fails. After two such edits, it answers the question.
+
 ## 2.32.1 (2026-10-26)
 
 ### Fixed

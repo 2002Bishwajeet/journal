@@ -5,6 +5,7 @@ import { useNotes } from '@/hooks/useNotes';
 import { useMoveNote } from '@/hooks/useMoveNote';
 import { resolveNoteFolderId } from '@/hooks/useFolders';
 import type { NoteListEntry } from '@/types';
+import { slideNavigate } from '@/lib/navDirection';
 
 interface UseNoteActionsOptions {
     folderId: string | undefined;
@@ -92,12 +93,11 @@ export function useNoteActions({
         const note = notes.find((n) => n.docId === id);
         const targetFolder = note?.metadata.folderId || folderId;
         if (selectedTag) {
-            navigate(
-                `/${targetFolder}/${id}?tag=${encodeURIComponent(selectedTag)}`,
-                { viewTransition: true },
+            slideNavigate("forward", () =>
+                navigate(`/${targetFolder}/${id}?tag=${encodeURIComponent(selectedTag)}`),
             );
         } else {
-            navigate(`/${folderId}/${id}`, { viewTransition: true });
+            slideNavigate("forward", () => navigate(`/${folderId}/${id}`));
         }
     };
 
@@ -144,8 +144,7 @@ export function useNoteActions({
         const { docId, folderId: newFolderId } = await createNote(
             resolveNoteFolderId(targetFolderId, folders),
         );
-        if (docId)
-            navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
+        if (docId) slideNavigate("forward", () => navigate(`/${newFolderId}/${docId}`));
     };
 
     /** Move a note to another folder; if it's the open note, the URL follows it there. */

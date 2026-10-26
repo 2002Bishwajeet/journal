@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
 import {
   Plus,
@@ -14,6 +15,7 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowUpDown,
+  ChevronLeft,
   ExternalLink,
   Bot,
 } from "lucide-react";
@@ -57,6 +59,10 @@ interface NoteListProps {
   className?: string;
   /** Identifies the current view (folder or tag); changing it resets the render budget. */
   viewKey?: string;
+  /** Phone only: the heading, Back handler and trailing slot that replace the pane's own header. */
+  title?: string;
+  onBack?: () => void;
+  trailing?: ReactNode;
 }
 
 export default function NoteList({
@@ -72,6 +78,9 @@ export default function NoteList({
   isLoading = false,
   className = "",
   viewKey,
+  title,
+  onBack,
+  trailing,
 }: NoteListProps) {
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"modified" | "created" | "title">(
@@ -211,11 +220,26 @@ export default function NoteList({
     >
       {/* Header */}
       <div className="flex items-center justify-between h-12 px-3 border-b border-border shrink-0">
-        <span className="text-sm font-medium text-foreground">Notes</span>
-        <div className="flex items-center gap-1">
+        {onBack && (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Back to notes"
+            className="h-8 w-8 shrink-0 pointer-coarse:size-11"
+            onClick={onBack}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+        )}
+        {title ? (
+          <h2 className="text-sm font-medium text-foreground truncate flex-1 leading-none">{title}</h2>
+        ) : (
+          <span className="text-sm font-medium text-foreground">Notes</span>
+        )}
+        <div className="flex items-center gap-1 shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Sort notes" className="h-7 w-7">
+              <Button variant="ghost" size="icon" aria-label="Sort notes" className="h-7 w-7 pointer-coarse:size-11">
                 <ArrowUpDown className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
@@ -240,10 +264,11 @@ export default function NoteList({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" onClick={onCreateNote} className="h-7 text-xs">
+          <Button size="sm" onClick={onCreateNote} className="relative h-7 text-xs after:absolute after:inset-x-0 after:-inset-y-2">
             <Plus className="h-3.5 w-3.5 mr-1" />
             New
           </Button>
+          {trailing}
         </div>
       </div>
 
@@ -252,7 +277,7 @@ export default function NoteList({
         className="flex-1 min-h-0 w-full"
         onScrollCapture={() => setOpenRowId(null)}
       >
-        <PullToRefresh onRefresh={handleRefresh} className="w-full">
+        <PullToRefresh onRefresh={handleRefresh} className="w-full overflow-x-clip">
           {isLoading ? (
             <div className="flex items-center justify-center h-32">
               <span className="text-sm text-muted-foreground">Loading...</span>
@@ -272,7 +297,7 @@ export default function NoteList({
                   <button
                     onClick={() => toggleGroup(group.label)}
                     aria-expanded={!group.collapsed}
-                    className="flex items-center w-full px-3 py-1 hover:bg-muted/50 transition-colors group/header"
+                    className="sticky top-0 z-10 bg-background flex items-center w-full px-3 py-1 pointer-coarse:min-h-11 hover:bg-muted transition-colors group/header"
                   >
                     {group.collapsed ? (
                       <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
@@ -282,7 +307,7 @@ export default function NoteList({
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       {group.label}
                     </span>
-                    <span className="ml-2 text-xs text-muted-foreground/70 opacity-0 group-hover/header:opacity-100 transition-opacity">
+                    <span className="ml-2 text-xs text-muted-foreground/70 opacity-0 pointer-coarse:opacity-100 group-hover/header:opacity-100 transition-opacity">
                       {group.notes.length}
                     </span>
                   </button>

@@ -71,6 +71,9 @@ export const JOURNAL_DRIVE: TargetDrive = {
     type: '30743710039d4b97bbd352f343d1c9df',
 };
 
+/** Attributes the journal drive needs for peer notifications (#848); Homebase reads `IsCollaborativeChannel` on a share push. */
+export const JOURNAL_DRIVE_ATTRIBUTES: Record<string, string> = { IsCollaborativeChannel: 'true' };
+
 /**
  * Owner Console deep link for a note. `docId` is the Homebase `uniqueId`, which the
  * console accepts in place of a numeric fileId. `root` must come from
