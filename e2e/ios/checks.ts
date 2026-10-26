@@ -18,6 +18,8 @@ export type Layout = {
   caret: Rect | null;
   /** The mobile editor toolbar (MobileToolbar), shown while the keyboard is up. */
   toolbar: Rect | null;
+  /** The footer (action buttons) of an open dialog. */
+  dialogFooter: Rect | null;
   /** The sidebar's last button ("Log out"), the bottom of the shell at the root. */
   sidebarFooter: Rect | null;
   /** Requests that left the app origin. Safari can't fence them like Playwright does, so they are caught afterwards. */
@@ -66,6 +68,7 @@ export function measureLayout(): Layout {
       : null,
     caret: range ? box(range.getClientRects()[0] ?? range.getBoundingClientRect()) : null,
     toolbar: box(shown(toolbar)?.getBoundingClientRect()),
+    dialogFooter: box(shown(document.querySelector('[role="dialog"] [data-slot="dialog-footer"]'))?.getBoundingClientRect()),
     sidebarFooter: box(shown(logOut)?.getBoundingClientRect()),
     foreignRequests: performance
       .getEntriesByType('resource')
@@ -97,6 +100,10 @@ export function layoutProblems(m: Layout, keyboardUp: boolean): string[] {
     else if (!onScreen(m.caret)) problems.push(`the caret (${span(m.caret)}) is outside the visual viewport (${visible})`);
     if (!m.toolbar) problems.push('the keyboard is up but the mobile toolbar is not shown');
     else if (!onScreen(m.toolbar)) problems.push(`the mobile toolbar (${span(m.toolbar)}) is outside the visual viewport (${visible})`);
+  }
+  // A dialog's buttons must stay above the keyboard while one of its fields has focus (#783).
+  if (m.focused && m.dialogFooter && !onScreen(m.dialogFooter)) {
+    problems.push(`the dialog buttons (${span(m.dialogFooter)}) are outside the visual viewport (${visible})`);
   }
   const usableBottom = Math.min(m.innerHeight, visibleBottom) - m.insets.bottom;
   // With a field focused the keyboard covers the bottom of the page, the sidebar footer included.

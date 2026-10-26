@@ -12,6 +12,7 @@ const ok: Layout = {
   focused: null,
   caret: null,
   toolbar: null,
+  dialogFooter: null,
   sidebarFooter: { top: 610, bottom: 642, left: 8, right: 385 },
   foreignRequests: [],
 };
@@ -58,6 +59,14 @@ describe('iOS Safari layout checks', () => {
   it('should not flag the sidebar footer under the keyboard while a dialog field is focused', () => {
     const dialogField = { ...ok, viewport: { top: 0, height: 436 }, focused: { name: 'input[Folder Name]', fontSize: 16 }, sidebarFooter: { top: 619, bottom: 651, left: 8, right: 385 } };
     expect(layoutProblems(dialogField, false)).toEqual([]);
+  });
+
+  it('should flag dialog buttons under the keyboard while a dialog field is focused', () => {
+    const field = { ...ok, viewport: { top: 0, height: 436 }, focused: { name: 'input[Folder Name]', fontSize: 16 }, sidebarFooter: null };
+    expect(layoutProblems({ ...field, dialogFooter: { top: 380, bottom: 424, left: 24, right: 369 } }, false)).toEqual([]);
+    expect(layoutProblems({ ...field, dialogFooter: { top: 410, bottom: 506, left: 24, right: 369 } }, false)).toEqual([
+      'the dialog buttons (410–506) are outside the visual viewport (0–436)',
+    ]);
   });
 
   it('should flag a caret or toolbar hidden behind the keyboard', () => {

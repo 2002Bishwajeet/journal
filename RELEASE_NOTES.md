@@ -20,6 +20,10 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - On a phone, a normal scroll through your notes no longer opens the delete button on a note. Swipe left to show it. Only one note stays open, and it closes when you scroll or tap outside it.
 - On a phone, pull down to refresh no longer scrolls the list at the same time.
 
+### Changed
+
+- On a phone, dialogs are easier to use. The close button and the dialog buttons are bigger and easier to tap. A dialog never gets taller than the screen. When you type in a dialog, its buttons stay above the keyboard. In dark mode, buttons and fields in dialogs have outlines that you can see.
+
 ## 2.29.0 (2026-10-26)
 
 ### Changed
