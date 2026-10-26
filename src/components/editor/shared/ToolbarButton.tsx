@@ -47,7 +47,10 @@ export function ToolbarButton({
         e.preventDefault();
         if (!disabled) onClick();
       }
-    : undefined;
+    : variant === 'mobile'
+      // Keep the editor focused so the keyboard stays up; the click still runs onClick.
+      ? (e: React.MouseEvent) => e.preventDefault()
+      : undefined;
 
   return (
     <button
