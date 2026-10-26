@@ -209,7 +209,11 @@ async function typeAndReload(line: string, how: 'location.reload' | 'load-root',
   await typeOnKeyboard(`\n${line}`);
   if (!(await editorHas(line))) failures.push(`${label}: "${line}" did not show in the editor after typing`);
   await reloadCheck(how, label);
-  if (!(await editorHas(line))) failures.push(`reload-${label}: "${line}", typed just before the reload, was missing after it`);
+  // A boot slower than 20 s already failed above; judge the text only once the editor is back,
+  // so a slow boot is not reported as lost text.
+  const back = await waitFor('the editor after the reload', () => !!document.querySelector('.ProseMirror'), 60_000).then(() => true, () => false);
+  if (!back) failures.push(`reload-${label}: the editor did not come back within 60 s, so "${line}" could not be checked`);
+  else if (!(await editorHas(line))) failures.push(`reload-${label}: "${line}", typed just before the reload, was missing after it`);
 }
 
 const dialogOpen = () => !!document.querySelector('[role="dialog"]');
