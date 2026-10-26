@@ -48,6 +48,7 @@ export function NoteListPane({
 
   return (
     <div
+      data-pane="note-list"
       className={cn(
         "h-full border-r bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
         // Desktop: Always visible, static positioning (part of flex flow).
