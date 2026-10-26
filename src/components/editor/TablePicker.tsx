@@ -29,6 +29,7 @@ export function TablePicker({ editor }: TablePickerProps) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
+          onMouseDown={(e) => e.preventDefault()}
           className={cn(
             'p-2 rounded-md transition-colors',
             'hover:bg-accent hover:text-accent-foreground',
