@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/auth/useAuth';
 import { useSyncService } from '@/hooks/useSyncService';
@@ -16,7 +17,12 @@ import {
     type PendingSyncItem,
 } from '@/lib/db';
 import { SHARED_PULL_STATE_KEY } from '@/lib/homebase/sync/sharedPull';
-import { getShareNotificationsOffHosts, subscribeShareNotifications } from '@/lib/homebase/shareNotifications';
+import {
+    fetchJournalDriveFacts,
+    getShareNotificationsOffHosts,
+    missingShareDriveFixes,
+    subscribeShareNotifications,
+} from '@/lib/homebase/shareNotifications';
 import { ownerConsoleDriveUrl } from '@/lib/homebase/config';
 import { useDotYouClientContext } from '@/components/auth';
 import { appendLog, getLogSnapshot, subscribeLog } from '@/lib/diagnostics/logBuffer';
@@ -74,6 +80,13 @@ export function useDiagnostics() {
     const log = useSyncExternalStore(subscribeLog, getLogSnapshot);
     const shareNotificationsOff = useSyncExternalStore(subscribeShareNotifications, getShareNotificationsOffHosts)
         .includes(client.getHostIdentity());
+    // What an app token can read of the journal drive (#848); null when the host won't say.
+    const { data: driveFacts = null } = useQuery({
+        queryKey: ['journal-drive-facts', client.getHostIdentity()],
+        queryFn: () => fetchJournalDriveFacts(client),
+        retry: false,
+    });
+    const shareDriveFixes = missingShareDriveFixes(driveFacts, shareNotificationsOff);
 
     // Re-read the list whenever a sync finishes or the count moves, and after a retry.
     const listKey = `${pendingCount.total}:${syncStatus}:${lastSyncedAt?.getTime() ?? 0}:${reloadCount}`;
@@ -108,7 +121,7 @@ export function useDiagnostics() {
         { label: 'Last full sync', value: formatWhen(lastSyncedAt) },
         { label: 'Last shared notes pass', value: formatWhen(facts?.sharedPassAt ?? null) },
         { label: 'Push notifications', value: pushStatus },
-        ...(shareNotificationsOff ? [{ label: 'Share notifications', value: 'off: the journal drive does not allow subscriptions' }] : []),
+        ...(shareDriveFixes.length ? [{ label: 'Share notifications', value: 'off: the journal drive needs a fix on your owner console' }] : []),
         { label: 'Service worker', value: facts?.serviceWorker ?? 'checking' },
         {
             label: 'Database',
@@ -175,8 +188,9 @@ export function useDiagnostics() {
 
     return {
         status,
-        // Set once a share push was refused (#817); the fix is a switch on the owner console.
-        shareNotificationsFixUrl: shareNotificationsOff ? ownerConsoleDriveUrl(client.getRoot()) : null,
+        // Owner console steps the journal drive still needs for share pushes (#817, #848).
+        shareDriveFixes,
+        shareNotificationsFixUrl: shareDriveFixes.length ? ownerConsoleDriveUrl(client.getRoot()) : null,
         items,
         log,
         isSyncing: syncStatus === 'syncing',

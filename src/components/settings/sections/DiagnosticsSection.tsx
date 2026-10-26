@@ -4,6 +4,7 @@ import { Copy, ExternalLink, Loader2, RefreshCw, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useDiagnostics } from "@/hooks/useDiagnostics";
+import { SHARE_DRIVE_FIX_STEPS } from "@/lib/homebase/shareNotifications";
 import { MAIN_FOLDER_ID } from "@/lib/homebase";
 import { explainSyncError } from "@/lib/diagnostics/report";
 import type { PendingItemStatus, PendingSyncItem } from "@/lib/db/queries/diagnostics";
@@ -175,9 +176,14 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
             Share notifications are off
           </SectionHeader>
           <p className="text-sm leading-relaxed text-pretty">
-            Your Homebase refused the notification because this journal's drive doesn't allow subscriptions. Open the
-            drive on your owner console, choose the edit (pencil) button and turn on Allow subscriptions.
+            Your journal drive isn't set up to send them. On your owner console, open the drive, choose the edit
+            (pencil) button and:
           </p>
+          <ol className="list-decimal space-y-1 pl-5 text-sm leading-relaxed">
+            {diagnostics.shareDriveFixes.map((fix) => (
+              <li key={fix}>{SHARE_DRIVE_FIX_STEPS[fix]}</li>
+            ))}
+          </ol>
           <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto md:min-h-9">
             <a href={diagnostics.shareNotificationsFixUrl} target="_blank" rel="noopener noreferrer">
               <ExternalLink />

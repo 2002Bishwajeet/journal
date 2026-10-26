@@ -145,6 +145,12 @@ async function appClient() {
     });
 }
 
+/** Records that the identity's server refused a share push, as a 400 on a drive without subscriptions does (#848). */
+async function refuseSharePush(): Promise<void> {
+    const { markShareNotificationsOff } = await import('@/lib/homebase/shareNotifications');
+    markShareNotificationsOff((await appClient()).getHostIdentity());
+}
+
 /** Subscribes to `odinId`'s Journal peer push now, as the app's daily pass does (#743). */
 async function subscribePeerPush(odinId: string): Promise<void> {
     const { PeerPushSubscriptionProvider } = await import('@/lib/homebase/PeerPushSubscriptionProvider');
@@ -200,7 +206,7 @@ export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
 
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, seedPendingSync, deleteFilesNamed, subscribePeerPush, journalNotifications }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, seedPendingSync, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications }),
         writable: false,
         configurable: false,
         enumerable: false,
