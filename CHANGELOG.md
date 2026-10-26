@@ -1,3 +1,14 @@
+# [2.37.0](https://github.com/2002Bishwajeet/journal/compare/v2.36.1...v2.37.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **diagnostics:** re-read the journal drive after the owner console fix; note older consoles ([#870](https://github.com/2002Bishwajeet/journal/issues/870)) ([cb3f3a7](https://github.com/2002Bishwajeet/journal/commit/cb3f3a7921db4be66ff8c40dd9e7fc6717afa1ee)), closes [odin-js#993](https://github.com/odin-js/issues/993)
+
+
+### Features
+
+* **diagnostics:** fix the journal drive through the extend-permissions page ([#870](https://github.com/2002Bishwajeet/journal/issues/870)) ([7a36d9d](https://github.com/2002Bishwajeet/journal/commit/7a36d9d47d8e7aac4221cb9460622592369348bb))
 ## [2.36.1](https://github.com/2002Bishwajeet/journal/compare/v2.36.0...v2.36.1) (2026-10-26)
 
 
