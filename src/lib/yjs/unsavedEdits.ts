@@ -7,7 +7,8 @@ import { readString, removeKey, writeString } from '@/lib/storage';
  * its IndexedDB flush finishes after the COMMIT, so iOS Safari can unload the page (or
  * #806's back/forward-cache shutdown can stop the worker) before the edit reaches disk.
  * localStorage is written before the page goes away; the next load of the note applies
- * the copy, which persists whatever never made it.
+ * the copy, which persists whatever never made it. Copies of other notes are pruned when
+ * a note loads (see PGliteProvider.pruneUnsavedEdits).
  */
 const KEY_PREFIX = 'journal-unsaved-edits:';
 
@@ -23,20 +24,28 @@ export function readUnsavedEdits(docId: string): Uint8Array | null {
     return stored ? base64ToUint8Array(stored) : null;
 }
 
-export function removeUnsavedEdits(docId: string): void {
+/** With `copy`, only while the stored copy is still that one, not a newer one another page wrote. */
+export function removeUnsavedEdits(docId: string, copy?: Uint8Array): void {
+    if (copy && readString(KEY_PREFIX + docId) !== uint8ArrayToBase64(copy)) return;
     removeKey(KEY_PREFIX + docId);
+}
+
+/** The notes that have a copy. */
+export function unsavedEditDocIds(): string[] {
+    const docIds: string[] = [];
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key?.startsWith(KEY_PREFIX)) docIds.push(key.slice(KEY_PREFIX.length));
+        }
+    } catch {
+        // Storage unavailable (private browsing): no copies
+    }
+    return docIds;
 }
 
 /** Logout: delete every note's copy and stop writing new ones in this page. */
 export function discardAllUnsavedEdits(): void {
     discarded = true;
-    try {
-        // Backwards, as removing a key shifts the ones after it.
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key?.startsWith(KEY_PREFIX)) localStorage.removeItem(key);
-        }
-    } catch (error) {
-        console.error('Failed to remove unsaved edits:', error);
-    }
+    for (const docId of unsavedEditDocIds()) removeKey(KEY_PREFIX + docId);
 }

@@ -18,7 +18,7 @@ vi.mock('@/lib/db', async (importActual) => {
             saveControl.unloaded ? new Promise<void>(() => {}) : actual.saveDocumentUpdate(docId, blob),
     };
 });
-import { getDocumentUpdates } from '@/lib/db';
+import { getDocumentUpdates, upsertSearchIndex } from '@/lib/db';
 import { PGliteProvider } from '@/lib/yjs/provider';
 import { discardAllUnsavedEdits } from '@/lib/yjs/unsavedEdits';
 
@@ -56,9 +56,9 @@ function newPage() {
     vi.stubGlobal('document', page.document);
 }
 
-async function openNote() {
+async function openNote(docId = DOC_ID) {
     const doc = new Y.Doc();
-    const provider = new PGliteProvider(DOC_ID, doc);
+    const provider = new PGliteProvider(docId, doc);
     await provider.load();
     return { doc, provider, text: () => doc.getText('body').toString() };
 }
@@ -126,6 +126,58 @@ describe('PGliteProvider unload copy (#873)', () => {
         await openNote();
         page.window.dispatchEvent(new Event('pagehide'));
         expect(storage.size).toBe(0);
+    });
+
+    describe('prune of other notes\' copies', () => {
+        const OTHER = '33333333-3333-3333-3333-333333333333';
+        const OTHER_KEY = `journal-unsaved-edits:${OTHER}`;
+
+        async function copyOfOther(write: 'finished' | 'lost', indexed = true) {
+            if (indexed) {
+                const now = new Date().toISOString();
+                await upsertSearchIndex({
+                    docId: OTHER,
+                    title: 'Other',
+                    plainTextContent: '',
+                    metadata: { title: 'Other', folderId: 'f', timestamps: { created: now, modified: now }, excludeFromAI: false },
+                });
+            }
+            const other = await openNote(OTHER);
+            saveControl.unloaded = write === 'lost';
+            other.doc.getText('body').insert(0, 'other note');
+            page.window.dispatchEvent(new Event('pagehide'));
+            if (write === 'finished') await other.provider.flush();
+            saveControl.unloaded = false;
+            expect(storage.has(OTHER_KEY)).toBe(true);
+            newPage();
+        }
+
+        it('removes a copy whose edits reached the database when another note loads', async () => {
+            await copyOfOther('finished');
+            await openNote();
+            await PGliteProvider.pruneUnsavedEdits(DOC_ID);
+            expect(storage.has(OTHER_KEY)).toBe(false);
+        });
+
+        it('keeps a copy whose edits never reached the database, for its note\'s next load', async () => {
+            await copyOfOther('lost');
+            await openNote();
+            await PGliteProvider.pruneUnsavedEdits(DOC_ID);
+            expect(storage.has(OTHER_KEY)).toBe(true);
+            expect((await openNote(OTHER)).text()).toBe('other note');
+        });
+
+        it('removes the copy of a deleted note', async () => {
+            await copyOfOther('lost', false);
+            await PGliteProvider.pruneUnsavedEdits(DOC_ID);
+            expect(storage.has(OTHER_KEY)).toBe(false);
+        });
+
+        it('keeps the copy of the note being opened', async () => {
+            await copyOfOther('finished');
+            await PGliteProvider.pruneUnsavedEdits(OTHER);
+            expect(storage.has(OTHER_KEY)).toBe(true);
+        });
     });
 
     // Last: the discard lasts for the rest of the page (the module's lifetime).
