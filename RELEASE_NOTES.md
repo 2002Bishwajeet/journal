@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.34.0 (2026-10-26)
+
+### New
+
+- Search shows the notes you opened recently and your recent searches. A note you opened recently also ranks a little higher in the results.
+
 ## 2.33.0 (2026-10-26)
 
 ### Changed

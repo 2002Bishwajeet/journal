@@ -1,3 +1,14 @@
+# [2.34.0](https://github.com/2002Bishwajeet/journal/compare/v2.33.0...v2.34.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **search:** 44px Remove/Clear targets on touch; keep focus in the search input ([#820](https://github.com/2002Bishwajeet/journal/issues/820)) ([e7d9f1f](https://github.com/2002Bishwajeet/journal/commit/e7d9f1f6d480de675c0650c1177fb7ee4c3ce018))
+
+
+### Features
+
+* **search:** show recent notes and searches, boost recent notes in ranking ([#820](https://github.com/2002Bishwajeet/journal/issues/820)) ([9167bdc](https://github.com/2002Bishwajeet/journal/commit/9167bdc9d8849abb812dbc579290e5749aa95421))
 # [2.33.0](https://github.com/2002Bishwajeet/journal/compare/v2.32.1...v2.33.0) (2026-10-26)
 
 
