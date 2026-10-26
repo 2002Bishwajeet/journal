@@ -8,7 +8,7 @@ import {
 } from '@/lib/db/queries';
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 import { describeSyncError } from '@/lib/homebase/sync/syncErrorInfo';
-import { REQUEUE_OVERSIZED_THUMBNAIL_UPLOADS_SQL } from '@/lib/db/syncErrorsSchema';
+import { REQUEUE_THUMBNAIL_FAILURE_UPLOADS_SQL } from '@/lib/db/syncErrorsSchema';
 import { explainSyncError } from '@/lib/diagnostics/report';
 
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
@@ -194,18 +194,33 @@ describe('image uploads that fail (#874)', () => {
         mockAddImageToNote.mockRejectedValueOnce(THUMBNAIL_TOO_LONG);
         await svc.processPendingImageUploads();
 
-        await db.exec(REQUEUE_OVERSIZED_THUMBNAIL_UPLOADS_SQL);
+        await db.exec(REQUEUE_THUMBNAIL_FAILURE_UPLOADS_SQL);
 
         expect((await getImageUploadsReadyForRetry()).map((u) => u.id)).toEqual([UPLOAD_ID]);
         expect(await errorRow()).toMatchObject({ permanent: false, next_retry_at: null });
         expect(await getPendingSyncCount()).toMatchObject({ images: 1, failed: 0 });
     });
 
+    // js-lib alpha.88 threw on a tiny thumb it couldn't fit (a HEIC photo on an iPhone);
+    // a client error backs off rather than giving up, so the row waits for its retry
+    it('makes an image that failed on the tiny thumb due now on upgrade', async () => {
+        mockAddImageToNote.mockRejectedValueOnce(
+            new Error('The world has ended. A 1x1 thumb in quality 1 takes up more than MaxBytes bytes...'));
+        await svc.processPendingImageUploads();
+        expect((await getPendingImageUpload(UPLOAD_ID))?.status).toBe('failed');
+        expect(await getImageUploadsReadyForRetry()).toEqual([]);
+
+        await db.exec(REQUEUE_THUMBNAIL_FAILURE_UPLOADS_SQL);
+
+        expect((await getImageUploadsReadyForRetry()).map((u) => [u.id, u.retryCount])).toEqual([[UPLOAD_ID, 0]]);
+        expect(await errorRow()).toMatchObject({ next_retry_at: null });
+    });
+
     it('leaves an image given up on for another reason alone on upgrade', async () => {
         mockAddImageToNote.mockRejectedValueOnce(PAYLOAD_LIMIT);
         await svc.processPendingImageUploads();
 
-        await db.exec(REQUEUE_OVERSIZED_THUMBNAIL_UPLOADS_SQL);
+        await db.exec(REQUEUE_THUMBNAIL_FAILURE_UPLOADS_SQL);
 
         expect((await getPendingImageUpload(UPLOAD_ID))?.status).toBe('failed_permanent');
         expect(await errorRow()).toMatchObject({ permanent: true });

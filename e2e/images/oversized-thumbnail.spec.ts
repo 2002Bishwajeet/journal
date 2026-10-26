@@ -4,7 +4,9 @@ import { assertTestOrigin } from '../support/origin-guard';
 // An iPhone's Homebase refused image uploads with "ThumbnailDescriptor BytesWritten 1678832
 // too long, max 1048576": Safari can't encode webp, its canvas returns png (which ignores
 // quality), so a 1600px thumbnail of a large png was over the server's 1 MiB limit.
-// Here the canvas behaves like Safari's and the "server" refuses any thumbnail over 1 MiB.
+// js-lib alpha.88 then threw on the tiny thumb, as Safari's jpeg headers alone are over
+// 768 bytes. Here the canvas behaves like Safari's and the "server" refuses any thumbnail
+// over 1 MiB.
 
 const NOTE_ID = '00000000-0000-4000-8000-000000000001';
 const MAX_THUMBNAIL_BYTES = 1024 * 1024;
@@ -43,7 +45,7 @@ function partSizes(body: Buffer, contentType: string, name: string): number[] {
     return sizes;
 }
 
-test('a large png uploads with every thumbnail at or under 1 MiB where webp can\'t be encoded', async ({ app }) => {
+test('a large image uploads with every thumbnail within the server limits on a Safari-like canvas', async ({ app }) => {
     test.slow();
     await assertTestOrigin(app);
 
@@ -70,14 +72,19 @@ test('a large png uploads with every thumbnail at or under 1 MiB where webp can\
     });
 
     await app.evaluate(async () => {
-        // Safari: a webp request silently gives png
+        // Safari: a webp request silently gives png, and its jpeg headers alone are over the tiny
+        // thumb's 768 bytes at any size (iOS Safari: 773 bytes for a 1x1 image of one colour)
+        const safari = (blob: Blob) =>
+            blob.type === 'image/jpeg' ? new Blob([blob, new Uint8Array(900)], { type: 'image/jpeg' }) : blob;
         const toBlob = HTMLCanvasElement.prototype.toBlob;
         HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
-            return toBlob.call(this, callback, type === 'image/webp' ? 'image/png' : type, quality);
+            return toBlob.call(this, (blob) => callback(blob && safari(blob)), type === 'image/webp' ? 'image/png' : type, quality);
         };
         const convertToBlob = OffscreenCanvas.prototype.convertToBlob;
         OffscreenCanvas.prototype.convertToBlob = function (options) {
-            return convertToBlob.call(this, options?.type === 'image/webp' ? { ...options, type: 'image/png' } : options);
+            return convertToBlob
+                .call(this, options?.type === 'image/webp' ? { ...options, type: 'image/png' } : options)
+                .then(safari);
         };
 
         // A 3000x3000 noise png: it barely compresses, like a detailed screenshot or photo
@@ -94,8 +101,10 @@ test('a large png uploads with every thumbnail at or under 1 MiB where webp can\
         await window.__journalE2E!.uploadPendingImages();
     });
 
-    // One upload, accepted: the tiny thumb and all four sizes, none over 1 MiB
+    // One upload, accepted: the tiny thumb (within the server's 1 KiB for a preview) and all
+    // four sizes, none over 1 MiB
     expect(thumbnailSizes).toHaveLength(1);
     expect(thumbnailSizes[0]).toHaveLength(5);
+    expect(thumbnailSizes[0][0]).toBeLessThanOrEqual(1024);
     for (const size of thumbnailSizes[0]) expect(size).toBeLessThanOrEqual(MAX_THUMBNAIL_BYTES);
 });
