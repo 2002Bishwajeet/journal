@@ -78,6 +78,8 @@ async function startSession() {
 }
 
 const browser = await startSession();
+// Async scripts (the Web Locks query) otherwise time out at once.
+await browser.setTimeout({ script: 10_000 });
 
 const screenshot = async (name: string) => {
   const file = `${String(++shots).padStart(2, '0')}-${name}.png`;
