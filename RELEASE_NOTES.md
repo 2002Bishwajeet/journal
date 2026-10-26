@@ -18,6 +18,7 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 ### Changed
 
 - On a phone, Search now fills the whole screen and has a Cancel button. The results stay above the keyboard.
+- On a phone, dialogs are easier to use. The close button and the dialog buttons are bigger and easier to tap. A dialog never gets taller than the screen. When you type in a dialog, its buttons stay above the keyboard. In dark mode, buttons and fields in dialogs have outlines that you can see.
 
 ## 2.29.0 (2026-10-26)
 

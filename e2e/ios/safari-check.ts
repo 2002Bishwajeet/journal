@@ -192,6 +192,8 @@ try {
   await tap('[aria-label="New folder"]');
   await waitFor('the New folder dialog', dialogOpen);
   await tap('[placeholder="Folder Name"]');
+  // The dialog buttons must clear the keyboard (#783); a timeout leaves the check to report it.
+  await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
   await check('new-folder-dialog');
   await closeDialog();
 } catch (error) {

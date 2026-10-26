@@ -161,7 +161,7 @@ export default function SearchModal({
         role="dialog"
         aria-modal="true"
         aria-label="Search notes"
-        className="fixed inset-0 h-dvh pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:inset-auto sm:left-1/2 sm:top-[10%] sm:-translate-x-1/2 sm:h-auto sm:pt-0 sm:pb-0 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl sm:border border-border sm:rounded-xl overflow-hidden flex flex-col sm:max-h-[85vh] animation-in fade-in zoom-in-95 duration-200"
+        className="fixed inset-0 h-dvh pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:inset-auto sm:left-1/2 sm:top-[10%] sm:-translate-x-1/2 sm:h-auto sm:pt-0 sm:pb-0 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl sm:border border-border sm:rounded-xl overflow-hidden flex flex-col sm:max-h-[85dvh] animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input - Large and clean */}
