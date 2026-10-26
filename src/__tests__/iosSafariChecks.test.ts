@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutProblems, safeAreaProblem, type Layout } from '../../e2e/ios/checks';
+import { gestureProblems, layoutProblems, safeAreaProblem, type GestureProbe, type Layout } from '../../e2e/ios/checks';
 
 // A clean iPhone 15 portrait layout in Safari, keyboard down.
 const ok: Layout = {
@@ -13,6 +13,7 @@ const ok: Layout = {
   caret: null,
   toolbar: null,
   dialogFooter: null,
+  searchSheet: null,
   sidebarFooter: { top: 610, bottom: 642, left: 8, right: 385 },
   foreignRequests: [],
 };
@@ -69,6 +70,14 @@ describe('iOS Safari layout checks', () => {
     ]);
   });
 
+  it('should flag a search sheet that runs under the keyboard while its field is focused', () => {
+    const field = { ...ok, viewport: { top: 0, height: 420 }, focused: { name: 'input[Search notes...]', fontSize: 18 }, sidebarFooter: null };
+    expect(layoutProblems({ ...field, searchSheet: { top: 0, bottom: 420, left: 0, right: 393 } }, false)).toEqual([]);
+    expect(layoutProblems({ ...field, searchSheet: { top: 0, bottom: 659, left: 0, right: 393 } }, false)).toEqual([
+      'the search sheet (0–659) is outside the visual viewport (0–420)',
+    ]);
+  });
+
   it('should flag a caret or toolbar hidden behind the keyboard', () => {
     const problems = layoutProblems(
       { ...keyboard, caret: { top: 400, bottom: 420, left: 20, right: 20 }, toolbar: { top: 611, bottom: 659, left: 0, right: 393 } },
@@ -105,5 +114,41 @@ describe('iOS Safari layout checks', () => {
     const none = { top: 0, right: 0, bottom: 0, left: 0 };
     expect(safeAreaProblem([none, none])).toMatch(/viewport-fit=cover/);
     expect(safeAreaProblem([none, { ...none, left: 59 }])).toBeNull();
+  });
+});
+
+// What the note list did during one gesture, with nothing wrong (#778).
+const still: GestureProbe = { minTop: 0, maxTop: 0, maxPull: 0, pageMoved: 0, maxRowOffset: 0, firstRowOffset: 0 };
+
+describe('iOS Safari note list gesture checks', () => {
+  it('should pass gestures the list followed', () => {
+    expect(gestureProblems('swipe', { ...still, maxRowOffset: 84, firstRowOffset: 80 })).toEqual([]);
+    expect(gestureProblems('drift-scroll', { ...still, maxTop: 240 })).toEqual([]);
+    expect(gestureProblems('pull', { ...still, maxPull: 75 })).toEqual([]);
+    expect(gestureProblems('scroll-after-pull', { ...still, maxTop: 240 })).toEqual([]);
+  });
+
+  it('should flag a swipe that left the row shut', () => {
+    expect(gestureProblems('swipe', still)).toEqual(['the swiped row is open 0px, not 80px']);
+  });
+
+  it('should flag a row that slid during a vertical scroll, or a scroll that did not happen', () => {
+    expect(gestureProblems('drift-scroll', { ...still, maxTop: 10, maxRowOffset: 35 })).toEqual([
+      'the list scrolled only 10px',
+      'a row slid 35px during a vertical scroll',
+    ]);
+  });
+
+  it('should flag a pull that WebKit rubber-banded or scrolled instead', () => {
+    expect(gestureProblems('pull', { ...still, minTop: -60, maxTop: 12, pageMoved: 40 })).toEqual([
+      'the page itself moved 40px',
+      'the pull moved the list only 0px',
+      'the list rubber-banded to scrollTop -60 during the pull',
+      'the list scrolled to 12 during the pull',
+    ]);
+  });
+
+  it('should flag a list stuck at the top after a pull', () => {
+    expect(gestureProblems('scroll-after-pull', still)).toEqual(['the list stuck at the top: it scrolled only 0px after the pull']);
   });
 });
