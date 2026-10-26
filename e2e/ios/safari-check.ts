@@ -315,6 +315,18 @@ try {
   }
   await check('editor-keyboard', keyboardUp);
 
+  // In-app Back pops the note's entry instead of pushing the list (#822).
+  const noteIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
+  await tap('button[aria-label="Back"]');
+  await waitFor('the note list', () => location.pathname.split('/').filter(Boolean).length === 1);
+  const listIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
+  if (listIdx !== noteIdx - 1) failures.push(`in-app Back: history idx went ${noteIdx} -> ${listIdx}, expected ${noteIdx - 1} (a pop)`);
+  summary.push(`| in-app Back | | history idx ${noteIdx} -> ${listIdx} |`);
+  await check('back-to-list');
+  // Forward to the note again (a popstate) for the reload checks below.
+  await browser.execute(() => history.forward());
+  await waitFor('the note again', () => !!document.querySelector('.ProseMirror'));
+
   // Reload right after typing, where a reload once hung on the splash (#806).
   // Repeated, as one reload may not be enough to hit the hang.
   for (let i = 1; i <= 3; i++) await reloadCheck('location.reload', `location.reload-${i}`);
@@ -352,6 +364,17 @@ try {
     await check(`settings-${tab.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`);
   }
   await closeDialog();
+
+  // The system Back, which iOS swipe-back fires, closes a dialog and keeps the screen under it (#822).
+  await tap('button=Settings');
+  await waitFor('Settings', dialogOpen);
+  const under = await browser.execute(() => location.href);
+  await browser.execute(() => history.back());
+  await waitFor('Settings to close on Back', dialogClosed);
+  const after = await browser.execute(() => location.href);
+  if (after !== under) failures.push(`system Back on Settings: the URL changed from ${under} to ${after}`);
+  summary.push(`| system Back on Settings | | ${after === under ? 'closed, same URL' : `URL ${under} -> ${after}`} |`);
+  await check('settings-system-back');
 
   // A dialog with a text field: tapping the field must not zoom the page.
   await tap('[aria-label="New folder"]');

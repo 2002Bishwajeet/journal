@@ -1,6 +1,7 @@
 import {
   useParams,
   useNavigate,
+  useLocation,
   useSearchParams,
   Navigate,
 } from "react-router-dom";
@@ -55,6 +56,7 @@ import { useRecordRecentNote } from "@/hooks/useRecentNotes";
 import { useWebMcpBridge } from "@/hooks/useWebMcp";
 import { useSettingsOpener } from "@/hooks/useSettingsOpener";
 import { useAuth } from "@/hooks/auth";
+import { overlayEntryOpen } from "@/hooks/useOverlayHistory";
 import { useAutoWhatsNew } from "@/hooks/useWhatsNew";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
 import { useFolders, isUnknownFolderRoute } from "@/hooks/useFolders";
@@ -87,6 +89,7 @@ export default function JournalLayout() {
 
   const { folderId, noteId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { logout } = useAuth();
 
@@ -371,7 +374,9 @@ export default function JournalLayout() {
           // Find note to get folder
           const note = notes.find((n) => n.docId === docId);
           if (note) {
-            navigate(`/${note.metadata.folderId}/${docId}`);
+            // On a phone the sheet owns the current entry (#822): replace it,
+            // so Back from the note returns to the screen under the sheet.
+            navigate(`/${note.metadata.folderId}/${docId}`, { replace: overlayEntryOpen(location.state) });
           }
           setShowSearch(false);
         }}
