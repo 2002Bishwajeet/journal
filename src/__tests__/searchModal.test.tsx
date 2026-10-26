@@ -6,14 +6,16 @@ import SearchModal from '@/components/modals/SearchModal';
 
 const handleClose = vi.fn();
 const setSelectedIndex = vi.fn();
+const handleRemoveEntry = vi.fn();
+const handleClearRecents = vi.fn();
 
 vi.mock('@/hooks/useSearchModal', () => ({
   isAdvancedResult: () => false,
   useSearchModal: () => ({
     query: 'ze',
-    results: [
-      { docId: 'a', title: 'Alpha' },
-      { docId: 'b', title: 'Beta' },
+    entries: [
+      { kind: 'note', section: 'recent', result: { docId: 'a', title: 'Alpha' } },
+      { kind: 'note', section: 'notes', result: { docId: 'b', title: 'Beta' } },
     ],
     selectedIndex: 0,
     isLoading: false,
@@ -21,7 +23,9 @@ vi.mock('@/hooks/useSearchModal', () => ({
     handleQueryChange: vi.fn(),
     handleKeyDown: vi.fn(),
     handleClose,
-    handleSelectResult: vi.fn(),
+    handleSelectEntry: vi.fn(),
+    handleRemoveEntry,
+    handleClearRecents,
     setSelectedIndex,
   }),
 }));
@@ -55,6 +59,25 @@ describe('SearchModal', () => {
     const dialog = host.querySelector('[role="dialog"]')!;
     expect(dialog.getAttribute('aria-label')).toBe('Search notes');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('Remove and Clear act without taking focus from the input, and are 44px on touch', () => {
+    const input = host.querySelector('input')!;
+    const remove = host.querySelector<HTMLButtonElement>('[aria-label="Remove from recent"]')!;
+    for (const b of [remove, button('Clear')]) {
+      const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      b.dispatchEvent(down);
+      expect(down.defaultPrevented).toBe(true);
+      expect(b.className).toMatch(/pointer-coarse:(size|h)-11/);
+    }
+    act(() => remove.click());
+    expect(handleRemoveEntry).toHaveBeenCalledTimes(1);
+
+    // A keyboard press focuses the button, which then unmounts; focus goes back to the input.
+    button('Clear').focus();
+    act(() => button('Clear').click());
+    expect(handleClearRecents).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(input);
   });
 
   it('Cancel closes the modal', () => {
