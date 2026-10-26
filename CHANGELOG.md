@@ -1,3 +1,9 @@
+## [2.39.2](https://github.com/2002Bishwajeet/journal/compare/v2.39.1...v2.39.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **routing:** skip navigate to the current path from Today and the active tab ([#858](https://github.com/2002Bishwajeet/journal/issues/858)) ([2c42457](https://github.com/2002Bishwajeet/journal/commit/2c42457c21d09dc17ab1ff306039171af71a3d24))
 ## [2.39.1](https://github.com/2002Bishwajeet/journal/compare/v2.39.0...v2.39.1) (2026-10-26)
 
 

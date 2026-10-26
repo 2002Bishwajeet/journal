@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTabManager, staleTabIds, nextActiveTabId } from '@/hooks/useTabManager';
 import { useMountedTabs } from '@/hooks/useMountedTabs';
 import type { NoteListEntry } from '@/types';
@@ -18,6 +18,7 @@ interface UseTabRoutingOptions {
  */
 export function useTabRouting({ noteId, folderId, notes, isNotesLoading }: UseTabRoutingOptions) {
     const navigate = useNavigate();
+    const { pathname } = useLocation();
 
     const {
         openTabs,
@@ -69,7 +70,9 @@ export function useTabRouting({ noteId, folderId, notes, isNotesLoading }: UseTa
     const handleTabClick = (docId: string) => {
         const note = notes.find((n) => n.docId === docId);
         if (note) {
-            navigate(`/${note.metadata.folderId}/${docId}`, { viewTransition: true });
+            // Already there: a push would make Back need two presses.
+            const path = `/${note.metadata.folderId}/${docId}`;
+            if (path !== pathname) navigate(path, { viewTransition: true });
             switchTab(docId);
         }
     };

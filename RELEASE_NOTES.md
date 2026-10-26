@@ -16,6 +16,13 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.39.2 (2026-10-26)
+
+### Fixed
+
+- On an iPhone, photos upload again. In version 2.38.2, image uploads failed with "The world has ended".
+- Images that did not upload for this reason try again automatically after you update the app.
+
 ## 2.39.1 (2026-10-26)
 
 ### Changed
