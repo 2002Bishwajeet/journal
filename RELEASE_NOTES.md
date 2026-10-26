@@ -15,6 +15,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.29.0 (2026-10-26)
+
 ### Changed
 
 - On a phone, folder rows and note rows have a "More" button. It opens the same menu as a long press. The menus stay on the screen, and their items are bigger and easier to tap.
