@@ -115,3 +115,79 @@ export function safeAreaProblem(measured: Insets[]): string | null {
     ? null
     : 'every safe-area inset is 0 on a notched iPhone, in portrait and landscape (is viewport-fit=cover set?)';
 }
+
+/** What `startGestureProbe` saw during one touch gesture on the note list (#778). */
+export type GestureProbe = {
+  /** The list's lowest and highest scrollTop. WebKit's rubber band shows as a negative scrollTop. */
+  minTop: number;
+  maxTop: number;
+  /** How far the pull-to-refresh content moved down. */
+  maxPull: number;
+  /** How far the page itself moved (scrollY or the visual viewport offset). */
+  pageMoved: number;
+  /** The largest swipe offset of any row during the gesture, and of the first row at the end. */
+  maxRowOffset: number;
+  firstRowOffset: number;
+};
+
+/**
+ * Runs in the page: samples the note list every frame until `stopGestureProbe`.
+ * Like `measureLayout`, it must not use anything from outside its own body.
+ */
+export function startGestureProbe(): void {
+  const rows = () => [...document.querySelectorAll('[data-testid="note-row"] [role="button"]')];
+  const offset = (el: Element | undefined) => {
+    const t = el ? getComputedStyle(el).transform : 'none';
+    return t === 'none' ? 0 : Math.abs(new DOMMatrix(t).m41);
+  };
+  const list = document.querySelector('[data-testid="note-row"]')!.closest('[data-radix-scroll-area-viewport]')!;
+  const pulled = list.querySelector('[data-pull-to-refresh] > div:last-child')!;
+  const p: GestureProbe = { minTop: list.scrollTop, maxTop: list.scrollTop, maxPull: 0, pageMoved: 0, maxRowOffset: 0, firstRowOffset: 0 };
+  const w = window as unknown as { __gestureProbe?: { p: GestureProbe; stop: boolean } };
+  const probe = { p, stop: false };
+  w.__gestureProbe = probe;
+  const sample = () => {
+    const t = getComputedStyle(pulled).transform;
+    p.minTop = Math.min(p.minTop, list.scrollTop);
+    p.maxTop = Math.max(p.maxTop, list.scrollTop);
+    p.maxPull = Math.max(p.maxPull, t === 'none' ? 0 : new DOMMatrix(t).m42);
+    p.pageMoved = Math.max(p.pageMoved, Math.abs(scrollY), Math.abs(visualViewport?.offsetTop ?? 0));
+    p.maxRowOffset = Math.max(p.maxRowOffset, ...rows().map(offset));
+    p.firstRowOffset = offset(rows()[0]);
+    if (!probe.stop) requestAnimationFrame(sample);
+  };
+  sample();
+}
+
+/** Runs in the page: stops the probe and returns what it saw. */
+export function stopGestureProbe(): GestureProbe {
+  const probe = (window as unknown as { __gestureProbe: { p: GestureProbe; stop: boolean } }).__gestureProbe;
+  probe.stop = true;
+  return probe.p;
+}
+
+export type Gesture = 'swipe' | 'drift-scroll' | 'pull' | 'scroll-after-pull';
+
+/** What is wrong with how the note list followed a gesture (#778). */
+export function gestureProblems(gesture: Gesture, p: GestureProbe): string[] {
+  const problems: string[] = [];
+  if (p.pageMoved > SLACK) problems.push(`the page itself moved ${Math.round(p.pageMoved)}px`);
+  switch (gesture) {
+    case 'swipe':
+      if (Math.abs(p.firstRowOffset - 80) > SLACK) problems.push(`the swiped row is open ${Math.round(p.firstRowOffset)}px, not 80px`);
+      break;
+    case 'drift-scroll':
+      if (p.maxTop < 50) problems.push(`the list scrolled only ${Math.round(p.maxTop)}px`);
+      if (p.maxRowOffset > SLACK) problems.push(`a row slid ${Math.round(p.maxRowOffset)}px during a vertical scroll`);
+      break;
+    case 'pull':
+      if (p.maxPull < 30) problems.push(`the pull moved the list only ${Math.round(p.maxPull)}px`);
+      if (p.minTop < -SLACK) problems.push(`the list rubber-banded to scrollTop ${Math.round(p.minTop)} during the pull`);
+      if (p.maxTop > SLACK) problems.push(`the list scrolled to ${Math.round(p.maxTop)} during the pull`);
+      break;
+    case 'scroll-after-pull':
+      if (p.maxTop < 50) problems.push(`the list stuck at the top: it scrolled only ${Math.round(p.maxTop)}px after the pull`);
+      break;
+  }
+  return problems;
+}
