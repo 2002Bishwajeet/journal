@@ -38,7 +38,7 @@ Generated from `git ls-files src functions e2e mcp`. `src/components/ui/` (shadc
 ```
 src/
 ├── components/
-│   ├── auth/                   # AuthGuard (returnUrl to /welcome), DotYouClientProvider/Context, RootRedirect
+│   ├── auth/                   # AuthGuard (returnUrl to /welcome), DotYouClientProvider/Context
 │   ├── author/                 # AuthorImage
 │   ├── circles/                # CircleOption (share dialog circle picker)
 │   ├── contact/                # ContactImage
@@ -611,7 +611,7 @@ const unsub = documentBroadcast.subscribe(handler);   // Listen for messages
 
 | Path | Component | Auth |
 |------|-----------|------|
-| `/` | RootRedirect | Yes |
+| `/` | EmptyEditorPage | Yes |
 | `/:folderId` | EmptyEditorPage | Yes |
 | `/:folderId/:noteId` | EditorPage | Yes |
 | `/share-target` | ShareTargetPage | Yes |

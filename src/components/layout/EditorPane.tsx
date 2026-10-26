@@ -11,6 +11,8 @@ import { SyncStatus } from "./SyncStatus";
 
 interface EditorPaneProps {
   isDesktop: boolean;
+  /** Tablets show the editor beside the note list (#832). */
+  isTablet: boolean;
   isManagementView: boolean;
   isEditorVisibleOnMobile: boolean;
   focusMode: boolean;
@@ -29,6 +31,7 @@ interface EditorPaneProps {
 /** Right pane: desktop tab bar plus the (keep-alive) editor, or the mobile Outlet. */
 export function EditorPane({
   isDesktop,
+  isTablet,
   isManagementView,
   isEditorVisibleOnMobile,
   focusMode,
@@ -53,9 +56,10 @@ export function EditorPane({
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
         // Desktop: Always visible (Outlet renders Editor or Empty), except in
         // management views (Trash/Archive) where the list takes the full width.
-        isDesktop && !isManagementView ? "flex" : "hidden",
+        (isDesktop || isTablet) && !isManagementView ? "flex" : "hidden",
         // Mobile: Visible only when note is selected
         !isDesktop &&
+          !isTablet &&
           isEditorVisibleOnMobile &&
           "flex absolute inset-0 z-10 w-full h-full",
       )}

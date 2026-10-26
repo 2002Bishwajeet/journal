@@ -59,7 +59,7 @@ import { useRecordRecentNote } from "@/hooks/useRecentNotes";
 import { useWebMcpBridge } from "@/hooks/useWebMcp";
 import { useSettingsOpener } from "@/hooks/useSettingsOpener";
 import { useAuth } from "@/hooks/auth";
-import { overlayEntryOpen } from "@/hooks/useOverlayHistory";
+import { overlayEntryOpen, useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { useAutoWhatsNew } from "@/hooks/useWhatsNew";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
 import { useFolders, isUnknownFolderRoute } from "@/hooks/useFolders";
@@ -192,17 +192,31 @@ export default function JournalLayout() {
   // no editor, so its effect is suppressed there (otherwise: blank screen).
   const inFocusMode = focusMode && !isManagementView;
 
+  const deviceType = useDeviceType();
+  const isTablet = deviceType === "tablet";
+  // Tablets (768-1023 px) show the list and the editor side by side (#832); the
+  // folder sidebar is an overlay that owns a history entry, so Back closes it.
+  const [sidebarRequested, setSidebarRequested] = useState(false);
+  const sidebarOverlayOpen = isTablet && sidebarRequested;
+  useOverlayHistory(sidebarOverlayOpen, () => setSidebarRequested(false));
+  // A pick replaces the overlay's entry, so Back returns to the screen under it.
+  const go = (path: string) => {
+    navigate(path, { replace: sidebarOverlayOpen });
+    setSidebarRequested(false);
+  };
+
   // Daily notes ("Today"): open/create today's note, then route to it.
   const handleOpenToday = useCallback(async () => {
     try {
       const { docId, folderId: dailyFolderId } = await openToday();
       const path = `/${dailyFolderId}/${docId}`;
       // Already there: a push would make Back need two presses.
-      if (path !== location.pathname) navigate(path, { viewTransition: true });
+      if (path !== location.pathname) navigate(path, { viewTransition: true, replace: sidebarOverlayOpen });
+      setSidebarRequested(false);
     } catch {
       toast.error("Couldn't open today's note");
     }
-  }, [openToday, navigate, location.pathname]);
+  }, [openToday, navigate, location.pathname, sidebarOverlayOpen, setSidebarRequested]);
 
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
@@ -214,10 +228,7 @@ export default function JournalLayout() {
     onEscape: inFocusMode ? () => setFocusMode(false) : undefined,
   });
 
-  // Device type detection
-  const deviceType = useDeviceType();
   const isDesktop = deviceType === "desktop";
-  // If not desktop (so mobile or tablet), treat as mobile layout
 
   const viewLabel = selectedTag
     ? `#${selectedTag}`
@@ -267,6 +278,16 @@ export default function JournalLayout() {
       >
         Skip to content
       </a>
+      {/* Tablet: tap outside closes the folders overlay */}
+      {sidebarOverlayOpen && (
+        <button
+          type="button"
+          aria-label="Close folders"
+          tabIndex={-1}
+          className="absolute inset-0 z-30 bg-black/30"
+          onClick={() => setSidebarRequested(false)}
+        />
+      )}
       {/* Sidebar */}
       <div
         data-pane="sidebar"
@@ -274,10 +295,13 @@ export default function JournalLayout() {
           "h-full border-r bg-muted/10 transition-all duration-300 ease-in-out",
           // Desktop: Always visible
           isDesktop ? "flex static" : "hidden",
-          // Mobile: Visible only at the root (no folder, tag or note)
-          !isDesktop &&
+          // Phone: Visible only at the root (no folder, tag or note)
+          isPhone &&
             mobilePane === "sidebar" &&
             "flex absolute inset-y-0 left-[env(safe-area-inset-left)] right-[env(safe-area-inset-right)] z-30 bg-background",
+          // Tablet: an overlay panel over the list, opened from the list header
+          sidebarOverlayOpen &&
+            "flex absolute inset-y-0 left-[env(safe-area-inset-left)] w-80 max-w-[85%] z-40 bg-background shadow-xl",
           inFocusMode && "hidden!",
         )}
       >
@@ -294,17 +318,18 @@ export default function JournalLayout() {
                 return;
               }
             }
-            slideNavigate("forward", () => navigate(`/${id}`));
+            slideNavigate("forward", () => navigate(`/${id}`, { replace: sidebarOverlayOpen }));
+            setSidebarRequested(false);
           }}
           onCreateFolder={() => setShowCreateFolder(true)}
           onDeleteFolder={(id) => deleteFolder(id)}
           onRenameFolder={setFolderToRename}
           onOpenToday={handleOpenToday}
           collaborativeCount={counts.collaborative}
-          onSelectShared={() => navigate("/shared")}
-          onSelectTrash={() => navigate("/trash")}
+          onSelectShared={() => go("/shared")}
+          onSelectTrash={() => go("/trash")}
           trashCount={counts.trashed}
-          onSelectArchive={() => navigate("/archive")}
+          onSelectArchive={() => go("/archive")}
           archivedCount={counts.archived}
           onSearch={() => setShowSearch(true)}
           onSettings={settings.open}
@@ -314,9 +339,9 @@ export default function JournalLayout() {
           selectedTag={selectedTag}
           onSelectTag={(tag) => {
             if (tag) {
-              navigate(`/?tag=${encodeURIComponent(tag)}`);
+              go(`/?tag=${encodeURIComponent(tag)}`);
             } else {
-              navigate(folderId ? `/${folderId}` : "/");
+              go(folderId ? `/${folderId}` : "/");
             }
           }}
           onDeleteTag={(tag) => {
@@ -329,6 +354,8 @@ export default function JournalLayout() {
       <NoteListPane
         isDesktop={isDesktop}
         isPhone={isPhone}
+        isTablet={isTablet}
+        onOpenSidebar={() => setSidebarRequested(true)}
         isManagementView={isManagementView}
         isListVisibleOnMobile={mobilePane === "list"}
         inFocusMode={inFocusMode}
@@ -352,6 +379,7 @@ export default function JournalLayout() {
 
       <EditorPane
         isDesktop={isDesktop}
+        isTablet={isTablet}
         isManagementView={isManagementView}
         isEditorVisibleOnMobile={mobilePane === "editor"}
         focusMode={focusMode}
