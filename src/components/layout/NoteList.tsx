@@ -264,7 +264,7 @@ export default function NoteList({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" onClick={onCreateNote} className="h-7 text-xs pointer-coarse:h-11">
+          <Button size="sm" onClick={onCreateNote} className="relative h-7 text-xs after:absolute after:inset-x-0 after:-inset-y-2">
             <Plus className="h-3.5 w-3.5 mr-1" />
             New
           </Button>
