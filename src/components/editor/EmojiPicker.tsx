@@ -72,6 +72,7 @@ export function EmojiPicker({ editor, className }: EmojiPickerProps) {
         <button
           type="button"
           title="Emoji"
+          onMouseDown={(e) => e.preventDefault()}
           className={cn(
             'p-2 rounded-md transition-colors',
             'hover:bg-gray-100 dark:hover:bg-gray-800',
