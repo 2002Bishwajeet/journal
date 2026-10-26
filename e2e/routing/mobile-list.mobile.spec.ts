@@ -131,6 +131,11 @@ test('in Trash, Restore and Delete forever are 44 px and 8 px apart', async ({ b
       expect(b.height).toBeGreaterThanOrEqual(44);
     }
     expect(del.x - (restore.x + restore.width)).toBeGreaterThanOrEqual(8);
-    await page.screenshot({ path: test.info().outputPath('trash-light-393x852.png') });
+    for (const colorScheme of THEMES) {
+      await page.emulateMedia({ colorScheme });
+      await expect(page.locator('html')).toHaveClass(new RegExp(colorScheme));
+      await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important}' });
+      await page.screenshot({ path: test.info().outputPath(`trash-${colorScheme}-393x852.png`) });
+    }
   });
 });
