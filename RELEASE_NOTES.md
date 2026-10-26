@@ -15,6 +15,11 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- On a phone, a normal scroll through your notes no longer opens the delete button on a note. Swipe left to show it. Only one note stays open, and it closes when you scroll or tap outside it.
+- On a phone, pull down to refresh no longer scrolls the list at the same time.
+
 ## 2.29.0 (2026-10-26)
 
 ### Changed
@@ -23,8 +28,6 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ### Fixed
 
-- On a phone, a normal scroll through your notes no longer opens the delete button on a note. Swipe left to show it. Only one note stays open, and it closes when you scroll or tap outside it.
-- On a phone, pull down to refresh no longer scrolls the list at the same time.
 - On a phone, the formatting bar now sits directly on top of the keyboard. It follows the keyboard and shows in every keyboard mode.
 - Tapping a button on the formatting bar no longer closes the keyboard.
 
