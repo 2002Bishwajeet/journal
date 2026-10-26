@@ -168,13 +168,30 @@ function RecentSearchRow({
 
 const SECTION_TITLES = { recent: 'Recent', searches: 'Recent searches', notes: 'Notes' } as const;
 
-function RemoveButton({ onClick }: { onClick: () => void }) {
+/**
+ * Props for the Remove and Clear buttons. They act without taking focus from the search input,
+ * so the arrow keys keep working. A keyboard press hands focus back, since the button then unmounts.
+ */
+function keepInputFocus(action: () => void) {
+  return {
+    onMouseDown: (e: React.MouseEvent) => e.preventDefault(),
+    onClick: (e: React.MouseEvent) => {
+      const input = document.activeElement === e.currentTarget
+        ? e.currentTarget.closest('[role="dialog"]')?.querySelector('input')
+        : null;
+      action();
+      input?.focus();
+    },
+  };
+}
+
+function RemoveButton(props: ReturnType<typeof keepInputFocus>) {
   return (
     <button
       type="button"
       aria-label="Remove from recent"
-      onClick={onClick}
-      className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground touch-manipulation"
+      {...props}
+      className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 pointer-coarse:size-11 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground touch-manipulation"
     >
       <X className="h-4 w-4" />
     </button>
@@ -267,8 +284,8 @@ export default function SearchModal({
                         {index === 0 && entry.section !== 'notes' && (
                           <button
                             type="button"
-                            onClick={handleClearRecents}
-                            className="normal-case tracking-normal font-medium px-1 hover:text-foreground touch-manipulation"
+                            {...keepInputFocus(handleClearRecents)}
+                            className="normal-case tracking-normal font-medium px-1 pointer-coarse:h-11 pointer-coarse:-my-3.5 pointer-coarse:px-3 pointer-coarse:-mr-2 hover:text-foreground touch-manipulation"
                           >
                             Clear
                           </button>
@@ -294,7 +311,7 @@ export default function SearchModal({
                           onHover={() => setSelectedIndex(index)}
                         />
                       )}
-                      {entry.section !== 'notes' && <RemoveButton onClick={() => handleRemoveEntry(entry)} />}
+                      {entry.section !== 'notes' && <RemoveButton {...keepInputFocus(() => handleRemoveEntry(entry))} />}
                     </div>
                   </div>
                 );
