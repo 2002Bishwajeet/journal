@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.36.1 (2026-10-26)
+
+### Fixed
+
+- Note list (phone): the New button has its compact size again. Its tap area stays 44 px tall.
+
 ## 2.36.0 (2026-10-26)
 
 ### Changed

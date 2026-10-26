@@ -1,3 +1,9 @@
+## [2.36.1](https://github.com/2002Bishwajeet/journal/compare/v2.36.0...v2.36.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **mobile:** keep the New button compact; 44 px tap area via ::after ([34cf125](https://github.com/2002Bishwajeet/journal/commit/34cf125cd35f343ad75c169f8092aba88e150a44))
 # [2.36.0](https://github.com/2002Bishwajeet/journal/compare/v2.35.1...v2.36.0) (2026-10-26)
 
 
