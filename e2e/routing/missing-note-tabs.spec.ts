@@ -16,7 +16,7 @@ test('archiving the open note closes its tab', async ({ app }) => {
 
   await expect(main.getByRole('button', { name: 'Archive me', exact: true })).toHaveCount(0);
   await expect(main.getByText('Note not found')).toHaveCount(0);
-  await expect(main.getByText('No notes open')).toBeVisible();
+  await expect(main.getByRole('button', { name: 'Create New Note' })).toBeVisible();
 });
 
 test('a missing note tab closes with one click and stays closed after reload', async ({ app }) => {
