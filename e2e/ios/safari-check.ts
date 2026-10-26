@@ -384,6 +384,8 @@ try {
   // The system Back, which iOS swipe-back fires, closes a dialog and keeps the screen under it (#822).
   await tap('button=Settings');
   await waitFor('Settings', dialogOpen);
+  // The dialog pushes its history entry in an effect after it paints; a Back before that pops the screen's entry.
+  await waitFor('the Settings history entry', () => ((history.state as { usr?: { overlays?: string[] } } | null)?.usr?.overlays?.length ?? 0) > 0);
   const under = await browser.execute(() => location.href);
   await browser.execute(() => history.back());
   await waitFor('Settings to close on Back', dialogClosed);
