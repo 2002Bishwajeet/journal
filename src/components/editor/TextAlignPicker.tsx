@@ -28,6 +28,7 @@ export function TextAlignPicker({ editor, currentAlign = 'left', className, icon
       <PopoverTrigger asChild>
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           className={cn(
             'p-2 rounded-md transition-colors',
             'hover:bg-muted',

@@ -17,6 +17,19 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ### Fixed
 
+- On a phone, the formatting bar now sits directly on top of the keyboard. It follows the keyboard and shows in every keyboard mode.
+- Tapping a button on the formatting bar no longer closes the keyboard.
+
+## 2.28.0 (2026-10-25)
+
+### New
+
+- When you share a note, each new person gets a notification. Their Journal shows the note under "Shared with me" at once, or when they next open Journal.
+
+## 2.27.0 (2026-10-25)
+
+### Fixed
+
 - On a phone, you can now open Version history. Tap the "More" button at the top of a note, then "Version history". The list fills the screen, the Restore buttons are bigger, and closing the list no longer opens the keyboard.
 
 ## 2.26.1 (2026-10-25)
