@@ -1,3 +1,9 @@
+# [2.32.0](https://github.com/2002Bishwajeet/journal/compare/v2.31.0...v2.32.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **mobile:** direction-locked swipe-to-delete and non-passive pull-to-refresh in the note list ([#778](https://github.com/2002Bishwajeet/journal/issues/778)) ([4ac1e44](https://github.com/2002Bishwajeet/journal/commit/4ac1e44feea9f6c0283421f7843de77abbbdd321))
 # [2.31.0](https://github.com/2002Bishwajeet/journal/compare/v2.30.1...v2.31.0) (2026-10-26)
 
 
