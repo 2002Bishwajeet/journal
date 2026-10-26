@@ -13,6 +13,7 @@ const ok: Layout = {
   caret: null,
   toolbar: null,
   dialogFooter: null,
+  searchSheet: null,
   sidebarFooter: { top: 610, bottom: 642, left: 8, right: 385 },
   foreignRequests: [],
 };
@@ -66,6 +67,14 @@ describe('iOS Safari layout checks', () => {
     expect(layoutProblems({ ...field, dialogFooter: { top: 380, bottom: 424, left: 24, right: 369 } }, false)).toEqual([]);
     expect(layoutProblems({ ...field, dialogFooter: { top: 410, bottom: 506, left: 24, right: 369 } }, false)).toEqual([
       'the dialog buttons (410–506) are outside the visual viewport (0–436)',
+    ]);
+  });
+
+  it('should flag a search sheet that runs under the keyboard while its field is focused', () => {
+    const field = { ...ok, viewport: { top: 0, height: 420 }, focused: { name: 'input[Search notes...]', fontSize: 18 }, sidebarFooter: null };
+    expect(layoutProblems({ ...field, searchSheet: { top: 0, bottom: 420, left: 0, right: 393 } }, false)).toEqual([]);
+    expect(layoutProblems({ ...field, searchSheet: { top: 0, bottom: 659, left: 0, right: 393 } }, false)).toEqual([
+      'the search sheet (0–659) is outside the visual viewport (0–420)',
     ]);
   });
 

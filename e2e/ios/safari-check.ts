@@ -233,6 +233,15 @@ try {
   await check('new-folder-dialog');
   await closeDialog();
 
+  // Search on a phone is a full-screen sheet that ends above the keyboard (#780).
+  await tap('button=Search');
+  await waitFor('the search sheet', () => !!document.querySelector('[role="dialog"][aria-label="Search notes"]'));
+  await tap('[placeholder="Search notes..."]');
+  await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
+  await check('search-sheet-keyboard');
+  await tap('button=Cancel');
+  await waitFor('the search sheet to close', () => !document.querySelector('[role="dialog"][aria-label="Search notes"]'));
+
   // Note list gestures (#778): import enough notes for the list to scroll, then swipe a
   // row, scroll with sideways drift, pull to refresh at the top and scroll again.
   await tap('button=Settings');
