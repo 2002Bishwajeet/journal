@@ -196,11 +196,13 @@ export default function JournalLayout() {
   const handleOpenToday = useCallback(async () => {
     try {
       const { docId, folderId: dailyFolderId } = await openToday();
-      navigate(`/${dailyFolderId}/${docId}`, { viewTransition: true });
+      const path = `/${dailyFolderId}/${docId}`;
+      // Already there: a push would make Back need two presses.
+      if (path !== location.pathname) navigate(path, { viewTransition: true });
     } catch {
       toast.error("Couldn't open today's note");
     }
-  }, [openToday, navigate]);
+  }, [openToday, navigate, location.pathname]);
 
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
