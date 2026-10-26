@@ -65,7 +65,7 @@ export default function EditorToolbar({ editor, onToggleToc, tocOpen = false, on
 
 
   return (
-    <div className="flex items-center gap-0.5 px-4 py-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+    <div className="flex flex-wrap items-center gap-0.5 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
       {/* Undo/Redo - uses Y.js undo manager */}
       <ToolbarButton
         onClick={() => safeEditorCommand(editor, () => {

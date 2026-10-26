@@ -32,12 +32,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
     () => "light" as const,
   )
 
-  // On a phone, toasts sit above the New note button while it shows (#878).
+  // On a phone, toasts sit above the New note button while it shows (#878). From lg they sit left of
+  // the docked assistant while it is open (#840).
   return (
     <Sonner
       theme={theme}
       className="toaster group pointer-events-auto"
-      offset={{ bottom: "calc(var(--fab-clearance, 24px) + env(safe-area-inset-bottom))" }}
+      offset={{ bottom: "calc(var(--fab-clearance, 24px) + env(safe-area-inset-bottom))", right: "var(--assistant-clearance, 24px)" }}
       mobileOffset={{ bottom: "calc(var(--fab-clearance, 16px) + env(safe-area-inset-bottom))" }}
       toastOptions={{
         classNames: {

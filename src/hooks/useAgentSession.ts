@@ -29,6 +29,13 @@ export interface AgentStep {
   write?: { markdown: string; state: "pending" | "accepted" | "rejected" | "notApplied"; note?: { title: string; href: string } };
   /** The tool was called and has not answered yet. */
   open?: boolean;
+  /** An error row, not a tool step. */
+  failed?: true;
+}
+
+/** The footer's step count: tool steps only, not the error row. */
+export function countToolSteps(steps: AgentStep[]): number {
+  return steps.filter((step) => !step.failed).length;
 }
 
 export interface ChatEntry {
@@ -108,7 +115,7 @@ function applyEvent(steps: AgentStep[], event: AgentEvent): AgentStep[] {
     case "toolResult":
       return steps.map((step, i) => (i === last ? { ...describeResult(step, event.tool, event.result, event.note), open: false } : step));
     case "error": {
-      const failed = { before: `Could not finish a step: ${event.error.replace(/: [0-9a-f-]{36}$/i, "")}`, after: "" };
+      const failed = { before: `Could not finish a step: ${event.error.replace(/: [0-9a-f-]{36}$/i, "")}`, after: "", failed: true as const };
       // A tool that throws fails its own step; a bad reply from the model is a step of its own.
       const rest = steps[last]?.open ? steps.slice(0, last) : steps;
       // The same failure twice in a row shows as one row.
