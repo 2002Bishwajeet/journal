@@ -476,6 +476,26 @@ try {
   await gesture('pull', row, 0, [0, 0], [0, 150], 600);
   await waitFor('the refresh to finish', () => !document.querySelector('[data-pull-to-refresh] .animate-spin'), 15_000).catch(() => {});
   await gesture('scroll-after-pull', row, 3, [0, 0], [0, -260]);
+
+  // Native feel (#856): the page never bounces, a long press on chrome shows no callout, a double tap does not zoom.
+  const touchAt = async (selector: string, steps: (a: ReturnType<typeof browser.action>, el: WebdriverIO.Element) => ReturnType<typeof browser.action>) => {
+    const el = (await browser.$$(selector))[0];
+    await steps(browser.action('pointer', { parameters: { pointerType: 'touch' } }), el).perform();
+  };
+  await touchAt(row, (a, el) =>
+    a.move({ origin: el, x: 0, y: 0 }).down().pause(100).move({ origin: el, x: 0, y: 200, duration: 400 }).up(),
+  );
+  await browser.pause(800);
+  const scrollY = await browser.execute(() => window.scrollY);
+  if (scrollY !== 0) failures.push(`native-feel: the page scrolled to ${scrollY} on a pull down at the top of the list`);
+  summary.push(`| native-feel: no page bounce | | window.scrollY ${scrollY} |`);
+  await touchAt(row, (a, el) => a.move({ origin: el, x: 0, y: 0 }).down().pause(900).up());
+  summary.push(`| native-feel: long press on a row | ${await screenshot('long-press-row')} | no system callout |`);
+  await touchAt('[aria-label="Sort notes"]', (a, el) =>
+    a.move({ origin: el, x: 0, y: 0 }).down().up().pause(80).down().up(),
+  );
+  await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await checkZoom('a double tap on a button');
 } catch (error) {
   failures.push(`run: ${(error as Error).message}`);
   await screenshot('error').catch(() => {});

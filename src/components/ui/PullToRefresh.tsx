@@ -3,6 +3,7 @@ import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { swipeAxis } from '@/helpers/swipeAxis';
+import { haptic } from '@/lib/haptics';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
@@ -113,6 +114,7 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
 
       if (pullDistance >= PULL_THRESHOLD) {
         setIsRefreshing(true);
+        haptic("light");
         animate(y, PULL_THRESHOLD, { duration: 0.2 });
 
         try {
