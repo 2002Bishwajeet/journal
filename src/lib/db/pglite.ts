@@ -32,6 +32,21 @@ let dbPromise: Promise<PGliteInterface> | null = null;
 // In-flight retry, so concurrent Retry clicks share one attempt.
 let retryPromise: Promise<PGliteInterface> | null = null;
 
+// The database worker, stopped when Safari caches the page (see onPageHide).
+let currentWorker: Worker | null = null;
+
+/**
+ * Safari keeps a page it leaves in its back/forward cache with the database worker
+ * suspended but still holding PGlite's leader election lock. The next page's worker then
+ * never becomes the leader, and the app stays on the splash screen (#806). Stop the
+ * worker when the page is cached, and reload the page if Safari shows it again.
+ */
+function onPageHide(event: PageTransitionEvent) {
+  if (!event.persisted || !currentWorker) return;
+  currentWorker.terminate();
+  addEventListener('pageshow', () => location.reload(), { once: true });
+}
+
 // Lazily enabled the first time fuzzy search runs — see ensureTrigramSearch().
 let trigramSearchPromise: Promise<void> | null = null;
 
@@ -141,10 +156,9 @@ function createWorkerInstance(relaxedDurability = true): Promise<PGliteInterface
     id: 'journal-pglite-pg18',
     extensions: { live },
   };
-  return PGliteWorker.create(
-    new Worker(new URL('./pglite-worker.ts', import.meta.url), { type: 'module' }),
-    options,
-  ).then((db) => {
+  if (!currentWorker) addEventListener('pagehide', onPageHide);
+  currentWorker = new Worker(new URL('./pglite-worker.ts', import.meta.url), { type: 'module' });
+  return PGliteWorker.create(currentWorker, options).then((db) => {
     // WASM fetched + compiled and the worker leader elected — the slowest
     // step of a cold boot, reported for the splash progress bar.
     reportBootPhase('db-worker');
