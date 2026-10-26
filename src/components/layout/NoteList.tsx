@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/modals";
-import { ContextMenuWrapper } from "@/components/ui/context-menu-wrapper";
+import { ContextMenuWrapper, RowOptionsMenu, type ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper";
 import { cn } from "@/lib/utils";
 import { agentDisplayName } from "@/lib/agent/attribution";
 import type { NoteListEntry } from "@/types";
@@ -419,77 +419,77 @@ const NoteItem = memo(function NoteItem({
     }
   };
 
+  const menuItems: ContextMenuItemConfig[] = [
+    {
+      label: note.metadata.isPinned ? "Unpin" : "Pin",
+      icon: note.metadata.isPinned ? PinOff : Pin,
+      action: () => onTogglePin(note.docId, !note.metadata.isPinned),
+    },
+    {
+      label: "Share",
+      icon: Share2,
+      action: () => onShareNote(note),
+    },
+    // Collaborative notes live in the shared folder and notes from other people
+    // aren't ours to file: neither has a Move item.
+    ...(note.metadata.isCollaborative || isPeerNote || !onMoveToFolder
+      ? []
+      : [
+          {
+            label: "Move to folder…",
+            icon: FolderInput,
+            action: () => onMoveToFolder(note),
+          },
+        ]),
+    {
+      label: "Export to Markdown",
+      icon: Download,
+      action: () =>
+        void import("@/lib/importexport/exportNoteMarkdown").then((m) =>
+          m.exportNoteAsMarkdown(note.docId, note.title || "Untitled"),
+        ),
+    },
+    {
+      label: "Open in Owner Console",
+      icon: ExternalLink,
+      action: () =>
+        window.open(
+          ownerConsoleNoteUrl(dotYouClient.getRoot(), note.docId),
+          "_blank",
+          "noopener,noreferrer",
+        ),
+    },
+    {
+      label: note.metadata.isCollaborative
+        ? "Revoke Collaboration"
+        : "Mark as Collaborative",
+      icon: Users,
+      action: () => onMarkCollaborative?.(note),
+      disabled: !onMarkCollaborative,
+    },
+    {
+      label: "Archive",
+      icon: Archive,
+      action: () => onArchive?.(note),
+      disabled: !onArchive,
+    },
+    {
+      label: "Move to Trash",
+      icon: Trash2,
+      action: () => onDeleteNote(note.docId),
+      variant: "destructive",
+      shortcut: "⌫",
+    },
+  ];
+
   return (
     <div
       data-testid="note-row"
-      className="relative overflow-hidden w-full select-none"
+      className="relative overflow-hidden w-full select-none [-webkit-touch-callout:none]"
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 72px" }}
       onClick={isSwiped ? handleGlobalClick : undefined}
     >
-      <ContextMenuWrapper
-        items={[
-          {
-            label: note.metadata.isPinned ? "Unpin" : "Pin",
-            icon: note.metadata.isPinned ? PinOff : Pin,
-            action: () => onTogglePin(note.docId, !note.metadata.isPinned),
-          },
-          {
-            label: "Share",
-            icon: Share2,
-            action: () => onShareNote(note),
-          },
-          // Collaborative notes live in the shared folder and notes from other people
-          // aren't ours to file: neither has a Move item.
-          ...(note.metadata.isCollaborative || isPeerNote || !onMoveToFolder
-            ? []
-            : [
-                {
-                  label: "Move to folder…",
-                  icon: FolderInput,
-                  action: () => onMoveToFolder(note),
-                },
-              ]),
-          {
-            label: "Export to Markdown",
-            icon: Download,
-            action: () =>
-              void import("@/lib/importexport/exportNoteMarkdown").then((m) =>
-                m.exportNoteAsMarkdown(note.docId, note.title || "Untitled"),
-              ),
-          },
-          {
-            label: "Open in Owner Console",
-            icon: ExternalLink,
-            action: () =>
-              window.open(
-                ownerConsoleNoteUrl(dotYouClient.getRoot(), note.docId),
-                "_blank",
-                "noopener,noreferrer",
-              ),
-          },
-          {
-            label: note.metadata.isCollaborative
-              ? "Revoke Collaboration"
-              : "Mark as Collaborative",
-            icon: Users,
-            action: () => onMarkCollaborative?.(note),
-            disabled: !onMarkCollaborative,
-          },
-          {
-            label: "Archive",
-            icon: Archive,
-            action: () => onArchive?.(note),
-            disabled: !onArchive,
-          },
-          {
-            label: "Move to Trash",
-            icon: Trash2,
-            action: () => onDeleteNote(note.docId),
-            variant: "destructive",
-            shortcut: "⌫",
-          },
-        ]}
-      >
+      <ContextMenuWrapper items={menuItems}>
         <div className="relative w-full h-full">
           {/* Background Action (Delete) with glow effect */}
           <div
@@ -543,7 +543,12 @@ const NoteItem = memo(function NoteItem({
               transform: `translateX(-${swipeOffset}px)`,
             }}
           >
-            <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
+            <RowOptionsMenu
+              items={menuItems}
+              label="Note options"
+              className="absolute right-0 top-0"
+            />
+            <div className="flex items-start justify-between gap-2 w-full overflow-hidden pointer-coarse:pr-9">
               <span
                 className={cn(
                   "text-sm font-medium truncate flex-1",
