@@ -4,6 +4,7 @@ on:
   push:
     branches: [ main ]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: e2e-${{ github.ref }}
@@ -11,15 +12,104 @@ concurrency:
 
 jobs:
   # The hermetic suite split three ways; `e2e` below is the required check.
+  # Step caps are about 1.5x the measured p90 (#868); they sum to 34 min, plus
+  # 2 min for the uncapped steps that take a second each.
   e2e-shard:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 36
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3]
+    steps:
+      - name: Checkout
+        timeout-minutes: 1
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        timeout-minutes: 1
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Authenticate to Github packages
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+
+      - name: Install dependencies
+        timeout-minutes: 2
+        run: npm ci --include=optional
+
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        timeout-minutes: 1
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 3
+        run: npx playwright install chromium
+
+      # apt on the runner fetched ~26 MB of fonts and libs at ~30 kB/s, or hung in
+      # `apt-get update` on an unreachable mirror, for up to 13.5 min (#868). So keep
+      # the .debs and, once cached, install them offline with dpkg.
+      - name: Cache Playwright OS packages
+        timeout-minutes: 1
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-archives
+          key: playwright-apt-chromium-${{ runner.os }}-offline
+          restore-keys: playwright-apt-chromium-${{ runner.os }}-
+
+      - name: Install Playwright OS dependencies
+        timeout-minutes: 3
+        run: .github/scripts/playwright-deps.sh chromium
+
+      - name: Run E2E (hermetic)
+        timeout-minutes: 16
+        run: npm run e2e -- --shard=${{ matrix.shard }}/3
+        env:
+          CI: true
+
+      # On shard 3, the shortest hermetic shard.
+      - name: Run mobile E2E (chromium)
+        if: matrix.shard == 3
+        timeout-minutes: 5
+        run: npm run e2e:mobile
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        if: failure()
+        timeout-minutes: 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.shard }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+  # WebKit and quarantined specs only inform, so they run beside the shards and
+  # `e2e` does not wait for them. A cold apt cache on a slow mirror can take
+  # 20+ min for webkit's ~120 MB, so that step gives up after 5 and the specs
+  # still run (and may fail) without marking the run red.
+  e2e-informational:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,48 +137,34 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+          key: playwright-chromium-webkit-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
-      - name: Install Playwright chromium
+      - name: Install Playwright chromium and webkit
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium webkit
+
+      - name: Cache Playwright OS packages
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-archives
+          key: playwright-apt-webkit-${{ runner.os }}-offline
+          restore-keys: playwright-apt-webkit-${{ runner.os }}-
 
       - name: Install Playwright OS dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-
-      - name: Run E2E (hermetic)
-        run: npm run e2e -- --shard=${{ matrix.shard }}/3
-        env:
-          CI: true
-
-      - name: Run mobile E2E (chromium)
-        if: matrix.shard == 1
-        run: npm run e2e:mobile
-        env:
-          CI: true
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-${{ matrix.shard }}-${{ github.run_attempt }}
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 14
+        timeout-minutes: 5
+        continue-on-error: true
+        run: .github/scripts/playwright-deps.sh chromium webkit
 
       - name: Run mobile E2E (webkit, informational)
-        if: always() && matrix.shard == 1
+        timeout-minutes: 8
         continue-on-error: true
-        run: |
-          npx playwright install --with-deps webkit
-          npm run e2e:mobile:webkit
+        run: npm run e2e:mobile:webkit
         env:
           CI: true
 
       - name: Run quarantined E2E specs (informational)
-        if: always() && matrix.shard == 1
+        if: always()
+        timeout-minutes: 2
         continue-on-error: true
         run: npm run e2e:quarantine
         env:
