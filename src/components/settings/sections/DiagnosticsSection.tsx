@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, ExternalLink, Loader2, RefreshCw, Share2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import { useDiagnostics } from "@/hooks/useDiagnostics";
-import { usePendingImage } from "@/hooks/usePendingImage";
+import { getPendingImageUpload } from "@/lib/db";
 import { SHARE_DRIVE_FIX_STEPS } from "@/lib/homebase/shareNotifications";
 import { MAIN_FOLDER_ID } from "@/lib/homebase";
 import { explainSyncError } from "@/lib/diagnostics/report";
@@ -42,9 +42,22 @@ function itemTitle(item: PendingSyncItem): string {
   return item.isDelete ? "Deleted item" : "Untitled";
 }
 
-/** The queued image itself, from the bytes kept on this device. */
+/** The queued image itself, read once from the bytes kept on this device (the row has its status). */
 function ImageThumb({ id }: { id: string }) {
-  const { url } = usePendingImage(id);
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    let objectUrl: string | undefined;
+    let alive = true;
+    void getPendingImageUpload(id).then((row) => {
+      if (!alive || !row) return;
+      objectUrl = URL.createObjectURL(new Blob([new Uint8Array(row.blobData)], { type: row.contentType }));
+      setUrl(objectUrl);
+    });
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [id]);
   return (
     <span className="size-11 shrink-0 overflow-hidden rounded-md border bg-muted">
       {url && <img src={url} alt="" className="size-full object-cover" />}

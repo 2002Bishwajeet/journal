@@ -18,7 +18,9 @@ const { navigate, close, retryAll, retryItem, discardImages, copyReport, diagnos
 
 vi.mock('react-router-dom', () => ({ useNavigate: () => navigate, useInRouterContext: () => false }));
 vi.mock('@/hooks/useDiagnostics', () => ({ useDiagnostics: () => diagnostics.current }));
-vi.mock('@/hooks/usePendingImage', () => ({ usePendingImage: () => ({ url: 'blob:thumb', state: 'failed' }) }));
+vi.mock('@/lib/db', () => ({
+    getPendingImageUpload: async () => ({ blobData: new Uint8Array([1]), contentType: 'image/png', status: 'failed_permanent' }),
+}));
 
 import DiagnosticsSection from '@/components/settings/sections/DiagnosticsSection';
 
@@ -157,7 +159,7 @@ describe('DiagnosticsSection', () => {
         expect(row.textContent).toContain('Failed');
         expect(row.textContent).toContain('more images than your Homebase allows');
         expect(row.textContent).toContain('unhandledScenario · HTTP 400: Too many Payloads count 26');
-        expect(row.querySelector('img')?.getAttribute('src')).toBe('blob:thumb');
+        expect(row.querySelector('img')?.getAttribute('src')).toMatch(/^blob:/);
         // One failed image: its own Discard is enough
         expect([...document.querySelectorAll('button')].some((b) => b.textContent?.includes('Discard all'))).toBe(false);
 

@@ -171,8 +171,8 @@ export function useDiagnostics() {
     const discardImages = async (ids: string[]) => {
         await discardPendingImageUploads(ids);
         appendLog('info', `[Diagnostics] Discarded ${ids.length} image ${ids.length === 1 ? 'upload' : 'uploads'}`);
+        // The count change re-reads the list (listKey)
         await refreshPendingCount();
-        reload();
     };
 
     const reportText = () => buildReport({ status, items: items ?? [], log, includeTitles });

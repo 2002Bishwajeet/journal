@@ -66,8 +66,8 @@ describe('describeSyncError (#874)', () => {
         });
     });
 
-    it('retries sign-in, timeout and rate-limit 4xx, a version conflict, 5xx and network errors', () => {
-        for (const status of [401, 408, 429, 500, 503]) expect(describeSyncError(httpError(status)).permanent).toBe(false);
+    it('retries sign-in, permission, timeout and rate-limit 4xx, a version conflict, 5xx and network errors', () => {
+        for (const status of [401, 403, 408, 429, 500, 503]) expect(describeSyncError(httpError(status)).permanent).toBe(false);
         expect(describeSyncError(httpError(400, { errorCode: 'versionTagMismatch' })).permanent).toBe(false);
         expect(describeSyncError(new Error('Network Error'))).toEqual({
             message: 'Network Error', status: undefined, code: undefined, permanent: false,
