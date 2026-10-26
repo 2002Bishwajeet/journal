@@ -1,3 +1,20 @@
+# [2.36.0](https://github.com/2002Bishwajeet/journal/compare/v2.35.1...v2.36.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **mobile-list:** keep the sticky group header opaque on hover ([#779](https://github.com/2002Bishwajeet/journal/issues/779)) ([e166070](https://github.com/2002Bishwajeet/journal/commit/e1660704d00f48083ebaa7274b487e4448299e9c))
+* **mobile-list:** settle dark screenshot, scope clip to NoteList, gate editor back on phones, robust nav flag timer ([d374038](https://github.com/2002Bishwajeet/journal/commit/d37403829220624c81db939a5a9f2094f7428ba6))
+* **mobile:** in-app Back pops only when history.state.idx > 0, so a restored session still replaces ([#822](https://github.com/2002Bishwajeet/journal/issues/822)) ([2971267](https://github.com/2002Bishwajeet/journal/commit/29712675ae2e767d53bffb3f047a39c6f0f91aa5))
+* **mobile:** lint-clean overlay hook; phone-safe note creation and a fresh page in the Back spec ([#822](https://github.com/2002Bishwajeet/journal/issues/822)) ([996b75b](https://github.com/2002Bishwajeet/journal/commit/996b75b54e0bad79a1b470d9d39ff09eb0a8aa1c))
+* **mobile:** make the push and pop slides play, and none on popstate ([#779](https://github.com/2002Bishwajeet/journal/issues/779)) ([bae1d2d](https://github.com/2002Bishwajeet/journal/commit/bae1d2da85e0d7b0b16350ae3a571e2edcfea207))
+* **mobile:** picking a Search result replaces the sheet's history entry ([#822](https://github.com/2002Bishwajeet/journal/issues/822)) ([c9b8b9e](https://github.com/2002Bishwajeet/journal/commit/c9b8b9e1e070755dce17a4fe3dd629fbb4d5d2d1))
+
+
+### Features
+
+* **mobile:** Back closes dialogs and in-app Back pops history ([#822](https://github.com/2002Bishwajeet/journal/issues/822)) ([da3b27c](https://github.com/2002Bishwajeet/journal/commit/da3b27c6fd631d603e3e1c694e8a788dd601b473))
+* **mobile:** one list header, sticky group headers, 44px controls, push/pop slide ([#779](https://github.com/2002Bishwajeet/journal/issues/779)) ([a724f9e](https://github.com/2002Bishwajeet/journal/commit/a724f9ee6b4fcabe92b62930aabcf6d2f265b04c))
 ## [2.35.1](https://github.com/2002Bishwajeet/journal/compare/v2.35.0...v2.35.1) (2026-10-26)
 
 

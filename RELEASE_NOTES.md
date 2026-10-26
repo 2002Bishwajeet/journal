@@ -16,6 +16,13 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.36.0 (2026-10-26)
+
+### Changed
+
+- On a phone, the Back button and the Back swipe now close a dialog or sheet and stay on the same screen. Back inside a note or a list now goes to the screen you came from, including after you open a note from Search.
+- On a phone, the note list has one header with Back, Sort and New. The buttons are bigger, and the date headings stay at the top while you scroll. Opening a folder or a note slides the new screen in from the right, and the Back button slides it back. The Back swipe keeps Safari's own animation.
+
 ## 2.35.1 (2026-10-26)
 
 ### Fixed
