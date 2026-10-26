@@ -18,7 +18,7 @@ async function box(locator: ReturnType<Page['locator']>) {
 }
 
 async function addNote(page: Page) {
-  await page.getByRole('button', { name: 'New', exact: true }).click();
+  await page.getByRole('button', { name: 'New note', exact: true }).click();
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.getByRole('heading', { name: FOLDER })).toBeVisible();
 }
@@ -40,17 +40,8 @@ test('the list screen has one 44 px header, and the group header sticks', async 
       expect(b.height, name).toBeGreaterThanOrEqual(44);
     }
 
-    // New stays a compact 28 px pill; an invisible ::after makes its tap area 44 px tall.
-    const newButton = page.getByRole('button', { name: 'New', exact: true });
-    const nb = await box(newButton);
-    expect(nb.height).toBeLessThan(36);
-    for (const dy of [-21, 21]) {
-      const hit = await page.evaluate(
-        ([x, y]) => document.elementFromPoint(x, y)?.closest('button')?.textContent?.trim(),
-        [nb.x + nb.width / 2, nb.y + nb.height / 2 + dy],
-      );
-      expect(hit, `tap ${dy} px from the New button's centre`).toBe('New');
-    }
+    // Phones create notes with the New note button (#878), not a header New.
+    await expect(page.getByRole('button', { name: 'New', exact: true })).toHaveCount(0);
 
     // Fill the list until it scrolls at least 900 px.
     await addNote(page);
@@ -98,7 +89,7 @@ test('in-app navigation slides; the system Back plays no transition of ours', as
     const slides = () => page.evaluate(() => (window as unknown as { slides: string[] }).slides);
 
     await selectFolder(page, FOLDER);
-    await page.getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('button', { name: 'New note', exact: true }).click();
     const back = page.getByRole('button', { name: 'Back', exact: true });
     await expect(back).toBeVisible();
     await expect.poll(slides).toEqual(['forward', 'forward']);

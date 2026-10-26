@@ -18,11 +18,11 @@ export function activeEditor(page: Page): Locator {
     return page.locator('.ProseMirror:visible');
 }
 
-/** Create a note via the real UI (the notes list's "New" button), then fill title and body. */
+/** Create a note via the real UI (the notes list's "New" button, or "New note" on a phone), then fill title and body. */
 export async function createNote(page: Page, { title, body }: { title: string; body: string }): Promise<void> {
     await assertTestOrigin(page);
     const before = page.url();
-    await page.getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('button', { name: /^New( note)?$/ }).click();
     // Desktop keeps earlier tabs mounted (hidden), so wait for the new note's URL,
     // then for the active title to read the new note's default "Untitled" — the
     // assertion re-queries on every retry, riding out the tab transition.

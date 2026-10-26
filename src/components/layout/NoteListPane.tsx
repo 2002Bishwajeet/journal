@@ -10,6 +10,8 @@ import { HiddenNotesView } from "./HiddenNotesView";
 
 interface NoteListPaneProps {
   isDesktop: boolean;
+  /** Phones create notes with the New note button (#878), so the list header has no New. */
+  isPhone: boolean;
   isManagementView: boolean;
   isListVisibleOnMobile: boolean;
   inFocusMode: boolean;
@@ -28,6 +30,7 @@ interface NoteListPaneProps {
 /** Middle pane: the note list, or the Trash/Archive management views. */
 export function NoteListPane({
   isDesktop,
+  isPhone,
   isManagementView,
   isListVisibleOnMobile,
   inFocusMode,
@@ -102,6 +105,7 @@ export function NoteListPane({
           selectedNoteId={noteId || null}
           onSelectNote={noteActions.selectNote}
           onCreateNote={() => noteActions.createAndOpen(folderId)}
+          showNewButton={!isPhone}
           onDeleteNote={noteActions.deleteAndSelectNeighbour}
           onShareNote={onShareNote}
           onMoveToFolder={onMoveToFolder}

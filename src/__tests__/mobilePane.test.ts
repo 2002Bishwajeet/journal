@@ -3,7 +3,7 @@
  * in the route but still needs the note list, not the sidebar.
  */
 import { describe, it, expect } from 'vitest';
-import { getMobilePane } from '@/layouts/mobilePane';
+import { getMobilePane, showNewNoteFab } from '@/layouts/mobilePane';
 
 describe('getMobilePane', () => {
     it('shows the sidebar at the root', () => {
@@ -24,5 +24,40 @@ describe('getMobilePane', () => {
 
     it('shows the editor for a note opened from a tag filter', () => {
         expect(getMobilePane({ tag: 'a', folderId: 'f', noteId: 'n' })).toBe('editor');
+    });
+});
+
+describe('showNewNoteFab', () => {
+    const base = {
+        isPhone: true,
+        pane: 'list' as const,
+        isManagementView: false,
+        overlayOpen: false,
+        textFieldFocused: false,
+    };
+
+    it('shows on a phone on home and on a note list', () => {
+        expect(showNewNoteFab({ ...base, pane: 'sidebar' })).toBe(true);
+        expect(showNewNoteFab(base)).toBe(true);
+    });
+
+    it('hides on tablet and desktop, where the list header keeps New', () => {
+        expect(showNewNoteFab({ ...base, isPhone: false })).toBe(false);
+    });
+
+    it('hides inside a note', () => {
+        expect(showNewNoteFab({ ...base, pane: 'editor' })).toBe(false);
+    });
+
+    it('hides in Trash and Archive', () => {
+        expect(showNewNoteFab({ ...base, isManagementView: true })).toBe(false);
+    });
+
+    it('hides while a sheet or dialog is open', () => {
+        expect(showNewNoteFab({ ...base, overlayOpen: true })).toBe(false);
+    });
+
+    it('hides while a text field has focus (the keyboard is up)', () => {
+        expect(showNewNoteFab({ ...base, textFieldFocused: true })).toBe(false);
     });
 });

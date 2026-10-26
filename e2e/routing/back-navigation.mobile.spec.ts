@@ -14,7 +14,7 @@ const historyIdx = (page: Page) => page.evaluate(() => (history.state as { idx?:
 async function newNoteInMain(page: Page, title: string) {
   await selectFolder(page, 'Main');
   const before = page.url();
-  await page.getByRole('button', { name: 'New', exact: true }).click();
+  await page.getByRole('button', { name: 'New note', exact: true }).click();
   await page.waitForURL((url) => url.href !== before);
   await expect(activeTitleInput(page)).toHaveValue('Untitled');
   await activeTitleInput(page).fill(title);

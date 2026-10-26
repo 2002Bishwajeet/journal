@@ -25,7 +25,7 @@ test('on a phone, open Version history from More, restore a version, and keep th
       const editor = activeEditor(page);
 
       // createNote waits for a list row, which the phone hides once the editor is open.
-      await page.getByRole('button', { name: 'New', exact: true }).tap();
+      await page.getByRole('button', { name: 'New note', exact: true }).tap();
       await expect(activeTitleInput(page)).toHaveValue('Untitled');
       await activeTitleInput(page).fill(title);
       await typeInEditor(page, 'first');

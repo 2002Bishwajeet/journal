@@ -511,7 +511,7 @@ export default function Sidebar({
             "shrink-0 space-y-1",
             isCollapsed
               ? "p-2 w-full flex flex-col items-center"
-              : "p-2 mt-auto"
+              : "p-2 pb-[calc(0.5rem+var(--fab-clearance,0px))] mt-auto"
           )}
         >
           <Separator className={isCollapsed ? "mb-2 w-6!" : "mb-2"} />
