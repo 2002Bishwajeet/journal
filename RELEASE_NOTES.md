@@ -16,6 +16,13 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.38.2 (2026-10-26)
+
+### Fixed
+
+- On an iPhone, large images (for example, screenshots) upload again. Before, Homebase refused their previews because they were larger than 1 MB.
+- Images that did not upload for this reason try again automatically after you update the app.
+
 ## 2.38.1 (2026-10-26)
 
 ### Fixed
