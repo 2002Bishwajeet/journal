@@ -19,6 +19,12 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - On a phone, dialogs are easier to use. The close button and the dialog buttons are bigger and easier to tap. A dialog never gets taller than the screen. When you type in a dialog, its buttons stay above the keyboard. In dark mode, buttons and fields in dialogs have outlines that you can see.
 
+## 2.29.0 (2026-10-26)
+
+### Changed
+
+- On a phone, folder rows and note rows have a "More" button. It opens the same menu as a long press. The menus stay on the screen, and their items are bigger and easier to tap.
+
 ### Fixed
 
 - On a phone, the formatting bar now sits directly on top of the keyboard. It follows the keyboard and shows in every keyboard mode.

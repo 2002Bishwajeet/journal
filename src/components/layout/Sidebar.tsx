@@ -35,6 +35,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { ContextMenuWrapper, RowOptionsMenu, type ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper";
 import { ConfirmDialog, ShareFolderDialog, SignOutConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
 import type { Folder } from "@/types";
@@ -323,10 +324,19 @@ export default function Sidebar({
               className={isCollapsed ? "flex flex-col items-center gap-1.5" : "space-y-0.5"}
             >
               {folders.map((folder) => {
+                const folderMenuItems: ContextMenuItemConfig[] = [
+                  ...(folder.id !== MAIN_FOLDER_ID
+                    ? [
+                        { label: "Rename Folder", icon: Pencil, action: () => onRenameFolder?.(folder.id) },
+                        { label: "Share folder…", icon: Globe, action: () => setShareFolderId(folder.id) },
+                      ]
+                    : []),
+                  { label: "Delete Folder", icon: Trash2, action: () => setFolderToDelete(folder.id), variant: "destructive" as const },
+                ];
                 const isSelected = selectedFolderId === folder.id;
                 return (
-                  <ContextMenu key={folder.id}>
-                    <ContextMenuTrigger className={cn("flex", isCollapsed ? "justify-center" : "w-full")}>
+                  <ContextMenuWrapper key={folder.id} items={folderMenuItems}>
+                    <div className={cn("flex", isCollapsed ? "justify-center" : "w-full")}>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
@@ -336,7 +346,7 @@ export default function Sidebar({
                               isCollapsed
                                 ? // The button is the tile, so its focus ring and the badge are never clipped by an inner box.
                                   "size-9 px-0 rounded-lg border text-[11px] font-semibold tracking-wide"
-                                : "w-full min-w-0 h-10 justify-start px-2",
+                                : "w-full min-w-0 shrink h-10 justify-start px-2 [-webkit-touch-callout:none]",
                               // Light mode needs a stronger edge and darker letters than the muted tokens give on the sidebar (4.5:1 text).
                               isCollapsed && !isSelected &&
                                 "border-muted-foreground/50 text-sidebar-foreground/80 hover:text-sidebar-foreground dark:border-sidebar-border dark:text-muted-foreground dark:hover:text-foreground",
@@ -385,37 +395,11 @@ export default function Sidebar({
                           </TooltipContent>
                         )}
                       </Tooltip>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      {folder.id !== MAIN_FOLDER_ID && (
-                      <ContextMenuItem onClick={() => onRenameFolder?.(folder.id)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Rename Folder
-                      </ContextMenuItem>
+                      {!isCollapsed && (
+                        <RowOptionsMenu items={folderMenuItems} label="Folder options" />
                       )}
-                      {folder.id !== MAIN_FOLDER_ID && (
-                        <ContextMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShareFolderId(folder.id);
-                          }}
-                        >
-                          <Globe className="mr-2 h-4 w-4" />
-                          Share folder…
-                        </ContextMenuItem>
-                      )}
-                      <ContextMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFolderToDelete(folder.id);
-                        }}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete Folder
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
+                    </div>
+                  </ContextMenuWrapper>
                 );
               })}
             </nav>

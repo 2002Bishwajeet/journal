@@ -248,6 +248,7 @@ export default function JournalLayout() {
       </a>
       {/* Sidebar */}
       <div
+        data-pane="sidebar"
         className={cn(
           "h-full border-r bg-muted/10 transition-all duration-300 ease-in-out",
           // Desktop: Always visible
