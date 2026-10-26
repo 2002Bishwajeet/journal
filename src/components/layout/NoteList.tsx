@@ -286,7 +286,7 @@ export default function NoteList({
                   <button
                     onClick={() => toggleGroup(group.label)}
                     aria-expanded={!group.collapsed}
-                    className="sticky top-0 z-10 bg-background flex items-center w-full px-3 py-1 pointer-coarse:min-h-11 hover:bg-muted/50 transition-colors group/header"
+                    className="sticky top-0 z-10 bg-background flex items-center w-full px-3 py-1 pointer-coarse:min-h-11 hover:bg-muted transition-colors group/header"
                   >
                     {group.collapsed ? (
                       <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
