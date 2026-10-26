@@ -28,6 +28,8 @@ test('search fills the screen, has a tall Cancel button, and opens a result', as
     }
 
     let dialog = await openSearch(page);
+    // Measure after the 200ms zoom-in, which scales the sheet to 95% at first.
+    await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
     const box = await dialog.boundingBox();
     expect(box!.x).toBe(0);
     expect(box!.y).toBe(0);

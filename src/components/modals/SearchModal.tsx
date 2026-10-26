@@ -2,6 +2,7 @@ import { HighlightedText } from "@/components/ui/HighlightedText";
 import { Kbd } from "@/components/ui/kbd";
 import { Search, FileText, Loader2, Sparkles, Type, FileSearch, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { followKeyboard } from "@/lib/keyboardViewport";
 import { proseOnly } from "@/lib/previewText";
 import { useSearchModal, isAdvancedResult, type SearchResult } from "@/hooks/useSearchModal";
 
@@ -161,7 +162,9 @@ export default function SearchModal({
         role="dialog"
         aria-modal="true"
         aria-label="Search notes"
-        className="fixed inset-0 h-dvh pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:inset-auto sm:left-1/2 sm:top-[10%] sm:-translate-x-1/2 sm:h-auto sm:pt-0 sm:pb-0 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl sm:border border-border sm:rounded-xl overflow-hidden flex flex-col sm:max-h-[85dvh] animate-in fade-in zoom-in-95 duration-200"
+        // On a phone the sheet fills what is left above the keyboard (followKeyboard sets the vars).
+        ref={followKeyboard}
+        className="fixed inset-x-0 top-[var(--dialog-top,50%)] -translate-y-1/2 h-[var(--dialog-max-h,100dvh)] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:inset-x-auto sm:left-1/2 sm:top-[10%] sm:-translate-x-1/2 sm:translate-y-0 sm:h-auto sm:pt-0 sm:pb-0 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl sm:border border-border sm:rounded-xl overflow-hidden flex flex-col sm:max-h-[85dvh] animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input - Large and clean */}

@@ -75,4 +75,25 @@ describe('SearchModal', () => {
     enter('mouse');
     expect(setSelectedIndex).toHaveBeenCalledWith(1);
   });
+
+  it('fills only the part of the screen above the keyboard', () => {
+    // Defined on window itself, so deleting it below brings back happy-dom's own.
+    const vv = Object.assign(new EventTarget(), { height: 852, offsetTop: 0, scale: 1 });
+    Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 852, configurable: true });
+    const render = (isOpen: boolean) =>
+      act(() => root.render(createElement(SearchModal, { isOpen, onClose: () => {}, onSelectNote: () => {} })));
+    // Reopen, so the sheet mounts with the viewport above.
+    render(false);
+    render(true);
+    const sheet = host.querySelector<HTMLElement>('[role="dialog"]')!;
+    const vars = () => [sheet.style.getPropertyValue('--dialog-top'), sheet.style.getPropertyValue('--dialog-max-h')];
+    expect(vars()).toEqual(['', '']);
+
+    Object.assign(vv, { height: 420, offsetTop: 0 });
+    vv.dispatchEvent(new Event('resize'));
+    expect(vars()).toEqual(['210px', '420px']);
+    delete (window as { visualViewport?: unknown }).visualViewport;
+    delete (window as { innerHeight?: unknown }).innerHeight;
+  });
 });
