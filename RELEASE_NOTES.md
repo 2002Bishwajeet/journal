@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.30.0 (2026-10-26)
+
+### Fixed
+
+- Settings › Diagnostics now tells you when your journal drive blocks share notifications. It shows how to turn them on in your owner console.
+
 ## 2.29.1 (2026-10-26)
 
 ### Changed

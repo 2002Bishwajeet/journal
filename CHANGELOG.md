@@ -1,3 +1,14 @@
+# [2.30.0](https://github.com/2002Bishwajeet/journal/compare/v2.29.1...v2.30.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **sharing:** detect share notifications off on drives without allowSubscriptions ([#817](https://github.com/2002Bishwajeet/journal/issues/817)) ([5fdf9c9](https://github.com/2002Bishwajeet/journal/commit/5fdf9c9d8ca95150204c9f620d93e8bf05e49401)), closes [#763](https://github.com/2002Bishwajeet/journal/issues/763) [homebase-id/odin-core#1999](https://github.com/homebase-id/odin-core/issues/1999)
+
+
+### Features
+
+* **sharing:** stop sending the invite file (615) when sharing a note ([#747](https://github.com/2002Bishwajeet/journal/issues/747)) ([28cc61d](https://github.com/2002Bishwajeet/journal/commit/28cc61d22c60ca1087d9962b741abb4b7e89696a))
 ## [2.29.1](https://github.com/2002Bishwajeet/journal/compare/v2.29.0...v2.29.1) (2026-10-26)
 
 
