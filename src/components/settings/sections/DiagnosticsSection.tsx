@@ -187,6 +187,18 @@ function DriveSettingsLink({ href }: { href: string }) {
   );
 }
 
+function DriveOwnerSteps({ href }: { href: string }) {
+  return (
+    <>
+      <p className="text-sm leading-relaxed text-pretty">On your owner console, open the drive and:</p>
+      <ol className="list-decimal space-y-1 pl-5 text-sm leading-relaxed">
+        <li>{DRIVE_OWNER_STEP}</li>
+      </ol>
+      <DriveSettingsLink href={href} />
+    </>
+  );
+}
+
 export default function DiagnosticsSection({ close }: { close: () => void }) {
   const navigate = useNavigate();
   const diagnostics = useDiagnostics();
@@ -308,13 +320,34 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
             Journal doesn't own its drive
           </SectionHeader>
           <p className="text-sm leading-relaxed text-pretty">
-            Your journal drive belongs to another app. The circles that Journal makes can only let people read your
-            notes there. On your owner console, open the drive, choose the edit (pencil) button and:
+            Your journal drive belongs to {diagnostics.driveOwnerFixUrl ? "no app yet" : "another app"}. The circles
+            that Journal makes can only let people read your notes there.
           </p>
-          <ol className="list-decimal space-y-1 pl-5 text-sm leading-relaxed">
-            <li>{DRIVE_OWNER_STEP}</li>
-          </ol>
-          <DriveSettingsLink href={diagnostics.driveSettingsUrl} />
+          {diagnostics.driveOwnerFixUrl ? (
+            <>
+              <p className="text-sm leading-relaxed text-pretty">
+                Your owner console can give the drive to Journal. You approve the change there. It can't be undone.
+              </p>
+              <Button asChild className="min-h-11 w-full sm:w-auto md:min-h-9">
+                <a href={diagnostics.driveOwnerFixUrl} onClick={diagnostics.markShareDriveFixAttempted}>
+                  <Wrench />
+                  Fix in owner console
+                </a>
+              </Button>
+              <p className="text-xs leading-relaxed text-pretty text-muted-foreground">
+                This needs an up-to-date owner console. On an older one, do it by hand.
+              </p>
+              <details className="group space-y-3">
+                <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium md:min-h-0">
+                  <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" aria-hidden="true" />
+                  Do it by hand
+                </summary>
+                <DriveOwnerSteps href={diagnostics.driveSettingsUrl} />
+              </details>
+            </>
+          ) : (
+            <DriveOwnerSteps href={diagnostics.driveSettingsUrl} />
+          )}
         </div>
       )}
 

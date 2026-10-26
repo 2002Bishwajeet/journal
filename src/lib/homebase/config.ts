@@ -74,16 +74,21 @@ export const JOURNAL_DRIVE: TargetDrive = {
 /** Attributes the journal drive needs for peer notifications (#848); Homebase reads `IsCollaborativeChannel` on a share push. */
 export const JOURNAL_DRIVE_ATTRIBUTES: Record<string, string> = { IsCollaborativeChannel: 'true' };
 
-/**
- * Owner Console deep link for a note. `docId` is the Homebase `uniqueId`, which the
- * console accepts in place of a numeric fileId. `root` must come from
- * `dotYouClient.getRoot()` — the app is deployed cross-site, so window.location is wrong.
- */
-export const ownerConsoleNoteUrl = (root: string, docId: string) =>
-    `${root}/owner/drives/${JOURNAL_DRIVE.alias}_${JOURNAL_DRIVE.type}/${docId}`;
+/** The owner console's own app id (odin-js `OWNER_APP_ID`): the drives no app owns are listed under it. */
+export const OWNER_CONSOLE_APP_ID = 'ac126e09-54cb-4878-a690-856be692da16';
 
-/** The Journal drive's page on the owner console, where its settings (Allow subscriptions) live. */
-export const ownerConsoleDriveUrl = (root: string) => `${root}/owner/drives/${JOURNAL_DRIVE.alias}_${JOURNAL_DRIVE.type}`;
+/**
+ * The Journal drive's page on the owner console, where its settings (Allow subscriptions) live:
+ * `/owner/apps/{owning app}/drives/{alias}_{type}`. `appId` is the drive definition's owning app; when the app
+ * can't read it, the owner console's id. The page finds the drive by alias and type alone, so either id opens it.
+ * `root` must come from `dotYouClient.getRoot()` — the app is deployed cross-site, so window.location is wrong.
+ */
+export const ownerConsoleDriveUrl = (root: string, appId?: string | null) =>
+    `${root}/owner/apps/${encodeURIComponent(appId || OWNER_CONSOLE_APP_ID)}/drives/${JOURNAL_DRIVE.alias}_${JOURNAL_DRIVE.type}`;
+
+/** Owner console deep link for a note. `docId` is the Homebase `uniqueId`, which the console accepts in place of a fileId. */
+export const ownerConsoleNoteUrl = (root: string, docId: string, appId?: string | null) =>
+    `${ownerConsoleDriveUrl(root, appId)}/${docId}`;
 
 export const MAIN_FOLDER_ID = '06cf9262-4eae-4276-b0d1-8ca3cf5be6f4';
 export const COLLABORATIVE_FOLDER_ID = 'fc360190-4e23-b870-0ea4-ef233aad98ad'; // For shared/collaborative notes V2
