@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import { MoreHorizontal, type LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     ContextMenu,
     ContextMenuContent,
@@ -49,5 +56,50 @@ export function ContextMenuWrapper({ children, items }: ContextMenuWrapperProps)
                 })}
             </ContextMenuContent>
         </ContextMenu>
+    );
+}
+
+interface RowOptionsMenuProps {
+    items: ContextMenuItemConfig[];
+    label: string;
+    className?: string;
+}
+
+// The touch way into the same items as the context menu: a visible button that is
+// only shown on coarse pointers (desktop keeps right-click).
+export function RowOptionsMenu({ items, label, className }: RowOptionsMenuProps) {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button
+                    type="button"
+                    aria-label={label}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    className={cn(
+                        'hidden pointer-coarse:flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground active:bg-accent',
+                        className,
+                    )}
+                >
+                    <MoreHorizontal className="size-5" aria-hidden />
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" collisionPadding={8} className="w-64 max-w-[calc(100vw-1rem)]">
+                {items.map((item, index) => {
+                    const Icon = item.icon;
+                    return (
+                        <DropdownMenuItem
+                            key={index}
+                            variant={item.variant}
+                            disabled={item.disabled}
+                            onClick={item.action}
+                        >
+                            {Icon && <Icon className="mr-2 h-4 w-4" />}
+                            {item.label}
+                        </DropdownMenuItem>
+                    );
+                })}
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }

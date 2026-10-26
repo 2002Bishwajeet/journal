@@ -15,6 +15,12 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+## 2.29.0 (2026-10-26)
+
+### Changed
+
+- On a phone, folder rows and note rows have a "More" button. It opens the same menu as a long press. The menus stay on the screen, and their items are bigger and easier to tap.
+
 ### Fixed
 
 - On a phone, the formatting bar now sits directly on top of the keyboard. It follows the keyboard and shows in every keyboard mode.
@@ -39,6 +45,7 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 ### Fixed
 
 - The local AI assistant answers again. Before, every step failed with "The reply was not valid JSON" until it ran out of steps. If a model still can't follow the assistant's format, the assistant now stops after two tries and suggests a larger model.
+- The local AI assistant no longer repeats the same tool call over and over. If it asks for a search or a note it already has, it is told to use that result, and if it keeps repeating, it is asked for its answer right away instead of running to the step limit.
 
 ## 2.26.0 (2026-10-25)
 
