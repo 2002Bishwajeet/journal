@@ -8,9 +8,10 @@ Write in ASD-STE100 Simplified Technical English:
 - Use common words with one meaning. Do not use internal names (Yjs, PGlite, payload, sync pull).
 - Tell the user what they can do or what changed for them, not how the code changed.
 
-A PR with a change that users can see adds a bullet under "Unreleased", in one of:
-### New, ### Changed, ### Fixed.
-Manual Release moves "Unreleased" to the new version and stops if it is empty.
+A PR with a change that users can see adds one file in release-notes/ (see its
+README), with bullets under ### New, ### Changed or ### Fixed. It does not edit
+this file, so two open PRs never conflict here.
+Manual Release puts those files under the new version and stops if there are none.
 -->
 
 ## Unreleased
