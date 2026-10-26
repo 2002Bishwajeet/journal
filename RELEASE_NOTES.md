@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.39.0 (2026-10-26)
+
+### New
+
+- On a phone, a round New note button is at the bottom right of the folder list and the note lists. It replaces the New button in the list header. A tablet or a computer keeps the New button.
+
 ## 2.38.3 (2026-10-26)
 
 ### Fixed

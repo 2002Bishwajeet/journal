@@ -1,3 +1,9 @@
+# [2.39.0](https://github.com/2002Bishwajeet/journal/compare/v2.38.3...v2.39.0) (2026-10-26)
+
+
+### Features
+
+* **mobile:** New note floating action button on phones ([#878](https://github.com/2002Bishwajeet/journal/issues/878)) ([dfe1b44](https://github.com/2002Bishwajeet/journal/commit/dfe1b44e70ba24092d12e1b3ba1cd7fed1c4309f)), closes [#853](https://github.com/2002Bishwajeet/journal/issues/853)
 ## [2.38.3](https://github.com/2002Bishwajeet/journal/compare/v2.38.2...v2.38.3) (2026-10-26)
 
 
