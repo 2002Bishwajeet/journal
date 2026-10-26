@@ -15,6 +15,13 @@ import {
     JOURNAL_PUSH_TYPE_SHARE,
     SHARE_PUSH_FILE_TYPE,
 } from './config';
+import { appendLog } from '@/lib/diagnostics/logBuffer';
+import {
+    areShareNotificationsOff,
+    isSubscriptionsRefusal,
+    markShareNotificationsOff,
+    SHARE_NOTIFICATIONS_OFF_MESSAGE,
+} from './shareNotifications';
 
 /**
  * The owner's share push (#745). A local upload with only notification options (no
@@ -33,7 +40,7 @@ export class SharePushProvider {
     async send(noteId: string, recipients: string[], previousRecipients: string[] = []): Promise<void> {
         const host = this.#dotYouClient.getHostIdentity();
         const newRecipients = recipients.filter((r) => r && r !== host && !previousRecipients.includes(r));
-        if (newRecipients.length === 0) return;
+        if (newRecipients.length === 0 || areShareNotificationsOff(host)) return;
 
         try {
             const uniqueId = toGuidId(`share-push-${noteId}`);
@@ -65,6 +72,11 @@ export class SharePushProvider {
             };
             await uploadFile(this.#dotYouClient, instructions, metadata, [], [], false);
         } catch (error) {
+            if (isSubscriptionsRefusal(error)) {
+                markShareNotificationsOff(host);
+                appendLog('warn', SHARE_NOTIFICATIONS_OFF_MESSAGE);
+                return;
+            }
             console.warn('[SharePush] Could not send the share push:', error);
         }
     }

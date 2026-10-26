@@ -8,16 +8,21 @@ Write in ASD-STE100 Simplified Technical English:
 - Use common words with one meaning. Do not use internal names (Yjs, PGlite, payload, sync pull).
 - Tell the user what they can do or what changed for them, not how the code changed.
 
-A PR with a change that users can see adds a bullet under "Unreleased", in one of:
-### New, ### Changed, ### Fixed.
-Manual Release moves "Unreleased" to the new version and stops if it is empty.
+A PR with a change that users can see adds one file in release-notes/ (see its
+README), with bullets under ### New, ### Changed or ### Fixed. It does not edit
+this file, so two open PRs never conflict here.
+Manual Release puts those files under the new version and stops if there are none.
 -->
 
 ## Unreleased
 
+## 2.29.1 (2026-10-26)
+
 ### Changed
 
-- On a phone, the note list has one header with Back, Sort and New. The buttons are bigger, and the date headings stay at the top while you scroll. Going back slides the screen to the right.
+- Sharing a note no longer sends an invite file. Your friends still see the note under "Shared with me".
+
+- On a phone, dialogs are easier to use. The close button and the dialog buttons are bigger and easier to tap. A dialog never gets taller than the screen. When you type in a dialog, its buttons stay above the keyboard. In dark mode, buttons and fields in dialogs have outlines that you can see.
 
 ## 2.29.0 (2026-10-26)
 

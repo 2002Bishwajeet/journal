@@ -32,6 +32,8 @@ vi.mock('@/hooks/useSyncService', () => ({
     useSyncService: () => ({ syncService: { pullOwnerNow: mocks.pullOwnerNow } }),
 }));
 
+import { getLogSnapshot, resetLogForTests } from '@/lib/diagnostics/logBuffer';
+import { areShareNotificationsOff, resetShareNotificationsForTests } from '@/lib/homebase/shareNotifications';
 import { SharePushProvider } from '@/lib/homebase/SharePushProvider';
 import { pullOnSharePush, pullMissedSharePushes, useShareLinkPull } from '@/hooks/useSharePush';
 import {
@@ -52,6 +54,8 @@ beforeEach(() => {
     (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     vi.clearAllMocks();
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+    resetShareNotificationsForTests();
+    resetLogForTests();
     mocks.calls = [];
     mocks.getFileHeaderByUniqueId.mockResolvedValue(null);
     mocks.deleteFile.mockImplementation(async () => { mocks.calls.push('delete'); return true; });
@@ -121,6 +125,46 @@ describe('SharePushProvider.send', () => {
         mocks.uploadFile.mockRejectedValue(new Error('403'));
         await expect(send(['sam.dotyou.cloud'])).resolves.toBeUndefined();
         expect(console.warn).toHaveBeenCalled();
+    });
+});
+
+describe('SharePushProvider.send when the drive does not allow subscriptions (#817)', () => {
+    const refusal = (data: unknown = { message: 'App notification recipients can only be specified if the drive is a collaboration drive and allows subscriptions' }) =>
+        Object.assign(new Error('Request failed with status code 400'), { response: { status: 400, data } });
+    const send = (recipients: string[]) => new SharePushProvider(client).send(NOTE, recipients);
+
+    it('logs one diagnostics entry for the 400 and stops pushing for the session', async () => {
+        mocks.uploadFile.mockRejectedValue(refusal());
+
+        await send(['sam.dotyou.cloud']);
+        await send(['merry.dotyou.cloud']);
+        await new SharePushProvider(client).send('22222222-2222-4222-8222-222222222222', ['pippin.dotyou.cloud']);
+
+        expect(mocks.uploadFile).toHaveBeenCalledTimes(1);
+        expect(getLogSnapshot().filter((e) => e.message.includes('Share notifications are off'))).toEqual([
+            expect.objectContaining({ level: 'warn' }),
+        ]);
+        expect(areShareNotificationsOff(OWNER)).toBe(true);
+        expect(console.warn).not.toHaveBeenCalled();
+    });
+
+    it('treats a 400 with no body as the same refusal', async () => {
+        mocks.uploadFile.mockRejectedValue(refusal(undefined));
+        await send(['sam.dotyou.cloud']);
+        expect(areShareNotificationsOff(OWNER)).toBe(true);
+    });
+
+    it('does not mistake another 400 or another status for it, and keeps trying', async () => {
+        mocks.uploadFile.mockRejectedValueOnce(refusal({ message: 'Invalid drive id' }));
+        mocks.uploadFile.mockRejectedValueOnce(Object.assign(new Error('boom'), { response: { status: 403 } }));
+        await send(['sam.dotyou.cloud']);
+        await send(['sam.dotyou.cloud']);
+        await send(['sam.dotyou.cloud']);
+
+        expect(mocks.uploadFile).toHaveBeenCalledTimes(3);
+        expect(areShareNotificationsOff(OWNER)).toBe(false);
+        expect(getLogSnapshot()).toEqual([]);
+        expect(console.warn).toHaveBeenCalledTimes(2);
     });
 });
 

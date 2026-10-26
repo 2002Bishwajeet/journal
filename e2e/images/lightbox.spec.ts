@@ -21,6 +21,12 @@ test('lightbox fills the viewport and captions the image with its alt text', asy
   await expect(dialog.getByText('Journal logo', { exact: true })).toBeVisible();
   await expect.poll(async () => (await dialog.boundingBox())?.width).toBeGreaterThan(1200);
 
+  // On a short window the dialog height cap (#783) keeps the image and caption on screen.
+  await app.setViewportSize({ width: 1280, height: 400 });
+  await expect.poll(async () => { const b = (await dialog.boundingBox())!; return b.y >= 0 && b.y + b.height <= 400; }).toBe(true);
+  await expect(dialog.getByText('Journal logo', { exact: true })).toBeInViewport();
+  expect(await dialog.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+
   await app.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
 });

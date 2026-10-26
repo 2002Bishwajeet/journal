@@ -56,7 +56,7 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
       {/* `settings-dialog` scopes this dialog's token overrides (see src/index.css).
           On phones the close button grows to a 44px touch target, and the sheet is pinned
           to the corner instead of centred, so an odd viewport width leaves no half-pixel seam. */}
-      <DialogContent className="settings-dialog p-0 max-md:inset-0 max-md:translate-x-0 max-md:translate-y-0 max-md:h-dvh max-md:w-screen max-md:max-w-none sm:max-w-none max-md:rounded-none md:max-w-[min(900px,calc(100%-2rem))] gap-0 overflow-hidden border-0 shadow-2xl bg-background max-md:[&>[data-slot=dialog-close]]:top-[calc(0.375rem+env(safe-area-inset-top))] max-md:[&>[data-slot=dialog-close]]:right-1.5 max-md:[&>[data-slot=dialog-close]]:p-3.5">
+      <DialogContent className="settings-dialog max-h-none top-1/2 p-0 max-md:inset-0 max-md:translate-x-0 max-md:translate-y-0 max-md:h-dvh max-md:w-screen max-md:max-w-none sm:max-w-none max-md:rounded-none md:max-w-[min(900px,calc(100%-2rem))] gap-0 overflow-hidden border-0 shadow-2xl bg-background max-md:[&>[data-slot=dialog-close]]:top-[calc(0.375rem+env(safe-area-inset-top))] max-md:[&>[data-slot=dialog-close]]:right-1.5 max-md:[&>[data-slot=dialog-close]]:p-3.5">
         <DialogDescription className="sr-only">
           Manage your application preferences and data.
         </DialogDescription>
