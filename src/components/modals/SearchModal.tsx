@@ -1,11 +1,11 @@
 import { HighlightedText } from "@/components/ui/HighlightedText";
 import { Kbd } from "@/components/ui/kbd";
-import { Search, FileText, Loader2, Sparkles, Type, FileSearch, Wand2 } from "lucide-react";
+import { Search, FileText, Loader2, Sparkles, Type, FileSearch, Wand2, Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { followKeyboard } from "@/lib/keyboardViewport";
 import { proseOnly } from "@/lib/previewText";
 import { useOverlayHistory } from "@/hooks/useOverlayHistory";
-import { useSearchModal, isAdvancedResult, type SearchResult } from "@/hooks/useSearchModal";
+import { useSearchModal, isAdvancedResult, type SearchResult, type SearchEntry } from "@/hooks/useSearchModal";
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -52,12 +52,15 @@ function SearchResultItem({
   isSelected,
   onSelect,
   onHover,
+  removable,
 }: {
   result: SearchResult;
   index: number;
   isSelected: boolean;
   onSelect: () => void;
   onHover: () => void;
+  /** Leaves room on the right for the remove button. */
+  removable?: boolean;
 }) {
   const isAdvanced = isAdvancedResult(result);
   const matchType = isAdvanced ? result.matchType : undefined;
@@ -72,6 +75,7 @@ function SearchResultItem({
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') onHover(); }}
       className={cn(
         "flex items-start gap-3 w-full px-3 py-3 text-left rounded-md transition-colors",
+        removable && "pr-12",
         isSelected ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"
       )}
     >
@@ -134,6 +138,67 @@ function SearchResultItem({
   );
 }
 
+function RecentSearchRow({
+  entry,
+  index,
+  isSelected,
+  onSelect,
+  onHover,
+}: {
+  entry: Extract<SearchEntry, { kind: 'search' }>;
+  index: number;
+  isSelected: boolean;
+  onSelect: () => void;
+  onHover: () => void;
+}) {
+  return (
+    <button
+      id={`search-result-${index}`}
+      onClick={onSelect}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') onHover(); }}
+      className={cn(
+        "flex items-center gap-3 w-full px-3 py-3 pr-12 text-left rounded-md transition-colors",
+        isSelected ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"
+      )}
+    >
+      <Clock className="h-4 w-4 shrink-0" />
+      <span className="text-sm font-medium text-foreground truncate">{entry.text}</span>
+    </button>
+  );
+}
+
+const SECTION_TITLES = { recent: 'Recent', searches: 'Recent searches', notes: 'Notes' } as const;
+
+/**
+ * Props for the Remove and Clear buttons. They act without taking focus from the search input,
+ * so the arrow keys keep working. A keyboard press hands focus back, since the button then unmounts.
+ */
+function keepInputFocus(action: () => void) {
+  return {
+    onMouseDown: (e: React.MouseEvent) => e.preventDefault(),
+    onClick: (e: React.MouseEvent) => {
+      const input = document.activeElement === e.currentTarget
+        ? e.currentTarget.closest('[role="dialog"]')?.querySelector('input')
+        : null;
+      action();
+      input?.focus();
+    },
+  };
+}
+
+function RemoveButton(props: ReturnType<typeof keepInputFocus>) {
+  return (
+    <button
+      type="button"
+      aria-label="Remove from recent"
+      {...props}
+      className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 pointer-coarse:size-11 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground touch-manipulation"
+    >
+      <X className="h-4 w-4" />
+    </button>
+  );
+}
+
 export default function SearchModal({
   isOpen,
   onClose,
@@ -141,15 +206,17 @@ export default function SearchModal({
 }: SearchModalProps) {
   const {
     query,
-    results,
+    entries,
     selectedIndex,
     isLoading,
     inputRef,
     handleQueryChange,
     handleKeyDown,
     handleClose,
-    handleSelectResult,
     setSelectedIndex,
+    handleSelectEntry,
+    handleRemoveEntry,
+    handleClearRecents,
   } = useSearchModal({ isOpen, onClose, onSelectNote });
   useOverlayHistory(isOpen, handleClose);
 
@@ -203,25 +270,54 @@ export default function SearchModal({
               <Loader2 className="h-6 w-6 animate-spin opacity-50" />
               <span>Searching...</span>
             </div>
-          ) : results.length === 0 ? (
+          ) : entries.length === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
               {query ? 'No notes found matching your search.' : 'Start typing to search your notes.'}
             </div>
           ) : (
             <div className="px-2">
-              <div className="text-xs font-semibold text-muted-foreground px-2 py-2 mb-1 uppercase tracking-wider">
-                Notes
-              </div>
-              {results.map((result, index) => (
-                <SearchResultItem
-                  key={result.docId}
-                  result={result}
-                  index={index}
-                  isSelected={index === selectedIndex}
-                  onSelect={() => handleSelectResult(result.docId)}
-                  onHover={() => setSelectedIndex(index)}
-                />
-              ))}
+              {entries.map((entry, index) => {
+                const showHeader = entries[index - 1]?.section !== entry.section;
+                return (
+                  <div key={entry.kind === 'search' ? `search:${entry.text}` : `${entry.section}:${entry.result.docId}`}>
+                    {showHeader && (
+                      <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground px-2 py-2 mb-1 uppercase tracking-wider">
+                        <span>{SECTION_TITLES[entry.section]}</span>
+                        {index === 0 && entry.section !== 'notes' && (
+                          <button
+                            type="button"
+                            {...keepInputFocus(handleClearRecents)}
+                            className="normal-case tracking-normal font-medium px-1 pointer-coarse:h-11 pointer-coarse:-my-3.5 pointer-coarse:px-3 pointer-coarse:-mr-2 hover:text-foreground touch-manipulation"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <div className="relative">
+                      {entry.kind === 'note' ? (
+                        <SearchResultItem
+                          result={entry.result}
+                          index={index}
+                          isSelected={index === selectedIndex}
+                          onSelect={() => handleSelectEntry(entry)}
+                          onHover={() => setSelectedIndex(index)}
+                          removable={entry.section === 'recent'}
+                        />
+                      ) : (
+                        <RecentSearchRow
+                          entry={entry}
+                          index={index}
+                          isSelected={index === selectedIndex}
+                          onSelect={() => handleSelectEntry(entry)}
+                          onHover={() => setSelectedIndex(index)}
+                        />
+                      )}
+                      {entry.section !== 'notes' && <RemoveButton {...keepInputFocus(() => handleRemoveEntry(entry))} />}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -241,7 +337,7 @@ export default function SearchModal({
           </div>
           <div>
             <span className="opacity-70">
-              {results.length} results
+              {entries.filter((e) => e.kind === 'note').length} results
             </span>
           </div>
         </div>

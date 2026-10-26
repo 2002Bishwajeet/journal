@@ -53,6 +53,7 @@ import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
 import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
 import { useSharePush } from "@/hooks/useSharePush";
+import { useRecordRecentNote } from "@/hooks/useRecentNotes";
 import { useWebMcpBridge } from "@/hooks/useWebMcp";
 import { useSettingsOpener } from "@/hooks/useSettingsOpener";
 import { useAuth } from "@/hooks/auth";
@@ -230,6 +231,7 @@ export default function JournalLayout() {
   // Tab/window title: the open note, else the current view. Trash/Archive hide
   // the desktop editor, so an open tab there must not win.
   const openNoteId = isManagementView ? null : isDesktop ? activeTabId : noteId;
+  useRecordRecentNote(openNoteId);
   useDocumentTitle(
     openNoteId
       ? notes.find((n) => n.docId === openNoteId)?.title || "Untitled"

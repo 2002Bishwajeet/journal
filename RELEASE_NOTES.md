@@ -16,6 +16,45 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.35.1 (2026-10-26)
+
+### Fixed
+
+- In Safari on iPhone and iPad, Journal no longer stays on the loading screen when it opens a new page of the app.
+- If Journal does not open within 20 seconds, the app shows a Reload button. You are no longer stuck on the loading screen.
+
+## 2.35.0 (2026-10-26)
+
+### New
+
+- On iPhone and iPad, the home screen app now opens with a launch screen that matches the app. It is light or dark to match your phone's appearance when you added the app to the home screen.
+
+## 2.34.0 (2026-10-26)
+
+### New
+
+- Search shows the notes you opened recently and your recent searches. A note you opened recently also ranks a little higher in the results.
+
+## 2.33.0 (2026-10-26)
+
+### Changed
+
+- When share notifications are off, Settings > Diagnostics shows only the owner console steps that your journal drive still needs.
+- The install dialog in Chrome now shows screenshots of the app.
+- On Android, the app icon fills the shape of the icon mask.
+- On iOS, the Home Screen icon is named "Journal".
+
+### Fixed
+
+- The assistant does not propose an edit again after you reject it or after it fails. After two such edits, it answers the question.
+
+## 2.32.1 (2026-10-26)
+
+### Fixed
+
+- On a phone or tablet, tapping a text field no longer zooms the page. You can now pinch to zoom in the app.
+- The sign-in screen fits a phone screen. Its error message is easy to read in light and dark mode.
+
 ## 2.32.0 (2026-10-26)
 
 ### Fixed
