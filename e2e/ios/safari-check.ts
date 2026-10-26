@@ -143,8 +143,8 @@ async function safariConsole(): Promise<string[]> {
  * hang (a manual-style location.reload()) from one only WebDriver's refresh() causes. Records
  * the boot timing marks (markBoot in src/lib/bootProgress.ts), the console and a screenshot.
  */
-async function reloadCheck(how: 'location.reload' | 'webdriver-refresh') {
-  const name = `reload-${how}`;
+async function reloadCheck(how: 'location.reload' | 'webdriver-refresh', label: string = how) {
+  const name = `reload-${label}`;
   assertTestOrigin(await browser.execute(() => location.origin));
   await safariConsole().catch(() => []); // drop what came before the reload
   // The marker is gone once the new document has loaded.
@@ -284,23 +284,20 @@ try {
   await check('editor-keyboard', keyboardUp);
 
   // Reload right after typing, where a reload once hung on the splash (#806).
-  await reloadCheck('location.reload');
+  // Repeated, as one reload may not be enough to hit the hang.
+  for (let i = 1; i <= 3; i++) await reloadCheck('location.reload', `location.reload-${i}`);
   await reloadCheck('webdriver-refresh');
+  // A reload while the edit is still being saved.
+  await tap('.ProseMirror');
+  await typeOnKeyboard('\nIn flight');
+  await reloadCheck('location.reload', 'during-write');
+  const saved = await waitFor('the typed lines after the reloads', () => document.querySelector('.ProseMirror')?.textContent?.includes('Third line') ?? false, 10_000)
+    .then(() => true, () => false);
+  if (!saved) warnings.push('The lines typed before the reloads were not in the note after them.');
 
-  // Back to the sidebar through in-app history: reloading the page here left
-  // Safari on the splash screen for minutes in CI (first run of #803).
-  await browser.waitUntil(
-    async () => {
-      const atRoot = await browser.execute(() => {
-        const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
-        return !!r && r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1;
-      });
-      if (atRoot) return true;
-      await browser.execute(() => history.back());
-      return false;
-    },
-    { timeout: 30_000, interval: 1_000, timeoutMsg: 'timed out going back to the sidebar' },
-  );
+  // Back to the sidebar by loading the root: after a reload, history.back() loads a
+  // new document for each entry, and the loop that used it went past the app.
+  await boot();
   await tap('button=Settings');
   await waitFor('Settings', dialogOpen);
   const tabs = await browser.execute(() => [...document.querySelectorAll('[role="dialog"] [role="tab"]')].map((t) => t.textContent?.trim() ?? ''));
