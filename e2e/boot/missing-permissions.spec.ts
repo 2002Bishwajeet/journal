@@ -60,6 +60,10 @@ test('missing permissions: list, Not now, Settings, and a changed set', async ({
   const box = await dialog.boundingBox();
   expect(box!.y).toBeGreaterThanOrEqual(0);
   expect(box!.y + box!.height).toBeLessThanOrEqual(844);
+  // 44px touch targets on a phone (#783).
+  for (const target of [dialog.getByRole('link', { name: 'Grant permissions' }), dialog.getByRole('button', { name: 'Not now' })]) {
+    expect(Math.round((await target.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
+  }
   await screenshotInBothThemes(app, (theme) => `prompt-${theme}-mobile.png`, undefined, { animations: 'disabled' });
   await app.setViewportSize({ width: 1280, height: 800 });
   await screenshotInBothThemes(app, (theme) => `prompt-${theme}-desktop.png`, undefined, { animations: 'disabled' });

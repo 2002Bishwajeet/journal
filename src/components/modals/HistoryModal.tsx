@@ -36,7 +36,7 @@ export default function HistoryModal({ open, onOpenChange, editor, docId }: Hist
         <DialogContent
           onCloseAutoFocus={focusEditor}
           // Below sm: a full-height sheet, the list fills the space under the header.
-          className="max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:flex max-sm:h-dvh max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:flex-col max-sm:rounded-none max-sm:border-0 max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+          className="max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:flex max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:flex-col max-sm:rounded-none max-sm:border-0 max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]"
         >
           <DialogHeader>
             <DialogTitle>Version history</DialogTitle>

@@ -160,7 +160,10 @@ export default function SearchModal({
       onClick={handleClose}
     >
       <div
-        className="fixed left-1/2 top-[10%] -translate-x-1/2 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl border border-border sm:rounded-xl overflow-hidden flex flex-col max-h-[85vh] animation-in fade-in zoom-in-95 duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search notes"
+        className="fixed left-1/2 top-[10%] -translate-x-1/2 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl border border-border sm:rounded-xl overflow-hidden flex flex-col max-h-[85dvh] animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input - Large and clean */}
