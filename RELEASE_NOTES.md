@@ -19,6 +19,8 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 - On a phone, the formatting bar now sits directly on top of the keyboard. It follows the keyboard and shows in every keyboard mode.
 - Tapping a button on the formatting bar no longer closes the keyboard.
+- On a phone or tablet, tapping a text field no longer zooms the page. You can now pinch to zoom in the app.
+- The sign-in screen fits a phone screen. Its error message is easy to read in light and dark mode.
 
 ## 2.28.0 (2026-10-25)
 

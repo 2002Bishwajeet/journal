@@ -139,6 +139,7 @@ test('desktop: inputs keep 14 px', async ({ browser }, testInfo) => {
     await page.goto('/welcome');
     await assertTestOrigin(page);
     expect(await fontSize(page.getByLabel('Identity'))).toBe(14);
+    await page.waitForTimeout(400); // let the 300 ms fade-in finish before the screenshot
     await page.screenshot({ path: testInfo.outputPath('signin-light-desktop.png') });
   });
   await withFencedPage(browser, { storageState: AUTH, viewport: DESKTOP }, async (page) => {
