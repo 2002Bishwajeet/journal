@@ -163,6 +163,16 @@ describe('DiagnosticsSection', () => {
         expect(markShareDriveFixAttempted).toHaveBeenCalledTimes(1);
     });
 
+    it('says next to the button that older owner consoles should use the manual steps', async () => {
+        setDiagnostics([], { ...FIX, shareDriveFixes: ['attribute'] });
+        await render();
+
+        const note = document.querySelector(`${NOTICE} [data-testid="owner-console-version-note"]`);
+        expect(note?.textContent).toContain('up-to-date owner console');
+        expect(note?.textContent).toContain('Do it by hand');
+        expect(note?.closest('details')).toBeNull();
+    });
+
     it('keeps the manual steps and the drive link inside the toggle', async () => {
         setDiagnostics([], { ...FIX, shareDriveFixes: ['subscriptions', 'attribute'] });
         await render();

@@ -196,6 +196,9 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
               Fix in owner console
             </a>
           </Button>
+          <p data-testid="owner-console-version-note" className="text-xs leading-relaxed text-pretty text-muted-foreground">
+            This needs an up-to-date owner console. On an older one, the steps under "Do it by hand" are the safe path.
+          </p>
           {diagnostics.shareDriveFixFailed && (
             <p role="status" className="text-sm leading-relaxed text-pretty text-destructive dark:text-red-400">
               The drive still has no IsCollaborativeChannel attribute. If you approved the change, your owner console

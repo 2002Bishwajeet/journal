@@ -83,11 +83,13 @@ export function useDiagnostics() {
     const log = useSyncExternalStore(subscribeLog, getLogSnapshot);
     const shareNotificationsOff = useSyncExternalStore(subscribeShareNotifications, getShareNotificationsOffHosts)
         .includes(client.getHostIdentity());
-    // What an app token can read of the journal drive (#848); null when the host won't say.
-    const { data: driveFacts = null } = useQuery({
+    // What an app token can read of the journal drive (#848); null when the host won't say. Always re-read:
+    // the persisted cache would otherwise still show the drive as it was before the owner console fixed it.
+    const { data: driveFacts = null, isFetching: readingDrive } = useQuery({
         queryKey: ['journal-drive-facts', client.getHostIdentity()],
         queryFn: () => fetchJournalDriveFacts(client),
         retry: false,
+        staleTime: 0,
     });
     const shareDriveFixes = missingShareDriveFixes(driveFacts, shareNotificationsOff);
     // The owner went to the extend-permissions page for this fix (#870). If the attribute is still missing on
@@ -95,7 +97,7 @@ export function useDiagnostics() {
     const identity = client.getHostIdentity();
     const driveOwnerFix = driveNeedsOwner(driveFacts);
     const fixAttempted = readString(SHARE_DRIVE_FIX_ATTEMPT_KEY) === identity;
-    const shareDriveFixFailed = fixAttempted && shareDriveFixes.includes('attribute');
+    const shareDriveFixFailed = fixAttempted && !readingDrive && shareDriveFixes.includes('attribute');
     const attributeFixed = driveFacts !== null && !shareDriveFixes.includes('attribute');
     useEffect(() => {
         if (fixAttempted && attributeFixed) removeKey(SHARE_DRIVE_FIX_ATTEMPT_KEY);
