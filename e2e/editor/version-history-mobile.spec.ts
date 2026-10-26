@@ -50,6 +50,13 @@ test('on a phone, open Version history from More, restore a version, and keep th
 
       const history = page.getByRole('dialog', { name: 'Version history' });
       await expect(history).toBeVisible();
+      // Polled: the sheet slides up over 300 ms, so measure once it has settled in the viewport.
+      await expect
+        .poll(async () => {
+          const b = (await history.boundingBox())!;
+          return b.y + b.height;
+        })
+        .toBeLessThanOrEqual(PHONE.height);
       const sheet = (await history.boundingBox())!;
       expect(sheet.x).toBeGreaterThanOrEqual(0);
       expect(sheet.y).toBeGreaterThanOrEqual(0);
@@ -59,7 +66,7 @@ test('on a phone, open Version history from More, restore a version, and keep th
       const firstVersion = history.getByRole('listitem').filter({ hasText: 'first' });
       await expect(firstVersion).toHaveCount(1);
       const restore = firstVersion.getByRole('button', { name: 'Restore' });
-      // Polled: the dialog's open animation scales it for its first 200 ms.
+      // Polled: the sheet is still sliding in right after it becomes visible.
       await expect.poll(async () => (await restore.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await screenshotInBothThemes(page, (theme) => `version-history-${theme}-393.png`, undefined, { animations: 'disabled' });
 
