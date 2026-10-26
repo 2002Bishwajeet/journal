@@ -299,7 +299,14 @@ try {
 
   // On a phone, New note is the floating button (#878).
   await tap('button[aria-label="New note"]');
-  await browser.$('.ProseMirror').waitForDisplayed({ timeout: 30_000 });
+  await browser.$('.ProseMirror').waitForDisplayed({ timeout: 30_000 }).catch(async (error: Error) => {
+    // The editor can fall back to "The editor failed to load." (#862): keep why, in the artifacts.
+    const shown = (await browser.execute(() => document.body.innerText.slice(0, 500)).catch(() => '')) as string;
+    const logs = await safariConsole().catch((e: Error) => [`(no console: ${e.message})`]);
+    writeFileSync(`${OUT}/editor-missing-console.log`, [`page text: ${shown}`, ...logs].join('\n'));
+    await screenshot('editor-missing').catch(() => {});
+    throw new Error(`${error.message}; page text: ${shown.replace(/\s+/g, ' ')}`);
+  });
   await check('note');
 
   // Tap into the editor, then type through the software keyboard itself.
