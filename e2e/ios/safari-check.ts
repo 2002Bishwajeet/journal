@@ -27,30 +27,57 @@ let shots = 0;
 
 mkdirSync(OUT, { recursive: true });
 
-const browser = await remote({
-  hostname: '127.0.0.1',
-  port: 4723,
-  path: '/',
-  logLevel: 'warn',
-  // The first session builds WebDriverAgent, which takes minutes.
-  connectionRetryTimeout: 600_000,
-  connectionRetryCount: 0,
-  capabilities: {
-    platformName: 'iOS',
-    browserName: 'Safari',
-    'appium:automationName': 'XCUITest',
-    'appium:udid': process.env.IOS_UDID,
-    // Taps are real touches at the element's position, not script clicks: only a
-    // real tap brings up the software keyboard.
-    'appium:nativeWebTap': true,
-    'appium:forceSimulatorSoftwareKeyboardPresence': true,
-    'appium:wdaLaunchTimeout': 600_000,
-    'appium:wdaConnectionTimeout': 600_000,
-    'appium:newCommandTimeout': 300,
-    // Collects the Safari console for the safariConsole log type (#806).
-    'appium:showSafariConsoleLog': true,
-  },
-});
+// WebDriverAgent is prebuilt by the workflow (WDA_DERIVED_DATA), so a session start
+// only launches it. A slow start (#843) fails fast and is retried with a fresh session.
+const ATTEMPTS = 3;
+const capabilities = {
+  platformName: 'iOS',
+  browserName: 'Safari',
+  'appium:automationName': 'XCUITest',
+  'appium:udid': process.env.IOS_UDID,
+  // Taps are real touches at the element's position, not script clicks: only a
+  // real tap brings up the software keyboard.
+  'appium:nativeWebTap': true,
+  'appium:forceSimulatorSoftwareKeyboardPresence': true,
+  ...(process.env.WDA_DERIVED_DATA && { 'appium:usePrebuiltWDA': true, 'appium:derivedDataPath': process.env.WDA_DERIVED_DATA }),
+  'appium:wdaLaunchTimeout': 240_000,
+  'appium:wdaConnectionTimeout': 240_000,
+  'appium:newCommandTimeout': 300,
+  // Collects the Safari console for the safariConsole log type (#806).
+  'appium:showSafariConsoleLog': true,
+};
+
+async function startSession() {
+  for (let attempt = 1; ; attempt++) {
+    console.log(`Starting the Appium session (attempt ${attempt} of ${ATTEMPTS})`);
+    let session: Awaited<ReturnType<typeof remote>> | undefined;
+    try {
+      const s = await remote({
+        hostname: '127.0.0.1',
+        port: 4723,
+        path: '/',
+        logLevel: 'warn',
+        connectionRetryTimeout: 240_000,
+        connectionRetryCount: 0,
+        capabilities,
+      });
+      session = s;
+      // Safari can open before its remote debugger lists any web application.
+      await s.waitUntil(async () => (await s.getContexts()).some((c) => String(typeof c === 'string' ? c : c.id).startsWith('WEBVIEW')), {
+        timeout: 60_000,
+        interval: 2_000,
+        timeoutMsg: 'no web view context after 60 s',
+      });
+      return s;
+    } catch (error) {
+      console.log(`Attempt ${attempt} failed: ${(error as Error).message}`);
+      await session?.deleteSession().catch(() => {});
+      if (attempt >= ATTEMPTS) throw error;
+    }
+  }
+}
+
+const browser = await startSession();
 
 const screenshot = async (name: string) => {
   const file = `${String(++shots).padStart(2, '0')}-${name}.png`;
