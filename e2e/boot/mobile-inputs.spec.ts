@@ -108,7 +108,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await assertTestOrigin(page);
       await page.getByLabel('Identity').fill('not a valid identity');
       await page.getByRole('button', { name: 'Continue' }).tap();
-      const box = page.locator('.border-red-500\\/40');
+      const box = page.locator('.border-destructive\\/30');
       await expect(box).toBeVisible();
       await page.waitForTimeout(400); // let the fade-in finish before sampling colors
       expect(await contrastRatio(box)).toBeGreaterThanOrEqual(4.5);

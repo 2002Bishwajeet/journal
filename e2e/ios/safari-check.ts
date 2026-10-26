@@ -14,6 +14,7 @@ import {
   type Gesture,
   type GestureProbe,
   type Layout,
+  zoomProblems,
 } from './checks.ts';
 
 const BASE = 'http://127.0.0.1:4173';
@@ -166,6 +167,22 @@ async function closeDialog() {
   await waitFor('the dialog to close', dialogClosed);
 }
 
+/** After a tap into a field: the page must not have zoomed, and pinch zoom must stay allowed (#785). */
+async function checkZoom(field: string) {
+  // Safari's focus zoom animates for about 300 ms.
+  await browser.pause(1_000);
+  // Strings: an object property read straight from visualViewport came back undefined from Safari.
+  const [rawScale, viewport] = await browser.execute(() => [
+    String(window.visualViewport ? window.visualViewport.scale : 'none'),
+    document.querySelector('meta[name="viewport"]')?.getAttribute('content') ?? '',
+  ]);
+  const scale = parseFloat(rawScale);
+  const problems = zoomProblems(field, scale, viewport);
+  failures.push(...problems.map((p) => `zoom: ${p}`));
+  summary.push(`| zoom: ${field} | | scale ${scale}${problems.length ? `<br>${problems.join('<br>')}` : ''} |`);
+  console.log(`${problems.length ? '✗' : '✓'} zoom: ${field} (scale ${scale})${problems.map((p) => `\n    ${p}`).join('')}`);
+}
+
 try {
   // Sign in with the hermetic fake identity, as the Playwright `app` fixture does.
   const auth = JSON.parse(readFileSync('e2e/fixtures/hermetic-auth.json', 'utf8')) as {
@@ -173,6 +190,8 @@ try {
   };
   await browser.url(`${BASE}/welcome`);
   assertTestOrigin(await browser.execute(() => location.origin));
+  await tap('#identity');
+  await checkZoom('the sign-in field');
   await browser.execute((items) => {
     for (const { name, value } of items) localStorage.setItem(name, value);
   }, auth.origins.find((o) => o.origin === BASE)!.localStorage);
@@ -258,6 +277,7 @@ try {
   // The dialog buttons must clear the keyboard (#783); a timeout leaves the check to report it.
   await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
   await check('new-folder-dialog');
+  await checkZoom('the New folder field');
   await closeDialog();
 
   // Search on a phone is a full-screen sheet that ends above the keyboard (#780).
