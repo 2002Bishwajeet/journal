@@ -215,8 +215,8 @@ describe('note header transitions (#161)', () => {
                 recipients: ['friend.id'],
                 lastEditedBy: 'me.id',
             });
-            // The invitation carries the real title.
-            expect(JSON.parse(mockUploadFile.mock.calls[0][2].appData.content).noteTitle).toBe('Dated Note');
+            // No invite file (615) is uploaded any more (#747).
+            expect(mockUploadFile).not.toHaveBeenCalled();
         });
 
         // Regression #161: same cast as makeNoteCollaborative — userDate, tags and
