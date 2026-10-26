@@ -1,3 +1,9 @@
+## [2.30.1](https://github.com/2002Bishwajeet/journal/compare/v2.30.0...v2.30.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **sidebar:** no collapse rail on phones, full width on tablets, 44px tap targets ([#776](https://github.com/2002Bishwajeet/journal/issues/776)) ([1c0f20a](https://github.com/2002Bishwajeet/journal/commit/1c0f20a2996d2f64700e5c87da518f760923d6b3))
 # [2.30.0](https://github.com/2002Bishwajeet/journal/compare/v2.29.1...v2.30.0) (2026-10-26)
 
 
