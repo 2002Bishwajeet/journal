@@ -8,6 +8,7 @@ import {
 } from '@/lib/db/queries';
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 import { describeSyncError } from '@/lib/homebase/sync/syncErrorInfo';
+import { REQUEUE_OVERSIZED_THUMBNAIL_UPLOADS_SQL } from '@/lib/db/syncErrorsSchema';
 import { explainSyncError } from '@/lib/diagnostics/report';
 
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
@@ -39,6 +40,12 @@ function httpError(status: number, data?: unknown): Error {
 
 const PAYLOAD_LIMIT = httpError(400, {
     title: 'Too many Payloads count 26 in FileMetadata max 25',
+    status: 400,
+    errorCode: 'unhandledScenario',
+});
+
+const THUMBNAIL_TOO_LONG = httpError(400, {
+    title: 'ThumbnailDescriptor BytesWritten 1678832 too long, max 1048576',
     status: 400,
     errorCode: 'unhandledScenario',
 });
@@ -165,6 +172,43 @@ describe('image uploads that fail (#874)', () => {
         await clearRetryBackoff();
         expect(await getPendingSyncCount()).toMatchObject({ images: 1, failed: 0 });
         expect((await getImageUploadsReadyForRetry()).map((u) => u.id)).toEqual([UPLOAD_ID]);
+    });
+
+    it('Retry sends the stored image bytes again, so the thumbnails are drawn again', async () => {
+        mockAddImageToNote.mockRejectedValueOnce(THUMBNAIL_TOO_LONG);
+        await svc.processPendingImageUploads();
+        expect((await getPendingImageUpload(UPLOAD_ID))?.status).toBe('failed_permanent');
+
+        await clearRetryBackoff(UPLOAD_ID);
+        mockAddImageToNote.mockResolvedValueOnce({ payloadKey: 'jrnl_img0', versionTag: 'v2' });
+        await svc.processPendingImageUploads();
+
+        expect(mockAddImageToNote).toHaveBeenCalledTimes(2);
+        const [, , image] = mockAddImageToNote.mock.calls[1];
+        expect(Object.keys(image)).toEqual(['file']);
+        expect(new Uint8Array(await image.file.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+        expect(image.file.type).toBe('image/png');
+    });
+
+    it('puts an image given up on for an oversized thumbnail back in the queue on upgrade, once', async () => {
+        mockAddImageToNote.mockRejectedValueOnce(THUMBNAIL_TOO_LONG);
+        await svc.processPendingImageUploads();
+
+        await db.exec(REQUEUE_OVERSIZED_THUMBNAIL_UPLOADS_SQL);
+
+        expect((await getImageUploadsReadyForRetry()).map((u) => u.id)).toEqual([UPLOAD_ID]);
+        expect(await errorRow()).toMatchObject({ permanent: false, next_retry_at: null });
+        expect(await getPendingSyncCount()).toMatchObject({ images: 1, failed: 0 });
+    });
+
+    it('leaves an image given up on for another reason alone on upgrade', async () => {
+        mockAddImageToNote.mockRejectedValueOnce(PAYLOAD_LIMIT);
+        await svc.processPendingImageUploads();
+
+        await db.exec(REQUEUE_OVERSIZED_THUMBNAIL_UPLOADS_SQL);
+
+        expect((await getPendingImageUpload(UPLOAD_ID))?.status).toBe('failed_permanent');
+        expect(await errorRow()).toMatchObject({ permanent: true });
     });
 
     it('Discard keeps the bytes for this device but drops it from the queue, the counts and Diagnostics', async () => {
