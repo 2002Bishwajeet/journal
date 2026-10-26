@@ -8,9 +8,10 @@ Write in ASD-STE100 Simplified Technical English:
 - Use common words with one meaning. Do not use internal names (Yjs, PGlite, payload, sync pull).
 - Tell the user what they can do or what changed for them, not how the code changed.
 
-A PR with a change that users can see adds a bullet under "Unreleased", in one of:
-### New, ### Changed, ### Fixed.
-Manual Release moves "Unreleased" to the new version and stops if it is empty.
+A PR with a change that users can see adds one file in release-notes/ (see its
+README), with bullets under ### New, ### Changed or ### Fixed. It does not edit
+this file, so two open PRs never conflict here.
+Manual Release puts those files under the new version and stops if there are none.
 -->
 
 ## Unreleased
@@ -20,7 +21,25 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 - On a phone, a normal scroll through your notes no longer opens the delete button on a note. Swipe left to show it. Only one note stays open, and it closes when you scroll or tap outside it.
 - On a phone, pull down to refresh no longer scrolls the list at the same time.
 
+## 2.30.1 (2026-10-26)
+
+### Fixed
+
+- The sidebar no longer shows a collapse button on phones and tablets.
+- The sidebar fills the full width on tablets.
+- Sidebar buttons and rows are now large enough to tap on touch screens.
+
+## 2.30.0 (2026-10-26)
+
+### Fixed
+
+- Settings › Diagnostics now tells you when your journal drive blocks share notifications. It shows how to turn them on in your owner console.
+
+## 2.29.1 (2026-10-26)
+
 ### Changed
+
+- Sharing a note no longer sends an invite file. Your friends still see the note under "Shared with me".
 
 - On a phone, dialogs are easier to use. The close button and the dialog buttons are bigger and easier to tap. A dialog never gets taller than the screen. When you type in a dialog, its buttons stay above the keyboard. In dark mode, buttons and fields in dialogs have outlines that you can see.
 

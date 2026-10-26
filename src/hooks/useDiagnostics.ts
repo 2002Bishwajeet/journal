@@ -16,6 +16,9 @@ import {
     type PendingSyncItem,
 } from '@/lib/db';
 import { SHARED_PULL_STATE_KEY } from '@/lib/homebase/sync/sharedPull';
+import { getShareNotificationsOffHosts, subscribeShareNotifications } from '@/lib/homebase/shareNotifications';
+import { ownerConsoleDriveUrl } from '@/lib/homebase/config';
+import { useDotYouClientContext } from '@/components/auth';
 import { appendLog, getLogSnapshot, subscribeLog } from '@/lib/diagnostics/logBuffer';
 import { buildReport, type StatusRow } from '@/lib/diagnostics/report';
 import { formatRelativeTime } from '@/lib/utils';
@@ -58,6 +61,7 @@ export function useDiagnostics() {
     const { syncStatus, pendingCount, lastSyncedAt, websocketConnected, sync, syncNote, syncFolder } = useSyncService();
     const { isOnline } = useOnlineContext();
     const { getIdentity } = useAuth();
+    const client = useDotYouClientContext();
     const { status: pushStatus } = usePushNotifications();
     const { usage, quota } = useStorageInfo();
     const isMobile = useDeviceType() === 'mobile';
@@ -68,6 +72,8 @@ export function useDiagnostics() {
     const [retrying, setRetrying] = useState<string | null>(null);
     const [includeTitles, setIncludeTitles] = useState(false);
     const log = useSyncExternalStore(subscribeLog, getLogSnapshot);
+    const shareNotificationsOff = useSyncExternalStore(subscribeShareNotifications, getShareNotificationsOffHosts)
+        .includes(client.getHostIdentity());
 
     // Re-read the list whenever a sync finishes or the count moves, and after a retry.
     const listKey = `${pendingCount.total}:${syncStatus}:${lastSyncedAt?.getTime() ?? 0}:${reloadCount}`;
@@ -102,6 +108,7 @@ export function useDiagnostics() {
         { label: 'Last full sync', value: formatWhen(lastSyncedAt) },
         { label: 'Last shared notes pass', value: formatWhen(facts?.sharedPassAt ?? null) },
         { label: 'Push notifications', value: pushStatus },
+        ...(shareNotificationsOff ? [{ label: 'Share notifications', value: 'off: the journal drive does not allow subscriptions' }] : []),
         { label: 'Service worker', value: facts?.serviceWorker ?? 'checking' },
         {
             label: 'Database',
@@ -168,6 +175,8 @@ export function useDiagnostics() {
 
     return {
         status,
+        // Set once a share push was refused (#817); the fix is a switch on the owner console.
+        shareNotificationsFixUrl: shareNotificationsOff ? ownerConsoleDriveUrl(client.getRoot()) : null,
         items,
         log,
         isSyncing: syncStatus === 'syncing',
