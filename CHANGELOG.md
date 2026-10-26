@@ -1,3 +1,14 @@
+# [2.35.0](https://github.com/2002Bishwajeet/journal/compare/v2.34.0...v2.35.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **pwa:** keep the splash logo in place from the launch image to the JS splash ([#854](https://github.com/2002Bishwajeet/journal/issues/854)) ([599d255](https://github.com/2002Bishwajeet/journal/commit/599d255fef0b687fafcd9f1b35a8f8dac207a6a7))
+
+
+### Features
+
+* **pwa:** iOS launch images matching the splash, light and dark ([#854](https://github.com/2002Bishwajeet/journal/issues/854)) ([dbd99a8](https://github.com/2002Bishwajeet/journal/commit/dbd99a821ea82e9bc4ba103fba80c37111c3a6c6))
 # [2.34.0](https://github.com/2002Bishwajeet/journal/compare/v2.33.0...v2.34.0) (2026-10-26)
 
 
