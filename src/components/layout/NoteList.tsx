@@ -50,6 +50,8 @@ interface NoteListProps {
   selectedNoteId: string | null;
   onSelectNote: (docId: string) => void;
   onCreateNote: () => void;
+  /** The header's New button; phones hide it for the New note button (#878). */
+  showNewButton?: boolean;
   onDeleteNote: (docId: string) => void;
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder?: (note: NoteListEntry) => void;
@@ -70,6 +72,7 @@ export default function NoteList({
   selectedNoteId,
   onSelectNote,
   onCreateNote,
+  showNewButton = true,
   onDeleteNote,
   onShareNote,
   onMoveToFolder,
@@ -264,10 +267,12 @@ export default function NoteList({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" onClick={onCreateNote} className="relative h-7 text-xs after:absolute after:inset-x-0 after:-inset-y-2">
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            New
-          </Button>
+          {showNewButton && (
+            <Button size="sm" onClick={onCreateNote} className="relative h-7 text-xs after:absolute after:inset-x-0 after:-inset-y-2">
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              New
+            </Button>
+          )}
           {trailing}
         </div>
       </div>
@@ -291,7 +296,7 @@ export default function NoteList({
               </Button>
             </div>
           ) : (
-            <div className="py-2 w-full space-y-4">
+            <div className="pt-2 pb-[calc(0.5rem+var(--fab-clearance,0px))] w-full space-y-4">
               {visibleGroups.map((group) => (
                 <div key={group.label} className="w-full">
                   <button

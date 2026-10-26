@@ -294,10 +294,11 @@ try {
   await waitFor('the folder options to close', () => !document.querySelector('[role="menu"]'));
 
   await tap('[aria-label="Folders"] button');
-  await browser.$('button=New').waitForDisplayed({ timeout: 30_000 });
+  await browser.$('button[aria-label="Back to notes"]').waitForDisplayed({ timeout: 30_000 });
   await check('note-list');
 
-  await tap('button=New');
+  // On a phone, New note is the floating button (#878).
+  await tap('button[aria-label="New note"]');
   await browser.$('.ProseMirror').waitForDisplayed({ timeout: 30_000 });
   await check('note');
 
@@ -421,7 +422,7 @@ try {
     };
     await tap('[aria-label="Folders"] button');
     await midSlide('slide-folder-to-list');
-    await tap('button=New');
+    await tap('button[aria-label="New note"]');
     await midSlide('slide-list-to-note');
     await tap('button[aria-label="Back"]');
     await midSlide('slide-back-to-list');

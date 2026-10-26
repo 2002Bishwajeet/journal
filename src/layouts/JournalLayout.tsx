@@ -12,6 +12,7 @@ import {
   ChatBot,
   SplashScreen,
 } from "@/components/layout";
+import { NewNoteFab } from "@/components/layout/NewNoteFab";
 import {
   useTabRouting,
   useLayoutUrlActions,
@@ -48,7 +49,8 @@ const MarkCollaborativeDialog = lazy(() =>
 import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
 import { useNotes } from "@/hooks/useNotes";
-import { getMobilePane } from "@/layouts/mobilePane";
+import { getMobilePane, showNewNoteFab } from "@/layouts/mobilePane";
+import { useTextFieldFocused } from "@/hooks/useTextFieldFocused";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
 import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
@@ -227,6 +229,15 @@ export default function JournalLayout() {
   const { tags, tagCounts, deleteTag } = useTags();
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
+  const isPhone = deviceType === "mobile";
+  const textFieldFocused = useTextFieldFocused();
+  const showFab = showNewNoteFab({
+    isPhone,
+    pane: mobilePane,
+    isManagementView,
+    overlayOpen: overlayEntryOpen(location.state),
+    textFieldFocused,
+  });
 
   // Tab/window title: the open note, else the current view. Trash/Archive hide
   // the desktop editor, so an open tab there must not win.
@@ -315,6 +326,7 @@ export default function JournalLayout() {
 
       <NoteListPane
         isDesktop={isDesktop}
+        isPhone={isPhone}
         isManagementView={isManagementView}
         isListVisibleOnMobile={mobilePane === "list"}
         inFocusMode={inFocusMode}
@@ -366,6 +378,8 @@ export default function JournalLayout() {
           </button>
         </div>
       )}
+
+      {showFab && <NewNoteFab onClick={() => void noteActions.createAndOpen(folderId)} />}
 
       {/* Modals */}
       {noteId && deviceType !== "mobile" ? <ChatBot activeNoteId={noteId} /> : null}

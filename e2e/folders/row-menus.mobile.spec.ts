@@ -52,7 +52,7 @@ test('the note options button opens a menu that is fully on screen', async ({ br
   await withMobilePage(browser, async (page: Page) => {
     // On a phone the sidebar is the whole screen: open a folder to reach the note list.
     await foldersNav(page).getByRole('button', { name: 'Main', exact: true }).tap();
-    await page.getByRole('button', { name: 'New', exact: true }).tap();
+    await page.getByRole('button', { name: 'New note', exact: true }).tap();
     await page.getByRole('button', { name: 'Back', exact: true }).tap();
     const row = page.locator('[data-testid=note-row]:visible').first();
     await expect(row).toBeVisible();

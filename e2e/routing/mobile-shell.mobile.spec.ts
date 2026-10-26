@@ -79,7 +79,7 @@ test('under a status bar, the focus-mode exit pill sits below the note header', 
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, bottom: 34 } });
     await page.getByRole('complementary', { name: 'Sidebar' }).getByText('Main', { exact: true }).click();
-    await page.getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('button', { name: 'New note', exact: true }).click();
     await expect(page.locator('.ProseMirror').last()).toBeVisible();
     await page.keyboard.press('ControlOrMeta+Shift+KeyF');
     const pill = page.getByRole('button', { name: /Exit Focus/ });
