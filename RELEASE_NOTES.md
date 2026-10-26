@@ -16,6 +16,19 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.37.0 (2026-10-26)
+
+### Changed
+
+- In Settings, Diagnostics, "Share notifications are off" now has a "Fix in owner console" button. It opens the extend-permissions page of your owner console, and you approve the change there. This needs an up-to-date owner console; on an older one, the manual steps under "Do it by hand" are the safe path.
+- The step "Assign to an app" is no longer part of "Share notifications are off", because share notifications do not need it. It has its own notice now.
+
+## 2.36.1 (2026-10-26)
+
+### Fixed
+
+- Note list (phone): the New button has its compact size again. Its tap area stays 44 px tall.
+
 ## 2.36.0 (2026-10-26)
 
 ### Changed

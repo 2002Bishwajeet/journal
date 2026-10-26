@@ -34,10 +34,22 @@ test('the list screen has one 44 px header, and the group header sticks', async 
     await expect(page.getByRole('button', { name: 'Back to notes' })).toHaveCount(1);
     await expect(page.getByText(FOLDER, { exact: true }).locator('visible=true')).toHaveCount(1);
 
-    for (const name of ['Back to notes', 'Sort notes', 'New']) {
+    for (const name of ['Back to notes', 'Sort notes']) {
       const b = await box(page.getByRole('button', { name, exact: true }));
       expect(b.width, name).toBeGreaterThanOrEqual(44);
       expect(b.height, name).toBeGreaterThanOrEqual(44);
+    }
+
+    // New stays a compact 28 px pill; an invisible ::after makes its tap area 44 px tall.
+    const newButton = page.getByRole('button', { name: 'New', exact: true });
+    const nb = await box(newButton);
+    expect(nb.height).toBeLessThan(36);
+    for (const dy of [-21, 21]) {
+      const hit = await page.evaluate(
+        ([x, y]) => document.elementFromPoint(x, y)?.closest('button')?.textContent?.trim(),
+        [nb.x + nb.width / 2, nb.y + nb.height / 2 + dy],
+      );
+      expect(hit, `tap ${dy} px from the New button's centre`).toBe('New');
     }
 
     // Fill the list until it scrolls at least 900 px.

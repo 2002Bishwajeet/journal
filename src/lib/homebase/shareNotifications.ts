@@ -45,19 +45,23 @@ export function subscribeShareNotifications(listener: () => void): () => void {
 export const getShareNotificationsOffHosts = () => offHosts;
 
 /**
- * The three owner-console fixes a share push needs on the journal drive (#848), in the order to do them,
- * and `maybeSubscriptions`: the subscriptions step when it may not be needed.
+ * The two drive fixes a share push needs (#848), in the order to do them, and `maybeSubscriptions`:
+ * the subscriptions step when it may not be needed. The extend-permissions page does both in one tap (#870).
+ * Who owns the drive is not one of them: the push needs only these two (odin-core
+ * `FileSystemStreamWriterBase`), see `driveNeedsOwner`.
  */
-export type ShareDriveFix = 'subscriptions' | 'attribute' | 'owner' | 'maybeSubscriptions';
+export type ShareDriveFix = 'subscriptions' | 'attribute' | 'maybeSubscriptions';
 
-export const SHARE_DRIVE_FIXES: readonly ShareDriveFix[] = ['subscriptions', 'attribute', 'owner'];
+export const SHARE_DRIVE_FIXES: readonly ShareDriveFix[] = ['subscriptions', 'attribute'];
 
 export const SHARE_DRIVE_FIX_STEPS: Record<ShareDriveFix, string> = {
     subscriptions: 'Turn on "Allow subscriptions".',
     attribute: 'Add the attribute IsCollaborativeChannel with the value true.',
-    owner: 'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.',
     maybeSubscriptions: 'If shares still don\'t notify people after this, also turn on "Allow subscriptions".',
 };
+
+export const DRIVE_OWNER_STEP =
+    'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.';
 
 export type ShareDriveFacts = Partial<Pick<DriveDefinition, 'allowSubscriptions' | 'appId' | 'attributes'>>;
 
@@ -78,11 +82,10 @@ export async function fetchJournalDriveFacts(client: DotYouClient): Promise<Shar
  * subscriptions off, so with the attribute missing too the subscriptions step is only a maybe.
  */
 export function missingShareDriveFixes(drive: ShareDriveFacts | null, refused: boolean): ShareDriveFix[] {
-    const { allowSubscriptions, attributes, appId } = drive ?? {};
+    const { allowSubscriptions, attributes } = drive ?? {};
     const wanted: Partial<Record<ShareDriveFix, boolean>> = {
         subscriptions: allowSubscriptions,
         attribute: attributes && Object.entries(JOURNAL_DRIVE_ATTRIBUTES).every(([key, value]) => attributes[key]?.toLowerCase() === value),
-        owner: appId === undefined ? undefined : stringGuidsEqual(appId ?? undefined, JOURNAL_APP_ID),
     };
     const missing = SHARE_DRIVE_FIXES.filter((fix) => wanted[fix] === false || (refused && wanted[fix] === undefined));
     if (refused && missing.length === 0) return [...SHARE_DRIVE_FIXES];
@@ -91,6 +94,13 @@ export function missingShareDriveFixes(drive: ShareDriveFacts | null, refused: b
     }
     return missing;
 }
+
+/**
+ * Whether the journal drive belongs to another app, which only the owner console can change. Journal's circles
+ * then give people Read access only (odin-core `CircleDefinitionService`). An unknown owner is not a yes.
+ */
+export const driveNeedsOwner = (drive: ShareDriveFacts | null) =>
+    drive?.appId !== undefined && !stringGuidsEqual(drive.appId ?? undefined, JOURNAL_APP_ID);
 
 /** Tests only. */
 export function resetShareNotificationsForTests(): void {

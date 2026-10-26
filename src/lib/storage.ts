@@ -21,6 +21,8 @@ export const WEBMCP_ENABLED_KEY = 'journal-webmcp-enabled';
 export const READ_ONLY_SHARE_NOTICE_KEY = 'journal-read-only-share-notice';
 /** Per identity: the missing-permission set that identity chose "Not now" for. */
 export const PERMISSION_PROMPT_DISMISSED_KEY = 'journal-permission-prompt-dismissed';
+/** The identity that sent the owner to the extend-permissions page to fix the journal drive (#870). */
+export const SHARE_DRIVE_FIX_ATTEMPT_KEY = 'journal-share-drive-fix-attempt';
 
 /** Reads JSON, yielding null when there is nothing stored or storage throws (private browsing). */
 export function readJson<T>(key: string): T | null {

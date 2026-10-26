@@ -2,14 +2,16 @@ import { useDotYouClientContext } from "@/components/auth";
 import { getExtendAppRegistrationParams, type TargetDriveAccessRequest } from "@homebase-id/js-lib/auth";
 import { drivesEqual, getUniqueDrivesWithHighestPermission, stringifyToQueryParams } from "@homebase-id/js-lib/helpers";
 import type { AppPermissionType } from "@homebase-id/js-lib/network";
+import { JOURNAL_APP_ID } from "@/lib/homebase/config";
 import { useSecurityContext } from "../securityContext/useSecurityContext";
+import { journalDriveRequest } from "./useYouAuthAuthorization";
 
 const getExtendAppRegistrationUrl = (
     host: string,
     appId: string,
     drives: TargetDriveAccessRequest[],
     circleDrives: TargetDriveAccessRequest[] | undefined,
-    permissionKeys: number[],
+    permissionKeys: number[] | undefined,
     returnUrl: string,
     circleOdinIds?: string[] | undefined,
 ) => {
@@ -24,6 +26,14 @@ const getExtendAppRegistrationUrl = (
 
     return `${host}/owner/appupdate?${stringifyToQueryParams(params)}`;
 };
+
+/**
+ * The extend-permissions page for the journal drive's own settings (#870): its attributes and
+ * "Allow subscriptions", which the owner console merges in. Unlike the missing-permission URL it
+ * is built when the grant exists, and it asks for no other drive or permission.
+ */
+export const getJournalDriveFixUrl = (host: string, returnUrl: string) =>
+    getExtendAppRegistrationUrl(host, JOURNAL_APP_ID, [journalDriveRequest], undefined, undefined, returnUrl);
 
 export const useMissingPermissions = ({
     appId,
