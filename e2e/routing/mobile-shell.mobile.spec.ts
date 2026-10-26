@@ -62,12 +62,12 @@ test('in landscape, a left inset moves the sidebar content clear of the notch', 
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { left: 47, right: 47 } });
 
-    const first = page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button').first();
+    const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+    const first = sidebar.getByRole('button').first();
     await expect(first).toBeVisible();
-    const box = await first.boundingBox();
-    expect(box!.x).toBeGreaterThanOrEqual(47);
-    const sidebarBox = await page.getByRole('complementary', { name: 'Sidebar' }).boundingBox();
-    expect(sidebarBox!.x + sidebarBox!.width).toBeLessThanOrEqual(852 - 47);
+    // The sidebar pane slides to the inset (transition-all on its wrapper), so poll until it settles.
+    await expect.poll(async () => (await first.boundingBox())!.x).toBeGreaterThanOrEqual(47);
+    await expect.poll(async () => { const box = (await sidebar.boundingBox())!; return box.x + box.width; }).toBeLessThanOrEqual(852 - 47);
 
     await page.screenshot({ path: test.info().outputPath('landscape-sidebar-light-852x393.png') });
   });
