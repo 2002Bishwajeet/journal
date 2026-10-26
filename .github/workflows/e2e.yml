@@ -12,11 +12,11 @@ concurrency:
 
 jobs:
   # The hermetic suite split three ways; `e2e` below is the required check.
-  # Step caps are about 1.5x the p90 of 60 runs (#868); they sum to 33 min, plus
+  # Step caps are about 1.5x the measured p90 (#868); they sum to 34 min, plus
   # 2 min for the uncapped steps that take a second each.
   e2e-shard:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 36
     permissions:
       contents: read
     strategy:
@@ -82,9 +82,10 @@ jobs:
         env:
           CI: true
 
+      # On shard 3, the shortest hermetic shard.
       - name: Run mobile E2E (chromium)
-        if: matrix.shard == 1
-        timeout-minutes: 4
+        if: matrix.shard == 3
+        timeout-minutes: 5
         run: npm run e2e:mobile
         env:
           CI: true
@@ -106,7 +107,7 @@ jobs:
   # still run (and may fail) without marking the run red.
   e2e-informational:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -155,7 +156,7 @@ jobs:
         run: .github/scripts/playwright-deps.sh chromium webkit
 
       - name: Run mobile E2E (webkit, informational)
-        timeout-minutes: 4
+        timeout-minutes: 8
         continue-on-error: true
         run: npm run e2e:mobile:webkit
         env:
