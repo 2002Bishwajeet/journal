@@ -20,6 +20,7 @@ import {
 import { SHARED_PULL_STATE_KEY } from '@/lib/homebase/sync/sharedPull';
 import {
     driveNeedsOwner,
+    driveOwnedByNoApp,
     fetchJournalDriveFacts,
     getShareNotificationsOffHosts,
     missingShareDriveFixes,
@@ -218,9 +219,13 @@ export function useDiagnostics() {
         shareDriveFixUrl: shareDriveFixes.length ? getJournalDriveFixUrl(client.getRoot(), window.location.href) : null,
         shareDriveFixFailed,
         markShareDriveFixAttempted: () => writeString(SHARE_DRIVE_FIX_ATTEMPT_KEY, identity),
-        driveSettingsUrl: ownerConsoleDriveUrl(client.getRoot()),
+        driveSettingsUrl: ownerConsoleDriveUrl(client.getRoot(), driveFacts?.appId),
         // The drive belongs to another app, which only the owner console changes. Not needed for share pushes.
         driveOwnerFix,
+        // When no app owns it, the same extend-permissions page as the share fix also hands it to Journal: the
+        // request names the drive's slugs (journalDriveRequest).
+        driveOwnerFixUrl:
+            driveOwnerFix && driveOwnedByNoApp(driveFacts) ? getJournalDriveFixUrl(client.getRoot(), window.location.href) : null,
         items,
         log,
         isSyncing: syncStatus === 'syncing',

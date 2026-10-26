@@ -19,7 +19,7 @@ test('the toolbar sits on the keyboard in each mode and a tap on Bold keeps the 
   await withMobilePage(browser, async (page) => {
     // On a phone the sidebar shows first: open a folder to reach the notes list.
     await page.getByRole('navigation', { name: 'Folders' }).getByRole('button', { name: 'Main' }).tap();
-    await page.getByRole('button', { name: 'New', exact: true }).tap();
+    await page.getByRole('button', { name: 'New note', exact: true }).tap();
     const editor = activeEditor(page);
     await editor.tap();
     await expect(toolbar(page)).toBeVisible();

@@ -1,7 +1,7 @@
 import { getDrivesByType, type DotYouClient, type DriveDefinition } from '@homebase-id/js-lib/core';
 import { drivesEqual, stringGuidsEqual } from '@homebase-id/js-lib/helpers';
 import { httpStatus } from './httpStatus';
-import { JOURNAL_APP_ID, JOURNAL_DRIVE, JOURNAL_DRIVE_ATTRIBUTES } from './config';
+import { JOURNAL_APP_ID, JOURNAL_DRIVE, JOURNAL_DRIVE_ATTRIBUTES, OWNER_CONSOLE_APP_ID } from './config';
 
 /**
  * Whether the owner's server accepts share pushes (#817). It refuses the upload with a 400
@@ -61,7 +61,7 @@ export const SHARE_DRIVE_FIX_STEPS: Record<ShareDriveFix, string> = {
 };
 
 export const DRIVE_OWNER_STEP =
-    'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.';
+    'Next to "Owned by", choose "Assign to an app" (on an older owner console, "Change"). Pick Journal and set the drive slug and the type slug to notes. The drive keeps its id and your notes.';
 
 export type ShareDriveFacts = Partial<Pick<DriveDefinition, 'allowSubscriptions' | 'appId' | 'attributes'>>;
 
@@ -101,6 +101,14 @@ export function missingShareDriveFixes(drive: ShareDriveFacts | null, refused: b
  */
 export const driveNeedsOwner = (drive: ShareDriveFacts | null) =>
     drive?.appId !== undefined && !stringGuidsEqual(drive.appId ?? undefined, JOURNAL_APP_ID);
+
+/**
+ * Whether no app owns the journal drive yet: the server stamps such a drive with the owner console's id. The owner
+ * console's extend-permissions page then hands it to Journal with the rest of the fix (odin-js#1003). It leaves a
+ * drive that another app owns alone.
+ */
+export const driveOwnedByNoApp = (drive: ShareDriveFacts | null) =>
+    drive?.appId === null || (!!drive?.appId && stringGuidsEqual(drive.appId, OWNER_CONSOLE_APP_ID));
 
 /** Tests only. */
 export function resetShareNotificationsForTests(): void {

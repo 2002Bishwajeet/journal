@@ -1,3 +1,28 @@
+## [2.39.1](https://github.com/2002Bishwajeet/journal/compare/v2.39.0...v2.39.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **diagnostics:** one approval also gives Journal its drive when no app owns it ([9315b48](https://github.com/2002Bishwajeet/journal/commit/9315b48f5947b41772bd7c55ab99cd9867bbd7f8)), closes [odin-js#1003](https://github.com/odin-js/issues/1003)
+# [2.39.0](https://github.com/2002Bishwajeet/journal/compare/v2.38.3...v2.39.0) (2026-10-26)
+
+
+### Features
+
+* **mobile:** New note floating action button on phones ([#878](https://github.com/2002Bishwajeet/journal/issues/878)) ([dfe1b44](https://github.com/2002Bishwajeet/journal/commit/dfe1b44e70ba24092d12e1b3ba1cd7fed1c4309f)), closes [#853](https://github.com/2002Bishwajeet/journal/issues/853)
+## [2.38.3](https://github.com/2002Bishwajeet/journal/compare/v2.38.2...v2.38.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* owner console drive links use the apps/{app}/drives route ([0bfa091](https://github.com/2002Bishwajeet/journal/commit/0bfa091c408d8fbb0cf9cb558fddc8816e111828))
+## [2.38.2](https://github.com/2002Bishwajeet/journal/compare/v2.38.1...v2.38.2) (2026-10-26)
+## [2.38.1](https://github.com/2002Bishwajeet/journal/compare/v2.38.0...v2.38.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **pwa:** maskable icon keeps the app icon's colours ([abdeb6f](https://github.com/2002Bishwajeet/journal/commit/abdeb6ffe522e6aed3beb43c29383e1b86cebc1c))
 # [2.38.0](https://github.com/2002Bishwajeet/journal/compare/v2.37.0...v2.38.0) (2026-10-26)
 
 

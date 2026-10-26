@@ -1162,6 +1162,36 @@ img.ProseMirror-separator {
   box-shadow: 0 0 0 1px rgb(234 179 8 / 0.4);
 }
 
+/* Phone New note button (#878). --fab-bottom is its gap above the bottom edge
+   (#853 raises it above the tab bar). While it is on screen, html[data-fab] sets
+   --fab-clearance: the room lists and toasts leave under their last item. */
+:root {
+  --fab-size: 56px;
+  --fab-bottom: 16px;
+}
+html[data-fab] {
+  --fab-clearance: calc(var(--fab-size) + var(--fab-bottom) + 16px);
+}
+.new-note-fab {
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(var(--fab-bottom) + env(safe-area-inset-bottom));
+  box-shadow: 0 1px 2px rgb(28 27 26 / 0.16), 0 6px 16px -4px rgb(28 27 26 / 0.32);
+  transition: transform 100ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.new-note-fab:active {
+  transform: scale(0.96);
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-note-fab:active {
+    transform: none;
+    opacity: 0.85;
+  }
+}
+/* Dark: the light surface already stands out; a short black shadow lifts it without a glow. */
+.dark .new-note-fab {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 4px 10px -2px rgb(0 0 0 / 0.5);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

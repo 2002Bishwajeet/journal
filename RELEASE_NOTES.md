@@ -16,6 +16,37 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.39.1 (2026-10-26)
+
+### Changed
+
+- When no app owns your journal drive, Settings > Diagnostics shows "Fix in owner console". One approval on your owner console gives the drive to Journal and also fixes share notifications.
+
+## 2.39.0 (2026-10-26)
+
+### New
+
+- On a phone, a round New note button is at the bottom right of the folder list and the note lists. It replaces the New button in the list header. A tablet or a computer keeps the New button.
+
+## 2.38.3 (2026-10-26)
+
+### Fixed
+
+- The links from Journal to the journal drive and to a note on your owner console open the correct page again.
+
+## 2.38.2 (2026-10-26)
+
+### Fixed
+
+- On an iPhone, large images (for example, screenshots) upload again. Before, Homebase refused their previews because they were larger than 1 MB.
+- Images that did not upload for this reason try again automatically after you update the app.
+
+## 2.38.1 (2026-10-26)
+
+### Fixed
+
+- App icon: the install icon on Android and in Chrome has its colours again (the beige background and the cream tile).
+
 ## 2.38.0 (2026-10-26)
 
 ### New

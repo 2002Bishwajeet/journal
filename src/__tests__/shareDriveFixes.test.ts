@@ -16,7 +16,7 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => ({
 import { JOURNAL_APP_ID, JOURNAL_DRIVE } from '@/lib/homebase/config';
 import { journalDriveRequest } from '@/hooks/auth/useYouAuthAuthorization';
 import { mcpDriveRequest } from '../../mcp/config';
-import { driveNeedsOwner, fetchJournalDriveFacts, missingShareDriveFixes } from '@/lib/homebase/shareNotifications';
+import { driveNeedsOwner, driveOwnedByNoApp, fetchJournalDriveFacts, missingShareDriveFixes } from '@/lib/homebase/shareNotifications';
 import { getJournalDriveFixUrl } from '@/hooks/auth/useMissingPermissions';
 
 const GOOD = { allowSubscriptions: true, attributes: { IsCollaborativeChannel: 'true' }, appId: JOURNAL_APP_ID };
@@ -128,5 +128,20 @@ describe('the drive requests', () => {
             expect(request.allowSubscriptions).toBe(true);
             expect(request.attributes).toEqual({ IsCollaborativeChannel: 'true' });
         }
+    });
+});
+
+describe('driveOwnedByNoApp', () => {
+    it("is true for the owner console's id, in any form, and for no id", () => {
+        expect(driveOwnedByNoApp({ ...GOOD, appId: 'ac126e09-54cb-4878-a690-856be692da16' })).toBe(true);
+        expect(driveOwnedByNoApp({ ...GOOD, appId: 'AC126E0954CB4878A690856BE692DA16' })).toBe(true);
+        expect(driveOwnedByNoApp({ ...GOOD, appId: null })).toBe(true);
+    });
+
+    it('is false for an app, and when the owner is unknown', () => {
+        expect(driveOwnedByNoApp({ ...GOOD, appId: '5f887d80-0132-4294-ba40-bda79155551d' })).toBe(false);
+        expect(driveOwnedByNoApp(GOOD)).toBe(false);
+        expect(driveOwnedByNoApp({})).toBe(false);
+        expect(driveOwnedByNoApp(null)).toBe(false);
     });
 });

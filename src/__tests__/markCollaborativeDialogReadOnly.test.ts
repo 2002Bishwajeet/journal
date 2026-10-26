@@ -21,7 +21,7 @@ vi.mock('@/components/circles/CircleOption', () => ({
 
 import { MarkCollaborativeDialog } from '@/components/modals/MarkCollaborativeDialog';
 
-const DRIVE_URL = 'https://me.id/owner/drives/alias_type';
+const DRIVE_URL = 'https://me.id/owner/apps/console/drives/alias_type';
 const buttonWith = (text: string) =>
     [...document.querySelectorAll('button')].find((b) => b.textContent?.includes(text));
 
