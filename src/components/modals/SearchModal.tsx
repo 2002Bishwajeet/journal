@@ -275,37 +275,27 @@ export default function SearchModal({
                         )}
                       </div>
                     )}
-                    {entry.section === 'notes' ? (
-                      <SearchResultItem
-                        result={entry.result}
-                        index={index}
-                        isSelected={index === selectedIndex}
-                        onSelect={() => handleSelectEntry(entry)}
-                        onHover={() => setSelectedIndex(index)}
-                      />
-                    ) : (
-                      <div className="relative">
-                        {entry.kind === 'note' ? (
-                          <SearchResultItem
-                            result={entry.result}
-                            index={index}
-                            isSelected={index === selectedIndex}
-                            onSelect={() => handleSelectEntry(entry)}
-                            onHover={() => setSelectedIndex(index)}
-                            removable
-                          />
-                        ) : (
-                          <RecentSearchRow
-                            entry={entry}
-                            index={index}
-                            isSelected={index === selectedIndex}
-                            onSelect={() => handleSelectEntry(entry)}
-                            onHover={() => setSelectedIndex(index)}
-                          />
-                        )}
-                        <RemoveButton onClick={() => handleRemoveEntry(entry)} />
-                      </div>
-                    )}
+                    <div className="relative">
+                      {entry.kind === 'note' ? (
+                        <SearchResultItem
+                          result={entry.result}
+                          index={index}
+                          isSelected={index === selectedIndex}
+                          onSelect={() => handleSelectEntry(entry)}
+                          onHover={() => setSelectedIndex(index)}
+                          removable={entry.section === 'recent'}
+                        />
+                      ) : (
+                        <RecentSearchRow
+                          entry={entry}
+                          index={index}
+                          isSelected={index === selectedIndex}
+                          onSelect={() => handleSelectEntry(entry)}
+                          onHover={() => setSelectedIndex(index)}
+                        />
+                      )}
+                      {entry.section !== 'notes' && <RemoveButton onClick={() => handleRemoveEntry(entry)} />}
+                    </div>
                   </div>
                 );
               })}

@@ -180,7 +180,7 @@ export function useSearchModal({
         [handleQueryChange, handleSelectResult]
     );
 
-    const handleRemoveEntry = useCallback((entry: SearchEntry) => {
+    const handleRemoveEntry = (entry: SearchEntry) => {
         if (entry.kind === 'search') {
             const next = removeRecentSearch(loadRecentSearches(), entry.text);
             saveRecentSearches(next);
@@ -190,14 +190,14 @@ export function useSearchModal({
             saveRecentNotes(next);
             setRecentNotes(next);
         }
-    }, []);
+    };
 
-    const handleClearRecents = useCallback(() => {
+    const handleClearRecents = () => {
         saveRecentNotes([]);
         saveRecentSearches([]);
         setRecentNotes([]);
         setRecentSearches([]);
-    }, []);
+    };
 
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent) => {
