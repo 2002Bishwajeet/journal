@@ -9,7 +9,7 @@ const pathOf = (page: import('@playwright/test').Page) => new URL(page.url()).pa
 test('tapping Today on today\'s note, then Back, leaves the note in one step', async ({ app }) => {
   await app.goto('/');
   // The Today button is behind the dailyNotes flag; the shortcut is not.
-  await app.getByText('No notes open').click();
+  await app.locator('#main-content').getByRole('heading', { level: 2 }).click();
   const today = { click: () => app.keyboard.press('Control+Shift+T') };
   await today.click();
   await expect.poll(() => pathOf(app).split('/').length).toBe(3);
