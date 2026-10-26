@@ -167,6 +167,11 @@ function describeOutcome(outcome: EditOutcome): string {
     return outcome === 'rejected' ? 'rejected by the user' : `not applied: ${outcome.notApplied}`;
 }
 
+/** Tool name plus args with sorted keys, so the same call written in another key order matches. */
+function callKey(name: string, args: unknown): string {
+    return `${name}:${JSON.stringify(args, (_, value) => (value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value))}`;
+}
+
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** Runs one request to an answer. Resolves to null when aborted or when no answer came. */
@@ -188,11 +193,38 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
         history.push({ role: 'assistant', content: output }, { role: 'user', content: `Error: ${error}${fix}` });
     };
 
+    /** One answer-only turn: the grammar allows only `{ "answer": ... }`. */
+    const forceAnswer = async (turn: number, noAnswer: string) => {
+        if (signal?.aborted) return null;
+        onEvent({ type: 'step', step: turn });
+        const output = await generate(ANSWER_SCHEMA);
+        if (signal?.aborted) return null;
+        try {
+            const { answer } = JSON.parse(output);
+            if (typeof answer === 'string') {
+                onEvent({ type: 'answer', answer });
+                return answer;
+            }
+        } catch {
+            // Reported below.
+        }
+        onEvent({ type: 'error', error: noAnswer });
+        return null;
+    };
+
     const schema = turnSchema(tools);
     let notJson = 0;
-    for (let step = 1; step <= MAX_TOOL_STEPS; step++) {
+    /** Read-only calls already run, by name and args, with the turn that ran them. A write clears it, as it can change what a read returns. */
+    const seen = new Map<string, number>();
+    let repeatsInARow = 0;
+    // A repeated call does not count as a step, so the cap reflects useful work.
+    let step = 0;
+    let turns = 0;
+    while (step < MAX_TOOL_STEPS) {
+        step++;
+        turns++;
         if (signal?.aborted) return null;
-        onEvent({ type: 'step', step });
+        onEvent({ type: 'step', step: turns });
         const output = await generate(schema);
         if (signal?.aborted) return null;
 
@@ -223,6 +255,20 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
         }
 
         const args = capArgs(tool.name, parsed.data);
+        const key = callKey(tool.name, args);
+        const earlier = seen.get(key);
+        if (earlier !== undefined) {
+            // Don't run it again or repeat its result: the prompt would grow by the whole result for nothing.
+            step--;
+            history.push(
+                { role: 'assistant', content: output },
+                { role: 'user', content: `You already called ${tool.name} with these arguments (step ${earlier}). Use that result, call a different tool, or answer.` },
+            );
+            // The model ignored the nudge: only an answer is left to ask for.
+            if (++repeatsInARow < 2) continue;
+            return forceAnswer(turns + 1, 'No answer after repeated tool calls.');
+        }
+        repeatsInARow = 0;
         onEvent({ type: 'toolCall', tool: tool.name, args });
         // A tool gives back its result, or a proposal for the user to answer.
         const call = async (): Promise<string | AgentProposal> => {
@@ -260,23 +306,11 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
             written = outcome === 'accepted' ? called.write?.applied : undefined;
             if (written) result += ` (note id: ${written.id})`;
         }
+        if (tool.readOnly) seen.set(key, turns);
+        else seen.clear();
         onEvent({ type: 'toolResult', tool: tool.name, result, ...(written && { note: written }) });
         history.push({ role: 'assistant', content: output }, { role: 'user', content: `Result of ${tool.name}: ${result}` });
     }
 
-    if (signal?.aborted) return null;
-    onEvent({ type: 'step', step: MAX_TOOL_STEPS + 1 });
-    const output = await generate(ANSWER_SCHEMA);
-    if (signal?.aborted) return null;
-    try {
-        const { answer } = JSON.parse(output);
-        if (typeof answer === 'string') {
-            onEvent({ type: 'answer', answer });
-            return answer;
-        }
-    } catch {
-        // Reported below.
-    }
-    onEvent({ type: 'error', error: 'No answer after the step limit.' });
-    return null;
+    return forceAnswer(turns + 1, 'No answer after the step limit.');
 }
