@@ -88,6 +88,14 @@ function SheetContent({
         <DialogPrimitive.Content
           asChild
           {...props}
+          onOpenAutoFocus={(event) => {
+            props.onOpenAutoFocus?.(event)
+            if (event.defaultPrevented) return
+            // Focus the sheet itself, not its first control: on a phone that only paints a
+            // focus ring or highlight on a button nobody touched.
+            event.preventDefault()
+            contentRef.current?.focus()
+          }}
           onInteractOutside={(event) => {
             // Toasts live outside the sheet; touching one is not an outside click.
             if ((event.target as Element | null)?.closest?.("[data-sonner-toaster]")) {
@@ -113,7 +121,7 @@ function SheetContent({
             dragMomentum={false}
             onDragEnd={handleDragEnd}
             className={cn(
-              "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom-full data-[state=closed]:slide-out-to-bottom-full fixed z-50 flex flex-col overflow-hidden shadow-lg duration-300 ease-out outline-none",
+              "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom-full data-[state=closed]:slide-out-to-bottom-full fixed z-50 flex flex-col overflow-hidden shadow-lg duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] data-[state=closed]:duration-200 outline-none",
               variant === "bottom" &&
                 "inset-x-0 bottom-[var(--sheet-bottom,0px)] max-h-[calc(var(--sheet-h,100dvh)-env(safe-area-inset-top)-2rem)] rounded-t-2xl border-t pb-[max(1rem,env(safe-area-inset-bottom))]",
               variant === "full" &&

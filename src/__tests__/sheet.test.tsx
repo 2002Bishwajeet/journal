@@ -49,6 +49,12 @@ function sampleSheet(variant: 'bottom' | 'full', onOpenChange: (open: boolean) =
 }
 
 describe('Sheet', () => {
+    it.each(['bottom', 'full'] as const)('focuses the %s sheet itself on open, not its first button', async (variant) => {
+        await mount(sampleSheet(variant, vi.fn()));
+        await act(async () => new Promise((r) => setTimeout(r, 0)));
+        expect(document.activeElement).toBe(dialog());
+    });
+
     it.each(['bottom', 'full'] as const)('names the %s sheet dialog from its title', async (variant) => {
         await mount(sampleSheet(variant, vi.fn()));
         const el = dialog()!;
