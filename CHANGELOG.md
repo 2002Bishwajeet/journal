@@ -1,3 +1,9 @@
+## [2.38.1](https://github.com/2002Bishwajeet/journal/compare/v2.38.0...v2.38.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **pwa:** maskable icon keeps the app icon's colours ([abdeb6f](https://github.com/2002Bishwajeet/journal/commit/abdeb6ffe522e6aed3beb43c29383e1b86cebc1c))
 # [2.38.0](https://github.com/2002Bishwajeet/journal/compare/v2.37.0...v2.38.0) (2026-10-26)
 
 

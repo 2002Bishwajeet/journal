@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.38.1 (2026-10-26)
+
+### Fixed
+
+- App icon: the install icon on Android and in Chrome has its colours again (the beige background and the cream tile).
+
 ## 2.38.0 (2026-10-26)
 
 ### New
