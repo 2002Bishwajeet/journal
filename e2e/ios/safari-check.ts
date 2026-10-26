@@ -308,12 +308,19 @@ try {
     .then(() => true, () => false);
   if (!saved) warnings.push('The lines typed before the reloads were not in the note after them.');
 
-  // Back to the sidebar by loading the root right after typing: the step that first
-  // hung on the splash (first run of #803). After a reload, history.back() loads a new
-  // document for each entry, and the loop that replaced this step went past the app.
+  // Load the root right after typing: the step that first hung on the splash (first run
+  // of #803; Safari's back/forward cache kept the old page's database worker). After a
+  // reload, history.back() loads a new document for each entry, so it is not used here.
   await tap('.ProseMirror');
   await typeOnKeyboard('\nBefore the root');
   await reloadCheck('load-root');
+  // The root opens the last note on a phone: back to the sidebar with the app's own back buttons.
+  await tap('[aria-label="Back"]');
+  await tap('[aria-label="Back to notes"]');
+  await waitFor('the sidebar', () => {
+    const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
+    return !!r && r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1;
+  });
   await tap('button=Settings');
   await waitFor('Settings', dialogOpen);
   const tabs = await browser.execute(() => [...document.querySelectorAll('[role="dialog"] [role="tab"]')].map((t) => t.textContent?.trim() ?? ''));
