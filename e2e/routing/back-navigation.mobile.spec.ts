@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeTitleInput, createNote, selectFolder } from '../support/actions';
+import { activeTitleInput, selectFolder, typeInEditor } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 import { withMobilePage } from '../support/mobile';
 
@@ -10,9 +10,15 @@ import { withMobilePage } from '../support/mobile';
 const pathOf = (page: Page) => new URL(page.url()).pathname;
 const historyIdx = (page: Page) => page.evaluate(() => (history.state as { idx?: number } | null)?.idx ?? 0);
 
+// createNote waits for the list row, which a phone hides behind the open note.
 async function newNoteInMain(page: Page, title: string) {
   await selectFolder(page, 'Main');
-  await createNote(page, { title, body: 'Body.' });
+  const before = page.url();
+  await page.getByRole('button', { name: 'New', exact: true }).click();
+  await page.waitForURL((url) => url.href !== before);
+  await expect(activeTitleInput(page)).toHaveValue('Untitled');
+  await activeTitleInput(page).fill(title);
+  await typeInEditor(page, 'Body.');
 }
 
 test('in-app Back pops the entry, so system Back returns to the sidebar', async ({ browser }) => {
@@ -27,10 +33,12 @@ test('in-app Back pops the entry, so system Back returns to the sidebar', async 
 });
 
 test('Back from a deep-linked note replaces with the folder list', async ({ browser }) => {
-  await withMobilePage(browser, async (page) => {
-    await newNoteInMain(page, `Back deep ${Date.now()}`);
-    const noteUrl = page.url();
-    await page.evaluate(() => localStorage.removeItem('journal-session-state'));
+  await withMobilePage(browser, async (first) => {
+    await newNoteInMain(first, `Back deep ${Date.now()}`);
+    const noteUrl = first.url();
+    await first.evaluate(() => localStorage.removeItem('journal-session-state'));
+    // A fresh page: a goto to the same URL would keep the old history entry and its idx.
+    const page = await first.context().newPage();
     await page.goto(noteUrl);
     await assertTestOrigin(page);
     await waitForAppReady(page);

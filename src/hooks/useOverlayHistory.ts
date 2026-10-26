@@ -15,8 +15,6 @@ export function useOverlayHistory(open: boolean, close: () => void) {
   const navigate = useNavigate();
   const isDesktop = useDeviceType() === "desktop";
   const phase = useRef<"idle" | "pushing" | "active">("idle");
-  const closeRef = useRef(close);
-  closeRef.current = close;
 
   const stack = stackOf(location.state);
   const inStack = stack.includes(id);
@@ -36,7 +34,7 @@ export function useOverlayHistory(open: boolean, close: () => void) {
     } else if (phase.current === "active" && !inStack) {
       // System Back removed our entry.
       phase.current = "idle";
-      closeRef.current();
+      close();
     } else if (phase.current === "active" && !open && isTop) {
       // Closed inside the app: pop our own entry.
       phase.current = "idle";
