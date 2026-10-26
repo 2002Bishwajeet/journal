@@ -256,11 +256,11 @@ export default defineConfig(({ mode }) => ({
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,wasm,data,gz}'],
         globIgnores: [
-          // WebLLM runtime (~12 MB) — desktop-only, cached on first use by the
-          // webllm-runtime route in sw.ts.
           // Install-dialog screenshots (manifest `screenshots`): the browser
           // fetches them only when it shows the install dialog.
           'screenshots/**',
+          // WebLLM runtime (~12 MB) — desktop-only, cached on first use by the
+          // webllm-runtime route in sw.ts.
           '**/web-llm-*.js',
           '**/worker-*.js',
           // Mermaid runtime (see manualChunks) — loaded only when a mermaid code
