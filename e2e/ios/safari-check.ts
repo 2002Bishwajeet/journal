@@ -194,6 +194,24 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-
   console.log(`${problems.length ? '✗' : '✓'} ${name} ${timing}${problems.map((p) => `\n    ${p}`).join('')}`);
 }
 
+/** Waits up to 10 s for `text` in the editor; false when it never shows. */
+const editorHas = (text: string) =>
+  browser
+    .waitUntil(() => browser.execute((t) => document.querySelector('.ProseMirror')?.textContent?.includes(t) ?? false, text), { timeout: 10_000, interval: 250 })
+    .then(() => true, () => false);
+
+/**
+ * Types a new line and reloads at once, then checks the line is still in the note (#873):
+ * iOS Safari unloaded the page before the line's write reached the database.
+ */
+async function typeAndReload(line: string, how: 'location.reload' | 'load-root', label: string) {
+  await tap('.ProseMirror');
+  await typeOnKeyboard(`\n${line}`);
+  if (!(await editorHas(line))) failures.push(`${label}: "${line}" did not show in the editor after typing`);
+  await reloadCheck(how, label);
+  if (!(await editorHas(line))) failures.push(`reload-${label}: "${line}", typed just before the reload, was missing after it`);
+}
+
 const dialogOpen = () => !!document.querySelector('[role="dialog"]');
 const dialogClosed = () => !document.querySelector('[role="dialog"]');
 
@@ -332,20 +350,15 @@ try {
   // Repeated, as one reload may not be enough to hit the hang.
   for (let i = 1; i <= 3; i++) await reloadCheck('location.reload', `location.reload-${i}`);
   await reloadCheck('webdriver-refresh');
-  // A reload while the edit is still being saved.
-  await tap('.ProseMirror');
-  await typeOnKeyboard('\nIn flight');
-  await reloadCheck('location.reload', 'during-write');
-  const saved = await waitFor('the typed lines after the reloads', () => document.querySelector('.ProseMirror')?.textContent?.includes('Third line') ?? false, 10_000)
-    .then(() => true, () => false);
-  if (!saved) warnings.push('The lines typed before the reloads were not in the note after them.');
+  if (keyboardUp && !(await editorHas('Third line'))) failures.push('The lines typed before the reloads were not in the note after them.');
+  // Reloads while the edit is still being saved (#873), repeated, as the loss did not
+  // happen on every run.
+  for (let i = 1; i <= 5; i++) await typeAndReload(`In flight ${i}`, 'location.reload', `during-write-${i}`);
 
   // Load the root right after typing: the step that first hung on the splash (first run
   // of #803; Safari's back/forward cache kept the old page's database worker). After a
   // reload, history.back() loads a new document for each entry, so it is not used here.
-  await tap('.ProseMirror');
-  await typeOnKeyboard('\nBefore the root');
-  await reloadCheck('load-root');
+  await typeAndReload('Before the root', 'load-root', 'load-root');
   // The root opens the last note on a phone: back to the sidebar with the app's own back buttons.
   await tap('[aria-label="Back"]');
   await tap('[aria-label="Back to notes"]');
