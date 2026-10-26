@@ -11,37 +11,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The image tag must match the installed @playwright/test, so read it from the
-  # lockfile instead of pinning it here.
-  playwright-version:
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: package-lock.json
-          sparse-checkout-cone-mode: false
-
-      - name: Read the Playwright version
-        id: version
-        run: echo "version=$(jq -r '.packages["node_modules/@playwright/test"].version' package-lock.json)" >> "$GITHUB_OUTPUT"
-
   # The hermetic suite split three ways; `e2e` below is the required check.
-  # It runs in the Playwright image, which ships the browsers and their OS
-  # packages: `playwright install-deps` on the runner spent up to 13.5 min in apt
-  # on a slow or unreachable Ubuntu mirror (#868). Step caps are about 1.5x the
-  # measured p90 and sum to 27 min; the rest covers the image pull and the
-  # uncapped steps that take a second each.
+  # Step caps are about 1.5x the p90 of 60 runs (#868); they sum to 33 min, plus
+  # 2 min for the uncapped steps that take a second each.
   e2e-shard:
-    needs: playwright-version
     runs-on: ubuntu-latest
-    timeout-minutes: 32
-    container:
-      image: mcr.microsoft.com/playwright:v${{ needs.playwright-version.outputs.version }}-noble
-      options: --ipc=host
+    timeout-minutes: 35
     permissions:
       contents: read
     strategy:
@@ -69,6 +44,38 @@ jobs:
         timeout-minutes: 2
         run: npm ci --include=optional
 
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        timeout-minutes: 1
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 3
+        run: npx playwright install chromium
+
+      # apt on the runner fetched ~26 MB of fonts and libs at ~30 kB/s, or hung in
+      # `apt-get update` on an unreachable mirror, for up to 13.5 min (#868). So keep
+      # the .debs and, once cached, install them offline with dpkg.
+      - name: Cache Playwright OS packages
+        timeout-minutes: 1
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-archives
+          key: playwright-apt-chromium-${{ runner.os }}-offline
+          restore-keys: playwright-apt-chromium-${{ runner.os }}-
+
+      - name: Install Playwright OS dependencies
+        timeout-minutes: 3
+        run: .github/scripts/playwright-deps.sh chromium
+
       - name: Run E2E (hermetic)
         timeout-minutes: 16
         run: npm run e2e -- --shard=${{ matrix.shard }}/3
@@ -94,14 +101,12 @@ jobs:
           retention-days: 14
 
   # WebKit and quarantined specs only inform, so they run beside the shards and
-  # `e2e` does not wait for them.
+  # `e2e` does not wait for them. A cold apt cache on a slow mirror can take
+  # 20+ min for webkit's ~120 MB, so that step gives up after 5 and the specs
+  # still run (and may fail) without marking the run red.
   e2e-informational:
-    needs: playwright-version
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    container:
-      image: mcr.microsoft.com/playwright:v${{ needs.playwright-version.outputs.version }}-noble
-      options: --ipc=host
     permissions:
       contents: read
     steps:
@@ -121,6 +126,33 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --include=optional
+
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-webkit-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright chromium and webkit
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium webkit
+
+      - name: Cache Playwright OS packages
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-archives
+          key: playwright-apt-webkit-${{ runner.os }}-offline
+          restore-keys: playwright-apt-webkit-${{ runner.os }}-
+
+      - name: Install Playwright OS dependencies
+        timeout-minutes: 5
+        continue-on-error: true
+        run: .github/scripts/playwright-deps.sh chromium webkit
 
       - name: Run mobile E2E (webkit, informational)
         timeout-minutes: 4
