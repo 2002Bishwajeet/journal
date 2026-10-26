@@ -205,7 +205,7 @@ describe('DiagnosticsSection', () => {
     const NOTICE = '[data-testid="share-notifications-off"]';
     const FIX = {
         shareDriveFixUrl: 'https://me.id/owner/appupdate?appId=x',
-        driveSettingsUrl: 'https://me.id/owner/drives/alias_type',
+        driveSettingsUrl: 'https://me.id/owner/apps/console/drives/alias_type',
         markShareDriveFixAttempted,
         shareDriveFixFailed: false,
     };
@@ -248,7 +248,7 @@ describe('DiagnosticsSection', () => {
             'Add the attribute IsCollaborativeChannel with the value true.',
         ]);
         const link = details?.querySelector('a');
-        expect(link?.getAttribute('href')).toBe('https://me.id/owner/drives/alias_type');
+        expect(link?.getAttribute('href')).toBe('https://me.id/owner/apps/console/drives/alias_type');
         expect(link?.getAttribute('target')).toBe('_blank');
         expect(document.querySelector(`${NOTICE} [role="status"]`)).toBeNull();
     });
@@ -273,7 +273,7 @@ describe('DiagnosticsSection', () => {
     });
 
     it('shows the owner step in its own notice, not under share notifications (#870)', async () => {
-        setDiagnostics([], { driveSettingsUrl: 'https://me.id/owner/drives/alias_type', driveOwnerFix: true });
+        setDiagnostics([], { driveSettingsUrl: 'https://me.id/owner/apps/console/drives/alias_type', driveOwnerFix: true });
         await render();
 
         expect(document.querySelector(NOTICE)).toBeNull();
@@ -283,7 +283,7 @@ describe('DiagnosticsSection', () => {
         expect([...(panel?.querySelectorAll('li') ?? [])].map((li) => li.textContent)).toEqual([
             'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.',
         ]);
-        expect(panel?.querySelector('a')?.getAttribute('href')).toBe('https://me.id/owner/drives/alias_type');
+        expect(panel?.querySelector('a')?.getAttribute('href')).toBe('https://me.id/owner/apps/console/drives/alias_type');
     });
 
     it('shows no share notification notice by default', async () => {

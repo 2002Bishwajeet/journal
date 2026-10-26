@@ -103,5 +103,5 @@ test('a refused share push offers the one-tap fix and keeps the manual steps (#8
     'Add the attribute IsCollaborativeChannel with the value true.',
     'If shares still don\'t notify people after this, also turn on "Allow subscriptions".',
   ]);
-  await expect(notice.getByRole('link', { name: 'Open drive settings' })).toHaveAttribute('href', /\/owner\/drives\//);
+  await expect(notice.getByRole('link', { name: 'Open drive settings' })).toHaveAttribute('href', /\/owner\/apps\/ac126e09-54cb-4878-a690-856be692da16\/drives\/d5f411fa83fd4854a3bd7e974cc9bca9_30743710039d4b97bbd352f343d1c9df$/);
 });

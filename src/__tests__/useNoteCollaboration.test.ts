@@ -59,7 +59,7 @@ vi.mock('@/lib/homebase/SharePushProvider', () => ({
 vi.mock('@/lib/homebase/config', () => ({
     MAIN_FOLDER_ID: 'main',
     COLLABORATIVE_FOLDER_ID: 'collab',
-    JOURNAL_DRIVE: { alias: 'alias', type: 'type' },
+    ownerConsoleDriveUrl: (root: string) => `${root}/owner/apps/console/drives/alias_type`,
 }));
 vi.mock('@/hooks/useNotes', () => ({
     useNotes: () => ({
@@ -264,7 +264,7 @@ describe('share', () => {
         await act(async () => { results.push(await api().share('n1', CIRCLES)); });
 
         expect(results).toEqual([
-            { shared: true, readOnlyDriveUrl: 'https://me.id/owner/drives/alias_type' },
+            { shared: true, readOnlyDriveUrl: 'https://me.id/owner/apps/console/drives/alias_type' },
             { shared: true },
         ]);
         expect(localStorage.getItem('journal-read-only-share-notice')).toBe('me.id');
@@ -277,7 +277,7 @@ describe('share', () => {
         const { api, unmount } = await mountHook();
         let url: string | undefined;
         await act(async () => { url = (await api().share('n1', CIRCLES)).readOnlyDriveUrl; });
-        expect(url).toBe('https://me.id/owner/drives/alias_type');
+        expect(url).toBe('https://me.id/owner/apps/console/drives/alias_type');
         await unmount();
     });
 

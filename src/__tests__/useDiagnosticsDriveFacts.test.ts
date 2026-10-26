@@ -79,4 +79,26 @@ describe('useDiagnostics: journal drive facts after the owner console fix (#870)
         expect(localStorage.getItem(SHARE_DRIVE_FIX_ATTEMPT_KEY)).toBeNull();
         await act(async () => root.unmount());
     });
+
+    it("links the drive's settings under the app that owns it, once the drive is read", async () => {
+        const queryClient = new QueryClient();
+        fetchFacts.mockResolvedValue({ appId: 'c762ee78-4274-4734-8091-9d8080d7a825', attributes: {} });
+
+        let result!: ReturnType<typeof useDiagnostics>;
+        const Probe = () => {
+            result = useDiagnostics();
+            return null;
+        };
+        const root = createRoot(document.createElement('div'));
+        await act(async () => {
+            root.render(h(QueryClientProvider, { client: queryClient }, h(Probe)));
+        });
+
+        await vi.waitFor(() =>
+            expect(result.driveSettingsUrl).toBe(
+                `https://${HOST}/owner/apps/c762ee78-4274-4734-8091-9d8080d7a825/drives/d5f411fa83fd4854a3bd7e974cc9bca9_30743710039d4b97bbd352f343d1c9df`,
+            ),
+        );
+        await act(async () => root.unmount());
+    });
 });
