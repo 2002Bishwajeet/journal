@@ -239,6 +239,9 @@ export default defineConfig(({ mode }) => ({
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,wasm,data,gz}'],
         globIgnores: [
+          // iOS launch images (index.html apple-touch-startup-image): iOS fetches them
+          // itself when the app is added to the home screen.
+          'splash/**',
           // WebLLM runtime (~12 MB) — desktop-only, cached on first use by the
           // webllm-runtime route in sw.ts.
           '**/web-llm-*.js',
