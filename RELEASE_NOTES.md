@@ -15,6 +15,11 @@ Manual Release moves "Unreleased" to the new version and stops if it is empty.
 
 ## Unreleased
 
+### Fixed
+
+- On a phone, the formatting bar now sits directly on top of the keyboard. It follows the keyboard and shows in every keyboard mode.
+- Tapping a button on the formatting bar no longer closes the keyboard.
+
 ## 2.28.0 (2026-10-25)
 
 ### New
