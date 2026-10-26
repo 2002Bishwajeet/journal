@@ -403,9 +403,6 @@ const NoteItem = memo(function NoteItem({
     }
   };
 
-  const applyOffset = (offset: number, dragging: boolean) =>
-    moveRow(contentRef.current, actionRef.current, offset, dragging);
-
   // Sync the row to the open state, so a close from outside animates too.
   useEffect(() => {
     moveRow(contentRef.current, actionRef.current, isSwiped ? maxSwipeDistance : 0, false);
@@ -448,7 +445,7 @@ const NoteItem = memo(function NoteItem({
         ? Math.min(maxSwipeDistance + (raw - maxSwipeDistance) * 0.2, 100)
         : Math.max(raw, 0);
     g.offset = offset;
-    applyOffset(offset, true);
+    moveRow(contentRef.current, actionRef.current, offset, true);
   };
 
   const onTouchEnd = () => {
@@ -459,7 +456,7 @@ const NoteItem = memo(function NoteItem({
     const open = isSwiped
       ? g.offset > maxSwipeDistance - minSwipeDistance
       : g.offset > minSwipeDistance;
-    applyOffset(open ? maxSwipeDistance : 0, false);
+    moveRow(contentRef.current, actionRef.current, open ? maxSwipeDistance : 0, false);
     if (open !== isSwiped) {
       onSwipeChange(note.docId, open);
       triggerHaptic(open ? 15 : 10);

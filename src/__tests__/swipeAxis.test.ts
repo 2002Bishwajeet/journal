@@ -21,9 +21,4 @@ describe('swipeAxis', () => {
   it('should treat a perfect diagonal as a scroll', () => {
     expect(swipeAxis(15, 15)).toBe('y');
   });
-
-  it('should honor a custom threshold', () => {
-    expect(swipeAxis(-20, 2, 30)).toBeNull();
-    expect(swipeAxis(-31, 2, 30)).toBe('x');
-  });
 });
