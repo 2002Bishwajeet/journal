@@ -64,6 +64,7 @@ function setDiagnostics(items: PendingSyncItem[] | null, extra: Record<string, u
         shareDriveFixUrl: null,
         shareDriveFixes: [],
         driveOwnerFix: false,
+        driveOwnerFixUrl: null,
         ...extra,
     };
 }
@@ -280,10 +281,30 @@ describe('DiagnosticsSection', () => {
         const panel = document.querySelector('[data-testid="drive-owner"]');
         expect(panel?.textContent).toContain("Journal doesn't own its drive");
         expect(panel?.textContent).toContain('does not stop share notifications');
+        expect(panel?.textContent).toContain('belongs to another app');
         expect([...(panel?.querySelectorAll('li') ?? [])].map((li) => li.textContent)).toEqual([
-            'Choose "Assign to an app", pick Journal and keep the drive slug journal-notes. The drive keeps its id and your notes.',
+            'Next to "Owned by", choose "Assign to an app" (on an older owner console, "Change"). Pick Journal and set the drive slug and the type slug to notes. The drive keeps its id and your notes.',
         ]);
         expect(panel?.querySelector('a')?.getAttribute('href')).toBe('https://me.id/owner/apps/console/drives/alias_type');
+    });
+
+    it('offers the one-tap fix when no app owns the drive, with the manual step behind a toggle', async () => {
+        setDiagnostics([], {
+            driveSettingsUrl: 'https://me.id/owner/apps/console/drives/alias_type',
+            driveOwnerFix: true,
+            driveOwnerFixUrl: 'https://me.id/owner/appupdate?appId=x',
+        });
+        await render();
+
+        const panel = document.querySelector('[data-testid="drive-owner"]');
+        expect(panel?.textContent).toContain('belongs to no app yet');
+        const links = [...(panel?.querySelectorAll('a') ?? [])];
+        expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+            ['Fix in owner console', 'https://me.id/owner/appupdate?appId=x'],
+            ['Open drive settings', 'https://me.id/owner/apps/console/drives/alias_type'],
+        ]);
+        expect(panel?.querySelector('details')?.hasAttribute('open')).toBe(false);
+        expect(panel?.querySelector('details li')?.textContent).toContain('"Assign to an app"');
     });
 
     it('shows no share notification notice by default', async () => {

@@ -101,4 +101,26 @@ describe('useDiagnostics: journal drive facts after the owner console fix (#870)
         );
         await act(async () => root.unmount());
     });
+
+    it.each([
+        ['no app owns it', 'ac126e09-54cb-4878-a690-856be692da16', `https://${HOST}/owner/appupdate`],
+        ['another app owns it', '5f887d80-0132-4294-ba40-bda79155551d', null],
+    ])('offers the owner console fix for the drive owner when %s', async (_case, appId, fixUrl) => {
+        fetchFacts.mockResolvedValue({ appId, attributes: { IsCollaborativeChannel: 'true' } });
+
+        let result!: ReturnType<typeof useDiagnostics>;
+        const Probe = () => {
+            result = useDiagnostics();
+            return null;
+        };
+        const root = createRoot(document.createElement('div'));
+        await act(async () => {
+            root.render(h(QueryClientProvider, { client: new QueryClient() }, h(Probe)));
+        });
+
+        await vi.waitFor(() => expect(result.driveOwnerFix).toBe(true));
+        expect(result.driveOwnerFixUrl).toBe(fixUrl);
+        expect(result.shareDriveFixUrl).toBeNull();
+        await act(async () => root.unmount());
+    });
 });
