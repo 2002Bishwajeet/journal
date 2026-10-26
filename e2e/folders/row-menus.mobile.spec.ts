@@ -30,7 +30,10 @@ test('the folder options button opens the folder menu and Rename shows the name'
     const row = foldersNav(page).locator('div.flex', { has: page.getByRole('button', { name: 'Trips', exact: true }) }).last();
     const options = row.getByRole('button', { name: 'Folder options' });
     await expect(options).toBeVisible();
-    expect((await options.boundingBox())!.width).toBeGreaterThanOrEqual(44);
+    const optionsBox = (await options.boundingBox())!;
+    expect(optionsBox.width).toBeGreaterThanOrEqual(44);
+    // Inside the screen without scrolling: a row that overflows pushes the button off the right edge.
+    expect(optionsBox.x + optionsBox.width).toBeLessThanOrEqual(viewport.width);
 
     await options.tap();
     const menu = page.getByRole('menu');
@@ -55,6 +58,8 @@ test('the note options button opens a menu that is fully on screen', async ({ br
     await expect(row).toBeVisible();
     const options = row.getByRole('button', { name: 'Note options', exact: true });
     await expect(options).toBeVisible();
+    const optionsBox = (await options.boundingBox())!;
+    expect(optionsBox.x + optionsBox.width).toBeLessThanOrEqual(viewport.width);
 
     await options.tap();
     const menu = page.getByRole('menu');

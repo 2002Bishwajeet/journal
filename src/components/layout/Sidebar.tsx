@@ -346,7 +346,7 @@ export default function Sidebar({
                               isCollapsed
                                 ? // The button is the tile, so its focus ring and the badge are never clipped by an inner box.
                                   "size-9 px-0 rounded-lg border text-[11px] font-semibold tracking-wide"
-                                : "w-full min-w-0 h-10 justify-start px-2 [-webkit-touch-callout:none]",
+                                : "w-full min-w-0 shrink h-10 justify-start px-2 [-webkit-touch-callout:none]",
                               // Light mode needs a stronger edge and darker letters than the muted tokens give on the sidebar (4.5:1 text).
                               isCollapsed && !isSelected &&
                                 "border-muted-foreground/50 text-sidebar-foreground/80 hover:text-sidebar-foreground dark:border-sidebar-border dark:text-muted-foreground dark:hover:text-foreground",
