@@ -25,6 +25,8 @@ async function addNote(page: Page) {
 
 test('the list screen has one 44 px header, and the group header sticks', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
+    // Layout only: no push slide, so screenshots never land mid-slide.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await createFolder(page, FOLDER);
     await selectFolder(page, FOLDER);
     await expect(page.getByRole('heading', { name: FOLDER })).toBeVisible();
@@ -68,28 +70,45 @@ test('the list screen has one 44 px header, and the group header sticks', async 
   });
 });
 
-test('going back marks the slide direction for the transition', async ({ browser }) => {
+test('in-app navigation slides; the system Back plays no transition of ours', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     await createFolder(page, FOLDER);
+    // Record each view transition we start, with the direction flag at that moment.
+    await page.evaluate(() => {
+      const w = window as unknown as { slides: string[] };
+      w.slides = [];
+      const start = document.startViewTransition.bind(document);
+      document.startViewTransition = ((update: () => Promise<void>) => {
+        w.slides.push(document.documentElement.dataset.nav ?? 'forward');
+        return start(update);
+      }) as typeof document.startViewTransition;
+    });
+    const slides = () => page.evaluate(() => (window as unknown as { slides: string[] }).slides);
+
     await selectFolder(page, FOLDER);
     await page.getByRole('button', { name: 'New', exact: true }).click();
     const back = page.getByRole('button', { name: 'Back', exact: true });
     await expect(back).toBeVisible();
-    await page.evaluate(() => {
-      (window as unknown as { navSeen: string[] }).navSeen = [];
-      new MutationObserver(() =>
-        (window as unknown as { navSeen: string[] }).navSeen.push(document.documentElement.dataset.nav ?? ''),
-      ).observe(document.documentElement, { attributes: true, attributeFilter: ['data-nav'] });
-    });
+    await expect.poll(slides).toEqual(['forward', 'forward']);
+
     await back.click();
     await expect(page.getByRole('heading', { name: FOLDER })).toBeVisible();
-    await expect.poll(() => page.evaluate(() => (window as unknown as { navSeen: string[] }).navSeen)).toContain('back');
+    await expect.poll(slides).toEqual(['forward', 'forward', 'back']);
     await expect(page.locator('html')).not.toHaveAttribute('data-nav', /.+/);
+
+    // popstate (system Back, iOS swipe-back): Safari animates it itself, so no slide here.
+    await page.goBack();
+    await expect(page.getByRole('complementary', { name: 'Sidebar' })).toBeVisible();
+    await page.goForward();
+    await expect(page.getByRole('heading', { name: FOLDER })).toBeVisible();
+    expect(await slides()).toEqual(['forward', 'forward', 'back']);
   });
 });
 
 test('in Trash, Restore and Delete forever are 44 px and 8 px apart', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
+    // Layout only: no push slide, so screenshots never land mid-slide.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await createFolder(page, FOLDER);
     await selectFolder(page, FOLDER);
     await addNote(page);

@@ -56,6 +56,8 @@ test('system Back closes Move to folder and Share without changing the URL', asy
     const title = `Back dialogs ${Date.now()}`;
     await newNoteInMain(page, title);
     await page.getByRole('button', { name: 'Back', exact: true }).click();
+    // Back navigates inside the slide's view transition, a frame later.
+    await expect(page.getByTestId('note-row').filter({ hasText: title })).toBeVisible();
     const listUrl = page.url();
 
     for (const [item, dialog] of [

@@ -45,6 +45,8 @@ async function withNoteList(
   body: (page: Page, cdp: CDPSession, rows: Locator) => Promise<void>,
 ) {
   await withMobilePage(browser, async (page) => {
+    // No push slide (#779): raw CDP touches sent during it land on the view-transition overlay.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.getByRole('button', { name: 'Settings' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('tab', { name: 'Data & storage' }).click();

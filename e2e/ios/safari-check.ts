@@ -262,6 +262,54 @@ try {
   await tap('button=Cancel');
   await waitFor('the search sheet to close', () => !document.querySelector('[role="dialog"][aria-label="Search notes"]'));
 
+  // Push and pop slides (#779), slowed to 3 s so each screenshot lands mid-slide:
+  // folder -> list -> note -> in-app Back. The system Back (what swipe-back fires)
+  // must start no slide of ours, since Safari animates the swipe itself.
+  if (await browser.execute(() => typeof document.startViewTransition !== 'function')) {
+    warnings.push('This Safari has no View Transitions, so the slide step did not run and the app navigates without a slide.');
+  } else {
+    await browser.execute(() => {
+      const style = document.createElement('style');
+      style.id = 'slow-slide';
+      style.textContent = '::view-transition-old(root), ::view-transition-new(root) { animation-duration: 3s !important; }';
+      document.head.appendChild(style);
+      const w = window as unknown as { slides: string[] };
+      w.slides = [];
+      const start = document.startViewTransition.bind(document);
+      document.startViewTransition = ((update: () => Promise<void>) => {
+        w.slides.push(document.documentElement.dataset.nav ?? 'forward');
+        return start(update);
+      }) as typeof document.startViewTransition;
+    });
+    const midSlide = async (name: string) => {
+      await browser.pause(700);
+      summary.push(`| ${name} | ${await screenshot(name)} | mid-slide |`);
+      await browser.pause(3_000);
+    };
+    await tap('[aria-label="Folders"] button');
+    await midSlide('slide-folder-to-list');
+    await tap('button=New');
+    await midSlide('slide-list-to-note');
+    await tap('button[aria-label="Back"]');
+    await midSlide('slide-back-to-list');
+    await browser.execute(() => history.back());
+    await waitFor('the sidebar', () => {
+      const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
+      return !!r && r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1;
+    });
+    await browser.pause(700);
+    summary.push(`| system-back-no-slide | ${await screenshot('system-back-no-slide')} | |`);
+    const slides = await browser.execute(() => {
+      document.getElementById('slow-slide')?.remove();
+      return (window as unknown as { slides: string[] }).slides;
+    });
+    const expected = ['forward', 'forward', 'back'];
+    if (JSON.stringify(slides) !== JSON.stringify(expected)) {
+      failures.push(`slides: started ${JSON.stringify(slides)}, expected ${JSON.stringify(expected)} (none on the system Back)`);
+    }
+    summary.push(`| slides | | ${JSON.stringify(slides)} |`);
+  }
+
   // Note list gestures (#778): import enough notes for the list to scroll, then swipe a
   // row, scroll with sideways drift, pull to refresh at the top and scroll again.
   await tap('button=Settings');
@@ -282,6 +330,8 @@ try {
   await closeDialog();
   await tap('[aria-label="Folders"] button');
   await waitFor('the note rows', () => document.querySelectorAll('[data-testid="note-row"]').length >= 10);
+  // Touches during the push slide (#779) land on its overlay, not the list.
+  await browser.pause(600);
   const row = '[data-testid="note-row"]';
   await gesture('swipe', row, 0, [100, 0], [0, 6]);
   await tap('[aria-label="Sort notes"]');
