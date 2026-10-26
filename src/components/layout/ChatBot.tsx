@@ -98,6 +98,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const openButtonRef = useRef<HTMLButtonElement>(null);
+  const stopButtonRef = useRef<HTMLButtonElement>(null);
 
   // The /ask and /summarize slash commands in the note open the panel (#703).
   useEffect(
@@ -118,6 +119,9 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
+      // The control that had focus went away (the download dialog's Continue, a card's buttons, Stop):
+      // keep focus in the panel, on Stop while a turn runs and on the message box after it.
+      if (document.activeElement === document.body) (isGenerating ? stopButtonRef : inputRef).current?.focus();
     }
   }, [messages, isOpen, isGenerating, modelStatus]);
 
@@ -285,7 +289,10 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
                 className="flex-1 h-9 text-sm"
               />
               {isGenerating ? (
+                // Keyed apart, so a focused Stop leaves the page instead of turning into a disabled Send.
                 <Button
+                  key="stop"
+                  ref={stopButtonRef}
                   size="icon"
                   variant="outline"
                   aria-label="Stop"
@@ -296,6 +303,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
                 </Button>
               ) : (
                 <Button
+                  key="send"
                   size="icon"
                   aria-label="Send message"
                   className={cn("h-9 w-9", FOCUS_RING)}

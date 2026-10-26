@@ -330,6 +330,18 @@ sup[data-type='footnote-reference'].ProseMirror-selectednode {
     display: none;
   }
 }
+/* The note keeps at least ~480px beside the 360px assistant: below 84rem the notes list hides
+   while the assistant is open, and below 68rem the sidebar hides too. Closing it brings them back. */
+@media (64rem <= width < 84rem) {
+  :root:has([role='region'][aria-label='Assistant']) [data-pane='note-list'] {
+    display: none;
+  }
+}
+@media (64rem <= width < 68rem) {
+  :root:has([role='region'][aria-label='Assistant']) [data-pane='sidebar'] {
+    display: none;
+  }
+}
 
 section[data-type='footnotes'],
 .share-article section.footnotes {
