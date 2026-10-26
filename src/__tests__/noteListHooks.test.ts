@@ -190,7 +190,7 @@ describe('useNoteActions', () => {
         await act(async () => api().createAndOpen('trash'));
 
         expect(mocks.createNote).toHaveBeenCalledWith('main');
-        expect(mocks.navigate).toHaveBeenCalledWith('/main/new', { viewTransition: true });
+        expect(mocks.navigate).toHaveBeenCalledWith('/main/new');
         await unmount();
     });
 
@@ -202,7 +202,7 @@ describe('useNoteActions', () => {
         });
         api().selectNote('t1');
 
-        expect(mocks.navigate).toHaveBeenCalledWith('/f9/t1?tag=x%20y', { viewTransition: true });
+        expect(mocks.navigate).toHaveBeenCalledWith('/f9/t1?tag=x%20y');
         await unmount();
     });
 });
