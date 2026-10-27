@@ -1,5 +1,6 @@
 /**
- * Which single pane mobile/tablet shows for a route. A tag filter (`/?tag=x`)
+ * Which single pane a phone shows for a route (tablets show the list and the
+ * editor together, #832). A tag filter (`/?tag=x`)
  * has no folder but still shows the note list.
  */
 export function getMobilePane({

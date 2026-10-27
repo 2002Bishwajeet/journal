@@ -2,8 +2,8 @@ import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { withMobilePage } from '../support/mobile';
 
-// The sidebar on phones and tablets (#776): no collapse rail, full width on
-// tablets, and tap targets of at least 44px.
+// The sidebar on phones and tablets (#776): no collapse rail, an overlay on
+// tablets (#832), and tap targets of at least 44px.
 
 const SIDEBAR_COLLAPSE_KEY = 'journal-sidebar-collapse';
 
@@ -41,12 +41,15 @@ test('a saved collapsed state does not shrink the phone sidebar', async ({ brows
   });
 });
 
-test('a tablet sidebar is as wide as the screen', async ({ browser }) => {
+// A tablet shows the list and the note side by side; the sidebar is a 320px overlay opened from the list header (#832).
+test('a tablet sidebar is an overlay opened from the list header', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     const sidebar = sidebarOf(page);
+    await expect(sidebar).toBeHidden();
+    await page.getByRole('button', { name: 'Show folders', exact: true }).click();
     await expect(sidebar).toBeVisible();
-    await expect.poll(async () => (await sidebar.boundingBox())?.width).toBeGreaterThanOrEqual(767); // the wrapper has a 1px border
+    await expect.poll(async () => (await sidebar.boundingBox())?.width).toBeGreaterThanOrEqual(319); // the wrapper has a 1px border
     await shoot(page, 'sidebar');
   });
 });
