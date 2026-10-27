@@ -487,12 +487,27 @@ describe('runAgent — rules for small models (#914)', () => {
         }
     );
 
-    it.each(['Summarize the open note', 'What should I pack?', 'Is there a note that mentions formatting?'])(
+    it.each(['Summarize the open note', 'What should I pack?', 'Is there a note that mentions formatting?', 'What is my car insurance policy number?'])(
         'should treat %j as a question',
         (prompt) => expect(writeNames(toolsFor(prompt))).toEqual([])
     );
 
-    it.each(['Can you bold the title?', 'please rename it to Plan', 'Put eggs on my shopping list'])('should treat %j as a change', (prompt) =>
+    it.each([
+        'Can you bold the title?',
+        'please rename it to Plan',
+        'Put eggs on my shopping list',
+        'Strikethrough the second line',
+        'Lowercase the title',
+        'Uppercase the heading',
+        'Cross out the last item',
+        'Tick off the first task',
+        'Check off the first task',
+        'Fill in the date',
+        'Bullet the list',
+        'Number the steps',
+        'Log my run in this note',
+        'Remember to buy milk',
+    ])('should treat %j as a change', (prompt) =>
         expect(writeNames(toolsFor(prompt))).toEqual(writeNames(AGENT_TOOLS))
     );
 
