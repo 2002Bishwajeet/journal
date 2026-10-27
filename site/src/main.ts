@@ -73,7 +73,7 @@ document.querySelectorAll('[data-reveal]').forEach((el) => revealed.observe(el))
 // ---- Home hero video: one take per theme; only the one on screen loads and plays ----
 // Phones get a still screenshot instead (CSS hides both takes), and reduced motion gets controls.
 
-const videos = [...document.querySelectorAll<HTMLVideoElement>('video.demo')];
+const videos = [...document.querySelectorAll<HTMLVideoElement>('video.hero-video')];
 const heroMedia = document.querySelector<HTMLElement>('.hero-media');
 let heroInView = false;
 

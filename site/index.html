@@ -3,40 +3,38 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Journal: notes your agents can build in</title>
-  <meta name="description" content="Journal is an open source notebook that keeps your notes in your browser, works offline, and syncs them encrypted to a space you own. AI agents can build live pages inside your notes, only where you allow." />
-  <meta property="og:title" content="Journal: notes your agents can build in" />
-  <meta property="og:description" content="An open source notebook. Notes live in your browser, sync encrypted to a space you own, and AI agents build live pages inside them, only where you allow." />
+  <title>Journal: a private notebook that works offline</title>
+  <meta name="description" content="Journal is an open source notebook that keeps your notes on your device first, works offline, and syncs them encrypted to a space you own. AI agents get in only where you allow." />
+  <meta property="og:title" content="Journal: a private notebook that works offline" />
+  <meta property="og:description" content="An open source notebook. Notes live on your device, work offline and sync encrypted to a space you own." />
   <!-- head -->
 </head>
 <body data-page="home">
   <!-- header -->
 
   <main id="main">
-    <!-- Hero: a short head, then the app, large -->
+    <!-- Hero: the promise, then the app, large -->
     <section class="hero" id="top" aria-labelledby="hero-title">
       <div class="wrap">
-        <div class="hero-head">
-          <h1 class="display" id="hero-title" data-reveal>Notes your agents can build in</h1>
-          <div class="hero-side" data-reveal style="--i:1">
-            <p class="lede">Journal keeps your notes in your browser, works offline, and syncs them encrypted to a space you own.</p>
-            <div class="ctas">
-              <a class="btn btn-primary" href="https://journal.cloudx.run">Open Journal</a>
-              <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
-            </div>
+        <h1 class="display hero-title" id="hero-title" data-reveal>A private notebook that works offline</h1>
+        <div class="hero-side" data-reveal style="--i:1">
+          <p class="lede">Journal keeps every note on your device first, syncs it encrypted to a space you own, and lets AI agents in only where you allow.</p>
+          <div class="ctas">
+            <a class="btn btn-primary" href="https://journal.cloudx.run">Open Journal</a>
+            <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
           </div>
         </div>
         <figure class="hero-media" data-reveal style="--i:2">
           <div class="frame frame-hero">
-            <video class="demo only-light" muted loop playsinline preload="none" width="1600" height="1000"
-              poster="/media/demo-poster-light.webp"
+            <video class="hero-video only-light" muted loop playsinline preload="none" width="1600" height="1000"
+              poster="/media/hero-poster-light.webp"
               aria-label="Journal in use: a Reading log note with a live chart, writing a new note with a Mermaid diagram, searching, then the phone layout">
-              <source src="/media/demo-light.mp4" type="video/mp4" />
+              <source src="/media/hero-light.mp4" type="video/mp4" />
             </video>
-            <video class="demo only-dark" muted loop playsinline preload="none" width="1600" height="1000"
-              poster="/media/demo-poster-dark.webp"
+            <video class="hero-video only-dark" muted loop playsinline preload="none" width="1600" height="1000"
+              poster="/media/hero-poster-dark.webp"
               aria-label="Journal in dark mode: a Reading log note with a live chart, writing a new note with a Mermaid diagram, searching, then the phone layout">
-              <source src="/media/demo-dark.mp4" type="video/mp4" />
+              <source src="/media/hero-dark.mp4" type="video/mp4" />
             </video>
           </div>
           <div class="phone hero-phone">
@@ -48,7 +46,7 @@
       </div>
     </section>
 
-    <!-- Where notes live: three tone steps, one flow -->
+    <!-- Where notes live: three tone steps, one flow, then what follows from it -->
     <section class="section band" id="how-it-works" aria-labelledby="how-title">
       <div class="wrap">
         <div class="section-head">
@@ -69,11 +67,16 @@
             <p>Share a note with people you know, or publish it as a public page. Everything else stays private.</p>
           </li>
         </ol>
+        <ul class="points" aria-label="What else stays yours">
+          <li data-reveal><strong>Agents by invitation</strong> AI agents get no access until you grant it, per folder or per note.</li>
+          <li data-reveal style="--i:1"><strong>Export any time</strong> Take everything out as markdown in a ZIP.</li>
+          <li data-reveal style="--i:2"><strong>Open source</strong> Journal is AGPL-3.0. Read the code, run it, change it.</li>
+        </ul>
         <p class="footnote" data-reveal>The copy on your device is not encrypted yet; passkey or passphrase unlock is in progress.</p>
       </div>
     </section>
 
-    <!-- Features: four moments, each with a crop of the real app -->
+    <!-- Features: four moments, each with its own crop of the real app, then the rest as a list -->
     <section class="section" id="features" aria-labelledby="features-title">
       <div class="wrap">
         <div class="section-head">
@@ -82,7 +85,7 @@
 
         <div class="moment" data-reveal>
           <div class="moment-copy">
-            <h3 class="subhead">Tasks, callouts and tables</h3>
+            <h3 class="h3">Tasks, callouts and tables</h3>
             <p>Markdown shortcuts as you type, and a slash menu for the rest: tables, task lists, callouts, toggles and footnotes.</p>
           </div>
           <figure class="crop">
@@ -97,54 +100,55 @@
           </figure>
         </div>
 
-        <div class="moment flip" data-reveal>
-          <div class="moment-copy">
-            <h3 class="subhead">Math and code</h3>
-            <p>LaTeX equations, inline or as their own block, next to syntax-highlighted code.</p>
+        <div class="pair">
+          <div class="pair-item" data-reveal>
+            <div class="moment-copy">
+              <h3 class="h3">Math and code</h3>
+              <p>LaTeX equations, inline or as their own block, next to syntax-highlighted code.</p>
+            </div>
+            <figure class="crop crop-bleed">
+              <picture class="only-light">
+                <source media="(max-width: 599px)" srcset="/media/phone-math-light.webp" width="1170" height="2532" />
+                <img src="/media/feature-math-light.webp" width="1120" height="880" loading="lazy" alt="A Physics revision note: a sentence with an inline lambda, the equation E equals h nu equals hc over lambda, and a Python code block." />
+              </picture>
+              <picture class="only-dark">
+                <source media="(max-width: 599px)" srcset="/media/phone-math-dark.webp" width="1170" height="2532" />
+                <img src="/media/feature-math-dark.webp" width="1120" height="880" loading="lazy" alt="The Physics revision note in dark mode: an equation and a highlighted Python code block." />
+              </picture>
+            </figure>
           </div>
-          <figure class="crop">
-            <picture class="only-light">
-              <source media="(max-width: 599px)" srcset="/media/phone-math-light.webp" width="1170" height="2532" />
-              <img src="/media/feature-math-light.webp" width="1534" height="1040" loading="lazy" alt="A Physics revision note: a sentence with an inline lambda, the equation E equals h nu equals hc over lambda, and a Python code block." />
-            </picture>
-            <picture class="only-dark">
-              <source media="(max-width: 599px)" srcset="/media/phone-math-dark.webp" width="1170" height="2532" />
-              <img src="/media/feature-math-dark.webp" width="1534" height="1040" loading="lazy" alt="The Physics revision note in dark mode: an equation and a highlighted Python code block." />
-            </picture>
-          </figure>
+          <div class="pair-item" data-reveal style="--i:1">
+            <div class="moment-copy">
+              <h3 class="h3">Every earlier version</h3>
+              <p>Restore an earlier version of a note. It comes back as one edit, so a single undo puts things as they were.</p>
+            </div>
+            <figure class="crop crop-dialog">
+              <img class="only-light" src="/media/feature-history-light.webp" width="1024" height="500" loading="lazy" alt="The Version history dialog for a Packing list note: two earlier versions, each with a word count, a preview and a Restore button." />
+              <img class="only-dark" src="/media/feature-history-dark.webp" width="1024" height="500" loading="lazy" alt="The Version history dialog in dark mode, with two earlier versions to restore." />
+            </figure>
+          </div>
         </div>
 
-        <div class="moment" data-reveal>
-          <div class="moment-copy">
-            <h3 class="subhead">Every earlier version</h3>
-            <p>Open a note's version history and restore an earlier version. It comes back as one edit, so a single undo puts things as they were.</p>
-          </div>
-          <figure class="crop crop-dialog">
-            <img class="only-light" src="/media/feature-history-light.webp" width="1024" height="500" loading="lazy" alt="The Version history dialog for a Packing list note: two earlier versions, each with a word count, a preview and a Restore button." />
-            <img class="only-dark" src="/media/feature-history-dark.webp" width="1024" height="500" loading="lazy" alt="The Version history dialog in dark mode, with two earlier versions to restore." />
-          </figure>
-        </div>
-
         <div class="moment flip" data-reveal>
           <div class="moment-copy">
-            <h3 class="subhead">On your phone too</h3>
+            <h3 class="h3">On your phone too</h3>
             <p>Install Journal as an app on your phone, tablet or computer, in light or dark mode.</p>
           </div>
           <figure class="crop crop-phone">
-            <img class="only-light" src="/media/phone-notes-light.webp" width="1170" height="2532" loading="lazy" alt="Journal on a phone: the note list of the Main folder." />
+            <img class="only-light" src="/media/phone-notes-light.webp" width="1170" height="2532" loading="lazy" alt="Journal on a phone: the note list of the Main folder, eight notes from Trip plan to Sourdough." />
             <img class="only-dark" src="/media/phone-notes-dark.webp" width="1170" height="2532" loading="lazy" alt="Journal on a phone in dark mode: the note list of the Main folder." />
           </figure>
         </div>
 
         <div class="also">
-          <h3 class="also-title" data-reveal>Also in the editor</h3>
+          <h3 class="h3" data-reveal>Also in the editor</h3>
           <ul aria-label="More in the editor">
-            <li data-reveal><h4 class="h3">Folders and tags</h4><p>Keep notes in folders, filter by tags, and delete a tag from every note at once.</p></li>
-            <li data-reveal style="--i:1"><h4 class="h3">Daily notes</h4><p>One click opens today's note in your Daily folder, from your own template.</p></li>
-            <li data-reveal style="--i:2"><h4 class="h3">Search</h4><p>Full-text search across all notes, with recent notes and recent searches.</p></li>
-            <li data-reveal><h4 class="h3">Images and galleries</h4><p>Drop several images to make a gallery: row, grid, masonry or carousel.</p></li>
-            <li data-reveal style="--i:1"><h4 class="h3">Templates</h4><p>Start new notes from templates you write.</p></li>
-            <li data-reveal style="--i:2"><h4 class="h3">Import and export</h4><p>Bring in a Notion export or an Obsidian vault. Export everything as markdown.</p></li>
+            <li data-reveal><strong>Folders and tags.</strong> Filter by tag, or delete a tag from every note at once.</li>
+            <li data-reveal style="--i:1"><strong>Daily notes.</strong> One click opens today's note, from your own template.</li>
+            <li data-reveal style="--i:2"><strong>Search.</strong> Full text across all notes, with recent searches.</li>
+            <li data-reveal><strong>Galleries.</strong> Drop several images for a row, grid, masonry or carousel.</li>
+            <li data-reveal style="--i:1"><strong>Templates.</strong> Start new notes from templates you write.</li>
+            <li data-reveal style="--i:2"><strong>Import.</strong> Bring in a Notion export or an Obsidian vault.</li>
           </ul>
         </div>
       </div>
@@ -175,11 +179,11 @@
         </div>
         <div class="two">
           <div class="mode" data-reveal>
-            <h3 class="subhead">With people you know</h3>
+            <h3 class="h3">With people you know</h3>
             <p>Share with another Homebase identity or a whole circle. They find the note under ‘Shared with me’, edits merge, and you can revoke access at any time.</p>
           </div>
           <div class="mode" data-reveal style="--i:1">
-            <h3 class="subhead">As a public page</h3>
+            <h3 class="h3">As a public page</h3>
             <p>A public note gets an ‘On this page’ outline, its cover image, highlighted code and working live blocks. Public notes are not encrypted, by design.</p>
           </div>
         </div>
@@ -191,13 +195,13 @@
       <div class="wrap split">
         <div class="split-copy">
           <h2 class="h2" id="live-title" data-reveal>Blocks that run in the note</h2>
-          <p class="lede" data-reveal style="--i:1">Write Mermaid and get a diagram. Write SVG and get a drawing. Write HTML or React and get a working page: a calculator, a chart, a small dashboard. It runs inside your note, and on your public page too.</p>
-          <p class="small" data-reveal style="--i:2">React blocks can use Recharts, Lucide icons, d3, three, lodash, mathjs and papaparse, plus the journal-ui kit of components in Journal's style. Charts and icons work offline.</p>
+          <p class="lede" data-reveal style="--i:1">Write Mermaid and get a diagram. Write SVG and get a drawing. Write HTML or React and get a working page: a calculator, a chart, a small dashboard.</p>
+          <p data-reveal style="--i:2">It runs inside your note, and on your public page too. React blocks can use Recharts, Lucide icons, d3, three, lodash, mathjs and papaparse, plus a kit of components in Journal's style.</p>
         </div>
-        <div class="playground" data-reveal style="--i:1">
+        <div class="playground" data-ui data-reveal style="--i:1">
           <div class="pg-pane pg-source">
             <div class="pg-label"><span>Mermaid source</span><span>Edit me</span></div>
-            <textarea id="pg-input" aria-label="Mermaid diagram source, edit to redraw the preview" spellcheck="false" autocapitalize="off" autocomplete="off" rows="6">graph LR
+            <textarea id="pg-input" aria-label="Mermaid diagram source, edit to redraw the preview" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" rows="6">graph LR
   Write[Write offline] --> Sync[Sync encrypted]
   Sync --> Share[Share or publish]
   Write --> Agent[Agent adds a chart]</textarea>
@@ -216,7 +220,7 @@
         <div class="split-copy">
           <h2 class="h2" id="ai-title" data-reveal>AI that runs on your computer</h2>
           <p class="lede" data-reveal style="--i:1">Journal's assistant runs a small language model in your browser. Your questions and notes stay on your device.</p>
-          <ul class="ai-list" data-reveal style="--i:2">
+          <ul class="list" data-reveal style="--i:2">
             <li>Grammar checks with inline underlines.</li>
             <li>Autocomplete as ghost text; press Tab to accept.</li>
             <li>Rewrite in nine styles, from Proofread and Concise to Key Points and Table, shown in the note to accept or reject.</li>
@@ -237,56 +241,38 @@
         <div class="split-copy">
           <h2 class="h2" id="agents-title" data-reveal>Agents, only where you allow</h2>
           <p class="lede" data-reveal style="--i:1">Claude Code, Claude Desktop and Codex CLI can read and write your notes through the Journal MCP server. They see nothing until you grant a folder or a note.</p>
-          <p class="prompt-line" data-reveal style="--i:2">Build a chart of my reading log as a live block.</p>
+          <figure class="ask-bubble" data-reveal style="--i:2">
+            <figcaption>You ask</figcaption>
+            <blockquote>Build a chart of my reading log as a live block.</blockquote>
+          </figure>
           <p data-reveal style="--i:3"><a class="btn btn-secondary" href="/agents">How agents work in Journal</a></p>
         </div>
-        <figure class="crop" data-reveal style="--i:1">
+        <figure class="crop crop-grants" data-reveal style="--i:1">
           <picture class="only-light">
-              <source media="(max-width: 599px)" srcset="/media/phone-live-block-light.webp" width="1170" height="2532" />
-              <img src="/media/agent-result-light.webp" width="1410" height="1074" loading="lazy" alt="The Reading log note an agent built: a React bar chart of books finished per month, January to June, and a Mermaid diagram from Pick to Read to Review." />
-            </picture>
-            <picture class="only-dark">
-              <source media="(max-width: 599px)" srcset="/media/phone-live-block-dark.webp" width="1170" height="2532" />
-              <img src="/media/agent-result-dark.webp" width="1410" height="1074" loading="lazy" alt="The Reading log note in dark mode, with its bar chart and Mermaid diagram." />
-            </picture>
+            <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-light.webp" />
+            <img src="/media/agent-grants-light.webp" width="1162" height="492" loading="lazy" alt="Agent access in Journal's Settings: Main set to Read, Personal to None, Reading and Work to Read + write." />
+          </picture>
+          <picture class="only-dark">
+            <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-dark.webp" />
+            <img src="/media/agent-grants-dark.webp" width="1162" height="492" loading="lazy" alt="Agent access in dark mode, with a grant chosen for each folder." />
+          </picture>
         </figure>
       </div>
     </section>
 
-    <!-- Privacy -->
-    <section class="section field" id="privacy" aria-labelledby="privacy-title">
-      <div class="wrap">
-        <div class="section-head">
-          <h2 class="h2" id="privacy-title" data-reveal>Your notes stay yours</h2>
-        </div>
-        <ul class="points">
-          <li data-reveal><strong>On your device first</strong><span>Journal works offline and opens from local storage.</span></li>
-          <li data-reveal style="--i:1"><strong>Encrypted sync</strong><span>The synced copy in your private space is encrypted.</span></li>
-          <li data-reveal style="--i:2"><strong>Your identity</strong><span>Sync, sharing and sign-in run on Homebase, an identity that belongs to you.</span></li>
-          <li data-reveal><strong>Agents by invitation</strong><span>AI agents get no access until you grant it, per folder or per note.</span></li>
-          <li data-reveal style="--i:1"><strong>Open source</strong><span>Journal is AGPL-3.0. Read the code, run it, change it.</span></li>
-          <li data-reveal style="--i:2"><strong>Export any time</strong><span>Take everything out as markdown in a ZIP.</span></li>
-        </ul>
-      </div>
-    </section>
-
     <!-- Pricing: the teaser for /pricing -->
-    <section class="section" id="pricing" aria-labelledby="pricing-title">
-      <div class="wrap price-teaser">
-        <div class="split-copy">
-          <h2 class="h2" id="pricing-title" data-reveal>Free for what lives in your own space</h2>
-          <p class="lede" data-reveal style="--i:1">Everything in Journal today costs nothing. A Pro plan for hosted extras, like link previews and public blogs, is coming.</p>
-        </div>
-        <div class="price-tile" data-reveal style="--i:1">
-          <p class="price-figure">$0</p>
-          <p>Notes, sync, sharing, public pages, live blocks, the local assistant and the MCP server.</p>
-          <p><a class="btn btn-primary" href="/pricing">See pricing</a></p>
+    <section class="section band-2 teaser" id="pricing" aria-labelledby="pricing-title">
+      <div class="wrap teaser-row">
+        <h2 class="h2" id="pricing-title" data-reveal>Free for what lives in your own space</h2>
+        <div class="teaser-copy" data-reveal style="--i:1">
+          <p class="lede">Everything in Journal today costs nothing. A paid Pro plan for hosted extras is planned.</p>
+          <p><a class="btn btn-secondary" href="/pricing">See pricing</a></p>
         </div>
       </div>
     </section>
 
     <!-- FAQ: answers as reading text, in two columns -->
-    <section class="section band" id="faq" aria-labelledby="faq-title">
+    <section class="section" id="faq" aria-labelledby="faq-title">
       <div class="wrap">
         <div class="section-head">
           <h2 class="h2" id="faq-title" data-reveal>Questions</h2>
@@ -294,32 +280,20 @@
         </div>
         <div class="qa">
           <div data-reveal><h3 class="h3">Do I need an account?</h3><p>Yes. Journal signs in with a Homebase identity, your own private space. Homebase is invite-only during its alpha, so <a href="https://homebase.id/sign-up">join its wait list</a>.</p></div>
-          <div data-reveal><h3 class="h3">Does it work offline?</h3><p>Yes. Notes live in a database in your browser. Changes sync when you're back online.</p></div>
           <div data-reveal><h3 class="h3">Are my notes encrypted?</h3><p>The synced copy is encrypted. The copy on your device is not encrypted yet; passkey or passphrase unlock is in progress. Public notes are not encrypted, by design.</p></div>
           <div data-reveal><h3 class="h3">Can I move from Notion or Obsidian?</h3><p>Yes. Import a Notion Markdown &amp; CSV export or an Obsidian vault as a .zip in Settings → Data &amp; storage. Links, images, tags and callouts come with it.</p></div>
-          <div data-reveal><h3 class="h3">Can I take my notes out?</h3><p>Yes. Export all notes as markdown in a ZIP, with an assets folder.</p></div>
           <div data-reveal><h3 class="h3">Does AI see my notes?</h3><p>The built-in assistant runs on your device. Agents connected through MCP see only the folders and notes you grant.</p></div>
-          <div data-reveal><h3 class="h3">Is there a phone app?</h3><p>Install Journal from your browser as an app on iPhone, Android, a tablet or a computer.</p></div>
-          <div data-reveal><h3 class="h3">Is it open source?</h3><p>Yes, AGPL-3.0, on <a href="https://github.com/2002Bishwajeet/journal">GitHub</a>.</p></div>
         </div>
       </div>
     </section>
 
-    <!-- Closing -->
-    <section class="closing band-2" aria-labelledby="closing-title">
+    <!-- Closing: the page's one strong field -->
+    <section class="closing field" aria-labelledby="closing-title">
       <div class="wrap closing-row">
-        <div class="closing-copy">
-          <h2 class="display" id="closing-title" data-reveal>Start writing. Your notes stay home.</h2>
-          <div class="ctas" data-reveal style="--i:1">
-            <a class="btn btn-primary" href="https://journal.cloudx.run">Open Journal</a>
-            <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
-          </div>
-        </div>
-        <div class="closing-phone" data-reveal style="--i:1">
-          <div class="phone">
-            <img class="only-light" src="/media/phone-note-light.webp" width="1170" height="2532" loading="lazy" alt="" />
-            <img class="only-dark" src="/media/phone-note-dark.webp" width="1170" height="2532" loading="lazy" alt="" />
-          </div>
+        <h2 class="display" id="closing-title" data-reveal>Start writing. Your notes stay home.</h2>
+        <div class="ctas" data-reveal style="--i:1">
+          <a class="btn btn-primary" href="https://journal.cloudx.run">Open Journal</a>
+          <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
         </div>
       </div>
     </section>

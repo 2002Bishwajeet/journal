@@ -1,8 +1,9 @@
 /**
  * Records the landing page's product media (site/public/media/) from the real app, light and dark:
  * screenshots of notes and live blocks, phone screenshots, crops of single features (callouts and
- * tables, math and code, version history, the Share dialog, an AI rewrite, Settings > Agent access), the public
- * page of a published note, and the hero demo video (desktop, then the phone layout).
+ * tables, math and code, version history, the Share dialog, an AI rewrite, Settings > Agent access, and small
+ * pieces for the pricing page), the public page of a published note, and the hero video (desktop, then the
+ * phone layout).
  * The published note's cover is "Alfama Rooftops and Tagus River View, Lisbon" by Dale Cruse,
  * CC BY 4.0, via Wikimedia Commons (scripts/landing-media-cover.jpg).
  *
@@ -48,7 +49,7 @@ const TRIP = {
 };
 
 const READING_CHART = [
-  "import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';",
+  "import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts';",
   '',
   'const data = [',
   "  { month: 'Jan', books: 3 }, { month: 'Feb', books: 2 }, { month: 'Mar', books: 4 },",
@@ -63,7 +64,6 @@ const READING_CHART = [
   '        <BarChart data={data}>',
   '          <XAxis dataKey="month" tickLine={false} axisLine={false} />',
   '          <YAxis allowDecimals={false} width={24} tickLine={false} axisLine={false} />',
-  '          <Tooltip cursor={false} />',
   '          <Bar dataKey="books" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />',
   '        </BarChart>',
   '      </ResponsiveContainer>',
@@ -84,6 +84,15 @@ const reading = (flow: 'LR' | 'TD') => ({
 const READING = reading('LR');
 
 const WEEKLY = { title: 'Weekly plan', html: '<p>Monday: draft the proposal. Wednesday: review notes. Friday: tidy the desk.</p>' };
+
+// More notes for the phone's note list, so the list fills the screen the way a used notebook does.
+const OLDER = [
+  { title: 'Sourdough', html: '<p>Feed the starter at night, mix at eight, bake at four. Less water in summer.</p>' },
+  { title: 'Gift ideas', html: '<p>Mum: the blue teapot from the market. Leo: a field guide to birds.</p>' },
+  { title: 'Book club', html: '<p>October pick: The Remains of the Day. Bring questions about Stevens and the letter.</p>' },
+  { title: 'Garden', html: '<p>Plant the garlic before the first frost. Move the rosemary to the sunny wall.</p>' },
+  { title: 'Standup', html: '<p>Shipped the export fix. Today: the import preview. No blockers.</p>' },
+];
 
 async function boot(page: Page): Promise<void> {
   await page.goto(BASE_URL + '/');
@@ -111,7 +120,24 @@ async function newContext(browser: Browser, phone: boolean, theme: Theme, clock 
   // Version history snapshots at most once per 5 minutes; a fake clock jumps past that.
   if (clock) await page.clock.install();
   await boot(page);
+  await tidy(page);
   return { context, page, violations };
+}
+
+/**
+ * Hides app chrome that is noise in a still (the empty "Add cover" and "Add tags..." rows), fits a diagram to
+ * its column, and gives the test identity's avatar a palette colour and a believable initial instead of its saturated hash colour.
+ */
+async function tidy(page: Page): Promise<void> {
+  await page.addStyleTag({
+    content: [
+      '[aria-label="Add cover"], input[placeholder="Add tags..."] { display: none !important; }',
+      // A diagram a few pixels wider than the note scrolls sideways in the app; in a still it would look cut off.
+      "[data-live-block-preview='mermaid'] svg[style*='max-width'] { width: 100% !important; }",
+      '.rounded-full[style*="background-color"] { background-color: #67665E !important; font-size: 0 !important; }',
+      ".rounded-full[style*=\"background-color\"]::after { content: 'S'; font-size: 15px; color: #FDFCF8; }",
+    ].join('\n'),
+  });
 }
 
 const back = (page: Page) => page.locator('button[aria-label^="Back"]:visible').first();
@@ -161,7 +187,8 @@ async function wide(browser: Browser, theme: Theme): Promise<void> {
   // The note without the app around it, for the agents section.
   await page.mouse.move(0, 0);
   await page.waitForTimeout(400);
-  await noteCrop(page, `agent-result-${theme}`, 840);
+  // Down to the diagram, above the assistant button in the corner.
+  await noteCrop(page, `agent-result-${theme}`, 600);
 
   await context.close();
   assertNoFenceViolations(violations);
@@ -172,7 +199,7 @@ async function narrow(browser: Browser, theme: Theme): Promise<void> {
   await createFolder(page, 'Work');
   await createFolder(page, 'Personal');
   await sidebar(page).getByText('Main', { exact: true }).click();
-  for (const note of [WEEKLY, reading('TD'), TRIP]) {
+  for (const note of [...OLDER, WEEKLY, reading('TD'), TRIP]) {
     await addNote(page, note, true);
     await back(page).click();
     await page.waitForTimeout(600);
@@ -196,7 +223,7 @@ async function narrow(browser: Browser, theme: Theme): Promise<void> {
   assertNoFenceViolations(violations);
 }
 
-// ---- Demo video: CDP screencast frames, joined by ffmpeg at their real timing ----
+// ---- Hero video: CDP screencast frames, joined by ffmpeg at their real timing ----
 
 type Frame = { file: string; t: number };
 
@@ -239,7 +266,7 @@ async function searchAndOpen(page: Page, query: string, title: string): Promise<
 }
 
 /** The loop starts and ends on the finished Reading log, so its first frame is a full note. */
-async function demoDesktop(browser: Browser, theme: Theme): Promise<string> {
+async function heroDesktop(browser: Browser, theme: Theme): Promise<string> {
   const { context, page, violations } = await newContext(browser, false, theme);
   await createFolder(page, 'Work');
   await createFolder(page, 'Personal');
@@ -288,7 +315,7 @@ async function demoDesktop(browser: Browser, theme: Theme): Promise<string> {
   return out;
 }
 
-async function demoPhone(browser: Browser, theme: Theme): Promise<string> {
+async function heroPhone(browser: Browser, theme: Theme): Promise<string> {
   const { context, page, violations } = await newContext(browser, true, theme);
   await createFolder(page, 'Work');
   await sidebar(page).getByText('Main', { exact: true }).click();
@@ -317,16 +344,16 @@ async function demoPhone(browser: Browser, theme: Theme): Promise<string> {
   return out;
 }
 
-async function demo(browser: Browser, theme: Theme): Promise<void> {
-  const desktop = await demoDesktop(browser, theme);
-  const phone = await demoPhone(browser, theme);
+async function heroVideo(browser: Browser, theme: Theme): Promise<void> {
+  const desktop = await heroDesktop(browser, theme);
+  const phone = await heroPhone(browser, theme);
   const list = path.join(WORK, `clips-${theme}.txt`);
   writeFileSync(list, `file '${desktop}'\nfile '${phone}'\n`);
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list,
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '30', '-tune', 'stillimage', '-pix_fmt', 'yuv420p',
-    '-movflags', '+faststart', '-an', `${OUT}/demo-${theme}.mp4`]);
+    '-movflags', '+faststart', '-an', `${OUT}/hero-${theme}.mp4`]);
   // Poster: the first frame, the finished Reading log.
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', desktop, '-frames:v', '1', '-c:v', 'libwebp', '-quality', '82', `${OUT}/demo-poster-${theme}.webp`]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', desktop, '-frames:v', '1', '-c:v', 'libwebp', '-quality', '82', `${OUT}/hero-poster-${theme}.webp`]);
 }
 
 // ---- Feature crops: one block of a real note, light and dark, desktop and phone ----
@@ -348,12 +375,12 @@ const MATH = {
 };
 
 /** A screenshot of the open note from its title down, `height` CSS pixels tall. */
-async function noteCrop(page: Page, name: string, height: number): Promise<void> {
+async function noteCrop(page: Page, name: string, height: number, width?: number): Promise<void> {
   const title = (await activeTitleInput(page).boundingBox())!;
   const editor = (await activeEditor(page).boundingBox())!;
   const x = Math.max(0, Math.min(title.x, editor.x) - 40);
   const png = path.join(WORK, `${name}.png`);
-  await page.screenshot({ path: png, clip: { x, y: Math.max(0, title.y - 32), width: Math.min(editor.width + 80, 1280 - x), height } });
+  await page.screenshot({ path: png, clip: { x, y: Math.max(0, title.y - 32), width: width ?? Math.min(editor.width + 80, 1280 - x), height } });
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', png, '-c:v', 'libwebp', '-quality', '82', `${OUT}/${name}.webp`]);
 }
 
@@ -373,7 +400,8 @@ async function blocks(browser: Browser, theme: Theme): Promise<void> {
   await expect(activeEditor(page).locator('[data-type="block-math"] .katex')).toBeVisible({ timeout: 20_000 });
   await expect(activeEditor(page).locator('pre .hljs-keyword').first()).toBeVisible();
   await page.waitForTimeout(600);
-  await noteCrop(page, `feature-math-${theme}`, 520);
+  // Narrow, so the equation stays large where the page shows the crop.
+  await noteCrop(page, `feature-math-${theme}`, 440, 560);
 
   // Share: the dialog as it opens on a private note.
   await page.getByRole('button').filter({ hasText: TRIP.title }).first().click({ button: 'right' });
@@ -509,14 +537,61 @@ async function agentAccess(browser: Browser, theme: Theme, phone: boolean): Prom
   await page.waitForTimeout(800);
   if (phone) await shot(page, `phone-agent-access-${theme}`);
   else await elementShot(page, dialog, `agent-access-${theme}`);
+  // Just the folder grants, for the home page's agents teaser.
+  await elementShot(page, dialog.locator('.rounded-xl.border.bg-card').first(), `${phone ? 'phone-' : ''}agent-grants-${theme}`);
+  await context.close();
+  assertNoFenceViolations(violations);
+}
+
+/** Tight crops of four small pieces of the app for the pricing page: the sidebar, the slash menu, the theme choice and import. */
+async function pricingCrops(browser: Browser, theme: Theme): Promise<void> {
+  const { context, page, violations } = await newContext(browser, false, theme);
+  await createFolder(page, 'Work');
+  await createFolder(page, 'Reading');
+  await createFolder(page, 'Personal');
+  await addNote(page, WEEKLY, false);
+  await addNote(page, TRIP, false);
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(600);
+
+  const side = (await sidebar(page).boundingBox())!;
+  const last = (await sidebar(page).getByText('Work', { exact: true }).boundingBox())!;
+  const sidePng = path.join(WORK, `free-sidebar-${theme}.png`);
+  await page.screenshot({ path: sidePng, clip: { x: side.x, y: side.y, width: side.width, height: last.y + last.height + 20 - side.y } });
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', sidePng, '-c:v', 'libwebp', '-quality', '82', `${OUT}/free-sidebar-${theme}.webp`]);
+
+  await page.getByRole('button', { name: /^New( note)?$/ }).click();
+  await expect(activeTitleInput(page)).toHaveValue('Untitled');
+  await activeEditor(page).click();
+  await page.keyboard.type('/t');
+  const slash = page.locator('.w-72.max-h-80');
+  await expect(slash).toBeVisible();
+  await page.waitForTimeout(500);
+  await elementShot(page, slash, `free-slash-${theme}`);
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('tab', { name: 'Appearance' }).click();
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(500);
+  await elementShot(page, dialog.getByRole('radiogroup', { name: 'Theme' }).locator('..'), `free-theme-${theme}`);
+  await dialog.getByRole('tab', { name: 'Data & storage' }).click();
+  const importBlock = dialog.getByRole('button', { name: 'Import Archive' }).locator('..');
+  await importBlock.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(500);
+  await elementShot(page, importBlock, `free-import-${theme}`);
+
   await context.close();
   assertNoFenceViolations(violations);
 }
 
 // ---- The public page: a published note, read the way a visitor reads it ----
 // Canned guest reads on a *.homebase.test identity, as in e2e/publishing/share-wide-blocks.spec.ts.
+// The byline then shows SHOWN_AUTHOR: the test domain never appears in a picture.
 
 const AUTHOR = 'e2e-author.homebase.test';
+const SHOWN_AUTHOR = 'sam.homebase.id';
 const PUBLIC_ID = '7c1d4b8e-2f63-4a90-8e57-5b9a0c3d6f21';
 const PUBLIC_FILE = '4e9a1c70-3b5d-4f28-a6c1-9d0e2b7f5a34';
 const PUBLIC_TITLE = 'Three days in Lisbon';
@@ -531,14 +606,15 @@ function element(name: string, children: (Y.XmlElement | Y.XmlText)[], attribute
 const para = (text: string) => element('paragraph', [new Y.XmlText(text)]);
 const heading = (text: string) => element('heading', [new Y.XmlText(text)], { level: 2 });
 
-function publicNote(): Buffer {
+// A phone column fits a top-down diagram; the desktop page fits one that runs left to right.
+function publicNote(flow: 'LR' | 'TD'): Buffer {
   const doc = new Y.Doc();
   doc.getMap('journalMeta').set('cover', { src: `attachment://${PUBLIC_FILE}/jrnl_img_cover`, positionY: 72 });
   doc.getXmlFragment('prosemirror').push([
     para('Three days, one small suitcase, and a city built on seven hills. These are the notes I kept on the way, tidied up for anyone going next.'),
     heading('Day one: Alfama'),
     para('Land at 10:15, drop the bags, then walk down to the river for lunch. The castle is quietest before ten in the morning, so it waits for day two.'),
-    element('codeBlock', [new Y.XmlText('graph LR\n  Castle[Castle] --> Alfama[Alfama lanes]\n  Alfama --> River[River lunch]\n  River --> Tram[Tram 28]')], { language: 'mermaid' }),
+    element('codeBlock', [new Y.XmlText(`graph ${flow}\n  Castle[Castle] --> Alfama[Alfama lanes]\n  Alfama --> River[River lunch]`)], { language: 'mermaid' }),
     heading('Day two: Belém'),
     para('Take the tram out early, before the crowds. The custard tarts are worth the queue; eat them warm on a bench by the water.'),
     heading('Day three: Baixa'),
@@ -547,7 +623,7 @@ function publicNote(): Buffer {
   return Buffer.from(Y.encodeStateAsUpdate(doc));
 }
 
-async function mockPublicNote(page: Page): Promise<void> {
+async function mockPublicNote(page: Page, flow: 'LR' | 'TD'): Promise<void> {
   const published = Date.UTC(2026, 8, 30, 9, 0);
   const header = {
     fileId: PUBLIC_FILE,
@@ -569,7 +645,7 @@ async function mockPublicNote(page: Page): Promise<void> {
     if (!url.pathname.endsWith('/payload')) return route.fulfill({ contentType: 'application/json', headers, body: JSON.stringify(header) });
     return url.searchParams.get('key') === 'jrnl_img_cover'
       ? route.fulfill({ contentType: 'image/jpeg', headers: { ...headers, decryptedcontenttype: 'image/jpeg' }, body: COVER })
-      : route.fulfill({ contentType: 'application/octet-stream', headers, body: publicNote() });
+      : route.fulfill({ contentType: 'application/octet-stream', headers, body: publicNote(flow) });
   });
 }
 
@@ -583,15 +659,31 @@ async function publicPage(browser: Browser, theme: Theme, phone: boolean): Promi
   });
   const { violations } = await installNetworkFence(context);
   const page = await context.newPage();
-  await mockPublicNote(page);
+  await mockPublicNote(page, phone ? 'TD' : 'LR');
   await page.goto(`${BASE_URL}/share/${AUTHOR}/${PUBLIC_ID}`);
   await assertTestOrigin(page);
   const article = page.getByRole('article');
   await expect(article.getByRole('heading', { level: 1, name: PUBLIC_TITLE })).toBeVisible({ timeout: 15_000 });
   await expect(article.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
+  // Name the author with a believable identity, and its initial in the avatar.
+  await article.evaluate((el, [from, to]) => {
+    for (const span of el.querySelectorAll('span')) {
+      if (span.textContent === from) span.textContent = to;
+      else if (span.textContent === from[0].toUpperCase() && span.childElementCount === 0) span.textContent = to[0].toUpperCase();
+    }
+  }, [AUTHOR, SHOWN_AUTHOR]);
+  await expect(article).not.toContainText('homebase.test');
   await page.waitForTimeout(1200);
   if (phone) await page.mouse.wheel(0, 0);
-  await shot(page, `${phone ? 'phone-' : ''}public-page-${theme}`);
+  const prefix = phone ? 'phone-' : '';
+  await shot(page, `${prefix}public-page-${theme}`);
+
+  // Below the cover: the title down to the first day's diagram, a live block still running on the public page.
+  await article.getByRole('heading', { level: phone ? 2 : 1 }).first().evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  // Headings keep a scroll margin for the outline; on a phone that already clears the header.
+  if (!phone) await page.evaluate(() => window.scrollBy(0, -72));
+  await page.waitForTimeout(600);
+  await shot(page, `${prefix}public-blocks-${theme}`);
   await context.close();
   assertNoFenceViolations(violations);
 }
@@ -613,8 +705,14 @@ try {
       await publicPage(browser, theme, false);
       await publicPage(browser, theme, true);
     }
-    if (!only || only === 'video') await demo(browser, theme);
+    if (!only || only === 'video') await heroVideo(browser, theme);
     if (only === 'ai') await rewrite(browser, theme);
+    if (only === 'wide') await wide(browser, theme);
+    if (!only || only === 'features' || only === 'pricing') await pricingCrops(browser, theme);
+    if (only === 'public') {
+      await publicPage(browser, theme, false);
+      await publicPage(browser, theme, true);
+    }
     if (!only || only === 'features' || only === 'agents') {
       await agentAccess(browser, theme, false);
       await agentAccess(browser, theme, true);
