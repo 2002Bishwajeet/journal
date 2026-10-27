@@ -16,6 +16,15 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.44.0 (2026-10-27)
+
+### Changed
+
+- On a phone, Move to folder shows the folder that holds the note, with a check mark.
+- On a phone, Move to folder has a New folder row. The note moves into the new folder.
+- On a phone, Move to folder has a search field when you have many folders.
+- When a part of the app shows an error screen, the browser console now shows the full error text and its stack. This helps to find the cause of an error on iOS.
+
 ## 2.43.0 (2026-10-27)
 
 ### Changed

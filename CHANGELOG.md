@@ -1,3 +1,16 @@
+# [2.44.0](https://github.com/2002Bishwajeet/journal/compare/v2.43.0...v2.44.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **errors:** put the error stack in the console text, so the iOS check records it ([#862](https://github.com/2002Bishwajeet/journal/issues/862)) ([eac15f6](https://github.com/2002Bishwajeet/journal/commit/eac15f66bd88944ca9019ce873268fd7a8e2de9a))
+* **folders:** keep the move sheet's description for screen readers and show the current folder at full contrast ([6423196](https://github.com/2002Bishwajeet/journal/commit/642319673a781f96d54d20380a463d5c1febf2be))
+* **move-sheet:** reset search on close, gate search and New folder to the sheet, 390px screenshots ([71c98ae](https://github.com/2002Bishwajeet/journal/commit/71c98aeb870748e2b793a7525b6cea803d30a3b6))
+
+
+### Features
+
+* **mobile:** move to folder as a bottom sheet with the current folder and New folder ([#826](https://github.com/2002Bishwajeet/journal/issues/826)) ([06f92c1](https://github.com/2002Bishwajeet/journal/commit/06f92c1fe9b5620b744a95520d3a452781611fc4))
 # [2.43.0](https://github.com/2002Bishwajeet/journal/compare/v2.42.0...v2.43.0) (2026-10-27)
 
 
