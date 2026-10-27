@@ -62,7 +62,7 @@ import { useAuth } from "@/hooks/auth";
 import { overlayEntryOpen, useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { useAutoWhatsNew } from "@/hooks/useWhatsNew";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
-import { useFolders, isUnknownFolderRoute } from "@/hooks/useFolders";
+import { useFolders, isUnknownFolderRoute, findOrCreateFolderByName } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { toast } from "sonner";
@@ -470,18 +470,19 @@ export default function JournalLayout() {
         </Suspense>
       )}
 
-      {moveNote && (
-        <MoveToFolderDialog
-          isOpen
-          onClose={() => setMoveNote(null)}
-          noteTitle={moveNote.title || "Untitled"}
-          currentFolderId={moveNote.metadata.folderId}
-          folders={folders}
-          onMove={(targetFolderId) =>
-            void noteActions.moveToFolder(moveNote.docId, targetFolderId)
-          }
-        />
-      )}
+      {/* Stays mounted: an unmounted open sheet leaves its back entry behind. */}
+      <MoveToFolderDialog
+        isOpen={!!moveNote}
+        onClose={() => setMoveNote(null)}
+        noteTitle={moveNote?.title || "Untitled"}
+        currentFolderId={moveNote?.metadata.folderId ?? ""}
+        folders={folders}
+        onMove={(targetFolderId) => {
+          if (moveNote) void noteActions.moveToFolder(moveNote.docId, targetFolderId);
+        }}
+        onCreateFolder={findOrCreateFolderByName}
+      />
+
 
       {collaborativeNote && (
         <Suspense fallback={null}>
