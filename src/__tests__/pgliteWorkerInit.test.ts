@@ -25,8 +25,15 @@ async function loadWorkerInit(): Promise<InitFn> {
   let captured: InitFn | undefined;
   vi.doMock('@electric-sql/pglite', () => ({
     PGlite: class FakePGlite {
+      waitReady = Promise.resolve();
       constructor(options: Record<string, unknown>) {
         mocks.pgliteArgs.push(options);
+      }
+    },
+    IdbFs: class FakeIdbFs {
+      dataDir: string;
+      constructor(dataDir: string) {
+        this.dataDir = dataDir;
       }
     },
   }));
@@ -45,6 +52,8 @@ async function loadWorkerInit(): Promise<InitFn> {
 
 beforeEach(() => {
   mocks.pgliteArgs = [];
+  // The worker posts its boot timing marks to the page.
+  vi.stubGlobal('postMessage', vi.fn());
 });
 
 describe('pglite worker init', () => {
@@ -63,5 +72,15 @@ describe('pglite worker init', () => {
     await init({ dataDir: 'idb://journal-db-pg18', relaxedDurability: false });
 
     expect(mocks.pgliteArgs[0].relaxedDurability).toBe(false);
+  });
+
+  it('opens the same IndexedDB data dir through its filesystem and marks when Postgres is up', async () => {
+    const init = await loadWorkerInit();
+
+    await init({ dataDir: 'idb://journal-db-pg18' });
+    await Promise.resolve();
+
+    expect((mocks.pgliteArgs[0].fs as { dataDir: string }).dataDir).toBe('journal-db-pg18');
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'journal-boot-mark', step: 'db-open' }));
   });
 });

@@ -141,13 +141,13 @@ async function safariConsole(): Promise<string[]> {
 }
 
 /**
- * Reloads the page and checks the app is ready again within 20 s (#806): reloading after
+ * Reloads the page and checks the app is ready again within `limit` ms (#806): reloading after
  * typing in the editor once left Safari on the splash screen for minutes. `how` tells a real
  * hang (a manual-style location.reload()) from one only WebDriver's refresh() causes; load-root
  * is WebDriver's navigation to /. Records
  * the boot timing marks (markBoot in src/lib/bootProgress.ts), the console and a screenshot.
  */
-async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-root', label: string = how) {
+async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-root', label: string = how, limit = 20_000) {
   const name = `reload-${label}`;
   assertTestOrigin(await browser.execute(() => location.origin));
   await safariConsole().catch(() => []); // drop what came before the reload
@@ -165,8 +165,8 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-
       '__journalE2E' in window &&
       !document.querySelector('[role="progressbar"], [data-boot-stalled]') &&
       !!document.querySelector('[aria-label="Sidebar"], .ProseMirror'),
-    20_000,
-  ).catch(() => problems.push('not ready within 20 s of the reload'));
+    limit,
+  ).catch(() => problems.push(`not ready within ${limit / 1000} s of the reload`));
   const elapsed = Date.now() - started;
   const marks = (await browser
     .execute(() =>
@@ -365,9 +365,10 @@ try {
   await browser.execute(() => history.forward());
   await waitFor('the note again', () => !!document.querySelector('.ProseMirror'));
 
-  // Reload right after typing, where a reload once hung on the splash (#806).
-  // Repeated, as one reload may not be enough to hit the hang.
-  for (let i = 1; i <= 3; i++) await reloadCheck('location.reload', `location.reload-${i}`);
+  // Reload right after typing, where a reload once hung on the splash (#806), then again as
+  // soon as each boot reaches the editor (#901). Repeated, as one reload may not be enough to
+  // hit the hang; a boot over 8 s fails.
+  for (let i = 1; i <= 5; i++) await reloadCheck('location.reload', `quick-reload-${i}`, 8_000);
   await reloadCheck('webdriver-refresh');
   if (keyboardUp && !(await editorHas('Third line'))) failures.push('The lines typed before the reloads were not in the note after them.');
   // Reloads while the edit is still being saved (#873), repeated, as the loss did not
