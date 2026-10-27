@@ -6,10 +6,11 @@ import type { Page } from '@playwright/test';
 const PHONE = { width: 393, height: 852 };
 const AUTH = 'e2e/fixtures/hermetic-auth.json';
 
-async function openSettings(page: Page) {
+async function openSettings(page: Page, tablet = false) {
   await page.goto('/');
   await assertTestOrigin(page);
   await waitForAppReady(page);
+  if (tablet) await page.getByRole('button', { name: 'Show folders', exact: true }).click();
   await page.getByRole('button', { name: 'Settings' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
@@ -67,7 +68,8 @@ test('phone: Settings is a full-screen sheet with a tab strip that keeps tabs wh
 
 test('tablet 800px: the dialog keeps a 16px margin', async ({ browser }) => {
   await withFencedPage(browser, { storageState: AUTH, viewport: { width: 800, height: 1024 } }, async (page) => {
-    const dialog = await openSettings(page);
+    // A tablet keeps the folders (and Settings) in an overlay opened from the list header (#832).
+    const dialog = await openSettings(page, true);
     const box = (await dialog.boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(16 - 1);
     expect(box.x + box.width).toBeLessThanOrEqual(800 - 16 + 1);

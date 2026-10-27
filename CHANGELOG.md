@@ -1,3 +1,14 @@
+# [2.40.0](https://github.com/2002Bishwajeet/journal/compare/v2.39.3...v2.40.0) (2026-10-27)
+
+
+### Features
+
+* **tablet:** list and note side by side on iPad portrait ([#832](https://github.com/2002Bishwajeet/journal/issues/832)) ([860d0d5](https://github.com/2002Bishwajeet/journal/commit/860d0d5f5f9605455ffc81657b2657577f79aabf))
+
+
+### Reverts
+
+* Revert "refactor: drop a state setter from the Today callback deps (#832)" ([0c7eaa0](https://github.com/2002Bishwajeet/journal/commit/0c7eaa005cab9ca085f6c87fbe6a88493c5eda81)), closes [#832](https://github.com/2002Bishwajeet/journal/issues/832)
 ## [2.39.3](https://github.com/2002Bishwajeet/journal/compare/v2.39.2...v2.39.3) (2026-10-26)
 
 
