@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.44.1 (2026-10-27)
+
+### Fixed
+
+- When you open a folder or note while the app starts, the app does not move you back to the last note.
+
 ## 2.44.0 (2026-10-27)
 
 ### Changed

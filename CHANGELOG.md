@@ -1,3 +1,9 @@
+## [2.44.1](https://github.com/2002Bishwajeet/journal/compare/v2.44.0...v2.44.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **boot:** a navigation made during startup wins over the session restore ([#905](https://github.com/2002Bishwajeet/journal/issues/905)) ([396e029](https://github.com/2002Bishwajeet/journal/commit/396e0298aa56d19c78c88a44d6a351c41af2176a))
 # [2.44.0](https://github.com/2002Bishwajeet/journal/compare/v2.43.0...v2.44.0) (2026-10-27)
 
 
