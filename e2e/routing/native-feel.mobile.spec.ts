@@ -15,32 +15,18 @@ const userSelect = (page: Page, selector: string) =>
     return cs.userSelect || cs.getPropertyValue('-webkit-user-select');
   });
 
-test('controls do not zoom on double tap and chrome is not selectable', async ({ browser }) => {
+const noPageScroll = (page: Page) =>
+  page.evaluate(() => ({ scroll: document.scrollingElement!.scrollHeight, inner: window.innerHeight }));
+
+test('on home, controls are touch friendly, chrome is not selectable and the page does not bounce', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     expect(await style(page, 'button', 'touch-action')).toBe('manipulation');
     expect(await userSelect(page, 'button')).toBe('none');
-  });
-});
-
-test('html and body never bounce and the page does not scroll', async ({ browser }) => {
-  await withMobilePage(browser, async (page) => {
     expect(await style(page, 'html', 'overscroll-behavior-y')).toBe('none');
     expect(await style(page, 'body', 'overscroll-behavior-y')).toBe('none');
-    const heights = await page.evaluate(() => ({
-      scroll: document.scrollingElement!.scrollHeight,
-      inner: window.innerHeight,
-    }));
-    expect(heights.scroll).toBe(heights.inner);
-  });
-});
-
-test('an input is selectable', async ({ browser }) => {
-  await withMobilePage(browser, async (page) => {
-    await page.evaluate(() => {
-      const input = document.createElement('input');
-      input.id = 'probe-input';
-      document.body.appendChild(input);
-    });
+    const home = await noPageScroll(page);
+    expect(home.scroll).toBe(home.inner);
+    await page.evaluate(() => document.body.appendChild(Object.assign(document.createElement('input'), { id: 'probe-input' })));
     expect(await userSelect(page, '#probe-input')).toBe('text');
   });
 });
@@ -53,9 +39,6 @@ async function newNote(page: Page, title: string, body: string) {
   await input.fill(title);
   await typeInEditor(page, body);
 }
-
-const noPageScroll = (page: Page) =>
-  page.evaluate(() => ({ scroll: document.scrollingElement!.scrollHeight, inner: window.innerHeight }));
 
 // Longest animation running at any frame while `act` runs.
 async function longestAnimation(page: Page, act: () => Promise<void>): Promise<number> {
@@ -117,6 +100,7 @@ test('a folder list and a note keep the shell still, selectable and touch friend
     const bar = page.getByRole('button', { name: 'Download image' });
     await expect(bar).toBeVisible();
     expect(Number(await bar.locator('xpath=..').evaluate((el) => getComputedStyle(el).opacity))).toBeGreaterThan(0);
+    await page.screenshot({ path: test.info().outputPath('touch-controls-visible.png') });
 
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await expect(page.getByRole('heading', { name: folder })).toBeVisible();
