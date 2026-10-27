@@ -176,6 +176,8 @@ export function ImageNodeView({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  // Where a touch landed on the image while it was already selected (#829)
+  const tapOnSelected = useRef<{ x: number; y: number } | null>(null);
   const download = useImageDownload(src, alt, pendingId);
   // In a gallery (#601) the row sets the size: no resize handles or float.
   const pos = getPos();
@@ -494,6 +496,23 @@ export function ImageNodeView({
         if ((e.target as HTMLElement).closest("button")) return;
         // React bubbles events out of the dialogs' portals too
         if (!e.currentTarget.contains(e.target as Node)) return;
+        setLightboxOpen(true);
+      }}
+      // On a phone the first tap selects (for resize, align and Edit); a tap on the selected image opens the viewer, like iOS Notes (#829).
+      // On touchend, not click: iOS Safari fires no click for a tap on a selected image in the editor.
+      onTouchStart={(e) => {
+        const t = e.touches[0];
+        tapOnSelected.current = selected && e.touches.length === 1 ? { x: t.clientX, y: t.clientY } : null;
+      }}
+      onTouchEnd={(e) => {
+        const start = tapOnSelected.current;
+        tapOnSelected.current = null;
+        const t = e.changedTouches[0];
+        if (!start || !canZoom(mode) || Math.hypot(t.clientX - start.x, t.clientY - start.y) > 10) return;
+        if ((e.target as HTMLElement).closest("button")) return;
+        if (!e.currentTarget.contains(e.target as Node)) return;
+        // No click after it, so it cannot land on the viewer that opens under the finger
+        e.preventDefault();
         setLightboxOpen(true);
       }}
     >

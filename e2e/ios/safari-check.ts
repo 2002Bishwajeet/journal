@@ -634,6 +634,59 @@ try {
   else warnings.push('The software keyboard did not show after tapping the sheet field, so the sheet keyboard check did not run.');
   await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
   await waitFor('the sheet to close', () => !document.querySelector('[data-slot="sheet-content"]'));
+
+  // The image viewer (#829) in real Safari: a tap selects the image, a tap on the selected image
+  // opens the full-screen viewer, and a real swipe down on the image closes it.
+  await tap('button[aria-label="New note"]');
+  await browser.$('.ProseMirror').waitForDisplayed({ timeout: 30_000 });
+  assertTestOrigin(await browser.execute(() => location.origin));
+  // A same-origin image, pasted as HTML so it skips the upload pipeline (as viewer.mobile.spec.ts does).
+  await browser.execute(() => {
+    const el = document.querySelector<HTMLElement>('.ProseMirror')!;
+    el.focus();
+    const data = new DataTransfer();
+    data.setData('text/html', '<img src="/pwa-512x512.png" alt="Journal logo">');
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await waitFor('the pasted image', () => !!document.querySelector<HTMLImageElement>('.ProseMirror img[alt="Journal logo"]')?.complete);
+  const viewerShown = () => !!document.querySelector('[role="dialog"] [data-testid="lightbox-zoom"]');
+  const imageSelected = () => !!document.querySelector('.ProseMirror-selectednode img[alt="Journal logo"]');
+  const image = '.ProseMirror img[alt="Journal logo"]';
+  await tap(image);
+  await browser.pause(600);
+  const selectedAfterFirst = (await browser.execute(imageSelected)) as boolean;
+  // The tap brings up the keyboard, which shifts Safari's visual viewport under Appium's tap
+  // mapping; a finger has no such problem. Put it away (the image stays selected) before tapping again.
+  if (await browser.isKeyboardShown()) {
+    await browser.hideKeyboard().catch(() => {});
+    await waitFor('the keyboard to go', () => (visualViewport?.height ?? innerHeight) >= innerHeight - 5, 5_000).catch(() => {});
+  }
+  const firstTapShot = await screenshot('image-first-tap');
+  // What the second tap fires, to explain a viewer that does not open.
+  await browser.execute(() => {
+    const log: string[] = ((window as unknown as { __tapLog: string[] }).__tapLog = []);
+    for (const t of ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click', 'dblclick'])
+      document.addEventListener(t, (e) => log.push(`${t}:${(e.target as Element).tagName}.${String((e.target as Element).className).slice(0, 40)}:${(e as PointerEvent).pointerType ?? ''}`), true);
+  });
+  await tap(image);
+  const viewerOpened = await waitFor('the image viewer', viewerShown, 5_000).then(() => true, () => false);
+  summary.push(`| image-tap-to-open | ${firstTapShot} | first tap selected the image: ${selectedAfterFirst}; second tap opened the viewer: ${viewerOpened} |`);
+  if (!selectedAfterFirst) failures.push('image-viewer: the first tap did not select the image');
+  if (!viewerOpened) {
+    const events = (await browser.execute(() => (window as unknown as { __tapLog: string[] }).__tapLog.join(' '))) as string;
+    failures.push(`image-viewer: a tap on the selected image did not open the viewer (events: ${events})`);
+    await screenshot('image-second-tap');
+  } else {
+    await browser.pause(500); // its 200 ms fade in
+    const layout = await check('image-viewer');
+    const closeTop = (await browser.execute(() => document.querySelector('[role="dialog"] [aria-label="Close"]')!.getBoundingClientRect().top)) as number;
+    if (closeTop < layout.insets.top) failures.push(`image-viewer: Close (top ${Math.round(closeTop)}) is under the status bar (inset ${layout.insets.top})`);
+    await touchDrag('[role="dialog"] [data-testid="lightbox-zoom"]', 300);
+    const swipeClosed = await waitFor('the viewer to close', () => !document.querySelector('[role="dialog"] [data-testid="lightbox-zoom"]'), 5_000).then(() => true, () => false);
+    if (!swipeClosed) failures.push('image-viewer: a swipe down on the image did not close the viewer');
+    summary.push(`| image-viewer-swipe-to-close | ${await screenshot('image-viewer-swipe-to-close')} | ${swipeClosed ? 'closed' : 'still open'}; Close top ${Math.round(closeTop)}, inset ${layout.insets.top} |`);
+    console.log(`${swipeClosed ? '✓' : '✗'} image-viewer: swipe down ${swipeClosed ? 'closed' : 'did not close'} the viewer`);
+  }
 } catch (error) {
   failures.push(`run: ${(error as Error).message}`);
   await screenshot('error').catch(() => {});
