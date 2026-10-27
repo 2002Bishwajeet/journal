@@ -43,7 +43,7 @@ function LinkForm({ editor, onDone }: { editor: Editor; onDone: () => void }) {
   // drops the sheet's focus trap first, which would pull the focus back.
   const finish = () => {
     flushSync(onDone);
-    editor.commands.focus();
+    editor.chain().focus().run();
   };
 
   return (
