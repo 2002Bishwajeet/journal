@@ -100,7 +100,33 @@ if (heroMedia) {
   matchMedia('(max-width: 599px)').addEventListener('change', syncVideos);
 }
 
-// ---- Agents page: copy the MCP install snippet ----
+// ---- Agents page: install tabs, one per client (arrow keys, Home and End move between them) ----
+
+document.querySelectorAll<HTMLElement>('[role="tablist"]').forEach((list) => {
+  const tabs = [...list.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  const select = (next: HTMLButtonElement) => {
+    for (const tab of tabs) {
+      const on = tab === next;
+      tab.setAttribute('aria-selected', String(on));
+      tab.tabIndex = on ? 0 : -1;
+      document.getElementById(tab.getAttribute('aria-controls')!)!.hidden = !on;
+    }
+    next.focus();
+  };
+  list.addEventListener('click', (e) => {
+    const tab = (e.target as HTMLElement).closest<HTMLButtonElement>('[role="tab"]');
+    if (tab) select(tab);
+  });
+  list.addEventListener('keydown', (e) => {
+    const at = tabs.indexOf(document.activeElement as HTMLButtonElement);
+    const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: tabs.length - 1 }[e.key];
+    if (to === undefined || at < 0) return;
+    e.preventDefault();
+    select(tabs[(to + tabs.length) % tabs.length]);
+  });
+});
+
+// ---- Agents page: copy an install snippet ----
 
 document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => {
   const label = button.querySelector('.copy-label')!;

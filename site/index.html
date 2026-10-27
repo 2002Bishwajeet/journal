@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Journal: your notes stay home</title>
-  <meta name="description" content="Journal is an open source notebook that keeps your notes on your device first, works offline, and syncs them encrypted to a space you own. AI agents get in only where you allow." />
+  <meta name="description" content="Journal is an open source notebook that keeps your notes on your device first, works offline, and syncs them encrypted to a space you own. AI agents work in the folders you grant." />
   <meta property="og:title" content="Journal: your notes stay home" />
   <meta property="og:description" content="An open source notebook. Notes live on your device, work offline and sync encrypted to a space you own." />
   <!-- head -->
@@ -17,7 +17,7 @@
     <section class="hero" id="top" aria-labelledby="hero-title">
       <div class="wrap">
         <h1 class="display hero-title" id="hero-title" data-reveal>Your notes stay home</h1>
-        <p class="lede hero-lede" data-reveal style="--i:1">Journal is a notebook that lives on your device, syncs encrypted to a space you own, and lets agents in only where you grant.</p>
+        <p class="lede hero-lede" data-reveal style="--i:1">Journal is a notebook that lives on your device, syncs encrypted to a space you own, and lets agents into the folders you grant.</p>
         <div class="hero-actions" data-reveal style="--i:2">
           <div class="ctas">
             <a class="btn btn-primary" href="https://journal.cloudx.run">Open Journal</a>
@@ -51,13 +51,12 @@
       <div class="wrap">
         <div class="section-head head-wide">
           <h2 class="display" id="how-title" data-reveal>Where your notes live</h2>
-          <p class="lede" data-reveal style="--i:1">On your device first. Sync is a layer on top, not the place your notes live.</p>
+          <p class="lede" data-reveal style="--i:1">On your device first, with encrypted sync on top and sharing when you choose.</p>
         </div>
         <ol class="flow" aria-label="From your device to the people you share with">
           <li class="step step-1" data-reveal>
             <h3 class="step-title">On your device</h3>
-            <p>Every note is stored in a database in your browser. Journal opens fast and works with no connection.</p>
-            <p class="step-note">This copy is not encrypted yet; passkey or passphrase unlock is in progress.</p>
+            <p>Every note is stored in a database in your browser. Journal opens fast and works offline.</p>
           </li>
           <li class="step step-2" data-reveal style="--i:1">
             <h3 class="step-title">Synced, encrypted</h3>
@@ -69,7 +68,7 @@
           </li>
         </ol>
         <ul class="flow-facts">
-          <li data-reveal><strong>Agents ask first</strong>They get in only where you grant a folder or a note.</li>
+          <li data-reveal><strong>Agents by invitation</strong>They work in the folders and notes you grant.</li>
           <li data-reveal style="--i:1"><strong>Yours to take away</strong>Everything exports as markdown in a ZIP.</li>
           <li data-reveal style="--i:2"><strong>Open source</strong>The code is public under the <span class="nowrap">AGPL-3.0</span>.</li>
         </ul>
@@ -142,17 +141,32 @@
 
         <div class="also">
           <h3 class="h3" data-reveal>Also in the editor</h3>
-          <ul aria-label="More in the editor">
-            <li data-reveal><strong>Folders and tags.</strong> Filter by tag, or delete a tag from every note at once.</li>
-            <li data-reveal style="--i:1"><strong>Daily notes.</strong> One click opens today's note, from your own template.</li>
-            <li data-reveal style="--i:2"><strong>Search.</strong> Full text across all notes, with recent searches.</li>
-            <li data-reveal><strong>Note links.</strong> Type [[ to link another note, or create it on the spot.</li>
-            <li data-reveal style="--i:1"><strong>Import.</strong> Bring in a Notion export or an Obsidian vault.</li>
-            <li class="more" data-reveal style="--i:2"><strong>Find and replace.</strong> Inside a note, with match case and whole words.</li>
-            <li class="more" data-reveal><strong>Galleries.</strong> Drop several images for a row, grid, masonry or carousel.</li>
-            <li class="more" data-reveal style="--i:1"><strong>Templates.</strong> Start new notes from templates you write.</li>
-            <li class="more" data-reveal style="--i:2"><strong>Writing help.</strong> An optional assistant on desktop that runs in your browser.</li>
-          </ul>
+          <div class="also-groups">
+            <div class="also-group" data-reveal>
+              <h4 class="also-head">Organise</h4>
+              <ul>
+              <li><svg class="icon also-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M3 5a2 2 0 0 0 2 2h3"/><path d="M3 3v13a2 2 0 0 0 2 2h3"/></svg><div><strong>Folders and tags</strong><span>Filter by tag, or delete a tag from every note at once.</span></div></li>
+              <li><svg class="icon also-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M8 13h.01"/><path d="M12 13h.01"/><path d="M16 13h.01"/><path d="M8 17h.01"/><path d="M12 17h.01"/><path d="M16 17h.01"/></svg><div><strong>Daily notes</strong><span>One click opens today's note, from your own template.</span></div></li>
+              <li><svg class="icon also-icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/></svg><div><strong>Templates</strong><span>Start new notes from templates you write.</span></div></li>
+              </ul>
+            </div>
+            <div class="also-group" data-reveal style="--i:1">
+              <h4 class="also-head">Find and link</h4>
+              <ul>
+              <li><svg class="icon also-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg><div><strong>Search</strong><span>Full text across all notes, with recent searches.</span></div></li>
+              <li><svg class="icon also-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><div><strong>Note links</strong><span>Type [[ to link another note, or create it on the spot.</span><p class="link-demo" aria-hidden="true">Day two, see <span class="ld-typed"><span class="ld-br">[[</span>Trip plan<span class="ld-br">]]</span></span></p></div></li>
+              <li><svg class="icon also-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4a1 1 0 0 1 1-1"/><path d="M15 10a1 1 0 0 1-1-1"/><path d="M21 4a1 1 0 0 0-1-1"/><path d="M21 9a1 1 0 0 1-1 1"/><path d="m3 7 3 3 3-3"/><path d="M6 10V5a2 2 0 0 1 2-2h2"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg><div><strong>Find and replace</strong><span>Inside a note, with match case and whole words.</span></div></li>
+              </ul>
+            </div>
+            <div class="also-group" data-reveal style="--i:2">
+              <h4 class="also-head">Bring things in</h4>
+              <ul>
+              <li><svg class="icon also-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M2 15h10"/><path d="m9 18 3-3-3-3"/></svg><div><strong>Import</strong><span>Bring in a Notion export or an Obsidian vault.</span></div></li>
+              <li><svg class="icon also-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 11-1.296-1.296a2.4 2.4 0 0 0-3.408 0L11 16"/><path d="M4 8a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2"/><circle cx="13" cy="7" r="1" fill="currentColor"/><rect x="8" y="2" width="14" height="14" rx="2"/></svg><div><strong>Galleries</strong><span>Drop several images for a row, grid, masonry or carousel.</span><span class="gallery-demo" aria-hidden="true"><span class="g-row"><i></i><i></i><i></i></span><span class="g-grid"><i></i><i></i><i></i><i></i></span><span class="g-masonry"><i></i><i></i><i></i><i></i></span><span class="g-carousel"><i></i><i></i><i></i></span></span></div></li>
+              <li><svg class="icon also-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg><div><strong>Writing help</strong><span>An optional writing assistant that runs in your browser.</span></div></li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -187,7 +201,7 @@
           </div>
           <div class="mode" data-reveal style="--i:1">
             <h3 class="h3">As a public page</h3>
-            <p>A public note gets an ‘On this page’ outline, its cover image, highlighted code and working live blocks. Public notes are not encrypted, by design.</p>
+            <p>A public note gets an ‘On this page’ outline, its cover image, highlighted code and working live blocks.</p>
           </div>
         </div>
       </div>
@@ -221,8 +235,8 @@
     <section class="section" id="agents" aria-labelledby="agents-title">
       <div class="wrap split agents-teaser">
         <div class="split-copy">
-          <h2 class="h2" id="agents-title" data-reveal>Agents, only where you allow</h2>
-          <p class="lede" data-reveal style="--i:1">Claude Code, Claude Desktop and Codex CLI can read and write your notes through the Journal MCP server. They see nothing until you grant a folder or a note.</p>
+          <h2 class="h2" id="agents-title" data-reveal>Agents, where you allow</h2>
+          <p class="lede" data-reveal style="--i:1">Claude Code, Claude Desktop and Codex CLI can read and write your notes through the Journal MCP server. You choose each folder and note they can see.</p>
           <p data-reveal style="--i:2"><a class="btn btn-secondary" href="/agents">How agents work in Journal</a></p>
         </div>
         <div class="result-stage" data-reveal style="--i:1">
@@ -243,24 +257,50 @@
       <div class="wrap teaser-row">
         <h2 class="h2" id="pricing-title" data-reveal>Free for what lives in your own space</h2>
         <div class="teaser-copy" data-reveal style="--i:1">
-          <p class="lede">Everything in Journal today costs nothing. A paid Pro plan for hosted extras is planned.</p>
+          <p class="lede">Every feature in Journal today is free. A paid Pro plan for hosted extras is on the way.</p>
           <p><a class="btn btn-primary" href="/pricing">See pricing</a></p>
         </div>
       </div>
     </section>
 
-    <!-- FAQ: answers as reading text, in two columns -->
+    <!-- FAQ: the heading beside an accordion -->
     <section class="section" id="faq" aria-labelledby="faq-title">
       <div class="wrap">
-        <div class="section-head">
-          <h2 class="h2" id="faq-title" data-reveal>Questions</h2>
-          <p class="lede" data-reveal style="--i:1">What people ask before they move their notes. Something missing? <a href="https://github.com/2002Bishwajeet/journal/issues">Ask on GitHub</a>.</p>
-        </div>
-        <div class="qa">
-          <div data-reveal><h3 class="h3">Do I need an account?</h3><p>Yes. Journal signs in with a Homebase identity, your own private space. To get one, <a href="https://homebase.id/sign-up">join the Homebase wait list</a>.</p></div>
-          <div data-reveal><h3 class="h3">Are my notes encrypted?</h3><p>The synced copy is encrypted. The copy on your device is not encrypted yet; passkey or passphrase unlock is in progress. Public notes are not encrypted, by design.</p></div>
-          <div data-reveal><h3 class="h3">Can I move from Notion or Obsidian?</h3><p>Yes. Import a Notion Markdown &amp; CSV export or an Obsidian vault as a .zip in Settings → Data &amp; storage. Links, images, tags and callouts come with it.</p></div>
-          <div data-reveal><h3 class="h3">Does AI see my notes?</h3><p>Agents connected through MCP see only the folders and notes you grant. The optional writing assistant runs on your device.</p></div>
+        <div class="faq-layout">
+          <div class="faq-intro">
+            <h2 class="h2" id="faq-title" data-reveal>Questions</h2>
+            <p class="lede" data-reveal style="--i:1">What people ask before they move their notes. Something missing? <a href="https://github.com/2002Bishwajeet/journal/issues">Ask on GitHub</a>.</p>
+          </div>
+          <div class="faq" data-reveal style="--i:1">
+          <details class="faq-item" open>
+            <summary><span>Do I need an account?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p>Journal signs in with a Homebase identity, a private space that belongs to you. To get one, <a href="https://homebase.id/sign-up">join the Homebase wait list</a>.</p>
+          </details>
+          <details class="faq-item">
+            <summary><span>Are my notes encrypted?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p>Your notes sync encrypted across your devices through your Homebase identity. You choose which notes to share, and which to publish as public pages.</p>
+          </details>
+          <details class="faq-item">
+            <summary><span>Does Journal work offline?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p>Yes. Your notes live in a database in your browser, so Journal opens fast and keeps working offline, then syncs when you're back.</p>
+          </details>
+          <details class="faq-item">
+            <summary><span>Can I move from Notion or Obsidian?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p>Yes. Import a Notion Markdown &amp; CSV export or an Obsidian vault as a .zip in Settings → Data &amp; storage. Links, images, tags and callouts come with it.</p>
+          </details>
+          <details class="faq-item">
+            <summary><span>Can I take my notes with me?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p>Yes. Export everything as markdown in a ZIP, whenever you like.</p>
+          </details>
+          <details class="faq-item">
+            <summary><span>How do AI agents reach my notes?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p>Through the Journal MCP server, in the folders and notes you grant. The optional writing assistant runs on your device. <a href="/agents">How agents work</a>.</p>
+          </details>
+          <details class="faq-item">
+            <summary><span>Is Journal open source?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p>Yes, under the AGPL-3.0. The code is on <a href="https://github.com/2002Bishwajeet/journal">GitHub</a>.</p>
+          </details>
+          </div>
         </div>
       </div>
     </section>
