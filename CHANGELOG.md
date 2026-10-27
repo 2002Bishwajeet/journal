@@ -1,3 +1,10 @@
+## [2.40.1](https://github.com/2002Bishwajeet/journal/compare/v2.40.0...v2.40.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **ai:** docked panel step count, toolbar wrap and toast offset ([#840](https://github.com/2002Bishwajeet/journal/issues/840)) ([5dede82](https://github.com/2002Bishwajeet/journal/commit/5dede823779b368c8931594065bbfda5c83aa19d))
+* **editor:** one toolbar on an iPad in landscape ([b6065c3](https://github.com/2002Bishwajeet/journal/commit/b6065c3629d18450261cfb578eb418af3fccc5a5))
 # [2.40.0](https://github.com/2002Bishwajeet/journal/compare/v2.39.3...v2.40.0) (2026-10-27)
 
 

@@ -16,6 +16,15 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.40.1 (2026-10-27)
+
+### Fixed
+
+- The assistant panel now counts only the tool steps, not the error row.
+- With the assistant panel open, the editor toolbar wraps and no icon is cut off.
+- With the assistant panel open, a toast shows to the left of the panel and does not cover the message box.
+- On an iPad in landscape, the editor shows one formatting toolbar. Before, it also showed the phone toolbar at the bottom.
+
 ## 2.40.0 (2026-10-27)
 
 ### Changed
