@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.40.0 (2026-10-27)
+
+### Changed
+
+- On an iPad held upright, Journal shows the note list and the open note side by side. To see your folders, tap the arrow at the top of the list.
+
 ## 2.39.3 (2026-10-26)
 
 ### Fixed
