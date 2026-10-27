@@ -33,6 +33,7 @@ async function openMoveSheet(page: Page) {
 
 test('the sheet sits at the bottom, checks the current folder, and a tap moves the note', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
+    await page.setViewportSize({ width: 390, height: 852 });
     const sheet = await openMoveSheet(page);
 
     await expect.poll(async () => {
@@ -44,7 +45,7 @@ test('the sheet sits at the bottom, checks the current folder, and a tap moves t
     await expect(current).toBeDisabled();
     await expect(current).toHaveAttribute('aria-current', 'true');
     expect((await sheet.getByRole('button', { name: 'Trips' }).boundingBox())!.height).toBeGreaterThanOrEqual(52);
-    await screenshotInBothThemes(page, (theme) => `move-sheet-${theme}-393x852.png`);
+    await screenshotInBothThemes(page, (theme) => `move-sheet-${theme}-390x852.png`);
 
     await sheet.getByRole('button', { name: 'Trips' }).tap();
     await expect(page.getByRole('dialog')).toHaveCount(0);

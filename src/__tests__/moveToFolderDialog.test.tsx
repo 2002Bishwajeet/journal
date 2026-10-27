@@ -22,11 +22,11 @@ function stubSheetMode(matches: boolean) {
     }));
 }
 
-async function mount(folders: Folder[]) {
+async function mount(folders: Folder[], isOpen = true) {
     await act(async () =>
         root.render(
             createElement(MoveToFolderDialog, {
-                isOpen: true,
+                isOpen,
                 onClose: vi.fn(),
                 noteTitle: 'Note 21',
                 currentFolderId: 'a',
@@ -74,5 +74,48 @@ describe('MoveToFolderDialog', () => {
         expect(document.querySelector('input[type="search"]')).toBeNull();
         await mount(Array.from({ length: 9 }, (_, i) => folder(String(i), `F${i}`)));
         expect(document.querySelector('input[type="search"]')).not.toBeNull();
+    });
+
+    it('hides search and New folder on desktop, and shows the empty state', async () => {
+        stubSheetMode(false);
+        await mount(Array.from({ length: 9 }, (_, i) => folder(String(i), `F${i}`)));
+        expect(document.querySelector('input[type="search"]')).toBeNull();
+        expect(rows().some((b) => b.textContent?.includes('New folder'))).toBe(false);
+        await mount([folder('a', 'Main')]);
+        expect(document.body.textContent).toContain('There are no other folders yet.');
+    });
+
+    it('typing filters the list, and the query is cleared when the sheet closes', async () => {
+        stubSheetMode(true);
+        const onClose = vi.fn();
+        const render = (isOpen: boolean) =>
+            act(async () =>
+                root.render(
+                    createElement(MoveToFolderDialog, {
+                        isOpen,
+                        onClose,
+                        noteTitle: 'N',
+                        currentFolderId: 'a',
+                        folders: Array.from({ length: 9 }, (_, i) => folder(String(i), `F${i}`)),
+                        onMove: vi.fn(),
+                        onCreateFolder: vi.fn(async () => 'new'),
+                    }),
+                ),
+            );
+        await render(true);
+        const input = () => document.querySelector<HTMLInputElement>('input[type="search"]')!;
+        await act(async () => {
+            const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+            set.call(input(), 'F3');
+            input().dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        expect(rows().filter((b) => b.textContent?.startsWith('F'))).toHaveLength(1);
+        // Pick the match; that closes the sheet and must reset the query.
+        await act(async () => rows().find((b) => b.textContent?.startsWith('F3'))!.click());
+        expect(onClose).toHaveBeenCalled();
+        await render(false);
+        await render(true);
+        expect(input().value).toBe('');
+        expect(rows().filter((b) => b.textContent?.startsWith('F'))).toHaveLength(9);
     });
 });

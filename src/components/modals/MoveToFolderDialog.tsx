@@ -38,19 +38,23 @@ export default function MoveToFolderDialog({
   // The sheet shows where the note is now; the desktop dialog leaves that folder out.
   const asSheet = useSheetMode();
   const listed = asSheet ? folders : folders.filter((f) => f.id !== currentFolderId);
+  const close = () => {
+    setQuery("");
+    onClose();
+  };
   const shown = needle ? listed.filter((f) => f.name.toLowerCase().includes(needle)) : listed;
 
   return (
     <>
       <ResponsiveSheet
         open={isOpen}
-        onOpenChange={(open) => !open && onClose()}
+        onOpenChange={(open) => !open && close()}
         variant="bottom"
         title={asSheet ? <span className="block truncate">Move "{noteTitle}"</span> : "Move to folder"}
         description={`Move to folder. Choose a folder for "${noteTitle}".`}
         dialogClassName="sm:max-w-106.25"
       >
-        {folders.length > SEARCH_THRESHOLD && (
+        {asSheet && folders.length > SEARCH_THRESHOLD && (
           <Input
             type="search"
             aria-label="Search folders"
@@ -61,16 +65,21 @@ export default function MoveToFolderDialog({
           />
         )}
         <ul aria-label="Folders" className="max-h-72 overflow-y-auto -mx-2 in-data-[slot=sheet-body]:max-h-none">
-          <li>
-            <Button
-              variant="ghost"
-              className="w-full justify-start h-10 px-2 pointer-coarse:h-13"
-              onClick={() => setCreating(true)}
-            >
-              <FolderPlus aria-hidden className="mr-2 h-4 w-4 shrink-0" />
-              New folder…
-            </Button>
-          </li>
+          {asSheet && (
+            <li>
+              <Button
+                variant="ghost"
+                className="w-full justify-start h-10 px-2 pointer-coarse:h-13"
+                onClick={() => setCreating(true)}
+              >
+                <FolderPlus aria-hidden className="mr-2 h-4 w-4 shrink-0" />
+                New folder…
+              </Button>
+            </li>
+          )}
+          {!asSheet && listed.length === 0 && (
+            <li className="py-4 px-2 text-sm text-muted-foreground">There are no other folders yet.</li>
+          )}
           {shown.map((folder) => {
             const current = folder.id === currentFolderId;
             return (
@@ -83,7 +92,7 @@ export default function MoveToFolderDialog({
                   aria-describedby={folder.isPublic ? `public-${folder.id}` : undefined}
                   onClick={() => {
                     onMove(folder.id);
-                    onClose();
+                    close();
                   }}
                 >
                   <FolderOpen aria-hidden className="mr-2 h-4 w-4 shrink-0" />
@@ -113,7 +122,7 @@ export default function MoveToFolderDialog({
         onClose={() => setCreating(false)}
         onCreate={async (name) => {
           onMove(await onCreateFolder(name));
-          onClose();
+          close();
         }}
       />
     </>
