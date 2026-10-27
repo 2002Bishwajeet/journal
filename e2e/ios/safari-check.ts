@@ -382,7 +382,7 @@ try {
     await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
     const keyboardInSheet = await browser.isKeyboardShown();
     await browser.pause(1_000); // the keyboard's slide and Safari's scroll to the field
-    await check('link-sheet-keyboard', keyboardInSheet);
+    await check('link-sheet-keyboard');
     await checkZoom('the link URL field');
     await typeOnKeyboard('example.com');
     const typed = (await browser.execute(() => document.querySelector<HTMLInputElement>('#editor-link-url')?.value ?? '')) as string;

@@ -39,7 +39,9 @@ function LinkForm({ editor, onDone }: { editor: Editor; onDone: () => void }) {
   const editing = target.href !== '';
 
   return (
+    // noValidate: type=url would reject a bare host (example.com), which applyLink makes https://.
     <form
+      noValidate
       className="flex flex-col gap-3 pb-1"
       onSubmit={(e) => {
         e.preventDefault();

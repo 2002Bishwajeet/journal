@@ -73,7 +73,7 @@ test('Add Link opens a sheet, links the selected word, and reopening it removes 
     await expect(url).toHaveAttribute('type', 'url');
     await expect(url).toHaveAttribute('inputmode', 'url');
     await expect(sheet.getByRole('button', { name: 'Remove link' })).toHaveCount(0);
-    await url.fill('https://example.com');
+    await url.fill('example.com'); // a bare host gets https://
     await shots(page, sheet, 'link-sheet');
     await sheet.getByRole('button', { name: 'Done' }).tap();
 
