@@ -32,7 +32,7 @@
               <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Sharing with people and circles, and public pages</li>
               <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>The MCP server for your agents</li>
             </ul>
-            <p class="plan-need">You need a Homebase identity to sign in. Homebase is invite-only during its alpha.</p>
+            <p class="plan-need">You need a Homebase identity to sign in.</p>
             <div class="ctas">
               <a class="btn btn-primary" href="https://journal.cloudx.run">Open Journal</a>
               <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the wait list</a>
@@ -43,7 +43,11 @@
               <h2 class="h2" id="plan-pro">Pro</h2>
               <p class="plan-status">Coming soon</p>
             </div>
-            <p class="plan-body">A paid plan for hosted extras is planned. Its price and what it includes are still being worked out, in the open, in <a href="https://github.com/2002Bishwajeet/journal/issues/306">issue #306</a>.</p>
+            <p class="plan-body">A paid plan for hosted extras is planned. It is being worked out in the open, in <a href="https://github.com/2002Bishwajeet/journal/issues/306">issue #306</a>.</p>
+            <dl class="plan-facts">
+              <div><dt>Price</dt><dd>Not set yet</dd></div>
+              <div><dt>What it includes</dt><dd>To be decided</dd></div>
+            </dl>
             <div class="ctas">
               <a class="btn btn-secondary" href="https://github.com/2002Bishwajeet/journal/issues/306">Follow the plan on GitHub</a>
             </div>
@@ -52,66 +56,23 @@
       </div>
     </section>
 
-    <!-- What Free covers: four parts of the app at their own size, then the rest as a list -->
+    <!-- What Free covers: one plain list, read down -->
     <section class="section band" aria-labelledby="free-title">
-      <div class="wrap">
-        <div class="section-head">
+      <div class="wrap split covers-split">
+        <div class="split-copy">
           <h2 class="h2" id="free-title" data-reveal>What Free covers</h2>
-          <p class="lede" data-reveal style="--i:1">All of it, today: everything that lives on your device and in your own Homebase space. Pro is for hosted extras.</p>
+          <p class="lede" data-reveal style="--i:1">All of it, today: everything that lives on your device and in your own Homebase space.</p>
+          <p data-reveal style="--i:2">Pro will add hosted extras. Which ones is <a href="https://github.com/2002Bishwajeet/journal/issues/306">still to be decided</a>.</p>
         </div>
-        <div class="cover-grid">
-          <figure class="cover" data-reveal>
-            <div class="crop cover-crop" data-ui style="--w: 288px">
-              <picture class="only-light">
-                <img src="/media/slash-menu-light.webp" width="576" height="586" loading="lazy" alt="The slash menu in a note: Heading 1, Task List, Toggle, Callout and Table." />
-              </picture>
-              <picture class="only-dark">
-                <img src="/media/slash-menu-dark.webp" width="576" height="586" loading="lazy" alt="The slash menu in dark mode." />
-              </picture>
-            </div>
-            <figcaption><strong>Writing</strong> Markdown shortcuts and a slash menu: tables, task lists, callouts, math and code.</figcaption>
-          </figure>
-          <figure class="cover" data-reveal style="--i:1">
-            <div class="crop cover-crop" data-ui style="--w: 411px">
-              <picture class="only-light">
-                <img src="/media/share-dialog-light.webp" width="822" height="526" loading="lazy" alt="The Share Note dialog for a private note, with a Make Note Public button." />
-              </picture>
-              <picture class="only-dark">
-                <img src="/media/share-dialog-dark.webp" width="822" height="526" loading="lazy" alt="The Share Note dialog in dark mode." />
-              </picture>
-            </div>
-            <figcaption><strong>Sharing and public pages</strong> With other Homebase identities and circles, who edit with you, or as a public page for anyone with the link.</figcaption>
-          </figure>
-          <figure class="cover" data-reveal>
-            <div class="crop cover-crop" data-ui style="--w: 496px">
-              <picture class="only-light">
-                <img src="/media/feature-history-light.webp" width="992" height="466" loading="lazy" alt="The Version history dialog for a Packing list note: two earlier versions, each with a Restore button." />
-              </picture>
-              <picture class="only-dark">
-                <img src="/media/feature-history-dark.webp" width="992" height="466" loading="lazy" alt="The Version history dialog in dark mode." />
-              </picture>
-            </div>
-            <figcaption><strong>Version history</strong> Restore an earlier version as one edit you can undo.</figcaption>
-          </figure>
-          <figure class="cover" data-reveal style="--i:1">
-            <div class="crop cover-crop" data-ui style="--w: 581px">
-              <picture class="only-light">
-                <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-light.webp" width="1050" height="834" />
-                <img src="/media/agent-grants-light.webp" width="1162" height="492" loading="lazy" alt="Agent access in Journal's Settings: Main set to Read, Personal to None, Reading and Work to Read + write." />
-              </picture>
-              <picture class="only-dark">
-                <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-dark.webp" width="1050" height="834" />
-                <img src="/media/agent-grants-dark.webp" width="1162" height="492" loading="lazy" alt="Agent access in dark mode, with a grant chosen for each folder." />
-              </picture>
-            </div>
-            <figcaption><strong>Agents</strong> Claude Code, Claude Desktop and Codex CLI, in the folders you grant.</figcaption>
-          </figure>
-        </div>
-        <ul class="covers" data-reveal>
-          <li><strong>Live blocks</strong> Mermaid, SVG, HTML and React that run in the note.</li>
-          <li><strong>Encrypted sync</strong> Across your devices, with the app working offline.</li>
-          <li><strong>Import and export</strong> Notion and Obsidian in, markdown in a ZIP out.</li>
-        </ul>
+        <dl class="covers" data-reveal>
+          <div><dt>Writing</dt><dd>Markdown shortcuts and a slash menu: tables, task lists, callouts, math and code.</dd></div>
+          <div><dt>Live blocks</dt><dd>Mermaid, SVG, HTML and React that run in the note.</dd></div>
+          <div><dt>Encrypted sync</dt><dd>Across your devices, with the app working offline.</dd></div>
+          <div><dt>Sharing and public pages</dt><dd>With other Homebase identities and circles, who edit with you, or as a public page for anyone with the link.</dd></div>
+          <div><dt>Version history</dt><dd>Restore an earlier version as one edit you can undo.</dd></div>
+          <div><dt>Agents</dt><dd>Claude Code, Claude Desktop and Codex CLI, in the folders you grant.</dd></div>
+          <div><dt>Import and export</dt><dd>Notion and Obsidian in, markdown in a ZIP out.</dd></div>
+        </dl>
       </div>
     </section>
 
@@ -122,7 +83,7 @@
         </div>
         <div class="qa">
           <div data-reveal><h3 class="h3">Do I pay anything today?</h3><p>No. Every feature in Journal today is on the Free plan.</p></div>
-          <div data-reveal><h3 class="h3">What does the Homebase identity cost?</h3><p>Journal doesn't sell identities or charge for them. Homebase is invite-only during its alpha: <a href="https://homebase.id/sign-up">join the wait list</a> at homebase.id, which sets its own terms.</p></div>
+          <div data-reveal><h3 class="h3">How do I get a Homebase identity?</h3><p><a href="https://homebase.id/sign-up">Join the Homebase wait list</a> at homebase.id. Homebase sets its own terms.</p></div>
           <div data-reveal><h3 class="h3">What will Pro be?</h3><p>A paid plan for hosted extras. Its price and contents aren't decided yet; follow <a href="https://github.com/2002Bishwajeet/journal/issues/306">issue #306</a> to see them take shape.</p></div>
           <div data-reveal><h3 class="h3">Can I run Journal myself?</h3><p>Yes. Journal is open source under the AGPL-3.0, on <a href="https://github.com/2002Bishwajeet/journal">GitHub</a>.</p></div>
         </div>

@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite'
 
 const page = (name: string) => resolve(import.meta.dirname, name)
 
@@ -41,6 +41,10 @@ export default defineConfig({
     // Mermaid's diagram chunks (elk is the largest) load only when the playground is used.
     chunkSizeWarningLimit: 1600,
   },
-  server: { host: '127.0.0.1', port: 5180, strictPort: true },
+  server: {
+    host: '127.0.0.1', port: 5180, strictPort: true,
+    // A worktree's node_modules can be a symlink to another checkout; let the dev server read through it.
+    fs: { allow: [searchForWorkspaceRoot(import.meta.dirname), realpathSync(resolve(import.meta.dirname, '../node_modules'))] },
+  },
   preview: { host: '127.0.0.1', port: 5181, strictPort: true },
 })

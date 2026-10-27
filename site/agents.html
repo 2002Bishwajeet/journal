@@ -36,66 +36,49 @@
             <p class="small" data-reveal style="--i:3">Codex CLI and Claude Desktop run the same server from a checkout; the <a href="https://github.com/2002Bishwajeet/journal/blob/main/mcp/README.md">MCP setup guide</a> has their config.</p>
           </div>
           <div class="agents-hero-side" data-reveal style="--i:2">
-            <figure class="crop crop-grants" data-ui>
-              <picture class="only-light">
-                <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-light.webp" width="1050" height="834" />
-                <img src="/media/agent-grants-light.webp" width="1162" height="492" alt="Agent access in Journal's Settings: Main set to Read, Personal to None, Reading and Work to Read + write." />
-              </picture>
-              <picture class="only-dark">
-                <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-dark.webp" width="1050" height="834" />
-                <img src="/media/agent-grants-dark.webp" width="1162" height="492" alt="Agent access in dark mode, with a grant chosen for each folder." />
-              </picture>
+            <figure class="session" aria-labelledby="session-cap">
+              <figcaption id="session-cap" class="code-head"><span>An agent at work</span></figcaption>
+              <div class="session-body">
+                <p class="session-ask">Build a chart of my reading log as a live block.</p>
+                <ol class="session-calls" aria-label="The tools it calls">
+                  <li><code>get_authoring_guide</code><span>Reads how a note can hold live blocks</span></li>
+                  <li><code>search_notes</code><span>Searches the notes you granted</span></li>
+                  <li><code>create_note</code><span>Writes the new note into a folder it may write in</span></li>
+                </ol>
+                <p class="session-done">A new note, with a chart that runs where you read it.</p>
+              </div>
             </figure>
-            <div class="install-steps">
-              <h2 class="h3">Set up in Claude Code</h2>
-              <ol class="steps">
-                <li>Run the three commands, with your own identity in place of <code>you.dotyou.cloud</code>.</li>
-                <li>Approve ‘Journal MCP’ in your Homebase owner console, then run <code>/mcp</code> to reconnect.</li>
-                <li>In Journal, open Settings → Agent access and grant the folders it may use, as above.</li>
-              </ol>
-            </div>
           </div>
+        </div>
+        <div class="install-steps" data-reveal>
+          <h2 class="h3">Set up in Claude Code</h2>
+          <ol class="steps">
+            <li>Run the three commands, with your own identity in place of <code>you.dotyou.cloud</code>.</li>
+            <li>Approve ‘Journal MCP’ in your Homebase owner console, then run <code>/mcp</code> to reconnect.</li>
+            <li>In Journal, open Settings → Agent access and grant the folders it may use.</li>
+          </ol>
         </div>
       </div>
     </section>
 
-    <!-- What an agent produces: one prompt, one note -->
+    <!-- What to ask: the requests themselves, set as a conversation -->
     <section class="section band" aria-labelledby="result-title">
-      <div class="wrap">
-        <div class="section-head">
+      <div class="wrap split asks">
+        <div class="split-copy">
           <h2 class="h2" id="result-title" data-reveal>Ask for a page, get a page</h2>
-          <p class="lede" data-reveal style="--i:1">An agent can write live blocks straight into a note: a React chart and a Mermaid diagram that run where you read them.</p>
+          <p class="lede" data-reveal style="--i:1">An agent can write live blocks straight into a note: a React chart or a Mermaid diagram that runs where you read it.</p>
+          <p data-reveal style="--i:2">It makes small edits too, changing one passage with <code>replace_in_note</code> and leaving the rest of the note as it was.</p>
         </div>
-        <div class="ask">
-          <div class="ask-prompt" data-reveal>
-            <figure class="ask-bubble">
-              <figcaption>You ask</figcaption>
-              <blockquote>Build a chart of my reading log as a live block.</blockquote>
-            </figure>
-            <p>The agent writes the note shown here. It can make small edits as well, changing one passage with <code>replace_in_note</code> and leaving the rest of the note as it was.</p>
-            <h3 class="h3">Other things to ask</h3>
-            <ul class="list">
-              <li>Create a note called Standup in my Work folder with today's summary.</li>
-              <li>In my Trip plan note, change the flight time from 9:40 to 10:15.</li>
-              <li>Redesign my Trip plan note as a day-by-day itinerary.</li>
-              <li>Use ~/Pictures/lisbon.jpg as the cover of my Trip plan note.</li>
-            </ul>
-          </div>
-          <figure class="crop crop-result" data-ui data-reveal style="--i:1">
-            <picture class="only-light">
-              <source media="(max-width: 599px)" srcset="/media/phone-live-block-light.webp" width="1170" height="2532" />
-              <img src="/media/agent-result-light.webp" width="1410" height="1074" loading="lazy" alt="The Reading log note: a React bar chart of books finished per month, January to June, and a Mermaid diagram from Pick to Read to Review." />
-            </picture>
-            <picture class="only-dark">
-              <source media="(max-width: 599px)" srcset="/media/phone-live-block-dark.webp" width="1170" height="2532" />
-              <img src="/media/agent-result-dark.webp" width="1410" height="1074" loading="lazy" alt="The Reading log note in dark mode, with its bar chart and Mermaid diagram." />
-            </picture>
-          </figure>
-        </div>
+        <ul class="ask-stack" aria-label="Things to ask">
+          <li data-reveal>Create a note called Standup in my Work folder with today's summary.</li>
+          <li data-reveal style="--i:1">In my Trip plan note, change the flight time from 9:40 to 10:15.</li>
+          <li data-reveal style="--i:2">Redesign my Trip plan note as a day-by-day itinerary.</li>
+          <li data-reveal style="--i:3">Use ~/Pictures/lisbon.jpg as the cover of my Trip plan note.</li>
+        </ul>
       </div>
     </section>
 
-    <!-- Access: the rules, beside the same panel on a phone -->
+    <!-- Access: the rules, beside the grants table -->
     <section class="section" aria-labelledby="access-title">
       <div class="wrap split access">
         <div class="split-copy">
@@ -107,11 +90,15 @@
             <li><strong>Grants are checked on your computer.</strong> The MCP server reads your grants and filters every tool call by them, in its own process where it runs.</li>
           </ul>
         </div>
-        <figure class="crop access-stage" data-ui data-reveal style="--i:1">
-          <div class="phone access-phone">
-            <img class="only-light" src="/media/phone-agent-access-light.webp" width="1170" height="2532" loading="lazy" alt="Settings, Agent access on a phone: Main set to Read, Personal to None, Reading and Work to Read + write." />
-            <img class="only-dark" src="/media/phone-agent-access-dark.webp" width="1170" height="2532" loading="lazy" alt="Agent access on a phone in dark mode, with a grant chosen for each folder." />
-          </div>
+        <figure class="crop crop-grants" data-ui data-reveal style="--i:1">
+          <picture class="only-light">
+            <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-light.webp" width="1050" height="834" />
+            <img src="/media/agent-grants-light.webp" width="1162" height="492" loading="lazy" alt="Agent access in Journal's Settings: Main set to Read, Personal to None, Reading and Work to Read + write." />
+          </picture>
+          <picture class="only-dark">
+            <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-dark.webp" width="1050" height="834" />
+            <img src="/media/agent-grants-dark.webp" width="1162" height="492" loading="lazy" alt="Agent access in dark mode, with a grant chosen for each folder." />
+          </picture>
         </figure>
       </div>
     </section>
@@ -191,6 +178,5 @@
   </main>
 
   <!-- footer -->
-  <!-- credit: Cover photo in the published note: <a href="https://commons.wikimedia.org/wiki/File:Alfama_Rooftops_and_Tagus_River_View,_Lisbon_(54733828355).jpg">“Alfama Rooftops and Tagus River View, Lisbon”</a> by Dale Cruse, <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a>, via Wikimedia Commons. -->
 </body>
 </html>

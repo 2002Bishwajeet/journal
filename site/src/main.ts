@@ -66,7 +66,8 @@ const revealed = new IntersectionObserver(
       revealed.unobserve(entry.target);
     }
   },
-  { rootMargin: '0px 0px -8% 0px' },
+  // The large top margin counts anything already scrolled past as arrived, so a fast scroll leaves no blanks.
+  { rootMargin: '100000px 0px -8% 0px' },
 );
 document.querySelectorAll('[data-reveal]').forEach((el) => revealed.observe(el));
 

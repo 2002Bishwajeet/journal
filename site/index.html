@@ -23,7 +23,7 @@
             <a class="btn btn-primary" href="https://journal.cloudx.run">Open Journal</a>
             <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
           </div>
-          <p class="hero-note">Journal signs in with a <a href="https://homebase.id">Homebase</a> identity, a private space that belongs to you. Homebase is invite-only during its alpha.</p>
+          <p class="hero-note">Journal signs in with a <a href="https://homebase.id">Homebase</a> identity, a private space that belongs to you.</p>
         </div>
         <figure class="hero-media" data-reveal style="--i:3">
           <div class="frame frame-hero" data-ui>
@@ -49,22 +49,22 @@
     <!-- Where notes live: three tone steps, one flow, then what follows from it -->
     <section class="section band" id="how-it-works" aria-labelledby="how-title">
       <div class="wrap">
-        <div class="section-head">
-          <h2 class="h2" id="how-title" data-reveal>Where your notes live</h2>
+        <div class="section-head head-wide">
+          <h2 class="display" id="how-title" data-reveal>Where your notes live</h2>
           <p class="lede" data-reveal style="--i:1">On your device first. Sync is a layer on top, not the place your notes live.</p>
         </div>
         <ol class="flow" aria-label="From your device to the people you share with">
           <li class="step step-1" data-reveal>
-            <h3 class="h3">Write on your device</h3>
+            <h3 class="step-title">On your device</h3>
             <p>Every note is stored in a database in your browser. Journal opens fast and works with no connection.</p>
             <p class="step-note">This copy is not encrypted yet; passkey or passphrase unlock is in progress.</p>
           </li>
           <li class="step step-2" data-reveal style="--i:1">
-            <h3 class="h3">Sync it, encrypted</h3>
+            <h3 class="step-title">Synced, encrypted</h3>
             <p>Notes sync encrypted across your devices through your Homebase identity, a space that belongs to you.</p>
           </li>
           <li class="step step-3" data-reveal style="--i:2">
-            <h3 class="h3">Share only what you choose</h3>
+            <h3 class="step-title">Shared by choice</h3>
             <p>Share a note with people you know, or publish it as a public page. Everything else stays private.</p>
           </li>
         </ol>
@@ -96,30 +96,29 @@
                 <img src="/media/feature-blocks-dark.webp" width="1534" height="1120" loading="lazy" alt="The Trip plan note in dark mode: a task list, a tip callout and a table." />
               </picture>
             </figure>
-            <div class="stage-copy">
-              <div data-reveal>
-                <h3 class="h3">Tasks, callouts and tables</h3>
-                <p>Tables, task lists, callouts, toggles and footnotes, each from the slash menu or a shortcut.</p>
-              </div>
-              <div data-reveal style="--i:1">
-                <h3 class="h3">On your phone too</h3>
-                <p>Install Journal as an app on your phone, tablet or computer, in light or dark mode.</p>
-              </div>
+            <div class="stage-copy" data-reveal>
+              <h3 class="h3">Tasks, callouts and tables</h3>
+              <p>Tables, task lists, callouts, toggles and footnotes, each from the slash menu or a shortcut.</p>
             </div>
           </div>
-          <figure class="phone stage-phone" data-ui data-reveal style="--i:1">
-            <img class="only-light" src="/media/phone-note-light.webp" width="1170" height="2064" loading="lazy" alt="The same Trip plan note on a phone, from its title down to the table." />
-            <img class="only-dark" src="/media/phone-note-dark.webp" width="1170" height="2064" loading="lazy" alt="The Trip plan note on a phone in dark mode." />
-          </figure>
+          <div class="stage-side">
+            <figure class="phone stage-phone" data-ui data-reveal style="--i:1">
+              <img class="only-light" src="/media/phone-note-light.webp" width="1170" height="2064" loading="lazy" alt="The same Trip plan note on a phone, from its title down to the table." />
+              <img class="only-dark" src="/media/phone-note-dark.webp" width="1170" height="2064" loading="lazy" alt="The Trip plan note on a phone in dark mode." />
+            </figure>
+            <div class="stage-copy" data-reveal style="--i:2">
+              <h3 class="h3">On your phone too</h3>
+              <p>Install Journal as an app on your phone, tablet or computer, in light or dark mode.</p>
+            </div>
+          </div>
         </div>
 
-        <div class="pair">
-          <div class="pair-item" data-reveal>
-            <div class="moment-copy">
+        <div class="moments">
+            <div class="moment-copy math-copy" data-reveal>
               <h3 class="h3">Math and code</h3>
               <p>LaTeX equations, inline or as their own block, next to syntax-highlighted code.</p>
             </div>
-            <figure class="crop crop-math" data-ui>
+            <figure class="crop crop-math" data-ui data-reveal style="--i:1">
               <picture class="only-light">
                 <source media="(max-width: 599px)" srcset="/media/phone-math-light.webp" width="1170" height="2532" />
                 <img src="/media/feature-math-light.webp" width="926" height="934" loading="lazy" alt="A Physics revision note: a sentence with an inline lambda, the equation E equals h nu equals hc over lambda, and a short Python function." />
@@ -129,18 +128,17 @@
                 <img src="/media/feature-math-dark.webp" width="926" height="934" loading="lazy" alt="The Physics revision note in dark mode: an equation and a highlighted Python code block." />
               </picture>
             </figure>
-          </div>
-          <div class="pair-item" data-reveal style="--i:1">
-            <div class="moment-copy">
-              <h3 class="h3">Every earlier version</h3>
-              <p>Restore an earlier version of a note. It comes back as one edit, so a single undo puts things as they were.</p>
-            </div>
+            <div class="moment-history" data-reveal style="--i:2">
+              <div class="moment-copy">
+                  <h3 class="h3">Every earlier version</h3>
+                  <p>Restore an earlier version of a note. It comes back as one edit, so a single undo puts things as they were.</p>
+                </div>
             <figure class="crop crop-dialog" data-ui>
               <img class="only-light" src="/media/feature-history-light.webp" width="992" height="466" loading="lazy" alt="The Version history dialog for a Packing list note: two earlier versions, each with a word count, a preview and a Restore button." />
               <img class="only-dark" src="/media/feature-history-dark.webp" width="992" height="466" loading="lazy" alt="The Version history dialog in dark mode, with two earlier versions to restore." />
             </figure>
+            </div>
           </div>
-        </div>
 
         <div class="also">
           <h3 class="h3" data-reveal>Also in the editor</h3>
@@ -162,7 +160,7 @@
     <!-- Sharing: the public page itself -->
     <section class="section band-2" id="sharing" aria-labelledby="sharing-title">
       <div class="wrap">
-        <div class="section-head">
+        <div class="section-head head-split">
           <h2 class="h2" id="sharing-title" data-reveal>Share it, or publish it</h2>
           <p class="lede" data-reveal style="--i:1">Share a note with people you know, who can edit it with you. Or publish it from your own space as a clean public page.</p>
         </div>
@@ -206,7 +204,7 @@
         <div class="playground" data-ui data-reveal style="--i:1">
           <div class="pg-pane pg-source">
             <div class="pg-label"><span>Mermaid source</span><span>Edit me</span></div>
-            <textarea id="pg-input" aria-label="Mermaid diagram source, edit to redraw the preview" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" rows="6">graph LR
+            <textarea id="pg-input" aria-label="Mermaid diagram source, edit to redraw the preview" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="soft" rows="6">graph LR
   Write[Write offline] --> Sync[Sync encrypted]
   Sync --> Share[Share or publish]
   Write --> Agent[Agent adds a chart]</textarea>
@@ -221,26 +219,22 @@
 
     <!-- Agents: the teaser for /agents -->
     <section class="section" id="agents" aria-labelledby="agents-title">
-      <div class="wrap split">
+      <div class="wrap split agents-teaser">
         <div class="split-copy">
           <h2 class="h2" id="agents-title" data-reveal>Agents, only where you allow</h2>
           <p class="lede" data-reveal style="--i:1">Claude Code, Claude Desktop and Codex CLI can read and write your notes through the Journal MCP server. They see nothing until you grant a folder or a note.</p>
-          <figure class="ask-bubble" data-reveal style="--i:2">
+          <p data-reveal style="--i:2"><a class="btn btn-secondary" href="/agents">How agents work in Journal</a></p>
+        </div>
+        <div class="result-stage" data-reveal style="--i:1">
+          <figure class="ask-bubble">
             <figcaption>You ask</figcaption>
             <blockquote>Build a chart of my reading log as a live block.</blockquote>
           </figure>
-          <p data-reveal style="--i:3"><a class="btn btn-secondary" href="/agents">How agents work in Journal</a></p>
+          <figure class="crop crop-result" data-ui>
+            <img class="only-light" src="/media/agent-result-light.webp" width="1410" height="1074" loading="lazy" alt="What the agent wrote: the Reading log note with a React bar chart of books finished per month, January to June, and a Mermaid diagram from Pick to Read to Review." />
+            <img class="only-dark" src="/media/agent-result-dark.webp" width="1410" height="1074" loading="lazy" alt="The Reading log note the agent wrote, in dark mode, with its bar chart and Mermaid diagram." />
+          </figure>
         </div>
-        <figure class="crop crop-grants" data-ui data-reveal style="--i:1">
-          <picture class="only-light">
-            <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-light.webp" />
-            <img src="/media/agent-grants-light.webp" width="1162" height="492" loading="lazy" alt="Agent access in Journal's Settings: Main set to Read, Personal to None, Reading and Work to Read + write." />
-          </picture>
-          <picture class="only-dark">
-            <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-dark.webp" />
-            <img src="/media/agent-grants-dark.webp" width="1162" height="492" loading="lazy" alt="Agent access in dark mode, with a grant chosen for each folder." />
-          </picture>
-        </figure>
       </div>
     </section>
 
@@ -263,7 +257,7 @@
           <p class="lede" data-reveal style="--i:1">What people ask before they move their notes. Something missing? <a href="https://github.com/2002Bishwajeet/journal/issues">Ask on GitHub</a>.</p>
         </div>
         <div class="qa">
-          <div data-reveal><h3 class="h3">Do I need an account?</h3><p>Yes. Journal signs in with a Homebase identity, your own private space. Homebase is invite-only during its alpha, so <a href="https://homebase.id/sign-up">join its wait list</a>.</p></div>
+          <div data-reveal><h3 class="h3">Do I need an account?</h3><p>Yes. Journal signs in with a Homebase identity, your own private space. To get one, <a href="https://homebase.id/sign-up">join the Homebase wait list</a>.</p></div>
           <div data-reveal><h3 class="h3">Are my notes encrypted?</h3><p>The synced copy is encrypted. The copy on your device is not encrypted yet; passkey or passphrase unlock is in progress. Public notes are not encrypted, by design.</p></div>
           <div data-reveal><h3 class="h3">Can I move from Notion or Obsidian?</h3><p>Yes. Import a Notion Markdown &amp; CSV export or an Obsidian vault as a .zip in Settings → Data &amp; storage. Links, images, tags and callouts come with it.</p></div>
           <div data-reveal><h3 class="h3">Does AI see my notes?</h3><p>Agents connected through MCP see only the folders and notes you grant. The optional writing assistant runs on your device.</p></div>
