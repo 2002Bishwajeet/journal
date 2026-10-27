@@ -16,6 +16,19 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.41.0 (2026-10-27)
+
+### New
+
+- On a phone, Move to folder opens as a sheet from the bottom of the screen, and Version history opens as a full-screen sheet. Pull a sheet down to close it.
+
+### Fixed
+
+- On a phone, the line you type on stays above the toolbar and the keyboard.
+- On a phone, the last line of a note scrolls above the toolbar.
+- On a phone, the slash, emoji and note link menus move when the keyboard opens.
+- On iOS Safari, the text that you type just before you reload or leave the page stays in the note.
+
 ## 2.40.1 (2026-10-27)
 
 ### Fixed
