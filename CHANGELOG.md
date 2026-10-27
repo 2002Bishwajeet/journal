@@ -1,3 +1,32 @@
+## [2.41.1](https://github.com/2002Bishwajeet/journal/compare/v2.41.0...v2.41.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **editor:** stop adding images past Homebase's 25-payload limit ([#876](https://github.com/2002Bishwajeet/journal/issues/876)) ([b004821](https://github.com/2002Bishwajeet/journal/commit/b0048212af1e8ca0d7185dce1aa16849edd009b9))
+# [2.41.0](https://github.com/2002Bishwajeet/journal/compare/v2.40.1...v2.41.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **editor:** keep edits typed just before an iOS Safari unload ([#873](https://github.com/2002Bishwajeet/journal/issues/873)) ([a50f12a](https://github.com/2002Bishwajeet/journal/commit/a50f12a89a98d5fd63ff77b6647c61d66ad4eef1)), closes [#806](https://github.com/2002Bishwajeet/journal/issues/806)
+* **editor:** keep the caret and last lines clear of the mobile toolbar and keyboard ([#790](https://github.com/2002Bishwajeet/journal/issues/790)) ([707909f](https://github.com/2002Bishwajeet/journal/commit/707909f3f364aa2a4a020afe2b65678f9440f854))
+* **editor:** prune unload copies of notes never reopened ([#873](https://github.com/2002Bishwajeet/journal/issues/873)) ([18cf5de](https://github.com/2002Bishwajeet/journal/commit/18cf5de5f5c64bce50635b536d007eff96f45084))
+* **sheet:** fit above the iOS keyboard when Safari shrinks innerHeight too ([#823](https://github.com/2002Bishwajeet/journal/issues/823)) ([bb3f3bd](https://github.com/2002Bishwajeet/journal/commit/bb3f3bd72ae7e2582ce0d08c45d2e9ca0179e8dd))
+* **sheet:** focus the sheet, not its first control, on open; iOS drawer easing ([#823](https://github.com/2002Bishwajeet/journal/issues/823)) ([71f1fcf](https://github.com/2002Bishwajeet/journal/commit/71f1fcfbb5b396a792aed2aee50eb9377c98f2e9))
+* **sheet:** follow the iOS keyboard at once instead of transitioning bottom and max-height ([#823](https://github.com/2002Bishwajeet/journal/issues/823)) ([6abac7e](https://github.com/2002Bishwajeet/journal/commit/6abac7e84d568fa90dcb58cfe43bbcd8bb14dfc3))
+
+
+### Features
+
+* **mobile:** bottom and full-screen sheet primitive with drag to dismiss and keyboard avoidance ([#823](https://github.com/2002Bishwajeet/journal/issues/823)) ([cb8c747](https://github.com/2002Bishwajeet/journal/commit/cb8c747a98fd2a14c2e73f671f09374152ecabc3))
+## [2.40.1](https://github.com/2002Bishwajeet/journal/compare/v2.40.0...v2.40.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **ai:** docked panel step count, toolbar wrap and toast offset ([#840](https://github.com/2002Bishwajeet/journal/issues/840)) ([5dede82](https://github.com/2002Bishwajeet/journal/commit/5dede823779b368c8931594065bbfda5c83aa19d))
+* **editor:** one toolbar on an iPad in landscape ([b6065c3](https://github.com/2002Bishwajeet/journal/commit/b6065c3629d18450261cfb578eb418af3fccc5a5))
 # [2.40.0](https://github.com/2002Bishwajeet/journal/compare/v2.39.3...v2.40.0) (2026-10-27)
 
 

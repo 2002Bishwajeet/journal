@@ -530,6 +530,7 @@ Enforced minimums for all UI components. Do not go below these:
 - **Muted text opacity**: `text-muted-foreground/70` minimum when using opacity modifiers. Avoid `/50` or lower on text.
 - **Animation timing**: fast = `duration-100`, normal = `duration-200`, slow = `duration-300`. Avoid non-scale values like `duration-[75ms]`, `duration-[120ms]`, `duration-[150ms]`.
 - **Reduced motion**: global rule in `src/index.css` zeroes all CSS transitions/animations under `prefers-reduced-motion: reduce`. JS-driven animations should additionally check `useReducedMotion()`.
+- **Phone sheets** (#823): contextual actions and pickers are a bottom sheet or `ActionSheet`; forms are a full sheet; only short confirmations are a centred alert. Use `ResponsiveSheet` (`src/components/ui/responsive-sheet.tsx`) so desktop keeps the dialog. The primitive is `src/components/ui/sheet.tsx`: the grabber and header drag it down to close, it follows the iOS keyboard, and Back closes it.
 
 ## Testing
 

@@ -15,7 +15,8 @@ import { PGliteProvider } from "@/lib/yjs";
 import { flushPendingSaveOnTeardown } from "@/lib/yjs/flushPendingSave";
 import { registerPendingEditorWrite } from "@/lib/yjs/pendingEditorWrites";
 import { updateSearchIndexContent, savePendingImageUpload, savePendingImageDeletion, updateSyncStatus } from "@/lib/db";
-import { getNewId } from "@/lib/utils";
+import { getNewId, isTouchDevice } from "@/lib/utils";
+import { getCaretScrollDelta } from "@/lib/editor/keyboardOffset";
 import { prepareImageForUpload, UnsupportedImageError } from "@/lib/images/imageIngest";
 import { formatGuidId } from "@homebase-id/js-lib/helpers";
 import {
@@ -423,7 +424,31 @@ export function EditorProvider({
       editorProps: {
         attributes: {
           class:
-            "prose prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[calc(100vh-200px)] px-4 py-4 md:px-8",
+            "prose prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[calc(100dvh-200px)] px-4 py-4 md:px-8",
+        },
+        // ProseMirror's scrollMargin is a fixed number, but the keyboard and toolbar move.
+        // On a phone, keep the caret line clear of both inside the scroll container (#790).
+        handleScrollToSelection: (view) => {
+          if (!isTouchDevice()) return false;
+          const scroller = view.dom.closest<HTMLElement>(".overflow-y-auto");
+          const selection = window.getSelection();
+          if (!scroller || !selection?.rangeCount) return false;
+          // The range rect spans the line; an empty line has none, so use its block.
+          const range = selection.getRangeAt(0);
+          const lineRect =
+            range.getClientRects()[0] ??
+            (range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement)?.getBoundingClientRect();
+          if (!lineRect) return false;
+          const viewport = window.visualViewport;
+          const delta = getCaretScrollDelta(
+            lineRect.bottom,
+            scroller.getBoundingClientRect().bottom,
+            viewport ? viewport.offsetTop + viewport.height : window.innerHeight,
+            document.querySelector("[data-mobile-toolbar]")?.getBoundingClientRect().top ?? null,
+          );
+          if (delta === 0) return false;
+          scroller.scrollTop += Math.ceil(delta); // whole px: scrollTop rounds to the device pixel
+          return true;
         },
       },
       // Create the editor after mount, not during render. With

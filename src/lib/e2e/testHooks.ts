@@ -71,6 +71,65 @@ async function renderCard(...args: Parameters<JournalE2EHooks['renderCard']>): P
     return renderCardImage(...args);
 }
 
+type SheetProps = { open: boolean; onOpenChange: (open: boolean) => void };
+
+/** Renders `build` open over the app, outside the router; it removes itself once closed. */
+async function mountOpen(build: (props: SheetProps) => import('react').ReactElement): Promise<void> {
+    const { createRoot } = await import('react-dom/client');
+    const host = document.body.appendChild(document.createElement('div'));
+    const root = createRoot(host);
+    const render = (open: boolean) =>
+        root.render(
+            build({
+                open,
+                onOpenChange: (next) => {
+                    render(next);
+                    if (!next) setTimeout(() => { root.unmount(); host.remove(); }, 500);
+                },
+            }),
+        );
+    render(true);
+}
+
+/** Opens an ActionSheet (#823) over the app, which no screen uses yet. */
+async function showActionSheet(): Promise<void> {
+    const [{ createElement }, { ActionSheet }, { Pencil, Share2, Trash2 }] = await Promise.all([
+        import('react'),
+        import('@/components/ui/action-sheet'),
+        import('lucide-react'),
+    ]);
+    await mountOpen((props) =>
+        createElement(ActionSheet, {
+            ...props,
+            title: 'Note actions',
+            items: [
+                { label: 'Rename', icon: Pencil, action: () => {} },
+                { label: 'Share', icon: Share2, action: () => {} },
+                { label: 'Delete', icon: Trash2, action: () => {}, variant: 'destructive' },
+            ],
+        }),
+    );
+}
+
+/** Opens a bottom sheet (#823) with a body that scrolls and a text field in its footer, for the iOS Safari check. */
+async function showSheet(): Promise<void> {
+    const [{ createElement: h }, { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle }, { Input }] = await Promise.all([
+        import('react'),
+        import('@/components/ui/sheet'),
+        import('@/components/ui/input'),
+    ]);
+    const rows = Array.from({ length: 40 }, (_, i) => h('li', { key: i, className: 'py-3' }, `Row ${i + 1}`));
+    await mountOpen((props) =>
+        h(Sheet, props,
+            h(SheetContent, { variant: 'bottom', 'aria-describedby': undefined },
+                h(SheetHeader, null, h(SheetTitle, null, 'Sample sheet')),
+                h(SheetBody, null, h('ul', null, rows)),
+                h(SheetFooter, null, h(Input, { placeholder: 'Sheet field' })),
+            ),
+        ),
+    );
+}
+
 /** True while an edit is still queued for, or being written to, PGlite (the document and the editor's search-index write). */
 async function hasUnsavedEdits(): Promise<boolean> {
     const { PGliteProvider } = await import('@/lib/yjs/provider');
@@ -310,7 +369,7 @@ export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
 
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote }),
         writable: false,
         configurable: false,
         enumerable: false,
