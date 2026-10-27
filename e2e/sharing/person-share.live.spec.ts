@@ -101,7 +101,7 @@ test('a note shared with the outsider to view reaches only them, read-only, and 
     const editor = activeEditor(outsider.page);
     await expect(editor).toContainText(body, { timeout: 30_000 });
     await expect(editor).toHaveAttribute('contenteditable', 'false');
-    await expect(outsider.page.getByText('View only', { exact: true }).first()).toBeVisible();
+    await expect(outsider.page.getByText('View only', { exact: true }).locator('visible=true').first()).toBeVisible();
     await screenshotInBothThemes(outsider.page, (theme) => `person-share-viewer-note-${theme}.png`);
 
     // 3. The peer is in the owner's circle but not named: their pull doesn't find it.
