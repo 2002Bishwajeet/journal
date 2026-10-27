@@ -29,7 +29,7 @@ import { documentBroadcast } from '@/lib/broadcast';
 import { suspendLiveQueries } from '@/hooks/useLiveQuery';
 import type { SyncService } from '../SyncService';
 import type { SyncContext } from './context';
-import { hasChangesMissingFrom, mergeYjsDocuments, resolveNoteFolderId } from './merge';
+import { hasChangesMissingFrom, mergeYjsDocuments, ownersFolderId, resolveNoteFolderId } from './merge';
 import { isDismissedPeerNote } from './peerNotes';
 
 /** The part of a deleted file the handleDeleted* methods read; websocket headers satisfy it too. */
@@ -380,12 +380,11 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             // Notify the editor that the document was updated
             documentBroadcast.notifyDocumentUpdated(uniqueId);
         }
-        // Build local metadata from simplified content + groupId
-        const folderId = await resolveNoteFolderId(remoteFile.fileMetadata.appData.groupId);
-
-
         // Get existing document to preserve the created timestamp (if available)
         const existingDoc = await getSearchIndexEntry(uniqueId);
+        // Build local metadata from simplified content + groupId
+        const remoteFolderId = await resolveNoteFolderId(remoteFile.fileMetadata.appData.groupId);
+        const folderId = ownersFolderId(remoteFolderId, existingDoc?.metadata.folderId, isOwnNote);
         const existingCreated = existingDoc?.metadata.timestamps?.created;
         // Fallback to remote userDate if no local created timestamp exists
         const remoteTimestamp = new Date(
@@ -418,9 +417,11 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
 
         // Hash what the server holds, not the merged state: a merge that kept unpushed
         // local edits must not match the push's hash early-exit (#442).
-        const contentHash = remoteBlob ? await computeContentHash(updatedMetadata, remoteBlob) : undefined;
+        // A kept folder differs from the server's, so the next push puts it back there.
+        const contentHash = remoteBlob ? await computeContentHash({ ...updatedMetadata, folderId: remoteFolderId }, remoteBlob) : undefined;
         // Local edits the server lacks keep the note pending so the next push uploads them.
         const localAhead = existingRecord.syncStatus !== 'synced'
+            || folderId !== remoteFolderId
             || (!!mergedBlob && !!remoteBlob && hasChangesMissingFrom(mergedBlob, remoteBlob));
 
         // This header predates a header rewrite made here since it was fetched (a revoke

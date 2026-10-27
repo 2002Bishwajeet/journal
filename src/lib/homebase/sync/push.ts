@@ -27,7 +27,7 @@ import { ydocFromUpdates } from '@/lib/yjs/loadDoc';
 import type { FolderFile, SyncRecord, SyncProgress } from '@/types';
 import type { SyncService } from '../SyncService';
 import type { SyncContext } from './context';
-import { mergeYjsDocuments, resolveNoteFolderId } from './merge';
+import { mergeYjsDocuments, ownersFolderId, resolveNoteFolderId } from './merge';
 import { isViewOnly } from '../shareTargets';
 
 // When this tab last sent the owner an edit push, per note. In memory only: a reload may push once more (#746).
@@ -358,7 +358,9 @@ async function pushNoteNow(ctx: SyncContext, record: SyncRecord): Promise<void> 
                 }
                 // Merge only the content: keep the server's folder (#257), unless that
                 // folder no longer exists locally (#259, same orphan check as handleRemoteNote).
-                const serverFolderId = await resolveNoteFolderId(freshFile.fileMetadata.appData?.groupId);
+                const isOwnNote = !record.authorOdinId || record.authorOdinId === ctx.hostIdentity;
+                const serverFolderId = ownersFolderId(
+                    await resolveNoteFolderId(freshFile.fileMetadata.appData?.groupId), doc.metadata.folderId, isOwnNote);
                 const mergedMetadata = { ...doc.metadata, folderId: serverFolderId };
                 const result = await ctx.notesProvider.updateNote(
                     record.localId,

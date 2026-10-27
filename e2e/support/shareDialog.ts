@@ -50,6 +50,9 @@ export async function stopSharing(page: Page, title: string): Promise<void> {
     await expect(confirm).toBeHidden();
     // The footer's Stop sharing goes once the note is no longer shared
     await expect(shareDialog(page).getByRole('button', { name: 'Stop sharing', exact: true })).toHaveCount(0, { timeout: 30_000 });
-    await page.keyboard.press('Escape');
-    await expect(shareDialog(page)).toBeHidden();
+    // The dialog ignores Escape until the save that stopped sharing has finished
+    await expect(async () => {
+        await page.keyboard.press('Escape');
+        await expect(shareDialog(page)).toBeHidden({ timeout: 1_000 });
+    }).toPass({ timeout: 30_000 });
 }

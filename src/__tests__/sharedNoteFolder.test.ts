@@ -11,6 +11,7 @@ import { setTestDb } from './pgliteMock';
 import { upsertSearchIndex, getNotesForListByFolder } from '@/lib/db/queries';
 import { COLLABORATIVE_FOLDER_ID, MAIN_FOLDER_ID } from '@/lib/homebase/config';
 import { sharedNoteFolderId } from '@/lib/homebase/shareTargets';
+import { ownersFolderId } from '@/lib/homebase/sync/merge';
 
 const HOST = 'me.id';
 const OWN_SHARED = '20000000-0000-0000-0000-000000000001';
@@ -85,5 +86,20 @@ describe('sharedNoteFolderId', () => {
     it('keeps any other folder', () => {
         expect(sharedNoteFolderId(FOLDER)).toBe(FOLDER);
         expect(sharedNoteFolderId(MAIN_FOLDER_ID)).toBe(MAIN_FOLDER_ID);
+    });
+});
+
+describe('ownersFolderId', () => {
+    it("keeps the owner's note in its folder when a collaborator's save files it in the collaborative folder", () => {
+        expect(ownersFolderId(COLLABORATIVE_FOLDER_ID, FOLDER, true)).toBe(FOLDER);
+    });
+
+    it("leaves someone else's note in the collaborative folder", () => {
+        expect(ownersFolderId(COLLABORATIVE_FOLDER_ID, FOLDER, false)).toBe(COLLABORATIVE_FOLDER_ID);
+    });
+
+    it('takes any other folder from the server, and the server folder when there is none here', () => {
+        expect(ownersFolderId(MAIN_FOLDER_ID, FOLDER, true)).toBe(MAIN_FOLDER_ID);
+        expect(ownersFolderId(COLLABORATIVE_FOLDER_ID, undefined, true)).toBe(COLLABORATIVE_FOLDER_ID);
     });
 });

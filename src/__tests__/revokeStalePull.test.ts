@@ -135,7 +135,8 @@ describe('SyncService.handleRemoteNote after a revoke (#689)', () => {
         await svc.handleRemoteNote(sharedHeader(3000, 'v4'));
 
         const entry = await getSearchIndexEntry(NOTE_ID);
-        expect(entry?.metadata.folderId).toBe(COLLABORATIVE_FOLDER_ID);
         expect(entry?.metadata.isCollaborative).toBe(true);
+        // The owner's note stays in its folder (#682)
+        expect(entry?.metadata.folderId).toBe(MAIN_FOLDER_ID);
     });
 });
