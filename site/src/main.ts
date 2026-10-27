@@ -38,7 +38,7 @@ systemDark.addEventListener('change', (e) => {
   if (!storedTheme()) applyTheme(e.matches ? 'dark' : 'light');
 });
 
-// ---- Navigation: a hairline only once the page has scrolled; the phone menu closes on a pick ----
+// ---- Navigation: a tone step once the page has scrolled; the phone menu closes on a pick ----
 
 const nav = document.querySelector<HTMLElement>('.nav')!;
 const onScroll = () => nav.toggleAttribute('data-scrolled', window.scrollY > 8);

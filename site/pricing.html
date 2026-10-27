@@ -16,7 +16,7 @@
     <section class="page-hero" aria-labelledby="pricing-hero-title">
       <div class="wrap">
         <div class="page-hero-head">
-          <h1 class="display" id="pricing-hero-title" data-reveal>Free for what lives in your own space</h1>
+          <h1 class="display" id="pricing-hero-title" data-reveal>Free in your own space</h1>
           <p class="lede" data-reveal style="--i:1">Everything in Journal today costs nothing. A paid Pro plan for hosted extras is planned.</p>
         </div>
 
@@ -52,44 +52,65 @@
       </div>
     </section>
 
-    <!-- What Free covers: small pieces of the app, then the plain list -->
+    <!-- What Free covers: four parts of the app at their own size, then the rest as a list -->
     <section class="section band" aria-labelledby="free-title">
       <div class="wrap">
         <div class="section-head">
           <h2 class="h2" id="free-title" data-reveal>What Free covers</h2>
-          <p class="lede" data-reveal style="--i:1">All of it, today. Your notes live on your device and in your own Homebase space.</p>
+          <p class="lede" data-reveal style="--i:1">All of it, today: everything that lives on your device and in your own Homebase space. Pro is for hosted extras.</p>
         </div>
-        <div class="pieces" data-reveal>
-          <figure class="piece piece-sidebar" style="--ar: 0.767">
-            <img class="only-light" src="/media/free-sidebar-light.webp" width="480" height="626" loading="lazy" alt="Journal's sidebar: Search, and the folders Main, Personal, Reading and Work." />
-            <img class="only-dark" src="/media/free-sidebar-dark.webp" width="480" height="626" loading="lazy" alt="Journal's sidebar in dark mode, with four folders." />
+        <div class="cover-grid">
+          <figure class="cover" data-reveal>
+            <div class="crop cover-crop" data-ui style="--w: 288px">
+              <picture class="only-light">
+                <img src="/media/slash-menu-light.webp" width="576" height="586" loading="lazy" alt="The slash menu in a note: Heading 1, Task List, Toggle, Callout and Table." />
+              </picture>
+              <picture class="only-dark">
+                <img src="/media/slash-menu-dark.webp" width="576" height="586" loading="lazy" alt="The slash menu in dark mode." />
+              </picture>
+            </div>
+            <figcaption><strong>Writing</strong> Markdown shortcuts and a slash menu: tables, task lists, callouts, math and code.</figcaption>
           </figure>
-          <figure class="piece piece-slash" style="--ar: 0.983">
-            <img class="only-light" src="/media/free-slash-light.webp" width="576" height="586" loading="lazy" alt="The slash menu in a note: Heading 1, Task List, Toggle, Callout and Table." />
-            <img class="only-dark" src="/media/free-slash-dark.webp" width="576" height="586" loading="lazy" alt="The slash menu in dark mode." />
+          <figure class="cover" data-reveal style="--i:1">
+            <div class="crop cover-crop" data-ui style="--w: 411px">
+              <picture class="only-light">
+                <img src="/media/share-dialog-light.webp" width="822" height="526" loading="lazy" alt="The Share Note dialog for a private note, with a Make Note Public button." />
+              </picture>
+              <picture class="only-dark">
+                <img src="/media/share-dialog-dark.webp" width="822" height="526" loading="lazy" alt="The Share Note dialog in dark mode." />
+              </picture>
+            </div>
+            <figcaption><strong>Sharing and public pages</strong> With other Homebase identities and circles, who edit with you, or as a public page for anyone with the link.</figcaption>
           </figure>
-          <div class="piece-stack" style="--ar: 1.74">
-            <figure class="piece piece-wide">
-              <img class="only-light" src="/media/free-theme-light.webp" width="1162" height="316" loading="lazy" alt="The Theme setting: Light, Dark, or System." />
-              <img class="only-dark" src="/media/free-theme-dark.webp" width="1162" height="316" loading="lazy" alt="The Theme setting in dark mode: Light, Dark, or System." />
-            </figure>
-            <figure class="piece piece-wide">
-              <img class="only-light" src="/media/free-import-light.webp" width="1162" height="298" loading="lazy" alt="The Import setting: add Markdown files or a ZIP, such as an Obsidian vault or a Notion export, with an Import Archive button." />
-              <img class="only-dark" src="/media/free-import-dark.webp" width="1162" height="298" loading="lazy" alt="The Import setting in dark mode, with an Import Archive button." />
-            </figure>
-          </div>
+          <figure class="cover" data-reveal>
+            <div class="crop cover-crop" data-ui style="--w: 496px">
+              <picture class="only-light">
+                <img src="/media/feature-history-light.webp" width="992" height="466" loading="lazy" alt="The Version history dialog for a Packing list note: two earlier versions, each with a Restore button." />
+              </picture>
+              <picture class="only-dark">
+                <img src="/media/feature-history-dark.webp" width="992" height="466" loading="lazy" alt="The Version history dialog in dark mode." />
+              </picture>
+            </div>
+            <figcaption><strong>Version history</strong> Restore an earlier version as one edit you can undo.</figcaption>
+          </figure>
+          <figure class="cover" data-reveal style="--i:1">
+            <div class="crop cover-crop" data-ui style="--w: 581px">
+              <picture class="only-light">
+                <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-light.webp" width="1050" height="834" />
+                <img src="/media/agent-grants-light.webp" width="1162" height="492" loading="lazy" alt="Agent access in Journal's Settings: Main set to Read, Personal to None, Reading and Work to Read + write." />
+              </picture>
+              <picture class="only-dark">
+                <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-dark.webp" width="1050" height="834" />
+                <img src="/media/agent-grants-dark.webp" width="1162" height="492" loading="lazy" alt="Agent access in dark mode, with a grant chosen for each folder." />
+              </picture>
+            </div>
+            <figcaption><strong>Agents</strong> Claude Code, Claude Desktop and Codex CLI, in the folders you grant.</figcaption>
+          </figure>
         </div>
         <ul class="covers" data-reveal>
-          <li><strong>Writing</strong> Markdown shortcuts, a slash menu, tables, task lists, callouts, math and code.</li>
           <li><strong>Live blocks</strong> Mermaid, SVG, HTML and React that run in the note.</li>
           <li><strong>Encrypted sync</strong> Across your devices, with the app working offline.</li>
-          <li><strong>Sharing</strong> With other Homebase identities and circles, who edit with you.</li>
-          <li><strong>Public pages</strong> Publish a note from your own space for anyone with the link.</li>
-          <li><strong>Version history</strong> Restore an earlier version as one edit you can undo.</li>
           <li><strong>Import and export</strong> Notion and Obsidian in, markdown in a ZIP out.</li>
-          <li><strong>Organising</strong> Folders, tags, note links, daily notes and templates.</li>
-          <li><strong>Agents</strong> Claude Code, Claude Desktop and Codex CLI, in the folders you grant.</li>
-          <li><strong>Light and dark</strong> Install it as an app on any device, in either theme.</li>
         </ul>
       </div>
     </section>
@@ -108,7 +129,7 @@
       </div>
     </section>
 
-    <section class="cta-band band-2" aria-labelledby="pricing-close-title">
+    <section class="cta-band field" aria-labelledby="pricing-close-title">
       <div class="wrap cta-row">
         <h2 class="h2" id="pricing-close-title" data-reveal>Start on Free today</h2>
         <div class="ctas" data-reveal style="--i:1">

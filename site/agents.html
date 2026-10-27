@@ -13,16 +13,14 @@
   <!-- header -->
 
   <main id="main">
-    <!-- Hero: the claim, then the install beside its steps -->
+    <!-- Hero: the claim, then the install beside the grants it needs -->
     <section class="page-hero" aria-labelledby="agents-hero-title">
       <div class="wrap">
-        <div class="page-hero-head">
-          <h1 class="display" id="agents-hero-title" data-reveal>Give your agents a notebook</h1>
-          <p class="lede" data-reveal style="--i:1">The Journal MCP server lets Claude Code, Claude Desktop and Codex CLI read, search, create and edit your notes. They see only the folders and notes you grant, and nothing by default.</p>
-        </div>
-        <div class="install" data-reveal style="--i:2">
-          <div class="install-code">
-            <div class="code-panel">
+        <h1 class="display page-title" id="agents-hero-title" data-reveal>Give your agents a notebook</h1>
+        <div class="agents-hero">
+          <div class="agents-hero-copy">
+            <p class="lede" data-reveal style="--i:1">The Journal MCP server lets Claude Code, Claude Desktop and Codex CLI read, search, create and edit your notes. They see only the folders and notes you grant, and nothing by default.</p>
+            <div class="code-panel" data-reveal style="--i:2">
               <div class="code-head">
                 <span>Claude Code plugin</span>
                 <button class="copy-btn" type="button" data-copy="mcp-install">
@@ -31,19 +29,31 @@
                   <span class="copy-label">Copy</span>
                 </button>
               </div>
-              <pre><code id="mcp-install">/plugin marketplace add 2002Bishwajeet/journal
+              <pre tabindex="0" aria-label="Install commands"><code id="mcp-install">/plugin marketplace add 2002Bishwajeet/journal
 /plugin install journal@journal
 /journal:login you.dotyou.cloud</code></pre>
             </div>
-            <p class="small">Codex CLI and Claude Desktop run the same server from a checkout; the <a href="https://github.com/2002Bishwajeet/journal/blob/main/mcp/README.md">MCP setup guide</a> has their config.</p>
+            <p class="small" data-reveal style="--i:3">Codex CLI and Claude Desktop run the same server from a checkout; the <a href="https://github.com/2002Bishwajeet/journal/blob/main/mcp/README.md">MCP setup guide</a> has their config.</p>
           </div>
-          <div class="install-steps">
-            <h2 class="h3">Set up in Claude Code</h2>
-            <ol class="steps">
-              <li>Run the three commands, with your own identity in place of <code>you.dotyou.cloud</code>.</li>
-              <li>Approve ‘Journal MCP’ in your Homebase owner console, then run <code>/mcp</code> to reconnect.</li>
-              <li>In Journal, open Settings → Agent access and grant the folders it may use.</li>
-            </ol>
+          <div class="agents-hero-side" data-reveal style="--i:2">
+            <figure class="crop crop-grants" data-ui>
+              <picture class="only-light">
+                <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-light.webp" width="1050" height="834" />
+                <img src="/media/agent-grants-light.webp" width="1162" height="492" alt="Agent access in Journal's Settings: Main set to Read, Personal to None, Reading and Work to Read + write." />
+              </picture>
+              <picture class="only-dark">
+                <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-dark.webp" width="1050" height="834" />
+                <img src="/media/agent-grants-dark.webp" width="1162" height="492" alt="Agent access in dark mode, with a grant chosen for each folder." />
+              </picture>
+            </figure>
+            <div class="install-steps">
+              <h2 class="h3">Set up in Claude Code</h2>
+              <ol class="steps">
+                <li>Run the three commands, with your own identity in place of <code>you.dotyou.cloud</code>.</li>
+                <li>Approve ‘Journal MCP’ in your Homebase owner console, then run <code>/mcp</code> to reconnect.</li>
+                <li>In Journal, open Settings → Agent access and grant the folders it may use, as above.</li>
+              </ol>
+            </div>
           </div>
         </div>
       </div>
@@ -71,7 +81,7 @@
               <li>Use ~/Pictures/lisbon.jpg as the cover of my Trip plan note.</li>
             </ul>
           </div>
-          <figure class="crop" data-reveal style="--i:1">
+          <figure class="crop crop-result" data-ui data-reveal style="--i:1">
             <picture class="only-light">
               <source media="(max-width: 599px)" srcset="/media/phone-live-block-light.webp" width="1170" height="2532" />
               <img src="/media/agent-result-light.webp" width="1410" height="1074" loading="lazy" alt="The Reading log note: a React bar chart of books finished per month, January to June, and a Mermaid diagram from Pick to Read to Review." />
@@ -85,28 +95,24 @@
       </div>
     </section>
 
-    <!-- Access: the real Settings panel, on a computer and on a phone -->
+    <!-- Access: the rules, beside the same panel on a phone -->
     <section class="section" aria-labelledby="access-title">
-      <div class="wrap">
-        <div class="section-head">
+      <div class="wrap split access">
+        <div class="split-copy">
           <h2 class="h2" id="access-title" data-reveal>Access, folder by folder</h2>
           <p class="lede" data-reveal style="--i:1">In Settings → Agent access, set each folder or note to None, Read, or Read + write. The default is None.</p>
+          <ul class="facts" data-reveal style="--i:2">
+            <li><strong>Excluded notes stay out.</strong> A note marked ‘exclude from AI’ is never readable or writable, whatever its folder allows.</li>
+            <li><strong>Its own registration.</strong> The MCP server signs in as its own app on your identity, apart from the Journal web app, so you can revoke it on its own under Apps in your owner console.</li>
+            <li><strong>Grants are checked on your computer.</strong> The MCP server reads your grants and filters every tool call by them, in its own process where it runs.</li>
+          </ul>
         </div>
-        <figure class="crop access-stage" data-reveal>
-          <div class="access-desktop">
-            <img class="only-light" src="/media/agent-access-light.webp" width="1800" height="1280" loading="lazy" alt="Journal's Settings, Agent access: folders Main set to Read, Personal to None, Reading and Work to Read + write." />
-            <img class="only-dark" src="/media/agent-access-dark.webp" width="1800" height="1280" loading="lazy" alt="Settings, Agent access in dark mode, with a grant chosen for each folder." />
-          </div>
+        <figure class="crop access-stage" data-ui data-reveal style="--i:1">
           <div class="phone access-phone">
-            <img class="only-light" src="/media/phone-agent-access-light.webp" width="1170" height="2532" loading="lazy" alt="Agent access on a phone, with the same grant for each folder." />
-            <img class="only-dark" src="/media/phone-agent-access-dark.webp" width="1170" height="2532" loading="lazy" alt="Agent access on a phone in dark mode." />
+            <img class="only-light" src="/media/phone-agent-access-light.webp" width="1170" height="2532" loading="lazy" alt="Settings, Agent access on a phone: Main set to Read, Personal to None, Reading and Work to Read + write." />
+            <img class="only-dark" src="/media/phone-agent-access-dark.webp" width="1170" height="2532" loading="lazy" alt="Agent access on a phone in dark mode, with a grant chosen for each folder." />
           </div>
         </figure>
-        <ul class="facts" data-reveal>
-          <li><strong>Excluded notes stay out.</strong> A note marked ‘exclude from AI’ is never readable or writable, whatever its folder allows.</li>
-          <li><strong>Its own registration.</strong> The MCP server signs in as its own app on your identity, apart from the Journal web app, so you can revoke it on its own under Apps in your owner console.</li>
-          <li><strong>Grants are checked on your computer.</strong> The Journal MCP server enforces them where it runs.</li>
-        </ul>
       </div>
     </section>
 
@@ -159,21 +165,21 @@
           <h2 class="h2" id="publish-title" data-reveal>Then publish what it built</h2>
           <p class="lede" data-reveal style="--i:1">Live blocks an agent writes keep running when you publish the note as a public page, for anyone with the link.</p>
         </div>
-        <figure class="frame frame-page" data-reveal>
+        <figure class="frame frame-page" data-ui data-reveal>
           <picture class="only-light">
-            <source media="(max-width: 599px)" srcset="/media/phone-public-blocks-light.webp" width="1170" height="2532" />
-            <img src="/media/public-blocks-light.webp" width="2880" height="1800" loading="lazy" alt="A published note, Three days in Lisbon, read as a public page: the title, the byline, the first day and its Mermaid diagram from Castle to Alfama lanes to River lunch." />
+            <source media="(max-width: 599px)" srcset="/media/phone-public-blocks-light.webp" width="1170" height="1530" />
+            <img src="/media/public-blocks-light.webp" width="2880" height="1508" loading="lazy" alt="A published note, Three days in Lisbon, read as a public page: the title, the byline, the three days and the first day's Mermaid diagram from Castle to Alfama lanes to River lunch." />
           </picture>
           <picture class="only-dark">
-            <source media="(max-width: 599px)" srcset="/media/phone-public-blocks-dark.webp" width="1170" height="2532" />
-            <img src="/media/public-blocks-dark.webp" width="2880" height="1800" loading="lazy" alt="The published Three days in Lisbon note in dark mode, with its Mermaid diagram running on the public page." />
+            <source media="(max-width: 599px)" srcset="/media/phone-public-blocks-dark.webp" width="1170" height="1530" />
+            <img src="/media/public-blocks-dark.webp" width="2880" height="1508" loading="lazy" alt="The published Three days in Lisbon note in dark mode, with its Mermaid diagram running on the public page." />
           </picture>
         </figure>
       </div>
     </section>
 
     <!-- Close -->
-    <section class="cta-band band" aria-labelledby="agents-close-title">
+    <section class="cta-band field" aria-labelledby="agents-close-title">
       <div class="wrap cta-row">
         <h2 class="h2" id="agents-close-title" data-reveal>Connect your first agent</h2>
         <div class="ctas" data-reveal style="--i:1">
