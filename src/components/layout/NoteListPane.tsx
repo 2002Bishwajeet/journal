@@ -27,8 +27,7 @@ interface NoteListPaneProps {
   noteActions: ReturnType<typeof useNoteActions>;
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder: (note: NoteListEntry) => void;
-  onMarkCollaborative: (note: NoteListEntry) => void;
-  onEditSharing?: (note: NoteListEntry) => void;
+  onRemoveFromList: (note: NoteListEntry) => void;
 }
 
 /** Middle pane: the note list, or the Trash/Archive management views. */
@@ -49,8 +48,7 @@ export function NoteListPane({
   noteActions,
   onShareNote,
   onMoveToFolder,
-  onMarkCollaborative,
-  onEditSharing,
+  onRemoveFromList,
 }: NoteListPaneProps) {
   const backTo = useBackTo();
   const goBack = () => backTo("/");
@@ -121,8 +119,7 @@ export function NoteListPane({
           onDeleteNote={noteActions.deleteAndSelectNeighbour}
           onShareNote={onShareNote}
           onMoveToFolder={onMoveToFolder}
-          onMarkCollaborative={onMarkCollaborative}
-          onEditSharing={onEditSharing}
+          onRemoveFromList={onRemoveFromList}
           onArchive={noteActions.archive}
           isLoading={isListLoading}
           title={isDesktop ? undefined : viewLabel || "Notes"}

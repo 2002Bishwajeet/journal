@@ -258,4 +258,9 @@ describe('isViewOnly', () => {
         expect(isViewOnly({ odinIds: [VIEWER] }, VIEWER)).toBe(false);
         expect(isViewOnly({ authorOdinId: VIEWER, odinIds: [VIEWER] }, VIEWER)).toBe(false);
     });
+
+    it('is true for a member of a circle shared as viewers, unless another circle makes them an editor (#682)', () => {
+        expect(isViewOnly({ authorOdinId: OWNER, viewerRecipients: [VIEWER] }, VIEWER)).toBe(true);
+        expect(isViewOnly({ authorOdinId: OWNER, viewerRecipients: [VIEWER], recipients: [VIEWER] }, VIEWER)).toBe(false);
+    });
 });

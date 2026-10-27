@@ -2,13 +2,11 @@ import { test, expect, waitForAppReady } from '../fixtures';
 import type { Page } from '@playwright/test';
 import { createNote, typeInEditor, activeEditor, screenshotInBothThemes, foldersNav, selectFolder } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
+import { addToShare, openShareDialog, saveShare, shareDialog, stopSharing } from '../support/shareDialog';
 
-// Baseline for today's circle-share flow (#676), so #678's sharing rework and
-// #681's person sharing have a safety net. Docker tier only: the liveSharing
-// fixture needs the peer and outsider identities ci-bootstrap.ts sets up.
-
-// src/lib/homebase/config.ts's COLLABORATIVE_FOLDER_ID: a shared note moves there.
-const COLLABORATIVE_FOLDER_ID = 'fc360190-4e23-b870-0ea4-ef233aad98ad';
+// The circle-share flow (#676), through the one Share dialog (#682). Docker tier
+// only: the liveSharing fixture needs the peer and outsider identities
+// ci-bootstrap.ts sets up.
 
 /** Reload until `check` passes: a reload runs the app's sync pull, and nothing else signals that new data arrived. */
 async function reloadUntil(page: Page, check: () => Promise<void>): Promise<void> {
@@ -38,17 +36,15 @@ test('a note shared with a circle reaches its member but not an outsider', async
     test.setTimeout(360_000);
     const { owner, peer, outsider, circleName } = liveSharing;
 
-    // 1. The owner shares a new note in the run folder with the circle.
+    // 1. The owner shares a new note in the run folder with the circle, as editors.
     await createNote(owner.page, { title, body });
-    await noteRow(owner.page, title).click({ button: 'right' });
-    await owner.page.getByRole('menuitem', { name: 'Mark as Collaborative' }).click();
-    const dialog = owner.page.getByRole('dialog', { name: 'Mark as Collaborative' });
-    const circle = dialog.getByRole('button').filter({ hasText: circleName });
-    // Click at once, before the row's members load: the share resolves them itself.
-    await circle.click();
+    await openShareDialog(owner.page, title);
+    await addToShare(owner.page, circleName);
+    await expect(shareDialog(owner.page).getByRole('list', { name: 'People with access' })).toContainText(circleName);
     await screenshotInBothThemes(owner.page, (theme) => `circle-share-dialog-${theme}.png`);
-    await dialog.getByRole('button', { name: 'Share with 1 circle' }).click();
-    await expect(dialog).toBeHidden({ timeout: 30_000 });
+    await saveShare(owner.page);
+    // The note stays in the folder it was in.
+    await expect(noteRow(owner.page, title)).toBeVisible({ timeout: 30_000 });
 
     // 2. The peer finds it under "Shared with me", sees the body and edits it.
     await reloadUntil(peer.page, async () => {
@@ -57,18 +53,22 @@ test('a note shared with a circle reaches its member but not an outsider', async
     });
     await noteRow(peer.page, title).click();
     await expect(activeEditor(peer.page)).toContainText(body, { timeout: 30_000 });
+    // The peer's header says who shared it, by name, and nothing is an unknown circle.
+    await peer.page.getByRole('button', { name: 'Show who can access this note' }).click();
+    const access = peer.page.getByRole('list', { name: 'People with access' });
+    await expect(access).toContainText(owner.identity);
+    await expect(peer.page.getByText('Unknown circle')).toHaveCount(0);
+    await peer.page.keyboard.press('Escape');
     await screenshotInBothThemes(peer.page, (theme) => `circle-share-peer-note-${theme}.png`);
     await typeInEditor(peer.page, peerSentence);
 
     // 3. The owner sees the peer's sentence after reopening the note (realtime
-    // is not required). Bug: the owner's own shared notes are in no list (the
-    // sidebar hides their folder, and they leave the folder they were in), and
-    // step 5's "Revoke Collaboration" is only in a list row's menu, so this
-    // goes through the app's own folder route for them; the note stays open.
-    await owner.page.goto(`/${COLLABORATIVE_FOLDER_ID}`);
+    // is not required); the note is still in the run folder.
     await assertTestOrigin(owner.page);
     await reloadUntil(owner.page, () =>
         expect(activeEditor(owner.page)).toContainText(peerSentence.trim(), { timeout: 5_000 }));
+    await selectFolder(owner.page, liveRun.folderName);
+    await expect(noteRow(owner.page, title)).toBeVisible();
 
     // 4. The outsider is connected to the owner but in no circle, so is not a
     // recipient: by the time the peer had the note, the outsider has nothing,
@@ -86,19 +86,13 @@ test('a note shared with a circle reaches its member but not an outsider', async
     await selectFolder(owner.page, liveRun.folderName);
 });
 
-// The owner's revoke leaves the shared notes' folder and takes the note away from
-// the peer's "Shared with me" after the peer's next sync (#680).
-test('the owner revokes the share, and the peer no longer reaches the note', async ({ liveSharing }) => {
+// Stopping the share keeps the note in its folder and takes it away from the
+// peer's "Shared with me" after the peer's next sync (#680).
+test('the owner stops sharing, and the peer no longer reaches the note', async ({ liveRun, liveSharing }) => {
     const { owner, peer } = liveSharing;
-    await owner.page.goto(`/${COLLABORATIVE_FOLDER_ID}`);
-    await assertTestOrigin(owner.page);
-    await noteRow(owner.page, title).click({ button: 'right' });
-    await owner.page.getByRole('menuitem', { name: 'Revoke Collaboration' }).click();
-    const confirm = owner.page.getByRole('dialog', { name: 'Revoke Collaboration' });
-    await confirm.getByRole('button', { name: 'Revoke', exact: true }).click();
-    await expect(confirm).toBeHidden({ timeout: 30_000 });
-    // Revoking moves the note out of the shared notes' folder.
-    await expect(noteRow(owner.page, title)).toBeHidden({ timeout: 30_000 });
+    await selectFolder(owner.page, liveRun.folderName);
+    await stopSharing(owner.page, title);
+    await expect(noteRow(owner.page, title)).toBeVisible();
 
     // A reload runs the peer's sync pull, which receives the deleted invite.
     await reloadUntil(peer.page, async () => {

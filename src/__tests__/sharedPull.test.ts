@@ -30,7 +30,7 @@ vi.mock('@/lib/db', async (importOriginal) => {
 });
 
 import { pullShared, pullOwnerNow, SHARED_PULL_STATE_KEY } from '@/lib/homebase/sync/sharedPull';
-import { handleInvitation } from '@/lib/homebase/sync/peerNotes';
+import { dismissPeerNote, handleInvitation } from '@/lib/homebase/sync/peerNotes';
 import { getAppState, getSearchIndexEntry, getSyncRecord } from '@/lib/db';
 import type { SyncContext } from '@/lib/homebase/sync/context';
 import type { DotYouClient, HomebaseFile } from '@homebase-id/js-lib/core';
@@ -322,17 +322,17 @@ describe('pullOwnerNow', () => {
     });
 });
 
-describe('invite and pull', () => {
-    const invite = {
-        fileId: 'invite',
-        fileMetadata: {
-            senderOdinId: OWNER,
-            appData: {
-                content: { authorOdinId: OWNER, noteUniqueId: SHARED, noteTitle: 'T', notePreview: '', sharedAt: '2026-01-01T00:00:00.000Z' },
-            },
+const invite = {
+    fileId: 'invite',
+    fileMetadata: {
+        senderOdinId: OWNER,
+        appData: {
+            content: { authorOdinId: OWNER, noteUniqueId: SHARED, noteTitle: 'T', notePreview: '', sharedAt: '2026-01-01T00:00:00.000Z' },
         },
-    } as unknown as HomebaseFile<string>;
+    },
+} as unknown as HomebaseFile<string>;
 
+describe('invite and pull', () => {
     it('imports a note that arrives by pull and then by invite once', async () => {
         drives[OWNER] = [sharedNote()];
         const c = ctx();
@@ -351,6 +351,53 @@ describe('invite and pull', () => {
         await run(c);
 
         expect(c.notesProvider.getNote).toHaveBeenCalledTimes(1);
+        expect(await getSearchIndexEntry(SHARED)).not.toBeNull();
+    });
+});
+
+// #682: "Remove from my list" is a local delete that has to stick
+describe('a note the receiver removed from their list', () => {
+    const remove = async () => {
+        const entry = await getSearchIndexEntry(SHARED);
+        await dismissPeerNote(SHARED, OWNER, entry!.metadata);
+    };
+
+    it('stays out after a full pass and an invite', async () => {
+        drives[OWNER] = [sharedNote()];
+        const c = ctx();
+        await run(c);
+        await remove();
+
+        await run(c, true);
+        await handleInvitation(c, invite);
+
+        expect(await getSearchIndexEntry(SHARED)).toBeNull();
+        expect(await getSyncRecord(SHARED)).toBeNull();
+    });
+
+    it('comes back when the owner changes who it is shared with', async () => {
+        drives[OWNER] = [sharedNote()];
+        const c = ctx();
+        await run(c);
+        await remove();
+
+        drives[OWNER] = [note(SHARED, { isCollaborative: true, circleIds: ['circle-1', 'circle-2'] })];
+        await run(c, true);
+
+        expect(await getSearchIndexEntry(SHARED)).not.toBeNull();
+    });
+
+    it('comes back when the owner stops sharing it and shares it again', async () => {
+        drives[OWNER] = [sharedNote()];
+        const c = ctx();
+        await run(c);
+        await remove();
+
+        drives[OWNER] = [];
+        await run(c, true);
+        drives[OWNER] = [sharedNote()];
+        await run(c, true);
+
         expect(await getSearchIndexEntry(SHARED)).not.toBeNull();
     });
 });

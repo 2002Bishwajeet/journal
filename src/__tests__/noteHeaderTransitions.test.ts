@@ -35,15 +35,13 @@ import {
     JOURNAL_DRIVE,
     JOURNAL_FILE_TYPE,
     JOURNAL_DATA_TYPE,
-    COLLABORATIVE_FOLDER_ID,
-    MAIN_FOLDER_ID,
 } from '@/lib/homebase/config';
 
 const NOTE_ID = '33333333-3333-3333-3333-333333333333';
 const USER_DATE = 1690000000000;
 const KEY_HEADER = { encryptionVersion: 1, type: 'aes', iv: 'aXY=', encryptedAesKey: 'aXY=' };
 const fakeClient = fakeDotYouClient();
-const CIRCLE_SHARE = { circleIds: ['circle-1'], odinIds: [], recipients: ['friend.id'] };
+const CIRCLE_SHARE = { circleIds: ['circle-1'], odinIds: [], recipients: ['friend.id'], folderId: 'folder-7' };
 
 const CONTENT = {
     title: 'Dated Note',
@@ -203,7 +201,7 @@ describe('note header transitions (#161)', () => {
             expect(metadata).toEqual({
                 versionTag: 'v1',
                 allowDistribution: false,
-                appData: { ...appDataBase(COLLABORATIVE_FOLDER_ID), content: expect.any(String) },
+                appData: { ...appDataBase('folder-7'), content: expect.any(String) },
                 isEncrypted: true,
                 accessControlList: {
                     requiredSecurityGroup: SecurityGroupType.Connected,
@@ -229,7 +227,7 @@ describe('note header transitions (#161)', () => {
                 acl: { requiredSecurityGroup: SecurityGroupType.Connected, circleIdList: ['circle-1'] },
             }));
 
-            await expect(provider.revokeNoteCollaboration(NOTE_ID, 'me.id')).resolves.toEqual({ versionTag: 'v3', previousVersionTag: 'v1' });
+            await expect(provider.revokeNoteCollaboration(NOTE_ID, 'me.id', undefined, 'folder-7')).resolves.toEqual({ versionTag: 'v3', previousVersionTag: 'v1' });
 
             expect(mockReUpload).not.toHaveBeenCalled();
             const [, keyHeader, instructions, metadata] = mockPatchFile.mock.calls[0];
@@ -238,7 +236,7 @@ describe('note header transitions (#161)', () => {
             expect(metadata).toEqual({
                 versionTag: 'v1',
                 allowDistribution: false,
-                appData: { ...appDataBase(MAIN_FOLDER_ID), content: expect.any(String) },
+                appData: { ...appDataBase('folder-7'), content: expect.any(String) },
                 isEncrypted: true,
                 accessControlList: { requiredSecurityGroup: SecurityGroupType.Owner },
             });
@@ -255,7 +253,7 @@ describe('note header transitions (#161)', () => {
     it('makeNoteCollaborative with a person only uploads an odinIdList ACL and no circleIds', async () => {
         serveNote(noteHeader('object'));
 
-        await provider.makeNoteCollaborative(NOTE_ID, { circleIds: [], odinIds: ['sam.id'], recipients: [] }, 'me.id');
+        await provider.makeNoteCollaborative(NOTE_ID, { circleIds: [], odinIds: ['sam.id'], recipients: [], folderId: 'folder-7' }, 'me.id');
 
         const metadata = mockPatchFile.mock.calls[0][3];
         expect(metadata.accessControlList).toStrictEqual({ requiredSecurityGroup: SecurityGroupType.Connected, odinIdList: ['sam.id'] });
@@ -283,7 +281,7 @@ describe('note header transitions (#161)', () => {
             },
         } as ReturnType<typeof noteHeader>);
 
-        await provider.revokeNoteCollaboration(NOTE_ID, 'me.id');
+        await provider.revokeNoteCollaboration(NOTE_ID, 'me.id', undefined, 'folder-7');
 
         expect(JSON.parse(mockPatchFile.mock.calls[0][3].appData.content)).not.toHaveProperty('odinIds');
     });
@@ -373,7 +371,7 @@ describe('note header transitions (#161)', () => {
             );
             conflictOnce(() => { current = peerEdited(); });
 
-            await expect(provider.revokeNoteCollaboration(NOTE_ID, 'me.id')).resolves.toEqual({
+            await expect(provider.revokeNoteCollaboration(NOTE_ID, 'me.id', undefined, 'folder-7')).resolves.toEqual({
                 versionTag: 'v3',
                 previousVersionTag: 'v2',
                 previousUpdated: 2000,
@@ -383,7 +381,7 @@ describe('note header transitions (#161)', () => {
             const [, , instructions, metadata] = mockPatchFile.mock.calls[1];
             expect(instructions.versionTag).toBe('v2');
             expect(metadata.versionTag).toBe('v2');
-            expect(metadata.appData.groupId).toBe(MAIN_FOLDER_ID);
+            expect(metadata.appData.groupId).toBe('folder-7');
             expect(metadata.accessControlList).toEqual({ requiredSecurityGroup: SecurityGroupType.Owner });
             expect(JSON.parse(metadata.appData.content)).toMatchObject({ title: 'Peer title', isCollaborative: false });
         });
@@ -393,7 +391,7 @@ describe('note header transitions (#161)', () => {
             conflictOnce(() => {});
             conflictOnce(() => {});
 
-            await expect(provider.revokeNoteCollaboration(NOTE_ID, 'me.id')).rejects.toThrow('versionTagMismatch');
+            await expect(provider.revokeNoteCollaboration(NOTE_ID, 'me.id', undefined, 'folder-7')).rejects.toThrow('versionTagMismatch');
             expect(mockPatchFile).toHaveBeenCalledTimes(2);
         });
     });
@@ -445,7 +443,7 @@ describe('note header transitions (#161)', () => {
         ['makeNotePublic', () => provider.makeNotePublic(NOTE_ID), mockReUpload],
         ['makeNotePrivate', () => provider.makeNotePrivate(NOTE_ID), mockReUpload],
         ['makeNoteCollaborative', () => provider.makeNoteCollaborative(NOTE_ID, CIRCLE_SHARE, 'me.id'), mockPatchFile],
-        ['revokeNoteCollaboration', () => provider.revokeNoteCollaboration(NOTE_ID, 'me.id'), mockPatchFile],
+        ['revokeNoteCollaboration', () => provider.revokeNoteCollaboration(NOTE_ID, 'me.id', undefined, 'folder-7'), mockPatchFile],
     ] as const)('%s keeps a trashed note trashed', async (_name, run, writer) => {
         const header = noteHeader('object');
         (header.fileMetadata.appData as Record<string, unknown>).archivalStatus = 2;

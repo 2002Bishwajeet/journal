@@ -2,6 +2,7 @@ import { getDatabase } from '../pglite';
 import type { SearchIndexEntry, NoteListEntry, Folder, DocumentMetadata } from '@/types';
 import { proseOnly } from '@/lib/previewText';
 import { ACTIVE_NOTES_FILTER, NOTE_LIST_SELECT, MODIFIED_DESC } from './shared';
+import { COLLABORATIVE_FOLDER_ID, MAIN_FOLDER_ID } from '@/lib/homebase/config';
 
 export type NoteListRow = { doc_id: string; title: string; preview: string; metadata: DocumentMetadata };
 
@@ -64,12 +65,20 @@ const SHARED_WITH_ME_FILTER = `(metadata->>'isCollaborative')::boolean = true
     AND COALESCE(metadata->>'authorOdinId',
                  (SELECT sr.author_odin_id FROM sync_records sr WHERE sr.local_id = search_index.doc_id)) <> $1`;
 
+// Before #682 sharing moved the owner's note into the hidden collaborative folder: Main
+// lists those, the host's ($2) own notes only, until their sharing is next saved.
+const IN_FOLDER_FILTER = `(metadata->>'folderId' = $1
+    OR ($1 = '${MAIN_FOLDER_ID}' AND metadata->>'folderId' = '${COLLABORATIVE_FOLDER_ID}'
+        AND COALESCE(metadata->>'authorOdinId',
+                     (SELECT sr.author_odin_id FROM sync_records sr WHERE sr.local_id = search_index.doc_id),
+                     $2) = $2))`;
+
 export const NOTE_ROW_KEY = 'doc_id';
 export const FOLDER_ROW_KEY = 'id';
 
 export const NOTE_LIST_SQL = {
     active: `${NOTE_LIST_SELECT} WHERE ${ACTIVE_NOTES_FILTER} ${MODIFIED_DESC}`,
-    byFolder: `${NOTE_LIST_SELECT} WHERE metadata->>'folderId' = $1 AND ${ACTIVE_NOTES_FILTER} ${MODIFIED_DESC}`,
+    byFolder: `${NOTE_LIST_SELECT} WHERE ${IN_FOLDER_FILTER} AND ${ACTIVE_NOTES_FILTER} ${MODIFIED_DESC}`,
     collaborative: `${NOTE_LIST_SELECT} WHERE ${SHARED_WITH_ME_FILTER} AND ${ACTIVE_NOTES_FILTER} ${PINNED_THEN_MODIFIED}`,
     trashed: `${NOTE_LIST_SELECT} WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 2 ${MODIFIED_DESC}`,
     archived: `${NOTE_LIST_SELECT} WHERE COALESCE((metadata->>'archivalStatus')::int, 0) = 1 ${MODIFIED_DESC}`,
@@ -191,9 +200,9 @@ export async function getAllDocIdsByFolder(folderId: string): Promise<string[]> 
  * Lightweight query for the note list sidebar, filtered by folder.
  * Returns only title, a short preview, and metadata — NOT full content.
  */
-export async function getNotesForListByFolder(folderId: string): Promise<NoteListEntry[]> {
+export async function getNotesForListByFolder(folderId: string, hostOdinId = ''): Promise<NoteListEntry[]> {
     const db = await getDatabase();
-    const result = await db.query<NoteListRow>(NOTE_LIST_SQL.byFolder, [folderId]);
+    const result = await db.query<NoteListRow>(NOTE_LIST_SQL.byFolder, [folderId, hostOdinId]);
     return result.rows.map(toNoteListEntry);
 }
 
@@ -206,12 +215,12 @@ export async function getCollaborativeNotesForList(hostOdinId: string): Promise<
 /**
  * Everyone the host's own collaborative notes are shared with, trashed and archived
  * notes included (their ACL still lets the recipients in). Decides who stays in the
- * share circle (#730), or with `key` 'odinIds', in the viewers' circle (#897). A note
- * with no author is the host's.
+ * share circle (#730), or with `key` 'odinIds' (named) or 'viewerRecipients' (through a
+ * circle, #682), in the viewers' circle (#897). A note with no author is the host's.
  */
 export async function getRecipientsOfOwnNotes(
     hostOdinId: string,
-    key: 'recipients' | 'odinIds' = 'recipients',
+    key: 'recipients' | 'odinIds' | 'viewerRecipients' = 'recipients',
 ): Promise<string[]> {
     const db = await getDatabase();
     const result = await db.query<{ odin_id: string }>(

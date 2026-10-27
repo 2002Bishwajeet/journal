@@ -2,6 +2,7 @@ import { test, expect, waitForAppReady } from '../fixtures';
 import type { Page } from '@playwright/test';
 import { createNote, typeInEditor, activeEditor, screenshotInBothThemes, selectFolder } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
+import { addToShare, openShareDialog, saveShare, shareDialog, shareRole, stopSharing } from '../support/shareDialog';
 
 // Sharing a note read-only with a named person (#897). Needs owner servers with
 // odin-core #1993 (v0.1.966 on): run it on the demo tier (`npm run e2e:live` with
@@ -9,16 +10,12 @@ import { assertTestOrigin } from '../support/origin-guard';
 // the Docker tier (#677). The peer is in the owner's circle; the outsider is a
 // connection in no circle, so only a person share reaches them.
 
-// src/lib/homebase/config.ts's COLLABORATIVE_FOLDER_ID: a shared note moves there.
-const COLLABORATIVE_FOLDER_ID = 'fc360190-4e23-b870-0ea4-ef233aad98ad';
-
 // The notes list's row, not the editor's tab of the same title.
 function noteRow(page: Page, title: string) {
     return page.getByTestId('note-row').filter({ hasText: title });
 }
 
 const sharedWithMe = (page: Page) => page.getByRole('button', { name: /Shared with me/ });
-const shareDialog = (page: Page) => page.getByRole('dialog', { name: 'Mark as Collaborative' });
 
 /** "Refresh shared notes" runs the full shared pull, which also drops what is no longer shared. */
 async function refreshShared(page: Page) {
@@ -42,35 +39,13 @@ async function expectGoneFromSharedWithMe(page: Page, title: string) {
     }).toPass({ timeout: 180_000 });
 }
 
-async function addPerson(page: Page, identity: string) {
-    const field = shareDialog(page).getByLabel('Add a person (Homebase identity)');
-    await field.fill(identity);
-    await field.press('Enter');
-    await expect(shareDialog(page).getByRole('list', { name: 'People' })).toContainText(identity);
-}
-
-/** Submits the share dialog and closes the "Note shared" notice an owner-console drive shows. */
-async function submitShare(page: Page, label: string) {
-    await shareDialog(page).getByRole('button', { name: label }).click();
-    await expect(shareDialog(page)).toBeHidden({ timeout: 30_000 });
-    const readOnly = page.getByRole('dialog', { name: 'Note shared' });
-    if (await readOnly.isVisible()) await readOnly.getByRole('button', { name: 'Done' }).click();
-}
-
-/** Opens the owner's shared notes' folder and the note's context menu item. */
-async function openSharedNoteMenu(page: Page, title: string, item: string) {
-    await page.goto(`/${COLLABORATIVE_FOLDER_ID}`);
-    await assertTestOrigin(page);
-    await waitForAppReady(page);
-    await noteRow(page, title).click({ button: 'right' });
-    await page.getByRole('menuitem', { name: item }).click();
-}
-
-async function revoke(page: Page, title: string) {
-    await openSharedNoteMenu(page, title, 'Revoke Collaboration');
-    const confirm = page.getByRole('dialog', { name: 'Revoke Collaboration' });
-    await confirm.getByRole('button', { name: 'Revoke', exact: true }).click();
-    await expect(confirm).toBeHidden({ timeout: 30_000 });
+/** Presses Tab until `target` has focus: the keyboard-only way to reach a control. */
+async function tabTo(page: Page, target: ReturnType<Page['locator']>) {
+    for (let i = 0; i < 12; i++) {
+        if (await target.evaluate((el) => el === document.activeElement)) return;
+        await page.keyboard.press('Tab');
+    }
+    await expect(target).toBeFocused();
 }
 
 const header = (page: Page, docId: string) => page.evaluate((id) => window.__journalE2E!.noteHeader(id), docId);
@@ -86,14 +61,34 @@ test('a note shared with the outsider to view reaches only them, read-only, and 
     const title = `Person share ${stamp}`;
     const body = `Shared body ${stamp}`;
 
-    // 1. The owner shares a new note with the outsider only, by identity.
+    // 1. The owner shares a new note with the outsider only, keyboard only, on a 375px phone.
     await createNote(owner.page, { title, body });
     const docId = new URL(owner.page.url()).pathname.split('/').pop()!;
-    await noteRow(owner.page, title).click({ button: 'right' });
-    await owner.page.getByRole('menuitem', { name: 'Mark as Collaborative' }).click();
-    await addPerson(owner.page, outsider.identity);
+    await openShareDialog(owner.page, title);
+    const desktop = owner.page.viewportSize()!;
+    await owner.page.setViewportSize({ width: 375, height: 812 });
+    const dialog = shareDialog(owner.page);
+    await expect(dialog).toBeVisible();
+    const field = dialog.getByLabel('Add people or circles');
+    const addPersonByKeyboard = async () => {
+        await tabTo(owner.page, field);
+        await owner.page.keyboard.type(outsider.identity);
+        await expect(dialog.getByRole('option').filter({ hasText: outsider.identity })).toBeVisible({ timeout: 30_000 });
+        await owner.page.keyboard.press('Enter');
+        await expect(shareRole(owner.page, outsider.identity)).toBeVisible();
+    };
+    await addPersonByKeyboard();
+    // Remove them from their role menu: Editor is disabled for a person, so one ArrowDown is Remove
+    await tabTo(owner.page, shareRole(owner.page, outsider.identity));
+    await owner.page.keyboard.press('ArrowDown');
+    await expect(shareRole(owner.page, outsider.identity)).toHaveCount(0);
+    await addPersonByKeyboard();
+    expect(await dialog.evaluate((el) => el.scrollWidth - el.clientWidth), 'the sheet scrolls sideways').toBeLessThanOrEqual(0);
+    expect(await owner.page.evaluate(() => document.documentElement.scrollWidth), 'the page scrolls sideways').toBeLessThanOrEqual(375);
+    await screenshotInBothThemes(owner.page, (theme) => `person-share-dialog-${theme}-375.png`);
+    await owner.page.setViewportSize(desktop);
     await screenshotInBothThemes(owner.page, (theme) => `person-share-dialog-${theme}.png`);
-    await submitShare(owner.page, 'Share with 1 person');
+    await saveShare(owner.page);
 
     // 2. The outsider finds it under "Shared with me" and opens it read-only.
     await expectInSharedWithMe(outsider.page, title);
@@ -138,26 +133,28 @@ test('a note shared with the outsider to view reaches only them, read-only, and 
     expect(after?.acl?.odinIdList, 'the stored ACL lost odinIdList').toEqual([outsider.identity]);
 
     // 5. Stopping the share takes it out of the outsider's list after a sync.
-    await revoke(owner.page, title);
-    await expectGoneFromSharedWithMe(outsider.page, title);
-    // liveRun's page is shared with the specs that run after this one.
     await selectFolder(owner.page, liveRun.folderName);
+    await stopSharing(owner.page, title);
+    await expectGoneFromSharedWithMe(outsider.page, title);
 });
 
-test('a note shared with the circle to edit and the outsider to view reaches both, and only the circle edits', async ({ liveRun, liveSharing }) => {
+test('the outsider added to view a circle share reaches it, and only the circle edits', async ({ liveRun, liveSharing }) => {
     test.setTimeout(600_000);
     const { owner, peer, outsider, circleName } = liveSharing;
     const title = `Circle and person share ${stamp}`;
     const peerSentence = ` Peer was here ${stamp}.`;
 
-    // 1. The owner shares a new note with the circle and the outsider.
+    // 1. The owner shares a new note with the circle (Editor), then adds the outsider as a Viewer.
     await createNote(owner.page, { title, body: `Shared body ${stamp}` });
-    const docId = new URL(owner.page.url()).pathname.split('/').pop()!;
-    await noteRow(owner.page, title).click({ button: 'right' });
-    await owner.page.getByRole('menuitem', { name: 'Mark as Collaborative' }).click();
-    await shareDialog(owner.page).getByRole('button').filter({ hasText: circleName }).click();
-    await addPerson(owner.page, outsider.identity);
-    await submitShare(owner.page, 'Share with 1 circle and 1 person');
+    const notePath = new URL(owner.page.url()).pathname;
+    const docId = notePath.split('/').pop()!;
+    await openShareDialog(owner.page, title);
+    await addToShare(owner.page, circleName);
+    await expect(shareRole(owner.page, circleName)).toHaveValue('editor');
+    await saveShare(owner.page);
+    await openShareDialog(owner.page, title);
+    await addToShare(owner.page, outsider.identity, 'Viewer');
+    await saveShare(owner.page);
 
     // 2. Both get it: the peer can edit, the outsider can't.
     await expectInSharedWithMe(peer.page, title);
@@ -170,7 +167,7 @@ test('a note shared with the circle to edit and the outsider to view reaches bot
 
     // 3. The peer's update replaces the stored ACL with one without odinIdList
     // (odin-core#2002); the owner's next pull puts the outsider back.
-    await owner.page.goto(`/${COLLABORATIVE_FOLDER_ID}/${docId}`);
+    await owner.page.goto(notePath);
     await assertTestOrigin(owner.page);
     await expect(async () => {
         await owner.page.reload();
@@ -180,13 +177,14 @@ test('a note shared with the circle to edit and the outsider to view reaches bot
     }).toPass({ timeout: 180_000 });
 
     // 4. Taking the outsider off and keeping the circle: the outsider's list drops it, the peer keeps it.
-    await openSharedNoteMenu(owner.page, title, 'Edit Sharing');
-    await shareDialog(owner.page).getByRole('button', { name: `Remove ${outsider.identity}` }).click();
-    await submitShare(owner.page, 'Share with 1 circle');
+    await selectFolder(owner.page, liveRun.folderName);
+    await openShareDialog(owner.page, title);
+    await shareRole(owner.page, outsider.identity).selectOption('remove');
+    await expect(shareRole(owner.page, circleName)).toBeVisible();
+    await saveShare(owner.page);
     await expectGoneFromSharedWithMe(outsider.page, title);
     await expectInSharedWithMe(peer.page, title);
 
     // Clean up: stop sharing, so the peer's list doesn't grow run after run.
-    await revoke(owner.page, title);
-    await selectFolder(owner.page, liveRun.folderName);
+    await stopSharing(owner.page, title);
 });

@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures';
 import type { Page } from '@playwright/test';
 import { createNote, activeEditor, screenshotInBothThemes, selectFolder } from '../support/actions';
+import { addToShare, openShareDialog, saveShare } from '../support/shareDialog';
 
 // #732: the peer finds a shared note by pulling from the owner's drive, without
 // the owner's invite. Docker tier only, like circle-share.live.spec.ts.
@@ -23,15 +24,10 @@ test('"Refresh" in "Shared with me" finds a shared note without its invite', asy
     await peer.page.evaluate(() => window.__journalE2E!.ignoreInvites());
 
     await createNote(owner.page, { title, body });
-    await noteRow(owner.page, title).click({ button: 'right' });
-    await owner.page.getByRole('menuitem', { name: 'Mark as Collaborative' }).click();
-    const dialog = owner.page.getByRole('dialog', { name: 'Mark as Collaborative' });
-    await dialog.getByRole('button').filter({ hasText: circleName }).click();
-    await dialog.getByRole('button', { name: 'Share with 1 circle' }).click();
-    await expect(dialog).toBeHidden({ timeout: 30_000 });
-    // On an identity whose Journal drive another app owns, the same dialog stays open as "Note shared".
-    const readOnly = owner.page.getByRole('dialog', { name: 'Note shared' });
-    if (await readOnly.isVisible()) await readOnly.getByRole('button', { name: 'Done' }).click();
+    // On an identity whose Journal drive another app owns, the dialog stays open as "Note shared": saveShare closes it.
+    await openShareDialog(owner.page, title);
+    await addToShare(owner.page, circleName);
+    await saveShare(owner.page);
 
     const refresh = peer.page.getByRole('button', { name: 'Refresh shared notes' });
     await expect(async () => {

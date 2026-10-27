@@ -20,7 +20,7 @@ const CONNECTION_CHANGE_TYPES: NotificationType[] = ['connectionRequestAccepted'
 // The app shares one socket, and js-lib refuses a second subscriber with other drives: use useJournalWebsocket's
 const CONNECTION_DRIVES = [JOURNAL_DRIVE];
 
-async function getAllConnectionIds(client: DotYouClient): Promise<Set<string>> {
+export async function getAllConnectionIds(client: DotYouClient): Promise<Set<string>> {
     const ids = new Set<string>();
     let cursor: unknown;
     for (;;) {
