@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAppState, getSearchIndexEntry } from '@/lib/db';
+import { e2eSwitches } from '@/lib/e2e/switches';
 import { SESSION_STORAGE_KEY, readJson, writeJson } from '@/lib/storage';
 
 interface SessionState {
@@ -66,7 +67,11 @@ export function useSessionPersistence(): void {
     // Restore last viewed note on initial app load
     useEffect(() => {
         if (hasRestoredRef.current) return;
-        if (location.pathname !== '/') return;
+        if (location.pathname !== '/') {
+            // The user navigated before the restore applied; theirs wins.
+            hasRestoredRef.current = true;
+            return;
+        }
         // A query string means the URL already carries intent (a PWA shortcut,
         // a tag filter, a permission redirect) — restoring the last note would
         // race with (and override) whatever is handling it.
@@ -75,13 +80,20 @@ export function useSessionPersistence(): void {
             return;
         }
 
+        // Set by the cleanup when the user navigates while a read is pending.
+        let cancelled = false;
         const restoreSession = async () => {
             try {
                 const saved = loadSession() ?? await getAppState<SessionState>(LEGACY_SESSION_KEY);
+                if (cancelled) return;
                 if (saved?.lastNoteId && saved?.lastFolderId) {
                     // The note may have been archived, trashed or deleted since —
                     // land on its folder instead of "Note not found".
                     const entry = await getSearchIndexEntry(saved.lastNoteId);
+                    if (e2eSwitches.sessionRestoreDelayMs) {
+                        await new Promise((r) => setTimeout(r, e2eSwitches.sessionRestoreDelayMs));
+                    }
+                    if (cancelled) return;
                     const isActive = !!entry && !entry.metadata.archivalStatus;
                     navigate(
                         isActive ? `/${saved.lastFolderId}/${saved.lastNoteId}` : `/${saved.lastFolderId}`,
@@ -99,7 +111,10 @@ export function useSessionPersistence(): void {
 
         // Small delay to let the app initialize
         const timeout = setTimeout(restoreSession, 100);
-        return () => clearTimeout(timeout);
+        return () => {
+            cancelled = true;
+            clearTimeout(timeout);
+        };
     }, [location.pathname, location.search, navigate]);
 
     // Save current location to session

@@ -6,4 +6,6 @@ export const e2eSwitches = {
     ignoreInvites: false,
     /** Gets every event of the assistant's runs, for the AI eval (#706). */
     onAgentEvent: undefined as ((event: AgentEvent) => void) | undefined,
+    /** Hold the startup session restore this long after its index read, so a spec can tap first (#905). */
+    sessionRestoreDelayMs: 0,
 };
