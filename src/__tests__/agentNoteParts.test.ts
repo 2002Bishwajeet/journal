@@ -3,7 +3,7 @@
  * part at a time, and summarized part by part with one last call to combine.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { ANSWER_SCHEMA, FORMAT_FAILED, type AgentEngine, type AgentEvent, type AgentMessage } from '@/lib/agent/loop/agentLoop';
+import { ANSWER_SCHEMA, FORMAT_FAILED, MAX_TOKENS, type AgentEngine, type AgentEvent, type AgentMessage } from '@/lib/agent/loop/agentLoop';
 import { NOTE_PART_TOKENS, notePart, openNoteContext, outline, splitNote } from '@/lib/agent/loop/noteParts';
 import { isWholeNoteAsk, summarizeNote } from '@/lib/agent/loop/summarizeNote';
 import { estimatePrompt, estimateTokens, promptBudget } from '@/lib/agent/loop/trim';
@@ -137,6 +137,30 @@ describe('summarizeNote', () => {
             ...Array.from({ length: 5 }, (_, i) => ({ type: 'progress', message: `Reading part ${i + 1} of 5` })),
             { type: 'answer', answer: 'The whole review.' },
         ]);
+    });
+
+    it('should combine the summaries of a very long note in rounds, with every prompt inside the budget', async () => {
+        // 60 parts (~720,000 characters), each summary as long as a part reply may be.
+        const calls: { messages: AgentMessage[]; maxTokens: number }[] = [];
+        const engine: AgentEngine = {
+            generate: vi.fn(async (messages, { maxTokens }) => {
+                calls.push({ messages, maxTokens });
+                if (maxTokens === MAX_TOKENS) return JSON.stringify({ answer: 'The whole review.' });
+                const section = messages[1].content.match(/## (Section \d+)/)?.[1] ?? 'A group';
+                return JSON.stringify({ answer: `${section} covers the risks. `.padEnd(600, 'x') });
+            }),
+        };
+        const events: AgentEvent[] = [];
+
+        const answer = await summarizeNote({ title: 'Review', markdown: longNote(60, 45) }, 'summarize', { engine, onEvent: (e) => events.push(e) });
+
+        expect(answer).toBe('The whole review.');
+        expect(calls.filter((c) => c.messages[0].content.startsWith('You summarize one part'))).toHaveLength(60);
+        // More than one combine call, and only the last one gives the answer.
+        expect(calls.length).toBeGreaterThan(61);
+        expect(calls.filter((c) => c.maxTokens === MAX_TOKENS)).toEqual([calls.at(-1)]);
+        for (const call of calls) expect(estimatePrompt(call.messages)).toBeLessThanOrEqual(promptBudget(ANSWER_SCHEMA, call.maxTokens));
+        expect(events).toContainEqual({ type: 'progress', message: 'Combining the part summaries' });
     });
 
     it('should answer with the one summary when the note is a single part', async () => {
