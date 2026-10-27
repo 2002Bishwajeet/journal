@@ -658,12 +658,19 @@ try {
   await tapImage();
   const selectedAfterFirst = (await browser.execute(imageSelected)) as boolean;
   const firstTapShot = await screenshot('image-first-tap');
+  // What the second tap fires, to explain a viewer that does not open.
+  await browser.execute(() => {
+    const log: string[] = ((window as unknown as { __tapLog: string[] }).__tapLog = []);
+    for (const t of ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click', 'dblclick'])
+      document.addEventListener(t, (e) => log.push(`${t}:${(e.target as Element).tagName}:${(e as PointerEvent).pointerType ?? ''}`), true);
+  });
   await tapImage();
   const viewerOpened = await waitFor('the image viewer', viewerShown, 5_000).then(() => true, () => false);
   summary.push(`| image-tap-to-open | ${firstTapShot} | first tap selected the image: ${selectedAfterFirst}; second tap opened the viewer: ${viewerOpened} |`);
   if (!selectedAfterFirst) failures.push('image-viewer: the first tap did not select the image');
   if (!viewerOpened) {
-    failures.push('image-viewer: a tap on the selected image did not open the viewer');
+    const events = (await browser.execute(() => (window as unknown as { __tapLog: string[] }).__tapLog.join(' '))) as string;
+    failures.push(`image-viewer: a tap on the selected image did not open the viewer (events: ${events})`);
     await screenshot('image-second-tap');
   } else {
     await browser.pause(500); // its 200 ms fade in

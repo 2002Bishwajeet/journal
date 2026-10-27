@@ -63,28 +63,15 @@ test('a tap on the selected image opens a full-screen viewer under the notch tha
     await expect(img).toBeVisible();
     const noteUrl = page.url();
 
-    // The first tap selects the image (its toolbar shows); a tap on the selected image opens
-    // the viewer, like iOS Notes. "View full size" in the toolbar opens it too.
-    const fullSize = page.getByRole('button', { name: 'View full size' });
-    const viewerDialog = page.getByRole('dialog', { name: 'Journal logo' });
+    // The first tap selects the image; a tap on the selected image opens the viewer, like
+    // iOS Notes. "View full size" in the image's toolbar (always shown on touch) opens it too.
+    const viewer = page.getByRole('dialog', { name: 'Journal logo' });
     const selectedImage = activeEditor(page).locator('.ProseMirror-selectednode img[alt="Journal logo"]');
-    const selectImage = async () => {
-      // The image is inline, below the text: tap the start of the text, not the paragraph's middle.
-      await activeEditor(page).getByText('Image below.').tap({ position: { x: 4, y: 8 } });
-      await expect(selectedImage).toHaveCount(0);
-      await img.tap();
-      await expect(selectedImage).toBeVisible();
-      await expect(viewerDialog).toBeHidden();
-    };
-    const openViewer = async () => {
-      await selectImage();
-      await fullSize.tap();
-      await expect(viewerDialog).toBeVisible();
-      return viewerDialog;
-    };
-    await selectImage();
+    await expect(selectedImage).toHaveCount(0);
     await img.tap();
-    const viewer = viewerDialog;
+    await expect(selectedImage).toBeVisible();
+    await expect(viewer).toBeHidden();
+    await img.tap();
     await expect(viewer).toBeVisible();
     await expect.poll(async () => (await viewer.boundingBox())?.y).toBe(0);
     expect(await viewer.boundingBox()).toMatchObject({ x: 0, width: PHONE.width, height: PHONE.height });
@@ -112,14 +99,14 @@ test('a tap on the selected image opens a full-screen viewer under the notch tha
     expect(page.url()).toBe(noteUrl);
 
     // Back closes it and the note stays open
-    const again = await openViewer();
+    await page.getByRole('button', { name: 'View full size' }).tap();
+    await expect(viewer).toBeVisible();
     await page.goBack();
-    await expect(again).toBeHidden();
+    await expect(viewer).toBeHidden();
     expect(page.url()).toBe(noteUrl);
     await expect(activeTitleInput(page)).toBeVisible();
 
     // Edit: a full-screen editor with Cancel and Apply in its header
-    await selectImage();
     await page.getByRole('button', { name: 'Edit image' }).tap();
     const editor = page.getByRole('dialog', { name: 'Edit image' });
     await expect(editor).toBeVisible();
