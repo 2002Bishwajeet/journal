@@ -644,16 +644,16 @@ try {
   await waitFor('the pasted image', () => !!document.querySelector<HTMLImageElement>('.ProseMirror img[alt="Journal logo"]')?.complete);
   const viewerShown = () => !!document.querySelector('[role="dialog"] [data-testid="lightbox-zoom"]');
   const imageSelected = () => !!document.querySelector('.ProseMirror-selectednode img[alt="Journal logo"]');
-  // A real tap on the middle of the image, scrolled to the middle of the view.
-  const tapImage = async () => {
-    const [img] = await browser.$$('.ProseMirror img[alt="Journal logo"]');
-    await browser.execute((e) => e.scrollIntoView({ block: 'center' }), img);
-    await browser.pause(300);
-    await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: img, x: 0, y: 0 }).down().pause(50).up().perform();
-    await browser.pause(600);
-  };
-  await tapImage();
+  const image = '.ProseMirror img[alt="Journal logo"]';
+  await tap(image);
+  await browser.pause(600);
   const selectedAfterFirst = (await browser.execute(imageSelected)) as boolean;
+  // The tap brings up the keyboard, which shifts Safari's visual viewport under Appium's tap
+  // mapping; a finger has no such problem. Put it away (the image stays selected) before tapping again.
+  if (await browser.isKeyboardShown()) {
+    await browser.hideKeyboard().catch(() => {});
+    await waitFor('the keyboard to go', () => (visualViewport?.height ?? innerHeight) >= innerHeight - 5, 5_000).catch(() => {});
+  }
   const firstTapShot = await screenshot('image-first-tap');
   // What the second tap fires, to explain a viewer that does not open.
   await browser.execute(() => {
@@ -661,7 +661,7 @@ try {
     for (const t of ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click', 'dblclick'])
       document.addEventListener(t, (e) => log.push(`${t}:${(e.target as Element).tagName}.${String((e.target as Element).className).slice(0, 40)}:${(e as PointerEvent).pointerType ?? ''}`), true);
   });
-  await tapImage();
+  await tap(image);
   const viewerOpened = await waitFor('the image viewer', viewerShown, 5_000).then(() => true, () => false);
   summary.push(`| image-tap-to-open | ${firstTapShot} | first tap selected the image: ${selectedAfterFirst}; second tap opened the viewer: ${viewerOpened} |`);
   if (!selectedAfterFirst) failures.push('image-viewer: the first tap did not select the image');
