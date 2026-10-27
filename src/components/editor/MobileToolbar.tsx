@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
+import { useDeviceType } from "@/hooks/useDeviceType";
 import { ToolbarButton, ToolbarDivider, useToolbarState, safeEditorCommand } from "./shared";
 import { EmojiPicker } from "./EmojiPicker";
 import { TablePicker } from "./TablePicker";
@@ -61,6 +62,8 @@ export default function MobileToolbar({
   // Check if we're on a touch device
   const isTouchDevice =
     "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  // On desktop widths (an iPad in landscape) the editor page shows the full toolbar at the top
+  const isDesktop = useDeviceType() === "desktop";
 
   // Show while the editor (or a picker opened from this toolbar) has focus,
   // in every keyboard mode: the keyboard height is not a reliable signal.
@@ -79,7 +82,7 @@ export default function MobileToolbar({
     };
   }, [editor]);
 
-  const isVisible = isTouchDevice && hasFocus;
+  const isVisible = isTouchDevice && !isDesktop && hasFocus;
   useKeyboardOffset(isVisible);
 
   // Action handlers using safeEditorCommand
@@ -210,7 +213,7 @@ export default function MobileToolbar({
     input.click();
   };
 
-  // Don't render on non-touch devices or when the editor has no focus
+  // Don't render on non-touch devices, at desktop widths or when the editor has no focus
   if (!isVisible) return null;
 
   return (
