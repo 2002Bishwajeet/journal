@@ -1,3 +1,9 @@
+## [2.41.1](https://github.com/2002Bishwajeet/journal/compare/v2.41.0...v2.41.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **editor:** stop adding images past Homebase's 25-payload limit ([#876](https://github.com/2002Bishwajeet/journal/issues/876)) ([b004821](https://github.com/2002Bishwajeet/journal/commit/b0048212af1e8ca0d7185dce1aa16849edd009b9))
 # [2.41.0](https://github.com/2002Bishwajeet/journal/compare/v2.40.1...v2.41.0) (2026-10-27)
 
 

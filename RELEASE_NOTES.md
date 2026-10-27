@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.41.1 (2026-10-27)
+
+### Fixed
+
+- A note holds at most 24 images, which is what Homebase accepts. Adding more now shows a message ("This note holds at most 24 images. Split it, or link a new note.") instead of starting an upload that fails.
+
 ## 2.41.0 (2026-10-27)
 
 ### New
