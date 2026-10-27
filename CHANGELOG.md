@@ -1,3 +1,11 @@
+# [2.43.0](https://github.com/2002Bishwajeet/journal/compare/v2.42.0...v2.43.0) (2026-10-27)
+
+
+### Features
+
+* **mobile:** a light haptic when a long press opens a row menu ([#856](https://github.com/2002Bishwajeet/journal/issues/856)) ([21f2bfd](https://github.com/2002Bishwajeet/journal/commit/21f2bfdae959a4bfebf887e975fbd9e655a6b274))
+* **mobile:** native-feel e2e checks, warning haptic, reduced-motion settle, selectable sync errors ([#856](https://github.com/2002Bishwajeet/journal/issues/856)) ([ba0d90f](https://github.com/2002Bishwajeet/journal/commit/ba0d90fbe49fac27a813ad0640fd062667cdfbde))
+* **mobile:** native-feel pass on the app shell ([#856](https://github.com/2002Bishwajeet/journal/issues/856)) ([6f92bb4](https://github.com/2002Bishwajeet/journal/commit/6f92bb4615a396460003189847fd9ca84c4ab613))
 # [2.42.0](https://github.com/2002Bishwajeet/journal/compare/v2.41.1...v2.42.0) (2026-10-27)
 
 
