@@ -129,7 +129,7 @@ function EditForm({
           type="button"
           aria-pressed={ratio === value}
           onClick={() => pickRatio(value)}
-          className={cn(tool, sheet && "flex-none px-4", ratio === value && "bg-accent text-accent-foreground")}
+          className={cn(tool, sheet && "flex-auto px-3", ratio === value && "bg-accent text-accent-foreground")}
         >
           {label}
         </button>
