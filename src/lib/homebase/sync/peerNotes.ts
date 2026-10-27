@@ -290,6 +290,8 @@ export async function bootstrapCollaborativeNote(
         circleIds: content?.circleIds,
         odinIds: content?.odinIds,
         recipients: content?.recipients,
+        viewerCircleIds: content?.viewerCircleIds,
+        viewerRecipients: content?.viewerRecipients,
         lastEditedBy: content?.lastEditedBy,
         authorOdinId,
     };

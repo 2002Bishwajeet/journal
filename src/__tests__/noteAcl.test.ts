@@ -42,6 +42,17 @@ describe('noteAcl', () => {
         });
     });
 
+    it('a note shared with editor and viewer circles admits both (#682)', () => {
+        expect(noteAcl({ isCollaborative: true, circleIds: ['c1'], viewerCircleIds: ['c2'] })).toStrictEqual({
+            requiredSecurityGroup: SecurityGroupType.Connected,
+            circleIdList: ['c1', 'c2'],
+        });
+        expect(noteAcl({ isCollaborative: true, viewerCircleIds: ['c2'] })).toStrictEqual({
+            requiredSecurityGroup: SecurityGroupType.Connected,
+            circleIdList: ['c2'],
+        });
+    });
+
     it('a collaborative note naming no circle and no person is Owner-only', () => {
         expect(noteAcl({ isCollaborative: true, circleIds: [], odinIds: [] }))
             .toEqual({ requiredSecurityGroup: SecurityGroupType.Owner });

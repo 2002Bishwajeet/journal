@@ -8,6 +8,7 @@ import {
   Download,
   Users,
   Archive,
+  ListX,
   FolderInput,
   Globe,
   Pin,
@@ -55,8 +56,8 @@ interface NoteListProps {
   onDeleteNote: (docId: string) => void;
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder?: (note: NoteListEntry) => void;
-  onMarkCollaborative?: (note: NoteListEntry) => void;
-  onEditSharing?: (note: NoteListEntry) => void;
+  /** A receiver drops a note shared with them from this device (#682). */
+  onRemoveFromList?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
   isLoading?: boolean;
   className?: string;
@@ -79,8 +80,7 @@ export default function NoteList({
   onDeleteNote,
   onShareNote,
   onMoveToFolder,
-  onMarkCollaborative,
-  onEditSharing,
+  onRemoveFromList,
   onArchive,
   isLoading = false,
   className = "",
@@ -336,8 +336,7 @@ export default function NoteList({
                           onShareNote={onShareNote}
                           onMoveToFolder={onMoveToFolder}
                           onTogglePin={handleTogglePin}
-                          onMarkCollaborative={onMarkCollaborative}
-                          onEditSharing={onEditSharing}
+                          onRemoveFromList={onRemoveFromList}
                           onArchive={onArchive}
                         />
                       ))}
@@ -400,8 +399,7 @@ const NoteItem = memo(function NoteItem({
   onShareNote,
   onMoveToFolder,
   onTogglePin,
-  onMarkCollaborative,
-  onEditSharing,
+  onRemoveFromList,
   onArchive,
 }: {
   note: NoteListEntry;
@@ -413,8 +411,7 @@ const NoteItem = memo(function NoteItem({
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder?: (note: NoteListEntry) => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
-  onMarkCollaborative?: (note: NoteListEntry) => void;
-  onEditSharing?: (note: NoteListEntry) => void;
+  onRemoveFromList?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
 }) {
   const dotYouClient = useDotYouClientContext();
@@ -514,14 +511,12 @@ const NoteItem = memo(function NoteItem({
       icon: note.metadata.isPinned ? PinOff : Pin,
       action: () => onTogglePin(note.docId, !note.metadata.isPinned),
     },
-    {
-      label: "Share",
-      icon: Share2,
-      action: () => onShareNote(note),
-    },
-    // Collaborative notes live in the shared folder and notes from other people
-    // aren't ours to file: neither has a Move item.
-    ...(note.metadata.isCollaborative || isPeerNote || !onMoveToFolder
+    // One item for sharing with people and the public link (#682). Notes from other
+    // people aren't ours to share or to file: they have neither.
+    ...(isPeerNote
+      ? []
+      : [{ label: "Share…", icon: Share2, action: () => onShareNote(note) }]),
+    ...(isPeerNote || !onMoveToFolder
       ? []
       : [
           {
@@ -548,17 +543,9 @@ const NoteItem = memo(function NoteItem({
           "noopener,noreferrer",
         ),
     },
-    {
-      label: note.metadata.isCollaborative
-        ? "Revoke Collaboration"
-        : "Mark as Collaborative",
-      icon: Users,
-      action: () => onMarkCollaborative?.(note),
-      disabled: !onMarkCollaborative,
-    },
-    // Change who your shared note is shared with (#897)
-    ...(note.metadata.isCollaborative && !isPeerNote && onEditSharing
-      ? [{ label: "Edit Sharing", icon: Users, action: () => onEditSharing(note) }]
+    // A note shared with you leaves this device only; the owner's share is unchanged
+    ...(isPeerNote && onRemoveFromList
+      ? [{ label: "Remove from my list", icon: ListX, action: () => onRemoveFromList(note) }]
       : []),
     {
       label: "Archive",

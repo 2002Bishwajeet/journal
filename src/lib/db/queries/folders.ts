@@ -71,7 +71,10 @@ export async function isFolderPublic(id: string): Promise<boolean> {
     return result.rows[0]?.is_public === true;
 }
 
-/** The non-trashed notes in a folder whose public flag is not `isPublic`: what sharing or unsharing it changes. */
+/**
+ * The non-trashed notes in a folder whose public flag is not `isPublic`: what sharing or
+ * unsharing it changes. A note shared with people stays as it is (#682).
+ */
 export async function getFolderNotesToShare(folderId: string, isPublic: boolean): Promise<string[]> {
     const db = await getDatabase();
     const result = await db.query<{ doc_id: string }>(
@@ -79,6 +82,7 @@ export async function getFolderNotesToShare(folderId: string, isPublic: boolean)
          WHERE metadata->>'folderId' = $1
            AND COALESCE((metadata->>'archivalStatus')::int, 0) <> 2
            AND COALESCE((metadata->>'isPublic')::boolean, false) <> $2
+           AND COALESCE((metadata->>'isCollaborative')::boolean, false) = false
          ORDER BY (metadata->'timestamps'->>'modified') DESC`,
         [folderId, isPublic]
     );

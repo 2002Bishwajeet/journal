@@ -11,8 +11,8 @@ import { TocPanel } from "@/components/editor/TocPanel";
 import { FindReplaceBar } from "@/components/editor/FindReplaceBar";
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, History, MoreHorizontal, Minimize2 } from "lucide-react";
-import { CollaborativePopover } from '@/components/editor/CollaborativePopover';
+import { ChevronLeft, Globe, History, MoreHorizontal, Minimize2 } from "lucide-react";
+import { SharedAccessPopover } from '@/components/editor/SharedAccessPopover';
 import { LinkedMentions } from "@/components/editor/LinkedMentions";
 import {
   DropdownMenu,
@@ -83,13 +83,19 @@ function EditorLayout({
     excludeFromAI: selectedNoteMetadata?.excludeFromAI === true,
   });
 
+  const host = useDotYouClientContext().getHostIdentity();
   const collaborativePopover = selectedNoteMetadata?.isCollaborative ? (
-    <CollaborativePopover
-      circleIds={selectedNoteMetadata.circleIds}
-      recipients={selectedNoteMetadata.recipients}
-      lastEditedBy={selectedNoteMetadata.lastEditedBy}
-      lastEditedAt={selectedNoteMetadata.timestamps?.modified}
+    <SharedAccessPopover
+      noteId={noteId}
+      metadata={selectedNoteMetadata}
+      isOwner={!isPeerNote}
+      owner={isPeerNote ? selectedNoteMetadata.authorOdinId! : host}
     />
+  ) : selectedNoteMetadata?.isPublic ? (
+    <span className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+      <Globe className="h-3 w-3" aria-hidden />
+      Public
+    </span>
   ) : null;
   // A note shared with the host as a viewer (#897)
   const viewOnlyBadge = readOnly ? (

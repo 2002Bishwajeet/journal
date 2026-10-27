@@ -23,6 +23,9 @@ export interface DocumentMetadata {
     // editors (#736) would be a list of their own, so a stored note never changes meaning.
     odinIds?: string[];
     recipients?: string[];   // OdinIds of collaborators (from circle members)
+    // Circles shared with as viewers, and their members, who read but don't edit (#682)
+    viewerCircleIds?: string[];
+    viewerRecipients?: string[];
     lastEditedBy?: string;   // OdinId of last editor
     authorOdinId?: string;     // Identity that owns the note (for peer fetch)
 }
@@ -100,6 +103,8 @@ export interface NoteFileContent {
     circleIds?: string[];
     odinIds?: string[];      // Named viewers (#897)
     recipients?: string[];   // OdinIds of collaborators (from circle members)
+    viewerCircleIds?: string[]; // Circles shared with as viewers (#682)
+    viewerRecipients?: string[]; // Their members
     lastEditedBy?: string;
 }
 

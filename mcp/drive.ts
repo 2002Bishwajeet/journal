@@ -118,6 +118,8 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
             circleIds: content.circleIds,
             odinIds: content.odinIds,
             recipients: content.recipients,
+            viewerCircleIds: content.viewerCircleIds,
+            viewerRecipients: content.viewerRecipients,
             lastEditedBy: content.lastEditedBy,
         };
 

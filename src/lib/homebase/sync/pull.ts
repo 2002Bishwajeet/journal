@@ -337,6 +337,8 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             circleIds: content?.circleIds,
             odinIds: content?.odinIds,
             recipients: content?.recipients,
+            viewerCircleIds: content?.viewerCircleIds,
+            viewerRecipients: content?.viewerRecipients,
             lastEditedBy: content?.lastEditedBy,
         };
 
@@ -406,6 +408,8 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             circleIds: content?.circleIds,
             odinIds: content?.odinIds,
             recipients: content?.recipients,
+            viewerCircleIds: content?.viewerCircleIds,
+            viewerRecipients: content?.viewerRecipients,
             lastEditedBy: content?.lastEditedBy,
         };
 

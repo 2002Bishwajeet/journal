@@ -41,7 +41,7 @@ async function renderPane(flags: { isDesktop: boolean; isTablet: boolean }) {
         noteActions={{} as never}
         onShareNote={vi.fn()}
         onMoveToFolder={vi.fn()}
-        onMarkCollaborative={vi.fn()}
+        onRemoveFromList={vi.fn()}
       />
     </MemoryRouter>,
   ));

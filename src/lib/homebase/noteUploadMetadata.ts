@@ -26,7 +26,13 @@ const createdUserDate = (metadata: DocumentMetadata): number => {
  * people could be named (#897). With nothing named it would admit every connection, so
  * that is refused.
  */
-export function sharedAcl({ circleIds = [], odinIds = [] }: { circleIds?: string[]; odinIds?: string[] }): AccessControlList {
+export function sharedAcl({ circleIds = [], odinIds = [], viewerCircleIds = [] }: {
+    circleIds?: string[];
+    odinIds?: string[];
+    /** Circles shared with as viewers (#682): the ACL admits them like the editors' circles. */
+    viewerCircleIds?: string[];
+}): AccessControlList {
+    circleIds = [...circleIds, ...viewerCircleIds];
     if (circleIds.length === 0 && odinIds.length === 0) {
         throw new Error('A shared note must name at least one circle or person');
     }
@@ -42,13 +48,13 @@ export function sharedAcl({ circleIds = [], odinIds = [] }: { circleIds?: string
  * with its circles and named people; everything else stays Owner-only.
  */
 export function noteAcl(
-    metadata: Pick<DocumentMetadata, 'isPublic' | 'isCollaborative' | 'circleIds' | 'odinIds'>
+    metadata: Pick<DocumentMetadata, 'isPublic' | 'isCollaborative' | 'circleIds' | 'odinIds' | 'viewerCircleIds'>
 ): AccessControlList {
     if (metadata.isPublic) {
         return { requiredSecurityGroup: SecurityGroupType.Anonymous };
     }
-    if (metadata.isCollaborative && (metadata.circleIds?.length || metadata.odinIds?.length)) {
-        return sharedAcl({ circleIds: metadata.circleIds, odinIds: metadata.odinIds });
+    if (metadata.isCollaborative && (metadata.circleIds?.length || metadata.odinIds?.length || metadata.viewerCircleIds?.length)) {
+        return sharedAcl({ circleIds: metadata.circleIds, odinIds: metadata.odinIds, viewerCircleIds: metadata.viewerCircleIds });
     }
     return { requiredSecurityGroup: SecurityGroupType.Owner };
 }

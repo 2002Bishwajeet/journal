@@ -52,7 +52,6 @@ src/
 │   │   ├── table/              # TableColumnMenu, TableRowMenu
 │   │   ├── AIMenu.tsx          # AI rewrite dropdown
 │   │   ├── BubbleMenuToolbar.tsx
-│   │   ├── CollaborativePopover.tsx
 │   │   ├── EditorContext.tsx
 │   │   ├── EditorProvider.tsx  # Y.js doc init, extension config, image ingest, 2s debounced server save
 │   │   ├── EditorToolbar.tsx   # Desktop toolbar
@@ -64,6 +63,7 @@ src/
 │   │   ├── NoteCover.tsx       # Cover image (add, reposition, remove), plus an optional dark-mode cover
 │   │   ├── NoteLinkContext.tsx
 │   │   ├── PeerNoteFallback.tsx / peerNoteStatus.ts  # Collaborator-owned note states
+│   │   ├── SharedAccessPopover.tsx # Header "Shared" badge: who can open the note, owner's Manage…
 │   │   ├── TablePicker.tsx
 │   │   ├── TagInput.tsx
 │   │   ├── TextAlignPicker.tsx
@@ -84,10 +84,9 @@ src/
 │   │   ├── ExtendPermissionDialog.tsx
 │   │   ├── HistoryModal.tsx    # Version history list + restore (desktop toolbar, own notes only)
 │   │   ├── KeyboardShortcutsModal.tsx
-│   │   ├── MarkCollaborativeDialog.tsx
 │   │   ├── SearchModal.tsx     # Cmd+K full-text + fuzzy search
 │   │   ├── SettingsModal.tsx   # Re-exports components/settings/SettingsDialog
-│   │   ├── ShareDialog.tsx     # Publish/unpublish, link-card preview, description, indexing
+│   │   ├── ShareNoteDialog.tsx # One Share dialog (#682): people/circles with roles (share/SharePeopleSection, useShareAccess) + General access (share/ShareGeneralAccess: public link, card, indexing)
 │   │   ├── SignOutConfirmDialog.tsx
 │   │   └── WhatsNewDialog.tsx  # RELEASE_NOTES.md entries
 │   ├── OdinImage/              # Homebase payload/thumbnail/preview image rendering, pickLoadSize
@@ -676,7 +675,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 - Author index (#515): the same Function renders `/share/<identity>` (HTML, no client JS) and `/share/<identity>/sitemap.xml` from a guest `drive/query/batch` of the journal drive (`functions/_lib/authorIndex.ts`): every unencrypted, non-trashed note, newest first, up to 500. `card.indexable` ("Hide from search engines") only filters the sitemap; the page is `noindex` when no listed note is indexable. Cached like share meta; any failure is a 404, not the shell. The share header's "More notes" links there.
 - Shared folders (#618): Share folder / Stop sharing folder in a folder's context menu (`useFolderSharing`). The folder's `is_public` flag is local-first and syncs in the folder file (`FolderFile.isPublic`), which `FolderDriveProvider` stores Anonymous + unencrypted while shared (a flip re-uploads it). Sharing then makes each non-trashed note in it public one at a time, as the Share dialog does; a note created in a shared folder starts public (`newNoteShareFields`, `src/lib/share/sharedFolder.ts`: new note, templates, import, MCP `create_note`). No rule on pull; moves follow #622.
 - Folder page (#619): `/share/<identity>/f/<folderId>` is the same Function and renderer as the author index (`parseAuthorPath` kind `folder`, `fetchAuthorIndex(..., folderId)`, `buildAuthorIndexHtml` with `index.folder`): the folder's name from its guest-readable file (`cuid/header`, must be unencrypted and `isPublic`) and the notes query filtered by `groupId`, newest first. An unshared or unknown folder, or a bad id, is a 404. Cached 30 s (the list changes as notes move). A shared folder's context menu has Folder link (`FolderLinkDialog`, `folderShareUrl`) with copy and open. Specs: `e2e/edge/share-folder.spec.ts`.
-- Move to folder (#622): "Move to folder…" in a note's context menu (not for collaborative or other people's notes) opens `MoveToFolderDialog`; `useMoveNote` sets `metadata.folderId` locally, pushes (the update patch carries the new `groupId`), and applies `publicAfterMove` (`src/lib/share/sharedFolder.ts`: into a shared folder public, out of one into a private folder private, otherwise unchanged) through `setNoteShared` (`useFolderSharing.ts`). `useNoteActions.moveToFolder` makes the URL follow the open note. A push that hits a version conflict keeps the server's folder (#257), so a move racing a remote edit can be reverted.
+- Move to folder (#622): "Move to folder…" in a note's context menu (not for other people's notes; an own shared note keeps its share, but cannot go into a shared folder) opens `MoveToFolderDialog`; `useMoveNote` sets `metadata.folderId` locally, pushes (the update patch carries the new `groupId`), and applies `publicAfterMove` (`src/lib/share/sharedFolder.ts`: into a shared folder public, out of one into a private folder private, otherwise unchanged) through `setNoteShared` (`useFolderSharing.ts`). `useNoteActions.moveToFolder` makes the URL follow the open note. A push that hits a version conflict keeps the server's folder (#257), so a move racing a remote edit can be reverted.
 - Unlisted (#639): the Share dialog's "Show on my public page" off sets `shareUnlisted` in note metadata, published as `card.unlisted`. The Pages Function drops such a note from the author page, folder page and sitemap (`toIndexNote`; a folder whose notes are all unlisted is left out of the author page) and serves its own page `noindex` (`fetchShareMeta` folds it into `indexable`). Folder sharing and moves keep it. Specs: `e2e/edge/share-unlisted.spec.ts`, `e2e/folders/share-unlisted.spec.ts`.
 - Specs: `e2e/publishing/` and `e2e/edge/` (`npm run e2e:edge`, `wrangler pages dev` on `127.0.0.1:8788`).
 

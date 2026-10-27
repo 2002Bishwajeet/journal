@@ -4,7 +4,7 @@ import { assertTestOrigin } from '../support/origin-guard';
 
 // #617: making a note public that links to private notes asks about them first.
 // Hermetic, so this covers the question and its evidence; publishing itself needs a
-// real Homebase (the live tier) and the choices are covered by shareDialogMakePublic.test.ts.
+// real Homebase (the live tier) and the choices are covered by shareNoteDialogMakePublic.test.ts.
 
 test('making a note public that links to a private note lists it first', async ({ app }) => {
   await assertTestOrigin(app);

@@ -81,6 +81,10 @@ beforeAll(async () => {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
       is_public BOOLEAN NOT NULL DEFAULT FALSE
     );
+    CREATE TABLE IF NOT EXISTS sync_records (
+      local_id UUID PRIMARY KEY,
+      author_odin_id TEXT
+    );
   `);
 });
 afterAll(async () => { await db.close(); });
@@ -176,7 +180,7 @@ describe('NOTE_LIST_SQL.byFolder — folder-scoped live query', () => {
 
     let rows: NoteListRow[] = [];
     const lq = await db.live.incrementalQuery<NoteListRow>(
-      NOTE_LIST_SQL.byFolder, [FOLDER_A], NOTE_ROW_KEY, (res) => { rows = res.rows; }
+      NOTE_LIST_SQL.byFolder, [FOLDER_A, 'me.id'], NOTE_ROW_KEY, (res) => { rows = res.rows; }
     );
     expect(lq.initialResults.rows.map((r) => r.title)).toEqual(['InA']);
 

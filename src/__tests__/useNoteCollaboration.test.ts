@@ -153,7 +153,9 @@ describe('share', () => {
         expect(shared).toBe(true);
         expect(mocks.calls).toEqual(['flush', 'record', 'provider', 'circle', 'enroll', 'invite', 'unpublish', 'metadata']);
         expect(mocks.makeNoteCollaborative).toHaveBeenCalledWith(
-            'n1', { circleIds: ['c1', 'c2'], odinIds: [], recipients: ['a.id', 'b.id'] }, 'me.id', 'file-1', expect.any(Function),
+            'n1',
+            { circleIds: ['c1', 'c2'], odinIds: [], recipients: ['a.id', 'b.id'], viewerCircleIds: [], viewerRecipients: [], folderId: 'f1' },
+            'me.id', 'file-1', expect.any(Function),
         );
         expect(mocks.setNotePublic).toHaveBeenCalledWith({ docId: 'n1', isPublic: false });
         expect(mocks.updateNote).toHaveBeenCalledWith({
@@ -161,15 +163,17 @@ describe('share', () => {
             metadata: {
                 title: 'N',
                 isPublic: false,
-                folderId: 'collab',
+                folderId: 'f1',
                 isCollaborative: true,
                 circleIds: ['c1', 'c2'],
                 odinIds: undefined,
                 recipients: ['a.id', 'b.id'],
+                viewerCircleIds: undefined,
+                viewerRecipients: undefined,
                 lastEditedBy: 'me.id',
             },
         });
-        expect(mocks.toastSuccess).toHaveBeenCalledWith('Note is now collaborative');
+        expect(mocks.toastSuccess).toHaveBeenCalledWith('Note shared');
         await unmount();
     });
 
@@ -188,7 +192,9 @@ describe('share', () => {
 
         expect(mocks.fetchMembersOfCircle).toHaveBeenCalledTimes(2);
         expect(mocks.makeNoteCollaborative).toHaveBeenCalledWith(
-            'n1', { circleIds: ['c1', 'c2'], odinIds: [], recipients: ['a.id', 'b.id'] }, 'me.id', 'file-1', expect.any(Function),
+            'n1',
+            { circleIds: ['c1', 'c2'], odinIds: [], recipients: ['a.id', 'b.id'], viewerCircleIds: [], viewerRecipients: [], folderId: 'main' },
+            'me.id', 'file-1', expect.any(Function),
         );
         await unmount();
     });
@@ -243,7 +249,7 @@ describe('share', () => {
         expect(mocks.updateNote).toHaveBeenCalled();
         expect(mocks.toastError).toHaveBeenCalledWith('Review a.id in Homebase (Connections) so they can open shared notes.');
         expect(mocks.toastError).toHaveBeenCalledWith("b.id isn't connected to you, so they can't open shared notes.");
-        expect(mocks.toastSuccess).toHaveBeenCalledWith('Note is now collaborative');
+        expect(mocks.toastSuccess).toHaveBeenCalledWith('Note shared');
         await unmount();
     });
 
@@ -327,7 +333,9 @@ describe('share', () => {
 
         expect(shared).toBe(true);
         expect(mocks.makeNoteCollaborative).toHaveBeenCalledWith(
-            'n1', { circleIds: [], odinIds: ['sam.id'], recipients: [] }, 'me.id', 'file-1', expect.any(Function),
+            'n1',
+            { circleIds: [], odinIds: ['sam.id'], recipients: [], viewerCircleIds: [], viewerRecipients: [], folderId: 'f1' },
+            'me.id', 'file-1', expect.any(Function),
         );
         expect(mocks.ensureShareCircle).not.toHaveBeenCalled();
         expect(mocks.enroll).not.toHaveBeenCalled();
@@ -350,6 +358,7 @@ describe('share', () => {
         expect(mocks.enrollViewers).toHaveBeenCalledWith(['b.id', 'sam.id']);
         expect(mocks.makeNoteCollaborative.mock.calls[0][1]).toEqual({
             circleIds: ['c1', 'c2'], odinIds: ['b.id', 'sam.id'], recipients: ['a.id', 'b.id'],
+            viewerCircleIds: [], viewerRecipients: [], folderId: 'main',
         });
         await unmount();
     });
@@ -387,6 +396,7 @@ describe('share', () => {
         await act(async () => { await api().share('n1', { circles: [CIRCLES[0]], odinIds: [] }); });
 
         expect(mocks.getRecipientsOfOwnNotes).toHaveBeenCalledWith('me.id', 'odinIds');
+        expect(mocks.getRecipientsOfOwnNotes).toHaveBeenCalledWith('me.id', 'viewerRecipients');
         expect(mocks.unenrollViewers).toHaveBeenCalledWith(['sam.id']);
         expect(mocks.unenroll).not.toHaveBeenCalled();
         expect(mocks.updateNote.mock.calls[0][0].metadata).toMatchObject({ circleIds: ['c1'], odinIds: undefined });
@@ -413,26 +423,89 @@ describe('share', () => {
         expect(shared).toBe(false);
         expect(mocks.sendSharePush).not.toHaveBeenCalled();
         expect(mocks.updateNote).not.toHaveBeenCalled();
-        expect(mocks.toastError).toHaveBeenCalledWith('Failed to make note collaborative');
+        expect(mocks.toastError).toHaveBeenCalledWith('Failed to share the note');
+        await unmount();
+    });
+});
+
+describe('share: folders and viewer circles (#682)', () => {
+    it('keeps the note in its folder', async () => {
+        mocks.notes = [note('n1', { folderId: 'f1' })];
+        const { api, unmount } = await mountHook();
+        await act(async () => { await api().share('n1', { circles: CIRCLES, odinIds: [] }); });
+
+        expect(mocks.makeNoteCollaborative.mock.calls[0][1]).toMatchObject({ folderId: 'f1' });
+        expect(mocks.updateNote.mock.calls[0][0].metadata).toMatchObject({ folderId: 'f1' });
+        await unmount();
+    });
+
+    it('writes Main for a note shared into the hidden collaborative folder before', async () => {
+        mocks.notes = [note('n1', { folderId: 'collab', isCollaborative: true, circleIds: ['c1'], recipients: ['a.id', 'b.id'] })];
+        const { api, unmount } = await mountHook();
+        await act(async () => { await api().share('n1', { circles: CIRCLES, odinIds: [] }); });
+
+        expect(mocks.makeNoteCollaborative.mock.calls[0][1]).toMatchObject({ folderId: 'main' });
+        expect(mocks.updateNote.mock.calls[0][0].metadata).toMatchObject({ folderId: 'main' });
+        await unmount();
+    });
+
+    it("enrolls a viewer circle's members as viewers, and an editor circle wins for someone in both", async () => {
+        mocks.notes = [note('n1', { folderId: 'f1' })];
+        const { api, unmount } = await mountHook();
+        await act(async () => {
+            await api().share('n1', { circles: [CIRCLES[1]], viewerCircles: [CIRCLES[0]], odinIds: [] });
+        });
+
+        // c2 (editors) has b.id; c1 (viewers) has a.id and b.id
+        expect(mocks.enroll).toHaveBeenCalledWith(['b.id']);
+        expect(mocks.enrollViewers).toHaveBeenCalledWith(['a.id']);
+        expect(mocks.makeNoteCollaborative.mock.calls[0][1]).toEqual({
+            circleIds: ['c2'], odinIds: [], recipients: ['b.id'], viewerCircleIds: ['c1'], viewerRecipients: ['a.id'], folderId: 'f1',
+        });
+        expect(mocks.updateNote.mock.calls[0][0].metadata).toMatchObject({
+            circleIds: ['c2'], viewerCircleIds: ['c1'], viewerRecipients: ['a.id'], recipients: ['b.id'],
+        });
+        await unmount();
+    });
+
+    it('shares with a viewer circle alone, without the share circle', async () => {
+        const { api, unmount } = await mountHook();
+        let shared = false;
+        await act(async () => { shared = (await api().share('n1', { circles: [], viewerCircles: [CIRCLES[0]], odinIds: [] })).shared; });
+
+        expect(shared).toBe(true);
+        expect(mocks.ensureShareCircle).not.toHaveBeenCalled();
+        expect(mocks.enrollViewers).toHaveBeenCalledWith(['a.id', 'b.id']);
+        await unmount();
+    });
+
+    it('unenrolls viewer-circle members the share dropped', async () => {
+        mocks.notes = [note('n1', {
+            folderId: 'f1', isCollaborative: true, viewerCircleIds: ['c1'], viewerRecipients: ['a.id', 'b.id'], recipients: [],
+        })];
+        const { api, unmount } = await mountHook();
+        await act(async () => { await api().share('n1', { circles: [], odinIds: ['sam.id'] }); });
+
+        expect(mocks.unenrollViewers).toHaveBeenCalledWith(['a.id', 'b.id']);
         await unmount();
     });
 });
 
 describe('revoke', () => {
-    it('revokes collaboration and moves the note back to Main', async () => {
+    it('stops sharing and keeps the note in its folder (#682)', async () => {
         const { api, unmount } = await mountHook();
-        await act(async () => api().revoke(note('s', { folderId: 'shared', recipients: ['a.id'] })));
+        await act(async () => api().revoke(note('s', { folderId: 'f1', recipients: ['a.id'] })));
 
-        expect(mocks.revokeNoteCollaboration).toHaveBeenCalledWith('s', 'me.id', ['a.id']);
+        expect(mocks.revokeNoteCollaboration).toHaveBeenCalledWith('s', 'me.id', ['a.id'], 'f1');
         expect(mocks.updateNote).toHaveBeenCalledWith({
             docId: 's',
             metadata: expect.objectContaining({
-                folderId: 'main',
+                folderId: 'f1',
                 isCollaborative: false,
                 lastEditedBy: 'me.id',
             }),
         });
-        expect(mocks.toastSuccess).toHaveBeenCalledWith('Collaboration revoked');
+        expect(mocks.toastSuccess).toHaveBeenCalledWith('Sharing stopped');
         await unmount();
     });
 
@@ -443,7 +516,7 @@ describe('revoke', () => {
 
         expect(mocks.unenroll).toHaveBeenCalledWith(['a.id']);
         expect(mocks.calls.indexOf('unenroll')).toBeGreaterThan(mocks.calls.indexOf('metadata'));
-        expect(mocks.toastSuccess).toHaveBeenCalledWith('Collaboration revoked');
+        expect(mocks.toastSuccess).toHaveBeenCalledWith('Sharing stopped');
         await unmount();
     });
 
@@ -484,7 +557,7 @@ describe('revoke', () => {
         await act(async () => api().revoke(note('s', { folderId: 'shared' })));
 
         expect(mocks.updateNote).not.toHaveBeenCalled();
-        expect(mocks.toastError).toHaveBeenCalledWith('Failed to revoke collaboration');
+        expect(mocks.toastError).toHaveBeenCalledWith('Failed to stop sharing');
         await unmount();
     });
 });

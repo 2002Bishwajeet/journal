@@ -18,13 +18,20 @@ export function useMoveNote() {
 
     return async (docId: string, toFolderId: string): Promise<boolean> => {
         const entry = await getSearchIndexEntry(docId);
-        if (!entry || entry.metadata.isCollaborative) return false;
+        // Your own shared notes move like any other (#682); other people's aren't yours to file
+        const author = entry?.metadata.authorOdinId;
+        if (!entry || (author && author !== dotYouClient.getHostIdentity())) return false;
         const fromFolderId = entry.metadata.folderId;
         if (fromFolderId === toFolderId) return false;
 
         const [from, to] = await Promise.all([getFolderById(fromFolderId), getFolderById(toFolderId)]);
         if (!to) {
             toast.error("Couldn't move note: that folder no longer exists");
+            return false;
+        }
+        // A shared folder makes its notes public, and a public note can't also be shared with people
+        if (to.isPublic && entry.metadata.isCollaborative) {
+            toast.error(`Stop sharing the note with people before you move it to ${to.name}.`);
             return false;
         }
         const isPublic = publicAfterMove(from, to, entry.metadata.isPublic);

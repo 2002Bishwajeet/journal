@@ -189,6 +189,8 @@ async function sharedContent(ctx: SyncContext, file: HomebaseFile, owner: string
     if (content?.isCollaborative !== true) return null;
     const forHost = content.recipients?.includes(ctx.hostIdentity)
         || content.odinIds?.includes(ctx.hostIdentity)
-        || (content.circleIds?.length ?? 0) > 0;
+        || content.viewerRecipients?.includes(ctx.hostIdentity)
+        || (content.circleIds?.length ?? 0) > 0
+        || (content.viewerCircleIds?.length ?? 0) > 0;
     return forHost ? content : null;
 }

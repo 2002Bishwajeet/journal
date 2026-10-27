@@ -33,19 +33,13 @@ import { Kbd } from "@/components/ui/kbd";
 import {
   CreateFolderModal,
   SearchModal,
-  ConfirmDialog,
   KeyboardShortcutsModal,
   ExtendPermissionDialog,
 } from "@/components/modals";
 import MoveToFolderDialog from "@/components/modals/MoveToFolderDialog";
 
 const SettingsModal = lazy(() => import("@/components/modals/SettingsModal"));
-const ShareDialog = lazy(() => import("@/components/modals/ShareDialog"));
-const MarkCollaborativeDialog = lazy(() =>
-  import("@/components/modals/MarkCollaborativeDialog").then((m) => ({
-    default: m.MarkCollaborativeDialog,
-  })),
-);
+const ShareNoteDialog = lazy(() => import("@/components/modals/ShareNoteDialog"));
 import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
 import { useNotes } from "@/hooks/useNotes";
@@ -142,9 +136,6 @@ export default function JournalLayout() {
   const settings = useSettingsOpener();
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [folderToRename, setFolderToRename] = useState<string | null>(null);
-  const [collaborativeNote, setCollaborativeNote] =
-    useState<NoteListEntry | null>(null);
-  const [revokeNote, setRevokeNote] = useState<NoteListEntry | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [shareNote, setShareNote] = useState<NoteListEntry | null>(null);
   const [moveNote, setMoveNote] = useState<NoteListEntry | null>(null);
@@ -167,7 +158,7 @@ export default function JournalLayout() {
     notes,
     createNote,
     openSearch: setShowSearch,
-    openCollaborate: setCollaborativeNote,
+    openCollaborate: setShareNote,
   });
 
   const selectedTag = searchParams.get("tag");
@@ -186,7 +177,7 @@ export default function JournalLayout() {
     closeTab,
     handleTabClose,
   });
-  const { revoke: revokeCollaboration } = useNoteCollaboration();
+  const { removeFromMyList } = useNoteCollaboration();
 
   // Focus mode hides all chrome to spotlight the editor; management views have
   // no editor, so its effect is suppressed there (otherwise: blank screen).
@@ -368,14 +359,10 @@ export default function JournalLayout() {
         noteActions={noteActions}
         onShareNote={setShareNote}
         onMoveToFolder={setMoveNote}
-        onMarkCollaborative={(note) => {
-          if (note.metadata.isCollaborative) {
-            setRevokeNote(note);
-          } else {
-            setCollaborativeNote(note);
-          }
+        onRemoveFromList={(note) => {
+          if (openTabs.some((t) => t.docId === note.docId)) handleTabClose(note.docId);
+          void removeFromMyList(note);
         }}
-        onEditSharing={setCollaborativeNote}
       />
 
       <EditorPane
@@ -462,11 +449,12 @@ export default function JournalLayout() {
 
       {shareNote && (
         <Suspense fallback={null}>
-          <ShareDialog
+          <ShareNoteDialog
             isOpen={!!shareNote}
             onClose={() => setShareNote(null)}
             noteId={shareNote.docId}
             noteTitle={shareNote.title || "Untitled"}
+            inSharedFolder={folders.some((f) => f.id === shareNote.metadata.folderId && f.isPublic)}
           />
         </Suspense>
       )}
@@ -484,33 +472,6 @@ export default function JournalLayout() {
         />
       )}
 
-      {collaborativeNote && (
-        <Suspense fallback={null}>
-          <MarkCollaborativeDialog
-            isOpen={!!collaborativeNote}
-            onClose={() => {
-              setCollaborativeNote(null);
-              requestAnimationFrame(() => {
-                (document.getElementById("main-content") as HTMLElement | null)?.focus();
-              });
-            }}
-            noteId={collaborativeNote.docId}
-            noteTitle={collaborativeNote.title || "Untitled"}
-            circleIds={collaborativeNote.metadata.circleIds}
-            odinIds={collaborativeNote.metadata.odinIds}
-          />
-        </Suspense>
-      )}
-
-      <ConfirmDialog
-        isOpen={!!revokeNote}
-        onClose={() => setRevokeNote(null)}
-        title="Revoke Collaboration"
-        description={`This will remove circle access to "${revokeNote?.title || "Untitled"}" and move it out of the shared folder — it will no longer be accessible to collaborators.`}
-        confirmText="Revoke"
-        variant="destructive"
-        onConfirm={() => revokeCollaboration(revokeNote)}
-      />
       <KeyboardShortcutsModal
         isOpen={showKeyboardHelp}
         onClose={() => setShowKeyboardHelp(false)}
