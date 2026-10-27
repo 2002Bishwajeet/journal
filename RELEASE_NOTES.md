@@ -16,6 +16,13 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.45.0 (2026-10-27)
+
+### Changed
+
+- On a phone, an image opens in a full-screen viewer. Swipe down to close it. The Close and Download buttons stay below the status bar.
+- On a phone, the image editor fills the screen. Cancel and Apply are in the top bar. The crop handles and the tools are bigger, to touch with a finger.
+
 ## 2.44.1 (2026-10-27)
 
 ### Fixed

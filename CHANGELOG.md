@@ -1,3 +1,17 @@
+# [2.45.0](https://github.com/2002Bishwajeet/journal/compare/v2.44.1...v2.45.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **images:** open the viewer on the touchend of a tap on the selected image; iOS Safari fires no click there ([#829](https://github.com/2002Bishwajeet/journal/issues/829)) ([470fd24](https://github.com/2002Bishwajeet/journal/commit/470fd24b8f4c017514dc958b04e1ff8a04680ac6))
+* **images:** the crop ratios fill the editor's row on a phone, so 16:9 stays inside the gutter at 375 px ([#829](https://github.com/2002Bishwajeet/journal/issues/829)) ([f4e554c](https://github.com/2002Bishwajeet/journal/commit/f4e554cc1c5050e4193ddb89d6189e42b4057e10))
+
+
+### Features
+
+* **ai:** eval set for agent tool-call success per model ([#706](https://github.com/2002Bishwajeet/journal/issues/706)) ([97bd122](https://github.com/2002Bishwajeet/journal/commit/97bd1221ac7b63144c04ad08406c68f1d15f6e8a))
+* **images:** a tap on the selected image opens the viewer on a phone; iOS check swipes it closed ([#829](https://github.com/2002Bishwajeet/journal/issues/829)) ([e66b64f](https://github.com/2002Bishwajeet/journal/commit/e66b64f4b38bf2b10ab11c5ea34b0d937717519e))
+* **images:** full-screen image viewer with swipe down to close, and a full-screen image editor on phones ([#829](https://github.com/2002Bishwajeet/journal/issues/829)) ([63a3ace](https://github.com/2002Bishwajeet/journal/commit/63a3ace24208d20a7149747a9ca9e47f4e454aac))
 ## [2.44.1](https://github.com/2002Bishwajeet/journal/compare/v2.44.0...v2.44.1) (2026-10-27)
 
 
