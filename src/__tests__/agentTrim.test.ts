@@ -3,6 +3,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { AGENT_TOOLS, MAX_TOKENS, formatToolResult, turnSchema } from '@/lib/agent/loop/agentLoop';
+import { notePart } from '@/lib/agent/loop/noteParts';
 import { CONTEXT_WINDOW, estimatePrompt, estimateTokens, trimToBudget, type AgentMessage } from '@/lib/agent/loop/trim';
 
 const budget = CONTEXT_WINDOW - MAX_TOKENS - estimateTokens(JSON.stringify(turnSchema(AGENT_TOOLS)));
@@ -12,7 +13,7 @@ const request: AgentMessage = { role: 'user', content: 'Summarise my garden note
 function history(steps: number): AgentMessage[] {
     return Array.from({ length: steps }, (_, i) => {
         const markdown = `Note ${i}. `.repeat(2000).slice(0, 10_000);
-        const result = formatToolResult('get_note', { data: { id: `note-${i}`, title: `Note ${i}`, markdown } });
+        const result = formatToolResult({ data: notePart({ id: `note-${i}`, title: `Note ${i}`, markdown }, 1) });
         return [
             { role: 'assistant' as const, content: JSON.stringify({ tool: 'get_note', args: { id: `note-${i}` } }) },
             { role: 'user' as const, content: `Result of get_note: ${result}` },
@@ -21,9 +22,9 @@ function history(steps: number): AgentMessage[] {
 }
 
 describe('trimToBudget', () => {
-    it('should cut a 10 KB note to 1,500 characters with its length', () => {
+    it('should give the first ~1,500 characters of a 10 KB note with its part count (#797)', () => {
         const [, result] = history(1);
-        expect(result.content).toContain('… (truncated, 10000 characters)');
+        expect(result.content).toContain('"part":1,"parts":7');
         expect(result.content.length).toBeLessThan(1700);
     });
 

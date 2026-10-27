@@ -17,6 +17,9 @@ const SHORT_RESULT = 200;
 
 export const estimateTokens = (text: string) => Math.ceil(text.length / 3);
 
+/** What the prompt may take: the window less the reply and the JSON Schema the grammar is given. */
+export const promptBudget = (schema: object, maxTokens: number) => CONTEXT_WINDOW - maxTokens - estimateTokens(JSON.stringify(schema));
+
 export const estimatePrompt = (messages: AgentMessage[]) =>
     messages.reduce((sum, m) => sum + estimateTokens(m.content) + MESSAGE_OVERHEAD, 0);
 

@@ -114,6 +114,8 @@ function applyEvent(steps: AgentStep[], event: AgentEvent): AgentStep[] {
       );
     case "toolResult":
       return steps.map((step, i) => (i === last ? { ...describeResult(step, event.tool, event.result, event.note), open: false } : step));
+    case "progress":
+      return [...steps, { before: event.message, after: "" }];
     case "error": {
       const failed = { before: `Could not finish a step: ${event.error.replace(/: [0-9a-f-]{36}$/i, "")}`, after: "", failed: true as const };
       // A tool that throws fails its own step; a bad reply from the model is a step of its own.
@@ -129,7 +131,8 @@ function applyEvent(steps: AgentStep[], event: AgentEvent): AgentStep[] {
 /**
  * Agent chat for the ChatBot panel: per-note history, command autocomplete, and a
  * request that `runAgent` answers by calling the notes tools on this device. The open
- * note's id and title ride along as context; the model reads its body with `get_note`.
+ * note's id, title, part count and outline ride along as context; the model reads its body
+ * with `get_note`, a part at a time. A whole-note ask on a long note goes to `summarizeNote`.
  * `ChatBot.tsx` only renders.
  */
 export function useAgentSession(activeNoteId: string | undefined) {
@@ -203,30 +206,37 @@ export function useAgentSession(activeNoteId: string | undefined) {
     let failure: string | undefined;
     let content: string;
     try {
-      const [{ runAgent, MAX_TOOL_STEPS }, { approveEdit }, { createLocalWriteDeps }, { createAgentEngine }] =
-        await Promise.all([
-          import("@/lib/agent/loop/agentLoop"),
-          import("@/lib/agent/approveEdit"),
-          import("@/lib/agent/local/localWriteDeps"),
-          import("@/lib/webllm"),
-        ]);
-      // A note kept from AI is not even named to the model.
-      const entry = activeNoteId ? await getSearchIndexEntry(activeNoteId) : null;
-      const context = entry && !entry.metadata.excludeFromAI ? `Open note: "${entry.title}" (id: ${entry.docId})\n` : "";
-
+      const [
+        { runAgent, MAX_TOOL_STEPS },
+        { approveEdit },
+        { createLocalWriteDeps },
+        { createAgentEngine },
+        { getNote },
+        { notePart, openNoteContext },
+        { isWholeNoteAsk, summarizeNote },
+      ] = await Promise.all([
+        import("@/lib/agent/loop/agentLoop"),
+        import("@/lib/agent/approveEdit"),
+        import("@/lib/agent/local/localWriteDeps"),
+        import("@/lib/webllm"),
+        import("@/lib/agent/tools/read"),
+        import("@/lib/agent/loop/noteParts"),
+        import("@/lib/agent/loop/summarizeNote"),
+      ]);
       const writeDeps = createLocalWriteDeps();
-      const answer = await runAgent(context + request, {
+      // A note kept from AI is not even named to the model, nor one the agent can't read.
+      const entry = activeNoteId ? await getSearchIndexEntry(activeNoteId) : null;
+      const note =
+        entry && !entry.metadata.excludeFromAI ? await getNote(writeDeps, { id: entry.docId }).catch(() => null) : null;
+      // The model sees the open note's part count and outline; it reads the parts it needs (#797).
+      const opened = note && notePart(note, 1);
+
+      const options = {
         engine: createAgentEngine(settings.agentModelId, (report) =>
           setModelStatus({ progress: report.progress, message: report.text })
         ),
-        deps: writeDeps,
-        writeDeps,
-        // An edit to the open note shows in the note, an append to another note or a new note shows as a
-        // card in this panel; the user accepts or rejects each.
-        approve: (proposal) =>
-          proposal.write ? approveWrite(proposal.write, controller.signal) : approveEdit(proposal, controller.signal),
         signal: controller.signal,
-        onEvent: (event) => {
+        onEvent: (event: AgentEvent) => {
           if (event.type === "step" && event.step > MAX_TOOL_STEPS) capped = true;
           if (event.type === "failed") failure = event.message;
           if (event.type !== "step") setModelStatus(null);
@@ -234,7 +244,20 @@ export function useAgentSession(activeNoteId: string | undefined) {
             entries.map((e) => (e.pending ? { ...e, steps: applyEvent(e.steps ?? [], event) } : e))
           );
         },
-      });
+      };
+      // "Summarize" or "what is this about?" on a note longer than one part: summarized part by part.
+      const answer =
+        note && opened && opened.parts > 1 && isWholeNoteAsk(request)
+          ? await summarizeNote(note, request, options)
+          : await runAgent((opened ? openNoteContext(opened) : "") + request, {
+              ...options,
+              deps: writeDeps,
+              writeDeps,
+              // An edit to the open note shows in the note, an append to another note or a new note shows as a
+              // card in this panel; the user accepts or rejects each.
+              approve: (proposal) =>
+                proposal.write ? approveWrite(proposal.write, controller.signal) : approveEdit(proposal, controller.signal),
+            });
 
       if (controller.signal.aborted) content = "Stopped.";
       else if (failure) content = failure;

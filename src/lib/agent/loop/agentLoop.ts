@@ -7,7 +7,7 @@
  * 4,096-token model never has to produce free-form function-call syntax.
  */
 import { z } from 'zod';
-import type { ReadDeps } from '@/lib/agent/tools/read';
+import type { NoteResult, ReadDeps } from '@/lib/agent/tools/read';
 import type { WriteDeps } from '@/lib/agent/tools/write';
 import { TOOLS, toJsonSchema, type AnyJournalTool, type ToolOutput } from '@/lib/agent/tools/registry';
 import { formatText, insertParagraph, readOpenNote, replaceText, type EditorTool } from '@/lib/agent/tools/editor';
@@ -16,7 +16,8 @@ import type { BuiltEdit, EditOutcome, EditProposal } from '@/lib/agent/approveEd
 import type { WriteProposal, WrittenNote } from '@/lib/agent/approveWrite';
 import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
 import { proposeWrite } from './proposeWrite';
-import { CONTEXT_WINDOW, estimateTokens, trimToBudget, type AgentMessage } from './trim';
+import { notePart } from './noteParts';
+import { promptBudget, trimToBudget, type AgentMessage } from './trim';
 
 export type { AgentMessage } from './trim';
 
@@ -46,6 +47,8 @@ export type AgentEvent =
     | { type: 'toolResult'; tool: string; result: string; note?: WrittenNote }
     | { type: 'proposal'; proposal: AgentProposal }
     | { type: 'answer'; answer: string }
+    /** A step the host takes itself, such as reading one part of a long note (#797). */
+    | { type: 'progress'; message: string }
     | { type: 'error'; error: string }
     /** The run ended without an answer; `message` is what to tell the user. */
     | { type: 'failed'; message: string };
@@ -75,13 +78,22 @@ const agentCreateNote: AnyJournalTool = {
     execute: (deps, args) => createNote.execute(deps, { ...args, folderId: args.folderId ?? MAIN_FOLDER_ID }),
 };
 
+const getNote = registryTool('get_note');
+/** `get_note` for the in-app agent: one part of the note at a time, so a long note fits the window (#797). */
+const agentGetNote: AnyJournalTool = {
+    ...getNote,
+    description: 'Fetch one part of a note by id (part 1 if not given), with its part count and outline.',
+    input: z.object({ id: z.string(), part: z.number().int().min(1).optional() }),
+    execute: async (deps, { id, part = 1 }: { id: string; part?: number }) => ({ data: notePart((await getNote.execute(deps, { id })).data as NoteResult, part) }),
+};
+
 /**
  * At most 8 (#698): each tool adds to the schema and the system prompt. The two writes to other
  * notes (#702) took the places of list_notes (search_notes finds notes too) and set_block_type.
  */
 export const AGENT_TOOLS: AgentTool[] = [
     registryTool('search_notes'),
-    registryTool('get_note'),
+    agentGetNote,
     registryTool('append_to_note'),
     agentCreateNote,
     readOpenNote,
@@ -94,10 +106,9 @@ export const MAX_TOOL_STEPS = 6;
 export const MAX_TOKENS = 512;
 const SEARCH_LIMIT = 5;
 const LIST_LIMIT = 20;
-const NOTE_LENGTH = 1500;
 export const FORMAT_FAILED = 'This model could not follow the assistant format. Try a larger model in Settings > AI.';
 
-const ANSWER_SCHEMA = {
+export const ANSWER_SCHEMA = {
     type: 'object',
     properties: { answer: { type: 'string' } },
     required: ['answer'],
@@ -136,6 +147,7 @@ function systemPrompt(tools: AgentTool[]): string {
         'Rules:',
         '- Reply with one JSON object: {"tool": "<name>", "args": {...}} to call a tool, or {"answer": "<text>"} to reply.',
         '- Use note ids from earlier results. Never invent an id.',
+        '- A long note comes in parts: pick the part you need from its outline and read it with get_note part.',
         '- To add to another note, use append_to_note; for a new note, use create_note. The user accepts or rejects each one.',
         '- To change the open note, read it with read_open_note, then call one edit tool. The user accepts or rejects each edit.',
         '- Propose an edit only when the user asks for a change. For a question, answer it. Never propose an edit the user rejected.',
@@ -150,15 +162,9 @@ function capArgs(name: string, args: Record<string, unknown>): Record<string, un
     return args;
 }
 
-/** A tool's output as the model sees it: get_note's markdown is cut to 1,500 characters. */
-export function formatToolResult(name: string, output: ToolOutput): string {
-    let data = output.data;
-    if (name === 'get_note' && data && typeof data === 'object' && 'markdown' in data && typeof data.markdown === 'string') {
-        const { markdown } = data;
-        if (markdown.length > NOTE_LENGTH) {
-            data = { ...data, markdown: `${markdown.slice(0, NOTE_LENGTH)}… (truncated, ${markdown.length} characters)` };
-        }
-    }
+/** A tool's output as the model sees it. */
+export function formatToolResult(output: ToolOutput): string {
+    const { data } = output;
     const text = output.text && typeof data === 'string' ? data : JSON.stringify(data);
     return [text, ...(output.notes ?? [])].join('\n');
 }
@@ -183,8 +189,7 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
     const history: AgentMessage[] = [];
 
     const generate = async (schema: object) => {
-        const budget = CONTEXT_WINDOW - MAX_TOKENS - estimateTokens(JSON.stringify(schema));
-        const messages = trimToBudget([system, ...history, user], budget);
+        const messages = trimToBudget([system, ...history, user], promptBudget(schema, MAX_TOKENS));
         return engine.generate(messages, { schema, maxTokens: MAX_TOKENS, signal });
     };
 
@@ -283,14 +288,14 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
             if ('editor' in tool) {
                 const run = () => tool.execute(editor, args);
                 const first = await run();
-                if (tool.readOnly) return formatToolResult(tool.name, first);
+                if (tool.readOnly) return formatToolResult(first);
                 // The tool built the edit without applying it; the user previews it before it is applied.
                 const built = first.data as BuiltEdit;
                 const rebuild = async () => (await run()).data as BuiltEdit;
                 return { tool: tool.name, args, summary: built.summary, edit: { built, rebuild } };
             }
             // Only read-only tools run here, and they use only the ReadDeps half.
-            if (tool.readOnly) return formatToolResult(tool.name, await tool.execute(deps as WriteDeps, args));
+            if (tool.readOnly) return formatToolResult(await tool.execute(deps as WriteDeps, args));
             // A write waits for the user; it runs, with WriteDeps, only when they accept.
             if (!writeDeps) return { tool: tool.name, args };
             const write = await proposeWrite(tool, args, { deps, writeDeps, openNoteId: editor.get()?.docId });

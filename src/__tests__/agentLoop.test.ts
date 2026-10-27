@@ -109,6 +109,25 @@ describe('runAgent', () => {
         for (const call of calls) expect(call.messages.at(-1)).toEqual({ role: 'user', content: 'When do I plant zucchini?' });
     });
 
+    it('should read a long note one part at a time with get_note part (#797)', async () => {
+        const LONG = '30000000-0000-0000-0000-000000000002';
+        const sections = Array.from({ length: 6 }, (_, s) => `## Section ${s + 1}\n\n${`Point ${s + 1} of the review covers the schedule. `.repeat(20).trim()}`);
+        await addNote(LONG, 'Review', sections.join('\n\n'));
+        const { engine, calls } = scriptedEngine([
+            { tool: 'get_note', args: { id: LONG } },
+            { tool: 'get_note', args: { id: LONG, part: 6 } },
+            { answer: 'Point 6 is about the schedule.' },
+        ]);
+
+        expect(await run('What does the last section say?', engine).result).toBe('Point 6 is about the schedule.');
+        const first = resultsSent(calls[1]).join('\n');
+        expect(first).toContain('"part":1,"parts":6');
+        expect(first).toContain('Section 6 (part 6)');
+        expect(first).toContain('Point 1 of');
+        expect(first).not.toContain('Point 6 of');
+        expect(resultsSent(calls[2]).join('\n')).toContain('Point 6 of');
+    });
+
     it('should feed invalid JSON, an unknown tool and bad args back as errors and go on', async () => {
         const { engine, calls } = scriptedEngine([
             '{not json',

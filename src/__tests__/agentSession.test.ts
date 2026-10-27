@@ -17,8 +17,9 @@ const PACKING: NoteSummary = {
     modified: '2026-10-01T00:00:00.000Z',
 };
 
-const { engineHolder, entryHolder, outcomeHolder } = vi.hoisted(() => ({
+const { engineHolder, entryHolder, outcomeHolder, markdownHolder } = vi.hoisted(() => ({
     engineHolder: { current: null as unknown as AgentEngine },
+    markdownHolder: { current: '' },
     outcomeHolder: { current: 'accepted' as 'accepted' | 'rejected' | { notApplied: string } },
     entryHolder: { current: null as null | { docId: string; title: string; metadata: { excludeFromAI: boolean } } },
 }));
@@ -43,7 +44,7 @@ vi.mock('@/lib/agent/local/localWriteDeps', () => ({
         listFolders: async () => [{ id: 'folder-1', name: 'Main' }],
         loadGrants: async () => ({ version: 1, folders: { 'folder-1': 'write' }, notes: {} }),
         listNotes: async () => [PACKING],
-        getNote: async (id) => (id === PACKING.id ? { summary: PACKING, markdown: 'passport, charger' } : null),
+        getNote: async (id) => (id === PACKING.id ? { summary: PACKING, markdown: markdownHolder.current } : null),
         searchNotes: async () => [{ summary: PACKING, snippet: 'passport' }],
     }),
 }));
@@ -75,6 +76,7 @@ function scriptedEngine(script: string[]) {
 
 beforeEach(() => {
     localStorage.clear();
+    markdownHolder.current = 'passport, charger';
     entryHolder.current = { docId: PACKING.id, title: PACKING.title, metadata: { excludeFromAI: false } };
 });
 
@@ -165,6 +167,38 @@ describe('useAgentSession — commands', () => {
         expect(user.content).toContain('Summarize the open note');
         expect(user.content).toContain(`"Packing list" (id: ${PACKING.id})`);
         expect(latest.current!.messages.map((m) => m.content)).toEqual(['/summarize', 'A packing list.']);
+
+        await cleanup();
+    });
+
+    it('reads a long open note part by part for "what is this about?" (#797)', async () => {
+        // Two sections of ~9,000 characters: two parts for the summary, with a heading each.
+        markdownHolder.current = ['Start', 'End'].map((name) => `## ${name}\n\n${`The ${name} section covers the trip. `.repeat(250).trim()}`).join('\n\n');
+        const { requests } = scriptedEngine([answer('Start part.'), answer('End part.'), answer('A trip from start to end.')]);
+        const { latest, render, cleanup, ask } = mountSession();
+        await render(PACKING.id);
+
+        await ask('what is this about?');
+
+        expect(requests).toHaveLength(3);
+        expect(requests[2].at(-1)!.content).toContain('Part 2: End part.');
+        const reply = latest.current!.messages[1];
+        expect(reply.content).toBe('A trip from start to end.');
+        expect(reply.steps!.map((step) => step.before)).toEqual(['Reading part 1 of 2', 'Reading part 2 of 2']);
+
+        await cleanup();
+    });
+
+    it('gives the model the open note\'s part count and outline, not its body (#797)', async () => {
+        markdownHolder.current = '## Passport\n\npassport\n\n## Charger\n\ncharger';
+        const { requests } = scriptedEngine([answer('Yes.')]);
+        const { render, cleanup, ask } = mountSession();
+        await render(PACKING.id);
+
+        await ask('did I pack a charger?');
+
+        const user = requests[0].at(-1)!.content;
+        expect(user).toBe(`Open note: "Packing list" (id: ${PACKING.id}), 1 part. Outline: Passport (part 1); Charger (part 1)\ndid I pack a charger?`);
 
         await cleanup();
     });
