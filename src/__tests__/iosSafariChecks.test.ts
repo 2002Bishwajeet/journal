@@ -87,6 +87,15 @@ describe('iOS Safari layout checks', () => {
     ]);
   });
 
+  it('should measure from 0 when Safari shrinks innerHeight to the visual viewport', () => {
+    // Real iOS Safari numbers after it scrolled to the sheet's field (#823).
+    const field = { ...ok, innerHeight: 436, viewport: { top: 223, height: 436 }, focused: { name: 'input[Sheet field]', fontSize: 16 }, sidebarFooter: null };
+    expect(layoutProblems({ ...field, sheet: { top: 32, bottom: 436, left: 0, right: 393 } }, false)).toEqual([]);
+    expect(layoutProblems({ ...field, sheet: { top: -191, bottom: 436, left: 0, right: 393 } }, false)).toEqual([
+      'the sheet (-191–436) is outside the visual viewport (0–436)',
+    ]);
+  });
+
   it('should flag a caret or toolbar hidden behind the keyboard', () => {
     const problems = layoutProblems(
       { ...keyboard, caret: { top: 400, bottom: 420, left: 20, right: 20 }, toolbar: { top: 611, bottom: 659, left: 0, right: 393 } },

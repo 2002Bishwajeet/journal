@@ -90,10 +90,13 @@ const SLACK = 1;
 /** What is wrong with a measured layout. `keyboardUp`: the software keyboard is showing. */
 export function layoutProblems(m: Layout, keyboardUp: boolean): string[] {
   const problems: string[] = [];
-  const visibleBottom = m.viewport.top + m.viewport.height;
-  const onScreen = (r: Rect) => r.top >= m.viewport.top - SLACK && r.bottom <= visibleBottom + SLACK;
+  // When Safari scrolls to a field low on the page it can shrink innerHeight to the visual viewport;
+  // then the layout viewport is what is on screen and rects run from 0, whatever offsetTop says (#823).
+  const visibleTop = m.innerHeight <= m.viewport.height + SLACK ? 0 : m.viewport.top;
+  const visibleBottom = visibleTop + m.viewport.height;
+  const onScreen = (r: Rect) => r.top >= visibleTop - SLACK && r.bottom <= visibleBottom + SLACK;
   const span = (r: Rect) => `${Math.round(r.top)}–${Math.round(r.bottom)}`;
-  const visible = `${Math.round(m.viewport.top)}–${Math.round(visibleBottom)}`;
+  const visible = `${Math.round(visibleTop)}–${Math.round(visibleBottom)}`;
 
   if (m.scrollWidth > m.innerWidth) {
     problems.push(`the page scrolls sideways: scrollWidth ${m.scrollWidth} > innerWidth ${m.innerWidth}`);
