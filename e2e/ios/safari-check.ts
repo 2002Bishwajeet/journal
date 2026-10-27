@@ -480,6 +480,8 @@ try {
   // Native feel (#856): the page never bounces, a long press on chrome shows no callout, a double tap does not zoom.
   const touchAt = async (selector: string, steps: (a: ReturnType<typeof browser.action>, el: WebdriverIO.Element) => ReturnType<typeof browser.action>) => {
     const el = (await browser.$$(selector))[0];
+    // The earlier scroll gestures leave the list scrolled: bring the target back (the first row puts the list at its top).
+    await browser.execute((e) => e.scrollIntoView({ block: 'center' }), el);
     await steps(browser.action('pointer', { parameters: { pointerType: 'touch' } }), el).perform();
   };
   await touchAt(row, (a, el) =>
