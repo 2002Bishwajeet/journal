@@ -72,7 +72,7 @@ export function EmojiPicker({ editor, className }: EmojiPickerProps) {
   const panel = (
     <>
         {/* Header: Search Only */}
-        <div className="p-2 border-b border-border sticky top-0 bg-popover z-10 shadow-sm">
+        <div className={cn("py-2 border-b border-border sticky top-0 bg-popover z-10 shadow-sm", asSheet ? "px-4" : "px-2")}>
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
