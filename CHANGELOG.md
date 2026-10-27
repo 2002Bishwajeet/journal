@@ -1,3 +1,15 @@
+# [2.46.0](https://github.com/2002Bishwajeet/journal/compare/v2.45.0...v2.46.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **sharing:** a collaborator's edit no longer moves the owner's shared note out of its folder ([#682](https://github.com/2002Bishwajeet/journal/issues/682)) ([59a4555](https://github.com/2002Bishwajeet/journal/commit/59a4555529dd578b3793eb347b7701a1ef10baa2))
+* **sharing:** keep a note removed from my list out until its sharing changes ([#682](https://github.com/2002Bishwajeet/journal/issues/682)) ([6c36f84](https://github.com/2002Bishwajeet/journal/commit/6c36f84f3a67f584e0564d881dfd6f6edd834ba8))
+
+
+### Features
+
+* **sharing:** one Share dialog for people, circles and the public link ([#682](https://github.com/2002Bishwajeet/journal/issues/682)) ([99a87e4](https://github.com/2002Bishwajeet/journal/commit/99a87e49df3d1b6d6e0a8686e3fa03ee98e7a758)), closes [#736](https://github.com/2002Bishwajeet/journal/issues/736)
 # [2.45.0](https://github.com/2002Bishwajeet/journal/compare/v2.44.1...v2.45.0) (2026-10-27)
 
 
