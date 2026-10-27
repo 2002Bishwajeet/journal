@@ -70,21 +70,36 @@ const revealed = new IntersectionObserver(
 );
 document.querySelectorAll('[data-reveal]').forEach((el) => revealed.observe(el));
 
-// ---- Hero video: still under reduced motion, and paused while off screen ----
+// ---- Home hero video: one take per theme; only the one on screen loads and plays ----
+// Phones get a still screenshot instead (CSS hides both takes), and reduced motion gets controls.
 
-const video = document.querySelector<HTMLVideoElement>('video.demo')!;
-if (reducedMotion.matches) {
-  video.removeAttribute('autoplay');
-  video.pause();
-  video.controls = true;
-} else {
+const videos = [...document.querySelectorAll<HTMLVideoElement>('video.demo')];
+const heroMedia = document.querySelector<HTMLElement>('.hero-media');
+let heroInView = false;
+
+function syncVideos(): void {
+  for (const video of videos) {
+    const shown = video.getClientRects().length > 0;
+    if (reducedMotion.matches) {
+      video.controls = shown;
+      if (!shown) video.pause();
+    } else if (shown && heroInView) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  }
+}
+if (heroMedia) {
   new IntersectionObserver(([entry]) => {
-    if (entry.isIntersecting) video.play().catch(() => {});
-    else video.pause();
-  }).observe(video);
+    heroInView = entry.isIntersecting;
+    syncVideos();
+  }).observe(heroMedia);
+  window.addEventListener('themechange', syncVideos);
+  matchMedia('(max-width: 599px)').addEventListener('change', syncVideos);
 }
 
-// ---- Copy the MCP install snippet ----
+// ---- Agents page: copy the MCP install snippet ----
 
 document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => {
   const label = button.querySelector('.copy-label')!;
@@ -106,15 +121,17 @@ document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => 
   });
 });
 
-// ---- Mermaid playground: mermaid loads only when the section comes near ----
+// ---- Home Mermaid playground: mermaid loads only when the section comes near ----
 
-const playground = document.querySelector<HTMLElement>('.playground')!;
-const near = new IntersectionObserver(
-  ([entry]) => {
-    if (!entry.isIntersecting) return;
-    near.disconnect();
-    import('./playground').then(({ startPlayground }) => startPlayground(playground));
-  },
-  { rootMargin: '400px 0px' },
-);
-near.observe(playground);
+const playground = document.querySelector<HTMLElement>('.playground');
+if (playground) {
+  const near = new IntersectionObserver(
+    ([entry]) => {
+      if (!entry.isIntersecting) return;
+      near.disconnect();
+      import('./playground').then(({ startPlayground }) => startPlayground(playground));
+    },
+    { rootMargin: '400px 0px' },
+  );
+  near.observe(playground);
+}

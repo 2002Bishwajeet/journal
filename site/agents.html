@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Journal for agents: the MCP server</title>
+  <meta name="description" content="The Journal MCP server lets Claude Code, Claude Desktop and Codex CLI read, search, create and edit your notes. They see only the folders and notes you grant." />
+  <meta property="og:title" content="Journal for agents: the MCP server" />
+  <meta property="og:description" content="Let Claude Code, Claude Desktop and Codex CLI read and write your notes, only in the folders you grant." />
+  <!-- head -->
+</head>
+<body data-page="agents">
+  <!-- header -->
+
+  <main id="main">
+    <!-- Hero: the claim beside the install -->
+    <section class="page-hero" aria-labelledby="agents-hero-title">
+      <div class="wrap">
+        <div class="page-hero-head">
+          <h1 class="display" id="agents-hero-title" data-reveal>Give your agents a notebook</h1>
+          <p class="lede" data-reveal style="--i:1">The Journal MCP server lets Claude Code, Claude Desktop and Codex CLI read, search, create and edit your notes. They see only the folders and notes you grant, and nothing by default.</p>
+        </div>
+        <div class="install" data-reveal style="--i:2">
+          <div class="code-panel">
+            <div class="code-head">
+              <span>Claude Code plugin</span>
+              <button class="copy-btn" type="button" data-copy="mcp-install">
+                <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                <span class="copy-label">Copy</span>
+              </button>
+            </div>
+            <pre><code id="mcp-install">/plugin marketplace add 2002Bishwajeet/journal
+/plugin install journal@journal
+/journal:login you.dotyou.cloud</code></pre>
+          </div>
+          <div class="install-steps">
+            <h2 class="h3">Set up in Claude Code</h2>
+            <ol class="steps">
+              <li>Run the three commands, with your own identity in place of <code>you.dotyou.cloud</code>.</li>
+              <li>Approve ‘Journal MCP’ in your Homebase owner console, then run <code>/mcp</code> to reconnect.</li>
+              <li>In Journal, open Settings → Agent access and grant the folders it may use.</li>
+            </ol>
+            <p class="small">Codex CLI and Claude Desktop run the same server from a checkout; the <a href="https://github.com/2002Bishwajeet/journal/blob/main/mcp/README.md">MCP setup guide</a> has their config.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- What an agent produces: one prompt, one note -->
+    <section class="section band" aria-labelledby="result-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="h2" id="result-title" data-reveal>Ask for a page, get a page</h2>
+          <p class="lede" data-reveal style="--i:1">An agent can write live blocks straight into a note: a React chart and a Mermaid diagram that run where you read them.</p>
+        </div>
+        <div class="ask">
+          <div class="ask-prompt" data-reveal>
+            <p class="prompt-who">You ask</p>
+            <p class="prompt-line">Build a chart of my reading log as a live block.</p>
+            <p class="prompt-who">The agent writes the note shown here. Other things to ask:</p>
+            <ul class="asks">
+              <li>Create a note called Standup in my Work folder with today's summary.</li>
+              <li>In my Trip plan note, change the flight time from 9:40 to 10:15.</li>
+              <li>Redesign my Trip plan note as a day-by-day itinerary.</li>
+              <li>Use ~/Pictures/lisbon.jpg as the cover of my Trip plan note.</li>
+            </ul>
+          </div>
+          <figure class="crop" data-reveal style="--i:1">
+            <picture class="only-light">
+              <source media="(max-width: 599px)" srcset="/media/phone-live-block-light.webp" width="1170" height="2532" />
+              <img src="/media/agent-result-light.webp" width="1410" height="1074" loading="lazy" alt="The Reading log note: a React bar chart of books finished per month, January to June, and a Mermaid diagram from Pick to Read to Review." />
+            </picture>
+            <picture class="only-dark">
+              <source media="(max-width: 599px)" srcset="/media/phone-live-block-dark.webp" width="1170" height="2532" />
+              <img src="/media/agent-result-dark.webp" width="1410" height="1074" loading="lazy" alt="The Reading log note in dark mode, with its bar chart and Mermaid diagram." />
+            </picture>
+          </figure>
+        </div>
+        <div class="ask ask-flip">
+          <div class="ask-prompt" data-reveal>
+            <p class="prompt-who">Or a small edit</p>
+            <p class="prompt-line">In my Trip plan note, change the flight time from 9:40 to 10:15.</p>
+            <p>The agent changes that one passage with <code>replace_in_note</code> and leaves the task list, the callout and the table as they were.</p>
+          </div>
+          <figure class="crop" data-reveal style="--i:1">
+            <picture class="only-light">
+              <source media="(max-width: 599px)" srcset="/media/phone-note-light.webp" width="1170" height="2532" />
+              <img src="/media/feature-blocks-light.webp" width="1534" height="1120" loading="lazy" alt="The Trip plan note with the flight landing at 10:15, a task list, a tip callout and a table of days." />
+            </picture>
+            <picture class="only-dark">
+              <source media="(max-width: 599px)" srcset="/media/phone-note-dark.webp" width="1170" height="2532" />
+              <img src="/media/feature-blocks-dark.webp" width="1534" height="1120" loading="lazy" alt="The Trip plan note in dark mode, landing at 10:15." />
+            </picture>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- Access: the real Settings panel -->
+    <section class="section" aria-labelledby="access-title">
+      <div class="wrap split flip split-top">
+        <div class="split-copy">
+          <h2 class="h2" id="access-title" data-reveal>Access, folder by folder</h2>
+          <p class="lede" data-reveal style="--i:1">In Settings → Agent access, set each folder or note to None, Read, or Read + write. The default is None.</p>
+          <ul class="facts" data-reveal style="--i:2">
+            <li><strong>Excluded notes stay out.</strong> A note marked ‘exclude from AI’ is never readable or writable, whatever its folder allows.</li>
+            <li><strong>Its own registration.</strong> The MCP server signs in as its own app on your identity, apart from the Journal web app, so you can revoke it on its own under Apps in your owner console.</li>
+            <li><strong>Grants are checked on your computer.</strong> The Journal MCP server enforces them where it runs.</li>
+          </ul>
+        </div>
+        <figure class="crop" data-reveal style="--i:1">
+          <picture class="only-light">
+              <source media="(max-width: 599px)" srcset="/media/phone-agent-access-light.webp" width="1170" height="2532" />
+              <img src="/media/agent-access-light.webp" width="1800" height="1280" loading="lazy" alt="Journal's Settings, Agent access: folders Main set to Read, Personal to None, Reading and Work to Read + write." />
+            </picture>
+            <picture class="only-dark">
+              <source media="(max-width: 599px)" srcset="/media/phone-agent-access-dark.webp" width="1170" height="2532" />
+              <img src="/media/agent-access-dark.webp" width="1800" height="1280" loading="lazy" alt="Settings, Agent access in dark mode, with a grant chosen for each folder." />
+            </picture>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Tools: grouped by what they do -->
+    <section class="section band-2" aria-labelledby="tools-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="h2" id="tools-title" data-reveal>Fourteen tools, in three kinds</h2>
+          <p class="lede" data-reveal style="--i:1">Write tools need Read + write access. Every edit is merged into the note's current state, so what you type at the same time is kept.</p>
+        </div>
+        <div class="tool-groups">
+          <div class="tool-group" data-reveal>
+            <h3 class="subhead">Read</h3>
+            <dl>
+              <dt><code>list_folders</code></dt><dd>The folders you've granted.</dd>
+              <dt><code>list_notes</code></dt><dd>Granted notes, newest first.</dd>
+              <dt><code>get_note</code></dt><dd>One note as markdown, or as a list of blocks.</dd>
+              <dt><code>search_notes</code></dt><dd>Search titles, tags and text of granted notes.</dd>
+              <dt><code>get_authoring_guide</code></dt><dd>Everything a note can hold, and how to write it.</dd>
+            </dl>
+          </div>
+          <div class="tool-group" data-reveal style="--i:1">
+            <h3 class="subhead">Write</h3>
+            <dl>
+              <dt><code>create_note</code></dt><dd>A new note from markdown, in a writable folder.</dd>
+              <dt><code>append_to_note</code></dt><dd>Add markdown to the end of a note.</dd>
+              <dt><code>replace_in_note</code></dt><dd>Change one exact passage.</dd>
+              <dt><code>update_note</code></dt><dd>Rewrite the body, title or tags.</dd>
+              <dt><code>edit_block</code></dt><dd>Change one block, or one table cell, row or column.</dd>
+              <dt><code>set_note_cover</code></dt><dd>Set a cover image, with a dark-mode one beside it.</dd>
+              <dt><code>clear_note_cover</code></dt><dd>Remove a cover.</dd>
+            </dl>
+          </div>
+          <div class="tool-group" data-reveal style="--i:2">
+            <h3 class="subhead">Organise</h3>
+            <dl>
+              <dt><code>create_folder</code></dt><dd>A new folder the agent can write in. Revoke it like any other grant.</dd>
+              <dt><code>delete_note</code></dt><dd>Move a note to Trash, where you can restore it. Nothing is deleted for good.</dd>
+            </dl>
+            <p class="small">Edited notes are labelled with the agent that changed them, such as <code>agent:claude-code</code>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Published: live blocks keep running for readers -->
+    <section class="section" aria-labelledby="publish-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="h2" id="publish-title" data-reveal>Then publish what it built</h2>
+          <p class="lede" data-reveal style="--i:1">Live blocks an agent writes keep running when you publish the note as a public page, with its cover and an ‘On this page’ outline.</p>
+        </div>
+        <figure class="frame" data-reveal>
+          <picture class="only-light">
+            <source media="(max-width: 599px)" srcset="/media/phone-public-page-light.webp" width="1170" height="2532" />
+            <img src="/media/public-page-light.webp" width="2880" height="1800" loading="lazy" alt="A published note, Three days in Lisbon: a cover photo of Lisbon's rooftops, the title, an On this page outline and a Mermaid diagram of the first day." />
+          </picture>
+          <picture class="only-dark">
+            <source media="(max-width: 599px)" srcset="/media/phone-public-page-dark.webp" width="1170" height="2532" />
+            <img src="/media/public-page-dark.webp" width="2880" height="1800" loading="lazy" alt="The published Three days in Lisbon note in dark mode, with its cover photo and Mermaid diagram." />
+          </picture>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Close -->
+    <section class="closing-plain" aria-labelledby="agents-close-title">
+      <div class="wrap closing-plain-row">
+        <h2 class="h2" id="agents-close-title" data-reveal>Connect your first agent</h2>
+        <div class="ctas" data-reveal style="--i:1">
+          <a class="btn btn-primary" href="https://journal.cloudx.run">Open Journal</a>
+          <a class="btn btn-secondary" href="https://github.com/2002Bishwajeet/journal/blob/main/mcp/README.md">Read the setup guide</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- footer -->
+  <!-- credit: Cover photo in the published note: <a href="https://commons.wikimedia.org/wiki/File:Alfama_Rooftops_and_Tagus_River_View,_Lisbon_(54733828355).jpg">“Alfama Rooftops and Tagus River View, Lisbon”</a> by Dale Cruse, <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a>, via Wikimedia Commons. -->
+</body>
+</html>
