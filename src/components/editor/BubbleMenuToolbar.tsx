@@ -111,9 +111,6 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
 
   const addLink = () => setLinkOpen(true);
 
-  // The link dialog outlives the menu: opening it blurs the editor, which hides the menu.
-  const linkSheet = <LinkSheet editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />;
-
   return (
     <>
       {isVisible && isDesktop && (
@@ -187,7 +184,8 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
         </ToolbarButton>
       </div>
       )}
-      {linkSheet}
+      {/* Outlives the menu: opening it blurs the editor, which hides the menu. */}
+      <LinkSheet editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />
     </>
   );
 }
