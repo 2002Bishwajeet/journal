@@ -107,7 +107,9 @@ function SheetContent({
           <motion.div
             data-slot="sheet-content"
             data-variant={variant}
-            // With the keyboard up (iOS), lift the sheet to sit on top of it.
+            // With the keyboard up (iOS), lift the sheet to sit on top of it. `transition-none`: the
+            // durations below are for the slide animations; a transition would make `bottom` and
+            // `max-height` trail the keyboard.
             ref={(el: HTMLDivElement | null) => {
               contentRef.current = el
               return followKeyboardBottom(el)
@@ -121,7 +123,7 @@ function SheetContent({
             dragMomentum={false}
             onDragEnd={handleDragEnd}
             className={cn(
-              "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom-full data-[state=closed]:slide-out-to-bottom-full fixed z-50 flex flex-col overflow-hidden shadow-lg duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] data-[state=closed]:duration-200 outline-none",
+              "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom-full data-[state=closed]:slide-out-to-bottom-full fixed z-50 flex flex-col overflow-hidden shadow-lg transition-none duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] data-[state=closed]:duration-200 outline-none",
               variant === "bottom" &&
                 "inset-x-0 bottom-[var(--sheet-bottom,0px)] max-h-[calc(var(--sheet-h,100dvh)-env(safe-area-inset-top)-2rem)] rounded-t-2xl border-t pb-[max(1rem,env(safe-area-inset-bottom))]",
               variant === "full" &&

@@ -530,7 +530,17 @@ try {
 
   await tap('[data-slot="sheet-content"] input');
   await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
-  if (await browser.isKeyboardShown()) await check('sheet-keyboard');
+  if (await browser.isKeyboardShown()) {
+    await browser.pause(1_000); // the keyboard's slide and Safari's scroll to the field
+    const vars = await browser.execute(() => {
+      const el = document.querySelector<HTMLElement>('[data-slot="sheet-content"]');
+      const vv = visualViewport!;
+      return `--sheet-bottom ${el?.style.getPropertyValue('--sheet-bottom') || 'unset'}, --sheet-h ${el?.style.getPropertyValue('--sheet-h') || 'unset'}; viewport ${Math.round(vv.offsetTop)}+${Math.round(vv.height)} of ${innerHeight}, scale ${vv.scale}`;
+    });
+    summary.push(`| sheet-keyboard vars | | ${vars} |`);
+    console.log(`  sheet-keyboard: ${vars}`);
+    await check('sheet-keyboard');
+  }
   else warnings.push('The software keyboard did not show after tapping the sheet field, so the sheet keyboard check did not run.');
   await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
   await waitFor('the sheet to close', () => !document.querySelector('[data-slot="sheet-content"]'));
