@@ -86,20 +86,18 @@ export function useShareAccess(noteId: string, enabled: boolean) {
 
     const circleName = (id: string) => circles.find((c) => c.id === id)?.name ?? 'Unknown circle';
 
-    const update = (next: AccessEntry[]) => setDraft(next);
-
     const add = (candidate: ShareCandidate | undefined = active) => {
         if (!candidate || candidate.disabledReason) return;
-        update([...entries, { kind: candidate.kind, id: candidate.id, role: roleFor(candidate.kind) }]);
+        setDraft([...entries, { kind: candidate.kind, id: candidate.id, role: roleFor(candidate.kind) }]);
         setQuery('');
         setActiveIndex(null);
     };
 
     const setRole = (entry: AccessEntry, role: ShareRole) =>
-        update(entries.map((e) => (e.kind === entry.kind && e.id === entry.id ? { ...e, role } : e)));
+        setDraft(entries.map((e) => (e.kind === entry.kind && e.id === entry.id ? { ...e, role } : e)));
 
     const remove = (entry: AccessEntry) =>
-        update(entries.filter((e) => !(e.kind === entry.kind && e.id === entry.id)));
+        setDraft(entries.filter((e) => !(e.kind === entry.kind && e.id === entry.id)));
 
     /** Saves the changes, if any. An empty set stops sharing. */
     const save = async (): Promise<ShareResult> => {
