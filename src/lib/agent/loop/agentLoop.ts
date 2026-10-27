@@ -166,7 +166,7 @@ function systemPrompt(tools: AgentTool[]): string {
         ...(writes
             ? [
                   '- To add at the end of a note, use append_to_note; for a new note, use create_note. The user accepts or rejects each one.',
-                  '- To change the open note, read it with read_open_note, then call one edit tool. The user accepts or rejects each edit.',
+                  '- To change the open note, take n and find from the read_open_note result, then call one edit tool. The user accepts or rejects each edit.',
                   '- Propose a change only when the user asks for one, and only once, then answer. Never propose an edit the user rejected.',
               ]
             : []),
@@ -261,8 +261,17 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
     const refused = new Map<string, string>();
     /** Accepted writes, by name and args, with the turn that made them: small models repeat a write that worked (#914). */
     const applied = new Map<string, number>();
-    /** read_open_note gave a result this turn; an edit tool needs one, or the model guesses `n` and `find` (#914). */
-    let readOpen = false;
+    // With edit tools offered, the open note's blocks go in up front, as a read_open_note already made (#914).
+    // Small models edit without reading and guess `n` and `find`; told to read first, none of them did (#706 eval).
+    if (tools.includes(readOpenNote) && tools.some((tool) => 'editor' in tool && !tool.readOnly)) {
+        try {
+            const blocks = formatToolResult(readOpenNote.name, await readOpenNote.execute(editor, {}));
+            history.push({ role: 'assistant', content: JSON.stringify({ tool: readOpenNote.name, args: {} }) }, { role: 'user', content: `Result of ${readOpenNote.name}: ${blocks}` });
+            seen.set(callKey(readOpenNote.name, {}), 0);
+        } catch {
+            // No note open, or one the agent can't edit: the edit tools say so if the model calls one.
+        }
+    }
     let repeatsInARow = 0;
     // A repeated call does not count as a step, so the cap reflects useful work.
     let step = 0;
@@ -322,10 +331,6 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
             return forceAnswer(turns + 1, 'No answer after repeated tool calls.');
         }
         repeatsInARow = 0;
-        if ('editor' in tool && !tool.readOnly && !readOpen && tools.some((t) => t.name === 'read_open_note')) {
-            fail(output, 'Read the open note first: call read_open_note, then use n and find from its blocks.');
-            continue;
-        }
         onEvent({ type: 'toolCall', tool: tool.name, args });
         /** The edit `run` builds, for the user to preview in the note before it is applied. */
         const proposeEdit = async (run: () => Promise<ToolOutput>): Promise<AgentProposal> => {
@@ -372,7 +377,6 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
             written = outcome === 'accepted' ? called.write?.applied : undefined;
             if (written) result += ` (note id: ${written.id})`;
         }
-        if (tool.name === 'read_open_note') readOpen = true;
         if (tool.readOnly) seen.set(key, turns);
         else if (outcome === 'rejected') refused.set(key, `The user rejected this edit at step ${turns}. Do not propose it again. Answer the question, or propose a different change only if the user asked for one.`);
         else {

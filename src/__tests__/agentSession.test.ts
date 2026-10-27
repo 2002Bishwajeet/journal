@@ -269,14 +269,13 @@ describe('useAgentSession — edits to the open note', () => {
             editable: true,
             excludeFromAI: false,
         });
-        scriptedEngine([call('read_open_note', {}), call('format_text', { n: 1, mark: 'bold', on: true }), answer('Done.')]);
+        scriptedEngine([call('format_text', { n: 1, mark: 'bold', on: true }), answer('Done.')]);
         const { latest, render, cleanup, ask } = mountSession();
         await render('note-a');
 
         await ask('bold it');
 
         expect(latest.current!.messages[1].steps).toEqual([
-            { before: 'Read the open note', after: '', open: false },
             { before: text, after: '', open: false },
         ]);
 

@@ -321,8 +321,7 @@ describe('runAgent', () => {
             execute,
         };
         const edit = (find: string) => ({ tool: 'replace_text', args: { block: 1, find, replace: 'x' } });
-        // Without read_open_note, so the edit runs without a read first (#914).
-        const tools = [...AGENT_TOOLS.filter((tool) => tool.name !== 'replace_text' && tool.name !== 'read_open_note'), failingEdit];
+        const tools = [...AGENT_TOOLS.filter((tool) => tool.name !== 'replace_text'), failingEdit];
 
         beforeEach(() => (runs = 0));
 
@@ -432,16 +431,31 @@ describe('runAgent — rules for small models (#914)', () => {
     const toolCalls = (events: AgentEvent[]) => events.flatMap((e) => (e.type === 'toolCall' ? [e.tool] : []));
     const writeNames = (tools: { name: string; readOnly: boolean }[]) => tools.filter((t) => !t.readOnly).map((t) => t.name);
 
-    it('should refuse an edit before read_open_note, tell the model to read first, and take the edit after the read', async () => {
+    it('should give the model the open note’s blocks before its first edit, as a read it already made', async () => {
         const approve = vi.fn(async () => 'accepted' as const);
+        const read = { tool: 'read_open_note', args: {} };
         const bold = { tool: 'format_text', args: { n: 2, mark: 'bold', on: true } };
-        const { engine, calls } = scriptedEngine([bold, { tool: 'read_open_note', args: {} }, bold, { answer: 'Done.' }]);
+        const { engine, calls } = scriptedEngine([read, bold, { answer: 'Done.' }]);
         const { result, events } = run('Bold the second paragraph', engine, { approve, editor: editorWith('one', 'two') });
 
         expect(await result).toBe('Done.');
+        expect(calls[0].messages.slice(1, 3)).toEqual([
+            { role: 'assistant', content: JSON.stringify(read) },
+            { role: 'user', content: 'Result of read_open_note: [{"n":1,"type":"paragraph","text":"one"},{"n":2,"type":"paragraph","text":"two"}]' },
+        ]);
+        // A read the model makes again is a repeat: it does not run, and it costs no step.
+        expect(resultsSent(calls[1]).join('\n')).toContain('You already called read_open_note');
+        expect(toolCalls(events)).toEqual(['format_text']);
         expect(approve).toHaveBeenCalledTimes(1);
-        expect(toolCalls(events)).toEqual(['read_open_note', 'format_text']);
-        expect(resultsSent(calls[1]).join('\n')).toContain('Error: Read the open note first: call read_open_note');
+    });
+
+    it('should not read the open note up front without edit tools, or with no note open', async () => {
+        const question = scriptedEngine([{ answer: 'ok' }]);
+        await run('When?', question.engine, { editor: editorWith('one'), tools: toolsFor('When?') }).result;
+        const noNote = scriptedEngine([{ answer: 'ok' }]);
+        await run('Bold it', noNote.engine).result;
+
+        for (const { calls } of [question, noNote]) expect(calls[0].messages.map((m) => m.role)).toEqual(['system', 'user']);
     });
 
     it('should refuse an identical write after it was accepted, so the user is asked once', async () => {
