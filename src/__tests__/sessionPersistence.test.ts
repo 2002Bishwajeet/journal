@@ -167,6 +167,30 @@ describe('useSessionPersistence', () => {
             await s.unmount();
         });
 
+        it('does not pull the user back when they navigate while the restore is pending', async () => {
+            let resolveEntry: (value: unknown) => void = () => { };
+            mocks.getSearchIndexEntry.mockImplementation(
+                () => new Promise((resolve) => { resolveEntry = resolve; }),
+            );
+            const el = document.createElement('div');
+            document.body.appendChild(el);
+            const root = createRoot(el);
+            await act(async () => { root.render(h(Probe)); });
+            await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
+            expect(mocks.getSearchIndexEntry).toHaveBeenCalledWith('n1'); // the restore is in flight
+
+            // The user taps another folder while the index read is slow.
+            mocks.location = { pathname: '/f2', search: '' };
+            await act(async () => { root.render(h(Probe)); });
+            resolveEntry({ docId: 'n1', metadata: { archivalStatus: 0 } });
+            await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+
+            expect(mocks.navigate).not.toHaveBeenCalled();
+
+            await act(async () => root.unmount());
+            el.remove();
+        });
+
         it.each(['?action=new', '?tag=x'])('does not restore when the URL has a query string (%s)', async (search) => {
             mocks.getSearchIndexEntry.mockResolvedValue({ docId: 'n1', metadata: { archivalStatus: 0 } });
             mocks.location = { pathname: '/', search };

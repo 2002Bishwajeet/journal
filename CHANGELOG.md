@@ -1,3 +1,30 @@
+## [2.44.1](https://github.com/2002Bishwajeet/journal/compare/v2.44.0...v2.44.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **boot:** a navigation made during startup wins over the session restore ([#905](https://github.com/2002Bishwajeet/journal/issues/905)) ([396e029](https://github.com/2002Bishwajeet/journal/commit/396e0298aa56d19c78c88a44d6a351c41af2176a))
+# [2.44.0](https://github.com/2002Bishwajeet/journal/compare/v2.43.0...v2.44.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **errors:** put the error stack in the console text, so the iOS check records it ([#862](https://github.com/2002Bishwajeet/journal/issues/862)) ([eac15f6](https://github.com/2002Bishwajeet/journal/commit/eac15f66bd88944ca9019ce873268fd7a8e2de9a))
+* **folders:** keep the move sheet's description for screen readers and show the current folder at full contrast ([6423196](https://github.com/2002Bishwajeet/journal/commit/642319673a781f96d54d20380a463d5c1febf2be))
+* **move-sheet:** reset search on close, gate search and New folder to the sheet, 390px screenshots ([71c98ae](https://github.com/2002Bishwajeet/journal/commit/71c98aeb870748e2b793a7525b6cea803d30a3b6))
+
+
+### Features
+
+* **mobile:** move to folder as a bottom sheet with the current folder and New folder ([#826](https://github.com/2002Bishwajeet/journal/issues/826)) ([06f92c1](https://github.com/2002Bishwajeet/journal/commit/06f92c1fe9b5620b744a95520d3a452781611fc4))
+# [2.43.0](https://github.com/2002Bishwajeet/journal/compare/v2.42.0...v2.43.0) (2026-10-27)
+
+
+### Features
+
+* **mobile:** a light haptic when a long press opens a row menu ([#856](https://github.com/2002Bishwajeet/journal/issues/856)) ([21f2bfd](https://github.com/2002Bishwajeet/journal/commit/21f2bfdae959a4bfebf887e975fbd9e655a6b274))
+* **mobile:** native-feel e2e checks, warning haptic, reduced-motion settle, selectable sync errors ([#856](https://github.com/2002Bishwajeet/journal/issues/856)) ([ba0d90f](https://github.com/2002Bishwajeet/journal/commit/ba0d90fbe49fac27a813ad0640fd062667cdfbde))
+* **mobile:** native-feel pass on the app shell ([#856](https://github.com/2002Bishwajeet/journal/issues/856)) ([6f92bb4](https://github.com/2002Bishwajeet/journal/commit/6f92bb4615a396460003189847fd9ca84c4ab613))
 # [2.42.0](https://github.com/2002Bishwajeet/journal/compare/v2.41.1...v2.42.0) (2026-10-27)
 
 

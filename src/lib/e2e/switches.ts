@@ -2,4 +2,6 @@
 export const e2eSwitches = {
     /** Skip incoming invites, so a shared note can arrive only through the shared pull (#732). */
     ignoreInvites: false,
+    /** Hold the startup session restore this long after its index read, so a spec can tap first (#905). */
+    sessionRestoreDelayMs: 0,
 };

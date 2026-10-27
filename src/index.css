@@ -163,7 +163,7 @@
   --sar: env(safe-area-inset-right);
 }
 
-html {
+html, body {
   overscroll-behavior: none;
 }
 
@@ -176,12 +176,33 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-user-select: none; /* Safari */
   user-select: none; /* Prevent accidental selection on UI */
+  -webkit-touch-callout: none; /* No link or image preview on long press of chrome */
 }
 
 /* Re-enable text selection for content that should be selectable */
-.prose, .selectable, input, textarea {
+.prose, .selectable, input, textarea, pre, code, [contenteditable="true"] {
+  -webkit-user-select: text;
   user-select: text;
+  /* Note content keeps the system callout (save image, link preview) */
+  -webkit-touch-callout: default;
+}
+
+/* Native feel (#856): no double-tap zoom on controls, and a short pressed state on touch. */
+button, [role="button"], [role="menuitem"], [role="tab"], a, summary, label, select {
+  touch-action: manipulation;
+}
+
+@media (hover: none) {
+  button:not(:disabled):active,
+  [role="button"]:active,
+  [role="menuitem"]:active,
+  [role="tab"]:active,
+  a:active {
+    opacity: 0.6;
+    transition: none;
+  }
 }
 
 /* TipTap Editor Styles */

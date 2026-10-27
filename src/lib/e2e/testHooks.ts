@@ -368,6 +368,8 @@ export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
 }
 
 if (E2E_ORIGINS.includes(location.origin)) {
+    // Set by a spec's init script before the page loads (#905).
+    e2eSwitches.sessionRestoreDelayMs = Number(localStorage.getItem('e2e-session-restore-delay-ms')) || 0;
     Object.defineProperty(window, '__journalE2E', {
         value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote }),
         writable: false,

@@ -16,6 +16,29 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.44.1 (2026-10-27)
+
+### Fixed
+
+- When you open a folder or note while the app starts, the app does not move you back to the last note.
+
+## 2.44.0 (2026-10-27)
+
+### Changed
+
+- On a phone, Move to folder shows the folder that holds the note, with a check mark.
+- On a phone, Move to folder has a New folder row. The note moves into the new folder.
+- On a phone, Move to folder has a search field when you have many folders.
+- When a part of the app shows an error screen, the browser console now shows the full error text and its stack. This helps to find the cause of an error on iOS.
+
+## 2.43.0 (2026-10-27)
+
+### Changed
+
+- On a phone, buttons and links dim when you press them, and a fast double tap on a button does not zoom the page.
+- On a phone, the remove button on a tag and the image controls are always visible.
+- A long press on a button or a row does not open a system preview. Note text, code and images stay selectable.
+
 ## 2.42.0 (2026-10-27)
 
 ### New

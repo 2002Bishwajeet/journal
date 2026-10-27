@@ -270,7 +270,7 @@ export function ImageNodeView({
         // 20px hit target around a 10px square — big enough for a finger,
         // small enough not to cover the corner of the image.
         "absolute flex h-5 w-5 items-center justify-center pointer-coarse:size-11",
-        "opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100",
+        "opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
         selected && "opacity-100",
         pos,
         cursor,
@@ -294,7 +294,7 @@ export function ImageNodeView({
         "rounded-md border bg-popover p-0.5 shadow-md",
         // 44px buttons do not fit in one row on a phone: wrap, and grow upward from the image.
         "pointer-coarse:bottom-full pointer-coarse:top-auto pointer-coarse:left-0 pointer-coarse:mb-1 pointer-coarse:w-max pointer-coarse:max-w-[calc(100vw-5rem)] pointer-coarse:translate-x-0 pointer-coarse:flex-wrap",
-        "opacity-0 transition-opacity group-hover:opacity-100",
+        "opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100",
         selected && "opacity-100",
       )}
     >
