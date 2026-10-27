@@ -26,17 +26,19 @@ export function followKeyboard(el: HTMLElement | null): (() => void) | undefined
 /**
  * Ref callback for a sheet fixed to the bottom of the screen (SheetContent). iOS Safari does not
  * shrink the layout viewport for the keyboard, so a bottom-anchored sheet would sit behind it.
- * While the keyboard is up this sets `--sheet-bottom` (the gap between the visual viewport's
- * bottom edge and the window's) and `--sheet-h` (the visual viewport's height) on the element;
- * with the keyboard down it clears them.
+ * This sets `--sheet-bottom` (the gap between the visual viewport's bottom edge and the window's)
+ * and `--sheet-h` (the visual viewport's height) on the element, so the sheet sits on the keyboard
+ * and fits above it. There is no "keyboard up" test: when Safari scrolls the page to a focused
+ * field it can also shrink `innerHeight` to the visual viewport, so comparing the two misses the
+ * keyboard. A pinch zoom clears them.
  */
 export function followKeyboardBottom(el: HTMLElement | null): (() => void) | undefined {
     const vv = window.visualViewport;
     if (!el || !vv) return;
     const update = () => {
-        const up = vv.scale === 1 && vv.height < window.innerHeight - 1;
-        el.style.setProperty('--sheet-bottom', up ? `${Math.max(0, window.innerHeight - vv.offsetTop - vv.height)}px` : '');
-        el.style.setProperty('--sheet-h', up ? `${vv.height}px` : '');
+        const follow = vv.scale === 1;
+        el.style.setProperty('--sheet-bottom', follow ? `${Math.max(0, window.innerHeight - vv.offsetTop - vv.height)}px` : '');
+        el.style.setProperty('--sheet-h', follow ? `${vv.height}px` : '');
     };
     update();
     vv.addEventListener('resize', update);

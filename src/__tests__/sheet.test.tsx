@@ -165,7 +165,7 @@ describe('followKeyboardBottom', () => {
         return { viewport, fire: () => listeners.forEach((fn) => fn()) };
     }
 
-    it('lifts the sheet onto the keyboard and drops it when the keyboard goes', () => {
+    it('lifts the sheet onto the keyboard and lowers it when the keyboard goes', () => {
         const { viewport, fire } = stubViewport({ height: 500, offsetTop: 0, scale: 1 });
         const el = document.createElement('div');
         const cleanup = followKeyboardBottom(el)!;
@@ -174,8 +174,8 @@ describe('followKeyboardBottom', () => {
 
         viewport.height = 800;
         fire();
-        expect(el.style.getPropertyValue('--sheet-bottom')).toBe('');
-        expect(el.style.getPropertyValue('--sheet-h')).toBe('');
+        expect(el.style.getPropertyValue('--sheet-bottom')).toBe('0px');
+        expect(el.style.getPropertyValue('--sheet-h')).toBe('800px');
         cleanup();
     });
 
@@ -184,6 +184,16 @@ describe('followKeyboardBottom', () => {
         const el = document.createElement('div');
         followKeyboardBottom(el);
         expect(el.style.getPropertyValue('--sheet-bottom')).toBe('200px');
+    });
+
+    it('fits the sheet above the keyboard when Safari shrinks innerHeight to the visual viewport', () => {
+        // iOS Safari after scrolling to a field low on the page (#823): innerHeight 436, not 659.
+        stubViewport({ height: 436, offsetTop: 223, scale: 1 });
+        vi.stubGlobal('innerHeight', 436);
+        const el = document.createElement('div');
+        followKeyboardBottom(el);
+        expect(el.style.getPropertyValue('--sheet-bottom')).toBe('0px');
+        expect(el.style.getPropertyValue('--sheet-h')).toBe('436px');
     });
 
     it('ignores a pinch zoom', () => {
