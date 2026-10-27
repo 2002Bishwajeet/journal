@@ -13,6 +13,7 @@ import { useEffect, useState, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import { Bold, Italic, Underline, Code, Link as LinkIcon, Strikethrough, RemoveFormatting } from 'lucide-react';
 import { ToolbarButton, safeEditorCommand } from './shared';
+import { LinkSheet } from './LinkSheet';
 import { useDeviceType } from '@/hooks';
 
 interface BubbleMenuToolbarProps {
@@ -24,6 +25,7 @@ const V = "bubble" as const;
 export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
   const iconSize = 16;
   const [isVisible, setIsVisible] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const toolbarRef = useRef<HTMLDivElement>(null);
   
@@ -107,93 +109,87 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
     safeEditorCommand(editor, () => editor.chain().focus().toggleCode().run());
   };
 
-  const addLink = () => {
-    const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('Enter URL:', previousUrl);
-    
-    if (url === null) return; // Cancelled
-    
-    if (url === '') {
-      safeEditorCommand(editor, () => editor.chain().focus().unsetLink().run());
-    } else {
-      safeEditorCommand(editor, () => editor.chain().focus().setLink({ href: url }).run());
-    }
-  };
+  const addLink = () => setLinkOpen(true);
 
-  if (!isVisible || !isDesktop) return null;
+  // The link dialog outlives the menu: opening it blurs the editor, which hides the menu.
+  const linkSheet = <LinkSheet editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />;
 
   return (
-    <div
-      ref={toolbarRef}
-      className="fixed z-50 flex items-center gap-0.5 px-2 py-1.5 bg-popover text-popover-foreground backdrop-blur-sm rounded-lg shadow-lg border border-border animate-in fade-in zoom-in-95 duration-150"
-      style={{
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-        transform: 'translateX(-50%)',
-      }}
-      onMouseDown={(e) => e.preventDefault()} // Prevent losing selection
-    >
-      <ToolbarButton variant={V}
-        onClick={toggleBold}
-        isActive={editor.isActive('bold')}
-        title="Bold"
+    <>
+      {isVisible && isDesktop && (
+      <div
+        ref={toolbarRef}
+        className="fixed z-50 flex items-center gap-0.5 px-2 py-1.5 bg-popover text-popover-foreground backdrop-blur-sm rounded-lg shadow-lg border border-border animate-in fade-in zoom-in-95 duration-150"
+        style={{
+          top: `${position.top}px`,
+          left: `${position.left}px`,
+          transform: 'translateX(-50%)',
+        }}
+        onMouseDown={(e) => e.preventDefault()} // Prevent losing selection
       >
-        <Bold size={iconSize} />
-      </ToolbarButton>
+        <ToolbarButton variant={V}
+          onClick={toggleBold}
+          isActive={editor.isActive('bold')}
+          title="Bold"
+        >
+          <Bold size={iconSize} />
+        </ToolbarButton>
       
-      <ToolbarButton variant={V}
-        onClick={toggleItalic}
-        isActive={editor.isActive('italic')}
-        title="Italic"
-      >
-        <Italic size={iconSize} />
-      </ToolbarButton>
+        <ToolbarButton variant={V}
+          onClick={toggleItalic}
+          isActive={editor.isActive('italic')}
+          title="Italic"
+        >
+          <Italic size={iconSize} />
+        </ToolbarButton>
 
-      <ToolbarButton variant={V}
-        onClick={toggleUnderline}
-        isActive={editor.isActive('underline')}
-        title="Underline"
-      >
-        <Underline size={iconSize} />
-      </ToolbarButton>
+        <ToolbarButton variant={V}
+          onClick={toggleUnderline}
+          isActive={editor.isActive('underline')}
+          title="Underline"
+        >
+          <Underline size={iconSize} />
+        </ToolbarButton>
 
-      <ToolbarButton variant={V}
-        onClick={toggleStrike}
-        isActive={editor.isActive('strike')}
-        title="Strikethrough"
-      >
-        <Strikethrough size={iconSize} />
-      </ToolbarButton>
+        <ToolbarButton variant={V}
+          onClick={toggleStrike}
+          isActive={editor.isActive('strike')}
+          title="Strikethrough"
+        >
+          <Strikethrough size={iconSize} />
+        </ToolbarButton>
       
-      <ToolbarButton variant={V}
-        onClick={toggleCode}
-        isActive={editor.isActive('code')}
-        title="Code"
-      >
-        <Code size={iconSize} />
-      </ToolbarButton>
+        <ToolbarButton variant={V}
+          onClick={toggleCode}
+          isActive={editor.isActive('code')}
+          title="Code"
+        >
+          <Code size={iconSize} />
+        </ToolbarButton>
       
-      <div className="w-px h-5 bg-border mx-1" />
+        <div className="w-px h-5 bg-border mx-1" />
       
-      <ToolbarButton variant={V}
-        onClick={addLink}
-        isActive={editor.isActive('link')}
-        title="Link"
-      >
-        <LinkIcon size={iconSize} />
-      </ToolbarButton>
+        <ToolbarButton variant={V}
+          onClick={addLink}
+          isActive={editor.isActive('link')}
+          title="Link"
+        >
+          <LinkIcon size={iconSize} />
+        </ToolbarButton>
 
-      <div className="w-px h-5 bg-border mx-1" />
+        <div className="w-px h-5 bg-border mx-1" />
 
-      <ToolbarButton variant={V}
-        onClick={clearFormatting}
-        title="Clear Formatting"
-      >
-        <RemoveFormatting size={iconSize} />
-      </ToolbarButton>
-    </div>
+        <ToolbarButton variant={V}
+          onClick={clearFormatting}
+          title="Clear Formatting"
+        >
+          <RemoveFormatting size={iconSize} />
+        </ToolbarButton>
+      </div>
+      )}
+      {linkSheet}
+    </>
   );
 }
 
 export default BubbleMenuToolbar;
-
