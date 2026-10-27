@@ -25,3 +25,15 @@ export function toggleZoom(view: ZoomPan, naturalScale: number, px: number, py: 
     if (view.scale > MIN_SCALE) return FIT;
     return zoomAt(view, Math.max(naturalScale, 2), px, py);
 }
+
+/** A vertical drag at fit closes the viewer past this distance (px)... */
+export const SWIPE_CLOSE_DISTANCE = 120;
+/** ...or on a flick faster than this (px/ms) that has gone at least SWIPE_FLICK_MIN px. */
+export const SWIPE_CLOSE_VELOCITY = 0.5;
+export const SWIPE_FLICK_MIN = 24;
+
+/** Whether releasing a swipe at `distance` px (either way) moving `velocity` px/ms closes the viewer. */
+export function swipeCloses(distance: number, velocity: number): boolean {
+    const d = Math.abs(distance);
+    return d >= SWIPE_CLOSE_DISTANCE || (d >= SWIPE_FLICK_MIN && Math.abs(velocity) >= SWIPE_CLOSE_VELOCITY);
+}
