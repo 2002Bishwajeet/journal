@@ -1,7 +1,7 @@
 import { readFileSync, realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite'
-import { headTags, SITE_URL, siteFiles } from './seo.ts'
+import { headTags, siteFiles } from './seo.ts'
 
 const page = (name: string) => resolve(import.meta.dirname, name)
 
@@ -35,9 +35,6 @@ function textFiles(): Plugin {
   const types: Record<string, string> = { txt: 'text/plain; charset=utf-8', xml: 'application/xml; charset=utf-8' }
   return {
     name: 'site-text-files',
-    buildStart() {
-      if (!process.env.SITE_URL) this.warn(`SITE_URL is not set; canonical links, the sitemap and llms.txt point at ${SITE_URL}.`)
-    },
     generateBundle() {
       for (const [fileName, source] of Object.entries(files())) this.emitFile({ type: 'asset', fileName, source })
     },

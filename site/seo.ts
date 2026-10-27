@@ -3,9 +3,9 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-// The site's public origin. Set SITE_URL when building for the real domain; locally it is the preview server.
-export const SITE_URL = (process.env.SITE_URL ?? 'http://127.0.0.1:5181').replace(/\/$/, '')
-const APP_URL = 'https://journal.cloudx.run'
+// The site's public origin: the landing page is the root of journal.cloudx.run (the app lives at /app). SITE_URL overrides it.
+export const SITE_URL = (process.env.SITE_URL ?? 'https://journal.cloudx.run').replace(/\/$/, '')
+const APP_URL = 'https://journal.cloudx.run/app/'
 const GITHUB = 'https://github.com/2002Bishwajeet/journal'
 
 export const PAGES = [

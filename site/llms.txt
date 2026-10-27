@@ -2,7 +2,7 @@
 
 > Journal is an open source notebook (AGPL-3.0) built on Homebase. Notes live on your device first, work offline, and sync encrypted to a space you own. You can share notes with people you know or publish them as public pages, write live Mermaid, SVG, HTML and React blocks inside a note, and let AI agents (Claude Code, Claude Desktop, Codex CLI) read and write the folders you grant through the Journal MCP server.
 
-Journal runs in the browser at https://journal.cloudx.run and signs in with a Homebase identity. Every feature in Journal today is free; a paid Pro plan for hosted extras is planned in the open in GitHub issue #306.
+Journal runs in the browser at https://journal.cloudx.run/app/ and signs in with a Homebase identity. Every feature in Journal today is free; a paid Pro plan for hosted extras is planned in the open in GitHub issue #306.
 
 ## Pages
 
@@ -20,4 +20,4 @@ Journal runs in the browser at https://journal.cloudx.run and signs in with a Ho
 - [Full text of this site]({{SITE}}/llms-full.txt): the three pages above as plain text
 - [Source code on GitHub](https://github.com/2002Bishwajeet/journal)
 - [Release notes](https://github.com/2002Bishwajeet/journal/blob/main/RELEASE_NOTES.md)
-- [Open Journal](https://journal.cloudx.run)
+- [Open Journal](https://journal.cloudx.run/app/)
