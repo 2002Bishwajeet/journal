@@ -216,7 +216,7 @@ export default function JournalLayout() {
     } catch {
       toast.error("Couldn't open today's note");
     }
-  }, [openToday, navigate, location.pathname, sidebarOverlayOpen, setSidebarRequested]);
+  }, [openToday, navigate, location.pathname, sidebarOverlayOpen]);
 
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
