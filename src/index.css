@@ -1107,9 +1107,9 @@ img.ProseMirror-separator {
   animation-name: fade-in;
 }
 
-/* Phone push and pop (#779): forward slides in from the right; back
+/* Phone push and pop (#779, phones only: tablets show two panes): forward slides in from the right; back
    (data-nav="back"); slideNavigate in navDirection.ts starts them slides in from the left. */
-@media (max-width: 1023.98px) and (prefers-reduced-motion: no-preference) {
+@media (max-width: 767.98px) and (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 0.25s;

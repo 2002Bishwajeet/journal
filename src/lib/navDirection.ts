@@ -16,7 +16,7 @@ export function routeRendered(): void {
 export function slideNavigate(direction: "forward" | "back", go: () => void): void {
   const root = document.documentElement;
   // Desktop keeps plain navigation; with reduced motion there is nothing to slide.
-  if (!document.startViewTransition || matchMedia("(min-width: 1024px), (prefers-reduced-motion: reduce)").matches) {
+  if (!document.startViewTransition || matchMedia("(min-width: 768px), (prefers-reduced-motion: reduce)").matches) {
     go();
     return;
   }
