@@ -330,6 +330,17 @@ try {
   await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
   await waitFor('the folder options to close', () => !document.querySelector('[role="menu"]'));
 
+  // A real long press on a sidebar row (#856): chrome has -webkit-touch-callout: none, so iOS shows no
+  // link preview or callout; the app's own folder menu may open, and is closed again.
+  const rowCallout = await browser.execute(() => getComputedStyle(document.querySelector('[aria-label="Folders"] button')!).getPropertyValue('-webkit-touch-callout'));
+  if (rowCallout !== 'none') failures.push(`native-feel: a sidebar row has -webkit-touch-callout ${rowCallout || 'unset'}, not none`);
+  const [folderRow] = await browser.$$('[aria-label="Folders"] button');
+  await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: folderRow, x: 0, y: 0 }).down().pause(900).up().perform();
+  await browser.pause(500);
+  summary.push(`| native-feel: long press on a sidebar row | ${await screenshot('long-press-sidebar-row')} | -webkit-touch-callout ${rowCallout} |`);
+  await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await waitFor('the folder options to close', () => !document.querySelector('[role="menu"]'));
+
   await tap('[aria-label="Folders"] button');
   await browser.$('button[aria-label="Back to notes"]').waitForDisplayed({ timeout: 30_000 });
   await check('note-list');
@@ -352,6 +363,32 @@ try {
     warnings.push('The software keyboard did not show after tapping the editor, so the keyboard checks did not run (STOP condition in #799).');
   }
   await check('editor-keyboard', keyboardUp);
+
+  // A long press on a word in the note selects it (#856): body is user-select: none, and the editor
+  // must still allow selection and keep the caret inside it.
+  if (keyboardUp) {
+    const at = await browser.execute(() => {
+      const p = document.querySelector('.ProseMirror p')!;
+      p.scrollIntoView({ block: 'center' });
+      const r = p.getBoundingClientRect();
+      return { x: Math.round(r.left + 20), y: Math.round(r.top + r.height / 2) };
+    });
+    await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: 'viewport', x: at.x, y: at.y }).down().pause(1_200).up().perform();
+    await browser.pause(800);
+    const selected = await browser.execute(() => {
+      const sel = getSelection();
+      const editor = document.querySelector('.ProseMirror');
+      return {
+        text: sel?.toString() ?? '',
+        inEditor: !!sel?.anchorNode && !!editor?.contains(sel.anchorNode) && !!sel.focusNode && editor.contains(sel.focusNode),
+      };
+    });
+    if (!selected.text.trim()) failures.push('native-feel: a long press on a word in the editor selected no text');
+    if (!selected.inEditor) failures.push('native-feel: after a long press in the editor, the selection is not inside the editor');
+    summary.push(`| native-feel: long press on a word in the editor | ${await screenshot('editor-long-press-select')} | selected "${selected.text}", in editor ${selected.inEditor} |`);
+    console.log(`${selected.text.trim() && selected.inEditor ? '✓' : '✗'} native-feel: editor long press selected "${selected.text}" (in editor ${selected.inEditor})`);
+    await browser.execute(() => getSelection()?.collapseToEnd());
+  }
 
   // In-app Back pops the note's entry instead of pushing the list (#822).
   const noteIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
