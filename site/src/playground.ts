@@ -14,6 +14,8 @@ export function startPlayground(root: HTMLElement): void {
   const status = root.querySelector<HTMLElement>('.pg-status')!;
   let run = 0;
   let timer: number | undefined;
+  // A phone column fits a diagram that runs top to bottom.
+  if (matchMedia('(max-width: 599px)').matches) input.value = input.value.replace(/^graph LR/, 'graph TD');
 
   async function render(): Promise<void> {
     const mine = ++run;

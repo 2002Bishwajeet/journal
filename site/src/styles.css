@@ -1,13 +1,15 @@
 /* Journal landing site. Colours are the brand tokens (brand/tokens.css); no new hues. */
 @import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/playfair-display/wght.css';
 
 :root {
   --font-sans: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-serif: 'Playfair Display Variable', Georgia, serif; /* the wordmark's face, as in the app's dialog titles */
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace; /* taste-skill-ignore: code only */
 
   /* Five sizes: display, section, sub, body, small. */
-  --fs-display: clamp(40px, 4vw + 14px, 70px);
-  --fs-h2: clamp(32px, 2.2vw + 16px, 47px);
+  --fs-display: clamp(36px, 5.6vw + 16px, 96px);
+  --fs-h2: clamp(30px, 1.4vw + 20px, 42px);
   --fs-sub: 21px;
   --fs-body: 17px;
   --fs-small: 15px;
@@ -42,7 +44,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     --bg: #1C1B1A; --ink: #E6E4DD; --band: #242321; --band-2: #2A2826;
-    --line: #3E3D3A; --muted: #A9A69E; --icon: #A9A69E; --sand-soft: #34302A;
+    --line: #3E3D3A; --muted: #A9A69E; --icon: #A9A69E; --sand-soft: #2F2D2A;
     --btn: #E6E4DD; --btn-ink: #1C1B1A;
     --field: #DACAB0; --field-ink: #1C1B1A; --field-muted: #4A4439;
     --code-bg: #121211; --code-ink: #E6E4DD;
@@ -51,7 +53,7 @@
 }
 :root[data-theme='dark'] {
   --bg: #1C1B1A; --ink: #E6E4DD; --band: #242321; --band-2: #2A2826;
-  --line: #3E3D3A; --muted: #A9A69E; --icon: #A9A69E; --sand-soft: #34302A;
+  --line: #3E3D3A; --muted: #A9A69E; --icon: #A9A69E; --sand-soft: #2F2D2A;
   --btn: #E6E4DD; --btn-ink: #1C1B1A;
   --field: #DACAB0; --field-ink: #1C1B1A; --field-muted: #4A4439;
   --code-bg: #121211; --code-ink: #E6E4DD;
@@ -109,10 +111,10 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .band { background: var(--band); }
 .band-2 { background: var(--band-2); }
 
-/* ---- Type: Inter throughout; the wordmark carries the brand serif ---- */
-.display, .h2 { font-weight: 650; letter-spacing: -0.03em; }
-.display { font-size: var(--fs-display); line-height: 1.02; letter-spacing: -0.035em; }
-.h2 { font-size: var(--fs-h2); line-height: 1.08; }
+/* ---- Type: the brand serif for the display voice, Inter for everything read ---- */
+.display, .h2 { font-family: var(--font-serif); font-weight: 450; letter-spacing: -0.012em; }
+.display { font-size: var(--fs-display); line-height: 1.02; letter-spacing: -0.02em; }
+.h2 { font-size: var(--fs-h2); line-height: 1.12; }
 .h3 { font-size: var(--fs-sub); line-height: 1.3; font-weight: 620; letter-spacing: -0.015em; }
 .lede { font-size: var(--fs-sub); line-height: 1.45; max-width: 56ch; }
 .small { font-size: var(--fs-small); line-height: 1.55; color: var(--muted); }
@@ -201,20 +203,21 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   .menu { display: none; }
 }
 
-/* ---- Hero: the promise, the action, then the app, large ---- */
-.hero { padding: clamp(32px, 4.4vw, 64px) 0 clamp(56px, 7vw, 96px); }
-.hero-title { max-width: 13em; }
-.hero-side { display: grid; gap: 24px; margin-top: 24px; }
-.hero .lede { color: var(--ink); }
-.hero-note { margin-top: 20px; font-size: var(--fs-small); color: var(--muted); max-width: 64ch; }
+/* ---- Hero: the promise, the action under it, then the app, large ---- */
+.hero { padding: clamp(28px, 3.4vw, 48px) 0 clamp(56px, 7vw, 96px); }
+.hero-title { max-width: 12em; }
+.hero-lede { margin-top: clamp(16px, 1.8vw, 24px); color: var(--ink); }
+.hero-actions { display: grid; gap: 16px; margin-top: clamp(24px, 2.4vw, 32px); }
+.hero-note { font-size: var(--fs-small); color: var(--muted); max-width: 54ch; }
 @media (min-width: 960px) {
-  .hero-side { grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--gap); margin-top: 28px; }
+  .hero-actions { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 28px; }
 }
 
 .frame { padding: clamp(6px, 0.8vw, 12px); border-radius: 18px; background: var(--band); } /* a mat of tone, not an outline */
 .band .frame, .band-2 .frame { background: var(--bg); }
 .frame img, .frame video { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border-radius: 10px; background: var(--bg); }
 .hero-media { margin-top: clamp(32px, 4vw, 48px); }
+.frame-hero video { aspect-ratio: 2078 / 1160; } /* the notes list and the note; the empty foot of the window is cropped */
 .frame-page img { aspect-ratio: 20 / 11; }
 .share-page img { aspect-ratio: 16 / 9; } /* the published note ends before the frame does */
 
@@ -244,22 +247,16 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   .step-2 { margin-left: -22px; padding-left: 62px; clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 50%, calc(100% - 28px) 100%, 0 100%, 28px 50%); }
   .step:last-child { margin-left: -22px; padding-left: 62px; border-radius: 0 12px 12px 0; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 28px 50%); }
 }
-.points { display: grid; gap: 20px var(--gap); margin-top: clamp(40px, 5vw, 56px); }
-@media (min-width: 860px) { .points { grid-template-columns: repeat(3, 1fr); } }
-.points li { max-width: 40ch; }
-.points strong { display: block; font-weight: 650; }
-.footnote { margin-top: 32px; font-size: var(--fs-small); color: var(--muted); max-width: 70ch; }
+.band-close { margin-top: clamp(32px, 4vw, 48px); max-width: 52ch; font-size: var(--fs-sub); line-height: 1.45; }
+.footnote { margin-top: 16px; font-size: var(--fs-small); color: var(--muted); max-width: 70ch; }
 
 /* ---- Feature moments: copy beside a crop of the real app ---- */
-.moment { display: grid; gap: 24px; align-items: start; }
+.moment { display: grid; gap: 24px; align-items: center; }
 .moment + .moment { margin-top: clamp(56px, 7vw, 88px); }
 .moment-copy { display: grid; gap: 12px; align-content: start; max-width: 40ch; }
 .crop { padding: clamp(12px, 2.4vw, 32px); border-radius: 16px; background: var(--band); min-width: 0; }
 .band .crop { background: var(--bg); }
 .crop img { width: 100%; border-radius: 10px; }
-/* A crop narrower than its note: the picture runs off the mat's right edge, as a crop should. */
-.crop-bleed { padding-right: 0; overflow: hidden; }
-.crop-bleed img { border-radius: 10px 0 0 10px; }
 .crop-dialog { display: grid; place-items: center; padding-block: clamp(24px, 4vw, 56px); }
 .crop-dialog img { max-width: 560px; }
 .crop-phone { display: grid; place-items: center; }
@@ -268,18 +265,12 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 @media (max-width: 599px) {
   /* The phone capture stands in for the desktop crop: the top of the note, full width. */
   .crop picture img { aspect-ratio: 390 / 640; object-fit: cover; object-position: top; }
-  .crop-bleed { padding-right: clamp(12px, 2.4vw, 32px); }
-  .crop-bleed img { border-radius: 10px; }
   .crop-grants picture img { aspect-ratio: auto; }
-  /* The assistant is desktop only, and its desktop crop is unreadable at phone width. */
-  .crop-desktop { display: none; }
 }
 @media (min-width: 900px) {
   .moment { grid-template-columns: 4fr 7fr; gap: var(--gap); }
   .moment.flip { grid-template-columns: 7fr 4fr; }
   .moment.flip .moment-copy { order: 2; }
-  /* The copy starts level with the picture inside the crop's mat. */
-  .moment-copy { padding-top: clamp(12px, 2.4vw, 32px); }
 }
 /* Two smaller moments side by side, each with its copy over its crop. */
 .pair { display: grid; gap: clamp(56px, 7vw, 88px) var(--gap); margin-top: clamp(56px, 7vw, 88px); }
@@ -289,10 +280,10 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 @media (min-width: 900px) {
   .pair { grid-template-columns: 1fr 1fr; align-items: stretch; }
   .pair-item { grid-template-rows: auto 1fr; }
-  .pair .moment-copy { padding-top: 0; }
 }
 .also { display: grid; gap: 24px; margin-top: clamp(64px, 8vw, 96px); }
-.also ul { display: grid; gap: 16px var(--gap); }
+.also ul { display: grid; gap: 20px var(--gap); }
+@media (max-width: 639px) { .also ul { gap: 14px; } .also li { font-size: var(--fs-small); line-height: 1.5; } } /* a tighter list on a phone */
 @media (min-width: 640px) { .also ul { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 980px) { .also ul { grid-template-columns: repeat(3, 1fr); } }
 .also strong { font-weight: 650; }
@@ -315,15 +306,13 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 @media (min-width: 860px) { .two { grid-template-columns: 1fr 1fr; gap: var(--gap); } }
 .mode { display: grid; gap: 10px; align-content: start; max-width: 52ch; }
 
-/* ---- Two-column splits: live blocks, local AI, agents ---- */
+/* ---- Two-column splits: live blocks, agents ---- */
 .split { display: grid; gap: 40px; align-items: center; }
 .split > *, .two > * { min-width: 0; }
 .split-copy { display: grid; gap: 20px; align-content: start; justify-items: start; }
 @media (min-width: 980px) {
   .split { grid-template-columns: 5fr 7fr; gap: var(--gap); }
-  .split.flip { grid-template-columns: 7fr 5fr; }
-  .split.flip > :first-child { order: 2; }
-}
+  }
 
 .playground { display: grid; border-radius: 16px; overflow: hidden; }
 .pg-pane { display: grid; grid-template-rows: auto 1fr; }
@@ -340,6 +329,11 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .pg-output { background: var(--band); }
 .pg-output .pg-label { color: var(--muted); }
 .pg-render { display: grid; place-items: center; padding: 8px 20px 28px; min-height: 260px; overflow: auto; }
+/* On a phone the source wraps and the diagram runs top to bottom, so the preview is only as tall as it. */
+@media (max-width: 599px) {
+  .pg-source textarea { min-height: 0; white-space: pre-wrap; overflow-x: hidden; font-size: 14px; }
+  .pg-render { min-height: 0; padding: 4px 16px 24px; }
+}
 .pg-render svg { max-width: 100%; height: auto; }
 .pg-status[data-error] { color: #A0442F; }
 :root[data-theme='dark'] .pg-status[data-error] { color: #E3A08F; }
@@ -357,7 +351,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 /* ---- Pricing teaser on the home page: a heading and one line, side by side ---- */
 .teaser-row { display: grid; gap: 24px; }
 .teaser-copy { display: grid; gap: 24px; justify-items: start; }
-@media (min-width: 900px) { .teaser-row { grid-template-columns: 7fr 5fr; gap: var(--gap); align-items: end; } }
+@media (min-width: 900px) { .teaser-row { grid-template-columns: 7fr 5fr; gap: var(--gap); align-items: start; } }
 .section.teaser { padding: clamp(64px, 8vw, 104px) 0; }
 
 /* ---- Questions: answers as reading text, two columns ---- */
@@ -374,9 +368,8 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   .field .btn-secondary:hover { background: color-mix(in srgb, var(--field-ink) 20%, var(--field)); }
 }
 .closing { padding: clamp(72px, 10vw, 136px) 0; }
-.closing-row { display: grid; gap: 32px; }
-.closing .display { max-width: 12em; }
-@media (min-width: 960px) { .closing-row { grid-template-columns: 1fr auto; align-items: end; gap: var(--gap); } }
+.closing-row { display: grid; gap: clamp(24px, 3vw, 40px); justify-items: start; }
+.closing .display { max-width: 14em; }
 
 /* ---- Page heroes (agents, pricing) and their closing bands ---- */
 .page-hero { padding: clamp(40px, 6vw, 88px) 0 var(--section); }
@@ -402,6 +395,9 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   white-space: pre; overflow-x: auto;
 }
 .code-panel pre code { white-space: pre; }
+@media (max-width: 599px) {
+  .code-panel pre, .code-panel pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
+}
 .copy-btn {
   display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px;
   border: 0; border-radius: var(--radius); background: rgb(255 255 255 / 0.08); color: var(--code-ink);
@@ -450,7 +446,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .tool-group dd { margin: 0; }
 
 /* ---- Pricing: two plans of one height, with one head layout ---- */
-.plans { display: grid; gap: 20px; }
+.plans { display: grid; gap: 20px; align-items: start; }
 @media (min-width: 760px) { .plans { grid-template-columns: 1fr 1fr; } }
 .plan { display: flex; flex-direction: column; gap: 24px; padding: clamp(24px, 3.4vw, 48px); border-radius: 16px; }
 .plan-free { background: var(--band); }
@@ -461,18 +457,20 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .ticks li { display: grid; grid-template-columns: 20px 1fr; gap: 12px; padding: 5px 0; }
 .ticks .icon { width: 18px; height: 18px; margin-top: 5px; color: var(--icon); }
 .plan-need { font-size: var(--fs-small); color: var(--muted); max-width: 52ch; }
-.plan .ctas { margin-top: auto; }
 
-/* What Free covers: four small pieces of the app on one mat, then the list, names in bold. */
+/* What Free covers: four small pieces of the app on one mat, then the list, names in bold.
+   On a wide screen the three columns share one height: each grows in proportion to its picture's width over
+   height (flex-grow), and the two settings panels spread to the column's top and bottom. */
 .pieces { display: grid; gap: 20px; justify-items: center; padding: clamp(16px, 3vw, 40px); border-radius: 16px; background: var(--bg); }
 .piece img { width: 100%; border-radius: 10px; }
 .piece-sidebar { width: min(240px, 100%); }
 .piece-slash { width: min(288px, 100%); }
-.piece-stack { display: grid; gap: 20px; align-content: start; width: 100%; }
+.piece-stack { display: flex; flex-direction: column; justify-content: space-between; gap: 16px; width: 100%; }
 @media (max-width: 599px) { .piece-stack { display: none; } } /* settings panels are unreadable at phone width */
 @media (min-width: 900px) {
-  .pieces { grid-template-columns: 240fr 288fr 580fr; align-items: start; gap: 24px; }
-  .piece-sidebar, .piece-slash { width: 100%; }
+  .pieces { display: flex; align-items: stretch; gap: 24px; }
+  .pieces > * { flex: var(--ar) 1 0; min-width: 0; }
+  .piece-sidebar, .piece-slash { width: auto; }
 }
 .covers { display: grid; gap: 16px var(--gap); margin-top: clamp(40px, 5vw, 56px); }
 @media (min-width: 640px) { .covers { grid-template-columns: 1fr 1fr; } }

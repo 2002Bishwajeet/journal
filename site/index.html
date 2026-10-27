@@ -17,23 +17,24 @@
     <section class="hero" id="top" aria-labelledby="hero-title">
       <div class="wrap">
         <h1 class="display hero-title" id="hero-title" data-reveal>A private notebook that works offline</h1>
-        <div class="hero-side" data-reveal style="--i:1">
-          <p class="lede">Journal keeps every note on your device first, syncs it encrypted to a space you own, and lets AI agents in only where you allow.</p>
+        <p class="lede hero-lede" data-reveal style="--i:1">Journal keeps every note on your device first, syncs it encrypted to a space you own, and lets AI agents in only where you allow.</p>
+        <div class="hero-actions" data-reveal style="--i:2">
           <div class="ctas">
             <a class="btn btn-primary" href="https://journal.cloudx.run">Open Journal</a>
             <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
           </div>
+          <p class="hero-note">Journal signs in with a <a href="https://homebase.id">Homebase</a> identity, a private space that belongs to you. Homebase is invite-only during its alpha.</p>
         </div>
-        <figure class="hero-media" data-reveal style="--i:2">
+        <figure class="hero-media" data-reveal style="--i:3">
           <div class="frame frame-hero">
-            <video class="hero-video only-light" muted loop playsinline preload="none" width="1600" height="1000"
+            <video class="hero-video only-light" muted loop playsinline preload="none" width="2078" height="1268"
               poster="/media/hero-poster-light.webp"
-              aria-label="Journal in use: a Reading log note with a live chart, writing a new note with a Mermaid diagram, searching, then the phone layout">
+              aria-label="Journal in use: a Reading log note with a live chart, then a Mermaid diagram added to a Publishing flow note, then back to the Reading log through search">
               <source src="/media/hero-light.mp4" type="video/mp4" />
             </video>
-            <video class="hero-video only-dark" muted loop playsinline preload="none" width="1600" height="1000"
+            <video class="hero-video only-dark" muted loop playsinline preload="none" width="2078" height="1268"
               poster="/media/hero-poster-dark.webp"
-              aria-label="Journal in dark mode: a Reading log note with a live chart, writing a new note with a Mermaid diagram, searching, then the phone layout">
+              aria-label="Journal in dark mode: a Reading log note with a live chart, then a Mermaid diagram added to a Publishing flow note, then back to the Reading log through search">
               <source src="/media/hero-dark.mp4" type="video/mp4" />
             </video>
           </div>
@@ -42,7 +43,6 @@
             <img class="only-dark" src="/media/phone-live-block-dark.webp" width="1170" height="2532" alt="Journal on a phone in dark mode: a Reading log note with a bar chart and a diagram, both live blocks." />
           </div>
         </figure>
-        <p class="hero-note" data-reveal style="--i:3">Journal signs in with a <a href="https://homebase.id">Homebase</a> identity, a private space that belongs to you. Homebase is invite-only during its alpha.</p>
       </div>
     </section>
 
@@ -67,12 +67,8 @@
             <p>Share a note with people you know, or publish it as a public page. Everything else stays private.</p>
           </li>
         </ol>
-        <ul class="points" aria-label="What else stays yours">
-          <li data-reveal><strong>Agents by invitation</strong> AI agents get no access until you grant it, per folder or per note.</li>
-          <li data-reveal style="--i:1"><strong>Export any time</strong> Take everything out as markdown in a ZIP.</li>
-          <li data-reveal style="--i:2"><strong>Open source</strong> Journal is AGPL-3.0. Read the code, run it, change it.</li>
-        </ul>
-        <p class="footnote" data-reveal>The copy on your device is not encrypted yet; passkey or passphrase unlock is in progress.</p>
+        <p class="band-close" data-reveal>Agents get in only where you grant a folder or a note, everything exports as markdown in a ZIP, and the code is open source under the AGPL-3.0.</p>
+        <p class="footnote" data-reveal style="--i:1">The copy on your device is not encrypted yet; passkey or passphrase unlock is in progress.</p>
       </div>
     </section>
 
@@ -106,14 +102,14 @@
               <h3 class="h3">Math and code</h3>
               <p>LaTeX equations, inline or as their own block, next to syntax-highlighted code.</p>
             </div>
-            <figure class="crop crop-bleed">
+            <figure class="crop">
               <picture class="only-light">
                 <source media="(max-width: 599px)" srcset="/media/phone-math-light.webp" width="1170" height="2532" />
-                <img src="/media/feature-math-light.webp" width="1120" height="880" loading="lazy" alt="A Physics revision note: a sentence with an inline lambda, the equation E equals h nu equals hc over lambda, and a Python code block." />
+                <img src="/media/feature-math-light.webp" width="1438" height="880" loading="lazy" alt="A Physics revision note: a sentence with an inline lambda, the equation E equals h nu equals hc over lambda, and a Python code block." />
               </picture>
               <picture class="only-dark">
                 <source media="(max-width: 599px)" srcset="/media/phone-math-dark.webp" width="1170" height="2532" />
-                <img src="/media/feature-math-dark.webp" width="1120" height="880" loading="lazy" alt="The Physics revision note in dark mode: an equation and a highlighted Python code block." />
+                <img src="/media/feature-math-dark.webp" width="1438" height="880" loading="lazy" alt="The Physics revision note in dark mode: an equation and a highlighted Python code block." />
               </picture>
             </figure>
           </div>
@@ -123,8 +119,8 @@
               <p>Restore an earlier version of a note. It comes back as one edit, so a single undo puts things as they were.</p>
             </div>
             <figure class="crop crop-dialog">
-              <img class="only-light" src="/media/feature-history-light.webp" width="1024" height="500" loading="lazy" alt="The Version history dialog for a Packing list note: two earlier versions, each with a word count, a preview and a Restore button." />
-              <img class="only-dark" src="/media/feature-history-dark.webp" width="1024" height="500" loading="lazy" alt="The Version history dialog in dark mode, with two earlier versions to restore." />
+              <img class="only-light" src="/media/feature-history-light.webp" width="992" height="466" loading="lazy" alt="The Version history dialog for a Packing list note: two earlier versions, each with a word count, a preview and a Restore button." />
+              <img class="only-dark" src="/media/feature-history-dark.webp" width="992" height="466" loading="lazy" alt="The Version history dialog in dark mode, with two earlier versions to restore." />
             </figure>
           </div>
         </div>
@@ -146,9 +142,12 @@
             <li data-reveal><strong>Folders and tags.</strong> Filter by tag, or delete a tag from every note at once.</li>
             <li data-reveal style="--i:1"><strong>Daily notes.</strong> One click opens today's note, from your own template.</li>
             <li data-reveal style="--i:2"><strong>Search.</strong> Full text across all notes, with recent searches.</li>
-            <li data-reveal><strong>Galleries.</strong> Drop several images for a row, grid, masonry or carousel.</li>
-            <li data-reveal style="--i:1"><strong>Templates.</strong> Start new notes from templates you write.</li>
-            <li data-reveal style="--i:2"><strong>Import.</strong> Bring in a Notion export or an Obsidian vault.</li>
+            <li data-reveal><strong>Note links.</strong> Type [[ to link another note, or create it on the spot.</li>
+            <li data-reveal style="--i:1"><strong>Find and replace.</strong> Inside a note, with match case and whole words.</li>
+            <li data-reveal style="--i:2"><strong>Galleries.</strong> Drop several images for a row, grid, masonry or carousel.</li>
+            <li data-reveal><strong>Templates.</strong> Start new notes from templates you write.</li>
+            <li data-reveal style="--i:1"><strong>Import.</strong> Bring in a Notion export or an Obsidian vault.</li>
+            <li data-reveal style="--i:2"><strong>Writing help.</strong> An optional assistant on desktop that runs in your browser.</li>
           </ul>
         </div>
       </div>
@@ -214,27 +213,6 @@
       </div>
     </section>
 
-    <!-- Local AI -->
-    <section class="section band" id="local-ai" aria-labelledby="ai-title">
-      <div class="wrap split flip">
-        <div class="split-copy">
-          <h2 class="h2" id="ai-title" data-reveal>AI that runs on your computer</h2>
-          <p class="lede" data-reveal style="--i:1">Journal's assistant runs a small language model in your browser. Your questions and notes stay on your device.</p>
-          <ul class="list" data-reveal style="--i:2">
-            <li>Grammar checks with inline underlines.</li>
-            <li>Autocomplete as ghost text; press Tab to accept.</li>
-            <li>Rewrite in nine styles, from Proofread and Concise to Key Points and Table, shown in the note to accept or reject.</li>
-            <li>An assistant that searches and reads your notes, and proposes edits you accept or reject.</li>
-          </ul>
-          <p class="small" data-reveal style="--i:3">Desktop only; phones don't have the memory for it. The model downloads once.</p>
-        </div>
-        <figure class="crop crop-desktop" data-reveal style="--i:1">
-          <img class="only-light" src="/media/ai-rewrite-light.webp" width="1534" height="680" loading="lazy" alt="A note with a long sentence and the assistant's Concise rewrite shown in place, with Accept and Reject buttons." />
-          <img class="only-dark" src="/media/ai-rewrite-dark.webp" width="1534" height="680" loading="lazy" alt="The same rewrite preview in dark mode, with Accept and Reject." />
-        </figure>
-      </div>
-    </section>
-
     <!-- Agents: the teaser for /agents -->
     <section class="section" id="agents" aria-labelledby="agents-title">
       <div class="wrap split">
@@ -266,7 +244,7 @@
         <h2 class="h2" id="pricing-title" data-reveal>Free for what lives in your own space</h2>
         <div class="teaser-copy" data-reveal style="--i:1">
           <p class="lede">Everything in Journal today costs nothing. A paid Pro plan for hosted extras is planned.</p>
-          <p><a class="btn btn-secondary" href="/pricing">See pricing</a></p>
+          <p><a class="btn btn-primary" href="/pricing">See pricing</a></p>
         </div>
       </div>
     </section>
@@ -282,7 +260,7 @@
           <div data-reveal><h3 class="h3">Do I need an account?</h3><p>Yes. Journal signs in with a Homebase identity, your own private space. Homebase is invite-only during its alpha, so <a href="https://homebase.id/sign-up">join its wait list</a>.</p></div>
           <div data-reveal><h3 class="h3">Are my notes encrypted?</h3><p>The synced copy is encrypted. The copy on your device is not encrypted yet; passkey or passphrase unlock is in progress. Public notes are not encrypted, by design.</p></div>
           <div data-reveal><h3 class="h3">Can I move from Notion or Obsidian?</h3><p>Yes. Import a Notion Markdown &amp; CSV export or an Obsidian vault as a .zip in Settings → Data &amp; storage. Links, images, tags and callouts come with it.</p></div>
-          <div data-reveal><h3 class="h3">Does AI see my notes?</h3><p>The built-in assistant runs on your device. Agents connected through MCP see only the folders and notes you grant.</p></div>
+          <div data-reveal><h3 class="h3">Does AI see my notes?</h3><p>Agents connected through MCP see only the folders and notes you grant. The optional writing assistant runs on your device.</p></div>
         </div>
       </div>
     </section>

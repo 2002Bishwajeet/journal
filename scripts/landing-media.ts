@@ -1,9 +1,8 @@
 /**
  * Records the landing page's product media (site/public/media/) from the real app, light and dark:
  * screenshots of notes and live blocks, phone screenshots, crops of single features (callouts and
- * tables, math and code, version history, the Share dialog, an AI rewrite, Settings > Agent access, and small
- * pieces for the pricing page), the public page of a published note, and the hero video (desktop, then the
- * phone layout).
+ * tables, math and code, version history, the Share dialog, Settings > Agent access, and small
+ * pieces for the pricing page), the public page of a published note, and the hero video.
  * The published note's cover is "Alfama Rooftops and Tagus River View, Lisbon" by Dale Cruse,
  * CC BY 4.0, via Wikimedia Commons (scripts/landing-media-cover.jpg).
  *
@@ -21,8 +20,6 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import * as Y from 'yjs';
 import { activeEditor, activeTitleInput, createFolder, waitForNoteSaved } from '../e2e/support/actions';
-import { stubWebGPU } from '../e2e/support/webgpu';
-import { finishLoad, queueReply, reloads, stubWebLLMWorker } from '../e2e/support/webllm-worker';
 import { installNetworkFence, assertNoFenceViolations } from '../e2e/support/network-fence';
 import { assertAllowedOrigin, assertTestOrigin } from '../e2e/support/origin-guard';
 
@@ -165,15 +162,6 @@ async function shot(page: Page, name: string): Promise<void> {
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', png, '-c:v', 'libwebp', '-quality', '82', `${OUT}/${name}.webp`]);
 }
 
-async function openSearch(page: Page, query: string): Promise<void> {
-  await page.keyboard.press('ControlOrMeta+k');
-  const dialog = page.getByRole('dialog', { name: 'Search notes' });
-  await expect(dialog.getByRole('searchbox').or(dialog.getByRole('textbox')).first()).toBeFocused();
-  await page.waitForTimeout(300);
-  await page.keyboard.type(query, { delay: 90 });
-  await page.waitForTimeout(800);
-}
-
 async function wide(browser: Browser, theme: Theme): Promise<void> {
   const { context, page, violations } = await newContext(browser, false, theme);
   await createFolder(page, 'Work');
@@ -227,25 +215,49 @@ async function narrow(browser: Browser, theme: Theme): Promise<void> {
 
 type Frame = { file: string; t: number };
 
+/**
+ * Records the page. `cut()` stops recording until `resume()`: opening a note shows a loading state for a moment, and
+ * the clip skips it. Starting the screencast again sends the current screen at once, so the first frame after a cut
+ * shows the new screen even when nothing on it moves. Frames are timed on arrival, with the cut time taken out.
+ */
 async function screencast(page: Page, dir: string) {
   mkdirSync(dir, { recursive: true });
   const cdp = await page.context().newCDPSession(page);
   const frames: Frame[] = [];
+  let recording = false;
+  let pausedAt = 0;
+  let offset = 0;
   cdp.on('Page.screencastFrame', (f) => {
+    cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {});
+    if (!recording) return;
     const file = path.join(dir, `f${String(frames.length).padStart(5, '0')}.jpg`);
     writeFileSync(file, Buffer.from(f.data, 'base64'));
-    frames.push({ file, t: f.metadata.timestamp ?? Date.now() / 1000 });
-    cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {});
+    frames.push({ file, t: Date.now() / 1000 - offset });
   });
-  await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92, everyNthFrame: 1 });
-  return async (): Promise<Frame[]> => {
-    await page.waitForTimeout(300);
-    await cdp.send('Page.stopScreencast');
-    return frames;
+  const start = async () => {
+    recording = true;
+    await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92, everyNthFrame: 1, maxWidth: 2560, maxHeight: 1600 });
+  };
+  await start();
+  return {
+    cut: async () => {
+      recording = false;
+      pausedAt = Date.now() / 1000;
+      await cdp.send('Page.stopScreencast');
+    },
+    resume: async () => {
+      offset += Date.now() / 1000 - pausedAt;
+      await start();
+    },
+    stop: async (): Promise<Frame[]> => {
+      await page.waitForTimeout(300);
+      await cdp.send('Page.stopScreencast');
+      return frames;
+    },
   };
 }
 
-/** A constant-frame-rate clip from timed frames; `vf` scales and pads it into the shared 1600x1000 stage. */
+/** A constant-frame-rate clip from timed frames, filtered by `vf`. */
 function encodeClip(frames: Frame[], out: string, vf: string, tail = 1.2): void {
   const list = frames
     .map((f, i) => `file '${f.file}'\nduration ${(i + 1 < frames.length ? frames[i + 1].t - f.t : tail).toFixed(3)}`)
@@ -256,104 +268,91 @@ function encodeClip(frames: Frame[], out: string, vf: string, tail = 1.2): void 
     '-vf', `${vf},fps=30,format=yuv420p`, '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', out]);
 }
 
-const APP_BG: Record<Theme, string> = { light: '0xFDFCF8', dark: '0x1C1B1A' };
+const PUBLISHING = {
+  title: 'Publishing flow',
+  html: [
+    '<h2>How a note gets published</h2>',
+    '<p>Write it on your device, then share it when it is <strong>ready</strong>.</p>',
+    '<ul><li><p>Draft offline</p></li><li><p>Sync to your private space</p></li><li><p>Publish it as a public page</p></li></ul>',
+  ].join(''),
+};
 
-/** Opens the search box, types `query`, and opens the top result. */
-async function searchAndOpen(page: Page, query: string, title: string): Promise<void> {
-  await openSearch(page, query);
-  await page.keyboard.press('Enter');
-  await expect(activeTitleInput(page)).toHaveValue(title);
-}
-
-/** The loop starts and ends on the finished Reading log, so its first frame is a full note. */
-async function heroDesktop(browser: Browser, theme: Theme): Promise<string> {
+/**
+ * The hero loop, desktop only: the finished Reading log, then a diagram added to the Publishing flow note, then
+ * back to the Reading log. It starts and ends on the same frame, and the loading states are cut.
+ * The clip is the notes list and the note, without the sidebar or the editor toolbar, at device pixels, so the
+ * note's text reads at its own size on the landing page.
+ */
+async function heroVideo(browser: Browser, theme: Theme): Promise<void> {
   const { context, page, violations } = await newContext(browser, false, theme);
+  await page.addStyleTag({ content: 'button[aria-label="Open assistant"] { display: none !important; }' });
   await createFolder(page, 'Work');
   await createFolder(page, 'Personal');
   await addNote(page, WEEKLY, false);
   await addNote(page, TRIP, false);
   await addNote(page, READING, false);
-  await expect(page.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]').first()).toBeVisible({ timeout: 20_000 });
-  await expect(page.frameLocator('iframe').first().locator('.recharts-bar-rectangle').first()).toBeVisible({ timeout: 20_000 });
-  await page.keyboard.press('ControlOrMeta+Home');
-  await page.waitForTimeout(1200);
+  await addNote(page, PUBLISHING, false);
+  const openNote = async (title: string) => {
+    await page.getByTestId('note-row').filter({ hasText: title }).click();
+    await expect(activeTitleInput(page)).toHaveValue(title);
+  };
+  const chart = () => page.frameLocator('iframe:visible').first().locator('.recharts-bar-rectangle').first();
+  await openNote(READING.title);
+  await expect(page.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]:visible').first()).toBeVisible({ timeout: 20_000 });
+  await expect(chart()).toBeVisible({ timeout: 20_000 });
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(1500);
 
-  const stop = await screencast(page, path.join(WORK, `desktop-${theme}`));
-  await page.waitForTimeout(2600);
-  await page.getByRole('button', { name: /^New( note)?$/ }).click();
-  await expect(activeTitleInput(page)).toHaveValue('Untitled');
-  await activeTitleInput(page).click();
-  await page.keyboard.press('ControlOrMeta+a');
-  await page.keyboard.type('Publishing flow', { delay: 55 });
-  await activeEditor(page).click();
-  const type = (text: string) => page.keyboard.type(text, { delay: 38 });
-  await type('## How a note gets published');
-  await page.keyboard.press('Enter');
-  await type('Write it on your device, then share it when it is **ready**. ');
-  await page.keyboard.press('Enter');
-  await type('- Draft offline');
-  await page.keyboard.press('Enter');
-  await type('Sync to your private space');
-  await page.keyboard.press('Enter');
-  await page.keyboard.press('Enter');
-  await type('```mermaid graph LR; Draft-->Sync; Sync-->Share');
+  // The clip: from the notes list's left edge to the window's, and from under the toolbar down.
+  const list = (await page.getByTestId('note-row').first().boundingBox())!;
+  const toolbar = (await page.locator('button[title^="Undo"]:visible').first().boundingBox())!;
+  const top = Math.round(toolbar.y + toolbar.height + 18);
+  const crop = { x: Math.round(list.x) * 2, y: top * 2, w: (1280 - Math.round(list.x)) * 2, h: (730 - top) * 2 };
+
+  const rec = await screencast(page, path.join(WORK, `desktop-${theme}`));
+  await page.waitForTimeout(3000);
+
+  await rec.cut();
+  await openNote(PUBLISHING.title);
+  await expect(activeEditor(page)).toContainText('Publish it as a public page');
   await page.waitForTimeout(500);
+  await rec.resume();
+  await page.waitForTimeout(1400);
+  await activeEditor(page).click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('```mermaid graph LR; Draft-->Sync; Sync-->Publish', { delay: 45 });
+  await page.waitForTimeout(500);
+  // The diagram's own "Rendering" state is cut too.
+  await rec.cut();
   await page.getByRole('button', { name: 'Preview', exact: true }).last().click();
   await expect(page.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]:visible').first()).toBeVisible({ timeout: 20_000 });
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(300);
+  await rec.resume();
   await waitForNoteSaved(page);
-  await page.waitForTimeout(2200);
+  await page.waitForTimeout(2600);
 
-  await searchAndOpen(page, 'reading', READING.title);
-  await expect(page.frameLocator('iframe:visible').first().locator('.recharts-bar-rectangle').first()).toBeVisible({ timeout: 20_000 });
-  await page.waitForTimeout(2400);
-  const frames = await stop();
-
-  await context.close();
-  assertNoFenceViolations(violations);
-  const out = path.join(WORK, `desktop-${theme}.mp4`);
-  encodeClip(frames, out, 'scale=1600:1000:flags=lanczos');
-  return out;
-}
-
-async function heroPhone(browser: Browser, theme: Theme): Promise<string> {
-  const { context, page, violations } = await newContext(browser, true, theme);
-  await createFolder(page, 'Work');
-  await sidebar(page).getByText('Main', { exact: true }).click();
-  for (const note of [WEEKLY, TRIP]) {
-    await addNote(page, note, true);
-    await back(page).click();
-    await page.waitForTimeout(600);
-  }
-
-  const stop = await screencast(page, path.join(WORK, `phone-${theme}`));
+  await rec.cut();
+  await openNote(READING.title);
+  await expect(chart()).toBeVisible({ timeout: 20_000 });
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(1500);
+  await rec.resume();
   await page.waitForTimeout(1200);
-  await page.getByRole('button').filter({ hasText: TRIP.title }).first().click();
-  await expect(activeEditor(page)).toContainText('Land at');
-  await page.waitForTimeout(1600);
-  await page.mouse.wheel(0, 500);
-  await page.waitForTimeout(1400);
-  await back(page).click();
-  await page.waitForTimeout(1400);
-  const frames = await stop();
+  const frames = await rec.stop();
 
   await context.close();
   assertNoFenceViolations(violations);
-  const out = path.join(WORK, `phone-${theme}.mp4`);
-  // The phone stands in the middle of the stage, on the app's own background.
-  encodeClip(frames, out, `scale=-2:920:flags=lanczos,pad=1600:1000:(ow-iw)/2:(oh-ih)/2:color=${APP_BG[theme]}`);
-  return out;
-}
-
-async function heroVideo(browser: Browser, theme: Theme): Promise<void> {
-  const desktop = await heroDesktop(browser, theme);
-  const phone = await heroPhone(browser, theme);
-  const list = path.join(WORK, `clips-${theme}.txt`);
-  writeFileSync(list, `file '${desktop}'\nfile '${phone}'\n`);
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list,
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', '30', '-tune', 'stillimage', '-pix_fmt', 'yuv420p',
+  const clip = path.join(WORK, `desktop-${theme}.mp4`);
+  // Frames are scaled to the 1280x800 window at 2x before the crop.
+  encodeClip(frames, clip, `scale=2560:1600:flags=lanczos,crop=${crop.w}:${crop.h}:${crop.x}:${crop.y}`, 0.6);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', clip,
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', '28', '-tune', 'stillimage', '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart', '-an', `${OUT}/hero-${theme}.mp4`]);
   // Poster: the first frame, the finished Reading log.
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', desktop, '-frames:v', '1', '-c:v', 'libwebp', '-quality', '82', `${OUT}/hero-poster-${theme}.webp`]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', clip, '-frames:v', '1', '-c:v', 'libwebp', '-quality', '86', `${OUT}/hero-poster-${theme}.webp`]);
 }
 
 // ---- Feature crops: one block of a real note, light and dark, desktop and phone ----
@@ -400,8 +399,11 @@ async function blocks(browser: Browser, theme: Theme): Promise<void> {
   await expect(activeEditor(page).locator('[data-type="block-math"] .katex')).toBeVisible({ timeout: 20_000 });
   await expect(activeEditor(page).locator('pre .hljs-keyword').first()).toBeVisible();
   await page.waitForTimeout(600);
-  // Narrow, so the equation stays large where the page shows the crop.
-  await noteCrop(page, `feature-math-${theme}`, 440, 560);
+  // Down to the code block, with the same margin on its right as the note has on its left.
+  const code = (await activeEditor(page).locator('pre').first().boundingBox())!;
+  const titleBox = (await activeTitleInput(page).boundingBox())!;
+  const left = Math.min(titleBox.x, code.x) - 40;
+  await noteCrop(page, `feature-math-${theme}`, code.y + code.height + 40 - (titleBox.y - 32), code.x + code.width + 40 - left);
 
   // Share: the dialog as it opens on a private note.
   await page.getByRole('button').filter({ hasText: TRIP.title }).first().click({ button: 'right' });
@@ -460,50 +462,14 @@ async function history(browser: Browser, theme: Theme): Promise<void> {
   await page.getByRole('button', { name: 'Version history' }).click();
   const dialog = page.getByRole('dialog', { name: 'Version history' });
   await expect(dialog.getByRole('listitem').first()).toBeVisible();
+  // No focus ring on Close, and the panel cropped 8px inside its edge, clear of its rounded corners and of the
+  // page behind them: the landing page gives the picture its own corners.
+  await dialog.getByRole('button', { name: 'Close' }).evaluate((el) => (el as HTMLElement).blur());
   await page.waitForTimeout(800);
-  await elementShot(page, dialog, `feature-history-${theme}`);
-
-  await context.close();
-  assertNoFenceViolations(violations);
-}
-
-/** A rewrite from the AI menu, previewed in the note with Accept and Reject, answered by a scripted model worker. */
-async function rewrite(browser: Browser, theme: Theme): Promise<void> {
-  const { context, page, violations } = await newContext(browser, false, theme);
-  await stubWebLLMWorker(page);
-  await stubWebGPU(page);
-  // One line long: Home and Shift+End select a visual line.
-  const sentence = 'So we basically took the old tram all the way out to Belém really early.';
-  await addNote(page, { title: 'Lisbon, day two', html: `<p>${sentence}</p><p>The custard tarts were worth the queue.</p>` }, false);
-  const editor = activeEditor(page);
-  type View = { editor: { state: { doc: { textBetween: (from: number, to: number) => string }; selection: { from: number; to: number } } } };
-  const selected = () =>
-    editor.evaluate((el) => {
-      const { state } = (el as unknown as View).editor;
-      return state.doc.textBetween(state.selection.from, state.selection.to);
-    });
-  // ProseMirror's focus timer can undo a key sent right after the click, so retry until the whole sentence is selected.
-  const selectSentence = () =>
-    expect(async () => {
-      await editor.locator('p').first().click();
-      await page.keyboard.press('Home');
-      await page.keyboard.press('Shift+End');
-      await expect.poll(selected, { timeout: 1000 }).toBe(sentence);
-    }).toPass({ timeout: 20_000 });
-  await selectSentence();
-  await page.getByRole('button', { name: 'AI Actions' }).click();
-  await page.getByRole('menuitem', { name: 'Enable AI' }).click();
-  await expect.poll(() => reloads(page)).toHaveLength(1);
-  await finishLoad(page, 'ok');
-  await expect(page.getByRole('button', { name: 'AI Actions' })).toBeEnabled();
-  await selectSentence();
-  await page.getByRole('button', { name: 'AI Actions' }).click();
-  await page.getByRole('menuitem', { name: 'Concise' }).click();
-  await queueReply(page, 'We took the tram out to Belém early.');
-  await expect(editor.getByRole('group', { name: /^Review the assistant's edit/ })).toBeVisible();
-  await page.mouse.move(0, 0);
-  await page.waitForTimeout(600);
-  await noteCrop(page, `ai-rewrite-${theme}`, 340);
+  const panel = (await dialog.boundingBox())!;
+  const historyPng = path.join(WORK, `feature-history-${theme}.png`);
+  await page.screenshot({ path: historyPng, clip: { x: panel.x + 8, y: panel.y + 8, width: panel.width - 16, height: panel.height - 16 } });
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', historyPng, '-c:v', 'libwebp', '-quality', '82', `${OUT}/feature-history-${theme}.webp`]);
 
   await context.close();
   assertNoFenceViolations(violations);
@@ -566,8 +532,14 @@ async function pricingCrops(browser: Browser, theme: Theme): Promise<void> {
   await page.keyboard.type('/t');
   const slash = page.locator('.w-72.max-h-80');
   await expect(slash).toBeVisible();
+  // The menu scrolls; the crop ends under the last whole item, so its edge is left out too.
+  await page.addStyleTag({ content: '.w-72.max-h-80 { border-color: transparent !important; box-shadow: none !important; border-radius: 0 !important; }' });
   await page.waitForTimeout(500);
-  await elementShot(page, slash, `free-slash-${theme}`);
+  const menu = (await slash.boundingBox())!;
+  const lastWhole = (await slash.getByRole('button').filter({ hasText: 'Table' }).first().boundingBox())!;
+  const slashPng = path.join(WORK, `free-slash-${theme}.png`);
+  await page.screenshot({ path: slashPng, clip: { x: menu.x, y: menu.y, width: menu.width, height: lastWhole.y + lastWhole.height + 8 - menu.y } });
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', slashPng, '-c:v', 'libwebp', '-quality', '82', `${OUT}/free-slash-${theme}.webp`]);
   await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Settings' }).click();
@@ -701,13 +673,12 @@ try {
     if (!only || only === 'features') {
       await blocks(browser, theme);
       await history(browser, theme);
-      await rewrite(browser, theme);
       await publicPage(browser, theme, false);
       await publicPage(browser, theme, true);
     }
     if (!only || only === 'video') await heroVideo(browser, theme);
-    if (only === 'ai') await rewrite(browser, theme);
     if (only === 'wide') await wide(browser, theme);
+    if (only === 'history') await history(browser, theme);
     if (!only || only === 'features' || only === 'pricing') await pricingCrops(browser, theme);
     if (only === 'public') {
       await publicPage(browser, theme, false);
