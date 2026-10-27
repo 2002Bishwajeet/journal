@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { flushSync } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import { ResponsiveSheet } from '@/components/ui/responsive-sheet';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,13 @@ function LinkForm({ editor, onDone }: { editor: Editor; onDone: () => void }) {
   const [text, setText] = useState(target.text);
   const [url, setUrl] = useState(target.href);
   const editing = target.href !== '';
+  // Close, then focus the note inside the tap: iOS brings the keyboard back only for a focus
+  // in a user gesture, and the close-time focus comes after the exit animation. flushSync
+  // drops the sheet's focus trap first, which would pull the focus back.
+  const finish = () => {
+    flushSync(onDone);
+    editor.commands.focus();
+  };
 
   return (
     // noValidate: type=url would reject a bare host (example.com), which applyLink makes https://.
@@ -47,7 +55,7 @@ function LinkForm({ editor, onDone }: { editor: Editor; onDone: () => void }) {
         e.preventDefault();
         if (!url.trim()) return;
         applyLink(editor, target, text, url);
-        onDone();
+        finish();
       }}
     >
       <div className="flex flex-col gap-1.5">
@@ -84,7 +92,7 @@ function LinkForm({ editor, onDone }: { editor: Editor; onDone: () => void }) {
             className="max-sm:h-11"
             onClick={() => {
               removeLink(editor, target);
-              onDone();
+              finish();
             }}
           >
             Remove link
