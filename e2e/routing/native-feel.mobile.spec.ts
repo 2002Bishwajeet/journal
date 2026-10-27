@@ -122,9 +122,10 @@ test('with reduced motion, opening a folder and a note runs no animation', async
     await createFolder(page, folder);
     await selectFolder(page, folder);
     await newNote(page, title, 'Hello');
+    // Before Back: home mounts EmptyEditorPage (#832), and its entrance must not be running when sampling starts.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.getByRole('button', { name: 'Back to notes' }).click();
-    await page.emulateMedia({ reducedMotion: 'reduce' });
 
     const folderMs = await longestAnimation(page, () => selectFolder(page, folder));
     expect(folderMs, 'opening a folder').toBeLessThanOrEqual(10);
