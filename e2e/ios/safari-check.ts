@@ -644,15 +644,12 @@ try {
   await waitFor('the pasted image', () => !!document.querySelector<HTMLImageElement>('.ProseMirror img[alt="Journal logo"]')?.complete);
   const viewerShown = () => !!document.querySelector('[role="dialog"] [data-testid="lightbox-zoom"]');
   const imageSelected = () => !!document.querySelector('.ProseMirror-selectednode img[alt="Journal logo"]');
-  // A real tap 40 px into the image, with the image at the top of the view: the keyboard covers the bottom.
+  // A real tap on the middle of the image, scrolled to the middle of the view.
   const tapImage = async () => {
     const [img] = await browser.$$('.ProseMirror img[alt="Journal logo"]');
-    const half = (await browser.execute((e) => {
-      e.scrollIntoView({ block: 'start' });
-      return Math.round(e.getBoundingClientRect().height / 2);
-    }, img)) as number;
+    await browser.execute((e) => e.scrollIntoView({ block: 'center' }), img);
     await browser.pause(300);
-    await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: img, x: 0, y: 40 - half }).down().pause(50).up().perform();
+    await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: img, x: 0, y: 0 }).down().pause(50).up().perform();
     await browser.pause(600);
   };
   await tapImage();
@@ -662,7 +659,7 @@ try {
   await browser.execute(() => {
     const log: string[] = ((window as unknown as { __tapLog: string[] }).__tapLog = []);
     for (const t of ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click', 'dblclick'])
-      document.addEventListener(t, (e) => log.push(`${t}:${(e.target as Element).tagName}:${(e as PointerEvent).pointerType ?? ''}`), true);
+      document.addEventListener(t, (e) => log.push(`${t}:${(e.target as Element).tagName}.${String((e.target as Element).className).slice(0, 40)}:${(e as PointerEvent).pointerType ?? ''}`), true);
   });
   await tapImage();
   const viewerOpened = await waitFor('the image viewer', viewerShown, 5_000).then(() => true, () => false);
