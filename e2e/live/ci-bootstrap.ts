@@ -221,22 +221,6 @@ async function grantCollaborationPermissions(page: Page, identity: string) {
     await consentUntil(page, identity, appOrigin, () => circle.isVisible());
 }
 
-// Circle page -> "Apps that <circle> can use" -> Journal. Its members then get
-// Journal's circle drive grant (Journal Notes: Read, Write, React, Comment).
-async function authorizeCircleForJournal(page: Page, identity: string, circle: string) {
-    await openOwnerConsole(page, identity, '/owner/circles');
-    await page.getByRole('link', { name: circle }).click();
-    const apps = page.getByRole('heading', { name: new RegExp(`^Apps that "${circle}" can use`) });
-    // The section's edit button has no accessible name; it sits right after the heading.
-    await apps.locator('xpath=following::button[1]').click();
-    const dialog = page.getByRole('dialog', { name: 'Edit accessible apps' });
-    await dialog.getByRole('link', { name: 'Journal', exact: true })
-        .locator('xpath=following::input[@type="checkbox"][1]').check({ force: true });
-    await dialog.getByRole('button', { name: 'Update' }).click();
-    await expect(dialog).toBeHidden();
-    await expect(page.getByRole('link', { name: 'Journal', exact: true })).toBeVisible();
-}
-
 setup('connect the owner with the peer and the outsider, and put only the peer in the E2E collaborators circle', async ({ browser }) => {
     const owner = IDENTITY!;
     const [peer, outsider] = LIVE_SHARING_IDENTITIES;
@@ -248,12 +232,8 @@ setup('connect the owner with the peer and the outsider, and put only the peer i
         await sendConnectionRequest(page, owner, peer.identity, LIVE_CIRCLE_NAME);
         await sendConnectionRequest(page, owner, outsider.identity, null);
     });
-    // The peer files the owner under its own circle of the same name: the owner's
-    // invite reaches the peer only if the owner may write to the peer's Journal drive.
-    await withIdentity(browser, peer.storageState, async (page) => {
-        await createCircle(page, peer.identity, LIVE_CIRCLE_NAME);
-        await acceptConnectionRequest(page, peer.identity, owner, LIVE_CIRCLE_NAME);
-    });
+    await withIdentity(browser, peer.storageState, (page) =>
+        acceptConnectionRequest(page, peer.identity, owner, null));
     await withIdentity(browser, outsider.storageState, (page) =>
         acceptConnectionRequest(page, outsider.identity, owner, null));
 
@@ -267,21 +247,15 @@ setup('connect the owner with the peer and the outsider, and put only the peer i
     });
 });
 
-// Each of these four steps was needed; dropping any one breaks the circle-share spec:
+// Only what an ordinary user does: no owner-console circle authorization for
+// Journal on either side (the app enrolls recipients in its own circle at share
+// time, #730, and the recipient pulls, #732).
 // - owner, permissions: until then the collaboration dialog offers only "Grant Permissions".
-// - owner, circle: the peer can read without it (Journal Notes allows anonymous
-//   reads; the file's ACL does the rest), but its edit is refused by the
-//   owner's host ("Unauthorized to write to drive").
 // - peer, permissions: without them the peer app's read over peer
 //   (transit/query/header_byuniqueId) fails ("Does not have permission").
-// - peer, circle: the owner's invite is a transfer into the peer's Journal
-//   drive, which the peer's host refuses ("Unauthorized to write to drive").
-setup('grant Journal what circle collaboration needs, on the owner and on the peer', async ({ browser }) => {
+setup('grant Journal the collaboration permissions, on the owner and on the peer', async ({ browser }) => {
     const [peer] = LIVE_SHARING_IDENTITIES;
     for (const { identity, storageState } of [{ identity: IDENTITY!, storageState: LIVE_STORAGE_STATE }, peer]) {
-        await withIdentity(browser, storageState, async (page) => {
-            await grantCollaborationPermissions(page, identity);
-            await authorizeCircleForJournal(page, identity, LIVE_CIRCLE_NAME);
-        });
+        await withIdentity(browser, storageState, (page) => grantCollaborationPermissions(page, identity));
     }
 });

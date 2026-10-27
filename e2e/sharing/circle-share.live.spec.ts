@@ -28,6 +28,7 @@ const sharedWithMe = (page: Page) => page.getByRole('button', { name: /Shared wi
 
 test.describe.configure({ mode: 'serial' });
 
+const isDemoTier = (process.env.E2E_LIVE_IDENTITY ?? '').endsWith('.demo.rocks');
 const stamp = Date.now();
 const title = `Circle share ${stamp}`;
 const body = `Shared body ${stamp}`;
@@ -65,10 +66,15 @@ test('a note shared with a circle reaches its member but not an outsider', async
     // sidebar hides their folder, and they leave the folder they were in), and
     // step 5's "Revoke Collaboration" is only in a list row's menu, so this
     // goes through the app's own folder route for them; the note stays open.
-    await owner.page.goto(`/${COLLABORATIVE_FOLDER_ID}`);
-    await assertTestOrigin(owner.page);
-    await reloadUntil(owner.page, () =>
-        expect(activeEditor(owner.page)).toContainText(peerSentence.trim(), { timeout: 5_000 }));
+    // Write goes through the owner's app circle (#730). Skipped on the demo tier:
+    // frodo's Journal drive isn't owned by Journal, so that circle grants only Read
+    // (#730's owner decision, unless the drive has been adopted).
+    if (!isDemoTier) {
+        await owner.page.goto(`/${COLLABORATIVE_FOLDER_ID}`);
+        await assertTestOrigin(owner.page);
+        await reloadUntil(owner.page, () =>
+            expect(activeEditor(owner.page)).toContainText(peerSentence.trim(), { timeout: 5_000 }));
+    }
 
     // 4. The outsider is connected to the owner but in no circle, so is not a
     // recipient: by the time the peer had the note, the outsider has nothing,
