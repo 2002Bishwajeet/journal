@@ -643,12 +643,29 @@ try {
   });
   await waitFor('the pasted image', () => !!document.querySelector<HTMLImageElement>('.ProseMirror img[alt="Journal logo"]')?.complete);
   const viewerShown = () => !!document.querySelector('[role="dialog"] [data-testid="lightbox-zoom"]');
-  await tap('.ProseMirror img[alt="Journal logo"]');
-  await waitFor('the image toolbar', () => !!document.querySelector('[aria-label="View full size"]'), 5_000).catch(() => {});
-  await tap('.ProseMirror img[alt="Journal logo"]');
+  const imageSelected = () => !!document.querySelector('.ProseMirror-selectednode img[alt="Journal logo"]');
+  // A real tap 40 px into the image, with the image at the top of the view: the keyboard covers the bottom.
+  const tapImage = async () => {
+    const [img] = await browser.$$('.ProseMirror img[alt="Journal logo"]');
+    const half = (await browser.execute((e) => {
+      e.scrollIntoView({ block: 'start' });
+      return Math.round(e.getBoundingClientRect().height / 2);
+    }, img)) as number;
+    await browser.pause(300);
+    await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: img, x: 0, y: 40 - half }).down().pause(50).up().perform();
+    await browser.pause(600);
+  };
+  await tapImage();
+  const selectedAfterFirst = (await browser.execute(imageSelected)) as boolean;
+  const firstTapShot = await screenshot('image-first-tap');
+  await tapImage();
   const viewerOpened = await waitFor('the image viewer', viewerShown, 5_000).then(() => true, () => false);
-  if (!viewerOpened) failures.push('image-viewer: a tap on the selected image did not open the viewer');
-  else {
+  summary.push(`| image-tap-to-open | ${firstTapShot} | first tap selected the image: ${selectedAfterFirst}; second tap opened the viewer: ${viewerOpened} |`);
+  if (!selectedAfterFirst) failures.push('image-viewer: the first tap did not select the image');
+  if (!viewerOpened) {
+    failures.push('image-viewer: a tap on the selected image did not open the viewer');
+    await screenshot('image-second-tap');
+  } else {
     await browser.pause(500); // its 200 ms fade in
     const layout = await check('image-viewer');
     const closeTop = (await browser.execute(() => document.querySelector('[role="dialog"] [aria-label="Close"]')!.getBoundingClientRect().top)) as number;

@@ -69,7 +69,8 @@ test('a tap on the selected image opens a full-screen viewer under the notch tha
     const viewerDialog = page.getByRole('dialog', { name: 'Journal logo' });
     const selectedImage = activeEditor(page).locator('.ProseMirror-selectednode img[alt="Journal logo"]');
     const selectImage = async () => {
-      await activeEditor(page).getByText('Image below.').tap();
+      // The image is inline, below the text: tap the start of the text, not the paragraph's middle.
+      await activeEditor(page).getByText('Image below.').tap({ position: { x: 4, y: 8 } });
       await expect(selectedImage).toHaveCount(0);
       await img.tap();
       await expect(selectedImage).toBeVisible();
