@@ -148,7 +148,7 @@ export function SharePeopleSection({ access, grantPermissionsUrl, disabledReason
                                     access.add();
                                 }
                             }}
-                            placeholder="Search circles and connections"
+                            placeholder="Search people or circles"
                             autoComplete="off"
                             autoCapitalize="none"
                             spellCheck={false}

@@ -11,6 +11,16 @@ import { assertTestOrigin } from '../support/origin-guard';
 // specs next to this one.
 
 const DESKTOP = { width: 1280, height: 800 };
+const PHONE = { width: 390, height: 844 };
+
+/** Screenshots the open dialog at 1280 and, as a sheet, at 390, in both themes. */
+async function shootBothWidths(page: Page, state: string) {
+  await screenshotInBothThemes(page, (theme) => `share-dialog-${state}-${theme}-1280.png`);
+  await page.setViewportSize(PHONE);
+  await expect(page.getByRole('dialog', { name: 'Share Note' })).toBeVisible();
+  await screenshotInBothThemes(page, (theme) => `share-dialog-${state}-${theme}-390.png`);
+  await page.setViewportSize(DESKTOP);
+}
 
 async function openNoteMenu(page: Page, title: string) {
   await page.getByTestId('note-row').filter({ hasText: title }).click({ button: 'right' });
@@ -44,7 +54,7 @@ test('one Share… item opens the Share dialog, and the public link turns on and
   await expect(dialog.getByRole('button', { name: 'Stop sharing', exact: true })).toHaveCount(0);
   const overflow = await dialog.evaluate((el) => el.scrollWidth - el.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
-  await screenshotInBothThemes(app, (theme) => `share-dialog-restricted-${theme}-1280.png`);
+  await shootBothWidths(app, 'restricted');
 
   // 3. Turning the link on runs the publish; without a backend it fails, and says so.
   await dialog.getByRole('button', { name: 'Make Note Public' }).click();
@@ -72,7 +82,7 @@ test('one Share… item opens the Share dialog, and the public link turns on and
   await expect(dialog.locator('input[readonly]')).toHaveCount(1);
   await expect(dialog.getByText('This note is in a shared folder, so it is public.')).toBeVisible();
   await expect(dialog.getByLabel('Add people or circles')).toHaveCount(0);
-  await screenshotInBothThemes(app, (theme) => `share-dialog-public-${theme}-1280.png`);
+  await shootBothWidths(app, 'public');
 
   // 5. Turning the link off runs the unpublish; without a backend it fails, and the link stays.
   await dialog.getByRole('button', { name: 'Stop sharing (make private)' }).click();
