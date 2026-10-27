@@ -22,6 +22,8 @@ export type Layout = {
   dialogFooter: Rect | null;
   /** The full-screen Search sheet on a phone (#780). */
   searchSheet: Rect | null;
+  /** An open bottom or full sheet (#823). */
+  sheet: Rect | null;
   /** The sidebar's last button ("Log out"), the bottom of the shell at the root. */
   sidebarFooter: Rect | null;
   /** Requests that left the app origin. Safari can't fence them like Playwright does, so they are caught afterwards. */
@@ -72,6 +74,7 @@ export function measureLayout(): Layout {
     toolbar: box(shown(toolbar)?.getBoundingClientRect()),
     dialogFooter: box(shown(document.querySelector('[role="dialog"] [data-slot="dialog-footer"]'))?.getBoundingClientRect()),
     searchSheet: box(shown(document.querySelector('[role="dialog"][aria-label="Search notes"]'))?.getBoundingClientRect()),
+    sheet: box(shown(document.querySelector('[role="dialog"][data-slot="sheet-content"]'))?.getBoundingClientRect()),
     sidebarFooter: box(shown(logOut)?.getBoundingClientRect()),
     foreignRequests: performance
       .getEntriesByType('resource')
@@ -87,10 +90,13 @@ const SLACK = 1;
 /** What is wrong with a measured layout. `keyboardUp`: the software keyboard is showing. */
 export function layoutProblems(m: Layout, keyboardUp: boolean): string[] {
   const problems: string[] = [];
-  const visibleBottom = m.viewport.top + m.viewport.height;
-  const onScreen = (r: Rect) => r.top >= m.viewport.top - SLACK && r.bottom <= visibleBottom + SLACK;
+  // When Safari scrolls to a field low on the page it can shrink innerHeight to the visual viewport;
+  // then the layout viewport is what is on screen and rects run from 0, whatever offsetTop says (#823).
+  const visibleTop = m.innerHeight <= m.viewport.height + SLACK ? 0 : m.viewport.top;
+  const visibleBottom = visibleTop + m.viewport.height;
+  const onScreen = (r: Rect) => r.top >= visibleTop - SLACK && r.bottom <= visibleBottom + SLACK;
   const span = (r: Rect) => `${Math.round(r.top)}–${Math.round(r.bottom)}`;
-  const visible = `${Math.round(m.viewport.top)}–${Math.round(visibleBottom)}`;
+  const visible = `${Math.round(visibleTop)}–${Math.round(visibleBottom)}`;
 
   if (m.scrollWidth > m.innerWidth) {
     problems.push(`the page scrolls sideways: scrollWidth ${m.scrollWidth} > innerWidth ${m.innerWidth}`);
@@ -111,6 +117,10 @@ export function layoutProblems(m: Layout, keyboardUp: boolean): string[] {
   // The Search sheet ends above the keyboard, so its last results can be scrolled into view (#780).
   if (m.focused && m.searchSheet && !onScreen(m.searchSheet)) {
     problems.push(`the search sheet (${span(m.searchSheet)}) is outside the visual viewport (${visible})`);
+  }
+  // A sheet rides up on the keyboard, so its field and footer stay in view (#823).
+  if (m.focused && m.sheet && !onScreen(m.sheet)) {
+    problems.push(`the sheet (${span(m.sheet)}) is outside the visual viewport (${visible})`);
   }
   const usableBottom = Math.min(m.innerHeight, visibleBottom) - m.insets.bottom;
   // With a field focused the keyboard covers the bottom of the page, the sidebar footer included.

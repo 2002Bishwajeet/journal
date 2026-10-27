@@ -43,6 +43,10 @@ interface JournalE2EHooks {
   ready(): Promise<void>;
   /** True while an edit is still queued for, or being written to, PGlite. */
   hasUnsavedEdits(): Promise<boolean>;
+  /** Opens a sample ActionSheet over the app (#823). */
+  showActionSheet(): Promise<void>;
+  /** Opens a sample bottom sheet with a scrolling body and a text field (#823). */
+  showSheet(): Promise<void>;
   /** Resolves once PGlite has flushed everything it committed to IndexedDB. */
   syncToDisk(): Promise<void>;
   /** Skips incoming invites until the page reloads, so a share arrives only through the shared pull (#732). */

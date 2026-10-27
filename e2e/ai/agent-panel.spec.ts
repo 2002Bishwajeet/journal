@@ -84,7 +84,7 @@ test('the panel answers from the notes, shows its steps, keeps an excluded note 
   await box.press('Enter');
   await download.getByRole('button', { name: 'Continue' }).click();
   await expect(panel.getByText('I could not find that note.')).toBeVisible();
-  await panel.getByText('1 step', { exact: true }).click();
+  await panel.getByText('Error', { exact: true }).click();
   await expect(panel.getByText(/Note not found/)).toBeVisible();
   await expect(panel).not.toContainText(SECRET);
   expect((await completionRequests(app))!.join('\n')).not.toContain(SECRET);

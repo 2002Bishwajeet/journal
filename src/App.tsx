@@ -19,7 +19,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   DotYouClientProvider,
   AuthGuard,
-  RootRedirect,
 } from "@/components/auth";
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { OnlineProvider } from "@/components/providers/OnlineProvider";
@@ -85,7 +84,7 @@ function App() {
                         </AuthGuard>
                       }
                     >
-                      <Route index element={<RootRedirect />} />
+                      <Route index element={<EmptyEditorPage />} />
                       <Route path="/:folderId" element={<EmptyEditorPage />} />
                       <Route
                         path="/:folderId/:noteId"

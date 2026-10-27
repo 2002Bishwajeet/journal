@@ -1128,9 +1128,9 @@ img.ProseMirror-separator {
   animation-name: fade-in;
 }
 
-/* Phone push and pop (#779): forward slides in from the right; back
+/* Phone push and pop (#779, phones only: tablets show two panes): forward slides in from the right; back
    (data-nav="back"); slideNavigate in navDirection.ts starts them slides in from the left. */
-@media (max-width: 1023.98px) and (prefers-reduced-motion: no-preference) {
+@media (max-width: 767.98px) and (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 0.25s;
@@ -1192,6 +1192,13 @@ img.ProseMirror-separator {
 }
 html[data-fab] {
   --fab-clearance: calc(var(--fab-size) + var(--fab-bottom) + 16px);
+}
+/* Docked assistant (#840): from lg, while it is open, html[data-assistant] sets
+   --assistant-clearance so toasts sit left of the 22.5rem panel, not over its message box. */
+@media (min-width: 1024px) {
+  html[data-assistant] {
+    --assistant-clearance: calc(22.5rem + 24px);
+  }
 }
 .new-note-fab {
   right: calc(16px + env(safe-area-inset-right));

@@ -52,7 +52,7 @@ import { EditorState } from '@tiptap/pm/state';
 import type { Editor } from '@tiptap/react';
 import { editorSchema } from '@/lib/agent/editEngine';
 import { registerActiveEditor } from '@/lib/agent/activeEditor';
-import { useAgentSession } from '@/hooks/useAgentSession';
+import { countToolSteps, useAgentSession } from '@/hooks/useAgentSession';
 import { FORMAT_FAILED, MAX_TOOL_STEPS } from '@/lib/agent/loop/agentLoop';
 
 beforeAll(() => {
@@ -213,8 +213,14 @@ describe('useAgentSession — steps', () => {
         const { steps } = latest.current!.messages[1];
         expect(steps).toHaveLength(1);
         expect(steps![0].before).toBe('Could not finish a step: Note not found');
+        expect(countToolSteps(steps!)).toBe(0);
 
         await cleanup();
+    });
+
+    it('counts tool steps only, not the error row (#840)', () => {
+        const tool = { before: 'Listed folders', after: '' };
+        expect(countToolSteps([tool, tool, { before: 'Could not finish a step: x', after: '', failed: true }])).toBe(2);
     });
 
     it('says so when the step cap is hit', async () => {

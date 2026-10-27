@@ -194,6 +194,28 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-
   console.log(`${problems.length ? '✗' : '✓'} ${name} ${timing}${problems.map((p) => `\n    ${p}`).join('')}`);
 }
 
+/** Waits up to 10 s for `text` in the editor; false when it never shows. */
+const editorHas = (text: string) =>
+  browser
+    .waitUntil(() => browser.execute((t) => document.querySelector('.ProseMirror')?.textContent?.includes(t) ?? false, text), { timeout: 10_000, interval: 250 })
+    .then(() => true, () => false);
+
+/**
+ * Types a new line and reloads at once, then checks the line is still in the note (#873):
+ * iOS Safari unloaded the page before the line's write reached the database.
+ */
+async function typeAndReload(line: string, how: 'location.reload' | 'load-root', label: string) {
+  await tap('.ProseMirror');
+  await typeOnKeyboard(`\n${line}`);
+  if (!(await editorHas(line))) failures.push(`${label}: "${line}" did not show in the editor after typing`);
+  await reloadCheck(how, label);
+  // A boot slower than 20 s already failed above; judge the text only once the editor is back,
+  // so a slow boot is not reported as lost text.
+  const back = await waitFor('the editor after the reload', () => !!document.querySelector('.ProseMirror'), 60_000).then(() => true, () => false);
+  if (!back) failures.push(`reload-${label}: the editor did not come back within 60 s, so "${line}" could not be checked`);
+  else if (!(await editorHas(line))) failures.push(`reload-${label}: "${line}", typed just before the reload, was missing after it`);
+}
+
 const dialogOpen = () => !!document.querySelector('[role="dialog"]');
 const dialogClosed = () => !document.querySelector('[role="dialog"]');
 
@@ -232,6 +254,21 @@ async function gesture(name: Gesture, selector: string, index: number, from: [nu
   failures.push(...problems.map((p) => `gesture-${name}: ${p}`));
   summary.push(`| gesture-${name} | ${file} | ${problems.join('<br>') || 'none'} (${JSON.stringify(probe)}) |`);
   console.log(`${problems.length ? '✗' : '✓'} gesture-${name} ${JSON.stringify(probe)}${problems.map((p) => `\n    ${p}`).join('')}`);
+}
+
+/** A real one-finger drag on the first `selector` match, `dy` px down (negative: up) from its centre. */
+async function touchDrag(selector: string, dy: number) {
+  const [el] = await browser.$$(selector);
+  await browser
+    .action('pointer', { parameters: { pointerType: 'touch' } })
+    .move({ origin: el, x: 0, y: 0 })
+    .down()
+    .pause(100)
+    .move({ origin: el, x: 0, y: dy, duration: 500 })
+    .up()
+    .perform();
+  // Lets the sheet's spring or exit and any momentum scroll finish.
+  await browser.pause(800);
 }
 
 async function closeDialog() {
@@ -332,20 +369,15 @@ try {
   // Repeated, as one reload may not be enough to hit the hang.
   for (let i = 1; i <= 3; i++) await reloadCheck('location.reload', `location.reload-${i}`);
   await reloadCheck('webdriver-refresh');
-  // A reload while the edit is still being saved.
-  await tap('.ProseMirror');
-  await typeOnKeyboard('\nIn flight');
-  await reloadCheck('location.reload', 'during-write');
-  const saved = await waitFor('the typed lines after the reloads', () => document.querySelector('.ProseMirror')?.textContent?.includes('Third line') ?? false, 10_000)
-    .then(() => true, () => false);
-  if (!saved) warnings.push('The lines typed before the reloads were not in the note after them.');
+  if (keyboardUp && !(await editorHas('Third line'))) failures.push('The lines typed before the reloads were not in the note after them.');
+  // Reloads while the edit is still being saved (#873), repeated, as the loss did not
+  // happen on every run.
+  for (let i = 1; i <= 5; i++) await typeAndReload(`In flight ${i}`, 'location.reload', `during-write-${i}`);
 
   // Load the root right after typing: the step that first hung on the splash (first run
   // of #803; Safari's back/forward cache kept the old page's database worker). After a
   // reload, history.back() loads a new document for each entry, so it is not used here.
-  await tap('.ProseMirror');
-  await typeOnKeyboard('\nBefore the root');
-  await reloadCheck('load-root');
+  await typeAndReload('Before the root', 'load-root', 'load-root');
   // The root opens the last note on a phone: back to the sidebar with the app's own back buttons.
   await tap('[aria-label="Back"]');
   await tap('[aria-label="Back to notes"]');
@@ -369,6 +401,8 @@ try {
   // The system Back, which iOS swipe-back fires, closes a dialog and keeps the screen under it (#822).
   await tap('button=Settings');
   await waitFor('Settings', dialogOpen);
+  // The dialog pushes its history entry in an effect after it paints; a Back before that pops the screen's entry.
+  await waitFor('the Settings history entry', () => ((history.state as { usr?: { overlays?: string[] } } | null)?.usr?.overlays?.length ?? 0) > 0);
   const under = await browser.execute(() => location.href);
   await browser.execute(() => history.back());
   await waitFor('Settings to close on Back', dialogClosed);
@@ -493,11 +527,65 @@ try {
   summary.push(`| native-feel: no page bounce | | window.scrollY ${scrollY} |`);
   await touchAt(row, (a, el) => a.move({ origin: el, x: 0, y: 0 }).down().pause(900).up());
   summary.push(`| native-feel: long press on a row | ${await screenshot('long-press-row')} | no system callout |`);
+  // The long press opens the row's menu, a modal that would swallow the next touches: close it.
+  await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await browser.pause(300);
   await touchAt('[aria-label="Sort notes"]', (a, el) =>
     a.move({ origin: el, x: 0, y: 0 }).down().up().pause(80).down().up(),
   );
   await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
   await checkZoom('a double tap on a button');
+
+  // The sheet primitive (#823) in real Safari: a drag down on its grabber closes it, a drag on its
+  // body scrolls the body and leaves it open, and with its field focused it sits above the keyboard.
+  // It runs after the gestures above: Appium calibrates its first touch action with an overlay tap,
+  // which an open modal (body pointer-events: none) would swallow.
+  const sheetShown = () => !!document.querySelector('[data-slot="sheet-content"]');
+  const openSheet = async () => {
+    assertTestOrigin(await browser.execute(() => location.origin));
+    await browser.execute(() => void window.__journalE2E!.showSheet());
+    await waitFor('the sheet', sheetShown);
+    await browser.pause(500); // its 300 ms slide in
+  };
+  await openSheet();
+  await check('sheet');
+  await touchDrag('[data-slot="sheet-grabber"]', 400);
+  const dragClosed = await waitFor('the sheet to close', () => !document.querySelector('[data-slot="sheet-content"]'), 5_000).then(() => true, () => false);
+  if (!dragClosed) failures.push('sheet: a long drag down on the grabber did not close it');
+  summary.push(`| sheet-drag-to-close | ${await screenshot('sheet-drag-to-close')} | ${dragClosed ? 'closed' : 'still open'} |`);
+
+  await openSheet();
+  const bodyScroll = () => document.querySelector('[data-slot="sheet-body"]')?.scrollTop ?? -1;
+  await touchDrag('[data-slot="sheet-body"]', -250);
+  const scrolledDown = (await browser.execute(bodyScroll)) as number;
+  const openAfterUp = (await browser.execute(sheetShown)) as boolean;
+  await touchDrag('[data-slot="sheet-body"]', 250);
+  const scrolledBack = (await browser.execute(bodyScroll)) as number;
+  const openAfterDown = (await browser.execute(sheetShown)) as boolean;
+  const scrollProblems = [
+    ...(scrolledDown > 50 ? [] : [`a drag up on the body did not scroll it (scrollTop ${scrolledDown})`]),
+    ...(openAfterUp && openAfterDown ? [] : ['a drag on the body closed the sheet']),
+    ...(scrolledBack < scrolledDown ? [] : [`a drag down on the body did not scroll it back (scrollTop ${scrolledDown} -> ${scrolledBack})`]),
+  ];
+  failures.push(...scrollProblems.map((p) => `sheet-scroll: ${p}`));
+  summary.push(`| sheet-scroll | ${await screenshot('sheet-scroll')} | ${scrollProblems.join('<br>') || `none (scrollTop ${scrolledDown} -> ${scrolledBack})`} |`);
+
+  await tap('[data-slot="sheet-content"] input');
+  await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
+  if (await browser.isKeyboardShown()) {
+    await browser.pause(1_000); // the keyboard's slide and Safari's scroll to the field
+    const vars = await browser.execute(() => {
+      const el = document.querySelector<HTMLElement>('[data-slot="sheet-content"]');
+      const vv = visualViewport!;
+      return `--sheet-bottom ${el?.style.getPropertyValue('--sheet-bottom') || 'unset'}, --sheet-h ${el?.style.getPropertyValue('--sheet-h') || 'unset'}; viewport ${Math.round(vv.offsetTop)}+${Math.round(vv.height)} of ${innerHeight}, scale ${vv.scale}`;
+    });
+    summary.push(`| sheet-keyboard vars | | ${vars} |`);
+    console.log(`  sheet-keyboard: ${vars}`);
+    await check('sheet-keyboard');
+  }
+  else warnings.push('The software keyboard did not show after tapping the sheet field, so the sheet keyboard check did not run.');
+  await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await waitFor('the sheet to close', () => !document.querySelector('[data-slot="sheet-content"]'));
 } catch (error) {
   failures.push(`run: ${(error as Error).message}`);
   await screenshot('error').catch(() => {});

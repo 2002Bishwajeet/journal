@@ -65,6 +65,8 @@ interface NoteListProps {
   /** Phone only: the heading, Back handler and trailing slot that replace the pane's own header. */
   title?: string;
   onBack?: () => void;
+  /** Accessible name of the Back button (the tablet one opens the folders). */
+  backLabel?: string;
   trailing?: ReactNode;
 }
 
@@ -84,6 +86,7 @@ export default function NoteList({
   viewKey,
   title,
   onBack,
+  backLabel = "Back to notes",
   trailing,
 }: NoteListProps) {
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
@@ -228,7 +231,7 @@ export default function NoteList({
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Back to notes"
+            aria-label={backLabel}
             className="h-8 w-8 shrink-0 pointer-coarse:size-11"
             onClick={onBack}
           >
