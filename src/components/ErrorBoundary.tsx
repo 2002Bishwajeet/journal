@@ -26,7 +26,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
+    // The stack goes into the text too: a remote console (iOS Safari through Appium, #862) may show only strings.
+    console.error(`Uncaught error: ${error?.stack ?? error}`, error, errorInfo);
     if (isChunkLoadError(error)) {
       reloadOnceForChunkError();
     }
