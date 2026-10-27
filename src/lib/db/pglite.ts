@@ -158,12 +158,17 @@ function createWorkerInstance(relaxedDurability = true): Promise<PGliteInterface
   };
   if (!currentWorker) addEventListener('pagehide', onPageHide);
   currentWorker = new Worker(new URL('./pglite-worker.ts', import.meta.url), { type: 'module' });
+  // The worker's boot timing marks (#901): reading the data dir from IndexedDB, and Postgres up.
+  currentWorker.addEventListener('message', (event: MessageEvent<{ type?: string; step: string; at: number }>) => {
+    if (event.data?.type === 'journal-boot-mark') markBoot(event.data.step, event.data.at - performance.timeOrigin);
+  });
   return PGliteWorker.create(currentWorker, options).then((db) => {
     // WASM fetched + compiled and the worker leader elected — the slowest
     // step of a cold boot, reported for the splash progress bar.
     reportBootPhase('db-worker');
     // Boot timing marks (#806): this tab's worker won the leader election, and the
-    // leader's database is open and serving this tab.
+    // leader accepted this tab. The leader accepts it before its engine has loaded:
+    // db-idb-read, db-idb-loaded and db-open (from the worker) time that load (#901).
     if (db.isLeader) markBoot('db-leader');
     else db.onLeaderChange(() => { if (db.isLeader) markBoot('db-leader'); });
     void db.waitReady.then(() => markBoot('db-connected'));
