@@ -51,7 +51,13 @@ export default function MoveToFolderDialog({
         onOpenChange={(open) => !open && close()}
         variant="bottom"
         title={asSheet ? <span className="block truncate">Move "{noteTitle}"</span> : "Move to folder"}
-        description={`Move to folder. Choose a folder for "${noteTitle}".`}
+        description={
+          asSheet ? (
+            <span className="sr-only">Move to folder. Choose a folder for "{noteTitle}".</span>
+          ) : (
+            <span className="block truncate">Choose a folder for "{noteTitle}".</span>
+          )
+        }
         dialogClassName="sm:max-w-106.25"
       >
         {asSheet && folders.length > SEARCH_THRESHOLD && (
@@ -86,7 +92,7 @@ export default function MoveToFolderDialog({
               <li key={folder.id}>
                 <Button
                   variant="ghost"
-                  className="w-full justify-start h-auto min-h-10 px-2 py-1.5 pointer-coarse:min-h-13"
+                  className="w-full justify-start h-auto min-h-10 px-2 py-1.5 pointer-coarse:min-h-13 aria-[current=true]:opacity-100"
                   disabled={current}
                   aria-current={current ? "true" : undefined}
                   aria-describedby={folder.isPublic ? `public-${folder.id}` : undefined}
@@ -105,7 +111,7 @@ export default function MoveToFolderDialog({
                       Shared
                     </span>
                   )}
-                  {current && <Check aria-hidden className="ml-2 h-4 w-4 shrink-0" />}
+                  {current && <Check aria-hidden className="ml-2 h-5 w-5 shrink-0 text-primary" />}
                 </Button>
                 {folder.isPublic && (
                   <p id={`public-${folder.id}`} className="-mt-1 mb-1 pl-8 text-xs text-muted-foreground">
