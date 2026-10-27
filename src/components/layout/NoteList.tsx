@@ -41,6 +41,7 @@ import { useNotes } from "@/hooks/useNotes";
 import { getNoteGroup } from "@/helpers/dateGrouping";
 import { useIntersection } from "@/hooks/useIntersection";
 import { swipeAxis } from "@/helpers/swipeAxis";
+import { haptic } from "@/lib/haptics";
 
 // Rows mounted per render step; the sentinel adds another page as it scrolls into view.
 const PAGE = 100;
@@ -435,12 +436,6 @@ const NoteItem = memo(function NoteItem({
     !!note.metadata.authorOdinId &&
     note.metadata.authorOdinId !== dotYouClient.getHostIdentity();
 
-  const triggerHaptic = (duration = 10) => {
-    if ("vibrate" in navigator) {
-      navigator.vibrate(duration);
-    }
-  };
-
   // Sync the row to the open state, so a close from outside animates too.
   useEffect(() => {
     moveRow(contentRef.current, actionRef.current, isSwiped ? maxSwipeDistance : 0, false);
@@ -497,7 +492,7 @@ const NoteItem = memo(function NoteItem({
     moveRow(contentRef.current, actionRef.current, open ? maxSwipeDistance : 0, false);
     if (open !== isSwiped) {
       onSwipeChange(note.docId, open);
-      triggerHaptic(open ? 15 : 10);
+      haptic(open ? "medium" : "light");
     }
   };
 
@@ -600,7 +595,7 @@ const NoteItem = memo(function NoteItem({
               className="w-full h-full flex items-center justify-center active:scale-110 transition-transform"
               onClick={(e) => {
                 e.stopPropagation();
-                triggerHaptic(20);
+                haptic("medium");
                 onDeleteNote(note.docId);
               }}
             >
