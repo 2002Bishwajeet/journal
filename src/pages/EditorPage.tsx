@@ -116,7 +116,7 @@ function EditorLayout({
           variant="ghost"
           size="icon"
           aria-label="Back"
-          className="h-8 w-8 -ml-1"
+          className={cn("h-8 w-8 -ml-1", deviceType === "tablet" && "hidden")}
           onClick={onBack}
         >
           <ChevronLeft className="h-5 w-5" />
