@@ -38,7 +38,7 @@ async function dragDown(cdp: CDPSession, page: Page, from: { x: number; y: numbe
   await touch('touchEnd', from.y + distance);
 }
 
-test('the image viewer is full screen under the notch, closes on a swipe down or Back; Edit is a full-screen editor', async ({
+test('a tap on the selected image opens a full-screen viewer under the notch that closes on a swipe down or Back; Edit is a full-screen editor', async ({
   browser,
   browserName,
 }) => {
@@ -63,15 +63,28 @@ test('the image viewer is full screen under the notch, closes on a swipe down or
     await expect(img).toBeVisible();
     const noteUrl = page.url();
 
-    // Tap the image for its toolbar, then open the viewer
-    const openViewer = async () => {
+    // The first tap selects the image (its toolbar shows); a tap on the selected image opens
+    // the viewer, like iOS Notes. "View full size" in the toolbar opens it too.
+    const fullSize = page.getByRole('button', { name: 'View full size' });
+    const viewerDialog = page.getByRole('dialog', { name: 'Journal logo' });
+    const selectedImage = activeEditor(page).locator('.ProseMirror-selectednode img[alt="Journal logo"]');
+    const selectImage = async () => {
+      await activeEditor(page).getByText('Image below.').tap();
+      await expect(selectedImage).toHaveCount(0);
       await img.tap();
-      await page.getByRole('button', { name: 'View full size' }).tap();
-      const viewer = page.getByRole('dialog', { name: 'Journal logo' });
-      await expect(viewer).toBeVisible();
-      return viewer;
+      await expect(selectedImage).toBeVisible();
+      await expect(viewerDialog).toBeHidden();
     };
-    const viewer = await openViewer();
+    const openViewer = async () => {
+      await selectImage();
+      await fullSize.tap();
+      await expect(viewerDialog).toBeVisible();
+      return viewerDialog;
+    };
+    await selectImage();
+    await img.tap();
+    const viewer = viewerDialog;
+    await expect(viewer).toBeVisible();
     await expect.poll(async () => (await viewer.boundingBox())?.y).toBe(0);
     expect(await viewer.boundingBox()).toMatchObject({ x: 0, width: PHONE.width, height: PHONE.height });
 
@@ -105,7 +118,7 @@ test('the image viewer is full screen under the notch, closes on a swipe down or
     await expect(activeTitleInput(page)).toBeVisible();
 
     // Edit: a full-screen editor with Cancel and Apply in its header
-    await img.tap();
+    await selectImage();
     await page.getByRole('button', { name: 'Edit image' }).tap();
     const editor = page.getByRole('dialog', { name: 'Edit image' });
     await expect(editor).toBeVisible();

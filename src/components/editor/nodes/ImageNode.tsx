@@ -176,6 +176,8 @@ export function ImageNodeView({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  // A touch that lands on the image while it is already selected (#829)
+  const tapOnSelected = useRef(false);
   const download = useImageDownload(src, alt, pendingId);
   // In a gallery (#601) the row sets the size: no resize handles or float.
   const pos = getPos();
@@ -493,6 +495,17 @@ export function ImageNodeView({
         if (!canZoom(mode)) return;
         if ((e.target as HTMLElement).closest("button")) return;
         // React bubbles events out of the dialogs' portals too
+        if (!e.currentTarget.contains(e.target as Node)) return;
+        setLightboxOpen(true);
+      }}
+      // On a phone the first tap selects (for resize, align and Edit); a tap on the selected image opens the viewer, like iOS Notes (#829)
+      onPointerDown={(e) => {
+        tapOnSelected.current = e.pointerType === "touch" && selected;
+      }}
+      onClick={(e) => {
+        if (!tapOnSelected.current || !canZoom(mode)) return;
+        tapOnSelected.current = false;
+        if ((e.target as HTMLElement).closest("button")) return;
         if (!e.currentTarget.contains(e.target as Node)) return;
         setLightboxOpen(true);
       }}
