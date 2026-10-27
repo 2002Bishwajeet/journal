@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import { Suspense } from "react";
+import { Suspense, lazy } from "react";
 import { Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import EditorPage from "@/pages/EditorPage.lazy";
 import type { TabInfo } from "@/hooks/useTabManager";
 import TabBar from "./TabBar";
+
+const EmptyEditorPage = lazy(() => import("@/pages/EmptyEditorPage"));
 import { SyncStatus } from "./SyncStatus";
 
 interface EditorPaneProps {
@@ -156,8 +158,10 @@ export function EditorPane({
 
         {/* Show empty state when no tab is active on desktop */}
         {isDesktop && openTabs.length === 0 && (
-          <div className="absolute inset-0 z-0 flex items-center justify-center text-muted-foreground bg-background">
-            No notes open
+          <div className="absolute inset-0 z-0">
+            <Suspense fallback={null}>
+              <EmptyEditorPage overrideFolderId={folderId} />
+            </Suspense>
           </div>
         )}
       </div>
