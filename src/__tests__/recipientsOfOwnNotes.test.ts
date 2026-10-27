@@ -53,4 +53,14 @@ describe('getRecipientsOfOwnNotes', () => {
 
         expect(await getRecipientsOfOwnNotes(HOST)).toEqual([]);
     });
+
+    // #897: who stays in the viewers' circle
+    it("returns the viewers of the host's notes with 'odinIds', apart from the editors", async () => {
+        await save(ID.mine, { isCollaborative: true, recipients: ['a.id'], odinIds: ['sam.id'] });
+        await save(ID.mineTrashed, { isCollaborative: true, odinIds: ['sam.id', 'pip.id'], archivalStatus: 2 });
+        await save(ID.theirs, { isCollaborative: true, odinIds: ['e.id'], authorOdinId: 'frodo.id' });
+
+        expect((await getRecipientsOfOwnNotes(HOST, 'odinIds')).sort()).toEqual(['pip.id', 'sam.id']);
+        expect(await getRecipientsOfOwnNotes(HOST)).toEqual(['a.id']);
+    });
 });

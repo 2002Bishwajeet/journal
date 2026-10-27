@@ -38,6 +38,7 @@ import { useNotes } from "@/hooks/useNotes";
 import { useAISettings } from "@/hooks/useAISettings";
 import { useRegisterActiveEditor } from "@/hooks/useRegisterActiveEditor";
 import { useBackTo } from "@/hooks/useBackTo";
+import { isViewOnly } from "@/lib/homebase/shareTargets";
 
 // EditorProvider auto-saves, so Cmd+S only needs swallowing. A module constant
 // keeps the handler's identity stable: every mounted tab rebinds the window
@@ -61,7 +62,7 @@ function EditorLayout({
   isActive: boolean;
   isPeerNote: boolean;
 }) {
-  const { editor, isLoading } = useEditorContext();
+  const { editor, isLoading, readOnly } = useEditorContext();
   const {
     get: { data: notes = [] },
     updateNote: { mutateAsync: updateNoteMetadata },
@@ -89,6 +90,12 @@ function EditorLayout({
       lastEditedBy={selectedNoteMetadata.lastEditedBy}
       lastEditedAt={selectedNoteMetadata.timestamps?.modified}
     />
+  ) : null;
+  // A note shared with the host as a viewer (#897)
+  const viewOnlyBadge = readOnly ? (
+    <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+      View only
+    </span>
   ) : null;
 
   if (!selectedNoteMetadata && !isLoading) {
@@ -124,6 +131,7 @@ function EditorLayout({
         <span className="text-sm font-medium truncate flex-1 mx-2">
           {selectedNoteMetadata?.title || "Untitled"}
         </span>
+        {viewOnlyBadge}
         {collaborativePopover}
         <SyncStatus />
         {!isPeerNote && (
@@ -151,7 +159,7 @@ function EditorLayout({
             : "hidden"
         }
       >
-        {editor && (
+        {editor && !readOnly && (
           <EditorToolbar
             editor={editor}
             tocOpen={tocOpen}
@@ -161,9 +169,12 @@ function EditorLayout({
             onOpenHistory={isPeerNote ? undefined : () => setHistoryOpen(true)}
           />
         )}
-        {editor && <AIMenu editor={editor} />}
-        {collaborativePopover && (
-          <div className="ml-auto px-3">{collaborativePopover}</div>
+        {editor && !readOnly && <AIMenu editor={editor} />}
+        {(viewOnlyBadge || collaborativePopover) && (
+          <div className="ml-auto flex items-center gap-2 px-3">
+            {viewOnlyBadge}
+            {collaborativePopover}
+          </div>
         )}
         {focusMode && onExitFocusMode && (
           <Button
@@ -361,6 +372,7 @@ export default function EditorPage({
       docId={noteId}
       metadata={selectedNoteMetadata}
       editorOdinId={dotYouClient.getHostIdentity()}
+      readOnly={isViewOnly(selectedNoteMetadata, dotYouClient.getHostIdentity())}
       onMetadataChange={async (meta) => {
         await updateNoteMetadata({
           docId: noteId,

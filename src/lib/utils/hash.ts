@@ -30,6 +30,8 @@ export async function computeContentHash(
         recipients: metadata.recipients ?? [],
         lastEditedBy: metadata.lastEditedBy,
         archivalStatus: metadata.archivalStatus ?? 0,
+        // Only when set, so the hash of every note without named viewers is unchanged (#897)
+        ...(!!metadata.odinIds?.length && { odinIds: metadata.odinIds }),
     });
 
     const encoder = new TextEncoder();

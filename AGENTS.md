@@ -691,7 +691,9 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
   "isPinned": "boolean",
   "isCollaborative": "boolean",
   "circleIds": ["UUID"],
+  "odinIds": ["OdinId"],
   "recipients": ["OdinId"],
   "lastEditedBy": "OdinId"
 }
 ```
+`circleIds` members are editors (`recipients` holds them, enrolled in the app-owned `journal-shares` circle); `odinIds` are named viewers (#897), enrolled in `journal-viewers` (Read only). Both go into the note's ACL (`sharedAcl`). A viewer's editor is read-only and its push never sends a peer update (`isViewOnly`, `src/lib/homebase/shareTargets.ts`); the owner's pull re-uploads an ACL that lost `odinIdList` to a peer update (odin-core#2002).

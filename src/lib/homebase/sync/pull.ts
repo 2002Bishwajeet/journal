@@ -1,4 +1,4 @@
-import type { HomebaseFile, DeletedHomebaseFile } from '@homebase-id/js-lib/core';
+import type { AccessControlList, HomebaseFile, DeletedHomebaseFile } from '@homebase-id/js-lib/core';
 import {
     upsertFolder,
     deleteFolder as deleteLocalFolder,
@@ -23,7 +23,7 @@ import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader } from '@/lib/utils';
 import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import { MAIN_FOLDER_ID, STORAGE_KEY_LAST_SYNC } from '../config';
-import type { SyncProgress, SyncRecord } from '@/types';
+import type { NoteFileContent, SyncProgress, SyncRecord } from '@/types';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
 import { documentBroadcast } from '@/lib/broadcast';
 import { suspendLiveQueries } from '@/hooks/useLiveQuery';
@@ -240,6 +240,17 @@ async function wasFiledBeforeItsFolder(
 }
 
 /**
+ * A shared note whose stored ACL is missing people its content names (#897). A peer update
+ * replaces the ACL with the sender's, whose server strips odinIdList (odin-core#2002).
+ * Unknown, so false, when the server sent no ACL.
+ */
+function lostNamedViewers(content: NoteFileContent, acl: AccessControlList | undefined): boolean {
+    if (!acl || !content.isCollaborative || !content.odinIds?.length) return false;
+    const stored = new Set((acl.odinIdList ?? []).map((odinId) => odinId.toLowerCase()));
+    return content.odinIds.some((odinId) => !stored.has(odinId));
+}
+
+/**
  * Handle a remote note (create, update, or merge).
  * Uses Yjs CRDT merge for conflict resolution.
  */
@@ -281,6 +292,15 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
     const authorOdinId = existingRecord?.authorOdinId
         || remoteFile.fileMetadata.senderOdinId
         || remoteFile.fileMetadata.originalAuthor;
+
+    // Without its named viewers the owner's note is open to everyone with access to the
+    // drive: put them back at once. Throws, so the pull retries, if that fails.
+    const isOwnNote = !authorOdinId || authorOdinId === ctx.hostIdentity;
+    if (isOwnNote && lostNamedViewers(content, remoteFile.serverMetadata?.accessControlList)) {
+        console.warn(`[SyncService] Note ${uniqueId} lost the people it is shared with from its ACL; restoring it`);
+        await ctx.notesProvider.restoreNoteAcl(uniqueId, remoteFile.fileId, content);
+    }
+
     const remoteBlob = await ctx.notesProvider.getNotePayload(remoteFile.fileId, authorOdinId, lastModified);
 
     if (!existingRecord) {
@@ -315,6 +335,7 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             archivalStatus: remoteFile.fileMetadata.appData.archivalStatus ?? 0,
             isCollaborative: content?.isCollaborative,
             circleIds: content?.circleIds,
+            odinIds: content?.odinIds,
             recipients: content?.recipients,
             lastEditedBy: content?.lastEditedBy,
         };
@@ -383,6 +404,7 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             archivalStatus: remoteFile.fileMetadata.appData.archivalStatus ?? 0,
             isCollaborative: content?.isCollaborative,
             circleIds: content?.circleIds,
+            odinIds: content?.odinIds,
             recipients: content?.recipients,
             lastEditedBy: content?.lastEditedBy,
         };

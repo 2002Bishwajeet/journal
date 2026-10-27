@@ -353,6 +353,7 @@ export class NotesDriveProvider {
             ...noteFileContent(metadata),
             isCollaborative: metadata.isCollaborative,
             circleIds: metadata.circleIds,
+            odinIds: metadata.odinIds,
             recipients: metadata.recipients,
             lastEditedBy: metadata.lastEditedBy,
         };
@@ -923,11 +924,12 @@ export class NotesDriveProvider {
         }
     }
     /**
-     * Make a note collaborative, granting access to specified circles.
-     * Changes ACL to Connected with circleIds and moves to COLLABORATIVE_FOLDER_ID.
+     * Share a note with circles (editors) and named people (viewers, #897), or change who
+     * an existing share names. Changes ACL to Connected with those lists and moves to
+     * COLLABORATIVE_FOLDER_ID.
      *
      * @param uniqueId - The unique ID of the note
-     * @param circleIds - Array of circle IDs to grant access
+     * @param share - Circles and people to grant access, and the circles' members
      * @param editorOdinId - OdinId of the user making this change
      * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
      * @param beforeInvite - Runs after the ACL upload (gives recipients drive access, #730)
@@ -935,8 +937,7 @@ export class NotesDriveProvider {
      */
     async makeNoteCollaborative(
         uniqueId: string,
-        circleIds: string[],
-        recipients: string[],
+        { circleIds, odinIds, recipients }: { circleIds: string[]; odinIds: string[]; recipients: string[] },
         editorOdinId: string,
         fileId?: string,
         beforeInvite?: () => Promise<void>
@@ -948,13 +949,15 @@ export class NotesDriveProvider {
                 ...existing,
                 isPublic: false,
                 isCollaborative: true,
-                circleIds,
+                // An empty list is left out, so a circle-only share stores what it did before #897
+                circleIds: circleIds.length > 0 ? circleIds : undefined,
+                odinIds: odinIds.length > 0 ? odinIds : undefined,
                 recipients,
                 lastEditedBy: editorOdinId,
             }),
             groupId: COLLABORATIVE_FOLDER_ID, // Move to collaborative folder
             isEncrypted: true,
-            acl: sharedAcl({ circleIds }),
+            acl: sharedAcl({ circleIds, odinIds }),
             // Collaborative notes must be encrypted; a public note is re-uploaded
             // encrypted first, since a header-only patch can't encrypt its payload.
             ensureEncrypted: true,
@@ -965,6 +968,21 @@ export class NotesDriveProvider {
         await beforeInvite?.();
 
         return result;
+    }
+
+    /**
+     * Writes back the ACL a shared note's content names (#897). A peer update replaces the
+     * stored ACL with the sender's, whose server strips its odinIdList (odin-core#2002), so
+     * the note would be open to every connection with access to the drive.
+     */
+    async restoreNoteAcl(uniqueId: string, fileId: string, content: NoteFileContent): Promise<{ versionTag: string }> {
+        return this.#rewriteNoteHeader(uniqueId, {
+            fileId,
+            mode: 'patch',
+            content: (existing) => existing,
+            acl: noteAcl(content),
+            errorMessage: 'Failed to restore the note ACL',
+        });
     }
 
     /**
@@ -987,6 +1005,7 @@ export class NotesDriveProvider {
                 isPublic: false,
                 isCollaborative: false,
                 circleIds: undefined,
+                odinIds: undefined,
                 recipients: undefined,
                 lastEditedBy: editorOdinId,
             }),

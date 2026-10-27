@@ -77,6 +77,8 @@ interface EditorProviderProps {
   docId: string;
   metadata: DocumentMetadata;
   editorOdinId?: string;
+  /** A note the host can only view (#897). */
+  readOnly?: boolean;
   onMetadataChange?: (metadata: DocumentMetadata) => void;
   onSave?: (yjsBlob: Uint8Array) => void;
   onEditorReady?: (editor: Editor) => void;
@@ -91,6 +93,7 @@ export function EditorProvider({
   docId,
   metadata,
   editorOdinId,
+  readOnly = false,
   // onMetadataChange, // Not used in provider currently
   onSave,
   onEditorReady,
@@ -416,6 +419,7 @@ export function EditorProvider({
   const editor = useEditor(
     {
       extensions,
+      editable: !readOnly,
       editorProps: {
         attributes: {
           class:
@@ -448,6 +452,11 @@ export function EditorProvider({
     },
     [extensions],
   );
+
+  // The editor is created once per note; the owner can change the host's role meanwhile.
+  useEffect(() => {
+    editor?.setEditable(!readOnly, false);
+  }, [editor, readOnly]);
 
   // Refs for current values - avoids stale closures in debounced functions
   const docIdRef = useRef(docId);
@@ -572,6 +581,7 @@ export function EditorProvider({
     isReady: !isLoading && !!editor,
     isLoading,
     isAIReady,
+    readOnly,
     cover,
     setCoverFromFile,
     removeCover,

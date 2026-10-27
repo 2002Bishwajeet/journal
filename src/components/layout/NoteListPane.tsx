@@ -28,6 +28,7 @@ interface NoteListPaneProps {
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder: (note: NoteListEntry) => void;
   onMarkCollaborative: (note: NoteListEntry) => void;
+  onEditSharing?: (note: NoteListEntry) => void;
 }
 
 /** Middle pane: the note list, or the Trash/Archive management views. */
@@ -49,6 +50,7 @@ export function NoteListPane({
   onShareNote,
   onMoveToFolder,
   onMarkCollaborative,
+  onEditSharing,
 }: NoteListPaneProps) {
   const backTo = useBackTo();
   const goBack = () => backTo("/");
@@ -120,6 +122,7 @@ export function NoteListPane({
           onShareNote={onShareNote}
           onMoveToFolder={onMoveToFolder}
           onMarkCollaborative={onMarkCollaborative}
+          onEditSharing={onEditSharing}
           onArchive={noteActions.archive}
           isLoading={isListLoading}
           title={isDesktop ? undefined : viewLabel || "Notes"}
