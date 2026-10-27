@@ -158,11 +158,12 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
 // The assistant isn't offered below 768px, so 768px is the narrowest width a preview can show at.
 // There the panel fills the screen: close it to see the preview in the note.
 test('the preview fits the narrowest width with the assistant', async ({ app }) => {
-  await app.setViewportSize({ width: 768, height: 1024 });
   await stubWebLLMWorker(app);
   await stubWebGPU(app);
   await importNote(app);
   await selectFolder(app, 'Main');
+  // Resize after: a tablet keeps the folders and Settings in an overlay (#832).
+  await app.setViewportSize({ width: 768, height: 1024 });
   await openNote(app, 'Weekend notes');
   const editor = activeEditor(app);
   await expect(editor).toContainText('Second paragraph here.');
