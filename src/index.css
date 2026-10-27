@@ -1172,6 +1172,13 @@ img.ProseMirror-separator {
 html[data-fab] {
   --fab-clearance: calc(var(--fab-size) + var(--fab-bottom) + 16px);
 }
+/* Docked assistant (#840): from lg, while it is open, html[data-assistant] sets
+   --assistant-clearance so toasts sit left of the 22.5rem panel, not over its message box. */
+@media (min-width: 1024px) {
+  html[data-assistant] {
+    --assistant-clearance: calc(22.5rem + 24px);
+  }
+}
 .new-note-fab {
   right: calc(16px + env(safe-area-inset-right));
   bottom: calc(var(--fab-bottom) + env(safe-area-inset-bottom));
