@@ -371,6 +371,40 @@ try {
   }
   await check('editor-keyboard', keyboardUp);
 
+  // The link sheet (#827) from the keyboard toolbar: type a URL into it with real touches and the
+  // software keyboard, Done inserts the link and gives focus back to the editor.
+  if (keyboardUp) {
+    await tap('[data-mobile-toolbar] [title="Add Link"]');
+    await waitFor('the link sheet', () => !!document.querySelector('[role="dialog"] #editor-link-url'));
+    await browser.pause(500); // its 300 ms slide in
+    const keyboardOnOpen = await browser.isKeyboardShown();
+    await tap('#editor-link-url');
+    await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
+    const keyboardInSheet = await browser.isKeyboardShown();
+    await browser.pause(1_000); // the keyboard's slide and Safari's scroll to the field
+    await check('link-sheet-keyboard');
+    await checkZoom('the link URL field');
+    await typeOnKeyboard('example.com');
+    const typed = (await browser.execute(() => document.querySelector<HTMLInputElement>('#editor-link-url')?.value ?? '')) as string;
+    await tap('[role="dialog"] button[type="submit"]');
+    await waitFor('the link sheet to close', dialogClosed, 10_000);
+    await browser.pause(800); // the exit and the focus return
+    const after = await browser.execute(() => ({
+      link: document.querySelector('.ProseMirror a[href="https://example.com"]')?.textContent ?? '',
+      focused: !!document.activeElement?.closest('.ProseMirror'),
+    }));
+    const keyboardAfter = await browser.isKeyboardShown();
+    const problems = [
+      ...(typed === 'example.com' ? [] : [`the URL field held "${typed}" after typing "example.com"`]),
+      ...(after.link ? [] : ['Done did not insert the link']),
+      ...(after.focused ? [] : ['the editor did not get focus back']),
+    ];
+    failures.push(...problems.map((p) => `link-sheet: ${p}`));
+    const keyboards = `keyboard: on open ${keyboardOnOpen}, in the URL field ${keyboardInSheet}, after Done ${keyboardAfter}`;
+    summary.push(`| link-sheet | ${await screenshot('link-sheet-done')} | ${problems.join('<br>') || 'none'} (${keyboards}) |`);
+    console.log(`${problems.length ? '✗' : '✓'} link-sheet (${keyboards})${problems.map((p) => `\n    ${p}`).join('')}`);
+  }
+
   // A long press on a word in the note selects it (#856): body is user-select: none, and the editor
   // must still allow selection and keep the caret inside it.
   if (keyboardUp) {

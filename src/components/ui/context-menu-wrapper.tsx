@@ -23,6 +23,8 @@ export interface ContextMenuItemConfig {
     variant?: 'default' | 'destructive';
     shortcut?: string;
     disabled?: boolean;
+    /** The current choice in a list of options (the action sheet shows a check). */
+    checked?: boolean;
 }
 
 interface ContextMenuWrapperProps {

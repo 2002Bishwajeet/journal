@@ -1,3 +1,6 @@
+import type { ComponentProps } from "react"
+import { CheckIcon } from "lucide-react"
+
 import { cn } from "@/lib/utils"
 import type { ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -15,11 +18,13 @@ export function ActionSheet({
   onOpenChange,
   title,
   items,
+  onCloseAutoFocus,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
   items: ContextMenuItemConfig[]
+  onCloseAutoFocus?: ComponentProps<typeof SheetContent>["onCloseAutoFocus"]
 }) {
   const renderRow = (item: ContextMenuItemConfig) => {
     const Icon = item.icon
@@ -27,7 +32,8 @@ export function ActionSheet({
       <button
         key={item.label}
         type="button"
-        role="menuitem"
+        role={item.checked === undefined ? "menuitem" : "menuitemradio"}
+        aria-checked={item.checked}
         disabled={item.disabled}
         onClick={() => {
           item.action()
@@ -37,6 +43,7 @@ export function ActionSheet({
       >
         {Icon && <Icon aria-hidden />}
         {item.label}
+        {item.checked && <CheckIcon aria-hidden className="ml-auto" />}
       </button>
     )
   }
@@ -45,7 +52,7 @@ export function ActionSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent variant="bottom" aria-describedby={undefined}>
+      <SheetContent variant="bottom" aria-describedby={undefined} onCloseAutoFocus={onCloseAutoFocus}>
         <SheetHeader className="sr-only">
           <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
