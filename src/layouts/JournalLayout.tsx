@@ -483,7 +483,6 @@ export default function JournalLayout() {
         onCreateFolder={findOrCreateFolderByName}
       />
 
-
       {collaborativeNote && (
         <Suspense fallback={null}>
           <MarkCollaborativeDialog

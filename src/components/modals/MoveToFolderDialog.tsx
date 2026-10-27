@@ -87,10 +87,8 @@ export default function MoveToFolderDialog({
                   }}
                 >
                   <FolderOpen aria-hidden className="mr-2 h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1 text-left">
-                    <span className="block truncate" title={folder.name}>
-                      {folder.name}
-                    </span>
+                  <span className="min-w-0 flex-1 truncate text-left" title={folder.name}>
+                    {folder.name}
                   </span>
                   {folder.isPublic && (
                     <span className="ml-2 flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
