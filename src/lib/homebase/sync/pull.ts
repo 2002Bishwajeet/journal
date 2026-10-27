@@ -30,6 +30,7 @@ import { suspendLiveQueries } from '@/hooks/useLiveQuery';
 import type { SyncService } from '../SyncService';
 import type { SyncContext } from './context';
 import { hasChangesMissingFrom, mergeYjsDocuments, resolveNoteFolderId } from './merge';
+import { isDismissedPeerNote } from './peerNotes';
 
 /** The part of a deleted file the handleDeleted* methods read; websocket headers satisfy it too. */
 export type DeletedFileRef = { fileMetadata: { appData: { uniqueId?: string } } };
@@ -296,6 +297,8 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
     // Without its named viewers the owner's note is open to everyone with access to the
     // drive: put them back at once. Throws, so the pull retries, if that fails.
     const isOwnNote = !authorOdinId || authorOdinId === ctx.hostIdentity;
+    // The receiver removed this shared note from their list (#682)
+    if (!existingRecord && !isOwnNote && await isDismissedPeerNote(uniqueId, content)) return;
     if (isOwnNote && lostNamedViewers(content, remoteFile.serverMetadata?.accessControlList)) {
         console.warn(`[SyncService] Note ${uniqueId} lost the people it is shared with from its ACL; restoring it`);
         await ctx.notesProvider.restoreNoteAcl(uniqueId, remoteFile.fileId, content);

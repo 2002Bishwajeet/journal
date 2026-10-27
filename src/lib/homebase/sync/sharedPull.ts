@@ -5,7 +5,13 @@ import { getAppState, saveAppState, getSharedNoteIdsFrom } from '@/lib/db';
 import type { NoteFileContent } from '@/types';
 import { JOURNAL_DRIVE, JOURNAL_FILE_TYPE } from '../config';
 import type { SyncContext } from './context';
-import { bootstrapCollaborativeNote, classifyPeerFetchError, removeLocalPeerNote, revalidatePeerNote } from './peerNotes';
+import {
+    bootstrapCollaborativeNote,
+    classifyPeerFetchError,
+    forgetUnsharedDismissals,
+    removeLocalPeerNote,
+    revalidatePeerNote,
+} from './peerNotes';
 
 /**
  * "Shared with me" from the owners' side (#732): each connection's Journal drive is
@@ -117,6 +123,7 @@ async function pullOwners(
                 for (const docId of await getSharedNoteIdsFrom(owner)) {
                     if (!shared.has(docId)) await removeLocalPeerNote(docId);
                 }
+                await forgetUnsharedDismissals(owner, new Set(shared.keys()));
             }
             after = { cursor: cursor ?? before?.cursor, failures: 0, nextAttemptAt: 0 };
         } catch (error) {
@@ -126,6 +133,7 @@ async function pullOwners(
             if (full && classifyPeerFetchError(error) === 'forbidden') {
                 try {
                     for (const docId of await getSharedNoteIdsFrom(owner)) await revalidatePeerNote(ctx, docId, owner);
+                    await forgetUnsharedDismissals(owner, new Set());
                 } catch (err) {
                     console.warn(`[sharedPull] Could not check the notes from ${owner}:`, err);
                 }

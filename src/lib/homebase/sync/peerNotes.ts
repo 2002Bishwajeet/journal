@@ -10,13 +10,15 @@ import {
     upsertSyncRecord,
     deleteSyncRecord,
     getSharedNoteIds,
+    getAppState,
+    saveAppState,
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader } from '@/lib/utils';
 import { extractPreviewTextFromYjs } from '@/lib/yjs-utils';
 import { COLLABORATIVE_FOLDER_ID } from '../config';
 import { httpStatus } from '../httpStatus';
-import type { CollaborationInviteContent } from '@/types';
+import type { CollaborationInviteContent, DocumentMetadata } from '@/types';
 import { stringGuidsEqual, toGuidId } from '@homebase-id/js-lib/helpers';
 import { documentBroadcast } from '@/lib/broadcast';
 import type { SyncContext } from './context';
@@ -240,6 +242,7 @@ export async function bootstrapCollaborativeNote(
     if (peerNote === null) return;
     if (!peerNote || !peerNote.fileId) {
         console.warn(`[SyncService] Could not fetch peer note ${noteUniqueId} from ${authorOdinId} — author may be offline`);
+        if (await isDismissedPeerNote(noteUniqueId, null)) return;
         await upsertSearchIndex({
             docId: noteUniqueId,
             title: inviteTitle,
@@ -262,6 +265,7 @@ export async function bootstrapCollaborativeNote(
         ctx.notesProvider.dsrToContent(peerNote, true),
         ctx.notesProvider.getNotePayload(peerNote.fileId, authorOdinId, lastModified),
     ]);
+    if (await isDismissedPeerNote(noteUniqueId, content ?? null)) return;
     const noteTitle = content?.title || inviteTitle || 'Untitled';
 
     const [, plainTextContent] = await Promise.all([
@@ -328,6 +332,59 @@ export async function removeLocalPeerNote(noteId: string): Promise<void> {
         deleteDocumentUpdates(noteId),
         deleteSyncRecord(noteId),
     ]);
+}
+
+export const DISMISSED_PEER_NOTES_KEY = 'dismissedPeerNotes';
+
+type Sharing = Pick<DocumentMetadata, 'circleIds' | 'odinIds' | 'recipients' | 'viewerCircleIds' | 'viewerRecipients'>;
+
+/** A note the receiver removed from their list (#682): its owner and who it was shared with then. */
+interface DismissedNote {
+    owner: string;
+    sharing: string;
+}
+
+const sharingKey = (s: Sharing) =>
+    JSON.stringify([s.circleIds, s.odinIds, s.recipients, s.viewerCircleIds, s.viewerRecipients]
+        .map((ids) => [...(ids ?? [])].sort()));
+
+async function loadDismissed(): Promise<Record<string, DismissedNote>> {
+    return (await getAppState<Record<string, DismissedNote>>(DISMISSED_PEER_NOTES_KEY)) ?? {};
+}
+
+/**
+ * The receiver removes a note shared with them from this device only (#682): the local
+ * copy goes, and the invite and the shared pull leave it out until its owner changes who
+ * it is shared with or shares it again.
+ */
+export async function dismissPeerNote(noteId: string, owner: string, sharing: Sharing): Promise<void> {
+    const dismissed = await loadDismissed();
+    dismissed[noteId] = { owner, sharing: sharingKey(sharing) };
+    await saveAppState(DISMISSED_PEER_NOTES_KEY, dismissed);
+    await removeLocalPeerNote(noteId);
+}
+
+/**
+ * True when the receiver removed the note and its sharing is unchanged (`null`: not known).
+ * Changed sharing forgets the removal, so the note comes back.
+ */
+export async function isDismissedPeerNote(noteId: string, sharing: Sharing | null): Promise<boolean> {
+    const dismissed = await loadDismissed();
+    const entry = dismissed[noteId];
+    if (!entry) return false;
+    if (!sharing || entry.sharing === sharingKey(sharing)) return true;
+    delete dismissed[noteId];
+    await saveAppState(DISMISSED_PEER_NOTES_KEY, dismissed);
+    return false;
+}
+
+/** Forgets the removed notes `owner` no longer shares with the host, so sharing one again brings it back. */
+export async function forgetUnsharedDismissals(owner: string, shared: ReadonlySet<string>): Promise<void> {
+    const dismissed = await loadDismissed();
+    const unshared = Object.keys(dismissed).filter((id) => dismissed[id].owner === owner && !shared.has(id));
+    if (unshared.length === 0) return;
+    for (const id of unshared) delete dismissed[id];
+    await saveAppState(DISMISSED_PEER_NOTES_KEY, dismissed);
 }
 
 /**

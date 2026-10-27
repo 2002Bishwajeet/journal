@@ -9,7 +9,7 @@ import { SharePushProvider } from '@/lib/homebase/SharePushProvider';
 import { ownerConsoleDriveUrl } from '@/lib/homebase/config';
 import { getRecipientsOfOwnNotes, getSyncRecord } from '@/lib/db';
 import { normalizeOdinId, sharedNoteFolderId } from '@/lib/homebase/shareTargets';
-import { removeLocalPeerNote } from '@/lib/homebase/sync/peerNotes';
+import { dismissPeerNote } from '@/lib/homebase/sync/peerNotes';
 import { READ_ONLY_SHARE_NOTICE_KEY, readString, writeString } from '@/lib/storage';
 import type { NoteListEntry } from '@/types';
 
@@ -36,7 +36,6 @@ export interface ShareResult {
      */
     readOnlyDriveUrl?: string;
 }
-
 
 /** One toast per person the share circle refused; the share itself still saves (#730). */
 function reportEnrollment(results: EnrollResult[]) {
@@ -278,11 +277,12 @@ export function useNoteCollaboration() {
 
     /**
      * A receiver drops a note shared with them from this device only (#678 decision 10):
-     * its search entry, document updates and sync record. The owner's share is unchanged.
+     * its search entry, document updates and sync record. The owner's share is unchanged,
+     * and the note stays out until the owner changes who it is shared with.
      */
     const removeFromMyList = async (note: NoteListEntry) => {
         try {
-            await removeLocalPeerNote(note.docId);
+            await dismissPeerNote(note.docId, note.metadata.authorOdinId ?? '', note.metadata);
             toast.success('Removed from your list');
         } catch (err) {
             console.error('Failed to remove the shared note:', err);
