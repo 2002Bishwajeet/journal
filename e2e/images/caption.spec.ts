@@ -4,6 +4,7 @@ import { activeEditor, createNote, reloadNote, waitForNoteSaved, screenshotInBot
 // #583: alt text shows centred under an image by default; a caption replaces it;
 // "Hide caption" removes it. Edits survive a reload.
 test('image caption: alt shows, caption overrides, hide, reload', async ({ app }) => {
+  test.slow(); // two reloads and eight screenshots: 26-29s on CI against the 30s default
   await app.setViewportSize({ width: 1280, height: 800 });
   await createNote(app, { title: `Caption ${Date.now()}`, body: 'Image below.' });
 
