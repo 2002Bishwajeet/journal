@@ -74,6 +74,12 @@ interface JournalE2EHooks {
     globalTransitId: string,
     versionTag: string,
   ): Promise<{ read: string; patch: string }>;
+  /** For the AI eval (#706): loads the agent model, then accepts every assistant proposal and records the loop's events. */
+  startAgentEval(modelId: string): Promise<{ loaded: boolean; loadMs: number; loadedModelId: string; cached: boolean }>;
+  /** The agent loop's events since the last call; a proposal keeps only its tool and args. */
+  takeAgentEvents(): ({ type: string; tool?: string; args?: unknown; step?: number; answer?: string; error?: string; message?: string; result?: string })[];
+  /** The open note's id and its editor content as TipTap JSON, or null with no note open. */
+  openNoteJSON(): Promise<{ docId: string; doc: unknown } | null>;
   /** Draws a 1200×630 link card JPEG, as src/lib/share/cardImage.ts's renderCardImage does. */
   renderCard(
     text: { title: string; excerpt?: string; author: string },

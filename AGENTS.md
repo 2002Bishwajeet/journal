@@ -449,12 +449,19 @@ Current state: the `pglite-v4` alias (0.4.x) is a dependency, used only for migr
 
 ### Available Models (`src/lib/webllm/models.ts`)
 
-| Model | Size | Memory | Recommended |
-|-------|------|--------|-------------|
-| Qwen2.5-1.5B | ~900 MB | ~1.2 GB | Yes (default) |
-| SmolLM2-360M | ~250 MB | ~400 MB | Low-end devices |
-| Qwen2.5-0.5B | ~350 MB | ~500 MB | Lightweight |
-| Llama-3.2-1B (Legacy) | ~700 MB | ~1.5 GB | No |
+Each model has a job: `editor` (autocomplete, grammar, rewrite) or `agent` (the assistant). A GPU without `shader-f16` loads the model's `q4f32_1` build.
+
+| Model | Job | Download | VRAM | Default |
+|-------|-----|----------|------|---------|
+| SmolLM2 360M | editor | ~250 MB | ~380 MB | |
+| Qwen 2.5 0.5B | editor | ~350 MB | ~940 MB | Yes (editor) |
+| Qwen 2.5 1.5B | editor | ~900 MB | ~1.6 GB | |
+| Qwen3 1.7B | agent | ~1.1 GB | ~2.0 GB | Yes (agent) |
+| Hermes 3 Llama 3.2 3B | agent | ~1.8 GB | ~2.3 GB | |
+| Qwen 2.5 3B | agent | ~1.8 GB | ~2.5 GB | |
+| Qwen3 4B | agent | ~2.3 GB | ~3.4 GB | |
+
+**Agent eval (#706):** `npm run eval:ai -- <model id>` or `npm run eval:ai -- --all` (every agent model plus Qwen 2.5 1.5B as the floor) runs the 20 tasks in `e2e/evals/tasks.ts` (find, read and answer, open-note edits, cross-note writes, a refusal) against the real model in the e2e dev app (`playwright.evals.config.ts`, `127.0.0.1:5174`). Local only: it needs a WebGPU adapter, so it never runs in CI, and `npm run e2e` does not pick it up. Chromium starts with `--enable-unsafe-webgpu` (plus Vulkan on Linux), headless when there is no display; weights are cached in `~/.cache/journal-ai-evals`; only Hugging Face and `raw.githubusercontent.com` get past the network fence. Every proposal is accepted through the e2e hook `startAgentEval`. Each task is checked on the final state (answer, tools called, the target note's blocks), not the wording; the checkers are unit-tested in `src/__tests__/agentEvalChecks.test.ts`. Results go to `e2e/evals/results/<date>-<model>.json` and a markdown table is printed. The agent default is the best success rate within about 2.5 GB VRAM (the smaller one on a tie). The first run (2026-10-27, GTX 1650 Ti 4 GB, `q4f32_1` builds) left it at Qwen3 1.7B: every candidate passed fewer than half of the edit tasks (Hermes 3 best with 3/8), and Qwen3 4B did not run in 4 GB.
 
 ### AI Features
 - **Grammar checking**: GrammarPlugin with inline wavy underlines, 3s debounce, hallucination filtering

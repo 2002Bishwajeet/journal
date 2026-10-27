@@ -25,7 +25,8 @@
     "e2e:mobile:webkit": "playwright test --project=mobile-webkit",
     "e2e:quarantine": "playwright test --project=quarantine --pass-with-no-tests",
     "e2e:edge": "playwright test --project=edge",
-    "e2e:report": "playwright show-report"
+    "e2e:report": "playwright show-report",
+    "eval:ai": "node e2e/evals/run.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.10",
