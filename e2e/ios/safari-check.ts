@@ -367,13 +367,16 @@ try {
   // A long press on a word in the note selects it (#856): body is user-select: none, and the editor
   // must still allow selection and keep the caret inside it.
   if (keyboardUp) {
-    const at = await browser.execute(() => {
-      const p = document.querySelector('.ProseMirror p')!;
-      p.scrollIntoView({ block: 'center' });
-      const r = p.getBoundingClientRect();
-      return { x: Math.round(r.left + 20), y: Math.round(r.top + r.height / 2) };
+    // An element origin: a 'viewport' origin is in screen points, above the page by the status bar.
+    const [index, half] = await browser.execute(() => {
+      const ps = [...document.querySelectorAll('.ProseMirror p')];
+      const i = ps.findIndex((el) => el.textContent?.includes('First line'));
+      ps[i].scrollIntoView({ block: 'center' });
+      return [i, Math.round(ps[i].getBoundingClientRect().width / 2)];
     });
-    await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: 'viewport', x: at.x, y: at.y }).down().pause(1_200).up().perform();
+    const word = (await browser.$$('.ProseMirror p'))[index];
+    // 20 px into the paragraph: inside "First".
+    await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: word, x: 20 - half, y: 0 }).down().pause(1_200).up().perform();
     await browser.pause(800);
     const selected = await browser.execute(() => {
       const sel = getSelection();
