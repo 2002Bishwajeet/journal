@@ -16,6 +16,13 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.42.0 (2026-10-27)
+
+### New
+
+- You can share a note with a person by their Homebase identity. That person can read the note but cannot change it. Use "Add a person" in the Mark as Collaborative dialog.
+- To change who can see a shared note, use Edit Sharing in the note's menu.
+
 ## 2.41.1 (2026-10-27)
 
 ### Fixed

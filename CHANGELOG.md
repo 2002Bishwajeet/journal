@@ -1,3 +1,9 @@
+# [2.42.0](https://github.com/2002Bishwajeet/journal/compare/v2.41.1...v2.42.0) (2026-10-27)
+
+
+### Features
+
+* **sharing:** share a note read-only with named people ([#897](https://github.com/2002Bishwajeet/journal/issues/897)) ([fb646b7](https://github.com/2002Bishwajeet/journal/commit/fb646b70c2198a3d0312b3b30460962f1ddbf5cd)), closes [odin-core#2002](https://github.com/odin-core/issues/2002)
 ## [2.41.1](https://github.com/2002Bishwajeet/journal/compare/v2.41.0...v2.41.1) (2026-10-27)
 
 
