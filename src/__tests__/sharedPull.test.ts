@@ -134,6 +134,27 @@ describe('pullShared', () => {
         expect(await getSearchIndexEntry(NAMED)).not.toBeNull();
     });
 
+    // #897: a viewer is named in odinIds, not in recipients
+    it('imports a note that names the host as a viewer, with its role', async () => {
+        drives[OWNER] = [note(NAMED, { isCollaborative: true, odinIds: [HOST], recipients: [] })];
+
+        await run(ctx());
+
+        expect((await getSearchIndexEntry(NAMED))?.metadata).toMatchObject({
+            authorOdinId: OWNER,
+            odinIds: [HOST],
+            recipients: [],
+        });
+    });
+
+    it('ignores a note that names someone else as a viewer', async () => {
+        drives[OWNER] = [note(NOT_FOR_ME, { isCollaborative: true, odinIds: [OTHER], recipients: [] })];
+
+        await run(ctx());
+
+        expect(await getSearchIndexEntry(NOT_FOR_ME)).toBeNull();
+    });
+
     it('ignores a public note and a note not shared with the host', async () => {
         drives[OWNER] = [
             note(PUBLIC, { isPublic: true }, false),
@@ -243,6 +264,17 @@ describe('the full pass (revoke)', () => {
         await run(ctx(), true);
 
         expect(await getSearchIndexEntry(SHARED)).not.toBeNull();
+    });
+
+    // #897: taken off every share, the host loses the drive access too, so the query is a 403
+    it('drops the notes the owner no longer shares when the owner refuses the query', async () => {
+        drives[OWNER] = [sharedNote()];
+        await run(ctx());
+        drives[OWNER] = Object.assign(new Error('403'), { response: { status: 403 } });
+
+        await run(ctx(), true);
+
+        expect(await getSearchIndexEntry(SHARED)).toBeNull();
     });
 
     it('keeps notes from other owners', async () => {

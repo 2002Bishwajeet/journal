@@ -8,7 +8,9 @@
  * splash) or draw a link card. The exceptions: the ignoreInvites switch, which
  * lasts until the page reloads, deleteFilesNamed, which the live tier's
  * teardown uses to remove what the sharing specs leave on an identity, and
- * subscribePeerPush / journalNotifications for the share push spec (#745).
+ * subscribePeerPush / journalNotifications for the share push spec (#745), and
+ * probePeerNote, which sends the requests of the sharing security check (#897) that
+ * the other identity's server must refuse.
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
 import { e2eSwitches } from './switches';
@@ -265,6 +267,67 @@ async function journalNotifications(): Promise<{ id: string; senderId: string; u
     return results.map(({ id, senderId, unread, options }) => ({ id, senderId, unread, typeId: options.typeId, tagId: options.tagId }));
 }
 
+/** The ids a peer update of one of this identity's notes addresses, and its stored ACL, from its server. */
+async function noteHeader(docId: string): ReturnType<JournalE2EHooks['noteHeader']> {
+    const { NotesDriveProvider } = await import('@/lib/homebase/NotesDriveProvider');
+    const header = await new NotesDriveProvider(await appClient()).getNote(docId, undefined, { decrypt: false });
+    if (!header) return null;
+    const acl = header.serverMetadata?.accessControlList;
+    return {
+        globalTransitId: header.fileMetadata.globalTransitId,
+        versionTag: header.fileMetadata.versionTag,
+        acl: acl && { odinIdList: acl.odinIdList, circleIdList: acl.circleIdList },
+    };
+}
+
+/**
+ * As this identity, reads and then patches another identity's note over peer with the
+ * requests a collaborator's app sends (NotesDriveProvider.getNote and updateNote), and
+ * reports what each got. The read reports PeerNoteFallback's status names. A patch that
+ * goes through retitles the note to "Security probe". This identity may not hold the
+ * note's key, so the patch is encrypted with a key of its own: a well-formed update,
+ * which only the owner's access checks can refuse.
+ */
+async function probePeerNote(
+    ...[authorOdinId, docId, globalTransitId, versionTag]: Parameters<JournalE2EHooks['probePeerNote']>
+): Promise<{ read: string; patch: string }> {
+    const [{ NotesDriveProvider }, { classifyPeerFetchError }, { httpStatus }, { getRandom16ByteArray }, { COLLABORATIVE_FOLDER_ID }] = await Promise.all([
+        import('@/lib/homebase/NotesDriveProvider'),
+        import('@/lib/homebase/sync/peerNotes'),
+        import('@/lib/homebase/httpStatus'),
+        import('@homebase-id/js-lib/helpers'),
+        import('@/lib/homebase/config'),
+    ]);
+    const provider = new NotesDriveProvider(await appClient());
+    const refused = (err: unknown) => `refused ${httpStatus(err) ?? 'without a response'}: ${(err as Error).message}`;
+
+    let read: string;
+    try {
+        read = (await provider.getNote(docId, authorOdinId, { decrypt: false })) ? 'read' : 'notfound';
+    } catch (err) {
+        read = `${classifyPeerFetchError(err)} (${refused(err)})`;
+    }
+
+    const now = new Date().toISOString();
+    const ownKey = { aesKey: getRandom16ByteArray(), iv: getRandom16ByteArray() };
+    let patch: string;
+    try {
+        const result = await provider.updateNote(docId, '', versionTag, {
+            title: 'Security probe',
+            folderId: COLLABORATIVE_FOLDER_ID,
+            timestamps: { created: now, modified: now },
+            excludeFromAI: true,
+            isCollaborative: true,
+        }, authorOdinId, globalTransitId, undefined,
+        // patchFile takes a plain key header too; updateNote's type only names the cached, encrypted one
+        ownKey as unknown as Parameters<typeof provider.updateNote>[7]);
+        patch = `accepted (versionTag ${result.versionTag})`;
+    } catch (err) {
+        patch = refused(err);
+    }
+    return { read, patch };
+}
+
 /**
  * Deletes the signed-in identity's folders (with their notes), notes and collaboration
  * invites whose name matches `namePattern`, straight on the server; returns the names.
@@ -306,7 +369,7 @@ export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
 
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote }),
         writable: false,
         configurable: false,
         enumerable: false,

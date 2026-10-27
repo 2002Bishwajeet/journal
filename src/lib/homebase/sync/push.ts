@@ -28,6 +28,7 @@ import type { FolderFile, SyncRecord, SyncProgress } from '@/types';
 import type { SyncService } from '../SyncService';
 import type { SyncContext } from './context';
 import { mergeYjsDocuments, resolveNoteFolderId } from './merge';
+import { isViewOnly } from '../shareTargets';
 
 // When this tab last sent the owner an edit push, per note. In memory only: a reload may push once more (#746).
 const EDIT_PUSH_WINDOW_MS = 15 * 60 * 1000;
@@ -220,6 +221,15 @@ async function pushNoteNow(ctx: SyncContext, record: SyncRecord): Promise<void> 
     if (!doc) {
         // Note was deleted locally, clean up sync record
         await deleteSyncRecord(record.localId);
+        return;
+    }
+
+    // A note the host can only view never sends a peer update (#897): the editor is read-only
+    // too, so anything here came from the owner. Mark it synced so it doesn't stay pending.
+    if (isViewOnly({ ...doc.metadata, authorOdinId: doc.metadata.authorOdinId ?? record.authorOdinId }, ctx.hostIdentity)) {
+        if (record.remoteFileId && record.syncStatus !== 'synced') {
+            await markSynced(record.localId, record.remoteFileId, record.versionTag || '', record.contentHash, undefined, undefined, undefined, record.dirtyGeneration);
+        }
         return;
     }
 

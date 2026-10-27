@@ -56,6 +56,7 @@ interface NoteListProps {
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder?: (note: NoteListEntry) => void;
   onMarkCollaborative?: (note: NoteListEntry) => void;
+  onEditSharing?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
   isLoading?: boolean;
   className?: string;
@@ -79,6 +80,7 @@ export default function NoteList({
   onShareNote,
   onMoveToFolder,
   onMarkCollaborative,
+  onEditSharing,
   onArchive,
   isLoading = false,
   className = "",
@@ -335,6 +337,7 @@ export default function NoteList({
                           onMoveToFolder={onMoveToFolder}
                           onTogglePin={handleTogglePin}
                           onMarkCollaborative={onMarkCollaborative}
+                          onEditSharing={onEditSharing}
                           onArchive={onArchive}
                         />
                       ))}
@@ -398,6 +401,7 @@ const NoteItem = memo(function NoteItem({
   onMoveToFolder,
   onTogglePin,
   onMarkCollaborative,
+  onEditSharing,
   onArchive,
 }: {
   note: NoteListEntry;
@@ -410,6 +414,7 @@ const NoteItem = memo(function NoteItem({
   onMoveToFolder?: (note: NoteListEntry) => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
   onMarkCollaborative?: (note: NoteListEntry) => void;
+  onEditSharing?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
 }) {
   const dotYouClient = useDotYouClientContext();
@@ -551,6 +556,10 @@ const NoteItem = memo(function NoteItem({
       action: () => onMarkCollaborative?.(note),
       disabled: !onMarkCollaborative,
     },
+    // Change who your shared note is shared with (#897)
+    ...(note.metadata.isCollaborative && !isPeerNote && onEditSharing
+      ? [{ label: "Edit Sharing", icon: Users, action: () => onEditSharing(note) }]
+      : []),
     {
       label: "Archive",
       icon: Archive,

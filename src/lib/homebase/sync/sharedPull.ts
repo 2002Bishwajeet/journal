@@ -5,7 +5,7 @@ import { getAppState, saveAppState, getSharedNoteIdsFrom } from '@/lib/db';
 import type { NoteFileContent } from '@/types';
 import { JOURNAL_DRIVE, JOURNAL_FILE_TYPE } from '../config';
 import type { SyncContext } from './context';
-import { bootstrapCollaborativeNote, removeLocalPeerNote } from './peerNotes';
+import { bootstrapCollaborativeNote, classifyPeerFetchError, removeLocalPeerNote, revalidatePeerNote } from './peerNotes';
 
 /**
  * "Shared with me" from the owners' side (#732): each connection's Journal drive is
@@ -121,6 +121,15 @@ async function pullOwners(
             after = { cursor: cursor ?? before?.cursor, failures: 0, nextAttemptAt: 0 };
         } catch (error) {
             console.warn(`[sharedPull] ${owner} did not answer:`, error);
+            // Refused: the owner took the host off every share, and with it the drive access
+            // (#897). Check each of their notes here on its own, which drops the unshared ones.
+            if (full && classifyPeerFetchError(error) === 'forbidden') {
+                try {
+                    for (const docId of await getSharedNoteIdsFrom(owner)) await revalidatePeerNote(ctx, docId, owner);
+                } catch (err) {
+                    console.warn(`[sharedPull] Could not check the notes from ${owner}:`, err);
+                }
+            }
             const failures = (before?.failures ?? 0) + 1;
             const backoff = Math.min(MIN_BACKOFF_MS * 2 ** (failures - 1), MAX_BACKOFF_MS);
             after = { cursor: before?.cursor, failures, nextAttemptAt: Date.now() + backoff };
@@ -168,7 +177,8 @@ async function queryShared(
 
 /**
  * The note's content when it is shared with the host: encrypted, collaborative, and
- * shared with a circle or with the host by name. Public notes and the rest are ignored.
+ * shared with a circle or naming the host as an editor or a viewer (#897). Public notes
+ * and the rest are ignored.
  */
 async function sharedContent(ctx: SyncContext, file: HomebaseFile, owner: string): Promise<NoteFileContent | null> {
     if (!file.fileMetadata.isEncrypted) return null;
@@ -177,6 +187,8 @@ async function sharedContent(ctx: SyncContext, file: HomebaseFile, owner: string
     if (sender && sender !== owner) return null;
     const content = await ctx.notesProvider.dsrToContent<NoteFileContent>(file, true);
     if (content?.isCollaborative !== true) return null;
-    const forHost = content.recipients?.includes(ctx.hostIdentity) || (content.circleIds?.length ?? 0) > 0;
+    const forHost = content.recipients?.includes(ctx.hostIdentity)
+        || content.odinIds?.includes(ctx.hostIdentity)
+        || (content.circleIds?.length ?? 0) > 0;
     return forHost ? content : null;
 }

@@ -206,19 +206,23 @@ export async function getCollaborativeNotesForList(hostOdinId: string): Promise<
 /**
  * Everyone the host's own collaborative notes are shared with, trashed and archived
  * notes included (their ACL still lets the recipients in). Decides who stays in the
- * share circle (#730). A note with no author is the host's.
+ * share circle (#730), or with `key` 'odinIds', in the viewers' circle (#897). A note
+ * with no author is the host's.
  */
-export async function getRecipientsOfOwnNotes(hostOdinId: string): Promise<string[]> {
+export async function getRecipientsOfOwnNotes(
+    hostOdinId: string,
+    key: 'recipients' | 'odinIds' = 'recipients',
+): Promise<string[]> {
     const db = await getDatabase();
     const result = await db.query<{ odin_id: string }>(
         `SELECT DISTINCT r.odin_id FROM search_index,
-            jsonb_array_elements_text(CASE WHEN jsonb_typeof(metadata->'recipients') = 'array'
-                THEN metadata->'recipients' ELSE '[]'::jsonb END) AS r(odin_id)
+            jsonb_array_elements_text(CASE WHEN jsonb_typeof(metadata->$2::text) = 'array'
+                THEN metadata->$2::text ELSE '[]'::jsonb END) AS r(odin_id)
         WHERE (metadata->>'isCollaborative')::boolean = true
             AND COALESCE(metadata->>'authorOdinId',
                 (SELECT sr.author_odin_id FROM sync_records sr WHERE sr.local_id = search_index.doc_id),
                 $1) = $1`,
-        [hostOdinId],
+        [hostOdinId, key],
     );
     return result.rows.map((row) => row.odin_id);
 }

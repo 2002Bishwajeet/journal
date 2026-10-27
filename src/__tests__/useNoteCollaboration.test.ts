@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
     ensureShareCircle: vi.fn(),
     enroll: vi.fn(),
     unenroll: vi.fn(),
+    enrollViewers: vi.fn(),
+    unenrollViewers: vi.fn(),
     getRecipientsOfOwnNotes: vi.fn(),
     flushAndSyncNote: vi.fn(),
     getSyncRecord: vi.fn(),
@@ -43,6 +45,8 @@ vi.mock('@/lib/homebase/ShareCircleProvider', () => ({
         ensureShareCircle = mocks.ensureShareCircle;
         enroll = mocks.enroll;
         unenroll = mocks.unenroll;
+        enrollViewers = mocks.enrollViewers;
+        unenrollViewers = mocks.unenrollViewers;
     },
 }));
 vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
@@ -87,7 +91,7 @@ beforeEach(() => {
     // The provider runs the enrollment between the ACL upload and the invite
     mocks.makeNoteCollaborative.mockImplementation(async (...args: unknown[]) => {
         mocks.calls.push('provider');
-        await (args[5] as () => Promise<void>)();
+        await (args[4] as () => Promise<void>)();
         mocks.calls.push('invite');
     });
     mocks.ensureShareCircle.mockImplementation(async () => {
@@ -99,6 +103,11 @@ beforeEach(() => {
         return ids.map((odinId) => ({ odinId, status: 'added' }));
     });
     mocks.unenroll.mockImplementation(record('unenroll'));
+    mocks.enrollViewers.mockImplementation(async (ids: string[]) => {
+        mocks.calls.push('enrollViewers');
+        return ids.map((odinId) => ({ odinId, status: 'added' }));
+    });
+    mocks.unenrollViewers.mockImplementation(record('unenrollViewers'));
     mocks.getRecipientsOfOwnNotes.mockResolvedValue([]);
     mocks.revokeNoteCollaboration.mockImplementation(async () => {
         mocks.calls.push('revoke');
@@ -139,11 +148,13 @@ describe('share', () => {
         const { api, unmount } = await mountHook();
 
         let shared = false;
-        await act(async () => { shared = (await api().share('n1', CIRCLES)).shared; });
+        await act(async () => { shared = (await api().share('n1', { circles: CIRCLES, odinIds: [] })).shared; });
 
         expect(shared).toBe(true);
         expect(mocks.calls).toEqual(['flush', 'record', 'provider', 'circle', 'enroll', 'invite', 'unpublish', 'metadata']);
-        expect(mocks.makeNoteCollaborative).toHaveBeenCalledWith('n1', ['c1', 'c2'], ['a.id', 'b.id'], 'me.id', 'file-1', expect.any(Function));
+        expect(mocks.makeNoteCollaborative).toHaveBeenCalledWith(
+            'n1', { circleIds: ['c1', 'c2'], odinIds: [], recipients: ['a.id', 'b.id'] }, 'me.id', 'file-1', expect.any(Function),
+        );
         expect(mocks.setNotePublic).toHaveBeenCalledWith({ docId: 'n1', isPublic: false });
         expect(mocks.updateNote).toHaveBeenCalledWith({
             docId: 'n1',
@@ -153,6 +164,7 @@ describe('share', () => {
                 folderId: 'collab',
                 isCollaborative: true,
                 circleIds: ['c1', 'c2'],
+                odinIds: undefined,
                 recipients: ['a.id', 'b.id'],
                 lastEditedBy: 'me.id',
             },
@@ -164,7 +176,7 @@ describe('share', () => {
     it('skips the unpublish for a private note', async () => {
         mocks.notes = [note('n1', { folderId: 'f1', isPublic: false })];
         const { api, unmount } = await mountHook();
-        await act(async () => { await api().share('n1', CIRCLES); });
+        await act(async () => { await api().share('n1', { circles: CIRCLES, odinIds: [] }); });
 
         expect(mocks.calls).toEqual(['flush', 'record', 'provider', 'circle', 'enroll', 'invite', 'metadata']);
         await unmount();
@@ -172,10 +184,12 @@ describe('share', () => {
 
     it('fetches the members of every selected circle itself and dedupes them', async () => {
         const { api, unmount } = await mountHook();
-        await act(async () => { await api().share('n1', CIRCLES); });
+        await act(async () => { await api().share('n1', { circles: CIRCLES, odinIds: [] }); });
 
         expect(mocks.fetchMembersOfCircle).toHaveBeenCalledTimes(2);
-        expect(mocks.makeNoteCollaborative).toHaveBeenCalledWith('n1', ['c1', 'c2'], ['a.id', 'b.id'], 'me.id', 'file-1', expect.any(Function));
+        expect(mocks.makeNoteCollaborative).toHaveBeenCalledWith(
+            'n1', { circleIds: ['c1', 'c2'], odinIds: [], recipients: ['a.id', 'b.id'] }, 'me.id', 'file-1', expect.any(Function),
+        );
         await unmount();
     });
 
@@ -183,7 +197,7 @@ describe('share', () => {
         MEMBERS.c2 = [];
         const { api, unmount } = await mountHook();
         let shared = true;
-        await act(async () => { shared = (await api().share('n1', CIRCLES)).shared; });
+        await act(async () => { shared = (await api().share('n1', { circles: CIRCLES, odinIds: [] })).shared; });
 
         expect(shared).toBe(false);
         expect(mocks.toastError).toHaveBeenCalledWith('Two has no members');
@@ -195,11 +209,11 @@ describe('share', () => {
     it('rejects an empty selection without calling anything', async () => {
         const { api, unmount } = await mountHook();
         let shared = true;
-        await act(async () => { shared = (await api().share('n1', [])).shared; });
+        await act(async () => { shared = (await api().share('n1', { circles: [], odinIds: [] })).shared; });
 
         expect(shared).toBe(false);
         expect(mocks.calls).toEqual([]);
-        expect(mocks.toastError).toHaveBeenCalledWith('Please select at least one circle');
+        expect(mocks.toastError).toHaveBeenCalledWith('Choose at least one circle or person');
         await unmount();
     });
 
@@ -207,7 +221,7 @@ describe('share', () => {
     it('enrolls the members of all selected circles once, never the owner', async () => {
         MEMBERS.c2 = [{ domain: 'b.id' }, { domain: 'me.id' }];
         const { api, unmount } = await mountHook();
-        await act(async () => { await api().share('n1', CIRCLES); });
+        await act(async () => { await api().share('n1', { circles: CIRCLES, odinIds: [] }); });
 
         expect(mocks.enroll).toHaveBeenCalledTimes(1);
         expect(mocks.enroll).toHaveBeenCalledWith(['a.id', 'b.id']);
@@ -223,7 +237,7 @@ describe('share', () => {
         ]);
         const { api, unmount } = await mountHook();
         let shared = false;
-        await act(async () => { shared = (await api().share('n1', CIRCLES)).shared; });
+        await act(async () => { shared = (await api().share('n1', { circles: CIRCLES, odinIds: [] })).shared; });
 
         expect(shared).toBe(true);
         expect(mocks.updateNote).toHaveBeenCalled();
@@ -239,7 +253,7 @@ describe('share', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const { api, unmount } = await mountHook();
         let shared = false;
-        await act(async () => { shared = (await api().share('n1', CIRCLES)).shared; });
+        await act(async () => { shared = (await api().share('n1', { circles: CIRCLES, odinIds: [] })).shared; });
 
         expect(shared).toBe(true);
         expect(mocks.calls).toContain('invite');
@@ -251,7 +265,7 @@ describe('share', () => {
     it('returns no read-only notice when recipients can edit', async () => {
         const { api, unmount } = await mountHook();
         let result: unknown;
-        await act(async () => { result = await api().share('n1', CIRCLES); });
+        await act(async () => { result = await api().share('n1', { circles: CIRCLES, odinIds: [] }); });
         expect(result).toEqual({ shared: true });
         await unmount();
     });
@@ -260,8 +274,8 @@ describe('share', () => {
         mocks.ensureShareCircle.mockResolvedValue({ circleId: 'read', canEdit: false });
         const { api, unmount } = await mountHook();
         const results: unknown[] = [];
-        await act(async () => { results.push(await api().share('n1', CIRCLES)); });
-        await act(async () => { results.push(await api().share('n1', CIRCLES)); });
+        await act(async () => { results.push(await api().share('n1', { circles: CIRCLES, odinIds: [] })); });
+        await act(async () => { results.push(await api().share('n1', { circles: CIRCLES, odinIds: [] })); });
 
         expect(results).toEqual([
             { shared: true, readOnlyDriveUrl: 'https://me.id/owner/apps/console/drives/alias_type' },
@@ -276,7 +290,7 @@ describe('share', () => {
         mocks.ensureShareCircle.mockResolvedValue({ circleId: 'read', canEdit: false });
         const { api, unmount } = await mountHook();
         let url: string | undefined;
-        await act(async () => { url = (await api().share('n1', CIRCLES)).readOnlyDriveUrl; });
+        await act(async () => { url = (await api().share('n1', { circles: CIRCLES, odinIds: [] })).readOnlyDriveUrl; });
         expect(url).toBe('https://me.id/owner/apps/console/drives/alias_type');
         await unmount();
     });
@@ -285,9 +299,9 @@ describe('share', () => {
         mocks.notes = [note('n1', { folderId: 'collab', recipients: ['a.id', 'x.id', 'y.id'] })];
         mocks.getRecipientsOfOwnNotes.mockResolvedValue(['a.id', 'b.id', 'y.id']);
         const { api, unmount } = await mountHook();
-        await act(async () => { await api().share('n1', CIRCLES); });
+        await act(async () => { await api().share('n1', { circles: CIRCLES, odinIds: [] }); });
 
-        expect(mocks.getRecipientsOfOwnNotes).toHaveBeenCalledWith('me.id');
+        expect(mocks.getRecipientsOfOwnNotes).toHaveBeenCalledWith('me.id', 'recipients');
         expect(mocks.unenroll).toHaveBeenCalledWith(['x.id']);
         expect(mocks.calls.indexOf('unenroll')).toBeGreaterThan(mocks.calls.indexOf('metadata'));
         await unmount();
@@ -297,10 +311,95 @@ describe('share', () => {
         mocks.notes = [note('n1', { folderId: 'collab', recipients: ['a.id'] })];
         mocks.sendSharePush.mockImplementation(record('push'));
         const { api, unmount } = await mountHook();
-        await act(async () => { await api().share('n1', CIRCLES); });
+        await act(async () => { await api().share('n1', { circles: CIRCLES, odinIds: [] }); });
 
         expect(mocks.sendSharePush).toHaveBeenCalledWith('n1', ['a.id', 'b.id'], ['a.id']);
         expect(mocks.calls.indexOf('push')).toBeGreaterThan(mocks.calls.indexOf('invite'));
+        await unmount();
+    });
+
+    // #897: people named on a share are viewers
+    it('shares with a person alone as a viewer: Read-only circle, no share circle, lowercased', async () => {
+        mocks.notes = [note('n1', { folderId: 'f1' })];
+        const { api, unmount } = await mountHook();
+        let shared = false;
+        await act(async () => { shared = (await api().share('n1', { circles: [], odinIds: [' Sam.ID ', 'sam.id'] })).shared; });
+
+        expect(shared).toBe(true);
+        expect(mocks.makeNoteCollaborative).toHaveBeenCalledWith(
+            'n1', { circleIds: [], odinIds: ['sam.id'], recipients: [] }, 'me.id', 'file-1', expect.any(Function),
+        );
+        expect(mocks.ensureShareCircle).not.toHaveBeenCalled();
+        expect(mocks.enroll).not.toHaveBeenCalled();
+        expect(mocks.enrollViewers).toHaveBeenCalledWith(['sam.id']);
+        expect(mocks.updateNote.mock.calls[0][0].metadata).toMatchObject({
+            isCollaborative: true,
+            circleIds: undefined,
+            odinIds: ['sam.id'],
+            recipients: [],
+        });
+        expect(mocks.sendSharePush).toHaveBeenCalledWith('n1', ['sam.id'], []);
+        await unmount();
+    });
+
+    it('enrolls circle members as editors and people as viewers; someone can be both', async () => {
+        const { api, unmount } = await mountHook();
+        await act(async () => { await api().share('n1', { circles: CIRCLES, odinIds: ['b.id', 'sam.id'] }); });
+
+        expect(mocks.enroll).toHaveBeenCalledWith(['a.id', 'b.id']);
+        expect(mocks.enrollViewers).toHaveBeenCalledWith(['b.id', 'sam.id']);
+        expect(mocks.makeNoteCollaborative.mock.calls[0][1]).toEqual({
+            circleIds: ['c1', 'c2'], odinIds: ['b.id', 'sam.id'], recipients: ['a.id', 'b.id'],
+        });
+        await unmount();
+    });
+
+    it('names the people the viewers circle refused, and still saves the share', async () => {
+        mocks.notes = [note('n1', { folderId: 'f1' })];
+        mocks.enrollViewers.mockResolvedValue([{ odinId: 'stranger.id', status: 'notAConnectedIdentity' }]);
+        const { api, unmount } = await mountHook();
+        let shared = false;
+        await act(async () => { shared = (await api().share('n1', { circles: [], odinIds: ['stranger.id'] })).shared; });
+
+        expect(shared).toBe(true);
+        expect(mocks.toastError).toHaveBeenCalledWith("stranger.id isn't connected to you, so they can't open shared notes.");
+        await unmount();
+    });
+
+    it('refuses to name the owner', async () => {
+        const { api, unmount } = await mountHook();
+        let shared = true;
+        await act(async () => { shared = (await api().share('n1', { circles: [], odinIds: ['me.id'] })).shared; });
+
+        expect(shared).toBe(false);
+        expect(mocks.toastError).toHaveBeenCalledWith("You can't share a note with yourself");
+        expect(mocks.makeNoteCollaborative).not.toHaveBeenCalled();
+        await unmount();
+    });
+
+    it('unenrolls a removed viewer no other note names, and keeps one another note names', async () => {
+        mocks.notes = [note('n1', {
+            folderId: 'collab', isCollaborative: true, circleIds: ['c1'], odinIds: ['sam.id', 'kept.id'], recipients: ['a.id', 'b.id'],
+        })];
+        mocks.getRecipientsOfOwnNotes.mockImplementation(async (_owner: string, key: string) =>
+            key === 'odinIds' ? ['kept.id'] : ['a.id', 'b.id']);
+        const { api, unmount } = await mountHook();
+        await act(async () => { await api().share('n1', { circles: [CIRCLES[0]], odinIds: [] }); });
+
+        expect(mocks.getRecipientsOfOwnNotes).toHaveBeenCalledWith('me.id', 'odinIds');
+        expect(mocks.unenrollViewers).toHaveBeenCalledWith(['sam.id']);
+        expect(mocks.unenroll).not.toHaveBeenCalled();
+        expect(mocks.updateNote.mock.calls[0][0].metadata).toMatchObject({ circleIds: ['c1'], odinIds: undefined });
+        expect(mocks.toastSuccess).toHaveBeenCalledWith('Sharing updated');
+        await unmount();
+    });
+
+    it('pushes only the people new to the share, viewers included', async () => {
+        mocks.notes = [note('n1', { folderId: 'collab', isCollaborative: true, odinIds: ['sam.id'], recipients: [] })];
+        const { api, unmount } = await mountHook();
+        await act(async () => { await api().share('n1', { circles: [], odinIds: ['sam.id', 'new.id'] }); });
+
+        expect(mocks.sendSharePush).toHaveBeenCalledWith('n1', ['sam.id', 'new.id'], ['sam.id']);
         await unmount();
     });
 
@@ -309,7 +408,7 @@ describe('share', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const { api, unmount } = await mountHook();
         let shared = true;
-        await act(async () => { shared = (await api().share('n1', CIRCLES)).shared; });
+        await act(async () => { shared = (await api().share('n1', { circles: CIRCLES, odinIds: [] })).shared; });
 
         expect(shared).toBe(false);
         expect(mocks.sendSharePush).not.toHaveBeenCalled();
@@ -345,6 +444,17 @@ describe('revoke', () => {
         expect(mocks.unenroll).toHaveBeenCalledWith(['a.id']);
         expect(mocks.calls.indexOf('unenroll')).toBeGreaterThan(mocks.calls.indexOf('metadata'));
         expect(mocks.toastSuccess).toHaveBeenCalledWith('Collaboration revoked');
+        await unmount();
+    });
+
+    it('unenrolls the viewers no other note names (#897)', async () => {
+        mocks.getRecipientsOfOwnNotes.mockImplementation(async (_owner: string, key: string) =>
+            key === 'odinIds' ? ['kept.id'] : []);
+        const { api, unmount } = await mountHook();
+        await act(async () => api().revoke(note('s', { folderId: 'shared', odinIds: ['sam.id', 'kept.id'] })));
+
+        expect(mocks.unenrollViewers).toHaveBeenCalledWith(['sam.id']);
+        expect(mocks.updateNote.mock.calls[0][0].metadata).toMatchObject({ odinIds: undefined });
         await unmount();
     });
 

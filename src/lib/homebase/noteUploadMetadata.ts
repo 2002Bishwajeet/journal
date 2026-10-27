@@ -20,26 +20,35 @@ const createdUserDate = (metadata: DocumentMetadata): number => {
     return Number.isNaN(parsed) ? Date.now() : parsed;
 };
 
-/** The ACL of a note shared with circles, and of its invite. */
-export function sharedAcl({ circleIds }: { circleIds: string[] }): AccessControlList {
+/**
+ * The ACL of a shared note: Connected, narrowed to its circles and named people. A list is
+ * sent only when it has entries, so a circle-only share uploads exactly what it did before
+ * people could be named (#897). With nothing named it would admit every connection, so
+ * that is refused.
+ */
+export function sharedAcl({ circleIds = [], odinIds = [] }: { circleIds?: string[]; odinIds?: string[] }): AccessControlList {
+    if (circleIds.length === 0 && odinIds.length === 0) {
+        throw new Error('A shared note must name at least one circle or person');
+    }
     return {
         requiredSecurityGroup: SecurityGroupType.Connected,
-        circleIdList: circleIds,
+        ...(circleIds.length > 0 && { circleIdList: circleIds }),
+        ...(odinIds.length > 0 && { odinIdList: odinIds }),
     };
 }
 
 /**
  * A public note is stored Anonymous (+ unencrypted); a collaborative note is shared
- * with its circles; everything else stays Owner-only.
+ * with its circles and named people; everything else stays Owner-only.
  */
 export function noteAcl(
-    metadata: Pick<DocumentMetadata, 'isPublic' | 'isCollaborative' | 'circleIds'>
+    metadata: Pick<DocumentMetadata, 'isPublic' | 'isCollaborative' | 'circleIds' | 'odinIds'>
 ): AccessControlList {
     if (metadata.isPublic) {
         return { requiredSecurityGroup: SecurityGroupType.Anonymous };
     }
-    if (metadata.isCollaborative && metadata.circleIds?.length) {
-        return sharedAcl({ circleIds: metadata.circleIds });
+    if (metadata.isCollaborative && (metadata.circleIds?.length || metadata.odinIds?.length)) {
+        return sharedAcl({ circleIds: metadata.circleIds, odinIds: metadata.odinIds });
     }
     return { requiredSecurityGroup: SecurityGroupType.Owner };
 }

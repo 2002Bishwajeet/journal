@@ -16,6 +16,8 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => {
     return {
         ...actual,
         getFileHeaderByUniqueId: mockGetHeader,
+        // By fileId: nothing, so the provider falls back to the uniqueId lookup
+        getFileHeader: async () => null,
         patchFile: mockPatchFile,
         // A note re-upload (make public/private, #451) overwrites the note's file; route it
         // to mockReUpload in reUploadFile's (client, instructions, metadata, encrypt) shape.
@@ -41,6 +43,7 @@ const NOTE_ID = '33333333-3333-3333-3333-333333333333';
 const USER_DATE = 1690000000000;
 const KEY_HEADER = { encryptionVersion: 1, type: 'aes', iv: 'aXY=', encryptedAesKey: 'aXY=' };
 const fakeClient = fakeDotYouClient();
+const CIRCLE_SHARE = { circleIds: ['circle-1'], odinIds: [], recipients: ['friend.id'] };
 
 const CONTENT = {
     title: 'Dated Note',
@@ -190,7 +193,7 @@ describe('note header transitions (#161)', () => {
             serveNote(noteHeader(shape));
 
             await expect(
-                provider.makeNoteCollaborative(NOTE_ID, ['circle-1'], ['friend.id'], 'me.id')
+                provider.makeNoteCollaborative(NOTE_ID, CIRCLE_SHARE, 'me.id')
             ).resolves.toEqual({ versionTag: 'v3', previousVersionTag: 'v1' });
 
             expect(mockReUpload).not.toHaveBeenCalled();
@@ -248,6 +251,66 @@ describe('note header transitions (#161)', () => {
         });
     });
 
+    // #897: a note shared with a person names them in the ACL.
+    it('makeNoteCollaborative with a person only uploads an odinIdList ACL and no circleIds', async () => {
+        serveNote(noteHeader('object'));
+
+        await provider.makeNoteCollaborative(NOTE_ID, { circleIds: [], odinIds: ['sam.id'], recipients: [] }, 'me.id');
+
+        const metadata = mockPatchFile.mock.calls[0][3];
+        expect(metadata.accessControlList).toStrictEqual({ requiredSecurityGroup: SecurityGroupType.Connected, odinIdList: ['sam.id'] });
+        const content = JSON.parse(metadata.appData.content);
+        expect(content).toMatchObject({ isCollaborative: true, odinIds: ['sam.id'], recipients: [] });
+        expect(content).not.toHaveProperty('circleIds');
+    });
+
+    it('makeNoteCollaborative with circles only stores no odinIds and sends no odinIdList', async () => {
+        serveNote(noteHeader('object'));
+
+        await provider.makeNoteCollaborative(NOTE_ID, CIRCLE_SHARE, 'me.id');
+
+        expect(mockPatchFile.mock.calls[0][3].accessControlList).not.toHaveProperty('odinIdList');
+        expect(JSON.parse(mockPatchFile.mock.calls[0][3].appData.content)).not.toHaveProperty('odinIds');
+    });
+
+    it('revokeNoteCollaboration drops the named viewers', async () => {
+        const header = noteHeader('object');
+        serveNote({
+            ...header,
+            fileMetadata: {
+                ...header.fileMetadata,
+                appData: { ...header.fileMetadata.appData, content: { ...CONTENT, isCollaborative: true, odinIds: ['sam.id'] } },
+            },
+        } as ReturnType<typeof noteHeader>);
+
+        await provider.revokeNoteCollaboration(NOTE_ID, 'me.id');
+
+        expect(JSON.parse(mockPatchFile.mock.calls[0][3].appData.content)).not.toHaveProperty('odinIds');
+    });
+
+    // #897: a peer update strips odinIdList; the owner writes back the ACL the content names
+    it('restoreNoteAcl patches the ACL the content names and keeps the content', async () => {
+        const header = noteHeader('object', {
+            acl: { requiredSecurityGroup: SecurityGroupType.Connected, circleIdList: ['circle-1'], odinIdList: [] },
+        });
+        const content = { ...CONTENT, isPublic: false, isCollaborative: true, circleIds: ['circle-1'], odinIds: ['sam.id'] };
+        serveNote({
+            ...header,
+            fileMetadata: { ...header.fileMetadata, appData: { ...header.fileMetadata.appData, content } },
+        } as ReturnType<typeof noteHeader>);
+
+        await provider.restoreNoteAcl(NOTE_ID, 'file-1', content);
+
+        const metadata = mockPatchFile.mock.calls[0][3];
+        expect(metadata.accessControlList).toStrictEqual({
+            requiredSecurityGroup: SecurityGroupType.Connected,
+            circleIdList: ['circle-1'],
+            odinIdList: ['sam.id'],
+        });
+        expect(JSON.parse(metadata.appData.content)).toEqual(content);
+        expect(mockReUpload).not.toHaveBeenCalled();
+    });
+
     // Regression #161: a header-only patch can't encrypt an existing plaintext payload,
     // so a public note made collaborative must be re-uploaded encrypted first. It used
     // to be only patched to isEncrypted: true, leaving the payload plaintext.
@@ -266,7 +329,7 @@ describe('note header transitions (#161)', () => {
             return { newVersionTag: 'v2' };
         });
 
-        await provider.makeNoteCollaborative(NOTE_ID, ['circle-1'], ['friend.id'], 'me.id');
+        await provider.makeNoteCollaborative(NOTE_ID, CIRCLE_SHARE, 'me.id');
 
         expect(mockReUpload).toHaveBeenCalledTimes(1);
         expect(mockReUpload.mock.calls[0][2].isEncrypted).toBe(true);
@@ -381,7 +444,7 @@ describe('note header transitions (#161)', () => {
     it.each([
         ['makeNotePublic', () => provider.makeNotePublic(NOTE_ID), mockReUpload],
         ['makeNotePrivate', () => provider.makeNotePrivate(NOTE_ID), mockReUpload],
-        ['makeNoteCollaborative', () => provider.makeNoteCollaborative(NOTE_ID, ['circle-1'], ['friend.id'], 'me.id'), mockPatchFile],
+        ['makeNoteCollaborative', () => provider.makeNoteCollaborative(NOTE_ID, CIRCLE_SHARE, 'me.id'), mockPatchFile],
         ['revokeNoteCollaboration', () => provider.revokeNoteCollaboration(NOTE_ID, 'me.id'), mockPatchFile],
     ] as const)('%s keeps a trashed note trashed', async (_name, run, writer) => {
         const header = noteHeader('object');

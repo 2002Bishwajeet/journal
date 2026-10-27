@@ -65,6 +65,15 @@ interface JournalE2EHooks {
   subscribePeerPush(odinId: string): Promise<void>;
   /** The newest entries of the signed-in identity's Journal notification list (#745). */
   journalNotifications(): Promise<{ id: string; senderId: string; unread: boolean; typeId: string; tagId: string }[]>;
+  /** This identity's note as its server has it: the ids a peer update addresses, and the stored ACL (#897). */
+  noteHeader(docId: string): Promise<{ globalTransitId?: string; versionTag: string; acl?: { odinIdList?: string[] | null; circleIdList?: string[] | null } } | null>;
+  /** The #897 security check: reads, then patches, another identity's note over peer, and says what each got. */
+  probePeerNote(
+    authorOdinId: string,
+    docId: string,
+    globalTransitId: string,
+    versionTag: string,
+  ): Promise<{ read: string; patch: string }>;
   /** Draws a 1200×630 link card JPEG, as src/lib/share/cardImage.ts's renderCardImage does. */
   renderCard(
     text: { title: string; excerpt?: string; author: string },

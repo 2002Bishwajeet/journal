@@ -288,6 +288,7 @@ export async function bootstrapCollaborativeNote(
         shareUnlisted: content?.shareUnlisted,
         isCollaborative: true,
         circleIds: content?.circleIds,
+        odinIds: content?.odinIds,
         recipients: content?.recipients,
         lastEditedBy: content?.lastEditedBy,
         authorOdinId,
