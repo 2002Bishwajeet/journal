@@ -9,6 +9,7 @@ describe('haptic', () => {
   it.each([
     ['light', 10],
     ['medium', 20],
+    ['warning', [30, 40, 30]],
   ] as const)('vibrates with the %s pattern', (kind, pattern) => {
     const vibrate = vi.fn();
     Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true });

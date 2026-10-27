@@ -132,7 +132,7 @@ function PendingRow({
       </div>
 
       {item.error && explained && (
-        <div className="space-y-1 rounded-lg bg-muted/50 px-3 py-2">
+        <div className="selectable space-y-1 rounded-lg bg-muted/50 px-3 py-2">
           <p className="text-xs leading-relaxed text-pretty">{explained.plain}</p>
           <p className="font-mono text-xs leading-relaxed text-muted-foreground wrap-anywhere">
             {explained.code ? `${explained.code} · ` : ""}
