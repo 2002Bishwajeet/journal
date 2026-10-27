@@ -209,11 +209,10 @@ describe('append_to_note on a note that is not open', () => {
         expect(events.find((e) => e.type === 'error')).toMatchObject({ error: expect.stringContaining(message) });
     });
 
-    it('refuses the open note and points to the editor tools', async () => {
+    it('never writes the open note through the notes store: its append goes through the editor (#914)', async () => {
         const { result, events } = run('add', [appendCall(OPEN), { answer: 'Could not.' }], 'accept', OPEN);
         await result;
-        expect(events.some((e) => e.type === 'proposal')).toBe(false);
-        expect(events.find((e) => e.type === 'error')).toMatchObject({ error: 'Use the editor tools for the open note' });
+        expect(events.some((e) => e.type === 'proposal' && e.proposal.write)).toBe(false);
         expect(await markdownOf(OPEN)).not.toContain('buy socks');
     });
 

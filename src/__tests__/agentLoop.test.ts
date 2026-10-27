@@ -22,6 +22,7 @@ import {
     MAX_TOKENS,
     MAX_TOOL_STEPS,
     runAgent,
+    toolsFor,
     turnSchema,
     type AgentEngine,
     type AgentEvent,
@@ -29,6 +30,7 @@ import {
     type RunAgentOptions,
 } from '@/lib/agent/loop/agentLoop';
 import { CONTEXT_WINDOW, estimatePrompt, estimateTokens } from '@/lib/agent/loop/trim';
+import { TASKS } from '../../e2e/evals/tasks';
 
 const FOLDER = '10000000-0000-0000-0000-000000000001';
 const GARDEN = '30000000-0000-0000-0000-000000000001';
@@ -319,7 +321,8 @@ describe('runAgent', () => {
             execute,
         };
         const edit = (find: string) => ({ tool: 'replace_text', args: { block: 1, find, replace: 'x' } });
-        const tools = [...AGENT_TOOLS.filter((tool) => tool.name !== 'replace_text'), failingEdit];
+        // Without read_open_note, so the edit runs without a read first (#914).
+        const tools = [...AGENT_TOOLS.filter((tool) => tool.name !== 'replace_text' && tool.name !== 'read_open_note'), failingEdit];
 
         beforeEach(() => (runs = 0));
 
@@ -415,6 +418,90 @@ describe('runAgent', () => {
     it('should keep the turn schema under ~850 tokens', () => {
         // Was 600 with 4 notes tools; the 5 editor tools (#701) bring it to about 815.
         expect(estimateTokens(JSON.stringify(turnSchema(AGENT_TOOLS)))).toBeLessThan(850);
+    });
+});
+
+describe('runAgent — rules for small models (#914)', () => {
+    const editorWith = (...paragraphs: string[]): ActiveEditorStore => {
+        const doc = editorSchema.nodeFromJSON({ type: 'doc', content: paragraphs.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })) });
+        return {
+            get: () => ({ docId: GARDEN, editor: { state: EditorState.create({ doc }) } as unknown as Editor, editable: true, excludeFromAI: false }),
+            subscribe: () => () => {},
+        };
+    };
+    const toolCalls = (events: AgentEvent[]) => events.flatMap((e) => (e.type === 'toolCall' ? [e.tool] : []));
+    const writeNames = (tools: { name: string; readOnly: boolean }[]) => tools.filter((t) => !t.readOnly).map((t) => t.name);
+
+    it('should refuse an edit before read_open_note, tell the model to read first, and take the edit after the read', async () => {
+        const approve = vi.fn(async () => 'accepted' as const);
+        const bold = { tool: 'format_text', args: { n: 2, mark: 'bold', on: true } };
+        const { engine, calls } = scriptedEngine([bold, { tool: 'read_open_note', args: {} }, bold, { answer: 'Done.' }]);
+        const { result, events } = run('Bold the second paragraph', engine, { approve, editor: editorWith('one', 'two') });
+
+        expect(await result).toBe('Done.');
+        expect(approve).toHaveBeenCalledTimes(1);
+        expect(toolCalls(events)).toEqual(['read_open_note', 'format_text']);
+        expect(resultsSent(calls[1]).join('\n')).toContain('Error: Read the open note first: call read_open_note');
+    });
+
+    it('should refuse an identical write after it was accepted, so the user is asked once', async () => {
+        const approve = vi.fn(async () => 'accepted' as const);
+        const create = { tool: 'create_note', args: { title: 'Gift ideas', markdown: 'A scarf for Mum' } };
+        const reordered = { tool: 'create_note', args: { markdown: 'A scarf for Mum', title: 'Gift ideas' } };
+        const { engine, calls } = scriptedEngine([create, reordered, { answer: 'Created it.' }]);
+        const { result, events } = run("Create a note called 'Gift ideas'", engine, { approve });
+
+        expect(await result).toBe('Created it.');
+        expect(approve).toHaveBeenCalledTimes(1);
+        expect(toolCalls(events)).toEqual(['create_note']);
+        expect(resultsSent(calls[2]).join('\n')).toContain('You already made this change at step 1. Do not make it again; answer.');
+    });
+
+    it('should still take a different write after an accepted one', async () => {
+        const approve = vi.fn(async () => 'accepted' as const);
+        const create = (title: string) => ({ tool: 'create_note', args: { title, markdown: 'x' } });
+        const { engine } = scriptedEngine([create('A'), create('B'), { answer: 'ok' }]);
+
+        expect(await run('Create two notes', engine, { approve }).result).toBe('ok');
+        expect(approve).toHaveBeenCalledTimes(2);
+    });
+
+    it.each(TASKS.map((task) => [task.id, task.kind, task.prompt] as const))(
+        'should offer write tools for the eval task %s only if it asks for a change',
+        (_id, kind, prompt) => {
+            expect(writeNames(toolsFor(prompt))).toEqual(kind === 'edit' || kind === 'cross' ? writeNames(AGENT_TOOLS) : []);
+        }
+    );
+
+    it.each(['Summarize the open note', 'What should I pack?', 'Is there a note that mentions formatting?'])(
+        'should treat %j as a question',
+        (prompt) => expect(writeNames(toolsFor(prompt))).toEqual([])
+    );
+
+    it.each(['Can you bold the title?', 'please rename it to Plan', 'Put eggs on my shopping list'])('should treat %j as a change', (prompt) =>
+        expect(writeNames(toolsFor(prompt))).toEqual(writeNames(AGENT_TOOLS))
+    );
+
+    it('should send a question no write tool, in the schema or in the rules', async () => {
+        const { engine, calls } = scriptedEngine([{ answer: 'May 3.' }]);
+        await run('When is my flight?', engine, { tools: toolsFor('When is my flight?') }).result;
+
+        expect(calls[0].schema.anyOf!.map((b) => b.properties.tool?.const ?? 'answer')).toEqual(['search_notes', 'get_note', 'read_open_note', 'answer']);
+        expect(calls[0].messages[0].content).not.toMatch(/append_to_note|create_note|edit tool/);
+    });
+
+    it('should list each tool with its arguments, required ones first', async () => {
+        const { engine, calls } = scriptedEngine([{ answer: 'hi' }]);
+        await run('Hi', engine).result;
+        const system = calls[0].messages[0].content;
+
+        expect(system).toContain('- format_text(n, mark, on, find?): ');
+        expect(system).toContain('- replace_text(n, find, replace): ');
+        expect(system).toContain('- create_note(title, markdown, folderId?): ');
+        expect(system).toContain('- search_notes(query): ');
+        // One sentence per tool, with an example for find.
+        for (const tool of AGENT_TOOLS) expect(tool.description).not.toMatch(/\.\s+\S/);
+        expect(system).toMatch(/replace_text.*for example \{"n": 3, "find": "tuesday"/);
     });
 });
 

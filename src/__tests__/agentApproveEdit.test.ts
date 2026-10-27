@@ -279,6 +279,7 @@ describe('the agent loop with the edit tools', () => {
         open('<p>one</p>');
         const approve = vi.fn(async () => 'rejected' as const);
         const { engine, asked } = scripted(
+            { tool: 'read_open_note', args: {} },
             { tool: 'replace_text', args: { n: 1, find: 'zzz', replace: 'x' } },
             { tool: 'replace_text', args: { n: 1, find: 'one', replace: '1' } },
             { answer: 'ok' }
@@ -286,16 +287,45 @@ describe('the agent loop with the edit tools', () => {
         await runAgent('Change it', { engine, deps, approve });
 
         expect(approve).toHaveBeenCalledTimes(1);
-        expect(asked[1]).toContain('"zzz" is not in block 1.');
-        expect(asked[2]).toContain('rejected by the user');
+        expect(asked[2]).toContain('"zzz" is not in block 1.');
+        expect(asked[3]).toContain('rejected by the user');
         expect(texts()).toEqual(['one']);
     });
 
     it('passes an unapplied edit to the model with the reason', async () => {
         open('<p>one</p>');
-        const { engine, asked } = scripted({ tool: 'replace_text', args: { n: 1, find: 'one', replace: '1' } }, { answer: 'ok' });
+        const { engine, asked } = scripted(
+            { tool: 'read_open_note', args: {} },
+            { tool: 'replace_text', args: { n: 1, find: 'one', replace: '1' } },
+            { answer: 'ok' }
+        );
         await runAgent('Change it', { engine, deps, approve: async () => ({ notApplied: 'gone' }) });
-        expect(asked[1]).toContain('not applied: gone');
+        expect(asked[2]).toContain('not applied: gone');
+    });
+
+    it('turns append_to_note on the open note into a paragraph at its end, previewed in the note, with no read first (#914)', async () => {
+        open('<p>one</p><p>two</p>');
+        const summaries: string[] = [];
+        const { engine, asked } = scripted({ tool: 'append_to_note', args: { id: 'note', markdown: 'Budget approved.' } }, { answer: 'Done.' });
+        const answer = runAgent('Add a paragraph at the end', {
+            engine,
+            deps,
+            approve: (proposal) => {
+                expect(proposal.write).toBeUndefined();
+                const outcome = approveEdit(proposal);
+                void tick().then(() => {
+                    const item = pendingEdits.current(editor)!;
+                    summaries.push(item.summary);
+                    void acceptEdit(item);
+                });
+                return outcome;
+            },
+        });
+
+        expect(await answer).toBe('Done.');
+        expect(summaries).toEqual(['Add a paragraph at the end']);
+        expect(texts()).toEqual(['one', 'two', 'Budget approved.']);
+        expect(asked[1]).toContain('Result of append_to_note: accepted');
     });
 
     it('lists at most 8 tools, with the editor tools in', () => {
