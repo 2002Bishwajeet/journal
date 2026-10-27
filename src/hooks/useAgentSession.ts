@@ -4,6 +4,7 @@ import { useModelDownloadGate } from "@/hooks/useModelDownloadGate";
 import { getSearchIndexEntry } from "@/lib/db";
 import type { AgentEvent } from "@/lib/agent/loop/agentLoop";
 import { approveWrite, type WrittenNote } from "@/lib/agent/approveWrite";
+import { e2eSwitches } from "@/lib/e2e/switches";
 
 export interface ChatCommand {
   label: string;
@@ -227,6 +228,7 @@ export function useAgentSession(activeNoteId: string | undefined) {
           proposal.write ? approveWrite(proposal.write, controller.signal) : approveEdit(proposal, controller.signal),
         signal: controller.signal,
         onEvent: (event) => {
+          e2eSwitches.onAgentEvent?.(event);
           if (event.type === "step" && event.step > MAX_TOOL_STEPS) capped = true;
           if (event.type === "failed") failure = event.message;
           if (event.type !== "step") setModelStatus(null);

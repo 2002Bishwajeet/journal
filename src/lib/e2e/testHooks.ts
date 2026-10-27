@@ -10,7 +10,8 @@
  * teardown uses to remove what the sharing specs leave on an identity, and
  * subscribePeerPush / journalNotifications for the share push spec (#745), and
  * probePeerNote, which sends the requests of the sharing security check (#897) that
- * the other identity's server must refuse.
+ * the other identity's server must refuse, and startAgentEval, which makes every
+ * assistant proposal accept itself for the AI eval (#706).
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
 import { e2eSwitches } from './switches';
@@ -146,6 +147,55 @@ async function syncToDisk(): Promise<void> {
 /** Skip incoming invites until the page reloads, so a share arrives only through the shared pull (#732). */
 function ignoreInvites(): void {
     e2eSwitches.ignoreInvites = true;
+}
+
+type AgentEvalEvent = ReturnType<JournalE2EHooks['takeAgentEvents']>[number];
+const agentEvents: AgentEvalEvent[] = [];
+
+/**
+ * For the AI eval (#706), until the page reloads: loads `modelId` (timed), accepts every
+ * assistant proposal as soon as it is shown, and records the agent loop's events.
+ */
+async function startAgentEval(modelId: string): ReturnType<JournalE2EHooks['startAgentEval']> {
+    const [{ initWebLLM, isModelCached }, { resolveModelId }, { activeEditor }, { pendingEdits, acceptEdit }, { pendingWrites, acceptWrite }] =
+        await Promise.all([
+            import('@/lib/webllm/engine'),
+            import('@/lib/webllm/requirements'),
+            import('@/lib/agent/activeEditor'),
+            import('@/lib/agent/approveEdit'),
+            import('@/lib/agent/approveWrite'),
+        ]);
+    const acceptNext = () =>
+        queueMicrotask(() => {
+            const open = activeEditor.get();
+            const edit = open && pendingEdits.current(open.editor);
+            if (edit) void acceptEdit(edit);
+            const write = pendingWrites.current();
+            if (write) void acceptWrite(write);
+        });
+    pendingEdits.subscribe(acceptNext);
+    pendingWrites.subscribe(acceptNext);
+    // A proposal carries the editor transaction, which can't leave the page.
+    e2eSwitches.onAgentEvent = (event) =>
+        agentEvents.push(event.type === 'proposal' ? { type: 'proposal', tool: event.proposal.tool, args: event.proposal.args } : event);
+
+    const loadedModelId = await resolveModelId(modelId);
+    const cached = await isModelCached(loadedModelId);
+    const start = performance.now();
+    const loaded = await initWebLLM(undefined, modelId);
+    return { loaded, loadMs: Math.round(performance.now() - start), loadedModelId, cached };
+}
+
+/** The agent events recorded since the last call (see startAgentEval). */
+function takeAgentEvents(): AgentEvalEvent[] {
+    return agentEvents.splice(0);
+}
+
+/** The open note's id and its editor content as TipTap JSON. */
+async function openNoteJSON(): ReturnType<JournalE2EHooks['openNoteJSON']> {
+    const { activeEditor } = await import('@/lib/agent/activeEditor');
+    const open = activeEditor.get();
+    return open && { docId: open.docId, doc: open.editor.getJSON() };
 }
 
 /**
@@ -369,7 +419,7 @@ export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
 
 if (E2E_ORIGINS.includes(location.origin)) {
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON }),
         writable: false,
         configurable: false,
         enumerable: false,
