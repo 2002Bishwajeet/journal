@@ -1,9 +1,11 @@
 import { useBackTo } from "@/hooks/useBackTo";
-import { ArchiveRestore, Trash2, Archive } from "lucide-react";
+import { ArchiveRestore, Trash2, Archive, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
 import type { useNoteActions } from "@/hooks";
+import type { useSharedPull } from "@/hooks/useSharedPull";
 import NoteList from "./NoteList";
 import { SyncStatus } from "./SyncStatus";
 import { HiddenNotesView } from "./HiddenNotesView";
@@ -28,6 +30,8 @@ interface NoteListPaneProps {
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder: (note: NoteListEntry) => void;
   onRemoveFromList: (note: NoteListEntry) => void;
+  /** Phones have no Shared row in the sidebar, so the Shared list carries Refresh. */
+  sharedPull?: ReturnType<typeof useSharedPull>;
 }
 
 /** Middle pane: the note list, or the Trash/Archive management views. */
@@ -49,6 +53,7 @@ export function NoteListPane({
   onShareNote,
   onMoveToFolder,
   onRemoveFromList,
+  sharedPull,
 }: NoteListPaneProps) {
   const backTo = useBackTo();
   const goBack = () => backTo("/");
@@ -125,7 +130,25 @@ export function NoteListPane({
           title={isDesktop ? undefined : viewLabel || "Notes"}
           onBack={onBack}
           backLabel={backLabel}
-          trailing={split ? undefined : <SyncStatus />}
+          trailing={
+            split ? undefined : (
+              <>
+                {isPhone && folderId === PSEUDO_FOLDERS.shared && sharedPull?.canPull && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Refresh shared notes"
+                    aria-busy={sharedPull.isRefreshing}
+                    className="size-11 shrink-0 text-muted-foreground hover:text-foreground"
+                    onClick={sharedPull.refresh}
+                  >
+                    <RefreshCw className={cn("h-4 w-4", sharedPull.isRefreshing && "animate-spin")} />
+                  </Button>
+                )}
+                <SyncStatus />
+              </>
+            )
+          }
           className="flex-1 w-full border-r-0"
         />
         )}

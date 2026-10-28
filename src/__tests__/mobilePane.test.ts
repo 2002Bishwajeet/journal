@@ -32,6 +32,7 @@ describe('showNewNoteFab', () => {
         isPhone: true,
         pane: 'list' as const,
         isManagementView: false,
+        isShared: false,
         overlayOpen: false,
         textFieldFocused: false,
     };
@@ -51,6 +52,10 @@ describe('showNewNoteFab', () => {
 
     it('hides in Trash and Archive', () => {
         expect(showNewNoteFab({ ...base, isManagementView: true })).toBe(false);
+    });
+
+    it('hides on Shared, which lists other people\'s notes (#853)', () => {
+        expect(showNewNoteFab({ ...base, isShared: true })).toBe(false);
     });
 
     it('hides while a sheet or dialog is open', () => {

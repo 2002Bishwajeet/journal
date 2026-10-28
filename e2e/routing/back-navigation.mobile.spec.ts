@@ -77,7 +77,7 @@ test('system Back closes Move to folder and Share without changing the URL', asy
 test('system Back closes Settings and stays on the same screen', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     const before = page.url();
-    await page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: /Settings/ }).click();
+    await page.getByRole('navigation', { name: 'Tabs' }).getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.goBack();
     await expect(page.getByRole('dialog')).toBeHidden();
@@ -102,7 +102,7 @@ test('system Back closes Version history and keeps the note open', async ({ brow
 
 test('a dialog closed with its X leaves no stale history entry', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
-    await page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: /Settings/ }).click();
+    await page.getByRole('navigation', { name: 'Tabs' }).getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
