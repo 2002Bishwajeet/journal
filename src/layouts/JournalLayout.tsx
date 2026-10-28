@@ -42,6 +42,7 @@ import MoveToFolderDialog from "@/components/modals/MoveToFolderDialog";
 const SettingsModal = lazy(() => import("@/components/modals/SettingsModal"));
 const ShareNoteDialog = lazy(() => import("@/components/modals/ShareNoteDialog"));
 import { viewLabel } from "@/helpers/viewLabel";
+import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
 import { useNotes } from "@/hooks/useNotes";
 import { getMobilePane, showNewNoteFab } from "@/layouts/mobilePane";
