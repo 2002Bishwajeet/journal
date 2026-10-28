@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.49.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, the sign-in, share and error pages fit the screen when the address bar is shown.
+
 ## 2.49.0 (2026-10-28)
 
 ### New

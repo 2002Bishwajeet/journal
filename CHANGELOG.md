@@ -1,3 +1,9 @@
+## [2.49.1](https://github.com/2002Bishwajeet/journal/compare/v2.49.0...v2.49.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **mobile:** use min-h-svh on share, sign-in and share-target pages ([#894](https://github.com/2002Bishwajeet/journal/issues/894)) ([9b3cee7](https://github.com/2002Bishwajeet/journal/commit/9b3cee74725ae8f8a2397974669439e34bc2157b))
 # [2.49.0](https://github.com/2002Bishwajeet/journal/compare/v2.48.1...v2.49.0) (2026-10-28)
 
 
