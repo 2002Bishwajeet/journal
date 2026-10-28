@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
     navigate: vi.fn(),
     toastError: vi.fn(),
     trashNote: vi.fn<(id: string) => Promise<void>>(async () => {}),
-    createNote: vi.fn(async (folderId?: string) => ({ docId: 'new', folderId: folderId ?? '' })),
+    createNote: vi.fn(async (p: { folderId?: string; tags?: string[] }) => ({ docId: 'new', folderId: p.folderId ?? '' })),
     moveNote: vi.fn<(docId: string, folderId: string) => Promise<boolean>>(async () => true),
     lists: {} as Record<string, unknown[]>,
 }));
@@ -189,8 +189,16 @@ describe('useNoteActions', () => {
         const { api, unmount } = await actions({ folderId: 'trash' });
         await act(async () => api().createAndOpen('trash'));
 
-        expect(mocks.createNote).toHaveBeenCalledWith('main');
+        expect(mocks.createNote).toHaveBeenCalledWith({ folderId: 'main', tags: [] });
         expect(mocks.navigate).toHaveBeenCalledWith('/main/new');
+        await unmount();
+    });
+
+    it('tags a note created from a tag list', async () => {
+        const { api, unmount } = await actions({ folderId: undefined, selectedTag: 'work' });
+        await act(async () => api().createAndOpen(undefined));
+
+        expect(mocks.createNote).toHaveBeenCalledWith({ folderId: 'main', tags: ['work'] });
         await unmount();
     });
 

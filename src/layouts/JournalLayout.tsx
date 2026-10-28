@@ -161,7 +161,7 @@ export default function JournalLayout() {
     isFolderLoading,
     folderId,
     notes,
-    createNote,
+    createNote: (targetFolderId) => createNote({ folderId: targetFolderId }),
     openSearch: setShowSearch,
     openCollaborate: setShareNote,
   });

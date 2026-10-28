@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { withMobilePage } from '../support/mobile';
-import { createFolder, selectFolder, screenshotInBothThemes } from '../support/actions';
+import { createFolder, selectFolder, screenshotInBothThemes, waitForNoteSaved } from '../support/actions';
 
 // On a phone, New note is a 56 px floating button at the bottom right (#878).
 
@@ -116,5 +116,34 @@ test('the New note button sits in the thumb zone and opens a note in the right f
       const last = await box(rows(page).last());
       expect(last.y + last.height).toBeLessThanOrEqual((await box(fab(page))).y);
     });
+  });
+});
+
+test('in a tag list, the New note button tags the new note (#933)', async ({ browser }) => {
+  await withMobilePage(browser, async (page) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await fab(page).click();
+    await expect(back(page)).toBeVisible();
+    const main = routeFolder(page);
+    await page.getByPlaceholder('Add tags...').fill('work');
+    await page.getByPlaceholder('Add tags...').press('Enter');
+    await waitForNoteSaved(page);
+    await back(page).click();
+    const toHome = page.getByRole('button', { name: 'Back to notes' });
+    const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+    await expect(toHome.or(sidebar).first()).toBeVisible();
+    if (await toHome.isVisible()) await toHome.click();
+
+    await sidebar.getByRole('navigation', { name: 'Tags' }).getByRole('button', { name: /work/ }).click();
+    await expect(page.getByRole('heading', { name: '#work' })).toBeVisible();
+    await expect(rows(page)).toHaveCount(1);
+
+    await fab(page).click();
+    await expect(back(page)).toBeVisible();
+    expect(routeFolder(page)).toBe(main);
+    await back(page).click();
+    // The new note carries `work`, so it joined this list.
+    await expect(page.getByRole('heading', { name: '#work' })).toBeVisible();
+    await expect(rows(page)).toHaveCount(2);
   });
 });
