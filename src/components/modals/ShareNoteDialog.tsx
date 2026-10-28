@@ -189,14 +189,17 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
                         : undefined}
                 />
             </div>
-            <ShareGeneralAccess
-                noteId={noteId}
-                metadata={metadata}
-                publishing={publishing}
-                onMakePublic={handleMakePublic}
-                askingAboutLinks={askingAboutLinks}
-                setAskingAboutLinks={setAskingAboutLinks}
-            />
+            {/* Saving people disables the link controls too: one change at a time */}
+            <fieldset disabled={access.isSaving} className="m-0 min-w-0 border-0 p-0">
+                <ShareGeneralAccess
+                    noteId={noteId}
+                    metadata={metadata}
+                    publishing={publishing}
+                    onMakePublic={handleMakePublic}
+                    askingAboutLinks={askingAboutLinks}
+                    setAskingAboutLinks={setAskingAboutLinks}
+                />
+            </fieldset>
         </div>
     );
 
@@ -205,16 +208,18 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
     const footer = readOnlyDriveUrl ? null : (
         <>
             {access.isShared && (
+                // Apart from Done: the left end of the bar, or last on a phone
                 <Button
                     variant="ghost"
-                    className="text-red-700 hover:bg-red-500/10 hover:text-red-700 max-sm:h-11 sm:mr-auto dark:text-red-400 dark:hover:bg-red-400/10 dark:hover:text-red-400"
+                    className="text-red-700 hover:bg-red-500/10 hover:text-red-700 max-sm:order-last max-sm:h-11 sm:mr-auto dark:text-red-400 dark:hover:bg-red-400/10 dark:hover:text-red-400"
                     disabled={busy}
                     onClick={() => setConfirm('stop')}
                 >
                     Stop sharing
                 </Button>
             )}
-            <Button className="max-sm:h-11 sm:min-w-24" disabled={busy} onClick={handleDone}>
+            {/* Wide enough for "Saving…", so the button keeps its width while it saves */}
+            <Button className="max-sm:h-11 sm:min-w-28" disabled={busy} onClick={handleDone}>
                 {access.isSaving ? (
                     <>
                         <Loader2 className="animate-spin" />
@@ -244,7 +249,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
     if (asSheet) {
         return (
             <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-                <SheetContent variant="full" onCloseAutoFocus={onCloseAutoFocus}>
+                <SheetContent variant="full" className="share-ui" onCloseAutoFocus={onCloseAutoFocus}>
                     <SheetHeader>
                         <div className="flex min-w-0 items-center gap-3">
                             <SheetTitle className="font-serif text-xl leading-7 font-normal tracking-tight">{title}</SheetTitle>
@@ -272,7 +277,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
             {/* A wide dialog. The fixed height lives on the inner wrapper, not here: DialogContent
                 is a grid, so a child sized to its content would never scroll. */}
             <DialogContent
-                className="share-dialog max-h-none top-1/2 gap-0 overflow-hidden p-0 sm:max-w-[min(960px,calc(100vw-2rem))] sm:[&>[data-slot=dialog-close]]:top-5.5"
+                className="share-dialog share-ui max-h-none top-1/2 gap-0 overflow-hidden p-0 sm:max-w-[min(960px,calc(100vw-2rem))] sm:[&>[data-slot=dialog-close]]:top-5.5"
                 onCloseAutoFocus={onCloseAutoFocus}
             >
                 <div className="flex h-[min(640px,90dvh)] min-w-0 flex-col">

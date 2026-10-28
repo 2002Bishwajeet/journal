@@ -1,13 +1,12 @@
-import type { ComponentProps, ReactNode } from 'react';
-import { ChevronDown, ExternalLink, Info, Users } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useState, type ComponentProps, type ReactNode } from 'react';
+import { ChevronDown, ExternalLink, Info, Loader2, Search, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AuthorImage } from '@/components/author/AuthorImage';
 import { useContact } from '@/hooks/useContact';
 import { JOURNAL_APP_NAME } from '@/lib/homebase/config';
-import { PERSON_EDITORS_SUPPORTED, type AccessEntry, type ShareRole } from '@/lib/share/shareAccess';
+import { PERSON_EDITORS_SUPPORTED, type AccessEntry, type ShareCandidate, type ShareRole } from '@/lib/share/shareAccess';
 import type { ShareAccess } from '@/hooks/useShareAccess';
 import { cn } from '@/lib/utils';
 
@@ -16,13 +15,22 @@ const members = (count: number | undefined) =>
 
 const PERSON_EDITOR_NOTE = 'Needs a Homebase server update';
 
-/** A native select drawn like the app's Input (see AgentAccessSection's AccessSelect). */
-function RoleSelect(props: ComponentProps<'select'>) {
+/**
+ * A native select drawn like the app's Input (see AgentAccessSection's AccessSelect).
+ * `quiet` is the role menu on a row: no border until hovered or focused, so a list of
+ * people reads as names, not as a form. It stays 44px tall on touch screens.
+ */
+function RoleSelect({ quiet = false, ...props }: ComponentProps<'select'> & { quiet?: boolean }) {
     return (
         <div className="relative w-28 shrink-0">
             <select
                 {...props}
-                className="h-11 w-full appearance-none rounded-md border border-border bg-background pr-8 pl-3 text-base text-foreground shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:h-9 pointer-fine:text-sm"
+                className={cn(
+                    'h-11 w-full appearance-none rounded-md border pr-8 pl-3 text-base text-foreground outline-none transition-[color,background-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:h-9 pointer-fine:text-sm [&>option]:bg-popover [&>option]:text-popover-foreground',
+                    quiet
+                        ? 'border-transparent bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:text-foreground'
+                        : 'border-border bg-background shadow-xs',
+                )}
             />
             <ChevronDown
                 aria-hidden="true"
@@ -42,7 +50,21 @@ function EditorOption({ kind }: { kind: AccessEntry['kind'] }) {
     );
 }
 
-function CircleIcon() {
+/**
+ * ShareGeneralAccess's Notice with the info icon, drawn here so the access popover, which
+ * shares these rows, doesn't pull the link settings into the editor's bundle.
+ */
+function InfoNotice({ children }: { children: ReactNode }) {
+    return (
+        <p className="flex gap-3 rounded-lg border bg-muted/40 px-4 py-3 text-sm leading-relaxed text-pretty">
+            <Info aria-hidden className="mt-1 size-4 shrink-0 text-muted-foreground" />
+            <span>{children}</span>
+        </p>
+    );
+}
+
+/** A circle's mark: an icon on the sharing colour, where a person has their photo. */
+export function CircleIcon() {
     return (
         <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-collaborative/10 text-collaborative">
             <Users className="size-4" aria-hidden />
@@ -50,8 +72,28 @@ function CircleIcon() {
     );
 }
 
+/**
+ * A person's photo, without the link to their site: a row has one action, its role menu.
+ * `[&>span]:size-full` fits the initials fallback to the 32px circle; it is 40px by default,
+ * so the initials sat low and clipped.
+ */
+export function PersonAvatar({ odinId }: { odinId: string }) {
+    return <AuthorImage odinId={odinId} excludeLink className="size-8 shrink-0 rounded-full text-sm [&>span]:size-full" />;
+}
+
+/** A circle's name with its member count under it. */
+function CircleLabel({ name, memberCount }: { name: string; memberCount: number | undefined }) {
+    const count = members(memberCount);
+    return (
+        <span className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-medium">{name}</span>
+            {count && <span className="truncate text-xs text-muted-foreground">{count}</span>}
+        </span>
+    );
+}
+
 /** A connection's name from the contact drive, with the identity under it. */
-function PersonLabel({ odinId }: { odinId: string }) {
+export function PersonLabel({ odinId }: { odinId: string }) {
     const displayName = useContact({ odinId, canSave: false }).fetch.data?.fileMetadata.appData.content.name?.displayName;
     return (
         <span className="flex min-w-0 flex-col">
@@ -61,7 +103,8 @@ function PersonLabel({ odinId }: { odinId: string }) {
     );
 }
 
-function AccessRow({ icon, label, children }: { icon: ReactNode; label: ReactNode; children: ReactNode }) {
+/** One row of "People with access": the photo or circle mark, the name, then the role. */
+export function AccessRow({ icon, label, children }: { icon: ReactNode; label: ReactNode; children: ReactNode }) {
     return (
         <li className="flex min-w-0 items-center gap-3 py-1.5">
             {icon}
@@ -89,10 +132,32 @@ export function SharePeopleSection({ access, grantPermissionsUrl, disabledReason
     const listboxId = 'share-candidates';
     const optionId = (i: number) => `share-candidate-${i}`;
     const activeIndex = active ? candidates.indexOf(active) : -1;
+    // Read out to screen readers: who was just added or removed
+    const [announcement, setAnnouncement] = useState('');
+    const query = access.query.trim();
+    // Nothing to pick and no refusal: say why, calmly
+    const searchStatus = !query || candidates.length > 0 || access.refusal
+        ? null
+        : access.isLoading
+            ? 'Loading your circles and connections…'
+            : `No people or circles match “${query}”`;
 
-    const onRoleChange = (entry: AccessEntry, value: string) => {
-        if (value === 'remove') access.remove(entry);
-        else access.setRole(entry, value as ShareRole);
+    const add = (candidate: ShareCandidate | undefined) => {
+        if (!candidate || candidate.disabledReason) return;
+        access.add(candidate);
+        setAnnouncement(`${candidate.label} added`);
+    };
+
+    const onRoleChange = (entry: AccessEntry, name: string, value: string) => {
+        if (value !== 'remove') {
+            access.setRole(entry, value as ShareRole);
+            return;
+        }
+        access.remove(entry);
+        setAnnouncement(`${name} removed`);
+        // The row and its menu are gone: keep keyboard focus in the dialog, on the search.
+        // Not on touch screens, where focusing the field would open the keyboard.
+        if (window.matchMedia('(pointer: fine)').matches) document.getElementById('share-search')?.focus();
     };
 
     return (
@@ -100,15 +165,13 @@ export function SharePeopleSection({ access, grantPermissionsUrl, disabledReason
             <h3 id="share-people-heading" className="text-sm leading-5 font-medium">
                 People with access
             </h3>
+            <p aria-live="polite" className="sr-only">{announcement}</p>
 
             {grantPermissionsUrl ? (
                 <div className="flex flex-col gap-3">
-                    <Alert>
-                        <Info className="h-4 w-4" />
-                        <AlertDescription>
-                            {JOURNAL_APP_NAME} needs additional permissions to share notes with people.
-                        </AlertDescription>
-                    </Alert>
+                    <InfoNotice>
+                        {JOURNAL_APP_NAME} needs additional permissions to share notes with people.
+                    </InfoNotice>
                     <Button asChild className="w-full max-sm:h-11">
                         <a
                             href={grantPermissionsUrl}
@@ -120,43 +183,48 @@ export function SharePeopleSection({ access, grantPermissionsUrl, disabledReason
                     </Button>
                 </div>
             ) : disabledReason ? (
-                <p className="flex gap-3 rounded-lg border bg-muted/40 px-4 py-3 text-sm leading-relaxed text-pretty">
-                    <Info className="mt-1 size-4 shrink-0 text-muted-foreground" />
-                    <span>{disabledReason}</span>
-                </p>
+                <InfoNotice>{disabledReason}</InfoNotice>
             ) : (
                 <div className="flex min-w-0 flex-col gap-2">
                     <Label htmlFor="share-search">Add people or circles</Label>
                     <div className="flex min-w-0 gap-2">
-                        <Input
-                            id="share-search"
-                            role="combobox"
-                            aria-expanded={candidates.length > 0}
-                            aria-controls={listboxId}
-                            aria-autocomplete="list"
-                            aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
-                            aria-describedby={access.refusal ? 'share-search-refusal' : undefined}
-                            value={access.query}
-                            onChange={(e) => access.setQuery(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                                    e.preventDefault();
-                                    const step = e.key === 'ArrowDown' ? 1 : -1;
-                                    access.setActiveIndex((activeIndex + step + candidates.length) % Math.max(candidates.length, 1));
-                                } else if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    access.add();
-                                }
-                            }}
-                            placeholder="Search people or circles"
-                            autoComplete="off"
-                            autoCapitalize="none"
-                            spellCheck={false}
-                            className="min-w-0 flex-1 max-sm:h-11"
-                        />
+                        <div className="relative min-w-0 flex-1">
+                            <Search
+                                aria-hidden
+                                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                            />
+                            <Input
+                                id="share-search"
+                                role="combobox"
+                                aria-expanded={candidates.length > 0}
+                                aria-controls={listboxId}
+                                aria-autocomplete="list"
+                                aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
+                                aria-describedby={access.refusal ? 'share-search-refusal' : searchStatus ? 'share-search-status' : undefined}
+                                value={access.query}
+                                onChange={(e) => access.setQuery(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                                        e.preventDefault();
+                                        const step = e.key === 'ArrowDown' ? 1 : -1;
+                                        access.setActiveIndex((activeIndex + step + candidates.length) % Math.max(candidates.length, 1));
+                                    } else if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        add(active);
+                                    }
+                                }}
+                                placeholder="Search people or circles"
+                                autoComplete="off"
+                                autoCapitalize="none"
+                                spellCheck={false}
+                                disabled={access.isSaving}
+                                className="border-border pl-9 max-sm:h-11"
+                            />
+                        </div>
                         <RoleSelect
                             aria-label="Role for people and circles you add"
                             value={access.role}
+                            disabled={access.isSaving}
                             onChange={(e) => access.setPickedRole(e.target.value as ShareRole)}
                         >
                             <option value="viewer">Viewer</option>
@@ -164,12 +232,28 @@ export function SharePeopleSection({ access, grantPermissionsUrl, disabledReason
                         </RoleSelect>
                     </div>
                     {access.refusal && (
-                        <p id="share-search-refusal" role="alert" className="text-xs text-destructive">
+                        <p id="share-search-refusal" role="alert" className="flex gap-2 text-sm text-muted-foreground">
+                            <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
                             {access.refusal}
                         </p>
                     )}
+                    <p id="share-search-status" role="status" className="flex gap-2 text-sm text-muted-foreground empty:hidden">
+                        {searchStatus && (
+                            <>
+                                {access.isLoading
+                                    ? <Loader2 aria-hidden className="mt-0.5 size-4 shrink-0 animate-spin" />
+                                    : <Search aria-hidden className="mt-0.5 size-4 shrink-0" />}
+                                <span className="min-w-0 break-words">{searchStatus}</span>
+                            </>
+                        )}
+                    </p>
                     {candidates.length > 0 && (
-                        <ul id={listboxId} role="listbox" aria-label="Suggestions" className="flex max-h-56 flex-col overflow-y-auto rounded-md border p-1">
+                        <ul
+                            id={listboxId}
+                            role="listbox"
+                            aria-label="Suggestions"
+                            className="flex max-h-60 flex-col overflow-y-auto overscroll-contain rounded-lg border bg-popover p-1 shadow-sm"
+                        >
                             {candidates.map((c, i) => (
                                 <li
                                     key={`${c.kind}:${c.id}`}
@@ -179,15 +263,17 @@ export function SharePeopleSection({ access, grantPermissionsUrl, disabledReason
                                     aria-disabled={!!c.disabledReason}
                                     // Keep focus in the field, so Enter and the arrows keep working
                                     onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => access.add(c)}
+                                    onClick={() => add(c)}
                                     onMouseEnter={() => access.setActiveIndex(i)}
                                     className={cn(
-                                        'flex min-w-0 cursor-pointer items-center gap-3 rounded-sm px-2 py-1.5',
-                                        i === activeIndex && 'bg-accent',
-                                        c.disabledReason && 'cursor-not-allowed opacity-50',
+                                        'flex min-h-11 min-w-0 cursor-pointer items-center gap-3 rounded-md px-2 py-1.5',
+                                        // The field keeps focus, so the highlight is drawn like a focus ring
+                                        i === activeIndex && 'bg-muted ring-1 ring-ring/40 ring-inset',
+                                        // The reason stays readable; the rest fades
+                                        c.disabledReason && 'cursor-not-allowed [&>*:not(:last-child)]:opacity-50',
                                     )}
                                 >
-                                    {c.kind === 'circle' ? <CircleIcon /> : <AuthorImage odinId={c.id} className="size-8 shrink-0 rounded-full" />}
+                                    {c.kind === 'circle' ? <CircleIcon /> : <PersonAvatar odinId={c.id} />}
                                     <span className="min-w-0 flex-1">
                                         {c.kind === 'circle' ? (
                                             <span className="block truncate text-sm font-medium">{c.label}</span>
@@ -206,7 +292,7 @@ export function SharePeopleSection({ access, grantPermissionsUrl, disabledReason
             )}
 
             <ul aria-label="People with access" className="flex min-w-0 flex-col">
-                <AccessRow icon={<AuthorImage odinId={owner} className="size-8 shrink-0 rounded-full" />} label={<PersonLabel odinId={owner} />}>
+                <AccessRow icon={<PersonAvatar odinId={owner} />} label={<PersonLabel odinId={owner} />}>
                     <span className="w-28 shrink-0 px-3 text-sm text-muted-foreground">Owner</span>
                 </AccessRow>
                 {entries.map((entry) => {
@@ -215,21 +301,17 @@ export function SharePeopleSection({ access, grantPermissionsUrl, disabledReason
                     return (
                         <AccessRow
                             key={`${entry.kind}:${entry.id}`}
-                            icon={entry.kind === 'circle' ? <CircleIcon /> : <AuthorImage odinId={entry.id} className="size-8 shrink-0 rounded-full" />}
-                            label={entry.kind === 'circle' ? (
-                                <span className="flex min-w-0 flex-col">
-                                    <span className="truncate text-sm font-medium">{name}</span>
-                                    <span className="truncate text-xs text-muted-foreground">{members(circle?.memberCount)}</span>
-                                </span>
-                            ) : (
-                                <PersonLabel odinId={entry.id} />
-                            )}
+                            icon={entry.kind === 'circle' ? <CircleIcon /> : <PersonAvatar odinId={entry.id} />}
+                            label={entry.kind === 'circle'
+                                ? <CircleLabel name={name} memberCount={circle?.memberCount} />
+                                : <PersonLabel odinId={entry.id} />}
                         >
                             <RoleSelect
+                                quiet
                                 aria-label={`Role for ${name}`}
                                 value={entry.role}
                                 disabled={access.isSaving || !!disabledReason}
-                                onChange={(e) => onRoleChange(entry, e.target.value)}
+                                onChange={(e) => onRoleChange(entry, name, e.target.value)}
                             >
                                 <option value="viewer">Viewer</option>
                                 <EditorOption kind={entry.kind} />
