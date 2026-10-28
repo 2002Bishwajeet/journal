@@ -16,6 +16,13 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.50.0 (2026-10-28)
+
+### New
+
+- On a phone, a tab bar is at the bottom of the screen. Its tabs are Notes, Shared, Search and Settings. The Shared and Settings rows no longer show on the home screen. A tablet or a computer keeps its layout.
+- On a phone, the New note button is above the tab bar. It does not show on the Shared list.
+
 ## 2.49.1 (2026-10-28)
 
 ### Fixed
