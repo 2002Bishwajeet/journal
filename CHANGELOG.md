@@ -1,3 +1,9 @@
+## [2.50.1](https://github.com/2002Bishwajeet/journal/compare/v2.50.0...v2.50.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **sharing:** Escape in a filled search clears it instead of closing the dialog ([#683](https://github.com/2002Bishwajeet/journal/issues/683)) ([125d526](https://github.com/2002Bishwajeet/journal/commit/125d5261387d68d833319cd5dd308b9c4db52986))
 # [2.50.0](https://github.com/2002Bishwajeet/journal/compare/v2.49.1...v2.50.0) (2026-10-28)
 
 
