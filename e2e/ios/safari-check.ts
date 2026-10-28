@@ -108,6 +108,9 @@ async function check(name: string, keyboardUp = false): Promise<Layout> {
 const waitFor = (what: string, condition: () => boolean, timeout = 30_000) =>
   browser.waitUntil(() => browser.execute(condition), { timeout, interval: 250, timeoutMsg: `timed out waiting for ${what}` });
 
+// A note's Back names its folder ("Back to Main", #825); the list's Back is "Back to notes".
+const noteBack = 'button[aria-label^="Back to "]:not([aria-label="Back to notes"])';
+
 async function tap(selector: string, index = 0) {
   // $$ and an index: WebdriverIO 10's $() fails when the selector matches several elements.
   await browser.waitUntil(async () => (await browser.$$(selector)).length > index, { timeout: 30_000, timeoutMsg: `timed out waiting for ${selector}` });
@@ -436,7 +439,7 @@ try {
 
   // In-app Back pops the note's entry instead of pushing the list (#822).
   const noteIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
-  await tap('button[aria-label="Back"]');
+  await tap(noteBack);
   await waitFor('the note list', () => location.pathname.split('/').filter(Boolean).length === 1);
   const listIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
   if (listIdx !== noteIdx - 1) failures.push(`in-app Back: history idx went ${noteIdx} -> ${listIdx}, expected ${noteIdx - 1} (a pop)`);
@@ -461,7 +464,7 @@ try {
   // reload, history.back() loads a new document for each entry, so it is not used here.
   await typeAndReload('Before the root', 'load-root', 'load-root');
   // The root opens the last note on a phone: back to the sidebar with the app's own back buttons.
-  await tap('[aria-label="Back"]');
+  await tap(noteBack);
   await tap('[aria-label="Back to notes"]');
   await waitFor('the sidebar', () => {
     const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
@@ -540,7 +543,7 @@ try {
     await midSlide('slide-folder-to-list');
     await tap('button[aria-label="New note"]');
     await midSlide('slide-list-to-note');
-    await tap('button[aria-label="Back"]');
+    await tap(noteBack);
     await midSlide('slide-back-to-list');
     await browser.execute(() => history.back());
     await waitFor('the sidebar', () => {
