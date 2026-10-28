@@ -149,6 +149,18 @@
   --sidebar-ring: #8A8780;
 }
 
+/* Sharing with people (#683): the Share dialog, the access popover and its "Shared" pill.
+   Their secondary text and the sharing amber carry names, roles and states, so they meet
+   WCAG AA (4.5:1) here, on the dialog, the popover and the tinted pills and rows. */
+.share-ui {
+  --muted-foreground: #6E6B64; /* 4.7:1 on --muted, 5.3:1 on --popover */
+  --collaborative: #9a4508; /* 5.5:1 on its own 10% tint */
+}
+.dark .share-ui {
+  --muted-foreground: #9C998F; /* 5.0:1 on --muted, 5.5:1 on --popover */
+  --collaborative: #fbbf24;
+}
+
 /* Reset & Base */
 *, *::before, *::after {
   box-sizing: border-box;
