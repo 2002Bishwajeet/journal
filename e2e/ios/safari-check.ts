@@ -327,6 +327,8 @@ try {
   const portrait = await check('sidebar');
   // The tab bar (#853) must be on screen; layoutProblems checks it clears the home indicator.
   if (!portrait.tabBar) failures.push('tab bar: no tab bar on the phone home screen');
+  // The large title (#830) must be on screen; layoutProblems checks it clears the status bar.
+  if (!portrait.largeTitle) failures.push('large title: no large title on the phone home screen');
 
   await browser.setOrientation('LANDSCAPE');
   await waitFor('landscape', () => innerWidth > innerHeight);

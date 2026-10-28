@@ -36,6 +36,8 @@ import { getNoteGroup } from "@/helpers/dateGrouping";
 import { useIntersection } from "@/hooks/useIntersection";
 import { swipeAxis } from "@/helpers/swipeAxis";
 import { haptic } from "@/lib/haptics";
+import { useLargeTitle } from "@/hooks/useLargeTitle";
+import { BarTitle, LargeTitle } from "./LargeTitle";
 
 // Rows mounted per render step; the sentinel adds another page as it scrolls into view.
 const PAGE = 100;
@@ -57,8 +59,10 @@ interface NoteListProps {
   className?: string;
   /** Identifies the current view (folder or tag); changing it resets the render budget. */
   viewKey?: string;
-  /** Phone only: the heading, Back handler and trailing slot that replace the pane's own header. */
+  /** Phone and tablet: the large title (#830), Back handler and trailing slot that replace the pane's own header. */
   title?: string;
+  /** Phone and tablet: what an empty list shows instead of "No notes yet" (#830). */
+  emptyState?: ReactNode;
   onBack?: () => void;
   /** Accessible name of the Back button (the tablet one opens the folders). */
   backLabel?: string;
@@ -80,10 +84,13 @@ export default function NoteList({
   className = "",
   viewKey,
   title,
+  emptyState,
   onBack,
   backLabel = "Back to notes",
   trailing,
 }: NoteListProps) {
+  const largeTitle = useLargeTitle(!!title);
+  const isEmpty = !isLoading && notes.length === 0;
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"modified" | "created" | "title">(
     "modified",
@@ -221,7 +228,14 @@ export default function NoteList({
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between h-12 px-3 border-b border-border shrink-0">
+      <div
+        className={cn(
+          "relative flex items-center justify-between border-b shrink-0",
+          title
+            ? cn("h-11 px-2 transition-colors", largeTitle.collapsed ? "border-border" : "border-transparent")
+            : "h-12 px-3 border-border",
+        )}
+      >
         {onBack && (
           <Button
             variant="ghost"
@@ -234,11 +248,11 @@ export default function NoteList({
           </Button>
         )}
         {title ? (
-          <h2 className="text-sm font-medium text-foreground truncate flex-1 leading-none">{title}</h2>
+          <BarTitle show={largeTitle.collapsed}>{title}</BarTitle>
         ) : (
           <span className="text-sm font-medium text-foreground">Notes</span>
         )}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 ml-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="Sort notes" className="h-7 w-7 pointer-coarse:size-11">
@@ -278,14 +292,22 @@ export default function NoteList({
 
       {/* Notes list */}
       <ScrollArea
-        className="flex-1 min-h-0 w-full"
+        className={cn(
+          "flex-1 min-h-0 w-full",
+          // An empty list fills the viewport, so its empty state centres in the room left.
+          isEmpty && emptyState && "[&_[data-slot=scroll-area-viewport]>div]:!block [&_[data-slot=scroll-area-viewport]>div]:h-full",
+        )}
         onScrollCapture={() => setOpenRowId(null)}
       >
         <PullToRefresh onRefresh={handleRefresh} className="w-full overflow-x-clip">
+          <div className="flex h-full flex-col">
+          {title && <LargeTitle titleRef={largeTitle.ref}>{title}</LargeTitle>}
           {isLoading ? (
             <div className="flex items-center justify-center h-32">
               <span className="text-sm text-muted-foreground">Loading...</span>
             </div>
+          ) : isEmpty && emptyState ? (
+            emptyState
           ) : notes.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 px-4 text-center">
               <FileText className="h-10 w-10 text-muted-foreground/70 mb-3" />
@@ -343,6 +365,7 @@ export default function NoteList({
               )}
             </div>
           )}
+          </div>
         </PullToRefresh>
       </ScrollArea>
 
