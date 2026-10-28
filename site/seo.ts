@@ -64,7 +64,7 @@ export function headTags(id: string, html: string): string {
 function toText(html: string): string {
   const main = /<main[^>]*>([\s\S]*?)<\/main>/.exec(html)?.[1] ?? ''
   const blocks: string[] = []
-  const keep = (s: string) => `\u0000${blocks.push(s) - 1}\u0000`
+  const keep = (s: string) => `\uE000${blocks.push(s) - 1}\uE000`
   return main
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<(svg|button|script)\b[\s\S]*?<\/\1>/g, '')
@@ -96,7 +96,7 @@ function toText(html: string): string {
     .join('\n')
     .replace(/^- *\n+(?=#)/gm, '') // a list item that holds a heading needs no bullet
     .replace(/^- *\n+/gm, '- ') // a list item that holds a block keeps its bullet on the first line
-    .replace(/\u0000(\d+)\u0000/g, (_, i: string) => blocks[Number(i)])
+    .replace(/\uE000(\d+)\uE000/g, (_, i: string) => blocks[Number(i)])
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
