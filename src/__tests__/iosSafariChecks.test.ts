@@ -16,6 +16,7 @@ const ok: Layout = {
   searchSheet: null,
   sheet: null,
   sidebarFooter: { top: 610, bottom: 642, left: 8, right: 385 },
+  tabBar: { top: 610, bottom: 659, left: 0, right: 98 },
   foreignRequests: [],
 };
 
@@ -27,6 +28,7 @@ const keyboard: Layout = {
   caret: { top: 200, bottom: 220, left: 20, right: 20 },
   toolbar: { top: 275, bottom: 323, left: 0, right: 393 },
   sidebarFooter: null,
+  tabBar: null,
 };
 
 describe('iOS Safari layout checks', () => {
@@ -56,6 +58,13 @@ describe('iOS Safari layout checks', () => {
   it('should keep the sidebar footer clear of the bottom safe area', () => {
     const problems = layoutProblems({ ...ok, insets: { ...ok.insets, bottom: 34 } }, false);
     expect(problems[0]).toMatch(/below the usable bottom 625/);
+  });
+
+  it('should keep the tab bar buttons above the home indicator', () => {
+    const insets = { ...ok.insets, bottom: 34 };
+    expect(layoutProblems({ ...ok, insets, sidebarFooter: null, tabBar: { top: 576, bottom: 625, left: 0, right: 98 } }, false)).toEqual([]);
+    const problems = layoutProblems({ ...ok, insets, sidebarFooter: null }, false);
+    expect(problems).toEqual(['the tab bar ends at 659, below the usable bottom 625 (viewport minus the safe area)']);
   });
 
   it('should not flag the sidebar footer under the keyboard while a dialog field is focused', () => {

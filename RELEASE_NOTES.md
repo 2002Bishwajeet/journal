@@ -16,6 +16,25 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.50.1 (2026-10-28)
+
+### Changed
+
+- The Share dialog and the "Shared" popover show each person with their photo and name, and each circle with its member count. The text has better contrast in light and dark mode.
+- The search field in the Share dialog has a clearer border. On a phone, the field is easier to see.
+
+### Fixed
+
+- In the Share dialog, Escape clears the search first. Before, Escape closed the dialog and the people that you added were not saved.
+- On a phone, the "Shared" popover stays away from the edge of the screen.
+
+## 2.50.0 (2026-10-28)
+
+### New
+
+- On a phone, a tab bar is at the bottom of the screen. Its tabs are Notes, Shared, Search and Settings. The Shared and Settings rows no longer show on the home screen. A tablet or a computer keeps its layout.
+- On a phone, the New note button is above the tab bar. It does not show on the Shared list.
+
 ## 2.49.1 (2026-10-28)
 
 ### Fixed

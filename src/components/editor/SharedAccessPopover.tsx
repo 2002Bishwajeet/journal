@@ -1,4 +1,4 @@
-import { Users, ChevronDown } from 'lucide-react';
+import { Users, ChevronDown, UserPlus } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import {
     Popover,
@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { useCircles } from '@/hooks/circles/useCircles';
-import { AuthorImage } from '@/components/author/AuthorImage';
+import { AccessRow, CircleIcon, PersonAvatar, PersonLabel } from '@/components/share/SharePeopleSection';
 import { formatRelativeTime } from '@/lib/utils';
 import { agentDisplayName } from '@/lib/agent/attribution';
 import type { DocumentMetadata } from '@/types';
@@ -60,37 +60,36 @@ export function SharedAccessPopover({ noteId, metadata, isOwner, owner }: Shared
             <PopoverTrigger asChild>
                 <button
                     aria-label="Show who can access this note"
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-collaborative/10 text-collaborative text-xs hover:bg-collaborative/20 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="share-ui flex cursor-pointer items-center gap-1 rounded-full bg-collaborative/10 px-2 py-0.5 text-xs font-medium text-collaborative outline-none transition-colors hover:bg-collaborative/20 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 >
-                    <Users className="h-3 w-3" />
+                    <Users className="size-3" aria-hidden />
                     <span>Shared</span>
-                    <ChevronDown className="h-3 w-3" />
+                    <ChevronDown className="size-3" aria-hidden />
                 </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 p-3">
-                <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
-                    People with access
-                </div>
+            {/* The same rows as the Share dialog, with the role as text: changes happen there, through Manage… */}
+            <PopoverContent align="end" collisionPadding={16} className="share-ui flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 p-4">
+                <h3 className="text-sm leading-5 font-medium">People with access</h3>
 
-                <ul aria-label="People with access" className="space-y-1.5">
+                <ul aria-label="People with access" className="flex max-h-80 min-w-0 flex-col overflow-y-auto overscroll-contain">
                     {circles.map(({ id, role }) => (
-                        <li key={`circle:${id}`} className="flex items-center gap-2 text-sm">
-                            <Users className="h-4 w-4 shrink-0 text-collaborative" aria-hidden />
-                            <span className="min-w-0 flex-1 truncate">{circleName(id) ?? (circlesFetch.isLoading ? 'Loading…' : 'Circle')}</span>
-                            <span className="shrink-0 text-xs text-muted-foreground">{role}</span>
-                        </li>
+                        <AccessRow
+                            key={`circle:${id}`}
+                            icon={<CircleIcon />}
+                            label={<span className="block truncate text-sm font-medium">{circleName(id) ?? (circlesFetch.isLoading ? 'Loading…' : 'Circle')}</span>}
+                        >
+                            <span className="shrink-0 text-sm text-muted-foreground">{role}</span>
+                        </AccessRow>
                     ))}
                     {[...people].map(([odinId, role]) => (
-                        <li key={`person:${odinId}`} className="flex items-center gap-2 text-sm">
-                            <AuthorImage odinId={odinId} className="h-4 w-4 shrink-0 rounded-full" />
-                            <span title={odinId} className="min-w-0 flex-1 truncate">{odinId}</span>
-                            <span className="shrink-0 text-xs text-muted-foreground">{role}</span>
-                        </li>
+                        <AccessRow key={`person:${odinId}`} icon={<PersonAvatar odinId={odinId} />} label={<PersonLabel odinId={odinId} />}>
+                            <span className="shrink-0 text-sm text-muted-foreground">{role}</span>
+                        </AccessRow>
                     ))}
                 </ul>
 
                 {lastEditedBy && (
-                    <div className="border-t mt-3 pt-2 text-xs text-muted-foreground">
+                    <p className="border-t pt-3 text-xs text-muted-foreground">
                         Last edited by{' '}
                         <span title={lastEditedBy} className="text-foreground">
                             {agentDisplayName(lastEditedBy) ?? lastEditedBy.split('.')[0]}
@@ -98,11 +97,12 @@ export function SharedAccessPopover({ noteId, metadata, isOwner, owner }: Shared
                         {formattedTime && (
                             <span className="ml-1">{formattedTime}</span>
                         )}
-                    </div>
+                    </p>
                 )}
 
                 {isOwner && (
-                    <Button variant="outline" size="sm" className="mt-3 w-full" onClick={manage}>
+                    <Button variant="outline" className="mt-1 w-full max-sm:h-11" onClick={manage}>
+                        <UserPlus aria-hidden />
                         Manage…
                     </Button>
                 )}

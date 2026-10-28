@@ -13,6 +13,7 @@ import {
   SplashScreen,
 } from "@/components/layout";
 import { NewNoteFab } from "@/components/layout/NewNoteFab";
+import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import {
   useTabRouting,
   useLayoutUrlActions,
@@ -41,12 +42,16 @@ import MoveToFolderDialog from "@/components/modals/MoveToFolderDialog";
 const SettingsModal = lazy(() => import("@/components/modals/SettingsModal"));
 const ShareNoteDialog = lazy(() => import("@/components/modals/ShareNoteDialog"));
 import { viewLabel } from "@/helpers/viewLabel";
+import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
 import { useNotes } from "@/hooks/useNotes";
 import { getMobilePane, showNewNoteFab } from "@/layouts/mobilePane";
 import { useTextFieldFocused } from "@/hooks/useTextFieldFocused";
+import { useKeyboardOpen } from "@/hooks/useKeyboardOpen";
+import { useMobileTabs } from "@/hooks/useMobileTabs";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
+import { useSharedPull } from "@/hooks/useSharedPull";
 import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
 import { useSharePush } from "@/hooks/useSharePush";
 import { useRecordRecentNote } from "@/hooks/useRecentNotes";
@@ -228,6 +233,7 @@ export default function JournalLayout() {
 
   const currentViewLabel = viewLabel(folderId, selectedTag, folders);
   const { tags, tagCounts, deleteTag } = useTags();
+  const sharedPull = useSharedPull();
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
   const isPhone = deviceType === "mobile";
@@ -238,13 +244,18 @@ export default function JournalLayout() {
     return () => syncThemeColor("--background");
   }, [topSurface]);
   const textFieldFocused = useTextFieldFocused();
+  // The tab bar and the New note button leave the screen for the software keyboard (#853).
+  const keyboardOpen = useKeyboardOpen();
   const showFab = showNewNoteFab({
     isPhone,
     pane: mobilePane,
     isManagementView,
+    isShared: folderId === PSEUDO_FOLDERS.shared,
     overlayOpen: overlayEntryOpen(location.state),
-    textFieldFocused,
+    textFieldFocused: textFieldFocused || keyboardOpen,
   });
+  const showTabBar = isPhone && mobilePane !== "editor" && !keyboardOpen;
+  const tabs = useMobileTabs();
 
   // Tab/window title: the open note, else the current view. Trash/Archive hide
   // the desktop editor, so an open tab there must not win.
@@ -300,6 +311,7 @@ export default function JournalLayout() {
         )}
       >
         <Sidebar
+          sharedPull={sharedPull}
           folders={folders}
           selectedFolderId={folderId || ""}
           onSelectFolder={(id) => {
@@ -346,6 +358,7 @@ export default function JournalLayout() {
       </div>
 
       <NoteListPane
+        sharedPull={sharedPull}
         isDesktop={isDesktop}
         isPhone={isPhone}
         isTablet={isTablet}
@@ -407,6 +420,14 @@ export default function JournalLayout() {
       )}
 
       {showFab && <NewNoteFab onClick={() => void noteActions.createAndOpen(folderId)} />}
+      {showTabBar && (
+        <MobileTabBar
+          activeTab={tabs.activeTab}
+          onSelectTab={tabs.selectTab}
+          onSearch={() => setShowSearch(true)}
+          onSettings={settings.open}
+        />
+      )}
 
       {/* Modals */}
       {noteId && deviceType !== "mobile" ? <ChatBot activeNoteId={noteId} /> : null}

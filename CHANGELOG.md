@@ -1,3 +1,21 @@
+## [2.50.1](https://github.com/2002Bishwajeet/journal/compare/v2.50.0...v2.50.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **sharing:** Escape in a filled search clears it instead of closing the dialog ([#683](https://github.com/2002Bishwajeet/journal/issues/683)) ([125d526](https://github.com/2002Bishwajeet/journal/commit/125d5261387d68d833319cd5dd308b9c4db52986))
+# [2.50.0](https://github.com/2002Bishwajeet/journal/compare/v2.49.1...v2.50.0) (2026-10-28)
+
+
+### Bug Fixes
+
+* **mobile:** drop tag-on-create and FAB tests from the tab bar change ([#853](https://github.com/2002Bishwajeet/journal/issues/853)) ([f68a9ed](https://github.com/2002Bishwajeet/journal/commit/f68a9ed9ab917213d2fd8cb48a505f622e141f72))
+* **mobile:** tag notes created from a tag list, keep Refresh shared notes on phones, trim long-list spec ([#853](https://github.com/2002Bishwajeet/journal/issues/853)) ([fbf02b7](https://github.com/2002Bishwajeet/journal/commit/fbf02b73640c70b08dfd58184fc75bc1328e7646))
+
+
+### Features
+
+* **mobile:** bottom tab bar (Notes, Shared, Search, Settings) on phones ([#853](https://github.com/2002Bishwajeet/journal/issues/853)) ([dd782f0](https://github.com/2002Bishwajeet/journal/commit/dd782f04782d277d01794c1bac35dca425be7a4b))
 ## [2.49.1](https://github.com/2002Bishwajeet/journal/compare/v2.49.0...v2.49.1) (2026-10-28)
 
 
