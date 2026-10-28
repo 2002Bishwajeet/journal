@@ -59,7 +59,7 @@ test('search fills the screen, has a tall Cancel button, and opens a result', as
     await dialog.getByPlaceholder('Search notes...').fill('Zebra');
     await dialog.getByText('Zebra crossing').click();
     await expect(dialog).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Back to (?!notes$)/ })).toBeVisible();
     await expect(page.locator('textarea[placeholder="Untitled"]:visible')).toHaveValue('Zebra crossing');
   });
 });

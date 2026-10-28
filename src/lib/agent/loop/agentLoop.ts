@@ -10,7 +10,7 @@ import { z } from 'zod';
 import type { ReadDeps } from '@/lib/agent/tools/read';
 import type { WriteDeps } from '@/lib/agent/tools/write';
 import { TOOLS, toJsonSchema, type AnyJournalTool, type ToolOutput } from '@/lib/agent/tools/registry';
-import { formatText, insertParagraph, readOpenNote, replaceText, type EditorTool } from '@/lib/agent/tools/editor';
+import { appendToOpenNote, formatText, insertParagraph, readOpenNote, replaceText, type EditorTool } from '@/lib/agent/tools/editor';
 import { activeEditor, type ActiveEditorStore } from '@/lib/agent/activeEditor';
 import type { BuiltEdit, EditOutcome, EditProposal } from '@/lib/agent/approveEdit';
 import type { WriteProposal, WrittenNote } from '@/lib/agent/approveWrite';
@@ -66,11 +66,30 @@ export interface RunAgentOptions {
 
 const registryTool = (name: string) => TOOLS.find((tool) => tool.name === name)!;
 
+/*
+ * The registry tools as the in-app agent sees them (#914): one-sentence descriptions with the
+ * required arguments first, and only the arguments a small model needs (each field costs prompt
+ * tokens). The MCP server keeps the full ones.
+ */
+const searchNotes: AnyJournalTool = {
+    ...registryTool('search_notes'),
+    description: 'Find notes whose title, tags or body contain query.',
+    input: z.object({ query: z.string() }),
+};
+const getNote: AnyJournalTool = {
+    ...registryTool('get_note'),
+    description: 'Read the note with this id as markdown.',
+    input: z.object({ id: z.string() }),
+};
+const appendToNote: AnyJournalTool = {
+    ...registryTool('append_to_note'),
+    description: 'Add markdown at the end of the note with this id, the open note too.',
+};
 const createNote = registryTool('create_note');
-/** `create_note` for the in-app agent: no folder means Main, and no tags (each field costs prompt tokens). */
+/** No folder means Main, and no tags. */
 const agentCreateNote: AnyJournalTool = {
     ...createNote,
-    description: 'Create a new note from markdown. Without folderId it goes to Main.',
+    description: 'Create a new note with this title and markdown, in Main unless you give a folderId.',
     input: z.object({ title: z.string(), markdown: z.string(), folderId: z.string().optional() }),
     execute: (deps, args) => createNote.execute(deps, { ...args, folderId: args.folderId ?? MAIN_FOLDER_ID }),
 };
@@ -80,9 +99,9 @@ const agentCreateNote: AnyJournalTool = {
  * notes (#702) took the places of list_notes (search_notes finds notes too) and set_block_type.
  */
 export const AGENT_TOOLS: AgentTool[] = [
-    registryTool('search_notes'),
-    registryTool('get_note'),
-    registryTool('append_to_note'),
+    searchNotes,
+    getNote,
+    appendToNote,
     agentCreateNote,
     readOpenNote,
     insertParagraph,
@@ -128,19 +147,40 @@ export function turnSchema(tools: AgentTool[]): object {
 
 const firstSentence = (text: string) => text.split(/(?<=\.)\s/)[0];
 
+/** `name(required, optional?)`: the model sees each tool's arguments, required ones first (#914). */
+function signature(tool: AgentTool): string {
+    const { properties = {}, required = [] } = argsSchema(tool) as { properties?: object; required?: string[] };
+    return `${tool.name}(${Object.keys(properties).map((key) => (required.includes(key) ? key : `${key}?`)).join(', ')})`;
+}
+
 function systemPrompt(tools: AgentTool[]): string {
+    // Without write tools (a question, #914), the rules about changes would only invite one.
+    const writes = tools.some((tool) => !tool.readOnly);
     return [
         "You are the assistant in Journal, a notes app. You answer questions about the user's notes using tools.",
         'Tools:',
-        ...tools.map((tool) => `- ${tool.name}: ${firstSentence(tool.description)}`),
+        ...tools.map((tool) => `- ${signature(tool)}: ${firstSentence(tool.description)}`),
         'Rules:',
         '- Reply with one JSON object: {"tool": "<name>", "args": {...}} to call a tool, or {"answer": "<text>"} to reply.',
         '- Use note ids from earlier results. Never invent an id.',
-        '- To add to another note, use append_to_note; for a new note, use create_note. The user accepts or rejects each one.',
-        '- To change the open note, read it with read_open_note, then call one edit tool. The user accepts or rejects each edit.',
-        '- Propose an edit only when the user asks for a change. For a question, answer it. Never propose an edit the user rejected.',
+        ...(writes
+            ? [
+                  '- To add at the end of a note, use append_to_note; for a new note, use create_note. The user accepts or rejects each one.',
+                  '- To change the open note, take n and find from the read_open_note result, then call one edit tool. The user accepts or rejects each edit.',
+                  '- Propose a change only when the user asks for one, and only once, then answer. Never propose an edit the user rejected.',
+              ]
+            : []),
         '- Answer as soon as you know enough. Keep the answer short and plain.',
     ].join('\n');
+}
+
+/** A word that asks for a change (#914); a question has none. */
+const CHANGE_WORD =
+    /\b(add|append|insert|prepend|create|make|write|put|bold|italici[sz]e|underline|strike|format|replace|change|fix|correct|rename|edit|update|rewrite|reword|rephrase|remove|delete|move|turn|set|mark|highlight|capitali[sz]e|convert|translate|shorten|expand|sort|tidy|clean|swap|save|jot|type|paste|include|draft|indent|merge|split|proofread|strikethrough|uppercase|lowercase|tick|fill|bullet|log|cross(es|ed)? out|check(s|ed)? off|remember to)(s|es|d|ed)?\b|\bnumber(s|ed)? (the|it|them|each|these|those|my)\b|\binstead of\b/i;
+
+/** The tools for one request: a question that asks for no change gets the read-only ones, so the model can't write (#914). */
+export function toolsFor(request: string, tools: AgentTool[] = AGENT_TOOLS): AgentTool[] {
+    return CHANGE_WORD.test(request) ? tools : tools.filter((tool) => tool.readOnly);
 }
 
 function capArgs(name: string, args: Record<string, unknown>): Record<string, unknown> {
@@ -219,6 +259,19 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
     const seen = new Map<string, number>();
     /** Edits the user rejected or that failed, by name and args, with the nudge to send if the model proposes one again. */
     const refused = new Map<string, string>();
+    /** Accepted writes, by name and args, with the turn that made them: small models repeat a write that worked (#914). */
+    const applied = new Map<string, number>();
+    // With edit tools offered, the open note's blocks go in up front, as a read_open_note already made (#914).
+    // Small models edit without reading and guess `n` and `find`; told to read first, none of them did (#706 eval).
+    if (tools.includes(readOpenNote) && tools.some((tool) => 'editor' in tool && !tool.readOnly)) {
+        try {
+            const blocks = formatToolResult(readOpenNote.name, await readOpenNote.execute(editor, {}));
+            history.push({ role: 'assistant', content: JSON.stringify({ tool: readOpenNote.name, args: {} }) }, { role: 'user', content: `Result of ${readOpenNote.name}: ${blocks}` });
+            seen.set(callKey(readOpenNote.name, {}), 0);
+        } catch {
+            // No note open, or one the agent can't edit: the edit tools say so if the model calls one.
+        }
+    }
     let repeatsInARow = 0;
     // A repeated call does not count as a step, so the cap reflects useful work.
     let step = 0;
@@ -260,40 +313,45 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
         const args = capArgs(tool.name, parsed.data);
         const key = callKey(tool.name, args);
         const earlier = seen.get(key);
-        const nudge = refused.get(key);
-        if (earlier !== undefined || nudge !== undefined) {
+        const done = applied.get(key);
+        const nudge =
+            refused.get(key) ??
+            (done !== undefined
+                ? `You already made this change at step ${done}. Do not make it again; answer.`
+                : earlier !== undefined
+                  ? `You already called ${tool.name} with these arguments (step ${earlier}). Use that result, call a different tool, or answer.`
+                  : undefined);
+        if (nudge !== undefined) {
             // Don't run it again or repeat its result: the prompt would grow by the whole result for nothing.
-            // A rejected or failed edit does not run or reach the user a second time.
+            // A rejected, failed or accepted write does not run or reach the user a second time.
             step--;
-            history.push(
-                { role: 'assistant', content: output },
-                {
-                    role: 'user',
-                    content: nudge ?? `You already called ${tool.name} with these arguments (step ${earlier}). Use that result, call a different tool, or answer.`,
-                },
-            );
+            history.push({ role: 'assistant', content: output }, { role: 'user', content: nudge });
             // The model ignored the nudge: only an answer is left to ask for.
             if (++repeatsInARow < 2) continue;
             return forceAnswer(turns + 1, 'No answer after repeated tool calls.');
         }
         repeatsInARow = 0;
         onEvent({ type: 'toolCall', tool: tool.name, args });
+        /** The edit `run` builds, for the user to preview in the note before it is applied. */
+        const proposeEdit = async (run: () => Promise<ToolOutput>): Promise<AgentProposal> => {
+            const built = (await run()).data as BuiltEdit;
+            return { tool: tool.name, args, summary: built.summary, edit: { built, rebuild: async () => (await run()).data as BuiltEdit } };
+        };
         // A tool gives back its result, or a proposal for the user to answer.
         const call = async (): Promise<string | AgentProposal> => {
             if ('editor' in tool) {
                 const run = () => tool.execute(editor, args);
-                const first = await run();
-                if (tool.readOnly) return formatToolResult(tool.name, first);
-                // The tool built the edit without applying it; the user previews it before it is applied.
-                const built = first.data as BuiltEdit;
-                const rebuild = async () => (await run()).data as BuiltEdit;
-                return { tool: tool.name, args, summary: built.summary, edit: { built, rebuild } };
+                return tool.readOnly ? formatToolResult(tool.name, await run()) : proposeEdit(run);
             }
             // Only read-only tools run here, and they use only the ReadDeps half.
             if (tool.readOnly) return formatToolResult(tool.name, await tool.execute(deps as WriteDeps, args));
+            // An append to the open note goes through its editor, so its undo keeps working (#914).
+            if (tool.name === 'append_to_note' && args.id === editor.get()?.docId) {
+                return proposeEdit(() => appendToOpenNote(editor, String(args.markdown)));
+            }
             // A write waits for the user; it runs, with WriteDeps, only when they accept.
             if (!writeDeps) return { tool: tool.name, args };
-            const write = await proposeWrite(tool, args, { deps, writeDeps, openNoteId: editor.get()?.docId });
+            const write = await proposeWrite(tool, args, { deps, writeDeps });
             return { tool: tool.name, args, summary: write.summary, write };
         };
         let called: string | AgentProposal;
@@ -308,21 +366,23 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
             continue;
         }
         let result: string;
-        let wasRejected = false;
+        let outcome: EditOutcome | undefined;
         let written: WrittenNote | undefined;
         if (typeof called === 'string') result = called;
         else {
             onEvent({ type: 'proposal', proposal: called });
-            const outcome = await approve(called);
+            outcome = await approve(called);
             if (signal?.aborted) return null;
             result = describeOutcome(outcome);
-            wasRejected = outcome === 'rejected';
             written = outcome === 'accepted' ? called.write?.applied : undefined;
             if (written) result += ` (note id: ${written.id})`;
         }
         if (tool.readOnly) seen.set(key, turns);
-        else if (wasRejected) refused.set(key, `The user rejected this edit at step ${turns}. Do not propose it again. Answer the question, or propose a different change only if the user asked for one.`);
-        else seen.clear();
+        else if (outcome === 'rejected') refused.set(key, `The user rejected this edit at step ${turns}. Do not propose it again. Answer the question, or propose a different change only if the user asked for one.`);
+        else {
+            seen.clear();
+            if (outcome === 'accepted') applied.set(key, turns);
+        }
         onEvent({ type: 'toolResult', tool: tool.name, result, ...(written && { note: written }) });
         history.push({ role: 'assistant', content: output }, { role: 'user', content: `Result of ${tool.name}: ${result}` });
         // Two rejected edits (or failed ones, above): only an answer is left to ask for.

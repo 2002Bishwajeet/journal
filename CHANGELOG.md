@@ -1,3 +1,58 @@
+# [2.50.0](https://github.com/2002Bishwajeet/journal/compare/v2.49.1...v2.50.0) (2026-10-28)
+
+
+### Bug Fixes
+
+* **mobile:** drop tag-on-create and FAB tests from the tab bar change ([#853](https://github.com/2002Bishwajeet/journal/issues/853)) ([f68a9ed](https://github.com/2002Bishwajeet/journal/commit/f68a9ed9ab917213d2fd8cb48a505f622e141f72))
+* **mobile:** tag notes created from a tag list, keep Refresh shared notes on phones, trim long-list spec ([#853](https://github.com/2002Bishwajeet/journal/issues/853)) ([fbf02b7](https://github.com/2002Bishwajeet/journal/commit/fbf02b73640c70b08dfd58184fc75bc1328e7646))
+
+
+### Features
+
+* **mobile:** bottom tab bar (Notes, Shared, Search, Settings) on phones ([#853](https://github.com/2002Bishwajeet/journal/issues/853)) ([dd782f0](https://github.com/2002Bishwajeet/journal/commit/dd782f04782d277d01794c1bac35dca425be7a4b))
+## [2.49.1](https://github.com/2002Bishwajeet/journal/compare/v2.49.0...v2.49.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **mobile:** use min-h-svh on share, sign-in and share-target pages ([#894](https://github.com/2002Bishwajeet/journal/issues/894)) ([9b3cee7](https://github.com/2002Bishwajeet/journal/commit/9b3cee74725ae8f8a2397974669439e34bc2157b))
+# [2.49.0](https://github.com/2002Bishwajeet/journal/compare/v2.48.1...v2.49.0) (2026-10-28)
+
+
+### Bug Fixes
+
+* **editor:** keep the find bar in the scroll container on desktop ([#825](https://github.com/2002Bishwajeet/journal/issues/825)) ([8e6bdda](https://github.com/2002Bishwajeet/journal/commit/8e6bdda3aae3b6a52350d74075d932432d68cfa4))
+* **mobile:** find bar keeps its field wide on phones; New marks are used once ([#825](https://github.com/2002Bishwajeet/journal/issues/825)) ([587f795](https://github.com/2002Bishwajeet/journal/commit/587f795fdb64c26462df26521ca8194b178c56e1)), closes [#930](https://github.com/2002Bishwajeet/journal/issues/930)
+
+
+### Features
+
+* **mobile:** every note action in a sheet from More, Find and Contents on phones, iOS-style note header ([#825](https://github.com/2002Bishwajeet/journal/issues/825)) ([2a9931f](https://github.com/2002Bishwajeet/journal/commit/2a9931f474c197385f7e0dac7dbf2197c9cac797))
+## [2.48.1](https://github.com/2002Bishwajeet/journal/compare/v2.48.0...v2.48.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **routing:** Back closes a sheet that has not rendered its history entry yet ([8f53d18](https://github.com/2002Bishwajeet/journal/commit/8f53d18d7040224c40fe80aad265fd5546c5b201))
+# [2.48.0](https://github.com/2002Bishwajeet/journal/compare/v2.47.2...v2.48.0) (2026-10-28)
+
+
+### Bug Fixes
+
+* **ai:** count 'instead of' as a change request; agent-edit e2e no longer scripts the read the harness now gives ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([f8ddab9](https://github.com/2002Bishwajeet/journal/commit/f8ddab9e735b9aad967b96242e6773f3e0d55187))
+* **ai:** count strikethrough, case, tick, fill, bullet, number, log and remember-to as change requests ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([a32f418](https://github.com/2002Bishwajeet/journal/commit/a32f4189631329df60885cf27286820e8b8a1748))
+* **ai:** give the open note's blocks up front instead of refusing an edit before a read ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([fa1c19d](https://github.com/2002Bishwajeet/journal/commit/fa1c19d3b8c3ee3a85d14b7e0a364ad131d42c7a))
+
+
+### Features
+
+* **ai:** small-model tool and harness fixes: read before edit, no repeat writes, no writes for questions ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([d0f8e36](https://github.com/2002Bishwajeet/journal/commit/d0f8e361f0d5afaff8e9c92f45bb80f4269e3c8d))
+## [2.47.2](https://github.com/2002Bishwajeet/journal/compare/v2.47.1...v2.47.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* **images:** on touch, show the resize handles only on the selected image ([#927](https://github.com/2002Bishwajeet/journal/issues/927)) ([28a8cf0](https://github.com/2002Bishwajeet/journal/commit/28a8cf0e5d2176c8dd3ae1a7346c6b35f90eb1df))
 ## [2.47.1](https://github.com/2002Bishwajeet/journal/compare/v2.47.0...v2.47.1) (2026-10-28)
 
 

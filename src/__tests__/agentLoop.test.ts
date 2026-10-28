@@ -22,6 +22,7 @@ import {
     MAX_TOKENS,
     MAX_TOOL_STEPS,
     runAgent,
+    toolsFor,
     turnSchema,
     type AgentEngine,
     type AgentEvent,
@@ -29,6 +30,7 @@ import {
     type RunAgentOptions,
 } from '@/lib/agent/loop/agentLoop';
 import { CONTEXT_WINDOW, estimatePrompt, estimateTokens } from '@/lib/agent/loop/trim';
+import { TASKS } from '../../e2e/evals/tasks';
 
 const FOLDER = '10000000-0000-0000-0000-000000000001';
 const GARDEN = '30000000-0000-0000-0000-000000000001';
@@ -415,6 +417,121 @@ describe('runAgent', () => {
     it('should keep the turn schema under ~850 tokens', () => {
         // Was 600 with 4 notes tools; the 5 editor tools (#701) bring it to about 815.
         expect(estimateTokens(JSON.stringify(turnSchema(AGENT_TOOLS)))).toBeLessThan(850);
+    });
+});
+
+describe('runAgent — rules for small models (#914)', () => {
+    const editorWith = (...paragraphs: string[]): ActiveEditorStore => {
+        const doc = editorSchema.nodeFromJSON({ type: 'doc', content: paragraphs.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })) });
+        return {
+            get: () => ({ docId: GARDEN, editor: { state: EditorState.create({ doc }) } as unknown as Editor, editable: true, excludeFromAI: false }),
+            subscribe: () => () => {},
+        };
+    };
+    const toolCalls = (events: AgentEvent[]) => events.flatMap((e) => (e.type === 'toolCall' ? [e.tool] : []));
+    const writeNames = (tools: { name: string; readOnly: boolean }[]) => tools.filter((t) => !t.readOnly).map((t) => t.name);
+
+    it('should give the model the open note’s blocks before its first edit, as a read it already made', async () => {
+        const approve = vi.fn(async () => 'accepted' as const);
+        const read = { tool: 'read_open_note', args: {} };
+        const bold = { tool: 'format_text', args: { n: 2, mark: 'bold', on: true } };
+        const { engine, calls } = scriptedEngine([read, bold, { answer: 'Done.' }]);
+        const { result, events } = run('Bold the second paragraph', engine, { approve, editor: editorWith('one', 'two') });
+
+        expect(await result).toBe('Done.');
+        expect(calls[0].messages.slice(1, 3)).toEqual([
+            { role: 'assistant', content: JSON.stringify(read) },
+            { role: 'user', content: 'Result of read_open_note: [{"n":1,"type":"paragraph","text":"one"},{"n":2,"type":"paragraph","text":"two"}]' },
+        ]);
+        // A read the model makes again is a repeat: it does not run, and it costs no step.
+        expect(resultsSent(calls[1]).join('\n')).toContain('You already called read_open_note');
+        expect(toolCalls(events)).toEqual(['format_text']);
+        expect(approve).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not read the open note up front without edit tools, or with no note open', async () => {
+        const question = scriptedEngine([{ answer: 'ok' }]);
+        await run('When?', question.engine, { editor: editorWith('one'), tools: toolsFor('When?') }).result;
+        const noNote = scriptedEngine([{ answer: 'ok' }]);
+        await run('Bold it', noNote.engine).result;
+
+        for (const { calls } of [question, noNote]) expect(calls[0].messages.map((m) => m.role)).toEqual(['system', 'user']);
+    });
+
+    it('should refuse an identical write after it was accepted, so the user is asked once', async () => {
+        const approve = vi.fn(async () => 'accepted' as const);
+        const create = { tool: 'create_note', args: { title: 'Gift ideas', markdown: 'A scarf for Mum' } };
+        const reordered = { tool: 'create_note', args: { markdown: 'A scarf for Mum', title: 'Gift ideas' } };
+        const { engine, calls } = scriptedEngine([create, reordered, { answer: 'Created it.' }]);
+        const { result, events } = run("Create a note called 'Gift ideas'", engine, { approve });
+
+        expect(await result).toBe('Created it.');
+        expect(approve).toHaveBeenCalledTimes(1);
+        expect(toolCalls(events)).toEqual(['create_note']);
+        expect(resultsSent(calls[2]).join('\n')).toContain('You already made this change at step 1. Do not make it again; answer.');
+    });
+
+    it('should still take a different write after an accepted one', async () => {
+        const approve = vi.fn(async () => 'accepted' as const);
+        const create = (title: string) => ({ tool: 'create_note', args: { title, markdown: 'x' } });
+        const { engine } = scriptedEngine([create('A'), create('B'), { answer: 'ok' }]);
+
+        expect(await run('Create two notes', engine, { approve }).result).toBe('ok');
+        expect(approve).toHaveBeenCalledTimes(2);
+    });
+
+    it.each(TASKS.map((task) => [task.id, task.kind, task.prompt] as const))(
+        'should offer write tools for the eval task %s only if it asks for a change',
+        (_id, kind, prompt) => {
+            expect(writeNames(toolsFor(prompt))).toEqual(kind === 'edit' || kind === 'cross' ? writeNames(AGENT_TOOLS) : []);
+        }
+    );
+
+    it.each(['Summarize the open note', 'What should I pack?', 'Is there a note that mentions formatting?', 'What is my car insurance policy number?'])(
+        'should treat %j as a question',
+        (prompt) => expect(writeNames(toolsFor(prompt))).toEqual([])
+    );
+
+    it.each([
+        'Can you bold the title?',
+        'please rename it to Plan',
+        'Put eggs on my shopping list',
+        'Strikethrough the second line',
+        'Lowercase the title',
+        'Uppercase the heading',
+        'Cross out the last item',
+        'Tick off the first task',
+        'Check off the first task',
+        'Fill in the date',
+        'Bullet the list',
+        'Number the steps',
+        'Log my run in this note',
+        'Remember to buy milk',
+        'say Next instead of Second',
+    ])('should treat %j as a change', (prompt) =>
+        expect(writeNames(toolsFor(prompt))).toEqual(writeNames(AGENT_TOOLS))
+    );
+
+    it('should send a question no write tool, in the schema or in the rules', async () => {
+        const { engine, calls } = scriptedEngine([{ answer: 'May 3.' }]);
+        await run('When is my flight?', engine, { tools: toolsFor('When is my flight?') }).result;
+
+        expect(calls[0].schema.anyOf!.map((b) => b.properties.tool?.const ?? 'answer')).toEqual(['search_notes', 'get_note', 'read_open_note', 'answer']);
+        expect(calls[0].messages[0].content).not.toMatch(/append_to_note|create_note|edit tool/);
+    });
+
+    it('should list each tool with its arguments, required ones first', async () => {
+        const { engine, calls } = scriptedEngine([{ answer: 'hi' }]);
+        await run('Hi', engine).result;
+        const system = calls[0].messages[0].content;
+
+        expect(system).toContain('- format_text(n, mark, on, find?): ');
+        expect(system).toContain('- replace_text(n, find, replace): ');
+        expect(system).toContain('- create_note(title, markdown, folderId?): ');
+        expect(system).toContain('- search_notes(query): ');
+        // One sentence per tool, with an example for find.
+        for (const tool of AGENT_TOOLS) expect(tool.description).not.toMatch(/\.\s+\S/);
+        expect(system).toMatch(/replace_text.*for example \{"n": 3, "find": "tuesday"/);
     });
 });
 

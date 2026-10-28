@@ -21,7 +21,7 @@ test('on a phone, open Version history from More, restore a version, and keep th
 
       await page.getByRole('button', { name: 'Main' }).tap(); // the phone boots on the folder list
       const title = `History mobile ${Date.now()}`;
-      const back = page.getByRole('button', { name: 'Back' });
+      const back = page.getByRole('button', { name: /^Back to (?!notes$)/ });
       const editor = activeEditor(page);
 
       // createNote waits for a list row, which the phone hides once the editor is open.

@@ -16,6 +16,53 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.50.0 (2026-10-28)
+
+### New
+
+- On a phone, a tab bar is at the bottom of the screen. Its tabs are Notes, Shared, Search and Settings. The Shared and Settings rows no longer show on the home screen. A tablet or a computer keeps its layout.
+- On a phone, the New note button is above the tab bar. It does not show on the Shared list.
+
+## 2.49.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, the sign-in, share and error pages fit the screen when the address bar is shown.
+
+## 2.49.0 (2026-10-28)
+
+### New
+
+- On a phone, the More button in a note opens a sheet with all note actions. You can pin, share, move, archive or trash the note, and find text in it.
+- On a phone, you can open the contents of a note. Tap a heading to go to it.
+
+### Changed
+
+- On a phone, the Back button in a note is bigger and shows the name of the folder it goes to.
+- On a phone, the small title in the note header shows only when the big title is out of view.
+- On a phone, a new note opens with the cursor in the title.
+
+## 2.48.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, Back closes a sheet also when you push it immediately after the sheet opens.
+
+## 2.48.0 (2026-10-28)
+
+### Changed
+
+- When you ask the assistant a question, it does not change your notes.
+- The assistant reads the open note before it edits the note.
+- The assistant does not make the same change two times in one request.
+- The assistant can add text at the end of the open note. You accept or reject the change in the note.
+
+## 2.47.2 (2026-10-28)
+
+### Fixed
+
+- On a phone, the resize handles show only on the selected image.
+
 ## 2.47.1 (2026-10-28)
 
 ### Fixed

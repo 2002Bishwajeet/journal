@@ -1195,12 +1195,19 @@ img.ProseMirror-separator {
   box-shadow: 0 0 0 1px rgb(234 179 8 / 0.4);
 }
 
-/* Phone New note button (#878). --fab-bottom is its gap above the bottom edge
-   (#853 raises it above the tab bar). While it is on screen, html[data-fab] sets
-   --fab-clearance: the room lists and toasts leave under their last item. */
+/* Phone New note button (#878). --fab-bottom is its gap above the bottom edge. While it is
+   on screen, html[data-fab] sets --fab-clearance: the room lists and toasts leave under their
+   last item. Phone tab bar (#853): --tab-bar-height is its height without the safe area.
+   While it is on screen, html[data-tab-bar] raises the button above it and, without the
+   button, leaves the bar's height plus 8 px as clearance. */
 :root {
   --fab-size: 56px;
   --fab-bottom: 16px;
+  --tab-bar-height: 49px;
+}
+html[data-tab-bar] {
+  --fab-bottom: calc(var(--tab-bar-height) + 16px);
+  --fab-clearance: calc(var(--tab-bar-height) + 8px);
 }
 html[data-fab] {
   --fab-clearance: calc(var(--fab-size) + var(--fab-bottom) + 16px);

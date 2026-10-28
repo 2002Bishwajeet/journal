@@ -108,6 +108,9 @@ async function check(name: string, keyboardUp = false): Promise<Layout> {
 const waitFor = (what: string, condition: () => boolean, timeout = 30_000) =>
   browser.waitUntil(() => browser.execute(condition), { timeout, interval: 250, timeoutMsg: `timed out waiting for ${what}` });
 
+// A note's Back names its folder ("Back to Main", #825); the list's Back is "Back to notes".
+const noteBack = 'button[aria-label^="Back to "]:not([aria-label="Back to notes"])';
+
 async function tap(selector: string, index = 0) {
   // $$ and an index: WebdriverIO 10's $() fails when the selector matches several elements.
   await browser.waitUntil(async () => (await browser.$$(selector)).length > index, { timeout: 30_000, timeoutMsg: `timed out waiting for ${selector}` });
@@ -297,6 +300,20 @@ try {
   const auth = JSON.parse(readFileSync('e2e/fixtures/hermetic-auth.json', 'utf8')) as {
     origins: { origin: string; localStorage: { name: string; value: string }[] }[];
   };
+  // A public share page with no note (#894): first screens use svh, so with the URL bar shown the
+  // page must not be taller than the visible area (100vh is).
+  await browser.url(`${BASE}/share/ios-check.homebase.test/0b8e4c27-5d1a-4f93-a6e2-7c3d9f1b5e40`);
+  assertTestOrigin(await browser.execute(() => location.origin));
+  await browser.$('h1=Note Not Found').waitForDisplayed({ timeout: 60_000 });
+  const share = (await browser.execute(() => ({
+    scroll: document.scrollingElement!.scrollHeight,
+    visible: window.visualViewport!.height,
+  }))) as { scroll: number; visible: number };
+  const shareProblems = share.scroll <= share.visible + 1 ? [] : [`the page is ${share.scroll} px tall in a ${share.visible} px viewport`];
+  failures.push(...shareProblems.map((p) => `share-not-found: ${p}`));
+  summary.push(`| share-not-found | ${await screenshot('share-not-found')} | ${shareProblems.join('<br>') || 'none'} |`);
+  console.log(`${shareProblems.length ? '✗' : '✓'} share-not-found${shareProblems.map((p) => `\n    ${p}`).join('')}`);
+
   await browser.url(`${BASE}/welcome`);
   assertTestOrigin(await browser.execute(() => location.origin));
   await tap('#identity');
@@ -308,6 +325,8 @@ try {
 
   // At the root a phone shows the sidebar.
   const portrait = await check('sidebar');
+  // The tab bar (#853) must be on screen; layoutProblems checks it clears the home indicator.
+  if (!portrait.tabBar) failures.push('tab bar: no tab bar on the phone home screen');
 
   await browser.setOrientation('LANDSCAPE');
   await waitFor('landscape', () => innerWidth > innerHeight);
@@ -436,7 +455,7 @@ try {
 
   // In-app Back pops the note's entry instead of pushing the list (#822).
   const noteIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
-  await tap('button[aria-label="Back"]');
+  await tap(noteBack);
   await waitFor('the note list', () => location.pathname.split('/').filter(Boolean).length === 1);
   const listIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
   if (listIdx !== noteIdx - 1) failures.push(`in-app Back: history idx went ${noteIdx} -> ${listIdx}, expected ${noteIdx - 1} (a pop)`);
@@ -461,7 +480,7 @@ try {
   // reload, history.back() loads a new document for each entry, so it is not used here.
   await typeAndReload('Before the root', 'load-root', 'load-root');
   // The root opens the last note on a phone: back to the sidebar with the app's own back buttons.
-  await tap('[aria-label="Back"]');
+  await tap(noteBack);
   await tap('[aria-label="Back to notes"]');
   await waitFor('the sidebar', () => {
     const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
@@ -540,7 +559,7 @@ try {
     await midSlide('slide-folder-to-list');
     await tap('button[aria-label="New note"]');
     await midSlide('slide-list-to-note');
-    await tap('button[aria-label="Back"]');
+    await tap(noteBack);
     await midSlide('slide-back-to-list');
     await browser.execute(() => history.back());
     await waitFor('the sidebar', () => {
