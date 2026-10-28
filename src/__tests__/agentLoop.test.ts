@@ -507,6 +507,7 @@ describe('runAgent — rules for small models (#914)', () => {
         'Number the steps',
         'Log my run in this note',
         'Remember to buy milk',
+        'say Next instead of Second',
     ])('should treat %j as a change', (prompt) =>
         expect(writeNames(toolsFor(prompt))).toEqual(writeNames(AGENT_TOOLS))
     );

@@ -176,7 +176,7 @@ function systemPrompt(tools: AgentTool[]): string {
 
 /** A word that asks for a change (#914); a question has none. */
 const CHANGE_WORD =
-    /\b(add|append|insert|prepend|create|make|write|put|bold|italici[sz]e|underline|strike|format|replace|change|fix|correct|rename|edit|update|rewrite|reword|rephrase|remove|delete|move|turn|set|mark|highlight|capitali[sz]e|convert|translate|shorten|expand|sort|tidy|clean|swap|save|jot|type|paste|include|draft|indent|merge|split|proofread|strikethrough|uppercase|lowercase|tick|fill|bullet|log|cross(es|ed)? out|check(s|ed)? off|remember to)(s|es|d|ed)?\b|\bnumber(s|ed)? (the|it|them|each|these|those|my)\b/i;
+    /\b(add|append|insert|prepend|create|make|write|put|bold|italici[sz]e|underline|strike|format|replace|change|fix|correct|rename|edit|update|rewrite|reword|rephrase|remove|delete|move|turn|set|mark|highlight|capitali[sz]e|convert|translate|shorten|expand|sort|tidy|clean|swap|save|jot|type|paste|include|draft|indent|merge|split|proofread|strikethrough|uppercase|lowercase|tick|fill|bullet|log|cross(es|ed)? out|check(s|ed)? off|remember to)(s|es|d|ed)?\b|\bnumber(s|ed)? (the|it|them|each|these|those|my)\b|\binstead of\b/i;
 
 /** The tools for one request: a question that asks for no change gets the read-only ones, so the model can't write (#914). */
 export function toolsFor(request: string, tools: AgentTool[] = AGENT_TOOLS): AgentTool[] {
