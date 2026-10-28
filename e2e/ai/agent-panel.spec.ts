@@ -48,6 +48,9 @@ test('the panel answers from the notes, shows its steps, keeps an excluded note 
   const panel = app.getByRole('region', { name: 'Assistant' });
   const box = panel.getByPlaceholder('Type a message or /help...');
   await expect(panel.getByText('Ask me anything about your notes!')).toBeVisible();
+  // Experimental, with a pointer to MCP agents (#936).
+  await expect(panel.getByRole('heading', { name: 'Assistant Experimental' })).toBeVisible();
+  await expect(panel.getByRole('link', { name: 'Set up an agent' })).toHaveAttribute('href', 'https://journal.cloudx.run/agents');
 
   // Turn 1: search, read, answer. Nothing downloads before the dialog is accepted.
   await box.fill('what did I pack?');

@@ -42,6 +42,8 @@ test('mobile: explains that AI needs a larger screen and disables the switch', a
 
   await expect(dialog.getByText("On-device AI needs a larger screen (768 px or wider) and isn't available on phones.")).toBeVisible();
   await expect(dialog.getByRole('switch', { name: 'Enable on-device AI' })).toBeDisabled();
+  await expect(dialog.getByText('Experimental', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('link', { name: 'Set up an agent' })).toHaveAttribute('href', 'https://journal.cloudx.run/agents');
   await expect(dialog.getByRole('radiogroup', { name: 'Model' })).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: 'Remove downloaded models' })).toHaveCount(0);
 });
