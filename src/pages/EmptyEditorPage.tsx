@@ -20,9 +20,9 @@ export default function EmptyEditorPage({ overrideFolderId }: { overrideFolderId
   const folderId = overrideFolderId ?? params.folderId;
 
   const handleCreateNote = async () => {
-    const { docId, folderId: newFolderId } = await createNote(
-      resolveNoteFolderId(folderId, folders),
-    );
+    const { docId, folderId: newFolderId } = await createNote({
+      folderId: resolveNoteFolderId(folderId, folders),
+    });
     if (docId) {
       navigate(`/${newFolderId}/${docId}`);
     }
