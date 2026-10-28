@@ -7,7 +7,7 @@ import { createFolder, selectFolder, screenshotInBothThemes } from '../support/a
 
 const FOLDER = 'Fab folder';
 const fab = (page: Page) => page.getByRole('button', { name: 'New note', exact: true });
-const back = (page: Page) => page.getByRole('button', { name: 'Back', exact: true });
+const back = (page: Page) => page.getByRole('button', { name: /^Back to (?!notes$)/ });
 const rows = (page: Page) => page.getByTestId('note-row');
 
 async function box(locator: Locator) {

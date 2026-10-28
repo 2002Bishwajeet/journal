@@ -102,13 +102,13 @@ test('a folder list and a note keep the shell still, selectable and touch friend
     expect(Number(await bar.locator('xpath=..').evaluate((el) => getComputedStyle(el).opacity))).toBeGreaterThan(0);
     await page.screenshot({ path: test.info().outputPath('touch-controls-visible.png') });
 
-    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('button', { name: /^Back to (?!notes$)/ }).click();
     await expect(page.getByRole('heading', { name: folder })).toBeVisible();
     for (let i = 0; i < 25; i++) {
       const room = await viewport.evaluate((el) => el.scrollHeight - el.clientHeight);
       if (room > 100) break;
       await page.getByRole('button', { name: 'New note', exact: true }).click();
-      await page.getByRole('button', { name: 'Back', exact: true }).click();
+      await page.getByRole('button', { name: /^Back to (?!notes$)/ }).click();
     }
     const list = await noPageScroll(page);
     expect(list.scroll).toBe(list.inner);
@@ -124,7 +124,7 @@ test('with reduced motion, opening a folder and a note runs no animation', async
     await newNote(page, title, 'Hello');
     // Before Back: home mounts EmptyEditorPage (#832), and its entrance must not be running when sampling starts.
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('button', { name: /^Back to (?!notes$)/ }).click();
     await page.getByRole('button', { name: 'Back to notes' }).click();
 
     const folderMs = await longestAnimation(page, () => selectFolder(page, folder));

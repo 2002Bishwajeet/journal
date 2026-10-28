@@ -4,24 +4,16 @@ import {
   Plus,
   FileText,
   Trash2,
-  Share2,
-  Download,
   Users,
-  Archive,
-  ListX,
-  FolderInput,
   Globe,
   Pin,
-  PinOff,
   ChevronDown,
   ChevronRight,
   ArrowUpDown,
   ChevronLeft,
-  ExternalLink,
   Bot,
 } from "lucide-react";
 import { useDotYouClientContext } from "@/components/auth";
-import { ownerConsoleNoteUrl } from "@/lib/homebase";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -31,7 +23,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/modals";
-import { ContextMenuWrapper, RowOptionsMenu, type ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper";
+import { ContextMenuWrapper, RowOptionsMenu } from "@/components/ui/context-menu-wrapper";
+import { buildNoteMenuItems } from "@/helpers/noteMenuItems";
 import { cn } from "@/lib/utils";
 import { agentDisplayName } from "@/lib/agent/attribution";
 import type { NoteListEntry } from "@/types";
@@ -500,62 +493,11 @@ const NoteItem = memo(function NoteItem({
     }
   };
 
-  const menuItems: ContextMenuItemConfig[] = [
-    {
-      label: note.metadata.isPinned ? "Unpin" : "Pin",
-      icon: note.metadata.isPinned ? PinOff : Pin,
-      action: () => onTogglePin(note.docId, !note.metadata.isPinned),
-    },
-    // One item for sharing with people and the public link (#682). Notes from other
-    // people aren't ours to share or to file: they have neither.
-    ...(isPeerNote
-      ? []
-      : [{ label: "Share…", icon: Share2, action: () => onShareNote(note) }]),
-    ...(isPeerNote || !onMoveToFolder
-      ? []
-      : [
-          {
-            label: "Move to folder…",
-            icon: FolderInput,
-            action: () => onMoveToFolder(note),
-          },
-        ]),
-    {
-      label: "Export to Markdown",
-      icon: Download,
-      action: () =>
-        void import("@/lib/importexport/exportNoteMarkdown").then((m) =>
-          m.exportNoteAsMarkdown(note.docId, note.title || "Untitled"),
-        ),
-    },
-    {
-      label: "Open in Owner Console",
-      icon: ExternalLink,
-      action: () =>
-        window.open(
-          ownerConsoleNoteUrl(dotYouClient.getRoot(), note.docId),
-          "_blank",
-          "noopener,noreferrer",
-        ),
-    },
-    // A note shared with you leaves this device only; the owner's share is unchanged
-    ...(isPeerNote && onRemoveFromList
-      ? [{ label: "Remove from my list", icon: ListX, action: () => onRemoveFromList(note) }]
-      : []),
-    {
-      label: "Archive",
-      icon: Archive,
-      action: () => onArchive?.(note),
-      disabled: !onArchive,
-    },
-    {
-      label: "Move to Trash",
-      icon: Trash2,
-      action: () => onDeleteNote(note.docId),
-      variant: "destructive",
-      shortcut: "⌫",
-    },
-  ];
+  const menuItems = buildNoteMenuItems(note, {
+    isPeerNote,
+    dotYouRoot: dotYouClient.getRoot(),
+    handlers: { onTogglePin, onShare: onShareNote, onMoveToFolder, onRemoveFromList, onArchive, onTrash: onDeleteNote },
+  });
 
   return (
     <div
