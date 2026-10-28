@@ -86,7 +86,7 @@ function HiddenNotesViewComponent({
         </div>
       ) : (
         <ScrollArea className="flex-1">
-          <ul>
+          <ul className="pb-[var(--fab-clearance,0px)]">
             {notes.map((note) => (
               <li
                 key={note.docId}

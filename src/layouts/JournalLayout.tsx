@@ -13,6 +13,7 @@ import {
   SplashScreen,
 } from "@/components/layout";
 import { NewNoteFab } from "@/components/layout/NewNoteFab";
+import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import {
   useTabRouting,
   useLayoutUrlActions,
@@ -45,6 +46,8 @@ import type { NoteListEntry } from "@/types";
 import { useNotes } from "@/hooks/useNotes";
 import { getMobilePane, showNewNoteFab } from "@/layouts/mobilePane";
 import { useTextFieldFocused } from "@/hooks/useTextFieldFocused";
+import { useKeyboardOpen } from "@/hooks/useKeyboardOpen";
+import { useMobileTabs } from "@/hooks/useMobileTabs";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
 import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
@@ -235,13 +238,18 @@ export default function JournalLayout() {
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
   const isPhone = deviceType === "mobile";
   const textFieldFocused = useTextFieldFocused();
+  // The tab bar and the New note button leave the screen for the software keyboard (#853).
+  const keyboardOpen = useKeyboardOpen();
   const showFab = showNewNoteFab({
     isPhone,
     pane: mobilePane,
     isManagementView,
+    isShared: folderId === PSEUDO_FOLDERS.shared,
     overlayOpen: overlayEntryOpen(location.state),
-    textFieldFocused,
+    textFieldFocused: textFieldFocused || keyboardOpen,
   });
+  const showTabBar = isPhone && mobilePane !== "editor" && !keyboardOpen;
+  const tabs = useMobileTabs();
 
   // Tab/window title: the open note, else the current view. Trash/Archive hide
   // the desktop editor, so an open tab there must not win.
@@ -398,6 +406,14 @@ export default function JournalLayout() {
       )}
 
       {showFab && <NewNoteFab onClick={() => void noteActions.createAndOpen(folderId)} />}
+      {showTabBar && (
+        <MobileTabBar
+          activeTab={tabs.activeTab}
+          onSelectTab={tabs.selectTab}
+          onSearch={() => setShowSearch(true)}
+          onSettings={settings.open}
+        />
+      )}
 
       {/* Modals */}
       {noteId && deviceType !== "mobile" ? <ChatBot activeNoteId={noteId} /> : null}

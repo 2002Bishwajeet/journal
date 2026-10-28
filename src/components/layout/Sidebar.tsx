@@ -106,7 +106,10 @@ export default function Sidebar({
 }: SidebarProps) {
   const { collapsed, toggle } = useSidebarCollapse();
   // The rail only exists on desktop; phones and tablets show the sidebar as a full pane.
-  const isDesktop = useDeviceType() === "desktop";
+  const deviceType = useDeviceType();
+  const isDesktop = deviceType === "desktop";
+  // On a phone, Shared and Settings are tabs in the bottom bar (#853).
+  const isPhone = deviceType === "mobile";
   const isCollapsed = collapsed.sidebar && isDesktop;
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [shareFolderId, setShareFolderId] = useState<string | null>(null);
@@ -222,7 +225,7 @@ export default function Sidebar({
           )}
         >
           <PullToRefresh onRefresh={handleRefresh} className="min-h-full">
-          {(hasShared || sharedPull.canPull) && (
+          {!isPhone && (hasShared || sharedPull.canPull) && (
             <div className={cn("px-2 pt-2 pb-1 flex", isCollapsed ? "justify-center" : "items-center gap-1")}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -586,27 +589,29 @@ export default function Sidebar({
             )}
           </Tooltip>
 
-          <Tooltip>
-            {/* Settings */}
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                className={cn(
-                  isCollapsed
-                    ? "h-9 w-9 justify-center px-0"
-                    : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground"
-                )}
-                aria-label={isCollapsed ? "Settings" : undefined}
-                onClick={onSettings}
-              >
-                <Settings className="h-4 w-4" />
-                {!isCollapsed && <span className="ml-2 text-sm">Settings</span>}
-              </Button>
-            </TooltipTrigger>
-            {isCollapsed && (
-              <TooltipContent side="right">Settings</TooltipContent>
-            )}
-          </Tooltip>
+          {!isPhone && (
+            <Tooltip>
+              {/* Settings */}
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    isCollapsed
+                      ? "h-9 w-9 justify-center px-0"
+                      : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground"
+                  )}
+                  aria-label={isCollapsed ? "Settings" : undefined}
+                  onClick={onSettings}
+                >
+                  <Settings className="h-4 w-4" />
+                  {!isCollapsed && <span className="ml-2 text-sm">Settings</span>}
+                </Button>
+              </TooltipTrigger>
+              {isCollapsed && (
+                <TooltipContent side="right">Settings</TooltipContent>
+              )}
+            </Tooltip>
+          )}
 
           <Tooltip>
             {/* Logout */}
