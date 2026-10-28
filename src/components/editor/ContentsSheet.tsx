@@ -1,4 +1,4 @@
-import { useState, type ComponentProps } from 'react';
+import { useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { useReducedMotion } from 'framer-motion';
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -20,12 +20,10 @@ export function ContentsSheet({
   editor,
   open,
   onOpenChange,
-  onCloseAutoFocus,
 }: {
   editor: Editor;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCloseAutoFocus?: ComponentProps<typeof SheetContent>['onCloseAutoFocus'];
 }) {
   const reducedMotion = useReducedMotion();
   // The note as it is when the sheet opens; kept while the sheet slides away.
@@ -38,7 +36,7 @@ export function ContentsSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent variant="bottom" aria-describedby={undefined} onCloseAutoFocus={onCloseAutoFocus}>
+      <SheetContent variant="bottom" aria-describedby={undefined}>
         <SheetHeader>
           <SheetTitle>Contents</SheetTitle>
         </SheetHeader>
