@@ -56,7 +56,7 @@ async function reloadWithTheme(page: Page, theme: 'light' | 'dark') {
 }
 
 async function pickTheme(page: Page, label: 'Light' | 'Dark') {
-  await page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: /Settings/ }).click();
+  await page.getByRole('navigation', { name: 'Tabs' }).getByRole('button', { name: 'Settings', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('tab', { name: 'Appearance' }).click();
   await dialog.getByRole('radiogroup', { name: 'Theme' }).getByText(label, { exact: true }).click();
