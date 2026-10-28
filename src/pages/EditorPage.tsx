@@ -198,11 +198,12 @@ function EditorLayout({
       </div>
 
       <div className="flex-1 flex min-h-0 w-full overflow-hidden">
-        {/* The find bar stays put while the note scrolls under it (#825). */}
+        {/* Touch layouts: the find bar stays put while the note scrolls under it (#825). */}
         <div className="relative flex min-w-0 flex-1">
-        <FindReplaceBar />
+        {!isDesktop && <FindReplaceBar />}
         {/* The container a `wide` live block takes its width from (src/index.css, "Live blocks"). */}
         <div className="@container/live-blocks flex-1 overflow-y-auto relative bg-background w-full pb-[var(--editor-bottom-space,0px)]">
+          {isDesktop && <FindReplaceBar />}
           <TipTapEditor
             noteId={noteId}
             metadata={selectedNoteMetadata!}
