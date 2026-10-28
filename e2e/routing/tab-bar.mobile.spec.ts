@@ -111,7 +111,7 @@ test('the New note button creates the note where the user is', async ({ browser 
       await expect(back(page)).toBeVisible();
       mainFolder = routeFolder(page);
       expect(mainFolder).not.toBe(projects);
-      // Tag the note, so the tag list below exists. The desktop New button does not tag a new note either.
+      // Tag the note, so the tag list below exists.
       await page.getByPlaceholder('Add tags...').fill('work');
       await page.getByPlaceholder('Add tags...').press('Enter');
       await waitForNoteSaved(page);
@@ -127,7 +127,9 @@ test('the New note button creates the note where the user is', async ({ browser 
       await expect(back(page)).toBeVisible();
       expect(routeFolder(page)).toBe(mainFolder);
       await back(page).click();
+      // Two rows: the new note is tagged `work`, so it joined this list.
       await expect(page.getByRole('heading', { name: '#work' })).toBeVisible();
+      await expect(rows(page)).toHaveCount(2);
     });
   });
 });
@@ -214,16 +216,18 @@ test('a toast sits above the tab bar and the New note button', async ({ browser 
 
 test('the last row of a long list scrolls clear of the New note button', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
-    test.setTimeout(180_000);
+    test.setTimeout(120_000);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await createFolder(page, PROJECTS);
     await selectFolder(page, PROJECTS);
     await expect(page.getByRole('heading', { name: PROJECTS })).toBeVisible();
-    for (let i = 0; i < 30; i++) {
+    // Just enough rows to overflow the phone's list: every row costs a full create, save and back.
+    for (let i = 0; i < 12; i++) {
       await addNote(page);
       await expect(rows(page)).toHaveCount(i + 1);
     }
     const viewport = page.locator('[data-radix-scroll-area-viewport]').filter({ has: rows(page).first() });
+    expect(await viewport.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
     await viewport.evaluate((el) => { el.scrollTop = el.scrollHeight; });
     const last = await box(rows(page).last());
     expect(last.y + last.height).toBeLessThanOrEqual((await box(fab(page))).y);

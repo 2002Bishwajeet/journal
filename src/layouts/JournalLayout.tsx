@@ -50,6 +50,7 @@ import { useKeyboardOpen } from "@/hooks/useKeyboardOpen";
 import { useMobileTabs } from "@/hooks/useMobileTabs";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
+import { useSharedPull } from "@/hooks/useSharedPull";
 import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
 import { useSharePush } from "@/hooks/useSharePush";
 import { useRecordRecentNote } from "@/hooks/useRecentNotes";
@@ -159,7 +160,7 @@ export default function JournalLayout() {
     isFolderLoading,
     folderId,
     notes,
-    createNote,
+    createNote: (targetFolderId) => createNote({ folderId: targetFolderId }),
     openSearch: setShowSearch,
     openCollaborate: setShareNote,
   });
@@ -234,6 +235,7 @@ export default function JournalLayout() {
           ? "Shared"
           : folders.find((f) => f.id === folderId)?.name;
   const { tags, tagCounts, deleteTag } = useTags();
+  const sharedPull = useSharedPull();
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
   const isPhone = deviceType === "mobile";
@@ -305,6 +307,7 @@ export default function JournalLayout() {
         )}
       >
         <Sidebar
+          sharedPull={sharedPull}
           folders={folders}
           selectedFolderId={folderId || ""}
           onSelectFolder={(id) => {
@@ -351,6 +354,7 @@ export default function JournalLayout() {
       </div>
 
       <NoteListPane
+        sharedPull={sharedPull}
         isDesktop={isDesktop}
         isPhone={isPhone}
         isTablet={isTablet}

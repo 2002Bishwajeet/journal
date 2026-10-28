@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
 import type { Folder } from "@/types";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
-import { useSharedPull } from "@/hooks/useSharedPull";
+import type { useSharedPull } from "@/hooks/useSharedPull";
 import { OwnerImage } from "@/components/author/AuthorImage";
 import { folderInitials } from "@/lib/folderInitials";
 
@@ -69,6 +69,8 @@ interface SidebarProps {
   selectedTag?: string | null;
   onSelectTag?: (tag: string | null) => void;
   onDeleteTag?: (tag: string) => void;
+  /** Pulls notes shared with you; owned by the layout so the Shared list can offer Refresh too. */
+  sharedPull: ReturnType<typeof useSharedPull>;
   className?: string;
 }
 
@@ -102,6 +104,7 @@ export default function Sidebar({
   selectedTag,
   onSelectTag,
   onDeleteTag,
+  sharedPull,
   className = "",
 }: SidebarProps) {
   const { collapsed, toggle } = useSidebarCollapse();
@@ -117,7 +120,6 @@ export default function Sidebar({
   const tagToDeleteCount = tagToDelete ? tagCounts?.[tagToDelete] ?? 0 : 0;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { sync, pendingCount } = useSyncService();
-  const sharedPull = useSharedPull();
   const hasShared = collaborativeCount != null && collaborativeCount > 0;
 
   const handleRefresh = async () => {

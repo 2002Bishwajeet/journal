@@ -140,10 +140,12 @@ export function useNoteActions({
 
     const createAndOpen = async (targetFolderId: string | undefined) => {
         // Falls back to Main for pseudo-folder routes (Trash/Archive/Shared)
-        // and unknown folder ids — see resolveNoteFolderId.
-        const { docId, folderId: newFolderId } = await createNote(
-            resolveNoteFolderId(targetFolderId, folders),
-        );
+        // and unknown folder ids — see resolveNoteFolderId. In a tag list the
+        // new note carries that tag.
+        const { docId, folderId: newFolderId } = await createNote({
+            folderId: resolveNoteFolderId(targetFolderId, folders),
+            tags: selectedTag ? [selectedTag] : [],
+        });
         if (docId) slideNavigate("forward", () => navigate(`/${newFolderId}/${docId}`));
     };
 
