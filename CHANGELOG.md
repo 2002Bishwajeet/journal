@@ -1,3 +1,10 @@
+## [2.52.4](https://github.com/2002Bishwajeet/journal/compare/v2.52.3...v2.52.4) (2026-10-28)
+
+
+### Bug Fixes
+
+* **share:** load your own photo in People with access straight away ([08c10b7](https://github.com/2002Bishwajeet/journal/commit/08c10b7dad5de4ac2b25d70fe037e48c20f7b2e1))
+* **share:** no contact lookup for our own name, and read remote profile attributes in parallel ([8d469c9](https://github.com/2002Bishwajeet/journal/commit/8d469c90c761fbc1f66eb22fab27510d226d9b48))
 ## [2.52.3](https://github.com/2002Bishwajeet/journal/compare/v2.52.2...v2.52.3) (2026-10-28)
 
 

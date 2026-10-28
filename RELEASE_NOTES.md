@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.52.4 (2026-10-28)
+
+### Fixed
+
+- In "People with access", your photo shows immediately. Other people show their initials while their photo loads, not a spinner.
+
 ## 2.52.3 (2026-10-28)
 
 ### Fixed
