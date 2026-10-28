@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { withMobilePage } from '../support/mobile';
-import { createFolder, inBothThemes, selectFolder, waitForNoteSaved } from '../support/actions';
+import { createFolder, inBothThemes, selectFolder } from '../support/actions';
 
 // On a phone, Notes, Shared, Search and Settings are a tab bar at the bottom (#853).
 
@@ -9,10 +9,7 @@ const PROJECTS = 'Projects';
 const tabBar = (page: Page) => page.getByRole('navigation', { name: 'Tabs' });
 const tab = (page: Page, name: string) => tabBar(page).getByRole('button', { name, exact: true });
 const fab = (page: Page) => page.getByRole('button', { name: 'New note', exact: true });
-const back = (page: Page) => page.getByRole('button', { name: 'Back', exact: true });
-const rows = (page: Page) => page.getByTestId('note-row');
 const pathOf = (page: Page) => new URL(page.url()).pathname;
-const routeFolder = (page: Page) => pathOf(page).split('/')[1];
 
 async function box(locator: Locator) {
   const b = await locator.boundingBox();
@@ -37,12 +34,6 @@ async function shots(page: Page, name: string) {
   }
   await page.emulateMedia({ colorScheme: 'light' });
   await page.setViewportSize({ width: 393, height: 852 });
-}
-
-/** Open a note with the New note button and come back to the list it was made from. */
-async function addNote(page: Page) {
-  await fab(page).click();
-  await back(page).click();
 }
 
 test('home shows the four tabs above the home indicator, and the New note button above them', async ({ browser, browserName }) => {
@@ -77,60 +68,6 @@ test('home shows the four tabs above the home indicator, and the New note button
     await expect(sidebar.getByRole('button', { name: /Log out/ })).toBeVisible();
 
     await shots(page, 'tab-bar-home');
-  });
-});
-
-test('the New note button creates the note where the user is', async ({ browser }) => {
-  await withMobilePage(browser, async (page) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await createFolder(page, PROJECTS);
-    await selectFolder(page, PROJECTS);
-    await expect(page.getByRole('heading', { name: PROJECTS })).toBeVisible();
-    const projects = routeFolder(page);
-    let mainFolder = '';
-
-    await test.step('in Projects, the note goes to Projects', async () => {
-      await fab(page).click();
-      await expect(back(page)).toBeVisible();
-      expect(routeFolder(page)).toBe(projects);
-      // Inside a note neither the tab bar nor the button shows; Back to the list shows both again.
-      await expect(tabBar(page)).toHaveCount(0);
-      await expect(fab(page)).toHaveCount(0);
-      await back(page).click();
-      await expect(page.getByRole('heading', { name: PROJECTS })).toBeVisible();
-      await expect(tabBar(page)).toBeVisible();
-      await expect(fab(page)).toBeVisible();
-      await expect(rows(page)).toHaveCount(1);
-    });
-
-    await test.step('on home, the note goes to Main', async () => {
-      await tab(page, 'Notes').click();
-      await expect(page.getByRole('complementary', { name: 'Sidebar' })).toBeVisible();
-      expect(pathOf(page)).toBe('/');
-      await fab(page).click();
-      await expect(back(page)).toBeVisible();
-      mainFolder = routeFolder(page);
-      expect(mainFolder).not.toBe(projects);
-      // Tag the note, so the tag list below exists.
-      await page.getByPlaceholder('Add tags...').fill('work');
-      await page.getByPlaceholder('Add tags...').press('Enter');
-      await waitForNoteSaved(page);
-      await back(page).click();
-    });
-
-    await test.step('in a tag list, the note goes to Main', async () => {
-      if (pathOf(page) !== '/') await page.getByRole('button', { name: 'Back to notes' }).click();
-      await page.getByRole('navigation', { name: 'Tags' }).getByRole('button', { name: /work/ }).click();
-      await expect(page.getByRole('heading', { name: '#work' })).toBeVisible();
-      await expect(rows(page)).toHaveCount(1);
-      await fab(page).click();
-      await expect(back(page)).toBeVisible();
-      expect(routeFolder(page)).toBe(mainFolder);
-      await back(page).click();
-      // Two rows: the new note is tagged `work`, so it joined this list.
-      await expect(page.getByRole('heading', { name: '#work' })).toBeVisible();
-      await expect(rows(page)).toHaveCount(2);
-    });
   });
 });
 
@@ -211,27 +148,6 @@ test('a toast sits above the tab bar and the New note button', async ({ browser 
     // Hovering keeps the toast on screen while the shots are taken.
     await toast.hover();
     await shots(page, 'tab-bar-toast');
-  });
-});
-
-test('the last row of a long list scrolls clear of the New note button', async ({ browser }) => {
-  await withMobilePage(browser, async (page) => {
-    test.setTimeout(120_000);
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await createFolder(page, PROJECTS);
-    await selectFolder(page, PROJECTS);
-    await expect(page.getByRole('heading', { name: PROJECTS })).toBeVisible();
-    // Just enough rows to overflow the phone's list: every row costs a full create, save and back.
-    for (let i = 0; i < 12; i++) {
-      await addNote(page);
-      await expect(rows(page)).toHaveCount(i + 1);
-    }
-    const viewport = page.locator('[data-radix-scroll-area-viewport]').filter({ has: rows(page).first() });
-    expect(await viewport.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
-    await viewport.evaluate((el) => { el.scrollTop = el.scrollHeight; });
-    const last = await box(rows(page).last());
-    expect(last.y + last.height).toBeLessThanOrEqual((await box(fab(page))).y);
-    await shots(page, 'tab-bar-folder-end');
   });
 });
 

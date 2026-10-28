@@ -122,14 +122,14 @@ export function useNotes() {
 
     // --- Mutations ---
 
-    const createNoteMutation = useMutation<CreateNoteResult, Error, { folderId?: string; tags?: string[] }>({
-        mutationFn: async ({ folderId: targetFolderId, tags = [] }) => {
+    const createNoteMutation = useMutation<CreateNoteResult, Error, string | undefined>({
+        mutationFn: async (targetFolderId?: string) => {
             const docId = formatGuidId(getNewId());
             const now = new Date().toISOString();
             const metadata: DocumentMetadata = {
                 title: 'Untitled',
                 folderId: targetFolderId || MAIN_FOLDER_ID,
-                tags,
+                tags: [],
                 timestamps: { created: now, modified: now },
                 excludeFromAI: false,
                 isPinned: false,
