@@ -16,6 +16,7 @@ const ok: Layout = {
   searchSheet: null,
   sheet: null,
   sidebarFooter: { top: 610, bottom: 642, left: 8, right: 385 },
+  largeTitle: { top: 48, bottom: 96, left: 0, right: 393 },
   tabBar: { top: 610, bottom: 659, left: 0, right: 98 },
   foreignRequests: [],
 };
@@ -35,6 +36,14 @@ describe('iOS Safari layout checks', () => {
   it('should pass a clean layout, with and without the keyboard', () => {
     expect(layoutProblems(ok, false)).toEqual([]);
     expect(layoutProblems(keyboard, true)).toEqual([]);
+  });
+
+  it('should flag a large title under the status bar (#830)', () => {
+    const insets = { top: 59, right: 0, bottom: 34, left: 0 };
+    expect(layoutProblems({ ...ok, insets, sidebarFooter: null, tabBar: null, largeTitle: { top: 103, bottom: 144, left: 0, right: 393 } }, false)).toEqual([]);
+    expect(layoutProblems({ ...ok, insets, sidebarFooter: null, tabBar: null, largeTitle: { top: 20, bottom: 61, left: 0, right: 393 } }, false)).toEqual([
+      'the large title starts at 20, under the status bar (safe area top 59)',
+    ]);
   });
 
   it('should flag sideways scrolling', () => {

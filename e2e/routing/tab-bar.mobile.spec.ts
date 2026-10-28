@@ -60,12 +60,12 @@ test('home shows the four tabs above the home indicator, and the New note button
     expect(b.height).toBeGreaterThanOrEqual(56);
     expect(b.y + b.height).toBe(bar.y - 16);
 
-    // The Settings and Shared rows are tabs now; the sidebar keeps Search and Log out.
+    // The Settings and Shared rows are tabs now; the sidebar keeps Search, and Log out is in Settings (#830).
     const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
     await expect(sidebar.getByRole('button', { name: /Settings/ })).toHaveCount(0);
     await expect(sidebar.getByRole('button', { name: /Shared with me/ })).toHaveCount(0);
     await expect(sidebar.getByRole('button', { name: /Search/ })).toBeVisible();
-    await expect(sidebar.getByRole('button', { name: /Log out/ })).toBeVisible();
+    await expect(sidebar.getByRole('button', { name: /Log out/ })).toHaveCount(0);
 
     await shots(page, 'tab-bar-home');
   });

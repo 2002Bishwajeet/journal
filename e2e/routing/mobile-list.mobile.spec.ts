@@ -124,8 +124,9 @@ test('in Trash, Restore and Delete forever are 44 px and 8 px apart', async ({ b
     const back = await box(page.getByRole('button', { name: 'Back to notes' }));
     expect(back.width).toBeGreaterThanOrEqual(44);
     expect(back.height).toBeGreaterThanOrEqual(44);
-    const empty = await box(page.getByRole('button', { name: 'Empty Trash' }));
-    expect(empty.height).toBeGreaterThanOrEqual(44);
+    // Empty Trash is in the More (…) sheet (#830).
+    const more = await box(page.getByRole('button', { name: 'More', exact: true }));
+    expect(more.height).toBeGreaterThanOrEqual(44);
 
     const restore = await box(page.getByRole('button', { name: 'Restore note' }));
     const del = await box(page.getByRole('button', { name: 'Delete forever' }));

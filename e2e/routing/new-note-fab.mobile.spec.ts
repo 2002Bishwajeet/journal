@@ -40,8 +40,8 @@ test('the New note button sits in the thumb zone and opens a note in the right f
       expect(b.x + b.width).toBe(393 - 16);
       expect(b.y + b.height).toBe(852 - 49 - 16);
       // The sidebar footer ends above it.
-      const logout = page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: /Log out/ });
-      expect((await box(logout)).y + (await box(logout)).height).toBeLessThanOrEqual(b.y);
+      const footer = page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: /^Trash/ });
+      expect((await box(footer)).y + (await box(footer)).height).toBeLessThanOrEqual(b.y);
       await shots(page, 'fab-home');
     });
 

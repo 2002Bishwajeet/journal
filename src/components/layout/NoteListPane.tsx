@@ -1,5 +1,5 @@
 import { useBackTo } from "@/hooks/useBackTo";
-import { ArchiveRestore, Trash2, Archive, RefreshCw } from "lucide-react";
+import { ArchiveRestore, Trash2, Archive, RefreshCw, FileText, Hash, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
@@ -9,6 +9,7 @@ import type { useSharedPull } from "@/hooks/useSharedPull";
 import NoteList from "./NoteList";
 import { SyncStatus } from "./SyncStatus";
 import { HiddenNotesView } from "./HiddenNotesView";
+import { EmptyState } from "./LargeTitle";
 
 interface NoteListPaneProps {
   isDesktop: boolean;
@@ -60,6 +61,21 @@ export function NoteListPane({
   const split = isDesktop || isTablet;
   const onBack = isDesktop ? undefined : isTablet ? onOpenSidebar : goBack;
   const backLabel = isTablet ? "Show folders" : undefined;
+  const createNote = () => noteActions.createAndOpen(folderId);
+  // Phone and tablet (#830): each list says what it holds. Only a folder offers New note.
+  const emptyState = isDesktop ? undefined : selectedTag ? (
+    <EmptyState icon={Hash} title={`No notes tagged ${viewLabel}`} description={`Add ${viewLabel} to a note to see it here.`} />
+  ) : folderId === PSEUDO_FOLDERS.shared ? (
+    <EmptyState icon={Users} title="Nothing shared yet" description="Notes others share with you appear here." />
+  ) : (
+    <EmptyState icon={FileText} title={`No notes in ${viewLabel ?? "this folder"}`} description="Notes you write here appear in this list.">
+      {/* Named apart from the New note button (#878), which is on screen too. */}
+      <Button onClick={createNote} aria-label={`New note in ${viewLabel ?? "this folder"}`} className="h-11 rounded-full px-5 text-[15px]">
+        <Plus className="size-5" aria-hidden />
+        New note
+      </Button>
+    </EmptyState>
+  );
 
   return (
     <div
@@ -89,11 +105,20 @@ export function NoteListPane({
             isLoading={isListLoading}
             emptyIcon={Trash2}
             emptyLabel="Trash is empty"
+            emptyDescription="Deleted notes stay here until you empty Trash."
             rowActions={[
               { icon: ArchiveRestore, label: "Restore note", onClick: noteActions.restoreFromTrash },
               { icon: Trash2, label: "Delete forever", onClick: noteActions.deleteForever, destructive: true },
             ]}
-            headerAction={{ label: "Empty Trash", onClick: noteActions.emptyTrash }}
+            headerAction={{
+              label: "Empty Trash",
+              onClick: noteActions.emptyTrash,
+              confirm: {
+                title: "Empty Trash?",
+                description: "This deletes every note in Trash for good. You can't undo this.",
+              },
+            }}
+            compact={!isDesktop}
             onBack={onBack}
             backLabel={backLabel}
             className="flex-1"
@@ -105,10 +130,12 @@ export function NoteListPane({
             isLoading={isListLoading}
             emptyIcon={Archive}
             emptyLabel="No archived notes"
+            emptyDescription="Notes you archive leave your lists and stay here until you restore them."
             rowActions={[
               { icon: ArchiveRestore, label: "Unarchive note", onClick: noteActions.unarchive },
               { icon: Trash2, label: "Move to Trash", onClick: noteActions.moveArchivedToTrash, destructive: true },
             ]}
+            compact={!isDesktop}
             onBack={onBack}
             backLabel={backLabel}
             className="flex-1"
@@ -119,7 +146,8 @@ export function NoteListPane({
           viewKey={selectedTag ? `tag:${selectedTag}` : folderId}
           selectedNoteId={noteId || null}
           onSelectNote={noteActions.selectNote}
-          onCreateNote={() => noteActions.createAndOpen(folderId)}
+          onCreateNote={createNote}
+          emptyState={emptyState}
           showNewButton={!isPhone}
           onDeleteNote={noteActions.deleteAndSelectNeighbour}
           onShareNote={onShareNote}
