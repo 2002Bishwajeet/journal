@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.52.0 (2026-10-28)
+
+### Changed
+
+- When you make a new note from a tag list, the new note has that tag. The note stays in Main and shows in the tag list.
+
 ## 2.51.0 (2026-10-28)
 
 ### Changed

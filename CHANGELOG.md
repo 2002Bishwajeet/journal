@@ -1,3 +1,9 @@
+# [2.52.0](https://github.com/2002Bishwajeet/journal/compare/v2.51.0...v2.52.0) (2026-10-28)
+
+
+### Features
+
+* **notes:** a new note made in a tag list gets that tag ([#933](https://github.com/2002Bishwajeet/journal/issues/933)) ([3d5980f](https://github.com/2002Bishwajeet/journal/commit/3d5980fb27f7e957dee346d33568cf474b876a54))
 # [2.51.0](https://github.com/2002Bishwajeet/journal/compare/v2.50.1...v2.51.0) (2026-10-28)
 
 
