@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.48.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, Back closes a sheet also when you push it immediately after the sheet opens.
+
 ## 2.48.0 (2026-10-28)
 
 ### Changed
