@@ -76,7 +76,7 @@ test('the list and the note sit side by side, and the folders open as an overlay
     expect(list.width).toBeCloseTo(320, 0);
     expect(editor.x).toBeGreaterThanOrEqual(list.x + list.width - 1);
     expect(editor.width).toBeGreaterThan(400);
-    await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeHidden();
+    await expect(page.getByRole('button', { name: /^Back to (?!notes$)/ })).toBeHidden();
     await shots(page, 'two-pane');
 
     // Tapping another note row keeps both panes.

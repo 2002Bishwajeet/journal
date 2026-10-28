@@ -19,7 +19,7 @@ async function box(locator: ReturnType<Page['locator']>) {
 
 async function addNote(page: Page) {
   await page.getByRole('button', { name: 'New note', exact: true }).click();
-  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.getByRole('button', { name: /^Back to (?!notes$)/ }).click();
   await expect(page.getByRole('heading', { name: FOLDER })).toBeVisible();
 }
 
@@ -90,7 +90,7 @@ test('in-app navigation slides; the system Back plays no transition of ours', as
 
     await selectFolder(page, FOLDER);
     await page.getByRole('button', { name: 'New note', exact: true }).click();
-    const back = page.getByRole('button', { name: 'Back', exact: true });
+    const back = page.getByRole('button', { name: /^Back to (?!notes$)/ });
     await expect(back).toBeVisible();
     await expect.poll(slides).toEqual(['forward', 'forward']);
 

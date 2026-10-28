@@ -11,6 +11,7 @@ import { Editor } from '@tiptap/react';
 import { useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { extractHeadings, type HeadingEntry } from '@/lib/editor/extractHeadings';
+import { scrollToHeading } from '@/lib/editor/scrollToHeading';
 import { cn } from '@/lib/utils';
 
 interface TocPanelProps {
@@ -57,15 +58,7 @@ export function TocPanel({ editor, onClose }: TocPanelProps) {
     if (!editor.view || editor.isDestroyed) return;
     // Move the cursor to the heading but let us own the scroll animation below.
     editor.chain().focus(pos, { scrollIntoView: false }).run();
-    // pos is the position *before* the heading; pos + 1 lands inside it so the
-    // resolved DOM node's closest heading element is the scroll target.
-    const { node } = editor.view.domAtPos(pos + 1);
-    const el = node instanceof HTMLElement ? node : node.parentElement;
-    const target = el?.closest('h1, h2, h3, h4, h5, h6') ?? el;
-    target?.scrollIntoView({
-      behavior: reducedMotion ? 'auto' : 'smooth',
-      block: 'start',
-    });
+    scrollToHeading(editor, pos, !reducedMotion);
   };
 
   return (
