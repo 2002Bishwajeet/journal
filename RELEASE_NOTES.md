@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.52.2 (2026-10-28)
+
+### Changed
+
+- Settings → AI and the assistant panel show an "Experimental" label. A line tells you that the on-device assistant runs only on this device and is slower and less capable than AI agents connected through MCP. It has a link to set up an agent.
+
 ## 2.52.1 (2026-10-28)
 
 ### Fixed

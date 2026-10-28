@@ -1,3 +1,23 @@
+## [2.52.2](https://github.com/2002Bishwajeet/journal/compare/v2.52.1...v2.52.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* **site:** own media per page, readable code on phones, bolder notes-live moment ([5729801](https://github.com/2002Bishwajeet/journal/commit/57298012388b0e72af10fd969cba84b21f54e983))
+* **site:** use a private-use placeholder instead of NUL in llms.txt text extraction ([2000713](https://github.com/2002Bishwajeet/journal/commit/2000713a24e6c42d9fb41a4f735da669c6ee5b1d))
+
+
+### Features
+
+* **ai:** label the on-device assistant Experimental and point to MCP agents ([#936](https://github.com/2002Bishwajeet/journal/issues/936)) ([8a6f061](https://github.com/2002Bishwajeet/journal/commit/8a6f061ff5e41dcca9fc25143c54f7b257531444))
+* **site:** agents and pricing pages, dark demo, real product media ([f9f758a](https://github.com/2002Bishwajeet/journal/commit/f9f758aa8b8ec6781c73ccd019d72740678195d7))
+* **site:** agents page setup guide and full MCP tool reference ([3fc9ad2](https://github.com/2002Bishwajeet/journal/commit/3fc9ad2e3138cdcf341dd2e8b438913a771ea0b6))
+* **site:** calmer hero, tighter type, own media per placement ([94ee161](https://github.com/2002Bishwajeet/journal/commit/94ee161eb24bed6cea74387782a6992705d15ac5))
+* **site:** home leads with "Your notes stay home", real app window in the hero ([2cb2571](https://github.com/2002Bishwajeet/journal/commit/2cb2571244c2db412b28e41309319d15f27b2d12))
+* **site:** landing at the journal.cloudx.run root, app links to /app/ ([24adb94](https://github.com/2002Bishwajeet/journal/commit/24adb94b47848af960a3149cfbf79a70420069c6)), closes [#913](https://github.com/2002Bishwajeet/journal/issues/913)
+* **site:** landing page for Journal ([1874c29](https://github.com/2002Bishwajeet/journal/commit/1874c29c19100dc426c4782abc1605317c0ed06c))
+* **site:** LLM-friendly site, FAQ accordions, grouped editor features, install tabs ([efaa7c2](https://github.com/2002Bishwajeet/journal/commit/efaa7c245298d20b8d6bed3b11ad37e85de8d675))
+* **site:** serif display voice, legible hero loop, tidier crops ([cb84d18](https://github.com/2002Bishwajeet/journal/commit/cb84d183432c5d966bf634ff4313cdc8cc0c8e39)), closes [#674](https://github.com/2002Bishwajeet/journal/issues/674)
 ## [2.52.1](https://github.com/2002Bishwajeet/journal/compare/v2.52.0...v2.52.1) (2026-10-28)
 
 
