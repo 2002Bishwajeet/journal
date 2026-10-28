@@ -18,7 +18,8 @@ const PERSON_EDITOR_NOTE = 'Needs a Homebase server update';
 /**
  * A native select drawn like the app's Input (see AgentAccessSection's AccessSelect).
  * `quiet` is the role menu on a row: no border until hovered or focused, so a list of
- * people reads as names, not as a form. It stays 44px tall on touch screens.
+ * people reads as names, not as a form. It stays 44px tall on touch screens. Otherwise its
+ * border, like the search field's, is drawn at 3:1 so the field reads on a phone in sunlight.
  */
 function RoleSelect({ quiet = false, ...props }: ComponentProps<'select'> & { quiet?: boolean }) {
     return (
@@ -26,15 +27,15 @@ function RoleSelect({ quiet = false, ...props }: ComponentProps<'select'> & { qu
             <select
                 {...props}
                 className={cn(
-                    'h-11 w-full appearance-none rounded-md border pr-8 pl-3 text-base text-foreground outline-none transition-[color,background-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:h-9 pointer-fine:text-sm [&>option]:bg-popover [&>option]:text-popover-foreground',
+                    'peer h-11 w-full appearance-none rounded-md border pr-8 pl-3 text-base text-foreground outline-none transition-[color,background-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:h-9 pointer-fine:text-sm [&>option]:bg-popover [&>option]:text-popover-foreground',
                     quiet
                         ? 'border-transparent bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:text-foreground'
-                        : 'border-border bg-background shadow-xs',
+                        : 'border-muted-foreground/75 bg-background shadow-xs',
                 )}
             />
             <ChevronDown
                 aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground peer-disabled:opacity-50"
             />
         </div>
     );
@@ -218,7 +219,7 @@ export function SharePeopleSection({ access, grantPermissionsUrl, disabledReason
                                 autoCapitalize="none"
                                 spellCheck={false}
                                 disabled={access.isSaving}
-                                className="border-border pl-9 max-sm:h-11"
+                                className="border-muted-foreground/75 pl-9 max-sm:h-11"
                             />
                         </div>
                         <RoleSelect
