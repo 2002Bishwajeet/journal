@@ -47,6 +47,7 @@ import { OwnerImage } from "@/components/author/AuthorImage";
 import { folderInitials } from "@/lib/folderInitials";
 import { useLargeTitle } from "@/hooks/useLargeTitle";
 import { BarTitle, LargeTitle } from "./LargeTitle";
+import { largeTitleBarClass } from "./largeTitleClasses";
 
 interface SidebarProps {
   folders: Folder[];
@@ -190,12 +191,7 @@ export default function Sidebar({
       >
         {/* Header */}
         {!isDesktop ? (
-          <div
-            className={cn(
-              "relative flex items-center h-11 px-3 border-b shrink-0 transition-colors",
-              largeTitle.collapsed ? "border-sidebar-border" : "border-transparent"
-            )}
-          >
+          <div className={cn(largeTitleBarClass(largeTitle.collapsed), largeTitle.collapsed && "border-sidebar-border")}>
             <BarTitle show={largeTitle.collapsed}>Journal</BarTitle>
           </div>
         ) : (

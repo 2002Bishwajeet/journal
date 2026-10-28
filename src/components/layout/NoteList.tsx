@@ -38,6 +38,7 @@ import { swipeAxis } from "@/helpers/swipeAxis";
 import { haptic } from "@/lib/haptics";
 import { useLargeTitle } from "@/hooks/useLargeTitle";
 import { BarTitle, LargeTitle } from "./LargeTitle";
+import { FILL_EMPTY_VIEWPORT, largeTitleBarClass } from "./largeTitleClasses";
 
 // Rows mounted per render step; the sentinel adds another page as it scrolls into view.
 const PAGE = 100;
@@ -230,10 +231,8 @@ export default function NoteList({
       {/* Header */}
       <div
         className={cn(
-          "relative flex items-center justify-between border-b shrink-0",
-          title
-            ? cn("h-11 px-2 transition-colors", largeTitle.collapsed ? "border-border" : "border-transparent")
-            : "h-12 px-3 border-border",
+          "justify-between",
+          title ? largeTitleBarClass(largeTitle.collapsed) : "flex items-center h-12 px-3 border-b border-border shrink-0",
         )}
       >
         {onBack && (
@@ -294,8 +293,7 @@ export default function NoteList({
       <ScrollArea
         className={cn(
           "flex-1 min-h-0 w-full",
-          // An empty list fills the viewport, so its empty state centres in the room left.
-          isEmpty && emptyState && "[&_[data-slot=scroll-area-viewport]>div]:!block [&_[data-slot=scroll-area-viewport]>div]:h-full",
+          isEmpty && emptyState && FILL_EMPTY_VIEWPORT,
         )}
         onScrollCapture={() => setOpenRowId(null)}
       >
@@ -306,10 +304,8 @@ export default function NoteList({
             <div className="flex items-center justify-center h-32">
               <span className="text-sm text-muted-foreground">Loading...</span>
             </div>
-          ) : isEmpty && emptyState ? (
-            emptyState
-          ) : notes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 px-4 text-center">
+          ) : isEmpty ? (
+            emptyState ?? <div className="flex flex-col items-center justify-center h-48 px-4 text-center">
               <FileText className="h-10 w-10 text-muted-foreground/70 mb-3" />
               <p className="text-sm text-muted-foreground mb-2">No notes yet</p>
               <Button variant="link" size="sm" onClick={onCreateNote}>
