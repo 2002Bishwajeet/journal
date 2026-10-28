@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import EditorPage from "@/pages/EditorPage.lazy";
 import type { TabInfo } from "@/hooks/useTabManager";
+import type { NoteScreenActions } from "@/hooks/useNoteScreenActions";
 import TabBar from "./TabBar";
 
 const EmptyEditorPage = lazy(() => import("@/pages/EmptyEditorPage"));
@@ -28,6 +29,8 @@ interface EditorPaneProps {
   collaborativeTabIds: Set<string>;
   onTabClick: (docId: string) => void;
   onTabClose: (docId: string) => void;
+  /** What the touch layouts' note menu asks of the layout (#825). */
+  noteScreenActions: NoteScreenActions;
 }
 
 /** Right pane: desktop tab bar plus the (keep-alive) editor, or the mobile Outlet. */
@@ -47,6 +50,7 @@ export function EditorPane({
   collaborativeTabIds,
   onTabClick,
   onTabClose,
+  noteScreenActions,
 }: EditorPaneProps) {
   return (
     <main
@@ -151,7 +155,7 @@ export function EditorPane({
           ))
         ) : (
           /* Mobile keeps the simple Router Outlet behavior */
-          <Outlet />
+          <Outlet context={noteScreenActions} />
         )}
         </Suspense>
         </ErrorBoundary>

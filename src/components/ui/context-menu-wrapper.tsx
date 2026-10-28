@@ -25,6 +25,8 @@ export interface ContextMenuItemConfig {
     disabled?: boolean;
     /** The current choice in a list of options (the action sheet shows a check). */
     checked?: boolean;
+    /** The action sheet puts this item in the last group, with the destructive ones. */
+    separate?: boolean;
 }
 
 interface ContextMenuWrapperProps {

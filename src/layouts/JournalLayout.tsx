@@ -40,7 +40,7 @@ import MoveToFolderDialog from "@/components/modals/MoveToFolderDialog";
 
 const SettingsModal = lazy(() => import("@/components/modals/SettingsModal"));
 const ShareNoteDialog = lazy(() => import("@/components/modals/ShareNoteDialog"));
-import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
+import { viewLabel } from "@/helpers/viewLabel";
 import type { NoteListEntry } from "@/types";
 import { useNotes } from "@/hooks/useNotes";
 import { getMobilePane, showNewNoteFab } from "@/layouts/mobilePane";
@@ -178,6 +178,10 @@ export default function JournalLayout() {
     handleTabClose,
   });
   const { removeFromMyList } = useNoteCollaboration();
+  const removeSharedNote = (note: NoteListEntry) => {
+    if (openTabs.some((t) => t.docId === note.docId)) handleTabClose(note.docId);
+    void removeFromMyList(note);
+  };
 
   // Focus mode hides all chrome to spotlight the editor; management views have
   // no editor, so its effect is suppressed there (otherwise: blank screen).
@@ -221,15 +225,7 @@ export default function JournalLayout() {
 
   const isDesktop = deviceType === "desktop";
 
-  const viewLabel = selectedTag
-    ? `#${selectedTag}`
-    : folderId === PSEUDO_FOLDERS.trash
-      ? "Trash"
-      : folderId === PSEUDO_FOLDERS.archive
-        ? "Archive"
-        : folderId === PSEUDO_FOLDERS.shared
-          ? "Shared"
-          : folders.find((f) => f.id === folderId)?.name;
+  const currentViewLabel = viewLabel(folderId, selectedTag, folders);
   const { tags, tagCounts, deleteTag } = useTags();
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
@@ -250,7 +246,7 @@ export default function JournalLayout() {
   useDocumentTitle(
     openNoteId
       ? notes.find((n) => n.docId === openNoteId)?.title || "Untitled"
-      : viewLabel,
+      : currentViewLabel,
   );
 
   if (isNotesLoading || isFolderLoading) {
@@ -353,16 +349,13 @@ export default function JournalLayout() {
         folderId={folderId}
         noteId={noteId}
         selectedTag={selectedTag}
-        viewLabel={viewLabel}
+        viewLabel={currentViewLabel}
         listNotes={listNotes}
         isListLoading={isListLoading}
         noteActions={noteActions}
         onShareNote={setShareNote}
         onMoveToFolder={setMoveNote}
-        onRemoveFromList={(note) => {
-          if (openTabs.some((t) => t.docId === note.docId)) handleTabClose(note.docId);
-          void removeFromMyList(note);
-        }}
+        onRemoveFromList={removeSharedNote}
       />
 
       <EditorPane
@@ -381,6 +374,15 @@ export default function JournalLayout() {
         collaborativeTabIds={collaborativeTabIds}
         onTabClick={handleTabClick}
         onTabClose={handleTabClose}
+        noteScreenActions={{
+          backLabel: currentViewLabel ?? "Notes",
+          onShare: setShareNote,
+          onMoveToFolder: setMoveNote,
+          onArchive: noteActions.archive,
+          // A phone shows the list again; a tablet opens the next note beside it.
+          onTrash: (id) => noteActions.deleteAndSelectNeighbour(id, { openNeighbour: !isPhone }),
+          onRemoveFromList: removeSharedNote,
+        }}
       />
 
       {/* Focus mode exit pill for touch layouts; desktop has an Exit button in the toolbar. */}

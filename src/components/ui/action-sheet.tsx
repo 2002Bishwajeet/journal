@@ -47,8 +47,9 @@ export function ActionSheet({
       </button>
     )
   }
-  const regular = items.filter((item) => item.variant !== "destructive")
-  const destructive = items.filter((item) => item.variant === "destructive")
+  const isLast = (item: ContextMenuItemConfig) => item.variant === "destructive" || item.separate
+  const regular = items.filter((item) => !isLast(item))
+  const destructive = items.filter(isLast)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
