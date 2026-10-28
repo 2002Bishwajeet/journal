@@ -20,10 +20,12 @@ interface SlashCommandListProps {
   range: { from: number; to: number };
   query: string;
   clientRect?: (() => DOMRect | null) | null;
+  /** On a phone: a full-width panel above the keyboard toolbar with 48 px rows (#827). */
+  docked?: boolean;
 }
 
 export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandListProps>(
-  ({ editor, range, query }, ref) => {
+  ({ editor, range, query, docked }, ref) => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     // Ranked from the query directly (not the async `items` prop), so the
     // list never shows an empty in-between state while items resolve.
@@ -80,7 +82,7 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
 
     if (filteredItems.length === 0) {
       return (
-        <div className="z-50 w-72 rounded-lg border border-border bg-popover p-2 shadow-lg">
+        <div className={cn('z-50 border-border bg-popover p-2 shadow-lg', docked ? 'w-full border-t' : 'w-72 rounded-lg border')}>
           <p className="text-sm text-muted-foreground px-2 py-1">No commands found</p>
         </div>
       );
@@ -101,6 +103,7 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
           onMouseEnter={() => setSelectedIndex(index)}
           className={cn(
             'flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+            docked && 'min-h-12',
             isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50'
           )}
         >
@@ -116,7 +119,17 @@ export const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandList
     };
 
     return (
-      <div ref={listRef} className="z-50 w-72 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg animate-in fade-in-0 zoom-in-95">
+      <div
+        ref={listRef}
+        // Tapping a row must not take focus from the note, or the keyboard drops.
+        onMouseDown={docked ? (e) => e.preventDefault() : undefined}
+        className={cn(
+          'z-50 overflow-y-auto border-border bg-popover shadow-lg',
+          docked
+            ? 'max-h-[min(20rem,35dvh)] w-full overscroll-contain border-t'
+            : 'max-h-80 w-72 rounded-lg border animate-in fade-in-0 zoom-in-95'
+        )}
+      >
         {groups.map((group, groupIndex) => (
           <div key={group} className={cn('p-1', groupIndex > 0 && 'border-t border-border')}>
             {group === 'formatting' ? (

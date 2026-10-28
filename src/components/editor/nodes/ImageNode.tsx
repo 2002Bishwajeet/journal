@@ -294,10 +294,12 @@ export function ImageNodeView({
       className={cn(
         "absolute -top-9 left-1/2 z-10 flex -translate-x-1/2 gap-0.5",
         "rounded-md border bg-popover p-0.5 shadow-md",
-        // 44px buttons do not fit in one row on a phone: wrap, and grow upward from the image.
-        "pointer-coarse:bottom-full pointer-coarse:top-auto pointer-coarse:left-0 pointer-coarse:mb-1 pointer-coarse:w-max pointer-coarse:max-w-[calc(100vw-5rem)] pointer-coarse:translate-x-0 pointer-coarse:flex-wrap",
-        "opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100",
-        selected && "opacity-100",
+        // 44px buttons do not fit in one row on a phone: wrap, and sit inside the image so they never cover the text above it (#917).
+        "pointer-coarse:top-1 pointer-coarse:left-1 pointer-coarse:w-max pointer-coarse:max-w-[calc(100vw-5.5rem)] pointer-coarse:translate-x-0 pointer-coarse:flex-wrap",
+        "opacity-0 transition-opacity group-hover:opacity-100",
+        // No hover on touch: only a selected image shows its toolbar, and a hidden one takes no taps.
+        "[@media(hover:none)]:pointer-events-none [@media(hover:none)]:group-hover:opacity-0",
+        selected && "opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:group-hover:opacity-100",
       )}
     >
       {!inGallery && ALIGN_BUTTONS.map(({ align: value, icon: Icon, label }) => (

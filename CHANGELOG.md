@@ -1,3 +1,24 @@
+## [2.47.1](https://github.com/2002Bishwajeet/journal/compare/v2.47.0...v2.47.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **images:** keep the touch image toolbar inside full-width images ([#917](https://github.com/2002Bishwajeet/journal/issues/917)) ([7303da2](https://github.com/2002Bishwajeet/journal/commit/7303da2f9bac301881109148da5653659130bd26))
+* **images:** on touch, show the image toolbar only while the image is selected ([#917](https://github.com/2002Bishwajeet/journal/issues/917)) ([28645bd](https://github.com/2002Bishwajeet/journal/commit/28645bd9e4eb3f7191680470501c23f8079a2984))
+# [2.47.0](https://github.com/2002Bishwajeet/journal/compare/v2.46.0...v2.47.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **editor:** Done in the link sheet focuses the note inside the tap, for the iOS keyboard ([#827](https://github.com/2002Bishwajeet/journal/issues/827)) ([7a854ea](https://github.com/2002Bishwajeet/journal/commit/7a854eac855476baa650510e7d7908c10061cdc6))
+* **editor:** emoji sheet search field keeps the sheet's 16 px gutter ([#827](https://github.com/2002Bishwajeet/journal/issues/827)) ([9ba7f40](https://github.com/2002Bishwajeet/journal/commit/9ba7f4059ac4e854beefc78f77bd4f0490703d7e))
+* **editor:** focus through a chain, not editor.commands, under the React Compiler ([#827](https://github.com/2002Bishwajeet/journal/issues/827)) ([d2dda95](https://github.com/2002Bishwajeet/journal/commit/d2dda954ee1285c025428e3d5f4ed15c62e949a3))
+* **editor:** the link sheet accepts a bare host such as example.com ([#827](https://github.com/2002Bishwajeet/journal/issues/827)) ([e4a11a8](https://github.com/2002Bishwajeet/journal/commit/e4a11a8e5e7fd1b394ba926ff5d58994768b60f1))
+
+
+### Features
+
+* **editor:** link, emoji, table, align and callout pickers as sheets on touch; slash menu docked above the keyboard toolbar ([#827](https://github.com/2002Bishwajeet/journal/issues/827)) ([4351770](https://github.com/2002Bishwajeet/journal/commit/4351770b69b6b0bd027ca388b46f732592a02c9b))
 # [2.46.0](https://github.com/2002Bishwajeet/journal/compare/v2.45.0...v2.46.0) (2026-10-27)
 
 

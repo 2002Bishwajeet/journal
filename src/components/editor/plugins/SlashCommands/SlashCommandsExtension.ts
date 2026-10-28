@@ -53,15 +53,23 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
                 render: () => {
                     let component: ReactRenderer<SlashCommandListRef> | null = null;
                     let popup: TippyInstance[] | null = null;
+                    let docked = false;
 
                     return {
                         onStart: (props) => {
+                            // On a phone the keyboard toolbar has a dock: the menu sits above it (#827).
+                            const dock = document.querySelector('[data-slash-dock]');
+                            docked = !!dock;
                             component = new ReactRenderer(SlashCommandList, {
-                                props,
+                                props: { ...props, docked },
                                 editor: props.editor,
                             });
 
                             if (!props.clientRect) return;
+                            if (dock) {
+                                dock.append(component.element);
+                                return;
+                            }
 
                             popup = tippy('body', {
                                 getReferenceClientRect: props.clientRect as () => DOMRect,
@@ -90,6 +98,7 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
                         onKeyDown: (props) => {
                             if (props.event.key === 'Escape') {
                                 popup?.[0]?.hide();
+                                if (docked && component) component.element.hidden = true;
                                 return true;
                             }
 
@@ -98,6 +107,7 @@ export const SlashCommandsExtension = Extension.create<SlashCommandsOptions>({
 
                         onExit: () => {
                             popup?.[0]?.destroy();
+                            if (docked) component?.element.remove();
                             component?.destroy();
                         },
                     };

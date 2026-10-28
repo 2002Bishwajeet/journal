@@ -64,7 +64,7 @@ test('a tap on the selected image opens a full-screen viewer under the notch tha
     const noteUrl = page.url();
 
     // The first tap selects the image; a tap on the selected image opens the viewer, like
-    // iOS Notes. "View full size" in the image's toolbar (always shown on touch) opens it too.
+    // iOS Notes. "View full size" in the image's toolbar (shown while it is selected) opens it too.
     const viewer = page.getByRole('dialog', { name: 'Journal logo' });
     const selectedImage = activeEditor(page).locator('.ProseMirror-selectednode img[alt="Journal logo"]');
     await expect(selectedImage).toHaveCount(0);
