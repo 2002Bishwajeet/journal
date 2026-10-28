@@ -1,3 +1,9 @@
+## [2.52.5](https://github.com/2002Bishwajeet/journal/compare/v2.52.4...v2.52.5) (2026-10-28)
+
+
+### Bug Fixes
+
+* **editor:** keep the formatting toolbar on one row and scroll it sideways ([9b99b96](https://github.com/2002Bishwajeet/journal/commit/9b99b9629201a8c69c8c6c6b8389e2ab8bede987)), closes [#840](https://github.com/2002Bishwajeet/journal/issues/840)
 ## [2.52.4](https://github.com/2002Bishwajeet/journal/compare/v2.52.3...v2.52.4) (2026-10-28)
 
 

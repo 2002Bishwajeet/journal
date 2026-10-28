@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.52.5 (2026-10-28)
+
+### Fixed
+
+- In a narrow editor, the formatting toolbar stays on one row. Scroll it to the side to see more buttons.
+
 ## 2.52.4 (2026-10-28)
 
 ### Fixed
