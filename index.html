@@ -103,6 +103,9 @@
           : theme;
         document.documentElement.classList.add(actualTheme);
         document.documentElement.style.colorScheme = actualTheme;
+        // Same as syncThemeColor (src/lib/themeColor.ts): the status bar follows the in-app theme (#893)
+        const color = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
+        if (color) document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', color));
       })();
     </script>
     <!-- Static first frame: the splash logo where the launch images and SplashScreen.tsx put it

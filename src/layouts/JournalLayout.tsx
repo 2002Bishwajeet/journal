@@ -66,6 +66,7 @@ import { useThemePreference } from "@/hooks/useThemePreference";
 import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
+import { syncThemeColor } from "@/lib/themeColor";
 
 export default function JournalLayout() {
   // Initialize theme preference & system listener at root level
@@ -236,6 +237,12 @@ export default function JournalLayout() {
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
   const isPhone = deviceType === "mobile";
+  // The phone home's top is the sidebar; every other screen starts with --background (#893).
+  const topSurface = isPhone && mobilePane === "sidebar" && !isNotesLoading && !isFolderLoading ? "--sidebar" : "--background";
+  useEffect(() => {
+    syncThemeColor(topSurface);
+    return () => syncThemeColor("--background");
+  }, [topSurface]);
   const textFieldFocused = useTextFieldFocused();
   // The tab bar and the New note button leave the screen for the software keyboard (#853).
   const keyboardOpen = useKeyboardOpen();
