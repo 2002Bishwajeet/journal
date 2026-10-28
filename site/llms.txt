@@ -1,0 +1,23 @@
+# Journal
+
+> Journal is an open source notebook (AGPL-3.0) built on Homebase. Notes live on your device first, work offline, and sync encrypted to a space you own. You can share notes with people you know or publish them as public pages, write live Mermaid, SVG, HTML and React blocks inside a note, and let AI agents (Claude Code, Claude Desktop, Cursor, Codex CLI) read and write the folders you grant through the Journal MCP server.
+
+Journal runs in the browser at https://journal.cloudx.run/app/ and signs in with a Homebase identity. Every feature in Journal today is free; a paid Pro plan for hosted extras is planned in the open in GitHub issue #306.
+
+## Pages
+
+- [Home]({{SITE}}/): what Journal is, where notes live, the editor, sharing and public pages, live blocks, and common questions
+- [Agents]({{SITE}}/agents): set up the Journal MCP server in Claude Code, Claude Desktop, Cursor or Codex CLI step by step (sign in, approve, grant folders, check, fixes for common errors), and the reference for all fourteen tools: what each does, its inputs with types, what it returns, when to use it and an example request
+- [Pricing]({{SITE}}/pricing): the Free plan, the planned Pro plan, and questions about paying
+
+## Docs
+
+- [MCP server README](https://github.com/2002Bishwajeet/journal/blob/main/mcp/README.md): setup for each client, headless sign-in, and every tool
+- [Authoring guide](https://github.com/2002Bishwajeet/journal/blob/main/mcp/AUTHORING.md): everything a note can hold and how to write it, including live blocks
+
+## Optional
+
+- [Full text of this site]({{SITE}}/llms-full.txt): the three pages above as plain text, including the full MCP setup guide and tool reference
+- [Source code on GitHub](https://github.com/2002Bishwajeet/journal)
+- [Release notes](https://github.com/2002Bishwajeet/journal/blob/main/RELEASE_NOTES.md)
+- [Open Journal](https://journal.cloudx.run/app/)
