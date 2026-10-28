@@ -57,7 +57,7 @@ export default function AuthFinalizePage() {
 
   // Loading state
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-svh flex items-center justify-center bg-background px-4">
       <div className="flex flex-col items-center gap-4">
         <div className="w-10 h-10 border-4 border-foreground/30 border-t-foreground rounded-full animate-spin" />
         <div className="text-center">

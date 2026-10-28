@@ -300,6 +300,20 @@ try {
   const auth = JSON.parse(readFileSync('e2e/fixtures/hermetic-auth.json', 'utf8')) as {
     origins: { origin: string; localStorage: { name: string; value: string }[] }[];
   };
+  // A public share page with no note (#894): first screens use svh, so with the URL bar shown the
+  // page must not be taller than the visible area (100vh is).
+  await browser.url(`${BASE}/share/ios-check.homebase.test/0b8e4c27-5d1a-4f93-a6e2-7c3d9f1b5e40`);
+  assertTestOrigin(await browser.execute(() => location.origin));
+  await browser.$('h1=Note Not Found').waitForDisplayed({ timeout: 60_000 });
+  const share = (await browser.execute(() => ({
+    scroll: document.scrollingElement!.scrollHeight,
+    visible: window.visualViewport!.height,
+  }))) as { scroll: number; visible: number };
+  const shareProblems = share.scroll <= share.visible + 1 ? [] : [`the page is ${share.scroll} px tall in a ${share.visible} px viewport`];
+  failures.push(...shareProblems.map((p) => `share-not-found: ${p}`));
+  summary.push(`| share-not-found | ${await screenshot('share-not-found')} | ${shareProblems.join('<br>') || 'none'} |`);
+  console.log(`${shareProblems.length ? '✗' : '✓'} share-not-found${shareProblems.map((p) => `\n    ${p}`).join('')}`);
+
   await browser.url(`${BASE}/welcome`);
   assertTestOrigin(await browser.execute(() => location.origin));
   await tap('#identity');
