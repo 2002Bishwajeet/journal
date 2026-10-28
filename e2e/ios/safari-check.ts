@@ -738,6 +738,40 @@ try {
     summary.push(`| image-viewer-swipe-to-close | ${await screenshot('image-viewer-swipe-to-close')} | ${swipeClosed ? 'closed' : 'still open'}; Close top ${Math.round(closeTop)}, inset ${layout.insets.top} |`);
     console.log(`${swipeClosed ? '✓' : '✗'} image-viewer: swipe down ${swipeClosed ? 'closed' : 'did not close'} the viewer`);
   }
+
+  // Sticky hover (#892): a tap on the carousel's Next leaves no hover background, its
+  // controls are 44px targets, and iOS does not inflate text (text-size-adjust 100%).
+  if (await browser.isKeyboardShown()) await browser.hideKeyboard().catch(() => {});
+  assertTestOrigin(await browser.execute(() => location.origin));
+  await browser.execute(() => {
+    const tiptap = (document.querySelector('.ProseMirror') as unknown as { editor: { state: { doc: { content: { size: number } } }; commands: { insertContentAt: (pos: number, c: unknown) => void } } }).editor;
+    const src = (fill: string) => `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="800" height="500" fill="${fill}"/></svg>`)}`;
+    const content = ['#8fa3ad', '#718968', '#be785a'].map((fill, i) => ({ type: 'image', attrs: { src: src(fill), alt: `Slide ${i + 1}` } }));
+    tiptap.commands.insertContentAt(tiptap.state.doc.content.size, { type: 'gallery', attrs: { layout: 'carousel' }, content });
+  });
+  const next = '.gallery-nav button[aria-label="Next image"]';
+  const navState = () => {
+    const nextBtn = document.querySelector('.gallery-nav button[aria-label="Next image"]')!;
+    const sizes = [...document.querySelectorAll('.gallery-nav button')].map((b) => b.getBoundingClientRect()).map((r) => Math.min(r.width, r.height));
+    return {
+      background: getComputedStyle(nextBtn).backgroundColor,
+      smallest: Math.round(Math.min(...sizes)),
+      textSizeAdjust: (getComputedStyle(document.documentElement) as unknown as { webkitTextSizeAdjust: string }).webkitTextSizeAdjust,
+    };
+  };
+  await waitFor('the carousel', () => !!document.querySelector('.gallery-nav:not([hidden]) button[aria-label="Next image"]'));
+  const beforeTap = (await browser.execute(navState)) as ReturnType<typeof navState>;
+  await tap(next);
+  await browser.pause(600);
+  const afterTap = (await browser.execute(navState)) as ReturnType<typeof navState>;
+  const hoverProblems = [
+    ...(afterTap.background === beforeTap.background ? [] : [`Next kept a background after a tap (${beforeTap.background} -> ${afterTap.background})`]),
+    ...(afterTap.smallest >= 44 ? [] : [`a carousel control is ${afterTap.smallest}px, under 44px`]),
+    ...(afterTap.textSizeAdjust === '100%' ? [] : [`html -webkit-text-size-adjust is ${afterTap.textSizeAdjust}, not 100%`]),
+  ];
+  failures.push(...hoverProblems.map((p) => `carousel-tap: ${p}`));
+  summary.push(`| carousel-tap | ${await screenshot('carousel-tap')} | ${hoverProblems.join('<br>') || `none (smallest control ${afterTap.smallest}px)`} |`);
+  console.log(`${hoverProblems.length ? '✗' : '✓'} carousel-tap${hoverProblems.map((p) => `\n    ${p}`).join('')}`);
 } catch (error) {
   failures.push(`run: ${(error as Error).message}`);
   await screenshot('error').catch(() => {});
