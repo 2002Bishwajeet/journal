@@ -16,6 +16,7 @@ vi.mock('@/hooks/useContact', () => ({ useContact: mocks.useContact }));
 vi.mock('@/hooks/connections/useIsConnected', () => ({ useIsConnected: mocks.useIsConnected }));
 
 import { AuthorImage } from '@/components/author/AuthorImage';
+import { PersonLabel } from '@/components/share/SharePeopleSection';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -64,5 +65,20 @@ describe('AuthorImage', () => {
         expect(mocks.useContact).toHaveBeenCalled();
         expect(container.querySelector('svg')).toBeNull();
         expect(container.textContent).toBe('SE');
+    });
+});
+
+describe('PersonLabel', () => {
+    it('shows our identity without a contact lookup of ourselves', () => {
+        act(() => root.render(createElement(PersonLabel, { odinId: 'me.example.com' })));
+
+        expect(mocks.useContact).toHaveBeenCalledWith(expect.objectContaining({ odinId: undefined }));
+        expect(container.textContent).toBe('me.example.com');
+    });
+
+    it("looks up someone else's name in their contact", () => {
+        act(() => root.render(createElement(PersonLabel, { odinId: 'sam.example.com' })));
+
+        expect(mocks.useContact).toHaveBeenCalledWith(expect.objectContaining({ odinId: 'sam.example.com' }));
     });
 });

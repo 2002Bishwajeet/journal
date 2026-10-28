@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AuthorImage } from '@/components/author/AuthorImage';
 import { useContact } from '@/hooks/useContact';
+import { useDotYouClientContext } from '@/components/auth';
 import { JOURNAL_APP_NAME } from '@/lib/homebase/config';
 import { PERSON_EDITORS_SUPPORTED, type AccessEntry, type ShareCandidate, type ShareRole } from '@/lib/share/shareAccess';
 import type { ShareAccess } from '@/hooks/useShareAccess';
@@ -95,7 +96,9 @@ function CircleLabel({ name, memberCount }: { name: string; memberCount: number 
 
 /** A connection's name from the contact drive, with the identity under it. */
 export function PersonLabel({ odinId }: { odinId: string }) {
-    const displayName = useContact({ odinId, canSave: false }).fetch.data?.fileMetadata.appData.content.name?.displayName;
+    // Not for ourselves: that lookup goes over peer to our own identity, so our row would wait on it
+    const isSelf = odinId === useDotYouClientContext().getHostIdentity();
+    const displayName = useContact({ odinId: isSelf ? undefined : odinId, canSave: false }).fetch.data?.fileMetadata.appData.content.name?.displayName;
     return (
         <span className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-medium">{displayName || odinId}</span>

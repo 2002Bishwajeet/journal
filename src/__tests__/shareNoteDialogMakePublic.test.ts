@@ -17,7 +17,7 @@ const { syncRecord, syncNote, makeNotePublic, mutate, mutateAsync, notes, access
 }));
 
 vi.mock('@/hooks/auth', () => ({ useAuth: () => ({ getIdentity: () => 'frodo.dotyou.cloud' }) }));
-vi.mock('@/components/auth', () => ({ useDotYouClientContext: () => ({}) }));
+vi.mock('@/components/auth', () => ({ useDotYouClientContext: () => ({ getHostIdentity: () => 'me.id' }) }));
 vi.mock('@/hooks/useNotes', () => ({
     useNotes: () => ({ get: { data: notes.current }, setNotePublic: { mutate }, setShareCard: { mutateAsync } }),
 }));
