@@ -1,3 +1,9 @@
+## [2.48.1](https://github.com/2002Bishwajeet/journal/compare/v2.48.0...v2.48.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **routing:** Back closes a sheet that has not rendered its history entry yet ([8f53d18](https://github.com/2002Bishwajeet/journal/commit/8f53d18d7040224c40fe80aad265fd5546c5b201))
 # [2.48.0](https://github.com/2002Bishwajeet/journal/compare/v2.47.2...v2.48.0) (2026-10-28)
 
 
