@@ -119,6 +119,39 @@ export function FindReplaceBar() {
   if (!editor) return null;
 
   const hasMatches = matchInfo.total > 0;
+
+  // On a phone the find row has no room for these next to the field: they go in the expanded row.
+  const matchOptions = (
+    <>
+      {/* Case sensitive toggle */}
+      <button
+        onClick={() => setCaseSensitive(!caseSensitive)}
+        aria-label="Match case"
+        aria-pressed={caseSensitive}
+        className={`h-7 w-7 pointer-coarse:size-11 inline-flex items-center justify-center rounded text-xs font-semibold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0 transition-colors duration-100 ${
+          caseSensitive
+            ? "bg-accent text-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        }`}
+      >
+        Aa
+      </button>
+
+      {/* Whole word toggle */}
+      <button
+        onClick={() => setWholeWord(!wholeWord)}
+        aria-label="Match whole word"
+        aria-pressed={wholeWord}
+        className={`h-7 px-1 pointer-coarse:h-11 pointer-coarse:min-w-11 inline-flex items-center justify-center rounded text-xs font-bold tracking-tight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0 transition-colors duration-100 ${
+          wholeWord
+            ? "bg-accent text-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        }`}
+      >
+        <span className="border-l border-current pl-px pr-px">ab</span>
+      </button>
+    </>
+  );
   const canReplace = hasMatches && editor.isEditable;
 
   return (
@@ -150,30 +183,33 @@ export function FindReplaceBar() {
             />
           </button>
 
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            placeholder="Find…"
-            aria-label="Find in note"
-            autoComplete="off"
-            spellCheck={false}
-            className="flex-1 min-w-0 h-7 pointer-coarse:h-11 px-2 text-base md:text-sm bg-muted/50 border border-border rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground/60"
-          />
+          {/* On a phone the match count sits inside the field, so the field keeps its width. */}
+          <div className="flex flex-1 min-w-0 items-center gap-1 max-sm:relative">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Find…"
+              aria-label="Find in note"
+              autoComplete="off"
+              spellCheck={false}
+              className="flex-1 min-w-0 h-7 pointer-coarse:h-11 px-2 max-sm:pr-20 text-base md:text-sm bg-muted/50 border border-border rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground/60"
+            />
 
-          {/* Match count */}
-          <span
-            className="text-xs text-muted-foreground tabular-nums min-w-14 text-center shrink-0 select-none"
-            aria-live="polite"
-          >
-            {searchTerm
-              ? hasMatches
-                ? `${matchInfo.current + 1} of ${matchInfo.total}`
-                : "No results"
-              : ""}
-          </span>
+            {/* Match count */}
+            <span
+              className="text-xs text-muted-foreground tabular-nums min-w-14 text-center shrink-0 select-none max-sm:pointer-events-none max-sm:absolute max-sm:right-2 max-sm:min-w-0"
+              aria-live="polite"
+            >
+              {searchTerm
+                ? hasMatches
+                  ? `${matchInfo.current + 1} of ${matchInfo.total}`
+                  : "No results"
+                : ""}
+            </span>
+          </div>
 
           <button
             onClick={handlePrev}
@@ -193,34 +229,7 @@ export function FindReplaceBar() {
             <ChevronDown className="h-4 w-4" aria-hidden="true" />
           </button>
 
-          {/* Case sensitive toggle */}
-          <button
-            onClick={() => setCaseSensitive(!caseSensitive)}
-            aria-label="Match case"
-            aria-pressed={caseSensitive}
-            className={`h-7 w-7 pointer-coarse:size-11 inline-flex items-center justify-center rounded text-xs font-semibold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0 transition-colors duration-100 ${
-              caseSensitive
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            Aa
-          </button>
-
-          {/* Whole word toggle */}
-          <button
-            onClick={() => setWholeWord(!wholeWord)}
-            aria-label="Match whole word"
-            aria-pressed={wholeWord}
-            className={`h-7 px-1 pointer-coarse:h-11 pointer-coarse:min-w-11 inline-flex items-center justify-center rounded text-xs font-bold tracking-tight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring touch-manipulation shrink-0 transition-colors duration-100 ${
-              wholeWord
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            <span className="border-l border-current pl-px pr-px">ab</span>
-          </button>
-
+          <div className="contents max-sm:hidden">{matchOptions}</div>
         </div>
 
         {/* Replace row — CSS grid expand trick */}
@@ -232,7 +241,7 @@ export function FindReplaceBar() {
           <div className="overflow-hidden min-h-0" inert={!isReplaceOpen || undefined}>
             <div className="flex items-center gap-1 pt-0.5">
               {/* Spacer to align with find input */}
-              <div className="w-5 shrink-0" />
+              <div className="w-5 pointer-coarse:w-8 shrink-0" />
 
               <input
                 type="text"
@@ -263,6 +272,10 @@ export function FindReplaceBar() {
               >
                 Replace All
               </button>
+            </div>
+            <div className="flex items-center gap-1 pt-0.5 sm:hidden">
+              <div className="w-5 pointer-coarse:w-8 shrink-0" />
+              {matchOptions}
             </div>
           </div>
         </div>

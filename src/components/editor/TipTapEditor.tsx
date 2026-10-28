@@ -47,10 +47,11 @@ export default function TipTapEditor({
   const [title, setTitle] = useState(metadata.title);
   const titleInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // The field exists once the note has loaded.
+  // The field exists once the note has loaded. Take the mark on every layout, so a note made
+  // on desktop does not take the focus later on a touch layout.
   useEffect(() => {
     const field = titleInputRef.current;
-    if (!field || !focusNewTitle || !takeNewNote(noteId)) return;
+    if (!field || !takeNewNote(noteId) || !focusNewTitle) return;
     field.focus();
     field.select();
   }, [isLoading, focusNewTitle, noteId]);
