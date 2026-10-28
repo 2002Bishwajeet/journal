@@ -441,17 +441,21 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .cta-row { display: grid; gap: 24px; }
 @media (min-width: 860px) { .cta-row { grid-template-columns: 1fr auto; align-items: center; gap: var(--gap); } }
 
-/* ---- Agents page: the install beside an agent at work, the requests, access, tools ---- */
+/* ---- Agents page: the claim beside an agent at work, the setup, the tool reference ---- */
 .page-title { max-width: 13em; }
 .agents-hero { display: grid; gap: 40px; margin-top: clamp(24px, 3vw, 40px); }
 .agents-hero > * { min-width: 0; }
-.agents-hero-copy, .agents-hero-side { display: grid; gap: 24px; align-content: start; }
-.install-steps { display: grid; gap: 16px; align-content: start; margin-top: clamp(40px, 5vw, 64px); }
-@media (min-width: 900px) { .install-steps .steps { grid-template-columns: repeat(3, 1fr); gap: var(--gap); } }
+.agents-hero-copy, .agents-hero-side { display: grid; gap: 28px; align-content: start; }
+.agents-hero-copy { justify-items: start; }
 @media (min-width: 900px) {
   .agents-hero { grid-template-columns: 1fr 1fr; gap: var(--gap); align-items: start; }
 }
-.code-panel, .session { border-radius: 12px; background: var(--code-bg); color: var(--code-ink); overflow: hidden; }
+/* What you need: three names, each with its line. */
+.needs { display: grid; gap: 14px; margin-top: 8px; max-width: 52ch; }
+.needs dt { font-weight: 650; }
+.needs dt + dd { margin: 2px 0 0; }
+.needs dd + dt { margin-top: 14px; }
+.code-panel, .session { border-radius: 12px; background: var(--code-bg); color: var(--code-ink); overflow: hidden; min-width: 0; }
 .code-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 56px; padding: 6px 8px 6px 20px; font-size: var(--fs-small); line-height: 1; color: #B9B6AE; }
 /* Install tabs: one per client, on the panel's own dark ground. */
 .install .code-head { padding: 8px; }
@@ -465,23 +469,25 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .tab:active { transform: scale(0.97); }
 .tab[aria-selected='true'] { background: rgb(255 255 255 / 0.1); color: var(--code-ink); }
 @media (hover: hover) and (pointer: fine) { .tab:hover { color: var(--code-ink); } }
-@media (max-width: 599px) { .tab { padding: 0 10px; } }
-/* Each panel: what to do and the Copy button in one row, the code under them, wrapped rather than cut off. */
-.tab-panel:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 4px 12px; padding-right: 8px; }
-.code-block { display: contents; }
+/* On a phone the four tabs wrap into two rows rather than scrolling out of sight. */
+@media (max-width: 599px) { .tabs { flex-wrap: wrap; } .tab { padding: 0 12px; } }
+/* Each snippet: what to do and its Copy button in one row, the code under them, wrapped rather than cut off. */
+.snippet { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 4px 12px; padding-right: 8px; }
+.snippet + .snippet { margin-top: 4px; padding-top: 8px; background: rgb(255 255 255 / 0.03); }
 .code-note { padding: 10px 0 0 20px; font-size: var(--fs-small); line-height: 1.5; color: #B9B6AE; }
 .code-note code { color: var(--code-ink); white-space: normal; overflow-wrap: anywhere; }
-.install pre { grid-column: 1 / -1; padding-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.code-panel pre {
+.snippet pre { grid-column: 1 / -1; padding-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.code-panel pre, .session pre {
   margin: 0; padding: 4px 20px 24px;
   font-family: var(--font-mono); font-size: var(--fs-small); line-height: 1.8;
   white-space: pre; overflow-x: auto;
 }
-.code-panel pre code { white-space: inherit; }
+.code-panel pre code, .session pre code { white-space: inherit; }
+.terminal pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 /* On a phone a long command wraps rather than running off the edge; the Copy button copies it whole. */
-@media (max-width: 599px) { .code-panel pre { padding: 4px 16px 20px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; } }
+@media (max-width: 599px) { .code-panel pre, .session pre { padding: 4px 16px 20px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; } }
 .copy-btn {
-  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px;
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 4px; padding: 0 14px;
   border: 0; border-radius: var(--radius); background: rgb(255 255 255 / 0.08); color: var(--code-ink);
   font-size: var(--fs-small); font-weight: 560; line-height: 1; cursor: pointer;
   user-select: none; -webkit-user-select: none;
@@ -493,11 +499,9 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .copy-btn .check { display: none; }
 .copy-btn[data-copied] .check { display: block; }
 .copy-btn[data-copied] .copy { display: none; }
-.steps { display: grid; gap: 12px; padding-left: 1.3em; list-style: decimal; }
-.steps li::marker { color: var(--muted); font-variant-numeric: tabular-nums; }
-.steps code, .small code, .split-copy code, .tool-group code { padding: 1px 6px; border-radius: 5px; background: var(--band); }
-.band .split-copy code, .band-2 .tool-group code { background: var(--bg); }
-
+.small code, .split-copy code, .needs code, .setup-copy code, .fixes code, .rules code, .tool code, .group-note code { padding: 1px 6px; border-radius: 5px; background: var(--band); }
+.needs code, .setup-copy code, .fixes code, .rules code, .tool code, .group-note code { white-space: normal; overflow-wrap: anywhere; } /* long names and messages wrap on a phone */
+.band .setup-copy code, .band .fixes code { background: var(--bg); }
 /* An agent at work: the request, the tools it calls, what it leaves. */
 .session-body { display: grid; gap: 20px; padding: 4px 20px 24px; }
 .session-ask { justify-self: start; max-width: 32ch; padding: 12px 18px; border-radius: 16px 16px 16px 6px; background: rgb(255 255 255 / 0.08); font-size: var(--fs-sub); line-height: 1.4; }
@@ -506,7 +510,64 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .session-calls code { white-space: normal; overflow-wrap: anywhere; color: var(--code-ink); }
 .session-calls span { font-size: var(--fs-small); color: #B9B6AE; }
 .session-done { font-size: var(--fs-small); color: var(--code-ink); }
-
+.check pre { padding: 0; color: #B9B6AE; }
+.check .call { color: var(--code-ink); }
+/* Setup: each step's words beside what you will see. Order shown by the list itself, not by printed numbers. */
+.setup { display: grid; gap: clamp(56px, 7vw, 96px); }
+.setup-step { display: grid; gap: 24px; align-items: start; }
+.setup-step > * { min-width: 0; }
+.setup-copy { display: grid; gap: 14px; align-content: start; max-width: 50ch; }
+.setup-copy .h3 { font-family: var(--font-serif); font-weight: 450; font-size: clamp(26px, 0.8vw + 18px, 32px); line-height: 1.12; letter-spacing: -0.015em; }
+.setup-step .crop { background: var(--bg); }
+@media (min-width: 900px) {
+  .setup-step { grid-template-columns: 5fr 7fr; gap: var(--gap); }
+}
+/* If something goes wrong: the message as shown, then the fix. */
+.fixes { display: grid; gap: 24px; margin-top: clamp(64px, 8vw, 112px); padding: clamp(24px, 3.4vw, 48px); border-radius: 16px; background: var(--bg); }
+.fixes .h3 { font-family: var(--font-serif); font-weight: 450; font-size: clamp(26px, 0.8vw + 18px, 32px); line-height: 1.12; }
+.fixes dl { display: grid; gap: 22px var(--gap); }
+@media (min-width: 900px) { .fixes dl { grid-template-columns: 1fr 1fr; } }
+.fixes dt { font-weight: 650; }
+.fixes dt code { font-weight: 500; }
+.fixes dd { margin: 4px 0 0; max-width: 52ch; }
+.fixes code, .band .fixes code { background: var(--band); }
+/* Tool reference: an index by job, the shared rules, then each tool's card of facts beside its inputs. */
+.tool-index { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 24px; margin-bottom: clamp(40px, 5vw, 64px); }
+@media (min-width: 900px) { .tool-index { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); } }
+.tool-index-head { font-weight: 650; margin-bottom: 4px; }
+.tool-index a { display: inline-flex; align-items: center; min-height: 40px; color: var(--muted); text-decoration: none; }
+.tool-index code { font-size: 14px; white-space: normal; overflow-wrap: anywhere; }
+@media (hover: hover) and (pointer: fine) { .tool-index a:hover { color: var(--ink); text-decoration: underline; } }
+.rules { display: grid; gap: 24px; padding: clamp(24px, 3.4vw, 48px); border-radius: 16px; background: var(--band-2); }
+.rules dl { display: grid; gap: 22px var(--gap); }
+@media (min-width: 900px) { .rules dl { grid-template-columns: 1fr 1fr; } }
+.rules dt { font-weight: 650; }
+.rules dd { margin: 4px 0 0; }
+.rules code { background: var(--bg); }
+.tool-group { display: grid; gap: 12px; margin-top: clamp(64px, 8vw, 104px); }
+.group-title { font-family: var(--font-serif); font-weight: 450; font-size: var(--fs-h2); line-height: 1.12; letter-spacing: -0.012em; margin-bottom: 8px; }
+.group-note { max-width: 62ch; margin-bottom: 8px; }
+.tool { display: grid; gap: 20px; padding: 24px 0; scroll-margin-top: 80px; }
+.tool > * { min-width: 0; }
+@media (min-width: 900px) { .tool { grid-template-columns: 5fr 7fr; gap: var(--gap); } }
+.tool-main { display: grid; gap: 12px; align-content: start; max-width: 52ch; }
+.tool-name { font-size: var(--fs-sub); line-height: 1.3; font-weight: 650; }
+.tool-name code { padding: 2px 8px; font-size: inherit; background: var(--sand-soft); }
+.tool-facts { display: grid; gap: 4px; margin-top: 4px; }
+.tool-facts dt { font-weight: 650; margin-top: 8px; }
+.tool-facts dd { margin: 0; }
+.tool-facts .ask { justify-self: start; margin-top: 4px; padding: 10px 16px; border-radius: 16px 16px 16px 6px; background: var(--band); }
+.tool-spec { display: grid; gap: 10px; align-content: start; align-self: start; padding: clamp(18px, 2vw, 28px); border-radius: 12px; background: var(--band); }
+.tool-spec code { background: var(--bg); }
+.spec-head { margin: 0; font-size: var(--fs-body); font-weight: 650; }
+.spec-head ~ .spec-head { margin-top: 10px; }
+.params { display: grid; gap: 12px; }
+.params dt code { font-weight: 600; }
+.params dt span { margin-left: 6px; font-size: var(--fs-small); color: var(--muted); }
+.params dd { margin: 2px 0 0; }
+.ops { display: grid; gap: 6px; margin-top: 8px; padding-left: 1.1em; list-style: disc; }
+.ops li::marker { color: var(--muted); }
+.none { color: var(--muted); }
 /* Things to ask: the requests as a conversation, stepping in from the right. */
 .ask-stack { display: grid; gap: 14px; justify-items: end; }
 .ask-stack li {
@@ -516,19 +577,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 @media (min-width: 980px) {
   .ask-stack li:nth-child(odd) { margin-right: 64px; }
 }
-
-.facts { display: grid; gap: 20px; margin-top: 8px; }
-.facts li { display: grid; gap: 2px; align-content: start; max-width: 52ch; }
-.facts strong { font-weight: 650; }
-
-.tool-groups { display: grid; gap: 48px; }
-@media (min-width: 900px) { .tool-groups { grid-template-columns: 1fr 1fr 1fr; gap: var(--gap); } }
-.tool-group { display: grid; gap: 20px; align-content: start; }
-.tool-group dl { display: grid; gap: 4px; }
-.tool-group dt { margin-top: 12px; }
-.tool-group dt:first-child { margin-top: 0; }
-.tool-group dd { margin: 0; }
-
+.band .split-copy code { background: var(--bg); }
 /* ---- Pricing: two plans, each at its own height ---- */
 .plans { display: grid; gap: 20px; align-items: start; }
 @media (min-width: 760px) { .plans { grid-template-columns: 1fr 1fr; } }

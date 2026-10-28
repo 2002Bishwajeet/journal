@@ -4,85 +4,44 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Journal for agents: the MCP server</title>
-  <meta name="description" content="The Journal MCP server lets Claude Code, Claude Desktop and Codex CLI read, search, create and edit your notes. You choose each folder and note they can see." />
+  <meta name="description" content="Set up the Journal MCP server in Claude Code, Claude Desktop, Cursor or Codex CLI, then read the reference for its fourteen tools: inputs, results and when to use each." />
   <meta property="og:title" content="Journal for agents: the MCP server" />
-  <meta property="og:description" content="Let Claude Code, Claude Desktop and Codex CLI read and write your notes, in the folders you grant." />
+  <meta property="og:description" content="Let Claude Code, Claude Desktop, Cursor and Codex CLI read and write your notes, in the folders you grant." />
   <!-- head -->
 </head>
 <body data-page="agents">
   <!-- header -->
 
   <main id="main">
-    <!-- Hero: the claim, then the install beside the grants it needs -->
+    <!-- Hero: the claim, what you need, and an agent at work -->
     <section class="page-hero" aria-labelledby="agents-hero-title">
       <div class="wrap">
         <h1 class="display page-title" id="agents-hero-title" data-reveal>Give your agents a notebook</h1>
         <div class="agents-hero">
           <div class="agents-hero-copy">
-            <p class="lede" data-reveal style="--i:1">The Journal MCP server lets Claude Code, Claude Desktop and Codex CLI read, search, create and edit your notes, in the folders you grant.</p>
-            <div class="code-panel install" data-reveal style="--i:2">
-              <div class="code-head">
-                <div class="tabs" role="tablist" aria-label="Your agent">
-                  <button class="tab" type="button" role="tab" id="tab-claude-code" aria-controls="panel-claude-code" aria-selected="true">Claude Code</button>
-                  <button class="tab" type="button" role="tab" id="tab-codex" aria-controls="panel-codex" aria-selected="false" tabindex="-1">Codex CLI</button>
-                  <button class="tab" type="button" role="tab" id="tab-desktop" aria-controls="panel-desktop" aria-selected="false" tabindex="-1">Claude Desktop</button>
-                </div>
-              </div>
-              <div class="tab-panel" role="tabpanel" id="panel-claude-code" aria-labelledby="tab-claude-code">
-                <p class="code-note">Paste into Claude Code, with your own identity in place of <code>you.dotyou.cloud</code>.</p>
-                <div class="code-block">
-                  <button class="copy-btn" type="button" data-copy="install-claude-code" aria-label="Copy the Claude Code commands">
-                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                  </button>
-                  <pre tabindex="0" aria-label="Claude Code setup"><code id="install-claude-code">/plugin marketplace add 2002Bishwajeet/journal
-/plugin install journal@journal
-/journal:login you.dotyou.cloud</code></pre>
-                </div>
-              </div>
-              <div class="tab-panel" role="tabpanel" id="panel-codex" aria-labelledby="tab-codex" hidden>
-                <p class="code-note">From a checkout of the repo, sign in once with <code>npm run mcp:login -- you.dotyou.cloud</code>, then add this to <code>~/.codex/config.toml</code>:</p>
-                <div class="code-block">
-                  <button class="copy-btn" type="button" data-copy="install-codex" aria-label="Copy the Codex CLI config">
-                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                  </button>
-                  <pre tabindex="0" aria-label="Codex CLI setup"><code id="install-codex">[mcp_servers.journal]
-command = "npm"
-args = ["--prefix", "/absolute/path/to/journal", "run", "--silent", "mcp"]</code></pre>
-                </div>
-              </div>
-              <div class="tab-panel" role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop" hidden>
-                <p class="code-note">From a checkout of the repo, sign in once with <code>npm run mcp:login -- you.dotyou.cloud</code>, then add this to <code>claude_desktop_config.json</code>:</p>
-                <div class="code-block">
-                  <button class="copy-btn" type="button" data-copy="install-desktop" aria-label="Copy the Claude Desktop config">
-                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                  </button>
-                  <pre tabindex="0" aria-label="Claude Desktop setup"><code id="install-desktop">{
-  "mcpServers": {
-    "journal": {
-      "command": "npm",
-      "args": ["--prefix", "/absolute/path/to/journal", "run", "--silent", "mcp"]
-    }
-  }
-}</code></pre>
-                </div>
-              </div>
+            <p class="lede" data-reveal style="--i:1">The Journal MCP server lets Claude Code, Claude Desktop, Cursor and Codex CLI read, search, create and edit your notes, in the folders you grant.</p>
+            <div class="ctas" data-reveal style="--i:2">
+              <a class="btn btn-primary" href="#setup">Set up the server</a>
+              <a class="btn btn-secondary" href="#tools">See the fourteen tools</a>
             </div>
-            <p class="small" data-reveal style="--i:3">The <a href="https://github.com/2002Bishwajeet/journal/blob/main/mcp/README.md">MCP setup guide</a> covers headless sign-in over SSH and every tool in detail.</p>
+            <div class="needs" data-reveal style="--i:3">
+              <h2 class="h3">What you need</h2>
+              <dl>
+                <dt>A Homebase identity</dt><dd>Such as <code>you.dotyou.cloud</code>, signed in to <a href="https://journal.cloudx.run/app/">Journal</a> at least once. <a href="https://homebase.id/sign-up">Join the wait list</a> if you have none.</dd>
+                <dt>Node.js 20 or newer</dt><dd>The server runs on your computer through <code>npx</code>. Check with <code>node --version</code>.</dd>
+                <dt>An MCP client</dt><dd>Claude Code, Claude Desktop, Cursor, Codex CLI, or any client that can start a local command.</dd>
+              </dl>
+            </div>
           </div>
           <div class="agents-hero-side" data-reveal style="--i:2">
-            <figure class="session" aria-labelledby="session-cap">
+            <figure class="session" data-ui aria-labelledby="session-cap">
               <figcaption id="session-cap" class="code-head"><span>An agent at work</span></figcaption>
               <div class="session-body">
                 <p class="session-ask">Build a chart of my reading log as a live block.</p>
                 <ol class="session-calls" aria-label="The tools it calls">
                   <li><code>get_authoring_guide</code><span>Reads how a note can hold live blocks</span></li>
-                  <li><code>search_notes</code><span>Searches the notes you granted</span></li>
+                  <li><code>search_notes</code><span>Finds the reading log among the notes you granted</span></li>
+                  <li><code>get_note</code><span>Reads the books and the months they were finished</span></li>
                   <li><code>create_note</code><span>Writes the new note into a folder it may write in</span></li>
                 </ol>
                 <p class="session-done">A new note, with a chart that runs where you read it.</p>
@@ -90,13 +49,537 @@ args = ["--prefix", "/absolute/path/to/journal", "run", "--silent", "mcp"]</code
             </figure>
           </div>
         </div>
-        <div class="install-steps" data-reveal>
-          <h2 class="h3">Connect in three steps</h2>
-          <ol class="steps">
-            <li>Run the commands above, with your own identity in place of <code>you.dotyou.cloud</code>.</li>
-            <li>Approve ‘Journal MCP’ in your Homebase owner console, then run <code>/mcp</code> to reconnect.</li>
-            <li>In Journal, open Settings → Agent access and grant the folders it may use.</li>
-          </ol>
+      </div>
+    </section>
+
+    <!-- Setup: four steps, each beside what you will see -->
+    <section class="section band" id="setup" aria-labelledby="setup-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 class="h2" id="setup-title" data-reveal>Set it up in four steps</h2>
+          <p class="lede" data-reveal style="--i:1">Sign in once on your computer, add the server to your agent, grant it folders, then ask it something to check. It takes about five minutes.</p>
+        </div>
+
+        <ol class="setup">
+          <li class="setup-step" data-reveal>
+            <div class="setup-copy">
+              <h3 class="h3">Install the server and sign in</h3>
+              <p>Pick your agent. In Claude Code the plugin does both in one go. In the others, sign in from a terminal, then add the server to the client's config file.</p>
+              <p>Put your own identity in place of <code>you.dotyou.cloud</code>. You sign in once per computer: every client on it shares the same login, kept in your system keychain.</p>
+            </div>
+            <div class="code-panel install" data-ui>
+              <div class="code-head">
+                <div class="tabs" role="tablist" aria-label="Your agent">
+                  <button class="tab" type="button" role="tab" id="tab-claude-code" aria-controls="panel-claude-code" aria-selected="true">Claude Code</button>
+                  <button class="tab" type="button" role="tab" id="tab-desktop" aria-controls="panel-desktop" aria-selected="false" tabindex="-1">Claude Desktop</button>
+                  <button class="tab" type="button" role="tab" id="tab-cursor" aria-controls="panel-cursor" aria-selected="false" tabindex="-1">Cursor</button>
+                  <button class="tab" type="button" role="tab" id="tab-codex" aria-controls="panel-codex" aria-selected="false" tabindex="-1">Codex CLI</button>
+                </div>
+              </div>
+
+              <div class="tab-panel" role="tabpanel" id="panel-claude-code" aria-labelledby="tab-claude-code">
+                <div class="snippet">
+                  <p class="code-note">Paste these into Claude Code, one at a time. The last one opens your browser to approve the server.</p>
+                  <button class="copy-btn" type="button" data-copy="install-claude-code" aria-label="Copy the Claude Code commands">
+                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span class="copy-label">Copy</span>
+                  </button>
+                  <pre tabindex="0" aria-label="Claude Code: install the plugin and sign in"><code id="install-claude-code">/plugin marketplace add 2002Bishwajeet/journal
+/plugin install journal@journal
+/journal:login you.dotyou.cloud</code></pre>
+                </div>
+              </div>
+
+              <div class="tab-panel" role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop" hidden>
+                <div class="snippet">
+                  <p class="code-note">First, sign in from a terminal:</p>
+                  <button class="copy-btn" type="button" data-copy="login-desktop" aria-label="Copy the sign-in command">
+                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span class="copy-label">Copy</span>
+                  </button>
+                  <pre tabindex="0" aria-label="Claude Desktop: sign in from a terminal"><code id="login-desktop">npx -y https://github.com/2002Bishwajeet/journal/releases/download/mcp-v1.8.1/journal-mcp-1.8.1.tgz login you.dotyou.cloud</code></pre>
+                </div>
+                <div class="snippet">
+                  <p class="code-note">Then open Settings → Developer → Edit Config in Claude Desktop, add this to <code>claude_desktop_config.json</code>, and quit and reopen the app:</p>
+                  <button class="copy-btn" type="button" data-copy="install-desktop" aria-label="Copy the Claude Desktop config">
+                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span class="copy-label">Copy</span>
+                  </button>
+                  <pre tabindex="0" aria-label="Claude Desktop: claude_desktop_config.json"><code id="install-desktop">{
+  "mcpServers": {
+    "journal": {
+      "command": "npx",
+      "args": ["-y", "https://github.com/2002Bishwajeet/journal/releases/download/mcp-v1.8.1/journal-mcp-1.8.1.tgz"]
+    }
+  }
+}</code></pre>
+                </div>
+              </div>
+
+              <div class="tab-panel" role="tabpanel" id="panel-cursor" aria-labelledby="tab-cursor" hidden>
+                <div class="snippet">
+                  <p class="code-note">First, sign in from a terminal:</p>
+                  <button class="copy-btn" type="button" data-copy="login-cursor" aria-label="Copy the sign-in command">
+                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span class="copy-label">Copy</span>
+                  </button>
+                  <pre tabindex="0" aria-label="Cursor: sign in from a terminal"><code id="login-cursor">npx -y https://github.com/2002Bishwajeet/journal/releases/download/mcp-v1.8.1/journal-mcp-1.8.1.tgz login you.dotyou.cloud</code></pre>
+                </div>
+                <div class="snippet">
+                  <p class="code-note">Then add this to <code>~/.cursor/mcp.json</code> for every project, or <code>.cursor/mcp.json</code> for one, and restart Cursor:</p>
+                  <button class="copy-btn" type="button" data-copy="install-cursor" aria-label="Copy the Cursor config">
+                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span class="copy-label">Copy</span>
+                  </button>
+                  <pre tabindex="0" aria-label="Cursor: mcp.json"><code id="install-cursor">{
+  "mcpServers": {
+    "journal": {
+      "command": "npx",
+      "args": ["-y", "https://github.com/2002Bishwajeet/journal/releases/download/mcp-v1.8.1/journal-mcp-1.8.1.tgz"]
+    }
+  }
+}</code></pre>
+                </div>
+              </div>
+
+              <div class="tab-panel" role="tabpanel" id="panel-codex" aria-labelledby="tab-codex" hidden>
+                <div class="snippet">
+                  <p class="code-note">First, sign in from a terminal:</p>
+                  <button class="copy-btn" type="button" data-copy="login-codex" aria-label="Copy the sign-in command">
+                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span class="copy-label">Copy</span>
+                  </button>
+                  <pre tabindex="0" aria-label="Codex CLI: sign in from a terminal"><code id="login-codex">npx -y https://github.com/2002Bishwajeet/journal/releases/download/mcp-v1.8.1/journal-mcp-1.8.1.tgz login you.dotyou.cloud</code></pre>
+                </div>
+                <div class="snippet">
+                  <p class="code-note">Then add this to <code>~/.codex/config.toml</code> and start a new Codex session:</p>
+                  <button class="copy-btn" type="button" data-copy="install-codex" aria-label="Copy the Codex CLI config">
+                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span class="copy-label">Copy</span>
+                  </button>
+                  <pre tabindex="0" aria-label="Codex CLI: ~/.codex/config.toml"><code id="install-codex">[mcp_servers.journal]
+command = "npx"
+args = ["-y", "https://github.com/2002Bishwajeet/journal/releases/download/mcp-v1.8.1/journal-mcp-1.8.1.tgz"]</code></pre>
+                </div>
+              </div>
+            </div>
+          </li>
+
+          <li class="setup-step" data-reveal>
+            <div class="setup-copy">
+              <h3 class="h3">Approve Journal MCP on your identity</h3>
+              <p>Signing in opens your Homebase owner console. Approve the app called Journal MCP: it asks for Read + write on your notes drive and nothing else. The terminal then says you're logged in.</p>
+              <p>Reload the server so it picks up the login: run <code>/mcp</code> in Claude Code and reconnect <code>journal</code>, quit and reopen Claude Desktop, or restart Cursor or Codex.</p>
+              <p class="small">On a computer with no browser, such as over SSH, add <code>--no-browser</code> to the login command. It prints a link to open on any device; approve there, and paste the code Journal shows at the <code>Paste code:</code> prompt.</p>
+            </div>
+            <figure class="code-panel terminal" data-ui aria-labelledby="terminal-cap">
+              <figcaption id="terminal-cap" class="code-head"><span>What the terminal shows</span></figcaption>
+              <pre tabindex="0" aria-label="Sign-in output"><code>Open this URL to approve Journal MCP:
+https://you.dotyou.cloud/api/owner/v1/youauth/authorize?…
+
+Logged in as you.dotyou.cloud. Credentials saved to the OS keychain.</code></pre>
+            </figure>
+          </li>
+
+          <li class="setup-step" data-reveal>
+            <div class="setup-copy">
+              <h3 class="h3">Grant the folders it may use</h3>
+              <p>In Journal, open Settings → Agent access and set each folder, or a single note, to None, Read, or Read + write. Everything starts at None, so until you grant something the agent sees no notes at all.</p>
+              <p>Mark a note ‘exclude from AI’ and it stays yours alone, whatever its folder allows. The server checks your grants on every tool call, on your own computer.</p>
+            </div>
+            <figure class="crop crop-grants" data-ui>
+              <picture class="only-light">
+                <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-light.webp" width="1050" height="834" />
+                <img src="/media/agent-grants-light.webp" width="1162" height="492" loading="lazy" alt="Agent access in Journal's Settings: Main set to Read, Personal to None, Reading and Work to Read + write." />
+              </picture>
+              <picture class="only-dark">
+                <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-dark.webp" width="1050" height="834" />
+                <img src="/media/agent-grants-dark.webp" width="1162" height="492" loading="lazy" alt="Agent access in dark mode, with a grant chosen for each folder." />
+              </picture>
+            </figure>
+          </li>
+
+          <li class="setup-step" data-reveal>
+            <div class="setup-copy">
+              <h3 class="h3">Check that it works</h3>
+              <p>Ask your agent to list your Journal folders. It calls <code>list_folders</code> and names each folder you granted, with <code>read</code> or <code>write</code> beside it. Folders left at None don't appear.</p>
+              <p>An empty list means the server is connected and nothing is granted yet. An error means the server isn't running: see the fixes below.</p>
+            </div>
+            <figure class="session check" data-ui aria-labelledby="check-cap">
+              <figcaption id="check-cap" class="code-head"><span>The first request</span></figcaption>
+              <div class="session-body">
+                <p class="session-ask">List my Journal folders.</p>
+                <pre tabindex="0" aria-label="What list_folders returns"><code><span class="call">list_folders</span>
+[
+  { "id": "e0b1…", "name": "Main", "access": "read" },
+  { "id": "7c42…", "name": "Reading", "access": "write" },
+  { "id": "a9d3…", "name": "Work", "access": "write" }
+]</code></pre>
+                <p class="session-done">You granted three folders. Main is read-only; I can write in Reading and Work.</p>
+              </div>
+            </figure>
+          </li>
+        </ol>
+
+        <div class="fixes" data-reveal>
+          <h3 class="h3" id="fixes">If something goes wrong</h3>
+          <dl>
+            <div><dt><code>Not logged in. Run: journal-mcp login &lt;identity&gt;</code></dt><dd>The server started but found no login on this computer. Run the sign-in step again, then reload the server.</dd></div>
+            <div><dt><code>Not a valid Homebase identity</code></dt><dd>Check the spelling. Give the identity alone, such as <code>you.dotyou.cloud</code>, and make sure it opens in a browser.</dd></div>
+            <div><dt><code>Login timed out after 5 minutes</code></dt><dd>The approval wasn't finished in time. Run the login again and approve Journal MCP in the console it opens.</dd></div>
+            <div><dt>No browser opens</dt><dd>Over SSH or in a container, add <code>--no-browser</code> and paste the code, as in step two.</dd></div>
+            <div><dt><code>Journal MCP needs Node 20 or newer</code></dt><dd>Install Node.js 20 or later, remove the old one, and restart your client.</dd></div>
+            <div><dt>The client can't start <code>npx</code></dt><dd>Desktop apps don't always see your shell's path. Put the full path from <code>which npx</code> in <code>"command"</code>.</dd></div>
+            <div><dt>The agent sees no notes</dt><dd>Nothing is granted yet. Set the folders it needs in Settings → Agent access; the change applies on the next tool call.</dd></div>
+            <div><dt><code>Note is read-only for agents</code></dt><dd>The note's folder is set to Read. Change it to Read + write to let the agent edit.</dd></div>
+            <div><dt>Revoke access</dt><dd>Remove Journal MCP under Apps in your owner console. To forget the login on one computer, run the login command with <code>logout</code> in place of <code>login you.dotyou.cloud</code>.</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tools: the full reference, grouped by job -->
+    <section class="section" id="tools" aria-labelledby="tools-title">
+      <div class="wrap">
+        <div class="section-head head-split">
+          <h2 class="h2" id="tools-title" data-reveal>Fourteen tools, grouped by job</h2>
+          <p class="lede" data-reveal style="--i:1">What each tool does, what it takes and returns, and when an agent should reach for it. Your agent reads the same descriptions when it connects.</p>
+        </div>
+
+        <nav class="tool-index" aria-label="Tools by job" data-reveal>
+          <div><p class="tool-index-head">Find and read</p><ul><li><a href="#tool-list_folders"><code>list_folders</code></a></li><li><a href="#tool-list_notes"><code>list_notes</code></a></li><li><a href="#tool-search_notes"><code>search_notes</code></a></li><li><a href="#tool-get_note"><code>get_note</code></a></li><li><a href="#tool-get_authoring_guide"><code>get_authoring_guide</code></a></li></ul></div>
+          <div><p class="tool-index-head">Write and edit</p><ul><li><a href="#tool-create_note"><code>create_note</code></a></li><li><a href="#tool-append_to_note"><code>append_to_note</code></a></li><li><a href="#tool-replace_in_note"><code>replace_in_note</code></a></li><li><a href="#tool-update_note"><code>update_note</code></a></li><li><a href="#tool-edit_block"><code>edit_block</code></a></li></ul></div>
+          <div><p class="tool-index-head">Covers</p><ul><li><a href="#tool-set_note_cover"><code>set_note_cover</code></a></li><li><a href="#tool-clear_note_cover"><code>clear_note_cover</code></a></li></ul></div>
+          <div><p class="tool-index-head">Organise</p><ul><li><a href="#tool-create_folder"><code>create_folder</code></a></li><li><a href="#tool-delete_note"><code>delete_note</code></a></li></ul></div>
+        </nav>
+
+        <div class="rules" data-reveal>
+          <h3 class="h3">Rules every tool follows</h3>
+          <dl>
+            <div><dt>Access</dt><dd>A note or folder at None doesn't exist for the agent: it is never listed, and asking for it returns <code>Note not found</code>. At Read, write tools fail with <code>Note is read-only for agents</code>. A note marked ‘exclude from AI’ is never readable or writable.</dd></div>
+            <div><dt>Merged edits</dt><dd>Every write is applied to the note's current state and merged, so what you type in Journal at the same time is kept. To have an edit refused if the note changed since you read it, pass <code>get_note</code>'s <code>modified</code> as <code>expectedModified</code>.</dd></div>
+            <div><dt>Signed edits</dt><dd>Notes an agent changes are labelled with it, such as <code>agent:claude-code</code>.</dd></div>
+            <div><dt>Images</dt><dd>In markdown, <code>![alt](/absolute/path.png)</code> or a base64 <code>data:</code> URI is uploaded into the note. PNG, JPEG or WebP, up to 5 MB each, with EXIF and GPS removed. If one image is invalid, nothing is written. <code>https://</code> image links stay links.</dd></div>
+            <div><dt>Note links</dt><dd><code>[label](journal:note/&lt;id&gt;)</code>, or <code>[[Note title]]</code> for the one note you can see with that title.</dd></div>
+            <div><dt>Layout warnings</dt><dd>When an <code>html</code> or <code>react</code> block sets a width over 390px or uses <code>100vh</code>, the write still succeeds and the result carries a note saying how to fix it.</dd></div>
+          </dl>
+        </div>
+
+        <div class="tool-group" aria-labelledby="group-read">
+          <h3 class="h3 group-title" id="group-read" data-reveal>Find and read</h3>
+
+          <article class="tool" id="tool-list_folders" aria-labelledby="t-list_folders" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-list_folders"><code>list_folders</code></h4>
+              <p>Lists the folders you have granted, each with the agent's access to it.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>Starting a session, or before <code>create_note</code>, to find a folder's <code>id</code> and whether it is writable.</dd>
+                <dt>Try asking</dt><dd class="ask">Which of my Journal folders can you see?</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <p class="none">None.</p>
+              <h5 class="spec-head">Returns</h5>
+              <p>A list of <code>{ id, name, access }</code>, where <code>access</code> is <code>read</code> or <code>write</code>.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-list_notes" aria-labelledby="t-list_notes" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-list_notes"><code>list_notes</code></h4>
+              <p>Lists granted notes, newest first, optionally from one folder.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>Browsing what changed lately, or finding a note's <code>id</code> when you know which folder it's in.</dd>
+                <dt>Try asking</dt><dd class="ask">What did I write in my Work folder this week?</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>folderId</code> <span>string, optional</span></dt><dd>Only notes in this folder, by its id from <code>list_folders</code>.</dd></div>
+                <div><dt><code>limit</code> <span>integer, optional</span></dt><dd>1 to 200. Default 50.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p>A list of <code>{ id, title, folderId, modified, tags, access }</code>. No note bodies.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-search_notes" aria-labelledby="t-search_notes" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-search_notes"><code>search_notes</code></h4>
+              <p>Finds granted notes whose title, tags or text contain the query, ignoring case.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>Looking for a note by a word in it. It matches the exact text, so search one distinctive word rather than a sentence.</dd>
+                <dt>Try asking</dt><dd class="ask">Find my notes that mention Lisbon.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>query</code> <span>string, required</span></dt><dd>The text to look for.</dd></div>
+                <div><dt><code>limit</code> <span>integer, optional</span></dt><dd>At least 1. Default 20.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p>The matching notes, in the same shape as <code>list_notes</code>.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-get_note" aria-labelledby="t-get_note" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-get_note"><code>get_note</code></h4>
+              <p>Reads one note, with its body as markdown or as a list of blocks.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>Before any edit. Ask for <code>blocks</code> before <code>edit_block</code>, and keep <code>modified</code> to pass as <code>expectedModified</code>.</dd>
+                <dt>Try asking</dt><dd class="ask">Summarise my Trip plan note.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
+                <div><dt><code>format</code> <span>"markdown" or "blocks", optional</span></dt><dd>Default <code>markdown</code>.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id, title, folderId, modified, tags, access }</code> with <code>markdown</code>, or with <code>blocks</code>: a list of <code>{ id, type, markdown, attrs }</code>, plus <code>rows</code> of cell markdown for a table. Block ids stay the same while the block exists.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-get_authoring_guide" aria-labelledby="t-get_authoring_guide" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-get_authoring_guide"><code>get_authoring_guide</code></h4>
+              <p>Returns the full reference for writing notes: every block's markdown with examples, how live blocks run, and the design rules that make them match the note in light and dark.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>Before writing anything beyond plain markdown: tables, callouts, toggles, math, galleries, or a <code>mermaid</code>, <code>svg</code>, <code>html</code> or <code>react</code> live block.</dd>
+                <dt>Try asking</dt><dd class="ask">Build a chart of my reading log as a live block.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <p class="none">None.</p>
+              <h5 class="spec-head">Returns</h5>
+              <p>The guide as markdown text, the same as <a href="https://github.com/2002Bishwajeet/journal/blob/main/mcp/AUTHORING.md">AUTHORING.md</a>.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="tool-group" aria-labelledby="group-write">
+          <h3 class="h3 group-title" id="group-write" data-reveal>Write and edit</h3>
+          <p class="group-note" data-reveal>These need Read + write access. Pick the smallest one that does the job: a passage with <code>replace_in_note</code>, a block or table cell with <code>edit_block</code>, the whole note with <code>update_note</code>.</p>
+
+          <article class="tool" id="tool-create_note" aria-labelledby="t-create_note" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-create_note"><code>create_note</code></h4>
+              <p>Creates a note from markdown in a folder the agent can write in.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>The note doesn't exist yet. To change one that does, use <code>update_note</code> rather than a second note.</dd>
+                <dt>Try asking</dt><dd class="ask">Create a note called Standup in my Work folder with today's summary.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>title</code> <span>string, required</span></dt><dd>The note's title.</dd></div>
+                <div><dt><code>markdown</code> <span>string, required</span></dt><dd>The body. Images and live blocks allowed.</dd></div>
+                <div><dt><code>folderId</code> <span>string, required</span></dt><dd>A folder with Read + write, from <code>list_folders</code>.</dd></div>
+                <div><dt><code>tags</code> <span>string[], optional</span></dt><dd>Tags for the note.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id, title, folderId }</code> of the new note.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-append_to_note" aria-labelledby="t-append_to_note" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-append_to_note"><code>append_to_note</code></h4>
+              <p>Adds markdown to the end of a note and leaves the rest as it was.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>Adding to a log, a diary or a running list.</dd>
+                <dt>Try asking</dt><dd class="ask">Append today's standup summary to my Work log.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
+                <div><dt><code>markdown</code> <span>string, required</span></dt><dd>What to add.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id }</code>.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-replace_in_note" aria-labelledby="t-replace_in_note" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-replace_in_note"><code>replace_in_note</code></h4>
+              <p>Replaces one passage of a note's markdown, exactly as <code>get_note</code> returned it.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>Changing a word, a date or a sentence. If <code>old_text</code> appears zero times or more than once, the tool says so and nothing changes: retry with more of the text around it.</dd>
+                <dt>Try asking</dt><dd class="ask">In my Trip plan note, change the flight time from 9:40 to 10:15.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
+                <div><dt><code>old_text</code> <span>string, required</span></dt><dd>Text that occurs exactly once in the note.</dd></div>
+                <div><dt><code>new_text</code> <span>string, required</span></dt><dd>The markdown to put in its place.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id }</code>.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-update_note" aria-labelledby="t-update_note" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-update_note"><code>update_note</code></h4>
+              <p>Rewrites a note's whole body, its title, its tags, or any of them. Blocks kept exactly as <code>get_note</code> returned them stay untouched, links and images included.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>Restructuring a note, renaming it or retagging it.</dd>
+                <dt>Try asking</dt><dd class="ask">Redesign my Trip plan note as a day-by-day itinerary.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
+                <div><dt><code>markdown</code> <span>string, optional</span></dt><dd>The new body.</dd></div>
+                <div><dt><code>title</code> <span>string, optional</span></dt><dd>The new title.</dd></div>
+                <div><dt><code>tags</code> <span>string[], optional</span></dt><dd>Replaces all of the note's tags.</dd></div>
+                <div><dt><code>expectedModified</code> <span>string, optional</span></dt><dd>Refuse the edit if the note changed since this time.</dd></div>
+              </dl>
+              <p class="small">Give at least one of <code>markdown</code>, <code>title</code> or <code>tags</code>.</p>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id }</code>.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-edit_block" aria-labelledby="t-edit_block" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-edit_block"><code>edit_block</code></h4>
+              <p>Changes one block of a note by its id: replace it, add a block before or after it, delete it, or change one table cell, row, column or setting. Every other block stays as it is.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>Editing inside a table, ticking a task, or changing a callout or live block, after <code>get_note</code> with <code>format: "blocks"</code>.</dd>
+                <dt>Try asking</dt><dd class="ask">In my Trip plan table, set Tuesday's plan to Hike.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>note_id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
+                <div><dt><code>block_id</code> <span>string, required</span></dt><dd>The block's id from <code>get_note</code>.</dd></div>
+                <div><dt><code>op</code> <span>object, required</span></dt><dd>One of:
+                  <ul class="ops">
+                    <li><code>replace</code>, <code>insert_before</code>, <code>insert_after</code> with <code>markdown</code></li>
+                    <li><code>set_text</code> with <code>markdown</code>: a callout's or toggle's body</li>
+                    <li><code>delete</code></li>
+                    <li><code>set_attrs</code> with <code>attrs</code>: <code>variant</code>, <code>summary</code>, <code>level</code>, <code>language</code>, <code>id</code>, <code>wide</code> or <code>checked</code></li>
+                    <li><code>set_cell</code> with <code>row</code>, <code>col</code>, <code>markdown</code></li>
+                    <li><code>insert_row</code> with <code>at</code> and optional <code>cells</code></li>
+                    <li><code>delete_row</code>, <code>insert_column</code>, <code>delete_column</code> with <code>at</code></li>
+                  </ul>
+                </dd></div>
+                <div><dt><code>expectedModified</code> <span>string, optional</span></dt><dd>Refuse the edit if the note changed since this time.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id, block_ids }</code>: the ids of the blocks the edit leaves.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="tool-group" aria-labelledby="group-covers">
+          <h3 class="h3 group-title" id="group-covers" data-reveal>Covers</h3>
+
+          <article class="tool" id="tool-set_note_cover" aria-labelledby="t-set_note_cover" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-set_note_cover"><code>set_note_cover</code></h4>
+              <p>Sets a note's cover image, or the cover it shows in dark mode. A public note's link preview uses the cover too.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>A note needs a picture at the top. Use this rather than an image in the body. Crop to about 1.9:1 first, ideally 2400×1260 and at least 1200×630: the image is uploaded as it is.</dd>
+                <dt>Try asking</dt><dd class="ask">Use ~/Pictures/lisbon.jpg as the cover of my Trip plan note.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
+                <div><dt><code>image</code> <span>string, required</span></dt><dd>An absolute path on this computer (preferred) or a base64 <code>data:</code> URI. PNG, JPEG or WebP, up to 5 MB.</dd></div>
+                <div><dt><code>positionY</code> <span>number, optional</span></dt><dd>The focal point from 0 (top) to 100 (bottom). Default 50.</dd></div>
+                <div><dt><code>dark</code> <span>boolean, optional</span></dt><dd>Set the dark-mode cover. The note must have a cover already.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id, variant, src, positionY }</code>, with a <code>note</code> when the image is too small or the wrong shape.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-clear_note_cover" aria-labelledby="t-clear_note_cover" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-clear_note_cover"><code>clear_note_cover</code></h4>
+              <p>Removes a note's cover and its dark-mode cover, or only the dark one.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>A note should go back to having no cover.</dd>
+                <dt>Try asking</dt><dd class="ask">Take the cover off my Trip plan note.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
+                <div><dt><code>dark</code> <span>boolean, optional</span></dt><dd>Remove only the dark-mode cover.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id, variant, cleared }</code>. <code>cleared</code> is false when there was nothing to remove.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="tool-group" aria-labelledby="group-organise">
+          <h3 class="h3 group-title" id="group-organise" data-reveal>Organise</h3>
+
+          <article class="tool" id="tool-create_folder" aria-labelledby="t-create_folder" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-create_folder"><code>create_folder</code></h4>
+              <p>Creates a folder and gives the agent Read + write on it, so it can put notes there. You can revoke that in Settings like any other grant.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>The work needs a place of its own.</dd>
+                <dt>Try asking</dt><dd class="ask">Make a Research folder and save these notes in it.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>name</code> <span>string, required</span></dt><dd>The folder's name.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id, name }</code> of the new folder.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-delete_note" aria-labelledby="t-delete_note" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-delete_note"><code>delete_note</code></h4>
+              <p>Moves a note to Journal's Trash, where you can restore it. It never deletes a note for good.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>A note is a duplicate or no longer wanted.</dd>
+                <dt>Try asking</dt><dd class="ask">Delete the duplicate Trip plan note.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id, state: "trashed" }</code>.</p>
+            </div>
+          </article>
         </div>
       </div>
     </section>
@@ -115,73 +598,6 @@ args = ["--prefix", "/absolute/path/to/journal", "run", "--silent", "mcp"]</code
           <li data-reveal style="--i:2">Redesign my Trip plan note as a day-by-day itinerary.</li>
           <li data-reveal style="--i:3">Use ~/Pictures/lisbon.jpg as the cover of my Trip plan note.</li>
         </ul>
-      </div>
-    </section>
-
-    <!-- Access: the rules, beside the grants table -->
-    <section class="section" aria-labelledby="access-title">
-      <div class="wrap split access">
-        <div class="split-copy">
-          <h2 class="h2" id="access-title" data-reveal>Access, folder by folder</h2>
-          <p class="lede" data-reveal style="--i:1">In Settings → Agent access, set each folder or note to None, Read, or Read + write. Everything starts at None, and you grant what each agent needs.</p>
-          <ul class="facts" data-reveal style="--i:2">
-            <li><strong>Private notes stay private.</strong> Mark a note ‘exclude from AI’ and it stays yours alone, whatever its folder allows.</li>
-            <li><strong>Its own registration.</strong> The MCP server signs in as its own app on your identity, apart from the Journal web app, so you can revoke it on its own under Apps in your owner console.</li>
-            <li><strong>Grants are checked on your computer.</strong> The MCP server reads your grants and filters every tool call by them, in its own process where it runs.</li>
-          </ul>
-        </div>
-        <figure class="crop crop-grants" data-ui data-reveal style="--i:1">
-          <picture class="only-light">
-            <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-light.webp" width="1050" height="834" />
-            <img src="/media/agent-grants-light.webp" width="1162" height="492" loading="lazy" alt="Agent access in Journal's Settings: Main set to Read, Personal to None, Reading and Work to Read + write." />
-          </picture>
-          <picture class="only-dark">
-            <source media="(max-width: 599px)" srcset="/media/phone-agent-grants-dark.webp" width="1050" height="834" />
-            <img src="/media/agent-grants-dark.webp" width="1162" height="492" loading="lazy" alt="Agent access in dark mode, with a grant chosen for each folder." />
-          </picture>
-        </figure>
-      </div>
-    </section>
-
-    <!-- Tools: grouped by what they do -->
-    <section class="section band-2" aria-labelledby="tools-title">
-      <div class="wrap">
-        <div class="section-head">
-          <h2 class="h2" id="tools-title" data-reveal>Fourteen tools, in three kinds</h2>
-          <p class="lede" data-reveal style="--i:1">Write tools need Read + write access. Every edit is merged into the note's current state, so what you type at the same time is kept.</p>
-        </div>
-        <div class="tool-groups">
-          <div class="tool-group" data-reveal>
-            <h3 class="h3">Read</h3>
-            <dl>
-              <dt><code>list_folders</code></dt><dd>The folders you've granted.</dd>
-              <dt><code>list_notes</code></dt><dd>Granted notes, newest first.</dd>
-              <dt><code>get_note</code></dt><dd>One note as markdown, or as a list of blocks.</dd>
-              <dt><code>search_notes</code></dt><dd>Search titles, tags and text of granted notes.</dd>
-              <dt><code>get_authoring_guide</code></dt><dd>Everything a note can hold, and how to write it.</dd>
-            </dl>
-          </div>
-          <div class="tool-group" data-reveal style="--i:1">
-            <h3 class="h3">Write</h3>
-            <dl>
-              <dt><code>create_note</code></dt><dd>A new note from markdown, in a writable folder.</dd>
-              <dt><code>append_to_note</code></dt><dd>Add markdown to the end of a note.</dd>
-              <dt><code>replace_in_note</code></dt><dd>Change one exact passage.</dd>
-              <dt><code>update_note</code></dt><dd>Rewrite the body, title or tags.</dd>
-              <dt><code>edit_block</code></dt><dd>Change one block, or one table cell, row or column.</dd>
-              <dt><code>set_note_cover</code></dt><dd>Set a cover image, with a dark-mode one beside it.</dd>
-              <dt><code>clear_note_cover</code></dt><dd>Remove a cover.</dd>
-            </dl>
-          </div>
-          <div class="tool-group" data-reveal style="--i:2">
-            <h3 class="h3">Organise</h3>
-            <dl>
-              <dt><code>create_folder</code></dt><dd>A new folder the agent can write in. Revoke it like any other grant.</dd>
-              <dt><code>delete_note</code></dt><dd>Move a note to Trash, where you can restore it.</dd>
-            </dl>
-            <p class="small">Edited notes are labelled with the agent that changed them, such as <code>agent:claude-code</code>.</p>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -210,8 +626,8 @@ args = ["--prefix", "/absolute/path/to/journal", "run", "--silent", "mcp"]</code
       <div class="wrap cta-row">
         <h2 class="h2" id="agents-close-title" data-reveal>Connect your first agent</h2>
         <div class="ctas" data-reveal style="--i:1">
-          <a class="btn btn-primary" href="https://journal.cloudx.run/app/">Open Journal</a>
-          <a class="btn btn-secondary" href="https://github.com/2002Bishwajeet/journal/blob/main/mcp/README.md">Read the setup guide</a>
+          <a class="btn btn-primary" href="#setup">Set up the server</a>
+          <a class="btn btn-secondary" href="https://github.com/2002Bishwajeet/journal/blob/main/mcp/README.md">Read the MCP README</a>
         </div>
       </div>
     </section>
