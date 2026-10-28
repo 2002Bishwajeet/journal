@@ -232,6 +232,14 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
         </>
     );
 
+    // Escape in a filled search clears it, as in a combobox; the next Escape closes the dialog
+    const onEscapeKeyDown = (e: KeyboardEvent) => {
+        if (e.target instanceof HTMLElement && e.target.id === 'share-search' && access.query) {
+            e.preventDefault();
+            access.setQuery('');
+        }
+    };
+
     const onCloseAutoFocus = (e: Event) => {
         e.preventDefault();
         lastFocusOutside?.focus();
@@ -249,7 +257,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
     if (asSheet) {
         return (
             <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-                <SheetContent variant="full" className="share-ui" onCloseAutoFocus={onCloseAutoFocus}>
+                <SheetContent variant="full" className="share-ui" onEscapeKeyDown={onEscapeKeyDown} onCloseAutoFocus={onCloseAutoFocus}>
                     <SheetHeader>
                         <div className="flex min-w-0 items-center gap-3">
                             <SheetTitle className="font-serif text-xl leading-7 font-normal tracking-tight">{title}</SheetTitle>
@@ -278,6 +286,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
                 is a grid, so a child sized to its content would never scroll. */}
             <DialogContent
                 className="share-dialog share-ui max-h-none top-1/2 gap-0 overflow-hidden p-0 sm:max-w-[min(960px,calc(100vw-2rem))] sm:[&>[data-slot=dialog-close]]:top-5.5"
+                onEscapeKeyDown={onEscapeKeyDown}
                 onCloseAutoFocus={onCloseAutoFocus}
             >
                 <div className="flex h-[min(640px,90dvh)] min-w-0 flex-col">
