@@ -10,7 +10,7 @@ export default function SaveSharedPage() {
     const { error } = useSaveSharedNote();
 
     return (
-        <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="min-h-svh bg-background flex items-center justify-center px-4">
             {error ? (
                 <div role="alert" className="text-center space-y-4">
                     <FileText className="h-16 w-16 text-muted-foreground/70 mx-auto" />
