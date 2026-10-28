@@ -1,3 +1,16 @@
+# [2.48.0](https://github.com/2002Bishwajeet/journal/compare/v2.47.2...v2.48.0) (2026-10-28)
+
+
+### Bug Fixes
+
+* **ai:** count 'instead of' as a change request; agent-edit e2e no longer scripts the read the harness now gives ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([f8ddab9](https://github.com/2002Bishwajeet/journal/commit/f8ddab9e735b9aad967b96242e6773f3e0d55187))
+* **ai:** count strikethrough, case, tick, fill, bullet, number, log and remember-to as change requests ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([a32f418](https://github.com/2002Bishwajeet/journal/commit/a32f4189631329df60885cf27286820e8b8a1748))
+* **ai:** give the open note's blocks up front instead of refusing an edit before a read ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([fa1c19d](https://github.com/2002Bishwajeet/journal/commit/fa1c19d3b8c3ee3a85d14b7e0a364ad131d42c7a))
+
+
+### Features
+
+* **ai:** small-model tool and harness fixes: read before edit, no repeat writes, no writes for questions ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([d0f8e36](https://github.com/2002Bishwajeet/journal/commit/d0f8e361f0d5afaff8e9c92f45bb80f4269e3c8d))
 ## [2.47.2](https://github.com/2002Bishwajeet/journal/compare/v2.47.1...v2.47.2) (2026-10-28)
 
 
