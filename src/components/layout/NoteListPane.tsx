@@ -1,9 +1,11 @@
 import { useBackTo } from "@/hooks/useBackTo";
-import { ArchiveRestore, Trash2, Archive } from "lucide-react";
+import { ArchiveRestore, Trash2, Archive, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
 import type { useNoteActions } from "@/hooks";
+import type { useSharedPull } from "@/hooks/useSharedPull";
 import NoteList from "./NoteList";
 import { SyncStatus } from "./SyncStatus";
 import { HiddenNotesView } from "./HiddenNotesView";
@@ -12,6 +14,9 @@ interface NoteListPaneProps {
   isDesktop: boolean;
   /** Phones create notes with the New note button (#878), so the list header has no New. */
   isPhone: boolean;
+  /** Tablets show this pane beside the editor; Back opens the folders overlay (#832). */
+  isTablet: boolean;
+  onOpenSidebar: () => void;
   isManagementView: boolean;
   isListVisibleOnMobile: boolean;
   inFocusMode: boolean;
@@ -24,13 +29,17 @@ interface NoteListPaneProps {
   noteActions: ReturnType<typeof useNoteActions>;
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder: (note: NoteListEntry) => void;
-  onMarkCollaborative: (note: NoteListEntry) => void;
+  onRemoveFromList: (note: NoteListEntry) => void;
+  /** Phones have no Shared row in the sidebar, so the Shared list carries Refresh. */
+  sharedPull?: ReturnType<typeof useSharedPull>;
 }
 
 /** Middle pane: the note list, or the Trash/Archive management views. */
 export function NoteListPane({
   isDesktop,
   isPhone,
+  isTablet,
+  onOpenSidebar,
   isManagementView,
   isListVisibleOnMobile,
   inFocusMode,
@@ -43,10 +52,14 @@ export function NoteListPane({
   noteActions,
   onShareNote,
   onMoveToFolder,
-  onMarkCollaborative,
+  onRemoveFromList,
+  sharedPull,
 }: NoteListPaneProps) {
   const backTo = useBackTo();
   const goBack = () => backTo("/");
+  const split = isDesktop || isTablet;
+  const onBack = isDesktop ? undefined : isTablet ? onOpenSidebar : goBack;
+  const backLabel = isTablet ? "Show folders" : undefined;
 
   return (
     <div
@@ -56,13 +69,13 @@ export function NoteListPane({
         // Desktop: Always visible, static positioning (part of flex flow).
         // Management views (Trash/Archive) span the full width instead of the
         // fixed 256px note-list column.
-        isDesktop
+        split
           ? isManagementView
             ? "flex flex-1 static"
-            : "flex w-64 static shrink-0"
+            : cn("flex static shrink-0", isTablet ? "w-80" : "w-64")
           : "hidden",
         // Mobile: Visible for a folder or tag with no note selected (Absolute covering screen)
-        !isDesktop &&
+        !split &&
           isListVisibleOnMobile &&
           "flex absolute inset-0 z-20 w-full",
         inFocusMode && "hidden!",
@@ -81,7 +94,8 @@ export function NoteListPane({
               { icon: Trash2, label: "Delete forever", onClick: noteActions.deleteForever, destructive: true },
             ]}
             headerAction={{ label: "Empty Trash", onClick: noteActions.emptyTrash }}
-            onBack={isDesktop ? undefined : goBack}
+            onBack={onBack}
+            backLabel={backLabel}
             className="flex-1"
           />
         ) : folderId === PSEUDO_FOLDERS.archive ? (
@@ -95,7 +109,8 @@ export function NoteListPane({
               { icon: ArchiveRestore, label: "Unarchive note", onClick: noteActions.unarchive },
               { icon: Trash2, label: "Move to Trash", onClick: noteActions.moveArchivedToTrash, destructive: true },
             ]}
-            onBack={isDesktop ? undefined : goBack}
+            onBack={onBack}
+            backLabel={backLabel}
             className="flex-1"
           />
         ) : (
@@ -109,12 +124,31 @@ export function NoteListPane({
           onDeleteNote={noteActions.deleteAndSelectNeighbour}
           onShareNote={onShareNote}
           onMoveToFolder={onMoveToFolder}
-          onMarkCollaborative={onMarkCollaborative}
+          onRemoveFromList={onRemoveFromList}
           onArchive={noteActions.archive}
           isLoading={isListLoading}
           title={isDesktop ? undefined : viewLabel || "Notes"}
-          onBack={isDesktop ? undefined : goBack}
-          trailing={isDesktop ? undefined : <SyncStatus />}
+          onBack={onBack}
+          backLabel={backLabel}
+          trailing={
+            split ? undefined : (
+              <>
+                {isPhone && folderId === PSEUDO_FOLDERS.shared && sharedPull?.canPull && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Refresh shared notes"
+                    aria-busy={sharedPull.isRefreshing}
+                    className="size-11 shrink-0 text-muted-foreground hover:text-foreground"
+                    onClick={sharedPull.refresh}
+                  >
+                    <RefreshCw className={cn("h-4 w-4", sharedPull.isRefreshing && "animate-spin")} />
+                  </Button>
+                )}
+                <SyncStatus />
+              </>
+            )
+          }
           className="flex-1 w-full border-r-0"
         />
         )}

@@ -1,0 +1,724 @@
+{
+  "model": "Qwen2.5-3B-Instruct-q4f16_1-MLC",
+  "loadedModelId": "Qwen2.5-3B-Instruct-q4f32_1-MLC",
+  "date": "2026-10-27",
+  "gpu": "nvidia turing",
+  "firstLoadMs": 7819,
+  "cached": true,
+  "tasks": [
+    {
+      "id": "find-lisbon",
+      "kind": "find",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 41483,
+      "answer": "Use the search_notes tool with the query 'Lisbon trip'.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "Lisbon trip",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"de6e5038-6ccc-0ab1-9325-9948d6ed48a4\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.141Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Flight"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-sourdough",
+      "kind": "find",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 38428,
+      "answer": "The note with the sourdough starter feeding schedule is not found in the 'Scratchpad' open note.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "sourdough starter feeding schedule",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"f9452308-b9b3-4e29-a937-23ab58802131\",\"title\":\"Sourdough starter\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.142Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-insurance",
+      "kind": "find",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 92206,
+      "answer": "Your search note 'Car insurance renewal' is titled and contains the phrase 'car insurance'. It seems you have a note about car insurance.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "car insurance",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"4fb8109e-47b8-ea47-3ccd-7e962c1e9649\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.142Z\",\"tags\":[],\"access\":\"write\",\"snippe"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70"
+          },
+          "result": "{\"id\":\"7acf3718-7aa9-c4e9-ad6b-03c2d614cc70\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.141Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "4fb8109e-47b8-ea47-3ccd-7e962c1e9649"
+          },
+          "result": "{\"id\":\"4fb8109e-47b8-ea47-3ccd-7e962c1e9649\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.142Z\",\"tags\":[],\"access\":\"write\",\"markdow"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-offsite",
+      "kind": "find",
+      "success": true,
+      "steps": 7,
+      "invalidCalls": 0,
+      "wallMs": 111908,
+      "answer": "Your search query 'team offsite' did not match any notes in the current search results. Please check your query and try again.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "team offsite",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"e8929e7c-e7f2-e7f8-4c37-17ac00a39698\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.142Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Offsi"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "e8929e7c-e7f2-e7f8-4c37-17ac00a39698"
+          },
+          "result": "{\"id\":\"e8929e7c-e7f2-e7f8-4c37-17ac00a39698\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.142Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Offsi"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70"
+          },
+          "result": "{\"id\":\"7acf3718-7aa9-c4e9-ad6b-03c2d614cc70\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.141Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-git",
+      "kind": "find",
+      "success": false,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 31423,
+      "answer": "Your git command tips notes are not found in the open note.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "git command tips",
+            "limit": 5
+          },
+          "result": "[]"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-flight",
+      "kind": "read",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 80972,
+      "answer": "Your flight to Lisbon is on May 3 and you are returning on May 10.",
+      "calls": [
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Nothing here yet.\"}]"
+        },
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "flight to Lisbon",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"de6e5038-6ccc-0ab1-9325-9948d6ed48a4\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.141Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Flight"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70"
+          },
+          "result": "{\"id\":\"7acf3718-7aa9-c4e9-ad6b-03c2d614cc70\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.141Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-flour",
+      "kind": "read",
+      "success": false,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 70920,
+      "answer": "No note found related to the question about how much flour to feed your sourdough starter.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "How much flour do I feed my sourdough starter",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"f9452308-b9b3-4e29-a937-23ab58802131\",\"title\":\"Sourdough starter\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.142Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\""
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70"
+          },
+          "result": "{\"id\":\"7acf3718-7aa9-c4e9-ad6b-03c2d614cc70\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.141Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-policy",
+      "kind": "read",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 69378,
+      "answer": "Your car insurance policy number is AX-4471, as mentioned in the note about the renewal date.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "car insurance policy number",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"4fb8109e-47b8-ea47-3ccd-7e962c1e9649\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.142Z\",\"tags\":[],\"access\":\"write\",\"snippe"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70"
+          },
+          "result": "{\"id\":\"7acf3718-7aa9-c4e9-ad6b-03c2d614cc70\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.141Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-venue",
+      "kind": "read",
+      "success": true,
+      "steps": 7,
+      "invalidCalls": 0,
+      "wallMs": 120623,
+      "answer": "The team offsite venue is the boathouse by the lake as mentioned in the previous note.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "team offsite venue",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"e8929e7c-e7f2-e7f8-4c37-17ac00a39698\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.142Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Offsi"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "e8929e7c-e7f2-e7f8-4c37-17ac00a39698"
+          },
+          "result": "{\"id\":\"e8929e7c-e7f2-e7f8-4c37-17ac00a39698\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.142Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Offsi"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70"
+          },
+          "result": "{\"id\":\"7acf3718-7aa9-c4e9-ad6b-03c2d614cc70\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.141Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "refuse-salary",
+      "kind": "refusal",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 64851,
+      "answer": "Please provide the question in your salary review note so I can locate it.",
+      "calls": [
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Nothing here yet.\"}]"
+        },
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "salary review note",
+            "limit": 5
+          },
+          "result": "[]"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70"
+          },
+          "result": "{\"id\":\"7acf3718-7aa9-c4e9-ad6b-03c2d614cc70\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T21:49:22.141Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-bold",
+      "kind": "edit",
+      "success": false,
+      "steps": 4,
+      "invalidCalls": 2,
+      "wallMs": 74416,
+      "answer": "{",
+      "calls": [
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "2eaf778c-e07d-81aa-0982-3f8cce1b7a90",
+            "markdown": "\n\n*Second paragraph*\n\nWe need to improve the user experience.*\n\nThird paragraph:*Need to plan the next sprint."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "We need to improve the user experience.",
+            "replace": "*We need to improve the user experience.*"
+          }
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "We need to improve the user experience.",
+            "replace": "*We need to improve the user experience."
+          }
+        }
+      ],
+      "errors": [
+        "\"We need to improve the user experience.\" is not in block 2.",
+        "\"We need to improve the user experience.\" is not in block 2."
+      ]
+    },
+    {
+      "id": "edit-replace",
+      "kind": "edit",
+      "success": false,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 130762,
+      "answer": "Next steps: Confirm venue, finalize agenda.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 3,
+            "find": "tuesday",
+            "replace": "Wednesday"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "e8929e7c-e7f2-e7f8-4c37-17ac00a39698",
+            "markdown": "\nWednesday at 10\n\nNext steps: Confirm venue, finalize agenda."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "e8929e7c-e7f2-e7f8-4c37-17ac00a39698"
+          },
+          "result": "{\"id\":\"e8929e7c-e7f2-e7f8-4c37-17ac00a39698\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T22:03:32.022Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Offsi"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-insert-above-list",
+      "kind": "edit",
+      "success": false,
+      "steps": 8,
+      "invalidCalls": 1,
+      "wallMs": 179324,
+      "answer": "Next steps\n- Next steps\n- Book the van\n- Pack the kitchen",
+      "calls": [
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "e482212c-dd6b-e0ba-4109-20fa5136f164",
+            "markdown": "\nNext steps\n- Book the van\n- Pack the kitchen"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "e482212c-dd6b-e0ba-4109-20fa5136f164",
+            "markdown": "\n- Next steps\n- Book the van\n- Pack the kitchen"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "",
+            "replace": "Next steps\n- Book the van\n- Pack the kitchen"
+          }
+        },
+        {
+          "tool": "insert_paragraph",
+          "args": {
+            "after": 1,
+            "text": "Next steps"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": [
+        "find must not be empty."
+      ]
+    },
+    {
+      "id": "edit-italic",
+      "kind": "edit",
+      "success": false,
+      "steps": 7,
+      "invalidCalls": 1,
+      "wallMs": 154903,
+      "answer": "The word 'saffron' is already italicized in the open note.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "saffron",
+            "replace": "<em>saffron</em>"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "cbc089b7-2d88-0398-7d87-fa8d28ab5083",
+            "markdown": "\n\nMake the word 'saffron' italic."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "cbc08b2a-2d88-0398-7d87-fa8d28ab5083"
+          }
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "cbc089b7-2d88-0398-7d87-fa8d28ab5083"
+          },
+          "result": "{\"id\":\"cbc089b7-2d88-0398-7d87-fa8d28ab5083\",\"title\":\"Recipe ideas\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T22:08:43.778Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Try a"
+        }
+      ],
+      "errors": [
+        "Note not found: cbc08b2a-2d88-0398-7d87-fa8d28ab5083"
+      ]
+    },
+    {
+      "id": "edit-append-paragraph",
+      "kind": "edit",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 73983,
+      "answer": "{",
+      "calls": [
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "0ffc2df3-ef38-347b-54e5-15dc3ba8503e",
+            "markdown": "\nBudget approved.\n"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-strike",
+      "kind": "edit",
+      "success": false,
+      "steps": 8,
+      "invalidCalls": 2,
+      "wallMs": 172203,
+      "answer": "The ending felt rushed.\n\nThe ending felt rushed.\n\nStrike through the first paragraph.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "Finish chapter four.",
+            "replace": "**Finish chapter four.**\n\nThe ending felt rushed."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 1,
+            "mark": "strike",
+            "on": true
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "efe7fc49-67ea-56cf-efab-295157b4828c",
+            "markdown": "\n\n*Strike through the first paragraph.*"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "efe7fc49-67ea-56cf-efab-295157b4828c"
+          },
+          "result": "{\"id\":\"efe7fc49-67ea-56cf-efab-295157b4828c\",\"title\":\"Reading notes\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T22:12:48.970Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"~~**"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "Strike through the first paragraph.",
+            "replace": "~~Strike through the first paragraph.~~\n\n"
+          }
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "~~Finish chapter four.~~\n\nThe ending felt rushed.",
+            "replace": "~~Finish chapter four.~~\n\nThe ending felt rushed.\n\nStrike through the first paragraph."
+          }
+        }
+      ],
+      "errors": [
+        "\"Strike through the first paragraph.\" is not in block 1.",
+        "\"~~Finish chapter four.~~\n\nThe ending felt rushed.\" is not in block 1."
+      ]
+    },
+    {
+      "id": "edit-typo",
+      "kind": "edit",
+      "success": false,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 122111,
+      "answer": "Fixed typo: 'recieve' -> 'receive'; already made this change in the previous steps.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "recieve",
+            "replace": "receive"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "530c5841-0052-e9cc-1eba-36eba0a0f157",
+            "markdown": "\n\n\t• Fixed typo: 'recieve' -> 'receive'\n\n"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Meeting minutes (new)",
+            "markdown": "\n\n\t• Fixed typo: 'recieve' -> 'receive'\n\n"
+          },
+          "result": "accepted (note id: aa9190da-bd43-2605-bdad-8a3f8e72b8b4)"
+        }
+      ],
+      "errors": [],
+      "error": "Could not read Meeting minutes: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed"
+    },
+    {
+      "id": "edit-code",
+      "kind": "edit",
+      "success": false,
+      "steps": 6,
+      "invalidCalls": 1,
+      "wallMs": 116428,
+      "answer": "```code\n$ git status\n```",
+      "calls": [
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 1,
+            "mark": "code",
+            "on": true,
+            "find": "git status"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "0230843c-7e3f-d54a-42b0-67073ebd0a7f",
+            "markdown": "\n\n```code\n$ git status\n```"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Shell tips (new)",
+            "markdown": "\n\n```code\n$ git status\n```",
+            "folderId": "0230843c-7e3f-d54a-42b0-67073ebd0a7f"
+          }
+        }
+      ],
+      "errors": [
+        "Folder not found: 0230843c-7e3f-d54a-42b0-67073ebd0a7f"
+      ]
+    },
+    {
+      "id": "cross-append",
+      "kind": "cross",
+      "success": false,
+      "steps": 8,
+      "invalidCalls": 0,
+      "wallMs": 209162,
+      "answer": "I have appended the change to the note.",
+      "calls": [
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70",
+            "markdown": "\n\n*oat milk*\nto my shopping list note."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70"
+          },
+          "result": "{\"id\":\"7acf3718-7aa9-c4e9-ad6b-03c2d614cc70\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T22:19:15.786Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        },
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Shopping List",
+            "markdown": "*oat milk*\nto my shopping list note."
+          },
+          "result": "accepted (note id: a8ac6d1a-1e5b-79d5-b875-a5aa2c77ea56)"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70",
+            "markdown": "\n\n*oat milk*\nto my shopping list note.\n\nI added 'oat milk' to the shopping list."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70"
+          },
+          "result": "{\"id\":\"7acf3718-7aa9-c4e9-ad6b-03c2d614cc70\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T22:20:20.168Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "cross-create",
+      "kind": "cross",
+      "success": false,
+      "steps": 8,
+      "invalidCalls": 0,
+      "wallMs": 207830,
+      "answer": "Created note 'Gift ideas' with markdown 'A scarf for Mum'.",
+      "calls": [
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Gift ideas",
+            "markdown": "A scarf for Mum\n\n"
+          },
+          "result": "accepted (note id: 89673c18-aaf2-d4d3-bb68-2facedc47358)"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70",
+            "markdown": "A scarf for Mum"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70"
+          },
+          "result": "{\"id\":\"7acf3718-7aa9-c4e9-ad6b-03c2d614cc70\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T22:23:03.336Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "89673c18-aaf2-d4d3-bb68-2facedc47358"
+          },
+          "result": "{\"id\":\"89673c18-aaf2-d4d3-bb68-2facedc47358\",\"title\":\"Gift ideas\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T22:22:43.015Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"A scarf"
+        },
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Gift ideas",
+            "markdown": "A scarf for Mum"
+          },
+          "result": "accepted (note id: 43c13d73-1e31-b8e8-35c3-468f839fd93f)"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "7acf3718-7aa9-c4e9-ad6b-03c2d614cc70"
+          },
+          "result": "{\"id\":\"7acf3718-7aa9-c4e9-ad6b-03c2d614cc70\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-10-27T22:23:03.336Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    }
+  ]
+}

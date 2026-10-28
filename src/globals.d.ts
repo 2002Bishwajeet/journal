@@ -43,6 +43,10 @@ interface JournalE2EHooks {
   ready(): Promise<void>;
   /** True while an edit is still queued for, or being written to, PGlite. */
   hasUnsavedEdits(): Promise<boolean>;
+  /** Opens a sample ActionSheet over the app (#823). */
+  showActionSheet(): Promise<void>;
+  /** Opens a sample bottom sheet with a scrolling body and a text field (#823). */
+  showSheet(): Promise<void>;
   /** Resolves once PGlite has flushed everything it committed to IndexedDB. */
   syncToDisk(): Promise<void>;
   /** Skips incoming invites until the page reloads, so a share arrives only through the shared pull (#732). */
@@ -61,6 +65,21 @@ interface JournalE2EHooks {
   subscribePeerPush(odinId: string): Promise<void>;
   /** The newest entries of the signed-in identity's Journal notification list (#745). */
   journalNotifications(): Promise<{ id: string; senderId: string; unread: boolean; typeId: string; tagId: string }[]>;
+  /** This identity's note as its server has it: the ids a peer update addresses, and the stored ACL (#897). */
+  noteHeader(docId: string): Promise<{ globalTransitId?: string; versionTag: string; acl?: { odinIdList?: string[] | null; circleIdList?: string[] | null } } | null>;
+  /** The #897 security check: reads, then patches, another identity's note over peer, and says what each got. */
+  probePeerNote(
+    authorOdinId: string,
+    docId: string,
+    globalTransitId: string,
+    versionTag: string,
+  ): Promise<{ read: string; patch: string }>;
+  /** For the AI eval (#706): loads the agent model, then accepts every assistant proposal and records the loop's events. */
+  startAgentEval(modelId: string): Promise<{ loaded: boolean; loadMs: number; loadedModelId: string; cached: boolean }>;
+  /** The agent loop's events since the last call; a proposal keeps only its tool and args. */
+  takeAgentEvents(): ({ type: string; tool?: string; args?: unknown; step?: number; answer?: string; error?: string; message?: string; result?: string })[];
+  /** The open note's id and its editor content as TipTap JSON, or null with no note open. */
+  openNoteJSON(): Promise<{ docId: string; doc: unknown } | null>;
   /** Draws a 1200×630 link card JPEG, as src/lib/share/cardImage.ts's renderCardImage does. */
   renderCard(
     text: { title: string; excerpt?: string; author: string },

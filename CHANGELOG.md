@@ -1,3 +1,184 @@
+## [2.50.1](https://github.com/2002Bishwajeet/journal/compare/v2.50.0...v2.50.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **sharing:** Escape in a filled search clears it instead of closing the dialog ([#683](https://github.com/2002Bishwajeet/journal/issues/683)) ([125d526](https://github.com/2002Bishwajeet/journal/commit/125d5261387d68d833319cd5dd308b9c4db52986))
+# [2.50.0](https://github.com/2002Bishwajeet/journal/compare/v2.49.1...v2.50.0) (2026-10-28)
+
+
+### Bug Fixes
+
+* **mobile:** drop tag-on-create and FAB tests from the tab bar change ([#853](https://github.com/2002Bishwajeet/journal/issues/853)) ([f68a9ed](https://github.com/2002Bishwajeet/journal/commit/f68a9ed9ab917213d2fd8cb48a505f622e141f72))
+* **mobile:** tag notes created from a tag list, keep Refresh shared notes on phones, trim long-list spec ([#853](https://github.com/2002Bishwajeet/journal/issues/853)) ([fbf02b7](https://github.com/2002Bishwajeet/journal/commit/fbf02b73640c70b08dfd58184fc75bc1328e7646))
+
+
+### Features
+
+* **mobile:** bottom tab bar (Notes, Shared, Search, Settings) on phones ([#853](https://github.com/2002Bishwajeet/journal/issues/853)) ([dd782f0](https://github.com/2002Bishwajeet/journal/commit/dd782f04782d277d01794c1bac35dca425be7a4b))
+## [2.49.1](https://github.com/2002Bishwajeet/journal/compare/v2.49.0...v2.49.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **mobile:** use min-h-svh on share, sign-in and share-target pages ([#894](https://github.com/2002Bishwajeet/journal/issues/894)) ([9b3cee7](https://github.com/2002Bishwajeet/journal/commit/9b3cee74725ae8f8a2397974669439e34bc2157b))
+# [2.49.0](https://github.com/2002Bishwajeet/journal/compare/v2.48.1...v2.49.0) (2026-10-28)
+
+
+### Bug Fixes
+
+* **editor:** keep the find bar in the scroll container on desktop ([#825](https://github.com/2002Bishwajeet/journal/issues/825)) ([8e6bdda](https://github.com/2002Bishwajeet/journal/commit/8e6bdda3aae3b6a52350d74075d932432d68cfa4))
+* **mobile:** find bar keeps its field wide on phones; New marks are used once ([#825](https://github.com/2002Bishwajeet/journal/issues/825)) ([587f795](https://github.com/2002Bishwajeet/journal/commit/587f795fdb64c26462df26521ca8194b178c56e1)), closes [#930](https://github.com/2002Bishwajeet/journal/issues/930)
+
+
+### Features
+
+* **mobile:** every note action in a sheet from More, Find and Contents on phones, iOS-style note header ([#825](https://github.com/2002Bishwajeet/journal/issues/825)) ([2a9931f](https://github.com/2002Bishwajeet/journal/commit/2a9931f474c197385f7e0dac7dbf2197c9cac797))
+## [2.48.1](https://github.com/2002Bishwajeet/journal/compare/v2.48.0...v2.48.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **routing:** Back closes a sheet that has not rendered its history entry yet ([8f53d18](https://github.com/2002Bishwajeet/journal/commit/8f53d18d7040224c40fe80aad265fd5546c5b201))
+# [2.48.0](https://github.com/2002Bishwajeet/journal/compare/v2.47.2...v2.48.0) (2026-10-28)
+
+
+### Bug Fixes
+
+* **ai:** count 'instead of' as a change request; agent-edit e2e no longer scripts the read the harness now gives ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([f8ddab9](https://github.com/2002Bishwajeet/journal/commit/f8ddab9e735b9aad967b96242e6773f3e0d55187))
+* **ai:** count strikethrough, case, tick, fill, bullet, number, log and remember-to as change requests ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([a32f418](https://github.com/2002Bishwajeet/journal/commit/a32f4189631329df60885cf27286820e8b8a1748))
+* **ai:** give the open note's blocks up front instead of refusing an edit before a read ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([fa1c19d](https://github.com/2002Bishwajeet/journal/commit/fa1c19d3b8c3ee3a85d14b7e0a364ad131d42c7a))
+
+
+### Features
+
+* **ai:** small-model tool and harness fixes: read before edit, no repeat writes, no writes for questions ([#914](https://github.com/2002Bishwajeet/journal/issues/914)) ([d0f8e36](https://github.com/2002Bishwajeet/journal/commit/d0f8e361f0d5afaff8e9c92f45bb80f4269e3c8d))
+## [2.47.2](https://github.com/2002Bishwajeet/journal/compare/v2.47.1...v2.47.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* **images:** on touch, show the resize handles only on the selected image ([#927](https://github.com/2002Bishwajeet/journal/issues/927)) ([28a8cf0](https://github.com/2002Bishwajeet/journal/commit/28a8cf0e5d2176c8dd3ae1a7346c6b35f90eb1df))
+## [2.47.1](https://github.com/2002Bishwajeet/journal/compare/v2.47.0...v2.47.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **images:** keep the touch image toolbar inside full-width images ([#917](https://github.com/2002Bishwajeet/journal/issues/917)) ([7303da2](https://github.com/2002Bishwajeet/journal/commit/7303da2f9bac301881109148da5653659130bd26))
+* **images:** on touch, show the image toolbar only while the image is selected ([#917](https://github.com/2002Bishwajeet/journal/issues/917)) ([28645bd](https://github.com/2002Bishwajeet/journal/commit/28645bd9e4eb3f7191680470501c23f8079a2984))
+# [2.47.0](https://github.com/2002Bishwajeet/journal/compare/v2.46.0...v2.47.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **editor:** Done in the link sheet focuses the note inside the tap, for the iOS keyboard ([#827](https://github.com/2002Bishwajeet/journal/issues/827)) ([7a854ea](https://github.com/2002Bishwajeet/journal/commit/7a854eac855476baa650510e7d7908c10061cdc6))
+* **editor:** emoji sheet search field keeps the sheet's 16 px gutter ([#827](https://github.com/2002Bishwajeet/journal/issues/827)) ([9ba7f40](https://github.com/2002Bishwajeet/journal/commit/9ba7f4059ac4e854beefc78f77bd4f0490703d7e))
+* **editor:** focus through a chain, not editor.commands, under the React Compiler ([#827](https://github.com/2002Bishwajeet/journal/issues/827)) ([d2dda95](https://github.com/2002Bishwajeet/journal/commit/d2dda954ee1285c025428e3d5f4ed15c62e949a3))
+* **editor:** the link sheet accepts a bare host such as example.com ([#827](https://github.com/2002Bishwajeet/journal/issues/827)) ([e4a11a8](https://github.com/2002Bishwajeet/journal/commit/e4a11a8e5e7fd1b394ba926ff5d58994768b60f1))
+
+
+### Features
+
+* **editor:** link, emoji, table, align and callout pickers as sheets on touch; slash menu docked above the keyboard toolbar ([#827](https://github.com/2002Bishwajeet/journal/issues/827)) ([4351770](https://github.com/2002Bishwajeet/journal/commit/4351770b69b6b0bd027ca388b46f732592a02c9b))
+# [2.46.0](https://github.com/2002Bishwajeet/journal/compare/v2.45.0...v2.46.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **sharing:** a collaborator's edit no longer moves the owner's shared note out of its folder ([#682](https://github.com/2002Bishwajeet/journal/issues/682)) ([59a4555](https://github.com/2002Bishwajeet/journal/commit/59a4555529dd578b3793eb347b7701a1ef10baa2))
+* **sharing:** keep a note removed from my list out until its sharing changes ([#682](https://github.com/2002Bishwajeet/journal/issues/682)) ([6c36f84](https://github.com/2002Bishwajeet/journal/commit/6c36f84f3a67f584e0564d881dfd6f6edd834ba8))
+
+
+### Features
+
+* **sharing:** one Share dialog for people, circles and the public link ([#682](https://github.com/2002Bishwajeet/journal/issues/682)) ([99a87e4](https://github.com/2002Bishwajeet/journal/commit/99a87e49df3d1b6d6e0a8686e3fa03ee98e7a758)), closes [#736](https://github.com/2002Bishwajeet/journal/issues/736)
+# [2.45.0](https://github.com/2002Bishwajeet/journal/compare/v2.44.1...v2.45.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **images:** open the viewer on the touchend of a tap on the selected image; iOS Safari fires no click there ([#829](https://github.com/2002Bishwajeet/journal/issues/829)) ([470fd24](https://github.com/2002Bishwajeet/journal/commit/470fd24b8f4c017514dc958b04e1ff8a04680ac6))
+* **images:** the crop ratios fill the editor's row on a phone, so 16:9 stays inside the gutter at 375 px ([#829](https://github.com/2002Bishwajeet/journal/issues/829)) ([f4e554c](https://github.com/2002Bishwajeet/journal/commit/f4e554cc1c5050e4193ddb89d6189e42b4057e10))
+
+
+### Features
+
+* **ai:** eval set for agent tool-call success per model ([#706](https://github.com/2002Bishwajeet/journal/issues/706)) ([97bd122](https://github.com/2002Bishwajeet/journal/commit/97bd1221ac7b63144c04ad08406c68f1d15f6e8a))
+* **images:** a tap on the selected image opens the viewer on a phone; iOS check swipes it closed ([#829](https://github.com/2002Bishwajeet/journal/issues/829)) ([e66b64f](https://github.com/2002Bishwajeet/journal/commit/e66b64f4b38bf2b10ab11c5ea34b0d937717519e))
+* **images:** full-screen image viewer with swipe down to close, and a full-screen image editor on phones ([#829](https://github.com/2002Bishwajeet/journal/issues/829)) ([63a3ace](https://github.com/2002Bishwajeet/journal/commit/63a3ace24208d20a7149747a9ca9e47f4e454aac))
+## [2.44.1](https://github.com/2002Bishwajeet/journal/compare/v2.44.0...v2.44.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **boot:** a navigation made during startup wins over the session restore ([#905](https://github.com/2002Bishwajeet/journal/issues/905)) ([396e029](https://github.com/2002Bishwajeet/journal/commit/396e0298aa56d19c78c88a44d6a351c41af2176a))
+# [2.44.0](https://github.com/2002Bishwajeet/journal/compare/v2.43.0...v2.44.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **errors:** put the error stack in the console text, so the iOS check records it ([#862](https://github.com/2002Bishwajeet/journal/issues/862)) ([eac15f6](https://github.com/2002Bishwajeet/journal/commit/eac15f66bd88944ca9019ce873268fd7a8e2de9a))
+* **folders:** keep the move sheet's description for screen readers and show the current folder at full contrast ([6423196](https://github.com/2002Bishwajeet/journal/commit/642319673a781f96d54d20380a463d5c1febf2be))
+* **move-sheet:** reset search on close, gate search and New folder to the sheet, 390px screenshots ([71c98ae](https://github.com/2002Bishwajeet/journal/commit/71c98aeb870748e2b793a7525b6cea803d30a3b6))
+
+
+### Features
+
+* **mobile:** move to folder as a bottom sheet with the current folder and New folder ([#826](https://github.com/2002Bishwajeet/journal/issues/826)) ([06f92c1](https://github.com/2002Bishwajeet/journal/commit/06f92c1fe9b5620b744a95520d3a452781611fc4))
+# [2.43.0](https://github.com/2002Bishwajeet/journal/compare/v2.42.0...v2.43.0) (2026-10-27)
+
+
+### Features
+
+* **mobile:** a light haptic when a long press opens a row menu ([#856](https://github.com/2002Bishwajeet/journal/issues/856)) ([21f2bfd](https://github.com/2002Bishwajeet/journal/commit/21f2bfdae959a4bfebf887e975fbd9e655a6b274))
+* **mobile:** native-feel e2e checks, warning haptic, reduced-motion settle, selectable sync errors ([#856](https://github.com/2002Bishwajeet/journal/issues/856)) ([ba0d90f](https://github.com/2002Bishwajeet/journal/commit/ba0d90fbe49fac27a813ad0640fd062667cdfbde))
+* **mobile:** native-feel pass on the app shell ([#856](https://github.com/2002Bishwajeet/journal/issues/856)) ([6f92bb4](https://github.com/2002Bishwajeet/journal/commit/6f92bb4615a396460003189847fd9ca84c4ab613))
+# [2.42.0](https://github.com/2002Bishwajeet/journal/compare/v2.41.1...v2.42.0) (2026-10-27)
+
+
+### Features
+
+* **sharing:** share a note read-only with named people ([#897](https://github.com/2002Bishwajeet/journal/issues/897)) ([fb646b7](https://github.com/2002Bishwajeet/journal/commit/fb646b70c2198a3d0312b3b30460962f1ddbf5cd)), closes [odin-core#2002](https://github.com/odin-core/issues/2002)
+## [2.41.1](https://github.com/2002Bishwajeet/journal/compare/v2.41.0...v2.41.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **editor:** stop adding images past Homebase's 25-payload limit ([#876](https://github.com/2002Bishwajeet/journal/issues/876)) ([b004821](https://github.com/2002Bishwajeet/journal/commit/b0048212af1e8ca0d7185dce1aa16849edd009b9))
+# [2.41.0](https://github.com/2002Bishwajeet/journal/compare/v2.40.1...v2.41.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **editor:** keep edits typed just before an iOS Safari unload ([#873](https://github.com/2002Bishwajeet/journal/issues/873)) ([a50f12a](https://github.com/2002Bishwajeet/journal/commit/a50f12a89a98d5fd63ff77b6647c61d66ad4eef1)), closes [#806](https://github.com/2002Bishwajeet/journal/issues/806)
+* **editor:** keep the caret and last lines clear of the mobile toolbar and keyboard ([#790](https://github.com/2002Bishwajeet/journal/issues/790)) ([707909f](https://github.com/2002Bishwajeet/journal/commit/707909f3f364aa2a4a020afe2b65678f9440f854))
+* **editor:** prune unload copies of notes never reopened ([#873](https://github.com/2002Bishwajeet/journal/issues/873)) ([18cf5de](https://github.com/2002Bishwajeet/journal/commit/18cf5de5f5c64bce50635b536d007eff96f45084))
+* **sheet:** fit above the iOS keyboard when Safari shrinks innerHeight too ([#823](https://github.com/2002Bishwajeet/journal/issues/823)) ([bb3f3bd](https://github.com/2002Bishwajeet/journal/commit/bb3f3bd72ae7e2582ce0d08c45d2e9ca0179e8dd))
+* **sheet:** focus the sheet, not its first control, on open; iOS drawer easing ([#823](https://github.com/2002Bishwajeet/journal/issues/823)) ([71f1fcf](https://github.com/2002Bishwajeet/journal/commit/71f1fcfbb5b396a792aed2aee50eb9377c98f2e9))
+* **sheet:** follow the iOS keyboard at once instead of transitioning bottom and max-height ([#823](https://github.com/2002Bishwajeet/journal/issues/823)) ([6abac7e](https://github.com/2002Bishwajeet/journal/commit/6abac7e84d568fa90dcb58cfe43bbcd8bb14dfc3))
+
+
+### Features
+
+* **mobile:** bottom and full-screen sheet primitive with drag to dismiss and keyboard avoidance ([#823](https://github.com/2002Bishwajeet/journal/issues/823)) ([cb8c747](https://github.com/2002Bishwajeet/journal/commit/cb8c747a98fd2a14c2e73f671f09374152ecabc3))
+## [2.40.1](https://github.com/2002Bishwajeet/journal/compare/v2.40.0...v2.40.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **ai:** docked panel step count, toolbar wrap and toast offset ([#840](https://github.com/2002Bishwajeet/journal/issues/840)) ([5dede82](https://github.com/2002Bishwajeet/journal/commit/5dede823779b368c8931594065bbfda5c83aa19d))
+* **editor:** one toolbar on an iPad in landscape ([b6065c3](https://github.com/2002Bishwajeet/journal/commit/b6065c3629d18450261cfb578eb418af3fccc5a5))
+# [2.40.0](https://github.com/2002Bishwajeet/journal/compare/v2.39.3...v2.40.0) (2026-10-27)
+
+
+### Features
+
+* **tablet:** list and note side by side on iPad portrait ([#832](https://github.com/2002Bishwajeet/journal/issues/832)) ([860d0d5](https://github.com/2002Bishwajeet/journal/commit/860d0d5f5f9605455ffc81657b2657577f79aabf))
+
+
+### Reverts
+
+* Revert "refactor: drop a state setter from the Today callback deps (#832)" ([0c7eaa0](https://github.com/2002Bishwajeet/journal/commit/0c7eaa005cab9ca085f6c87fbe6a88493c5eda81)), closes [#832](https://github.com/2002Bishwajeet/journal/issues/832)
 ## [2.39.3](https://github.com/2002Bishwajeet/journal/compare/v2.39.2...v2.39.3) (2026-10-26)
 
 

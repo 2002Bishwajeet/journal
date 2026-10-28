@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { MoreHorizontal, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { haptic } from '@/lib/haptics';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -22,6 +23,10 @@ export interface ContextMenuItemConfig {
     variant?: 'default' | 'destructive';
     shortcut?: string;
     disabled?: boolean;
+    /** The current choice in a list of options (the action sheet shows a check). */
+    checked?: boolean;
+    /** The action sheet puts this item in the last group, with the destructive ones. */
+    separate?: boolean;
 }
 
 interface ContextMenuWrapperProps {
@@ -31,7 +36,8 @@ interface ContextMenuWrapperProps {
 
 export function ContextMenuWrapper({ children, items }: ContextMenuWrapperProps) {
     return (
-        <ContextMenu>
+        // A touch long press opens this menu: give the same feedback as other gestures (#856).
+        <ContextMenu onOpenChange={(open) => open && haptic('medium')}>
             <ContextMenuTrigger asChild>
                 {children}
             </ContextMenuTrigger>

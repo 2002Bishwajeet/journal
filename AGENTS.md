@@ -38,7 +38,7 @@ Generated from `git ls-files src functions e2e mcp`. `src/components/ui/` (shadc
 ```
 src/
 ├── components/
-│   ├── auth/                   # AuthGuard (returnUrl to /welcome), DotYouClientProvider/Context, RootRedirect
+│   ├── auth/                   # AuthGuard (returnUrl to /welcome), DotYouClientProvider/Context
 │   ├── author/                 # AuthorImage
 │   ├── circles/                # CircleOption (share dialog circle picker)
 │   ├── contact/                # ContactImage
@@ -52,7 +52,6 @@ src/
 │   │   ├── table/              # TableColumnMenu, TableRowMenu
 │   │   ├── AIMenu.tsx          # AI rewrite dropdown
 │   │   ├── BubbleMenuToolbar.tsx
-│   │   ├── CollaborativePopover.tsx
 │   │   ├── EditorContext.tsx
 │   │   ├── EditorProvider.tsx  # Y.js doc init, extension config, image ingest, 2s debounced server save
 │   │   ├── EditorToolbar.tsx   # Desktop toolbar
@@ -64,6 +63,7 @@ src/
 │   │   ├── NoteCover.tsx       # Cover image (add, reposition, remove), plus an optional dark-mode cover
 │   │   ├── NoteLinkContext.tsx
 │   │   ├── PeerNoteFallback.tsx / peerNoteStatus.ts  # Collaborator-owned note states
+│   │   ├── SharedAccessPopover.tsx # Header "Shared" badge: who can open the note, owner's Manage…
 │   │   ├── TablePicker.tsx
 │   │   ├── TagInput.tsx
 │   │   ├── TextAlignPicker.tsx
@@ -84,10 +84,9 @@ src/
 │   │   ├── ExtendPermissionDialog.tsx
 │   │   ├── HistoryModal.tsx    # Version history list + restore (desktop toolbar, own notes only)
 │   │   ├── KeyboardShortcutsModal.tsx
-│   │   ├── MarkCollaborativeDialog.tsx
 │   │   ├── SearchModal.tsx     # Cmd+K full-text + fuzzy search
 │   │   ├── SettingsModal.tsx   # Re-exports components/settings/SettingsDialog
-│   │   ├── ShareDialog.tsx     # Publish/unpublish, link-card preview, description, indexing
+│   │   ├── ShareNoteDialog.tsx # One Share dialog (#682): people/circles with roles (share/SharePeopleSection, useShareAccess) + General access (share/ShareGeneralAccess: public link, card, indexing)
 │   │   ├── SignOutConfirmDialog.tsx
 │   │   └── WhatsNewDialog.tsx  # RELEASE_NOTES.md entries
 │   ├── OdinImage/              # Homebase payload/thumbnail/preview image rendering, pickLoadSize
@@ -449,12 +448,19 @@ Current state: the `pglite-v4` alias (0.4.x) is a dependency, used only for migr
 
 ### Available Models (`src/lib/webllm/models.ts`)
 
-| Model | Size | Memory | Recommended |
-|-------|------|--------|-------------|
-| Qwen2.5-1.5B | ~900 MB | ~1.2 GB | Yes (default) |
-| SmolLM2-360M | ~250 MB | ~400 MB | Low-end devices |
-| Qwen2.5-0.5B | ~350 MB | ~500 MB | Lightweight |
-| Llama-3.2-1B (Legacy) | ~700 MB | ~1.5 GB | No |
+Each model has a job: `editor` (autocomplete, grammar, rewrite) or `agent` (the assistant). A GPU without `shader-f16` loads the model's `q4f32_1` build.
+
+| Model | Job | Download | VRAM | Default |
+|-------|-----|----------|------|---------|
+| SmolLM2 360M | editor | ~250 MB | ~380 MB | |
+| Qwen 2.5 0.5B | editor | ~350 MB | ~940 MB | Yes (editor) |
+| Qwen 2.5 1.5B | editor | ~900 MB | ~1.6 GB | |
+| Qwen3 1.7B | agent | ~1.1 GB | ~2.0 GB | Yes (agent) |
+| Hermes 3 Llama 3.2 3B | agent | ~1.8 GB | ~2.3 GB | |
+| Qwen 2.5 3B | agent | ~1.8 GB | ~2.5 GB | |
+| Qwen3 4B | agent | ~2.3 GB | ~3.4 GB | |
+
+**Agent eval (#706):** `npm run eval:ai -- <model id>` or `npm run eval:ai -- --all` (every agent model plus Qwen 2.5 1.5B as the floor) runs the 20 tasks in `e2e/evals/tasks.ts` (find, read and answer, open-note edits, cross-note writes, a refusal) against the real model in the e2e dev app (`playwright.evals.config.ts`, `127.0.0.1:5174`). Local only: it needs a WebGPU adapter, so it never runs in CI, and `npm run e2e` does not pick it up. Chromium starts with `--enable-unsafe-webgpu` (plus Vulkan on Linux), headless when there is no display; weights are cached in `~/.cache/journal-ai-evals`; only Hugging Face and `raw.githubusercontent.com` get past the network fence. Every proposal is accepted through the e2e hook `startAgentEval`. Each task is checked on the final state (answer, tools called, the target note's blocks), not the wording; the checkers are unit-tested in `src/__tests__/agentEvalChecks.test.ts`. Results go to `e2e/evals/results/<date>-<model>.json` and a markdown table is printed. The agent default is the best success rate within about 2.5 GB VRAM (the smaller one on a tie). The first run (2026-10-27, GTX 1650 Ti 4 GB, `q4f32_1` builds) left it at Qwen3 1.7B: every candidate passed fewer than half of the edit tasks (Hermes 3 best with 3/8), and Qwen3 4B did not run in 4 GB. After the small-model rules (#914, results in `results/2026-10-27-914-*.json`), Qwen3 1.7B passes 13/20 with 4/8 edits; Hermes 3 has 2/8 edits and Qwen 2.5 3B 1/8.
 
 ### AI Features
 - **Grammar checking**: GrammarPlugin with inline wavy underlines, 3s debounce, hallucination filtering
@@ -462,7 +468,8 @@ Current state: the `pglite-v4` alias (0.4.x) is a dependency, used only for migr
 - **Rewrite**: 8 styles — Proofread, Rewrite, Friendly, Professional, Concise, Summary, Key Points, List/Table
 - **Chat**: The ChatBot panel is the local agent (`useAgentSession` → `runAgent`): it calls the notes tools on this device, shows each step, and has Stop. No web search; nothing leaves the device. Two replies in a row that are not JSON end the run with "This model could not follow the assistant format" (#796); `toAgentEngine` drops the empty `<think>` block web-llm puts before the reply when thinking is off
 - **Agent edits (#701)**: the editor tools (`read_open_note`, `insert_paragraph`, `replace_text`, `format_text`; `set_block_type` is defined but not offered, see #702) only build a proposal. `approveEdit` (`src/lib/agent/approveEdit.ts`) queues it; the `AgentEditPreview` plugin (`src/components/editor/plugins/AgentEditPreview.ts`) shows it in the note with a bar to Accept (Enter) or Reject (Escape). Accept rebuilds the edit against the current note and applies it with `dispatchUndoStep`, so one Cmd+Z undoes it. Closing the note, switching tabs or Stop rejects it
-- **Agent writes to other notes (#702)**: `append_to_note` and `create_note` (no folder = Main) run the registry handlers over `createLocalWriteDeps` (`src/lib/agent/local/localWriteDeps.ts`: Yjs diff, `search_index`, pending sync record, `notifyDocumentUpdated`, and a version-history snapshot of the note before an append). `proposeWrite` first runs the tool against deps that write nothing, so a refused call (excluded or trashed note, the open note, bad folder, body image) fails before the user is asked. `approveWrite` queues the proposal; the panel shows it as `AgentWriteCard` (markdown as plain text, Accept / Reject) and only Accept runs the write. `AGENT_TOOLS` is at its limit of 8: these two replaced `list_notes` and `set_block_type`
+- **Small-model rules (#914)**: `toolsFor(request)` offers only the read-only tools when the user's words have no change verb (`CHANGE_WORD` in `agentLoop.ts`), so a question can't write. When edit tools are offered and a note is open, `runAgent` puts the note's blocks in the history up front, as a `read_open_note` call already made (a refusal that said "read first" was tried: no model recovered from it). An accepted write that the model sends again (same tool and args) is refused like a repeated read. The agent's tool descriptions are one sentence each (the registry tools get shorter agent copies; MCP keeps the full ones), and the system prompt lists each tool as `name(required, optional?)`
+- **Agent writes to other notes (#702)**: `append_to_note` and `create_note` (no folder = Main) run the registry handlers over `createLocalWriteDeps` (`src/lib/agent/local/localWriteDeps.ts`: Yjs diff, `search_index`, pending sync record, `notifyDocumentUpdated`, and a version-history snapshot of the note before an append). `proposeWrite` first runs the tool against deps that write nothing, so a refused call (excluded or trashed note, bad folder, body image) fails before the user is asked. `append_to_note` on the open note does not get there: the loop turns it into a paragraph at the end of the note (`appendToOpenNote`), previewed and accepted like an edit. `approveWrite` queues the proposal; the panel shows it as `AgentWriteCard` (markdown as plain text, Accept / Reject) and only Accept runs the write. `AGENT_TOOLS` is at its limit of 8: these two replaced `list_notes` and `set_block_type`
 - **Rewrite (#703)**: `AIMenu` runs `rewriteText` on the editor model and turns the result into a proposal (`src/lib/agent/rewriteEdit.ts`) for `approveEdit`, so it shows and is accepted like an agent edit
 - **Slash commands**: `/ask` and `/summarize` open the ChatBot panel (`/summarize` sends the request); `/rewrite` opens the AI menu for the selection. They talk through `aiRequests` (`src/lib/agent/aiRequests.ts`)
 - **Idle GC**: Auto-unloads model after 5 minutes idle to reclaim ~2-3 GB memory
@@ -530,6 +537,7 @@ Enforced minimums for all UI components. Do not go below these:
 - **Muted text opacity**: `text-muted-foreground/70` minimum when using opacity modifiers. Avoid `/50` or lower on text.
 - **Animation timing**: fast = `duration-100`, normal = `duration-200`, slow = `duration-300`. Avoid non-scale values like `duration-[75ms]`, `duration-[120ms]`, `duration-[150ms]`.
 - **Reduced motion**: global rule in `src/index.css` zeroes all CSS transitions/animations under `prefers-reduced-motion: reduce`. JS-driven animations should additionally check `useReducedMotion()`.
+- **Phone sheets** (#823): contextual actions and pickers are a bottom sheet or `ActionSheet`; forms are a full sheet; only short confirmations are a centred alert. Use `ResponsiveSheet` (`src/components/ui/responsive-sheet.tsx`) so desktop keeps the dialog. The primitive is `src/components/ui/sheet.tsx`: the grabber and header drag it down to close, it follows the iOS keyboard, and Back closes it.
 
 ## Testing
 
@@ -611,7 +619,7 @@ const unsub = documentBroadcast.subscribe(handler);   // Listen for messages
 
 | Path | Component | Auth |
 |------|-----------|------|
-| `/` | RootRedirect | Yes |
+| `/` | EmptyEditorPage | Yes |
 | `/:folderId` | EmptyEditorPage | Yes |
 | `/:folderId/:noteId` | EditorPage | Yes |
 | `/share-target` | ShareTargetPage | Yes |
@@ -675,7 +683,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 - Author index (#515): the same Function renders `/share/<identity>` (HTML, no client JS) and `/share/<identity>/sitemap.xml` from a guest `drive/query/batch` of the journal drive (`functions/_lib/authorIndex.ts`): every unencrypted, non-trashed note, newest first, up to 500. `card.indexable` ("Hide from search engines") only filters the sitemap; the page is `noindex` when no listed note is indexable. Cached like share meta; any failure is a 404, not the shell. The share header's "More notes" links there.
 - Shared folders (#618): Share folder / Stop sharing folder in a folder's context menu (`useFolderSharing`). The folder's `is_public` flag is local-first and syncs in the folder file (`FolderFile.isPublic`), which `FolderDriveProvider` stores Anonymous + unencrypted while shared (a flip re-uploads it). Sharing then makes each non-trashed note in it public one at a time, as the Share dialog does; a note created in a shared folder starts public (`newNoteShareFields`, `src/lib/share/sharedFolder.ts`: new note, templates, import, MCP `create_note`). No rule on pull; moves follow #622.
 - Folder page (#619): `/share/<identity>/f/<folderId>` is the same Function and renderer as the author index (`parseAuthorPath` kind `folder`, `fetchAuthorIndex(..., folderId)`, `buildAuthorIndexHtml` with `index.folder`): the folder's name from its guest-readable file (`cuid/header`, must be unencrypted and `isPublic`) and the notes query filtered by `groupId`, newest first. An unshared or unknown folder, or a bad id, is a 404. Cached 30 s (the list changes as notes move). A shared folder's context menu has Folder link (`FolderLinkDialog`, `folderShareUrl`) with copy and open. Specs: `e2e/edge/share-folder.spec.ts`.
-- Move to folder (#622): "Move to folder…" in a note's context menu (not for collaborative or other people's notes) opens `MoveToFolderDialog`; `useMoveNote` sets `metadata.folderId` locally, pushes (the update patch carries the new `groupId`), and applies `publicAfterMove` (`src/lib/share/sharedFolder.ts`: into a shared folder public, out of one into a private folder private, otherwise unchanged) through `setNoteShared` (`useFolderSharing.ts`). `useNoteActions.moveToFolder` makes the URL follow the open note. A push that hits a version conflict keeps the server's folder (#257), so a move racing a remote edit can be reverted.
+- Move to folder (#622): "Move to folder…" in a note's context menu (not for other people's notes; an own shared note keeps its share, but cannot go into a shared folder) opens `MoveToFolderDialog`; `useMoveNote` sets `metadata.folderId` locally, pushes (the update patch carries the new `groupId`), and applies `publicAfterMove` (`src/lib/share/sharedFolder.ts`: into a shared folder public, out of one into a private folder private, otherwise unchanged) through `setNoteShared` (`useFolderSharing.ts`). `useNoteActions.moveToFolder` makes the URL follow the open note. A push that hits a version conflict keeps the server's folder (#257), so a move racing a remote edit can be reverted.
 - Unlisted (#639): the Share dialog's "Show on my public page" off sets `shareUnlisted` in note metadata, published as `card.unlisted`. The Pages Function drops such a note from the author page, folder page and sitemap (`toIndexNote`; a folder whose notes are all unlisted is left out of the author page) and serves its own page `noindex` (`fetchShareMeta` folds it into `indexable`). Folder sharing and moves keep it. Specs: `e2e/edge/share-unlisted.spec.ts`, `e2e/folders/share-unlisted.spec.ts`.
 - Specs: `e2e/publishing/` and `e2e/edge/` (`npm run e2e:edge`, `wrangler pages dev` on `127.0.0.1:8788`).
 
@@ -691,7 +699,9 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
   "isPinned": "boolean",
   "isCollaborative": "boolean",
   "circleIds": ["UUID"],
+  "odinIds": ["OdinId"],
   "recipients": ["OdinId"],
   "lastEditedBy": "OdinId"
 }
 ```
+`circleIds` members are editors (`recipients` holds them, enrolled in the app-owned `journal-shares` circle); `odinIds` are named viewers (#897), enrolled in `journal-viewers` (Read only). Both go into the note's ACL (`sharedAcl`). A viewer's editor is read-only and its push never sends a peer update (`isViewOnly`, `src/lib/homebase/shareTargets.ts`); the owner's pull re-uploads an ACL that lost `odinIdList` to a peer update (odin-core#2002).

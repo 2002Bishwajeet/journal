@@ -7,7 +7,7 @@ import { createFolder, selectFolder, screenshotInBothThemes } from '../support/a
 
 const FOLDER = 'Fab folder';
 const fab = (page: Page) => page.getByRole('button', { name: 'New note', exact: true });
-const back = (page: Page) => page.getByRole('button', { name: 'Back', exact: true });
+const back = (page: Page) => page.getByRole('button', { name: /^Back to (?!notes$)/ });
 const rows = (page: Page) => page.getByTestId('note-row');
 
 async function box(locator: Locator) {
@@ -32,13 +32,13 @@ test('the New note button sits in the thumb zone and opens a note in the right f
     // Layout only: no push slide, so screenshots never land mid-slide.
     await page.emulateMedia({ reducedMotion: 'reduce' });
 
-    await test.step('home: 56 x 56, 16 px inside the bottom right corner', async () => {
+    await test.step('home: 56 x 56, 16 px from the right edge and 16 px above the tab bar', async () => {
       await expect(fab(page)).toBeVisible();
       const b = await box(fab(page));
       expect(b.width).toBe(56);
       expect(b.height).toBe(56);
       expect(b.x + b.width).toBe(393 - 16);
-      expect(b.y + b.height).toBe(852 - 16);
+      expect(b.y + b.height).toBe(852 - 49 - 16);
       // The sidebar footer ends above it.
       const logout = page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: /Log out/ });
       expect((await box(logout)).y + (await box(logout)).height).toBeLessThanOrEqual(b.y);

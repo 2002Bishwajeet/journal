@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import EditorPage from "@/pages/EditorPage.lazy";
 import type { TabInfo } from "@/hooks/useTabManager";
+import type { NoteScreenActions } from "@/hooks/useNoteScreenActions";
 import TabBar from "./TabBar";
 
 const EmptyEditorPage = lazy(() => import("@/pages/EmptyEditorPage"));
@@ -13,6 +14,8 @@ import { SyncStatus } from "./SyncStatus";
 
 interface EditorPaneProps {
   isDesktop: boolean;
+  /** Tablets show the editor beside the note list (#832). */
+  isTablet: boolean;
   isManagementView: boolean;
   isEditorVisibleOnMobile: boolean;
   focusMode: boolean;
@@ -26,11 +29,14 @@ interface EditorPaneProps {
   collaborativeTabIds: Set<string>;
   onTabClick: (docId: string) => void;
   onTabClose: (docId: string) => void;
+  /** What the touch layouts' note menu asks of the layout (#825). */
+  noteScreenActions: NoteScreenActions;
 }
 
 /** Right pane: desktop tab bar plus the (keep-alive) editor, or the mobile Outlet. */
 export function EditorPane({
   isDesktop,
+  isTablet,
   isManagementView,
   isEditorVisibleOnMobile,
   focusMode,
@@ -44,6 +50,7 @@ export function EditorPane({
   collaborativeTabIds,
   onTabClick,
   onTabClose,
+  noteScreenActions,
 }: EditorPaneProps) {
   return (
     <main
@@ -55,9 +62,10 @@ export function EditorPane({
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
         // Desktop: Always visible (Outlet renders Editor or Empty), except in
         // management views (Trash/Archive) where the list takes the full width.
-        isDesktop && !isManagementView ? "flex" : "hidden",
+        (isDesktop || isTablet) && !isManagementView ? "flex" : "hidden",
         // Mobile: Visible only when note is selected
         !isDesktop &&
+          !isTablet &&
           isEditorVisibleOnMobile &&
           "flex absolute inset-0 z-10 w-full h-full",
       )}
@@ -147,7 +155,7 @@ export function EditorPane({
           ))
         ) : (
           /* Mobile keeps the simple Router Outlet behavior */
-          <Outlet />
+          <Outlet context={noteScreenActions} />
         )}
         </Suspense>
         </ErrorBoundary>

@@ -52,7 +52,7 @@ import { EditorState } from '@tiptap/pm/state';
 import type { Editor } from '@tiptap/react';
 import { editorSchema } from '@/lib/agent/editEngine';
 import { registerActiveEditor } from '@/lib/agent/activeEditor';
-import { useAgentSession } from '@/hooks/useAgentSession';
+import { countToolSteps, useAgentSession } from '@/hooks/useAgentSession';
 import { FORMAT_FAILED, MAX_TOOL_STEPS } from '@/lib/agent/loop/agentLoop';
 
 beforeAll(() => {
@@ -213,8 +213,14 @@ describe('useAgentSession — steps', () => {
         const { steps } = latest.current!.messages[1];
         expect(steps).toHaveLength(1);
         expect(steps![0].before).toBe('Could not finish a step: Note not found');
+        expect(countToolSteps(steps!)).toBe(0);
 
         await cleanup();
+    });
+
+    it('counts tool steps only, not the error row (#840)', () => {
+        const tool = { before: 'Listed folders', after: '' };
+        expect(countToolSteps([tool, tool, { before: 'Could not finish a step: x', after: '', failed: true }])).toBe(2);
     });
 
     it('says so when the step cap is hit', async () => {
@@ -274,6 +280,32 @@ describe('useAgentSession — edits to the open note', () => {
         ]);
 
         off();
+        await cleanup();
+    });
+});
+
+describe('useAgentSession — questions (#914)', () => {
+    const toolsOffered = (schema: unknown) =>
+        (schema as { anyOf: { properties: { tool?: { const: string } } }[] }).anyOf.flatMap((b) => b.properties.tool?.const ?? []);
+
+    it('offers no write tool for a question, judged on what the user typed and not the open note title', async () => {
+        entryHolder.current = { docId: PACKING.id, title: 'Add more socks', metadata: { excludeFromAI: false } };
+        const schemas: object[] = [];
+        engineHolder.current = {
+            generate: async (_messages, { schema }) => {
+                schemas.push(schema);
+                return answer('ok');
+            },
+        };
+        const { render, cleanup, ask } = mountSession();
+        await render(PACKING.id);
+
+        await ask('what did I pack?');
+        await ask('add a charger to it');
+
+        expect(toolsOffered(schemas[0])).toEqual(['search_notes', 'get_note', 'read_open_note']);
+        expect(toolsOffered(schemas[1])).toContain('append_to_note');
+
         await cleanup();
     });
 });

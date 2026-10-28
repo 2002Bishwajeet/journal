@@ -6,6 +6,8 @@ import { JOURNAL_APP_ID, JOURNAL_DRIVE } from './config';
 export const SHARE_CIRCLE_SLUG = 'journal-shares';
 /** Its Read-only stand-in while the Journal drive belongs to another app (installed before odin-core #1901). */
 export const READ_CIRCLE_SLUG = 'journal-read';
+/** The circle Journal owns for the people named on a note as viewers (#897): Read only. */
+export const VIEWER_CIRCLE_SLUG = 'journal-viewers';
 
 // DrivePermission flags: Read 1, Write 2, React 4, Comment 8
 const ALL_PERMISSIONS = 15;
@@ -48,6 +50,7 @@ const membersOf = (entry: CircleWithMembers | undefined): string[] => [
 export class ShareCircleProvider {
     readonly #client: DotYouClient;
     #circle: Promise<ShareCircle> | undefined;
+    #viewerCircle: Promise<string> | undefined;
 
     constructor(dotYouClient: DotYouClient) {
         this.#client = dotYouClient;
@@ -63,11 +66,11 @@ export class ShareCircleProvider {
         return `${this.#client.getRoot()}/api/v2/connections/circles/${path}`;
     }
 
-    async #create(slug: string, permission: number): Promise<string> {
+    async #create(slug: string, name: string, permission: number, description = 'People you share Journal notes with'): Promise<string> {
         const { data } = await this.#http().post<string>(this.#url('create'), {
-            name: slug === SHARE_CIRCLE_SLUG ? 'Journal shares' : 'Journal shares (read only)',
+            name,
             slug,
-            description: 'People you share Journal notes with',
+            description,
             driveGrants: [{ permissionedDrive: { drive: JOURNAL_DRIVE, permission } }],
             permissions: { keys: [] },
         });
@@ -114,11 +117,11 @@ export class ShareCircleProvider {
     async #ensure(): Promise<ShareCircle> {
         let circleId: string;
         try {
-            circleId = await this.#create(SHARE_CIRCLE_SLUG, ALL_PERMISSIONS);
+            circleId = await this.#create(SHARE_CIRCLE_SLUG, 'Journal shares', ALL_PERMISSIONS);
         } catch (err) {
             const response = problem(err);
             if (response?.status !== 403 || !response.data?.title?.includes('does not own')) throw err;
-            return { circleId: await this.#create(READ_CIRCLE_SLUG, READ_PERMISSION), canEdit: false };
+            return { circleId: await this.#create(READ_CIRCLE_SLUG, 'Journal shares (read only)', READ_PERMISSION), canEdit: false };
         }
         await this.#adoptReadCircle(circleId);
         return { circleId, canEdit: true };
@@ -139,6 +142,31 @@ export class ShareCircleProvider {
     /** Removes each person; a failure is logged and the rest still go. */
     async unenroll(odinIds: string[]): Promise<void> {
         const { circleId } = await this.ensureShareCircle();
+        await this.#remove(circleId, odinIds);
+    }
+
+    /** The viewers' circle: Read only, so it never needs the drive to be Journal's. Once per provider. */
+    #viewers(): Promise<string> {
+        this.#viewerCircle ??= this.#create(
+            VIEWER_CIRCLE_SLUG,
+            'Journal viewers',
+            READ_PERMISSION,
+            'People who can read Journal notes you share with them',
+        );
+        return this.#viewerCircle;
+    }
+
+    /** Adds each named viewer to the viewers' circle, as {@link enroll} does. */
+    async enrollViewers(odinIds: string[]): Promise<EnrollResult[]> {
+        return this.#add(await this.#viewers(), odinIds);
+    }
+
+    /** Removes each person from the viewers' circle, as {@link unenroll} does. */
+    async unenrollViewers(odinIds: string[]): Promise<void> {
+        await this.#remove(await this.#viewers(), odinIds);
+    }
+
+    async #remove(circleId: string, odinIds: string[]): Promise<void> {
         for (const odinId of odinIds) {
             try {
                 await this.#http().post(this.#url('revoke'), { circleId, odinId });

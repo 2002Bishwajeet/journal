@@ -108,6 +108,9 @@ async function check(name: string, keyboardUp = false): Promise<Layout> {
 const waitFor = (what: string, condition: () => boolean, timeout = 30_000) =>
   browser.waitUntil(() => browser.execute(condition), { timeout, interval: 250, timeoutMsg: `timed out waiting for ${what}` });
 
+// A note's Back names its folder ("Back to Main", #825); the list's Back is "Back to notes".
+const noteBack = 'button[aria-label^="Back to "]:not([aria-label="Back to notes"])';
+
 async function tap(selector: string, index = 0) {
   // $$ and an index: WebdriverIO 10's $() fails when the selector matches several elements.
   await browser.waitUntil(async () => (await browser.$$(selector)).length > index, { timeout: 30_000, timeoutMsg: `timed out waiting for ${selector}` });
@@ -141,13 +144,13 @@ async function safariConsole(): Promise<string[]> {
 }
 
 /**
- * Reloads the page and checks the app is ready again within 20 s (#806): reloading after
+ * Reloads the page and checks the app is ready again within `limit` ms (#806): reloading after
  * typing in the editor once left Safari on the splash screen for minutes. `how` tells a real
  * hang (a manual-style location.reload()) from one only WebDriver's refresh() causes; load-root
  * is WebDriver's navigation to /. Records
  * the boot timing marks (markBoot in src/lib/bootProgress.ts), the console and a screenshot.
  */
-async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-root', label: string = how) {
+async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-root', label: string = how, limit = 20_000) {
   const name = `reload-${label}`;
   assertTestOrigin(await browser.execute(() => location.origin));
   await safariConsole().catch(() => []); // drop what came before the reload
@@ -165,8 +168,8 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-
       '__journalE2E' in window &&
       !document.querySelector('[role="progressbar"], [data-boot-stalled]') &&
       !!document.querySelector('[aria-label="Sidebar"], .ProseMirror'),
-    20_000,
-  ).catch(() => problems.push('not ready within 20 s of the reload'));
+    limit,
+  ).catch(() => problems.push(`not ready within ${limit / 1000} s of the reload`));
   const elapsed = Date.now() - started;
   const marks = (await browser
     .execute(() =>
@@ -192,6 +195,28 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-
   const timing = `${elapsed}ms; marks: ${marks.join(', ') || 'none'}`;
   summary.push(`| ${name} | ${file} | ${problems.join('<br>') || 'none'} (${timing}) |`);
   console.log(`${problems.length ? '✗' : '✓'} ${name} ${timing}${problems.map((p) => `\n    ${p}`).join('')}`);
+}
+
+/** Waits up to 10 s for `text` in the editor; false when it never shows. */
+const editorHas = (text: string) =>
+  browser
+    .waitUntil(() => browser.execute((t) => document.querySelector('.ProseMirror')?.textContent?.includes(t) ?? false, text), { timeout: 10_000, interval: 250 })
+    .then(() => true, () => false);
+
+/**
+ * Types a new line and reloads at once, then checks the line is still in the note (#873):
+ * iOS Safari unloaded the page before the line's write reached the database.
+ */
+async function typeAndReload(line: string, how: 'location.reload' | 'load-root', label: string) {
+  await tap('.ProseMirror');
+  await typeOnKeyboard(`\n${line}`);
+  if (!(await editorHas(line))) failures.push(`${label}: "${line}" did not show in the editor after typing`);
+  await reloadCheck(how, label);
+  // A boot slower than 20 s already failed above; judge the text only once the editor is back,
+  // so a slow boot is not reported as lost text.
+  const back = await waitFor('the editor after the reload', () => !!document.querySelector('.ProseMirror'), 60_000).then(() => true, () => false);
+  if (!back) failures.push(`reload-${label}: the editor did not come back within 60 s, so "${line}" could not be checked`);
+  else if (!(await editorHas(line))) failures.push(`reload-${label}: "${line}", typed just before the reload, was missing after it`);
 }
 
 const dialogOpen = () => !!document.querySelector('[role="dialog"]');
@@ -234,6 +259,21 @@ async function gesture(name: Gesture, selector: string, index: number, from: [nu
   console.log(`${problems.length ? '✗' : '✓'} gesture-${name} ${JSON.stringify(probe)}${problems.map((p) => `\n    ${p}`).join('')}`);
 }
 
+/** A real one-finger drag on the first `selector` match, `dy` px down (negative: up) from its centre. */
+async function touchDrag(selector: string, dy: number) {
+  const [el] = await browser.$$(selector);
+  await browser
+    .action('pointer', { parameters: { pointerType: 'touch' } })
+    .move({ origin: el, x: 0, y: 0 })
+    .down()
+    .pause(100)
+    .move({ origin: el, x: 0, y: dy, duration: 500 })
+    .up()
+    .perform();
+  // Lets the sheet's spring or exit and any momentum scroll finish.
+  await browser.pause(800);
+}
+
 async function closeDialog() {
   await tap('[role="dialog"] [data-slot="dialog-close"]');
   await waitFor('the dialog to close', dialogClosed);
@@ -260,6 +300,20 @@ try {
   const auth = JSON.parse(readFileSync('e2e/fixtures/hermetic-auth.json', 'utf8')) as {
     origins: { origin: string; localStorage: { name: string; value: string }[] }[];
   };
+  // A public share page with no note (#894): first screens use svh, so with the URL bar shown the
+  // page must not be taller than the visible area (100vh is).
+  await browser.url(`${BASE}/share/ios-check.homebase.test/0b8e4c27-5d1a-4f93-a6e2-7c3d9f1b5e40`);
+  assertTestOrigin(await browser.execute(() => location.origin));
+  await browser.$('h1=Note Not Found').waitForDisplayed({ timeout: 60_000 });
+  const share = (await browser.execute(() => ({
+    scroll: document.scrollingElement!.scrollHeight,
+    visible: window.visualViewport!.height,
+  }))) as { scroll: number; visible: number };
+  const shareProblems = share.scroll <= share.visible + 1 ? [] : [`the page is ${share.scroll} px tall in a ${share.visible} px viewport`];
+  failures.push(...shareProblems.map((p) => `share-not-found: ${p}`));
+  summary.push(`| share-not-found | ${await screenshot('share-not-found')} | ${shareProblems.join('<br>') || 'none'} |`);
+  console.log(`${shareProblems.length ? '✗' : '✓'} share-not-found${shareProblems.map((p) => `\n    ${p}`).join('')}`);
+
   await browser.url(`${BASE}/welcome`);
   assertTestOrigin(await browser.execute(() => location.origin));
   await tap('#identity');
@@ -271,6 +325,8 @@ try {
 
   // At the root a phone shows the sidebar.
   const portrait = await check('sidebar');
+  // The tab bar (#853) must be on screen; layoutProblems checks it clears the home indicator.
+  if (!portrait.tabBar) failures.push('tab bar: no tab bar on the phone home screen');
 
   await browser.setOrientation('LANDSCAPE');
   await waitFor('landscape', () => innerWidth > innerHeight);
@@ -293,13 +349,31 @@ try {
   await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
   await waitFor('the folder options to close', () => !document.querySelector('[role="menu"]'));
 
+  // A real long press on a sidebar row (#856): chrome has -webkit-touch-callout: none, so iOS shows no
+  // link preview or callout; the app's own folder menu may open, and is closed again.
+  const rowCallout = await browser.execute(() => getComputedStyle(document.querySelector('[aria-label="Folders"] button')!).getPropertyValue('-webkit-touch-callout'));
+  if (rowCallout !== 'none') failures.push(`native-feel: a sidebar row has -webkit-touch-callout ${rowCallout || 'unset'}, not none`);
+  const [folderRow] = await browser.$$('[aria-label="Folders"] button');
+  await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: folderRow, x: 0, y: 0 }).down().pause(900).up().perform();
+  await browser.pause(500);
+  summary.push(`| native-feel: long press on a sidebar row | ${await screenshot('long-press-sidebar-row')} | -webkit-touch-callout ${rowCallout} |`);
+  await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await waitFor('the folder options to close', () => !document.querySelector('[role="menu"]'));
+
   await tap('[aria-label="Folders"] button');
   await browser.$('button[aria-label="Back to notes"]').waitForDisplayed({ timeout: 30_000 });
   await check('note-list');
 
   // On a phone, New note is the floating button (#878).
   await tap('button[aria-label="New note"]');
-  await browser.$('.ProseMirror').waitForDisplayed({ timeout: 30_000 });
+  await browser.$('.ProseMirror').waitForDisplayed({ timeout: 30_000 }).catch(async (error: Error) => {
+    // The editor can fall back to "The editor failed to load." (#862): keep why, in the artifacts.
+    const shown = (await browser.execute(() => document.body.innerText.slice(0, 500)).catch(() => '')) as string;
+    const logs = await safariConsole().catch((e: Error) => [`(no console: ${e.message})`]);
+    writeFileSync(`${OUT}/editor-missing-console.log`, [`page text: ${shown}`, ...logs].join('\n'));
+    await screenshot('editor-missing').catch(() => {});
+    throw new Error(`${error.message}; page text: ${shown.replace(/\s+/g, ' ')}`);
+  });
   await check('note');
 
   // Tap into the editor, then type through the software keyboard itself.
@@ -316,9 +390,72 @@ try {
   }
   await check('editor-keyboard', keyboardUp);
 
+  // The link sheet (#827) from the keyboard toolbar: type a URL into it with real touches and the
+  // software keyboard, Done inserts the link and gives focus back to the editor.
+  if (keyboardUp) {
+    await tap('[data-mobile-toolbar] [title="Add Link"]');
+    await waitFor('the link sheet', () => !!document.querySelector('[role="dialog"] #editor-link-url'));
+    await browser.pause(500); // its 300 ms slide in
+    const keyboardOnOpen = await browser.isKeyboardShown();
+    await tap('#editor-link-url');
+    await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
+    const keyboardInSheet = await browser.isKeyboardShown();
+    await browser.pause(1_000); // the keyboard's slide and Safari's scroll to the field
+    await check('link-sheet-keyboard');
+    await checkZoom('the link URL field');
+    await typeOnKeyboard('example.com');
+    const typed = (await browser.execute(() => document.querySelector<HTMLInputElement>('#editor-link-url')?.value ?? '')) as string;
+    await tap('[role="dialog"] button[type="submit"]');
+    await waitFor('the link sheet to close', dialogClosed, 10_000);
+    await browser.pause(800); // the exit and the focus return
+    const after = await browser.execute(() => ({
+      link: document.querySelector('.ProseMirror a[href="https://example.com"]')?.textContent ?? '',
+      focused: !!document.activeElement?.closest('.ProseMirror'),
+    }));
+    const keyboardAfter = await browser.isKeyboardShown();
+    const problems = [
+      ...(typed === 'example.com' ? [] : [`the URL field held "${typed}" after typing "example.com"`]),
+      ...(after.link ? [] : ['Done did not insert the link']),
+      ...(after.focused ? [] : ['the editor did not get focus back']),
+    ];
+    failures.push(...problems.map((p) => `link-sheet: ${p}`));
+    const keyboards = `keyboard: on open ${keyboardOnOpen}, in the URL field ${keyboardInSheet}, after Done ${keyboardAfter}`;
+    summary.push(`| link-sheet | ${await screenshot('link-sheet-done')} | ${problems.join('<br>') || 'none'} (${keyboards}) |`);
+    console.log(`${problems.length ? '✗' : '✓'} link-sheet (${keyboards})${problems.map((p) => `\n    ${p}`).join('')}`);
+  }
+
+  // A long press on a word in the note selects it (#856): body is user-select: none, and the editor
+  // must still allow selection and keep the caret inside it.
+  if (keyboardUp) {
+    // An element origin: a 'viewport' origin is in screen points, above the page by the status bar.
+    const [index, half] = await browser.execute(() => {
+      const ps = [...document.querySelectorAll('.ProseMirror p')];
+      const i = ps.findIndex((el) => el.textContent?.includes('First line'));
+      ps[i].scrollIntoView({ block: 'center' });
+      return [i, Math.round(ps[i].getBoundingClientRect().width / 2)];
+    });
+    const word = (await browser.$$('.ProseMirror p'))[index];
+    // 20 px into the paragraph: inside "First".
+    await browser.action('pointer', { parameters: { pointerType: 'touch' } }).move({ origin: word, x: 20 - half, y: 0 }).down().pause(1_200).up().perform();
+    await browser.pause(800);
+    const selected = await browser.execute(() => {
+      const sel = getSelection();
+      const editor = document.querySelector('.ProseMirror');
+      return {
+        text: sel?.toString() ?? '',
+        inEditor: !!sel?.anchorNode && !!editor?.contains(sel.anchorNode) && !!sel.focusNode && editor.contains(sel.focusNode),
+      };
+    });
+    if (!selected.text.trim()) failures.push('native-feel: a long press on a word in the editor selected no text');
+    if (!selected.inEditor) failures.push('native-feel: after a long press in the editor, the selection is not inside the editor');
+    summary.push(`| native-feel: long press on a word in the editor | ${await screenshot('editor-long-press-select')} | selected "${selected.text}", in editor ${selected.inEditor} |`);
+    console.log(`${selected.text.trim() && selected.inEditor ? '✓' : '✗'} native-feel: editor long press selected "${selected.text}" (in editor ${selected.inEditor})`);
+    await browser.execute(() => getSelection()?.collapseToEnd());
+  }
+
   // In-app Back pops the note's entry instead of pushing the list (#822).
   const noteIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
-  await tap('button[aria-label="Back"]');
+  await tap(noteBack);
   await waitFor('the note list', () => location.pathname.split('/').filter(Boolean).length === 1);
   const listIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
   if (listIdx !== noteIdx - 1) failures.push(`in-app Back: history idx went ${noteIdx} -> ${listIdx}, expected ${noteIdx - 1} (a pop)`);
@@ -328,26 +465,22 @@ try {
   await browser.execute(() => history.forward());
   await waitFor('the note again', () => !!document.querySelector('.ProseMirror'));
 
-  // Reload right after typing, where a reload once hung on the splash (#806).
-  // Repeated, as one reload may not be enough to hit the hang.
-  for (let i = 1; i <= 3; i++) await reloadCheck('location.reload', `location.reload-${i}`);
+  // Reload right after typing, where a reload once hung on the splash (#806), then again as
+  // soon as each boot reaches the editor (#901). Repeated, as one reload may not be enough to
+  // hit the hang; a boot over 8 s fails.
+  for (let i = 1; i <= 5; i++) await reloadCheck('location.reload', `quick-reload-${i}`, 8_000);
   await reloadCheck('webdriver-refresh');
-  // A reload while the edit is still being saved.
-  await tap('.ProseMirror');
-  await typeOnKeyboard('\nIn flight');
-  await reloadCheck('location.reload', 'during-write');
-  const saved = await waitFor('the typed lines after the reloads', () => document.querySelector('.ProseMirror')?.textContent?.includes('Third line') ?? false, 10_000)
-    .then(() => true, () => false);
-  if (!saved) warnings.push('The lines typed before the reloads were not in the note after them.');
+  if (keyboardUp && !(await editorHas('Third line'))) failures.push('The lines typed before the reloads were not in the note after them.');
+  // Reloads while the edit is still being saved (#873), repeated, as the loss did not
+  // happen on every run.
+  for (let i = 1; i <= 5; i++) await typeAndReload(`In flight ${i}`, 'location.reload', `during-write-${i}`);
 
   // Load the root right after typing: the step that first hung on the splash (first run
   // of #803; Safari's back/forward cache kept the old page's database worker). After a
   // reload, history.back() loads a new document for each entry, so it is not used here.
-  await tap('.ProseMirror');
-  await typeOnKeyboard('\nBefore the root');
-  await reloadCheck('load-root');
+  await typeAndReload('Before the root', 'load-root', 'load-root');
   // The root opens the last note on a phone: back to the sidebar with the app's own back buttons.
-  await tap('[aria-label="Back"]');
+  await tap(noteBack);
   await tap('[aria-label="Back to notes"]');
   await waitFor('the sidebar', () => {
     const r = document.querySelector('[aria-label="Sidebar"]')?.getBoundingClientRect();
@@ -369,6 +502,8 @@ try {
   // The system Back, which iOS swipe-back fires, closes a dialog and keeps the screen under it (#822).
   await tap('button=Settings');
   await waitFor('Settings', dialogOpen);
+  // The dialog pushes its history entry in an effect after it paints; a Back before that pops the screen's entry.
+  await waitFor('the Settings history entry', () => ((history.state as { usr?: { overlays?: string[] } } | null)?.usr?.overlays?.length ?? 0) > 0);
   const under = await browser.execute(() => location.href);
   await browser.execute(() => history.back());
   await waitFor('Settings to close on Back', dialogClosed);
@@ -424,7 +559,7 @@ try {
     await midSlide('slide-folder-to-list');
     await tap('button[aria-label="New note"]');
     await midSlide('slide-list-to-note');
-    await tap('button[aria-label="Back"]');
+    await tap(noteBack);
     await midSlide('slide-back-to-list');
     await browser.execute(() => history.back());
     await waitFor('the sidebar', () => {
@@ -476,6 +611,135 @@ try {
   await gesture('pull', row, 0, [0, 0], [0, 150], 600);
   await waitFor('the refresh to finish', () => !document.querySelector('[data-pull-to-refresh] .animate-spin'), 15_000).catch(() => {});
   await gesture('scroll-after-pull', row, 3, [0, 0], [0, -260]);
+
+  // Native feel (#856): the page never bounces, a long press on chrome shows no callout, a double tap does not zoom.
+  const touchAt = async (selector: string, steps: (a: ReturnType<typeof browser.action>, el: WebdriverIO.Element) => ReturnType<typeof browser.action>) => {
+    const el = (await browser.$$(selector))[0];
+    // The earlier scroll gestures leave the list scrolled: bring the target back (the first row puts the list at its top).
+    await browser.execute((e) => e.scrollIntoView({ block: 'center' }), el);
+    await steps(browser.action('pointer', { parameters: { pointerType: 'touch' } }), el).perform();
+  };
+  await touchAt(row, (a, el) =>
+    a.move({ origin: el, x: 0, y: 0 }).down().pause(100).move({ origin: el, x: 0, y: 200, duration: 400 }).up(),
+  );
+  await browser.pause(800);
+  const scrollY = await browser.execute(() => window.scrollY);
+  if (scrollY !== 0) failures.push(`native-feel: the page scrolled to ${scrollY} on a pull down at the top of the list`);
+  summary.push(`| native-feel: no page bounce | | window.scrollY ${scrollY} |`);
+  await touchAt(row, (a, el) => a.move({ origin: el, x: 0, y: 0 }).down().pause(900).up());
+  summary.push(`| native-feel: long press on a row | ${await screenshot('long-press-row')} | no system callout |`);
+  // The long press opens the row's menu, a modal that would swallow the next touches: close it.
+  await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await browser.pause(300);
+  await touchAt('[aria-label="Sort notes"]', (a, el) =>
+    a.move({ origin: el, x: 0, y: 0 }).down().up().pause(80).down().up(),
+  );
+  await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await checkZoom('a double tap on a button');
+
+  // The sheet primitive (#823) in real Safari: a drag down on its grabber closes it, a drag on its
+  // body scrolls the body and leaves it open, and with its field focused it sits above the keyboard.
+  // It runs after the gestures above: Appium calibrates its first touch action with an overlay tap,
+  // which an open modal (body pointer-events: none) would swallow.
+  const sheetShown = () => !!document.querySelector('[data-slot="sheet-content"]');
+  const openSheet = async () => {
+    assertTestOrigin(await browser.execute(() => location.origin));
+    await browser.execute(() => void window.__journalE2E!.showSheet());
+    await waitFor('the sheet', sheetShown);
+    await browser.pause(500); // its 300 ms slide in
+  };
+  await openSheet();
+  await check('sheet');
+  await touchDrag('[data-slot="sheet-grabber"]', 400);
+  const dragClosed = await waitFor('the sheet to close', () => !document.querySelector('[data-slot="sheet-content"]'), 5_000).then(() => true, () => false);
+  if (!dragClosed) failures.push('sheet: a long drag down on the grabber did not close it');
+  summary.push(`| sheet-drag-to-close | ${await screenshot('sheet-drag-to-close')} | ${dragClosed ? 'closed' : 'still open'} |`);
+
+  await openSheet();
+  const bodyScroll = () => document.querySelector('[data-slot="sheet-body"]')?.scrollTop ?? -1;
+  await touchDrag('[data-slot="sheet-body"]', -250);
+  const scrolledDown = (await browser.execute(bodyScroll)) as number;
+  const openAfterUp = (await browser.execute(sheetShown)) as boolean;
+  await touchDrag('[data-slot="sheet-body"]', 250);
+  const scrolledBack = (await browser.execute(bodyScroll)) as number;
+  const openAfterDown = (await browser.execute(sheetShown)) as boolean;
+  const scrollProblems = [
+    ...(scrolledDown > 50 ? [] : [`a drag up on the body did not scroll it (scrollTop ${scrolledDown})`]),
+    ...(openAfterUp && openAfterDown ? [] : ['a drag on the body closed the sheet']),
+    ...(scrolledBack < scrolledDown ? [] : [`a drag down on the body did not scroll it back (scrollTop ${scrolledDown} -> ${scrolledBack})`]),
+  ];
+  failures.push(...scrollProblems.map((p) => `sheet-scroll: ${p}`));
+  summary.push(`| sheet-scroll | ${await screenshot('sheet-scroll')} | ${scrollProblems.join('<br>') || `none (scrollTop ${scrolledDown} -> ${scrolledBack})`} |`);
+
+  await tap('[data-slot="sheet-content"] input');
+  await waitFor('the visual viewport to shrink', () => (visualViewport?.height ?? innerHeight) < innerHeight - 150, 10_000).catch(() => {});
+  if (await browser.isKeyboardShown()) {
+    await browser.pause(1_000); // the keyboard's slide and Safari's scroll to the field
+    const vars = await browser.execute(() => {
+      const el = document.querySelector<HTMLElement>('[data-slot="sheet-content"]');
+      const vv = visualViewport!;
+      return `--sheet-bottom ${el?.style.getPropertyValue('--sheet-bottom') || 'unset'}, --sheet-h ${el?.style.getPropertyValue('--sheet-h') || 'unset'}; viewport ${Math.round(vv.offsetTop)}+${Math.round(vv.height)} of ${innerHeight}, scale ${vv.scale}`;
+    });
+    summary.push(`| sheet-keyboard vars | | ${vars} |`);
+    console.log(`  sheet-keyboard: ${vars}`);
+    await check('sheet-keyboard');
+  }
+  else warnings.push('The software keyboard did not show after tapping the sheet field, so the sheet keyboard check did not run.');
+  await browser.execute(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await waitFor('the sheet to close', () => !document.querySelector('[data-slot="sheet-content"]'));
+
+  // The image viewer (#829) in real Safari: a tap selects the image, a tap on the selected image
+  // opens the full-screen viewer, and a real swipe down on the image closes it.
+  await tap('button[aria-label="New note"]');
+  await browser.$('.ProseMirror').waitForDisplayed({ timeout: 30_000 });
+  assertTestOrigin(await browser.execute(() => location.origin));
+  // A same-origin image, pasted as HTML so it skips the upload pipeline (as viewer.mobile.spec.ts does).
+  await browser.execute(() => {
+    const el = document.querySelector<HTMLElement>('.ProseMirror')!;
+    el.focus();
+    const data = new DataTransfer();
+    data.setData('text/html', '<img src="/pwa-512x512.png" alt="Journal logo">');
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await waitFor('the pasted image', () => !!document.querySelector<HTMLImageElement>('.ProseMirror img[alt="Journal logo"]')?.complete);
+  const viewerShown = () => !!document.querySelector('[role="dialog"] [data-testid="lightbox-zoom"]');
+  const imageSelected = () => !!document.querySelector('.ProseMirror-selectednode img[alt="Journal logo"]');
+  const image = '.ProseMirror img[alt="Journal logo"]';
+  await tap(image);
+  await browser.pause(600);
+  const selectedAfterFirst = (await browser.execute(imageSelected)) as boolean;
+  // The tap brings up the keyboard, which shifts Safari's visual viewport under Appium's tap
+  // mapping; a finger has no such problem. Put it away (the image stays selected) before tapping again.
+  if (await browser.isKeyboardShown()) {
+    await browser.hideKeyboard().catch(() => {});
+    await waitFor('the keyboard to go', () => (visualViewport?.height ?? innerHeight) >= innerHeight - 5, 5_000).catch(() => {});
+  }
+  const firstTapShot = await screenshot('image-first-tap');
+  // What the second tap fires, to explain a viewer that does not open.
+  await browser.execute(() => {
+    const log: string[] = ((window as unknown as { __tapLog: string[] }).__tapLog = []);
+    for (const t of ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click', 'dblclick'])
+      document.addEventListener(t, (e) => log.push(`${t}:${(e.target as Element).tagName}.${String((e.target as Element).className).slice(0, 40)}:${(e as PointerEvent).pointerType ?? ''}`), true);
+  });
+  await tap(image);
+  const viewerOpened = await waitFor('the image viewer', viewerShown, 5_000).then(() => true, () => false);
+  summary.push(`| image-tap-to-open | ${firstTapShot} | first tap selected the image: ${selectedAfterFirst}; second tap opened the viewer: ${viewerOpened} |`);
+  if (!selectedAfterFirst) failures.push('image-viewer: the first tap did not select the image');
+  if (!viewerOpened) {
+    const events = (await browser.execute(() => (window as unknown as { __tapLog: string[] }).__tapLog.join(' '))) as string;
+    failures.push(`image-viewer: a tap on the selected image did not open the viewer (events: ${events})`);
+    await screenshot('image-second-tap');
+  } else {
+    await browser.pause(500); // its 200 ms fade in
+    const layout = await check('image-viewer');
+    const closeTop = (await browser.execute(() => document.querySelector('[role="dialog"] [aria-label="Close"]')!.getBoundingClientRect().top)) as number;
+    if (closeTop < layout.insets.top) failures.push(`image-viewer: Close (top ${Math.round(closeTop)}) is under the status bar (inset ${layout.insets.top})`);
+    await touchDrag('[role="dialog"] [data-testid="lightbox-zoom"]', 300);
+    const swipeClosed = await waitFor('the viewer to close', () => !document.querySelector('[role="dialog"] [data-testid="lightbox-zoom"]'), 5_000).then(() => true, () => false);
+    if (!swipeClosed) failures.push('image-viewer: a swipe down on the image did not close the viewer');
+    summary.push(`| image-viewer-swipe-to-close | ${await screenshot('image-viewer-swipe-to-close')} | ${swipeClosed ? 'closed' : 'still open'}; Close top ${Math.round(closeTop)}, inset ${layout.insets.top} |`);
+    console.log(`${swipeClosed ? '✓' : '✗'} image-viewer: swipe down ${swipeClosed ? 'closed' : 'did not close'} the viewer`);
+  }
 } catch (error) {
   failures.push(`run: ${(error as Error).message}`);
   await screenshot('error').catch(() => {});

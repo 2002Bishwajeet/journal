@@ -33,8 +33,6 @@ import {
     PAYLOAD_KEY_CONTENT,
     PAYLOAD_KEY_IMAGE_PREFIX,
     PAYLOAD_KEY_CARD_IMAGE,
-    COLLABORATIVE_FOLDER_ID,
-    MAIN_FOLDER_ID,
     JOURNAL_APP_ID,
     JOURNAL_PUSH_TYPE_EDIT,
 } from './config';
@@ -353,7 +351,10 @@ export class NotesDriveProvider {
             ...noteFileContent(metadata),
             isCollaborative: metadata.isCollaborative,
             circleIds: metadata.circleIds,
+            odinIds: metadata.odinIds,
             recipients: metadata.recipients,
+            viewerCircleIds: metadata.viewerCircleIds,
+            viewerRecipients: metadata.viewerRecipients,
             lastEditedBy: metadata.lastEditedBy,
         };
         // A public note's content is stored unencrypted (world-readable). Project
@@ -923,11 +924,12 @@ export class NotesDriveProvider {
         }
     }
     /**
-     * Make a note collaborative, granting access to specified circles.
-     * Changes ACL to Connected with circleIds and moves to COLLABORATIVE_FOLDER_ID.
+     * Share a note with circles (editors or viewers) and named people (viewers, #897), or
+     * change who an existing share names. Changes ACL to Connected with those lists; the
+     * note stays in `folderId` (#682).
      *
      * @param uniqueId - The unique ID of the note
-     * @param circleIds - Array of circle IDs to grant access
+     * @param share - Circles and people to grant access, the circles' members, and the note's folder
      * @param editorOdinId - OdinId of the user making this change
      * @param fileId - The note's remote fileId, when known (see #rewriteNoteHeader)
      * @param beforeInvite - Runs after the ACL upload (gives recipients drive access, #730)
@@ -935,8 +937,14 @@ export class NotesDriveProvider {
      */
     async makeNoteCollaborative(
         uniqueId: string,
-        circleIds: string[],
-        recipients: string[],
+        { circleIds, odinIds, recipients, viewerCircleIds = [], viewerRecipients = [], folderId }: {
+            circleIds: string[];
+            odinIds: string[];
+            recipients: string[];
+            viewerCircleIds?: string[];
+            viewerRecipients?: string[];
+            folderId: string;
+        },
         editorOdinId: string,
         fileId?: string,
         beforeInvite?: () => Promise<void>
@@ -948,13 +956,17 @@ export class NotesDriveProvider {
                 ...existing,
                 isPublic: false,
                 isCollaborative: true,
-                circleIds,
+                // An empty list is left out, so a circle-only share stores what it did before #897
+                circleIds: circleIds.length > 0 ? circleIds : undefined,
+                odinIds: odinIds.length > 0 ? odinIds : undefined,
                 recipients,
+                viewerCircleIds: viewerCircleIds.length > 0 ? viewerCircleIds : undefined,
+                viewerRecipients: viewerRecipients.length > 0 ? viewerRecipients : undefined,
                 lastEditedBy: editorOdinId,
             }),
-            groupId: COLLABORATIVE_FOLDER_ID, // Move to collaborative folder
+            groupId: folderId,
             isEncrypted: true,
-            acl: sharedAcl({ circleIds }),
+            acl: sharedAcl({ circleIds, odinIds, viewerCircleIds }),
             // Collaborative notes must be encrypted; a public note is re-uploaded
             // encrypted first, since a header-only patch can't encrypt its payload.
             ensureEncrypted: true,
@@ -968,8 +980,23 @@ export class NotesDriveProvider {
     }
 
     /**
-     * Revoke collaboration, returning note to private (Owner only).
-     * Moves note back to MAIN_FOLDER_ID.
+     * Writes back the ACL a shared note's content names (#897). A peer update replaces the
+     * stored ACL with the sender's, whose server strips its odinIdList (odin-core#2002), so
+     * the note would be open to every connection with access to the drive.
+     */
+    async restoreNoteAcl(uniqueId: string, fileId: string, content: NoteFileContent): Promise<{ versionTag: string }> {
+        return this.#rewriteNoteHeader(uniqueId, {
+            fileId,
+            mode: 'patch',
+            content: (existing) => existing,
+            acl: noteAcl(content),
+            errorMessage: 'Failed to restore the note ACL',
+        });
+    }
+
+    /**
+     * Revoke collaboration, returning note to private (Owner only). The note stays in
+     * `folderId` (#682).
      *
      * @param uniqueId - The unique ID of the note
      * @param editorOdinId - OdinId of the user making this change
@@ -978,7 +1005,8 @@ export class NotesDriveProvider {
     async revokeNoteCollaboration(
         uniqueId: string,
         editorOdinId: string,
-        recipients?: string[]
+        recipients: string[] | undefined,
+        folderId: string
     ): Promise<{ versionTag: string; previousUpdated: number }> {
         const result = await this.#rewriteNoteHeader(uniqueId, {
             mode: 'patch',
@@ -987,10 +1015,13 @@ export class NotesDriveProvider {
                 isPublic: false,
                 isCollaborative: false,
                 circleIds: undefined,
+                odinIds: undefined,
                 recipients: undefined,
+                viewerCircleIds: undefined,
+                viewerRecipients: undefined,
                 lastEditedBy: editorOdinId,
             }),
-            groupId: MAIN_FOLDER_ID, // Move back to main folder
+            groupId: folderId,
             isEncrypted: true, // Private notes should be encrypted
             acl: { requiredSecurityGroup: SecurityGroupType.Owner },
             errorMessage: 'Failed to revoke note collaboration',

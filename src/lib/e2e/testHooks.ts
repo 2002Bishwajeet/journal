@@ -8,7 +8,10 @@
  * splash) or draw a link card. The exceptions: the ignoreInvites switch, which
  * lasts until the page reloads, deleteFilesNamed, which the live tier's
  * teardown uses to remove what the sharing specs leave on an identity, and
- * subscribePeerPush / journalNotifications for the share push spec (#745).
+ * subscribePeerPush / journalNotifications for the share push spec (#745), and
+ * probePeerNote, which sends the requests of the sharing security check (#897) that
+ * the other identity's server must refuse, and startAgentEval, which makes every
+ * assistant proposal accept itself for the AI eval (#706).
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
 import { e2eSwitches } from './switches';
@@ -69,6 +72,65 @@ async function renderCard(...args: Parameters<JournalE2EHooks['renderCard']>): P
     return renderCardImage(...args);
 }
 
+type SheetProps = { open: boolean; onOpenChange: (open: boolean) => void };
+
+/** Renders `build` open over the app, outside the router; it removes itself once closed. */
+async function mountOpen(build: (props: SheetProps) => import('react').ReactElement): Promise<void> {
+    const { createRoot } = await import('react-dom/client');
+    const host = document.body.appendChild(document.createElement('div'));
+    const root = createRoot(host);
+    const render = (open: boolean) =>
+        root.render(
+            build({
+                open,
+                onOpenChange: (next) => {
+                    render(next);
+                    if (!next) setTimeout(() => { root.unmount(); host.remove(); }, 500);
+                },
+            }),
+        );
+    render(true);
+}
+
+/** Opens an ActionSheet (#823) over the app, which no screen uses yet. */
+async function showActionSheet(): Promise<void> {
+    const [{ createElement }, { ActionSheet }, { Pencil, Share2, Trash2 }] = await Promise.all([
+        import('react'),
+        import('@/components/ui/action-sheet'),
+        import('lucide-react'),
+    ]);
+    await mountOpen((props) =>
+        createElement(ActionSheet, {
+            ...props,
+            title: 'Note actions',
+            items: [
+                { label: 'Rename', icon: Pencil, action: () => {} },
+                { label: 'Share', icon: Share2, action: () => {} },
+                { label: 'Delete', icon: Trash2, action: () => {}, variant: 'destructive' },
+            ],
+        }),
+    );
+}
+
+/** Opens a bottom sheet (#823) with a body that scrolls and a text field in its footer, for the iOS Safari check. */
+async function showSheet(): Promise<void> {
+    const [{ createElement: h }, { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle }, { Input }] = await Promise.all([
+        import('react'),
+        import('@/components/ui/sheet'),
+        import('@/components/ui/input'),
+    ]);
+    const rows = Array.from({ length: 40 }, (_, i) => h('li', { key: i, className: 'py-3' }, `Row ${i + 1}`));
+    await mountOpen((props) =>
+        h(Sheet, props,
+            h(SheetContent, { variant: 'bottom', 'aria-describedby': undefined },
+                h(SheetHeader, null, h(SheetTitle, null, 'Sample sheet')),
+                h(SheetBody, null, h('ul', null, rows)),
+                h(SheetFooter, null, h(Input, { placeholder: 'Sheet field' })),
+            ),
+        ),
+    );
+}
+
 /** True while an edit is still queued for, or being written to, PGlite (the document and the editor's search-index write). */
 async function hasUnsavedEdits(): Promise<boolean> {
     const { PGliteProvider } = await import('@/lib/yjs/provider');
@@ -85,6 +147,55 @@ async function syncToDisk(): Promise<void> {
 /** Skip incoming invites until the page reloads, so a share arrives only through the shared pull (#732). */
 function ignoreInvites(): void {
     e2eSwitches.ignoreInvites = true;
+}
+
+type AgentEvalEvent = ReturnType<JournalE2EHooks['takeAgentEvents']>[number];
+const agentEvents: AgentEvalEvent[] = [];
+
+/**
+ * For the AI eval (#706), until the page reloads: loads `modelId` (timed), accepts every
+ * assistant proposal as soon as it is shown, and records the agent loop's events.
+ */
+async function startAgentEval(modelId: string): ReturnType<JournalE2EHooks['startAgentEval']> {
+    const [{ initWebLLM, isModelCached }, { resolveModelId }, { activeEditor }, { pendingEdits, acceptEdit }, { pendingWrites, acceptWrite }] =
+        await Promise.all([
+            import('@/lib/webllm/engine'),
+            import('@/lib/webllm/requirements'),
+            import('@/lib/agent/activeEditor'),
+            import('@/lib/agent/approveEdit'),
+            import('@/lib/agent/approveWrite'),
+        ]);
+    const acceptNext = () =>
+        queueMicrotask(() => {
+            const open = activeEditor.get();
+            const edit = open && pendingEdits.current(open.editor);
+            if (edit) void acceptEdit(edit);
+            const write = pendingWrites.current();
+            if (write) void acceptWrite(write);
+        });
+    pendingEdits.subscribe(acceptNext);
+    pendingWrites.subscribe(acceptNext);
+    // A proposal carries the editor transaction, which can't leave the page.
+    e2eSwitches.onAgentEvent = (event) =>
+        agentEvents.push(event.type === 'proposal' ? { type: 'proposal', tool: event.proposal.tool, args: event.proposal.args } : event);
+
+    const loadedModelId = await resolveModelId(modelId);
+    const cached = await isModelCached(loadedModelId);
+    const start = performance.now();
+    const loaded = await initWebLLM(undefined, modelId);
+    return { loaded, loadMs: Math.round(performance.now() - start), loadedModelId, cached };
+}
+
+/** The agent events recorded since the last call (see startAgentEval). */
+function takeAgentEvents(): AgentEvalEvent[] {
+    return agentEvents.splice(0);
+}
+
+/** The open note's id and its editor content as TipTap JSON. */
+async function openNoteJSON(): ReturnType<JournalE2EHooks['openNoteJSON']> {
+    const { activeEditor } = await import('@/lib/agent/activeEditor');
+    const open = activeEditor.get();
+    return open && { docId: open.docId, doc: open.editor.getJSON() };
 }
 
 /**
@@ -206,6 +317,67 @@ async function journalNotifications(): Promise<{ id: string; senderId: string; u
     return results.map(({ id, senderId, unread, options }) => ({ id, senderId, unread, typeId: options.typeId, tagId: options.tagId }));
 }
 
+/** The ids a peer update of one of this identity's notes addresses, and its stored ACL, from its server. */
+async function noteHeader(docId: string): ReturnType<JournalE2EHooks['noteHeader']> {
+    const { NotesDriveProvider } = await import('@/lib/homebase/NotesDriveProvider');
+    const header = await new NotesDriveProvider(await appClient()).getNote(docId, undefined, { decrypt: false });
+    if (!header) return null;
+    const acl = header.serverMetadata?.accessControlList;
+    return {
+        globalTransitId: header.fileMetadata.globalTransitId,
+        versionTag: header.fileMetadata.versionTag,
+        acl: acl && { odinIdList: acl.odinIdList, circleIdList: acl.circleIdList },
+    };
+}
+
+/**
+ * As this identity, reads and then patches another identity's note over peer with the
+ * requests a collaborator's app sends (NotesDriveProvider.getNote and updateNote), and
+ * reports what each got. The read reports PeerNoteFallback's status names. A patch that
+ * goes through retitles the note to "Security probe". This identity may not hold the
+ * note's key, so the patch is encrypted with a key of its own: a well-formed update,
+ * which only the owner's access checks can refuse.
+ */
+async function probePeerNote(
+    ...[authorOdinId, docId, globalTransitId, versionTag]: Parameters<JournalE2EHooks['probePeerNote']>
+): Promise<{ read: string; patch: string }> {
+    const [{ NotesDriveProvider }, { classifyPeerFetchError }, { httpStatus }, { getRandom16ByteArray }, { COLLABORATIVE_FOLDER_ID }] = await Promise.all([
+        import('@/lib/homebase/NotesDriveProvider'),
+        import('@/lib/homebase/sync/peerNotes'),
+        import('@/lib/homebase/httpStatus'),
+        import('@homebase-id/js-lib/helpers'),
+        import('@/lib/homebase/config'),
+    ]);
+    const provider = new NotesDriveProvider(await appClient());
+    const refused = (err: unknown) => `refused ${httpStatus(err) ?? 'without a response'}: ${(err as Error).message}`;
+
+    let read: string;
+    try {
+        read = (await provider.getNote(docId, authorOdinId, { decrypt: false })) ? 'read' : 'notfound';
+    } catch (err) {
+        read = `${classifyPeerFetchError(err)} (${refused(err)})`;
+    }
+
+    const now = new Date().toISOString();
+    const ownKey = { aesKey: getRandom16ByteArray(), iv: getRandom16ByteArray() };
+    let patch: string;
+    try {
+        const result = await provider.updateNote(docId, '', versionTag, {
+            title: 'Security probe',
+            folderId: COLLABORATIVE_FOLDER_ID,
+            timestamps: { created: now, modified: now },
+            excludeFromAI: true,
+            isCollaborative: true,
+        }, authorOdinId, globalTransitId, undefined,
+        // patchFile takes a plain key header too; updateNote's type only names the cached, encrypted one
+        ownKey as unknown as Parameters<typeof provider.updateNote>[7]);
+        patch = `accepted (versionTag ${result.versionTag})`;
+    } catch (err) {
+        patch = refused(err);
+    }
+    return { read, patch };
+}
+
 /**
  * Deletes the signed-in identity's folders (with their notes), notes and collaboration
  * invites whose name matches `namePattern`, straight on the server; returns the names.
@@ -246,8 +418,10 @@ export async function deleteFilesNamed(namePattern: string): Promise<string[]> {
 }
 
 if (E2E_ORIGINS.includes(location.origin)) {
+    // Set by a spec's init script before the page loads (#905).
+    e2eSwitches.sessionRestoreDelayMs = Number(localStorage.getItem('e2e-session-restore-delay-ms')) || 0;
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON }),
         writable: false,
         configurable: false,
         enumerable: false,

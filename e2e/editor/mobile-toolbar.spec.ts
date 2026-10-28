@@ -1,7 +1,8 @@
-import type { Page } from '@playwright/test';
-import { test, expect } from '../fixtures';
-import { activeEditor, screenshotInBothThemes } from '../support/actions';
+import { devices, type Page } from '@playwright/test';
+import { test, expect, withFencedPage, waitForAppReady } from '../fixtures';
+import { activeEditor, createNote, screenshotInBothThemes } from '../support/actions';
 import { withMobilePage } from '../support/mobile';
+import { assertTestOrigin } from '../support/origin-guard';
 
 // The formatting toolbar sits on top of the keyboard in every keyboard mode and
 // its taps never blur the editor (#789). The keyboard is simulated: a smaller
@@ -57,4 +58,23 @@ test('the toolbar sits on the keyboard in each mode and a tap on Bold keeps the 
       await expect(toolbar(page)).toBeVisible();
     });
   });
+});
+
+test('an iPad in landscape shows only the top toolbar, not the keyboard toolbar too', async ({ browser }) => {
+  const { defaultBrowserType: _engine, ...ipad } = devices['iPad Pro 11 landscape'];
+  await withFencedPage(
+    browser,
+    { ...ipad, storageState: 'e2e/fixtures/hermetic-auth.json', serviceWorkers: 'block' },
+    async (page) => {
+      await page.goto('/');
+      await assertTestOrigin(page);
+      await waitForAppReady(page);
+      await createNote(page, { title: `iPad ${Date.now()}`, body: 'Typing on an iPad' });
+      await activeEditor(page).tap();
+      await expect(activeEditor(page)).toBeFocused();
+      await expect(page.getByTitle('Bold (Cmd+B)')).toBeVisible();
+      await expect(toolbar(page)).toHaveCount(0);
+      await screenshotInBothThemes(page, (theme) => `toolbar-ipad-landscape-${theme}.png`);
+    },
+  );
 });

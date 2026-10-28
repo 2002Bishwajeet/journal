@@ -80,6 +80,7 @@ function implementPrompt(issue) {
 
 1. You are in a fresh git worktree. Run \`pwd\` and \`git checkout -b ${branch} origin/main\`. If \`node_modules\` is missing, \`ln -s ${repoRoot}/node_modules node_modules\`.
 2. Read the issue: \`gh issue view ${issue.number} -R ${REPO} --comments\`. Read only the AGENTS.md sections relevant to the issue (\`grep -n '^#' AGENTS.md\` first). Follow the issue exactly, including its STOP conditions. If a STOP condition applies, stop and return status "stopped" with the condition and details — do not improvise around it.
+   If the issue touches phone or tablet UI (Area includes mobile, or the title says Mobile, iPad or iOS), first read \`~/.claude/skills/mobile-native/SKILL.md\` and \`~/.claude/skills/emil-design-eng/SKILL.md\` (skip any that is missing) and follow them for the UI work.
 3. ${HEAVY}
 4. Stay inside this worktree — never edit files under ${repoRoot} itself. Stay inside the issue's Scope.
 5. ${SHOTS}

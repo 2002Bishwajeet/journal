@@ -2,11 +2,13 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { FolderOpen, PenLine, PlusCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useNotes } from "@/hooks/useNotes";
 import { useFolders, resolveNoteFolderId } from "@/hooks/useFolders";
 
 export default function EmptyEditorPage({ overrideFolderId }: { overrideFolderId?: string } = {}) {
+  // MotionConfig reducedMotion="user" drops transforms but keeps opacity fades.
+  const reducedMotion = useReducedMotion();
   const {
     createNote: { mutateAsync: createNote },
   } = useNotes();
@@ -42,7 +44,7 @@ export default function EmptyEditorPage({ overrideFolderId }: { overrideFolderId
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: reducedMotion ? 0 : 0.5 }}
         className="z-10 flex flex-col items-center max-w-md text-center"
       >
         <div className="h-24 w-24 bg-primary/5 rounded-3xl flex items-center justify-center mb-6 shadow-sm ring-1 ring-border/50">

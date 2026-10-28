@@ -149,6 +149,18 @@
   --sidebar-ring: #8A8780;
 }
 
+/* Sharing with people (#683): the Share dialog, the access popover and its "Shared" pill.
+   Their secondary text and the sharing amber carry names, roles and states, so they meet
+   WCAG AA (4.5:1) here, on the dialog, the popover and the tinted pills and rows. */
+.share-ui {
+  --muted-foreground: #6E6B64; /* 4.7:1 on --muted, 5.3:1 on --popover */
+  --collaborative: #9a4508; /* 5.5:1 on its own 10% tint */
+}
+.dark .share-ui {
+  --muted-foreground: #9C998F; /* 5.0:1 on --muted, 5.5:1 on --popover */
+  --collaborative: #fbbf24;
+}
+
 /* Reset & Base */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -163,7 +175,7 @@
   --sar: env(safe-area-inset-right);
 }
 
-html {
+html, body {
   overscroll-behavior: none;
 }
 
@@ -176,12 +188,33 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-user-select: none; /* Safari */
   user-select: none; /* Prevent accidental selection on UI */
+  -webkit-touch-callout: none; /* No link or image preview on long press of chrome */
 }
 
 /* Re-enable text selection for content that should be selectable */
-.prose, .selectable, input, textarea {
+.prose, .selectable, input, textarea, pre, code, [contenteditable="true"] {
+  -webkit-user-select: text;
   user-select: text;
+  /* Note content keeps the system callout (save image, link preview) */
+  -webkit-touch-callout: default;
+}
+
+/* Native feel (#856): no double-tap zoom on controls, and a short pressed state on touch. */
+button, [role="button"], [role="menuitem"], [role="tab"], a, summary, label, select {
+  touch-action: manipulation;
+}
+
+@media (hover: none) {
+  button:not(:disabled):active,
+  [role="button"]:active,
+  [role="menuitem"]:active,
+  [role="tab"]:active,
+  a:active {
+    opacity: 0.6;
+    transition: none;
+  }
 }
 
 /* TipTap Editor Styles */
@@ -1107,9 +1140,9 @@ img.ProseMirror-separator {
   animation-name: fade-in;
 }
 
-/* Phone push and pop (#779): forward slides in from the right; back
+/* Phone push and pop (#779, phones only: tablets show two panes): forward slides in from the right; back
    (data-nav="back"); slideNavigate in navDirection.ts starts them slides in from the left. */
-@media (max-width: 1023.98px) and (prefers-reduced-motion: no-preference) {
+@media (max-width: 767.98px) and (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 0.25s;
@@ -1162,15 +1195,29 @@ img.ProseMirror-separator {
   box-shadow: 0 0 0 1px rgb(234 179 8 / 0.4);
 }
 
-/* Phone New note button (#878). --fab-bottom is its gap above the bottom edge
-   (#853 raises it above the tab bar). While it is on screen, html[data-fab] sets
-   --fab-clearance: the room lists and toasts leave under their last item. */
+/* Phone New note button (#878). --fab-bottom is its gap above the bottom edge. While it is
+   on screen, html[data-fab] sets --fab-clearance: the room lists and toasts leave under their
+   last item. Phone tab bar (#853): --tab-bar-height is its height without the safe area.
+   While it is on screen, html[data-tab-bar] raises the button above it and, without the
+   button, leaves the bar's height plus 8 px as clearance. */
 :root {
   --fab-size: 56px;
   --fab-bottom: 16px;
+  --tab-bar-height: 49px;
+}
+html[data-tab-bar] {
+  --fab-bottom: calc(var(--tab-bar-height) + 16px);
+  --fab-clearance: calc(var(--tab-bar-height) + 8px);
 }
 html[data-fab] {
   --fab-clearance: calc(var(--fab-size) + var(--fab-bottom) + 16px);
+}
+/* Docked assistant (#840): from lg, while it is open, html[data-assistant] sets
+   --assistant-clearance so toasts sit left of the 22.5rem panel, not over its message box. */
+@media (min-width: 1024px) {
+  html[data-assistant] {
+    --assistant-clearance: calc(22.5rem + 24px);
+  }
 }
 .new-note-fab {
   right: calc(16px + env(safe-area-inset-right));

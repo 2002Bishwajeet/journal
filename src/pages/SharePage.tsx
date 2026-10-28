@@ -33,7 +33,7 @@ export default function SharePage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="min-h-svh bg-background flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">Loading shared note...</p>
@@ -44,7 +44,7 @@ export default function SharePage() {
 
     if (error || !note || !identity || !noteId) {
         return (
-            <div className="min-h-screen bg-background flex flex-col">
+            <div className="min-h-svh bg-background flex flex-col">
                 <ShareHeader />
                 {/* `m-auto`: centred in the space below the header. */}
                 <div className="m-auto px-4 py-16 text-center space-y-4">
@@ -66,7 +66,7 @@ export default function SharePage() {
 
     return (
         // The container a `wide` live block takes its width from (src/index.css, "Live blocks").
-        <div className="@container/live-blocks min-h-screen bg-background">
+        <div className="@container/live-blocks min-h-svh bg-background">
             <ShareHeader
                 saveHref={`/save-shared?${new URLSearchParams({ identity: decodeURIComponent(identity), file: noteId })}`}
                 authorIndexHref={`/share/${identity}`}

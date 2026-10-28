@@ -16,6 +16,162 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.50.1 (2026-10-28)
+
+### Changed
+
+- The Share dialog and the "Shared" popover show each person with their photo and name, and each circle with its member count. The text has better contrast in light and dark mode.
+- The search field in the Share dialog has a clearer border. On a phone, the field is easier to see.
+
+### Fixed
+
+- In the Share dialog, Escape clears the search first. Before, Escape closed the dialog and the people that you added were not saved.
+- On a phone, the "Shared" popover stays away from the edge of the screen.
+
+## 2.50.0 (2026-10-28)
+
+### New
+
+- On a phone, a tab bar is at the bottom of the screen. Its tabs are Notes, Shared, Search and Settings. The Shared and Settings rows no longer show on the home screen. A tablet or a computer keeps its layout.
+- On a phone, the New note button is above the tab bar. It does not show on the Shared list.
+
+## 2.49.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, the sign-in, share and error pages fit the screen when the address bar is shown.
+
+## 2.49.0 (2026-10-28)
+
+### New
+
+- On a phone, the More button in a note opens a sheet with all note actions. You can pin, share, move, archive or trash the note, and find text in it.
+- On a phone, you can open the contents of a note. Tap a heading to go to it.
+
+### Changed
+
+- On a phone, the Back button in a note is bigger and shows the name of the folder it goes to.
+- On a phone, the small title in the note header shows only when the big title is out of view.
+- On a phone, a new note opens with the cursor in the title.
+
+## 2.48.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, Back closes a sheet also when you push it immediately after the sheet opens.
+
+## 2.48.0 (2026-10-28)
+
+### Changed
+
+- When you ask the assistant a question, it does not change your notes.
+- The assistant reads the open note before it edits the note.
+- The assistant does not make the same change two times in one request.
+- The assistant can add text at the end of the open note. You accept or reject the change in the note.
+
+## 2.47.2 (2026-10-28)
+
+### Fixed
+
+- On a phone, the resize handles show only on the selected image.
+
+## 2.47.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, the image toolbar shows only when you select the image. It is now inside the image and does not cover the text above it.
+
+## 2.47.0 (2026-10-27)
+
+### Changed
+
+- On a phone, Link, Emoji, Table, Text alignment and the callout type open as a sheet above the keyboard.
+- On a phone, the Link sheet has a Text field, a URL field and a Remove link button.
+- On a phone, you set the size of a table with two counters.
+- On a phone, the slash menu shows above the keyboard toolbar, with large rows.
+
+## 2.46.0 (2026-10-27)
+
+### Changed
+
+- One Share dialog replaces Mark as Collaborative, Edit Sharing and Revoke Collaboration. Use "Share…" in the note menu.
+- In the Share dialog, you add people and circles and give each one a role. A circle can be Editor or Viewer.
+- The public link of a note is under "General access" in the same Share dialog.
+- A shared note stays in its folder. You can move a shared note to a different folder.
+- A note that a person shares with you has "Remove from my list". This removes the note from this device only.
+- The "Shared" badge on a note shows the circles and people that can open the note.
+
+## 2.45.0 (2026-10-27)
+
+### Changed
+
+- On a phone, an image opens in a full-screen viewer. Swipe down to close it. The Close and Download buttons stay below the status bar.
+- On a phone, the image editor fills the screen. Cancel and Apply are in the top bar. The crop handles and the tools are bigger, to touch with a finger.
+
+## 2.44.1 (2026-10-27)
+
+### Fixed
+
+- When you open a folder or note while the app starts, the app does not move you back to the last note.
+
+## 2.44.0 (2026-10-27)
+
+### Changed
+
+- On a phone, Move to folder shows the folder that holds the note, with a check mark.
+- On a phone, Move to folder has a New folder row. The note moves into the new folder.
+- On a phone, Move to folder has a search field when you have many folders.
+- When a part of the app shows an error screen, the browser console now shows the full error text and its stack. This helps to find the cause of an error on iOS.
+
+## 2.43.0 (2026-10-27)
+
+### Changed
+
+- On a phone, buttons and links dim when you press them, and a fast double tap on a button does not zoom the page.
+- On a phone, the remove button on a tag and the image controls are always visible.
+- A long press on a button or a row does not open a system preview. Note text, code and images stay selectable.
+
+## 2.42.0 (2026-10-27)
+
+### New
+
+- You can share a note with a person by their Homebase identity. That person can read the note but cannot change it. Use "Add a person" in the Mark as Collaborative dialog.
+- To change who can see a shared note, use Edit Sharing in the note's menu.
+
+## 2.41.1 (2026-10-27)
+
+### Fixed
+
+- A note holds at most 24 images, which is what Homebase accepts. Adding more now shows a message ("This note holds at most 24 images. Split it, or link a new note.") instead of starting an upload that fails.
+
+## 2.41.0 (2026-10-27)
+
+### New
+
+- On a phone, Move to folder opens as a sheet from the bottom of the screen, and Version history opens as a full-screen sheet. Pull a sheet down to close it.
+
+### Fixed
+
+- On a phone, the line you type on stays above the toolbar and the keyboard.
+- On a phone, the last line of a note scrolls above the toolbar.
+- On a phone, the slash, emoji and note link menus move when the keyboard opens.
+- On iOS Safari, the text that you type just before you reload or leave the page stays in the note.
+
+## 2.40.1 (2026-10-27)
+
+### Fixed
+
+- The assistant panel now counts only the tool steps, not the error row.
+- With the assistant panel open, the editor toolbar wraps and no icon is cut off.
+- With the assistant panel open, a toast shows to the left of the panel and does not cover the message box.
+- On an iPad in landscape, the editor shows one formatting toolbar. Before, it also showed the phone toolbar at the bottom.
+
+## 2.40.0 (2026-10-27)
+
+### Changed
+
+- On an iPad held upright, Journal shows the note list and the open note side by side. To see your folders, tap the arrow at the top of the list.
+
 ## 2.39.3 (2026-10-26)
 
 ### Fixed

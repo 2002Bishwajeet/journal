@@ -306,7 +306,8 @@ export function useArchivedNotes(enabled: boolean = true) {
 export function useNotesByFolder(folderId: string | undefined) {
     // 'trash', 'shared' and 'archive' are pseudo-folders with their own views — skip the query.
     const enabled = !!folderId && !isPseudoFolder(folderId);
-    return useLiveNoteList(NOTE_LIST_SQL.byFolder, [folderId ?? ''], enabled);
+    const host = useDotYouClientContext().getHostIdentity();
+    return useLiveNoteList(NOTE_LIST_SQL.byFolder, [folderId ?? '', host], enabled);
 }
 
 export function useCollaborativeNotes(enabled: boolean = true) {

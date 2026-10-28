@@ -26,7 +26,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
+    // The stack goes into the text too: a remote console (iOS Safari through Appium, #862) may show only strings.
+    console.error(`Uncaught error: ${error?.stack ?? error}`, error, errorInfo);
     if (isChunkLoadError(error)) {
       reloadOnceForChunkError();
     }
@@ -40,7 +41,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="min-h-svh flex items-center justify-center bg-background p-4">
           <div className="w-full max-w-md border border-destructive/50 rounded-lg bg-card text-card-foreground shadow-sm">
             <div className="flex flex-col space-y-1.5 p-6">
               <div className="flex items-center gap-2 text-destructive mb-2">

@@ -4,6 +4,7 @@ import { useModelDownloadGate } from "@/hooks/useModelDownloadGate";
 import { getSearchIndexEntry } from "@/lib/db";
 import type { AgentEvent } from "@/lib/agent/loop/agentLoop";
 import { approveWrite, type WrittenNote } from "@/lib/agent/approveWrite";
+import { e2eSwitches } from "@/lib/e2e/switches";
 
 export interface ChatCommand {
   label: string;
@@ -29,6 +30,13 @@ export interface AgentStep {
   write?: { markdown: string; state: "pending" | "accepted" | "rejected" | "notApplied"; note?: { title: string; href: string } };
   /** The tool was called and has not answered yet. */
   open?: boolean;
+  /** An error row, not a tool step. */
+  failed?: true;
+}
+
+/** The footer's step count: tool steps only, not the error row. */
+export function countToolSteps(steps: AgentStep[]): number {
+  return steps.filter((step) => !step.failed).length;
 }
 
 export interface ChatEntry {
@@ -108,7 +116,7 @@ function applyEvent(steps: AgentStep[], event: AgentEvent): AgentStep[] {
     case "toolResult":
       return steps.map((step, i) => (i === last ? { ...describeResult(step, event.tool, event.result, event.note), open: false } : step));
     case "error": {
-      const failed = { before: `Could not finish a step: ${event.error.replace(/: [0-9a-f-]{36}$/i, "")}`, after: "" };
+      const failed = { before: `Could not finish a step: ${event.error.replace(/: [0-9a-f-]{36}$/i, "")}`, after: "", failed: true as const };
       // A tool that throws fails its own step; a bad reply from the model is a step of its own.
       const rest = steps[last]?.open ? steps.slice(0, last) : steps;
       // The same failure twice in a row shows as one row.
@@ -196,7 +204,7 @@ export function useAgentSession(activeNoteId: string | undefined) {
     let failure: string | undefined;
     let content: string;
     try {
-      const [{ runAgent, MAX_TOOL_STEPS }, { approveEdit }, { createLocalWriteDeps }, { createAgentEngine }] =
+      const [{ runAgent, toolsFor, MAX_TOOL_STEPS }, { approveEdit }, { createLocalWriteDeps }, { createAgentEngine }] =
         await Promise.all([
           import("@/lib/agent/loop/agentLoop"),
           import("@/lib/agent/approveEdit"),
@@ -213,6 +221,8 @@ export function useAgentSession(activeNoteId: string | undefined) {
           setModelStatus({ progress: report.progress, message: report.text })
         ),
         deps: writeDeps,
+        // Judged on what the user typed, not the note title in `context`.
+        tools: toolsFor(request),
         writeDeps,
         // An edit to the open note shows in the note, an append to another note or a new note shows as a
         // card in this panel; the user accepts or rejects each.
@@ -220,6 +230,7 @@ export function useAgentSession(activeNoteId: string | undefined) {
           proposal.write ? approveWrite(proposal.write, controller.signal) : approveEdit(proposal, controller.signal),
         signal: controller.signal,
         onEvent: (event) => {
+          e2eSwitches.onAgentEvent?.(event);
           if (event.type === "step" && event.step > MAX_TOOL_STEPS) capped = true;
           if (event.type === "failed") failure = event.message;
           if (event.type !== "step") setModelStatus(null);

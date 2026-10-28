@@ -17,6 +17,14 @@ const entryReplaced = (key: string) => {
   return current !== undefined && current !== key;
 };
 
+// The pushed entry renders in that transition too, so a quick Back (or a slow
+// render) can pop it before the location ever shows it: the browser entry no
+// longer lists the overlay.
+const entryPopped = (id: string) => {
+  const current = window.history.state as { key?: string; usr?: unknown } | null;
+  return current?.key !== undefined && !stackOf(current.usr).includes(id);
+};
+
 // Below the desktop breakpoint an open overlay owns one history entry, so the
 // system Back gesture closes it and stays on the same screen.
 // idle -> pushing (entry requested) -> active (entry is the current location).
@@ -42,6 +50,10 @@ export function useOverlayHistory(open: boolean, close: () => void) {
       );
     } else if (phase.current === "pushing" && inStack) {
       phase.current = "active";
+    } else if (phase.current === "pushing" && open && entryPopped(id)) {
+      // System Back removed our entry before it rendered.
+      phase.current = "idle";
+      close();
     } else if (phase.current === "active" && !inStack) {
       // System Back removed our entry.
       phase.current = "idle";

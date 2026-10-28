@@ -4,23 +4,16 @@ import {
   Plus,
   FileText,
   Trash2,
-  Share2,
-  Download,
   Users,
-  Archive,
-  FolderInput,
   Globe,
   Pin,
-  PinOff,
   ChevronDown,
   ChevronRight,
   ArrowUpDown,
   ChevronLeft,
-  ExternalLink,
   Bot,
 } from "lucide-react";
 import { useDotYouClientContext } from "@/components/auth";
-import { ownerConsoleNoteUrl } from "@/lib/homebase";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -30,7 +23,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/modals";
-import { ContextMenuWrapper, RowOptionsMenu, type ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper";
+import { ContextMenuWrapper, RowOptionsMenu } from "@/components/ui/context-menu-wrapper";
+import { buildNoteMenuItems } from "@/helpers/noteMenuItems";
 import { cn } from "@/lib/utils";
 import { agentDisplayName } from "@/lib/agent/attribution";
 import type { NoteListEntry } from "@/types";
@@ -41,6 +35,7 @@ import { useNotes } from "@/hooks/useNotes";
 import { getNoteGroup } from "@/helpers/dateGrouping";
 import { useIntersection } from "@/hooks/useIntersection";
 import { swipeAxis } from "@/helpers/swipeAxis";
+import { haptic } from "@/lib/haptics";
 
 // Rows mounted per render step; the sentinel adds another page as it scrolls into view.
 const PAGE = 100;
@@ -55,7 +50,8 @@ interface NoteListProps {
   onDeleteNote: (docId: string) => void;
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder?: (note: NoteListEntry) => void;
-  onMarkCollaborative?: (note: NoteListEntry) => void;
+  /** A receiver drops a note shared with them from this device (#682). */
+  onRemoveFromList?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
   isLoading?: boolean;
   className?: string;
@@ -64,6 +60,8 @@ interface NoteListProps {
   /** Phone only: the heading, Back handler and trailing slot that replace the pane's own header. */
   title?: string;
   onBack?: () => void;
+  /** Accessible name of the Back button (the tablet one opens the folders). */
+  backLabel?: string;
   trailing?: ReactNode;
 }
 
@@ -76,13 +74,14 @@ export default function NoteList({
   onDeleteNote,
   onShareNote,
   onMoveToFolder,
-  onMarkCollaborative,
+  onRemoveFromList,
   onArchive,
   isLoading = false,
   className = "",
   viewKey,
   title,
   onBack,
+  backLabel = "Back to notes",
   trailing,
 }: NoteListProps) {
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
@@ -227,7 +226,7 @@ export default function NoteList({
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Back to notes"
+            aria-label={backLabel}
             className="h-8 w-8 shrink-0 pointer-coarse:size-11"
             onClick={onBack}
           >
@@ -331,7 +330,7 @@ export default function NoteList({
                           onShareNote={onShareNote}
                           onMoveToFolder={onMoveToFolder}
                           onTogglePin={handleTogglePin}
-                          onMarkCollaborative={onMarkCollaborative}
+                          onRemoveFromList={onRemoveFromList}
                           onArchive={onArchive}
                         />
                       ))}
@@ -394,7 +393,7 @@ const NoteItem = memo(function NoteItem({
   onShareNote,
   onMoveToFolder,
   onTogglePin,
-  onMarkCollaborative,
+  onRemoveFromList,
   onArchive,
 }: {
   note: NoteListEntry;
@@ -406,7 +405,7 @@ const NoteItem = memo(function NoteItem({
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder?: (note: NoteListEntry) => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
-  onMarkCollaborative?: (note: NoteListEntry) => void;
+  onRemoveFromList?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
 }) {
   const dotYouClient = useDotYouClientContext();
@@ -426,12 +425,6 @@ const NoteItem = memo(function NoteItem({
   const isPeerNote =
     !!note.metadata.authorOdinId &&
     note.metadata.authorOdinId !== dotYouClient.getHostIdentity();
-
-  const triggerHaptic = (duration = 10) => {
-    if ("vibrate" in navigator) {
-      navigator.vibrate(duration);
-    }
-  };
 
   // Sync the row to the open state, so a close from outside animates too.
   useEffect(() => {
@@ -489,7 +482,7 @@ const NoteItem = memo(function NoteItem({
     moveRow(contentRef.current, actionRef.current, open ? maxSwipeDistance : 0, false);
     if (open !== isSwiped) {
       onSwipeChange(note.docId, open);
-      triggerHaptic(open ? 15 : 10);
+      haptic(open ? "medium" : "light");
     }
   };
 
@@ -500,68 +493,11 @@ const NoteItem = memo(function NoteItem({
     }
   };
 
-  const menuItems: ContextMenuItemConfig[] = [
-    {
-      label: note.metadata.isPinned ? "Unpin" : "Pin",
-      icon: note.metadata.isPinned ? PinOff : Pin,
-      action: () => onTogglePin(note.docId, !note.metadata.isPinned),
-    },
-    {
-      label: "Share",
-      icon: Share2,
-      action: () => onShareNote(note),
-    },
-    // Collaborative notes live in the shared folder and notes from other people
-    // aren't ours to file: neither has a Move item.
-    ...(note.metadata.isCollaborative || isPeerNote || !onMoveToFolder
-      ? []
-      : [
-          {
-            label: "Move to folder…",
-            icon: FolderInput,
-            action: () => onMoveToFolder(note),
-          },
-        ]),
-    {
-      label: "Export to Markdown",
-      icon: Download,
-      action: () =>
-        void import("@/lib/importexport/exportNoteMarkdown").then((m) =>
-          m.exportNoteAsMarkdown(note.docId, note.title || "Untitled"),
-        ),
-    },
-    {
-      label: "Open in Owner Console",
-      icon: ExternalLink,
-      action: () =>
-        window.open(
-          ownerConsoleNoteUrl(dotYouClient.getRoot(), note.docId),
-          "_blank",
-          "noopener,noreferrer",
-        ),
-    },
-    {
-      label: note.metadata.isCollaborative
-        ? "Revoke Collaboration"
-        : "Mark as Collaborative",
-      icon: Users,
-      action: () => onMarkCollaborative?.(note),
-      disabled: !onMarkCollaborative,
-    },
-    {
-      label: "Archive",
-      icon: Archive,
-      action: () => onArchive?.(note),
-      disabled: !onArchive,
-    },
-    {
-      label: "Move to Trash",
-      icon: Trash2,
-      action: () => onDeleteNote(note.docId),
-      variant: "destructive",
-      shortcut: "⌫",
-    },
-  ];
+  const menuItems = buildNoteMenuItems(note, {
+    isPeerNote,
+    dotYouRoot: dotYouClient.getRoot(),
+    handlers: { onTogglePin, onShare: onShareNote, onMoveToFolder, onRemoveFromList, onArchive, onTrash: onDeleteNote },
+  });
 
   return (
     <div
@@ -588,7 +524,7 @@ const NoteItem = memo(function NoteItem({
               className="w-full h-full flex items-center justify-center active:scale-110 transition-transform"
               onClick={(e) => {
                 e.stopPropagation();
-                triggerHaptic(20);
+                haptic("medium");
                 onDeleteNote(note.docId);
               }}
             >

@@ -49,7 +49,8 @@ export const readOpenNote: EditorTool = {
     editor: true,
     name: 'read_open_note',
     title: 'Read open note',
-    description: 'The top-level blocks of the note the user has open, as [{ n, type, text }]. n counts from 1; text is cut to 200 characters.',
+    // One sentence each, required arguments first (#914): small models read only this line.
+    description: 'Read the open note as blocks [{n, type, text}] numbered from 1 (text cut to 200 characters); call it before any edit.',
     input: z.object({}),
     readOnly: true,
     execute: async (deps) => ({ data: readBlocks(openEditor(deps).state.doc) }),
@@ -59,7 +60,7 @@ export const insertParagraph = editTool(
     {
         name: 'insert_paragraph',
         title: 'Insert paragraph',
-        description: 'Propose a new paragraph after block n of the open note (0 = at the top).',
+        description: 'Propose a paragraph with this text after block n of the open note (after 0 = at the top).',
         input: z.object({ after: z.number().int().min(0), text: z.string() }),
     },
     ({ after, text }) => ({ kind: 'insert_paragraph', after, text })
@@ -79,7 +80,7 @@ export const replaceText = editTool(
     {
         name: 'replace_text',
         title: 'Replace text',
-        description: 'Propose replacing `find` with `replace` in block n of the open note. `find` must occur exactly once in the block.',
+        description: 'Propose replacing find, exact text that occurs once in block n of the open note, with replace, for example {"n": 3, "find": "tuesday", "replace": "Wednesday"}.',
         input: z.object({ n, find: z.string(), replace: z.string() }),
     },
     ({ n, find, replace }) => ({ kind: 'replace_text', n, find, replace })
@@ -89,8 +90,16 @@ export const formatText = editTool(
     {
         name: 'format_text',
         title: 'Format text',
-        description: 'Propose turning bold, italic, strike or code on or off for `find` (exactly once) in block n of the open note, or the whole block without `find`.',
-        input: z.object({ n, find: z.string().optional(), mark: z.enum(MARKS), on: z.boolean() }),
+        description: 'Propose turning mark (bold, italic, strike or code) on or off in block n of the open note, for find only (exact text that occurs once in the block, for example "saffron") or for the whole block without find.',
+        input: z.object({ n, mark: z.enum(MARKS), on: z.boolean(), find: z.string().optional() }),
     },
     ({ n, find, mark, on }) => ({ kind: 'format_text', n, find, mark, on })
 );
+
+/** `append_to_note` on the open note (#914): a paragraph after its last block, built like insert_paragraph so the user previews it and one undo removes it. */
+export async function appendToOpenNote(deps: ActiveEditorStore, text: string): Promise<ToolOutput> {
+    const { state } = openEditor(deps);
+    const result = buildEdit(state, { kind: 'insert_paragraph', after: state.doc.childCount, text });
+    if ('error' in result) throw new Error(result.error);
+    return { data: { ...result, summary: 'Add a paragraph at the end' } };
+}

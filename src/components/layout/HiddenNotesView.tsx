@@ -26,6 +26,8 @@ interface HiddenNotesViewProps {
   headerAction?: { label: string; onClick: () => void };
   /** Optional back handler; renders a leading back button (mobile, where this is the only header). */
   onBack?: () => void;
+  /** Accessible name of the Back button (the tablet one opens the folders). */
+  backLabel?: string;
   className?: string;
 }
 
@@ -42,6 +44,7 @@ function HiddenNotesViewComponent({
   rowActions,
   headerAction,
   onBack,
+  backLabel = "Back to notes",
   className,
 }: HiddenNotesViewProps) {
   return (
@@ -51,7 +54,7 @@ function HiddenNotesViewComponent({
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Back to notes"
+            aria-label={backLabel}
             className="h-8 w-8 shrink-0 pointer-coarse:size-11"
             onClick={onBack}
           >
@@ -83,7 +86,7 @@ function HiddenNotesViewComponent({
         </div>
       ) : (
         <ScrollArea className="flex-1">
-          <ul>
+          <ul className="pb-[var(--fab-clearance,0px)]">
             {notes.map((note) => (
               <li
                 key={note.docId}

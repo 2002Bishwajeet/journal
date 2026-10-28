@@ -14,7 +14,9 @@ const ok: Layout = {
   toolbar: null,
   dialogFooter: null,
   searchSheet: null,
+  sheet: null,
   sidebarFooter: { top: 610, bottom: 642, left: 8, right: 385 },
+  tabBar: { top: 610, bottom: 659, left: 0, right: 98 },
   foreignRequests: [],
 };
 
@@ -26,6 +28,7 @@ const keyboard: Layout = {
   caret: { top: 200, bottom: 220, left: 20, right: 20 },
   toolbar: { top: 275, bottom: 323, left: 0, right: 393 },
   sidebarFooter: null,
+  tabBar: null,
 };
 
 describe('iOS Safari layout checks', () => {
@@ -57,6 +60,13 @@ describe('iOS Safari layout checks', () => {
     expect(problems[0]).toMatch(/below the usable bottom 625/);
   });
 
+  it('should keep the tab bar buttons above the home indicator', () => {
+    const insets = { ...ok.insets, bottom: 34 };
+    expect(layoutProblems({ ...ok, insets, sidebarFooter: null, tabBar: { top: 576, bottom: 625, left: 0, right: 98 } }, false)).toEqual([]);
+    const problems = layoutProblems({ ...ok, insets, sidebarFooter: null }, false);
+    expect(problems).toEqual(['the tab bar ends at 659, below the usable bottom 625 (viewport minus the safe area)']);
+  });
+
   it('should not flag the sidebar footer under the keyboard while a dialog field is focused', () => {
     const dialogField = { ...ok, viewport: { top: 0, height: 436 }, focused: { name: 'input[Folder Name]', fontSize: 16 }, sidebarFooter: { top: 619, bottom: 651, left: 8, right: 385 } };
     expect(layoutProblems(dialogField, false)).toEqual([]);
@@ -75,6 +85,23 @@ describe('iOS Safari layout checks', () => {
     expect(layoutProblems({ ...field, searchSheet: { top: 0, bottom: 420, left: 0, right: 393 } }, false)).toEqual([]);
     expect(layoutProblems({ ...field, searchSheet: { top: 0, bottom: 659, left: 0, right: 393 } }, false)).toEqual([
       'the search sheet (0–659) is outside the visual viewport (0–420)',
+    ]);
+  });
+
+  it('should flag a sheet that stays under the keyboard while its field is focused', () => {
+    const field = { ...ok, viewport: { top: 0, height: 336 }, focused: { name: 'input[Sheet field]', fontSize: 16 }, sidebarFooter: null };
+    expect(layoutProblems({ ...field, sheet: { top: 40, bottom: 336, left: 0, right: 393 } }, false)).toEqual([]);
+    expect(layoutProblems({ ...field, sheet: { top: 40, bottom: 659, left: 0, right: 393 } }, false)).toEqual([
+      'the sheet (40–659) is outside the visual viewport (0–336)',
+    ]);
+  });
+
+  it('should measure from 0 when Safari shrinks innerHeight to the visual viewport', () => {
+    // Real iOS Safari numbers after it scrolled to the sheet's field (#823).
+    const field = { ...ok, innerHeight: 436, viewport: { top: 223, height: 436 }, focused: { name: 'input[Sheet field]', fontSize: 16 }, sidebarFooter: null };
+    expect(layoutProblems({ ...field, sheet: { top: 32, bottom: 436, left: 0, right: 393 } }, false)).toEqual([]);
+    expect(layoutProblems({ ...field, sheet: { top: -191, bottom: 436, left: 0, right: 393 } }, false)).toEqual([
+      'the sheet (-191–436) is outside the visual viewport (0–436)',
     ]);
   });
 

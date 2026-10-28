@@ -36,8 +36,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
+import { useDeviceType } from "@/hooks/useDeviceType";
 import { ToolbarButton, ToolbarDivider, useToolbarState, safeEditorCommand } from "./shared";
 import { EmojiPicker } from "./EmojiPicker";
+import { LinkSheet } from "./LinkSheet";
 import { TablePicker } from "./TablePicker";
 import { TextAlignPicker } from "./TextAlignPicker";
 import { undo, redo } from "./plugins/collaboration";
@@ -54,6 +56,7 @@ export default function MobileToolbar({
   className,
 }: MobileToolbarProps) {
   const [hasFocus, setHasFocus] = useState(() => editor.isFocused);
+  const [linkOpen, setLinkOpen] = useState(false);
 
   // Use shared toolbar state hook
   const state = useToolbarState(editor);
@@ -61,6 +64,8 @@ export default function MobileToolbar({
   // Check if we're on a touch device
   const isTouchDevice =
     "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  // On desktop widths (an iPad in landscape) the editor page shows the full toolbar at the top
+  const isDesktop = useDeviceType() === "desktop";
 
   // Show while the editor (or a picker opened from this toolbar) has focus,
   // in every keyboard mode: the keyboard height is not a reliable signal.
@@ -69,8 +74,16 @@ export default function MobileToolbar({
       target instanceof Element &&
       (editor.view.dom.contains(target) ||
         !!target.closest("[data-mobile-toolbar], [data-radix-popper-content-wrapper]"));
-    const onFocusIn = (e: FocusEvent) => setHasFocus(inEditorUi(e.target));
-    const onFocusOut = (e: FocusEvent) => setHasFocus(inEditorUi(e.relatedTarget));
+    // A sheet opened from the editor (link, emoji, table...) takes focus, but the toolbar that
+    // holds its state has to stay: focus moving into or out of a sheet changes nothing (#827).
+    const inSheet = (target: EventTarget | null) =>
+      target instanceof Element && !!target.closest('[data-slot="sheet-content"]');
+    const onFocusIn = (e: FocusEvent) => {
+      if (!inSheet(e.target)) setHasFocus(inEditorUi(e.target));
+    };
+    const onFocusOut = (e: FocusEvent) => {
+      if (!inSheet(e.target) && !inSheet(e.relatedTarget)) setHasFocus(inEditorUi(e.relatedTarget));
+    };
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
     return () => {
@@ -79,7 +92,7 @@ export default function MobileToolbar({
     };
   }, [editor]);
 
-  const isVisible = isTouchDevice && hasFocus;
+  const isVisible = isTouchDevice && !isDesktop && hasFocus;
   useKeyboardOffset(isVisible);
 
   // Action handlers using safeEditorCommand
@@ -189,14 +202,7 @@ export default function MobileToolbar({
     );
   };
 
-  const addLink = () => {
-    const url = window.prompt("Enter URL:");
-    if (url) {
-      safeEditorCommand(editor, () =>
-        editor.chain().focus().setLink({ href: url }).run(),
-      );
-    }
-  };
+  const addLink = () => setLinkOpen(true);
 
   const addImage = () => {
     const input = document.createElement("input");
@@ -210,7 +216,7 @@ export default function MobileToolbar({
     input.click();
   };
 
-  // Don't render on non-touch devices or when the editor has no focus
+  // Don't render on non-touch devices, at desktop widths or when the editor has no focus
   if (!isVisible) return null;
 
   return (
@@ -225,6 +231,9 @@ export default function MobileToolbar({
         paddingBottom: "var(--keyboard-safe-bottom, env(safe-area-inset-bottom, 0px))",
       }}
     >
+      {/* The slash menu docks here, above the toolbar, while the editor keeps focus (#827) */}
+      <div data-slash-dock className="absolute inset-x-0 bottom-full empty:hidden" />
+      <LinkSheet editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />
       {/* Scrollable toolbar container */}
       <div
         className="flex items-center gap-0.5 px-2 py-2 overflow-x-auto scrollbar-hide"

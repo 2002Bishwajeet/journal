@@ -92,6 +92,15 @@ test('moving a note to another folder shows it there, and its public state follo
 
   // Phone-sized: the same menu and picker. Forget the last note so the cold start stays on the sidebar.
   await waitForNoteSaved(app);
+  // The session save is debounced: wait for it to land, or it writes the note back after the removal.
+  await expect
+    .poll(() =>
+      app.evaluate(() => {
+        const session = JSON.parse(localStorage.getItem('journal-session-state') ?? '{}');
+        return `/${session.lastFolderId}/${session.lastNoteId}` === location.pathname;
+      })
+    )
+    .toBe(true);
   await app.evaluate(() => localStorage.removeItem('journal-session-state'));
   await app.setViewportSize(MOBILE);
   await app.goto('/');
