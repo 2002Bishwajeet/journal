@@ -179,6 +179,12 @@ html, body {
   overscroll-behavior: none;
 }
 
+/* No font inflation in landscape on iOS Safari */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -260,8 +266,12 @@ button, [role="button"], [role="menuitem"], [role="tab"], a, summary, label, sel
   transition: opacity 0.15s ease;
 }
 
-.prose a:hover {
-  opacity: 0.7;
+/* Hover only with a mouse: on a phone a tap applies :hover and it stays (#892).
+   Touch press feedback comes from the #856 baseline (every one of these is a button or link). */
+@media (hover: hover) and (pointer: fine) {
+  .prose a:hover {
+    opacity: 0.7;
+  }
 }
 
 /* Internal note links ([[) — rendered as inline chips */
@@ -282,8 +292,10 @@ button, [role="button"], [role="menuitem"], [role="tab"], a, summary, label, sel
   transition: background 0.15s ease;
 }
 
-.note-link:hover {
-  background: color-mix(in srgb, var(--primary) 20%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .note-link:hover {
+    background: color-mix(in srgb, var(--primary) 20%, transparent);
+  }
 }
 
 .note-link--broken {
@@ -653,10 +665,13 @@ img.ProseMirror-separator {
   border-radius: 9999px;
   line-height: 1;
   color: var(--foreground);
+  transition: opacity 120ms ease-out;
 }
 
-.gallery-nav > button:hover:not(:disabled) {
-  background: var(--accent);
+@media (hover: hover) and (pointer: fine) {
+  .gallery-nav > button:hover:not(:disabled) {
+    background: var(--accent);
+  }
 }
 
 .gallery-nav > button:disabled {
@@ -674,10 +689,49 @@ img.ProseMirror-separator {
   border-radius: 9999px;
   background: var(--muted-foreground);
   opacity: 0.4;
+  transition: opacity 120ms ease-out;
 }
 
 .gallery-dots > button[aria-current] {
   opacity: 1;
+}
+
+/* A finger needs 44px targets (#892). Each dot keeps its 8px look, drawn by ::before,
+   inside a 44px button that may narrow (never below the dot) when there are many slides. */
+@media (pointer: coarse) {
+  /* The 44px buttons hold their own space: no gap, so 5 dots fit at 390px */
+  .gallery-nav {
+    gap: 0;
+  }
+
+  .gallery-nav > button {
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .gallery-dots {
+    gap: 0;
+    min-width: 0;
+  }
+
+  .gallery-dots > button {
+    display: grid;
+    place-items: center;
+    flex-shrink: 1;
+    width: 2.75rem;
+    min-width: 0.75rem;
+    height: 2.75rem;
+    background: none;
+  }
+
+  .gallery-dots > button::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: var(--muted-foreground);
+  }
 }
 
 /* The layout picker in the editor, under the gallery's bottom right corner: the strip
@@ -704,9 +758,14 @@ img.ProseMirror-separator {
   transition: opacity 0.15s;
 }
 
-.gallery-block:hover > .gallery-toolbar,
 .gallery-block:focus-within > .gallery-toolbar {
   opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .gallery-block:hover > .gallery-toolbar {
+    opacity: 1;
+  }
 }
 
 @media (hover: none) {
@@ -718,12 +777,19 @@ img.ProseMirror-separator {
 .gallery-toolbar > button {
   padding: 0 0.5rem;
   border-radius: 0.25rem;
+  transition: opacity 120ms ease-out;
 }
 
-.gallery-toolbar > button:hover,
 .gallery-toolbar > button[aria-pressed='true'] {
   background: var(--accent);
   color: var(--accent-foreground);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .gallery-toolbar > button:hover {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
 }
 
 /* Lists */
