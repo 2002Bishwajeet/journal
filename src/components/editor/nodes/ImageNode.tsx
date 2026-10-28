@@ -272,8 +272,10 @@ export function ImageNodeView({
         // 20px hit target around a 10px square — big enough for a finger,
         // small enough not to cover the corner of the image.
         "absolute flex h-5 w-5 items-center justify-center pointer-coarse:size-11",
-        "opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
-        selected && "opacity-100",
+        "opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100",
+        // No hover on touch: only a selected image shows its handles, and a hidden one takes no taps (#927).
+        "[@media(hover:none)]:pointer-events-none [@media(hover:none)]:group-hover:opacity-0 [@media(hover:none)]:focus-visible:opacity-0",
+        selected && "opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:group-hover:opacity-100 [@media(hover:none)]:focus-visible:opacity-100",
         pos,
         cursor,
       )}
