@@ -1,3 +1,9 @@
+## [2.52.1](https://github.com/2002Bishwajeet/journal/compare/v2.52.0...v2.52.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **mobile:** gate hand-written :hover styles and give the gallery carousel 44px controls ([#892](https://github.com/2002Bishwajeet/journal/issues/892)) ([e1086c6](https://github.com/2002Bishwajeet/journal/commit/e1086c6b3f47ff9764640d4f8300616581d1b396))
 # [2.52.0](https://github.com/2002Bishwajeet/journal/compare/v2.51.0...v2.52.0) (2026-10-28)
 
 
