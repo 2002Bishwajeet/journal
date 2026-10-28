@@ -1,3 +1,9 @@
+## [2.47.2](https://github.com/2002Bishwajeet/journal/compare/v2.47.1...v2.47.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* **images:** on touch, show the resize handles only on the selected image ([#927](https://github.com/2002Bishwajeet/journal/issues/927)) ([28a8cf0](https://github.com/2002Bishwajeet/journal/commit/28a8cf0e5d2176c8dd3ae1a7346c6b35f90eb1df))
 ## [2.47.1](https://github.com/2002Bishwajeet/journal/compare/v2.47.0...v2.47.1) (2026-10-28)
 
 

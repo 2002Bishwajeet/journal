@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.47.2 (2026-10-28)
+
+### Fixed
+
+- On a phone, the resize handles show only on the selected image.
+
 ## 2.47.1 (2026-10-28)
 
 ### Fixed
