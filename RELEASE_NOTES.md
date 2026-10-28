@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.47.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, the image toolbar shows only when you select the image. It is now inside the image and does not cover the text above it.
+
 ## 2.47.0 (2026-10-27)
 
 ### Changed

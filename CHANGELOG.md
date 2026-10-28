@@ -1,3 +1,10 @@
+## [2.47.1](https://github.com/2002Bishwajeet/journal/compare/v2.47.0...v2.47.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **images:** keep the touch image toolbar inside full-width images ([#917](https://github.com/2002Bishwajeet/journal/issues/917)) ([7303da2](https://github.com/2002Bishwajeet/journal/commit/7303da2f9bac301881109148da5653659130bd26))
+* **images:** on touch, show the image toolbar only while the image is selected ([#917](https://github.com/2002Bishwajeet/journal/issues/917)) ([28645bd](https://github.com/2002Bishwajeet/journal/commit/28645bd9e4eb3f7191680470501c23f8079a2984))
 # [2.47.0](https://github.com/2002Bishwajeet/journal/compare/v2.46.0...v2.47.0) (2026-10-27)
 
 
