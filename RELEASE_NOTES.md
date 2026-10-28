@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.52.3 (2026-10-28)
+
+### Fixed
+
+- On a phone, the status bar colour now agrees with the theme that you select in Settings, and with the top of the screen (the sidebar on the home screen).
+
 ## 2.52.2 (2026-10-28)
 
 ### Changed

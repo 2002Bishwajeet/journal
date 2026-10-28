@@ -1,3 +1,9 @@
+## [2.52.3](https://github.com/2002Bishwajeet/journal/compare/v2.52.2...v2.52.3) (2026-10-28)
+
+
+### Bug Fixes
+
+* **mobile:** status bar colour follows the in-app theme and the screen's top surface ([#893](https://github.com/2002Bishwajeet/journal/issues/893)) ([a000795](https://github.com/2002Bishwajeet/journal/commit/a0007957e2a54643ba5d5cec56efe472465d61cf))
 ## [2.52.2](https://github.com/2002Bishwajeet/journal/compare/v2.52.1...v2.52.2) (2026-10-28)
 
 
