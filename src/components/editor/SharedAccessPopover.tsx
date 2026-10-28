@@ -68,7 +68,7 @@ export function SharedAccessPopover({ noteId, metadata, isOwner, owner }: Shared
                 </button>
             </PopoverTrigger>
             {/* The same rows as the Share dialog, with the role as text: changes happen there, through Manage… */}
-            <PopoverContent align="end" className="share-ui flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 p-4">
+            <PopoverContent align="end" collisionPadding={16} className="share-ui flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 p-4">
                 <h3 className="text-sm leading-5 font-medium">People with access</h3>
 
                 <ul aria-label="People with access" className="flex max-h-80 min-w-0 flex-col overflow-y-auto overscroll-contain">
