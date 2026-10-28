@@ -33,12 +33,13 @@ for (const width of [1024, 1100, 1280]) {
     await app.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
 
-    // Every toolbar button sits inside the note's column and can be clicked.
-    const buttons = app.locator('#main-content div:has(> button[title^="Undo"])').first().getByRole('button');
+    // Every toolbar button scrolls into the note's column and can be clicked (the toolbar scrolls, it doesn't wrap).
+    const buttons = app.getByRole('toolbar', { name: 'Formatting' }).getByRole('button');
     const count = await buttons.count();
     expect(count).toBeGreaterThan(10);
     const column = (await app.locator('#main-content').boundingBox())!;
     for (let i = 0; i < count; i++) {
+      await buttons.nth(i).scrollIntoViewIfNeeded();
       const box = (await buttons.nth(i).boundingBox())!;
       expect(box.x, `button ${i} left edge`).toBeGreaterThanOrEqual(column.x);
       expect(box.x + box.width, `button ${i} right edge`).toBeLessThanOrEqual(column.x + column.width);
