@@ -1,3 +1,9 @@
+# [2.51.0](https://github.com/2002Bishwajeet/journal/compare/v2.50.1...v2.51.0) (2026-10-28)
+
+
+### Features
+
+* **mobile:** large titles, real empty states, Log out in Settings and Empty Trash in a sheet ([#830](https://github.com/2002Bishwajeet/journal/issues/830)) ([a3f6a5e](https://github.com/2002Bishwajeet/journal/commit/a3f6a5ec36c208cf5abaa291d9fd5faefa0163b7))
 ## [2.50.1](https://github.com/2002Bishwajeet/journal/compare/v2.50.0...v2.50.1) (2026-10-28)
 
 
