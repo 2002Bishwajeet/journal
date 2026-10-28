@@ -1,3 +1,15 @@
+# [2.49.0](https://github.com/2002Bishwajeet/journal/compare/v2.48.1...v2.49.0) (2026-10-28)
+
+
+### Bug Fixes
+
+* **editor:** keep the find bar in the scroll container on desktop ([#825](https://github.com/2002Bishwajeet/journal/issues/825)) ([8e6bdda](https://github.com/2002Bishwajeet/journal/commit/8e6bdda3aae3b6a52350d74075d932432d68cfa4))
+* **mobile:** find bar keeps its field wide on phones; New marks are used once ([#825](https://github.com/2002Bishwajeet/journal/issues/825)) ([587f795](https://github.com/2002Bishwajeet/journal/commit/587f795fdb64c26462df26521ca8194b178c56e1)), closes [#930](https://github.com/2002Bishwajeet/journal/issues/930)
+
+
+### Features
+
+* **mobile:** every note action in a sheet from More, Find and Contents on phones, iOS-style note header ([#825](https://github.com/2002Bishwajeet/journal/issues/825)) ([2a9931f](https://github.com/2002Bishwajeet/journal/commit/2a9931f474c197385f7e0dac7dbf2197c9cac797))
 ## [2.48.1](https://github.com/2002Bishwajeet/journal/compare/v2.48.0...v2.48.1) (2026-10-28)
 
 
