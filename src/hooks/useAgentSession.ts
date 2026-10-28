@@ -204,7 +204,7 @@ export function useAgentSession(activeNoteId: string | undefined) {
     let failure: string | undefined;
     let content: string;
     try {
-      const [{ runAgent, MAX_TOOL_STEPS }, { approveEdit }, { createLocalWriteDeps }, { createAgentEngine }] =
+      const [{ runAgent, toolsFor, MAX_TOOL_STEPS }, { approveEdit }, { createLocalWriteDeps }, { createAgentEngine }] =
         await Promise.all([
           import("@/lib/agent/loop/agentLoop"),
           import("@/lib/agent/approveEdit"),
@@ -221,6 +221,8 @@ export function useAgentSession(activeNoteId: string | undefined) {
           setModelStatus({ progress: report.progress, message: report.text })
         ),
         deps: writeDeps,
+        // Judged on what the user typed, not the note title in `context`.
+        tools: toolsFor(request),
         writeDeps,
         // An edit to the open note shows in the note, an append to another note or a new note shows as a
         // card in this panel; the user accepts or rejects each.

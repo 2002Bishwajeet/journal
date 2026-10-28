@@ -13,7 +13,7 @@ import { createCollaborationExtension, undo } from '@/components/editor/plugins/
 import { AgentEditPreview } from '@/components/editor/plugins/AgentEditPreview';
 import { activeEditor, registerActiveEditor } from '@/lib/agent/activeEditor';
 import { acceptEdit, approveEdit, pendingEdits, rejectEdit, type BuiltEdit, type EditProposal } from '@/lib/agent/approveEdit';
-import { AGENT_TOOLS, runAgent, type AgentEngine, type AgentMessage } from '@/lib/agent/loop/agentLoop';
+import { AGENT_TOOLS, runAgent, toolsFor, type AgentEngine, type AgentMessage } from '@/lib/agent/loop/agentLoop';
 import { formatText, insertParagraph, replaceText, setBlockType, type EditorTool } from '@/lib/agent/tools/editor';
 import type { ReadDeps } from '@/lib/agent/tools/read';
 
@@ -296,6 +296,56 @@ describe('the agent loop with the edit tools', () => {
         const { engine, asked } = scripted({ tool: 'replace_text', args: { n: 1, find: 'one', replace: '1' } }, { answer: 'ok' });
         await runAgent('Change it', { engine, deps, approve: async () => ({ notApplied: 'gone' }) });
         expect(asked[1]).toContain('not applied: gone');
+    });
+
+    it('puts the open note’s blocks in front of the model before an edit request, so it edits without reading (#914)', async () => {
+        open('<p>one</p><p>two</p>');
+        const { engine, asked } = scripted({ tool: 'format_text', args: { n: 2, mark: 'bold', on: true } }, { answer: 'Done.' });
+        const answer = runAgent('Bold the second paragraph', {
+            engine,
+            deps,
+            approve: (proposal) => {
+                const outcome = approveEdit(proposal);
+                void tick().then(() => acceptEdit(pendingEdits.current(editor)!));
+                return outcome;
+            },
+        });
+
+        expect(await answer).toBe('Done.');
+        expect(asked[0]).toContain('Result of read_open_note: [{"n":1,"type":"paragraph","text":"one"},{"n":2,"type":"paragraph","text":"two"}]');
+        expect(boldRuns()).toEqual(['two']);
+    });
+
+    it('does not read the open note up front for a question (#914)', async () => {
+        open('<p>one</p>');
+        const { engine, asked } = scripted({ answer: 'A note.' });
+        await runAgent('What is this about?', { engine, deps, approve: async () => 'accepted', tools: toolsFor('What is this about?') });
+        expect(asked[0]).not.toContain('read_open_note: [');
+    });
+
+    it('turns append_to_note on the open note into a paragraph at its end, previewed in the note, with no read first (#914)', async () => {
+        open('<p>one</p><p>two</p>');
+        const summaries: string[] = [];
+        const { engine, asked } = scripted({ tool: 'append_to_note', args: { id: 'note', markdown: 'Budget approved.' } }, { answer: 'Done.' });
+        const answer = runAgent('Add a paragraph at the end', {
+            engine,
+            deps,
+            approve: (proposal) => {
+                expect(proposal.write).toBeUndefined();
+                const outcome = approveEdit(proposal);
+                void tick().then(() => {
+                    const item = pendingEdits.current(editor)!;
+                    summaries.push(item.summary);
+                    void acceptEdit(item);
+                });
+                return outcome;
+            },
+        });
+
+        expect(await answer).toBe('Done.');
+        expect(summaries).toEqual(['Add a paragraph at the end']);
+        expect(texts()).toEqual(['one', 'two', 'Budget approved.']);
+        expect(asked[1]).toContain('Result of append_to_note: accepted');
     });
 
     it('lists at most 8 tools, with the editor tools in', () => {

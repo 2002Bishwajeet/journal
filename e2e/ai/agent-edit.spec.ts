@@ -20,7 +20,6 @@ async function importNote(page: Page) {
   await page.keyboard.press('Escape');
 }
 
-const readNote = { tool: 'read_open_note', args: {} };
 const bold = (n: number) => ({ tool: 'format_text', args: { n, mark: 'bold', on: true } });
 
 test('the assistant previews each edit in the note, and Accept, Reject and undo work from the keyboard too', async ({ app }) => {
@@ -57,7 +56,6 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await download.getByRole('button', { name: 'Continue' }).click();
   await expect.poll(() => reloads(app)).toHaveLength(1);
   await finishLoad(app, 'ok');
-  await queueReply(app, readNote);
   await queueReply(app, bold(2));
   await expect(bar).toBeVisible();
   await expect(bar).toContainText('Make paragraph 2 bold');
@@ -80,11 +78,11 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await expect(bar).toHaveCount(0);
   await expect(strong).toHaveCount(0);
   await expect(editor).toBeFocused();
-  await panel.getByText('2 steps').click();
+  await panel.getByText('1 step', { exact: true }).click();
   await expect(panel.getByText('Rejected: Make paragraph 2 bold')).toBeVisible();
 
   // Accept: the second paragraph is bold, and one Cmd+Z removes the bold and nothing else.
-  await ask('bold the second paragraph', [readNote, bold(2), { answer: 'Made it bold.' }]);
+  await ask('bold the second paragraph', [bold(2), { answer: 'Made it bold.' }]);
   await expect(bar).toBeVisible();
   await bar.getByRole('button', { name: 'Accept' }).click();
   await expect(panel.getByText('Made it bold.')).toBeVisible();
@@ -114,7 +112,6 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await download.getByRole('button', { name: 'Continue' }).click();
   await expect.poll(() => reloads(app)).toHaveLength(1);
   await finishLoad(app, 'ok');
-  await queueReply(app, readNote);
   await queueReply(app, { tool: 'insert_paragraph', args: { after: 2, text: 'Plan' } });
   await expect(bar).toContainText('Add a paragraph after block 2');
   await expect(activeEditor(app).locator('.agent-edit-inserted-block')).toHaveText('Plan');
@@ -130,7 +127,7 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   expect((await orderOf(activeEditor(app))).slice(0, 4)).toEqual(['p', 'p', 'p', 'ul']);
 
   // Keyboard only: Enter accepts, Escape rejects, and focus goes back to the editor.
-  await ask('bold the first paragraph', [readNote, bold(1), { answer: 'Bold.' }]);
+  await ask('bold the first paragraph', [bold(1), { answer: 'Bold.' }]);
   await expect(bar).toBeFocused();
   await app.keyboard.press('Enter');
   await expect(panel.getByText('Bold.')).toBeVisible();
@@ -138,7 +135,7 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await expect(activeEditor(app)).toBeFocused();
 
   // A removal: the old words are struck through and the new ones underlined. Rejected.
-  await ask('say Next instead of Second', [readNote, { tool: 'replace_text', args: { n: 2, find: 'Second', replace: 'Next' } }, { answer: 'Kept it.' }]);
+  await ask('say Next instead of Second', [{ tool: 'replace_text', args: { n: 2, find: 'Second', replace: 'Next' } }, { answer: 'Kept it.' }]);
   await expect(activeEditor(app).locator('.agent-edit-removed')).toHaveText('Second');
   await expect(activeEditor(app).locator('.agent-edit-inserted')).toHaveText('Next');
   await screenshotInBothThemes(app, (theme) => `agent-edit-replace-${theme}-1280.png`);
@@ -146,7 +143,7 @@ test('the assistant previews each edit in the note, and Accept, Reject and undo 
   await expect(panel.getByText('Kept it.')).toBeVisible();
   await expect(activeEditor(app)).toContainText('Second paragraph here.');
 
-  await ask('add a line Top above everything', [readNote, { tool: 'insert_paragraph', args: { after: 0, text: 'Top' } }, { answer: 'Skipped.' }]);
+  await ask('add a line Top above everything', [{ tool: 'insert_paragraph', args: { after: 0, text: 'Top' } }, { answer: 'Skipped.' }]);
   await expect(bar).toBeFocused();
   await app.keyboard.press('Escape');
   await expect(panel.getByText('Skipped.')).toBeVisible();
@@ -176,7 +173,6 @@ test('the preview fits the narrowest width with the assistant', async ({ app }) 
   await app.getByRole('dialog', { name: /^Download / }).getByRole('button', { name: 'Continue' }).click();
   await expect.poll(() => reloads(app)).toHaveLength(1);
   await finishLoad(app, 'ok');
-  await queueReply(app, readNote);
   await queueReply(app, { tool: 'replace_text', args: { n: 2, find: 'Second', replace: 'Next' } });
   await expect(panel.getByText('Waiting for your OK in the note')).toBeVisible();
   await app.getByRole('button', { name: 'Close assistant' }).click();

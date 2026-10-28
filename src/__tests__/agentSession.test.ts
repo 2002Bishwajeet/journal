@@ -284,6 +284,32 @@ describe('useAgentSession — edits to the open note', () => {
     });
 });
 
+describe('useAgentSession — questions (#914)', () => {
+    const toolsOffered = (schema: unknown) =>
+        (schema as { anyOf: { properties: { tool?: { const: string } } }[] }).anyOf.flatMap((b) => b.properties.tool?.const ?? []);
+
+    it('offers no write tool for a question, judged on what the user typed and not the open note title', async () => {
+        entryHolder.current = { docId: PACKING.id, title: 'Add more socks', metadata: { excludeFromAI: false } };
+        const schemas: object[] = [];
+        engineHolder.current = {
+            generate: async (_messages, { schema }) => {
+                schemas.push(schema);
+                return answer('ok');
+            },
+        };
+        const { render, cleanup, ask } = mountSession();
+        await render(PACKING.id);
+
+        await ask('what did I pack?');
+        await ask('add a charger to it');
+
+        expect(toolsOffered(schemas[0])).toEqual(['search_notes', 'get_note', 'read_open_note']);
+        expect(toolsOffered(schemas[1])).toContain('append_to_note');
+
+        await cleanup();
+    });
+});
+
 describe('useAgentSession — Stop', () => {
     it('ends the turn and keeps the panel usable', async () => {
         let started!: () => void;
