@@ -50,7 +50,7 @@ describe('SyncStatus', () => {
     expect(byText('Sync now')?.className).toMatch(/h-11/);
 
     await act(async () => byText('Open diagnostics')!.click());
-    expect(openSettings).toHaveBeenCalledWith('diagnostics');
+    await vi.waitFor(() => expect(openSettings).toHaveBeenCalledWith('diagnostics'));
   });
 
   it('opens the popover on desktop', async () => {

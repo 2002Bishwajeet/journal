@@ -70,7 +70,17 @@ export function SyncStatus({ className }: SyncStatusProps) {
   // Pending items, errors and the log, for a phone without a console (#800).
   const showDiagnostics = () => {
     setOpen(false);
-    openSettings("diagnostics");
+    if (!asSheet) return openSettings("diagnostics");
+    // The sheet pops its history entry as it closes; open Settings after that pop, or it takes
+    // Settings' entry with it and closes the dialog again.
+    // With no pop (no router, or a desktop-class touch device) a short timer opens it instead.
+    const go = () => {
+      window.removeEventListener("popstate", go);
+      clearTimeout(fallback);
+      setTimeout(() => openSettings("diagnostics"));
+    };
+    const fallback = setTimeout(go, 300);
+    window.addEventListener("popstate", go);
   };
 
   const status = getStatus();

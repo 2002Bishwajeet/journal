@@ -52,6 +52,9 @@ test('the sync icon opens a bottom sheet with a 44 px Sync now and a link to Dia
       'aria-selected',
       'true',
     );
+    // The sheet's history pop must not take Settings down with it.
+    await page.waitForTimeout(800);
+    await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
   });
 });
 
