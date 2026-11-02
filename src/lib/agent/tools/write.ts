@@ -101,8 +101,11 @@ export type WriteDeps = ReadDeps & {
 
 const MAX_ATTEMPTS = 3;
 
-/** Longest host label or path segment of an external image an agent may add (#948). */
-const MAX_IMAGE_URL_SEGMENT = 48;
+/** Longest external image URL an agent may add (#948): a real image's fits, a sentence doesn't. */
+const MAX_IMAGE_URL_LENGTH = 100;
+
+/** Most new external images one write may add (#948), so short URLs can't add up to a note. */
+const MAX_NEW_IMAGES_PER_WRITE = 5;
 
 const PUBLIC_NOTICE = 'This note is public: anyone on the web can read this change on its share page.';
 
@@ -222,12 +225,12 @@ function externalImageUrls(markdown: string): URL[] {
 
 /**
  * Showing a note fetches its images with no click, so a URL with room for note text would
- * hand that text to the image's host (#948). A short URL can still carry a little, which
- * is why every write also names the hosts (`writeNotices`).
+ * hand that text to the image's host (#948). A short URL can still carry a little, and
+ * repeated writes can add those up, which is why every write also names the hosts
+ * (`writeNotices`).
  */
 function canCarryData(url: URL): boolean {
-    const segments = `${url.hostname}${url.pathname}`.split(/[./]/);
-    return !!url.search || !!url.username || !!url.password || segments.some((s) => s.length > MAX_IMAGE_URL_SEGMENT);
+    return !!url.search || !!url.username || !!url.password || url.href.length > MAX_IMAGE_URL_LENGTH;
 }
 
 /**
@@ -236,15 +239,22 @@ function canCarryData(url: URL): boolean {
  * call through, since text injected into a note could set it as well.
  */
 async function assertNoDataInImageUrls(deps: WriteDeps, markdown: string | undefined, id?: string): Promise<void> {
-    const risky = markdown ? externalImageUrls(markdown).filter(canCarryData) : [];
-    if (risky.length === 0) return;
+    const urls = markdown ? externalImageUrls(markdown) : [];
+    if (!urls.some(canCarryData) && urls.length <= MAX_NEW_IMAGES_PER_WRITE) return;
     const note = id ? await deps.fetchNoteForEdit(id) : null;
     const kept = new Set(note ? externalImageUrls(toMarkdown(note.doc)).map((url) => url.href) : []);
-    const refused = risky.find((url) => !kept.has(url.href));
+    const added = urls.filter((url) => !kept.has(url.href));
+    const refused = added.find(canCarryData);
     if (refused) {
         throw new Error(
-            `Image from ${refused.hostname} refused: its URL has a query string or a long segment that could send note text to that host. ` +
+            `Image from ${refused.hostname} refused: its URL has a query string or is long enough to send note text to that host. ` +
                 'Save the image to a file and pass its path instead.'
+        );
+    }
+    if (added.length > MAX_NEW_IMAGES_PER_WRITE) {
+        throw new Error(
+            `${added.length} new external images refused: one write may add ${MAX_NEW_IMAGES_PER_WRITE}, as their URLs together could send note text out. ` +
+                'Save the images to files and pass their paths instead.'
         );
     }
 }
