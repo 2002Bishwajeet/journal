@@ -122,14 +122,23 @@ function walkImages(node: JSONContent, visit: (image: JSONContent) => void) {
   node.content?.forEach((child) => walkImages(child, visit));
 }
 
-/** The distinct local file paths and `data:` URIs of the images in `markdown`, in order. */
-export function localImageSources(markdown: string): string[] {
+function imageSources(markdown: string, matches: (src: string) => boolean): string[] {
   const found = new Set<string>();
   walkImages(parseJson(markdown), (image) => {
     const src = image.attrs?.src;
-    if (typeof src === 'string' && src && isLocalImageSrc(src)) found.add(src);
+    if (typeof src === 'string' && src && matches(src)) found.add(src);
   });
   return [...found];
+}
+
+/** The distinct local file paths and `data:` URIs of the images in `markdown`, in order. */
+export function localImageSources(markdown: string): string[] {
+  return imageSources(markdown, isLocalImageSrc);
+}
+
+/** The distinct `http(s):` image URLs in `markdown`, in order. */
+export function externalImageSources(markdown: string): string[] {
+  return imageSources(markdown, (src) => /^https?:/i.test(src));
 }
 
 function swapImageSrcs(json: JSONContent, imageSrcs: ReadonlyMap<string, string>) {

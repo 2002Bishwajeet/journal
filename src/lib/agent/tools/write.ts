@@ -20,9 +20,11 @@ import {
     replaceInNote as replaceInDoc,
     createDoc,
     editBlock as editBlockInDoc,
+    externalImageSources,
     localImageSources,
     noteBlocks,
     setMarkdown,
+    toMarkdown,
     type BlockOp,
     type LinkTarget,
     type NoteBlock,
@@ -99,6 +101,11 @@ export type WriteDeps = ReadDeps & {
 
 const MAX_ATTEMPTS = 3;
 
+/** Longest host label or path segment of an external image an agent may add (#948). */
+const MAX_IMAGE_URL_SEGMENT = 48;
+
+const PUBLIC_NOTICE = 'This note is public: anyone on the web can read this change on its share page.';
+
 /** Widest fixed width that still fits a 390px phone frame. */
 const PHONE_MAX_PX = 360;
 
@@ -144,13 +151,14 @@ function assertUnchangedSince(expectedModified: string | undefined, summary: Not
     }
 }
 
+/** Returns the note's metadata as the edit found it. */
 async function editWithRetry(
     deps: WriteDeps,
     id: string,
     // May return image payload keys the edit stops using, to delete with the upload.
     apply: (doc: Y.Doc) => string[] | void,
     opts: { metadata?: Partial<DocumentMetadata>; expectedModified?: string } = {}
-): Promise<void> {
+): Promise<DocumentMetadata> {
     const lastEditedBy = agentEditor(deps.clientName());
     const [grants, firstNote] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
     let sent: { client: number; clock: number } | undefined;
@@ -162,7 +170,7 @@ async function editWithRetry(
 
         // A conflicting upload can still have been saved (#439). If the refetched doc already
         // holds its ops, the edit is in: re-applying it would duplicate it or fail on it.
-        if (sent && Y.getState(note.doc.store, sent.client) >= sent.clock) return;
+        if (sent && Y.getState(note.doc.store, sent.client) >= sent.clock) return note.metadata;
 
         // Checked against the note as the agent's call found it; an edit landing while
         // uploading merges like any concurrent edit.
@@ -182,7 +190,7 @@ async function editWithRetry(
                 yjsBlob: Y.encodeStateAsUpdate(note.doc),
                 ...(toDeletePayloads?.length ? { toDeletePayloads } : {}),
             });
-            return;
+            return note.metadata;
         } catch (err) {
             if (!(err instanceof VersionConflictError)) throw err;
         }
@@ -207,6 +215,48 @@ async function loadBodyImages(deps: WriteDeps, markdown: string | undefined): Pr
     return loaded;
 }
 
+/** The http(s) image URLs in `markdown`. One that doesn't parse is never fetched. */
+function externalImageUrls(markdown: string): URL[] {
+    return externalImageSources(markdown).filter((src) => URL.canParse(src)).map((src) => new URL(src));
+}
+
+/**
+ * Showing a note fetches its images with no click, so a URL with room for note text would
+ * hand that text to the image's host (#948). A short URL can still carry a little, which
+ * is why every write also names the hosts (`writeNotices`).
+ */
+function canCarryData(url: URL): boolean {
+    const segments = `${url.hostname}${url.pathname}`.split(/[./]/);
+    return !!url.search || !!url.username || !!url.password || segments.some((s) => s.length > MAX_IMAGE_URL_SEGMENT);
+}
+
+/**
+ * Refuses external images in `markdown` that could carry note text out, unless note `id`
+ * already has them: update_note hands back the images get_note returned. No flag lets a
+ * call through, since text injected into a note could set it as well.
+ */
+async function assertNoDataInImageUrls(deps: WriteDeps, markdown: string | undefined, id?: string): Promise<void> {
+    const risky = markdown ? externalImageUrls(markdown).filter(canCarryData) : [];
+    if (risky.length === 0) return;
+    const note = id ? await deps.fetchNoteForEdit(id) : null;
+    const kept = new Set(note ? externalImageUrls(toMarkdown(note.doc)).map((url) => url.href) : []);
+    const refused = risky.find((url) => !kept.has(url.href));
+    if (refused) {
+        throw new Error(
+            `Image from ${refused.hostname} refused: its URL has a query string or a long segment that could send note text to that host. ` +
+                'Save the image to a file and pass its path instead.'
+        );
+    }
+}
+
+/** What a write's result tells the agent and the user (#948), as `note` like set_note_cover's. */
+function writeNotices(isPublic: boolean | undefined, markdown: string | undefined): { note?: string } {
+    const hosts = [...new Set(externalImageUrls(markdown ?? '').map((url) => url.hostname))];
+    const hostNotice = `This note shows images from ${hosts.join(', ')}, which can see each time the note is opened.`;
+    const notices = [isPublic ? PUBLIC_NOTICE : undefined, hosts.length ? hostNotice : undefined].filter(Boolean);
+    return notices.length ? { note: notices.join(' ') } : {};
+}
+
 /** The notes a note link in written markdown may point at (#561). */
 async function loadLinkTargets(deps: ReadDeps): Promise<LinkTarget[]> {
     const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
@@ -224,7 +274,7 @@ async function editWithBodyImages(
     loaded: Map<string, PreparedImage>,
     apply: (doc: Y.Doc, imageSrcs?: Map<string, string>) => string[] | void,
     opts: { metadata?: Partial<DocumentMetadata>; expectedModified?: string; dryRun?: boolean } = {}
-): Promise<void> {
+): Promise<DocumentMetadata> {
     const { dryRun = true, ...editOpts } = opts;
     if (loaded.size === 0) return editWithRetry(deps, id, (doc) => apply(doc), editOpts);
 
@@ -250,7 +300,7 @@ async function editWithBodyImages(
         payloadKeys.push(payloadKey);
         imageSrcs.set(src, `attachment://${note.fileId}/${payloadKey}`);
     }
-    await editWithRetry(
+    return editWithRetry(
         deps,
         id,
         (doc) => {
@@ -265,7 +315,8 @@ async function editWithBodyImages(
 export async function createNote(
     deps: WriteDeps,
     params: { title: string; markdown: string; folderId: string; tags?: string[] }
-): Promise<{ id: string; title: string; folderId: string }> {
+): Promise<{ id: string; title: string; folderId: string; note?: string }> {
+    await assertNoDataInImageUrls(deps, params.markdown);
     const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
     const targets = linkTargets(grants, notes);
     const folder = (await deps.listFolders()).find((f) => f.id === params.folderId);
@@ -289,9 +340,10 @@ export async function createNote(
     const images = await loadBodyImages(deps, params.markdown);
     // Built before anything is created, so a note link that can't be resolved fails the call first.
     const doc = createDoc(params.markdown, targets);
+    const result = { id, title: metadata.title, folderId: metadata.folderId, ...writeNotices(metadata.isPublic, params.markdown) };
     if (images.size === 0) {
         await deps.createNote(id, metadata, Y.encodeStateAsUpdate(doc));
-        return { id, title: metadata.title, folderId: metadata.folderId };
+        return result;
     }
 
     // Images are payloads of the note's file, which only exists once created: create it
@@ -304,7 +356,7 @@ export async function createNote(
         if (created) await deps.trashNote(id, created.fileId).catch(() => undefined);
         throw err;
     }
-    return { id, title: metadata.title, folderId: metadata.folderId };
+    return result;
 }
 
 /**
@@ -322,22 +374,26 @@ export async function createFolder(deps: WriteDeps, params: { name: string }): P
     return { id, name };
 }
 
-export async function appendToNote(deps: WriteDeps, params: { id: string; markdown: string }): Promise<{ id: string }> {
+export async function appendToNote(deps: WriteDeps, params: { id: string; markdown: string }): Promise<{ id: string; note?: string }> {
+    await assertNoDataInImageUrls(deps, params.markdown, params.id);
     const [images, targets] = await Promise.all([loadBodyImages(deps, params.markdown), loadLinkTargets(deps)]);
-    await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) => appendMarkdown(doc, params.markdown, imageSrcs, targets));
-    return { id: params.id };
+    const { isPublic } = await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) =>
+        appendMarkdown(doc, params.markdown, imageSrcs, targets)
+    );
+    return { id: params.id, ...writeNotices(isPublic, params.markdown) };
 }
 
 /** The engine's error (no match / several matches / lossy block) reaches the agent verbatim. */
 export async function replaceInNote(
     deps: WriteDeps,
     params: { id: string; old_text: string; new_text: string }
-): Promise<{ id: string }> {
+): Promise<{ id: string; note?: string }> {
+    await assertNoDataInImageUrls(deps, params.new_text, params.id);
     const [images, targets] = await Promise.all([loadBodyImages(deps, params.new_text), loadLinkTargets(deps)]);
-    await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) =>
+    const { isPublic } = await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) =>
         replaceInDoc(doc, params.old_text, params.new_text, imageSrcs, targets)
     );
-    return { id: params.id };
+    return { id: params.id, ...writeNotices(isPublic, params.new_text) };
 }
 
 /**
@@ -347,11 +403,12 @@ export async function replaceInNote(
 export async function updateNote(
     deps: WriteDeps,
     params: { id: string; markdown?: string; title?: string; tags?: string[]; expectedModified?: string }
-): Promise<{ id: string }> {
+): Promise<{ id: string; note?: string }> {
     const { id, markdown, title, tags, expectedModified } = params;
     if (markdown === undefined && title === undefined && tags === undefined) {
         throw new Error('update_note: give markdown, title or tags');
     }
+    await assertNoDataInImageUrls(deps, markdown, id);
     const metadata: Partial<DocumentMetadata> = {
         ...(title !== undefined && { title: title || 'Untitled' }),
         ...(tags !== undefined && { tags }),
@@ -370,8 +427,8 @@ export async function updateNote(
         setMarkdown(doc, markdown, imageSrcs, targets);
         rewrite = Y.encodeStateAsUpdate(doc, before);
     };
-    await editWithBodyImages(deps, id, images, apply, { metadata, expectedModified, dryRun: false });
-    return { id };
+    const { isPublic } = await editWithBodyImages(deps, id, images, apply, { metadata, expectedModified, dryRun: false });
+    return { id, ...writeNotices(isPublic, markdown) };
 }
 
 /**
@@ -389,12 +446,13 @@ export async function getNoteBlocks(deps: WriteDeps, params: { id: string }): Pr
 export async function editBlock(
     deps: WriteDeps,
     params: { note_id: string; block_id: string; op: BlockOp; expectedModified?: string }
-): Promise<{ id: string; block_ids: string[] }> {
+): Promise<{ id: string; block_ids: string[]; note?: string }> {
     const { note_id, block_id, op, expectedModified } = params;
     const markdown = 'markdown' in op ? op.markdown : op.type === 'insert_row' ? op.cells?.join('\n\n') : undefined;
+    await assertNoDataInImageUrls(deps, markdown, note_id);
     let blockIds: string[] = [];
     const [images, targets] = await Promise.all([loadBodyImages(deps, markdown), loadLinkTargets(deps)]);
-    await editWithBodyImages(
+    const { isPublic } = await editWithBodyImages(
         deps,
         note_id,
         images,
@@ -403,7 +461,7 @@ export async function editBlock(
         },
         { expectedModified }
     );
-    return { id: note_id, block_ids: blockIds };
+    return { id: note_id, block_ids: blockIds, ...writeNotices(isPublic, markdown) };
 }
 
 /** Moves a note to Trash, where the owner can restore it. Never deletes permanently. */

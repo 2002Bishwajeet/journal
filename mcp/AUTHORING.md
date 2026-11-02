@@ -111,7 +111,12 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
   upload. If any image is invalid, the call fails and nothing is written.
 - `get_note` returns an uploaded image as `![alt](attachment://…)`. Keep that as it is to
   keep the image.
-- `https://` image URLs are kept as they are, not fetched or uploaded.
+- `https://` image URLs are kept as they are, not fetched or uploaded. A new one with a
+  query string or a long host or path segment is refused, because showing the note would
+  send that text to the image's host: save the image to a file and pass its path. Such a
+  URL the note already has stays.
+- A write's result has a `note` when the note is public, so the change is live on the
+  web, or when it shows images from another host.
 - An image with a width or a float alignment is an HTML tag:
   `<img src="attachment://…" alt="alt" width="320" data-align="right">` (`width` in px,
   `data-align` is `left`, `center` or `right`; either may be left out). `get_note` returns
