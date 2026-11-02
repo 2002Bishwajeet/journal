@@ -35,13 +35,17 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/agent/approveEdit', () => ({
     approveEdit: async () => outcomeHolder.current,
 }));
+vi.mock('@/lib/agent/approveWrite', () => ({
+    approveWrite: async () => 'rejected',
+}));
 vi.mock('@/lib/webllm', () => ({
     createAgentEngine: () => engineHolder.current,
 }));
 vi.mock('@/lib/agent/local/localWriteDeps', () => ({
-    createLocalWriteDeps: (): ReadDeps => ({
-        listFolders: async () => [{ id: 'folder-1', name: 'Main' }],
-        loadGrants: async () => ({ version: 1, folders: { 'folder-1': 'write' }, notes: {} }),
+    createLocalWriteDeps: (): ReadDeps & { clientName(): string } => ({
+        clientName: () => '',
+        listFolders: async () => [{ id: 'folder-1', name: 'Main' }, { id: 'folder-2', name: 'Shared', isPublic: true }],
+        loadGrants: async () => ({ version: 1, folders: { 'folder-1': 'write', 'folder-2': 'write' }, notes: {} }),
         listNotes: async () => [PACKING],
         getNote: async (id) => (id === PACKING.id ? { summary: PACKING, markdown: 'passport, charger' } : null),
         searchNotes: async () => [{ summary: PACKING, snippet: 'passport' }],
@@ -280,6 +284,19 @@ describe('useAgentSession — edits to the open note', () => {
         ]);
 
         off();
+        await cleanup();
+    });
+});
+
+describe('useAgentSession — writes to other notes', () => {
+    it('keeps on the step that a proposed write will be public (#949)', async () => {
+        scriptedEngine([call('create_note', { title: 'Ideas', markdown: 'first idea', folderId: 'folder-2' }), answer('Left it.')]);
+        const { latest, render, cleanup, ask } = mountSession();
+        await render('note-a');
+
+        await ask('create a note of ideas');
+
+        expect(latest.current!.messages[1].steps?.[0].write).toMatchObject({ markdown: 'first idea', isPublic: true, state: 'rejected' });
         await cleanup();
     });
 });

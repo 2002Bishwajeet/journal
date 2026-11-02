@@ -11,6 +11,7 @@ vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
 import {
     createFolder,
+    upsertFolder,
     getDocumentUpdates,
     getSearchIndexEntry,
     getSnapshots,
@@ -36,7 +37,7 @@ const EXCLUDED = '30000000-0000-0000-0000-000000000002';
 const TRASHED = '30000000-0000-0000-0000-000000000003';
 const OPEN = '30000000-0000-0000-0000-000000000004';
 
-async function addNote(docId: string, title: string, body: string, extra: { excludeFromAI?: boolean; archivalStatus?: number } = {}) {
+async function addNote(docId: string, title: string, body: string, extra: { excludeFromAI?: boolean; archivalStatus?: number; isPublic?: boolean } = {}) {
     const now = new Date().toISOString();
     await upsertSearchIndex({
         docId,
@@ -48,6 +49,7 @@ async function addNote(docId: string, title: string, body: string, extra: { excl
             timestamps: { created: now, modified: now },
             excludeFromAI: extra.excludeFromAI ?? false,
             archivalStatus: extra.archivalStatus,
+            isPublic: extra.isPublic,
         },
     });
     const doc = new Y.Doc();
@@ -138,6 +140,22 @@ describe('append_to_note on a note that is not open', () => {
         const proposal = (events[0] as Extract<AgentEvent, { type: 'proposal' }>).proposal;
         expect(proposal.summary).toBe("Append to 'Packing list'");
         expect(proposal.write?.markdown).toBe('buy socks');
+    });
+
+    it('flags the proposal as public only for a public note or a note in a shared folder (#949)', async () => {
+        const proposalFor = async () => {
+            const { result, events } = run('add buy socks to my packing list', [{ tool: 'append_to_note', args: { id: PACKING, markdown: 'buy socks' } }, { answer: 'Left it.' }], 'reject');
+            await result;
+            return (events.find((e) => e.type === 'proposal') as Extract<AgentEvent, { type: 'proposal' }>).proposal;
+        };
+        expect((await proposalFor()).write?.isPublic).toBe(false);
+
+        await addNote(PACKING, 'Packing list', 'Passport and charger.', { isPublic: true });
+        expect((await proposalFor()).write?.isPublic).toBe(true);
+
+        await addNote(PACKING, 'Packing list', 'Passport and charger.');
+        await upsertFolder(FOLDER, 'Home', true);
+        expect((await proposalFor()).write?.isPublic).toBe(true);
     });
 
     it('on Accept merges the line into the stored doc, updates the index, marks it pending, saves a snapshot and tells other tabs', async () => {
@@ -263,6 +281,17 @@ describe('create_note', () => {
         const rows = await (await import('@/lib/db/pglite')).getDatabase();
         const { rows: notes } = await rows!.query('SELECT doc_id FROM search_index WHERE title = $1', ['Ideas']);
         expect(notes).toHaveLength(0);
+    });
+
+    it('flags a new note as public only in a shared folder (#949)', async () => {
+        const proposalIn = async () => {
+            const { result, events } = run('note', [createCall({ folderId: FOLDER }), { answer: 'Left it.' }], 'reject');
+            await result;
+            return (events.find((e) => e.type === 'proposal') as Extract<AgentEvent, { type: 'proposal' }>).proposal;
+        };
+        expect((await proposalIn()).write?.isPublic).toBe(false);
+        await upsertFolder(FOLDER, 'Home', true);
+        expect((await proposalIn()).write?.isPublic).toBe(true);
     });
 
     it('refuses a folder that does not exist without asking', async () => {
