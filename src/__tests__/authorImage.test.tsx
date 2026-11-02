@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-/** The Share pill's "People with access": our own photo straight from our public image, and initials while a contact loads. */
+/** The sidebar and the Share pill's "People with access": our own photo straight from our public image, and initials while a contact loads. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act, createElement } from 'react';
@@ -15,7 +15,7 @@ vi.mock('@/components/auth', () => ({ useDotYouClientContext: () => ({ getHostId
 vi.mock('@/hooks/useContact', () => ({ useContact: mocks.useContact }));
 vi.mock('@/hooks/connections/useIsConnected', () => ({ useIsConnected: mocks.useIsConnected }));
 
-import { AuthorImage } from '@/components/author/AuthorImage';
+import { AuthorImage, OwnerImage } from '@/components/author/AuthorImage';
 import { PersonLabel } from '@/components/share/SharePeopleSection';
 
 let container: HTMLDivElement;
@@ -34,7 +34,32 @@ afterEach(() => {
     container.remove();
 });
 
+describe('OwnerImage', () => {
+    it("shows the host identity's initials and public photo, not the app host's", () => {
+        expect(window.location.hostname).not.toBe('me.example.com');
+        act(() => root.render(createElement(OwnerImage, { size: 'xs' })));
+
+        expect(container.textContent).toBe('ME');
+        expect(container.querySelector('img')!.getAttribute('src')).toBe('https://me.example.com/pub/image');
+    });
+
+    it('fits the initials to the circle instead of the 40px fallback default', () => {
+        act(() => root.render(createElement(OwnerImage, { size: 'custom', className: 'size-9' })));
+
+        const fallback = container.firstElementChild!.firstElementChild!;
+        expect(fallback.className).toContain('size-full');
+        expect(fallback.className).not.toContain('h-10');
+    });
+});
+
 describe('AuthorImage', () => {
+    it('falls back to the owner when no identity is given', () => {
+        act(() => root.render(createElement(AuthorImage, {})));
+
+        expect(mocks.useContact).not.toHaveBeenCalled();
+        expect(container.querySelector('img')!.getAttribute('src')).toBe('https://me.example.com/pub/image');
+    });
+
     it("loads the signed-in identity's public photo straight away, with initials until it arrives", () => {
         act(() => root.render(createElement(AuthorImage, { odinId: 'me.example.com', excludeLink: true })));
 

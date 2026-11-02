@@ -1,9 +1,6 @@
 import { useState } from 'react';
-import { GetTargetDriveFromProfileId, BuiltInProfiles } from '@homebase-id/js-lib/profile';
-import {Image} from "../ui/image";
 import { ApiType, DotYouClient } from '@homebase-id/js-lib/core';
 import { FallbackImg } from '../ui/FallbackImg/FallbackImg';
-import { useSiteData } from '@/hooks/siteData/useSiteData';
 import { ContactImage } from '../contact/ContactImage';
 import { useIsConnected } from '@/hooks/connections/useIsConnected';
 import { useDotYouClientContext } from '@/components/auth';
@@ -37,8 +34,7 @@ const getSizeClassname = (size: ImageProps['size']) => {
 export const AuthorImage = ({ odinId, ...props }: ConnectionImageProps) => {
   // The app runs on its own domain, so `window.location.hostname` is never the signed-in identity
   const ownIdentity = useDotYouClientContext().getHostIdentity();
-  if (!odinId || odinId === window.location.hostname) return <OwnerImage {...props} />;
-  if (odinId === ownIdentity) return <OwnPublicImage odinId={odinId} {...props} />;
+  if (!odinId || odinId === ownIdentity) return <OwnerImage {...props} />;
 
   if (props.excludeLink) {
     return <ConnectionImage odinId={odinId} {...props} />;
@@ -52,42 +48,20 @@ export const AuthorImage = ({ odinId, ...props }: ConnectionImageProps) => {
   );
 };
 
-export const OwnerImage = ({ className, size }: ImageProps) => {
-  const { owner } = useSiteData().data ?? {};
-  const targetDrive = GetTargetDriveFromProfileId(BuiltInProfiles.StandardProfileId);
-
-  return owner?.profileImageFileId ? (
-    <Image
-      fileId={owner?.profileImageFileId}
-      fileKey={owner?.profileImageFileKey}
-      previewThumbnail={owner?.profileImagePreviewThumbnail}
-      lastModified={owner?.profileImageLastModified}
-      targetDrive={targetDrive}
-      className={`${getSizeClassname(size)} overflow-hidden rounded-full ${className ?? ''}`}
-      fit="cover"
-      alt={'You'}
-      title={'You'}
-    />
-  ) : (
-    <FallbackImg
-      odinId={window.location.hostname}
-      className={`${getSizeClassname(size)} overflow-hidden rounded-full ${className ?? ''}`}
-    />
-  );
-};
-
 /**
  * The signed-in identity's photo: its public image, one request the browser caches, with
  * our initials until it loads. Not ContactImage: a contact lookup of ourselves goes over
- * peer, six profile reads in a row, before the photo can start. Not OwnerImage: the app
- * can't read the profile drive, so that shows initials only.
+ * peer, six profile reads in a row, before the photo can start. Not the profile drive:
+ * the app has no permission on it.
  */
-const OwnPublicImage = ({ odinId, className, size }: ConnectionImageProps & { odinId: string }) => {
+export const OwnerImage = ({ className, size }: ImageProps) => {
+  const odinId = useDotYouClientContext().getHostIdentity();
   const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
 
   return (
     <div className={`relative aspect-square ${getSizeClassname(size)} overflow-hidden rounded-full ${className ?? ''}`}>
-      {status !== 'loaded' && <FallbackImg odinId={odinId} />}
+      {/* size-full: the fallback is 40px by default, wider than the sidebar's circles */}
+      {status !== 'loaded' && <FallbackImg odinId={odinId} className="size-full" />}
       {status !== 'failed' && (
         <img
           src={`${new DotYouClient({ hostIdentity: odinId, api: ApiType.Guest }).getRoot()}/pub/image`}
