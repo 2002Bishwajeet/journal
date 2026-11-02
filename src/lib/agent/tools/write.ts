@@ -18,9 +18,9 @@ import { newNoteShareFields } from '@/lib/share/sharedFolder';
 import {
     appendMarkdown,
     replaceInNote as replaceInDoc,
+    autoFetchedUrls,
     createDoc,
     editBlock as editBlockInDoc,
-    externalImageSources,
     localImageSources,
     noteBlocks,
     setMarkdown,
@@ -101,11 +101,11 @@ export type WriteDeps = ReadDeps & {
 
 const MAX_ATTEMPTS = 3;
 
-/** Longest external image URL an agent may add (#948): a real image's fits, a sentence doesn't. */
-const MAX_IMAGE_URL_LENGTH = 100;
+/** Longest auto-fetched URL an agent may add (#948): a real image's or page's fits, a sentence doesn't. */
+const MAX_FETCHED_URL_LENGTH = 100;
 
-/** Most new external images one write may add (#948), so short URLs can't add up to a note. */
-const MAX_NEW_IMAGES_PER_WRITE = 5;
+/** Most new auto-fetched URLs one write may add (#948), so short URLs can't add up to a note. */
+const MAX_NEW_FETCHED_URLS_PER_WRITE = 5;
 
 const PUBLIC_NOTICE = 'This note is public: anyone on the web can read this change on its share page.';
 
@@ -218,51 +218,65 @@ async function loadBodyImages(deps: WriteDeps, markdown: string | undefined): Pr
     return loaded;
 }
 
-/** The http(s) image URLs in `markdown`. One that doesn't parse is never fetched. */
-function externalImageUrls(markdown: string): URL[] {
-    return externalImageSources(markdown).filter((src) => URL.canParse(src)).map((src) => new URL(src));
+/** The URLs opening a note with `markdown` fetches. One that doesn't parse is never fetched. */
+function fetchedUrls(markdown: string): URL[] {
+    // The base only completes a mermaid `//host/…`.
+    return autoFetchedUrls(markdown).filter((src) => URL.canParse(src, 'https://x')).map((src) => new URL(src, 'https://x'));
 }
 
 /**
- * Showing a note fetches its images with no click, so a URL with room for note text would
- * hand that text to the image's host (#948). A short URL can still carry a little, and
- * repeated writes can add those up, which is why every write also names the hosts
- * (`writeNotices`).
+ * Opening a note fetches some URLs with no click, so a URL with room for note text would
+ * hand that text to its host (#948). A short URL can still carry a little, and repeated
+ * writes can add those up, which is why every write also names the hosts (`writeNotices`).
  */
 function canCarryData(url: URL): boolean {
-    return !!url.search || !!url.username || !!url.password || url.href.length > MAX_IMAGE_URL_LENGTH;
+    return !!url.search || !!url.username || !!url.password || url.href.length > MAX_FETCHED_URL_LENGTH;
 }
 
 /**
- * Refuses external images in `markdown` that could carry note text out, unless note `id`
- * already has them: update_note hands back the images get_note returned. No flag lets a
- * call through, since text injected into a note could set it as well.
+ * Refuses auto-fetched URLs in `markdown` that could carry note text out, unless note `id`
+ * already has them: update_note hands back what get_note returned. No flag lets a call
+ * through, since text injected into a note could set it as well.
  */
-async function assertNoDataInImageUrls(deps: WriteDeps, markdown: string | undefined, id?: string): Promise<void> {
-    const urls = markdown ? externalImageUrls(markdown) : [];
-    if (!urls.some(canCarryData) && urls.length <= MAX_NEW_IMAGES_PER_WRITE) return;
+async function assertNoDataInFetchedUrls(deps: WriteDeps, markdown: string | undefined, id?: string): Promise<void> {
+    const urls = markdown ? fetchedUrls(markdown) : [];
+    if (!urls.some(canCarryData) && urls.length <= MAX_NEW_FETCHED_URLS_PER_WRITE) return;
     const note = id ? await deps.fetchNoteForEdit(id) : null;
-    const kept = new Set(note ? externalImageUrls(toMarkdown(note.doc)).map((url) => url.href) : []);
+    const kept = new Set(note ? fetchedUrls(toMarkdown(note.doc)).map((url) => url.href) : []);
     const added = urls.filter((url) => !kept.has(url.href));
     const refused = added.find(canCarryData);
     if (refused) {
         throw new Error(
-            `Image from ${refused.hostname} refused: its URL has a query string or is long enough to send note text to that host. ` +
-                'Save the image to a file and pass its path instead.'
+            `URL on ${refused.hostname} refused: it has a query string or is long enough to send note text to that host when the note opens. ` +
+                'Save an image to a file and pass its path, and write a page as a plain link.'
         );
     }
-    if (added.length > MAX_NEW_IMAGES_PER_WRITE) {
+    if (added.length > MAX_NEW_FETCHED_URLS_PER_WRITE) {
         throw new Error(
-            `${added.length} new external images refused: one write may add ${MAX_NEW_IMAGES_PER_WRITE}, as their URLs together could send note text out. ` +
-                'Save the images to files and pass their paths instead.'
+            `${added.length} new external URLs refused: one write may add ${MAX_NEW_FETCHED_URLS_PER_WRITE} images, link previews or diagram URLs, as together they could send note text out. ` +
+                'Save images to files and pass their paths, and write pages as plain links.'
         );
     }
 }
 
+/**
+ * The note's markdown once `edit` has run on a copy. An edit to part of a note can complete
+ * or change a URL its own text doesn't hold, like `?d=secret` added to a card's link or
+ * `mermaid` as a code block's language, so those writes are checked by what they leave.
+ */
+async function markdownAfter(deps: WriteDeps, id: string, edit: (copy: Y.Doc) => void): Promise<string> {
+    const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
+    assertWritable(grants, note, id);
+    const copy = new Y.Doc();
+    Y.applyUpdate(copy, Y.encodeStateAsUpdate(note.doc));
+    edit(copy);
+    return toMarkdown(copy);
+}
+
 /** What a write's result tells the agent and the user (#948), as `note` like set_note_cover's. */
 function writeNotices(isPublic: boolean | undefined, markdown: string | undefined): { note?: string } {
-    const hosts = [...new Set(externalImageUrls(markdown ?? '').map((url) => url.hostname))];
-    const hostNotice = `This note shows images from ${hosts.join(', ')}, which can see each time the note is opened.`;
+    const hosts = [...new Set(fetchedUrls(markdown ?? '').map((url) => url.hostname))];
+    const hostNotice = `Opening this note fetches images, link previews or diagram content from ${hosts.join(', ')}, which can see when it is opened.`;
     const notices = [isPublic ? PUBLIC_NOTICE : undefined, hosts.length ? hostNotice : undefined].filter(Boolean);
     return notices.length ? { note: notices.join(' ') } : {};
 }
@@ -326,7 +340,7 @@ export async function createNote(
     deps: WriteDeps,
     params: { title: string; markdown: string; folderId: string; tags?: string[] }
 ): Promise<{ id: string; title: string; folderId: string; note?: string }> {
-    await assertNoDataInImageUrls(deps, params.markdown);
+    await assertNoDataInFetchedUrls(deps, params.markdown);
     const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
     const targets = linkTargets(grants, notes);
     const folder = (await deps.listFolders()).find((f) => f.id === params.folderId);
@@ -385,7 +399,7 @@ export async function createFolder(deps: WriteDeps, params: { name: string }): P
 }
 
 export async function appendToNote(deps: WriteDeps, params: { id: string; markdown: string }): Promise<{ id: string; note?: string }> {
-    await assertNoDataInImageUrls(deps, params.markdown, params.id);
+    await assertNoDataInFetchedUrls(deps, params.markdown, params.id);
     const [images, targets] = await Promise.all([loadBodyImages(deps, params.markdown), loadLinkTargets(deps)]);
     const { isPublic } = await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) =>
         appendMarkdown(doc, params.markdown, imageSrcs, targets)
@@ -398,12 +412,13 @@ export async function replaceInNote(
     deps: WriteDeps,
     params: { id: string; old_text: string; new_text: string }
 ): Promise<{ id: string; note?: string }> {
-    await assertNoDataInImageUrls(deps, params.new_text, params.id);
+    const after = await markdownAfter(deps, params.id, (doc) => replaceInDoc(doc, params.old_text, params.new_text));
+    await assertNoDataInFetchedUrls(deps, after, params.id);
     const [images, targets] = await Promise.all([loadBodyImages(deps, params.new_text), loadLinkTargets(deps)]);
     const { isPublic } = await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) =>
         replaceInDoc(doc, params.old_text, params.new_text, imageSrcs, targets)
     );
-    return { id: params.id, ...writeNotices(isPublic, params.new_text) };
+    return { id: params.id, ...writeNotices(isPublic, after) };
 }
 
 /**
@@ -418,7 +433,7 @@ export async function updateNote(
     if (markdown === undefined && title === undefined && tags === undefined) {
         throw new Error('update_note: give markdown, title or tags');
     }
-    await assertNoDataInImageUrls(deps, markdown, id);
+    await assertNoDataInFetchedUrls(deps, markdown, id);
     const metadata: Partial<DocumentMetadata> = {
         ...(title !== undefined && { title: title || 'Untitled' }),
         ...(tags !== undefined && { tags }),
@@ -459,7 +474,8 @@ export async function editBlock(
 ): Promise<{ id: string; block_ids: string[]; note?: string }> {
     const { note_id, block_id, op, expectedModified } = params;
     const markdown = 'markdown' in op ? op.markdown : op.type === 'insert_row' ? op.cells?.join('\n\n') : undefined;
-    await assertNoDataInImageUrls(deps, markdown, note_id);
+    const after = await markdownAfter(deps, note_id, (doc) => editBlockInDoc(doc, block_id, op));
+    await assertNoDataInFetchedUrls(deps, after, note_id);
     let blockIds: string[] = [];
     const [images, targets] = await Promise.all([loadBodyImages(deps, markdown), loadLinkTargets(deps)]);
     const { isPublic } = await editWithBodyImages(
@@ -471,7 +487,7 @@ export async function editBlock(
         },
         { expectedModified }
     );
-    return { id: note_id, block_ids: blockIds, ...writeNotices(isPublic, markdown) };
+    return { id: note_id, block_ids: blockIds, ...writeNotices(isPublic, after) };
 }
 
 /** Moves a note to Trash, where the owner can restore it. Never deletes permanently. */

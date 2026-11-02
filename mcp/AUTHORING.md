@@ -116,7 +116,7 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
   because showing the note would send that text to the image's host: save the image to a
   file and pass its path. A URL the note already has stays.
 - A write's result has a `note` when the note is public, so the change is live on the
-  web, or when it shows images from another host.
+  web, or when opening it fetches from another host.
 - An image with a width or a float alignment is an HTML tag:
   `<img src="attachment://…" alt="alt" width="320" data-align="right">` (`width` in px,
   `data-align` is `left`, `center` or `right`; either may be left out). `get_note` returns
@@ -219,7 +219,10 @@ by `<!-- preview -->`. Write the link as `<https://…>`; Journal fetches the ti
 description and image when the note opens, as for a pasted link. `get_note` returns a
 card as `[Page title](https://…)<!-- preview -->` once its title is fetched, and
 `<https://…><!-- preview -->` before that; keep that line as it is to keep the card. A
-card can't open a list item: there the line stays a plain link.
+card can't open a list item: there the line stays a plain link. A card's URL follows the
+same rule as an `https://` image URL (no query string, at most 100 characters, at most 5
+new ones in a call, counted with images), as opening the note fetches it: write such a
+page as a plain link.
 
 ```markdown
 <https://journal.cloudx.run><!-- preview -->
@@ -246,7 +249,8 @@ block**, with `replace_in_note` or `update_note`, or the block loses its saved s
 
 Any Mermaid diagram: flowchart, sequence, class, state, ER, gantt, pie, timeline,
 mindmap and more. Journal draws it in its own theme. Leave colours to it: no
-`%%{init}%%` theme and no `style` or `classDef` colours.
+`%%{init}%%` theme and no `style` or `classDef` colours. A URL in a diagram follows the
+same rule as an `https://` image URL, as a diagram can load one when the note opens.
 
 ### `svg`
 

@@ -18,7 +18,7 @@ import { fragmentToMarkdown } from '@/lib/yjs/fragmentToMarkdown';
 import { footnoteOrder, normalizeFootnotes } from '@/lib/editor/footnotes';
 import { getNewId } from '@/lib/utils';
 import { editAttrs, parseEditData } from '@/lib/images/imageEdits';
-import { parseCodeInfo } from '@/lib/liveBlocks';
+import { liveBlockKind, parseCodeInfo } from '@/lib/liveBlocks';
 import { CALLOUT_VARIANTS, type CalloutVariant } from '@/components/editor/nodes/calloutVariants';
 import { GALLERY } from '@/components/editor/nodes/GalleryNode';
 
@@ -122,23 +122,39 @@ function walkImages(node: JSONContent, visit: (image: JSONContent) => void) {
   node.content?.forEach((child) => walkImages(child, visit));
 }
 
-function imageSources(markdown: string, matches: (src: string) => boolean): string[] {
+/** The distinct local file paths and `data:` URIs of the images in `markdown`, in order. */
+export function localImageSources(markdown: string): string[] {
   const found = new Set<string>();
   walkImages(parseJson(markdown), (image) => {
     const src = image.attrs?.src;
-    if (typeof src === 'string' && src && matches(src)) found.add(src);
+    if (typeof src === 'string' && src && isLocalImageSrc(src)) found.add(src);
   });
   return [...found];
 }
 
-/** The distinct local file paths and `data:` URIs of the images in `markdown`, in order. */
-export function localImageSources(markdown: string): string[] {
-  return imageSources(markdown, isLocalImageSrc);
-}
+// A diagram loads an image from a shape's `img:`, an `<img>` or a CSS url() in a label, a
+// participant's icon or theme CSS, so every URL in one counts, `//host/…` included.
+const MERMAID_URL = /(?:https?:)?\/\/[^\s"'`<>)\]}]+/gi;
 
-/** The distinct `http(s):` image URLs in `markdown`, in order. */
-export function externalImageSources(markdown: string): string[] {
-  return imageSources(markdown, (src) => /^https?:/i.test(src));
+/**
+ * The distinct URLs in `markdown` that opening the note fetches with no click (#948): `http(s):`
+ * images, link preview cards and URLs in mermaid blocks. An svg block is an image with no
+ * network, and a cover or a card's own image can't be set from markdown.
+ */
+export function autoFetchedUrls(markdown: string): string[] {
+  const found = new Set<string>();
+  const visit = (node: JSONContent) => {
+    const { src, url, language } = node.attrs ?? {};
+    if (node.type === 'image' && /^https?:/i.test(String(src))) found.add(src);
+    if (node.type === 'linkPreview') found.add(url);
+    if (node.type === 'codeBlock' && liveBlockKind(language) === 'mermaid') {
+      const code = node.content?.map((text) => text.text).join('') ?? '';
+      for (const [match] of code.matchAll(MERMAID_URL)) found.add(match);
+    }
+    node.content?.forEach(visit);
+  };
+  visit(parseJson(markdown));
+  return [...found];
 }
 
 function swapImageSrcs(json: JSONContent, imageSrcs: ReadonlyMap<string, string>) {

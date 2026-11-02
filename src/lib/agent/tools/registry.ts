@@ -22,7 +22,7 @@ const BODY_IMAGES =
     'is uploaded to the note and shown there; prefer a path, it costs no tokens. PNG, JPEG or WebP, at most 5 MB each; ' +
     'metadata such as EXIF and GPS is removed. If any image is invalid, the call fails and nothing is written. ' +
     '`https://` image URLs are kept as they are, not fetched or uploaded; a new one with a query string or over 100 characters is refused, as are more than 5 new ones in a call, ' +
-    'so pass a file path for those. The result has a `note` when the note is public or shows external images.';
+    'so pass a file path for those. Link previews and URLs in mermaid blocks count the same, so write such a page as a plain link. The result has a `note` when the note is public or fetches from other hosts.';
 
 /** What a tool returns: `data` (sent as JSON, or as is with `text`) plus advisory `notes` shown after it. */
 export interface ToolOutput {
