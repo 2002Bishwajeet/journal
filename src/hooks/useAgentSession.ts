@@ -27,7 +27,7 @@ export interface AgentStep {
   /** An edit to the open note: what the user is asked to accept or reject in the note. */
   summary?: string;
   /** An append to another note or a new note (#702): the card the user accepts or rejects in the panel. */
-  write?: { markdown: string; state: "pending" | "accepted" | "rejected" | "notApplied"; note?: { title: string; href: string } };
+  write?: { markdown: string; isPublic?: boolean; state: "pending" | "accepted" | "rejected" | "notApplied"; note?: { title: string; href: string } };
   /** The tool was called and has not answered yet. */
   open?: boolean;
   /** An error row, not a tool step. */
@@ -108,7 +108,7 @@ function applyEvent(steps: AgentStep[], event: AgentEvent): AgentStep[] {
               before: event.proposal.write ? "Waiting for your OK" : "Waiting for your OK in the note",
               after: "",
               summary: event.proposal.summary,
-              ...(event.proposal.write && { write: { markdown: event.proposal.write.markdown, state: "pending" as const } }),
+              ...(event.proposal.write && { write: { markdown: event.proposal.write.markdown, isPublic: event.proposal.write.isPublic, state: "pending" as const } }),
               open: true,
             }
           : step

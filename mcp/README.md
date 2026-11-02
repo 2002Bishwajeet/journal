@@ -146,6 +146,27 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
 - `clear_note_cover` — remove a note's cover and its dark-mode cover (`id`), or with
   `dark: true` only the dark-mode cover.
 
+## Safety
+
+Tools carry MCP annotations: `readOnlyHint` on the read tools, and `destructiveHint` on the
+tools that can overwrite or remove content (`update_note`, `replace_in_note`, `edit_block`,
+`delete_note`, `set_note_cover`, `clear_note_cover`). The server never asks for confirmation
+itself: your MCP client does, so if you pick "always allow" for a write tool, its writes and
+trashing happen without a prompt.
+
+A note can hold text written to steer an agent (prompt injection), for example in something
+you pasted from the web. `get_note` and `search_notes` return note content between
+`untrusted-note-content` tags with a random suffix, and the `initialize` instructions tell
+agents that it is data, never instructions. That lowers the risk; it can't remove it.
+
+**Grants are enforced by this server process, not by Homebase.** The credentials
+`mcp:login` saves have Read+Write on the whole notes drive, including the grants file, and
+Homebase can't scope a token to a folder. So an agent that can also run shell commands on
+this computer can read those credentials and reach every note, whatever Settings → Agent
+access says. Keep your client's approval prompts on for shell commands when this server is
+connected, and if you think the credentials have leaked, remove the app in the owner console
+(**Apps → Journal MCP**).
+
 ## What the markdown can contain
 
 The write tools take markdown, and a note can hold much more than text: callouts, toggles,
