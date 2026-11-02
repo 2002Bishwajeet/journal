@@ -1,3 +1,17 @@
+# [2.53.0](https://github.com/2002Bishwajeet/journal/compare/v2.52.5...v2.53.0) (2026-11-02)
+
+
+### Bug Fixes
+
+* **live-blocks:** enforce frame-src and move the frame bridge to a MessageChannel ([#945](https://github.com/2002Bishwajeet/journal/issues/945)) ([ecebdbc](https://github.com/2002Bishwajeet/journal/commit/ecebdbc1d4314c07fc35e247ac4874ed58569771))
+* **mcp:** apply the leak guards to link previews and mermaid URLs ([#948](https://github.com/2002Bishwajeet/journal/issues/948)) ([c11f178](https://github.com/2002Bishwajeet/journal/commit/c11f178d096a94e4c118e61e2c7c7d5820f50f34))
+* **mcp:** cap external image URL length and count per write ([#948](https://github.com/2002Bishwajeet/journal/issues/948)) ([2d24793](https://github.com/2002Bishwajeet/journal/commit/2d24793e8752dac436a935a60fa85a04dcd2ce08))
+* **mcp:** refuse data-bearing image URLs and report public writes ([#948](https://github.com/2002Bishwajeet/journal/issues/948)) ([980c601](https://github.com/2002Bishwajeet/journal/commit/980c601f920257177093b84f35c64d91bc85603f))
+
+
+### Features
+
+* **agent:** harden agents against untrusted note content ([#949](https://github.com/2002Bishwajeet/journal/issues/949)) ([eb50769](https://github.com/2002Bishwajeet/journal/commit/eb50769243d4c535218d11d000601f222a346408))
 ## [2.52.5](https://github.com/2002Bishwajeet/journal/compare/v2.52.4...v2.52.5) (2026-10-28)
 
 

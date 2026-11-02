@@ -21,7 +21,8 @@ const BODY_IMAGES =
     ' Images: `![alt](/absolute/path/to/file.png)` (wrap the path in <> if it has spaces) or `![alt](data:image/png;base64,…)` ' +
     'is uploaded to the note and shown there; prefer a path, it costs no tokens. PNG, JPEG or WebP, at most 5 MB each; ' +
     'metadata such as EXIF and GPS is removed. If any image is invalid, the call fails and nothing is written. ' +
-    '`https://` image URLs are kept as they are, not fetched or uploaded.';
+    '`https://` image URLs are kept as they are, not fetched or uploaded; a new one with a query string or over 100 characters is refused, as are more than 5 new ones in a call, ' +
+    'so pass a file path for those. Link previews and URLs in mermaid blocks count the same, so write such a page as a plain link. The result has a `note` when the note is public or fetches from other hosts.';
 
 /** What a tool returns: `data` (sent as JSON, or as is with `text`) plus advisory `notes` shown after it. */
 export interface ToolOutput {
@@ -35,8 +36,10 @@ export interface JournalTool<Shape extends z.ZodRawShape = z.ZodRawShape> {
     title: string;
     description: string;
     input: z.ZodObject<Shape>;
-    /** WebMCP `annotations.readOnlyHint`. */
+    /** `annotations.readOnlyHint`, in WebMCP and MCP. */
     readOnly: boolean;
+    /** MCP `annotations.destructiveHint`: the tool can overwrite or remove content, not only add to it. */
+    destructive?: boolean;
     execute(deps: WriteDeps, args: z.infer<z.ZodObject<Shape>>): Promise<ToolOutput>;
 }
 
@@ -155,6 +158,7 @@ export const TOOLS: AnyJournalTool[] = [
             RICH_BLOCKS,
         input: z.object({ id: z.string(), old_text: z.string(), new_text: z.string() }),
         readOnly: false,
+        destructive: true,
         execute: async (deps, { id, old_text, new_text }) => ({
             data: await writeTools.replaceInNote(deps, { id, old_text, new_text }),
             notes: liveBlockLayoutWarnings(new_text),
@@ -177,6 +181,7 @@ export const TOOLS: AnyJournalTool[] = [
             expectedModified: z.string().optional(),
         }),
         readOnly: false,
+        destructive: true,
         execute: async (deps, { id, markdown, title, tags, expectedModified }) => ({
             data: await writeTools.updateNote(deps, { id, markdown, title, tags, expectedModified }),
             notes: liveBlockLayoutWarnings(markdown ?? ''),
@@ -218,6 +223,7 @@ export const TOOLS: AnyJournalTool[] = [
             expectedModified: z.string().optional(),
         }),
         readOnly: false,
+        destructive: true,
         execute: async (deps, { note_id, block_id, op, expectedModified }) => ({
             data: await writeTools.editBlock(deps, { note_id, block_id, op, expectedModified }),
             notes: liveBlockLayoutWarnings('markdown' in op ? op.markdown : op.type === 'insert_row' ? (op.cells ?? []).join('\n\n') : ''),
@@ -229,6 +235,7 @@ export const TOOLS: AnyJournalTool[] = [
         description: "Move a Journal note with Read+write access to Journal's Trash, where the owner can restore it. Never deletes permanently.",
         input: z.object({ id: z.string() }),
         readOnly: false,
+        destructive: true,
         execute: async (deps, { id }) => ({ data: await writeTools.deleteNote(deps, { id }) }),
     }),
     defineTool({
@@ -248,6 +255,7 @@ export const TOOLS: AnyJournalTool[] = [
             dark: z.boolean().optional(),
         }),
         readOnly: false,
+        destructive: true,
         execute: async (deps, { id, image, positionY, dark }) => ({ data: await writeTools.setNoteCover(deps, { id, image, positionY, dark }) }),
     }),
     defineTool({
@@ -258,6 +266,7 @@ export const TOOLS: AnyJournalTool[] = [
             'with `dark: true` only the dark-mode cover is removed.',
         input: z.object({ id: z.string(), dark: z.boolean().optional() }),
         readOnly: false,
+        destructive: true,
         execute: async (deps, { id, dark }) => ({ data: await writeTools.clearNoteCover(deps, { id, dark }) }),
     }),
 ];
