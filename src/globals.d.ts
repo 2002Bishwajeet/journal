@@ -31,6 +31,12 @@ declare module 'virtual:react-block-lucide' {
   export default script;
 }
 
+/** The mermaid a mermaid block runs on, as the text of a script that sets window.mermaid (#946). */
+declare module 'virtual:react-block-mermaid' {
+  const script: string;
+  export default script;
+}
+
 /** Any other library a react block can import, as the text of a script that sets its global (REACT_BLOCK_LIBRARIES, #558). */
 declare module 'virtual:react-block-*' {
   const script: string;

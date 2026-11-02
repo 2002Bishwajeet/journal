@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
-import { activeEditor, createNote, pastePlainText, typeInEditor } from '../support/actions';
+import { activeEditor, createNote, mermaidFrame, pastePlainText, typeInEditor } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #671: every page carries a Content-Security-Policy-Report-Only header (public/_headers,
@@ -131,7 +131,7 @@ test('signed in: notes, live blocks and a link preview violate nothing', async (
     // Each block has its own Preview/Code pair: mermaid is first, svg second.
     await app.getByRole('button', { name: 'Preview', exact: true }).nth(0).click();
     await app.getByRole('button', { name: 'Preview', exact: true }).nth(1).click();
-    await expect(activeEditor(app).locator('[data-live-block-preview] svg')).toBeVisible();
+    await expect(mermaidFrame(activeEditor(app)).locator('svg[id^="mermaid-"]')).toBeVisible();
     await expect(activeEditor(app).locator('[data-live-block-preview] img')).toHaveAttribute('src', /^data:image\/svg\+xml/);
     await expectNoViolations(collector);
   });

@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote, pastePlainText } from '../support/actions';
+import { activeEditor, createNote, mermaidFrame, pastePlainText } from '../support/actions';
 
 // Pasting markup or a fenced block into an empty paragraph makes a live block,
 // instead of leaving the source as literal text.
@@ -25,7 +25,7 @@ test('pasting a fenced mermaid block previews the diagram', async ({ reusedApp: 
   await noteWithEmptyLine(app, 'Paste fence');
   await pastePlainText(app, '```mermaid\ngraph TD; A-->B\n```');
 
-  await expect(activeEditor(app).locator('[data-live-block="mermaid"] svg').first()).toBeVisible();
+  await expect(mermaidFrame(activeEditor(app)).locator('svg[id^="mermaid-"]')).toBeVisible();
   await expect(activeEditor(app)).not.toContainText('```');
 });
 

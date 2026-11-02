@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeEditor, activeTitleInput, createNote } from '../support/actions';
+import { activeEditor, activeTitleInput, createNote, mermaidFrame } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #411: a share page says whose content it is, and a signed-in reader can save
@@ -121,7 +121,7 @@ async function expectSavedCopy(page: Page): Promise<void> {
   await expect(editor).toContainText(INTRO);
 
   // Live blocks preview: the diagram draws, the svg shows, and the html block's script runs in its frame.
-  await expect(liveBlock(editor, 'mermaid').locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
+  await expect(mermaidFrame(liveBlock(editor, 'mermaid')).locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
   await expect(liveBlock(editor, 'svg').locator('img')).toBeVisible();
   const frame = liveBlock(editor, 'html').locator('iframe');
   await frame.scrollIntoViewIfNeeded();

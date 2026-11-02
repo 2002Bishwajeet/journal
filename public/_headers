@@ -14,7 +14,7 @@
 # CDN hosts equal HTML_BLOCK_CDN_HOSTS (src/lib/liveBlocks.ts). Each source:
 #   default-src 'self'          anything not listed below stays on our origin
 #   script-src 'self'           the Vite bundle, workers' imports
-#     'unsafe-inline'           the theme guard in index.html, and every html/react
+#     'unsafe-inline'           the theme guard in index.html, and every framed
 #                               live block: an about:srcdoc frame inherits this
 #                               policy on top of its own, so its inline scripts
 #                               need it here too (a hash or nonce would switch it off)

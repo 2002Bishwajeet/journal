@@ -9,9 +9,35 @@ import {
   frameHeightFromMessage,
   linkFromMessage,
   liveBlockKind,
+  mermaidBlockDocument,
   svgDataUri,
   type FrameTheme,
 } from '@/lib/liveBlocks';
+
+describe('mermaidBlockDocument (#946)', () => {
+  const THEME_VARIABLES = { fontFamily: "'Inter Variable', sans-serif", background: '#FDFCF8' };
+  const page = (source: string) => mermaidBlockDocument('window.mermaid = {};', source, THEME_VARIABLES);
+
+  it('should keep mermaid in strict mode, in the theme it is handed', () => {
+    expect(page('graph TD; A-->B')).toContain(
+      `mermaid.initialize(${JSON.stringify({ startOnLoad: false, securityLevel: 'strict', look: 'classic', theme: 'base', themeVariables: THEME_VARIABLES })})`,
+    );
+  });
+
+  it('should hand the source over as a string, which cannot end the script it is in', () => {
+    const source = 'graph TD; A["</script><script>alert(1)</script><!--"]-->B';
+    const built = page(source);
+    expect(built).not.toContain('</script><script>alert(1)');
+    expect(built).not.toContain('<!--');
+    expect(built).toContain(JSON.stringify(source).replace(/<(\/script|!--)/gi, '\\x3C$1'));
+  });
+
+  it('should show a failed diagram on the page: nothing but the height and links crosses to the app', () => {
+    const built = page('nonsense');
+    expect(built).toContain('role="alert"');
+    expect(built).not.toContain('postMessage');
+  });
+});
 
 describe('liveBlockKind', () => {
   it('should recognise mermaid, svg, html and react languages', () => {
@@ -61,7 +87,7 @@ describe('buildSrcdoc', () => {
     // The height report, once the source is parsed, and then the link bridge: a clicked web
     // or mail link is passed to the app to open. Both over the port.
     "addEventListener('DOMContentLoaded', function () {new ResizeObserver(function () { port.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - 24 }); }).observe(document.documentElement);});" +
-    "addEventListener('click', function (event) {var link = event.target.closest && event.target.closest('a[href]');if (!link || !/^(https?|mailto):$/.test(link.protocol)) return;event.preventDefault();port.postMessage({ journalLiveBlock: 1, link: link.href });});";
+    "addEventListener('click', function (event) {var link = event.target.closest && event.target.closest('a');var href = link && (link.href.baseVal || link.href);if (!href || !/^(https?|mailto):/i.test(href)) return;event.preventDefault();port.postMessage({ journalLiveBlock: 1, link: href });});";
 
   // The dark theme's values in src/index.css.
   const THEME: FrameTheme = {

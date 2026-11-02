@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type FrameLocator, type Locator, type Page } from '@playwright/test';
 import { assertTestOrigin } from './origin-guard';
 import { waitForAppReady } from '../fixtures';
 
@@ -11,6 +11,11 @@ import { waitForAppReady } from '../fixtures';
 /** The active tab's title field, a textarea ("Untitled" is its placeholder, not its value). */
 export function activeTitleInput(page: Page): Locator {
     return page.locator('textarea[placeholder="Untitled"]:visible');
+}
+
+/** The page in the sandboxed frame of a mermaid live block (#946), where its diagram is. `block` is the `[data-live-block]`. */
+export function mermaidFrame(block: Locator): FrameLocator {
+    return block.locator('iframe[title="Mermaid preview"]').contentFrame();
 }
 
 /** The active tab's TipTap editor. */

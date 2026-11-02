@@ -1,7 +1,7 @@
 import type { FrameLocator, Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect } from '../fixtures';
-import { activeEditor, activeTitleInput, createNote } from '../support/actions';
+import { activeEditor, activeTitleInput, createNote, mermaidFrame } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #420: a live block looks like part of the note. No card and no header bar, an
@@ -101,7 +101,11 @@ async function expectJournalControls(page: Page, frame: FrameLocator, paragraph:
 
 /** Every block of the note has drawn, and each html block has taken its content's height. */
 async function expectDrawn(scope: Locator): Promise<void> {
-  await expect(scope.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]')).toHaveCount(2, { timeout: 30_000 });
+  for (const block of await scope.locator('[data-live-block="mermaid"]').all()) {
+    // A frame is lazy: it loads once it is near the viewport.
+    await block.scrollIntoViewIfNeeded();
+    await expect(mermaidFrame(block).locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
+  }
   await expect(scope.locator('[data-live-block="svg"] img')).toBeVisible();
   const contents = [htmlFrame(scope, 0).getByRole('heading', { name: 'Reading list' }), htmlFrame(scope, 1).locator('#box'), htmlFrame(scope, 2).getByRole('button', { name: 'Save' })];
   for (const [nth, content] of contents.entries()) {
@@ -177,7 +181,7 @@ const chartTokens = (page: Page) => Promise.all([1, 2, 3, 4, 5].map((n) => token
  * least 3:1 contrast with the page, and its legend is in the note's text colour.
  */
 async function expectPie(page: Page, scope: Locator): Promise<void> {
-  const pie = scope.locator('[data-live-block="mermaid"]').nth(1);
+  const pie = mermaidFrame(scope.locator('[data-live-block="mermaid"]').nth(1));
   const fills = await pie.locator('path.pieCircle').evaluateAll((slices) => slices.map((slice) => getComputedStyle(slice).fill));
   expect(new Set(fills).size).toBe(5);
   expect([...fills].sort()).toEqual([...(await chartTokens(page))].sort());
@@ -203,8 +207,8 @@ async function shoot(page: Page, scope: Locator, top: Locator, name: string): Pr
   await page.setViewportSize({ width: viewport.width, height: viewport.height + Math.max(scrolledOut, 0) });
   await top.scrollIntoViewIfNeeded();
   // A frame paints again a moment after the resize: a screenshot taken before that shows it blank.
-  for (const nth of [0, 1, 2]) {
-    const body = htmlFrame(scope, nth).locator('body');
+  for (const frame of await scope.locator('iframe').all()) {
+    const body = frame.contentFrame().locator('body');
     await expect(body).toBeVisible();
     await body.evaluate(() => new Promise<void>((painted) => requestAnimationFrame(() => requestAnimationFrame(() => painted()))));
   }
@@ -221,9 +225,7 @@ async function shootFormAndPie(page: Page, scope: Locator, where: string, theme:
     .locator('body')
     .evaluate(() => new Promise<void>((painted) => requestAnimationFrame(() => requestAnimationFrame(() => painted()))));
   await form.screenshot({ path: test.info().outputPath(`form-${where}-${theme}-1280.png`) });
-  const pie = scope.locator('[data-live-block="mermaid"]').nth(1);
-  await pie.scrollIntoViewIfNeeded();
-  await pie.screenshot({ path: test.info().outputPath(`pie-${where}-${theme}-1280.png`) });
+  await shootBlock(scope.locator('[data-live-block="mermaid"]').nth(1), `pie-${where}-${theme}-1280.png`);
 }
 
 // The synthetic paste of e2e/editor/live-paste.spec.ts: plain text into the empty line the caret is on.
@@ -424,7 +426,8 @@ test('editor: an html chart drawn with the chart palette has five colours that f
   const swatches = htmlFrame(editor, 1).locator('#swatches > div');
   await editor.locator('[data-live-block="html"] iframe').nth(1).scrollIntoViewIfNeeded();
   await expect(swatches).toHaveCount(5);
-  const flowchart = editor.locator('[data-live-block="mermaid"]');
+  const flowchart = mermaidFrame(editor.locator('[data-live-block="mermaid"]'));
+  await editor.locator('[data-live-block="mermaid"]').scrollIntoViewIfNeeded();
   await expect(flowchart.locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
   // The flowchart keeps the theme's own colours: its nodes are filled with `--secondary`.
   await expect(flowchart.locator('.node rect').first()).toHaveCSS('fill', await token(app, '--secondary'));
@@ -509,6 +512,7 @@ async function mockPublicNote(page: Page): Promise<void> {
 
 // The share page reads the theme when it loads, so each theme loads it again (in one test).
 test('share page: the same note has the same look', async ({ anonPage }) => {
+  test.slow(); // every mermaid frame is drawn again in each theme
   await mockPublicNote(anonPage);
 
   for (const theme of THEMES) {

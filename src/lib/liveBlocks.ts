@@ -96,10 +96,12 @@ const bridgeScript = (token: string) =>
   `new ResizeObserver(function () { port.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - ${2 * FRAME_BLEED} }); }).observe(document.documentElement);` +
   '});' +
   "addEventListener('click', function (event) {" +
-  "var link = event.target.closest && event.target.closest('a[href]');" +
-  'if (!link || !/^(https?|mailto):$/.test(link.protocol)) return;' +
+  "var link = event.target.closest && event.target.closest('a');" +
+  // An svg link's `href` is an object, and a mermaid node's link is one.
+  'var href = link && (link.href.baseVal || link.href);' +
+  'if (!href || !/^(https?|mailto):/i.test(href)) return;' +
   'event.preventDefault();' +
-  'port.postMessage({ journalLiveBlock: 1, link: link.href });' +
+  'port.postMessage({ journalLiveBlock: 1, link: href });' +
   '});' +
   '})();</script>';
 
@@ -255,7 +257,58 @@ export function reactBlockDocument(runtime: ReactBlockRuntime, code: string, blo
   return `<style>${runtime.tailwind}</style>${blockStyle}<div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime.react)}${libraries}${inlineScript(componentScript(code))}`;
 }
 
-/** The least height a framed (html or react) block's box is fitted to. */
+// The diagram's place on a mermaid block's page, and the error that takes it when the source
+// can't be drawn, laid out like the app's error callout (PreviewError).
+const MERMAID_BOX = '<div id="journal-mermaid"><span style="margin:auto">Rendering diagram…</span></div>';
+const MERMAID_ERROR_BOX =
+  '<div id="journal-mermaid-error" role="alert" hidden style="margin:1rem;padding:0.5rem 0.75rem;border-left:4px solid var(--destructive);border-radius:var(--radius);background:color-mix(in srgb,var(--destructive) 10%,transparent);font-size:0.875rem">' +
+  '<div style="font-weight:500">Couldn’t render this diagram. Check its syntax.</div>' +
+  // Mermaid points at the failing column with a caret on its own line: keep the line breaks and a fixed pitch.
+  '<pre style="margin:0.25rem 0 0;white-space:pre-wrap;word-break:break-word;font:0.75rem/1.5 ui-monospace,SFMono-Regular,Menlo,monospace"></pre></div>';
+// Mermaid sizes its svg as width: 100% with an inline max-width of the diagram's natural width,
+// which shrinks a wide diagram until it is unreadable. Asking for more width than any column has
+// leaves that max-width in charge, so the diagram keeps its natural size: centred when it fits,
+// scrolled sideways in its box when it does not.
+const MERMAID_STYLE =
+  '#journal-mermaid{display:flex;overflow-x:auto;padding:1rem;color:var(--muted-foreground);font-size:0.875rem}' +
+  '#journal-mermaid svg[style*="max-width"]{flex:none;width:10000px;margin:0 auto}' +
+  '#journal-mermaid::-webkit-scrollbar{height:6px}' +
+  '#journal-mermaid::-webkit-scrollbar-thumb{background:var(--border);border-radius:var(--radius)}';
+
+// Draws the diagram on the page. Mermaid sizes each node from its measured label, so the label
+// font must be loaded first. `classic` is mermaid's flat look: no gradient borders or drop shadows.
+const mermaidScript = (source: string, themeVariables: MermaidThemeVariables) =>
+  '(async function () {' +
+  "var box = document.getElementById('journal-mermaid');" +
+  'try {' +
+  `await document.fonts.load(${JSON.stringify(`14px ${themeVariables.fontFamily}`)});` +
+  `mermaid.initialize(${JSON.stringify({ startOnLoad: false, securityLevel: 'strict', look: 'classic', theme: 'base', themeVariables })});` +
+  `box.innerHTML = (await mermaid.render('mermaid-diagram', ${JSON.stringify(source)})).svg;` +
+  '} catch (error) {' +
+  // Mermaid leaves its error diagram attached to <body> on a parse failure.
+  "var left = document.getElementById('dmermaid-diagram');" +
+  'if (left) left.remove();' +
+  "var alert = document.getElementById('journal-mermaid-error');" +
+  'box.remove();' +
+  'alert.hidden = false;' +
+  'alert.lastChild.textContent = (error && error.message) || String(error);' +
+  '}' +
+  '})();';
+
+/** Mermaid's theme variables for a diagram: at least the font it measures its labels in. */
+export type MermaidThemeVariables = { fontFamily: string } & Record<string, unknown>;
+
+/**
+ * The page of a `mermaid` block (#946), for buildSrcdoc to wrap. Mermaid runs here and nowhere
+ * else, so what it makes of an untrusted source never meets the app's DOM, and its strict mode
+ * and DOMPurify are not all that stands between that source and the app's origin. `runtime` is
+ * built in vite.config.ts and sets window.mermaid.
+ */
+export function mermaidBlockDocument(runtime: string, source: string, themeVariables: MermaidThemeVariables): string {
+  return `<style>${MERMAID_STYLE}</style>${MERMAID_BOX}${MERMAID_ERROR_BOX}${inlineScript(runtime)}${inlineScript(mermaidScript(source, themeVariables))}`;
+}
+
+/** The least height a framed (html, react or mermaid) block's box is fitted to. */
 export const MIN_FRAME_HEIGHT = 120;
 const MAX_FRAME_HEIGHT = 1600;
 // A `wide` block (#557) is for a dashboard, a game or a simulation, which need room both ways.
