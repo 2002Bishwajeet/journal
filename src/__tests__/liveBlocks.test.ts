@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { LiveBlockPreview } from '@/components/liveBlocks/LiveBlockPreview';
 import {
   HTML_BLOCK_CDN_HOSTS,
-  buildSrcdoc,
+  bridgePortFromMessage,
+  buildSrcdoc as buildPage,
   frameHeightFromMessage,
   linkFromMessage,
   liveBlockKind,
@@ -55,10 +56,12 @@ describe('buildSrcdoc', () => {
   const CDN = 'https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com';
   const CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; style-src 'unsafe-inline' ${CDN}; img-src data: blob:; font-src data: ${CDN}; media-src data: blob:; form-action 'none'; base-uri 'none'`;
   const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
-  const HEIGHT_SCRIPT =
-    "<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - 24 }, '*')).observe(document.documentElement)</script>" +
-    // Then the link bridge: a clicked web or mail link is passed to the app to open.
-    "<script>addEventListener('click', function (event) {var link = event.target.closest && event.target.closest('a[href]');if (!link || !/^(https?|mailto):$/.test(link.protocol)) return;event.preventDefault();parent.postMessage({ journalLiveBlock: 1, link: link.href }, '*');});</script>";
+  const buildSrcdoc = (source: string, theme: FrameTheme) => buildPage(source, theme, 'the-token');
+  const BRIDGE_REPORTS =
+    // The height report, once the source is parsed, and then the link bridge: a clicked web
+    // or mail link is passed to the app to open. Both over the port.
+    "addEventListener('DOMContentLoaded', function () {new ResizeObserver(function () { port.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - 24 }); }).observe(document.documentElement);});" +
+    "addEventListener('click', function (event) {var link = event.target.closest && event.target.closest('a[href]');if (!link || !/^(https?|mailto):$/.test(link.protocol)) return;event.preventDefault();port.postMessage({ journalLiveBlock: 1, link: link.href });});";
 
   // The dark theme's values in src/index.css.
   const THEME: FrameTheme = {
@@ -96,17 +99,17 @@ describe('buildSrcdoc', () => {
   /** Everything buildSrcdoc puts before the source. */
   const head = (source: string, theme = THEME) => {
     const srcdoc = buildSrcdoc(source, theme);
-    return srcdoc.slice(0, srcdoc.length - source.length - HEIGHT_SCRIPT.length);
+    return srcdoc.slice(0, srcdoc.length - source.length);
   };
 
-  it('should put the CSP meta first, then one theme style, journal.storage, the source and the height script', () => {
+  it('should put the CSP meta first, then one theme style, the bridge to the app and the source', () => {
     const source = '<style>body{color:red}</style><p>hi</p><script>document.body.append("ran")</script>';
     const srcdoc = buildSrcdoc(source, THEME);
     expect(srcdoc.startsWith(`<!doctype html>${CSP_META}<style>`)).toBe(true);
-    expect(srcdoc.endsWith(`</script>${source}${HEIGHT_SCRIPT}`)).toBe(true);
+    expect(srcdoc.endsWith(`${BRIDGE_REPORTS}})();</script>${source}`)).toBe(true);
     // The block's own CSS comes after the one injected style, so it wins.
     expect(head(source).match(/<style>/g)).toHaveLength(1);
-    // Between the style and the source, one script: journal.storage (#410).
+    // Between the style and the source, one script: the bridge, with journal.storage (#410).
     expect(head(source).slice(head(source).indexOf('</style>'))).toMatch(/^<\/style><script>[^<]*window\.journal = [^<]*<\/script>$/);
   });
 
@@ -207,52 +210,79 @@ describe('buildSrcdoc', () => {
     expect(csp.match(/https:[^ ;]*/g)).toHaveLength(9);
   });
 
-  it('should listen for one kind of message only: a reply from the app to journal.storage (#410)', () => {
+  it('should listen on its port alone, for a reply from the app to journal.storage (#410, #945)', () => {
     const srcdoc = buildSrcdoc('', THEME);
-    expect(srcdoc.match(/addEventListener\('message'|onmessage/g)).toEqual(["addEventListener('message'"]);
-    expect(srcdoc).toContain('event.source !== parent');
+    expect(srcdoc.match(/addEventListener\('message'|onmessage/g)).toEqual(['onmessage']);
+    expect(srcdoc).toContain('port.onmessage = ');
+  });
+
+  it('should hand the app its port with the token, and post nothing else on the window (#945)', () => {
+    const srcdoc = buildSrcdoc('', THEME);
+    expect(srcdoc.match(/parent\.postMessage\([^;]*;/g)).toEqual(["parent.postMessage({ journalLiveBlock: 1, bridge: 'the-token' }, '*', [channel.port2]);"]);
+  });
+
+  it('should take the script holding the token out of the document before the source runs (#945)', () => {
+    const srcdoc = buildSrcdoc('<p>block</p>', THEME);
+    expect(srcdoc.indexOf('document.currentScript.remove();')).toBeLessThan(srcdoc.indexOf('the-token'));
+  });
+});
+
+describe('bridgePortFromMessage', () => {
+  // Stand-ins: only their identity matters.
+  const frame = {} as Window;
+  const port = {} as MessagePort;
+  const hello = (bridge: unknown) => ({ journalLiveBlock: 1, bridge });
+
+  it("should take the port of the frame's own page, which knows the token", () => {
+    expect(bridgePortFromMessage({ source: frame, data: hello('token'), ports: [port] }, frame, 'token')).toBe(port);
+  });
+
+  it('should ignore a page in the same frame that does not know the token', () => {
+    for (const bridge of ['guess', '', undefined, null]) {
+      expect(bridgePortFromMessage({ source: frame, data: hello(bridge), ports: [port] }, frame, 'token')).toBeNull();
+    }
+  });
+
+  it('should ignore the right token from another window, or while the frame has no window', () => {
+    expect(bridgePortFromMessage({ source: {} as Window, data: hello('token'), ports: [port] }, frame, 'token')).toBeNull();
+    expect(bridgePortFromMessage({ source: null, data: hello('token'), ports: [port] }, frame, 'token')).toBeNull();
+    expect(bridgePortFromMessage({ source: frame, data: hello('token'), ports: [port] }, null, 'token')).toBeNull();
+  });
+
+  it('should ignore a message without a port, or that is not a hello', () => {
+    expect(bridgePortFromMessage({ source: frame, data: hello('token'), ports: [] }, frame, 'token')).toBeNull();
+    expect(bridgePortFromMessage({ source: frame, data: { bridge: 'token' }, ports: [port] }, frame, 'token')).toBeNull();
+    expect(bridgePortFromMessage({ source: frame, data: null, ports: [port] }, frame, 'token')).toBeNull();
   });
 });
 
 describe('frameHeightFromMessage', () => {
-  // Stand-ins for two windows: only their identity matters.
-  const frame = {} as Window;
-  const otherWindow = {} as Window;
   const report = (height: unknown) => ({ journalLiveBlock: 1, height });
 
   it('should return the height its own frame reported', () => {
-    expect(frameHeightFromMessage({ source: frame, data: report(900) }, frame)).toBe(900);
+    expect(frameHeightFromMessage(report(900))).toBe(900);
   });
 
   it('should clamp the height to 120–1600px', () => {
-    expect(frameHeightFromMessage({ source: frame, data: report(0) }, frame)).toBe(120);
-    expect(frameHeightFromMessage({ source: frame, data: report(5000) }, frame)).toBe(1600);
+    expect(frameHeightFromMessage(report(0))).toBe(120);
+    expect(frameHeightFromMessage(report(5000))).toBe(1600);
   });
 
   it('should let a wide block be up to 2400px tall (#557)', () => {
-    expect(frameHeightFromMessage({ source: frame, data: report(2000) }, frame, true)).toBe(2000);
-    expect(frameHeightFromMessage({ source: frame, data: report(5000) }, frame, true)).toBe(2400);
-    expect(frameHeightFromMessage({ source: frame, data: report(0) }, frame, true)).toBe(120);
-  });
-
-  it('should ignore a message from another window', () => {
-    expect(frameHeightFromMessage({ source: otherWindow, data: report(900) }, frame)).toBeNull();
-    expect(frameHeightFromMessage({ source: null, data: report(900) }, frame)).toBeNull();
-  });
-
-  it('should ignore every message while the frame has no window', () => {
-    expect(frameHeightFromMessage({ source: null, data: report(900) }, null)).toBeNull();
+    expect(frameHeightFromMessage(report(2000), true)).toBe(2000);
+    expect(frameHeightFromMessage(report(5000), true)).toBe(2400);
+    expect(frameHeightFromMessage(report(0), true)).toBe(120);
   });
 
   it('should ignore a height that is not a finite number', () => {
     for (const height of ['900', NaN, Infinity, null, undefined, { valueOf: () => 900 }]) {
-      expect(frameHeightFromMessage({ source: frame, data: report(height) }, frame)).toBeNull();
+      expect(frameHeightFromMessage(report(height))).toBeNull();
     }
   });
 
   it('should ignore a message without the marker', () => {
     for (const data of [{ height: 900 }, { journalLiveBlock: '1', height: 900 }, { journalLiveBlock: true, height: 900 }, 'height: 900', 900, null, undefined]) {
-      expect(frameHeightFromMessage({ source: frame, data }, frame)).toBeNull();
+      expect(frameHeightFromMessage(data)).toBeNull();
     }
   });
 });
@@ -278,24 +308,19 @@ describe('LiveBlockPreview html', () => {
 });
 
 describe('linkFromMessage', () => {
-  const frame = {} as Window;
   const link = (href: unknown) => ({ journalLiveBlock: 1, link: href });
 
-  it('should return a web or mail link its own frame asked to open', () => {
-    expect(linkFromMessage({ source: frame, data: link('https://example.com/a') }, frame)).toBe('https://example.com/a');
-    expect(linkFromMessage({ source: frame, data: link('http://example.com/') }, frame)).toBe('http://example.com/');
-    expect(linkFromMessage({ source: frame, data: link('mailto:a@b.c') }, frame)).toBe('mailto:a@b.c');
+  it('should return a web or mail link the block asked to open', () => {
+    expect(linkFromMessage(link('https://example.com/a'))).toBe('https://example.com/a');
+    expect(linkFromMessage(link('http://example.com/'))).toBe('http://example.com/');
+    expect(linkFromMessage(link('mailto:a@b.c'))).toBe('mailto:a@b.c');
   });
 
   it('should refuse any other scheme, so a block can never run script in the app', () => {
-    expect(linkFromMessage({ source: frame, data: link('javascript:alert(1)') }, frame)).toBeNull();
-    expect(linkFromMessage({ source: frame, data: link('data:text/html,hi') }, frame)).toBeNull();
-    expect(linkFromMessage({ source: frame, data: link('not a url') }, frame)).toBeNull();
-    expect(linkFromMessage({ source: frame, data: link(42) }, frame)).toBeNull();
-  });
-
-  it('should ignore a message from another window', () => {
-    expect(linkFromMessage({ source: {} as Window, data: link('https://example.com/') }, frame)).toBeNull();
+    expect(linkFromMessage(link('javascript:alert(1)'))).toBeNull();
+    expect(linkFromMessage(link('data:text/html,hi'))).toBeNull();
+    expect(linkFromMessage(link('not a url'))).toBeNull();
+    expect(linkFromMessage(link(42))).toBeNull();
   });
 });
 

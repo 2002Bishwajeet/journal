@@ -2,7 +2,8 @@
  * #671: the app's Report-Only Content-Security-Policy lives in public/_headers (vite.config.ts
  * reads it from there). An html live block's frame inherits it, so the CDN hosts it allows
  * must be exactly the ones a block may load from: adding a host to blocks fails here until
- * the app policy follows.
+ * the app policy follows. Only frame-src is enforced (#945): a live block must not be able to
+ * navigate its frame off the app.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -14,9 +15,9 @@ const directive = (name: string) =>
     policy.split(';').map((part) => part.trim().split(/\s+/)).find(([key]) => key === name)?.slice(1) ?? [];
 
 describe('app Content-Security-Policy', () => {
-    it('should be Report-Only, with no enforcing policy', () => {
+    it('should be Report-Only, but for an enforced frame-src', () => {
         expect(policy).toContain("default-src 'self'");
-        expect(HEADERS).not.toMatch(/^\s+Content-Security-Policy:/m);
+        expect(HEADERS.match(/^\s+Content-Security-Policy: (.+)$/m)?.[1]).toBe("frame-src 'self'");
     });
 
     it.each(['script-src', 'style-src', 'font-src'])('should allow exactly the html block CDN hosts in %s', (name) => {

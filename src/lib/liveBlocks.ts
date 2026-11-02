@@ -58,44 +58,50 @@ const HTML_BLOCK_CSP = `default-src 'none'; script-src 'unsafe-inline' ${CDN}; s
  */
 export const FRAME_BLEED = 12;
 
-// What a frame tells the app unasked: how tall its content is, without the bleed, whenever that changes (#412).
-const HEIGHT_REPORT_SCRIPT = `<script>new ResizeObserver(() => parent.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - ${2 * FRAME_BLEED} }, '*')).observe(document.documentElement)</script>`;
-
-// `journal.storage` (#410): get and set ask the app for this block's saved state over the
-// same bridge, and the app answers each request by its number. The app decides everything
-// (which block, the limits); the frame only matches replies to its own requests. It comes
-// before the source, so the source can use it as it loads.
-const STORAGE_SCRIPT =
+// Everything that crosses between a frame and the app goes over one MessageChannel (#945). The
+// window can't carry it: a block can navigate its own frame, and the page that lands there has
+// the same window, so `event.source` would still say "the block's frame". The frame makes the
+// channel, not the app, because this script is sure to be the page's first code; a port the app
+// sent on `load` would go to whatever page is there by then. Only a page that holds `token` is
+// given a hearing, and the script leaves the document before the source can read it.
+//
+// Over the port the frame sends how tall its content is, without the bleed, whenever that changes
+// (#412), from the end of parsing as a report at the end of the page would; `journal.storage` calls
+// (#410), which the app answers by number, deciding everything itself (which block, the limits);
+// and a clicked web or mail link, because a sandboxed frame can't open a tab. Any other link (an
+// in-page `#anchor`) behaves as before.
+const bridgeScript = (token: string) =>
   '<script>(function () {' +
-  'var next = 0, waiting = {};' +
-  "addEventListener('message', function (event) {" +
+  'document.currentScript.remove();' +
+  'var channel = new MessageChannel(), port = channel.port1, next = 0, waiting = {};' +
+  `parent.postMessage({ journalLiveBlock: 1, bridge: '${token}' }, '*', [channel.port2]);` +
+  'port.onmessage = function (event) {' +
   'var data = event.data, wait = waiting[data && data.reply];' +
-  'if (!wait || event.source !== parent || data.journalLiveBlock !== 1) return;' +
+  'if (!wait || data.journalLiveBlock !== 1) return;' +
   'delete waiting[data.reply];' +
   'if (data.error !== undefined) wait.reject(new Error(data.error)); else wait.resolve(data.value);' +
-  '});' +
+  '};' +
   'function ask(storage, key, value) {' +
   'return new Promise(function (resolve, reject) {' +
   'var request = ++next;' +
   'waiting[request] = { resolve: resolve, reject: reject };' +
-  "parent.postMessage({ journalLiveBlock: 1, storage: storage, request: request, key: key, value: value }, '*');" +
+  'port.postMessage({ journalLiveBlock: 1, storage: storage, request: request, key: key, value: value });' +
   '});' +
   '}' +
   'window.journal = { storage: {' +
   "get: function (key) { return ask('get', key); }," +
   "set: function (key, value) { return ask('set', key, value); }" +
   '} };' +
-  '})();</script>';
-
-// A sandboxed frame can't open a tab, so a click on a web or mail link asks the app to open it.
-// Any other link (an in-page `#anchor`) behaves as before.
-const LINK_SCRIPT =
-  "<script>addEventListener('click', function (event) {" +
+  "addEventListener('DOMContentLoaded', function () {" +
+  `new ResizeObserver(function () { port.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - ${2 * FRAME_BLEED} }); }).observe(document.documentElement);` +
+  '});' +
+  "addEventListener('click', function (event) {" +
   "var link = event.target.closest && event.target.closest('a[href]');" +
   'if (!link || !/^(https?|mailto):$/.test(link.protocol)) return;' +
   'event.preventDefault();' +
-  "parent.postMessage({ journalLiveBlock: 1, link: link.href }, '*');" +
-  '});</script>';
+  'port.postMessage({ journalLiveBlock: 1, link: link.href });' +
+  '});' +
+  '})();</script>';
 
 /** The theme tokens an `html` block's frame gets as `:root` variables, under the app's own names. */
 export const FRAME_TOKENS = [
@@ -156,13 +162,13 @@ export interface FrameTheme {
  * The document for an `html` block's sandboxed frame. The CSP meta comes first,
  * so it is in force before anything in the (untrusted) source is parsed. Then
  * one style gives the page the note's look; it comes before the source, so the
- * block's own CSS wins. Then `journal.storage`, so the source can use it as it
- * loads. The height report comes last.
+ * block's own CSS wins. Then the bridge to the app, so the source can use
+ * `journal.storage` as it loads. `bridgeToken` is what the app knows this page by.
  *
  * The page is only see-through while its colour scheme is that of the app
  * around it: a browser paints a frame of the other scheme opaque.
  */
-export function buildSrcdoc(source: string, theme: FrameTheme): string {
+export function buildSrcdoc(source: string, theme: FrameTheme, bridgeToken: string): string {
   const tokens = FRAME_TOKENS.map((name) => `${name}:${theme.tokens[name]};`).join('');
   const style =
     // The font is also a variable, for a react block's `font-sans` (#427), and its shadows
@@ -179,7 +185,7 @@ export function buildSrcdoc(source: string, theme: FrameTheme): string {
     'table{border-collapse:collapse}' +
     'th,td{border:1px solid var(--border);padding:0.5rem 0.75rem;text-align:left}' +
     'img{max-width:100%}';
-  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${STORAGE_SCRIPT}${source}${HEIGHT_REPORT_SCRIPT}${LINK_SCRIPT}`;
+  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${HTML_BLOCK_CSP}"><style>${style}</style>${bridgeScript(bridgeToken)}${source}`;
 }
 
 // A script's text ends at the first `</script`, and `<!--` can move that end. `\x3C` is `<`
@@ -256,16 +262,28 @@ const MAX_FRAME_HEIGHT = 1600;
 const MAX_WIDE_FRAME_HEIGHT = 2400;
 
 /**
- * The height to give an `html` block, from a `message` event: the height its
- * own frame reported, clamped (taller content scrolls inside the frame); a
- * `wide` block may be taller. Null for anything else. `frame` is the block's
- * `iframe.contentWindow`. The frame's source is untrusted and can post any
- * message it likes, so the most a block can do with one is pick its own height
+ * The port a frame's bridge script hands over (#945), from a `message` event on the app's
+ * window, or null for anything else. `frame` is the block's `iframe.contentWindow`, and
+ * `token` what its page was built with: a page that was navigated to has the window but not
+ * the token. Everything else a block says comes in on this port, so it needs no other check
+ * of who sent it.
+ */
+export function bridgePortFromMessage(event: Pick<MessageEvent<unknown>, 'source' | 'data' | 'ports'>, frame: Window | null, token: string): MessagePort | null {
+  if (!frame || event.source !== frame) return null;
+  const data = event.data as { journalLiveBlock?: unknown; bridge?: unknown } | null | undefined;
+  if (data?.journalLiveBlock !== 1 || data.bridge !== token) return null;
+  return event.ports[0] ?? null;
+}
+
+/**
+ * The height to give an `html` block, from a message on its port: the height it
+ * reported, clamped (taller content scrolls inside the frame); a `wide` block may
+ * be taller. Null for anything else. The frame's source is untrusted and can send
+ * any message it likes, so the most a block can do with one is pick its own height
  * within the clamp.
  */
-export function frameHeightFromMessage(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null, wide = false): number | null {
-  if (!frame || event.source !== frame) return null;
-  const data = event.data as { journalLiveBlock?: unknown; height?: unknown } | null | undefined;
+export function frameHeightFromMessage(message: unknown, wide = false): number | null {
+  const data = message as { journalLiveBlock?: unknown; height?: unknown } | null | undefined;
   if (data?.journalLiveBlock !== 1 || typeof data.height !== 'number' || !Number.isFinite(data.height)) return null;
   return Math.min(Math.max(data.height, MIN_FRAME_HEIGHT), wide ? MAX_WIDE_FRAME_HEIGHT : MAX_FRAME_HEIGHT);
 }
@@ -278,27 +296,21 @@ export interface StorageRequest {
   value?: unknown;
 }
 
-/**
- * The storage request in a `message` event, or null for anything else. As with
- * frameHeightFromMessage, the block is known by `frame` (its `iframe.contentWindow`)
- * alone: a message from any other window is no request of this block's, and gets no reply.
- */
-export function storageRequestFromMessage(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null): StorageRequest | null {
-  if (!frame || event.source !== frame) return null;
-  const data = event.data as { journalLiveBlock?: unknown; storage?: unknown; request?: unknown; key?: unknown; value?: unknown } | null | undefined;
+/** The storage request in a message on a block's port, or null for anything else. */
+export function storageRequestFromMessage(message: unknown): StorageRequest | null {
+  const data = message as { journalLiveBlock?: unknown; storage?: unknown; request?: unknown; key?: unknown; value?: unknown } | null | undefined;
   if (data?.journalLiveBlock !== 1 || (data.storage !== 'get' && data.storage !== 'set')) return null;
   if (typeof data.request !== 'number' || !Number.isFinite(data.request)) return null;
   return { request: data.request, storage: data.storage, key: data.key, value: data.value };
 }
 
 /**
- * The link a block's own frame asks the app to open, from a `message` event, or null for
- * anything else. The source is untrusted, so only http(s) and mailto URLs pass: never a
- * `javascript:` one. The browser still blocks the tab unless the user just clicked.
+ * The link a block asks the app to open, from a message on its port, or null for anything
+ * else. The source is untrusted, so only http(s) and mailto URLs pass: never a `javascript:`
+ * one. The browser still blocks the tab unless the user just clicked.
  */
-export function linkFromMessage(event: Pick<MessageEvent<unknown>, 'source' | 'data'>, frame: Window | null): string | null {
-  if (!frame || event.source !== frame) return null;
-  const data = event.data as { journalLiveBlock?: unknown; link?: unknown } | null | undefined;
+export function linkFromMessage(message: unknown): string | null {
+  const data = message as { journalLiveBlock?: unknown; link?: unknown } | null | undefined;
   if (data?.journalLiveBlock !== 1 || typeof data.link !== 'string') return null;
   try {
     const url = new URL(data.link);

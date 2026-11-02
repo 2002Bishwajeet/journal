@@ -219,7 +219,7 @@ describe('LiveBlockPreview html, mounted', () => {
     setTokens(LIGHT);
     const srcdoc = (await mount()).getAttribute('srcdoc')!;
     expect(srcdoc.startsWith('<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src \'none\';')).toBe(true);
-    expect(srcdoc).toContain(`</script>${SOURCE}<script>`);
+    expect(srcdoc.endsWith(`</script>${SOURCE}`)).toBe(true);
   });
 
   it("should give the document the app's current tokens and the font of the content around the frame", async () => {

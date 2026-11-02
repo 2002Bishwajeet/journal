@@ -13,11 +13,14 @@
  *   `sandbox="allow-scripts"` alone gives the frame an opaque origin, so it
  *   cannot reach the app's DOM, storage or cookies, and the CSP from
  *   buildSrcdoc lets it load scripts, styles and fonts from three CDN hosts
- *   and reach nothing else on the network. Never add another sandbox token;
- *   e2e/editor/live-html-sandbox.spec.ts holds the proof. Three things cross
- *   the boundary: the frame's report of its content height (#412), the block's
- *   `journal.storage` requests for its own saved state (#410), which the app
- *   answers from `store`, and a clicked web link, which the app opens in a new tab. Only the frame's own window is ever answered.
+ *   and reach nothing else on the network. The app's enforced `frame-src` keeps
+ *   it from navigating itself to a page without that CSP. Never add another
+ *   sandbox token; e2e/editor/live-html-sandbox.spec.ts holds the proof. Three
+ *   things cross the boundary: the frame's report of its content height (#412),
+ *   the block's `journal.storage` requests for its own saved state (#410), which
+ *   the app answers from `store`, and a clicked web link, which the app opens in
+ *   a new tab. All three go over a port only the page built here can hand the
+ *   app (#945); nothing that arrives on the window is answered.
  * - react: the JSX is compiled in the app by the lazily imported
  *   reactBlockCompiler, then runs in the same frame as an html block, on the
  *   app's own React: vite.config.ts builds it into a script that is inlined in
@@ -26,10 +29,11 @@
  *   sheet lacks are compiled for the block along with its JSX (#559). A compile
  *   error is shown as text in place of the frame.
  */
-import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { CalloutIcon } from '@/components/editor/nodes/CalloutIcon';
 import { CALLOUT_CLASSES } from '@/components/editor/nodes/calloutVariants';
 import {
+  bridgePortFromMessage,
   buildSrcdoc,
   frameHeightFromMessage,
   linkFromMessage,
@@ -101,10 +105,12 @@ function frameTheme(frame: HTMLIFrameElement): FrameTheme {
 function HtmlPreview({ source, title, store, onHeight, wide }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide'> & { title: string }) {
   // State, not a ref: the frame's document takes its look from the mounted element.
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
+  // What the app knows the frame's own page by (#945). It stays the same through a reload of that page.
+  const [bridgeToken] = useState(() => crypto.randomUUID());
   // Rebuilt when the look changes, which reloads the page in the frame.
   const srcDoc = useSyncExternalStore(
     subscribeToRootAttributes,
-    () => (frame ? buildSrcdoc(source, frameTheme(frame)) : undefined),
+    () => (frame ? buildSrcdoc(source, frameTheme(frame), bridgeToken) : undefined),
     () => undefined,
   );
 
@@ -114,20 +120,32 @@ function HtmlPreview({ source, title, store, onHeight, wide }: Pick<LiveBlockPre
   const blockStore = store ?? memoryStore;
   useEffect(() => () => session.flush(), [session]);
 
-  useEffect(() => {
+  // Each page in the frame hands over a port of its own as it starts to load. In a layout effect,
+  // so this listens before the page that commits with `frame` can run.
+  const [port, setPort] = useState<MessagePort | null>(null);
+  useLayoutEffect(() => {
     const onMessage = (event: MessageEvent<unknown>) => {
-      const frameWindow = frame?.contentWindow ?? null;
-      const height = frameHeightFromMessage(event, frameWindow, wide);
-      if (height !== null) onHeight?.(height);
-      const link = linkFromMessage(event, frameWindow);
-      if (link) window.open(link, '_blank', 'noopener,noreferrer');
-      const reply = replyToStorageMessage(event, frameWindow, session, blockStore);
-      // The frame's origin is opaque, so there is no origin to name.
-      if (reply) frameWindow?.postMessage(reply, '*');
+      const next = bridgePortFromMessage(event, frame?.contentWindow ?? null, bridgeToken);
+      if (next) setPort(next);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [frame, onHeight, session, blockStore, wide]);
+  }, [frame, bridgeToken]);
+
+  useEffect(() => {
+    if (!port) return;
+    const onMessage = ({ data }: MessageEvent<unknown>) => {
+      const height = frameHeightFromMessage(data, wide);
+      if (height !== null) onHeight?.(height);
+      const link = linkFromMessage(data);
+      if (link) window.open(link, '_blank', 'noopener,noreferrer');
+      const reply = replyToStorageMessage(data, session, blockStore);
+      if (reply) port.postMessage(reply);
+    };
+    port.addEventListener('message', onMessage);
+    port.start();
+    return () => port.removeEventListener('message', onMessage);
+  }, [port, onHeight, session, blockStore, wide]);
 
   // No background: the page inside is see-through, so the note shows behind it.
   return (
