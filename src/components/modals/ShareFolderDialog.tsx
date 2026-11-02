@@ -103,33 +103,33 @@ export default function ShareFolderDialog({ folder, onClose }: ShareFolderDialog
                     </SheetContent>
                 </Sheet>
             ) : (
-            <Dialog open={!!folder} onOpenChange={(open) => !open && onClose()}>
-                <DialogContent className="share-dialog max-h-none top-1/2 gap-0 overflow-hidden p-0 sm:max-w-[min(960px,calc(100vw-2rem))]">
-                    <div className="flex h-[min(520px,90dvh)] min-w-0 flex-col">
-                        <DialogHeader className="shrink-0 gap-1.5 border-b px-6 py-4 pr-14 text-left">
-                            <div className="flex min-w-0 items-center gap-3">
-                                <DialogTitle className="font-serif text-xl leading-7 font-normal tracking-tight">Share Folder</DialogTitle>
-                                {status}
+                <Dialog open={!!folder} onOpenChange={(open) => !open && onClose()}>
+                    <DialogContent className="share-dialog max-h-none top-1/2 gap-0 overflow-hidden p-0 sm:max-w-[min(960px,calc(100vw-2rem))]">
+                        <div className="flex h-[min(520px,90dvh)] min-w-0 flex-col">
+                            <DialogHeader className="shrink-0 gap-1.5 border-b px-6 py-4 pr-14 text-left">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <DialogTitle className="font-serif text-xl leading-7 font-normal tracking-tight">Share Folder</DialogTitle>
+                                    {status}
+                                </div>
+                                <DialogDescription className="truncate">{subtitle}</DialogDescription>
+                            </DialogHeader>
+
+                            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain min-[880px]:flex-row min-[880px]:overflow-hidden">
+                                <section aria-label="Sharing options" className="flex min-w-0 flex-col gap-4 p-6 min-[880px]:min-h-0 min-[880px]:flex-1 min-[880px]:overflow-y-auto">
+                                    {options}
+                                    {!isPublic && shareButton}
+                                </section>
+
+                                <section
+                                    aria-labelledby="share-folder-preview-heading"
+                                    className="order-first flex min-w-0 shrink-0 flex-col p-6 pb-0 min-[880px]:order-last min-[880px]:w-[548px] min-[880px]:overflow-y-auto min-[880px]:border-l min-[880px]:bg-muted/30 min-[880px]:pb-6"
+                                >
+                                    {preview}
+                                </section>
                             </div>
-                            <DialogDescription className="truncate">{subtitle}</DialogDescription>
-                        </DialogHeader>
-
-                        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain min-[880px]:flex-row min-[880px]:overflow-hidden">
-                            <section aria-label="Sharing options" className="flex min-w-0 flex-col gap-4 p-6 min-[880px]:min-h-0 min-[880px]:flex-1 min-[880px]:overflow-y-auto">
-                                {options}
-                                {!isPublic && shareButton}
-                            </section>
-
-                            <section
-                                aria-labelledby="share-folder-preview-heading"
-                                className="order-first flex min-w-0 shrink-0 flex-col p-6 pb-0 min-[880px]:order-last min-[880px]:w-[548px] min-[880px]:overflow-y-auto min-[880px]:border-l min-[880px]:bg-muted/30 min-[880px]:pb-6"
-                            >
-                                {preview}
-                            </section>
                         </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
+                    </DialogContent>
+                </Dialog>
             )}
 
             <ConfirmDialog
