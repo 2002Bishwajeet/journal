@@ -20,8 +20,8 @@
 #                               need it here too (a hash or nonce would switch it off)
 #     'wasm-unsafe-eval'        PGlite and WebLLM compile WASM
 #     <CDN hosts>               scripts an html block loads (same srcdoc inheritance)
-#   style-src 'unsafe-inline'   React style=, TipTap, framer-motion, mermaid's <style>,
-#                               and live blocks' inline styles; CDN hosts for blocks
+#   style-src 'unsafe-inline'   React style=, TipTap, framer-motion, and live blocks'
+#                               inline styles; CDN hosts for blocks
 #   font-src 'self' data:       @fontsource fonts; data: and CDN hosts for blocks
 #   img-src 'self' data: blob:  remote images come through the SW's /proxy-image/;
 #                               link previews and svg blocks are data:, share page

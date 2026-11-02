@@ -71,6 +71,39 @@ const get = (key: string) => ({ journalLiveBlock: 1, storage: 'get', request: ++
 const set = (key: string, value: unknown) => ({ journalLiveBlock: 1, storage: 'set', request: ++requestNumber, key, value });
 const valueOf = (replies: unknown[]) => (replies[0] as { value?: unknown }).value;
 
+describe('a mounted mermaid block’s theme (#946)', () => {
+  const mount = async () => {
+    note = document.body.appendChild(document.createElement('div'));
+    root = createRoot(note);
+    await act(async () => root.render(<LiveBlockPreview kind="mermaid" source="graph TD; A-->B" />));
+    for (let i = 0; i < 200 && !note.querySelector('iframe')?.hasAttribute('srcdoc'); i++) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+    }
+    return note.querySelector('iframe')!;
+  };
+  const lookOf = (port: MessagePort) => vi.mocked(port.postMessage).mock.lastCall![0].look as { style: string; themeVariables: string };
+
+  it('should hand the page the look as it connects, and redraw it in a new theme without loading it again', async () => {
+    const frame = await mount();
+    const srcdoc = frame.getAttribute('srcdoc');
+    const port = await connect(frame);
+    expect(lookOf(port).style).toContain('color-scheme:light}');
+    expect(JSON.parse(lookOf(port).themeVariables).darkMode).toBe(false);
+
+    await act(async () => {
+      document.documentElement.classList.add('dark');
+      // The theme is observed through a MutationObserver, which reports asynchronously.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(frame.getAttribute('srcdoc')).toBe(srcdoc);
+    expect(lookOf(port).style).toContain('color-scheme:dark}');
+    expect(JSON.parse(lookOf(port).themeVariables).darkMode).toBe(true);
+  });
+});
+
 describe('a mounted html block’s storage', () => {
   const twoBlocks = async (a: BlockStateStore, b: BlockStateStore) =>
     render(

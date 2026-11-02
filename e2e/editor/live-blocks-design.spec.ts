@@ -125,6 +125,8 @@ async function pasteBlocks(page: Page, blocks: [language: string, code: string][
 
 // One note, checked in light and then in dark: the blocks are drawn again in the new theme.
 test('editor: mermaid, svg and html blocks', async ({ app }) => {
+  // Going between desktop and mobile mounts the editor again, so each diagram's frame loads four times.
+  test.slow();
   await app.setViewportSize(VIEWPORTS.desktop);
   await createNote(app, { title: `Live blocks ${Date.now()}`, body: 'Live blocks in the editor.' });
   await pasteBlocks(app, [...KINDS.map((kind): [string, string] => [kind, SOURCES[kind]]), ['mermaid', BROKEN_MERMAID]]);

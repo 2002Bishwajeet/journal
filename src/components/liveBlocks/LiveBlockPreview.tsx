@@ -6,8 +6,9 @@
  * - mermaid: drawn inside the same frame as an html block (#946), by a mermaid
  *   runtime that vite.config.ts builds into a script inlined in the frame's
  *   srcdoc. Nothing mermaid makes reaches the app's DOM. The app only hands the
- *   page the source and the theme; a parse error is shown on that page, and the
- *   error of a runtime that can't load is shown as text.
+ *   page the source and, over the port below, the theme: a new theme redraws the
+ *   diagram on that page, which does not reload. A parse error is shown on the
+ *   page, and the error of a runtime that can't load is shown as text.
  * - svg: shown through an <img> data URI, so the source is never injected into
  *   the DOM and its scripts never run.
  * - html: runs in a sandboxed srcdoc frame that fills the frame's resizable
@@ -39,6 +40,7 @@ import {
   bridgePortFromMessage,
   buildSrcdoc,
   frameHeightFromMessage,
+  frameRootStyle,
   linkFromMessage,
   mermaidBlockDocument,
   reactBlockDocument,
@@ -103,17 +105,28 @@ function frameTheme(frame: HTMLIFrameElement): FrameTheme {
   };
 }
 
-function HtmlPreview({ source, title, store, onHeight, wide }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide'> & { title: string }) {
+function HtmlPreview({
+  source,
+  title,
+  store,
+  onHeight,
+  wide,
+  themeVariables,
+}: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide'> & { title: string; themeVariables?: string }) {
   // State, not a ref: the frame's document takes its look from the mounted element.
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
   // What the app knows the frame's own page by (#945). It stays the same through a reload of that page.
   const [bridgeToken] = useState(() => crypto.randomUUID());
   // Rebuilt when the look changes, which reloads the page in the frame.
-  const srcDoc = useSyncExternalStore(
+  const currentDoc = useSyncExternalStore(
     subscribeToRootAttributes,
     () => (frame ? buildSrcdoc(source, frameTheme(frame), bridgeToken) : undefined),
     () => undefined,
   );
+  // A page with `themeVariables` keeps the document it loaded, and redraws for a new look (below).
+  const [firstDoc, setFirstDoc] = useState(currentDoc);
+  if (currentDoc && !firstDoc) setFirstDoc(currentDoc);
+  const srcDoc = themeVariables === undefined ? currentDoc : firstDoc;
 
   // The block's saved state is kept by the app, not the frame, so a reload of the frame keeps it.
   const [session] = useState(createBlockStateSession);
@@ -147,6 +160,11 @@ function HtmlPreview({ source, title, store, onHeight, wide }: Pick<LiveBlockPre
     port.start();
     return () => port.removeEventListener('message', onMessage);
   }, [port, onHeight, session, blockStore, wide]);
+
+  useEffect(() => {
+    if (!port || !frame || themeVariables === undefined) return;
+    port.postMessage({ journalLiveBlock: 1, look: { style: frameRootStyle(frameTheme(frame)), themeVariables } });
+  }, [port, frame, themeVariables]);
 
   // No background: the page inside is see-through, so the note shows behind it.
   return (
@@ -348,11 +366,17 @@ function MermaidPreview({ source }: { source: string }) {
   if ('error' in runtime) return <PreviewError title="Couldn’t load Mermaid for this diagram.">{runtime.error}</PreviewError>;
   // The frame reaches FRAME_BLEED past the block on every side, as in LiveBlockFrame's box for an
   // html block. This box is here because a mermaid block's code view must not stay in it; flow-root
-  // keeps its margins in.
+  // keeps its margins in. A frame of its own for each source, as only a new theme keeps the page.
   return (
     <div className="flow-root">
       <div className="relative -m-3 box-content! overflow-hidden p-3" style={{ height }}>
-        <HtmlPreview source={mermaidBlockDocument(runtime.script, source, mermaidThemeVariables(dark))} title="Mermaid preview" onHeight={setHeight} />
+        <HtmlPreview
+          key={source}
+          source={mermaidBlockDocument(runtime.script, source)}
+          title="Mermaid preview"
+          onHeight={setHeight}
+          themeVariables={JSON.stringify(mermaidThemeVariables(dark))}
+        />
       </div>
     </div>
   );

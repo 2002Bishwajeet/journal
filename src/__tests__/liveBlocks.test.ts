@@ -15,13 +15,14 @@ import {
 } from '@/lib/liveBlocks';
 
 describe('mermaidBlockDocument (#946)', () => {
-  const THEME_VARIABLES = { fontFamily: "'Inter Variable', sans-serif", background: '#FDFCF8' };
-  const page = (source: string) => mermaidBlockDocument('window.mermaid = {};', source, THEME_VARIABLES);
+  const page = (source: string) => mermaidBlockDocument('window.mermaid = {};', source);
 
-  it('should keep mermaid in strict mode, in the theme it is handed', () => {
-    expect(page('graph TD; A-->B')).toContain(
-      `mermaid.initialize(${JSON.stringify({ startOnLoad: false, securityLevel: 'strict', look: 'classic', theme: 'base', themeVariables: THEME_VARIABLES })})`,
+  it('should keep mermaid in strict mode, in the theme the app sends', () => {
+    const built = page('graph TD; A-->B');
+    expect(built).toContain(
+      `mermaid.initialize(Object.assign(${JSON.stringify({ startOnLoad: false, securityLevel: 'strict', look: 'classic', theme: 'base' })}, { themeVariables: themeVariables }))`,
     );
+    expect(built).toContain("addEventListener('journal-look', draw)");
   });
 
   it('should hand the source over as a string, which cannot end the script it is in', () => {

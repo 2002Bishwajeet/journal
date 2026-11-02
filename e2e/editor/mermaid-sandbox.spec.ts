@@ -69,6 +69,25 @@ test('editor: a diagram link opens in a new tab, and the diagram stays put', asy
   await expect(frame.locator('svg[id^="mermaid-"]')).toBeVisible();
 });
 
+test('editor: a new theme redraws a diagram on the page it is on, which does not load again', async ({ app }) => {
+  await createNote(app, { title: `Mermaid theme ${Date.now()}`, body: 'A paragraph.' });
+  await app.keyboard.press('Enter');
+  await pastePlainText(app, '```mermaid\ngraph TD\n  A[One] --> B[Two]\n```');
+
+  const block = activeEditor(app).locator('[data-live-block="mermaid"]');
+  const frame = mermaidFrame(block);
+  await expect(frame.locator('svg#mermaid-1')).toBeVisible({ timeout: 30_000 });
+  const page = frame.locator('html');
+  await page.evaluate((html) => html.setAttribute('data-first-page', ''));
+  const { height } = (await block.boundingBox())!;
+
+  await app.emulateMedia({ colorScheme: 'dark' });
+  await expect(frame.locator('svg#mermaid-2')).toBeVisible();
+  await expect(page).toHaveAttribute('data-first-page', '');
+  await expect(page).toHaveCSS('color-scheme', 'dark');
+  expect((await block.boundingBox())!.height).toBe(height);
+});
+
 // The share page reads a public note from its author's identity. There is no fake drive (#196):
 // the GETs of one read are answered with canned values, as in e2e/editor/mermaid-labels.spec.ts.
 const AUTHOR = 'e2e-author.homebase.test';
