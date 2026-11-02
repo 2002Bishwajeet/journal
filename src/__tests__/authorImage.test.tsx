@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-/** The sidebar and the Share pill's "People with access": our own photo straight from our public image, and initials while a contact loads. */
+/** The sidebar and the Share pill's "People with access": our own photo from our public image through the service worker's proxy, and initials while a contact loads. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act, createElement } from 'react';
@@ -18,10 +18,15 @@ vi.mock('@/hooks/connections/useIsConnected', () => ({ useIsConnected: mocks.use
 import { AuthorImage, OwnerImage } from '@/components/author/AuthorImage';
 import { PersonLabel } from '@/components/share/SharePeopleSection';
 
+const PROXIED_PHOTO = `/proxy-image/${encodeURIComponent('https://me.example.com/pub/image')}`;
+
 let container: HTMLDivElement;
 let root: Root;
+let serviceWorker: EventTarget & { controller: object | null };
 
 beforeEach(() => {
+    serviceWorker = Object.assign(new EventTarget(), { controller: {} });
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: serviceWorker });
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -32,6 +37,7 @@ beforeEach(() => {
 afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    delete (navigator as { serviceWorker?: unknown }).serviceWorker;
 });
 
 describe('OwnerImage', () => {
@@ -40,7 +46,7 @@ describe('OwnerImage', () => {
         act(() => root.render(createElement(OwnerImage, { size: 'xs' })));
 
         expect(container.textContent).toBe('ME');
-        expect(container.querySelector('img')!.getAttribute('src')).toBe('https://me.example.com/pub/image');
+        expect(container.querySelector('img')!.getAttribute('src')).toBe(PROXIED_PHOTO);
     });
 
     it('fits the initials to the circle instead of the 40px fallback default', () => {
@@ -50,6 +56,26 @@ describe('OwnerImage', () => {
         expect(fallback.className).toContain('size-full');
         expect(fallback.className).not.toContain('h-10');
     });
+
+    it('waits with initials until a service worker controls the page, then loads the photo', () => {
+        serviceWorker.controller = null;
+        act(() => root.render(createElement(OwnerImage, { size: 'xs' })));
+
+        expect(container.querySelector('img')).toBeNull();
+        expect(container.textContent).toBe('ME');
+
+        serviceWorker.controller = {};
+        act(() => serviceWorker.dispatchEvent(new Event('controllerchange')));
+        expect(container.querySelector('img')!.getAttribute('src')).toBe(PROXIED_PHOTO);
+    });
+
+    it('keeps initials where service workers are unavailable', () => {
+        delete (navigator as { serviceWorker?: unknown }).serviceWorker;
+        act(() => root.render(createElement(OwnerImage, { size: 'xs' })));
+
+        expect(container.querySelector('img')).toBeNull();
+        expect(container.textContent).toBe('ME');
+    });
 });
 
 describe('AuthorImage', () => {
@@ -57,7 +83,7 @@ describe('AuthorImage', () => {
         act(() => root.render(createElement(AuthorImage, {})));
 
         expect(mocks.useContact).not.toHaveBeenCalled();
-        expect(container.querySelector('img')!.getAttribute('src')).toBe('https://me.example.com/pub/image');
+        expect(container.querySelector('img')!.getAttribute('src')).toBe(PROXIED_PHOTO);
     });
 
     it("loads the signed-in identity's public photo straight away, with initials until it arrives", () => {
@@ -67,7 +93,7 @@ describe('AuthorImage', () => {
         expect(mocks.useContact).not.toHaveBeenCalled();
         expect(mocks.useIsConnected).not.toHaveBeenCalled();
         const img = container.querySelector('img')!;
-        expect(img.getAttribute('src')).toBe('https://me.example.com/pub/image');
+        expect(img.getAttribute('src')).toBe(PROXIED_PHOTO);
         expect(img.className).toBe('hidden');
         expect(container.textContent).toBe('ME');
 

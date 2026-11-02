@@ -59,6 +59,27 @@ test('the shell carries the Report-Only policy, also when the service worker ser
   });
 });
 
+test("the sidebar's owner photo loads through the service worker on a first visit, violating nothing", async ({ browser }) => {
+  test.skip(process.env.E2E_SERVER === 'dev', 'needs the preview build');
+  await withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json', serviceWorkers: 'allow' }, async (page) => {
+    await page.context().route('https://e2e-owner.homebase.test/pub/image', (route) =>
+      route.fulfill({
+        contentType: 'image/png',
+        headers: { 'access-control-allow-origin': '*' },
+        body: Buffer.from(PIXEL.split(',')[1], 'base64'),
+      }),
+    );
+    const collector = await collectViolations(page);
+    await page.goto('/');
+    await assertTestOrigin(page);
+    await waitForAppReady(page);
+
+    const photo = page.locator('img[src^="/proxy-image/"]').first();
+    await expect.poll(() => photo.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
+    await expectNoViolations(collector);
+  });
+});
+
 test('signed out: booting to the welcome page violates nothing', async ({ anonPage }) => {
   const collector = await collectViolations(anonPage);
   await anonPage.goto('/');
