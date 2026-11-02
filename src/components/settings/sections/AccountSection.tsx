@@ -29,11 +29,12 @@ export default function AccountSection() {
   }
 
   return (
+    <>
     <div className="overflow-hidden rounded-xl border bg-card">
       <SettingsRow
         id="account-identity"
         label="Signed in as"
-        control={<span className="font-mono text-sm break-all">{identity}</span>}
+        control={<span className="text-sm break-all">{identity}</span>}
       />
       <SettingsRow
         id="account-sync"
@@ -92,26 +93,21 @@ export default function AccountSection() {
           }
         />
       )}
-      <SettingsRow
-        id="account-sign-out"
-        label="Sign out"
-        control={
-          <Button
-            variant="outline"
-            // The dark --destructive token (#7f1d1d) is ~1.7:1 on the dialog; red-400 reads.
-            className="min-h-11 md:min-h-0 text-destructive hover:text-destructive dark:text-red-400 dark:hover:text-red-400"
-            onClick={() => setConfirmOpen(true)}
-          >
-            Sign out
-          </Button>
-        }
-      />
-      <SignOutConfirmDialog
-        isOpen={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        onConfirm={() => signOut()}
-        pendingTotal={pendingTotal + failedTotal}
-      />
     </div>
+    <Button
+      variant="outline"
+      // The dark --destructive token (#7f1d1d) is ~1.7:1 on the dialog; red-400 reads.
+      className="mt-6 min-h-11 w-full text-destructive hover:text-destructive dark:text-red-400 dark:hover:text-red-400"
+      onClick={() => setConfirmOpen(true)}
+    >
+      Sign out
+    </Button>
+    <SignOutConfirmDialog
+      isOpen={confirmOpen}
+      onClose={() => setConfirmOpen(false)}
+      onConfirm={() => signOut()}
+      pendingTotal={pendingTotal + failedTotal}
+    />
+    </>
   );
 }
