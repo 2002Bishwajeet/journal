@@ -16,6 +16,19 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.53.0 (2026-11-02)
+
+### Changed
+
+- When the assistant proposes a change to a public note or a note in a shared folder, the card shows "Will be public".
+- The assistant treats the text in your notes as data. It does not obey instructions in a note.
+
+### Fixed
+
+- A live block in a note cannot go to another web address in its frame. Before, a block could send its saved data to a different site when you opened the note.
+- An agent cannot add an external image, link preview or diagram URL that can send note text to another site.
+- When an agent writes to a public note, the result tells you that the note is public.
+
 ## 2.52.5 (2026-10-28)
 
 ### Fixed
