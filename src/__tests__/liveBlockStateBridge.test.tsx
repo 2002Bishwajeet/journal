@@ -272,7 +272,7 @@ describe('an html block in the editor (#950)', () => {
   it("should give a copy of a block an id of its own on its first save, and never the first one's state", async () => {
     const states = new Y.Doc();
     setBlockState(states, 'k3f9', '{"count":3}');
-    const [first, copy] = await render(<Note content={[code('html id=k3f9', '<p>A</p>'), code('html id=k3f9 wide', '<p>B</p>')]} readOnly={false} states={states} />, 2);
+    const [first, copy] = await render(<Note content={[code('html id=k3f9', '<p>A</p>'), code('html id=k3f9 wide', '<p>B</p>')]} readOnly={false} states={states} />);
     expect(valueOf(ask(first, get('count')))).toBe(3);
     expect(valueOf(ask(copy, get('count')))).toBeUndefined();
 
@@ -288,7 +288,7 @@ describe('an html block in the editor (#950)', () => {
     const states = new Y.Doc();
     setBlockState(states, 'k3f9', '{"count":3}');
     const before = Y.encodeStateAsUpdate(states);
-    const frames = await render(<Note content={[code('html id=k3f9', '<p>A</p>'), code('html', '<p>B</p>')]} readOnly states={states} />, 2);
+    const frames = await render(<Note content={[code('html id=k3f9', '<p>A</p>'), code('html', '<p>B</p>')]} readOnly states={states} />);
     expect(valueOf(ask(frames[0], get('count')))).toBe(3);
 
     await setCount(frames, 10);

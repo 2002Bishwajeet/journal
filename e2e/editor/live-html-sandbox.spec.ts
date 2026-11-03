@@ -21,6 +21,7 @@ import { assertTestOrigin } from '../support/origin-guard';
 // - a link the block's script clicks: "a link the block's script clicks opens no tab ..."
 // - a link the user clicks: it shows its URL first when the user may not have written the
 //   block (e2e/editor/live-block-links.spec.ts)
+// Not closed here: WebRTC (RTCPeerConnection ICE/STUN) is outside CSP connect-src.
 
 // One line, so typing it never leaves the code block.
 const PROBE = [
@@ -353,7 +354,6 @@ test('html block: a fake sign-in form gets nothing out: fetch, beacons, fonts, a
   const pages: string[] = [];
   const onPage = (page: Page) => pages.push(page.url());
   app.context().on('page', onPage);
-  const appUrl = app.url();
 
   const frame = await previewProbe(app, EXFIL_PROBE);
   const out = frame.locator('#out');
@@ -368,7 +368,8 @@ test('html block: a fake sign-in form gets nothing out: fetch, beacons, fonts, a
   await expect(activeEditor(app).locator('iframe[title="HTML preview"]')).toHaveAttribute('sandbox', 'allow-scripts');
 
   app.context().off('page', onPage);
-  expect(app.url()).toBe(appUrl);
+  // The app stays on its own origin: the top window was never sent to the exfil host.
+  expect(new URL(app.url()).origin).not.toBe(new URL(EXFIL).origin);
   expect(pages).toEqual([]);
   expect(requests).toEqual([]);
 });

@@ -82,9 +82,10 @@ test('html block: in a note shared with you it runs without a click, and its lin
     await expect(sheet).toContainText(LINK);
     await expect(sheet.getByText('pw=hunter2', { exact: false })).toBeVisible();
     for (const name of ['Cancel', 'Open link']) {
-      const box = (await sheet.getByRole('button', { name }).boundingBox())!;
       // A touch target on the phone; a desktop with a mouse keeps the 36px button.
-      expect(box.height).toBeGreaterThanOrEqual(viewport.name === 'mobile' ? 44 : 36);
+      // offsetHeight ignores the open animation's scale, so it is the settled height.
+      const height = await sheet.getByRole('button', { name }).evaluate((e) => (e as HTMLElement).offsetHeight);
+      expect(height).toBeGreaterThanOrEqual(viewport.name === 'mobile' ? 44 : 36);
     }
     await inBothThemes(app, async (theme) => {
       await expect(sheet).toBeVisible();
