@@ -3,9 +3,12 @@ import { ChevronLeft, FileText, MoreHorizontal, Trash2, type LucideIcon } from "
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ActionSheet } from "@/components/ui/action-sheet";
+import { ContextMenuWrapper, RowOptionsMenu, type ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper";
 import { ConfirmDialog } from "@/components/modals";
 import { useLargeTitle } from "@/hooks/useLargeTitle";
-import { cn } from "@/lib/utils";
+import { useSwipeRow } from "@/hooks/useSwipeRow";
+import { haptic } from "@/lib/haptics";
+import { cn, formatRelativeTime } from "@/lib/utils";
 import type { NoteListEntry } from "@/types";
 import { BarTitle, EmptyState, LargeTitle } from "./LargeTitle";
 import { FILL_EMPTY_VIEWPORT, largeTitleBarClass } from "./largeTitleClasses";
@@ -27,7 +30,7 @@ interface HiddenNotesViewProps {
   emptyLabel: string;
   /** Phone and tablet: the sentence under the empty label (#830). */
   emptyDescription: string;
-  /** Per-note action buttons (e.g. Restore, Delete forever). */
+  /** Per-note actions (e.g. Restore, Delete forever): row buttons on desktop; compact puts them in the row's sheet and swipes to the destructive one (#977). */
   rowActions: HiddenNoteRowAction[];
   /** Optional header action (e.g. "Empty Trash"), asked to confirm first; disabled when the list is empty. */
   headerAction?: { label: string; onClick: () => void; confirm: { title: string; description: string } };
@@ -64,6 +67,10 @@ function HiddenNotesViewComponent({
   const confirmAfterClose = useRef(false);
   const largeTitle = useLargeTitle(compact);
   const isEmpty = !isLoading && notes.length === 0;
+  // Compact: one swiped-open row at a time; it closes on scroll and on a tap outside it.
+  const [openRowId, setOpenRowId] = useState<string | null>(null);
+  const handleSwipeChange = (id: string, open: boolean) =>
+    setOpenRowId((cur) => (open ? id : cur === id ? null : cur));
 
   const list = (
     <ul className="pb-[var(--fab-clearance,0px)]">
@@ -138,8 +145,14 @@ function HiddenNotesViewComponent({
             </Button>
           )}
         </div>
+        {/* Radix wraps the content in a display:table div that grows to the longest title; block keeps
+            rows inside the screen. A finger scrolls with no scrollbar, as the platform's lists do. */}
         <ScrollArea
-          className={cn("flex-1 min-h-0", isEmpty && FILL_EMPTY_VIEWPORT)}
+          className={cn(
+            "flex-1 min-h-0 [&_[data-slot=scroll-area-viewport]>div]:!block pointer-coarse:[&_[data-slot=scroll-area-scrollbar]]:hidden",
+            isEmpty && FILL_EMPTY_VIEWPORT,
+          )}
+          onScrollCapture={() => setOpenRowId(null)}
         >
           <div className="flex h-full flex-col">
             <LargeTitle titleRef={largeTitle.ref}>{title}</LargeTitle>
@@ -148,7 +161,17 @@ function HiddenNotesViewComponent({
             ) : isEmpty ? (
               <EmptyState icon={EmptyIcon} title={emptyLabel} description={emptyDescription} />
             ) : (
-              list
+              <ul className="pb-[var(--fab-clearance,0px)]">
+                {notes.map((note) => (
+                  <HiddenNoteRow
+                    key={note.docId}
+                    note={note}
+                    actions={rowActions}
+                    isSwiped={openRowId === note.docId}
+                    onSwipeChange={handleSwipeChange}
+                  />
+                ))}
+              </ul>
             )}
           </div>
         </ScrollArea>
@@ -218,3 +241,84 @@ function HiddenNotesViewComponent({
 }
 
 export const HiddenNotesView = memo(HiddenNotesViewComponent);
+
+/**
+ * A phone and tablet row (#977), like a note list row: one line each of title and preview
+ * inside the 16 px gutter, when the note was last edited (no deletion date is kept), the
+ * actions in a sheet from a long press or the … button, and a left swipe to the destructive one.
+ */
+function HiddenNoteRow({
+  note,
+  actions,
+  isSwiped,
+  onSwipeChange,
+}: {
+  note: NoteListEntry;
+  actions: HiddenNoteRowAction[];
+  isSwiped: boolean;
+  onSwipeChange: (id: string, open: boolean) => void;
+}) {
+  const { rowRef, contentRef, actionRef, touchHandlers } = useSwipeRow(note.docId, isSwiped, onSwipeChange);
+  const items: ContextMenuItemConfig[] = actions.map((action) => ({
+    label: action.label,
+    icon: action.icon,
+    variant: action.destructive ? "destructive" : "default",
+    action: () => action.onClick(note.docId),
+  }));
+  const swipeAction = actions.find((action) => action.destructive);
+  const SwipeIcon = swipeAction?.icon;
+  const edited = formatRelativeTime(note.metadata.timestamps.modified);
+
+  return (
+    <li>
+      <div
+        ref={rowRef}
+        data-testid="hidden-note-row"
+        className="relative overflow-hidden select-none [-webkit-touch-callout:none]"
+        style={{ contentVisibility: "auto", containIntrinsicSize: "auto 76px" }}
+        onClick={isSwiped ? () => onSwipeChange(note.docId, false) : undefined}
+      >
+        <ContextMenuWrapper items={items}>
+          <div className="relative">
+            {swipeAction && SwipeIcon && (
+              <div
+                ref={actionRef}
+                className="absolute inset-y-0 right-0 w-20 bg-destructive text-destructive-foreground transition-all duration-(--duration-fade) ease-(--ease-standard)"
+                style={{ transform: "translateX(100%)", opacity: 0 }}
+              >
+                <button
+                  type="button"
+                  aria-label={swipeAction.label}
+                  className="flex size-full items-center justify-center"
+                  onClick={() => {
+                    haptic("medium");
+                    swipeAction.onClick(note.docId);
+                  }}
+                >
+                  <SwipeIcon className="size-5" />
+                </button>
+              </div>
+            )}
+            <div
+              ref={contentRef}
+              {...touchHandlers}
+              style={{ touchAction: "pan-y" }}
+              className="relative flex items-center gap-2 bg-background py-3 pl-4 pr-1 transition-transform duration-(--duration-fade) ease-(--ease-standard) after:absolute after:inset-x-0 after:bottom-0 after:ml-4 after:h-px after:bg-border/50"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{note.title || "Untitled"}</p>
+                <p className="truncate text-xs text-muted-foreground">{note.preview || "No content"}</p>
+                {edited && (
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground/70">
+                    Edited {edited.replace("Just now", "just now")}
+                  </p>
+                )}
+              </div>
+              <RowOptionsMenu items={items} label="Note options" />
+            </div>
+          </div>
+        </ContextMenuWrapper>
+      </div>
+    </li>
+  );
+}

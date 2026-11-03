@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
+import { useState, useMemo, useCallback, useRef, memo } from "react";
 import {
   Plus,
   FileText,
@@ -34,9 +34,9 @@ import { useSyncService } from "@/hooks/useSyncService";
 import { useNotes } from "@/hooks/useNotes";
 import { getNoteGroup } from "@/helpers/dateGrouping";
 import { useIntersection } from "@/hooks/useIntersection";
-import { swipeAxis } from "@/helpers/swipeAxis";
 import { haptic } from "@/lib/haptics";
 import { useLargeTitle } from "@/hooks/useLargeTitle";
+import { useSwipeRow } from "@/hooks/useSwipeRow";
 import { BarTitle, LargeTitle } from "./LargeTitle";
 import { FILL_EMPTY_VIEWPORT, largeTitleBarClass } from "./largeTitleClasses";
 
@@ -381,26 +381,6 @@ export default function NoteList({
   );
 }
 
-const minSwipeDistance = 50;
-const maxSwipeDistance = 80;
-
-// Moves a swiped row to `offset` px. While dragging, the CSS transition is off so
-// the row follows the finger; on release it is back on for the snap.
-function moveRow(
-  content: HTMLElement | null,
-  action: HTMLElement | null,
-  offset: number,
-  dragging: boolean,
-) {
-  if (!content || !action) return;
-  const transition = dragging ? "none" : "";
-  content.style.transition = transition;
-  action.style.transition = transition;
-  content.style.transform = `translateX(-${offset}px)`;
-  action.style.transform = `translateX(${100 - (offset / maxSwipeDistance) * 100}%)`;
-  action.style.opacity = String(Math.min(offset / minSwipeDistance, 1));
-}
-
 // Extracted NoteItem for cleaner swipe logic with enhanced touch implementation
 const NoteItem = memo(function NoteItem({
   note,
@@ -428,82 +408,12 @@ const NoteItem = memo(function NoteItem({
   onArchive?: (note: NoteListEntry) => void;
 }) {
   const dotYouClient = useDotYouClientContext();
-  const rowRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const actionRef = useRef<HTMLDivElement>(null);
-  // The gesture lives in a ref: the drag writes the transform to the DOM, so a
-  // touchmove does not re-render the row.
-  const gesture = useRef<{
-    x: number;
-    y: number;
-    axis: "x" | "y" | null;
-    offset: number;
-  } | null>(null);
+  const { rowRef, contentRef, actionRef, touchHandlers } = useSwipeRow(note.docId, isSwiped, onSwipeChange);
 
   const agentName = agentDisplayName(note.metadata.lastEditedBy);
   const isPeerNote =
     !!note.metadata.authorOdinId &&
     note.metadata.authorOdinId !== dotYouClient.getHostIdentity();
-
-  // Sync the row to the open state, so a close from outside animates too.
-  useEffect(() => {
-    moveRow(contentRef.current, actionRef.current, isSwiped ? maxSwipeDistance : 0, false);
-  }, [isSwiped]);
-
-  // A tap anywhere outside an open row closes it.
-  useEffect(() => {
-    if (!isSwiped) return;
-    const closeOnOutsidePress = (e: PointerEvent) => {
-      if (!rowRef.current?.contains(e.target as Node)) {
-        onSwipeChange(note.docId, false);
-      }
-    };
-    document.addEventListener("pointerdown", closeOnOutsidePress);
-    return () => document.removeEventListener("pointerdown", closeOnOutsidePress);
-  }, [isSwiped, note.docId, onSwipeChange]);
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    gesture.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-      axis: null,
-      offset: isSwiped ? maxSwipeDistance : 0,
-    };
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    const g = gesture.current;
-    if (!g || g.axis === "y") return;
-    const dx = e.touches[0].clientX - g.x;
-    const dy = e.touches[0].clientY - g.y;
-    g.axis ??= swipeAxis(dx, dy);
-    // Undecided yet, or a vertical scroll: leave the row alone until touchend.
-    if (g.axis !== "x") return;
-
-    const base = isSwiped ? maxSwipeDistance : 0;
-    const raw = base - dx;
-    const offset =
-      raw > maxSwipeDistance
-        ? Math.min(maxSwipeDistance + (raw - maxSwipeDistance) * 0.2, 100)
-        : Math.max(raw, 0);
-    g.offset = offset;
-    moveRow(contentRef.current, actionRef.current, offset, true);
-  };
-
-  const onTouchEnd = () => {
-    const g = gesture.current;
-    gesture.current = null;
-    if (g?.axis !== "x") return;
-
-    const open = isSwiped
-      ? g.offset > maxSwipeDistance - minSwipeDistance
-      : g.offset > minSwipeDistance;
-    moveRow(contentRef.current, actionRef.current, open ? maxSwipeDistance : 0, false);
-    if (open !== isSwiped) {
-      onSwipeChange(note.docId, open);
-      haptic(open ? "medium" : "light");
-    }
-  };
 
   const handleGlobalClick = (e: React.MouseEvent) => {
     if (isSwiped) {
@@ -567,10 +477,7 @@ const NoteItem = memo(function NoteItem({
                 onSelectNote(note.docId);
               }
             }}
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
-            onTouchCancel={onTouchEnd}
+            {...touchHandlers}
             className={cn(
               "relative grid grid-cols-1 w-full px-4 py-3.5 text-left bg-background group cursor-pointer outline-none focus:bg-accent select-none",
               "hover:bg-accent",

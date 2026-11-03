@@ -6,7 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { Trash2 } from "lucide-react";
 import type { ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper";
 import { NoteListPane } from "@/components/layout/NoteListPane";
-import { HiddenNotesView } from "@/components/layout/HiddenNotesView";
+import { HiddenNotesView, type HiddenNoteRowAction } from "@/components/layout/HiddenNotesView";
 import { useLargeTitle } from "@/hooks/useLargeTitle";
 import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
@@ -106,9 +106,14 @@ describe("list empty states on a phone (#830)", () => {
   });
 });
 
-const note = { docId: "n1", title: "Old note", preview: "" } as NoteListEntry;
+const note = {
+  docId: "n1",
+  title: "Old note",
+  preview: "",
+  metadata: { timestamps: { created: new Date().toISOString(), modified: new Date().toISOString() } },
+} as NoteListEntry;
 
-function trash(props: { compact: boolean; notes?: NoteListEntry[]; onEmpty?: () => void }) {
+function trash(props: { compact: boolean; notes?: NoteListEntry[]; onEmpty?: () => void; rowActions?: HiddenNoteRowAction[] }) {
   return (
     <HiddenNotesView
       title="Trash"
@@ -116,7 +121,7 @@ function trash(props: { compact: boolean; notes?: NoteListEntry[]; onEmpty?: () 
       emptyIcon={Trash2}
       emptyLabel="Trash is empty"
       emptyDescription="Deleted notes stay here until you empty Trash."
-      rowActions={[]}
+      rowActions={props.rowActions ?? []}
       headerAction={{ label: "Empty Trash", onClick: props.onEmpty ?? vi.fn(), confirm: { title: "Empty Trash?", description: "" } }}
       compact={props.compact}
       onBack={props.compact ? vi.fn() : undefined}
@@ -159,6 +164,54 @@ describe("Trash on a phone (#830)", () => {
     expect(onEmpty).not.toHaveBeenCalled();
     await click(container.querySelector("[role=dialog] button")!);
     expect(onEmpty).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Trash rows on a phone (#977)", () => {
+  const matchMedia = window.matchMedia;
+  afterEach(() => {
+    window.matchMedia = matchMedia;
+  });
+
+  it("show when the note was last edited, and a long press restores or deletes it forever", async () => {
+    // A finger: the long press opens the actions in a sheet.
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("coarse"),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+    const restore = vi.fn();
+    const deleteForever = vi.fn();
+    await render(
+      trash({
+        compact: true,
+        rowActions: [
+          { icon: Trash2, label: "Restore note", onClick: restore },
+          { icon: Trash2, label: "Delete forever", onClick: deleteForever, destructive: true },
+        ],
+      }),
+    );
+    const row = container.querySelector("[data-testid=hidden-note-row]")!;
+    expect(row.textContent).toContain("Edited just now");
+    // Row buttons are desktop's; a phone has the sheet, the … button and the swipe.
+    expect(button("Restore note")).toBeUndefined();
+    expect(button("Note options")).toBeDefined();
+
+    const longPress = () =>
+      act(async () => {
+        row.querySelector("p")!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      });
+    const item = (name: string) => [...container.querySelectorAll("[role=menuitem]")].find((el) => el.textContent === name);
+
+    await longPress();
+    expect([...container.querySelectorAll("[role=menuitem]")].map((el) => el.textContent)).toEqual(["Restore note", "Delete forever"]);
+    await click(item("Restore note"));
+    expect(restore).toHaveBeenCalledWith("n1");
+
+    await longPress();
+    await click(item("Delete forever"));
+    expect(deleteForever).toHaveBeenCalledWith("n1");
   });
 });
 
