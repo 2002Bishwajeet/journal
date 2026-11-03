@@ -1153,6 +1153,20 @@ img.ProseMirror-separator {
   background-color: var(--accent);
 }
 
+/* Motion tokens (#857): one set of curves and durations for push and pop, sheets, dialogs,
+   the tab bar and the New note button. src/lib/motion.ts holds the same values for
+   framer-motion; src/__tests__/motion.test.ts keeps the two equal. AGENTS.md (UI Floors &
+   Motion) says which kind of motion uses which. */
+:root {
+  --ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-exit: cubic-bezier(0.23, 1, 0.32, 1);
+  --duration-push: 350ms;
+  --duration-sheet: 400ms;
+  --duration-sheet-exit: 250ms;
+  --duration-fade: 200ms;
+  --duration-press: 100ms;
+}
+
 /* View Transitions (Native Slide Effect) */
 @keyframes fade-in {
   from { opacity: 0; }
@@ -1162,26 +1176,27 @@ img.ProseMirror-separator {
   to { opacity: 0; }
 }
 
-@keyframes slide-from-right {
+/* iOS parallax: the top screen moves the full width, the screen under it 30 % with a dim. */
+@keyframes push-in {
   from { transform: translateX(100%); }
 }
 
-@keyframes slide-to-left {
-  to { transform: translateX(-100%); }
+@keyframes push-under {
+  to { transform: translateX(-30%); filter: brightness(0.9); }
 }
 
-@keyframes slide-from-left {
-  from { transform: translateX(-100%); }
-}
-
-@keyframes slide-to-right {
+@keyframes pop-out {
   to { transform: translateX(100%); }
+}
+
+@keyframes pop-under {
+  from { transform: translateX(-30%); filter: brightness(0.9); }
 }
 
 /* Base fade for desktop or default */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 0.2s;
+  animation-duration: var(--duration-fade);
   animation-fill-mode: both;
 }
 
@@ -1193,29 +1208,33 @@ img.ProseMirror-separator {
   animation-name: fade-in;
 }
 
-/* Phone push and pop (#779, phones only: tablets show two panes): forward slides in from the right; back
-   (data-nav="back"); slideNavigate in navDirection.ts starts them slides in from the left. */
+/* Phone push and pop (#779, phones only: tablets show two panes): forward, the next screen
+   slides in from the right over the previous one; back (data-nav="back"), the top screen
+   slides out to the right off the one under it. slideNavigate in navDirection.ts starts them.
+   The screens overlap, so no plus-lighter blend; on back the old screen is the top one. */
 @media (max-width: 767.98px) and (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root),
   ::view-transition-new(root) {
-    animation-duration: 0.25s;
-    animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+    animation-duration: var(--duration-push);
+    animation-timing-function: var(--ease-standard);
+    mix-blend-mode: normal;
   }
 
   ::view-transition-old(root) {
-    animation-name: slide-to-left;
+    animation-name: push-under;
   }
 
   ::view-transition-new(root) {
-    animation-name: slide-from-right;
+    animation-name: push-in;
   }
 
   :root[data-nav="back"]::view-transition-old(root) {
-    animation-name: slide-to-right;
+    animation-name: pop-out;
+    z-index: 1;
   }
 
   :root[data-nav="back"]::view-transition-new(root) {
-    animation-name: slide-from-left;
+    animation-name: pop-under;
   }
 }
 
@@ -1276,10 +1295,27 @@ html[data-fab] {
   right: calc(16px + env(safe-area-inset-right));
   bottom: calc(var(--fab-bottom) + env(safe-area-inset-bottom));
   box-shadow: 0 1px 2px rgb(28 27 26 / 0.16), 0 6px 16px -4px rgb(28 27 26 / 0.32);
-  transition: transform 100ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition:
+    transform var(--duration-press) var(--ease-standard),
+    opacity var(--duration-fade) var(--ease-standard),
+    translate var(--duration-fade) var(--ease-standard);
 }
 .new-note-fab:active {
-  transform: scale(0.96);
+  transform: scale(0.94);
+}
+/* The tab bar and the New note button fade up 12 px when they show (#857). They hide at once:
+   a push carries them off with the old screen, and the keyboard or a sheet covers them. */
+.mobile-tab-bar {
+  transition:
+    opacity var(--duration-fade) var(--ease-standard),
+    translate var(--duration-fade) var(--ease-standard);
+}
+@starting-style {
+  .new-note-fab,
+  .mobile-tab-bar {
+    opacity: 0;
+    translate: 0 12px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .new-note-fab:active {

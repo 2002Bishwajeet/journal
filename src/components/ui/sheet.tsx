@@ -13,6 +13,7 @@ import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { followKeyboardBottom } from "@/lib/keyboardViewport"
+import { transitions } from "@/lib/motion"
 import {
   Dialog,
   DialogClose,
@@ -76,11 +77,11 @@ function SheetContent({
         close()
       }
       if (reduceMotion) done()
-      else animate(y, height, { duration: 0.2, ease: "easeOut", onComplete: done })
+      else animate(y, height, { ...transitions.sheetExit, onComplete: done })
     } else if (reduceMotion) {
       y.set(0)
     } else {
-      animate(y, 0, { type: "spring", stiffness: 500, damping: 40 })
+      animate(y, 0, { ...transitions.sheet, velocity: info.velocity.y })
     }
   }
 
@@ -126,7 +127,7 @@ function SheetContent({
             dragMomentum={false}
             onDragEnd={handleDragEnd}
             className={cn(
-              "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom-full data-[state=closed]:slide-out-to-bottom-full fixed z-50 flex flex-col overflow-hidden shadow-lg transition-none duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] data-[state=closed]:duration-200 outline-none",
+              "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom-full data-[state=closed]:slide-out-to-bottom-full fixed z-50 flex flex-col overflow-hidden shadow-lg transition-none duration-(--duration-sheet) ease-(--ease-standard) data-[state=closed]:duration-(--duration-sheet-exit) data-[state=closed]:ease-(--ease-exit) outline-none",
               variant === "bottom" &&
                 "inset-x-0 bottom-[var(--sheet-bottom,0px)] max-h-[calc(var(--sheet-h,100dvh)-env(safe-area-inset-top)-2rem)] rounded-t-2xl border-t pb-[max(1rem,env(safe-area-inset-bottom))]",
               variant === "full" &&

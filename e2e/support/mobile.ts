@@ -1,4 +1,4 @@
-import { devices, type Browser, type Page } from '@playwright/test';
+import { devices, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
 import { withFencedPage, waitForAppReady } from '../fixtures';
 import { assertTestOrigin } from './origin-guard';
 
@@ -23,15 +23,16 @@ export async function withTabletPage(
 // Runs `body` with a signed-in, booted page on an iPhone 15 profile (393x852,
 // isMobile, hasTouch, full 852 px tall) in a fenced context: same storage state and boot as the
 // `app` fixture. The mobile-chromium and mobile-webkit projects pick the engine;
-// the device profile is the same for both.
+// the device profile is the same for both. `options` adds to the context (a video recording, #857).
 export async function withMobilePage(
   browser: Browser,
   body: (page: Page) => Promise<void>,
+  options: BrowserContextOptions = {},
 ): Promise<void> {
   const { defaultBrowserType: _engine, ...iphone } = devices['iPhone 15'];
   await withFencedPage(
     browser,
-    { ...iphone, viewport: { width: 393, height: 852 }, storageState: 'e2e/fixtures/hermetic-auth.json', serviceWorkers: 'block' },
+    { ...iphone, viewport: { width: 393, height: 852 }, storageState: 'e2e/fixtures/hermetic-auth.json', serviceWorkers: 'block', ...options },
     async (page) => {
       await page.goto('/');
       await assertTestOrigin(page);

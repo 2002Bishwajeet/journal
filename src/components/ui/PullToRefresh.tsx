@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { swipeAxis } from '@/helpers/swipeAxis';
 import { haptic } from '@/lib/haptics';
+import { transitions } from '@/lib/motion';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
@@ -15,7 +16,8 @@ const PULL_THRESHOLD = 80;
 const MAX_PULL = 120;
 const FRICTION = 0.5;
 // The settle animation is JS-driven, so MotionConfig does not reach it: skip it under reduced motion (#856).
-const settle = () => ({ duration: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : 0.2 });
+// Otherwise it is the sheet's spring back (#857).
+const settle = () => (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? { duration: 0 } : transitions.sheet);
 
 export function PullToRefresh({ onRefresh, children, className }: PullToRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);

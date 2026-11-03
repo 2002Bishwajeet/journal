@@ -6,6 +6,8 @@
 // only one that plays for them.
 
 let finishUpdate: (() => void) | undefined;
+// A navigation during a running slide (a fast double Back) goes without one: two would stack (#857).
+let sliding = false;
 
 /** JournalLayout calls this once React has rendered a new location; the slide then animates to it. */
 export function routeRendered(): void {
@@ -16,11 +18,12 @@ export function routeRendered(): void {
 export function slideNavigate(direction: "forward" | "back", go: () => void): void {
   const root = document.documentElement;
   // Desktop keeps plain navigation; with reduced motion there is nothing to slide.
-  if (!document.startViewTransition || matchMedia("(min-width: 768px), (prefers-reduced-motion: reduce)").matches) {
+  if (!document.startViewTransition || sliding || matchMedia("(min-width: 768px), (prefers-reduced-motion: reduce)").matches) {
     go();
     return;
   }
   if (direction === "back") root.dataset.nav = "back";
+  sliding = true;
   const transition = document.startViewTransition(
     () =>
       new Promise<void>((resolve) => {
@@ -30,6 +33,9 @@ export function slideNavigate(direction: "forward" | "back", go: () => void): vo
         setTimeout(resolve, 500);
       }),
   );
-  const clear = () => delete root.dataset.nav;
+  const clear = () => {
+    delete root.dataset.nav;
+    sliding = false;
+  };
   transition.finished.then(clear, clear);
 }

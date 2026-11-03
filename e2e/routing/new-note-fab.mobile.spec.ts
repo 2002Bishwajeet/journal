@@ -34,6 +34,8 @@ test('the New note button sits in the thumb zone and opens a note in the right f
 
     await test.step('home: 56 x 56, 16 px from the right edge and 16 px above the tab bar', async () => {
       await expect(fab(page)).toBeVisible();
+      // It fades up 12 px as it shows (#857): measure where it comes to rest.
+      await expect(fab(page)).toHaveCSS('translate', 'none');
       const b = await box(fab(page));
       expect(b.width).toBe(56);
       expect(b.height).toBe(56);
@@ -45,14 +47,14 @@ test('the New note button sits in the thumb zone and opens a note in the right f
       await shots(page, 'fab-home');
     });
 
-    await test.step('pressed: scales to 0.96', async () => {
+    await test.step('pressed: scales to 0.94 (#857)', async () => {
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       const b = await box(fab(page));
       await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
       await page.mouse.down();
-      await expect(fab(page)).toHaveCSS('transform', 'matrix(0.96, 0, 0, 0.96, 0, 0)');
+      await expect(fab(page)).toHaveCSS('transform', 'matrix(0.94, 0, 0, 0.94, 0, 0)');
       await page.setViewportSize({ width: 390, height: 844 });
-      await expect(fab(page)).toHaveCSS('transform', 'matrix(0.96, 0, 0, 0.96, 0, 0)');
+      await expect(fab(page)).toHaveCSS('transform', 'matrix(0.94, 0, 0, 0.94, 0, 0)');
       await page.screenshot({ path: test.info().outputPath('fab-pressed-light-390x844.png') });
       // Leave without a click.
       await page.mouse.move(10, 10);

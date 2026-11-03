@@ -154,7 +154,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
         <div
           role="region"
           aria-label="Assistant"
-          className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-background animate-in slide-in-from-bottom-full fade-in duration-300 lg:static lg:z-auto lg:h-full lg:w-90 lg:shrink-0 lg:animate-none lg:border-l lg:border-border"
+          className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-background animate-in slide-in-from-bottom-full fade-in duration-(--duration-sheet) ease-(--ease-standard) lg:static lg:z-auto lg:h-full lg:w-90 lg:shrink-0 lg:animate-none lg:border-l lg:border-border"
         >
           {/* Header - Mobile/Tablet with back button, Desktop with X. From lg it lines up with the tab bar. */}
           <div className="flex items-center h-12 px-3 border-b border-border gap-2 shrink-0 pt-[env(safe-area-inset-top)] lg:pt-0 bg-muted/30 lg:h-9 lg:pr-1">
