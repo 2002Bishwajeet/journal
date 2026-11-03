@@ -221,6 +221,19 @@ export async function screenshotInBothThemes(
     });
 }
 
+/**
+ * Runs `count` html and react blocks in `scope` that wait for Run, as a block on the share
+ * page or in a note someone else may have written does (#947).
+ */
+export async function runLiveBlocks(scope: Page | Locator, count = 1): Promise<void> {
+    const run = scope.getByRole('button', { name: /^Run (HTML|React) block$/ });
+    for (let left = count; left > 0; left--) {
+        await expect(run).toHaveCount(left);
+        await run.first().click();
+    }
+    await expect(run).toHaveCount(0);
+}
+
 /** Reload, wait for the app to boot (CI takes ~6-7s) and for the note's editor to show. */
 export async function reloadNote(page: Page): Promise<void> {
     await page.reload();

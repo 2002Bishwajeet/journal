@@ -276,6 +276,36 @@ test('html block: a clicked web link opens in a new tab, and the frame stays put
   await expect(frame.locator('#ran')).toHaveText('ready');
 });
 
+// #947: a fake "Sign in" button whose script clicks a hidden link it filled in. The user's click
+// gives the page activation, but the link's click is the script's, so no tab opens for it.
+test("html block: a link the block's script clicks opens no tab, a link the user clicks does", async ({ reusedApp: app }) => {
+  const scripted = 'https://example.com/scripted';
+  const clicked = 'https://example.com/clicked';
+  const requested: string[] = [];
+  for (const url of [scripted, clicked]) {
+    await app.context().route(url, (route) => {
+      requested.push(url);
+      return route.fulfill({ contentType: 'text/html', body: 'linked page' });
+    });
+  }
+  const frame = await previewProbe(
+    app,
+    `<p id="ran">ready</p><button id="go">Sign in</button><a id="s" hidden href="${scripted}">s</a><a href="${clicked}">Open</a>` +
+      "<script>document.getElementById('go').onclick = () => { document.getElementById('s').click(); document.getElementById('ran').textContent = 'clicked'; };</script>",
+  );
+  await expect(frame.locator('#ran')).toHaveText('ready');
+
+  await frame.getByRole('button', { name: 'Sign in' }).click();
+  await expect(frame.locator('#ran')).toHaveText('clicked');
+  // The app handles the frame's messages in order: had it been sent the scripted link, its tab would be open first.
+  const [tab] = await Promise.all([app.context().waitForEvent('page'), frame.getByRole('link', { name: 'Open' }).click()]);
+  await expect(tab).toHaveURL(clicked);
+  await tab.close();
+  expect(requested).toEqual([clicked]);
+  // The block's page did not navigate away either.
+  await expect(frame.locator('#ran')).toHaveText('clicked');
+});
+
 test('html block: an external image does not load', async ({ reusedApp: app }) => {
   const frame = await previewProbe(app);
 

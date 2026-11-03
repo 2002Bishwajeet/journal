@@ -8,22 +8,30 @@
  * The `language` attribute is the fence's whole info string; only its first word
  * is the language. An html or react block's id is in it too (```html id=k3f9),
  * and keys the block's saved state in the note (#410), and so is `wide` (#557).
+ * In a note someone else may have written, an html or react block waits for Run (#947).
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { LiveBlockFrame, LiveBlockToggle } from '@/components/liveBlocks/LiveBlockFrame';
 import { liveBlockKind, parseCodeInfo, withBlockId } from '@/lib/liveBlocks';
 import { newBlockId, type BlockStateStore } from '@/lib/liveBlockState';
+import { holdLiveBlock } from '@/lib/liveBlockRuns';
 import { useEditorContext } from '../EditorContext';
 
 export function CodeBlockNodeView({ node, selected, editor, getPos, updateAttributes }: NodeViewProps) {
   const info = node.attrs.language as string | null;
   const { language, wide } = parseCodeInfo(info);
   const kind = liveBlockKind(info);
-  const { blockState } = useEditorContext();
+  const { blockState, liveBlocksTrusted } = useEditorContext();
   // Preview when the block has content at mount, Code when it is empty.
   const [showPreview, setShowPreview] = useState(() => node.textContent.length > 0);
   const preview = kind !== null && showPreview;
+  const source = node.textContent;
+
+  // The owner's next edit makes the note trusted again; a block seen waiting for Run still waits for it.
+  useEffect(() => {
+    if (preview && (kind === 'html' || kind === 'react') && !liveBlocksTrusted) void holdLiveBlock(kind, source);
+  }, [preview, kind, liveBlocksTrusted, source]);
 
   // The info string as the document has it now: an id given a moment ago is there before this view re-renders.
   const currentInfo = () => {
@@ -58,8 +66,9 @@ export function CodeBlockNodeView({ node, selected, editor, getPos, updateAttrib
       {kind ? (
         <LiveBlockFrame
           kind={kind}
-          source={node.textContent}
+          source={source}
           preview={preview}
+          trusted={liveBlocksTrusted}
           selected={selected}
           labelled
           store={store}

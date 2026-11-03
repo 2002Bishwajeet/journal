@@ -68,8 +68,9 @@ export const FRAME_BLEED = 12;
 // Over the port the frame sends how tall its content is, without the bleed, whenever that changes
 // (#412), from the end of parsing as a report at the end of the page would; `journal.storage` calls
 // (#410), which the app answers by number, deciding everything itself (which block, the limits);
-// and a clicked web or mail link, because a sandboxed frame can't open a tab. Any other link (an
-// in-page `#anchor`) behaves as before. The app sends a mermaid page the note's look (#946), which
+// and a clicked web or mail link, because a sandboxed frame can't open a tab. Only a click the user
+// made opens one: the block's own script can click a link too, and the app would open it (#947).
+// Any other link (an in-page `#anchor`) behaves as before. The app sends a mermaid page the note's look (#946), which
 // stays on `journal.look` because it can arrive before the page's own script is parsed.
 const bridgeScript = (token: string) =>
   '<script>(function () {' +
@@ -103,7 +104,7 @@ const bridgeScript = (token: string) =>
   'var href = link && (link.href.baseVal || link.href);' +
   'if (!href || !/^(https?|mailto):/i.test(href)) return;' +
   'event.preventDefault();' +
-  'port.postMessage({ journalLiveBlock: 1, link: href });' +
+  'if (event.isTrusted) port.postMessage({ journalLiveBlock: 1, link: href });' +
   '});' +
   '})();</script>';
 
