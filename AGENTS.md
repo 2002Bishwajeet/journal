@@ -119,7 +119,6 @@ src/
 │   ├── links/                  # useLinkMetadata, useLinkPreviewFetch
 │   ├── queries/                # usePublicNote
 │   ├── securityContext/        # useSecurityContext, useHasReadAccess, useHasWriteAccess
-│   ├── siteData/               # useSiteData
 │   ├── useAccountSettings.ts   # Settings → Account (identity, sync, sign out)
 │   ├── useAgentGrants.ts       # Settings → Agent access (load/save grants file)
 │   ├── useAIPreferences.ts     # Settings → AI panel state
