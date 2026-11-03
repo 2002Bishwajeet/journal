@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.60.1 (2026-11-03)
+
+### Fixed
+
+- When you share a note with a person to view, the person gets access. Before, the Homebase server refused the viewer circle and the person did not get the note.
+
 ## 2.60.0 (2026-11-03)
 
 ### New

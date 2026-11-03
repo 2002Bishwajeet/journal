@@ -1,3 +1,9 @@
+## [2.60.1](https://github.com/2002Bishwajeet/journal/compare/v2.60.0...v2.60.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **sharing:** a viewer circle slug the server accepts ([#677](https://github.com/2002Bishwajeet/journal/issues/677)) ([739ddc6](https://github.com/2002Bishwajeet/journal/commit/739ddc6beed1009a33c8599ebe808467cca8d474))
 # [2.60.0](https://github.com/2002Bishwajeet/journal/compare/v2.59.0...v2.60.0) (2026-11-03)
 
 
