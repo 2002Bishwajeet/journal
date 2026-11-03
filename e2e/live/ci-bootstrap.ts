@@ -285,6 +285,8 @@ setup('connect the owner with the peer and the outsider, and put only the peer i
 // - peer, circle: the owner's invite is a transfer into the peer's Journal
 //   drive, which the peer's host refuses ("Unauthorized to write to drive").
 setup('grant Journal what circle collaboration needs, on the owner and on the peer', async ({ browser }) => {
+    // Two identities, each with a consent round-trip: the default 30s ran out on CI.
+    setup.setTimeout(120_000);
     const [peer] = LIVE_SHARING_IDENTITIES;
     for (const { identity, storageState } of [{ identity: IDENTITY!, storageState: LIVE_STORAGE_STATE }, peer]) {
         await withIdentity(browser, storageState, async (page) => {
@@ -303,33 +305,47 @@ setup('mark the owner\'s Journal drive as a collaboration drive that allows subs
     const owner = IDENTITY!;
     await withIdentity(browser, LIVE_STORAGE_STATE, async (page) => {
         await openOwnerConsole(page, owner, '/owner');
+        // The owner API takes and returns bodies sealed with the owner console's shared secret
+        // (odin-core's SharedSecretEncryptionMiddleware 400s on a plain JSON body): AES-CBC under
+        // localStorage's base64 `SS`, as {iv, data}. Same as js-lib's DotYouClient interceptors.
         const result = await page.evaluate(async ({ alias, type }) => {
-            const post = (path: string, body: unknown) =>
-                fetch(`/api/owner/v1/drive/mgmt${path}`, {
+            const toBase64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
+            const fromBase64 = (text: string) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
+            const key = await crypto.subtle.importKey(
+                'raw', fromBase64(localStorage.getItem('SS')!), 'AES-CBC', false, ['encrypt', 'decrypt']);
+            const post = async (path: string, body: unknown) => {
+                const iv = crypto.getRandomValues(new Uint8Array(16));
+                const data = new Uint8Array(await crypto.subtle.encrypt(
+                    { name: 'AES-CBC', iv }, key, new TextEncoder().encode(JSON.stringify(body))));
+                const response = await fetch(`/api/owner/v1/drive/mgmt${path}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
+                    headers: { 'Content-Type': 'application/json', 'X-ODIN-FILE-SYSTEM-TYPE': 'Standard' },
+                    body: JSON.stringify({ iv: toBase64(iv), data: toBase64(data) }),
                 });
-            const list = await post('', { pageNumber: 1, pageSize: 1000 });
-            if (!list.ok) throw new Error(`list drives: ${list.status}`);
-            const { results } = (await list.json()) as {
-                results: { targetDriveInfo: { alias: string }; allowSubscriptions: boolean; attributes: Record<string, string> | null }[];
+                if (!response.ok) throw new Error(`drive/mgmt${path}: ${response.status}`);
+                const sealed = (await response.json()) as { iv: string; data: string };
+                const plain = await crypto.subtle.decrypt(
+                    { name: 'AES-CBC', iv: fromBase64(sealed.iv) }, key, fromBase64(sealed.data));
+                return JSON.parse(new TextDecoder().decode(plain) || 'null');
             };
-            const drive = results.find((d) => d.targetDriveInfo.alias === alias);
-            if (!drive) throw new Error('Journal drive not found');
+            type Drive = { targetDriveInfo: { alias: string }; allowSubscriptions: boolean; attributes: Record<string, string> | null };
+            const journalDrive = async () => {
+                const { results } = (await post('', { pageNumber: 1, pageSize: 1000 })) as { results: Drive[] };
+                const drive = results.find((d) => d.targetDriveInfo.alias.replace(/-/g, '') === alias);
+                if (!drive) throw new Error('Journal drive not found');
+                return drive;
+            };
+            const drive = await journalDrive();
             const targetDrive = { alias, type };
             // updateattributes replaces the whole set, so keep what the drive already has.
-            const attributes = await post('/updateattributes', {
+            await post('/updateattributes', {
                 targetDrive,
                 attributes: { ...drive.attributes, IsCollaborativeChannel: 'true' },
             });
-            if (!attributes.ok) throw new Error(`updateattributes: ${attributes.status}`);
             if (!drive.allowSubscriptions) {
-                const subscriptions = await post('/set-allow-subscriptions', { targetDrive, allowSubscriptions: true });
-                if (!subscriptions.ok) throw new Error(`set-allow-subscriptions: ${subscriptions.status}`);
+                await post('/set-allow-subscriptions', { targetDrive, allowSubscriptions: true });
             }
-            const after = await (await post('', { pageNumber: 1, pageSize: 1000 })).json();
-            const updated = (after.results as typeof results).find((d) => d.targetDriveInfo.alias === alias)!;
+            const updated = await journalDrive();
             return { allowSubscriptions: updated.allowSubscriptions, collaborative: updated.attributes?.IsCollaborativeChannel };
         }, JOURNAL_DRIVE);
         expect(result).toEqual({ allowSubscriptions: true, collaborative: 'true' });
