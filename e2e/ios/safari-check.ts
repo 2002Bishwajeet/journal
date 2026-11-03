@@ -366,6 +366,25 @@ try {
   await browser.$('button[aria-label="Back to notes"]').waitForDisplayed({ timeout: 30_000 });
   await check('note-list');
 
+  // Tab stacks (#859): Notes (home, folder) -> Shared -> Notes rebuilds the history, so one Back
+  // from the folder list lands on the Notes home, not on Shared.
+  const TAB_BUTTONS = 'nav[aria-label="Tabs"] button';
+  await tap(TAB_BUTTONS, 1);
+  await waitFor('the Shared tab', () => location.pathname === '/shared');
+  await tap(TAB_BUTTONS, 0);
+  await waitFor('the Notes tab back on its folder', () => location.pathname !== '/shared' && location.pathname !== '/');
+  await browser.execute(() => history.back());
+  const stackProblems: string[] = [];
+  await waitFor('Back after a tab switch', () => location.pathname === '/' && !!document.querySelector('[aria-label="Sidebar"]'), 10_000).catch(() =>
+    stackProblems.push('history.back() after a tab switch did not land on the Notes home'),
+  );
+  failures.push(...stackProblems.map((p) => `tab-stacks: ${p}`));
+  summary.push(`| tab-stacks: history.back() after a tab switch | ${await screenshot('tab-stacks-back')} | ${stackProblems.join('<br>') || 'none'} |`);
+  console.log(`${stackProblems.length ? '✗' : '✓'} tab-stacks${stackProblems.map((p) => `\n    ${p}`).join('')}`);
+  // Back to the folder list for the steps below.
+  await tap('[aria-label="Folders"] button');
+  await browser.$('button[aria-label="Back to notes"]').waitForDisplayed({ timeout: 30_000 });
+
   // On a phone, New note is the floating button (#878).
   await tap('button[aria-label="New note"]');
   await browser.$('.ProseMirror').waitForDisplayed({ timeout: 30_000 }).catch(async (error: Error) => {

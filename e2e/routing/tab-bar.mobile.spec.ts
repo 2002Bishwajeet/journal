@@ -71,7 +71,7 @@ test('home shows the four tabs above the home indicator, and the New note button
   });
 });
 
-test('a tab keeps its place, and switching tabs adds no history entry', async ({ browser }) => {
+test('a tab keeps its place, and a switch rebuilds the history of the tab', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await createFolder(page, PROJECTS);
@@ -92,7 +92,8 @@ test('a tab keeps its place, and switching tabs adds no history entry', async ({
     await tab(page, 'Notes').click();
     await expect.poll(() => pathOf(page)).toBe(projects);
     await expect(page.getByRole('heading', { name: PROJECTS })).toBeVisible();
-    expect(await page.evaluate(() => history.length)).toBe(length);
+    // Notes had two screens (home, Projects): the switch replaces one entry and pushes the other (#859).
+    expect(await page.evaluate(() => history.length)).toBe(length + 1);
 
     // The active tab pops to its root.
     await tab(page, 'Notes').click();
