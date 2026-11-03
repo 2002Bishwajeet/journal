@@ -147,7 +147,7 @@ export function ShareGeneralAccess({ noteId, metadata, publishing, onMakePublic,
                 {!isPublic ? (
                     <div className="flex flex-col gap-4">
                         <Notice icon={Eye}>
-                            Making this note public will allow anyone with the link to view it.
+                            Making this note public will allow anyone with the link to view it, along with what its html and react blocks have saved.
                         </Notice>
 
                         {showLinksStep ? (

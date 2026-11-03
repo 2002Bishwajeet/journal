@@ -13,7 +13,12 @@ import { LiveBlockPreview } from '@/components/liveBlocks/LiveBlockPreview';
 import { LiveBlockAwarePre } from '@/components/share/LiveBlockAwarePre';
 import { LiveBlockStatesContext } from '@/components/share/liveBlockStatesContext';
 import { shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
-import { memoryBlockStateStore, type BlockStateStore } from '@/lib/liveBlockState';
+import { blockStateRoom, getBlockState, getBlockStates, memoryBlockStateStore, setBlockState, type BlockStateStore } from '@/lib/liveBlockState';
+import * as Y from 'yjs';
+import type { Editor, JSONContent } from '@tiptap/core';
+import { EditorContent, useEditor } from '@tiptap/react';
+import { createEditorExtensions } from '@/components/editor/editorExtensions';
+import { EditorContext, type EditorContextValue } from '@/components/editor/EditorContext';
 
 beforeAll(() => {
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -224,5 +229,84 @@ describe('a live block on the share page', () => {
       2,
     );
     expect(valueOf(ask(frame, get('count')))).toBe(3);
+  });
+});
+
+describe('an html block in the editor (#950)', () => {
+  const code = (language: string, text: string): JSONContent => ({ type: 'codeBlock', attrs: { language }, content: [{ type: 'text', text }] });
+  let editor: Editor | null = null;
+
+  /** The editor on `content`, with its blocks' state in `states` as EditorProvider keeps it. */
+  function Note({ content, readOnly, states }: { content: JSONContent[]; readOnly: boolean; states: Y.Doc }) {
+    const current = useEditor({ extensions: createEditorExtensions(), content: { type: 'doc', content }, editable: !readOnly, immediatelyRender: true });
+    editor = current;
+    const value: EditorContextValue = {
+      editor: current,
+      isReady: true,
+      isLoading: false,
+      isAIReady: false,
+      readOnly,
+      cover: null,
+      setCoverFromFile: async () => {},
+      removeCover: async () => {},
+      setCoverPosition: () => {},
+      blockState: {
+        get: (id) => getBlockState(states, id),
+        set: (id, json) => setBlockState(states, id, json),
+        room: (id) => blockStateRoom(states, id),
+      },
+      liveBlocksTrusted: true,
+    };
+    return (
+      <EditorContext.Provider value={value}>
+        <EditorContent editor={current} />
+      </EditorContext.Provider>
+    );
+  }
+
+  const infos = () => {
+    const found: (string | null)[] = [];
+    editor!.state.doc.descendants((node) => {
+      if (node.type.name === 'codeBlock') found.push(node.attrs.language as string | null);
+    });
+    return found;
+  };
+
+  /** Sets `count` in each frame, and lets the writes reach the store. */
+  const setCount = async (frames: HTMLIFrameElement[], count: number) => {
+    vi.useFakeTimers();
+    for (const frame of frames) expect(ask(frame, set('count', count))).toEqual([{ journalLiveBlock: 1, reply: requestNumber }]);
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+    vi.useRealTimers();
+  };
+
+  it("should give a copy of a block an id of its own on its first save, and never the first one's state", async () => {
+    const states = new Y.Doc();
+    setBlockState(states, 'k3f9', '{"count":3}');
+    const [first, copy] = await render(<Note content={[code('html id=k3f9', '<p>A</p>'), code('html id=k3f9 wide', '<p>B</p>')]} readOnly={false} states={states} />, 2);
+    expect(valueOf(ask(first, get('count')))).toBe(3);
+    expect(valueOf(ask(copy, get('count')))).toBeUndefined();
+
+    await setCount([copy], 7);
+    const [, copyInfo] = infos();
+    expect(copyInfo).toMatch(/^html wide id=[a-z0-9]{8}$/);
+    const copyId = copyInfo!.slice(-8);
+    expect(getBlockStates(states)).toEqual({ k3f9: '{"count":3}', [copyId]: '{"count":7}' });
+    expect(valueOf(ask(first, get('count')))).toBe(3);
+  });
+
+  it("should keep a viewer's changes in memory in a note the host can only view: the note and its blocks' ids stay as they were", async () => {
+    const states = new Y.Doc();
+    setBlockState(states, 'k3f9', '{"count":3}');
+    const before = Y.encodeStateAsUpdate(states);
+    const frames = await render(<Note content={[code('html id=k3f9', '<p>A</p>'), code('html', '<p>B</p>')]} readOnly states={states} />, 2);
+    expect(valueOf(ask(frames[0], get('count')))).toBe(3);
+
+    await setCount(frames, 10);
+    expect(Y.encodeStateAsUpdate(states)).toEqual(before);
+    expect(infos()).toEqual(['html id=k3f9', 'html']);
+    for (const frame of frames) expect(valueOf(ask(frame, get('count')))).toBe(10);
   });
 });
