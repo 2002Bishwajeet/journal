@@ -296,6 +296,21 @@ async function closeDialog() {
 const settingsRow = '[role="dialog"] li > button[aria-labelledby^="settings-row-"]';
 const settingsHeaderButton = '[role="dialog"] header button';
 
+/**
+ * Safari's own edge swipe-back: a drag from the left edge across the screen. XCUITest's drag
+ * in the native context; a web view's pointer actions reach only the page, never Safari.
+ */
+async function edgeSwipeBack() {
+  const webview = await browser.getContext();
+  await browser.switchContext('NATIVE_APP');
+  try {
+    await browser.execute('mobile: dragFromToForDuration', { fromX: 1, fromY: 400, toX: 300, toY: 400, duration: 0.1 });
+  } finally {
+    await browser.switchContext(typeof webview === 'string' ? webview : webview.id);
+  }
+  await browser.pause(1_500);
+}
+
 async function closeSettings() {
   await tap(settingsHeaderButton);
   await waitFor('Settings to close', dialogClosed);
@@ -555,6 +570,53 @@ try {
   if (after !== under) failures.push(`system Back on Settings: the URL changed from ${under} to ${after}`);
   summary.push(`| system Back on Settings | | ${after === under ? 'closed, same URL' : `URL ${under} -> ${after}`} |`);
   await check('settings-system-back');
+
+  // Safari's edge swipe-back from several section pages in a row: each one must land on the
+  // section list, and one more closes Settings. It used to work only once.
+  // First a folder's note list, where the swipe is known to work, to show this Simulator swipes at all.
+  await tap('[aria-label="Folders"] button');
+  await waitFor('the note list', () => location.pathname !== '/');
+  await browser.pause(800);
+  await edgeSwipeBack();
+  const homeAfterSwipe = await browser.execute(() => location.pathname === '/');
+  summary.push(`| edge swipe-back from a note list | | ${homeAfterSwipe ? 'back on home' : 'did not go back'} |`);
+  if (!homeAfterSwipe) {
+    warnings.push('The edge swipe did not go back from a note list either, so this Simulator cannot check it.');
+    await tap('[aria-label="Back to notes"]');
+  }
+  await tap('button=Settings');
+  await waitFor('Settings', dialogOpen);
+  await waitFor('the Settings history entry', () => ((history.state as { usr?: { overlays?: string[] } } | null)?.usr?.overlays?.length ?? 0) === 1);
+  const swipeLog: string[] = [];
+  const swipeState = () =>
+    browser.execute(() => ({
+      entries: history.length,
+      overlays: (history.state as { usr?: { overlays?: string[] } } | null)?.usr?.overlays?.length ?? 0,
+      page: document.querySelector('[role="dialog"] [role="region"]')?.getAttribute('aria-label') ?? null,
+      open: !!document.querySelector('[role="dialog"]'),
+    }));
+  for (const i of [1, 2, 7]) {
+    await tap(settingsRow, i);
+    await waitFor('a section page entry', () => ((history.state as { usr?: { overlays?: string[] } } | null)?.usr?.overlays?.length ?? 0) === 2);
+    await browser.pause(800);
+    swipeLog.push(`before: ${JSON.stringify(await swipeState())}`);
+    await edgeSwipeBack();
+    const s = await swipeState();
+    swipeLog.push(`after: ${JSON.stringify(s)}`);
+    if (s.page || !s.open) {
+      // A Simulator that cannot swipe at all only warns.
+      (homeAfterSwipe ? failures : warnings).push(`edge swipe from section ${i}: ${s.page ? `stayed on ${s.page}` : 'closed Settings'} (${swipeLog.join(' ')})`);
+      break;
+    }
+  }
+  if (await browser.execute(dialogOpen)) {
+    await edgeSwipeBack();
+    if (!(await browser.execute(dialogClosed))) (homeAfterSwipe ? failures : warnings).push('edge swipe from the section list did not close Settings');
+  }
+  summary.push(`| Settings edge swipe-back x3 | ${await screenshot('settings-swipe-back')} | ${swipeLog.join('<br>')} |`);
+  // After a failure: the page's Back, then the list's Done.
+  for (let i = 0; i < 2 && (await browser.execute(dialogOpen)); i++) await tap(settingsHeaderButton);
+  await waitFor('Settings to close', dialogClosed);
 
   // A dialog with a text field: tapping the field must not zoom the page.
   await tap('[aria-label="New folder"]');
