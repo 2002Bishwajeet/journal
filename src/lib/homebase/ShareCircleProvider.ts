@@ -7,7 +7,7 @@ export const SHARE_CIRCLE_SLUG = 'journal-shares';
 /** Its Read-only stand-in while the Journal drive belongs to another app (installed before odin-core #1901). */
 export const READ_CIRCLE_SLUG = 'journal-read';
 /** The circle Journal owns for the people named on a note as viewers (#897): Read only. */
-export const VIEWER_CIRCLE_SLUG = 'journal-viewers';
+export const VIEWER_CIRCLE_SLUG = 'journal-viewer';
 
 // DrivePermission flags: Read 1, Write 2, React 4, Comment 8
 const ALL_PERMISSIONS = 15;

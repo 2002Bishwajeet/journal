@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { DotYouClient } from '@homebase-id/js-lib/core';
-import { ShareCircleProvider } from '@/lib/homebase/ShareCircleProvider';
+import { ShareCircleProvider, SHARE_CIRCLE_SLUG, READ_CIRCLE_SLUG, VIEWER_CIRCLE_SLUG } from '@/lib/homebase/ShareCircleProvider';
 import { JOURNAL_APP_ID, JOURNAL_DRIVE } from '@/lib/homebase/config';
 
 const ROOT = 'https://owner.dotyou.cloud';
@@ -164,8 +164,8 @@ describe('unenroll and members', () => {
 describe('viewers', () => {
     const VIEWERS_ID = 'cccccccc-0000-0000-0000-000000000003';
 
-    it('creates journal-viewers with Read only, once, and adds each person to it', async () => {
-        routePosts((slug) => (slug === 'journal-viewers' ? VIEWERS_ID : SHARES_ID));
+    it('creates the viewer circle with Read only, once, and adds each person to it', async () => {
+        routePosts((slug) => (slug === VIEWER_CIRCLE_SLUG ? VIEWERS_ID : SHARES_ID));
         const provider = new ShareCircleProvider(client);
 
         const results = await provider.enrollViewers(['sam.id']);
@@ -175,7 +175,7 @@ describe('viewers', () => {
         const creates = post.mock.calls.filter(([url]) => url === `${V2}/create`);
         expect(creates).toHaveLength(1);
         expect(creates[0][1]).toMatchObject({
-            slug: 'journal-viewers',
+            slug: VIEWER_CIRCLE_SLUG,
             driveGrants: [{ permissionedDrive: { drive: JOURNAL_DRIVE, permission: 1 } }],
         });
         expect(post).toHaveBeenCalledWith(`${V2}/add`, { circleId: VIEWERS_ID, odinId: 'sam.id' });
@@ -184,12 +184,19 @@ describe('viewers', () => {
         expect(get).not.toHaveBeenCalled();
     });
 
-    it('removes people from journal-viewers only', async () => {
-        routePosts((slug) => (slug === 'journal-viewers' ? VIEWERS_ID : SHARES_ID));
+    it('removes people from the viewer circle only', async () => {
+        routePosts((slug) => (slug === VIEWER_CIRCLE_SLUG ? VIEWERS_ID : SHARES_ID));
 
         await new ShareCircleProvider(client).unenrollViewers(['sam.id']);
 
         expect(post).toHaveBeenCalledWith(`${V2}/revoke`, { circleId: VIEWERS_ID, odinId: 'sam.id' });
         expect(post).not.toHaveBeenCalledWith(`${V2}/create`, expect.objectContaining({ slug: 'journal-shares' }));
     });
+});
+
+// odin-core refuses a longer or differently shaped slug with a 400 (journal-viewers was 15)
+it('every circle slug passes odin-core\'s rule: lowercase letters, digits and internal hyphens, 1-14 characters', () => {
+    for (const slug of [SHARE_CIRCLE_SLUG, READ_CIRCLE_SLUG, VIEWER_CIRCLE_SLUG]) {
+        expect(slug).toMatch(/^(?=.{1,14}$)[a-z0-9]+(-[a-z0-9]+)*$/);
+    }
 });
