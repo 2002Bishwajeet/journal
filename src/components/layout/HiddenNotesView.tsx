@@ -18,6 +18,8 @@ export interface HiddenNoteRowAction {
   label: string;
   onClick: (docId: string) => void;
   destructive?: boolean;
+  /** Ask first (one action at most): a dialog on desktop, a bottom sheet with `description` and a red `confirmText` button on compact. */
+  confirm?: { title: string; description: string; confirmText: string };
 }
 
 interface HiddenNotesViewProps {
@@ -71,6 +73,11 @@ function HiddenNotesViewComponent({
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   const handleSwipeChange = (id: string, open: boolean) =>
     setOpenRowId((cur) => (open ? id : cur === id ? null : cur));
+  // The row action with `confirm` (Delete forever) runs only once its confirm is accepted.
+  const confirmAction = rowActions.find((action) => action.confirm);
+  const [confirmDocId, setConfirmDocId] = useState<string | null>(null);
+  const actions = rowActions.map((action) => (action === confirmAction ? { ...action, onClick: setConfirmDocId } : action));
+  const runConfirmed = () => confirmDocId && confirmAction?.onClick(confirmDocId);
 
   const list = (
     <ul className="pb-[var(--fab-clearance,0px)]">
@@ -88,7 +95,7 @@ function HiddenNotesViewComponent({
             </p>
           </div>
           <div className="flex items-center gap-1 pointer-coarse:gap-2 shrink-0">
-            {rowActions.map((action) => {
+            {actions.map((action) => {
               const Icon = action.icon;
               return (
                 <Button
@@ -166,7 +173,7 @@ function HiddenNotesViewComponent({
                   <HiddenNoteRow
                     key={note.docId}
                     note={note}
-                    actions={rowActions}
+                    actions={actions}
                     isSwiped={openRowId === note.docId}
                     onSwipeChange={handleSwipeChange}
                   />
@@ -200,6 +207,15 @@ function HiddenNotesViewComponent({
           />
         )}
         {confirmDialog}
+        {confirmAction?.confirm && (
+          <ActionSheet
+            open={!!confirmDocId}
+            onOpenChange={(open) => !open && setConfirmDocId(null)}
+            title={confirmAction.confirm.title}
+            message={confirmAction.confirm.description}
+            items={[{ label: confirmAction.confirm.confirmText, variant: "destructive", action: runConfirmed }]}
+          />
+        )}
       </div>
     );
   }
@@ -236,6 +252,16 @@ function HiddenNotesViewComponent({
         </ScrollArea>
       )}
       {confirmDialog}
+      {confirmAction?.confirm && (
+        <ConfirmDialog
+          isOpen={!!confirmDocId}
+          onClose={() => setConfirmDocId(null)}
+          onConfirm={runConfirmed}
+          title={confirmAction.confirm.title}
+          description={confirmAction.confirm.description}
+          confirmText={confirmAction.confirm.confirmText}
+        />
+      )}
     </div>
   );
 }

@@ -19,20 +19,22 @@ vi.mock("@/components/layout/NoteList", () => ({
 vi.mock("@/components/layout/SyncStatus", () => ({ SyncStatus: () => null }));
 vi.mock("@/components/ui/action-sheet", () => ({
   // Closing runs onCloseAutoFocus, as Radix does once the sheet has gone.
-  ActionSheet: ({ open, items, onCloseAutoFocus }: { open: boolean; items: ContextMenuItemConfig[]; onCloseAutoFocus?: (e: Event) => void }) =>
+  ActionSheet: ({ open, onOpenChange, items, message, onCloseAutoFocus }: { open: boolean; onOpenChange: (open: boolean) => void; items: ContextMenuItemConfig[]; message?: string; onCloseAutoFocus?: (e: Event) => void }) =>
     open ? (
-      <div role="menu">
+      <div role="menu" data-message={message}>
         {items.map((i) => (
-          <button key={i.label} role="menuitem" disabled={i.disabled} onClick={() => { i.action(); onCloseAutoFocus?.(new Event("focus")); }}>{i.label}</button>
+          <button key={i.label} role="menuitem" disabled={i.disabled} onClick={() => { i.action(); onOpenChange(false); onCloseAutoFocus?.(new Event("focus")); }}>{i.label}</button>
         ))}
+        <button onClick={() => onOpenChange(false)}>Cancel</button>
       </div>
     ) : null,
 }));
 vi.mock("@/components/modals", () => ({
-  ConfirmDialog: ({ isOpen, title, confirmText, onConfirm }: { isOpen: boolean; title: string; confirmText: string; onConfirm: () => void }) =>
+  ConfirmDialog: ({ isOpen, title, confirmText, onConfirm, onClose }: { isOpen: boolean; title: string; confirmText: string; onConfirm: () => void; onClose: () => void }) =>
     isOpen ? (
       <div role="dialog" aria-label={title}>
-        <button onClick={onConfirm}>{confirmText}</button>
+        <button onClick={() => { onConfirm(); onClose(); }}>{confirmText}</button>
+        <button onClick={onClose}>Cancel</button>
       </div>
     ) : null,
 }));
@@ -212,6 +214,71 @@ describe("Trash rows on a phone (#977)", () => {
     await longPress();
     await click(item("Delete forever"));
     expect(deleteForever).toHaveBeenCalledWith("n1");
+  });
+});
+
+describe("Delete forever asks first", () => {
+  const matchMedia = window.matchMedia;
+  afterEach(() => {
+    window.matchMedia = matchMedia;
+  });
+  const confirm = { title: "Delete note forever?", description: "This note will be deleted permanently. You can't undo this.", confirmText: "Delete Note" };
+  const rowActions = (onDelete: () => void): HiddenNoteRowAction[] => [
+    { icon: Trash2, label: "Restore note", onClick: vi.fn() },
+    { icon: Trash2, label: "Delete forever", onClick: onDelete, destructive: true, confirm },
+  ];
+  const menuItem = (name: string) => [...container.querySelectorAll("[role=menuitem]")].find((el) => el.textContent === name);
+
+  it("on a phone, a long press then Delete forever opens a confirm sheet; Cancel keeps the note, Delete Note deletes it", async () => {
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("coarse"),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+    const onDelete = vi.fn();
+    await render(trash({ compact: true, rowActions: rowActions(onDelete) }));
+    const longPress = () =>
+      act(async () => {
+        container.querySelector("[data-testid=hidden-note-row] p")!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      });
+
+    await longPress();
+    await click(menuItem("Delete forever"));
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(container.querySelector("[role=menu]")?.getAttribute("data-message")).toBe(confirm.description);
+    await click(button("Cancel"));
+    expect(menuItem("Delete Note")).toBeUndefined();
+    expect(onDelete).not.toHaveBeenCalled();
+
+    await longPress();
+    await click(menuItem("Delete forever"));
+    await click(menuItem("Delete Note"));
+    expect(onDelete).toHaveBeenCalledWith("n1");
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("on desktop, the row button opens a dialog; Cancel keeps the note, Delete Note deletes it", async () => {
+    const onDelete = vi.fn();
+    await render(trash({ compact: false, rowActions: rowActions(onDelete) }));
+    await click(button("Delete forever"));
+    expect(onDelete).not.toHaveBeenCalled();
+    const dialog = () => container.querySelector("[role=dialog][aria-label='Delete note forever?']");
+    expect(dialog()).not.toBeNull();
+    await click(button("Cancel"));
+    expect(dialog()).toBeNull();
+    expect(onDelete).not.toHaveBeenCalled();
+
+    await click(button("Delete forever"));
+    await click(button("Delete Note"));
+    expect(onDelete).toHaveBeenCalledWith("n1");
+  });
+
+  it("an action without confirm still runs at once", async () => {
+    const restore = vi.fn();
+    await render(trash({ compact: false, rowActions: [{ icon: Trash2, label: "Restore note", onClick: restore }] }));
+    await click(button("Restore note"));
+    expect(restore).toHaveBeenCalledWith("n1");
   });
 });
 

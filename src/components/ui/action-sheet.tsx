@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react"
+import { useId, type ComponentProps } from "react"
 import { CheckIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -11,19 +11,22 @@ const row =
 
 /**
  * A list of 52 px rows in a bottom sheet (the iOS action sheet): destructive rows in their own
- * red group, and a separate Cancel row last. `title` names it for screen readers and is not shown.
+ * red group, and a separate Cancel row last. `title` names it for screen readers and is not shown;
+ * `message` is a line of muted text at the top of the first group, as an iOS confirm sheet has.
  */
 export function ActionSheet({
   open,
   onOpenChange,
   title,
   items,
+  message,
   onCloseAutoFocus,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
   items: ContextMenuItemConfig[]
+  message?: string
   onCloseAutoFocus?: ComponentProps<typeof SheetContent>["onCloseAutoFocus"]
 }) {
   const renderRow = (item: ContextMenuItemConfig) => {
@@ -39,7 +42,7 @@ export function ActionSheet({
           item.action()
           onOpenChange(false)
         }}
-        className={cn(row, item.variant === "destructive" && "text-destructive")}
+        className={cn(row, message && "justify-center", item.variant === "destructive" && "text-destructive")}
       >
         {Icon && <Icon aria-hidden />}
         {item.label}
@@ -50,17 +53,28 @@ export function ActionSheet({
   const isLast = (item: ContextMenuItemConfig) => item.variant === "destructive" || item.separate
   const regular = items.filter((item) => !isLast(item))
   const destructive = items.filter(isLast)
+  const messageId = useId()
+  const messageRow = message && (
+    <p id={messageId} className="text-muted-foreground px-4 py-3.5 text-center text-[13px] text-balance">
+      {message}
+    </p>
+  )
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent variant="bottom" aria-describedby={undefined} onCloseAutoFocus={onCloseAutoFocus}>
+      <SheetContent variant="bottom" aria-describedby={message ? messageId : undefined} onCloseAutoFocus={onCloseAutoFocus}>
         <SheetHeader className="sr-only">
           <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
         <div className="flex flex-col gap-2 overflow-y-auto px-4">
           <div role="menu" aria-label={title} className="flex flex-col gap-2">
-            {regular.length > 0 && <div role="group" className={group}>{regular.map(renderRow)}</div>}
-            {destructive.length > 0 && <div role="group" className={group}>{destructive.map(renderRow)}</div>}
+            {regular.length > 0 && <div role="group" className={group}>{messageRow}{regular.map(renderRow)}</div>}
+            {destructive.length > 0 && (
+              <div role="group" className={group}>
+                {regular.length === 0 && messageRow}
+                {destructive.map(renderRow)}
+              </div>
+            )}
           </div>
           <button
             type="button"

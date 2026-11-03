@@ -6,6 +6,7 @@ import { withMobilePage } from '../support/mobile';
 // #977: Trash on a phone. Row text stays inside the 16 px gutter, each row says when the
 // note was last edited, there is no scrollbar, and a long press opens Restore and Delete
 // forever in a bottom sheet. A left swipe shows Delete forever, as the note list does (#778).
+// Delete forever asks first, in an iOS-style confirm sheet with a red Delete Note button.
 
 const viewport = { width: 390, height: 844 };
 const LONG = 'Meeting prep: a long title for the quarterly planning and roadmap review with the whole team';
@@ -61,6 +62,28 @@ async function expectInsideGutter(page: Page) {
   }
 }
 
+const CONFIRM = "This note will be deleted permanently. You can't undo this.";
+
+/** The Delete forever confirm sheet: its line, a red Delete Note and Cancel, each 44 px or taller. */
+async function expectConfirmSheet(page: Page) {
+  const sheet = page.getByRole('dialog', { name: 'Delete note forever?' });
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText(CONFIRM);
+  await sheet.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
+  const del = sheet.getByRole('menuitem', { name: 'Delete Note' });
+  const cancel = sheet.getByRole('button', { name: 'Cancel' });
+  for (const target of [del, cancel]) {
+    const b = (await target.boundingBox())!;
+    expect(b.height).toBeGreaterThanOrEqual(44);
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(viewport.width);
+  }
+  const red = await del.evaluate((el) => getComputedStyle(el).color);
+  const plain = await cancel.evaluate((el) => getComputedStyle(el).color);
+  expect(red).not.toBe(plain);
+  return { sheet, del, cancel };
+}
+
 async function expectSheetOnScreen(menu: Locator) {
   await expect(menu.getByRole('menuitem', { name: 'Restore note' })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Delete forever' })).toBeVisible();
@@ -112,10 +135,26 @@ test('Trash rows stay in the gutter, and a long press restores or deletes foreve
     await menu.getByRole('menuitem', { name: 'Restore note' }).tap();
     await expect(trashRow(page, KEEP)).toHaveCount(0);
 
-    // Long press, Delete forever: the note leaves Trash.
+    // Long press, Delete forever, Cancel: the note stays.
     await trashRow(page, GONE).click({ button: 'right' });
     await expectSheetOnScreen(menu);
     await menu.getByRole('menuitem', { name: 'Delete forever' }).tap();
+    let confirm = await expectConfirmSheet(page);
+    await inBothThemes(page, (theme) =>
+      page.screenshot({ path: test.info().outputPath(`trash-delete-confirm-${theme}-390x844.png`) }),
+    );
+    await page.emulateMedia({ colorScheme: 'light' });
+    await confirm.cancel.tap();
+    await expect(confirm.sheet).toBeHidden();
+    await expect(trashRow(page, GONE)).toHaveCount(1);
+
+    // Long press, Delete forever, Delete Note: the note leaves Trash.
+    await trashRow(page, GONE).click({ button: 'right' });
+    await expectSheetOnScreen(menu);
+    await menu.getByRole('menuitem', { name: 'Delete forever' }).tap();
+    confirm = await expectConfirmSheet(page);
+    await confirm.del.tap();
+    await expect(confirm.sheet).toBeHidden();
     await expect(trashRow(page, GONE)).toHaveCount(0);
     await expect(trashRows(page)).toHaveCount(1);
 
@@ -131,7 +170,7 @@ async function touch(cdp: CDPSession, type: 'touchStart' | 'touchMove' | 'touchE
   await cdp.send('Input.dispatchTouchEvent', { type, touchPoints: p ? [p] : [] });
 }
 
-test('a left swipe on a Trash row shows Delete forever, which deletes it', async ({ browser, browserName }) => {
+test('a left swipe on a Trash row shows Delete forever, which deletes it after the confirm', async ({ browser, browserName }) => {
   test.skip(browserName !== 'chromium', 'Input.dispatchTouchEvent is Chromium only');
   test.setTimeout(120_000);
   await withMobilePage(browser, async (page) => {
@@ -154,6 +193,8 @@ test('a left swipe on a Trash row shows Delete forever, which deletes it', async
       page.screenshot({ path: test.info().outputPath(`trash-row-swiped-${theme}-390x844.png`) }),
     );
     await del.tap();
+    const confirm = await expectConfirmSheet(page);
+    await confirm.del.tap();
     await expect(row).toHaveCount(0);
     await expect(trashRows(page)).toHaveCount(TITLES.length - 1);
   }, { viewport, screen: viewport });

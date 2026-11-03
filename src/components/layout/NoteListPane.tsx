@@ -108,7 +108,17 @@ export function NoteListPane({
             emptyDescription="Deleted notes stay here until you empty Trash."
             rowActions={[
               { icon: ArchiveRestore, label: "Restore note", onClick: noteActions.restoreFromTrash },
-              { icon: Trash2, label: "Delete forever", onClick: noteActions.deleteForever, destructive: true },
+              {
+                icon: Trash2,
+                label: "Delete forever",
+                onClick: noteActions.deleteForever,
+                destructive: true,
+                confirm: {
+                  title: "Delete note forever?",
+                  description: "This note will be deleted permanently. You can't undo this.",
+                  confirmText: "Delete Note",
+                },
+              },
             ]}
             headerAction={{
               label: "Empty Trash",
