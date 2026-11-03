@@ -1,7 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect } from '../fixtures';
-import { runLiveBlocks } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // A `wide` live block (#557) leaves the article column, and the "On this page" panel (#643)
@@ -111,8 +110,6 @@ for (const width of [1280, 1440, 1920]) {
     const article = page.getByRole('article');
     await expect(article.getByRole('heading', { level: 1, name: TITLE })).toBeVisible({ timeout: 15_000 });
     await expect(panel(page).getByRole('link')).toHaveCount(4);
-    // A reader runs the html block before it draws (#947).
-    await runLiveBlocks(article);
     const frame = wideBlock(page).locator('iframe');
     await frame.scrollIntoViewIfNeeded();
     await expect(frame.contentFrame().getByText('Revenue').first()).toBeVisible();

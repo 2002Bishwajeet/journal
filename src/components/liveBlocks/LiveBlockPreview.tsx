@@ -22,8 +22,9 @@
  *   sandbox token; e2e/editor/live-html-sandbox.spec.ts holds the proof. Three
  *   things cross the boundary: the frame's report of its content height (#412),
  *   the block's `journal.storage` requests for its own saved state (#410), which
- *   the app answers from `store`, and a clicked web link, which the app opens in
- *   a new tab. All three go over a port only the page built here can hand the
+ *   the app answers from `store`, and a clicked web link, which `onLink` opens in
+ *   a new tab (LiveBlockFrame first shows where it goes when the user may not
+ *   have written the block, #975). All three go over a port only the page built here can hand the
  *   app (#945); nothing that arrives on the window is answered.
  * - react: the JSX is compiled in the app by the lazily imported
  *   reactBlockCompiler, then runs in the same frame as an html block, on the
@@ -63,11 +64,13 @@ interface LiveBlockPreviewProps {
   onHeight?: (height: number) => void;
   /** A `wide` html or react block, which may be taller (#557). */
   wide?: boolean;
+  /** A link the user clicked in the block's page, an http(s) or mailto URL. */
+  onLink?: (url: string) => void;
 }
 
 type ReactResult = { source: string; page: string } | { source: string; title: string; error: string };
 
-export function LiveBlockPreview({ kind, source, store, onHeight, wide }: LiveBlockPreviewProps) {
+export function LiveBlockPreview({ kind, source, store, onHeight, wide, onLink }: LiveBlockPreviewProps) {
   if (kind === 'svg') {
     return (
       <div className="p-4">
@@ -75,9 +78,9 @@ export function LiveBlockPreview({ kind, source, store, onHeight, wide }: LiveBl
       </div>
     );
   }
-  if (kind === 'html') return <HtmlPreview source={source} title="HTML preview" store={store} onHeight={onHeight} wide={wide} />;
-  if (kind === 'react') return <ReactPreview source={source} store={store} onHeight={onHeight} wide={wide} />;
-  return <MermaidPreview source={source} />;
+  if (kind === 'html') return <HtmlPreview source={source} title="HTML preview" store={store} onHeight={onHeight} wide={wide} onLink={onLink} />;
+  if (kind === 'react') return <ReactPreview source={source} store={store} onHeight={onHeight} wide={wide} onLink={onLink} />;
+  return <MermaidPreview source={source} onLink={onLink} />;
 }
 
 // The theme is the `dark` class on <html> (useThemePreference); the editor's font is an
@@ -111,8 +114,9 @@ function HtmlPreview({
   store,
   onHeight,
   wide,
+  onLink,
   themeVariables,
-}: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide'> & { title: string; themeVariables?: string }) {
+}: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide' | 'onLink'> & { title: string; themeVariables?: string }) {
   // State, not a ref: the frame's document takes its look from the mounted element.
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
   // What the app knows the frame's own page by (#945). It stays the same through a reload of that page.
@@ -152,14 +156,14 @@ function HtmlPreview({
       const height = frameHeightFromMessage(data, wide);
       if (height !== null) onHeight?.(height);
       const link = linkFromMessage(data);
-      if (link) window.open(link, '_blank', 'noopener,noreferrer');
+      if (link) onLink?.(link);
       const reply = replyToStorageMessage(data, session, blockStore);
       if (reply) port.postMessage(reply);
     };
     port.addEventListener('message', onMessage);
     port.start();
     return () => port.removeEventListener('message', onMessage);
-  }, [port, onHeight, session, blockStore, wide]);
+  }, [port, onHeight, onLink, session, blockStore, wide]);
 
   useEffect(() => {
     if (!port || !frame || themeVariables === undefined) return;
@@ -199,7 +203,7 @@ const REACT_BLOCK_LIBRARY_SCRIPTS: Record<ReactBlockLibrary, () => Promise<{ def
  * shown, a library on the first block that imports it (#427); all are cached for offline use
  * by src/sw.ts.
  */
-function ReactPreview({ source, store, onHeight, wide }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide'>) {
+function ReactPreview({ source, store, onHeight, wide, onLink }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide' | 'onLink'>) {
   const [result, setResult] = useState<ReactResult | null>(null);
 
   useEffect(() => {
@@ -256,7 +260,7 @@ function ReactPreview({ source, store, onHeight, wide }: Pick<LiveBlockPreviewPr
       </div>
     );
   }
-  return <HtmlPreview source={current.page} title="React preview" store={store} onHeight={onHeight} wide={wide} />;
+  return <HtmlPreview source={current.page} title="React preview" store={store} onHeight={onHeight} wide={wide} onLink={onLink} />;
 }
 
 /** A preview that could not be made, as the app's error callout. */
@@ -335,7 +339,7 @@ function mermaidThemeVariables(dark: boolean) {
 }
 
 /** A mermaid block (#946). Its runtime loads on the first one shown and is cached for offline use by src/sw.ts. */
-function MermaidPreview({ source }: { source: string }) {
+function MermaidPreview({ source, onLink }: Pick<LiveBlockPreviewProps, 'source' | 'onLink'>) {
   const dark = useSyncExternalStore(subscribeToRootAttributes, isDarkTheme, isDarkTheme);
   const [runtime, setRuntime] = useState<{ script: string } | { error: string } | null>(null);
   const [height, setHeight] = useState(MIN_FRAME_HEIGHT);
@@ -375,6 +379,7 @@ function MermaidPreview({ source }: { source: string }) {
           source={mermaidBlockDocument(runtime.script, source)}
           title="Mermaid preview"
           onHeight={setHeight}
+          onLink={onLink}
           themeVariables={JSON.stringify(mermaidThemeVariables(dark))}
         />
       </div>

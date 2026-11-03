@@ -117,12 +117,15 @@ describe('ShareNoteDialog', () => {
             expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ docId: NOTE_ID, isPublic: true }));
         });
 
-        it('does not push again when the note is already on the server', async () => {
+        it('pushes the last edits of a note already on the server before publishing it', async () => {
             syncRecord.current = { remoteFileId: 'file-1' };
+            const order: string[] = [];
+            syncNote.mockImplementationOnce(async () => { order.push('push'); });
+            makeNotePublic.mockImplementationOnce(async () => { order.push('publish'); return { versionTag: 'v2', previousVersionTag: 'v1' }; });
 
             await clickMakePublic();
 
-            expect(syncNote).not.toHaveBeenCalled();
+            expect(order).toEqual(['push', 'publish']);
             expect(makeNotePublic).toHaveBeenCalledWith(NOTE_ID, 'file-1', expect.anything());
         });
 

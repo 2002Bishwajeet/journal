@@ -28,13 +28,12 @@ export function useMakeNotesPublic(noteId: string) {
     );
 
     const publishOne = async (provider: NotesDriveProvider, docId: string) => {
+        // A note shared within its debounced save window isn't on the server yet, or not its last
+        // edits: push it first, as the publish re-uploads the server's copy. A push of a note that
+        // is already up to date makes no request.
+        await syncNote(docId);
         // Pass the synced fileId: a just-created note's uniqueId lookup can 404 (#293)
-        let record = await getSyncRecord(docId);
-        // A note shared within its debounced save window isn't on the server yet: push it first.
-        if (!record?.remoteFileId) {
-            await syncNote(docId);
-            record = await getSyncRecord(docId);
-        }
+        const record = await getSyncRecord(docId);
         const updates = await getDocumentUpdates(docId);
         const blob = updates.length > 0 ? Y.mergeUpdates(updates) : undefined;
         const metadata = notes?.find((n) => n.docId === docId)?.metadata;

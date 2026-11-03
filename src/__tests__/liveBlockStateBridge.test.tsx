@@ -5,7 +5,7 @@
  * the state while the frame reloads. On the share page a viewer starts from the owner's state and
  * changes only a copy in memory.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import Markdown from 'react-markdown';
@@ -27,24 +27,16 @@ beforeAll(() => {
 let root: Root;
 let note: HTMLDivElement;
 
-const RUN = 'button[aria-label^="Run "]';
-
-/** Renders `element`; `blocks` html blocks in it wait for Run until this device ran their code (#947). */
-async function render(element: React.ReactElement, blocks = 0): Promise<HTMLIFrameElement[]> {
+async function render(element: React.ReactElement): Promise<HTMLIFrameElement[]> {
   note = document.body.appendChild(document.createElement('div'));
   root = createRoot(note);
   await act(async () => root.render(element));
-  for (let i = 0; i < 50 && note.querySelectorAll(`${RUN}, iframe`).length < blocks; i++) {
-    await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
-  }
-  for (const run of note.querySelectorAll<HTMLButtonElement>(RUN)) await act(async () => run.click());
   const frames = [...note.querySelectorAll('iframe')];
   for (const frame of frames) await connect(frame);
   return frames;
 }
 
 afterEach(async () => {
-  vi.useRealTimers();
   await act(async () => root.unmount());
   note.remove();
   document.documentElement.removeAttribute('class');
@@ -182,14 +174,11 @@ describe('a mounted html block’s storage', () => {
 describe('a live block on the share page', () => {
   const MARKDOWN = '```html id=k3f9\n<p>counter</p>\n```\n\n```html\n<p>no id</p>\n```';
 
-  beforeEach(() => localStorage.clear());
-
   const sharePage = (states: Record<string, string>) =>
     render(
       <LiveBlockStatesContext.Provider value={states}>
         {createElement(Markdown, { remarkPlugins: shareRemarkPlugins, rehypePlugins: shareRehypePlugins, components: { pre: LiveBlockAwarePre } }, MARKDOWN)}
       </LiveBlockStatesContext.Provider>,
-      2,
     );
 
   it("should start from the owner's saved state, found by the id in the fence", async () => {
@@ -199,10 +188,9 @@ describe('a live block on the share page', () => {
   });
 
   it("should keep a viewer's change in memory only: the owner's state is back on the next page load", async () => {
+    vi.useFakeTimers();
     const states = { k3f9: '{"count":3}' };
     const [frame] = await sharePage(states);
-    // Only now: the Run gate's lookup of an earlier run settles on real timers.
-    vi.useFakeTimers();
     ask(frame, set('count', 10));
     vi.advanceTimersByTime(5000);
     vi.useRealTimers();
@@ -226,7 +214,6 @@ describe('a live block on the share page', () => {
           `Some <u>underlined</u> text.\n\n${MARKDOWN}`,
         )}
       </LiveBlockStatesContext.Provider>,
-      2,
     );
     expect(valueOf(ask(frame, get('count')))).toBe(3);
   });
@@ -285,7 +272,7 @@ describe('an html block in the editor (#950)', () => {
   it("should give a copy of a block an id of its own on its first save, and never the first one's state", async () => {
     const states = new Y.Doc();
     setBlockState(states, 'k3f9', '{"count":3}');
-    const [first, copy] = await render(<Note content={[code('html id=k3f9', '<p>A</p>'), code('html id=k3f9 wide', '<p>B</p>')]} readOnly={false} states={states} />, 2);
+    const [first, copy] = await render(<Note content={[code('html id=k3f9', '<p>A</p>'), code('html id=k3f9 wide', '<p>B</p>')]} readOnly={false} states={states} />);
     expect(valueOf(ask(first, get('count')))).toBe(3);
     expect(valueOf(ask(copy, get('count')))).toBeUndefined();
 
@@ -301,7 +288,7 @@ describe('an html block in the editor (#950)', () => {
     const states = new Y.Doc();
     setBlockState(states, 'k3f9', '{"count":3}');
     const before = Y.encodeStateAsUpdate(states);
-    const frames = await render(<Note content={[code('html id=k3f9', '<p>A</p>'), code('html', '<p>B</p>')]} readOnly states={states} />, 2);
+    const frames = await render(<Note content={[code('html id=k3f9', '<p>A</p>'), code('html', '<p>B</p>')]} readOnly states={states} />);
     expect(valueOf(ask(frames[0], get('count')))).toBe(3);
 
     await setCount(frames, 10);
