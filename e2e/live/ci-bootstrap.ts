@@ -353,3 +353,14 @@ setup('mark the owner\'s Journal drive as a collaboration drive that allows subs
         expect(result).toEqual({ allowSubscriptions: true, collaborative: 'true' });
     });
 });
+
+// The app's origin and the identities share the site dotyou.cloud here, so the owner console's
+// SameSite=Strict DY0810 cookie rides along on the app's calls. A real install's app is on another
+// site and never sends it. On odin-core v0.1.966 the /api/v2 auth handler takes that cookie before
+// the app's Bearer token, so Journal's v2 calls (its share circles) run as the owner console and
+// 400 on the app's shared secret. Setup is done with the owner console: drop the cookie.
+setup('drop the owner-console cookie the app would not send on a real install', async ({ browser }) => {
+    for (const storageState of [LIVE_STORAGE_STATE, ...LIVE_SHARING_IDENTITIES.map((i) => i.storageState)]) {
+        await withIdentity(browser, storageState, (page) => page.context().clearCookies({ name: 'DY0810' }));
+    }
+});
