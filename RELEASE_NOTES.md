@@ -16,6 +16,16 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.54.1 (2026-11-03)
+
+### Changed
+
+- A Mermaid diagram cannot show an image from the web.
+
+### Fixed
+
+- A Mermaid diagram is drawn in a sandboxed frame, as an HTML block is. Before, a fault in Mermaid could let a shared note run code in the app.
+
 ## 2.54.0 (2026-11-03)
 
 ### Changed

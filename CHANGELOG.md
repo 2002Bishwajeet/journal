@@ -1,3 +1,10 @@
+## [2.54.1](https://github.com/2002Bishwajeet/journal/compare/v2.54.0...v2.54.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **live-blocks:** redraw a Mermaid diagram for a new theme without reloading its frame ([#946](https://github.com/2002Bishwajeet/journal/issues/946)) ([425a248](https://github.com/2002Bishwajeet/journal/commit/425a248b1da884560737a15d17c6e633571e2acc))
+* **live-blocks:** render Mermaid in the sandboxed frame, not the app DOM ([#946](https://github.com/2002Bishwajeet/journal/issues/946)) ([4adc5a4](https://github.com/2002Bishwajeet/journal/commit/4adc5a4728c6fcdcff0d970e92cdf33fffea3939))
 # [2.54.0](https://github.com/2002Bishwajeet/journal/compare/v2.53.0...v2.54.0) (2026-11-03)
 
 
