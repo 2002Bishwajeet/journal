@@ -42,6 +42,9 @@ test('home shows the four tabs above the home indicator, and the New note button
     // Layout only: no push slide, so screenshots never land mid-slide.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await safeArea(page, browserName);
+    // The bar and the New note button fade up 12 px when they mount (#857), before reduced
+    // motion is set: measure them at rest.
+    for (const el of [tabBar(page), fab(page)]) await el.evaluate((e) => Promise.all(e.getAnimations().map((a) => a.finished)));
 
     await expect(tabBar(page).getByRole('button')).toHaveText(['Notes', 'Shared', 'Search', 'Settings']);
     await expect(tab(page, 'Notes')).toHaveAttribute('aria-current', 'page');

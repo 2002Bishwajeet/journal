@@ -71,6 +71,8 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
           width leaves no half-pixel seam, and the list has its own Done button. */}
       <DialogContent
         showCloseButton={!isMobile}
+        // Full screen on a phone: no dim, or the status bar above it turns grey (see Sheet).
+        overlayClassName="max-md:bg-transparent"
         className="settings-dialog max-h-none top-1/2 p-0 max-md:inset-0 max-md:translate-x-0 max-md:translate-y-0 max-md:h-dvh max-md:w-screen max-md:max-w-none sm:max-w-none max-md:rounded-none md:max-w-[min(900px,calc(100%-2rem))] gap-0 overflow-hidden border-0 shadow-2xl bg-background"
       >
         <DialogDescription className="sr-only">

@@ -87,7 +87,9 @@ function SheetContent({
 
   return (
     <DialogPortal>
-      <DialogOverlay />
+      {/* A full sheet covers the page, so it needs no dim. A dim backdrop would tint the
+          iPhone status bar grey above the sheet (the bar takes the top layer's colour). */}
+      <DialogOverlay className={cn(variant === "full" && "bg-transparent")} />
       <SheetDragContext value={controls}>
         <DialogPrimitive.Content
           asChild

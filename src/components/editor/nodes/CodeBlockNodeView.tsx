@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { LiveBlockFrame, LiveBlockToggle } from '@/components/liveBlocks/LiveBlockFrame';
 import { liveBlockKind, parseCodeInfo, withBlockId } from '@/lib/liveBlocks';
-import { newBlockId, type BlockStateStore } from '@/lib/liveBlockState';
+import { memoryBlockStateStore, newBlockId, ownBlockId, type BlockStateStore } from '@/lib/liveBlockState';
 import { holdLiveBlock } from '@/lib/liveBlockRuns';
 import { useEditorContext } from '../EditorContext';
 
@@ -22,7 +22,7 @@ export function CodeBlockNodeView({ node, selected, editor, getPos, updateAttrib
   const info = node.attrs.language as string | null;
   const { language, wide } = parseCodeInfo(info);
   const kind = liveBlockKind(info);
-  const { blockState, liveBlocksTrusted } = useEditorContext();
+  const { blockState, liveBlocksTrusted, readOnly } = useEditorContext();
   // Preview when the block has content at mount, Code when it is empty.
   const [showPreview, setShowPreview] = useState(() => node.textContent.length > 0);
   const preview = kind !== null && showPreview;
@@ -38,22 +38,29 @@ export function CodeBlockNodeView({ node, selected, editor, getPos, updateAttrib
     const pos = getPos();
     return pos === undefined ? info : ((editor.state.doc.nodeAt(pos)?.attrs.language as string | null) ?? null);
   };
-  // A block without an id gets one on its first save, in the info string, so the markdown carries it.
+  // The block's id, or null when it has none of its own: a later block with the same id (a copy) doesn't share its state (#950).
+  const ownId = () => {
+    const pos = getPos();
+    return pos === undefined ? parseCodeInfo(info).id : ownBlockId(editor.state.doc, pos);
+  };
+  // A block without an id of its own gets one on its first save, in the info string, so the markdown carries it.
   const store: BlockStateStore = {
     read: () => {
-      const { id } = parseCodeInfo(currentInfo());
+      const id = ownId();
       return id ? blockState.get(id) : undefined;
     },
     write: (json) => {
-      const now = currentInfo();
-      let { id } = parseCodeInfo(now);
+      let id = ownId();
       if (!id) {
         id = newBlockId();
-        updateAttributes({ language: withBlockId(now ?? '', id) });
+        updateAttributes({ language: withBlockId(currentInfo() ?? '', id) });
       }
       blockState.set(id, json);
     },
+    room: () => blockState.room(ownId()),
   };
+  // A note the host can only view keeps a viewer's changes in memory, as the share page does: they never reach the note (#950).
+  const [viewerStore] = useState(() => memoryBlockStateStore(store.read()));
 
   const code = (
     <pre hidden={preview}>
@@ -71,7 +78,7 @@ export function CodeBlockNodeView({ node, selected, editor, getPos, updateAttrib
           trusted={liveBlocksTrusted}
           selected={selected}
           labelled
-          store={store}
+          store={readOnly ? viewerStore : store}
           wide={wide}
           toggles={
             <>

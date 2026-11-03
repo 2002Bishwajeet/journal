@@ -6,13 +6,16 @@
  * frame is untrusted, so every check and limit is here, in the app.
  */
 import * as Y from 'yjs';
+import type { Node as PMNode } from '@tiptap/pm/model';
 import { getNewId } from '@/lib/utils';
-import { storageRequestFromMessage } from '@/lib/liveBlocks';
+import { parseCodeInfo, storageRequestFromMessage } from '@/lib/liveBlocks';
 
 /** Y.Map in the note's Yjs doc: block id -> the block's whole state as one JSON text. */
 export const BLOCK_STATE_MAP = 'liveBlockState';
 /** The most a block may save: its whole state as JSON, in UTF-8 bytes. */
 export const MAX_BLOCK_STATE_BYTES = 64 * 1024;
+/** The most a note's blocks may save together, so many blocks can't bloat the note and its versions (#950). */
+export const MAX_NOTE_BLOCK_STATE_BYTES = 256 * 1024;
 /** A block's state is written to the note at most this often. */
 export const BLOCK_STATE_WRITE_INTERVAL_MS = 1000;
 const MAX_KEY_LENGTH = 256;
@@ -25,8 +28,17 @@ export function getBlockState(ydoc: Y.Doc, id: string): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+/** The most block `id` (null: a block with no id yet) may save now: 64 KB, or what the note's other blocks leave of 256 KB. */
+export function blockStateRoom(ydoc: Y.Doc, id: string | null): number {
+  let others = 0;
+  ydoc.getMap(BLOCK_STATE_MAP).forEach((value, key) => {
+    if (key !== id && typeof value === 'string') others += utf8Length(value);
+  });
+  return Math.min(MAX_BLOCK_STATE_BYTES, MAX_NOTE_BLOCK_STATE_BYTES - others);
+}
+
 export function setBlockState(ydoc: Y.Doc, id: string, json: string): void {
-  if (utf8Length(json) > MAX_BLOCK_STATE_BYTES) throw new Error('A block can save at most 64 KB.');
+  if (utf8Length(json) > blockStateRoom(ydoc, id)) throw new Error('A block can save at most 64 KB, and a note’s blocks 256 KB together.');
   ydoc.getMap(BLOCK_STATE_MAP).set(id, json);
 }
 
@@ -52,6 +64,23 @@ export function getBlockStatesFromBlob(yjsBlob: Uint8Array): Record<string, stri
   }
 }
 
+/**
+ * The block id of the code block at `pos` in `doc`, or null when it has none of its
+ * own: only the first block in the note with an id owns that id's state, so a copy
+ * of it (pasted, or given the same id) neither reads nor writes it (#950).
+ */
+export function ownBlockId(doc: PMNode, pos: number): string | null {
+  const idOf = (node: PMNode | null | undefined) => parseCodeInfo((node?.attrs.language as string | null) ?? null).id;
+  const id = idOf(doc.nodeAt(pos));
+  if (!id) return null;
+  let first: number | undefined;
+  doc.descendants((node, at) => {
+    if (first === undefined && node.type.name === 'codeBlock' && idOf(node) === id) first = at;
+    return first === undefined;
+  });
+  return first === pos ? id : null;
+}
+
 /** A fresh block id: 8 characters of a-z0-9, which parseCodeInfo accepts. */
 export function newBlockId(): string {
   return getNewId().replace(/-/g, '').slice(0, 8).toLowerCase();
@@ -61,9 +90,11 @@ export function newBlockId(): string {
 export interface BlockStateStore {
   read(): string | undefined;
   write(json: string): void;
+  /** The most the block may save now, in UTF-8 bytes. */
+  room(): number;
 }
 
-/** A store in memory only, seeded with `json`: what a share page viewer writes to. */
+/** A store in memory only, seeded with `json`: what a share page viewer, or the viewer of a view-only note, writes to. */
 export function memoryBlockStateStore(json: string | undefined): BlockStateStore {
   let current = json;
   return {
@@ -71,6 +102,7 @@ export function memoryBlockStateStore(json: string | undefined): BlockStateStore
     write: (next) => {
       current = next;
     },
+    room: () => MAX_BLOCK_STATE_BYTES,
   };
 }
 
@@ -148,7 +180,7 @@ export function createBlockStateSession() {
       if (!isSerialisable(value)) return { error: 'journal.storage: a value must be JSON: a string, a finite number, true, false, null, or an array or plain object of those.' };
       const state = { ...current(store), [key]: value };
       const json = JSON.stringify(state);
-      if (utf8Length(json) > MAX_BLOCK_STATE_BYTES) return { error: 'journal.storage: a block can save at most 64 KB, and this value would take it over.' };
+      if (utf8Length(json) > store.room()) return { error: 'journal.storage: a block can save at most 64 KB, and a note’s blocks 256 KB together; this value would take it over.' };
       pending = { state, json, store };
       if (!timer) timer = setTimeout(write, Math.max(0, lastWrite + BLOCK_STATE_WRITE_INTERVAL_MS - Date.now()));
       return {};

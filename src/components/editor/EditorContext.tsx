@@ -20,6 +20,8 @@ export interface EditorContextValue {
   blockState: {
     get: (id: string) => string | undefined;
     set: (id: string, json: string) => void;
+    /** The most block `id` (null: no id yet) may save now, in UTF-8 bytes. */
+    room: (id: string | null) => number;
   };
   /** The note's html and react blocks run without asking: only this identity wrote the note (#947). */
   liveBlocksTrusted: boolean;

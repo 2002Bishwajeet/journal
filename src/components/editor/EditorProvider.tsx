@@ -32,7 +32,7 @@ import {
   type CoverVariant,
   type NoteCover,
 } from "@/lib/editor/cover";
-import { getBlockState, setBlockState } from "@/lib/liveBlockState";
+import { blockStateRoom, getBlockState, setBlockState } from "@/lib/liveBlockState";
 import { isAgentEditor } from "@/lib/agent/attribution";
 import type { DocumentMetadata } from "@/types";
 import { EditorContext } from "./EditorContext";
@@ -307,6 +307,7 @@ export function EditorProvider({
       setBlockState(yDoc, id, json);
       void updateSyncStatus(docId, "pending");
     },
+    room: (id: string | null) => blockStateRoom(yDoc, id),
   };
 
   // Handle document updates from broadcast (sync service)

@@ -10,16 +10,22 @@ import { buildSrcdoc, FRAME_TOKENS, liveBlockKind, parseCodeInfo, withBlockId, t
 import {
   BLOCK_STATE_MAP,
   MAX_BLOCK_STATE_BYTES,
+  MAX_NOTE_BLOCK_STATE_BYTES,
+  blockStateRoom,
   createBlockStateSession,
   getBlockState,
+  getBlockStates,
   getBlockStatesFromBlob,
   memoryBlockStateStore,
   newBlockId,
+  ownBlockId,
   replyToStorageMessage,
   setBlockState,
   type BlockStateStore,
 } from '@/lib/liveBlockState';
 import { COVER_MAP } from '@/lib/editor/cover';
+import { getSchema, type JSONContent } from '@tiptap/core';
+import { createBaseExtensions } from '@/components/editor/plugins/extensions';
 
 const { saveDocumentUpdate } = vi.hoisted(() => ({ saveDocumentUpdate: vi.fn() }));
 vi.mock('@/lib/db/queries', () => ({
@@ -72,6 +78,33 @@ describe('parseCodeInfo', () => {
     expect(withBlockId('html', id)).toBe(`html id=${id}`);
     expect(parseCodeInfo(withBlockId(' html ', id))).toEqual({ language: 'html', id, wide: false });
     expect(parseCodeInfo(withBlockId('react wide', id))).toEqual({ language: 'react', id, wide: true });
+  });
+
+  it('should put a new id in place of the one a copied block had (#950)', () => {
+    expect(withBlockId('html id=k3f9', 'abcd1234')).toBe('html id=abcd1234');
+    expect(withBlockId('react id=k3f9 wide', 'abcd1234')).toBe('react wide id=abcd1234');
+  });
+});
+
+describe('a block id two blocks in a note have (#950)', () => {
+  const schema = getSchema(createBaseExtensions());
+  const code = (language: string): JSONContent => ({ type: 'codeBlock', attrs: { language }, content: [{ type: 'text', text: '<p>hi</p>' }] });
+  /** The id each code block in the note owns, in order. */
+  const ownIds = (content: JSONContent[]) => {
+    const doc = schema.nodeFromJSON({ type: 'doc', content });
+    const ids: (string | null)[] = [];
+    doc.descendants((node, pos) => {
+      if (node.type.name === 'codeBlock') ids.push(ownBlockId(doc, pos));
+    });
+    return ids;
+  };
+
+  it('should belong to the first of them only: a copy has no id of its own', () => {
+    expect(ownIds([code('html id=k3f9'), { type: 'paragraph' }, code('react id=k3f9'), code('html'), code('html id=abcd')])).toEqual(['k3f9', null, null, 'abcd']);
+  });
+
+  it('should belong to the first in the note, also when it is nested in another block', () => {
+    expect(ownIds([{ type: 'blockquote', content: [code('html id=k3f9')] }, code('html id=k3f9')])).toEqual(['k3f9', null]);
   });
 });
 
@@ -149,6 +182,25 @@ describe('the state map', () => {
     expect(getBlockState(doc, 'k3f9')).toBeUndefined();
   });
 
+  it("should refuse a block's state that takes the note's blocks over 256 KB together, and write nothing (#950)", () => {
+    const doc = new Y.Doc();
+    // JSON of exactly `bytes` bytes.
+    const sized = (bytes: number) => JSON.stringify({ v: 'x'.repeat(bytes - 8) });
+    for (const id of ['aaaa', 'bbbb', 'cccc', 'dddd']) setBlockState(doc, id, sized(60_000));
+    const left = MAX_NOTE_BLOCK_STATE_BYTES - 240_000;
+    expect(blockStateRoom(doc, null)).toBe(left);
+    // Another block may save only what is left, though that is under 64 KB.
+    expect(() => setBlockState(doc, 'eeee', sized(left + 1))).toThrow();
+    expect(getBlockState(doc, 'eeee')).toBeUndefined();
+    setBlockState(doc, 'eeee', sized(left));
+    expect(blockStateRoom(doc, null)).toBe(0);
+    // A block's own state doesn't count against it: it may still change it.
+    expect(blockStateRoom(doc, 'aaaa')).toBe(60_000);
+    setBlockState(doc, 'aaaa', sized(50_000));
+    expect(blockStateRoom(doc, 'aaaa')).toBe(60_000);
+    expect(Object.keys(getBlockStates(doc))).toHaveLength(5);
+  });
+
   it('should read nothing from bytes that are not a Yjs update', () => {
     expect(getBlockStatesFromBlob(new Uint8Array([1, 2, 3, 4]))).toEqual({});
   });
@@ -159,7 +211,11 @@ function docStore(id = 'k3f9') {
   const doc = new Y.Doc();
   let updates = 0;
   doc.on('update', () => updates++);
-  const store: BlockStateStore = { read: () => getBlockState(doc, id), write: (json) => setBlockState(doc, id, json) };
+  const store: BlockStateStore = {
+    read: () => getBlockState(doc, id),
+    write: (json) => setBlockState(doc, id, json),
+    room: () => blockStateRoom(doc, id),
+  };
   return { doc, store, updates: () => updates };
 }
 
@@ -245,6 +301,18 @@ describe('a block’s storage session', () => {
     vi.advanceTimersByTime(5000);
     expect(getBlockState(doc, 'k3f9')).toBe('{"small":1}');
     expect(session.get('big')).toEqual({ value: undefined });
+  });
+
+  it("should reject a value that takes the note's blocks over 256 KB together, and keep what it had (#950)", () => {
+    vi.useFakeTimers();
+    const { doc, store } = docStore();
+    for (const id of ['aaaa', 'bbbb', 'cccc', 'dddd']) setBlockState(doc, id, JSON.stringify({ v: 'x'.repeat(60_000) }));
+    const session = sessionOn(store);
+    expect(session.set('small', 1)).toEqual({});
+    // Under 64 KB, but over what the other blocks leave.
+    expect(session.set('big', 'x'.repeat(30_000))).toEqual({ error: expect.stringMatching(/256 KB/) });
+    vi.advanceTimersByTime(5000);
+    expect(getBlockState(doc, 'k3f9')).toBe('{"small":1}');
   });
 
   it('should make at most one Yjs update a second, with the latest value, from a set in a tight loop', () => {
