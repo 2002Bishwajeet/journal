@@ -49,7 +49,7 @@ test('the shell carries the Report-Only policy, also when the service worker ser
     const first = await page.goto('/');
     await assertTestOrigin(page);
     expect(first!.headers()['content-security-policy-report-only']).toContain("default-src 'self'");
-    expect(first!.headers()['content-security-policy']).toBeUndefined();
+    expect(first!.headers()['content-security-policy']).toBe("frame-src 'self'");
     await waitForAppReady(page);
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
 

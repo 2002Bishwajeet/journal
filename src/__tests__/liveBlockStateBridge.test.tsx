@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 /**
  * The storage bridge of a mounted html block (#410): the app answers only the
- * block's own frame, from that block's store, and keeps the state while the
- * frame reloads. On the share page a viewer starts from the owner's state and
+ * port the block's own page handed it (#945), from that block's store, and keeps
+ * the state while the frame reloads. On the share page a viewer starts from the owner's state and
  * changes only a copy in memory.
  */
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
@@ -26,7 +26,9 @@ async function render(element: React.ReactElement): Promise<HTMLIFrameElement[]>
   note = document.body.appendChild(document.createElement('div'));
   root = createRoot(note);
   await act(async () => root.render(element));
-  return [...note.querySelectorAll('iframe')];
+  const frames = [...note.querySelectorAll('iframe')];
+  for (const frame of frames) await connect(frame);
+  return frames;
 }
 
 afterEach(async () => {
@@ -35,14 +37,34 @@ afterEach(async () => {
   document.documentElement.removeAttribute('class');
 });
 
-/** Posts `data` to the app as `source`, and returns what the app posted back into `frame`. */
-function ask(frame: HTMLIFrameElement, data: unknown, source: unknown = frame.contentWindow) {
-  const postMessage = vi.spyOn(frame.contentWindow!, 'postMessage').mockImplementation(() => {});
-  window.dispatchEvent(new MessageEvent('message', { data, source: source as Window }));
-  const replies = postMessage.mock.calls.map((call) => call[0]);
-  postMessage.mockRestore();
-  return replies;
+const ports = new WeakMap<HTMLIFrameElement, MessagePort>();
+
+/** Posts `data` to the app on `window`, as `source` with `transfer`, as a frame's page does. */
+const postOnWindow = (data: unknown, source: unknown, transfer: MessagePort[] = []) =>
+  act(async () => {
+    window.dispatchEvent(new MessageEvent('message', { data, source: source as Window, ports: transfer }));
+  });
+
+const newPort = () => Object.assign(new EventTarget(), { postMessage: vi.fn(), start: vi.fn() }) as unknown as MessagePort;
+const tokenOf = (frame: HTMLIFrameElement) => frame.getAttribute('srcdoc')!.match(/bridge: '([^']+)'/)![1];
+
+/** Does what the bridge script in `frame`'s page does as it starts: hands the app a port. */
+async function connect(frame: HTMLIFrameElement) {
+  const port = newPort();
+  await postOnWindow({ journalLiveBlock: 1, bridge: tokenOf(frame) }, frame.contentWindow, [port]);
+  ports.set(frame, port);
+  return port;
 }
+
+/** Sends `data` to the app on `port`, and returns what it sent back there. */
+function askOn(port: MessagePort, data: unknown) {
+  const postMessage = vi.mocked(port.postMessage);
+  postMessage.mockClear();
+  port.dispatchEvent(new MessageEvent('message', { data }));
+  return postMessage.mock.calls.map((call) => call[0]);
+}
+
+const ask = (frame: HTMLIFrameElement, data: unknown) => askOn(ports.get(frame)!, data);
 
 let requestNumber = 0;
 const get = (key: string) => ({ journalLiveBlock: 1, storage: 'get', request: ++requestNumber, key });
@@ -58,21 +80,35 @@ describe('a mounted html block’s storage', () => {
       </>,
     );
 
-  it("should answer each frame from its own block's state, into that frame only", async () => {
+  it("should answer each block from its own state, on that block's port only", async () => {
     const [frameA, frameB] = await twoBlocks(memoryBlockStateStore('{"secret":"A"}'), memoryBlockStateStore('{"secret":"B"}'));
-    const postToB = vi.spyOn(frameB.contentWindow!, 'postMessage').mockImplementation(() => {});
     const replies = ask(frameA, get('secret'));
     expect(replies).toEqual([{ journalLiveBlock: 1, reply: requestNumber, value: 'A' }]);
-    expect(postToB).not.toHaveBeenCalled();
+    expect(ports.get(frameB)!.postMessage).not.toHaveBeenCalled();
     expect(valueOf(ask(frameB, get('secret')))).toBe('B');
   });
 
-  it('should not reply to a message from a window that is not one of its frames', async () => {
-    const [frameA, frameB] = await twoBlocks(memoryBlockStateStore('{"secret":"A"}'), memoryBlockStateStore('{"secret":"B"}'));
-    const postToB = vi.spyOn(frameB.contentWindow!, 'postMessage').mockImplementation(() => {});
-    expect(ask(frameA, get('secret'), window)).toEqual([]);
-    expect(ask(frameA, get('secret'), null)).toEqual([]);
-    expect(postToB).not.toHaveBeenCalled();
+  it("should give each block's page a token of its own", async () => {
+    const [frameA, frameB] = await twoBlocks(memoryBlockStateStore(undefined), memoryBlockStateStore(undefined));
+    expect(tokenOf(frameA)).not.toBe(tokenOf(frameB));
+  });
+
+  it('should ignore a request that does not arrive on the handed port, even from the frame', async () => {
+    const [frame] = await twoBlocks(memoryBlockStateStore('{"secret":"A"}'), memoryBlockStateStore('{"secret":"B"}'));
+    const postToFrame = vi.spyOn(frame.contentWindow!, 'postMessage').mockImplementation(() => {});
+    await postOnWindow(get('secret'), frame.contentWindow);
+    expect(postToFrame).not.toHaveBeenCalled();
+    expect(ports.get(frame)!.postMessage).not.toHaveBeenCalled();
+  });
+
+  it('should give a page navigated to in the frame, which has the window but no token, no bridge', async () => {
+    const [frame] = await render(<LiveBlockPreview kind="html" source="<p>A</p>" store={memoryBlockStateStore('{"secret":"A"}')} />);
+    const intruder = newPort();
+    await postOnWindow({ journalLiveBlock: 1, bridge: 'guess' }, frame.contentWindow, [intruder]);
+    expect(intruder.start).not.toHaveBeenCalled();
+    expect(askOn(intruder, get('secret'))).toEqual([]);
+    // The block's own port is still the one that counts.
+    expect(valueOf(ask(frame, get('secret')))).toBe('A');
   });
 
   it('should keep the state when the frame reloads with the theme, and save it when the block goes away', async () => {
@@ -86,6 +122,8 @@ describe('a mounted html block’s storage', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(frame.getAttribute('srcdoc')).not.toBe(before);
+    // The reloaded page has the same token, and hands over a port of its own.
+    await connect(frame);
     expect(valueOf(ask(frame, get('count')))).toBe(3);
 
     ask(frame, set('count', 4));

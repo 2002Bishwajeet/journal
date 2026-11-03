@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Check, CircleSlash, X, type LucideIcon } from "lucide-react";
+import { Check, CircleSlash, Globe, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePendingWrite } from "@/hooks/usePendingWrite";
 import type { AgentStep } from "@/hooks/useAgentSession";
@@ -49,6 +49,12 @@ export function AgentWriteCard({ step }: { step: AgentStep }) {
           </>
         ) : (
           <p className="font-medium break-words">{summary}</p>
+        )}
+        {write.isPublic && write.state === "pending" && (
+          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium">
+            <Globe aria-hidden="true" className="size-3.5 shrink-0" />
+            Will be public
+          </p>
         )}
       </div>
       <pre

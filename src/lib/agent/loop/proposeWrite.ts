@@ -40,9 +40,11 @@ export async function proposeWrite(
         await tool.execute(noWrites(writeDeps), args);
         const note = (await writeDeps.fetchNoteForEdit(args.id!))!;
         const { id, title, folderId } = note.summary;
+        const folder = (await deps.listFolders()).find((f) => f.id === folderId);
         return {
             summary: `Append to '${title}'`,
             markdown,
+            isPublic: !!(note.metadata.isPublic || folder?.isPublic),
             apply: async () => {
                 await tool.execute(writeDeps, args);
                 return { id, title, folderId };
@@ -56,6 +58,7 @@ export async function proposeWrite(
         return {
             summary: `Create note '${args.title || 'Untitled'}' in ${folder?.name ?? 'Main'}`,
             markdown,
+            isPublic: !!folder?.isPublic,
             apply: async () => (await tool.execute(writeDeps, args)).data as WrittenNote,
         };
     }

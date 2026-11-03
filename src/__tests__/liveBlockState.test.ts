@@ -282,10 +282,6 @@ describe('a block’s storage session', () => {
 });
 
 describe('the storage bridge', () => {
-  // Stand-ins for windows: only their identity matters.
-  const frameA = {} as Window;
-  const frameB = {} as Window;
-  const otherWindow = {} as Window;
   const request = (storage: 'get' | 'set', key: string, value?: unknown, n = 1) => ({ journalLiveBlock: 1, storage, request: n, key, value });
 
   const twoBlocks = () => {
@@ -298,7 +294,7 @@ describe('the storage bridge', () => {
 
   it("should answer a block's request from its own state, by the request's number", () => {
     const { a } = twoBlocks();
-    expect(replyToStorageMessage({ source: frameA, data: request('get', 'secret', undefined, 7) }, frameA, a.session, a.store)).toEqual({
+    expect(replyToStorageMessage(request('get', 'secret', undefined, 7), a.session, a.store)).toEqual({
       journalLiveBlock: 1,
       reply: 7,
       value: 'A',
@@ -308,24 +304,13 @@ describe('the storage bridge', () => {
   it("should never let block A read or write block B's state", () => {
     vi.useFakeTimers();
     const { a, b } = twoBlocks();
-    // A's frame posting to B's listener is no request of B's: no reply, nothing read or written.
-    expect(replyToStorageMessage({ source: frameA, data: request('get', 'secret') }, frameB, b.session, b.store)).toBeNull();
-    expect(replyToStorageMessage({ source: frameA, data: request('set', 'secret', 'from A') }, frameB, b.session, b.store)).toBeNull();
-    // A writing through its own bridge changes only its own state.
-    replyToStorageMessage({ source: frameA, data: request('set', 'secret', 'from A') }, frameA, a.session, a.store);
+    // A's port leads to A's session and store: writing through it changes only its own state.
+    replyToStorageMessage(request('set', 'secret', 'from A'), a.session, a.store);
     vi.advanceTimersByTime(1000);
     vi.useRealTimers();
     expect(getBlockState(a.doc, 'aaaa')).toBe('{"secret":"from A"}');
     expect(getBlockState(b.doc, 'bbbb')).toBe('{"secret":"B"}');
     expect(b.updates()).toBe(1);
-  });
-
-  it('should not reply to a message from a window that is not a known frame', () => {
-    const { a } = twoBlocks();
-    for (const source of [otherWindow, null]) {
-      expect(replyToStorageMessage({ source, data: request('get', 'secret') }, frameA, a.session, a.store)).toBeNull();
-    }
-    expect(replyToStorageMessage({ source: frameA, data: request('get', 'secret') }, null, a.session, a.store)).toBeNull();
   });
 
   it('should not take a height report, or anything without the marker, op and number, as a request', () => {
@@ -339,13 +324,13 @@ describe('the storage bridge', () => {
       null,
       'get',
     ]) {
-      expect(replyToStorageMessage({ source: frameA, data }, frameA, a.session, a.store)).toBeNull();
+      expect(replyToStorageMessage(data, a.session, a.store)).toBeNull();
     }
   });
 
   it('should answer a bad request with an error', () => {
     const { a } = twoBlocks();
-    expect(replyToStorageMessage({ source: frameA, data: request('set', 'k', undefined, 3) }, frameA, a.session, a.store)).toEqual({
+    expect(replyToStorageMessage(request('set', 'k', undefined, 3), a.session, a.store)).toEqual({
       journalLiveBlock: 1,
       reply: 3,
       error: expect.stringMatching(/must be JSON/),
@@ -361,22 +346,35 @@ describe('journal.storage in the frame', () => {
     lineHeight: '1.5',
   };
 
-  /** Runs the injected script with a stand-in parent window, as the frame would. */
+  /** Runs the injected script with a stand-in parent window and channel, as the frame would. */
   function runFrameScript() {
-    const script = buildSrcdoc('', THEME).match(/<script>(\(function \(\) \{var next[^]*?)<\/script>/)![1];
+    const script = buildSrcdoc('', THEME, 'the-token').match(/<script>(\(function \(\) \{[^]*?)<\/script>/)![1];
     const posted: Record<string, unknown>[] = [];
-    const parent = { postMessage: (message: Record<string, unknown>) => posted.push(message) };
+    const port: { postMessage(message: Record<string, unknown>): void; onmessage?: (event: { data: unknown }) => void } = {
+      postMessage: (message) => posted.push(message),
+    };
+    const port2 = {};
+    class MessageChannel {
+      port1 = port;
+      port2 = port2;
+    }
+    const handedOver: unknown[][] = [];
+    const parent = { postMessage: (...args: unknown[]) => handedOver.push(args) };
+    const removeScript = vi.fn();
     const frameWindow: { journal?: { storage: { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<unknown> } } } = {};
-    let onMessage: (event: { source: unknown; data: unknown }) => void = () => {};
-    new Function('window', 'parent', 'addEventListener', script)(frameWindow, parent, (_: string, listener: typeof onMessage) => {
-      onMessage = listener;
-    });
-    return { storage: frameWindow.journal!.storage, posted, parent, deliver: (data: unknown, source: unknown = parent) => onMessage({ data, source }) };
+    new Function('window', 'parent', 'document', 'addEventListener', 'MessageChannel', script)(frameWindow, parent, { currentScript: { remove: removeScript } }, () => {}, MessageChannel);
+    return { storage: frameWindow.journal!.storage, posted, handedOver, port2, removeScript, deliver: (data: unknown) => port.onmessage!({ data }) };
   }
 
   it('should come before the source, so the source can use it as it loads', () => {
-    const srcdoc = buildSrcdoc('<p>block</p>', THEME);
+    const srcdoc = buildSrcdoc('<p>block</p>', THEME, 'the-token');
     expect(srcdoc.indexOf('window.journal')).toBeLessThan(srcdoc.indexOf('<p>block</p>'));
+  });
+
+  it('should hand the app one end of a channel as it starts, and leave the document', () => {
+    const { handedOver, port2, removeScript } = runFrameScript();
+    expect(handedOver).toEqual([[{ journalLiveBlock: 1, bridge: 'the-token' }, '*', [port2]]]);
+    expect(removeScript).toHaveBeenCalledOnce();
   });
 
   it('should post get and set to the app and resolve with the reply to the same request', async () => {
@@ -400,10 +398,10 @@ describe('journal.storage in the frame', () => {
     await expect(set).rejects.toThrow('64 KB');
   });
 
-  it('should ignore a reply from anything but the app', async () => {
+  it('should ignore a message that is no reply to a request', async () => {
     const { storage, deliver } = runFrameScript();
     const get = storage.get('count');
-    deliver({ journalLiveBlock: 1, reply: 1, value: 'forged' }, {});
+    deliver({ journalLiveBlock: 1, reply: 2, value: 'not asked for' });
     deliver(null);
     deliver({ journalLiveBlock: 1, reply: 1, value: 3 });
     await expect(get).resolves.toBe(3);
