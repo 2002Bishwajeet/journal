@@ -1124,19 +1124,6 @@ img.ProseMirror-separator {
   display: none;  /* Chrome, Safari, Opera */
 }
 
-/* Settings tab strip (phones): fade the edge that has more tabs past it. */
-@media (max-width: 767px) {
-  .settings-tab-fade[data-fade-start="true"] {
-    mask-image: linear-gradient(to right, transparent, #000 1.25rem);
-  }
-  .settings-tab-fade[data-fade-end="true"] {
-    mask-image: linear-gradient(to left, transparent, #000 1.25rem);
-  }
-  .settings-tab-fade[data-fade-start="true"][data-fade-end="true"] {
-    mask-image: linear-gradient(to right, transparent, #000 1.25rem, #000 calc(100% - 1.25rem), transparent);
-  }
-}
-
 /* A viewport that holds a PullToRefresh draws the pull itself: no native bounce on top of it. */
 [data-radix-scroll-area-viewport]:has([data-pull-to-refresh]) {
   overscroll-behavior-y: none;

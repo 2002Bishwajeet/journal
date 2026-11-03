@@ -62,7 +62,11 @@ test('on a phone, the table grips, table menu and tag input are easy to touch', 
   await withFencedPage(browser, { storageState: AUTH, viewport: DESKTOP, hasTouch: true }, async (page) => {
     await noteWithTable(page);
     await page.setViewportSize(PHONE);
-    await activeEditor(page).locator('table td').first().tap();
+    // The mouse is still where createNote left it, outside the phone viewport. Chromium sends it
+    // back there after a tap, and that mouseleave hides the hover-driven grips in 200 ms. Park it on the cell.
+    const cell = activeEditor(page).locator('table td').first();
+    await cell.hover();
+    await cell.tap();
 
     for (const name of ['Column options', 'Row options']) {
       const size = await hitSize(page, name);

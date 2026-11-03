@@ -23,10 +23,10 @@ test('desktop: shortcuts section lists shortcuts; About shows version and links'
   );
 });
 
-test('mobile: no Keyboard shortcuts tab', async ({ app }) => {
+test('mobile: no Keyboard shortcuts row', async ({ app }) => {
   await app.setViewportSize({ width: 390, height: 844 });
   await app.getByRole('button', { name: 'Settings' }).click();
   const dialog = app.getByRole('dialog');
-  await expect(dialog.getByRole('tab', { name: 'About', exact: true })).toBeVisible();
-  await expect(dialog.getByRole('tab', { name: 'Keyboard shortcuts' })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'About', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Keyboard shortcuts' })).toHaveCount(0);
 });

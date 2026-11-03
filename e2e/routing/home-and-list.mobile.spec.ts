@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { withMobilePage } from '../support/mobile';
-import { createFolder, inBothThemes, selectFolder } from '../support/actions';
+import { createFolder, inBothThemes, openSettingsSection, selectFolder } from '../support/actions';
 
 // Phone home and list screens (#830): large titles, real empty states, room for the
 // tab bar and the New note button (#853), Log out in Settings and Empty Trash in a sheet.
@@ -75,7 +75,7 @@ test('home: a large title clear of the tab bar and the New note button, and no L
 
     await tab(page, 'Settings').click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('tab', { name: 'Account', exact: true }).click();
+    await openSettingsSection(dialog, 'Account');
     await expect(dialog.getByRole('button', { name: /Sign out/ })).toBeVisible();
   });
 });

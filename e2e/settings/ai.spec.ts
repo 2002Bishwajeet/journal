@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { openSettingsSection } from '../support/actions';
 import { stubWebGPU } from '../support/webgpu';
 import { finishLoad, reloads, stubWebLLMWorker } from '../support/webllm-worker';
 
@@ -32,7 +33,7 @@ async function screenshotBothThemes(page: Page, name: string) {
 async function openAISettings(page: Page) {
   await page.getByRole('button', { name: 'Settings' }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByRole('tab', { name: 'AI', exact: true }).click();
+  await openSettingsSection(dialog, 'AI');
   return dialog;
 }
 

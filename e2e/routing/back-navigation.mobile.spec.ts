@@ -100,11 +100,11 @@ test('system Back closes Version history and keeps the note open', async ({ brow
   });
 });
 
-test('a dialog closed with its X leaves no stale history entry', async ({ browser }) => {
+test('a dialog closed with its Done button leaves no stale history entry', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     await page.getByRole('navigation', { name: 'Tabs' }).getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Done' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
     // Open a folder, then Back: the sidebar, not a leftover Settings entry.
     await selectFolder(page, 'Main');

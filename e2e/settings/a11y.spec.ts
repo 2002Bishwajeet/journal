@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { openSettingsSection, settingsPanel } from '../support/actions';
 
 // Settings controls are keyboard-operable with a visible focus indicator, and
 // meet the 44 px touch-target size on mobile (#211).
@@ -93,8 +94,8 @@ test('mobile: every Settings control is at least 44 x 44 px', async ({ app }) =>
 
   const sections = ['Account', 'Appearance', 'AI', 'Agent access', 'Data & storage', 'About', 'Diagnostics'];
   for (const section of sections) {
-    await dialog.getByRole('tab', { name: section, exact: true }).click();
-    const panel = dialog.getByRole('tabpanel');
+    await openSettingsSection(dialog, section);
+    const panel = settingsPanel(dialog);
     // The panel must fit the dialog: a wide nav strip must not widen the grid column.
     expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth), `${section}: horizontal overflow`).toBe(true);
     // A radio or switch is operated through its card / row label, which is the
