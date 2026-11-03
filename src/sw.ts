@@ -14,18 +14,19 @@ declare let self: ServiceWorkerGlobalScope & {
 self.__WB_DISABLE_DEV_LOGS = true;
 
 // A page load of / goes to the network first: the edge picks the app or the landing page by
-// the session hint cookie (functions/index.ts, #913). Offline, it is the app's shell, so the
-// installed app still opens. Registered before the precache route, which would serve '/' itself.
+// the session hint cookie (functions/index.ts, #913). Offline, or with no answer within
+// ROOT_NETWORK_TIMEOUT_MS, it is the app's shell, so the installed app still opens fast.
+// Registered before the precache route, which would serve '/' itself.
+const ROOT_NETWORK_TIMEOUT_MS = 3000;
 registerRoute(
     ({ request, url }) => request.mode === 'navigate' && url.origin === self.location.origin && url.pathname === '/',
     async ({ request }) => {
-        try {
-            return await fetch(request);
-        } catch (error) {
-            const shell = await matchPrecache('/');
-            if (shell) return shell;
-            throw error;
-        }
+        const network = fetch(request);
+        const timeout = new Promise<undefined>((resolve) => setTimeout(resolve, ROOT_NETWORK_TIMEOUT_MS));
+        const first = await Promise.race([network.catch(() => undefined), timeout]);
+        if (first) return first;
+        // Failed or slow: the shell, or (with no shell yet) the network after all.
+        return (await matchPrecache('/')) ?? network;
     }
 );
 
