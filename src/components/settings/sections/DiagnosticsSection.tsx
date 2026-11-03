@@ -234,8 +234,15 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
                 onRetry={() => diagnostics.retryItem(item)}
                 onDiscard={() => setToDiscard([item])}
                 onOpen={() => {
-                  navigate(`/${item.folderId ?? MAIN_FOLDER_ID}/${item.noteId}`);
-                  close();
+                  const openNote = () => {
+                    navigate(`/${item.folderId ?? MAIN_FOLDER_ID}/${item.noteId}`);
+                    close();
+                  };
+                  // On a phone Settings holds history entries: leave them first, so Back from the note skips them (#831).
+                  const overlays = window.history.state?.usr?.overlays?.length ?? 0;
+                  if (overlays === 0) return openNote();
+                  window.addEventListener("popstate", openNote, { once: true });
+                  navigate(-overlays);
                 }}
               />
             ))}

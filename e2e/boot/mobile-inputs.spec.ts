@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { openSettingsSection } from '../support/actions';
 
 // #785: text fields are 16 px on touch screens (so focusing one never zooms the
 // page), the sign-in screen fits the visible screen, and the viewport is not locked.
@@ -123,7 +124,7 @@ test('phone: Settings > Agent access selects and the New folder field are 16 px'
     await mockNoGrantsFile(page);
     await page.getByRole('button', { name: 'Settings' }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('tab', { name: 'Agent access' }).click();
+    await openSettingsSection(dialog, 'Agent access');
     await expectAllAtLeast16(dialog.locator('select'));
     await page.screenshot({ path: testInfo.outputPath('agent-access-light-phone.png') });
     await page.keyboard.press('Escape');

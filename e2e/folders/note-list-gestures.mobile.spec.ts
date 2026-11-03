@@ -1,6 +1,6 @@
 import type { CDPSession, Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { selectFolder } from '../support/actions';
+import { openSettingsSection, selectFolder } from '../support/actions';
 import { withMobilePage } from '../support/mobile';
 
 // #778: the note list on a phone. A swipe locks to the horizontal axis after
@@ -49,7 +49,7 @@ async function withNoteList(
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.getByRole('button', { name: 'Settings' }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('tab', { name: 'Data & storage' }).click();
+    await openSettingsSection(dialog, 'Data & storage');
     await dialog.locator('input[type="file"]').setInputFiles(seedFiles());
     await expect(page.getByText(`Successfully imported ${COUNT} notes`)).toBeVisible({ timeout: 60_000 });
     await page.keyboard.press('Escape');

@@ -18,11 +18,14 @@ export function SettingsRow({
   label,
   description,
   control,
+  stacked,
 }: {
   id: string;
   label: string;
   description?: ReactNode;
   control: ReactNode;
+  /** On a phone the control takes its own full-width line under the text. */
+  stacked?: boolean;
 }) {
   const descId = `${id}-desc`;
   // Bind the control to this row's label and description.
@@ -48,7 +51,7 @@ export function SettingsRow({
           </p>
         )}
       </div>
-      <div className="relative">{boundControl}</div>
+      <div className={stacked ? "relative max-md:w-full" : "relative"}>{boundControl}</div>
     </div>
   );
 }

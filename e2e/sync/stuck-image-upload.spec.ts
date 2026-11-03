@@ -71,7 +71,7 @@ test('phone: a refused image upload shows the reason, stops retrying, and Discar
 
     await couldntSync.click();
     const dialog = app.getByRole('dialog', { name: 'Settings' });
-    await expect(dialog.getByRole('tab', { name: 'Diagnostics' })).toHaveAttribute('aria-selected', 'true');
+    await expect(dialog.getByRole('region', { name: 'Diagnostics' })).toBeVisible();
     const list = dialog.getByRole('list', { name: 'Pending sync items' });
     const rows = list.getByTestId('pending-item');
     await expect(rows).toHaveCount(2);
