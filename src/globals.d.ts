@@ -61,6 +61,8 @@ interface JournalE2EHooks {
   seedPendingSync(): Promise<void>;
   /** Leaves only image uploads (PNG bytes) in a note already on the server (#874). */
   seedImageUploads(title: string, images: number[][]): Promise<void>;
+  /** Adds a synced note in Main that is shared with two people (#828). */
+  seedCollaborativeNote(title: string): Promise<void>;
   /** Runs the sync's image upload step once. */
   uploadPendingImages(): Promise<void>;
   /** Marks the identity's share pushes as refused by its server, so Diagnostics shows the drive fixes (#848). */

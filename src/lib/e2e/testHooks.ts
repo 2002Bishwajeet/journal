@@ -286,6 +286,29 @@ async function seedImageUploads(title: string, images: number[][]): Promise<void
     }
 }
 
+/** Adds a synced note in Main that is shared with two people, for the "Shared" pill's sheet (#828). */
+async function seedCollaborativeNote(title: string): Promise<void> {
+    const { upsertSearchIndex, upsertSyncRecord } = await import('@/lib/db');
+    const { MAIN_FOLDER_ID } = await import('@/lib/homebase');
+    const docId = '00000000-0000-4000-8000-000000000828';
+    const now = new Date().toISOString();
+    await upsertSearchIndex({
+        docId,
+        title,
+        plainTextContent: '',
+        metadata: {
+            title,
+            folderId: MAIN_FOLDER_ID,
+            timestamps: { created: now, modified: now },
+            excludeFromAI: false,
+            isCollaborative: true,
+            odinIds: ['sam.homebase.test', 'alex.homebase.test'],
+            lastEditedBy: 'sam.homebase.test',
+        },
+    });
+    await upsertSyncRecord({ localId: docId, entityType: 'note', syncStatus: 'synced', remoteFileId: 'seeded-remote-collab', versionTag: 'seeded-version' });
+}
+
 /** Runs the sync's image upload step once, as a full sync does after its pull and push. */
 async function uploadPendingImages(): Promise<void> {
     const { SyncService } = await import('@/lib/homebase/SyncService');
@@ -430,7 +453,7 @@ if (E2E_ORIGINS.includes(location.origin)) {
     // Set by a spec's init script before the page loads (#905).
     e2eSwitches.sessionRestoreDelayMs = Number(localStorage.getItem('e2e-session-restore-delay-ms')) || 0;
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, seedCollaborativeNote, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe }),
         writable: false,
         configurable: false,
         enumerable: false,

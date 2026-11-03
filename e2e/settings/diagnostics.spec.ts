@@ -15,7 +15,8 @@ async function openDiagnosticsFromSyncBadge(app: Page) {
     await app.getByRole('navigation', { name: 'Folders' }).getByRole('button', { name: 'Main' }).click();
   }
   await app.locator('button[aria-label="Sync status"]:visible').first().click();
-  await app.getByRole('button', { name: /Pending items|Diagnostics/ }).click();
+  // Desktop's popover has "Pending items"; a phone's sheet has "Open diagnostics" (#828).
+  await app.getByRole('button', { name: /Pending items|diagnostics/i }).click();
 
   const dialog = app.getByRole('dialog', { name: 'Settings' });
   const panel = settingsPanel(dialog);
