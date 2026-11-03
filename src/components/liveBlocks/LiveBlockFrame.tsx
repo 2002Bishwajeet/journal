@@ -4,9 +4,13 @@
  * (#420), and the view toggles over its top right corner. Rules that have to
  * beat the unlayered `.prose` styles are in src/index.css ("Live blocks").
  *
- * An html or react block can be `wide` (#557).
+ * An html or react block can be `wide` (#557). Unless it is `trusted`, it shows a
+ * Run button in place of its preview until the reader runs it (#947).
  */
 import { useRef, type ReactNode } from 'react';
+import { Play } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useLiveBlockGate } from '@/hooks/useLiveBlockGate';
 import type { LiveBlockKind } from '@/lib/liveBlocks';
 import type { BlockStateStore } from '@/lib/liveBlockState';
 import { cn } from '@/lib/utils';
@@ -19,6 +23,12 @@ interface LiveBlockFrameProps {
   source: string;
   /** Show the preview; otherwise the code in `children` is what is visible. */
   preview: boolean;
+  /**
+   * Only the reader can have written the block (their own note, which no one else edited
+   * last), so an html or react block runs without asking (#947). Mermaid and svg never ask:
+   * no code of the block's runs.
+   */
+  trusted: boolean;
   /** The block's node is selected in the editor. */
   selected?: boolean;
   /** While editing: name the kind and keep the toggles in view. A reader (the share page) gets neither until they hover. */
@@ -37,15 +47,19 @@ interface LiveBlockFrameProps {
 const REVEALED =
   'opacity-0 transition-opacity duration-100 group-hover/block:opacity-100 group-focus-within/block:opacity-100 [@media(hover:none)]:opacity-100';
 
-export function LiveBlockFrame({ kind, source, preview, selected, labelled, store, wide, toggles, children }: LiveBlockFrameProps) {
+export function LiveBlockFrame({ kind, source, preview, trusted, selected, labelled, store, wide, toggles, children }: LiveBlockFrameProps) {
   const box = useRef<HTMLDivElement>(null);
   // The inline height fitContent last gave the box.
   const fittedHeight = useRef('');
   // A react block runs in the same frame as an html block (#426), so it gets the same box.
   const framed = kind === 'html' || kind === 'react';
+  const gate = useLiveBlockGate(framed && !trusted, kind, source);
+  // Waiting for Run, or for the lookup of an earlier one: the box fits what is in it.
+  const waiting = preview && gate.state !== 'run';
+  const sized = framed && !waiting;
   const wideBlock = framed && !!wide;
   // Only the editor lets the user drag the box taller; a reader gets the fitted height.
-  const resizable = framed && !!labelled;
+  const resizable = sized && !!labelled;
 
   // An html block is as tall as its content (#412) until the user drags the resize handle:
   // the browser then writes an inline height that is not the fitted one, and that one stays.
@@ -93,11 +107,12 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, stor
         data-live-block-preview={preview ? kind : undefined}
         className={cn(
           // `!`: the unlayered reset in src/index.css sets border-box on everything.
-          framed && 'relative -m-3 box-content! h-[400px] overflow-hidden p-3',
+          sized && 'relative -m-3 box-content! h-[400px] overflow-hidden p-3',
           resizable && 'resize-y',
         )}
       >
-        {preview && <LiveBlockPreview kind={kind} source={source} store={store} onHeight={fitContent} wide={wideBlock} />}
+        {preview && gate.state === 'run' && <LiveBlockPreview kind={kind} source={source} store={store} onHeight={fitContent} wide={wideBlock} />}
+        {preview && gate.state === 'ask' && <RunGate label={LABELS[kind]} onRun={gate.run} />}
         {children}
         {resizable && (
           // Drawn over the native resize handle, which is hard to see on a page. Dragging it
@@ -116,6 +131,31 @@ export function LiveBlockFrame({ kind, source, preview, selected, labelled, stor
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * In place of a block that has not run (#947): what it is, and a Run button that is
+ * 44px tall (36px on a desktop with a mouse).
+ */
+function RunGate({ label, onRun }: { label: string; onRun: () => void }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-dashed px-4 py-3 font-sans">
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium">{label} block</div>
+        <div className="text-xs text-muted-foreground">Its code may not be yours. Run it if you trust where it came from.</div>
+      </div>
+      <Button
+        variant="outline"
+        onClick={onRun}
+        aria-label={`Run ${label} block`}
+        // Not `transition-all`: the height changes with the viewport, and should not animate.
+        className="h-11 touch-manipulation select-none transition-[color,background-color,box-shadow,transform] active:scale-[0.97] md:pointer-fine:h-9"
+      >
+        <Play aria-hidden />
+        Run
+      </Button>
     </div>
   );
 }

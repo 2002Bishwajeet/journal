@@ -86,6 +86,8 @@ interface JournalE2EHooks {
   takeAgentEvents(): ({ type: string; tool?: string; args?: unknown; step?: number; answer?: string; error?: string; message?: string; result?: string })[];
   /** The open note's id and its editor content as TipTap JSON, or null with no note open. */
   openNoteJSON(): Promise<{ docId: string; doc: unknown } | null>;
+  /** Makes a note on this device read as one `authorOdinId` shared with the identity (#947). */
+  markSharedWithMe(docId: string, authorOdinId: string): Promise<void>;
   /** Draws a 1200×630 link card JPEG, as src/lib/share/cardImage.ts's renderCardImage does. */
   renderCard(
     text: { title: string; excerpt?: string; author: string },

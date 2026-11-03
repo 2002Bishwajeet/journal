@@ -22,6 +22,7 @@ describe('LiveBlockFrame', () => {
         kind="svg"
         source="<svg xmlns='http://www.w3.org/2000/svg'/>"
         preview
+        trusted
         selected={selected}
         labelled={labelled}
         toggles={
@@ -68,6 +69,7 @@ describe('LiveBlockFrame', () => {
         kind="html"
         source="<p>hi</p>"
         preview
+        trusted
         toggles={
           <LiveBlockToggle pressed={false} onClick={() => {}}>
             View source
@@ -84,7 +86,7 @@ describe('LiveBlockFrame', () => {
   it('should give a block with no toggles no controls group (the share page)', () => {
     for (const kind of ['mermaid', 'svg', 'html', 'react'] as const) {
       const markup = renderToStaticMarkup(
-        <LiveBlockFrame kind={kind} source="x" preview toggles={null}>
+        <LiveBlockFrame kind={kind} source="x" preview trusted toggles={null}>
           {null}
         </LiveBlockFrame>,
       );
@@ -95,7 +97,7 @@ describe('LiveBlockFrame', () => {
   it('should mark a wide html or react block, and ignore wide on a mermaid or svg block (#557)', () => {
     const marked = (kind: 'svg' | 'html' | 'react', wide: boolean) =>
       renderToStaticMarkup(
-        <LiveBlockFrame kind={kind} source="x" preview={false} wide={wide} toggles={null}>
+        <LiveBlockFrame kind={kind} source="x" preview={false} trusted wide={wide} toggles={null}>
           {null}
         </LiveBlockFrame>,
       ).includes('data-live-block-wide');

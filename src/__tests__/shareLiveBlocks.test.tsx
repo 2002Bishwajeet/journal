@@ -45,18 +45,27 @@ describe('share page live blocks', () => {
     expect(html).toMatch(/<img[^>]*src="data:image\/svg\+xml/);
   });
 
-  it('renders an html block in a sandboxed iframe', () => {
-    expect(html).toMatch(/<iframe[^>]*sandbox="allow-scripts"/);
+  it('renders no frame for an html block before the reader runs it (#947)', () => {
+    expect(html).not.toContain('<iframe');
   });
 
-  it("builds an html block's frame from the code text, once the frame is mounted", async () => {
+  it("asks before it runs an html block, then builds its sandboxed frame from the code text (#947)", async () => {
     (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    localStorage.clear();
     const article = document.body.appendChild(document.createElement('article'));
     const root = createRoot(article);
     await act(async () => root.render(markdownElement('```html\n<h1>Hello live</h1>\n```')));
-    expect(article.querySelector('iframe')?.getAttribute('srcdoc')).toContain('<h1>Hello live</h1>');
+    const run = () => article.querySelector<HTMLButtonElement>('button[aria-label="Run HTML block"]');
+    for (let i = 0; i < 50 && !run(); i++) await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
+    expect(article.querySelector('iframe')).toBeNull();
+
+    await act(async () => run()!.click());
+    const frame = article.querySelector('iframe');
+    expect(frame?.getAttribute('sandbox')).toBe('allow-scripts');
+    expect(frame?.getAttribute('srcdoc')).toContain('<h1>Hello live</h1>');
     await act(async () => root.unmount());
     article.remove();
+    localStorage.clear();
   });
 
   it('renders a mermaid block into a preview container', () => {

@@ -23,6 +23,8 @@ export const READ_ONLY_SHARE_NOTICE_KEY = 'journal-read-only-share-notice';
 export const PERMISSION_PROMPT_DISMISSED_KEY = 'journal-permission-prompt-dismissed';
 /** The identity that sent the owner to the extend-permissions page to fix the journal drive (#870). */
 export const SHARE_DRIVE_FIX_ATTEMPT_KEY = 'journal-share-drive-fix-attempt';
+/** The html and react blocks someone else may have written that were run on this device (#947). */
+export const LIVE_BLOCK_RUNS_KEY = 'journal-live-block-runs';
 
 /** Reads JSON, yielding null when there is nothing stored or storage throws (private browsing). */
 export function readJson<T>(key: string): T | null {

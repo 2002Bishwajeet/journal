@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeEditor, createNote, pastePlainText, waitForNoteSaved } from '../support/actions';
+import { activeEditor, createNote, pastePlainText, runLiveBlocks, waitForNoteSaved } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #410: an html block saves small state in the note with journal.storage, and gets it
@@ -146,6 +146,8 @@ test("share page: a reader sees the owner's saved state, and their own change la
   const shared = anonPage.getByRole('article').locator('[data-live-block="html"]').frameLocator('iframe[title="HTML preview"]');
   const out = shared.locator('#out');
 
+  // The reader runs it once; after the reload below this device runs it on its own (#947).
+  await runLiveBlocks(anonPage.getByRole('article'));
   await expect(out).toHaveText('count: 3');
   await shared.getByRole('button', { name: 'Add one' }).click();
   await expect(out).toHaveText('count: 4');

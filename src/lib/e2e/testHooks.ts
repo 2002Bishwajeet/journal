@@ -11,7 +11,8 @@
  * subscribePeerPush / journalNotifications for the share push spec (#745), and
  * probePeerNote, which sends the requests of the sharing security check (#897) that
  * the other identity's server must refuse, and startAgentEval, which makes every
- * assistant proposal accept itself for the AI eval (#706).
+ * assistant proposal accept itself for the AI eval (#706), and markSharedWithMe,
+ * which makes a local note read as shared with the identity (#947).
  */
 import { getBootError, getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
 import { e2eSwitches } from './switches';
@@ -196,6 +197,14 @@ async function openNoteJSON(): ReturnType<JournalE2EHooks['openNoteJSON']> {
     const { activeEditor } = await import('@/lib/agent/activeEditor');
     const open = activeEditor.get();
     return open && { docId: open.docId, doc: open.editor.getJSON() };
+}
+
+/** Gives a note on this device an author other than the identity, as a note shared with it has (#947). */
+async function markSharedWithMe(docId: string, authorOdinId: string): Promise<void> {
+    const { getSearchIndexEntry, updateSearchIndexMetadata } = await import('@/lib/db');
+    const entry = await getSearchIndexEntry(docId);
+    if (!entry) throw new Error(`No note ${docId} on this device`);
+    await updateSearchIndexMetadata(docId, entry.title, { ...entry.metadata, authorOdinId });
 }
 
 /**
@@ -421,7 +430,7 @@ if (E2E_ORIGINS.includes(location.origin)) {
     // Set by a spec's init script before the page loads (#905).
     e2eSwitches.sessionRestoreDelayMs = Number(localStorage.getItem('e2e-session-restore-delay-ms')) || 0;
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe }),
         writable: false,
         configurable: false,
         enumerable: false,
