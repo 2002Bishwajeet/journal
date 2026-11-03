@@ -1,3 +1,14 @@
+# [2.54.0](https://github.com/2002Bishwajeet/journal/compare/v2.53.0...v2.54.0) (2026-11-03)
+
+
+### Bug Fixes
+
+* **settings:** finish the phone section list ([#831](https://github.com/2002Bishwajeet/journal/issues/831)) ([1efe348](https://github.com/2002Bishwajeet/journal/commit/1efe348906d6dfbbf2a5699e6d52a3a309b80b53))
+
+
+### Features
+
+* **settings:** grouped section list that drills into pages on phones ([#831](https://github.com/2002Bishwajeet/journal/issues/831)) ([d56e380](https://github.com/2002Bishwajeet/journal/commit/d56e380c938684ffe8bdec1f7592f7fc5349e25a))
 # [2.53.0](https://github.com/2002Bishwajeet/journal/compare/v2.52.5...v2.53.0) (2026-11-02)
 
 

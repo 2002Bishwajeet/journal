@@ -16,6 +16,22 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.54.0 (2026-11-03)
+
+### Changed
+
+- On a phone, Settings is now a list of sections. Tap a section to open its page. Tap Back to return to the list.
+- On a phone, Settings has a large title and a Done button.
+- Sign out is now one full-width button at the bottom of the Account page.
+- The Account page shows your identity in the normal font.
+- On a phone, the Sync status is on one line, and Sync now is a full-width button below it.
+- Back from a note that you open from Diagnostics goes to the screen under Settings.
+
+### Fixed
+
+- The home page and the pricing page include Cursor in the list of agents that can use the Journal MCP server.
+- In `llms-full.txt`, the operations of the `edit_block` tool show as sub-bullets of its `op` input.
+
 ## 2.53.0 (2026-11-02)
 
 ### Changed
