@@ -21,6 +21,8 @@ export interface EditorContextValue {
     get: (id: string) => string | undefined;
     set: (id: string, json: string) => void;
   };
+  /** The note's html and react blocks run without asking: only this identity wrote the note (#947). */
+  liveBlocksTrusted: boolean;
 }
 
 export const EditorContext = createContext<EditorContextValue | null>(null);

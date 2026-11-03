@@ -1,7 +1,9 @@
-import type { ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { MoreHorizontal, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
+import { useCoarsePointer } from '@/hooks/useCoarsePointer';
+import { ActionSheet } from '@/components/ui/action-sheet';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -35,12 +37,44 @@ interface ContextMenuWrapperProps {
 }
 
 export function ContextMenuWrapper({ children, items }: ContextMenuWrapperProps) {
+    const coarse = useCoarsePointer();
+    const [sheetOpen, setSheetOpen] = useState(false);
+    // An action may open a dialog: run it once the sheet has closed and returned focus,
+    // or the dialog is dismissed by that focus return.
+    const afterClose = useRef<(() => void) | null>(null);
+    const onCloseAutoFocus = (event: Event) => {
+        const run = afterClose.current;
+        if (!run) return;
+        afterClose.current = null;
+        event.preventDefault();
+        run();
+    };
     return (
         // A touch long press opens this menu: give the same feedback as other gestures (#856).
-        <ContextMenu onOpenChange={(open) => open && haptic('medium')}>
+        // On a finger the items show in a bottom sheet instead: a pointer-anchored menu runs
+        // off a phone screen (#784). Radix still detects the long press but never renders.
+        <ContextMenu
+            open={coarse ? false : undefined}
+            onOpenChange={(open) => {
+                if (!open) return;
+                haptic('medium');
+                if (coarse) setSheetOpen(true);
+            }}
+        >
             <ContextMenuTrigger asChild>
                 {children}
             </ContextMenuTrigger>
+            {coarse ? (
+                <ActionSheet open={sheetOpen} onOpenChange={setSheetOpen} title="Actions"
+                    onCloseAutoFocus={onCloseAutoFocus}
+                    items={items.map((item) => ({
+                        ...item,
+                        action: () => {
+                            afterClose.current = item.action;
+                        },
+                    }))}
+                />
+            ) : (
             <ContextMenuContent className="w-64">
                 {items.map((item, index) => {
                     const Icon = item.icon;
@@ -61,6 +95,7 @@ export function ContextMenuWrapper({ children, items }: ContextMenuWrapperProps)
                     );
                 })}
             </ContextMenuContent>
+            )}
         </ContextMenu>
     );
 }

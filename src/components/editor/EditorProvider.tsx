@@ -56,6 +56,7 @@ import {
 } from "./plugins";
 
 import { joinPreviewText } from "@/lib/previewText";
+import { ownerWroteNote } from "@/lib/liveBlockRuns";
 
 /** Prose first, code/live-block text after a separator (see previewText.ts). */
 function editorPreviewText(editor: Editor): string {
@@ -612,6 +613,7 @@ export function EditorProvider({
     removeCover,
     setCoverPosition,
     blockState,
+    liveBlocksTrusted: ownerWroteNote(metadata, editorOdinId),
   };
 
   return (

@@ -243,3 +243,18 @@ export function zoomProblems(field: string, scale: number, viewport: string): st
   if (/maximum-scale|user-scalable\s*=\s*(no|0)/i.test(viewport)) problems.push(`the viewport meta blocks pinch zoom: "${viewport}"`);
   return problems;
 }
+
+/** A boot timing mark from the page: `journal-boot:<step>` at `ms` on the page's own clock. */
+export type BootMark = { step: string; ms: number };
+
+/**
+ * A reload's boot time is the `ui` mark (the splash gave way to the app, #901), on the new
+ * page's clock, which starts when the reload does. Not the time the check's poll saw the app:
+ * Safari's remote debugger can hold a poll sent while the page is swapped for seconds, or never
+ * answer it (#862, #901), while the app is already up.
+ */
+export function bootProblem(marks: BootMark[], limit: number): string | null {
+  const ui = marks.find((m) => m.step === 'ui');
+  if (!ui) return 'the app never showed (no ui boot mark)';
+  return ui.ms > limit ? `the app showed ${Math.round(ui.ms)} ms after the reload, over ${limit / 1000} s` : null;
+}

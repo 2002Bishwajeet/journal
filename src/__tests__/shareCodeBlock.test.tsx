@@ -85,7 +85,9 @@ describe('share page code blocks', () => {
     );
     expect(el.querySelectorAll('[data-live-block]')).toHaveLength(3);
     expect(copyButtons(el)).toHaveLength(2);
-    expect(el.querySelectorAll('[data-live-block] button').length).toBe(2);
-    for (const button of el.querySelectorAll('[data-live-block] button')) expect(button.textContent).toBe('View source');
+    // Besides the html block's Run button (#947), only the View source toggles.
+    const toggles = el.querySelectorAll('[data-live-block] button:not([aria-label^="Run "])');
+    expect(toggles.length).toBe(2);
+    for (const button of toggles) expect(button.textContent).toBe('View source');
   });
 });
