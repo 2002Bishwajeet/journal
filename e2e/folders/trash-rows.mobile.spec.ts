@@ -49,7 +49,10 @@ async function expectInsideGutter(page: Page) {
   const overflow = await list.evaluate((el) => el.scrollWidth - el.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   for (const row of await trashRows(page).all()) {
-    expect(await row.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+    // The row clips its swipe action, which waits off its right edge, so check its box.
+    const rb = (await row.boundingBox())!;
+    expect(rb.x).toBeGreaterThanOrEqual(0);
+    expect(rb.x + rb.width).toBeLessThanOrEqual(viewport.width);
     for (const text of await row.locator('p').all()) {
       const b = (await text.boundingBox())!;
       expect(b.x).toBeGreaterThanOrEqual(16);
@@ -83,7 +86,7 @@ test('Trash rows stay in the gutter, and a long press restores or deletes foreve
 
     await expectInsideGutter(page);
     // When the note was last edited: Trash keeps no deletion date and never empties itself.
-    for (const title of TITLES) await expect(trashRow(page, title)).toContainText(/Edited (Just now|\d+m ago)/);
+    for (const title of TITLES) await expect(trashRow(page, title)).toContainText(/Edited (just now|\d+m ago)/);
 
     // No scrollbar, even with the finger on a list that scrolls.
     await page.setViewportSize({ width: viewport.width, height: 360 });
@@ -121,7 +124,7 @@ test('Trash rows stay in the gutter, and a long press restores or deletes foreve
     await selectFolder(page, 'Main');
     await expect(page.getByTestId('note-row').filter({ hasText: KEEP })).toBeVisible();
     await expect(page.getByTestId('note-row').filter({ hasText: GONE })).toHaveCount(0);
-  });
+  }, { viewport, screen: viewport });
 });
 
 async function touch(cdp: CDPSession, type: 'touchStart' | 'touchMove' | 'touchEnd', p?: { x: number; y: number }) {
@@ -153,5 +156,5 @@ test('a left swipe on a Trash row shows Delete forever, which deletes it', async
     await del.tap();
     await expect(row).toHaveCount(0);
     await expect(trashRows(page)).toHaveCount(TITLES.length - 1);
-  });
+  }, { viewport, screen: viewport });
 });
