@@ -19,7 +19,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import * as Y from 'yjs';
-import { activeEditor, activeTitleInput, createFolder, waitForNoteSaved } from '../e2e/support/actions';
+import { activeEditor, activeTitleInput, createFolder, mermaidFrame, waitForNoteSaved } from '../e2e/support/actions';
 import { installNetworkFence, assertNoFenceViolations } from '../e2e/support/network-fence';
 import { assertAllowedOrigin, assertTestOrigin } from '../e2e/support/origin-guard';
 
@@ -121,15 +121,13 @@ async function newContext(browser: Browser, phone: boolean, theme: Theme, clock:
 }
 
 /**
- * Hides app chrome that is noise in a still (the empty "Add cover" and "Add tags..." rows), fits a diagram to
- * its column, and gives the test identity's avatar a palette colour and a believable initial instead of its saturated hash colour.
+ * Hides app chrome that is noise in a still (the empty "Add cover" and "Add tags..." rows), and gives the
+ * test identity's avatar a palette colour and a believable initial instead of its saturated hash colour.
  */
 async function tidy(page: Page): Promise<void> {
   await page.addStyleTag({
     content: [
       '[aria-label="Add cover"], input[placeholder="Add tags..."] { display: none !important; }',
-      // A diagram a few pixels wider than the note scrolls sideways in the app; in a still it would look cut off.
-      "[data-live-block-preview='mermaid'] svg[style*='max-width'] { width: 100% !important; }",
       '.rounded-full[style*="background-color"] { background-color: #67665E !important; font-size: 0 !important; }',
       ".rounded-full[style*=\"background-color\"]::after { content: 'S'; font-size: 15px; color: #FDFCF8; }",
     ].join('\n'),
@@ -167,7 +165,7 @@ async function wide(browser: Browser, theme: Theme): Promise<void> {
   await createFolder(page, 'Personal');
   await addNote(page, WEEKLY, false);
   await addNote(page, READING, false);
-  await expect(page.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]').first()).toBeVisible({ timeout: 20_000 });
+  await expect(mermaidFrame(page.locator('[data-live-block="mermaid"]').first()).locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 20_000 });
   await expect(page.frameLocator('iframe').first().locator('.recharts-bar-rectangle').first()).toBeVisible({ timeout: 20_000 });
   await page.keyboard.press('ControlOrMeta+Home');
   await page.waitForTimeout(1200);
@@ -203,7 +201,7 @@ async function narrow(browser: Browser, theme: Theme): Promise<void> {
   await back(page).click();
   await page.waitForTimeout(600);
   await page.getByRole('button').filter({ hasText: READING.title }).first().click();
-  await expect(page.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]').first()).toBeVisible({ timeout: 20_000 });
+  await expect(mermaidFrame(page.locator('[data-live-block="mermaid"]').first()).locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 20_000 });
   await page.waitForTimeout(1500);
   await shot(page, `phone-live-block-${theme}`);
 
@@ -321,7 +319,7 @@ async function heroVideo(browser: Browser, theme: Theme): Promise<void> {
   };
   const chart = () => page.frameLocator('iframe:visible').first().locator('.recharts-bar-rectangle').first();
   await openNote(READING.title);
-  await expect(page.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]:visible').first()).toBeVisible({ timeout: 20_000 });
+  await expect(mermaidFrame(page.locator('[data-live-block="mermaid"]:visible').first()).locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 20_000 });
   await expect(chart()).toBeVisible({ timeout: 20_000 });
   await page.mouse.move(0, 0);
   await page.waitForTimeout(1500);
@@ -344,7 +342,7 @@ async function heroVideo(browser: Browser, theme: Theme): Promise<void> {
   // The diagram's own "Rendering" state is cut too.
   await rec.cut();
   await page.getByRole('button', { name: 'Preview', exact: true }).last().click();
-  await expect(page.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]:visible').first()).toBeVisible({ timeout: 20_000 });
+  await expect(mermaidFrame(page.locator('[data-live-block="mermaid"]:visible').first()).locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 20_000 });
   await page.mouse.move(0, 0);
   await page.waitForTimeout(300);
   await rec.resume();
@@ -626,7 +624,7 @@ async function publicPage(browser: Browser, theme: Theme, phone: boolean): Promi
   await assertTestOrigin(page);
   const article = page.getByRole('article');
   await expect(article.getByRole('heading', { level: 1, name: PUBLIC_TITLE })).toBeVisible({ timeout: 15_000 });
-  await expect(article.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
+  await expect(mermaidFrame(article.locator('[data-live-block="mermaid"]').first()).locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
   // Name the author with a believable identity, and its initial in the avatar.
   await article.evaluate((el, [from, to]) => {
     for (const span of el.querySelectorAll('span')) {

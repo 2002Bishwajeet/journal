@@ -109,6 +109,48 @@ describe('LiveBlockFrame', () => {
   });
 });
 
+describe('LiveBlockPreview mermaid, mounted (#946)', () => {
+  const SOURCE = '%%{init: {"themeCSS": "body { color: red }"}}%%\ngraph TD; A["<b>Start</b>"]-->B';
+
+  let root: Root;
+  let note: HTMLDivElement;
+
+  async function mount(): Promise<void> {
+    note = document.body.appendChild(document.createElement('div'));
+    root = createRoot(note);
+    await act(async () => root.render(<LiveBlockPreview kind="mermaid" source={SOURCE} />));
+    for (let i = 0; i < 200 && note.querySelector('[role="status"]'); i++) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+    }
+  }
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    note.remove();
+  });
+
+  it('should keep the diagram out of the app DOM: all that is there is a frame with only allow-scripts', async () => {
+    await mount();
+    const frame = note.querySelector('iframe')!;
+    expect(frame.getAttribute('title')).toBe('Mermaid preview');
+    expect(frame.getAttribute('sandbox')).toBe('allow-scripts');
+    expect(note.querySelectorAll('*')).toHaveLength(3);
+    expect(note.querySelector('svg, style')).toBeNull();
+    expect(note.textContent).toBe('');
+    expect(document.head.innerHTML).not.toContain('themeCSS');
+  });
+
+  it('should run the mermaid runtime in the frame, on the block\'s source', async () => {
+    await mount();
+    const srcdoc = note.querySelector('iframe')!.getAttribute('srcdoc')!;
+    // The stub stands in for the runtime vite.config.ts builds (src/__tests__/stubs/reactBlockMermaid.ts).
+    expect(srcdoc).toContain('<script>/* react-block-mermaid stub */</script>');
+    expect(srcdoc).toContain(JSON.stringify(SOURCE));
+  });
+});
+
 describe('LiveBlockPreview react, mounted (#426)', () => {
   const COUNTER = 'function App() { const [count, setCount] = useState(0); return <button onClick={() => setCount(count + 1)}>Count: {count}</button>; }';
 

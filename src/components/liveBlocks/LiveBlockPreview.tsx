@@ -3,8 +3,12 @@
  * `svg`, `html` or `react`) inside LiveBlockFrame, which the editor and the
  * share page both use.
  *
- * - mermaid: rendered by the lazily imported mermaid runtime in strict mode.
- *   A parse or load error is shown as text; it never throws to the caller.
+ * - mermaid: drawn inside the same frame as an html block (#946), by a mermaid
+ *   runtime that vite.config.ts builds into a script inlined in the frame's
+ *   srcdoc. Nothing mermaid makes reaches the app's DOM. The app only hands the
+ *   page the source and, over the port below, the theme: a new theme redraws the
+ *   diagram on that page, which does not reload. A parse error is shown on the
+ *   page, and the error of a runtime that can't load is shown as text.
  * - svg: shown through an <img> data URI, so the source is never injected into
  *   the DOM and its scripts never run.
  * - html: runs in a sandboxed srcdoc frame that fills the frame's resizable
@@ -29,14 +33,16 @@
  *   sheet lacks are compiled for the block along with its JSX (#559). A compile
  *   error is shown as text in place of the frame.
  */
-import { useEffect, useId, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { CalloutIcon } from '@/components/editor/nodes/CalloutIcon';
 import { CALLOUT_CLASSES } from '@/components/editor/nodes/calloutVariants';
 import {
   bridgePortFromMessage,
   buildSrcdoc,
   frameHeightFromMessage,
+  frameRootStyle,
   linkFromMessage,
+  mermaidBlockDocument,
   reactBlockDocument,
   svgDataUri,
   FRAME_TOKENS,
@@ -59,10 +65,7 @@ interface LiveBlockPreviewProps {
   wide?: boolean;
 }
 
-type MermaidResult = { source: string; dark: boolean; svg: string } | { source: string; dark: boolean; error: string };
 type ReactResult = { source: string; page: string } | { source: string; title: string; error: string };
-
-let renderCount = 0;
 
 export function LiveBlockPreview({ kind, source, store, onHeight, wide }: LiveBlockPreviewProps) {
   if (kind === 'svg') {
@@ -102,17 +105,28 @@ function frameTheme(frame: HTMLIFrameElement): FrameTheme {
   };
 }
 
-function HtmlPreview({ source, title, store, onHeight, wide }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide'> & { title: string }) {
+function HtmlPreview({
+  source,
+  title,
+  store,
+  onHeight,
+  wide,
+  themeVariables,
+}: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide'> & { title: string; themeVariables?: string }) {
   // State, not a ref: the frame's document takes its look from the mounted element.
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
   // What the app knows the frame's own page by (#945). It stays the same through a reload of that page.
   const [bridgeToken] = useState(() => crypto.randomUUID());
   // Rebuilt when the look changes, which reloads the page in the frame.
-  const srcDoc = useSyncExternalStore(
+  const currentDoc = useSyncExternalStore(
     subscribeToRootAttributes,
     () => (frame ? buildSrcdoc(source, frameTheme(frame), bridgeToken) : undefined),
     () => undefined,
   );
+  // A page with `themeVariables` keeps the document it loaded, and redraws for a new look (below).
+  const [firstDoc, setFirstDoc] = useState(currentDoc);
+  if (currentDoc && !firstDoc) setFirstDoc(currentDoc);
+  const srcDoc = themeVariables === undefined ? currentDoc : firstDoc;
 
   // The block's saved state is kept by the app, not the frame, so a reload of the frame keeps it.
   const [session] = useState(createBlockStateSession);
@@ -146,6 +160,11 @@ function HtmlPreview({ source, title, store, onHeight, wide }: Pick<LiveBlockPre
     port.start();
     return () => port.removeEventListener('message', onMessage);
   }, [port, onHeight, session, blockStore, wide]);
+
+  useEffect(() => {
+    if (!port || !frame || themeVariables === undefined) return;
+    port.postMessage({ journalLiveBlock: 1, look: { style: frameRootStyle(frameTheme(frame)), themeVariables } });
+  }, [port, frame, themeVariables]);
 
   // No background: the page inside is see-through, so the note shows behind it.
   return (
@@ -315,51 +334,50 @@ function mermaidThemeVariables(dark: boolean) {
   };
 }
 
+/** A mermaid block (#946). Its runtime loads on the first one shown and is cached for offline use by src/sw.ts. */
 function MermaidPreview({ source }: { source: string }) {
-  const baseId = `mermaid-${useId().replace(/:/g, '')}`;
   const dark = useSyncExternalStore(subscribeToRootAttributes, isDarkTheme, isDarkTheme);
-  const [result, setResult] = useState<MermaidResult | null>(null);
+  const [runtime, setRuntime] = useState<{ script: string } | { error: string } | null>(null);
+  const [height, setHeight] = useState(MIN_FRAME_HEIGHT);
 
   useEffect(() => {
     let cancelled = false;
-    const id = `${baseId}-${renderCount++}`;
-    (async () => {
-      try {
-        const { default: mermaid } = await import('mermaid');
-        // Mermaid sizes each node from its measured label, so the label font must be loaded.
-        await document.fonts.ready;
-        // `classic` is mermaid's flat look: no gradient borders or drop shadows.
-        mermaid.initialize({
-          startOnLoad: false,
-          securityLevel: 'strict',
-          look: 'classic',
-          theme: 'base',
-          themeVariables: mermaidThemeVariables(dark),
-        });
-        const { svg } = await mermaid.render(id, source);
-        if (!cancelled) setResult({ source, dark, svg });
-      } catch (err) {
-        // mermaid leaves its error diagram attached to <body> on a parse failure.
-        document.getElementById(`d${id}`)?.remove();
-        if (!cancelled) setResult({ source, dark, error: err instanceof Error ? err.message : String(err) });
-      }
-    })();
+    import('virtual:react-block-mermaid').then(
+      ({ default: script }) => {
+        if (!cancelled) setRuntime({ script });
+      },
+      // Offline, before any mermaid block was ever shown: the runtime is not cached yet.
+      (err: unknown) => {
+        if (!cancelled) setRuntime({ error: err instanceof Error ? err.message : String(err) });
+      },
+    );
     return () => {
       cancelled = true;
     };
-  }, [baseId, source, dark]);
+  }, []);
 
-  // Ignore a result computed for an older source or theme while the new render runs.
-  const current = result?.source === source && result.dark === dark ? result : null;
-
-  if (!current) {
+  if (!runtime) {
     return (
       <div role="status" className="flex min-h-24 items-center justify-center p-4 text-sm text-muted-foreground">
         Rendering diagram…
       </div>
     );
   }
-  if ('error' in current) return <PreviewError title="Couldn’t render this diagram. Check its syntax.">{current.error}</PreviewError>;
-  // The svg's size and centring are in src/index.css ("Live blocks").
-  return <div className="custom-scrollbar flex overflow-x-auto p-4" dangerouslySetInnerHTML={{ __html: current.svg }} />;
+  if ('error' in runtime) return <PreviewError title="Couldn’t load Mermaid for this diagram.">{runtime.error}</PreviewError>;
+  // The frame reaches FRAME_BLEED past the block on every side, as in LiveBlockFrame's box for an
+  // html block. This box is here because a mermaid block's code view must not stay in it; flow-root
+  // keeps its margins in. A frame of its own for each source, as only a new theme keeps the page.
+  return (
+    <div className="flow-root">
+      <div className="relative -m-3 box-content! overflow-hidden p-3" style={{ height }}>
+        <HtmlPreview
+          key={source}
+          source={mermaidBlockDocument(runtime.script, source)}
+          title="Mermaid preview"
+          onHeight={setHeight}
+          themeVariables={JSON.stringify(mermaidThemeVariables(dark))}
+        />
+      </div>
+    </div>
+  );
 }
