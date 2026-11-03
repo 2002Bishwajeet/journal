@@ -51,9 +51,12 @@ function textFiles(): Plugin {
 }
 
 // The landing site: static pages of their own, built to site/dist for Cloudflare Pages.
-// It shares the app's installed packages but none of its code or config.
+// It shares the app's installed packages but none of its code or config. The app is the root of
+// the origin, so the site is served under /landing/; functions/index.ts serves its home page at /
+// to a visitor who is not signed in (#913).
 export default defineConfig({
   root: import.meta.dirname,
+  base: '/landing/',
   plugins: [partials(), textFiles()],
   build: {
     outDir: 'dist',

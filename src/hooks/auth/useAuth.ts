@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { DotYouClient, ApiType } from '@homebase-id/js-lib/core';
 import { base64ToUint8Array } from '@homebase-id/js-lib/helpers';
 import {
@@ -13,6 +12,7 @@ import {
 import { removeWebPush } from '@/lib/homebase/WebPushProvider';
 import { SESSION_STORAGE_KEY, TABS_STORAGE_KEY, RECENT_NOTES_KEY, RECENT_SEARCHES_KEY } from '@/lib/storage';
 import { discardAllUnsavedEdits } from '@/lib/yjs/unsavedEdits';
+import { clearSessionHint, setSessionHint } from '@/lib/sessionHint';
 import { useVerifyToken } from './useVerifyToken';
 import { useOnlineContext } from '../useOnlineContext';
 
@@ -31,7 +31,6 @@ export function useAuth() {
     const [authenticationState, setAuthenticationState] = useState<AuthenticationState>(
         hasSharedSecret() ? 'authenticated' : 'anonymous'
     );
-    const navigate = useNavigate();
     const { isOnline } = useOnlineContext();
 
     const getAppAuthToken = useCallback(() => {
@@ -80,7 +79,7 @@ export function useAuth() {
     const { data: hasValidToken, isFetchedAfterMount } = useVerifyToken(dotYouClient);
 
     /**
-     * Log out: clear tokens and navigate to welcome page.
+     * Log out: clear tokens and go to /, which is the landing page without the session hint (#913).
      */
     const logout = useCallback(async (): Promise<void> => {
         const client = getDotYouClient();
@@ -120,10 +119,16 @@ export function useAuth() {
         localStorage.removeItem(RECENT_NOTES_KEY);
         localStorage.removeItem(RECENT_SEARCHES_KEY);
         discardAllUnsavedEdits();
+        clearSessionHint();
 
-        navigate('/welcome');
-        window.location.reload();
-    }, [getDotYouClient, navigate]);
+        window.location.replace('/');
+    }, [getDotYouClient]);
+
+    // Every signed-in boot sets the edge's routing hint (#913): this covers a browser
+    // that signed in before the hint existed, and refreshes its expiry.
+    useEffect(() => {
+        if (authenticationState === 'authenticated') setSessionHint();
+    }, [authenticationState]);
 
     // Handle auth state transitions
     useEffect(() => {

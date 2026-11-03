@@ -46,7 +46,8 @@ test('the service worker precaches / and not index.html', async ({ request }) =>
   expect(body).not.toContain('"url":"index.html"');
 });
 
-test('a signed-out visit to / reaches /welcome', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/welcome$/);
+// / itself is the landing page when signed out (#913, landing.spec.ts); a deep link still signs in.
+test('a signed-out deep link reaches /welcome', async ({ page }) => {
+  await page.goto('/06cf9262-4eae-4276-b0d1-8ca3cf5be6f4');
+  await expect(page).toHaveURL(/\/welcome/);
 });

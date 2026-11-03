@@ -71,6 +71,14 @@ jobs:
       - name: Verify legacy PGlite engines stay out of the precache
         run: node scripts/check-precache.mjs
 
+      # The landing site (#913), served under /landing/; functions/index.ts serves its
+      # home page at / to a visitor who is not signed in. After the app's build, so the
+      # app's service worker does not precache it.
+      - name: Build landing site
+        run: npm run site:build && cp -r site/dist dist/landing
+        env:
+          SITE_URL: https://journal.cloudx.run
+
       # --branch is explicit: wrangler otherwise reads it from git, and the
       # detached tag checkout would land on a `head` preview alias.
       - name: Deploy to Cloudflare Pages

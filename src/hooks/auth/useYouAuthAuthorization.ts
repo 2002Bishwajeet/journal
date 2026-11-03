@@ -20,6 +20,7 @@ import {
     STORAGE_KEY_AUTH_TOKEN,
     STORAGE_KEY_SHARED_SECRET,
 } from '@/lib/homebase/config';
+import { setSessionHint } from '@/lib/sessionHint';
 
 // Drive request for Journal app
 export const journalDriveRequest: TargetDriveAccessRequest = {
@@ -147,6 +148,7 @@ export function useYouAuthAuthorization() {
             if (identity) saveIdentity(identity);
             localStorage.setItem(STORAGE_KEY_SHARED_SECRET, sharedSecret);
             localStorage.setItem(STORAGE_KEY_AUTH_TOKEN, clientAuthToken);
+            setSessionHint();
 
             throwAwayTheECCKey();
             return true;
