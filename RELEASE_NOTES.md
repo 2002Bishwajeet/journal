@@ -16,6 +16,17 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.58.0 (2026-11-03)
+
+### Changed
+
+- On a phone, screens, sheets, dialogs, the tab bar and the New note button move in the same way. A new screen slides in over the previous screen. The previous screen moves a short distance and becomes darker, as on iOS.
+- On a phone, the image toolbar fits in one row. The other image actions are in a "…" sheet.
+
+### Fixed
+
+- On an iPhone, the status bar above Settings, Share Note, Share Folder and Version history has the same colour as the screen. It is not a grey band.
+
 ## 2.57.0 (2026-11-03)
 
 ### Changed
