@@ -162,8 +162,11 @@ test('signed in, "Save a copy" opens a new copy; saving twice makes two notes', 
   await app.goto(`/share/${AUTHOR}/${NOTE_ID}`);
   await assertTestOrigin(app);
   await app.getByRole('link', { name: 'Save a copy' }).click();
+  // The toast lasts a few seconds, less than checking the whole copy takes on a slow runner
+  // (the diagram draws in its frame), so watch for it while the copy opens.
+  const toast = expect(app.getByText(`Saved "${COPY_TITLE}"`)).toBeVisible({ timeout: 15_000 });
   await expectSavedCopy(app);
-  await expect(app.getByText(`Saved "${COPY_TITLE}"`)).toBeVisible();
+  await toast;
   const first = app.url();
 
   // Again: a second, separate note.
