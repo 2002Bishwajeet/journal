@@ -11,6 +11,7 @@ import { useRef, type ReactNode } from 'react';
 import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLiveBlockGate } from '@/hooks/useLiveBlockGate';
+import { isHeldLiveBlock } from '@/lib/liveBlockRuns';
 import type { LiveBlockKind } from '@/lib/liveBlocks';
 import type { BlockStateStore } from '@/lib/liveBlockState';
 import { cn } from '@/lib/utils';
@@ -25,8 +26,8 @@ interface LiveBlockFrameProps {
   preview: boolean;
   /**
    * Only the reader can have written the block (their own note, which no one else edited
-   * last), so an html or react block runs without asking (#947). Mermaid and svg never ask:
-   * no code of the block's runs.
+   * last), so an html or react block runs without asking (#947), unless it is held: it was
+   * seen waiting for Run there. Mermaid and svg never ask: no code of the block's runs.
    */
   trusted: boolean;
   /** The block's node is selected in the editor. */
@@ -53,7 +54,7 @@ export function LiveBlockFrame({ kind, source, preview, trusted, selected, label
   const fittedHeight = useRef('');
   // A react block runs in the same frame as an html block (#426), so it gets the same box.
   const framed = kind === 'html' || kind === 'react';
-  const gate = useLiveBlockGate(framed && !trusted, kind, source);
+  const gate = useLiveBlockGate(framed && (!trusted || isHeldLiveBlock(kind, source)), kind, source);
   // Waiting for Run, or for the lookup of an earlier one: the box fits what is in it.
   const waiting = preview && gate.state !== 'run';
   const sized = framed && !waiting;

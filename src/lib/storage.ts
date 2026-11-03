@@ -25,6 +25,8 @@ export const PERMISSION_PROMPT_DISMISSED_KEY = 'journal-permission-prompt-dismis
 export const SHARE_DRIVE_FIX_ATTEMPT_KEY = 'journal-share-drive-fix-attempt';
 /** The html and react blocks someone else may have written that were run on this device (#947). */
 export const LIVE_BLOCK_RUNS_KEY = 'journal-live-block-runs';
+/** The html and react blocks seen waiting for Run in the owner's own note, still not run (#947). */
+export const LIVE_BLOCK_HELD_KEY = 'journal-live-block-held';
 
 /** Reads JSON, yielding null when there is nothing stored or storage throws (private browsing). */
 export function readJson<T>(key: string): T | null {

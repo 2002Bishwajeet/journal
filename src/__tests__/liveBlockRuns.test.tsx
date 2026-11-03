@@ -9,9 +9,9 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { LiveBlockFrame } from '@/components/liveBlocks/LiveBlockFrame';
-import { ownerWroteNote } from '@/lib/liveBlockRuns';
+import { holdLiveBlock, isHeldLiveBlock, ownerWroteNote } from '@/lib/liveBlockRuns';
 import type { LiveBlockKind } from '@/lib/liveBlocks';
-import { LIVE_BLOCK_RUNS_KEY } from '@/lib/storage';
+import { LIVE_BLOCK_HELD_KEY, LIVE_BLOCK_RUNS_KEY } from '@/lib/storage';
 
 const ME = 'me.homebase.test';
 
@@ -120,5 +120,34 @@ describe('LiveBlockFrame run gate', () => {
     await settled();
     expect(frame()).toBeNull();
     expect(runButton()).not.toBeNull();
+  });
+
+  it("should keep asking for a block seen waiting for Run once the owner's edit makes the note trusted again", async () => {
+    // An agent added the block: the note waits for Run, and the editor holds the block.
+    await holdLiveBlock('html', '<form>Session expired, sign in</form>');
+    expect(isHeldLiveBlock('html', '<form>Session expired, sign in</form>')).toBe(true);
+
+    // The owner typed elsewhere in the note: it is theirs again, but the held block still asks.
+    await render(true, '<form>Session expired, sign in</form>');
+    await settled();
+    expect(frame()).toBeNull();
+    await act(async () => runButton()!.click());
+    expect(frame()).not.toBeNull();
+    for (let i = 0; i < 50 && isHeldLiveBlock('html', '<form>Session expired, sign in</form>'); i++) await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(isHeldLiveBlock('html', '<form>Session expired, sign in</form>')).toBe(false);
+
+    // Other code in the trusted note never waits.
+    await render(true, '<h1>Mine</h1>');
+    expect(frame()?.getAttribute('srcdoc')).toContain('<h1>Mine</h1>');
+  });
+
+  it('should not hold code this device already ran', async () => {
+    await render(false);
+    await settled();
+    await act(async () => runButton()!.click());
+    for (let i = 0; i < 50 && !localStorage.getItem(LIVE_BLOCK_RUNS_KEY); i++) await new Promise((resolve) => setTimeout(resolve, 10));
+
+    await holdLiveBlock('html', '<h1>Hi</h1>');
+    expect(localStorage.getItem(LIVE_BLOCK_HELD_KEY)).toBeNull();
   });
 });

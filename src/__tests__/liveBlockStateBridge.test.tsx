@@ -39,6 +39,7 @@ async function render(element: React.ReactElement, blocks = 0): Promise<HTMLIFra
 }
 
 afterEach(async () => {
+  vi.useRealTimers();
   await act(async () => root.unmount());
   note.remove();
   document.documentElement.removeAttribute('class');
@@ -193,9 +194,10 @@ describe('a live block on the share page', () => {
   });
 
   it("should keep a viewer's change in memory only: the owner's state is back on the next page load", async () => {
-    vi.useFakeTimers();
     const states = { k3f9: '{"count":3}' };
     const [frame] = await sharePage(states);
+    // Only now: the Run gate's lookup of an earlier run settles on real timers.
+    vi.useFakeTimers();
     ask(frame, set('count', 10));
     vi.advanceTimersByTime(5000);
     vi.useRealTimers();
