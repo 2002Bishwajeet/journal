@@ -89,9 +89,10 @@ test('a back/forward cache restore on a note adds no history entries', async ({ 
   });
 });
 
-// Back after a reload loads each older entry again, on a new page. The app on such an entry
-// must stay there: restoring the last note on it made Back land on the note again and again.
-test('after a reload, Back walks the older entries and does not return to the note', async ({ browser }) => {
+// Back to an entry of an earlier page loads the app again on that entry (iOS reloads a page it
+// put away in the background, and the entries from before stay). The app must stay on such an
+// entry: restoring the last note on it made Back land on the note again and again.
+test('Back into entries of an earlier page walks them and does not return to the note', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const { folder, note } = await openNote(page);
@@ -99,15 +100,15 @@ test('after a reload, Back walks the older entries and does not return to the no
     await expect
       .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('journal-session-state') ?? '{}').lastNoteId))
       .toBe(note.split('/')[2]);
-    await page.reload();
+    // A new page: the entries before it belong to the earlier one.
+    await page.goto(folder);
     await waitForAppReady(page);
 
-    await page.goBack();
-    await expect.poll(() => pathOf(page)).toBe(folder);
-    await waitForAppReady(page);
-    await page.goBack();
-    await expect.poll(() => pathOf(page)).toBe('/');
-    await waitForAppReady(page);
+    for (const path of [note, folder, '/']) {
+      await page.goBack();
+      await expect.poll(() => pathOf(page)).toBe(path);
+      await waitForAppReady(page);
+    }
     // A new page loaded for the entry, as on the iPhone.
     expect(await page.evaluate(() => (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming).type)).toBe('back_forward');
     // Past the restore's delay: the home screen stays.
