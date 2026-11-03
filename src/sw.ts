@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
+import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL, matchPrecache } from 'workbox-precaching';
 import { registerRoute, NavigationRoute, Route } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
@@ -12,6 +12,23 @@ declare let self: ServiceWorkerGlobalScope & {
 
 // Disable Workbox development logs
 self.__WB_DISABLE_DEV_LOGS = true;
+
+// A page load of / goes to the network first: the edge picks the app or the landing page by
+// the session hint cookie (functions/index.ts, #913). Offline, or with no answer within
+// ROOT_NETWORK_TIMEOUT_MS, it is the app's shell, so the installed app still opens fast.
+// Registered before the precache route, which would serve '/' itself.
+const ROOT_NETWORK_TIMEOUT_MS = 3000;
+registerRoute(
+    ({ request, url }) => request.mode === 'navigate' && url.origin === self.location.origin && url.pathname === '/',
+    async ({ request }) => {
+        const network = fetch(request);
+        const timeout = new Promise<undefined>((resolve) => setTimeout(resolve, ROOT_NETWORK_TIMEOUT_MS));
+        const first = await Promise.race([network.catch(() => undefined), timeout]);
+        if (first) return first;
+        // Failed or slow: the shell, or (with no shell yet) the network after all.
+        return (await matchPrecache('/')) ?? network;
+    }
+);
 
 // Precache static assets injected by VitePWA
 precacheAndRoute(self.__WB_MANIFEST);
