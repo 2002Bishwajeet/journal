@@ -79,6 +79,15 @@ export function useSessionPersistence(): void {
             hasRestoredRef.current = true;
             return;
         }
+        // Only a new launch restores. A reload, or Back to an entry from before one (iOS
+        // reloads a page it put away in the background), loads the app again on an entry
+        // the user already has: replacing it with the last note made Back land on that
+        // note again and again.
+        const [load] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+        if (load && load.type !== 'navigate') {
+            hasRestoredRef.current = true;
+            return;
+        }
 
         // Set by the cleanup when the user navigates while a read is pending.
         let cancelled = false;

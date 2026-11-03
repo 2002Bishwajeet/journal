@@ -202,5 +202,18 @@ describe('useSessionPersistence', () => {
 
             await s.unmount();
         });
+
+        it.each(['reload', 'back_forward'])('does not restore when the page loaded by %s', async (type) => {
+            mocks.getSearchIndexEntry.mockResolvedValue({ docId: 'n1', metadata: { archivalStatus: 0 } });
+            const entries = vi.spyOn(performance, 'getEntriesByType').mockReturnValue([{ type } as PerformanceNavigationTiming]);
+
+            const s = await mountSession();
+            await s.settle(200);
+
+            expect(mocks.navigate).not.toHaveBeenCalled();
+
+            await s.unmount();
+            entries.mockRestore();
+        });
     });
 });
