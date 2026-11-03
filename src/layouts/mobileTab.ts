@@ -10,18 +10,3 @@ export const TAB_ROOTS: Record<MobileTab, string> = { notes: '/', shared: '/shar
 export function getMobileTab(pathname: string): MobileTab {
     return pathname === '/shared' || pathname.startsWith('/shared/') ? 'shared' : 'notes';
 }
-
-/**
- * Each route tab's last location (path and query). A note is never kept: the bar is
- * hidden inside a note, so coming back to a tab lands on its list, not on a note.
- */
-export function createTabMemory() {
-    const last: Record<MobileTab, string> = { ...TAB_ROOTS };
-    return {
-        visit(pathname: string, search: string) {
-            const inNote = pathname.split('/').filter(Boolean).length > 1;
-            if (!inNote) last[getMobileTab(pathname)] = pathname + search;
-        },
-        last: (tab: MobileTab) => last[tab],
-    };
-}
