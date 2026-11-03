@@ -317,7 +317,7 @@ describe('author index in the share Pages Function', () => {
         const html = await res.text();
         expect(res.status).toBe(200);
         expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8');
-        // #671: its own policy, Report-Only; site/public/_headers does not reach a Function's response.
+        // #671: its own policy, Report-Only; public/_headers does not reach a Function's response.
         expect(res.headers.get('content-security-policy-report-only')).toBe(AUTHOR_INDEX_CSP);
         expect(res.headers.get('content-security-policy')).toBeNull();
         expect(html).toContain(`/share/${IDENTITY}/${id(1)}`);

@@ -196,7 +196,7 @@ test('cover image is sharp on a 2x screen in the band and the share preview (#44
     };
 
     await withFencedPage(browser, options, async (page) => {
-        await page.goto('/app/');
+        await page.goto('/');
         await assertTestOrigin(page);
         await waitForAppReady(page);
         await createFolder(page, folderName);

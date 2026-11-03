@@ -7,9 +7,6 @@ export default defineConfig({
     },
 
     test: {
-        // The app's base (vite.config.ts, #913), so import.meta.env.BASE_URL is '/app/' here too.
-        env: { BASE_URL: '/app/' },
-
         // Use Node environment for database tests (PGlite runs in Node)
         environment: 'node',
 

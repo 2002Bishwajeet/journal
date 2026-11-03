@@ -159,13 +159,13 @@ test('a shared folder page serves its own link card as og:image, and the banner 
   // No card at all, or one the content names whose payload is gone: the banner.
   for (const id of [BLOG, CARD_NAMED_ONLY]) {
     const html = await (await request.get(`/share/${IDENTITY}/f/${id}`)).text();
-    expect(html, id).toContain(`property="og:image" content="${baseURL}/app/banner.webp"`);
+    expect(html, id).toContain(`property="og:image" content="${baseURL}/banner.webp"`);
     expect(html, id).toContain('name="twitter:card" content="summary"');
   }
 
   // The author page is unchanged.
   const index = await (await request.get(`/share/${IDENTITY}`)).text();
-  expect(index).toContain(`property="og:image" content="${baseURL}/app/banner.webp"`);
+  expect(index).toContain(`property="og:image" content="${baseURL}/banner.webp"`);
   expect(index).toContain('name="twitter:card" content="summary"');
 });
 

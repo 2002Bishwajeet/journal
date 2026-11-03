@@ -17,7 +17,7 @@ async function box(locator: Locator) {
 }
 
 /** The folder id of the current route (/:folderId or /:folderId/:noteId). */
-const routeFolder = (page: Page) => new URL(page.url()).pathname.split('/')[2];
+const routeFolder = (page: Page) => new URL(page.url()).pathname.split('/')[1];
 
 /** Phone screenshots at 390 px wide, in light and dark. */
 async function shots(page: Page, name: string) {

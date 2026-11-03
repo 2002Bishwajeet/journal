@@ -265,7 +265,7 @@ function drawCoverCard(ctx: Ctx, bitmap: ImageBitmap, positionY: number, text: C
 /** The logo, or null when it can't be loaded: the card then shows the wordmark alone. */
 async function loadLogo(): Promise<ImageBitmap | null> {
     try {
-        const res = await fetch(`${import.meta.env.BASE_URL}logo.webp`);
+        const res = await fetch('/logo.webp');
         return res.ok ? await createImageBitmap(await res.blob()) : null;
     } catch {
         return null;

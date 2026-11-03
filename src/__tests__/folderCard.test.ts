@@ -46,14 +46,14 @@ describe('the folder page head', () => {
 
     it('should keep the banner and summary for a folder without a card', () => {
         const html = buildAuthorIndexHtml(index(), ORIGIN);
-        expect(html).toContain(`property="og:image" content="${ORIGIN}/app/banner.webp"`);
+        expect(html).toContain(`property="og:image" content="${ORIGIN}/banner.webp"`);
         expect(html).toContain('name="twitter:card" content="summary"');
         expect(html).not.toContain('og:image:width');
     });
 
     it('should keep the banner on the author page', () => {
         const html = buildAuthorIndexHtml({ identity: IDENTITY, authorName: 'Frodo', notes: [] }, ORIGIN);
-        expect(html).toContain(`property="og:image" content="${ORIGIN}/app/banner.webp"`);
+        expect(html).toContain(`property="og:image" content="${ORIGIN}/banner.webp"`);
         expect(html).toContain('name="twitter:card" content="summary"');
     });
 });

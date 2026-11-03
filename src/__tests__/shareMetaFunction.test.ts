@@ -249,7 +249,7 @@ describe('buildHeadTags', () => {
     it('should fall back to the banner for a note with no card image or cover', () => {
         const tags = buildHeadTags(meta(), url, 'https://j.test');
 
-        expect(ogImage(tags)).toBe('https://j.test/app/banner.webp');
+        expect(ogImage(tags)).toBe('https://j.test/banner.webp');
         expect(tags).not.toContain('og:image:width');
         expect(tags).toContain('name="twitter:card" content="summary_large_image"');
     });

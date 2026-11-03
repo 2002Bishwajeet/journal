@@ -44,9 +44,9 @@ test('desktop: a wide dialog with the link preview beside the controls', async (
 
   // The preview sits to the right of the controls, at about the size chat apps render it.
   const makePublic = (await dialog.getByRole('button', { name: 'Make Note Public' }).boundingBox())!;
-  const preview = (await dialog.locator('img[src="/app/logo.webp"]').boundingBox())!;
+  const preview = (await dialog.locator('img[src="/logo.webp"]').boundingBox())!;
   expect(preview.x).toBeGreaterThan(makePublic.x + makePublic.width);
-  const card = (await dialog.locator('div.rounded-lg.border').filter({ has: app.locator('img[src="/app/logo.webp"]') }).boundingBox())!;
+  const card = (await dialog.locator('div.rounded-lg.border').filter({ has: app.locator('img[src="/logo.webp"]') }).boundingBox())!;
   expect(card.width).toBeGreaterThanOrEqual(480);
 
   await inBothThemes(app, (theme) => shoot(app, `private-${theme}-1280`));

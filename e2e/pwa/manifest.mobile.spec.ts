@@ -8,15 +8,14 @@ type Image = { src: string; sizes: string; type: string; purpose?: string; form_
 const attr = (html: string, pattern: RegExp) => html.match(pattern)?.[1];
 
 test('the manifest and head tags describe an installable app', async ({ request }) => {
-  const html = await (await request.get('/app/')).text();
+  const html = await (await request.get('/')).text();
   const manifestHref = attr(html, /<link rel="manifest" href="([^"]+)"/)!;
   expect(manifestHref).toBeTruthy();
   const manifest = await (await request.get(manifestHref)).json();
 
-  // The app is under /app/ (#913); its id stays '/', so an app installed at / stays the same app.
   expect(manifest.id).toBe('/');
-  expect(manifest.start_url).toBe('/app/');
-  expect(manifest.scope).toBe('/app/');
+  expect(manifest.start_url).toBe('/');
+  expect(manifest.scope).toBe('/');
   expect(manifest.categories).toEqual(['productivity', 'utilities']);
   expect(manifest.description.length).toBeLessThanOrEqual(120);
   expect(attr(html, /<meta name="description" content="([^"]+)"/)).toBe(manifest.description);

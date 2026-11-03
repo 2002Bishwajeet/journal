@@ -20,6 +20,7 @@ import {
     STORAGE_KEY_AUTH_TOKEN,
     STORAGE_KEY_SHARED_SECRET,
 } from '@/lib/homebase/config';
+import { setSessionHint } from '@/lib/sessionHint';
 
 // Drive request for Journal app
 export const journalDriveRequest: TargetDriveAccessRequest = {
@@ -66,7 +67,7 @@ export function useYouAuthAuthorization() {
         // Persist key for usage on finalize
         await saveEccKey(eccKey);
 
-        const finalizeUrl = `${window.location.origin}${import.meta.env.BASE_URL}auth/finalize`;
+        const finalizeUrl = `${window.location.origin}/auth/finalize`;
         return getRegistrationParams(
             finalizeUrl,
             JOURNAL_APP_NAME,
@@ -147,6 +148,7 @@ export function useYouAuthAuthorization() {
             if (identity) saveIdentity(identity);
             localStorage.setItem(STORAGE_KEY_SHARED_SECRET, sharedSecret);
             localStorage.setItem(STORAGE_KEY_AUTH_TOKEN, clientAuthToken);
+            setSessionHint();
 
             throwAwayTheECCKey();
             return true;

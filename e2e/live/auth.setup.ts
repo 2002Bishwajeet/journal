@@ -18,7 +18,7 @@ setup('log in to a real Homebase identity and save storage state', async ({ page
         );
     }
 
-    await page.goto('/app/welcome');
+    await page.goto('/welcome');
     await assertTestOrigin(page);
     const appOrigin = new URL(page.url()).origin;
 

@@ -9,7 +9,7 @@ test('replace keeps attrs and undo restores; download names the file; lightbox z
 
   await activeEditor(app).evaluate((el) => {
     const data = new DataTransfer();
-    data.setData('text/html', '<img src="/app/pwa-512x512.png" alt="Journal logo" width="240" data-align="left">');
+    data.setData('text/html', '<img src="/pwa-512x512.png" alt="Journal logo" width="240" data-align="left">');
     el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
   });
   const img = activeEditor(app).locator('img[alt="Journal logo"]');
@@ -27,7 +27,7 @@ test('replace keeps attrs and undo restores; download names the file; lightbox z
   await app.screenshot({ path: test.info().outputPath('replaced-light-1280.png') });
 
   await activeEditor(app).press('ControlOrMeta+z');
-  await expect(img).toHaveAttribute('src', '/app/pwa-512x512.png');
+  await expect(img).toHaveAttribute('src', '/pwa-512x512.png');
 
   // Download
   await img.click();

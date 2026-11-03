@@ -2,8 +2,8 @@ import { createServer, type Server } from 'node:http';
 import { test, expect } from '../fixtures';
 
 // #671: every page is served with a Content-Security-Policy-Report-Only header. The app
-// shell (`/app/`, any of its routes, a note share page, plain or rewritten by
-// functions/share/[[path]].ts) carries the app policy from site/public/_headers, and enforces
+// shell (`/`, any SPA route, a note share page, plain or rewritten by
+// functions/share/[[path]].ts) carries the app policy from public/_headers, and enforces
 // only its frame-src (#945); the author and shared folder pages, which the Function builds
 // itself, carry their own tighter one and enforce nothing.
 // The upstream fixture answers the Function through HOMEBASE_UPSTREAM_OVERRIDE
@@ -62,11 +62,10 @@ test.afterAll(async () => {
   await new Promise((resolve) => upstream?.close(resolve));
 });
 
-for (const path of ['/app/', '/app/some/deep/route', '/share/someone.example/abc']) {
+for (const path of ['/', '/some/deep/route', '/share/someone.example/abc']) {
   test(`${path} carries the app's Report-Only policy`, async ({ request }) => {
     const res = await request.get(path);
-    // An app route gets the shell as app/404.html (site/public/_redirects).
-    expect(res.status()).toBe(path === '/app/some/deep/route' ? 404 : 200);
+    expect(res.status()).toBe(200);
     expect(await res.text()).toContain('id="root"');
     expect(res.headers()['content-security-policy-report-only']).toContain(APP);
     expect(res.headers()['content-security-policy']).toBe(ENFORCED);

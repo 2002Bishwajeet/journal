@@ -15,7 +15,7 @@ test('tapping a tag on mobile opens its note list', async ({ app }) => {
   // of session restore reopening it.
   await app.evaluate(() => localStorage.removeItem('journal-session-state'));
   await app.setViewportSize({ width: 390, height: 844 });
-  await app.goto('/app/');
+  await app.goto('/');
   await waitForAppReady(app);
 
   const sidebar = app.getByRole('complementary', { name: 'Sidebar' });

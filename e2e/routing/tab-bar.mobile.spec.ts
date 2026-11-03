@@ -9,8 +9,7 @@ const PROJECTS = 'Projects';
 const tabBar = (page: Page) => page.getByRole('navigation', { name: 'Tabs' });
 const tab = (page: Page, name: string) => tabBar(page).getByRole('button', { name, exact: true });
 const fab = (page: Page) => page.getByRole('button', { name: 'New note', exact: true });
-// The route, without the app's /app (#913).
-const pathOf = (page: Page) => new URL(page.url()).pathname.replace(/^\/app/, '');
+const pathOf = (page: Page) => new URL(page.url()).pathname;
 
 async function box(locator: Locator) {
   const b = await locator.boundingBox();

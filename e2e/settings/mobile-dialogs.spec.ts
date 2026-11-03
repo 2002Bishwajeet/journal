@@ -11,7 +11,7 @@ async function boot(browser: Parameters<typeof withFencedPage>[0], body: (page: 
     browser,
     { storageState: 'e2e/fixtures/hermetic-auth.json', viewport: PHONE, hasTouch: true, isMobile: true },
     async (page) => {
-      await page.goto('/app/');
+      await page.goto('/');
       await assertTestOrigin(page);
       await waitForAppReady(page);
       await body(page);
@@ -66,7 +66,7 @@ test('Move to Trash confirm has 44px targets and a visible dark outline', async 
     await createNote(page, { title: 'Dialog audit note', body: 'body' });
     await waitForNoteSaved(page);
     await page.setViewportSize(PHONE);
-    await page.goto('/app/');
+    await page.goto('/');
     await waitForAppReady(page);
     await page.getByRole('button', { name: 'Back' }).click();
     await page.getByTestId('note-row').filter({ hasText: 'Dialog audit note' }).first().click({ button: 'right' });

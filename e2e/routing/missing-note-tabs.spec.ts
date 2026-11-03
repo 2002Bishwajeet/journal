@@ -21,9 +21,9 @@ test('archiving the open note closes its tab', async ({ app }) => {
 
 test('a missing note tab closes with one click and stays closed after reload', async ({ app }) => {
   await createNote(app, { title: 'Kept note', body: 'Still here' });
-  const folderId = new URL(app.url()).pathname.split('/')[2];
+  const folderId = new URL(app.url()).pathname.split('/')[1];
 
-  await app.goto(`/app/${folderId}/${BOGUS_ID}`);
+  await app.goto(`/${folderId}/${BOGUS_ID}`);
   await waitForAppReady(app);
   const main = app.locator('#main-content');
   await expect(main.getByText('Note not found')).toBeVisible();

@@ -94,7 +94,7 @@ test('sharing a folder makes its notes public, new notes in it start public, and
   await assertTestOrigin(app);
   await app.evaluate(() => localStorage.removeItem('journal-session-state'));
   await app.setViewportSize(MOBILE);
-  await app.goto('/app/');
+  await app.goto('/');
   await waitForAppReady(app);
   await shot(app, 'shared-folder-indicator', MOBILE.width);
 
@@ -140,7 +140,7 @@ test('the Share folder dialog previews the folder card and redraws it after a re
   const before = await openShare('Cards');
   const card = before.locator('img[src^="blob:"]');
   await expect(card).toHaveCount(1);
-  await expect(before.locator('img[src="/app/banner.webp"]')).toHaveCount(0);
+  await expect(before.locator('img[src="/banner.webp"]')).toHaveCount(0);
   await app.screenshot({ path: test.info().outputPath('folder-card-preview-light-1280.png'), animations: 'disabled' });
   const firstSrc = await card.getAttribute('src');
   await app.keyboard.press('Escape');

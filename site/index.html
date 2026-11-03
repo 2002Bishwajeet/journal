@@ -4,17 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <script>
-    // Before first paint (#913). Pages serves this page for any path it has no file for:
-    // those are old app links from when the app was at /, so they move to /app/. At /, a
-    // signed-in visitor (the app's shared secret, src/lib/homebase/config.ts) and the
-    // installed app open the app. ?landing shows this page anyway.
+    // Before first paint (#913). The edge serves this page at / only without the app's
+    // journal_session cookie (functions/index.ts). A browser that signed in to the app before
+    // that cookie existed has the app's shared secret (APSS, src/lib/homebase/config.ts) but no
+    // cookie: set it (src/lib/sessionHint.ts) and load / again, hidden, so the edge serves the app.
     (function () {
-      var l = location;
-      if (l.pathname !== '/' && l.pathname !== '/index.html') return l.replace('/app' + l.pathname + l.search + l.hash);
-      if (/[?&]landing(=|&|$)/.test(l.search)) return;
-      var signedIn = false;
-      try { signedIn = !!localStorage.getItem('APSS'); } catch (e) {}
-      if (signedIn || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) l.replace('/app/' + l.search + l.hash);
+      var has = function () { return /(?:^|;\s*)journal_session=/.test(document.cookie); };
+      try {
+        if (!localStorage.getItem('APSS') || has()) return;
+        document.cookie = 'journal_session=1; Path=/; Secure; SameSite=Lax; Max-Age=34560000';
+        if (!has()) return;
+        document.documentElement.style.visibility = 'hidden';
+        location.replace(location.href);
+      } catch (e) {}
     })();
   </script>
   <title>Journal: your notes stay home</title>
@@ -34,7 +36,7 @@
         <p class="lede hero-lede" data-reveal style="--i:1">Journal is a notebook that lives on your device, syncs encrypted to a space you own, and lets agents into the folders you grant.</p>
         <div class="hero-actions" data-reveal style="--i:2">
           <div class="ctas">
-            <a class="btn btn-primary" href="https://journal.cloudx.run/app/">Open Journal</a>
+            <a class="btn btn-primary" href="/welcome">Open Journal</a>
             <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
           </div>
           <p class="hero-note">Journal signs in with a <a href="https://homebase.id">Homebase</a> identity, a private space that belongs to you.</p>
@@ -251,7 +253,7 @@
         <div class="split-copy">
           <h2 class="h2" id="agents-title" data-reveal>Agents, where you allow</h2>
           <p class="lede" data-reveal style="--i:1">Claude Code, Claude Desktop, Cursor and Codex CLI can read and write your notes through the Journal MCP server. You choose each folder and note they can see.</p>
-          <p data-reveal style="--i:2"><a class="btn btn-secondary" href="/agents">How agents work in Journal</a></p>
+          <p data-reveal style="--i:2"><a class="btn btn-secondary" href="/landing/agents">How agents work in Journal</a></p>
         </div>
         <div class="result-stage" data-reveal style="--i:1">
           <figure class="ask-bubble">
@@ -272,7 +274,7 @@
         <h2 class="h2" id="pricing-title" data-reveal>Free for what lives in your own space</h2>
         <div class="teaser-copy" data-reveal style="--i:1">
           <p class="lede">Every feature in Journal today is free. A paid Pro plan for hosted extras is on the way.</p>
-          <p><a class="btn btn-primary" href="/pricing">See pricing</a></p>
+          <p><a class="btn btn-primary" href="/landing/pricing">See pricing</a></p>
         </div>
       </div>
     </section>
@@ -308,7 +310,7 @@
           </details>
           <details class="faq-item">
             <summary><span>How do AI agents reach my notes?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
-            <p>Through the Journal MCP server, in the folders and notes you grant. The optional writing assistant runs on your device. <a href="/agents">How agents work</a>.</p>
+            <p>Through the Journal MCP server, in the folders and notes you grant. The optional writing assistant runs on your device. <a href="/landing/agents">How agents work</a>.</p>
           </details>
           <details class="faq-item">
             <summary><span>Is Journal open source?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
@@ -324,7 +326,7 @@
       <div class="wrap closing-row">
         <h2 class="display" id="closing-title" data-reveal>Write. Your notes stay home.</h2>
         <div class="ctas" data-reveal style="--i:1">
-          <a class="btn btn-primary" href="https://journal.cloudx.run/app/">Open Journal</a>
+          <a class="btn btn-primary" href="/welcome">Open Journal</a>
           <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
         </div>
       </div>

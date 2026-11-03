@@ -9,8 +9,7 @@ import { withMobilePage } from '../support/mobile';
 const back = (page: Page) => page.getByRole('button', { name: /^Back to (?!notes$)/ });
 const more = (page: Page) => page.getByRole('button', { name: 'More', exact: true });
 const sheet = (page: Page, name: string) => page.getByRole('dialog', { name, exact: true });
-// The route's segments, after the app's /app/ (#913).
-const pathParts = (page: Page) => new URL(page.url()).pathname.split('/').filter(Boolean).slice(1);
+const pathParts = (page: Page) => new URL(page.url()).pathname.split('/').filter(Boolean);
 
 /** The folder list is the first screen on a phone: open `folder`, then New note. */
 async function newNoteIn(page: Page, folder: string) {

@@ -10,11 +10,8 @@ const edgeBaseURL = process.env.E2E_EDGE_BASE_URL ?? 'http://127.0.0.1:8788';
 
 const buildCommand = 'vite build --mode e2e --outDir dist-e2e';
 
-// The edge server serves the Pages output as the deploy assembles it (#913, deploy-cloudflare.yml):
-// the landing site at the root (with _headers, _redirects and _routes.json), the app under app/.
-const pagesCommand =
-  'vite build -c site/vite.config.ts && rm -rf dist-e2e-pages && cp -r site/dist dist-e2e-pages && cp -r dist-e2e dist-e2e-pages/app' +
-  ' && cp dist-e2e-pages/app/index.html dist-e2e-pages/app/404.html';
+// The edge server also serves the landing site under /landing/, as the deploy does (#913).
+const landingCommand = 'vite build -c site/vite.config.ts && rm -rf dist-e2e/landing && cp -r site/dist dist-e2e/landing';
 
 const webServerCommand = isDevServer
   ? 'vite --mode e2e --host 127.0.0.1 --port 5174 --strictPort'
@@ -50,8 +47,7 @@ export default defineConfig({
     ...(needsAppServer
       ? [{
           command: webServerCommand,
-          // The app is under /app/ (#913); / only redirects there.
-          url: `${baseURL}/app/`,
+          url: baseURL,
           // Only the HMR dev server stays current when reused. Reusing whatever is on
           // 4173 would skip the build and test a stale (or foreign) bundle.
           reuseExistingServer: isDevServer && !process.env.CI,
@@ -62,7 +58,7 @@ export default defineConfig({
       ? [{
           // Pinned to the deploy's wranglerVersion (deploy-cloudflare.yml). Not a
           // package.json dependency: its workerd binaries would churn the lockfile.
-          command: `${edgeBuildsItself ? `${buildCommand} && ` : ''}${pagesCommand} && npx --yes wrangler@3.90.0 pages dev dist-e2e-pages --ip 127.0.0.1 --port 8788 --binding HOMEBASE_UPSTREAM_OVERRIDE=http://127.0.0.1:8799`,
+          command: `${edgeBuildsItself ? `${buildCommand} && ` : ''}${landingCommand} && npx --yes wrangler@3.90.0 pages dev dist-e2e --ip 127.0.0.1 --port 8788 --binding HOMEBASE_UPSTREAM_OVERRIDE=http://127.0.0.1:8799`,
           url: edgeBaseURL,
           reuseExistingServer: false,
           timeout: 300_000,

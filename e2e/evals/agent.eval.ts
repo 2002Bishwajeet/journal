@@ -222,7 +222,7 @@ for (const modelId of MODELS) {
             page.on('console', (msg) => {
                 if (msg.type() === 'error') consoleErrors.push(msg.text());
             });
-            await page.goto('/app/');
+            await page.goto('/');
             await assertTestOrigin(page);
             // On a cold start the dev server reloads the page once, after it optimizes the dependencies.
             await waitForAppReady(page).catch(() => waitForAppReady(page));

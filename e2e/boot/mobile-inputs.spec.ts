@@ -50,7 +50,7 @@ async function expectAllAtLeast16(els: Locator) {
 }
 
 async function openSignedIn(page: Page) {
-  await page.goto('/app/');
+  await page.goto('/');
   await assertTestOrigin(page);
   await waitForAppReady(page);
 }
@@ -72,7 +72,7 @@ async function mockNoGrantsFile(page: Page) {
 }
 
 test('index.html has one viewport meta without a zoom lock', async ({ anonPage: page }) => {
-  await page.goto('/app/welcome');
+  await page.goto('/welcome');
   const metas = page.locator('meta[name="viewport"]');
   await expect(metas).toHaveCount(1);
   const content = (await metas.getAttribute('content')) ?? '';
@@ -81,7 +81,7 @@ test('index.html has one viewport meta without a zoom lock', async ({ anonPage: 
 
 test('phone: sign-in fits the screen, field is 16 px, link is 44 px tall', async ({ browser }) => {
   await withFencedPage(browser, { viewport: PHONE, hasTouch: true, isMobile: true }, async (page) => {
-    await page.goto('/app/welcome');
+    await page.goto('/welcome');
     await assertTestOrigin(page);
     const identity = page.getByLabel('Identity');
     await expect(identity).toBeVisible();
@@ -94,7 +94,7 @@ test('phone: sign-in fits the screen, field is 16 px, link is 44 px tall', async
 
 test('iPad: sign-in field is 16 px', async ({ browser }) => {
   await withFencedPage(browser, { viewport: IPAD, hasTouch: true, isMobile: true }, async (page) => {
-    await page.goto('/app/welcome');
+    await page.goto('/welcome');
     await assertTestOrigin(page);
     const identity = page.getByLabel('Identity');
     await expect(identity).toBeVisible();
@@ -105,7 +105,7 @@ test('iPad: sign-in field is 16 px', async ({ browser }) => {
 for (const colorScheme of ['light', 'dark'] as const) {
   test(`phone: sign-in error state reads in ${colorScheme}`, async ({ browser }, testInfo) => {
     await withFencedPage(browser, { viewport: PHONE, hasTouch: true, isMobile: true, colorScheme }, async (page) => {
-      await page.goto('/app/welcome');
+      await page.goto('/welcome');
       await assertTestOrigin(page);
       await page.getByLabel('Identity').fill('not a valid identity');
       await page.getByRole('button', { name: 'Continue' }).tap();
@@ -137,7 +137,7 @@ test('phone: Settings > Agent access selects and the New folder field are 16 px'
 
 test('desktop: inputs keep 14 px', async ({ browser }, testInfo) => {
   await withFencedPage(browser, { viewport: DESKTOP }, async (page) => {
-    await page.goto('/app/welcome');
+    await page.goto('/welcome');
     await assertTestOrigin(page);
     expect(await fontSize(page.getByLabel('Identity'))).toBe(14);
     await page.waitForTimeout(400); // let the 300 ms fade-in finish before the screenshot

@@ -18,7 +18,7 @@ async function openMoveSheet(page: Page) {
   await expect(page.getByRole('textbox', { name: 'Note title' })).toBeVisible();
   await page.getByRole('button', { name: /^Back to (?!notes$)/ }).tap();
   // Back navigates inside the slide's view transition, a frame later.
-  await expect.poll(() => new URL(page.url()).pathname.split('/').filter(Boolean).length).toBe(2);
+  await expect.poll(() => new URL(page.url()).pathname.split('/').filter(Boolean).length).toBe(1);
   await expect(noteRow(page)).toHaveCount(1);
   await noteRow(page).first().click({ button: 'right', position: { x: 12, y: 12 } });
   const menu = page.getByRole('menu');

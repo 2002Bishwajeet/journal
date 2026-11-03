@@ -28,9 +28,8 @@ export async function onRequest(context: ShareContext): Promise<Response> {
     const authorPath = parseAuthorPath(new URL(request.url).pathname);
     if (authorPath) return serveAuthorIndex(context, authorPath);
 
-    // The app's shell (#913): '/app/', not '/app/index.html' (Pages 308s that). ASSETS applies
-    // _headers (COEP/COOP).
-    const shell = await env.ASSETS.fetch(new URL('/app/', request.url));
+    // '/', not '/index.html' (Pages 308s that). ASSETS applies _headers (COEP/COOP).
+    const shell = await env.ASSETS.fetch(new URL('/', request.url));
 
     try {
         const url = new URL(request.url);

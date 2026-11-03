@@ -42,11 +42,11 @@ interface NoteRow {
     title: string;
 }
 
-/** The `/app/:folderId/:noteId` route (src/App.tsx) puts the note's own id, the
+/** The `/:folderId/:noteId` route (src/App.tsx) puts the note's own id, the
  * same id the MCP tools use, in the URL -- read after navigating to a note. */
 function noteIdFromUrl(url: string): string {
     const segments = new URL(url).pathname.split('/').filter(Boolean);
-    return segments[2];
+    return segments[1];
 }
 
 test('an MCP edit reaches a note open in the app, merges with concurrent typing, and ungranted notes stay hidden', async ({

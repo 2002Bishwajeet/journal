@@ -21,7 +21,7 @@ test('a folder shared on one device is shared on a second device', async ({ live
 
     // A fresh context has the login but an empty local database: a second device.
     await withFencedPage(browser, { storageState: LIVE_STORAGE_STATE }, async (other) => {
-        await other.goto('/app/');
+        await other.goto('/');
         await assertTestOrigin(other);
         await waitForAppReady(other);
         const button = foldersNav(other).getByRole('button', { name: folder, exact: true });

@@ -54,10 +54,10 @@ export default function SharePage() {
                         {error instanceof Error ? error.message : 'This note may have been deleted or is not publicly shared.'}
                     </p>
                     <Button asChild variant="outline">
-                        <a href="/">
+                        <Link to="/">
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Go to Journal
-                        </a>
+                        </Link>
                     </Button>
                 </div>
             </div>
@@ -68,7 +68,7 @@ export default function SharePage() {
         // The container a `wide` live block takes its width from (src/index.css, "Live blocks").
         <div className="@container/live-blocks min-h-svh bg-background">
             <ShareHeader
-                saveHref={`${import.meta.env.BASE_URL}save-shared?${new URLSearchParams({ identity: decodeURIComponent(identity), file: noteId })}`}
+                saveHref={`/save-shared?${new URLSearchParams({ identity: decodeURIComponent(identity), file: noteId })}`}
                 authorIndexHref={`/share/${identity}`}
             />
 

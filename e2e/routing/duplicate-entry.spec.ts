@@ -4,11 +4,10 @@ import { createNote } from '../support/actions';
 // Navigating to the path the app is already on must not push a history entry,
 // or Back needs two presses to leave the note (#858).
 
-// The route, without the app's /app (#913).
-const pathOf = (page: import('@playwright/test').Page) => new URL(page.url()).pathname.replace(/^\/app/, '');
+const pathOf = (page: import('@playwright/test').Page) => new URL(page.url()).pathname;
 
 test('tapping Today on today\'s note, then Back, leaves the note in one step', async ({ app }) => {
-  await app.goto('/app/');
+  await app.goto('/');
   // The Today button is behind the dailyNotes flag; the shortcut is not.
   await app.locator('#main-content').getByRole('heading', { level: 2 }).click();
   const today = { click: () => app.keyboard.press('Control+Shift+T') };

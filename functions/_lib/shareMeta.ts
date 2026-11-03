@@ -181,7 +181,7 @@ export function buildHeadTags(meta: ShareMeta, pageUrl: string, origin: string):
                 height: '1600',
                 ...version,
             })}`
-          : `${origin}/app/banner.webp`;
+          : `${origin}/banner.webp`;
 
     const property = (name: string, content: string | undefined) =>
         content === undefined ? [] : [`<meta property="${name}" content="${escapeHtml(content)}" />`];

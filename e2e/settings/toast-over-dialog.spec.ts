@@ -23,7 +23,7 @@ test('mobile: tapping a toast keeps Settings open and the toast clears the safe 
       // iPhone 15 notch and home indicator (Chromium only).
       const cdp = await page.context().newCDPSession(page);
       await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, bottom: 34 } });
-      await page.goto('/app/');
+      await page.goto('/');
       await assertTestOrigin(page);
       await waitForAppReady(page);
       const { dialog, toast } = await showToastOverSettings(page);

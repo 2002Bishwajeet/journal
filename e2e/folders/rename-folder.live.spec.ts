@@ -29,7 +29,7 @@ test('a renamed shared folder keeps its share and shows the new name on a second
 
     // A fresh context has the login but an empty local database: a second device.
     await withFencedPage(browser, { storageState: LIVE_STORAGE_STATE }, async (other) => {
-        await other.goto('/app/');
+        await other.goto('/');
         await assertTestOrigin(other);
         await waitForAppReady(other);
         const button = foldersNav(other).getByRole('button', { name: renamed, exact: true });

@@ -31,7 +31,7 @@ async function consentUntil(page: Page, identity: string, appOrigin: string, don
     const deadline = Date.now() + CONSENT_TIMEOUT_MS;
     while (Date.now() < deadline) {
         const url = new URL(page.url());
-        if (url.origin === appOrigin && !url.pathname.startsWith('/app/auth') && (await done().catch(() => false))) {
+        if (url.origin === appOrigin && !url.pathname.startsWith('/auth') && (await done().catch(() => false))) {
             return;
         }
         if (url.hostname === identity) {
@@ -84,7 +84,7 @@ async function bootstrapIdentity(browser: Browser, identity: string, storageStat
         expect(ownerVerify).toBe('true');
 
         // 3. Authorise the Journal app via YouAuth, from the app's own origin.
-        await page.goto('/app/welcome');
+        await page.goto('/welcome');
         await assertTestOrigin(page);
         const appOrigin = new URL(page.url()).origin;
         await page.getByLabel('Identity').fill(identity);
@@ -203,7 +203,7 @@ async function circleMembers(page: Page, identity: string, circle: string): Prom
 // (COLLABORATION_PERMISSIONS plus the circle drives), the same way a person
 // would the first time they share.
 async function grantCollaborationPermissions(page: Page, identity: string) {
-    await page.goto('/app/');
+    await page.goto('/');
     await assertTestOrigin(page);
     const appOrigin = new URL(page.url()).origin;
     await waitForAppReady(page);

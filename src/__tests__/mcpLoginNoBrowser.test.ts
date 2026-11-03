@@ -56,15 +56,15 @@ describe('journal-mcp login --no-browser', () => {
         process.env = { ...env };
     });
 
-    it('redirects to <origin>/app/mcp/code, starts no server and finalizes the pasted code', async () => {
+    it('redirects to <origin>/mcp/code, starts no server and finalizes the pasted code', async () => {
         mocks.answer = validCode();
 
         await login(IDENTITY, { noBrowser: true });
 
-        expect(mocks.getRegistrationParams.mock.calls[0][0]).toBe('https://journal.cloudx.run/app/mcp/code');
+        expect(mocks.getRegistrationParams.mock.calls[0][0]).toBe('https://journal.cloudx.run/mcp/code');
         const printed = stderr.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
         expect(printed).toContain(`https://${IDENTITY}/api/owner/v1/youauth/authorize?`);
-        expect(printed).toContain(encodeURIComponent('https://journal.cloudx.run/app/mcp/code'));
+        expect(printed).toContain(encodeURIComponent('https://journal.cloudx.run/mcp/code'));
         expect(mocks.createServer).not.toHaveBeenCalled();
         expect(mocks.spawn).not.toHaveBeenCalled();
         expect(mocks.finalizeAuthentication).toHaveBeenCalledWith(IDENTITY, 'PRIV', 'server-pub', 'the-salt');
@@ -77,7 +77,7 @@ describe('journal-mcp login --no-browser', () => {
 
         await login(IDENTITY, { noBrowser: true });
 
-        expect(mocks.getRegistrationParams.mock.calls[0][0]).toBe('https://dev.example.test:5173/app/mcp/code');
+        expect(mocks.getRegistrationParams.mock.calls[0][0]).toBe('https://dev.example.test:5173/mcp/code');
     });
 
     it('gives a clear error for a malformed pasted code', async () => {

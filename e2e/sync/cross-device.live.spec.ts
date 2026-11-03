@@ -7,7 +7,7 @@ test('a note created on one device appears on another via realtime sync, and an 
 
     // Device B: a second context on the same real identity.
     await withFencedPage(browser, { storageState: LIVE_STORAGE_STATE }, async (pageB) => {
-        await pageB.goto('/app/');
+        await pageB.goto('/');
         await assertTestOrigin(pageB);
         await waitForAppReady(pageB);
         await selectFolder(pageB, folderName);

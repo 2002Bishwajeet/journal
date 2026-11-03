@@ -29,7 +29,7 @@ async function paste(page: Page, html: string): Promise<void> {
 
 // The note is made at desktop width, where the New button shows; the caller then shrinks the window.
 async function noteWithTable(page: Page): Promise<void> {
-  await page.goto('/app/');
+  await page.goto('/');
   await assertTestOrigin(page);
   await waitForAppReady(page);
   await createNote(page, { title: `Touch ${Date.now()}`, body: 'Before' });
@@ -92,7 +92,7 @@ test('on a phone, the table grips, table menu and tag input are easy to touch', 
 
 test('on a phone, an image shows 44px controls', async ({ browser }) => {
   await withFencedPage(browser, { storageState: AUTH, viewport: DESKTOP, hasTouch: true }, async (page) => {
-    await page.goto('/app/');
+    await page.goto('/');
     await assertTestOrigin(page);
     await waitForAppReady(page);
     await createNote(page, { title: `Touch image ${Date.now()}`, body: 'Before' });

@@ -20,8 +20,6 @@ import {
 } from './checks.ts';
 
 const BASE = 'http://127.0.0.1:4173';
-// The app is under /app/ (#913); share pages stay at the root.
-const APP = `${BASE}/app/`;
 const OUT = 'test-results/ios-safari';
 const TYPED = ['First line', 'Second line', 'Third line'];
 
@@ -130,7 +128,7 @@ async function tap(selector: string, index = 0) {
 }
 
 async function boot() {
-  await browser.url(APP);
+  await browser.url(`${BASE}/`);
   await waitFor(
     'the app to boot',
     () => '__journalE2E' in window && !document.querySelector('[role="progressbar"]') && !!document.querySelector('[aria-label="Sidebar"]'),
@@ -156,7 +154,7 @@ async function safariConsole(): Promise<string[]> {
  * Reloads the page and checks the app is ready again within `limit` ms (#806): reloading after
  * typing in the editor once left Safari on the splash screen for minutes. `how` tells a real
  * hang (a manual-style location.reload()) from one only WebDriver's refresh() causes; load-root
- * is WebDriver's navigation to the app's root. The limit applies to the page's own `ui` boot mark (see
+ * is WebDriver's navigation to /. The limit applies to the page's own `ui` boot mark (see
  * bootProblem); a page not ready 60 s after the reload is a hang. Records
  * the boot timing marks (markBoot in src/lib/bootProgress.ts), the console and a screenshot.
  */
@@ -169,7 +167,7 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-
   const started = Date.now();
   if (how === 'location.reload') await browser.execute(() => void setTimeout(() => location.reload(), 0));
   else if (how === 'webdriver-refresh') await browser.refresh();
-  else await browser.url(APP);
+  else await browser.url(`${BASE}/`);
   const problems: string[] = [];
   const ready = await waitFor(
     'the app to be ready after the reload',
@@ -338,7 +336,7 @@ try {
   summary.push(`| share-not-found | ${await screenshot('share-not-found')} | ${shareProblems.join('<br>') || 'none'} |`);
   console.log(`${shareProblems.length ? '✗' : '✓'} share-not-found${shareProblems.map((p) => `\n    ${p}`).join('')}`);
 
-  await browser.url(`${APP}welcome`);
+  await browser.url(`${BASE}/welcome`);
   assertTestOrigin(await browser.execute(() => location.origin));
   await tap('#identity');
   await checkZoom('the sign-in field');
@@ -394,12 +392,12 @@ try {
   // from the folder list lands on the Notes home, not on Shared.
   const TAB_BUTTONS = 'nav[aria-label="Tabs"] button';
   await tap(TAB_BUTTONS, 1);
-  await waitFor('the Shared tab', () => location.pathname === '/app/shared');
+  await waitFor('the Shared tab', () => location.pathname === '/shared');
   await tap(TAB_BUTTONS, 0);
-  await waitFor('the Notes tab back on its folder', () => location.pathname !== '/app/shared' && location.pathname !== '/app/');
+  await waitFor('the Notes tab back on its folder', () => location.pathname !== '/shared' && location.pathname !== '/');
   await browser.execute(() => history.back());
   const stackProblems: string[] = [];
-  await waitFor('Back after a tab switch', () => location.pathname === '/app/' && !!document.querySelector('[aria-label="Sidebar"]'), 10_000).catch(() =>
+  await waitFor('Back after a tab switch', () => location.pathname === '/' && !!document.querySelector('[aria-label="Sidebar"]'), 10_000).catch(() =>
     stackProblems.push('history.back() after a tab switch did not land on the Notes home'),
   );
   failures.push(...stackProblems.map((p) => `tab-stacks: ${p}`));
@@ -501,7 +499,7 @@ try {
   // In-app Back pops the note's entry instead of pushing the list (#822).
   const noteIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
   await tap(noteBack);
-  await waitFor('the note list', () => location.pathname.split('/').filter(Boolean).length === 2);
+  await waitFor('the note list', () => location.pathname.split('/').filter(Boolean).length === 1);
   const listIdx = await browser.execute(() => (history.state as { idx?: number } | null)?.idx ?? 0);
   if (listIdx !== noteIdx - 1) failures.push(`in-app Back: history idx went ${noteIdx} -> ${listIdx}, expected ${noteIdx - 1} (a pop)`);
   summary.push(`| in-app Back | | history idx ${noteIdx} -> ${listIdx} |`);
@@ -784,7 +782,7 @@ try {
     const el = document.querySelector<HTMLElement>('.ProseMirror')!;
     el.focus();
     const data = new DataTransfer();
-    data.setData('text/html', '<img src="/app/pwa-512x512.png" alt="Journal logo">');
+    data.setData('text/html', '<img src="/pwa-512x512.png" alt="Journal logo">');
     el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
   });
   await waitFor('the pasted image', () => !!document.querySelector<HTMLImageElement>('.ProseMirror img[alt="Journal logo"]')?.complete);

@@ -9,7 +9,7 @@ test('closing the active tab switches to its right neighbour without mounting ot
   const ids: string[] = [];
   for (const title of titles) {
     await createNote(app, { title, body: `${title} body` });
-    ids.push(new URL(app.url()).pathname.split('/')[3]);
+    ids.push(new URL(app.url()).pathname.split('/')[2]);
   }
   const main = app.locator('#main-content');
   const tab = (title: string) => main.getByRole('button', { name: title, exact: true });
@@ -34,7 +34,7 @@ test('closing the active tab switches to its right neighbour without mounting ot
 
 test('closing the only tab lands on the folder', async ({ app }) => {
   await createNote(app, { title: 'Only tab', body: 'Alone' });
-  const folderId = new URL(app.url()).pathname.split('/')[2];
+  const folderId = new URL(app.url()).pathname.split('/')[1];
   const main = app.locator('#main-content');
 
   await main.getByRole('button', { name: 'Close Only tab', exact: true }).click();

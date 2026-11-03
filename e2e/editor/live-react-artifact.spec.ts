@@ -182,7 +182,7 @@ test('react block: after one render, the artifact with its chart and icon still 
   // The hermetic project blocks service workers (playwright.config.ts). This test needs one to
   // serve the app offline, so its own context allows it; sw.ts only fetches the app's origin.
   await withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json', serviceWorkers: 'allow' }, async (page) => {
-    await page.goto('/app/');
+    await page.goto('/');
     await assertTestOrigin(page);
     await waitForAppReady(page);
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null);

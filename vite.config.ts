@@ -1,4 +1,4 @@
-import { defineConfig, type Connect, type Plugin } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
@@ -42,26 +42,11 @@ const lazyKatexForMath = {
       : null,
 };
 
-// The app's CSPs (#671, #945), read from site/public/_headers so dev and preview send what
+// The app's CSPs (#671, #945), read from public/_headers so dev and preview send what
 // Cloudflare Pages sends.
-const HEADERS_FILE = fs.readFileSync(path.join(import.meta.dirname, 'site/public/_headers'), 'utf8');
+const HEADERS_FILE = fs.readFileSync(path.join(import.meta.dirname, 'public/_headers'), 'utf8');
 const APP_CSP = HEADERS_FILE.match(/^\s+Content-Security-Policy-Report-Only: (.+)$/m)![1];
 const ENFORCED_CSP = HEADERS_FILE.match(/^\s+Content-Security-Policy: (.+)$/m)![1];
-
-// The app is served under /app/ (#913): the landing site is the root of the same origin.
-const APP_BASE = '/app/';
-
-// Share pages (/share/*) stay at the root and run the app's shell, as the Pages Function
-// serves it in production. Dev and preview serve only APP_BASE, so they get the shell here.
-const shareShell: Connect.NextHandleFunction = (req, _res, next) => {
-  if (req.url?.startsWith('/share/')) req.url = APP_BASE;
-  next();
-};
-const sharePagesAtRoot: Plugin = {
-  name: 'share-pages-at-root',
-  configureServer: (server) => void server.middlewares.use(shareShell),
-  configurePreviewServer: (server) => void server.middlewares.use(shareShell),
-};
 
 // The React a `react` live block runs on (#426): the app's own installed react and
 // react-dom/client as the text of one classic script, which sets window.React and
@@ -196,13 +181,11 @@ function gitShortSha(): string | undefined {
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: APP_BASE,
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __APP_BUILD__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? gitShortSha() ?? 'dev'),
   },
   plugins: [
-    sharePagesAtRoot,
     restorePgliteProcessGuard,
     lazyKatexForMath,
     reactBlockPieces,
@@ -221,10 +204,9 @@ export default defineConfig(({ mode }) => ({
       manifest: {
         name: 'Journal',
         short_name: 'Journal',
-        // `id` stays '/' so an app installed when it lived at / is the same app (#913).
         id: '/',
-        start_url: APP_BASE,
-        scope: APP_BASE,
+        start_url: '/',
+        scope: '/',
         description: 'Offline-first markdown notes, encrypted and synced through your own Homebase identity.',
         categories: ['productivity', 'utilities'],
         theme_color: '#FDFCF8',
@@ -261,19 +243,19 @@ export default defineConfig(({ mode }) => ({
             name: "New Note",
             short_name: "New Note",
             description: "Create a new note",
-            url: `${APP_BASE}?action=new`,
+            url: "/?action=new",
             icons: [{ src: "pwa-192x192.png", sizes: "192x192" }]
           },
           {
             name: "Search",
             short_name: "Search",
             description: "Search your notes",
-            url: `${APP_BASE}?action=search`,
+            url: "/?action=search",
             icons: [{ src: "pwa-192x192.png", sizes: "192x192" }]
           }
         ],
         share_target: {
-          action: `${APP_BASE}share-target`,
+          action: "/share-target",
           method: "GET",
           enctype: "application/x-www-form-urlencoded",
           params: {
@@ -321,13 +303,13 @@ export default defineConfig(({ mode }) => ({
           '**/pg_trgm.tar-3zayjqji.gz', // v0.4
         ],
         maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15 MB for large WASM files
-        // Pages 308s /app/index.html -> /app/, and serving a redirected response to a
+        // Pages 308s /index.html -> /, and serving a redirected response to a
         // navigation is a hard network error. Precache the shell under its
-        // canonical URL. Must match createHandlerBoundToURL(BASE_URL) in src/sw.ts.
+        // canonical URL. Must match createHandlerBoundToURL('/') in src/sw.ts.
         manifestTransforms: [
           (entries) => ({
             manifest: entries.map((e) =>
-              e.url === 'index.html' ? { ...e, url: APP_BASE } : e
+              e.url === 'index.html' ? { ...e, url: '/' } : e
             ),
             warnings: [],
           }),

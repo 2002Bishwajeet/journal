@@ -12,7 +12,7 @@ export async function withTabletPage(
     browser,
     { viewport: size, hasTouch: true, storageState: 'e2e/fixtures/hermetic-auth.json', serviceWorkers: 'block' },
     async (page) => {
-      await page.goto('/app/');
+      await page.goto('/');
       await assertTestOrigin(page);
       await waitForAppReady(page);
       await body(page);
@@ -34,7 +34,7 @@ export async function withMobilePage(
     browser,
     { ...iphone, viewport: { width: 393, height: 852 }, storageState: 'e2e/fixtures/hermetic-auth.json', serviceWorkers: 'block', ...options },
     async (page) => {
-      await page.goto('/app/');
+      await page.goto('/');
       await assertTestOrigin(page);
       await waitForAppReady(page);
       await body(page);

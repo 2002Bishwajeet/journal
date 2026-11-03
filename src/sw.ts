@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
+import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL, matchPrecache } from 'workbox-precaching';
 import { registerRoute, NavigationRoute, Route } from 'workbox-routing';
 import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
@@ -13,8 +13,21 @@ declare let self: ServiceWorkerGlobalScope & {
 // Disable Workbox development logs
 self.__WB_DISABLE_DEV_LOGS = true;
 
-// The app's root, '/app/' (#913): its shell and its routes are under it.
-const APP_BASE = import.meta.env.BASE_URL;
+// A page load of / goes to the network first: the edge picks the app or the landing page by
+// the session hint cookie (functions/index.ts, #913). Offline, it is the app's shell, so the
+// installed app still opens. Registered before the precache route, which would serve '/' itself.
+registerRoute(
+    ({ request, url }) => request.mode === 'navigate' && url.origin === self.location.origin && url.pathname === '/',
+    async ({ request }) => {
+        try {
+            return await fetch(request);
+        } catch (error) {
+            const shell = await matchPrecache('/');
+            if (shell) return shell;
+            throw error;
+        }
+    }
+);
 
 // Precache static assets injected by VitePWA
 precacheAndRoute(self.__WB_MANIFEST);
@@ -206,12 +219,12 @@ registerRoute(
 // SPA Navigation Fallback: Serve index.html for all navigation requests
 // This is essential for the PWA to work offline on non-root paths
 registerRoute(
-    // '/app/' not '/app/index.html': Cloudflare Pages 308s /app/index.html -> /app/,
-    // and a redirected response served to a navigation is a network error. The
+    // '/' not '/index.html': Cloudflare Pages 308s /index.html -> /, and a
+    // redirected response served to a navigation is a network error. The
     // precache manifest is rewritten to match by manifestTransforms in
     // vite.config.ts — these two must change together, or this call throws at
     // service-worker startup.
-    new NavigationRoute(createHandlerBoundToURL(APP_BASE), {
+    new NavigationRoute(createHandlerBoundToURL('/'), {
         denylist: [
             /^\/api\//, // Exclude API calls
             /^\/img\//, // Exclude images if needed
@@ -313,8 +326,8 @@ self.addEventListener('notificationclick', (event) => {
     const type = typeId?.toLowerCase();
     // An edit push: tagId is the note id, and the owner's copy sits in the collaborative folder (#746)
     const url = !tagId || type === JOURNAL_TEST_PUSH_TYPE_ID ? undefined
-        : type === JOURNAL_PUSH_TYPE_EDIT ? `${APP_BASE}${COLLABORATIVE_FOLDER_ID}/${encodeURIComponent(tagId)}`
-        : `${APP_BASE}shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId ?? '')}`;
+        : type === JOURNAL_PUSH_TYPE_EDIT ? `/${COLLABORATIVE_FOLDER_ID}/${encodeURIComponent(tagId)}`
+        : `/shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId ?? '')}`;
     event.waitUntil(
         (async () => {
             const [client] = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
@@ -323,7 +336,7 @@ self.addEventListener('notificationclick', (event) => {
                 // navigate() rejects for a window this worker does not control yet
                 if (url) await client.navigate(url).catch(() => self.clients.openWindow(url));
             } else {
-                await self.clients.openWindow(url ?? APP_BASE);
+                await self.clients.openWindow(url ?? '/');
             }
         })()
     );

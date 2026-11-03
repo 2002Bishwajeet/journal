@@ -12,6 +12,7 @@ import {
 import { removeWebPush } from '@/lib/homebase/WebPushProvider';
 import { SESSION_STORAGE_KEY, TABS_STORAGE_KEY, RECENT_NOTES_KEY, RECENT_SEARCHES_KEY, LIVE_BLOCK_RUNS_KEY } from '@/lib/storage';
 import { discardAllUnsavedEdits } from '@/lib/yjs/unsavedEdits';
+import { clearSessionHint, setSessionHint } from '@/lib/sessionHint';
 import { useVerifyToken } from './useVerifyToken';
 import { useOnlineContext } from '../useOnlineContext';
 
@@ -78,7 +79,7 @@ export function useAuth() {
     const { data: hasValidToken, isFetchedAfterMount } = useVerifyToken(dotYouClient);
 
     /**
-     * Log out: clear tokens and go to the landing page at / (#913).
+     * Log out: clear tokens and go to /, which is the landing page without the session hint (#913).
      */
     const logout = useCallback(async (): Promise<void> => {
         const client = getDotYouClient();
@@ -119,9 +120,16 @@ export function useAuth() {
         localStorage.removeItem(RECENT_SEARCHES_KEY);
         localStorage.removeItem(LIVE_BLOCK_RUNS_KEY);
         discardAllUnsavedEdits();
+        clearSessionHint();
 
         window.location.replace('/');
     }, [getDotYouClient]);
+
+    // Every signed-in boot sets the edge's routing hint (#913): this covers a browser
+    // that signed in before the hint existed, and refreshes its expiry.
+    useEffect(() => {
+        if (authenticationState === 'authenticated') setSessionHint();
+    }, [authenticationState]);
 
     // Handle auth state transitions
     useEffect(() => {

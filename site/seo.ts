@@ -3,15 +3,16 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-// The site's public origin: the landing page is the root of journal.cloudx.run (the app lives at /app). SITE_URL overrides it.
+// The site's public origin: journal.cloudx.run, where / is the landing page for a visitor who is not signed in
+// (functions/index.ts) and the other pages are under /landing/ (#913). SITE_URL overrides it.
 export const SITE_URL = (process.env.SITE_URL ?? 'https://journal.cloudx.run').replace(/\/$/, '')
-const APP_URL = 'https://journal.cloudx.run/app/'
+const APP_URL = `${SITE_URL}/welcome`
 const GITHUB = 'https://github.com/2002Bishwajeet/journal'
 
 export const PAGES = [
   { id: 'home', file: 'index.html', path: '/', name: 'Home' },
-  { id: 'agents', file: 'agents.html', path: '/agents', name: 'Agents' },
-  { id: 'pricing', file: 'pricing.html', path: '/pricing', name: 'Pricing' },
+  { id: 'agents', file: 'agents.html', path: '/landing/agents', name: 'Agents' },
+  { id: 'pricing', file: 'pricing.html', path: '/landing/pricing', name: 'Pricing' },
 ] as const
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' }
@@ -115,8 +116,8 @@ export function siteFiles(render: (html: string) => string, root: string): Recor
   const crawlers = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-User', 'Claude-SearchBot', 'anthropic-ai', 'PerplexityBot', 'Google-Extended', 'Applebot-Extended', 'CCBot']
   return {
     'llms.txt': readFileSync(resolve(root, 'llms.txt'), 'utf8').replaceAll('{{SITE}}', SITE_URL),
-    'llms-full.txt': `# Journal: the full text of ${SITE_URL}\n\n> Every page of the Journal site as plain text. The short index is ${SITE_URL}/llms.txt.\n\n${full.join('\n\n---\n\n')}\n`,
-    'robots.txt': ['# Everyone is welcome, AI crawlers included.', 'User-agent: *', 'Allow: /', '', ...crawlers.flatMap((c) => [`User-agent: ${c}`, 'Allow: /', '']), `Sitemap: ${SITE_URL}/sitemap.xml`, ''].join('\n'),
+    'llms-full.txt': `# Journal: the full text of ${SITE_URL}\n\n> Every page of the Journal site as plain text. The short index is ${SITE_URL}/landing/llms.txt.\n\n${full.join('\n\n---\n\n')}\n`,
+    'robots.txt': ['# Everyone is welcome, AI crawlers included.', 'User-agent: *', 'Allow: /', '', ...crawlers.flatMap((c) => [`User-agent: ${c}`, 'Allow: /', '']), `Sitemap: ${SITE_URL}/landing/sitemap.xml`, ''].join('\n'),
     'sitemap.xml': `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${PAGES.map((p) => `  <url><loc>${SITE_URL}${p.path}</loc></url>`).join('\n')}\n</urlset>\n`,
   }
 }

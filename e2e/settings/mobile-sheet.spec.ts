@@ -7,7 +7,7 @@ const PHONE = { width: 393, height: 852 };
 const AUTH = 'e2e/fixtures/hermetic-auth.json';
 
 async function openSettings(page: Page, tablet = false) {
-  await page.goto('/app/');
+  await page.goto('/');
   await assertTestOrigin(page);
   await waitForAppReady(page);
   if (tablet) await page.getByRole('button', { name: 'Show folders', exact: true }).click();

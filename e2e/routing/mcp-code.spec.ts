@@ -7,7 +7,7 @@ import { decodeMcpLoginCode } from '../../src/lib/mcpLoginCode';
 // without booting the database.
 
 test('logged-out visitor sees a decodable code and a Copy button', async ({ anonPage: page }) => {
-  await page.goto('/app/mcp/code?identity=a.example&public_key=PK&salt=S');
+  await page.goto('/mcp/code?identity=a.example&public_key=PK&salt=S');
   await assertTestOrigin(page);
 
   const code = page.getByTestId('mcp-login-code');
@@ -26,7 +26,7 @@ test('logged-out visitor sees a decodable code and a Copy button', async ({ anon
 });
 
 test('missing params show the error state', async ({ anonPage: page }) => {
-  await page.goto('/app/mcp/code');
+  await page.goto('/mcp/code');
   await assertTestOrigin(page);
   await expect(page.getByRole('alert')).toContainText('Missing login details');
   await expect(page.getByTestId('mcp-login-code')).toHaveCount(0);

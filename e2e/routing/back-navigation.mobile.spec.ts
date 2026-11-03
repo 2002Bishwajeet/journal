@@ -7,8 +7,7 @@ import { withMobilePage } from '../support/mobile';
 // On a phone the system Back and the app's Back agree, and Back closes a
 // dialog or sheet instead of changing the screen under it (#822).
 
-// The route, without the app's /app (#913).
-const pathOf = (page: Page) => new URL(page.url()).pathname.replace(/^\/app/, '');
+const pathOf = (page: Page) => new URL(page.url()).pathname;
 const historyIdx = (page: Page) => page.evaluate(() => (history.state as { idx?: number } | null)?.idx ?? 0);
 
 // createNote waits for the list row, which a phone hides behind the open note.
@@ -47,7 +46,7 @@ test('Back from a deep-linked note replaces with the folder list', async ({ brow
     expect(await historyIdx(page)).toBe(0);
 
     await page.getByRole('button', { name: /^Back to (?!notes$)/ }).click();
-    await expect.poll(() => pathOf(page)).toBe(new URL(noteUrl).pathname.replace(/^\/app/, '').split('/').slice(0, 2).join('/'));
+    await expect.poll(() => pathOf(page)).toBe(new URL(noteUrl).pathname.split('/').slice(0, 2).join('/'));
     expect(await historyIdx(page)).toBe(0);
   });
 });
