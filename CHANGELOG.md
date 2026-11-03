@@ -1,3 +1,17 @@
+# [2.58.0](https://github.com/2002Bishwajeet/journal/compare/v2.57.0...v2.58.0) (2026-11-03)
+
+
+### Bug Fixes
+
+* **editor:** keep the phone image toolbar to one row below the image ([#937](https://github.com/2002Bishwajeet/journal/issues/937)) ([82023f0](https://github.com/2002Bishwajeet/journal/commit/82023f01c4af2f2464b59686eda2878d549d2fb4))
+* **live-blocks:** own block ids, read-only state in memory, note-wide state cap ([#950](https://github.com/2002Bishwajeet/journal/issues/950)) ([da63852](https://github.com/2002Bishwajeet/journal/commit/da638526dcea774147a8250816c25a640b50a475))
+* **mobile:** dialog overlay fades on the standard curve ([#857](https://github.com/2002Bishwajeet/journal/issues/857)) ([e92abb1](https://github.com/2002Bishwajeet/journal/commit/e92abb1aa609d836914e3d4e3493612193aef1cd))
+* **mobile:** no grey status bar band above Settings and full sheets ([8fed6c4](https://github.com/2002Bishwajeet/journal/commit/8fed6c45d4fe042846edec2f1b9427903ae7c2fc))
+
+
+### Features
+
+* **mobile:** one set of motion tokens for push/pop, sheets, dialogs, tab bar and FAB ([#857](https://github.com/2002Bishwajeet/journal/issues/857)) ([a74ee65](https://github.com/2002Bishwajeet/journal/commit/a74ee6584c49d22610e87647865e33beb7e9aa1d))
 # [2.57.0](https://github.com/2002Bishwajeet/journal/compare/v2.56.0...v2.57.0) (2026-11-03)
 
 

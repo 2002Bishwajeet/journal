@@ -10,11 +10,15 @@ const viewport = { width: 393, height: 852 };
 
 async function expectTouchSizedAndOnScreen(menu: Locator) {
   await expect(menu).toBeVisible();
-  const box = await menu.boundingBox();
-  expect(box!.x).toBeGreaterThanOrEqual(0);
-  expect(box!.y).toBeGreaterThanOrEqual(0);
-  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
-  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
+  // On a phone the menu is a sheet that slides up (#857); the slide runs on the sheet, not on
+  // the menu, so poll the box until it rests on screen.
+  await expect(async () => {
+    const box = await menu.boundingBox();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
+  }).toPass();
   const items = menu.getByRole('menuitem');
   const count = await items.count();
   expect(count).toBeGreaterThan(0);
@@ -80,7 +84,6 @@ test('a long press in the middle of a folder row opens a menu that is fully on s
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
     const menu = page.getByRole('menu');
     await expect(menu.getByRole('menuitem', { name: 'Delete Folder' })).toBeVisible();
-    await menu.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
     await expectTouchSizedAndOnScreen(menu);
   });
 });
