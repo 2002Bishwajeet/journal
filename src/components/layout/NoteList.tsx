@@ -533,7 +533,7 @@ const NoteItem = memo(function NoteItem({
             ref={actionRef}
             className={cn(
               "absolute inset-y-0 right-0 w-20 bg-destructive flex items-center justify-center text-destructive-foreground",
-              "transition-all duration-300 ease-out",
+              "transition-all duration-(--duration-fade) ease-(--ease-standard)",
               isSwiped && "shadow-[-4px_0_16px_rgba(239,68,68,0.3)]",
             )}
             style={{ transform: "translateX(100%)", opacity: 0 }}
@@ -574,7 +574,7 @@ const NoteItem = memo(function NoteItem({
             className={cn(
               "relative grid grid-cols-1 w-full px-4 py-3.5 text-left bg-background group cursor-pointer outline-none focus:bg-accent select-none",
               "hover:bg-accent",
-              "transition-[transform,background-color] duration-200 ease-out",
+              "transition-[transform,background-color] duration-(--duration-fade) ease-(--ease-standard)",
               selectedNoteId === note.docId && "bg-accent",
             )}
             style={{ touchAction: "pan-y" }}

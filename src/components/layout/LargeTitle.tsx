@@ -29,7 +29,7 @@ export function BarTitle({ show, children }: { show: boolean; children: ReactNod
       data-bar-title
       data-shown={show || undefined}
       className={cn(
-        "pointer-events-none absolute inset-x-24 truncate text-center text-[17px] font-semibold text-foreground transition-[opacity,visibility] duration-150 ease-out",
+        "pointer-events-none absolute inset-x-24 truncate text-center text-[17px] font-semibold text-foreground transition-[opacity,visibility] duration-(--duration-fade) ease-(--ease-standard)",
         show ? "visible opacity-100" : "invisible opacity-0",
       )}
     >

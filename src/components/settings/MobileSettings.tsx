@@ -59,7 +59,7 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
             key={current.id}
             role="region"
             aria-label={current.label}
-            className="min-h-0 flex-1 animate-in slide-in-from-right-8 fade-in-0 overflow-y-auto overscroll-contain px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-6 duration-200 motion-reduce:animate-none"
+            className="min-h-0 flex-1 animate-in slide-in-from-right-8 fade-in-0 overflow-y-auto overscroll-contain px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-6 duration-(--duration-push) ease-(--ease-standard) motion-reduce:animate-none"
           >
             <current.Component close={onClose} />
           </div>

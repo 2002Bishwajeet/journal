@@ -589,6 +589,44 @@ try {
       failures.push(`slides: started ${JSON.stringify(slides)}, expected ${JSON.stringify(expected)} (none on the system Back)`);
     }
     summary.push(`| slides | | ${JSON.stringify(slides)} |`);
+
+    // A screen recording at real speed (#857): folder -> list -> note -> in-app Back, then
+    // Safari's own edge swipe-back, which must play no slide of ours after its own.
+    try {
+      await browser.execute(() => {
+        (window as unknown as { slides: string[] }).slides = [];
+      });
+      await browser.startRecordingScreen();
+      await tap('[aria-label="Folders"] button');
+      await browser.pause(1_000);
+      await tap('button[aria-label="New note"]');
+      await browser.pause(1_000);
+      await tap(noteBack);
+      await browser.pause(1_000);
+      const before = await browser.execute(() => location.pathname);
+      await browser
+        .action('pointer', { parameters: { pointerType: 'touch' } })
+        .move({ origin: 'viewport', x: 2, y: 400 })
+        .down()
+        .pause(50)
+        .move({ origin: 'viewport', x: 300, y: 400, duration: 300 })
+        .up()
+        .perform();
+      await browser.pause(1_500);
+      writeFileSync(`${OUT}/push-pop.mp4`, Buffer.from(await browser.stopRecordingScreen(), 'base64'));
+      summary.push('| push-pop recording | push-pop.mp4 | |');
+      if ((await browser.execute(() => location.pathname)) === before) {
+        warnings.push('The edge swipe did not go back in Safari, so the recording shows the in-app Back only.');
+        await tap('[aria-label="Back to notes"]');
+      }
+      const recorded = await browser.execute(() => (window as unknown as { slides: string[] }).slides);
+      if (JSON.stringify(recorded) !== JSON.stringify(expected)) {
+        failures.push(`swipe-back: started ${JSON.stringify(recorded)}, expected ${JSON.stringify(expected)} (Safari's swipe must play only its own animation)`);
+      }
+    } catch (error) {
+      warnings.push(`push-pop recording: ${(error as Error).message}`);
+      await browser.stopRecordingScreen().catch(() => {});
+    }
   }
 
   // Note list gestures (#778): import enough notes for the list to scroll, then swipe a

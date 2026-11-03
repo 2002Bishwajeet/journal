@@ -538,6 +538,19 @@ Enforced minimums for all UI components. Do not go below these:
 - **Muted text opacity**: `text-muted-foreground/70` minimum when using opacity modifiers. Avoid `/50` or lower on text.
 - **Animation timing**: fast = `duration-100`, normal = `duration-200`, slow = `duration-300`. Avoid non-scale values like `duration-[75ms]`, `duration-[120ms]`, `duration-[150ms]`.
 - **Reduced motion**: global rule in `src/index.css` zeroes all CSS transitions/animations under `prefers-reduced-motion: reduce`. JS-driven animations should additionally check `useReducedMotion()`.
+- **Motion tokens** (#857): phone surfaces and dialogs take their curve and duration from one set of tokens, never a literal: CSS custom properties in `src/index.css` `:root` (`--ease-standard`, `--ease-exit`, `--duration-push`, `--duration-sheet`, `--duration-sheet-exit`, `--duration-fade`, `--duration-press`; in Tailwind `duration-(--duration-sheet) ease-(--ease-standard)`) and `src/lib/motion.ts` for framer-motion (`transitions.push`, `.sheet`, `.sheetExit`, `.fade`, `.press`). `src/__tests__/motion.test.ts` keeps the two equal.
+
+  | What moves | Motion | Curve | Duration |
+  |---|---|---|---|
+  | Push and pop between screens (`slideNavigate`), Settings drill-down | Horizontal slide: the top screen moves the full width over the one under it, which moves 30 % with a slight dim | `--ease-standard` | `--duration-push` (350 ms) |
+  | Bottom and full sheets, the phone assistant panel | Slide up; drag follows the finger; a short drag springs back with the release velocity (`transitions.sheet`, also pull-to-refresh) | open `--ease-standard`, close `--ease-exit` | open `--duration-sheet` (400 ms), close `--duration-sheet-exit` (250 ms) |
+  | Centred alerts and dialogs, their overlay | Fade plus scale from 0.95 | `--ease-standard` | `--duration-fade` (200 ms) |
+  | Tab bar and New note button | Fade up 12 px when they show; hide at once (a push carries them off) | `--ease-standard` | `--duration-fade` |
+  | New note button press | Scale to 0.94 | `--ease-standard` | `--duration-press` (100 ms) |
+  | Swipe-row snap, bar title | Snap or fade | `--ease-standard` | `--duration-fade` |
+  | Tab switches | None: iOS switches tabs at once | | |
+
+  Under `prefers-reduced-motion: reduce` slides do not run (`slideNavigate` skips the view transition; the global rule zeroes CSS; framer-motion follows `MotionConfig reducedMotion="user"`); drags still follow the finger. A navigation during a running slide goes without one.
 - **Phone sheets** (#823): contextual actions and pickers are a bottom sheet or `ActionSheet`; forms are a full sheet; only short confirmations are a centred alert. Use `ResponsiveSheet` (`src/components/ui/responsive-sheet.tsx`) so desktop keeps the dialog. The primitive is `src/components/ui/sheet.tsx`: the grabber and header drag it down to close, it follows the iOS keyboard, and Back closes it.
 
 ## Testing

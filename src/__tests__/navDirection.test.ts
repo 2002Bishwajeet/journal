@@ -4,11 +4,15 @@ import { routeRendered, slideNavigate } from "@/lib/navDirection";
 
 type Update = () => Promise<void>;
 
+// The last stub's finish: afterEach ends a slide a test left running.
+let finishLast: (() => void) | undefined;
+
 // A stand-in for document.startViewTransition that runs the update on demand.
 function stubViewTransition() {
   const updates: Update[] = [];
   let finish!: () => void;
   const finished = new Promise<void>((resolve) => (finish = resolve));
+  finishLast = finish;
   document.startViewTransition = vi.fn((update: Update) => {
     updates.push(update);
     return { finished } as ViewTransition;
@@ -20,9 +24,11 @@ const phone = (matches: boolean) =>
   vi.spyOn(window, "matchMedia").mockReturnValue({ matches } as MediaQueryList);
 
 describe("slideNavigate", () => {
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
     vi.useRealTimers();
+    finishLast?.();
+    await new Promise((r) => setTimeout(r));
     delete (document as { startViewTransition?: unknown }).startViewTransition;
     delete document.documentElement.dataset.nav;
   });
@@ -64,6 +70,22 @@ describe("slideNavigate", () => {
     const update = vt.updates[0]();
     vi.advanceTimersByTime(500);
     await expect(update).resolves.toBeUndefined();
+  });
+
+  it("navigates without a second transition while one runs, and slides again once it ends", async () => {
+    phone(false);
+    const vt = stubViewTransition();
+    slideNavigate("back", () => {});
+    const go = vi.fn();
+    slideNavigate("back", go);
+    expect(go).toHaveBeenCalledTimes(1);
+    expect(vt.updates).toHaveLength(1);
+
+    vt.finish();
+    await new Promise((r) => setTimeout(r));
+    const next = stubViewTransition();
+    slideNavigate("forward", go);
+    expect(next.updates).toHaveLength(1);
   });
 
   it("navigates without a transition on desktop, with reduced motion, or without view transitions", () => {
