@@ -26,7 +26,8 @@ async function openDiagnosticsFromSyncStatus(page: Page) {
   await expect(page).not.toHaveURL(/\/$/);
   const noteListRoute = page.url();
   await page.locator('button[aria-label="Sync status"]:visible').first().tap();
-  await page.getByRole('button', { name: /Pending items|Diagnostics/ }).tap();
+  // A phone's sync status is a sheet whose row is "Open diagnostics" (#828).
+  await page.getByRole('button', { name: 'Open diagnostics' }).tap();
   return noteListRoute;
 }
 

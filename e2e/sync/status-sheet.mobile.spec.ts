@@ -48,10 +48,8 @@ test('the sync icon opens a bottom sheet with a 44 px Sync now and a link to Dia
 
     await icon.tap();
     await sheet.getByRole('button', { name: 'Open diagnostics' }).tap();
-    await expect(page.getByRole('dialog', { name: 'Settings' }).getByRole('tab', { name: 'Diagnostics' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    // A phone's Settings is a section list with a page per section (#831), not tabs.
+    await expect(page.getByRole('dialog', { name: 'Settings' }).getByRole('region', { name: 'Diagnostics' })).toBeVisible();
     // The sheet's history pop must not take Settings down with it.
     await page.waitForTimeout(800);
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
