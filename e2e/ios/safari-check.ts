@@ -50,8 +50,9 @@ const capabilities = {
   'appium:showSafariConsoleLog': true,
   // A script sent while Safari swaps the page on a reload can go unanswered: Appium then waited
   // its default 120 s and the reload looked hung while the app was up (#862, #901). Give up on
-  // one sooner; the polls in waitFor() just send the next one.
-  'appium:webviewAtomWaitTimeout': 10_000,
+  // one sooner; the polls in waitFor() just send the next one. Not much sooner: the first script
+  // on a cold Safari took 19 s on the iOS Simulator, and one that times out fails the run.
+  'appium:webviewAtomWaitTimeout': 30_000,
 };
 
 async function startSession() {
@@ -154,7 +155,7 @@ async function safariConsole(): Promise<string[]> {
  * typing in the editor once left Safari on the splash screen for minutes. `how` tells a real
  * hang (a manual-style location.reload()) from one only WebDriver's refresh() causes; load-root
  * is WebDriver's navigation to /. The limit applies to the page's own `ui` boot mark (see
- * bootProblem); a page not ready 30 s after the reload is a hang. Records
+ * bootProblem); a page not ready 60 s after the reload is a hang. Records
  * the boot timing marks (markBoot in src/lib/bootProgress.ts), the console and a screenshot.
  */
 async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-root', label: string = how, limit = 20_000) {
@@ -175,7 +176,7 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-
       '__journalE2E' in window &&
       !document.querySelector('[role="progressbar"], [data-boot-stalled]') &&
       !!document.querySelector('[aria-label="Sidebar"], .ProseMirror'),
-    30_000,
+    60_000,
   ).then(
     () => true,
     () => false,
@@ -189,7 +190,7 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-
         .map((m) => ({ step: m.name.slice('journal-boot:'.length), ms: m.startTime })),
     )
     .catch(() => [])) as BootMark[];
-  const slow = ready ? bootProblem(marks, limit) : 'not ready within 30 s of the reload';
+  const slow = ready ? bootProblem(marks, limit) : 'not ready within 60 s of the reload';
   if (slow) problems.push(slow);
   // The Web Locks held and waited for, to tell a lock wait from a slow step.
   const locks = (await browser
