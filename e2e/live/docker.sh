@@ -12,7 +12,8 @@ cmd="${1:-}"
 [ "$cmd" = up ] || [ "$cmd" = down ] || { echo "usage: $0 up|down" >&2; exit 1; }
 
 # Same env var name the CI workflow already sets at job level.
-IMAGE="${IMAGE:-ghcr.io/homebase-id/odin-core@sha256:ee63bcd309cf4c90450354697764db38640a6b6d76d07da797fb0425c7a84061}"
+# v0.1.966: first odin-core tag carrying odin-core #1993 (named-identity ACLs).
+IMAGE="${IMAGE:-ghcr.io/homebase-id/odin-core@sha256:9c52438363da59448c4da374c59de7cb2e3f2fd3d2937b440176eddaa71d5365}"
 IDENTITY="${E2E_LIVE_IDENTITY:-frodo.dotyou.cloud}"
 CONTAINER_NAME=journal-e2e-live-docker
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

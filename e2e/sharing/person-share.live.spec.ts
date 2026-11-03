@@ -116,7 +116,7 @@ test('a note shared with the outsider to view reaches only them, read-only, and 
 
     // 4. Security check. The peer has Read and Write on the owner's Journal drive from
     // the share circle, so only the note's ACL keeps them out; the outsider has Read
-    // only, from journal-viewers. Both are refused a patch; the peer a read too.
+    // only, from journal-viewer. Both are refused a patch; the peer a read too.
     const before = await header(owner.page, docId);
     expect(before?.globalTransitId, 'the note has a globalTransitId to address a peer update by').toBeTruthy();
     expect(before?.acl?.odinIdList).toEqual([outsider.identity]);
