@@ -5,12 +5,14 @@
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { remote } from 'webdriverio';
 import {
+  bootProblem,
   gestureProblems,
   layoutProblems,
   measureLayout,
   safeAreaProblem,
   startGestureProbe,
   stopGestureProbe,
+  type BootMark,
   type Gesture,
   type GestureProbe,
   type Layout,
@@ -46,6 +48,10 @@ const capabilities = {
   'appium:newCommandTimeout': 300,
   // Collects the Safari console for the safariConsole log type (#806).
   'appium:showSafariConsoleLog': true,
+  // A script sent while Safari swaps the page on a reload can go unanswered: Appium then waited
+  // its default 120 s and the reload looked hung while the app was up (#862, #901). Give up on
+  // one sooner; the polls in waitFor() just send the next one.
+  'appium:webviewAtomWaitTimeout': 10_000,
 };
 
 async function startSession() {
@@ -147,7 +153,8 @@ async function safariConsole(): Promise<string[]> {
  * Reloads the page and checks the app is ready again within `limit` ms (#806): reloading after
  * typing in the editor once left Safari on the splash screen for minutes. `how` tells a real
  * hang (a manual-style location.reload()) from one only WebDriver's refresh() causes; load-root
- * is WebDriver's navigation to /. Records
+ * is WebDriver's navigation to /. The limit applies to the page's own `ui` boot mark (see
+ * bootProblem); a page not ready 30 s after the reload is a hang. Records
  * the boot timing marks (markBoot in src/lib/bootProgress.ts), the console and a screenshot.
  */
 async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-root', label: string = how, limit = 20_000) {
@@ -161,24 +168,29 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-
   else if (how === 'webdriver-refresh') await browser.refresh();
   else await browser.url(`${BASE}/`);
   const problems: string[] = [];
-  await waitFor(
+  const ready = await waitFor(
     'the app to be ready after the reload',
     () =>
       !('__journalBeforeReload' in window) &&
       '__journalE2E' in window &&
       !document.querySelector('[role="progressbar"], [data-boot-stalled]') &&
       !!document.querySelector('[aria-label="Sidebar"], .ProseMirror'),
-    limit,
-  ).catch(() => problems.push(`not ready within ${limit / 1000} s of the reload`));
+    30_000,
+  ).then(
+    () => true,
+    () => false,
+  );
   const elapsed = Date.now() - started;
   const marks = (await browser
     .execute(() =>
       performance
         .getEntriesByType('mark')
         .filter((m) => m.name.startsWith('journal-boot:'))
-        .map((m) => `${m.name.slice('journal-boot:'.length)} ${Math.round(m.startTime)}ms`),
+        .map((m) => ({ step: m.name.slice('journal-boot:'.length), ms: m.startTime })),
     )
-    .catch(() => [])) as string[];
+    .catch(() => [])) as BootMark[];
+  const slow = ready ? bootProblem(marks, limit) : 'not ready within 30 s of the reload';
+  if (slow) problems.push(slow);
   // The Web Locks held and waited for, to tell a lock wait from a slow step.
   const locks = (await browser
     .execute(async () => {
@@ -192,7 +204,7 @@ async function reloadCheck(how: 'location.reload' | 'webdriver-refresh' | 'load-
   if (problems.length) console.log(`    locks: ${locks.join('; ') || 'none'}`);
   const file = await screenshot(name);
   failures.push(...problems.map((p) => `${name}: ${p}`));
-  const timing = `${elapsed}ms; marks: ${marks.join(', ') || 'none'}`;
+  const timing = `${elapsed}ms; marks: ${marks.map((m) => `${m.step} ${Math.round(m.ms)}ms`).join(', ') || 'none'}`;
   summary.push(`| ${name} | ${file} | ${problems.join('<br>') || 'none'} (${timing}) |`);
   console.log(`${problems.length ? '✗' : '✓'} ${name} ${timing}${problems.map((p) => `\n    ${p}`).join('')}`);
 }
@@ -212,7 +224,7 @@ async function typeAndReload(line: string, how: 'location.reload' | 'load-root',
   await typeOnKeyboard(`\n${line}`);
   if (!(await editorHas(line))) failures.push(`${label}: "${line}" did not show in the editor after typing`);
   await reloadCheck(how, label);
-  // A boot slower than 20 s already failed above; judge the text only once the editor is back,
+  // A slow boot already failed above; judge the text only once the editor is back,
   // so a slow boot is not reported as lost text.
   const back = await waitFor('the editor after the reload', () => !!document.querySelector('.ProseMirror'), 60_000).then(() => true, () => false);
   if (!back) failures.push(`reload-${label}: the editor did not come back within 60 s, so "${line}" could not be checked`);
