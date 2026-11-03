@@ -233,8 +233,8 @@ async function connectionStatus(page: Page, identity: string, other: string): Pr
 // Opens Journal's collaboration dialog on a throwaway note, follows its
 // "Grant Permissions" link and approves the owner-console app-update consent
 // (COLLABORATION_PERMISSIONS plus the circle drives), the same way a person
-// would the first time they share.
-async function grantCollaborationPermissions(page: Page, identity: string) {
+// would the first time they share. Done once the reopened dialog's search finds `find`.
+async function grantCollaborationPermissions(page: Page, identity: string, find: string) {
     await page.goto('/');
     await assertTestOrigin(page);
     const appOrigin = new URL(page.url()).origin;
@@ -250,14 +250,14 @@ async function grantCollaborationPermissions(page: Page, identity: string) {
     await grant.click();
     await page.waitForURL((url) => url.hostname === identity, { timeout: 30_000 });
     // The consent returns with ?action=collaborate, which reopens the dialog,
-    // now finding circles (ReadCircleMembership) in its search.
+    // now finding circles (ReadCircleMembership) and connections in its search.
     const dialog = page.getByRole('dialog', { name: 'Share Note' });
-    const circle = dialog.getByRole('option').filter({ hasText: LIVE_CIRCLE_NAME });
+    const option = dialog.getByRole('option').filter({ hasText: find });
     await consentUntil(page, identity, appOrigin, async () => {
         const search = dialog.getByLabel('Add people or circles');
         if (!(await search.isVisible())) return false;
-        await search.fill(LIVE_CIRCLE_NAME);
-        return circle.first().isVisible();
+        await search.fill(find);
+        return option.first().isVisible();
     });
 }
 
@@ -311,16 +311,21 @@ setup('connect the owner with the peer and the outsider, and put only the peer i
 //   (transit/query/header_byuniqueId) fails ("Does not have permission").
 // - peer, circle: the owner's invite is a transfer into the peer's Journal
 //   drive, which the peer's host refuses ("Unauthorized to write to drive").
-setup('grant Journal what circle collaboration needs, on the owner and on the peer', async ({ browser }) => {
-    // Two identities, each with a consent round-trip: the default 30s ran out on CI.
-    setup.setTimeout(120_000);
-    const [peer] = LIVE_SHARING_IDENTITIES;
-    for (const { identity, storageState } of [{ identity: IDENTITY!, storageState: LIVE_STORAGE_STATE }, peer]) {
+// The outsider needs the permissions only: without UseTransitRead its app's shared pull
+// (transit/query/modified) is refused, so a person share never reaches it.
+setup('grant Journal what sharing needs, on the owner, the peer and the outsider', async ({ browser }) => {
+    // Three identities, each with a consent round-trip: the default 30s ran out on CI.
+    setup.setTimeout(180_000);
+    const owner = IDENTITY!;
+    const [peer, outsider] = LIVE_SHARING_IDENTITIES;
+    for (const { identity, storageState } of [{ identity: owner, storageState: LIVE_STORAGE_STATE }, peer]) {
         await withIdentity(browser, storageState, async (page) => {
-            await grantCollaborationPermissions(page, identity);
+            await grantCollaborationPermissions(page, identity, LIVE_CIRCLE_NAME);
             await authorizeCircleForJournal(page, identity, LIVE_CIRCLE_NAME);
         });
     }
+    await withIdentity(browser, outsider.storageState, (page) =>
+        grantCollaborationPermissions(page, outsider.identity, owner));
 });
 
 // #845: the owner's host accepts a share push (a peer app notification) only from a drive that
