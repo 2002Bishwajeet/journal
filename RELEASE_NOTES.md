@@ -16,6 +16,17 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.57.0 (2026-11-03)
+
+### Changed
+
+- An HTML or React block that you possibly did not write does not run until you select Run. This applies to a note that is shared with you, a note on a share page, and a note that an agent or a collaborator changed last. If you edit that note, a block that waited for Run still waits until you run it. After you run a block, it runs automatically on this device until its code changes.
+- A block can open a link only when you click that link.
+
+### Fixed
+
+- On a phone, a long press on a note opens its actions in a sheet at the bottom of the screen. All actions are on the screen, they are easier to tap, and keyboard hints do not show.
+
 ## 2.56.0 (2026-11-03)
 
 ### Changed

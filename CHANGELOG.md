@@ -1,3 +1,18 @@
+# [2.57.0](https://github.com/2002Bishwajeet/journal/compare/v2.56.0...v2.57.0) (2026-11-03)
+
+
+### Bug Fixes
+
+* **ios-check:** 30 s atom cap, so a cold Safari's first script still passes ([00a2a99](https://github.com/2002Bishwajeet/journal/commit/00a2a99c17b26715eeef725712d8ab9a123155b2))
+* **ios-check:** time reloads by the page's own boot mark, not a stalled poll ([e44021d](https://github.com/2002Bishwajeet/journal/commit/e44021d132eb98fc67af82cda213da14bfdd3dfc)), closes [#862](https://github.com/2002Bishwajeet/journal/issues/862) [#901](https://github.com/2002Bishwajeet/journal/issues/901)
+* **live-blocks:** keep a block waiting for Run after the owner edits the note ([#947](https://github.com/2002Bishwajeet/journal/issues/947)) ([0c3406a](https://github.com/2002Bishwajeet/journal/commit/0c3406a4591d184d20ef611d8a06a59f72e7cacf))
+* **menu:** run touch row actions after the action sheet closes ([8a99102](https://github.com/2002Bishwajeet/journal/commit/8a99102f5122f9ee1fde0925b2fdb19b960ebd08))
+* **mobile:** note-row long press opens an action sheet on touch ([#784](https://github.com/2002Bishwajeet/journal/issues/784)) ([749a3a7](https://github.com/2002Bishwajeet/journal/commit/749a3a71ac9a343daa6f91795eadfb8743da1426))
+
+
+### Features
+
+* **live-blocks:** click-to-run for html and react blocks you didn't write ([#947](https://github.com/2002Bishwajeet/journal/issues/947)) ([ddff716](https://github.com/2002Bishwajeet/journal/commit/ddff716a3aa15f46dbb3cbdb7765796084125e69))
 # [2.56.0](https://github.com/2002Bishwajeet/journal/compare/v2.55.0...v2.56.0) (2026-11-03)
 
 
