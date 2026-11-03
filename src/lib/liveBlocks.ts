@@ -17,9 +17,10 @@ export function parseCodeInfo(info: string | null): { language: string | null; i
   return { language: language || null, id: token ? token.slice('id='.length) : null, wide: rest.includes('wide') };
 }
 
-/** The info string with an id added, for a block that saves its state the first time. */
+/** The info string with `id` in place of any id it had: for a block that saves its state the first time, or a copy of another block (#950). */
 export function withBlockId(info: string, id: string): string {
-  return `${info.trim()} id=${id}`;
+  const [language, ...rest] = info.trim().split(/\s+/);
+  return [language, ...rest.filter((word) => !BLOCK_ID_TOKEN.test(word)), `id=${id}`].join(' ');
 }
 
 /**
