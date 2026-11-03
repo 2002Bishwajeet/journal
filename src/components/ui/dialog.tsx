@@ -6,6 +6,7 @@ import { useInRouterContext } from "react-router-dom"
 
 import { cn } from "@/lib/utils"
 import { followKeyboard } from "@/lib/keyboardViewport"
+import { letEdgeSwipesThrough } from "@/lib/edgeSwipe"
 import { useOverlayHistory } from "@/hooks/useOverlayHistory"
 
 // Renders nothing; gives a controlled dialog its history entry (#822).
@@ -73,6 +74,8 @@ function DialogContent({
   showCloseButton?: boolean
   overlayClassName?: string
 }) {
+  // The scroll lock would cancel Safari's edge swipe-back.
+  React.useEffect(letEdgeSwipesThrough, [])
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay className={overlayClassName} />

@@ -23,7 +23,7 @@ export interface EditorContextValue {
     /** The most block `id` (null: no id yet) may save now, in UTF-8 bytes. */
     room: (id: string | null) => number;
   };
-  /** The note's html and react blocks run without asking: only this identity wrote the note (#947). */
+  /** Only this identity wrote the note: its live blocks open links without asking and have no edge (#975). */
   liveBlocksTrusted: boolean;
 }
 

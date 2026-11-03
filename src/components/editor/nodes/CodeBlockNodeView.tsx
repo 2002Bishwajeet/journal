@@ -8,14 +8,13 @@
  * The `language` attribute is the fence's whole info string; only its first word
  * is the language. An html or react block's id is in it too (```html id=k3f9),
  * and keys the block's saved state in the note (#410), and so is `wide` (#557).
- * In a note someone else may have written, an html or react block waits for Run (#947).
+ * In a note someone else may have written, a link a block opens shows where it goes first (#975).
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { LiveBlockFrame, LiveBlockToggle } from '@/components/liveBlocks/LiveBlockFrame';
 import { liveBlockKind, parseCodeInfo, withBlockId } from '@/lib/liveBlocks';
 import { memoryBlockStateStore, newBlockId, ownBlockId, type BlockStateStore } from '@/lib/liveBlockState';
-import { holdLiveBlock } from '@/lib/liveBlockRuns';
 import { useEditorContext } from '../EditorContext';
 
 export function CodeBlockNodeView({ node, selected, editor, getPos, updateAttributes }: NodeViewProps) {
@@ -27,11 +26,6 @@ export function CodeBlockNodeView({ node, selected, editor, getPos, updateAttrib
   const [showPreview, setShowPreview] = useState(() => node.textContent.length > 0);
   const preview = kind !== null && showPreview;
   const source = node.textContent;
-
-  // The owner's next edit makes the note trusted again; a block seen waiting for Run still waits for it.
-  useEffect(() => {
-    if (preview && (kind === 'html' || kind === 'react') && !liveBlocksTrusted) void holdLiveBlock(kind, source);
-  }, [preview, kind, liveBlocksTrusted, source]);
 
   // The info string as the document has it now: an id given a moment ago is there before this view re-renders.
   const currentInfo = () => {

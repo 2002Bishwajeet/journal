@@ -1,3 +1,18 @@
+# [2.59.0](https://github.com/2002Bishwajeet/journal/compare/v2.58.0...v2.59.0) (2026-11-03)
+
+
+### Bug Fixes
+
+* **live-blocks:** settle verifier failures for [#975](https://github.com/2002Bishwajeet/journal/issues/975) ([9578376](https://github.com/2002Bishwajeet/journal/commit/95783760b7597df1e984f5bd6230789329554bc1))
+* **mobile:** polish the phone Trash rows ([#977](https://github.com/2002Bishwajeet/journal/issues/977)) ([1d56376](https://github.com/2002Bishwajeet/journal/commit/1d56376e2ab6eb7944e35062b7475d0ba9cd48c4))
+* **mobile:** Safari's edge swipe-back works in Settings and other dialogs ([79ef85b](https://github.com/2002Bishwajeet/journal/commit/79ef85b6411a2228473b11c8985bd6a1fe825856))
+* **session:** restore the last note only on a new launch, never on a reload or Back ([ffbc6cc](https://github.com/2002Bishwajeet/journal/commit/ffbc6cc243b26c56225a9aa96f8d3d7abfc7e681))
+* **share:** push a note's last edits before making it public ([c744325](https://github.com/2002Bishwajeet/journal/commit/c744325d2874062aa2e006538f04ef7f5e90cda8))
+
+
+### Features
+
+* **live-blocks:** run without a click again; confirm links from blocks you didn't write ([#975](https://github.com/2002Bishwajeet/journal/issues/975)) ([ec5610f](https://github.com/2002Bishwajeet/journal/commit/ec5610f6b71367b78c6f7bf3169c7e8ab1f75d5b))
 # [2.58.0](https://github.com/2002Bishwajeet/journal/compare/v2.57.0...v2.58.0) (2026-11-03)
 
 

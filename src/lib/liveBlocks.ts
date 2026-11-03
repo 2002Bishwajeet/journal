@@ -1,4 +1,5 @@
 import { REACT_BLOCK_IMPORTS, REACT_BLOCK_LIBRARIES } from '@/lib/reactBlockLibraries';
+import type { DocumentMetadata } from '@/types';
 
 /** Code-block languages that render a live preview in the editor. */
 export type LiveBlockKind = 'mermaid' | 'svg' | 'html' | 'react';
@@ -30,6 +31,16 @@ export function withBlockId(info: string, id: string): string {
 export function liveBlockKind(language: string | null): LiveBlockKind | null {
   const lang = parseCodeInfo(language).language?.toLowerCase();
   return lang === 'mermaid' || lang === 'svg' || lang === 'html' || lang === 'react' ? lang : null;
+}
+
+/**
+ * Only the signed-in identity can have written the note's live blocks: the note is its own and no
+ * one else (an agent, a collaborator) edited it last. A link a block in any other note opens shows
+ * where it goes first, and its frame gets an edge (#975).
+ */
+export function ownerWroteNote(metadata: Pick<DocumentMetadata, 'authorOdinId' | 'lastEditedBy'>, editorOdinId: string | undefined): boolean {
+  const shared = !!metadata.authorOdinId && metadata.authorOdinId !== editorOdinId;
+  return !shared && (!metadata.lastEditedBy || metadata.lastEditedBy === editorOdinId);
 }
 
 /** SVG source as an `<img>`-safe data URI. Loaded as an image, scripts never run. */
@@ -70,7 +81,8 @@ export const FRAME_BLEED = 12;
 // (#412), from the end of parsing as a report at the end of the page would; `journal.storage` calls
 // (#410), which the app answers by number, deciding everything itself (which block, the limits);
 // and a clicked web or mail link, because a sandboxed frame can't open a tab. Only a click the user
-// made opens one: the block's own script can click a link too, and the app would open it (#947).
+// made opens one: the block's own script can click a link too, and the app would open it (#947). A
+// link from a block the user may not have written shows its URL before it opens (#975).
 // Any other link (an in-page `#anchor`) behaves as before. The app sends a mermaid page the note's look (#946), which
 // stays on `journal.look` because it can arrive before the page's own script is parsed.
 const bridgeScript = (token: string) =>

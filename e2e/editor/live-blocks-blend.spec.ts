@@ -1,7 +1,7 @@
 import type { FrameLocator, Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect } from '../fixtures';
-import { activeEditor, activeTitleInput, createNote, mermaidFrame, runLiveBlocks } from '../support/actions';
+import { activeEditor, activeTitleInput, createNote, mermaidFrame } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #420: a live block looks like part of the note. No card and no header bar, an
@@ -525,8 +525,6 @@ test('share page: the same note has the same look', async ({ anonPage }) => {
     await expect(anonPage.locator('html')).toHaveClass(new RegExp(theme));
     await expect(article.getByRole('note')).toContainText(CALLOUT);
     await expect(article.getByRole('table')).toBeVisible();
-    // A reader runs each html block once; this device remembers that (#947).
-    if (theme === THEMES[0]) await runLiveBlocks(article, 3);
 
     for (const width of [1280, 390] as const) {
       await anonPage.setViewportSize(VIEWPORTS[width]);
