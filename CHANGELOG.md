@@ -1,3 +1,30 @@
+# [2.56.0](https://github.com/2002Bishwajeet/journal/compare/v2.55.0...v2.56.0) (2026-11-03)
+
+
+### Features
+
+* **mobile:** keep a back stack for each tab of the phone tab bar ([#859](https://github.com/2002Bishwajeet/journal/issues/859)) ([89d2edf](https://github.com/2002Bishwajeet/journal/commit/89d2edfc1e7177c2e8bbfdf09fbf308fb0a0b961))
+# [2.55.0](https://github.com/2002Bishwajeet/journal/compare/v2.54.1...v2.55.0) (2026-11-03)
+
+
+### Bug Fixes
+
+* **sidebar:** load the owner photo through the service worker proxy ([#944](https://github.com/2002Bishwajeet/journal/issues/944)) ([3b6d47a](https://github.com/2002Bishwajeet/journal/commit/3b6d47a7df070799c413b7eb22c85a034a603b9f))
+* **sidebar:** show the owner's public photo and own initials ([#944](https://github.com/2002Bishwajeet/journal/issues/944)) ([9964264](https://github.com/2002Bishwajeet/journal/commit/99642643ac423cb75fa9eae02437b23a65e19ec7))
+* **sync:** open Settings after the status sheet's history pop ([02376ed](https://github.com/2002Bishwajeet/journal/commit/02376ed0cfe5e309fbfea58cc8634576ab8d1733))
+
+
+### Features
+
+* **mobile:** Share folder is a full sheet below the status bar ([#824](https://github.com/2002Bishwajeet/journal/issues/824)) ([4be1afe](https://github.com/2002Bishwajeet/journal/commit/4be1afeadcf44b2743873471bb05813272ff6d9d))
+* **mobile:** sync status and collaborators open as bottom sheets with 44 px controls ([#828](https://github.com/2002Bishwajeet/journal/issues/828)) ([acf8a99](https://github.com/2002Bishwajeet/journal/commit/acf8a99a56cc14f8b2997034342dc28f68cd8b6b))
+## [2.54.1](https://github.com/2002Bishwajeet/journal/compare/v2.54.0...v2.54.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **live-blocks:** redraw a Mermaid diagram for a new theme without reloading its frame ([#946](https://github.com/2002Bishwajeet/journal/issues/946)) ([425a248](https://github.com/2002Bishwajeet/journal/commit/425a248b1da884560737a15d17c6e633571e2acc))
+* **live-blocks:** render Mermaid in the sandboxed frame, not the app DOM ([#946](https://github.com/2002Bishwajeet/journal/issues/946)) ([4adc5a4](https://github.com/2002Bishwajeet/journal/commit/4adc5a4728c6fcdcff0d970e92cdf33fffea3939))
 # [2.54.0](https://github.com/2002Bishwajeet/journal/compare/v2.53.0...v2.54.0) (2026-11-03)
 
 

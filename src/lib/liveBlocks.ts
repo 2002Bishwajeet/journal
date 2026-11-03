@@ -69,7 +69,8 @@ export const FRAME_BLEED = 12;
 // (#412), from the end of parsing as a report at the end of the page would; `journal.storage` calls
 // (#410), which the app answers by number, deciding everything itself (which block, the limits);
 // and a clicked web or mail link, because a sandboxed frame can't open a tab. Any other link (an
-// in-page `#anchor`) behaves as before.
+// in-page `#anchor`) behaves as before. The app sends a mermaid page the note's look (#946), which
+// stays on `journal.look` because it can arrive before the page's own script is parsed.
 const bridgeScript = (token: string) =>
   '<script>(function () {' +
   'document.currentScript.remove();' +
@@ -77,6 +78,7 @@ const bridgeScript = (token: string) =>
   `parent.postMessage({ journalLiveBlock: 1, bridge: '${token}' }, '*', [channel.port2]);` +
   'port.onmessage = function (event) {' +
   'var data = event.data, wait = waiting[data && data.reply];' +
+  "if (data && data.journalLiveBlock === 1 && data.look) { journal.look = data.look; dispatchEvent(new Event('journal-look')); return; }" +
   'if (!wait || data.journalLiveBlock !== 1) return;' +
   'delete waiting[data.reply];' +
   'if (data.error !== undefined) wait.reject(new Error(data.error)); else wait.resolve(data.value);' +
@@ -96,10 +98,12 @@ const bridgeScript = (token: string) =>
   `new ResizeObserver(function () { port.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - ${2 * FRAME_BLEED} }); }).observe(document.documentElement);` +
   '});' +
   "addEventListener('click', function (event) {" +
-  "var link = event.target.closest && event.target.closest('a[href]');" +
-  'if (!link || !/^(https?|mailto):$/.test(link.protocol)) return;' +
+  "var link = event.target.closest && event.target.closest('a');" +
+  // An svg link's `href` is an object, and a mermaid node's link is one.
+  'var href = link && (link.href.baseVal || link.href);' +
+  'if (!href || !/^(https?|mailto):/i.test(href)) return;' +
   'event.preventDefault();' +
-  'port.postMessage({ journalLiveBlock: 1, link: link.href });' +
+  'port.postMessage({ journalLiveBlock: 1, link: href });' +
   '});' +
   '})();</script>';
 
@@ -158,6 +162,14 @@ export interface FrameTheme {
   lineHeight: string;
 }
 
+/** The rule of a frame's style that follows the note's theme. */
+export function frameRootStyle(theme: FrameTheme): string {
+  const tokens = FRAME_TOKENS.map((name) => `${name}:${theme.tokens[name]};`).join('');
+  // The font is also a variable, for a react block's `font-sans` (#427), and its shadows
+  // are softer in the dark theme (#559).
+  return `:root{${tokens}--font-sans:${theme.fontFamily};--shadow-strength:${theme.colorScheme === 'dark' ? 0.6 : 1};color-scheme:${theme.colorScheme}}`;
+}
+
 /**
  * The document for an `html` block's sandboxed frame. The CSP meta comes first,
  * so it is in force before anything in the (untrusted) source is parsed. Then
@@ -169,11 +181,8 @@ export interface FrameTheme {
  * around it: a browser paints a frame of the other scheme opaque.
  */
 export function buildSrcdoc(source: string, theme: FrameTheme, bridgeToken: string): string {
-  const tokens = FRAME_TOKENS.map((name) => `${name}:${theme.tokens[name]};`).join('');
   const style =
-    // The font is also a variable, for a react block's `font-sans` (#427), and its shadows
-    // are softer in the dark theme (#559).
-    `:root{${tokens}--font-sans:${theme.fontFamily};--shadow-strength:${theme.colorScheme === 'dark' ? 0.6 : 1};color-scheme:${theme.colorScheme}}` +
+    frameRootStyle(theme) +
     // The bleed is on the root, so a block's own `body` margin or padding still adds to it.
     `html{padding:${FRAME_BLEED}px}` +
     '*,*::before,*::after{box-sizing:border-box}' +
@@ -255,7 +264,72 @@ export function reactBlockDocument(runtime: ReactBlockRuntime, code: string, blo
   return `<style>${runtime.tailwind}</style>${blockStyle}<div id="root"></div>${REACT_ERROR_BOX}${inlineScript(REACT_ERROR_SCRIPT)}${inlineScript(runtime.react)}${libraries}${inlineScript(componentScript(code))}`;
 }
 
-/** The least height a framed (html or react) block's box is fitted to. */
+// The diagram's place on a mermaid block's page, and the error that takes it when the source
+// can't be drawn, laid out like the app's error callout (PreviewError).
+const MERMAID_BOX = '<div id="journal-mermaid"><span style="margin:auto">Rendering diagram…</span></div>';
+const MERMAID_ERROR_BOX =
+  '<div id="journal-mermaid-error" role="alert" hidden style="margin:1rem;padding:0.5rem 0.75rem;border-left:4px solid var(--destructive);border-radius:var(--radius);background:color-mix(in srgb,var(--destructive) 10%,transparent);font-size:0.875rem">' +
+  '<div style="font-weight:500">Couldn’t render this diagram. Check its syntax.</div>' +
+  // Mermaid points at the failing column with a caret on its own line: keep the line breaks and a fixed pitch.
+  '<pre style="margin:0.25rem 0 0;white-space:pre-wrap;word-break:break-word;font:0.75rem/1.5 ui-monospace,SFMono-Regular,Menlo,monospace"></pre></div>';
+// Mermaid sizes its svg as width: 100% with an inline max-width of the diagram's natural width,
+// which shrinks a wide diagram until it is unreadable. Asking for more width than any column has
+// leaves that max-width in charge, so the diagram keeps its natural size: centred when it fits,
+// scrolled sideways in its box when it does not. Mermaid draws in a box of its own at the end of
+// <body> and copies the result: out of the flow, so the page keeps its height through a redraw.
+const MERMAID_STYLE =
+  '#journal-mermaid{display:flex;overflow-x:auto;padding:1rem;color:var(--muted-foreground);font-size:0.875rem}' +
+  '#journal-mermaid svg[style*="max-width"]{flex:none;width:10000px;margin:0 auto}' +
+  '#journal-mermaid::-webkit-scrollbar{height:6px}' +
+  '#journal-mermaid::-webkit-scrollbar-thumb{background:var(--border);border-radius:var(--radius)}' +
+  'body>[id^="dmermaid-"]{position:absolute;left:0;right:0;visibility:hidden}';
+
+// Draws the diagram on the page in each look the app sends (the bridge script), one drawing at a
+// time. Mermaid sizes each node from its measured label, so the label font must be loaded first.
+// `classic` is mermaid's flat look: no gradient borders or drop shadows. Each drawing has an id of
+// its own: mermaid first takes an element of that id off the page, and the diagram stays until
+// its next drawing is ready.
+const mermaidScript = (source: string) =>
+  '(function () {' +
+  "var box = document.getElementById('journal-mermaid'), style = document.getElementById('journal-mermaid-look');" +
+  'var drawing = Promise.resolve(), drawn = 0;' +
+  'function draw() {' +
+  'var look = journal.look;' +
+  'if (!look) return;' +
+  'style.textContent = look.style;' +
+  'drawing = drawing.then(async function () {' +
+  "var id = 'mermaid-' + ++drawn, themeVariables = JSON.parse(look.themeVariables);" +
+  'try {' +
+  "await document.fonts.load('14px ' + themeVariables.fontFamily);" +
+  `mermaid.initialize(Object.assign(${JSON.stringify({ startOnLoad: false, securityLevel: 'strict', look: 'classic', theme: 'base' })}, { themeVariables: themeVariables }));` +
+  `box.innerHTML = (await mermaid.render(id, ${JSON.stringify(source)})).svg;` +
+  '} catch (error) {' +
+  // Mermaid leaves its error diagram attached to <body> on a parse failure.
+  "var left = document.getElementById('d' + id);" +
+  'if (left) left.remove();' +
+  "var alert = document.getElementById('journal-mermaid-error');" +
+  'box.remove();' +
+  'alert.hidden = false;' +
+  'alert.lastChild.textContent = (error && error.message) || String(error);' +
+  '}' +
+  '});' +
+  '}' +
+  "addEventListener('journal-look', draw);" +
+  'draw();' +
+  '})();';
+
+/**
+ * The page of a `mermaid` block (#946), for buildSrcdoc to wrap. Mermaid runs here and nowhere
+ * else, so what it makes of an untrusted source never meets the app's DOM, and its strict mode
+ * and DOMPurify are not all that stands between that source and the app's origin. `runtime` is
+ * built in vite.config.ts and sets window.mermaid. The note's look comes over the port, in every
+ * theme: the runtime is too big to load the page again for a new one.
+ */
+export function mermaidBlockDocument(runtime: string, source: string): string {
+  return `<style>${MERMAID_STYLE}</style><style id="journal-mermaid-look"></style>${MERMAID_BOX}${MERMAID_ERROR_BOX}${inlineScript(runtime)}${inlineScript(mermaidScript(source))}`;
+}
+
+/** The least height a framed (html, react or mermaid) block's box is fitted to. */
 export const MIN_FRAME_HEIGHT = 120;
 const MAX_FRAME_HEIGHT = 1600;
 // A `wide` block (#557) is for a dashboard, a game or a simulation, which need room both ways.

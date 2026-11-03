@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
-import { activeEditor, createNote, pastePlainText, typeInEditor } from '../support/actions';
+import { activeEditor, createNote, mermaidFrame, pastePlainText, typeInEditor } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #671: every page carries a Content-Security-Policy-Report-Only header (public/_headers,
@@ -56,6 +56,27 @@ test('the shell carries the Report-Only policy, also when the service worker ser
     const reloaded = await page.reload();
     expect(reloaded!.fromServiceWorker()).toBe(true);
     expect(reloaded!.headers()['content-security-policy-report-only']).toContain("default-src 'self'");
+  });
+});
+
+test("the sidebar's owner photo loads through the service worker on a first visit, violating nothing", async ({ browser }) => {
+  test.skip(process.env.E2E_SERVER === 'dev', 'needs the preview build');
+  await withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json', serviceWorkers: 'allow' }, async (page) => {
+    await page.context().route('https://e2e-owner.homebase.test/pub/image', (route) =>
+      route.fulfill({
+        contentType: 'image/png',
+        headers: { 'access-control-allow-origin': '*' },
+        body: Buffer.from(PIXEL.split(',')[1], 'base64'),
+      }),
+    );
+    const collector = await collectViolations(page);
+    await page.goto('/');
+    await assertTestOrigin(page);
+    await waitForAppReady(page);
+
+    const photo = page.locator('img[src^="/proxy-image/"]').first();
+    await expect.poll(() => photo.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
+    await expectNoViolations(collector);
   });
 });
 
@@ -131,7 +152,7 @@ test('signed in: notes, live blocks and a link preview violate nothing', async (
     // Each block has its own Preview/Code pair: mermaid is first, svg second.
     await app.getByRole('button', { name: 'Preview', exact: true }).nth(0).click();
     await app.getByRole('button', { name: 'Preview', exact: true }).nth(1).click();
-    await expect(activeEditor(app).locator('[data-live-block-preview] svg')).toBeVisible();
+    await expect(mermaidFrame(activeEditor(app)).locator('svg[id^="mermaid-"]')).toBeVisible();
     await expect(activeEditor(app).locator('[data-live-block-preview] img')).toHaveAttribute('src', /^data:image\/svg\+xml/);
     await expectNoViolations(collector);
   });
