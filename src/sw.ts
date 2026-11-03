@@ -75,9 +75,10 @@ registerRoute(
     })
 );
 
-// Cache images
+// Cache images. Not /proxy-image/: Workbox's first matching route wins, and the proxy route
+// below would never run; this one would fetch and cache the SPA's index.html instead.
 registerRoute(
-    ({ request }) => request.destination === 'image',
+    ({ request, url }) => request.destination === 'image' && !url.pathname.startsWith('/proxy-image/'),
     new CacheFirst({
         cacheName: 'images',
         plugins: [

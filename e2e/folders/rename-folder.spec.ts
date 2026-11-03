@@ -64,6 +64,8 @@ test('rename a folder from the sidebar menu', async ({ app }) => {
   await expect(foldersNav(app).getByRole('button', { name: 'Trips', exact: true })).toHaveCount(0);
   await expect(app).toHaveTitle(/Journeys/);
 
+  // A commit returns before PGlite has flushed it to IndexedDB; a reload before that loses it.
+  await app.evaluate(() => window.__journalE2E!.syncToDisk());
   await app.reload();
   await expect(foldersNav(app).getByRole('button', { name: 'Journeys', exact: true })).toBeVisible();
   await expect(app).toHaveTitle(/Journeys/);
