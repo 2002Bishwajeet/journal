@@ -199,8 +199,9 @@ async function circleMembers(page: Page, identity: string, circle: string): Prom
 // Opens Journal's collaboration dialog on a throwaway note, follows its
 // "Grant Permissions" link and approves the owner-console app-update consent
 // (COLLABORATION_PERMISSIONS plus the circle drives), the same way a person
-// would the first time they share.
-async function grantCollaborationPermissions(page: Page, identity: string) {
+// would the first time they share. Done once the dialog's search suggests `expected`
+// (a circle or a connection).
+async function grantCollaborationPermissions(page: Page, identity: string, expected: string) {
     await page.goto('/');
     await assertTestOrigin(page);
     const appOrigin = new URL(page.url()).origin;
@@ -216,14 +217,14 @@ async function grantCollaborationPermissions(page: Page, identity: string) {
     await grant.click();
     await page.waitForURL((url) => url.hostname === identity, { timeout: 30_000 });
     // The consent returns with ?action=collaborate, which reopens the dialog,
-    // now finding circles (ReadCircleMembership) in its search.
+    // now finding circles (ReadCircleMembership) and connections in its search.
     const dialog = page.getByRole('dialog', { name: 'Share Note' });
-    const circle = dialog.getByRole('option').filter({ hasText: LIVE_CIRCLE_NAME });
+    const suggestion = dialog.getByRole('option').filter({ hasText: expected });
     await consentUntil(page, identity, appOrigin, async () => {
         const search = dialog.getByLabel('Add people or circles');
         if (!(await search.isVisible())) return false;
-        await search.fill(LIVE_CIRCLE_NAME);
-        return circle.first().isVisible();
+        await search.fill(expected);
+        return suggestion.first().isVisible();
     });
 }
 
@@ -263,7 +264,9 @@ setup('grant Journal the collaboration permissions, on the owner and on the peer
     // Two identities, each with a consent round-trip: the default 30s ran out on CI.
     setup.setTimeout(120_000);
     const [peer] = LIVE_SHARING_IDENTITIES;
-    for (const { identity, storageState } of [{ identity: IDENTITY!, storageState: LIVE_STORAGE_STATE }, peer]) {
-        await withIdentity(browser, storageState, (page) => grantCollaborationPermissions(page, identity));
-    }
+    await withIdentity(browser, LIVE_STORAGE_STATE, (page) =>
+        grantCollaborationPermissions(page, IDENTITY!, LIVE_CIRCLE_NAME));
+    // The peer has no circle of its own; its connection to the owner shows in the search.
+    await withIdentity(browser, peer.storageState, (page) =>
+        grantCollaborationPermissions(page, peer.identity, IDENTITY!));
 });
