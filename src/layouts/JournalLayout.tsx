@@ -67,6 +67,7 @@ import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
 import { syncThemeColor } from "@/lib/themeColor";
+import { markBoot } from "@/lib/bootProgress";
 
 export default function JournalLayout() {
   // Initialize theme preference & system listener at root level
@@ -267,7 +268,14 @@ export default function JournalLayout() {
       : currentViewLabel,
   );
 
-  if (isNotesLoading || isFolderLoading) {
+  const booting = isNotesLoading || isFolderLoading;
+  // Boot timing mark (#901): the splash gave way to the app. The iOS check times a reload with
+  // it on the page's own clock, as its polls can stall while Safari swaps the page.
+  useEffect(() => {
+    if (!booting) markBoot("ui");
+  }, [booting]);
+
+  if (booting) {
     return <SplashScreen />;
   }
 

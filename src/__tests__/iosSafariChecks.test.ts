@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gestureProblems, layoutProblems, safeAreaProblem, zoomProblems, type GestureProbe, type Layout } from '../../e2e/ios/checks';
+import { bootProblem, gestureProblems, layoutProblems, safeAreaProblem, zoomProblems, type GestureProbe, type Layout } from '../../e2e/ios/checks';
 
 // A clean iPhone 15 portrait layout in Safari, keyboard down.
 const ok: Layout = {
@@ -195,5 +195,22 @@ describe('iOS Safari note list gesture checks', () => {
     expect(zoomProblems('x', 1, 'width=device-width, maximum-scale=1')).toEqual(['the viewport meta blocks pinch zoom: "width=device-width, maximum-scale=1"']);
     expect(zoomProblems('x', 1, 'width=device-width, user-scalable=no')).toHaveLength(1);
     expect(zoomProblems('x', NaN, meta)).toEqual(['could not read visualViewport.scale after focusing x']);
+  });
+});
+
+describe('iOS Safari reload boot check (#901)', () => {
+  const marks = [
+    { step: 'react', ms: 400 },
+    { step: 'db-ready', ms: 3300 },
+    { step: 'ui', ms: 3400 },
+  ];
+
+  it('should time the boot by the ui mark, not by when the check saw it', () => {
+    expect(bootProblem(marks, 8_000)).toBeNull();
+    expect(bootProblem(marks, 3_000)).toBe('the app showed 3400 ms after the reload, over 3 s');
+  });
+
+  it('should report a boot that never reached the app', () => {
+    expect(bootProblem(marks.slice(0, 2), 8_000)).toBe('the app never showed (no ui boot mark)');
   });
 });

@@ -86,9 +86,9 @@ describe('buildSrcdoc', () => {
   const buildSrcdoc = (source: string, theme: FrameTheme) => buildPage(source, theme, 'the-token');
   const BRIDGE_REPORTS =
     // The height report, once the source is parsed, and then the link bridge: a clicked web
-    // or mail link is passed to the app to open. Both over the port.
+    // or mail link the user clicked is passed to the app to open (#947). Both over the port.
     "addEventListener('DOMContentLoaded', function () {new ResizeObserver(function () { port.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - 24 }); }).observe(document.documentElement);});" +
-    "addEventListener('click', function (event) {var link = event.target.closest && event.target.closest('a');var href = link && (link.href.baseVal || link.href);if (!href || !/^(https?|mailto):/i.test(href)) return;event.preventDefault();port.postMessage({ journalLiveBlock: 1, link: href });});";
+    "addEventListener('click', function (event) {var link = event.target.closest && event.target.closest('a');var href = link && (link.href.baseVal || link.href);if (!href || !/^(https?|mailto):/i.test(href)) return;event.preventDefault();if (event.isTrusted) port.postMessage({ journalLiveBlock: 1, link: href });});";
 
   // The dark theme's values in src/index.css.
   const THEME: FrameTheme = {

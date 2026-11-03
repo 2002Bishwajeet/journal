@@ -11,6 +11,8 @@
  * An html or react block starts from the owner's saved state (#410), found by the
  * id in the fence's info string. A viewer's own changes stay in memory, here: they
  * outlive a reload of the frame, not of the page, and never reach the owner's note.
+ *
+ * A reader didn't write the note, so an html or react block waits for Run (#947).
  */
 import { useContext, useState, type ComponentProps } from 'react';
 import type { Element, ElementContent } from 'hast';
@@ -60,6 +62,7 @@ export function LiveBlockAwarePre({ node, children, ...rest }: ComponentProps<'p
       kind={live.kind}
       source={live.source}
       preview={!showSource}
+      trusted={false}
       store={store}
       wide={live.wide}
       toggles={
