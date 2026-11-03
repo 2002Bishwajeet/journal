@@ -1,3 +1,9 @@
+# [2.56.0](https://github.com/2002Bishwajeet/journal/compare/v2.55.0...v2.56.0) (2026-11-03)
+
+
+### Features
+
+* **mobile:** keep a back stack for each tab of the phone tab bar ([#859](https://github.com/2002Bishwajeet/journal/issues/859)) ([89d2edf](https://github.com/2002Bishwajeet/journal/commit/89d2edfc1e7177c2e8bbfdf09fbf308fb0a0b961))
 # [2.55.0](https://github.com/2002Bishwajeet/journal/compare/v2.54.1...v2.55.0) (2026-11-03)
 
 

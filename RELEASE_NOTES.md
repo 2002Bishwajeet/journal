@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.56.0 (2026-11-03)
+
+### Changed
+
+- On a phone, the Notes tab and the Shared tab each keep their own screens. When you go back to a tab, you are where you left it, and Back goes through that tab's screens.
+
 ## 2.55.0 (2026-11-03)
 
 ### Changed
