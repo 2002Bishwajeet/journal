@@ -46,6 +46,10 @@ test('html block: in a note shared with you it waits for Run, then runs, and run
   await expect(block(app)).toContainText('HTML block');
   await expect(block(app).locator('iframe')).toHaveCount(0);
   await inBothThemes(app, (theme) => shoot(app, block(app), `run-gate-${theme}-desktop.png`));
+  await app.setViewportSize({ width: 390, height: 844 });
+  await expect(run).toBeVisible();
+  await inBothThemes(app, (theme) => shoot(app, block(app), `run-gate-${theme}-mobile.png`));
+  await app.setViewportSize({ width: 1280, height: 900 });
 
   await run.click();
   await expect(counter(app)).toBeVisible();
