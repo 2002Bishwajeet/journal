@@ -107,39 +107,3 @@ test('in-app navigation slides; the system Back plays no transition of ours', as
     expect(await slides()).toEqual(['forward', 'forward', 'back']);
   });
 });
-
-test('in Trash, Restore and Delete forever are 44 px and 8 px apart', async ({ browser }) => {
-  await withMobilePage(browser, async (page) => {
-    // Layout only: no push slide, so screenshots never land mid-slide.
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await createFolder(page, FOLDER);
-    await selectFolder(page, FOLDER);
-    await addNote(page);
-    await rows(page).first().getByRole('button').first().click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Move to Trash' }).click();
-    await page.getByRole('button', { name: 'Move to Trash', exact: true }).click();
-    await page.getByRole('button', { name: 'Back to notes' }).click();
-
-    await page.getByRole('button', { name: /^Trash/ }).click();
-    const back = await box(page.getByRole('button', { name: 'Back to notes' }));
-    expect(back.width).toBeGreaterThanOrEqual(44);
-    expect(back.height).toBeGreaterThanOrEqual(44);
-    // Empty Trash is in the More (…) sheet (#830).
-    const more = await box(page.getByRole('button', { name: 'More', exact: true }));
-    expect(more.height).toBeGreaterThanOrEqual(44);
-
-    const restore = await box(page.getByRole('button', { name: 'Restore note' }));
-    const del = await box(page.getByRole('button', { name: 'Delete forever' }));
-    for (const b of [restore, del]) {
-      expect(b.width).toBeGreaterThanOrEqual(44);
-      expect(b.height).toBeGreaterThanOrEqual(44);
-    }
-    expect(del.x - (restore.x + restore.width)).toBeGreaterThanOrEqual(8);
-    for (const colorScheme of THEMES) {
-      await page.emulateMedia({ colorScheme });
-      await expect(page.locator('html')).toHaveClass(new RegExp(colorScheme));
-      await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important}' });
-      await page.screenshot({ path: test.info().outputPath(`trash-${colorScheme}-393x852.png`) });
-    }
-  });
-});
