@@ -104,14 +104,18 @@ test('on a phone, an image shows 44px controls', async ({ browser }) => {
     await expect(image).toBeVisible();
     await image.tap();
 
-    const bar = page.getByRole('button', { name: 'Download image' });
-    await expect(bar).toBeVisible();
+    // #937: one row; the rest of the actions are behind "Image actions".
+    const more = page.getByRole('button', { name: 'Image actions' });
+    await expect(more).toBeVisible();
+    const bar = more.locator('xpath=ancestor::div[contains(@class,"bg-popover")][1]');
+    for (const button of await bar.getByRole('button').filter({ visible: true }).all()) {
+      const box = (await button.boundingBox())!;
+      expect(box.width).toBeGreaterThanOrEqual(MIN);
+      expect(box.height).toBeGreaterThanOrEqual(MIN);
+    }
+    // The bar stays on the screen.
     const box = (await bar.boundingBox())!;
-    expect(box.width).toBeGreaterThanOrEqual(MIN);
-    expect(box.height).toBeGreaterThanOrEqual(MIN);
-    // The wrapped bar stays on the screen.
-    const first = (await page.getByRole('button', { name: 'Center' }).boundingBox())!;
-    expect(first.x).toBeGreaterThanOrEqual(0);
+    expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(PHONE.width);
     await screenshotInBothThemes(page, (theme) => `image-bar-${theme}-393.png`);
   });
