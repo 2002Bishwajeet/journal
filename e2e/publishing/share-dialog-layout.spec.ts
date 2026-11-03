@@ -35,6 +35,7 @@ test('desktop: a wide dialog with the link preview beside the controls', async (
   const dialog = app.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText('Link preview', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('region', { name: 'Link preview' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Make Note Public' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Export to Markdown' })).toHaveCount(0);
 
@@ -69,6 +70,8 @@ test('mobile: a full-screen sheet in one column', async ({ app }) => {
   const dialog = app.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText('Link preview', { exact: true })).toBeVisible();
+  // The sheet keeps the preview's region (#979)
+  await expect(dialog.getByRole('region', { name: 'Link preview' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Export to Markdown' })).toHaveCount(0);
 
   // The dialog zooms in from 95%; measure only once the open animation has finished.

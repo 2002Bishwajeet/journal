@@ -33,7 +33,8 @@ export function ShareLinkPreview({ noteId, noteTitle, isPublic }: { noteId: stri
     const cardPreview = useShareCardPreview(noteId);
     const cardImage = useShareCardImage(noteId, cardPreview.cardImageFrom, isPublic);
     return (
-        <div className="flex w-full max-w-[500px] flex-col gap-3">
+        // A region on the dialog and the phone sheet alike, named by its heading
+        <section aria-labelledby="share-preview-heading" className="flex w-full max-w-[500px] flex-col gap-3">
             <h3 id="share-preview-heading" className="text-sm leading-5 font-medium text-muted-foreground">
                 Link preview
             </h3>
@@ -45,7 +46,7 @@ export function ShareLinkPreview({ noteId, noteTitle, isPublic }: { noteId: stri
                     <img src={cardImage} alt="" className="h-full w-full object-cover" />
                 ) : undefined}
             />
-        </div>
+        </section>
     );
 }
 

@@ -324,12 +324,9 @@ function ScrollColumns({ controls, preview }: { controls: ReactNode; preview: Re
             >
                 {controls}
             </section>
-            <section
-                aria-labelledby="share-preview-heading"
-                className="order-first flex min-w-0 shrink-0 flex-col p-6 pb-0 min-[880px]:order-last min-[880px]:w-[548px] min-[880px]:overflow-y-auto min-[880px]:overscroll-contain min-[880px]:border-l min-[880px]:bg-muted/30 min-[880px]:pb-6"
-            >
+            <div className="order-first flex min-w-0 shrink-0 flex-col p-6 pb-0 min-[880px]:order-last min-[880px]:w-[548px] min-[880px]:overflow-y-auto min-[880px]:overscroll-contain min-[880px]:border-l min-[880px]:bg-muted/30 min-[880px]:pb-6">
                 {preview}
-            </section>
+            </div>
         </div>
     );
 }
