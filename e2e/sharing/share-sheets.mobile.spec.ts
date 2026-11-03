@@ -54,7 +54,7 @@ async function expectSheet(page: Page, name: string, primary?: string) {
 }
 
 // The sheet at 390 px, then the same state as a dialog at 1280 px, each in both themes.
-// Before shots: run this spec on main, where the same states are the old dialogs.
+// Before shots: run this on main without the sheet assertions; Share Folder is a dialog there.
 async function shoot(page: Page, name: string, state: string, reopenAtDesktop?: () => Promise<void>) {
   const slug = `${name.toLowerCase().replace(/\s+/g, '-')}-${state}`;
   for (const size of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
@@ -87,6 +87,14 @@ test('Share Note is a full sheet with Done in thumb reach', async ({ browser }) 
     await openRowMenuItem(page, 'Share…');
     await expectSheet(page, 'Share Note', 'Done');
     await shoot(page, 'Share Note', 'private');
+    // The footer sits below the scrolling body, so nothing stays hidden behind it.
+    const sheet = page.getByRole('dialog', { name: 'Share Note' });
+    const makePublic = sheet.getByRole('button', { name: 'Make Note Public', exact: true });
+    await makePublic.scrollIntoViewIfNeeded();
+    const button = (await makePublic.boundingBox())!;
+    const done = (await sheet.getByRole('button', { name: 'Done', exact: true }).boundingBox())!;
+    expect(button.y + button.height).toBeLessThanOrEqual(done.y);
+    await screenshotInBothThemes(page, (theme) => `share-note-scrolled-${theme}-393.png`, undefined, { animations: 'disabled' });
     await expectBackCloses(page, 'Share Note');
   });
 });
