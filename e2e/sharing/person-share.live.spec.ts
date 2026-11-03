@@ -1,8 +1,9 @@
-import { test, expect, waitForAppReady } from '../fixtures';
+import { test, expect, waitForAppReady, liveIdentityOrigin } from '../fixtures';
 import type { Page } from '@playwright/test';
 import { createNote, typeInEditor, activeEditor, screenshotInBothThemes, selectFolder } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 import { addToShare, openShareDialog, saveShare, shareDialog, shareRole, stopSharing } from '../support/shareDialog';
+import { supportsNamedIdentities } from '../../src/lib/homebase/serverVersion';
 
 // Sharing a note read-only with a named person (#897). Needs owner servers with
 // odin-core #1993 (v0.1.966 on): run it on the demo tier (`npm run e2e:live` with
@@ -51,6 +52,16 @@ async function tabTo(page: Page, target: ReturnType<Page['locator']>) {
 const header = (page: Page, docId: string) => page.evaluate((id) => window.__journalE2E!.noteHeader(id), docId);
 
 test.describe.configure({ mode: 'serial' });
+
+// On an older server the app offers no person to add (#897), so there is nothing to test:
+// the Docker tier's pinned image predates odin-core #1993 until #677 bumps it.
+test.beforeAll(async ({ playwright }) => {
+    const request = await playwright.request.newContext({ ignoreHTTPSErrors: true });
+    const res = await request.get(`${liveIdentityOrigin()}/api/v1/version`);
+    const version = res.ok() ? await res.text() : '';
+    await request.dispose();
+    test.skip(!supportsNamedIdentities(version), `the owner's server (${version}) predates named-identity ACLs (odin-core #1993, #677)`);
+});
 
 const stamp = Date.now();
 
