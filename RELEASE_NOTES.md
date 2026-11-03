@@ -16,6 +16,21 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.59.0 (2026-11-03)
+
+### Changed
+
+- Live blocks run again as soon as a note opens. You do not select Run.
+- A link that a block from someone else opens shows where it goes first. You see the host and the full address before you open it.
+- An HTML or React block in a note that you did not write has a thin edge. This shows that the block is not part of the app.
+
+### Fixed
+
+- Making a note public right after you edit it now publishes those edits. Before, the share page could show the note as it was before the edits.
+- On a phone, Trash rows stay inside the screen and show when each note was last edited. A long press on a row opens Restore and Delete forever.
+- On an iPhone, Back no longer opens the last note again and again after the app comes back from the background. Back now goes to the previous screens.
+- On an iPhone, the edge swipe goes back in Settings and in the other full-screen dialogs. Before, the swipe did nothing while a dialog was open.
+
 ## 2.58.0 (2026-11-03)
 
 ### Changed
