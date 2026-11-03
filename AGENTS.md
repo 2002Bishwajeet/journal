@@ -96,7 +96,8 @@ src/
 │   ├── pwa/
 │   │   └── UpdatePrompt.tsx
 │   ├── settings/
-│   │   ├── SettingsDialog.tsx  # Tabbed dialog: left nav (md+) / top tab row (phones)
+│   │   ├── SettingsDialog.tsx  # Tabbed dialog with a left nav; phones get MobileSettings
+│   │   ├── MobileSettings.tsx  # Phone: grouped section list that drills into one page per section
 │   │   ├── sections.ts         # Section registry (order = nav order)
 │   │   ├── sections/           # Account, Appearance, AI (+ AIModelList), AgentAccess, Data, Shortcuts, About
 │   │   ├── SectionHeader.tsx
@@ -672,9 +673,9 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 
 ### Settings structure (#207)
 
-- `src/components/settings/SettingsDialog.tsx` (opened from the sidebar footer, lazy via `src/components/modals/SettingsModal.tsx`): a tabbed dialog with the section list as a left nav from 768 px (`md`) and as a horizontally scrolling tab row above the content below that. Sections are registered in `src/components/settings/sections.ts` (order = nav order): Account, Appearance, AI, Agent access, Data & storage, Keyboard shortcuts (desktop only), About, Diagnostics. Each section is one file in `src/components/settings/sections/`, with logic in hooks (`useAccountSettings`, `useAIPreferences`, `useAgentGrants`, `useImportExport`, `useStorageInfo`, …).
+- `src/components/settings/SettingsDialog.tsx` (opened from the sidebar footer, lazy via `src/components/modals/SettingsModal.tsx`): a tabbed dialog with the section list as a left nav; on a phone, `src/components/settings/MobileSettings.tsx` shows a grouped list that drills into one page per section, each with its own history entry on top of the dialog's (#831). Sections are registered in `src/components/settings/sections.ts` (order = nav order): Account, Appearance, AI, Agent access, Data & storage, Keyboard shortcuts (desktop only), About, Diagnostics. Each section is one file in `src/components/settings/sections/`, with logic in hooks (`useAccountSettings`, `useAIPreferences`, `useAgentGrants`, `useImportExport`, `useStorageInfo`, …).
 - Diagnostics (#800): the sync badge popover opens it on the pending list (`openSettings('diagnostics')` from `useSettingsOpener`). It lists what the badge counts with each item's newest unresolved `sync_errors` row (`getPendingSyncItems`), retries one item or the queue (clears backoff, then syncs), shows the recent log (`src/lib/diagnostics/logBuffer.ts`: last 200 console warnings/errors plus sync events, saved to `app_state`) and a status block, and copies a redacted text report (`src/lib/diagnostics/report.ts`: no tokens, keys, cookies or content; titles only if the owner turns them on). There is no "discard local change": replacing a note with the server copy cannot be undone, so it is left out for every item type.
-- No framer-motion in Settings; section switches are instant. Controls use `SettingsRow` with real labels.
+- No framer-motion in Settings; section switches are instant on desktop, and a phone's section page slides in with CSS. Controls use `SettingsRow` with real labels.
 - Specs: `e2e/settings/`.
 
 ### Share pages (#223)

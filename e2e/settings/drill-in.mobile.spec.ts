@@ -1,3 +1,4 @@
+import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { foldersNav, openSettingsSection, screenshotInBothThemes } from '../support/actions';
 import { withMobilePage } from '../support/mobile';
@@ -6,17 +7,38 @@ import { withMobilePage } from '../support/mobile';
 
 const SECTIONS = ['Account', 'Appearance', 'AI', 'Agent access', 'Notifications', 'Data & storage', 'Diagnostics', 'About'];
 
+const sectionRow = (dialog: Locator, name: string) => dialog.getByRole('listitem').getByRole('button', { name, exact: true });
+const overlayCount = (page: Page) => page.evaluate(() => history.state?.usr?.overlays?.length ?? 0);
+const animationsDone = (page: Page) => page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
+
+async function openSettings(page: Page) {
+  await page.getByRole('navigation', { name: 'Tabs' }).getByRole('button', { name: 'Settings' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** Opens Diagnostics from the sync status over the note list; returns the note list's URL. */
+async function openDiagnosticsFromSyncStatus(page: Page) {
+  await page.evaluate(() => window.__journalE2E!.seedPendingSync());
+  await foldersNav(page).getByRole('button', { name: 'Main', exact: true }).tap();
+  // The folder opens inside the slide's view transition, a frame later.
+  await expect(page).not.toHaveURL(/\/$/);
+  const noteListRoute = page.url();
+  await page.locator('button[aria-label="Sync status"]:visible').first().tap();
+  await page.getByRole('button', { name: /Pending items|Diagnostics/ }).tap();
+  return noteListRoute;
+}
+
 test('the section list drills into a page; Back returns to the list, then closes Settings', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     const route = page.url();
-    await page.getByRole('navigation', { name: 'Tabs' }).getByRole('button', { name: 'Settings' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Settings' });
-    await expect(dialog).toBeVisible();
-    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
+    const dialog = await openSettings(page);
+    await animationsDone(page);
 
     // Every section is a row, whole on screen, at least 44 px tall.
     for (const name of SECTIONS) {
-      const row = dialog.getByRole('listitem').getByRole('button', { name, exact: true });
+      const row = sectionRow(dialog, name);
       await expect(row).toBeVisible();
       const box = (await row.boundingBox())!;
       expect(box.height).toBeGreaterThanOrEqual(44);
@@ -25,9 +47,9 @@ test('the section list drills into a page; Back returns to the list, then closes
     }
     expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 
-    await dialog.getByRole('listitem').getByRole('button', { name: 'Appearance', exact: true }).click();
+    await openSettingsSection(dialog, 'Appearance');
     await expect(dialog.getByRole('region', { name: 'Appearance' })).toBeVisible();
-    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
+    await animationsDone(page);
     const back = dialog.getByRole('button', { name: 'Settings', exact: true });
     const backBox = (await back.boundingBox())!;
     expect(backBox.width).toBeGreaterThanOrEqual(44);
@@ -35,7 +57,7 @@ test('the section list drills into a page; Back returns to the list, then closes
 
     await page.goBack();
     await expect(dialog.getByRole('region')).toHaveCount(0);
-    await expect(dialog.getByRole('listitem').getByRole('button', { name: 'Appearance', exact: true })).toBeVisible();
+    await expect(sectionRow(dialog, 'Appearance')).toBeVisible();
     await page.goBack();
     await expect(dialog).toBeHidden();
     expect(page.url()).toBe(route);
@@ -45,9 +67,8 @@ test('the section list drills into a page; Back returns to the list, then closes
 test('the Back button goes to the list and the stack still closes cleanly', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     const route = page.url();
-    await page.getByRole('navigation', { name: 'Tabs' }).getByRole('button', { name: 'Settings' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Settings' });
-    await dialog.getByRole('listitem').getByRole('button', { name: 'About', exact: true }).click();
+    const dialog = await openSettings(page);
+    await openSettingsSection(dialog, 'About');
     await expect(dialog.getByRole('region', { name: 'About' })).toBeVisible();
     await dialog.getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(dialog.getByRole('region')).toHaveCount(0);
@@ -59,21 +80,14 @@ test('the Back button goes to the list and the stack still closes cleanly', asyn
 
 test('openSettings from the sync status opens Diagnostics with the list underneath', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
-    await page.evaluate(() => window.__journalE2E!.seedPendingSync());
-    await foldersNav(page).getByRole('button', { name: 'Main', exact: true }).tap();
-    // The folder opens inside the slide's view transition, a frame later.
-    await expect(page).not.toHaveURL(/\/$/);
-    const noteListRoute = page.url();
-    await page.locator('button[aria-label="Sync status"]:visible').first().tap();
-    await page.getByRole('button', { name: /Pending items|Diagnostics/ }).tap();
-
+    const noteListRoute = await openDiagnosticsFromSyncStatus(page);
     const dialog = page.getByRole('dialog', { name: 'Settings' });
     await expect(dialog.getByRole('region', { name: 'Diagnostics' })).toBeVisible();
     // The page's history entry follows the dialog's; a real Back gesture comes well after both.
-    await expect.poll(() => page.evaluate(() => history.state?.usr?.overlays?.length ?? 0)).toBe(2);
+    await expect.poll(() => overlayCount(page)).toBe(2);
     await page.goBack();
     await expect(dialog.getByRole('region')).toHaveCount(0);
-    await expect(dialog.getByRole('listitem').getByRole('button', { name: 'Diagnostics', exact: true })).toBeVisible();
+    await expect(sectionRow(dialog, 'Diagnostics')).toBeVisible();
     await page.goBack();
     await expect(dialog).toBeHidden();
     expect(page.url()).toBe(noteListRoute);
@@ -82,24 +96,17 @@ test('openSettings from the sync status opens Diagnostics with the list undernea
 
 test('a note opened from a section page leaves no Settings entries behind Back', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
-    await page.evaluate(() => window.__journalE2E!.seedPendingSync());
-    await foldersNav(page).getByRole('button', { name: 'Main', exact: true }).tap();
-    // The folder opens inside the slide's view transition, a frame later.
-    await expect(page).not.toHaveURL(/\/$/);
-    const noteListRoute = page.url();
-    await page.locator('button[aria-label="Sync status"]:visible').first().tap();
-    await page.getByRole('button', { name: /Pending items|Diagnostics/ }).tap();
-
+    const noteListRoute = await openDiagnosticsFromSyncStatus(page);
     const dialog = page.getByRole('dialog', { name: 'Settings' });
-    await expect.poll(() => page.evaluate(() => history.state?.usr?.overlays?.length ?? 0)).toBe(2);
+    await expect.poll(() => overlayCount(page)).toBe(2);
     await dialog.getByRole('button', { name: 'Seeded note A', exact: true }).click();
     await expect(dialog).toBeHidden();
     await expect(page).toHaveURL(/00000000-0000-4000-8000-000000000001/);
-    expect(await page.evaluate(() => history.state?.usr?.overlays ?? [])).toEqual([]);
+    expect(await overlayCount(page)).toBe(0);
 
     await page.goBack();
     await expect(page).toHaveURL(noteListRoute);
-    expect(await page.evaluate(() => history.state?.usr?.overlays ?? [])).toEqual([]);
+    expect(await overlayCount(page)).toBe(0);
     await expect(dialog).toBeHidden();
   });
 });
@@ -107,14 +114,13 @@ test('a note opened from a section page leaves no Settings entries behind Back',
 test('Escape on a section page closes Settings and clears both history entries', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     const route = page.url();
-    await page.getByRole('navigation', { name: 'Tabs' }).getByRole('button', { name: 'Settings' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Settings' });
-    await dialog.getByRole('listitem').getByRole('button', { name: 'About', exact: true }).click();
+    const dialog = await openSettings(page);
+    await openSettingsSection(dialog, 'About');
     await expect(dialog.getByRole('region', { name: 'About' })).toBeVisible();
-    await expect.poll(() => page.evaluate(() => history.state?.usr?.overlays?.length ?? 0)).toBe(2);
+    await expect.poll(() => overlayCount(page)).toBe(2);
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
-    await expect.poll(() => page.evaluate(() => history.state?.usr?.overlays?.length ?? 0)).toBe(0);
+    await expect.poll(() => overlayCount(page)).toBe(0);
     expect(page.url()).toBe(route);
   });
 });
@@ -123,15 +129,13 @@ test('Escape on a section page closes Settings and clears both history entries',
 test('screenshots at 390 px', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.getByRole('navigation', { name: 'Tabs' }).getByRole('button', { name: 'Settings' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Settings' });
-    await expect(dialog).toBeVisible();
-    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
+    const dialog = await openSettings(page);
+    await animationsDone(page);
     await screenshotInBothThemes(page, (theme) => `settings-list-${theme}-390.png`);
     for (const section of ['Appearance', 'Account']) {
       await openSettingsSection(dialog, section);
       await expect(dialog.getByRole('region', { name: section })).toBeVisible();
-      await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
+      await animationsDone(page);
       await screenshotInBothThemes(page, (theme) => `settings-${section.toLowerCase()}-${theme}-390.png`);
     }
   });

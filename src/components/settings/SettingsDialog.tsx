@@ -8,12 +8,10 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useDeviceType } from "@/hooks";
-import { useOverlayHistory } from "@/hooks/useOverlayHistory";
+import { overlayDepth, useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { OPEN_SETTINGS_EVENT } from "@/hooks/useSettingsOpener";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "./sections";
 import MobileSettings from "./MobileSettings";
-
-const overlayDepth = (state: unknown) => (state as { overlays?: string[] } | null)?.overlays?.length ?? 0;
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -54,10 +52,6 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
   }, []);
   const isMobile = useDeviceType() === "mobile";
   const sections = SETTINGS_SECTIONS.filter((s) => !(isMobile && s.desktopOnly));
-  // A desktop-only section picked before shrinking to phone width falls back to the first.
-  const currentSection = sections.some((s) => s.id === activeSection)
-    ? activeSection
-    : sections[0].id;
 
   // One history entry per level: the dialog has its own (see ui/dialog.tsx), a section page adds a second.
   useOverlayHistory(
@@ -89,7 +83,7 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
           /* Fixed height lives here, not on DialogContent: DialogContent is a
              grid, so an h-full child would grow with its content and never scroll. */
           <Tabs
-            value={currentSection}
+            value={activeSection}
             onValueChange={(value) => setActiveSection(value as SettingsSectionId)}
             orientation="vertical"
             activationMode="automatic"

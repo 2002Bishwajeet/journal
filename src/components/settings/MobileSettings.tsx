@@ -38,7 +38,7 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
   ].filter((g) => g.length > 0);
 
   return (
-    <div className="relative flex h-dvh min-w-0 flex-col md:h-[min(640px,85dvh)]">
+    <div className="flex h-dvh min-w-0 flex-col md:h-[min(640px,85dvh)]">
       {current ? (
         <>
           <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-border/60 px-1 pt-[env(safe-area-inset-top)]">
