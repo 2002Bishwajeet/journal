@@ -90,27 +90,41 @@ test('a back/forward cache restore on a note adds no history entries', async ({ 
 });
 
 // Back to an entry of an earlier page loads the app again on that entry (iOS reloads a page it
-// put away in the background, and the entries from before stay). The app must stay on such an
-// entry: restoring the last note on it made Back land on the note again and again.
-test('Back into entries of an earlier page walks them and does not return to the note', async ({ browser }) => {
+// put away in the background, and the entries from before stay). On the home entry the app
+// restored the last note there, so Back landed on the note again and again. It must stay home.
+test('Back into a home entry of an earlier page stays home and does not return to the note', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    const { folder, note } = await openNote(page);
-    // The last note must be saved, or there is nothing a boot could restore.
-    await expect
-      .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('journal-session-state') ?? '{}').lastNoteId))
-      .toBe(note.split('/')[2]);
-    // A new page: the entries before it belong to the earlier one.
-    await page.goto(folder);
-    await waitForAppReady(page);
+    const { note } = await openNote(page);
+    const lastNoteId = () =>
+      page.evaluate(() => JSON.parse(localStorage.getItem('journal-session-state') ?? '{}').lastNoteId);
+    await expect.poll(lastNoteId).toBe(note.split('/')[2]);
 
-    for (const path of [note, folder, '/']) {
-      await page.goBack();
-      await expect.poll(() => pathOf(page)).toBe(path);
-      await waitForAppReady(page);
-    }
-    // A new page loaded for the entry, as on the iPhone.
-    expect(await page.evaluate(() => (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming).type)).toBe('back_forward');
+    // Home as a page of its own, with no last note for its launch to restore.
+    await page.evaluate(() => localStorage.removeItem('journal-session-state'));
+    await page.goto('/');
+    await waitForAppReady(page);
+    // The note as the next page: Back to home loads that page again, as on the iPhone.
+    await page.goto(note);
+    await waitForAppReady(page);
+    await expect(activeTitleInput(page)).toBeVisible();
+    // The last note must be saved, or there is nothing a boot could restore.
+    await expect.poll(lastNoteId).toBe(note.split('/')[2]);
+
+    // The resume: iOS reloads the backgrounded page.
+    await page.reload();
+    await waitForAppReady(page);
+    await expect(activeTitleInput(page)).toBeVisible();
+
+    await page.goBack();
+    await expect.poll(() => pathOf(page)).toBe('/');
+    await waitForAppReady(page);
+    // A new page loaded for the home entry, not a same-page history step.
+    const load = await page.evaluate(() => {
+      const [entry] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      return { type: entry.type, path: new URL(entry.name).pathname };
+    });
+    expect(load).toEqual({ type: 'back_forward', path: '/' });
     // Past the restore's delay: the home screen stays.
     await page.waitForTimeout(1_500);
     expect(pathOf(page)).toBe('/');
