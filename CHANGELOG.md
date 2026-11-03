@@ -1,3 +1,17 @@
+# [2.60.0](https://github.com/2002Bishwajeet/journal/compare/v2.59.0...v2.60.0) (2026-11-03)
+
+
+### Bug Fixes
+
+* **share:** keep the Link preview region in the phone sheet; skip person-share on pre-[#1993](https://github.com/2002Bishwajeet/journal/issues/1993) servers ([#979](https://github.com/2002Bishwajeet/journal/issues/979)) ([0776bd8](https://github.com/2002Bishwajeet/journal/commit/0776bd807460b0be6dfdcd292e04aac8854c58e1)), closes [#962](https://github.com/2002Bishwajeet/journal/issues/962) [#677](https://github.com/2002Bishwajeet/journal/issues/677)
+
+
+### Features
+
+* **deploy:** app stays at /, landing page at / only when signed out ([#913](https://github.com/2002Bishwajeet/journal/issues/913)) ([9d9f74b](https://github.com/2002Bishwajeet/journal/commit/9d9f74b6ebf825bfc12efed122b68e5e91bb9421))
+* **deploy:** landing page at /, the app under /app/ ([#913](https://github.com/2002Bishwajeet/journal/issues/913)) ([a06c4d3](https://github.com/2002Bishwajeet/journal/commit/a06c4d3c202becc9d6bcc4839dec0d243e995c70))
+* **sw:** fall back to the app shell for / after 3 s without an answer ([#913](https://github.com/2002Bishwajeet/journal/issues/913)) ([af63645](https://github.com/2002Bishwajeet/journal/commit/af636457a6c63da7b55eae3711a041c8279088d1))
+* **trash:** confirm Delete forever on phone and desktop ([ff6171e](https://github.com/2002Bishwajeet/journal/commit/ff6171eb9a5748e394f82cbe36b6a1b04898b3d5))
 # [2.59.0](https://github.com/2002Bishwajeet/journal/compare/v2.58.0...v2.59.0) (2026-11-03)
 
 

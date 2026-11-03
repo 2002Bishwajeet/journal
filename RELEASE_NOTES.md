@@ -16,6 +16,18 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.60.0 (2026-11-03)
+
+### New
+
+- When you are not signed in, journal.cloudx.run shows a page about Journal. Select "Open Journal" to sign in.
+- When you are signed in, journal.cloudx.run opens the app, as before. Links to your notes and the installed app do not change.
+- When you sign out, Journal shows the page about Journal.
+
+### Changed
+
+- In Trash, "Delete forever" asks you to confirm before it deletes the note. On a phone, a sheet opens at the bottom of the screen. On a computer, a dialog opens.
+
 ## 2.59.0 (2026-11-03)
 
 ### Changed
