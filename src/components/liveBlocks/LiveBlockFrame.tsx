@@ -4,17 +4,14 @@
  * (#420), and the view toggles over its top right corner. Rules that have to
  * beat the unlayered `.prose` styles are in src/index.css ("Live blocks").
  *
- * An html or react block can be `wide` (#557). Unless it is `trusted`, it shows a
- * Run button in place of its preview until the reader runs it (#947).
+ * An html or react block can be `wide` (#557). Unless it is `trusted`, its frame has a
+ * thin edge, and a link it opens shows where it goes first (#975).
  */
-import { useRef, type ReactNode } from 'react';
-import { Play } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useLiveBlockGate } from '@/hooks/useLiveBlockGate';
-import { isHeldLiveBlock } from '@/lib/liveBlockRuns';
+import { useRef, useState, type ReactNode } from 'react';
 import type { LiveBlockKind } from '@/lib/liveBlocks';
 import type { BlockStateStore } from '@/lib/liveBlockState';
 import { cn } from '@/lib/utils';
+import { LiveBlockLinkSheet } from './LiveBlockLinkSheet';
 import { LiveBlockPreview } from './LiveBlockPreview';
 
 const LABELS: Record<LiveBlockKind, string> = { mermaid: 'Mermaid', svg: 'SVG', html: 'HTML', react: 'React' };
@@ -26,8 +23,9 @@ interface LiveBlockFrameProps {
   preview: boolean;
   /**
    * Only the reader can have written the block (their own note, which no one else edited
-   * last), so an html or react block runs without asking (#947), unless it is held: it was
-   * seen waiting for Run there. Mermaid and svg never ask: no code of the block's runs.
+   * last). A link from any other block shows its URL before it opens, so a fake sign-in form
+   * can't send what was typed in it off in a link; and an html or react block's frame gets an
+   * edge, so that form doesn't pass as the app's own (#975).
    */
   trusted: boolean;
   /** The block's node is selected in the editor. */
@@ -54,13 +52,13 @@ export function LiveBlockFrame({ kind, source, preview, trusted, selected, label
   const fittedHeight = useRef('');
   // A react block runs in the same frame as an html block (#426), so it gets the same box.
   const framed = kind === 'html' || kind === 'react';
-  const gate = useLiveBlockGate(framed && (!trusted || isHeldLiveBlock(kind, source)), kind, source);
-  // Waiting for Run, or for the lookup of an earlier one: the box fits what is in it.
-  const waiting = preview && gate.state !== 'run';
-  const sized = framed && !waiting;
   const wideBlock = framed && !!wide;
   // Only the editor lets the user drag the box taller; a reader gets the fitted height.
-  const resizable = sized && !!labelled;
+  const resizable = framed && !!labelled;
+  const edged = framed && preview && !trusted;
+  // A link the block asked to open, waiting for the user to look at it.
+  const [link, setLink] = useState<string | null>(null);
+  const onLink = (url: string) => (trusted ? openLink(url) : setLink(url));
 
   // An html block is as tall as its content (#412) until the user drags the resize handle:
   // the browser then writes an inline height that is not the fitted one, and that one stays.
@@ -75,6 +73,7 @@ export function LiveBlockFrame({ kind, source, preview, trusted, selected, label
       data-live-block={kind}
       // Its width is in src/index.css ("Live blocks").
       data-live-block-wide={wideBlock ? '' : undefined}
+      data-live-block-untrusted={edged ? '' : undefined}
       // `isolate` keeps the controls' z-index inside the block. The outline is the one a selected image gets (ImageNode).
       className={cn('group/block relative isolate my-4', selected && 'rounded-sm outline-2 outline-primary/60')}
     >
@@ -108,12 +107,13 @@ export function LiveBlockFrame({ kind, source, preview, trusted, selected, label
         data-live-block-preview={preview ? kind : undefined}
         className={cn(
           // `!`: the unlayered reset in src/index.css sets border-box on everything.
-          sized && 'relative -m-3 box-content! h-[400px] overflow-hidden p-3',
+          framed && 'relative -m-3 box-content! h-[400px] overflow-hidden p-3',
           resizable && 'resize-y',
         )}
       >
-        {preview && gate.state === 'run' && <LiveBlockPreview kind={kind} source={source} store={store} onHeight={fitContent} wide={wideBlock} />}
-        {preview && gate.state === 'ask' && <RunGate label={LABELS[kind]} onRun={gate.run} />}
+        {preview && <LiveBlockPreview kind={kind} source={source} store={store} onHeight={fitContent} wide={wideBlock} onLink={onLink} />}
+        {/* Over the frame, along the block's own edges (inside the bleed): quiet, in either theme. */}
+        {edged && <span aria-hidden className="pointer-events-none absolute inset-3 rounded-md border border-dashed border-muted-foreground/40" />}
         {children}
         {resizable && (
           // Drawn over the native resize handle, which is hard to see on a page. Dragging it
@@ -132,34 +132,12 @@ export function LiveBlockFrame({ kind, source, preview, trusted, selected, label
           </span>
         )}
       </div>
+      <LiveBlockLinkSheet url={link} onClose={() => setLink(null)} onOpen={openLink} />
     </div>
   );
 }
 
-/**
- * In place of a block that has not run (#947): what it is, and a Run button that is
- * 44px tall (36px on a desktop with a mouse).
- */
-function RunGate({ label, onRun }: { label: string; onRun: () => void }) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-dashed px-4 py-3 font-sans">
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">{label} block</div>
-        <div className="text-xs text-muted-foreground">Its code may not be yours. Run it if you trust where it came from.</div>
-      </div>
-      <Button
-        variant="outline"
-        onClick={onRun}
-        aria-label={`Run ${label} block`}
-        // Not `transition-all`: the height changes with the viewport, and should not animate.
-        className="h-11 touch-manipulation select-none transition-[color,background-color,box-shadow,transform] active:scale-[0.97] md:pointer-fine:h-9"
-      >
-        <Play aria-hidden />
-        Run
-      </Button>
-    </div>
-  );
-}
+const openLink = (url: string) => window.open(url, '_blank', 'noopener,noreferrer');
 
 interface LiveBlockToggleProps {
   pressed: boolean;

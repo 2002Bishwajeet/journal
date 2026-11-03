@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import type { FrameLocator, Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeEditor, createNote, pastePlainText, runLiveBlocks, screenshotInBothThemes, THEMES, waitForNoteSaved } from '../support/actions';
+import { activeEditor, createNote, pastePlainText, screenshotInBothThemes, THEMES, waitForNoteSaved } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #557: an html or react block can ask for the full width of the pane with `wide` in its
@@ -198,8 +198,6 @@ test(`share page: a wide html block spans the page with the owner's state`, asyn
     const block = article.locator('[data-live-block="html"]');
     const paragraph = article.getByText(PARAGRAPH);
     await expect(block).toHaveAttribute('data-live-block-wide', '');
-    // A reader runs the block once; this device remembers that (#947).
-    if (theme === THEMES[0]) await runLiveBlocks(article);
     // The frame is lazy: it loads once it is near the viewport.
     await block.scrollIntoViewIfNeeded();
     await expect(htmlFrame(block).locator('#out')).toHaveText('count: 3');

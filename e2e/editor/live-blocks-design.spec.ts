@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote, mermaidFrame, runLiveBlocks } from '../support/actions';
+import { activeEditor, createNote, mermaidFrame } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #393: design pass for live blocks. Takes the screenshots the issue asks for,
@@ -229,15 +229,6 @@ test('share page: mermaid, svg and html blocks', async ({ anonPage }) => {
     const article = anonPage.getByRole('article');
     await expect(article.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
     await expect(anonPage.locator('html')).toHaveClass(new RegExp(theme));
-
-    // A reader runs the html block once; this device remembers that (#947). Its Run button is a touch target too.
-    if (theme === THEMES[0]) {
-      await anonPage.setViewportSize(VIEWPORTS.mobile);
-      await expect(liveBlock(article, 'html').getByRole('button', { name: 'Run HTML block' })).toBeVisible();
-      await expectTouchTargets(article);
-      await shoot(anonPage, liveBlock(article, 'html'), `html-run-gate-share-${theme}-mobile.png`);
-      await runLiveBlocks(article);
-    }
 
     for (const viewport of ['desktop', 'mobile'] as const) {
       await anonPage.setViewportSize(VIEWPORTS[viewport]);

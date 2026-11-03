@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { FrameLocator, Locator, Page, Request } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
-import { activeEditor, createNote, inBothThemes, pastePlainText, runLiveBlocks, THEMES } from '../support/actions';
+import { activeEditor, createNote, inBothThemes, pastePlainText, THEMES } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #426: a `react` code block renders a React component on the app's own React, in the
@@ -332,8 +332,6 @@ test('react block on the share page: the counter counts, and both errors show', 
     const article = await openSharedNote(anonPage);
     await expect(anonPage.locator('html')).toHaveClass(new RegExp(theme));
     const [counter, syntaxError, renderError] = [0, 1, 2].map((i) => article.locator('[data-live-block="react"]').nth(i));
-    // A reader runs each react block once; this device remembers that (#947).
-    if (theme === THEMES[0]) await runLiveBlocks(article, 3);
 
     // The frames are lazy: each loads once it is near the viewport.
     await counter.scrollIntoViewIfNeeded();

@@ -12,7 +12,7 @@
  * id in the fence's info string. A viewer's own changes stay in memory, here: they
  * outlive a reload of the frame, not of the page, and never reach the owner's note.
  *
- * A reader didn't write the note, so an html or react block waits for Run (#947).
+ * A reader didn't write the note, so a link a block opens shows where it goes first (#975).
  */
 import { useContext, useState, type ComponentProps } from 'react';
 import type { Element, ElementContent } from 'hast';
