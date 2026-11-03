@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote, inBothThemes, pastePlainText, reloadNote, waitForNoteSaved } from '../support/actions';
+import { activeEditor, createNote, inBothThemes, openNote, pastePlainText, waitForNoteSaved } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #947: an html block in a note someone else may have written waits for Run instead of
@@ -23,9 +23,12 @@ async function shoot(app: Page, target: Locator, name: string): Promise<void> {
   });
 }
 
-test('html block: in a note shared with you it waits for Run, then runs, and runs on its own after a reload', async ({ app }) => {
+test('html block: in a note shared with you it waits for Run, then runs, and runs on its own when opened again', async ({ app }) => {
+  // Two openings and six screenshots: past the 30 s default on a loaded machine.
+  test.setTimeout(60_000);
   await assertTestOrigin(app);
-  await createNote(app, { title: `Run gate ${Date.now()}`, body: 'Intro' });
+  const title = `Run gate ${Date.now()}`;
+  await createNote(app, { title, body: 'Intro' });
   await app.keyboard.press('Enter');
   await pastePlainText(app, '```html\n' + COUNTER + '\n```');
 
@@ -37,8 +40,9 @@ test('html block: in a note shared with you it waits for Run, then runs, and run
   await app.evaluate(([id, author]) => window.__journalE2E!.markSharedWithMe(id, author), [docId, AUTHOR] as const);
   // The note now reads as shared with this identity: a peer note has no version history.
   await expect(app.getByRole('button', { name: 'Version history' })).toHaveCount(0);
-  await app.evaluate(() => window.__journalE2E!.syncToDisk());
-  await reloadNote(app);
+  // Opened again, not reloaded: a boot sync pull of the owner's own copy on the fake drive
+  // would write the note's author back.
+  await reopenNote(app, title);
   await expect(app.getByRole('button', { name: 'Version history' })).toHaveCount(0);
 
   const run = block(app).getByRole('button', { name: 'Run HTML block' });
@@ -56,8 +60,19 @@ test('html block: in a note shared with you it waits for Run, then runs, and run
   await expect(run).toHaveCount(0);
   await shoot(app, block(app), 'run-gate-after-run-dark-desktop.png');
 
-  // This device ran this code: it runs on its own now.
-  await reloadNote(app);
+  // This device ran this code: it runs on its own now, in the note that is still not the owner's.
+  await reopenNote(app, title);
+  await expect(app.getByRole('button', { name: 'Version history' })).toHaveCount(0);
   await expect(counter(app)).toBeVisible();
   await expect(run).toHaveCount(0);
 });
+
+/** Closes the note's tab, so its editor unmounts, and opens it again from the note list. */
+async function reopenNote(app: Page, title: string): Promise<void> {
+  const main = app.locator('#main-content');
+  await main.getByRole('button', { name: `Close ${title}`, exact: true }).click();
+  await expect(main.locator('.ProseMirror')).toHaveCount(0);
+  await openNote(app, title);
+  await expect(activeEditor(app)).toBeVisible();
+  await expect(block(app)).toBeVisible();
+}
