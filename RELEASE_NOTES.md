@@ -16,6 +16,13 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.55.0 (2026-11-03)
+
+### Changed
+
+- On a phone, Share folder opens as a full sheet below the status bar. The Share folder button stays at the bottom, in reach of your thumb.
+- On a phone, sync status and "Shared" open as sheets from the bottom of the screen. Their buttons are easy to tap.
+
 ## 2.54.1 (2026-11-03)
 
 ### Changed
