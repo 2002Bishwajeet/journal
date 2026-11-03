@@ -5,6 +5,8 @@ import { useNotes } from '@/hooks/useNotes';
 import { useMoveNote } from '@/hooks/useMoveNote';
 import { resolveNoteFolderId } from '@/hooks/useFolders';
 import type { NoteListEntry } from '@/types';
+import { slideNavigate } from '@/lib/navDirection';
+import { markNewNote } from '@/lib/newNoteFocus';
 
 interface UseNoteActionsOptions {
     folderId: string | undefined;
@@ -92,21 +94,21 @@ export function useNoteActions({
         const note = notes.find((n) => n.docId === id);
         const targetFolder = note?.metadata.folderId || folderId;
         if (selectedTag) {
-            navigate(
-                `/${targetFolder}/${id}?tag=${encodeURIComponent(selectedTag)}`,
-                { viewTransition: true },
+            slideNavigate("forward", () =>
+                navigate(`/${targetFolder}/${id}?tag=${encodeURIComponent(selectedTag)}`),
             );
         } else {
-            navigate(`/${folderId}/${id}`, { viewTransition: true });
+            slideNavigate("forward", () => navigate(`/${folderId}/${id}`));
         }
     };
 
-    const deleteAndSelectNeighbour = async (id: string) => {
+    /** `openNeighbour` off (a phone): the open note goes to Trash and the list shows, not the next note. */
+    const deleteAndSelectNeighbour = async (id: string, { openNeighbour = true } = {}) => {
         // Find the next note to select
         const currentIndex = notes.findIndex((n) => n.docId === id);
         let nextNoteId: string | null = null;
 
-        if (currentIndex !== -1 && notes.length > 1) {
+        if (openNeighbour && currentIndex !== -1 && notes.length > 1) {
             if (currentIndex < notes.length - 1) {
                 // Select next note
                 nextNoteId = notes[currentIndex + 1].docId;
@@ -140,12 +142,16 @@ export function useNoteActions({
 
     const createAndOpen = async (targetFolderId: string | undefined) => {
         // Falls back to Main for pseudo-folder routes (Trash/Archive/Shared)
-        // and unknown folder ids — see resolveNoteFolderId.
-        const { docId, folderId: newFolderId } = await createNote(
-            resolveNoteFolderId(targetFolderId, folders),
-        );
-        if (docId)
-            navigate(`/${newFolderId}/${docId}`, { viewTransition: true });
+        // and unknown folder ids — see resolveNoteFolderId. In a tag list the
+        // new note carries that tag.
+        const { docId, folderId: newFolderId } = await createNote({
+            folderId: resolveNoteFolderId(targetFolderId, folders),
+            tags: selectedTag ? [selectedTag] : [],
+        });
+        if (docId) {
+            markNewNote(docId);
+            slideNavigate("forward", () => navigate(`/${newFolderId}/${docId}`));
+        }
     };
 
     /** Move a note to another folder; if it's the open note, the URL follows it there. */

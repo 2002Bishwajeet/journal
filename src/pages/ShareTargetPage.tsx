@@ -53,7 +53,7 @@ export default function ShareTargetPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col p-4 md:p-8 max-w-2xl mx-auto pt-[env(safe-area-inset-top)]">
+    <div className="min-h-svh bg-background flex flex-col p-4 md:p-8 max-w-2xl mx-auto pt-[env(safe-area-inset-top)]">
       <div className="flex items-center justify-between mb-8 mt-4">
         <h1 className="text-2xl font-bold tracking-tight">Save to Journal</h1>
         <Button variant="ghost" size="icon" aria-label="Cancel" onClick={handleCancel}>
@@ -80,7 +80,7 @@ export default function ShareTargetPage() {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             className={cn(
-              "flex min-h-50 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+              "flex min-h-50 w-full rounded-md border border-input bg-background px-3 py-2 text-base pointer-fine:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
               "resize-none flex-1 font-mono leading-relaxed",
             )}
             placeholder="Write your note..."

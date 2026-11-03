@@ -1,6 +1,7 @@
 import {
   useParams,
   useNavigate,
+  useLocation,
   useSearchParams,
   Navigate,
 } from "react-router-dom";
@@ -11,6 +12,8 @@ import {
   ChatBot,
   SplashScreen,
 } from "@/components/layout";
+import { NewNoteFab } from "@/components/layout/NewNoteFab";
+import { MobileTabBar } from "@/components/layout/MobileTabBar";
 import {
   useTabRouting,
   useLayoutUrlActions,
@@ -24,43 +27,46 @@ import {
   useDocumentTitle,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
-import { useState, useEffect, lazy, Suspense, useMemo, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, lazy, Suspense, useMemo, useCallback } from "react";
+import { routeRendered, slideNavigate } from "@/lib/navDirection";
 import { Minimize2 } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import {
   CreateFolderModal,
   SearchModal,
-  ConfirmDialog,
   KeyboardShortcutsModal,
   ExtendPermissionDialog,
 } from "@/components/modals";
 import MoveToFolderDialog from "@/components/modals/MoveToFolderDialog";
 
 const SettingsModal = lazy(() => import("@/components/modals/SettingsModal"));
-const ShareDialog = lazy(() => import("@/components/modals/ShareDialog"));
-const MarkCollaborativeDialog = lazy(() =>
-  import("@/components/modals/MarkCollaborativeDialog").then((m) => ({
-    default: m.MarkCollaborativeDialog,
-  })),
-);
+const ShareNoteDialog = lazy(() => import("@/components/modals/ShareNoteDialog"));
+import { viewLabel } from "@/helpers/viewLabel";
 import { PSEUDO_FOLDERS } from "@/lib/homebase/config";
 import type { NoteListEntry } from "@/types";
 import { useNotes } from "@/hooks/useNotes";
-import { getMobilePane } from "@/layouts/mobilePane";
+import { getMobilePane, showNewNoteFab } from "@/layouts/mobilePane";
+import { useTextFieldFocused } from "@/hooks/useTextFieldFocused";
+import { useKeyboardOpen } from "@/hooks/useKeyboardOpen";
+import { useMobileTabs } from "@/hooks/useMobileTabs";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useTags } from "@/hooks/useTags";
+import { useSharedPull } from "@/hooks/useSharedPull";
 import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
 import { useSharePush } from "@/hooks/useSharePush";
+import { useRecordRecentNote } from "@/hooks/useRecentNotes";
 import { useWebMcpBridge } from "@/hooks/useWebMcp";
 import { useSettingsOpener } from "@/hooks/useSettingsOpener";
 import { useAuth } from "@/hooks/auth";
+import { overlayEntryOpen, useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { useAutoWhatsNew } from "@/hooks/useWhatsNew";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
-import { useFolders, isUnknownFolderRoute } from "@/hooks/useFolders";
+import { useFolders, isUnknownFolderRoute, findOrCreateFolderByName } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
+import { syncThemeColor } from "@/lib/themeColor";
 
 export default function JournalLayout() {
   // Initialize theme preference & system listener at root level
@@ -86,6 +92,9 @@ export default function JournalLayout() {
 
   const { folderId, noteId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  // A phone slide (#779) animates once the new location has rendered.
+  useLayoutEffect(routeRendered, [location.key]);
 
   const { logout } = useAuth();
 
@@ -133,9 +142,6 @@ export default function JournalLayout() {
   const settings = useSettingsOpener();
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [folderToRename, setFolderToRename] = useState<string | null>(null);
-  const [collaborativeNote, setCollaborativeNote] =
-    useState<NoteListEntry | null>(null);
-  const [revokeNote, setRevokeNote] = useState<NoteListEntry | null>(null);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [shareNote, setShareNote] = useState<NoteListEntry | null>(null);
   const [moveNote, setMoveNote] = useState<NoteListEntry | null>(null);
@@ -156,9 +162,9 @@ export default function JournalLayout() {
     isFolderLoading,
     folderId,
     notes,
-    createNote,
+    createNote: (targetFolderId) => createNote({ folderId: targetFolderId }),
     openSearch: setShowSearch,
-    openCollaborate: setCollaborativeNote,
+    openCollaborate: setShareNote,
   });
 
   const selectedTag = searchParams.get("tag");
@@ -177,21 +183,41 @@ export default function JournalLayout() {
     closeTab,
     handleTabClose,
   });
-  const { revoke: revokeCollaboration } = useNoteCollaboration();
+  const { removeFromMyList } = useNoteCollaboration();
+  const removeSharedNote = (note: NoteListEntry) => {
+    if (openTabs.some((t) => t.docId === note.docId)) handleTabClose(note.docId);
+    void removeFromMyList(note);
+  };
 
   // Focus mode hides all chrome to spotlight the editor; management views have
   // no editor, so its effect is suppressed there (otherwise: blank screen).
   const inFocusMode = focusMode && !isManagementView;
 
+  const deviceType = useDeviceType();
+  const isTablet = deviceType === "tablet";
+  // Tablets (768-1023 px) show the list and the editor side by side (#832); the
+  // folder sidebar is an overlay that owns a history entry, so Back closes it.
+  const [sidebarRequested, setSidebarRequested] = useState(false);
+  const sidebarOverlayOpen = isTablet && sidebarRequested;
+  useOverlayHistory(sidebarOverlayOpen, () => setSidebarRequested(false));
+  // A pick replaces the overlay's entry, so Back returns to the screen under it.
+  const go = (path: string) => {
+    navigate(path, { replace: sidebarOverlayOpen });
+    setSidebarRequested(false);
+  };
+
   // Daily notes ("Today"): open/create today's note, then route to it.
   const handleOpenToday = useCallback(async () => {
     try {
       const { docId, folderId: dailyFolderId } = await openToday();
-      navigate(`/${dailyFolderId}/${docId}`, { viewTransition: true });
+      const path = `/${dailyFolderId}/${docId}`;
+      // Already there: a push would make Back need two presses.
+      if (path !== location.pathname) navigate(path, { viewTransition: true, replace: sidebarOverlayOpen });
+      setSidebarRequested(false);
     } catch {
       toast.error("Couldn't open today's note");
     }
-  }, [openToday, navigate]);
+  }, [openToday, navigate, location.pathname, sidebarOverlayOpen, setSidebarRequested]);
 
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({
@@ -203,31 +229,42 @@ export default function JournalLayout() {
     onEscape: inFocusMode ? () => setFocusMode(false) : undefined,
   });
 
-  // Device type detection
-  const deviceType = useDeviceType();
   const isDesktop = deviceType === "desktop";
-  // If not desktop (so mobile or tablet), treat as mobile layout
 
-  const viewLabel = selectedTag
-    ? `#${selectedTag}`
-    : folderId === PSEUDO_FOLDERS.trash
-      ? "Trash"
-      : folderId === PSEUDO_FOLDERS.archive
-        ? "Archive"
-        : folderId === PSEUDO_FOLDERS.shared
-          ? "Shared"
-          : folders.find((f) => f.id === folderId)?.name;
+  const currentViewLabel = viewLabel(folderId, selectedTag, folders);
   const { tags, tagCounts, deleteTag } = useTags();
+  const sharedPull = useSharedPull();
 
   const mobilePane = getMobilePane({ folderId, noteId, tag: selectedTag });
+  const isPhone = deviceType === "mobile";
+  // The phone home's top is the sidebar; every other screen starts with --background (#893).
+  const topSurface = isPhone && mobilePane === "sidebar" && !isNotesLoading && !isFolderLoading ? "--sidebar" : "--background";
+  useEffect(() => {
+    syncThemeColor(topSurface);
+    return () => syncThemeColor("--background");
+  }, [topSurface]);
+  const textFieldFocused = useTextFieldFocused();
+  // The tab bar and the New note button leave the screen for the software keyboard (#853).
+  const keyboardOpen = useKeyboardOpen();
+  const showFab = showNewNoteFab({
+    isPhone,
+    pane: mobilePane,
+    isManagementView,
+    isShared: folderId === PSEUDO_FOLDERS.shared,
+    overlayOpen: overlayEntryOpen(location.state),
+    textFieldFocused: textFieldFocused || keyboardOpen,
+  });
+  const showTabBar = isPhone && mobilePane !== "editor" && !keyboardOpen;
+  const tabs = useMobileTabs();
 
   // Tab/window title: the open note, else the current view. Trash/Archive hide
   // the desktop editor, so an open tab there must not win.
   const openNoteId = isManagementView ? null : isDesktop ? activeTabId : noteId;
+  useRecordRecentNote(openNoteId);
   useDocumentTitle(
     openNoteId
       ? notes.find((n) => n.docId === openNoteId)?.title || "Untitled"
-      : viewLabel,
+      : currentViewLabel,
   );
 
   if (isNotesLoading || isFolderLoading) {
@@ -246,6 +283,16 @@ export default function JournalLayout() {
       >
         Skip to content
       </a>
+      {/* Tablet: tap outside closes the folders overlay */}
+      {sidebarOverlayOpen && (
+        <button
+          type="button"
+          aria-label="Close folders"
+          tabIndex={-1}
+          className="absolute inset-0 z-30 bg-black/30"
+          onClick={() => setSidebarRequested(false)}
+        />
+      )}
       {/* Sidebar */}
       <div
         data-pane="sidebar"
@@ -253,14 +300,18 @@ export default function JournalLayout() {
           "h-full border-r bg-muted/10 transition-all duration-300 ease-in-out",
           // Desktop: Always visible
           isDesktop ? "flex static" : "hidden",
-          // Mobile: Visible only at the root (no folder, tag or note)
-          !isDesktop &&
+          // Phone: Visible only at the root (no folder, tag or note)
+          isPhone &&
             mobilePane === "sidebar" &&
             "flex absolute inset-y-0 left-[env(safe-area-inset-left)] right-[env(safe-area-inset-right)] z-30 bg-background",
+          // Tablet: an overlay panel over the list, opened from the list header
+          sidebarOverlayOpen &&
+            "flex absolute inset-y-0 left-[env(safe-area-inset-left)] w-80 max-w-[85%] z-40 bg-background shadow-xl",
           inFocusMode && "hidden!",
         )}
       >
         <Sidebar
+          sharedPull={sharedPull}
           folders={folders}
           selectedFolderId={folderId || ""}
           onSelectFolder={(id) => {
@@ -273,17 +324,18 @@ export default function JournalLayout() {
                 return;
               }
             }
-            navigate(`/${id}`, { viewTransition: true });
+            slideNavigate("forward", () => navigate(`/${id}`, { replace: sidebarOverlayOpen }));
+            setSidebarRequested(false);
           }}
           onCreateFolder={() => setShowCreateFolder(true)}
           onDeleteFolder={(id) => deleteFolder(id)}
           onRenameFolder={setFolderToRename}
           onOpenToday={handleOpenToday}
           collaborativeCount={counts.collaborative}
-          onSelectShared={() => navigate("/shared")}
-          onSelectTrash={() => navigate("/trash")}
+          onSelectShared={() => go("/shared")}
+          onSelectTrash={() => go("/trash")}
           trashCount={counts.trashed}
-          onSelectArchive={() => navigate("/archive")}
+          onSelectArchive={() => go("/archive")}
           archivedCount={counts.archived}
           onSearch={() => setShowSearch(true)}
           onSettings={settings.open}
@@ -293,9 +345,9 @@ export default function JournalLayout() {
           selectedTag={selectedTag}
           onSelectTag={(tag) => {
             if (tag) {
-              navigate(`/?tag=${encodeURIComponent(tag)}`);
+              go(`/?tag=${encodeURIComponent(tag)}`);
             } else {
-              navigate(folderId ? `/${folderId}` : "/");
+              go(folderId ? `/${folderId}` : "/");
             }
           }}
           onDeleteTag={(tag) => {
@@ -306,30 +358,29 @@ export default function JournalLayout() {
       </div>
 
       <NoteListPane
+        sharedPull={sharedPull}
         isDesktop={isDesktop}
+        isPhone={isPhone}
+        isTablet={isTablet}
+        onOpenSidebar={() => setSidebarRequested(true)}
         isManagementView={isManagementView}
         isListVisibleOnMobile={mobilePane === "list"}
         inFocusMode={inFocusMode}
         folderId={folderId}
         noteId={noteId}
         selectedTag={selectedTag}
-        viewLabel={viewLabel}
+        viewLabel={currentViewLabel}
         listNotes={listNotes}
         isListLoading={isListLoading}
         noteActions={noteActions}
         onShareNote={setShareNote}
         onMoveToFolder={setMoveNote}
-        onMarkCollaborative={(note) => {
-          if (note.metadata.isCollaborative) {
-            setRevokeNote(note);
-          } else {
-            setCollaborativeNote(note);
-          }
-        }}
+        onRemoveFromList={removeSharedNote}
       />
 
       <EditorPane
         isDesktop={isDesktop}
+        isTablet={isTablet}
         isManagementView={isManagementView}
         isEditorVisibleOnMobile={mobilePane === "editor"}
         focusMode={focusMode}
@@ -343,6 +394,15 @@ export default function JournalLayout() {
         collaborativeTabIds={collaborativeTabIds}
         onTabClick={handleTabClick}
         onTabClose={handleTabClose}
+        noteScreenActions={{
+          backLabel: currentViewLabel ?? "Notes",
+          onShare: setShareNote,
+          onMoveToFolder: setMoveNote,
+          onArchive: noteActions.archive,
+          // A phone shows the list again; a tablet opens the next note beside it.
+          onTrash: (id) => noteActions.deleteAndSelectNeighbour(id, { openNeighbour: !isPhone }),
+          onRemoveFromList: removeSharedNote,
+        }}
       />
 
       {/* Focus mode exit pill for touch layouts; desktop has an Exit button in the toolbar. */}
@@ -359,6 +419,16 @@ export default function JournalLayout() {
         </div>
       )}
 
+      {showFab && <NewNoteFab onClick={() => void noteActions.createAndOpen(folderId)} />}
+      {showTabBar && (
+        <MobileTabBar
+          activeTab={tabs.activeTab}
+          onSelectTab={tabs.selectTab}
+          onSearch={() => setShowSearch(true)}
+          onSettings={settings.open}
+        />
+      )}
+
       {/* Modals */}
       {noteId && deviceType !== "mobile" ? <ChatBot activeNoteId={noteId} /> : null}
 
@@ -369,7 +439,9 @@ export default function JournalLayout() {
           // Find note to get folder
           const note = notes.find((n) => n.docId === docId);
           if (note) {
-            navigate(`/${note.metadata.folderId}/${docId}`);
+            // On a phone the sheet owns the current entry (#822): replace it,
+            // so Back from the note returns to the screen under the sheet.
+            navigate(`/${note.metadata.folderId}/${docId}`, { replace: overlayEntryOpen(location.state) });
           }
           setShowSearch(false);
         }}
@@ -407,53 +479,29 @@ export default function JournalLayout() {
 
       {shareNote && (
         <Suspense fallback={null}>
-          <ShareDialog
+          <ShareNoteDialog
             isOpen={!!shareNote}
             onClose={() => setShareNote(null)}
             noteId={shareNote.docId}
             noteTitle={shareNote.title || "Untitled"}
+            inSharedFolder={folders.some((f) => f.id === shareNote.metadata.folderId && f.isPublic)}
           />
         </Suspense>
       )}
 
-      {moveNote && (
-        <MoveToFolderDialog
-          isOpen
-          onClose={() => setMoveNote(null)}
-          noteTitle={moveNote.title || "Untitled"}
-          currentFolderId={moveNote.metadata.folderId}
-          folders={folders}
-          onMove={(targetFolderId) =>
-            void noteActions.moveToFolder(moveNote.docId, targetFolderId)
-          }
-        />
-      )}
-
-      {collaborativeNote && (
-        <Suspense fallback={null}>
-          <MarkCollaborativeDialog
-            isOpen={!!collaborativeNote}
-            onClose={() => {
-              setCollaborativeNote(null);
-              requestAnimationFrame(() => {
-                (document.getElementById("main-content") as HTMLElement | null)?.focus();
-              });
-            }}
-            noteId={collaborativeNote.docId}
-            noteTitle={collaborativeNote.title || "Untitled"}
-          />
-        </Suspense>
-      )}
-
-      <ConfirmDialog
-        isOpen={!!revokeNote}
-        onClose={() => setRevokeNote(null)}
-        title="Revoke Collaboration"
-        description={`This will remove circle access to "${revokeNote?.title || "Untitled"}" and move it out of the shared folder — it will no longer be accessible to collaborators.`}
-        confirmText="Revoke"
-        variant="destructive"
-        onConfirm={() => revokeCollaboration(revokeNote)}
+      {/* Stays mounted: an unmounted open sheet leaves its back entry behind. */}
+      <MoveToFolderDialog
+        isOpen={!!moveNote}
+        onClose={() => setMoveNote(null)}
+        noteTitle={moveNote?.title || "Untitled"}
+        currentFolderId={moveNote?.metadata.folderId ?? ""}
+        folders={folders}
+        onMove={(targetFolderId) => {
+          if (moveNote) void noteActions.moveToFolder(moveNote.docId, targetFolderId);
+        }}
+        onCreateFolder={findOrCreateFolderByName}
       />
+
       <KeyboardShortcutsModal
         isOpen={showKeyboardHelp}
         onClose={() => setShowKeyboardHelp(false)}

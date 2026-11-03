@@ -42,9 +42,12 @@ import { cn } from "@/lib/utils";
 import type { Folder } from "@/types";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
-import { useSharedPull } from "@/hooks/useSharedPull";
+import type { useSharedPull } from "@/hooks/useSharedPull";
 import { OwnerImage } from "@/components/author/AuthorImage";
 import { folderInitials } from "@/lib/folderInitials";
+import { useLargeTitle } from "@/hooks/useLargeTitle";
+import { BarTitle, LargeTitle } from "./LargeTitle";
+import { largeTitleBarClass } from "./largeTitleClasses";
 
 interface SidebarProps {
   folders: Folder[];
@@ -69,6 +72,8 @@ interface SidebarProps {
   selectedTag?: string | null;
   onSelectTag?: (tag: string | null) => void;
   onDeleteTag?: (tag: string) => void;
+  /** Pulls notes shared with you; owned by the layout so the Shared list can offer Refresh too. */
+  sharedPull: ReturnType<typeof useSharedPull>;
   className?: string;
 }
 
@@ -102,25 +107,76 @@ export default function Sidebar({
   selectedTag,
   onSelectTag,
   onDeleteTag,
+  sharedPull,
   className = "",
 }: SidebarProps) {
   const { collapsed, toggle } = useSidebarCollapse();
   // The rail only exists on desktop; phones and tablets show the sidebar as a full pane.
-  const isDesktop = useDeviceType() === "desktop";
+  const deviceType = useDeviceType();
+  const isDesktop = deviceType === "desktop";
+  // On a phone, Shared and Settings are tabs in the bottom bar (#853).
+  const isPhone = deviceType === "mobile";
   const isCollapsed = collapsed.sidebar && isDesktop;
+  // Phone and tablet (#830): "Journal" is a large title that collapses into the bar on scroll.
+  const largeTitle = useLargeTitle(!isDesktop);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [shareFolderId, setShareFolderId] = useState<string | null>(null);
   const [tagToDelete, setTagToDelete] = useState<string | null>(null);
   const tagToDeleteCount = tagToDelete ? tagCounts?.[tagToDelete] ?? 0 : 0;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { sync, pendingCount } = useSyncService();
-  const sharedPull = useSharedPull();
   const hasShared = collaborativeCount != null && collaborativeCount > 0;
 
   const handleRefresh = async () => {
     // The folder list is a live query — a sync pull surfaces new folders automatically.
     await sync();
   };
+
+  // Search and Today: above the scroll area on desktop; under the large title on phones and tablets.
+  const topRows = (
+    <>
+      {/* Search */}
+      <div className="px-2 py-2">
+        <Button
+          variant="ghost"
+          aria-label={isCollapsed ? "Search" : undefined}
+          className={cn(
+            "text-muted-foreground transition-all duration-200",
+            isCollapsed ? "size-9 px-0" : "w-full justify-start px-2 pointer-coarse:min-h-11"
+          )}
+          onClick={onSearch}
+        >
+          <Search className="h-4 w-4 shrink-0" />
+          {!isCollapsed && <span className="ml-2 text-sm">Search</span>}
+        </Button>
+      </div>
+
+      {/* Quick actions */}
+      {FEATURES.dailyNotes && (
+        <div className="px-2 pb-2 space-y-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                aria-label="Open today's daily note"
+                className={cn(
+                  "text-muted-foreground transition-all duration-200",
+                  isCollapsed ? "size-9 px-0" : "w-full justify-start px-2 pointer-coarse:min-h-11"
+                )}
+                onClick={onOpenToday}
+              >
+                <CalendarDays className="h-4 w-4 shrink-0" />
+                {!isCollapsed && <span className="ml-2 text-sm">Today</span>}
+              </Button>
+            </TooltipTrigger>
+            {isCollapsed && <TooltipContent side="right">Today</TooltipContent>}
+          </Tooltip>
+        </div>
+      )}
+
+      <Separator />
+    </>
+  );
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -134,6 +190,11 @@ export default function Sidebar({
         )}
       >
         {/* Header */}
+        {!isDesktop ? (
+          <div className={cn(largeTitleBarClass(largeTitle.collapsed), largeTitle.collapsed && "border-sidebar-border")}>
+            <BarTitle show={largeTitle.collapsed}>Journal</BarTitle>
+          </div>
+        ) : (
         <div
           className={cn(
             "flex items-center h-12 border-b border-sidebar-border shrink-0",
@@ -171,47 +232,9 @@ export default function Sidebar({
             </TooltipContent>
           </Tooltip>
         </div>
-
-        {/* Search */}
-        <div className="px-2 py-2">
-          <Button
-            variant="ghost"
-            aria-label={isCollapsed ? "Search" : undefined}
-            className={cn(
-              "text-muted-foreground transition-all duration-200",
-              isCollapsed ? "size-9 px-0" : "w-full justify-start px-2 pointer-coarse:min-h-11"
-            )}
-            onClick={onSearch}
-          >
-            <Search className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="ml-2 text-sm">Search</span>}
-          </Button>
-        </div>
-
-        {/* Quick actions */}
-        {FEATURES.dailyNotes && (
-          <div className="px-2 pb-2 space-y-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  aria-label="Open today's daily note"
-                  className={cn(
-                    "text-muted-foreground transition-all duration-200",
-                    isCollapsed ? "size-9 px-0" : "w-full justify-start px-2 pointer-coarse:min-h-11"
-                  )}
-                  onClick={onOpenToday}
-                >
-                  <CalendarDays className="h-4 w-4 shrink-0" />
-                  {!isCollapsed && <span className="ml-2 text-sm">Today</span>}
-                </Button>
-              </TooltipTrigger>
-              {isCollapsed && <TooltipContent side="right">Today</TooltipContent>}
-            </Tooltip>
-          </div>
         )}
 
-        <Separator />
+        {isDesktop && topRows}
 
         {/* Radix wraps the content in a display:table div that grows to the longest folder name; block keeps names truncating. */}
         <ScrollArea
@@ -222,7 +245,17 @@ export default function Sidebar({
           )}
         >
           <PullToRefresh onRefresh={handleRefresh} className="min-h-full">
-          {(hasShared || sharedPull.canPull) && (
+          {!isDesktop && (
+            <>
+              {/* The owner's picture sits at the end of the title row, as in the iOS App Store. */}
+              <div className="flex items-center pr-4 [&>h2]:min-w-0 [&>h2]:flex-1">
+                <LargeTitle titleRef={largeTitle.ref}>Journal</LargeTitle>
+                <OwnerImage size="custom" className="size-9 shrink-0" />
+              </div>
+              {topRows}
+            </>
+          )}
+          {!isPhone && (hasShared || sharedPull.canPull) && (
             <div className={cn("px-2 pt-2 pb-1 flex", isCollapsed ? "justify-center" : "items-center gap-1")}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -502,7 +535,7 @@ export default function Sidebar({
           isOpen={showLogoutConfirm}
           onClose={() => setShowLogoutConfirm(false)}
           onConfirm={onLogout}
-          pendingTotal={pendingCount.total}
+          pendingTotal={pendingCount.total + pendingCount.failed}
         />
 
         {/* Footer */}
@@ -511,7 +544,7 @@ export default function Sidebar({
             "shrink-0 space-y-1",
             isCollapsed
               ? "p-2 w-full flex flex-col items-center"
-              : "p-2 mt-auto"
+              : "p-2 pb-[calc(0.5rem+var(--fab-clearance,0px))] mt-auto"
           )}
         >
           <Separator className={isCollapsed ? "mb-2 w-6!" : "mb-2"} />
@@ -586,28 +619,32 @@ export default function Sidebar({
             )}
           </Tooltip>
 
-          <Tooltip>
-            {/* Settings */}
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                className={cn(
-                  isCollapsed
-                    ? "h-9 w-9 justify-center px-0"
-                    : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground"
-                )}
-                aria-label={isCollapsed ? "Settings" : undefined}
-                onClick={onSettings}
-              >
-                <Settings className="h-4 w-4" />
-                {!isCollapsed && <span className="ml-2 text-sm">Settings</span>}
-              </Button>
-            </TooltipTrigger>
-            {isCollapsed && (
-              <TooltipContent side="right">Settings</TooltipContent>
-            )}
-          </Tooltip>
+          {!isPhone && (
+            <Tooltip>
+              {/* Settings */}
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    isCollapsed
+                      ? "h-9 w-9 justify-center px-0"
+                      : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground"
+                  )}
+                  aria-label={isCollapsed ? "Settings" : undefined}
+                  onClick={onSettings}
+                >
+                  <Settings className="h-4 w-4" />
+                  {!isCollapsed && <span className="ml-2 text-sm">Settings</span>}
+                </Button>
+              </TooltipTrigger>
+              {isCollapsed && (
+                <TooltipContent side="right">Settings</TooltipContent>
+              )}
+            </Tooltip>
+          )}
 
+          {/* Phones sign out in Settings → Account (#830). */}
+          {!isPhone && (
           <Tooltip>
             {/* Logout */}
             <TooltipTrigger asChild>
@@ -629,6 +666,7 @@ export default function Sidebar({
               <TooltipContent side="right">Log out</TooltipContent>
             )}
           </Tooltip>
+          )}
         </div>
       </aside>
     </TooltipProvider>

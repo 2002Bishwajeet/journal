@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { createNote } from '../support/actions';
+import { createNote, openSettingsSection, settingsPanel } from '../support/actions';
 
 // Settings → Account (#213): identity, sync status + Sync now, honest sign-out warning.
 
@@ -29,7 +29,7 @@ test('a pending change: both sign-out entry points warn it will be lost', async 
   await createNote(app, { title: 'Unsynced', body: 'Not on Homebase yet' });
 
   await app.getByRole('button', { name: 'Settings' }).click();
-  const panel = app.getByRole('dialog').getByRole('tabpanel');
+  const panel = settingsPanel(app.getByRole('dialog'));
   await expect(panel.getByRole('status')).toContainText('waiting to sync');
   await expect(panel.getByRole('status')).not.toContainText('Up to date');
   // Let the dialog's open animation finish so the shot isn't translucent.
@@ -44,12 +44,12 @@ test('a pending change: both sign-out entry points warn it will be lost', async 
     ['light', { width: 390, height: 844 }],
   ] as const) {
     await app.setViewportSize(size);
-    await dialog.getByRole('tab', { name: 'Appearance' }).click();
+    await openSettingsSection(dialog, 'Appearance');
     const label = theme === 'dark' ? 'Dark' : 'Light';
     // The radio is an sr-only input inside a card label; click the card.
     await dialog.getByRole('radiogroup', { name: 'Theme' }).locator('label', { hasText: label }).click();
     await expect(dialog.getByRole('radio', { name: label })).toBeChecked();
-    await dialog.getByRole('tab', { name: 'Account' }).click();
+    await openSettingsSection(dialog, 'Account');
     await expect(app.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`));
     await expect(panel.getByRole('status')).toBeVisible();
     await expect(panel.getByRole('status')).toContainText('waiting to sync');

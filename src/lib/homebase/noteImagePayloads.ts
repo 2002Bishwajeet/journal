@@ -1,10 +1,24 @@
-import type { ImageSize, PayloadFile, ThumbnailFile } from '@homebase-id/js-lib/core';
+import type { EmbeddedThumb, ImageSize, PayloadFile, ThumbnailFile } from '@homebase-id/js-lib/core';
 import { getRandom16ByteArray } from '@homebase-id/js-lib/helpers';
 import { createThumbnails } from '@homebase-id/js-lib/media';
 import { dedupeThumbnailsByDimensions } from '@/lib/utils';
 import { PAYLOAD_KEY_CONTENT } from './config';
 
 const YJS_MIME_TYPE = 'application/yjs';
+
+/**
+ * Homebase refuses an upload with a thumbnail over 1 MiB ("ThumbnailDescriptor
+ * BytesWritten ... too long"). The margin covers encryption padding.
+ */
+export const MAX_THUMBNAIL_BYTES = 1024 * 1024 - 4096;
+
+const fitsServerLimit = (thumb: ThumbnailFile) => thumb.payload.size <= MAX_THUMBNAIL_BYTES;
+
+/** Homebase refuses an embedded preview over 1 KiB (ThumbnailContent.MaxTinyThumbLength). */
+export const MAX_PREVIEW_BYTES = 1024;
+
+const previewBytes = (thumb: EmbeddedThumb) =>
+    Math.floor((thumb.content.length * 3) / 4) - (thumb.content.match(/=+$/)?.[0].length ?? 0);
 
 /**
  * The note's Yjs content payload, when there is content. Only an encrypted note's
@@ -43,12 +57,20 @@ export async function buildImagePayload(
         return { payload, thumbnails: [] };
     }
     if (naturalSize) {
-        return { payload, thumbnails: [{ key: payloadKey, ...naturalSize, payload: file }] };
+        return { payload, thumbnails: [{ key: payloadKey, ...naturalSize, payload: file }].filter(fitsServerLimit) };
     }
 
-    const { additionalThumbnails, tinyThumb } = await createThumbnails(file, payloadKey);
+    // A thumbnail that can't be drawn (e.g. an image this browser can't decode) must not
+    // block the upload: the image goes up without thumbnails
+    const thumbs = await createThumbnails(file, payloadKey).catch((error: unknown) => {
+        console.warn(`[noteImagePayloads] no thumbnails for ${payloadKey}:`, error);
+        return undefined;
+    });
+    if (!thumbs) return { payload, thumbnails: [] };
+    const { additionalThumbnails, tinyThumb } = thumbs;
     return {
-        payload: { ...payload, previewThumbnail: tinyThumb },
-        thumbnails: dedupeThumbnailsByDimensions(additionalThumbnails),
+        payload: { ...payload, previewThumbnail: previewBytes(tinyThumb) <= MAX_PREVIEW_BYTES ? tinyThumb : undefined },
+        // A thumbnail over the limit would fail the whole upload; the smaller ones still serve
+        thumbnails: dedupeThumbnailsByDimensions(additionalThumbnails.filter(fitsServerLimit)),
     };
 }

@@ -1,5 +1,5 @@
 import { test, expect, waitForAppReady } from '../fixtures';
-import { activeEditor, createNote, screenshotInBothThemes, typeInEditor } from '../support/actions';
+import { activeEditor, createNote, mermaidFrame, screenshotInBothThemes, typeInEditor } from '../support/actions';
 
 // #388: code blocks whose language is `mermaid` or `svg` get a Preview / Code toggle.
 
@@ -11,7 +11,7 @@ test('mermaid block: previews as an svg, toggles to code, and previews again aft
   await expect(app.getByRole('button', { name: 'Code', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
   await app.getByRole('button', { name: 'Preview', exact: true }).click();
-  await expect(editor.locator('[data-live-block-preview] svg')).toBeVisible();
+  await expect(mermaidFrame(editor).locator('svg[id^="mermaid-"]')).toBeVisible();
 
   await app.getByRole('button', { name: 'Code', exact: true }).click();
   await expect(editor.locator('[data-live-block-preview]')).toHaveCount(0);
@@ -21,7 +21,7 @@ test('mermaid block: previews as an svg, toggles to code, and previews again aft
   await waitForAppReady(app);
 
   // The block has content at mount, so it comes back in Preview.
-  await expect(activeEditor(app).locator('[data-live-block-preview] svg')).toBeVisible();
+  await expect(mermaidFrame(activeEditor(app)).locator('svg[id^="mermaid-"]')).toBeVisible();
 });
 
 test('svg block: previews through an img with a data URI', async ({ reusedApp: app }) => {
@@ -48,7 +48,7 @@ test('invalid mermaid: shows an error in the preview and the editor stays usable
   await createNote(app, { title: `Bad mermaid ${Date.now()}`, body: '```mermaid this is not a diagram' });
 
   await app.getByRole('button', { name: 'Preview', exact: true }).click();
-  await expect(activeEditor(app).locator('[data-live-block-preview] [role="alert"]')).toBeVisible();
+  await expect(mermaidFrame(activeEditor(app)).getByRole('alert')).toBeVisible();
 
   // Back in Code, the source is still editable.
   await app.getByRole('button', { name: 'Code', exact: true }).click();
@@ -76,7 +76,7 @@ test('screenshot: mermaid and svg blocks in preview', async ({ reusedApp: app })
   await app.getByRole('button', { name: 'Preview', exact: true }).nth(0).click();
   await app.getByRole('button', { name: 'Preview', exact: true }).nth(1).click();
   const editor = activeEditor(app);
-  await expect(editor.locator('[data-live-block-preview] svg')).toBeVisible();
+  await expect(mermaidFrame(editor).locator('svg[id^="mermaid-"]')).toBeVisible();
   await expect(editor.locator('[data-live-block-preview] img')).toBeVisible();
 
   await screenshotInBothThemes(app, (theme) => `live-blocks-${theme}.png`);

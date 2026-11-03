@@ -16,6 +16,7 @@ import {
     JOURNAL_APP_SLUG,
     BASE_PERMISSIONS,
     JOURNAL_DRIVE,
+    JOURNAL_DRIVE_ATTRIBUTES,
     STORAGE_KEY_AUTH_TOKEN,
     STORAGE_KEY_SHARED_SECRET,
 } from '@/lib/homebase/config';
@@ -33,9 +34,7 @@ export const journalDriveRequest: TargetDriveAccessRequest = {
     ],
     allowAnonymousRead: true,
     allowSubscriptions: true,
-    attributes: {
-        IsCollaborativeChannel: "true",
-    },
+    attributes: JOURNAL_DRIVE_ATTRIBUTES,
     // Permanent address: /apps/{JOURNAL_APP_SLUG}/drives/notes
     driveSlug: 'notes',
     driveTypeSlug: 'notes',

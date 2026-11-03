@@ -25,6 +25,7 @@ import * as push from './sync/push';
 import * as images from './sync/imageUploads';
 import * as merge from './sync/merge';
 import * as sharedPull from './sync/sharedPull';
+import { describeSyncError, type SyncErrorInfo } from './sync/syncErrorInfo';
 
 export { classifyPeerFetchError } from './sync/peerNotes';
 export type { EnsureNoteContentStatus, EnsureNoteContentResult } from './sync/peerNotes';
@@ -177,15 +178,22 @@ export class SyncService {
     }
 
     /**
-     * Log sync error to database for tracking.
+     * Log a sync error with the server's reason (#874) and record it for tracking.
+     * A permanent push or upload error stops automatic retries; a failed pull keeps
+     * its own attempt limit. Returns what the error says.
      */
-    private async logSyncError(entityId: string, entityType: 'folder' | 'note' | 'image', operation: 'push' | 'pull' | 'upload', error: unknown): Promise<void> {
+    private async logSyncError(entityId: string, entityType: 'folder' | 'note' | 'image', operation: 'push' | 'pull' | 'upload', error: unknown): Promise<SyncErrorInfo> {
+        const info = describeSyncError(error);
+        const permanent = info.permanent && operation !== 'pull';
+        console.error(
+            `[SyncService] ${operation} of ${entityType} ${entityId} failed${info.code ? ` (${info.code})` : ''}: ${info.message}${permanent ? '; not retrying' : ''}`,
+        );
         if (!entityId) {
             console.error('[SyncService] logSyncError called with an empty entityId; not writing a sync_errors row');
-            return;
+            return info;
         }
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        await recordSyncError(entityId, entityType, operation, errorMessage);
+        await recordSyncError(entityId, entityType, operation, info.message, { code: info.code, permanent });
+        return info;
     }
 
     async pushChanges(onProgress?: (progress: SyncProgress) => void): Promise<{ folders: number; notes: number }> {

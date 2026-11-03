@@ -1,7 +1,8 @@
 import * as Y from 'yjs';
-import { saveDocumentUpdate, getDocumentUpdates, replaceDocumentUpdates } from '@/lib/db';
+import { saveDocumentUpdate, getDocumentUpdates, replaceDocumentUpdates, getSearchIndexEntry } from '@/lib/db';
 import { documentBroadcast, type DocumentBroadcastMessage } from '@/lib/broadcast';
 import { captureSnapshot } from '@/lib/history/snapshot';
+import { readUnsavedEdits, removeUnsavedEdits, saveUnsavedEdits, unsavedEditDocIds } from './unsavedEdits';
 
 // Origin tagged on updates that come FROM the database (load/reload). The update
 // handler skips it: replaying stored state is not a new edit, and persisting it
@@ -19,6 +20,9 @@ export class PGliteProvider {
     private isLoaded: boolean = false;
     private isSaving: boolean = false;
     private pendingUpdates: Uint8Array[] = [];
+    // Every local edit since the note opened, kept for the unload copy (see unsavedEdits.ts).
+    private sessionUpdates: Uint8Array[] = [];
+    private hasUnsavedCopy = false;
     private saveTimer: ReturnType<typeof setTimeout> | null = null;
     private updateCount: number = 0;
     private static readonly COMPACTION_THRESHOLD = 50; // Compact after 50 updates
@@ -46,7 +50,8 @@ export class PGliteProvider {
         // Subscribe to broadcast messages
         this.unsubscribe = documentBroadcast.subscribe(this.handleBroadcastMessage);
 
-        // Best-effort: persist the open write window when the tab is hidden or unloaded
+        // Copy the edits to localStorage when the tab is hidden or unloaded, then try to
+        // persist the open write window (the page may be gone before that finishes)
         if (typeof window !== 'undefined') {
             window.addEventListener('pagehide', this.handlePageHide);
             document.addEventListener('visibilitychange', this.handleVisibilityChange);
@@ -54,12 +59,22 @@ export class PGliteProvider {
     }
 
     private handlePageHide = (): void => {
+        this.saveUnsavedEdits();
         void this.flush();
     };
 
     private handleVisibilityChange = (): void => {
-        if (document.visibilityState === 'hidden') void this.flush();
+        if (document.visibilityState !== 'hidden') return;
+        this.saveUnsavedEdits();
+        void this.flush();
     };
+
+    private saveUnsavedEdits(): void {
+        if (this.sessionUpdates.length === 0) return;
+        this.sessionUpdates = [Y.mergeUpdates(this.sessionUpdates)];
+        saveUnsavedEdits(this.docId, this.sessionUpdates[0]);
+        this.hasUnsavedCopy = true;
+    }
 
     /**
      * Handle broadcast messages from DocumentBroadcast singleton
@@ -116,6 +131,17 @@ export class PGliteProvider {
                 Y.applyUpdate(this.doc, update, DB_ORIGIN);
             }
 
+            // Edits an earlier page copied on unload (#873). Only what the database lacks
+            // fires an update, which the normal write path then persists. The copy is kept
+            // until the note closes, as that write can be lost to the next unload too.
+            const unsaved = readUnsavedEdits(this.docId);
+            if (unsaved) {
+                this.sessionUpdates.push(unsaved);
+                this.hasUnsavedCopy = true;
+                Y.applyUpdate(this.doc, unsaved);
+            }
+            void PGliteProvider.pruneUnsavedEdits(this.docId);
+
             this.isLoaded = true;
 
             // Auto-compact on load if there are many updates
@@ -130,6 +156,24 @@ export class PGliteProvider {
     }
 
     /**
+     * Drop the unload copies of other notes that the database already holds, or whose
+     * note was deleted, so copies of notes never reopened do not pile up in localStorage.
+     * A copy still holding unsaved edits stays for its note's next load.
+     */
+    static async pruneUnsavedEdits(openDocId: string): Promise<void> {
+        try {
+            for (const docId of unsavedEditDocIds()) {
+                const copy = docId === openDocId ? null : readUnsavedEdits(docId);
+                if (!copy) continue;
+                const deleted = !(await getSearchIndexEntry(docId));
+                if (deleted || (await isStored(docId, copy))) removeUnsavedEdits(docId, copy);
+            }
+        } catch (error) {
+            console.error('[PGliteProvider] Failed to prune unsaved edits:', error);
+        }
+    }
+
+    /**
      * Handle Yjs document updates
      */
     private handleUpdate = (update: Uint8Array, origin: unknown): void => {
@@ -140,6 +184,11 @@ export class PGliteProvider {
 
         // Queue the update
         this.pendingUpdates.push(update);
+        this.sessionUpdates.push(update);
+        // Bounds a long session's memory
+        if (this.sessionUpdates.length >= PGliteProvider.COMPACTION_THRESHOLD) {
+            this.sessionUpdates = [Y.mergeUpdates(this.sessionUpdates)];
+        }
 
         // The first update of a burst opens the write window. While a save is in
         // flight its drain loop picks the update up instead.
@@ -290,8 +339,23 @@ export class PGliteProvider {
             if (this.updateCount > 1) {
                 await this.compact();
             }
+            // The note closed while the page lives on, so its writes can finish.
+            if (this.hasUnsavedCopy) removeUnsavedEdits(this.docId);
         } finally {
             PGliteProvider.live.delete(this);
         }
     }
+}
+
+/** Whether the database already holds every edit in `update`. */
+async function isStored(docId: string, update: Uint8Array): Promise<boolean> {
+    const doc = new Y.Doc();
+    for (const stored of await getDocumentUpdates(docId)) Y.applyUpdate(doc, stored);
+    let adds = false;
+    doc.on('update', () => { adds = true; });
+    Y.applyUpdate(doc, update);
+    // Edits waiting on ones the database lacks fire no update but are not stored either
+    const stored = !adds && !doc.store.pendingStructs && !doc.store.pendingDs;
+    doc.destroy();
+    return stored;
 }

@@ -175,30 +175,6 @@ const IndentExtension = Extension.create({
             },
         }];
     },
-    addKeyboardShortcuts() {
-        return {
-            'Tab': () => {
-                if (this.editor.isActive('listItem') || this.editor.isActive('taskItem') || this.editor.isActive('table')) {
-                    return false;
-                }
-                const nodeType = this.editor.state.selection.$from.parent.type.name;
-                if (!['paragraph', 'heading'].includes(nodeType)) return false;
-                const current = this.editor.getAttributes(nodeType).indent || 0;
-                if (current >= 8) return false;
-                return this.editor.chain().updateAttributes(nodeType, { indent: current + 1 }).run();
-            },
-            'Shift-Tab': () => {
-                if (this.editor.isActive('listItem') || this.editor.isActive('taskItem') || this.editor.isActive('table')) {
-                    return false;
-                }
-                const nodeType = this.editor.state.selection.$from.parent.type.name;
-                if (!['paragraph', 'heading'].includes(nodeType)) return false;
-                const current = this.editor.getAttributes(nodeType).indent || 0;
-                if (current <= 0) return false;
-                return this.editor.chain().updateAttributes(nodeType, { indent: current - 1 }).run();
-            },
-        };
-    },
 });
 
 /**

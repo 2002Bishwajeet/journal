@@ -47,7 +47,10 @@ export function explainSyncError(error: { message: string; code: string | null; 
     const what = error.operation === 'pull' ? 'download' : error.operation === 'upload' ? 'upload this image' : 'upload this change';
 
     let plain: string;
-    if (status === '401') plain = 'Your sign-in was rejected. Signing out and back in usually fixes it.';
+    // Homebase keeps at most 25 payloads per file: the note's text, its images and its link card (#874)
+    if (/too many payloads/i.test(error.message)) {
+        plain = "This note has more images than your Homebase allows (25 files per note, its text included). Remove an image from the note and retry, or discard this upload.";
+    } else if (status === '401') plain = 'Your sign-in was rejected. Signing out and back in usually fixes it.';
     else if (status === '403') plain = "Journal doesn't have permission for this. Check Permissions in Settings › Account.";
     else if (status === '404') plain = "The copy on your Homebase wasn't found.";
     else if (status === '409') plain = 'The copy on your Homebase changed at the same time.';

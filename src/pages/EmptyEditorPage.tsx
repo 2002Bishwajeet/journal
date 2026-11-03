@@ -2,11 +2,13 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { FolderOpen, PenLine, PlusCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useNotes } from "@/hooks/useNotes";
 import { useFolders, resolveNoteFolderId } from "@/hooks/useFolders";
 
-export default function EmptyEditorPage() {
+export default function EmptyEditorPage({ overrideFolderId }: { overrideFolderId?: string } = {}) {
+  // MotionConfig reducedMotion="user" drops transforms but keeps opacity fades.
+  const reducedMotion = useReducedMotion();
   const {
     createNote: { mutateAsync: createNote },
   } = useNotes();
@@ -14,12 +16,13 @@ export default function EmptyEditorPage() {
     get: { data: folders },
   } = useFolders();
   const navigate = useNavigate();
-  const { folderId } = useParams();
+  const params = useParams();
+  const folderId = overrideFolderId ?? params.folderId;
 
   const handleCreateNote = async () => {
-    const { docId, folderId: newFolderId } = await createNote(
-      resolveNoteFolderId(folderId, folders),
-    );
+    const { docId, folderId: newFolderId } = await createNote({
+      folderId: resolveNoteFolderId(folderId, folders),
+    });
     if (docId) {
       navigate(`/${newFolderId}/${docId}`);
     }
@@ -41,7 +44,7 @@ export default function EmptyEditorPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: reducedMotion ? 0 : 0.5 }}
         className="z-10 flex flex-col items-center max-w-md text-center"
       >
         <div className="h-24 w-24 bg-primary/5 rounded-3xl flex items-center justify-center mb-6 shadow-sm ring-1 ring-border/50">
@@ -74,11 +77,6 @@ export default function EmptyEditorPage() {
           Create New Note
         </Button>
 
-        {!folderId && (
-          <p className="mt-8 text-xs text-muted-foreground/60 uppercase tracking-widest font-medium">
-            Journal v1.0
-          </p>
-        )}
       </motion.div>
     </div>
   );

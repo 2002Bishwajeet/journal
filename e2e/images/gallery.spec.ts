@@ -92,6 +92,9 @@ test('gallery: dropping 3 images makes one row that survives a reload', async ({
 // #602: the toolbar above a gallery switches it between row, grid, masonry and carousel;
 // the choice survives a reload, and each layout is drawn as specified.
 test('gallery: switching layouts grid, masonry, carousel', async ({ reusedApp: app }) => {
+  // Sixteen screenshots and a reload: 19-27s on CI, past 30s on a slow runner (still
+  // making steady progress at the final reload), and 25s locally on 2 CPUs
+  test.slow();
   await app.setViewportSize({ width: 1280, height: 800 });
   await createNote(app, { title: `Gallery layouts ${Date.now()}`, body: 'Photos below.' });
 

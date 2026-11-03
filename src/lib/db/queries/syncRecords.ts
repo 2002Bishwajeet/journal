@@ -190,28 +190,28 @@ export async function deleteSyncRecord(localId: string): Promise<void> {
 }
 
 /**
- * Get count of pending sync items for UI display
+ * Count the sync items for UI display: changes a sync will still send (notes,
+ * folders, images), and `failed` ones it has stopped retrying (a permanent
+ * error or an image given up on) until the user retries or discards them (#874).
  */
-export async function getPendingSyncCount(): Promise<{ notes: number; folders: number; images: number }> {
+export async function getPendingSyncCount(): Promise<{ notes: number; folders: number; images: number; failed: number }> {
     const db = await getDatabase();
-
-    const notesResult = await db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM sync_records WHERE entity_type = 'note' AND sync_status IN ('pending', 'pending_delete')`
+    const result = await db.query<{ notes: number; folders: number; images: number; failed: number }>(
+        `WITH records AS (
+             SELECT r.entity_type,
+                    EXISTS (SELECT 1 FROM sync_errors e WHERE e.entity_id = r.local_id AND e.resolved_at IS NULL
+                            AND e.operation = 'push' AND e.permanent) AS stopped
+             FROM sync_records r
+             WHERE r.entity_type IN ('note', 'folder') AND r.sync_status IN ('pending', 'pending_delete')
+         )
+         SELECT (SELECT COUNT(*)::int FROM records WHERE entity_type = 'note' AND NOT stopped) AS notes,
+                (SELECT COUNT(*)::int FROM records WHERE entity_type = 'folder' AND NOT stopped) AS folders,
+                (SELECT COUNT(*)::int FROM pending_image_uploads WHERE status NOT IN ('synced', 'failed_permanent', 'discarded')) AS images,
+                (SELECT COUNT(*)::int FROM records WHERE stopped)
+                  + (SELECT COUNT(*)::int FROM pending_image_uploads WHERE status = 'failed_permanent') AS failed`
     );
-
-    const foldersResult = await db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM sync_records WHERE entity_type = 'folder' AND sync_status IN ('pending', 'pending_delete')`
-    );
-
-    const imagesResult = await db.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM pending_image_uploads WHERE status NOT IN ('synced', 'failed_permanent')`
-    );
-
-    return {
-        notes: parseInt(notesResult.rows[0]?.count || '0', 10),
-        folders: parseInt(foldersResult.rows[0]?.count || '0', 10),
-        images: parseInt(imagesResult.rows[0]?.count || '0', 10),
-    };
+    const row = result.rows[0];
+    return { notes: row?.notes ?? 0, folders: row?.folders ?? 0, images: row?.images ?? 0, failed: row?.failed ?? 0 };
 }
 
 // ============================================

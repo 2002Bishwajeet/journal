@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { getKeyboardOffset } from "@/lib/editor/keyboardOffset";
+import { getKeyboardOffset, MOBILE_TOOLBAR_HEIGHT } from "@/lib/editor/keyboardOffset";
 
 /**
  * While `enabled`, writes the keyboard offset to `--keyboard-offset` and the
@@ -21,6 +21,8 @@ export function useKeyboardOffset(enabled: boolean) {
         viewport?.offsetTop ?? 0,
       );
       rootStyle.setProperty("--keyboard-offset", `${offset}px`);
+      // Room at the end of the note so the last line scrolls above the toolbar (#790).
+      rootStyle.setProperty("--editor-bottom-space", `${offset + MOBILE_TOOLBAR_HEIGHT}px`);
       // The home-indicator area is behind the keyboard while it is up.
       rootStyle.setProperty(
         "--keyboard-safe-bottom",
@@ -43,6 +45,7 @@ export function useKeyboardOffset(enabled: boolean) {
       window.removeEventListener("resize", schedule);
       rootStyle.removeProperty("--keyboard-offset");
       rootStyle.removeProperty("--keyboard-safe-bottom");
+      rootStyle.removeProperty("--editor-bottom-space");
     };
   }, [enabled]);
 }

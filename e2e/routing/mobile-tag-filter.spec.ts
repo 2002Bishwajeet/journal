@@ -24,5 +24,5 @@ test('tapping a tag on mobile opens its note list', async ({ app }) => {
   await expect(app.getByRole('heading', { name: '#routing' })).toBeVisible();
   await expect(sidebar).toBeHidden();
   await app.getByRole('button').filter({ hasText: 'Tagged note' }).first().click();
-  await expect(app.getByRole('button', { name: 'Back', exact: true })).toBeVisible();
+  await expect(app.getByRole('button', { name: /^Back to (?!notes$)/ })).toBeVisible();
 });

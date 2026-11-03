@@ -40,5 +40,5 @@ test('closing the only tab lands on the folder', async ({ app }) => {
   await main.getByRole('button', { name: 'Close Only tab', exact: true }).click();
 
   await expect(app).toHaveURL(new RegExp(`/${folderId}$`));
-  await expect(main.getByText('No notes open')).toBeVisible();
+  await expect(main.getByRole('button', { name: 'Create New Note' })).toBeVisible();
 });

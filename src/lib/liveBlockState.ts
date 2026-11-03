@@ -163,16 +163,11 @@ export function createBlockStateSession() {
 export type BlockStateSession = ReturnType<typeof createBlockStateSession>;
 
 /**
- * The reply to post back into `frame` for a storage request in `event`, or null
- * when there is none to send: the message is not a request, or not from `frame`.
+ * The reply to send back for a storage request in a message on a block's port,
+ * or null when there is none to send: the message is not a request.
  */
-export function replyToStorageMessage(
-  event: Pick<MessageEvent<unknown>, 'source' | 'data'>,
-  frame: Window | null,
-  session: BlockStateSession,
-  store: BlockStateStore,
-) {
-  const request = storageRequestFromMessage(event, frame);
+export function replyToStorageMessage(message: unknown, session: BlockStateSession, store: BlockStateStore) {
+  const request = storageRequestFromMessage(message);
   if (!request) return null;
   const answer = request.storage === 'get' ? session.get(store, request.key) : session.set(store, request.key, request.value);
   return { journalLiveBlock: 1, reply: request.request, ...answer };

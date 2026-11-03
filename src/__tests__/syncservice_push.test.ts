@@ -556,10 +556,10 @@ describe('SyncService.logSyncError', () => {
 
     it('writes nothing and does not throw when entityId is empty', async () => {
         const logSyncError = (svc as unknown as {
-            logSyncError: (entityId: string, entityType: 'folder' | 'note' | 'image', operation: 'push' | 'pull' | 'upload', error: unknown) => Promise<void>;
+            logSyncError: (entityId: string, entityType: 'folder' | 'note' | 'image', operation: 'push' | 'pull' | 'upload', error: unknown) => Promise<unknown>;
         }).logSyncError;
 
-        await expect(logSyncError.call(svc, '', 'note', 'pull', new Error('boom'))).resolves.toBeUndefined();
+        await expect(logSyncError.call(svc, '', 'note', 'pull', new Error('boom'))).resolves.toMatchObject({ message: 'boom' });
         expect(await getUnresolvedSyncErrors()).toEqual([]);
     });
 });

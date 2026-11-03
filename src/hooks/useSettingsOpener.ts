@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { SettingsSectionId } from '@/components/settings/sections';
 
-const OPEN_SETTINGS_EVENT = 'journal:open-settings';
+export const OPEN_SETTINGS_EVENT = 'journal:open-settings';
 
 /**
  * Open Settings on a section from anywhere in the app (e.g. the sync status popover

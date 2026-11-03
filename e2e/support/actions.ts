@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type FrameLocator, type Locator, type Page } from '@playwright/test';
 import { assertTestOrigin } from './origin-guard';
 import { waitForAppReady } from '../fixtures';
 
@@ -13,16 +13,21 @@ export function activeTitleInput(page: Page): Locator {
     return page.locator('textarea[placeholder="Untitled"]:visible');
 }
 
+/** The page in the sandboxed frame of a mermaid live block (#946), where its diagram is. `block` is the `[data-live-block]`. */
+export function mermaidFrame(block: Locator): FrameLocator {
+    return block.locator('iframe[title="Mermaid preview"]').contentFrame();
+}
+
 /** The active tab's TipTap editor. */
 export function activeEditor(page: Page): Locator {
     return page.locator('.ProseMirror:visible');
 }
 
-/** Create a note via the real UI (the notes list's "New" button), then fill title and body. */
+/** Create a note via the real UI (the notes list's "New" button, or "New note" on a phone), then fill title and body. */
 export async function createNote(page: Page, { title, body }: { title: string; body: string }): Promise<void> {
     await assertTestOrigin(page);
     const before = page.url();
-    await page.getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('button', { name: /^New( note)?$/ }).click();
     // Desktop keeps earlier tabs mounted (hidden), so wait for the new note's URL,
     // then for the active title to read the new note's default "Untitled" — the
     // assertion re-queries on every retry, riding out the tab transition.
@@ -136,6 +141,21 @@ export async function shareNotePublicly(page: Page, title: string): Promise<stri
     return shareUrl;
 }
 
+/**
+ * Open a Settings section: a tab on desktop, a row of the section list on a phone (#831).
+ * A phone that shows a section page goes Back to the list first.
+ */
+export async function openSettingsSection(dialog: Locator, name: string): Promise<void> {
+    const tab = dialog.getByRole('tab', { name, exact: true });
+    const row = dialog.getByRole('listitem').getByRole('button', { name, exact: true });
+    const back = dialog.getByRole('button', { name: 'Settings', exact: true });
+    if (await back.count()) await back.click();
+    await tab.or(row).click();
+}
+
+/** The open Settings section: the tab panel on desktop, the section page on a phone. */
+export const settingsPanel = (dialog: Locator): Locator => dialog.getByRole('tabpanel').or(dialog.getByRole('region'));
+
 /** Grant a folder access to MCP agents via Settings -> Agent access (#168 UI). */
 export async function setFolderAgentAccess(
     page: Page,
@@ -145,7 +165,7 @@ export async function setFolderAgentAccess(
     await assertTestOrigin(page);
     await page.getByRole('button', { name: 'Settings' }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('tab', { name: 'Agent access' }).click();
+    await openSettingsSection(dialog, 'Agent access');
     await dialog.getByLabel(`Agent access for ${folderName}`).selectOption(access);
     await page.keyboard.press('Escape');
 }

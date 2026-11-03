@@ -11,6 +11,7 @@ import { EditorContent } from "@tiptap/react";
 import type { DocumentMetadata } from "@/types";
 import { debounce } from "@/lib/utils";
 import { readingTimeMinutes } from "@/lib/editor/extractHeadings";
+import { takeNewNote } from "@/lib/newNoteFocus";
 import { useEditorContext } from "./EditorContext";
 
 import EditorToolbar from "./EditorToolbar";
@@ -27,6 +28,10 @@ interface TipTapEditorProps {
   onMetadataChange?: (metadata: DocumentMetadata) => void;
   hideToolbar?: boolean;
   className?: string;
+  /** Touch layouts: a note that "New" just created opens with its title focused and selected (#825). */
+  focusNewTitle?: boolean;
+  /** Touch layouts: the header shows the small title while this one is scrolled out of view (#825). */
+  onTitleInView?: (inView: boolean) => void;
 }
 
 export default function TipTapEditor({
@@ -35,10 +40,29 @@ export default function TipTapEditor({
   onMetadataChange,
   hideToolbar = false,
   className = "",
+  focusNewTitle = false,
+  onTitleInView,
 }: TipTapEditorProps) {
-  const { editor, isLoading } = useEditorContext();
+  const { editor, isLoading, readOnly } = useEditorContext();
   const [title, setTitle] = useState(metadata.title);
   const titleInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // The field exists once the note has loaded. Take the mark on every layout, so a note made
+  // on desktop does not take the focus later on a touch layout.
+  useEffect(() => {
+    const field = titleInputRef.current;
+    if (!field || !takeNewNote(noteId) || !focusNewTitle) return;
+    field.focus();
+    field.select();
+  }, [isLoading, focusNewTitle, noteId]);
+
+  useEffect(() => {
+    const field = titleInputRef.current;
+    if (!field || !onTitleInView) return;
+    const observer = new IntersectionObserver(([entry]) => onTitleInView(entry.isIntersecting));
+    observer.observe(field);
+    return () => observer.disconnect();
+  }, [isLoading, onTitleInView]);
   // Re-sync the field when the title changes elsewhere (MCP, another tab),
   // unless the user is typing in it.
   const [titleFocused, setTitleFocused] = useState(false);
@@ -129,6 +153,7 @@ export default function TipTapEditor({
             }}
             onFocus={() => setTitleFocused(true)}
             onBlur={() => setTitleFocused(false)}
+            readOnly={readOnly}
             placeholder="Untitled"
             aria-label="Note title"
             className="block w-full max-h-[3lh] resize-none overflow-y-auto [field-sizing:content] text-3xl font-bold bg-transparent border-none outline-none placeholder:text-gray-400 dark:text-white"
@@ -137,25 +162,28 @@ export default function TipTapEditor({
       </div>
 
       {/* Tag Input */}
-      <TagInput docId={noteId} metadata={metadata} />
+      {!readOnly && <TagInput docId={noteId} metadata={metadata} />}
 
       {/* Toolbar */}
-      {editor && !hideToolbar && <EditorToolbar editor={editor} />}
+      {editor && !hideToolbar && !readOnly && <EditorToolbar editor={editor} />}
 
       {/* Editor content */}
       <div>
         <EditorContent editor={editor} />
       </div>
 
-      {/* Mobile Toolbar - appears above keyboard on touch devices */}
-      {editor && <MobileToolbar editor={editor} />}
-      
-      {/* Bubble Menu - appears when text is selected on any screen */}
-      {editor && <BubbleMenuToolbar editor={editor} />}
-      
-      {/* Table Handles */}
-      {editor && <TableColumnMenu editor={editor} />}
-      {editor && <TableRowMenu editor={editor} />}
+      {/* A view-only note gets none of the editing toolbars (#897) */}
+      {editor && !readOnly && (
+        <>
+          {/* Mobile Toolbar - appears above keyboard on touch devices */}
+          <MobileToolbar editor={editor} />
+          {/* Bubble Menu - appears when text is selected on any screen */}
+          <BubbleMenuToolbar editor={editor} />
+          {/* Table Handles */}
+          <TableColumnMenu editor={editor} />
+          <TableRowMenu editor={editor} />
+        </>
+      )}
 
       {/* Word Count Status Bar */}
       {editor && (

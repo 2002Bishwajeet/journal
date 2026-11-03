@@ -21,10 +21,11 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { SUMMARIZE_REQUEST, useAgentSession, type AgentStep } from "@/hooks/useAgentSession";
+import { SUMMARIZE_REQUEST, countToolSteps, useAgentSession, type AgentStep } from "@/hooks/useAgentSession";
 import { aiRequests } from "@/lib/agent/aiRequests";
 import ModelDownloadDialog from "@/components/modals/ModelDownloadDialog";
 import { AgentWriteCard } from "@/components/layout/AgentWriteCard";
+import { ExperimentalBadge, LocalAINote } from "@/components/LocalAIExperimental";
 
 interface ChatBotProps {
   activeNoteId?: string | null;
@@ -111,6 +112,15 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
       })
   );
 
+  // While the panel is open, html[data-assistant] keeps toasts clear of it (#840).
+  useEffect(() => {
+    if (!isOpen) return;
+    document.documentElement.dataset.assistant = "";
+    return () => {
+      delete document.documentElement.dataset.assistant;
+    };
+  }, [isOpen]);
+
   const scrollToBottom = () => {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     messagesEndRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
@@ -162,6 +172,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
             <h2 className="flex items-center gap-2 flex-1 font-medium text-sm">
               <Bot aria-hidden="true" className="w-4 h-4 text-muted-foreground" />
               Assistant
+              <ExperimentalBadge />
             </h2>
 
             {/* Desktop: X close button */}
@@ -186,6 +197,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
                   <p className="text-xs text-muted-foreground">
                     Type /help for available commands.
                   </p>
+                  <LocalAINote className="mt-4 max-w-72 text-xs leading-relaxed" />
                 </div>
               )}
 
@@ -199,6 +211,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
                 }
                 const steps = msg.steps ?? [];
                 const last = steps.at(-1);
+                const toolSteps = countToolSteps(steps);
                 return (
                   <div key={i} className="flex flex-col gap-3">
                     {msg.pending && modelStatus ? (
@@ -232,7 +245,7 @@ export function ChatBot({ activeNoteId }: ChatBotProps) {
                             )}
                           >
                             <ChevronRight aria-hidden="true" className="size-3.5 transition-transform duration-200 group-open:rotate-90" />
-                            {steps.length} {steps.length === 1 ? "step" : "steps"}
+                            {toolSteps === 0 ? "Error" : `${toolSteps} ${toolSteps === 1 ? "step" : "steps"}`}
                           </summary>
                           <ol className="mt-2 ml-1.5 flex flex-col gap-1.5 border-l border-border pl-3">
                             {steps.map((step, j) => (

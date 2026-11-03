@@ -9,6 +9,7 @@ import {
     getImageUploadsReadyForRetry,
     updateImageRetryAt,
     calculateNextRetryAt,
+    resolveSyncErrorsForEntity,
 } from '@/lib/db';
 import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 import { stringGuidsEqual } from '@homebase-id/js-lib/helpers';
@@ -94,6 +95,7 @@ export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHan
                 await updateSyncStatus(upload.noteDocId, 'pending');
                 // Keep the bytes so the image still renders offline (#179); the queue skips synced rows
                 await updateImageUploadStatus(upload.id, 'synced', payloadKey);
+                await resolveSyncErrorsForEntity(upload.id);
                 promotedCount++;
             } else if (upload.retryCount + 1 >= MAX_IMAGE_PROMOTION_ATTEMPTS) {
                 // Give up retrying but keep the bytes (cleared at logout)
@@ -103,7 +105,13 @@ export async function processPendingImageUploads(ctx: SyncContext, svc: ImageHan
                 throw new Error(`Pending image node ${upload.id} not found in note ${upload.noteDocId}`);
             }
         } catch (error) {
-            console.error(`[SyncService] Image upload failed:`, error);
+            // Logs the server's reason with the image id (#874)
+            const { permanent } = await ctx.logSyncError(upload.id, 'image', 'upload', error);
+            if (permanent) {
+                // A 4xx the server will refuse every time: stop until the user retries or discards it
+                await updateImageUploadStatus(upload.id, 'failed_permanent');
+                continue;
+            }
 
             // Exponential backoff: schedule next retry
             const nextRetryAt = calculateNextRetryAt(upload.retryCount);

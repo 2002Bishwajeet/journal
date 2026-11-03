@@ -8,7 +8,7 @@ import { act, createElement } from 'react';
 const { sync, logout, pending } = vi.hoisted(() => ({
     sync: vi.fn(async () => {}),
     logout: vi.fn(async () => {}),
-    pending: { total: 0 },
+    pending: { total: 0, failed: 0 },
 }));
 
 vi.mock('@/hooks/auth/useAuth', () => ({
@@ -19,7 +19,7 @@ vi.mock('@/hooks/useSyncService', () => ({
     useSyncService: () => ({
         syncStatus: 'idle',
         lastSyncedAt: new Date(),
-        pendingCount: { notes: pending.total, folders: 0, images: 0, total: pending.total },
+        pendingCount: { notes: pending.total, folders: 0, images: 0, total: pending.total, failed: pending.failed },
         sync,
     }),
 }));
@@ -48,8 +48,9 @@ describe('Account settings', () => {
         host.remove();
     });
 
-    async function render(pendingTotal: number) {
+    async function render(pendingTotal: number, failed = 0) {
         pending.total = pendingTotal;
+        pending.failed = failed;
         await act(async () => { root.render(createElement(AccountSection)); });
     }
 
@@ -70,6 +71,23 @@ describe('Account settings', () => {
         const dialog = await openSignOutDialog();
         expect(dialog).toContain('Sign out?');
         expect(dialog).toContain("3 changes on this device haven't synced");
+    });
+
+    it("counts changes sync stopped retrying apart from waiting ones, links them to Diagnostics and warns before sign-out (#874)", async () => {
+        await render(1, 6);
+        expect(host.textContent).toContain('1 change waiting to sync');
+        expect(host.textContent).toContain("6 changes couldn't sync");
+        const opened = vi.fn();
+        window.addEventListener('journal:open-settings', opened);
+        await act(async () => { buttonByText('View')?.click(); });
+        window.removeEventListener('journal:open-settings', opened);
+        expect((opened.mock.calls[0][0] as CustomEvent).detail).toBe('diagnostics');
+        expect(await openSignOutDialog()).toContain("7 changes on this device haven't synced");
+    });
+
+    it('shows no couldn\'t-sync row when nothing failed', async () => {
+        await render(0);
+        expect(host.textContent).not.toContain("couldn't sync");
     });
 
     it('says "Up to date" only when nothing is pending', async () => {

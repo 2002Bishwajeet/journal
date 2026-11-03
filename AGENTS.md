@@ -38,7 +38,7 @@ Generated from `git ls-files src functions e2e mcp`. `src/components/ui/` (shadc
 ```
 src/
 ├── components/
-│   ├── auth/                   # AuthGuard (returnUrl to /welcome), DotYouClientProvider/Context, RootRedirect
+│   ├── auth/                   # AuthGuard (returnUrl to /welcome), DotYouClientProvider/Context
 │   ├── author/                 # AuthorImage
 │   ├── circles/                # CircleOption (share dialog circle picker)
 │   ├── contact/                # ContactImage
@@ -52,7 +52,6 @@ src/
 │   │   ├── table/              # TableColumnMenu, TableRowMenu
 │   │   ├── AIMenu.tsx          # AI rewrite dropdown
 │   │   ├── BubbleMenuToolbar.tsx
-│   │   ├── CollaborativePopover.tsx
 │   │   ├── EditorContext.tsx
 │   │   ├── EditorProvider.tsx  # Y.js doc init, extension config, image ingest, 2s debounced server save
 │   │   ├── EditorToolbar.tsx   # Desktop toolbar
@@ -64,6 +63,7 @@ src/
 │   │   ├── NoteCover.tsx       # Cover image (add, reposition, remove), plus an optional dark-mode cover
 │   │   ├── NoteLinkContext.tsx
 │   │   ├── PeerNoteFallback.tsx / peerNoteStatus.ts  # Collaborator-owned note states
+│   │   ├── SharedAccessPopover.tsx # Header "Shared" badge: who can open the note, owner's Manage…
 │   │   ├── TablePicker.tsx
 │   │   ├── TagInput.tsx
 │   │   ├── TextAlignPicker.tsx
@@ -84,10 +84,9 @@ src/
 │   │   ├── ExtendPermissionDialog.tsx
 │   │   ├── HistoryModal.tsx    # Version history list + restore (desktop toolbar, own notes only)
 │   │   ├── KeyboardShortcutsModal.tsx
-│   │   ├── MarkCollaborativeDialog.tsx
 │   │   ├── SearchModal.tsx     # Cmd+K full-text + fuzzy search
 │   │   ├── SettingsModal.tsx   # Re-exports components/settings/SettingsDialog
-│   │   ├── ShareDialog.tsx     # Publish/unpublish, link-card preview, description, indexing
+│   │   ├── ShareNoteDialog.tsx # One Share dialog (#682): people/circles with roles (share/SharePeopleSection, useShareAccess) + General access (share/ShareGeneralAccess: public link, card, indexing)
 │   │   ├── SignOutConfirmDialog.tsx
 │   │   └── WhatsNewDialog.tsx  # RELEASE_NOTES.md entries
 │   ├── OdinImage/              # Homebase payload/thumbnail/preview image rendering, pickLoadSize
@@ -97,7 +96,8 @@ src/
 │   ├── pwa/
 │   │   └── UpdatePrompt.tsx
 │   ├── settings/
-│   │   ├── SettingsDialog.tsx  # Tabbed dialog: left nav (md+) / top tab row (phones)
+│   │   ├── SettingsDialog.tsx  # Tabbed dialog with a left nav; phones get MobileSettings
+│   │   ├── MobileSettings.tsx  # Phone: grouped section list that drills into one page per section
 │   │   ├── sections.ts         # Section registry (order = nav order)
 │   │   ├── sections/           # Account, Appearance, AI (+ AIModelList), AgentAccess, Data, Shortcuts, About
 │   │   ├── SectionHeader.tsx
@@ -119,7 +119,6 @@ src/
 │   ├── links/                  # useLinkMetadata, useLinkPreviewFetch
 │   ├── queries/                # usePublicNote
 │   ├── securityContext/        # useSecurityContext, useHasReadAccess, useHasWriteAccess
-│   ├── siteData/               # useSiteData
 │   ├── useAccountSettings.ts   # Settings → Account (identity, sync, sign out)
 │   ├── useAgentGrants.ts       # Settings → Agent access (load/save grants file)
 │   ├── useAIPreferences.ts     # Settings → AI panel state
@@ -449,12 +448,19 @@ Current state: the `pglite-v4` alias (0.4.x) is a dependency, used only for migr
 
 ### Available Models (`src/lib/webllm/models.ts`)
 
-| Model | Size | Memory | Recommended |
-|-------|------|--------|-------------|
-| Qwen2.5-1.5B | ~900 MB | ~1.2 GB | Yes (default) |
-| SmolLM2-360M | ~250 MB | ~400 MB | Low-end devices |
-| Qwen2.5-0.5B | ~350 MB | ~500 MB | Lightweight |
-| Llama-3.2-1B (Legacy) | ~700 MB | ~1.5 GB | No |
+Each model has a job: `editor` (autocomplete, grammar, rewrite) or `agent` (the assistant). A GPU without `shader-f16` loads the model's `q4f32_1` build.
+
+| Model | Job | Download | VRAM | Default |
+|-------|-----|----------|------|---------|
+| SmolLM2 360M | editor | ~250 MB | ~380 MB | |
+| Qwen 2.5 0.5B | editor | ~350 MB | ~940 MB | Yes (editor) |
+| Qwen 2.5 1.5B | editor | ~900 MB | ~1.6 GB | |
+| Qwen3 1.7B | agent | ~1.1 GB | ~2.0 GB | Yes (agent) |
+| Hermes 3 Llama 3.2 3B | agent | ~1.8 GB | ~2.3 GB | |
+| Qwen 2.5 3B | agent | ~1.8 GB | ~2.5 GB | |
+| Qwen3 4B | agent | ~2.3 GB | ~3.4 GB | |
+
+**Agent eval (#706):** `npm run eval:ai -- <model id>` or `npm run eval:ai -- --all` (every agent model plus Qwen 2.5 1.5B as the floor) runs the 20 tasks in `e2e/evals/tasks.ts` (find, read and answer, open-note edits, cross-note writes, a refusal) against the real model in the e2e dev app (`playwright.evals.config.ts`, `127.0.0.1:5174`). Local only: it needs a WebGPU adapter, so it never runs in CI, and `npm run e2e` does not pick it up. Chromium starts with `--enable-unsafe-webgpu` (plus Vulkan on Linux), headless when there is no display; weights are cached in `~/.cache/journal-ai-evals`; only Hugging Face and `raw.githubusercontent.com` get past the network fence. Every proposal is accepted through the e2e hook `startAgentEval`. Each task is checked on the final state (answer, tools called, the target note's blocks), not the wording; the checkers are unit-tested in `src/__tests__/agentEvalChecks.test.ts`. Results go to `e2e/evals/results/<date>-<model>.json` and a markdown table is printed. The agent default is the best success rate within about 2.5 GB VRAM (the smaller one on a tie). The first run (2026-10-27, GTX 1650 Ti 4 GB, `q4f32_1` builds) left it at Qwen3 1.7B: every candidate passed fewer than half of the edit tasks (Hermes 3 best with 3/8), and Qwen3 4B did not run in 4 GB. After the small-model rules (#914, results in `results/2026-10-27-914-*.json`), Qwen3 1.7B passes 13/20 with 4/8 edits; Hermes 3 has 2/8 edits and Qwen 2.5 3B 1/8.
 
 ### AI Features
 - **Grammar checking**: GrammarPlugin with inline wavy underlines, 3s debounce, hallucination filtering
@@ -462,7 +468,8 @@ Current state: the `pglite-v4` alias (0.4.x) is a dependency, used only for migr
 - **Rewrite**: 8 styles — Proofread, Rewrite, Friendly, Professional, Concise, Summary, Key Points, List/Table
 - **Chat**: The ChatBot panel is the local agent (`useAgentSession` → `runAgent`): it calls the notes tools on this device, shows each step, and has Stop. No web search; nothing leaves the device. Two replies in a row that are not JSON end the run with "This model could not follow the assistant format" (#796); `toAgentEngine` drops the empty `<think>` block web-llm puts before the reply when thinking is off
 - **Agent edits (#701)**: the editor tools (`read_open_note`, `insert_paragraph`, `replace_text`, `format_text`; `set_block_type` is defined but not offered, see #702) only build a proposal. `approveEdit` (`src/lib/agent/approveEdit.ts`) queues it; the `AgentEditPreview` plugin (`src/components/editor/plugins/AgentEditPreview.ts`) shows it in the note with a bar to Accept (Enter) or Reject (Escape). Accept rebuilds the edit against the current note and applies it with `dispatchUndoStep`, so one Cmd+Z undoes it. Closing the note, switching tabs or Stop rejects it
-- **Agent writes to other notes (#702)**: `append_to_note` and `create_note` (no folder = Main) run the registry handlers over `createLocalWriteDeps` (`src/lib/agent/local/localWriteDeps.ts`: Yjs diff, `search_index`, pending sync record, `notifyDocumentUpdated`, and a version-history snapshot of the note before an append). `proposeWrite` first runs the tool against deps that write nothing, so a refused call (excluded or trashed note, the open note, bad folder, body image) fails before the user is asked. `approveWrite` queues the proposal; the panel shows it as `AgentWriteCard` (markdown as plain text, Accept / Reject) and only Accept runs the write. `AGENT_TOOLS` is at its limit of 8: these two replaced `list_notes` and `set_block_type`
+- **Small-model rules (#914)**: `toolsFor(request)` offers only the read-only tools when the user's words have no change verb (`CHANGE_WORD` in `agentLoop.ts`), so a question can't write. When edit tools are offered and a note is open, `runAgent` puts the note's blocks in the history up front, as a `read_open_note` call already made (a refusal that said "read first" was tried: no model recovered from it). An accepted write that the model sends again (same tool and args) is refused like a repeated read. The agent's tool descriptions are one sentence each (the registry tools get shorter agent copies; MCP keeps the full ones), and the system prompt lists each tool as `name(required, optional?)`
+- **Agent writes to other notes (#702)**: `append_to_note` and `create_note` (no folder = Main) run the registry handlers over `createLocalWriteDeps` (`src/lib/agent/local/localWriteDeps.ts`: Yjs diff, `search_index`, pending sync record, `notifyDocumentUpdated`, and a version-history snapshot of the note before an append). `proposeWrite` first runs the tool against deps that write nothing, so a refused call (excluded or trashed note, bad folder, body image) fails before the user is asked. `append_to_note` on the open note does not get there: the loop turns it into a paragraph at the end of the note (`appendToOpenNote`), previewed and accepted like an edit. `approveWrite` queues the proposal; the panel shows it as `AgentWriteCard` (markdown as plain text, Accept / Reject) and only Accept runs the write. `AGENT_TOOLS` is at its limit of 8: these two replaced `list_notes` and `set_block_type`
 - **Rewrite (#703)**: `AIMenu` runs `rewriteText` on the editor model and turns the result into a proposal (`src/lib/agent/rewriteEdit.ts`) for `approveEdit`, so it shows and is accepted like an agent edit
 - **Slash commands**: `/ask` and `/summarize` open the ChatBot panel (`/summarize` sends the request); `/rewrite` opens the AI menu for the selection. They talk through `aiRequests` (`src/lib/agent/aiRequests.ts`)
 - **Idle GC**: Auto-unloads model after 5 minutes idle to reclaim ~2-3 GB memory
@@ -530,6 +537,7 @@ Enforced minimums for all UI components. Do not go below these:
 - **Muted text opacity**: `text-muted-foreground/70` minimum when using opacity modifiers. Avoid `/50` or lower on text.
 - **Animation timing**: fast = `duration-100`, normal = `duration-200`, slow = `duration-300`. Avoid non-scale values like `duration-[75ms]`, `duration-[120ms]`, `duration-[150ms]`.
 - **Reduced motion**: global rule in `src/index.css` zeroes all CSS transitions/animations under `prefers-reduced-motion: reduce`. JS-driven animations should additionally check `useReducedMotion()`.
+- **Phone sheets** (#823): contextual actions and pickers are a bottom sheet or `ActionSheet`; forms are a full sheet; only short confirmations are a centred alert. Use `ResponsiveSheet` (`src/components/ui/responsive-sheet.tsx`) so desktop keeps the dialog. The primitive is `src/components/ui/sheet.tsx`: the grabber and header drag it down to close, it follows the iOS keyboard, and Back closes it.
 
 ## Testing
 
@@ -611,7 +619,7 @@ const unsub = documentBroadcast.subscribe(handler);   // Listen for messages
 
 | Path | Component | Auth |
 |------|-----------|------|
-| `/` | RootRedirect | Yes |
+| `/` | EmptyEditorPage | Yes |
 | `/:folderId` | EmptyEditorPage | Yes |
 | `/:folderId/:noteId` | EditorPage | Yes |
 | `/share-target` | ShareTargetPage | Yes |
@@ -633,10 +641,12 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 
 - `mcp/` is a local stdio MCP server (run with `vite-node`, `npm run mcp`) with its own Homebase app registration (`journal-mcp`, `mcp/config.ts`), approved once with `npm run mcp:login -- <identity>`; credentials live in the OS keychain (`mcp/credentials.ts`). It has no local DB: every call reads and writes `JOURNAL_DRIVE` directly, so the app and the server meet only at the drive, like two devices. Setup and the tool list are in `mcp/README.md`; the Claude Code plugin is in `plugins/journal/`.
 - Grants: Settings → Agent access (`src/components/settings/sections/AgentAccessSection.tsx`, `src/hooks/useAgentGrants.ts`) sets each folder or note to none / read / write; default none, a note grant beats its folder's, and `excludeFromAI` notes are always hidden. Stored as one grants file on the drive (`src/lib/homebase/AgentGrantsDriveProvider.ts`, file type 607, fixed unique id) and resolved by `src/lib/agent/grants.ts`, which the server re-reads on every call.
+- Grants are enforced only inside the server process (#949): the keychain token has Read+Write on the whole drive, grants file included, and server-side scoping isn't possible, so a shell-capable agent can bypass them (`mcp/README.md`, Safety). Tools carry `readOnlyHint` / `destructiveHint` annotations (`readOnly` and `destructive` in the registry), and `get_note` / `search_notes` results sit in a per-call `untrusted-note-content` envelope (`mcp/createServer.ts`).
 - Edits are minimal Yjs diffs (`src/lib/agent/editEngine.ts`, `updateYFragment`), uploaded with the fetched version tag and retried on conflict, so concurrent edits merge. Agent writes set `lastEditedBy` to `agent:<client>`, shown as "Edited by …" (`src/lib/agent/attribution.ts`).
 - Block edits (#560): `get_note` with `format: "blocks"` lists top-level blocks by id, the Yjs item id (`client:clock`) of the block's element, which sync keeps since it only merges updates. `edit_block` (`editBlock` in `editEngine.ts`) writes Yjs at that block, table row, column or cell only, so other blocks and cells keep their items and column widths.
 - Covers (#516): `set_note_cover` / `clear_note_cover`. The image (file path or `data:` URI) is read by `mcp/imageSource.ts` and checked by `src/lib/images/imageBytes.ts` (PNG/JPEG/WebP by magic bytes, ≤ 5 MB, metadata stripped without a canvas), then uploaded through `addImageToNote` with the image as its own thumbnail. Reuse both for body images.
 - Body images (#415): in markdown passed to `create_note`, `append_to_note`, `replace_in_note` (`new_text`) and `update_note`, `![alt](<path or data: URI>)` is uploaded (`editWithBodyImages` in `src/lib/agent/tools/write.ts`) and swapped to `attachment://…` by the markdown parse (`imageSrcs` in `editEngine.ts`) before the Yjs write. All images are read and checked first, so a bad one fails the call with nothing written; `create_note` creates the note empty, then writes the body, and trashes it if that fails.
+- Leak guards (#948): opening a note fetches some URLs with no click (`autoFetchedUrls` in `editEngine.ts`: `http(s)` images, link preview cards, any URL in a mermaid block), so a write refuses a new one with a query string or credentials or over 100 characters, and more than 5 new ones in a call (`assertNoDataInFetchedUrls` in `src/lib/agent/tools/write.ts`); one the note already has stays. `replace_in_note` and `edit_block` check the note as the edit leaves it, since they can splice a URL together (`markdownAfter`). Short URLs across repeated writes can still carry a little, so a write's result has a `note` naming the hosts, and saying when the note is public (`writeNotices`). Not caught: an html or react block navigating its own frame; the app's Report-Only CSP (#671) would stop it if enforced. A mermaid block now runs in the no-network frame of an html block (#946), so its URLs no longer load at all; the check still counts them.
 - What agents are told (#519): `initialize` instructions (a ~20-line feature summary in `mcp/createServer.ts`) and `get_authoring_guide`, which returns `mcp/AUTHORING.md` (inlined via `?raw`). The markdown tools' descriptions only point to it. Document a new block, react import or CDN host there: `mcpServer.test.ts` fails otherwise, and `mcpRoundTrip.test.ts` round-trips every documented feature through the server.
 - Specs: `e2e/agent-access/` (live tier). Not done: live co-editing with agent presence (#171, needs design).
 
@@ -658,13 +668,14 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 - Sign-in keeps the requested URL: `AuthGuard` sends you to `/welcome?returnUrl=…`, the URL rides through the auth flow as `state`, and `AuthFinalizePage` returns you to it (same-origin only). URL actions (`?action=search|new|collaborate`, PWA shortcuts) are handled by `useLayoutUrlActions`, and session restore doesn't override them.
 - Desktop tabs follow the URL through `useTabRouting`; missing/archived notes in tabs resolve instead of sticking on "Note not found"; `useMountedTabs` keeps visited tabs alive. Mobile shows one pane per route (`src/layouts/mobilePane.ts`), including tag filters.
 - Stale lazy chunks after a deploy reload once (`src/lib/utils/chunkReload.ts`); `useDocumentTitle` sets the title per screen; `/share/*` skips app-only boot work (`src/lib/sharePath.ts`).
+- Tab stacks (#859): on a phone each route tab (Notes, Shared) keeps a back stack of its locations (`src/layouts/tabStacks.ts`, saved in sessionStorage; max 20; a sheet's history entry never goes on it). `useMobileTabs` updates it on every navigation; switching tabs replaces the current entry with the target tab's first screen and pushes the rest (marked `state.tabRebuild`), so Back walks that tab's screens. The active tab pops to its root and clears its stack. Known limit: Back from a rebuilt first screen goes to the previous browser entry, which may be from the other tab; Back is not trapped.
 - Specs: `e2e/routing/`. Not done: in-app Back buttons and dialogs vs. browser Back (#192, needs design).
 
 ### Settings structure (#207)
 
-- `src/components/settings/SettingsDialog.tsx` (opened from the sidebar footer, lazy via `src/components/modals/SettingsModal.tsx`): a tabbed dialog with the section list as a left nav from 768 px (`md`) and as a horizontally scrolling tab row above the content below that. Sections are registered in `src/components/settings/sections.ts` (order = nav order): Account, Appearance, AI, Agent access, Data & storage, Keyboard shortcuts (desktop only), About, Diagnostics. Each section is one file in `src/components/settings/sections/`, with logic in hooks (`useAccountSettings`, `useAIPreferences`, `useAgentGrants`, `useImportExport`, `useStorageInfo`, …).
+- `src/components/settings/SettingsDialog.tsx` (opened from the sidebar footer, lazy via `src/components/modals/SettingsModal.tsx`): a tabbed dialog with the section list as a left nav; on a phone, `src/components/settings/MobileSettings.tsx` shows a grouped list that drills into one page per section, each with its own history entry on top of the dialog's (#831). Sections are registered in `src/components/settings/sections.ts` (order = nav order): Account, Appearance, AI, Agent access, Data & storage, Keyboard shortcuts (desktop only), About, Diagnostics. Each section is one file in `src/components/settings/sections/`, with logic in hooks (`useAccountSettings`, `useAIPreferences`, `useAgentGrants`, `useImportExport`, `useStorageInfo`, …).
 - Diagnostics (#800): the sync badge popover opens it on the pending list (`openSettings('diagnostics')` from `useSettingsOpener`). It lists what the badge counts with each item's newest unresolved `sync_errors` row (`getPendingSyncItems`), retries one item or the queue (clears backoff, then syncs), shows the recent log (`src/lib/diagnostics/logBuffer.ts`: last 200 console warnings/errors plus sync events, saved to `app_state`) and a status block, and copies a redacted text report (`src/lib/diagnostics/report.ts`: no tokens, keys, cookies or content; titles only if the owner turns them on). There is no "discard local change": replacing a note with the server copy cannot be undone, so it is left out for every item type.
-- No framer-motion in Settings; section switches are instant. Controls use `SettingsRow` with real labels.
+- No framer-motion in Settings; section switches are instant on desktop, and a phone's section page slides in with CSS. Controls use `SettingsRow` with real labels.
 - Specs: `e2e/settings/`.
 
 ### Share pages (#223)
@@ -675,7 +686,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 - Author index (#515): the same Function renders `/share/<identity>` (HTML, no client JS) and `/share/<identity>/sitemap.xml` from a guest `drive/query/batch` of the journal drive (`functions/_lib/authorIndex.ts`): every unencrypted, non-trashed note, newest first, up to 500. `card.indexable` ("Hide from search engines") only filters the sitemap; the page is `noindex` when no listed note is indexable. Cached like share meta; any failure is a 404, not the shell. The share header's "More notes" links there.
 - Shared folders (#618): Share folder / Stop sharing folder in a folder's context menu (`useFolderSharing`). The folder's `is_public` flag is local-first and syncs in the folder file (`FolderFile.isPublic`), which `FolderDriveProvider` stores Anonymous + unencrypted while shared (a flip re-uploads it). Sharing then makes each non-trashed note in it public one at a time, as the Share dialog does; a note created in a shared folder starts public (`newNoteShareFields`, `src/lib/share/sharedFolder.ts`: new note, templates, import, MCP `create_note`). No rule on pull; moves follow #622.
 - Folder page (#619): `/share/<identity>/f/<folderId>` is the same Function and renderer as the author index (`parseAuthorPath` kind `folder`, `fetchAuthorIndex(..., folderId)`, `buildAuthorIndexHtml` with `index.folder`): the folder's name from its guest-readable file (`cuid/header`, must be unencrypted and `isPublic`) and the notes query filtered by `groupId`, newest first. An unshared or unknown folder, or a bad id, is a 404. Cached 30 s (the list changes as notes move). A shared folder's context menu has Folder link (`FolderLinkDialog`, `folderShareUrl`) with copy and open. Specs: `e2e/edge/share-folder.spec.ts`.
-- Move to folder (#622): "Move to folder…" in a note's context menu (not for collaborative or other people's notes) opens `MoveToFolderDialog`; `useMoveNote` sets `metadata.folderId` locally, pushes (the update patch carries the new `groupId`), and applies `publicAfterMove` (`src/lib/share/sharedFolder.ts`: into a shared folder public, out of one into a private folder private, otherwise unchanged) through `setNoteShared` (`useFolderSharing.ts`). `useNoteActions.moveToFolder` makes the URL follow the open note. A push that hits a version conflict keeps the server's folder (#257), so a move racing a remote edit can be reverted.
+- Move to folder (#622): "Move to folder…" in a note's context menu (not for other people's notes; an own shared note keeps its share, but cannot go into a shared folder) opens `MoveToFolderDialog`; `useMoveNote` sets `metadata.folderId` locally, pushes (the update patch carries the new `groupId`), and applies `publicAfterMove` (`src/lib/share/sharedFolder.ts`: into a shared folder public, out of one into a private folder private, otherwise unchanged) through `setNoteShared` (`useFolderSharing.ts`). `useNoteActions.moveToFolder` makes the URL follow the open note. A push that hits a version conflict keeps the server's folder (#257), so a move racing a remote edit can be reverted.
 - Unlisted (#639): the Share dialog's "Show on my public page" off sets `shareUnlisted` in note metadata, published as `card.unlisted`. The Pages Function drops such a note from the author page, folder page and sitemap (`toIndexNote`; a folder whose notes are all unlisted is left out of the author page) and serves its own page `noindex` (`fetchShareMeta` folds it into `indexable`). Folder sharing and moves keep it. Specs: `e2e/edge/share-unlisted.spec.ts`, `e2e/folders/share-unlisted.spec.ts`.
 - Specs: `e2e/publishing/` and `e2e/edge/` (`npm run e2e:edge`, `wrangler pages dev` on `127.0.0.1:8788`).
 
@@ -691,7 +702,9 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
   "isPinned": "boolean",
   "isCollaborative": "boolean",
   "circleIds": ["UUID"],
+  "odinIds": ["OdinId"],
   "recipients": ["OdinId"],
   "lastEditedBy": "OdinId"
 }
 ```
+`circleIds` members are editors (`recipients` holds them, enrolled in the app-owned `journal-shares` circle); `odinIds` are named viewers (#897), enrolled in `journal-viewers` (Read only). Both go into the note's ACL (`sharedAcl`). A viewer's editor is read-only and its push never sends a peer update (`isViewOnly`, `src/lib/homebase/shareTargets.ts`); the owner's pull re-uploads an ACL that lost `odinIdList` to a peer update (odin-core#2002).

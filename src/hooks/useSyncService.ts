@@ -29,6 +29,8 @@ export interface SyncContextType {
     setNoteArchivalStatusRemote: (docId: string, status: number) => Promise<void>;
     /** Delete a folder from remote (call before deleting local) */
     deleteFolderRemote: (folderId: string) => Promise<void>;
+    /** Re-read pendingCount after a change outside sync (a discard, #874) */
+    refreshPendingCount: () => Promise<void>;
     /** The underlying sync service instance */
     syncService: SyncService | null;
 }

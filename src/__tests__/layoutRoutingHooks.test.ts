@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/db', () => ({ getAppState: mocks.getAppState }));
 vi.mock('react-router-dom', () => ({
     useNavigate: () => mocks.navigate,
+    useLocation: () => ({ pathname: '/' }),
     // Stable per search string, like react-router's memoized searchParams.
     useSearchParams: () => [searchParamsFor(mocks.search), mocks.setSearchParams],
 }));

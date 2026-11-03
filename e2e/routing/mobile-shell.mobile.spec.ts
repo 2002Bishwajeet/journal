@@ -14,9 +14,10 @@ test('the shell is as tall as the window and the sidebar footer is on screen', a
     const shell = await shellRoot(page).boundingBox();
     expect(shell?.height).toBe(innerHeight);
 
-    const logout = page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: /Log out/ });
-    await expect(logout).toBeVisible();
-    const box = await logout.boundingBox();
+    // Trash is the footer's last row on a phone (Log out is in Settings, #830).
+    const footer = page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: /^Trash/ });
+    await expect(footer).toBeVisible();
+    const box = await footer.boundingBox();
     expect(box!.y).toBeGreaterThanOrEqual(0);
     expect(box!.y + box!.height).toBeLessThanOrEqual(innerHeight);
 
@@ -45,8 +46,8 @@ test('a notch keeps the sidebar content out of the unsafe area', async ({ browse
     const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
     // The sidebar animates its padding (transition-all), so poll until the inset settles.
     await expect.poll(async () => (await sidebar.getByRole('button').first().boundingBox())!.y).toBeGreaterThanOrEqual(59);
-    const logout = await sidebar.getByRole('button', { name: /Log out/ }).boundingBox();
-    expect(logout!.y + logout!.height).toBeLessThanOrEqual(852 - 34);
+    const footer = await sidebar.getByRole('button', { name: /^Trash/ }).boundingBox();
+    expect(footer!.y + footer!.height).toBeLessThanOrEqual(852 - 34);
     // The sidebar's background still runs under the home indicator.
     const sidebarBox = await sidebar.boundingBox();
     expect(sidebarBox!.y + sidebarBox!.height).toBe(852);
@@ -79,7 +80,7 @@ test('under a status bar, the focus-mode exit pill sits below the note header', 
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 59, bottom: 34 } });
     await page.getByRole('complementary', { name: 'Sidebar' }).getByText('Main', { exact: true }).click();
-    await page.getByRole('button', { name: 'New', exact: true }).click();
+    await page.getByRole('button', { name: 'New note', exact: true }).click();
     await expect(page.locator('.ProseMirror').last()).toBeVisible();
     await page.keyboard.press('ControlOrMeta+Shift+KeyF');
     const pill = page.getByRole('button', { name: /Exit Focus/ });

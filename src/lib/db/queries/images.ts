@@ -29,16 +29,16 @@ export async function getPendingImageUploads(noteDocId?: string): Promise<Pendin
     const db = await getDatabase();
     const query = noteDocId
         ? `SELECT id, note_doc_id, blob_data, content_type, status, retry_count, payload_key, created_at 
-           FROM pending_image_uploads WHERE note_doc_id = $1 AND status NOT IN ('synced', 'failed_permanent') ORDER BY created_at ASC`
+           FROM pending_image_uploads WHERE note_doc_id = $1 AND status NOT IN ('synced', 'failed_permanent', 'discarded') ORDER BY created_at ASC`
         : `SELECT id, note_doc_id, blob_data, content_type, status, retry_count, payload_key, created_at 
-           FROM pending_image_uploads WHERE status NOT IN ('synced', 'failed_permanent') ORDER BY created_at ASC`;
+           FROM pending_image_uploads WHERE status NOT IN ('synced', 'failed_permanent', 'discarded') ORDER BY created_at ASC`;
     const params = noteDocId ? [noteDocId] : [];
     const result = await db.query<{
         id: string;
         note_doc_id: string;
         blob_data: Uint8Array;
         content_type: string;
-        status: 'pending' | 'uploading' | 'failed' | 'failed_permanent';
+        status: PendingImageUpload['status'];
         retry_count: number;
         payload_key: string | null;
         created_at: string;
@@ -102,6 +102,18 @@ export async function retryPendingImageUploadNow(id: string): Promise<void> {
         `UPDATE pending_image_uploads SET next_retry_at = NULL, retry_count = 0, status = 'pending' WHERE id = $1`, [id]);
 }
 
+/**
+ * The user gave up on these uploads (#874): they never retry or count as waiting,
+ * but the bytes stay so the image still shows in the note on this device.
+ */
+export async function discardPendingImageUploads(ids: string[]): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `UPDATE pending_image_uploads SET status = 'discarded', next_retry_at = NULL WHERE id = ANY($1) AND status <> 'synced'`, [ids]);
+    await db.query(
+        'UPDATE sync_errors SET resolved_at = CURRENT_TIMESTAMP WHERE entity_id = ANY($1) AND resolved_at IS NULL', [ids]);
+}
+
 /** Bytes of an image uploaded from this device, kept so it renders offline (#179). */
 export async function getLocalImageBytes(
     remoteFileId: string,
@@ -154,7 +166,7 @@ export async function getNextImageRetryAt(): Promise<number | undefined> {
     const db = await getDatabase();
     const result = await db.query<{ next_retry_at: string | Date | null }>(
         `SELECT MIN(next_retry_at) AS next_retry_at FROM pending_image_uploads
-         WHERE status NOT IN ('synced', 'failed_permanent') AND next_retry_at > CURRENT_TIMESTAMP`
+         WHERE status NOT IN ('synced', 'failed_permanent', 'discarded') AND next_retry_at > CURRENT_TIMESTAMP`
     );
     const nextRetryAt = result.rows[0]?.next_retry_at;
     return nextRetryAt ? new Date(nextRetryAt).getTime() : undefined;
@@ -170,7 +182,7 @@ export async function getImageUploadsReadyForRetry(): Promise<PendingImageUpload
         note_doc_id: string;
         blob_data: Uint8Array;
         content_type: string;
-        status: 'pending' | 'uploading' | 'failed' | 'failed_permanent';
+        status: PendingImageUpload['status'];
         retry_count: number;
         payload_key: string | null;
         next_retry_at: string | null;
@@ -178,7 +190,7 @@ export async function getImageUploadsReadyForRetry(): Promise<PendingImageUpload
     }>(
         `SELECT id, note_doc_id, blob_data, content_type, status, retry_count, payload_key, next_retry_at, created_at 
          FROM pending_image_uploads 
-         WHERE status NOT IN ('synced', 'failed_permanent')
+         WHERE status NOT IN ('synced', 'failed_permanent', 'discarded')
          AND (next_retry_at IS NULL OR next_retry_at <= CURRENT_TIMESTAMP)
          ORDER BY created_at ASC`
     );

@@ -25,7 +25,7 @@ function AccessSelect(props: ComponentProps<"select">) {
     <div className="relative w-40 shrink-0">
       <select
         {...props}
-        className="h-11 md:h-9 w-full appearance-none rounded-md border border-border bg-background pl-3 pr-8 text-sm text-foreground shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
+        className="h-11 md:h-9 w-full appearance-none rounded-md border border-border bg-background pl-3 pr-8 text-base pointer-fine:text-sm text-foreground shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
       />
       <ChevronDown
         aria-hidden="true"

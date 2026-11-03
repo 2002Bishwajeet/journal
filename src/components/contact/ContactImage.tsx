@@ -7,7 +7,6 @@ import { ApiType, DotYouClient } from "@homebase-id/js-lib/core";
 import { useContact } from "@/hooks/useContact";
 import { FallbackImg } from "../ui/FallbackImg/FallbackImg";
 import { Image } from "../ui/image";
-import { Loader } from "lucide-react";
 export const ContactImage = ({
   odinId,
   canSave,
@@ -31,10 +30,8 @@ export const ContactImage = ({
 
   return (
     <div className={`relative aspect-square ${className || ""}`}>
-      {fullError ? (
+      {fullError || isLoading ? (
         <FallbackImg nameData={nameData} odinId={odinId} />
-      ) : isLoading ? (
-        <Loader className={`aspect-square`} />
       ) : contactData?.fileMetadata?.payloads?.some(
           (pyld) => pyld.key === CONTACT_PROFILE_IMAGE_KEY,
         ) ? (

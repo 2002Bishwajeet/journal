@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutProblems, safeAreaProblem, type Layout } from '../../e2e/ios/checks';
+import { gestureProblems, layoutProblems, safeAreaProblem, zoomProblems, type GestureProbe, type Layout } from '../../e2e/ios/checks';
 
 // A clean iPhone 15 portrait layout in Safari, keyboard down.
 const ok: Layout = {
@@ -14,7 +14,10 @@ const ok: Layout = {
   toolbar: null,
   dialogFooter: null,
   searchSheet: null,
+  sheet: null,
   sidebarFooter: { top: 610, bottom: 642, left: 8, right: 385 },
+  largeTitle: { top: 48, bottom: 96, left: 0, right: 393 },
+  tabBar: { top: 610, bottom: 659, left: 0, right: 98 },
   foreignRequests: [],
 };
 
@@ -26,12 +29,21 @@ const keyboard: Layout = {
   caret: { top: 200, bottom: 220, left: 20, right: 20 },
   toolbar: { top: 275, bottom: 323, left: 0, right: 393 },
   sidebarFooter: null,
+  tabBar: null,
 };
 
 describe('iOS Safari layout checks', () => {
   it('should pass a clean layout, with and without the keyboard', () => {
     expect(layoutProblems(ok, false)).toEqual([]);
     expect(layoutProblems(keyboard, true)).toEqual([]);
+  });
+
+  it('should flag a large title under the status bar (#830)', () => {
+    const insets = { top: 59, right: 0, bottom: 34, left: 0 };
+    expect(layoutProblems({ ...ok, insets, sidebarFooter: null, tabBar: null, largeTitle: { top: 103, bottom: 144, left: 0, right: 393 } }, false)).toEqual([]);
+    expect(layoutProblems({ ...ok, insets, sidebarFooter: null, tabBar: null, largeTitle: { top: 20, bottom: 61, left: 0, right: 393 } }, false)).toEqual([
+      'the large title starts at 20, under the status bar (safe area top 59)',
+    ]);
   });
 
   it('should flag sideways scrolling', () => {
@@ -57,6 +69,13 @@ describe('iOS Safari layout checks', () => {
     expect(problems[0]).toMatch(/below the usable bottom 625/);
   });
 
+  it('should keep the tab bar buttons above the home indicator', () => {
+    const insets = { ...ok.insets, bottom: 34 };
+    expect(layoutProblems({ ...ok, insets, sidebarFooter: null, tabBar: { top: 576, bottom: 625, left: 0, right: 98 } }, false)).toEqual([]);
+    const problems = layoutProblems({ ...ok, insets, sidebarFooter: null }, false);
+    expect(problems).toEqual(['the tab bar ends at 659, below the usable bottom 625 (viewport minus the safe area)']);
+  });
+
   it('should not flag the sidebar footer under the keyboard while a dialog field is focused', () => {
     const dialogField = { ...ok, viewport: { top: 0, height: 436 }, focused: { name: 'input[Folder Name]', fontSize: 16 }, sidebarFooter: { top: 619, bottom: 651, left: 8, right: 385 } };
     expect(layoutProblems(dialogField, false)).toEqual([]);
@@ -75,6 +94,23 @@ describe('iOS Safari layout checks', () => {
     expect(layoutProblems({ ...field, searchSheet: { top: 0, bottom: 420, left: 0, right: 393 } }, false)).toEqual([]);
     expect(layoutProblems({ ...field, searchSheet: { top: 0, bottom: 659, left: 0, right: 393 } }, false)).toEqual([
       'the search sheet (0–659) is outside the visual viewport (0–420)',
+    ]);
+  });
+
+  it('should flag a sheet that stays under the keyboard while its field is focused', () => {
+    const field = { ...ok, viewport: { top: 0, height: 336 }, focused: { name: 'input[Sheet field]', fontSize: 16 }, sidebarFooter: null };
+    expect(layoutProblems({ ...field, sheet: { top: 40, bottom: 336, left: 0, right: 393 } }, false)).toEqual([]);
+    expect(layoutProblems({ ...field, sheet: { top: 40, bottom: 659, left: 0, right: 393 } }, false)).toEqual([
+      'the sheet (40–659) is outside the visual viewport (0–336)',
+    ]);
+  });
+
+  it('should measure from 0 when Safari shrinks innerHeight to the visual viewport', () => {
+    // Real iOS Safari numbers after it scrolled to the sheet's field (#823).
+    const field = { ...ok, innerHeight: 436, viewport: { top: 223, height: 436 }, focused: { name: 'input[Sheet field]', fontSize: 16 }, sidebarFooter: null };
+    expect(layoutProblems({ ...field, sheet: { top: 32, bottom: 436, left: 0, right: 393 } }, false)).toEqual([]);
+    expect(layoutProblems({ ...field, sheet: { top: -191, bottom: 436, left: 0, right: 393 } }, false)).toEqual([
+      'the sheet (-191–436) is outside the visual viewport (0–436)',
     ]);
   });
 
@@ -114,5 +150,50 @@ describe('iOS Safari layout checks', () => {
     const none = { top: 0, right: 0, bottom: 0, left: 0 };
     expect(safeAreaProblem([none, none])).toMatch(/viewport-fit=cover/);
     expect(safeAreaProblem([none, { ...none, left: 59 }])).toBeNull();
+  });
+});
+
+// What the note list did during one gesture, with nothing wrong (#778).
+const still: GestureProbe = { minTop: 0, maxTop: 0, maxPull: 0, pageMoved: 0, maxRowOffset: 0, firstRowOffset: 0 };
+
+describe('iOS Safari note list gesture checks', () => {
+  it('should pass gestures the list followed', () => {
+    expect(gestureProblems('swipe', { ...still, maxRowOffset: 84, firstRowOffset: 80 })).toEqual([]);
+    expect(gestureProblems('drift-scroll', { ...still, maxTop: 240 })).toEqual([]);
+    expect(gestureProblems('pull', { ...still, maxPull: 75 })).toEqual([]);
+    expect(gestureProblems('scroll-after-pull', { ...still, maxTop: 240 })).toEqual([]);
+  });
+
+  it('should flag a swipe that left the row shut', () => {
+    expect(gestureProblems('swipe', still)).toEqual(['the swiped row is open 0px, not 80px']);
+  });
+
+  it('should flag a row that slid during a vertical scroll, or a scroll that did not happen', () => {
+    expect(gestureProblems('drift-scroll', { ...still, maxTop: 10, maxRowOffset: 35 })).toEqual([
+      'the list scrolled only 10px',
+      'a row slid 35px during a vertical scroll',
+    ]);
+  });
+
+  it('should flag a pull that WebKit rubber-banded or scrolled instead', () => {
+    expect(gestureProblems('pull', { ...still, minTop: -60, maxTop: 12, pageMoved: 40 })).toEqual([
+      'the page itself moved 40px',
+      'the pull moved the list only 0px',
+      'the list rubber-banded to scrollTop -60 during the pull',
+      'the list scrolled to 12 during the pull',
+    ]);
+  });
+
+  it('should flag a list stuck at the top after a pull', () => {
+    expect(gestureProblems('scroll-after-pull', still)).toEqual(['the list stuck at the top: it scrolled only 0px after the pull']);
+  });
+
+  it('should flag a focus zoom and a viewport that blocks pinch zoom', () => {
+    const meta = 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content';
+    expect(zoomProblems('the sign-in field', 1, meta)).toEqual([]);
+    expect(zoomProblems('the sign-in field', 1.12, meta)).toEqual(['focusing the sign-in field zoomed the page to 1.12x']);
+    expect(zoomProblems('x', 1, 'width=device-width, maximum-scale=1')).toEqual(['the viewport meta blocks pinch zoom: "width=device-width, maximum-scale=1"']);
+    expect(zoomProblems('x', 1, 'width=device-width, user-scalable=no')).toHaveLength(1);
+    expect(zoomProblems('x', NaN, meta)).toEqual(['could not read visualViewport.scale after focusing x']);
   });
 });

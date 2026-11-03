@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, ExternalLink, Loader2, RefreshCw, Share2 } from "lucide-react";
+import { ChevronRight, Copy, ExternalLink, Loader2, RefreshCw, Share2, Trash2, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import { useDiagnostics } from "@/hooks/useDiagnostics";
+import { overlayDepth } from "@/hooks/useOverlayHistory";
+import { getPendingImageUpload } from "@/lib/db";
+import { DRIVE_OWNER_STEP, SHARE_DRIVE_FIX_STEPS } from "@/lib/homebase/shareNotifications";
 import { MAIN_FOLDER_ID } from "@/lib/homebase";
 import { explainSyncError } from "@/lib/diagnostics/report";
 import type { PendingItemStatus, PendingSyncItem } from "@/lib/db/queries/diagnostics";
@@ -39,17 +43,54 @@ function itemTitle(item: PendingSyncItem): string {
   return item.isDelete ? "Deleted item" : "Untitled";
 }
 
+/** The queued image itself, read once from the bytes kept on this device (the row has its status). */
+function ImageThumb({ id }: { id: string }) {
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    let objectUrl: string | undefined;
+    let alive = true;
+    void getPendingImageUpload(id).then((row) => {
+      if (!alive || !row) return;
+      objectUrl = URL.createObjectURL(new Blob([new Uint8Array(row.blobData)], { type: row.contentType }));
+      setUrl(objectUrl);
+    });
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [id]);
+  return (
+    <span className="size-11 shrink-0 overflow-hidden rounded-md border bg-muted">
+      {url && <img src={url} alt="" className="size-full object-cover" />}
+    </span>
+  );
+}
+
+/** What discarding these image uploads loses, for the confirmation (#874). */
+function discardDescription(images: PendingSyncItem[]): string {
+  const one = images.length === 1;
+  const uploaded = images.filter((image) => image.uploaded).length;
+  let text = `${one ? "The image stays" : "The images stay"} in ${one ? "its note" : "their notes"} on this device, but ${one ? "it" : "they"} won't sync to your Homebase or your other devices.`;
+  if (uploaded > 0) {
+    const what = uploaded === images.length ? (one ? "it" : "them") : `${uploaded} of them`;
+    text += ` Your Homebase already has ${what}, but the note there won't show ${one ? "it" : "them"}.`;
+  }
+  return text;
+}
+
 function PendingRow({
   item,
   busy,
   canRetry,
   onRetry,
+  onDiscard,
   onOpen,
 }: {
   item: PendingSyncItem;
   busy: boolean;
   canRetry: boolean;
   onRetry: () => void;
+  onDiscard: () => void;
   onOpen: () => void;
 }) {
   const explained = item.error ? explainSyncError(item.error) : null;
@@ -73,6 +114,7 @@ function PendingRow({
   return (
     <li data-testid="pending-item" className="space-y-2 border-b px-4 py-3 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
+        {item.kind === "image" && <ImageThumb id={item.id} />}
         {item.noteId ? (
           <button
             type="button"
@@ -91,7 +133,7 @@ function PendingRow({
       </div>
 
       {item.error && explained && (
-        <div className="space-y-1 rounded-lg bg-muted/50 px-3 py-2">
+        <div className="selectable space-y-1 rounded-lg bg-muted/50 px-3 py-2">
           <p className="text-xs leading-relaxed text-pretty">{explained.plain}</p>
           <p className="font-mono text-xs leading-relaxed text-muted-foreground wrap-anywhere">
             {explained.code ? `${explained.code} · ` : ""}
@@ -105,18 +147,56 @@ function PendingRow({
         </p>
       )}
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="min-h-11 md:min-h-0"
-        disabled={busy || !canRetry}
-        aria-label={`Retry ${itemTitle(item)}`}
-        onClick={onRetry}
-      >
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-        Retry now
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-11 md:min-h-0"
+          disabled={busy || !canRetry}
+          aria-label={`Retry ${itemTitle(item)}`}
+          onClick={onRetry}
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          Retry now
+        </Button>
+        {item.kind === "image" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-h-11 text-destructive hover:text-destructive md:min-h-0 dark:text-red-400 dark:hover:text-red-400"
+            disabled={busy}
+            aria-label={`Discard ${itemTitle(item)}`}
+            onClick={onDiscard}
+          >
+            <Trash2 className="h-4 w-4" />
+            Discard
+          </Button>
+        )}
+      </div>
     </li>
+  );
+}
+
+function DriveSettingsLink({ href }: { href: string }) {
+  return (
+    <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto md:min-h-9">
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        <ExternalLink />
+        Open drive settings
+      </a>
+    </Button>
+  );
+}
+
+function DriveOwnerSteps({ href }: { href: string }) {
+  return (
+    <>
+      <p className="text-sm leading-relaxed text-pretty">On your owner console, open the drive and:</p>
+      <ol className="list-decimal space-y-1 pl-5 text-sm leading-relaxed">
+        <li>{DRIVE_OWNER_STEP}</li>
+      </ol>
+      <DriveSettingsLink href={href} />
+    </>
   );
 }
 
@@ -124,8 +204,11 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
   const navigate = useNavigate();
   const diagnostics = useDiagnostics();
   const [errorsOnly, setErrorsOnly] = useState(false);
+  // The image uploads waiting for the user to confirm a discard
+  const [toDiscard, setToDiscard] = useState<PendingSyncItem[]>([]);
   const { items, isSyncing, isOnline } = diagnostics;
   const canRetry = isOnline && !isSyncing;
+  const failedImages = (items ?? []).filter((item) => item.kind === "image" && item.status === "failed");
 
   const log = [...diagnostics.log].reverse().filter((entry) => !errorsOnly || entry.level !== "info");
 
@@ -150,40 +233,129 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
                 busy={diagnostics.retrying === item.id}
                 canRetry={canRetry}
                 onRetry={() => diagnostics.retryItem(item)}
+                onDiscard={() => setToDiscard([item])}
                 onOpen={() => {
-                  navigate(`/${item.folderId ?? MAIN_FOLDER_ID}/${item.noteId}`);
-                  close();
+                  const openNote = () => {
+                    navigate(`/${item.folderId ?? MAIN_FOLDER_ID}/${item.noteId}`);
+                    close();
+                  };
+                  // On a phone Settings holds history entries: leave them first, so Back from the note skips them (#831).
+                  const overlays = overlayDepth(window.history.state?.usr);
+                  if (overlays === 0) return openNote();
+                  window.addEventListener("popstate", openNote, { once: true });
+                  navigate(-overlays);
                 }}
               />
             ))}
           </ul>
         )}
-        <Button
-          variant="outline"
-          className="min-h-11 w-full sm:w-auto md:min-h-9"
-          disabled={!canRetry}
-          onClick={() => diagnostics.retryAll()}
-        >
-          {isSyncing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-          Retry now
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="min-h-11 w-full sm:w-auto md:min-h-9"
+            disabled={!canRetry}
+            onClick={() => diagnostics.retryAll()}
+          >
+            {isSyncing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+            Retry now
+          </Button>
+          {failedImages.length > 1 && (
+            <Button
+              variant="outline"
+              className="min-h-11 w-full text-destructive hover:text-destructive sm:w-auto md:min-h-9 dark:text-red-400 dark:hover:text-red-400"
+              onClick={() => setToDiscard(failedImages)}
+            >
+              <Trash2 />
+              Discard all {failedImages.length} failed images
+            </Button>
+          )}
+        </div>
+        <ConfirmDialog
+          isOpen={toDiscard.length > 0}
+          onClose={() => setToDiscard([])}
+          onConfirm={() => diagnostics.discardImages(toDiscard.map((item) => item.id))}
+          title={toDiscard.length === 1 ? "Discard this image upload?" : `Discard ${toDiscard.length} image uploads?`}
+          description={discardDescription(toDiscard)}
+          confirmText="Discard"
+        />
       </div>
 
-      {diagnostics.shareNotificationsFixUrl && (
+      {diagnostics.shareDriveFixUrl && (
         <div className="space-y-4" data-testid="share-notifications-off">
           <SectionHeader subtitle="People you share a note with still get it the next time Journal checks, just not right away.">
             Share notifications are off
           </SectionHeader>
           <p className="text-sm leading-relaxed text-pretty">
-            Your Homebase refused the notification because this journal's drive doesn't allow subscriptions. Open the
-            drive on your owner console, choose the edit (pencil) button and turn on Allow subscriptions.
+            Your journal drive isn't set up to send them. Your owner console can fix the drive. You approve the change
+            there.
           </p>
-          <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto md:min-h-9">
-            <a href={diagnostics.shareNotificationsFixUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink />
-              Open drive settings
+          <Button asChild className="min-h-11 w-full sm:w-auto md:min-h-9">
+            <a href={diagnostics.shareDriveFixUrl} onClick={diagnostics.markShareDriveFixAttempted}>
+              <Wrench />
+              Fix in owner console
             </a>
           </Button>
+          <p data-testid="owner-console-version-note" className="text-xs leading-relaxed text-pretty text-muted-foreground">
+            This needs an up-to-date owner console. On an older one, the steps under "Do it by hand" are the safe path.
+          </p>
+          {diagnostics.shareDriveFixFailed && (
+            <p role="status" className="text-sm leading-relaxed text-pretty text-destructive dark:text-red-400">
+              The drive still has no IsCollaborativeChannel attribute. If you approved the change, your owner console
+              may need an update. Do it by hand instead.
+            </p>
+          )}
+          <details open={diagnostics.shareDriveFixFailed} className="group space-y-3">
+            <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium md:min-h-0">
+              <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" aria-hidden="true" />
+              Do it by hand
+            </summary>
+            <p className="text-sm leading-relaxed text-pretty">
+              On your owner console, open the drive, choose the edit (pencil) button and:
+            </p>
+            <ol className="list-decimal space-y-1 pl-5 text-sm leading-relaxed">
+              {diagnostics.shareDriveFixes.map((fix) => (
+                <li key={fix}>{SHARE_DRIVE_FIX_STEPS[fix]}</li>
+              ))}
+            </ol>
+            <DriveSettingsLink href={diagnostics.driveSettingsUrl} />
+          </details>
+        </div>
+      )}
+
+      {diagnostics.driveOwnerFix && (
+        <div className="space-y-4" data-testid="drive-owner">
+          <SectionHeader subtitle="This does not stop share notifications. It lets Journal give the people you share with more than read access.">
+            Journal doesn't own its drive
+          </SectionHeader>
+          <p className="text-sm leading-relaxed text-pretty">
+            Your journal drive belongs to {diagnostics.driveOwnerFixUrl ? "no app yet" : "another app"}. The circles
+            that Journal makes can only let people read your notes there.
+          </p>
+          {diagnostics.driveOwnerFixUrl ? (
+            <>
+              <p className="text-sm leading-relaxed text-pretty">
+                Your owner console can give the drive to Journal. You approve the change there. It can't be undone.
+              </p>
+              <Button asChild className="min-h-11 w-full sm:w-auto md:min-h-9">
+                <a href={diagnostics.driveOwnerFixUrl} onClick={diagnostics.markShareDriveFixAttempted}>
+                  <Wrench />
+                  Fix in owner console
+                </a>
+              </Button>
+              <p className="text-xs leading-relaxed text-pretty text-muted-foreground">
+                This needs an up-to-date owner console. On an older one, do it by hand.
+              </p>
+              <details className="group space-y-3">
+                <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium md:min-h-0">
+                  <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" aria-hidden="true" />
+                  Do it by hand
+                </summary>
+                <DriveOwnerSteps href={diagnostics.driveSettingsUrl} />
+              </details>
+            </>
+          ) : (
+            <DriveOwnerSteps href={diagnostics.driveSettingsUrl} />
+          )}
         </div>
       )}
 

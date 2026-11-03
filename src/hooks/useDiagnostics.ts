@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/auth/useAuth';
 import { useSyncService } from '@/hooks/useSyncService';
@@ -8,6 +9,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { formatBytes, useStorageInfo } from '@/hooks/useStorageInfo';
 import {
     clearRetryBackoff,
+    discardPendingImageUploads,
     getAppState,
     getDatabaseInfo,
     getPendingSyncItems,
@@ -16,9 +18,18 @@ import {
     type PendingSyncItem,
 } from '@/lib/db';
 import { SHARED_PULL_STATE_KEY } from '@/lib/homebase/sync/sharedPull';
-import { getShareNotificationsOffHosts, subscribeShareNotifications } from '@/lib/homebase/shareNotifications';
+import {
+    driveNeedsOwner,
+    driveOwnedByNoApp,
+    fetchJournalDriveFacts,
+    getShareNotificationsOffHosts,
+    missingShareDriveFixes,
+    subscribeShareNotifications,
+} from '@/lib/homebase/shareNotifications';
 import { ownerConsoleDriveUrl } from '@/lib/homebase/config';
 import { useDotYouClientContext } from '@/components/auth';
+import { getJournalDriveFixUrl } from '@/hooks/auth/useMissingPermissions';
+import { SHARE_DRIVE_FIX_ATTEMPT_KEY, readString, removeKey, writeString } from '@/lib/storage';
 import { appendLog, getLogSnapshot, subscribeLog } from '@/lib/diagnostics/logBuffer';
 import { buildReport, type StatusRow } from '@/lib/diagnostics/report';
 import { formatRelativeTime } from '@/lib/utils';
@@ -58,7 +69,8 @@ function formatWhen(time: Date | number | null): string {
  * errors, the recent log, a status block, and the actions that retry or share them.
  */
 export function useDiagnostics() {
-    const { syncStatus, pendingCount, lastSyncedAt, websocketConnected, sync, syncNote, syncFolder } = useSyncService();
+    const { syncStatus, pendingCount, lastSyncedAt, websocketConnected, sync, syncNote, syncFolder, refreshPendingCount } =
+        useSyncService();
     const { isOnline } = useOnlineContext();
     const { getIdentity } = useAuth();
     const client = useDotYouClientContext();
@@ -74,9 +86,28 @@ export function useDiagnostics() {
     const log = useSyncExternalStore(subscribeLog, getLogSnapshot);
     const shareNotificationsOff = useSyncExternalStore(subscribeShareNotifications, getShareNotificationsOffHosts)
         .includes(client.getHostIdentity());
+    // What an app token can read of the journal drive (#848); null when the host won't say. Always re-read:
+    // the persisted cache would otherwise still show the drive as it was before the owner console fixed it.
+    const { data: driveFacts = null, isFetching: readingDrive } = useQuery({
+        queryKey: ['journal-drive-facts', client.getHostIdentity()],
+        queryFn: () => fetchJournalDriveFacts(client),
+        retry: false,
+        staleTime: 0,
+    });
+    const shareDriveFixes = missingShareDriveFixes(driveFacts, shareNotificationsOff);
+    // The owner went to the extend-permissions page for this fix (#870). If the attribute is still missing on
+    // return, that owner console did not merge it (it predates odin-js#993), so the manual steps are the way.
+    const identity = client.getHostIdentity();
+    const driveOwnerFix = driveNeedsOwner(driveFacts);
+    const fixAttempted = readString(SHARE_DRIVE_FIX_ATTEMPT_KEY) === identity;
+    const shareDriveFixFailed = fixAttempted && !readingDrive && shareDriveFixes.includes('attribute');
+    const attributeFixed = driveFacts !== null && !shareDriveFixes.includes('attribute');
+    useEffect(() => {
+        if (fixAttempted && attributeFixed) removeKey(SHARE_DRIVE_FIX_ATTEMPT_KEY);
+    }, [fixAttempted, attributeFixed]);
 
     // Re-read the list whenever a sync finishes or the count moves, and after a retry.
-    const listKey = `${pendingCount.total}:${syncStatus}:${lastSyncedAt?.getTime() ?? 0}:${reloadCount}`;
+    const listKey = `${pendingCount.total}:${pendingCount.failed}:${syncStatus}:${lastSyncedAt?.getTime() ?? 0}:${reloadCount}`;
     useEffect(() => {
         let cancelled = false;
         getPendingSyncItems()
@@ -108,7 +139,7 @@ export function useDiagnostics() {
         { label: 'Last full sync', value: formatWhen(lastSyncedAt) },
         { label: 'Last shared notes pass', value: formatWhen(facts?.sharedPassAt ?? null) },
         { label: 'Push notifications', value: pushStatus },
-        ...(shareNotificationsOff ? [{ label: 'Share notifications', value: 'off: the journal drive does not allow subscriptions' }] : []),
+        ...(shareDriveFixes.length ? [{ label: 'Share notifications', value: 'off: the journal drive needs a fix on your owner console' }] : []),
         { label: 'Service worker', value: facts?.serviceWorker ?? 'checking' },
         {
             label: 'Database',
@@ -152,6 +183,14 @@ export function useDiagnostics() {
         }
     };
 
+    // Images only: a note or folder can't be discarded without replacing it with the server copy (#800).
+    const discardImages = async (ids: string[]) => {
+        await discardPendingImageUploads(ids);
+        appendLog('info', `[Diagnostics] Discarded ${ids.length} image ${ids.length === 1 ? 'upload' : 'uploads'}`);
+        // The count change re-reads the list (listKey)
+        await refreshPendingCount();
+    };
+
     const reportText = () => buildReport({ status, items: items ?? [], log, includeTitles });
 
     const copyReport = async () => {
@@ -175,8 +214,18 @@ export function useDiagnostics() {
 
     return {
         status,
-        // Set once a share push was refused (#817); the fix is a switch on the owner console.
-        shareNotificationsFixUrl: shareNotificationsOff ? ownerConsoleDriveUrl(client.getRoot()) : null,
+        // Owner console steps the journal drive still needs for share pushes (#817, #848).
+        shareDriveFixes,
+        shareDriveFixUrl: shareDriveFixes.length ? getJournalDriveFixUrl(client.getRoot(), window.location.href) : null,
+        shareDriveFixFailed,
+        markShareDriveFixAttempted: () => writeString(SHARE_DRIVE_FIX_ATTEMPT_KEY, identity),
+        driveSettingsUrl: ownerConsoleDriveUrl(client.getRoot(), driveFacts?.appId),
+        // The drive belongs to another app, which only the owner console changes. Not needed for share pushes.
+        driveOwnerFix,
+        // When no app owns it, the same extend-permissions page as the share fix also hands it to Journal: the
+        // request names the drive's slugs (journalDriveRequest).
+        driveOwnerFixUrl:
+            driveOwnerFix && driveOwnedByNoApp(driveFacts) ? getJournalDriveFixUrl(client.getRoot(), window.location.href) : null,
         items,
         log,
         isSyncing: syncStatus === 'syncing',
@@ -184,6 +233,7 @@ export function useDiagnostics() {
         retrying,
         retryAll,
         retryItem,
+        discardImages,
         includeTitles,
         setIncludeTitles,
         copyReport,

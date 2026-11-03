@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, waitForAppReady } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
-import { inBothThemes, type Theme } from '../support/actions';
+import { inBothThemes, openSettingsSection, settingsPanel, type Theme } from '../support/actions';
 
 // Screenshot evidence for the settings visual pass (#395): every section, in
 // both themes, at desktop and phone width. Written to test-results/ via
@@ -30,7 +30,8 @@ async function capture(page: Page, name: (theme: Theme) => string): Promise<void
 }
 
 async function captureTheme(page: Page, name: string): Promise<void> {
-  const scroller = page.getByRole('dialog').getByRole('tabpanel').locator('..');
+  // The scrolling pane: the panel's parent on desktop, the section page itself on a phone.
+  const scroller = await settingsPanel(page.getByRole('dialog')).evaluateHandle((el) => (el.matches('[role=region]') ? el : el.parentElement!));
   await scroller.evaluate((el) => el.scrollTo(0, 0));
   for (let part = 1; ; part++) {
     await page.screenshot({
@@ -63,9 +64,9 @@ for (const [viewport, size] of Object.entries(VIEWPORTS)) {
 
     for (const section of SECTIONS) {
       if (isMobile && section.desktopOnly) continue;
-      await dialog.getByRole('tab', { name: section.tab, exact: true }).click();
-      const panel = dialog.getByRole('tabpanel');
-      await expect(panel.getByRole('heading', { name: section.tab, exact: true })).toBeVisible();
+      await openSettingsSection(dialog, section.tab);
+      const panel = settingsPanel(dialog);
+      await expect(dialog.getByRole('heading', { name: section.tab, exact: true }).first()).toBeVisible();
       if (section.id === 'data') await expect(panel.getByText('Storage used')).toBeVisible();
       await capture(app, (theme) => `${section.id}-${theme}-${viewport}`);
     }
@@ -80,7 +81,7 @@ for (const [viewport, size] of Object.entries(VIEWPORTS)) {
     await app.reload();
     await waitForAppReady(app);
     dialog = await open();
-    await dialog.getByRole('tab', { name: 'AI', exact: true }).click();
+    await openSettingsSection(dialog, 'AI');
     await expect(dialog.getByRole('status')).toContainText("Couldn't load the AI model.");
     await capture(app, (theme) => `ai-on-${theme}-${viewport}`);
   });

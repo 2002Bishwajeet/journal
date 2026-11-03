@@ -149,6 +149,18 @@
   --sidebar-ring: #8A8780;
 }
 
+/* Sharing with people (#683): the Share dialog, the access popover and its "Shared" pill.
+   Their secondary text and the sharing amber carry names, roles and states, so they meet
+   WCAG AA (4.5:1) here, on the dialog, the popover and the tinted pills and rows. */
+.share-ui {
+  --muted-foreground: #6E6B64; /* 4.7:1 on --muted, 5.3:1 on --popover */
+  --collaborative: #9a4508; /* 5.5:1 on its own 10% tint */
+}
+.dark .share-ui {
+  --muted-foreground: #9C998F; /* 5.0:1 on --muted, 5.5:1 on --popover */
+  --collaborative: #fbbf24;
+}
+
 /* Reset & Base */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -163,8 +175,14 @@
   --sar: env(safe-area-inset-right);
 }
 
-html {
+html, body {
   overscroll-behavior: none;
+}
+
+/* No font inflation in landscape on iOS Safari */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -176,12 +194,33 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-user-select: none; /* Safari */
   user-select: none; /* Prevent accidental selection on UI */
+  -webkit-touch-callout: none; /* No link or image preview on long press of chrome */
 }
 
 /* Re-enable text selection for content that should be selectable */
-.prose, .selectable, input, textarea {
+.prose, .selectable, input, textarea, pre, code, [contenteditable="true"] {
+  -webkit-user-select: text;
   user-select: text;
+  /* Note content keeps the system callout (save image, link preview) */
+  -webkit-touch-callout: default;
+}
+
+/* Native feel (#856): no double-tap zoom on controls, and a short pressed state on touch. */
+button, [role="button"], [role="menuitem"], [role="tab"], a, summary, label, select {
+  touch-action: manipulation;
+}
+
+@media (hover: none) {
+  button:not(:disabled):active,
+  [role="button"]:active,
+  [role="menuitem"]:active,
+  [role="tab"]:active,
+  a:active {
+    opacity: 0.6;
+    transition: none;
+  }
 }
 
 /* TipTap Editor Styles */
@@ -227,8 +266,12 @@ body {
   transition: opacity 0.15s ease;
 }
 
-.prose a:hover {
-  opacity: 0.7;
+/* Hover only with a mouse: on a phone a tap applies :hover and it stays (#892).
+   Touch press feedback comes from the #856 baseline (every one of these is a button or link). */
+@media (hover: hover) and (pointer: fine) {
+  .prose a:hover {
+    opacity: 0.7;
+  }
 }
 
 /* Internal note links ([[) — rendered as inline chips */
@@ -249,8 +292,10 @@ body {
   transition: background 0.15s ease;
 }
 
-.note-link:hover {
-  background: color-mix(in srgb, var(--primary) 20%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .note-link:hover {
+    background: color-mix(in srgb, var(--primary) 20%, transparent);
+  }
 }
 
 .note-link--broken {
@@ -620,10 +665,13 @@ img.ProseMirror-separator {
   border-radius: 9999px;
   line-height: 1;
   color: var(--foreground);
+  transition: opacity 120ms ease-out;
 }
 
-.gallery-nav > button:hover:not(:disabled) {
-  background: var(--accent);
+@media (hover: hover) and (pointer: fine) {
+  .gallery-nav > button:hover:not(:disabled) {
+    background: var(--accent);
+  }
 }
 
 .gallery-nav > button:disabled {
@@ -641,10 +689,49 @@ img.ProseMirror-separator {
   border-radius: 9999px;
   background: var(--muted-foreground);
   opacity: 0.4;
+  transition: opacity 120ms ease-out;
 }
 
 .gallery-dots > button[aria-current] {
   opacity: 1;
+}
+
+/* A finger needs 44px targets (#892). Each dot keeps its 8px look, drawn by ::before,
+   inside a 44px button that may narrow (never below the dot) when there are many slides. */
+@media (pointer: coarse) {
+  /* The 44px buttons hold their own space: no gap, so 5 dots fit at 390px */
+  .gallery-nav {
+    gap: 0;
+  }
+
+  .gallery-nav > button {
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .gallery-dots {
+    gap: 0;
+    min-width: 0;
+  }
+
+  .gallery-dots > button {
+    display: grid;
+    place-items: center;
+    flex-shrink: 1;
+    width: 2.75rem;
+    min-width: 0.75rem;
+    height: 2.75rem;
+    background: none;
+  }
+
+  .gallery-dots > button::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: var(--muted-foreground);
+  }
 }
 
 /* The layout picker in the editor, under the gallery's bottom right corner: the strip
@@ -671,9 +758,14 @@ img.ProseMirror-separator {
   transition: opacity 0.15s;
 }
 
-.gallery-block:hover > .gallery-toolbar,
 .gallery-block:focus-within > .gallery-toolbar {
   opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .gallery-block:hover > .gallery-toolbar {
+    opacity: 1;
+  }
 }
 
 @media (hover: none) {
@@ -685,12 +777,19 @@ img.ProseMirror-separator {
 .gallery-toolbar > button {
   padding: 0 0.5rem;
   border-radius: 0.25rem;
+  transition: opacity 120ms ease-out;
 }
 
-.gallery-toolbar > button:hover,
 .gallery-toolbar > button[aria-pressed='true'] {
   background: var(--accent);
   color: var(--accent-foreground);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .gallery-toolbar > button:hover {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
 }
 
 /* Lists */
@@ -1025,17 +1124,9 @@ img.ProseMirror-separator {
   display: none;  /* Chrome, Safari, Opera */
 }
 
-/* Settings tab strip (phones): fade the edge that has more tabs past it. */
-@media (max-width: 767px) {
-  .settings-tab-fade[data-fade-start="true"] {
-    mask-image: linear-gradient(to right, transparent, #000 1.25rem);
-  }
-  .settings-tab-fade[data-fade-end="true"] {
-    mask-image: linear-gradient(to left, transparent, #000 1.25rem);
-  }
-  .settings-tab-fade[data-fade-start="true"][data-fade-end="true"] {
-    mask-image: linear-gradient(to right, transparent, #000 1.25rem, #000 calc(100% - 1.25rem), transparent);
-  }
+/* A viewport that holds a PullToRefresh draws the pull itself: no native bounce on top of it. */
+[data-radix-scroll-area-viewport]:has([data-pull-to-refresh]) {
+  overscroll-behavior-y: none;
 }
 
 /* Scroll containment - prevents scroll chaining to parent/body */
@@ -1102,9 +1193,39 @@ img.ProseMirror-separator {
   animation-name: fade-in;
 }
 
-/* Mobile Slide Animations applied via classes if needed, 
-   but for now we'll stick to a smooth crossfade which feels 
-   native enough without complex route direction logic */
+/* Phone push and pop (#779, phones only: tablets show two panes): forward slides in from the right; back
+   (data-nav="back"); slideNavigate in navDirection.ts starts them slides in from the left. */
+@media (max-width: 767.98px) and (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.25s;
+    animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  ::view-transition-old(root) {
+    animation-name: slide-to-left;
+  }
+
+  ::view-transition-new(root) {
+    animation-name: slide-from-right;
+  }
+
+  :root[data-nav="back"]::view-transition-old(root) {
+    animation-name: slide-to-right;
+  }
+
+  :root[data-nav="back"]::view-transition-new(root) {
+    animation-name: slide-from-left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+  }
+}
 
 /* Find & Replace highlights */
 .search-highlight {
@@ -1125,6 +1246,50 @@ img.ProseMirror-separator {
 .dark .search-highlight-current {
   background-color: rgb(234 179 8 / 0.5);
   box-shadow: 0 0 0 1px rgb(234 179 8 / 0.4);
+}
+
+/* Phone New note button (#878). --fab-bottom is its gap above the bottom edge. While it is
+   on screen, html[data-fab] sets --fab-clearance: the room lists and toasts leave under their
+   last item. Phone tab bar (#853): --tab-bar-height is its height without the safe area.
+   While it is on screen, html[data-tab-bar] raises the button above it and, without the
+   button, leaves the bar's height plus 8 px as clearance. */
+:root {
+  --fab-size: 56px;
+  --fab-bottom: 16px;
+  --tab-bar-height: 49px;
+}
+html[data-tab-bar] {
+  --fab-bottom: calc(var(--tab-bar-height) + 16px);
+  --fab-clearance: calc(var(--tab-bar-height) + 8px);
+}
+html[data-fab] {
+  --fab-clearance: calc(var(--fab-size) + var(--fab-bottom) + 16px);
+}
+/* Docked assistant (#840): from lg, while it is open, html[data-assistant] sets
+   --assistant-clearance so toasts sit left of the 22.5rem panel, not over its message box. */
+@media (min-width: 1024px) {
+  html[data-assistant] {
+    --assistant-clearance: calc(22.5rem + 24px);
+  }
+}
+.new-note-fab {
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(var(--fab-bottom) + env(safe-area-inset-bottom));
+  box-shadow: 0 1px 2px rgb(28 27 26 / 0.16), 0 6px 16px -4px rgb(28 27 26 / 0.32);
+  transition: transform 100ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.new-note-fab:active {
+  transform: scale(0.96);
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-note-fab:active {
+    transform: none;
+    opacity: 0.85;
+  }
+}
+/* Dark: the light surface already stands out; a short black shadow lifts it without a glow. */
+.dark .new-note-fab {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 4px 10px -2px rgb(0 0 0 / 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1238,25 +1403,6 @@ img.ProseMirror-separator {
 .dark [data-live-block-preview='svg'] {
   background: var(--foreground);
   border-radius: var(--radius);
-}
-
-/* Mermaid sizes its svg as width: 100% with an inline max-width of the
-   diagram's natural width, which shrinks a wide diagram until it is
-   unreadable. Asking for more width than any column has leaves that max-width
-   in charge, so the diagram keeps its natural size: centred when it fits,
-   scrolled sideways in its wrapper when it does not. */
-[data-live-block-preview='mermaid'] svg[style*='max-width'] {
-  flex: none;
-  width: 10000px;
-  margin: 0 auto;
-}
-
-/* Mermaid measures a label outside the note, then draws it as html in a box of
-   that size. `.prose p` would give the label's paragraph a taller line than it
-   measured (1.7 against the 1.5 of the label's own box), so a wrapped label is
-   cut off at the bottom. The paragraph takes its line height from that box. */
-[data-live-block-preview='mermaid'] foreignObject p {
-  line-height: inherit;
 }
 
 /* Share page (src/pages/SharePage.tsx). Every block keeps the reading column:

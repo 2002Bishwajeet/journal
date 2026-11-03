@@ -9,6 +9,7 @@ import { getModelInfo, getModelsForJob } from "@/lib/webllm";
 import { SectionHeader } from "../SectionHeader";
 import { SettingsRow } from "../SettingsRow";
 import AIModelList from "./AIModelList";
+import { ExperimentalBadge, LocalAINote } from "@/components/LocalAIExperimental";
 
 export default function AISection() {
   const {
@@ -31,6 +32,17 @@ export default function AISection() {
   const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
   const percent = Math.round(loadingProgress * 100);
 
+  const intro = (
+    <div className="space-y-1">
+      <SectionHeader>
+        <span className="flex items-center gap-2">
+          AI Assistant <ExperimentalBadge />
+        </span>
+      </SectionHeader>
+      <LocalAINote className="text-sm leading-relaxed" />
+    </div>
+  );
+
   const enableRow = (
     <div className="overflow-hidden rounded-xl border bg-card">
       <SettingsRow
@@ -51,6 +63,7 @@ export default function AISection() {
   if (!isSupported) {
     return (
       <div className="space-y-4">
+        {intro}
         <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
           On-device AI needs a larger screen (768 px or wider) and isn't
           available on phones.
@@ -64,9 +77,7 @@ export default function AISection() {
     <div className="space-y-10">
       {/* Master Toggle + Status */}
       <div className="space-y-4">
-        <SectionHeader subtitle="On-device intelligence for your writing">
-          AI Assistant
-        </SectionHeader>
+        {intro}
         {enableRow}
         {settings.enabled && (
           <div role="status" aria-live="polite" className="text-sm">

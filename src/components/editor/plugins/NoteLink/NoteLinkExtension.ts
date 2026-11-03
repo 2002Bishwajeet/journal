@@ -13,6 +13,7 @@ import { PluginKey } from '@tiptap/pm/state';
 import Suggestion, { type SuggestionOptions } from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
+import { viewportResizeProps } from '../suggestionViewport';
 import { NoteLinkList, type NoteLinkListRef } from './NoteLinkList';
 import { getFrequentlyLinkedNotes, searchNotesForPicker } from '@/lib/db';
 
@@ -183,6 +184,7 @@ export const NoteLinkExtension = Extension.create<NoteLinkOptions>({
                                 placement: 'bottom-start',
                                 animation: 'shift-away',
                                 offset: [0, 8],
+                                ...viewportResizeProps,
                             });
                         },
 

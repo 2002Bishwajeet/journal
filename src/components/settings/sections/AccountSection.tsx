@@ -3,12 +3,13 @@ import { ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SignOutConfirmDialog from "@/components/modals/SignOutConfirmDialog";
 import { useAccountSettings } from "@/hooks/useAccountSettings";
+import { openSettings } from "@/hooks/useSettingsOpener";
 import { useJournalPermissions } from "@/hooks/auth/useJournalPermissions";
 import { cn, formatRelativeTime } from "@/lib/utils/index";
 import { SettingsRow } from "../SettingsRow";
 
 export default function AccountSection() {
-  const { identity, syncStatus, lastSyncedAt, pendingTotal, syncNow, signOut } =
+  const { identity, syncStatus, lastSyncedAt, pendingTotal, failedTotal, syncNow, signOut } =
     useAccountSettings();
   const permissions = useJournalPermissions();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -28,77 +29,86 @@ export default function AccountSection() {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      <SettingsRow
-        id="account-identity"
-        label="Signed in as"
-        control={<span className="font-mono text-sm break-all">{identity}</span>}
-      />
-      <SettingsRow
-        id="account-sync"
-        label="Sync"
-        description={
-          <span
-            role="status"
-            aria-live="polite"
-            className={cn(syncStatus === "error" && "text-destructive dark:text-red-400")}
-          >
-            {statusText}
-          </span>
-        }
-        control={
-          <Button
-            variant="outline"
-            size="sm"
-            className="min-h-11 md:min-h-0"
-            // The row label ("Sync") would otherwise name it; keep the visible text.
-            aria-label="Sync now"
-            disabled={isSyncing}
-            onClick={() => syncNow()}
-          >
-            {isSyncing && <Loader2 className="h-4 w-4 animate-spin" />}
-            Sync now
-          </Button>
-        }
-      />
-      {permissions && (
+    <>
+      <div className="overflow-hidden rounded-xl border bg-card">
         <SettingsRow
-          id="account-permissions"
-          label="Permissions"
+          id="account-identity"
+          label="Signed in as"
+          control={<span className="text-sm break-all">{identity}</span>}
+        />
+        <SettingsRow
+          id="account-sync"
+          label="Sync"
+          stacked
           description={
-            permissions.items.length === 1
-              ? "Journal needs 1 permission. Some features won't work until you grant it."
-              : `Journal needs ${permissions.items.length} permissions. Some features won't work until you grant them.`
+            <span
+              role="status"
+              aria-live="polite"
+              className={cn("max-md:block max-md:truncate", syncStatus === "error" && "text-destructive dark:text-red-400")}
+            >
+              {statusText}
+            </span>
           }
           control={
-            <Button asChild variant="outline" size="sm" className="min-h-11 md:min-h-0">
-              <a href={permissions.url} onClick={permissions.onGrant}>
-                Grant <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              </a>
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-11 max-md:w-full md:min-h-0"
+              // The row label ("Sync") would otherwise name it; keep the visible text.
+              aria-label="Sync now"
+              disabled={isSyncing}
+              onClick={() => syncNow()}
+            >
+              {isSyncing && <Loader2 className="h-4 w-4 animate-spin" />}
+              Sync now
             </Button>
           }
         />
-      )}
-      <SettingsRow
-        id="account-sign-out"
-        label="Sign out"
-        control={
-          <Button
-            variant="outline"
-            // The dark --destructive token (#7f1d1d) is ~1.7:1 on the dialog; red-400 reads.
-            className="min-h-11 md:min-h-0 text-destructive hover:text-destructive dark:text-red-400 dark:hover:text-red-400"
-            onClick={() => setConfirmOpen(true)}
-          >
-            Sign out
-          </Button>
-        }
-      />
+        {failedTotal > 0 && (
+          <SettingsRow
+            id="account-sync-failed"
+            label={`${failedTotal} ${failedTotal === 1 ? "change" : "changes"} couldn't sync`}
+            description="Journal stopped retrying them. See why in Diagnostics, then retry or discard them."
+            control={
+              <Button variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={() => openSettings("diagnostics")}>
+                View
+              </Button>
+            }
+          />
+        )}
+        {permissions && (
+          <SettingsRow
+            id="account-permissions"
+            label="Permissions"
+            description={
+              permissions.items.length === 1
+                ? "Journal needs 1 permission. Some features won't work until you grant it."
+                : `Journal needs ${permissions.items.length} permissions. Some features won't work until you grant them.`
+            }
+            control={
+              <Button asChild variant="outline" size="sm" className="min-h-11 md:min-h-0">
+                <a href={permissions.url} onClick={permissions.onGrant}>
+                  Grant <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                </a>
+              </Button>
+            }
+          />
+        )}
+      </div>
+      <Button
+        variant="outline"
+        // The dark --destructive token (#7f1d1d) is ~1.7:1 on the dialog; red-400 reads.
+        className="mt-6 min-h-13 w-full rounded-xl bg-card text-base text-destructive hover:text-destructive dark:bg-card dark:text-red-400 dark:hover:text-red-400 md:min-h-11 md:text-sm"
+        onClick={() => setConfirmOpen(true)}
+      >
+        Sign out
+      </Button>
       <SignOutConfirmDialog
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={() => signOut()}
-        pendingTotal={pendingTotal}
+        pendingTotal={pendingTotal + failedTotal}
       />
-    </div>
+    </>
   );
 }

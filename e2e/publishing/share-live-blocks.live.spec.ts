@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, withFencedPage, liveIdentityOrigin } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
-import { activeEditor, createNote, shareNotePublicly, waitForNoteSaved } from '../support/actions';
+import { activeEditor, createNote, mermaidFrame, shareNotePublicly, waitForNoteSaved } from '../support/actions';
 
 // #390: a public share page renders mermaid, svg and html code blocks as
 // previews (built from the code text), with a "View source" toggle.
@@ -60,7 +60,7 @@ test('shared note renders mermaid, svg and html blocks as previews (#390)', asyn
         const article = anonPage.getByRole('article');
         await expect(article.getByRole('heading', { level: 1, name: title })).toBeVisible({ timeout: 15_000 });
 
-        await expect(article.locator('[data-live-block-preview="mermaid"] svg')).toBeVisible({ timeout: 30_000 });
+        await expect(mermaidFrame(article.locator('[data-live-block="mermaid"]')).locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
         await expect(article.locator('[data-live-block-preview="svg"] img[src^="data:image/svg+xml"]')).toBeVisible();
         const frame = article.locator('[data-live-block-preview="html"] iframe');
         await expect(frame).toHaveAttribute('sandbox', 'allow-scripts');

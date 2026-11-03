@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
-import { inBothThemes } from '../support/actions';
+import { inBothThemes, settingsPanel } from '../support/actions';
 
 // Settings → Diagnostics (#800): from the sync badge, see what is pending and why, retry,
 // and copy a redacted report. Six items are seeded (two with errors); the backend is
@@ -15,11 +15,11 @@ async function openDiagnosticsFromSyncBadge(app: Page) {
     await app.getByRole('navigation', { name: 'Folders' }).getByRole('button', { name: 'Main' }).click();
   }
   await app.locator('button[aria-label="Sync status"]:visible').first().click();
-  await app.getByRole('button', { name: /Pending items|Diagnostics/ }).click();
+  // Desktop's popover has "Pending items"; a phone's sheet has "Open diagnostics" (#828).
+  await app.getByRole('button', { name: /Pending items|diagnostics/i }).click();
 
   const dialog = app.getByRole('dialog', { name: 'Settings' });
-  await expect(dialog.getByRole('tab', { name: 'Diagnostics' })).toHaveAttribute('aria-selected', 'true');
-  const panel = dialog.getByRole('tabpanel');
+  const panel = settingsPanel(dialog);
   const list = panel.getByRole('list', { name: 'Pending sync items' });
   await expect(list.getByTestId('pending-item')).toHaveCount(6);
   // The popover and dialog finish animating before a screenshot, or the shot is translucent.
@@ -76,4 +76,32 @@ test('desktop: Diagnostics lists the pending items with their errors', async ({ 
   await panel.getByRole('button', { name: 'Seeded note A', exact: true }).click();
   await expect(app.getByRole('dialog', { name: 'Settings' })).toBeHidden();
   await expect(app).toHaveURL(/00000000-0000-4000-8000-000000000001/);
+});
+
+test('a refused share push offers the one-tap fix and keeps the manual steps (#848, #870)', async ({ app }) => {
+  await app.setViewportSize({ width: 393, height: 852 });
+  const { panel } = await openDiagnosticsFromSyncBadge(app);
+  await expect(panel.getByTestId('share-notifications-off')).toBeHidden();
+
+  // The backend is unreachable here, so the drive's state is unknown: both steps show, subscriptions as a maybe.
+  await app.evaluate(() => window.__journalE2E!.refuseSharePush());
+  const notice = panel.getByTestId('share-notifications-off');
+
+  // The button opens the owner console's extend-permissions page with the journal drive's
+  // attribute and subscriptions in the request.
+  const href = await notice.getByRole('link', { name: 'Fix in owner console' }).getAttribute('href');
+  const url = new URL(href!);
+  expect(url.pathname).toBe('/owner/appupdate');
+  expect(new URL(url.searchParams.get('return')!).origin).toBe(new URL(app.url()).origin);
+  const [drive] = JSON.parse(url.searchParams.get('d')!);
+  expect(drive).toMatchObject({ s: true, at: JSON.stringify({ IsCollaborativeChannel: 'true' }) });
+
+  // The manual steps wait behind a toggle.
+  await expect(notice.getByRole('listitem')).toHaveCount(0);
+  await notice.getByText('Do it by hand', { exact: true }).click();
+  await expect(notice.getByRole('listitem')).toHaveText([
+    'Add the attribute IsCollaborativeChannel with the value true.',
+    'If shares still don\'t notify people after this, also turn on "Allow subscriptions".',
+  ]);
+  await expect(notice.getByRole('link', { name: 'Open drive settings' })).toHaveAttribute('href', /\/owner\/apps\/ac126e09-54cb-4878-a690-856be692da16\/drives\/d5f411fa83fd4854a3bd7e974cc9bca9_30743710039d4b97bbd352f343d1c9df$/);
 });

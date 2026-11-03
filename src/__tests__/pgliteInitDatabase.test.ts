@@ -15,6 +15,8 @@ type Dump = { sql: string; fromTemplate1: boolean } | null;
 const mocks = {
   events: [] as string[],
   workerOptions: [] as Array<Record<string, unknown>>,
+  worker: null as EventTarget | null,
+  marks: [] as Array<{ step: string; startTime?: number }>,
   storedVersion: '0.4' as string | null,
   dump: { sql: 'DUMP SQL', fromTemplate1: false } as Dump,
   dumpError: null as Error | null,
@@ -53,6 +55,8 @@ function fakeDb() {
     },
     query: async () => ({ rows: [] }),
     close: async () => void mocks.events.push('close'),
+    isLeader: true,
+    waitReady: Promise.resolve(),
   };
 }
 
@@ -86,7 +90,8 @@ async function loadDatabaseModule() {
   }));
   vi.doMock('@electric-sql/pglite/worker', () => ({
     PGliteWorker: {
-      create: async (_worker: unknown, options: Record<string, unknown>) => {
+      create: async (worker: EventTarget, options: Record<string, unknown>) => {
+        mocks.worker = worker;
         mocks.workerOptions.push(options);
         return fakeDb();
       },
@@ -97,6 +102,7 @@ async function loadDatabaseModule() {
     reportBootPhase: () => {},
     reportBootError: () => void mocks.events.push('boot-error'),
     clearBootError: () => {},
+    markBoot: (step: string, startTime?: number) => void mocks.marks.push({ step, startTime }),
   }));
   vi.doMock('../lib/homebase', () => ({ MAIN_FOLDER_ID: '06cf9262-4eae-4276-b0d1-8ca3cf5be6f4' }));
   return import('../lib/db/pglite');
@@ -105,9 +111,14 @@ async function loadDatabaseModule() {
 const stamped = () => mocks.events.some((event) => event.startsWith('stamp'));
 const retired = () => mocks.events.some((event) => event.startsWith('retire'));
 
+// The page's window, which this node test environment doesn't have: pglite.ts listens on it.
+let page = new EventTarget();
+
 beforeEach(() => {
   mocks.events = [];
   mocks.workerOptions = [];
+  mocks.worker = null;
+  mocks.marks = [];
   mocks.storedVersion = '0.4';
   mocks.dump = { sql: 'DUMP SQL', fromTemplate1: false };
   mocks.dumpError = null;
@@ -118,7 +129,13 @@ beforeEach(() => {
   mocks.preserveOk = true;
   mocks.skipOk = true;
   // pglite.ts constructs a Worker before PGliteWorker.create sees it.
-  vi.stubGlobal('Worker', class FakeWorker {});
+  page = new EventTarget();
+  vi.stubGlobal('addEventListener', page.addEventListener.bind(page));
+  vi.stubGlobal('Worker', class FakeWorker extends EventTarget {
+    terminate() {
+      mocks.events.push('terminate');
+    }
+  });
 });
 
 afterEach(() => {
@@ -378,5 +395,44 @@ describe('opting out of the legacy data', () => {
     // recognisably unmigrated.
     expect(mocks.events).not.toContain('dump');
     expect(stamped()).toBe(false);
+  });
+});
+
+describe('leaving the page (#806)', () => {
+  it('stops the worker when Safari caches the page, and reloads the page if it comes back', async () => {
+    const pageEvent = (type: string, persisted: boolean) => page.dispatchEvent(Object.assign(new Event(type), { persisted }));
+    const reload = vi.fn();
+    vi.stubGlobal('location', { reload });
+    mocks.dump = null;
+    const { getDatabase } = await loadDatabaseModule();
+    await getDatabase();
+
+    // A page that is unloaded, not cached, keeps its worker until the browser ends it.
+    pageEvent('pagehide', false);
+    expect(mocks.events).not.toContain('terminate');
+
+    // A cached page's worker would keep the election lock the next page's worker waits for.
+    pageEvent('pagehide', true);
+    expect(mocks.events).toContain('terminate');
+    expect(reload).not.toHaveBeenCalled();
+
+    // Shown again from the cache, the page has no database, so it loads again.
+    pageEvent('pageshow', true);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('boot timing (#901)', () => {
+  it("records the database worker's marks on the page's clock", async () => {
+    mocks.dump = null;
+    const { getDatabase } = await loadDatabaseModule();
+    await getDatabase();
+
+    // The worker's time is absolute: its clock starts later than the page's.
+    const at = performance.timeOrigin + 1234;
+    mocks.worker!.dispatchEvent(new MessageEvent('message', { data: { type: 'journal-boot-mark', step: 'db-idb-loaded', at } }));
+    mocks.worker!.dispatchEvent(new MessageEvent('message', { data: { type: 'leader-now' } }));
+
+    expect(mocks.marks.filter((m) => m.startTime !== undefined)).toEqual([{ step: 'db-idb-loaded', startTime: 1234 }]);
   });
 });

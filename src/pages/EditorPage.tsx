@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   EditorToolbar,
   AIMenu,
@@ -11,15 +11,10 @@ import { TocPanel } from "@/components/editor/TocPanel";
 import { FindReplaceBar } from "@/components/editor/FindReplaceBar";
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, History, MoreHorizontal, Minimize2 } from "lucide-react";
-import { CollaborativePopover } from '@/components/editor/CollaborativePopover';
+import { ChevronLeft, Globe, Minimize2 } from "lucide-react";
+import { SharedAccessPopover } from '@/components/editor/SharedAccessPopover';
 import { LinkedMentions } from "@/components/editor/LinkedMentions";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { NoteScreenMenu } from "@/components/editor/NoteScreenMenu";
 import HistoryModal from "@/components/modals/HistoryModal";
 import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
@@ -37,6 +32,9 @@ import { useWebLLM } from "@/hooks/useWebLLM";
 import { useNotes } from "@/hooks/useNotes";
 import { useAISettings } from "@/hooks/useAISettings";
 import { useRegisterActiveEditor } from "@/hooks/useRegisterActiveEditor";
+import { useBackTo } from "@/hooks/useBackTo";
+import { useNoteScreenActions } from "@/hooks/useNoteScreenActions";
+import { isViewOnly } from "@/lib/homebase/shareTargets";
 
 // EditorProvider auto-saves, so Cmd+S only needs swallowing. A module constant
 // keeps the handler's identity stable: every mounted tab rebinds the window
@@ -60,7 +58,7 @@ function EditorLayout({
   isActive: boolean;
   isPeerNote: boolean;
 }) {
-  const { editor, isLoading } = useEditorContext();
+  const { editor, isLoading, readOnly } = useEditorContext();
   const {
     get: { data: notes = [] },
     updateNote: { mutateAsync: updateNoteMetadata },
@@ -69,6 +67,9 @@ function EditorLayout({
   const isDesktop = deviceType === "desktop";
   const [tocOpen, setTocOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Touch layouts: the header's small title appears once the big one has scrolled out (#825)
+  const [titleInView, setTitleInView] = useState(true);
+  const screen = useNoteScreenActions();
 
   // Find the selected note metadata from the notes list
   // We can trust specific noteId exists because parent checks it
@@ -81,13 +82,25 @@ function EditorLayout({
     excludeFromAI: selectedNoteMetadata?.excludeFromAI === true,
   });
 
+  const host = useDotYouClientContext().getHostIdentity();
   const collaborativePopover = selectedNoteMetadata?.isCollaborative ? (
-    <CollaborativePopover
-      circleIds={selectedNoteMetadata.circleIds}
-      recipients={selectedNoteMetadata.recipients}
-      lastEditedBy={selectedNoteMetadata.lastEditedBy}
-      lastEditedAt={selectedNoteMetadata.timestamps?.modified}
+    <SharedAccessPopover
+      noteId={noteId}
+      metadata={selectedNoteMetadata}
+      isOwner={!isPeerNote}
+      owner={isPeerNote ? selectedNoteMetadata.authorOdinId! : host}
     />
+  ) : selectedNoteMetadata?.isPublic ? (
+    <span className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+      <Globe className="h-3 w-3" aria-hidden />
+      Public
+    </span>
+  ) : null;
+  // A note shared with the host as a viewer (#897)
+  const viewOnlyBadge = readOnly ? (
+    <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+      View only
+    </span>
   ) : null;
 
   if (!selectedNoteMetadata && !isLoading) {
@@ -113,32 +126,35 @@ function EditorLayout({
       >
         <Button
           variant="ghost"
-          size="icon"
-          aria-label="Back"
-          className="h-8 w-8 -ml-1"
+          aria-label={`Back to ${screen?.backLabel ?? "notes"}`}
+          className={cn("-ml-2 h-11 min-w-11 gap-0 pl-1 pr-2 text-base", deviceType === "tablet" && "hidden")}
           onClick={onBack}
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="size-6" aria-hidden />
+          <span className="max-w-28 truncate">{screen?.backLabel ?? "Notes"}</span>
         </Button>
-        <span className="text-sm font-medium truncate flex-1 mx-2">
+        <span
+          aria-hidden={titleInView}
+          className={cn(
+            "mx-2 flex-1 truncate text-center text-sm font-semibold transition-opacity duration-200",
+            titleInView && "opacity-0",
+          )}
+        >
           {selectedNoteMetadata?.title || "Untitled"}
         </span>
+        {viewOnlyBadge}
         {collaborativePopover}
         <SyncStatus />
-        {!isPeerNote && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="More" className="h-11 w-11 -mr-2 shrink-0">
-                <MoreHorizontal className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem className="min-h-11" onSelect={() => setHistoryOpen(true)}>
-                <History className="h-4 w-4" />
-                Version history
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {!isDesktop && screen && selectedNote && (
+          <NoteScreenMenu
+            note={selectedNote}
+            isPeerNote={isPeerNote}
+            editor={editor}
+            actions={screen}
+            // Version history is for your own notes: a restore on a peer note
+            // would push a whole-document replacement into someone else's note.
+            onOpenHistory={isPeerNote ? undefined : () => setHistoryOpen(true)}
+          />
         )}
       </div>
 
@@ -150,7 +166,7 @@ function EditorLayout({
             : "hidden"
         }
       >
-        {editor && (
+        {editor && !readOnly && (
           <EditorToolbar
             editor={editor}
             tocOpen={tocOpen}
@@ -160,9 +176,12 @@ function EditorLayout({
             onOpenHistory={isPeerNote ? undefined : () => setHistoryOpen(true)}
           />
         )}
-        {editor && <AIMenu editor={editor} />}
-        {collaborativePopover && (
-          <div className="ml-auto px-3">{collaborativePopover}</div>
+        {editor && !readOnly && <AIMenu editor={editor} />}
+        {(viewOnlyBadge || collaborativePopover) && (
+          <div className="ml-auto flex items-center gap-2 px-3">
+            {viewOnlyBadge}
+            {collaborativePopover}
+          </div>
         )}
         {focusMode && onExitFocusMode && (
           <Button
@@ -179,9 +198,12 @@ function EditorLayout({
       </div>
 
       <div className="flex-1 flex min-h-0 w-full overflow-hidden">
+        {/* Touch layouts: the find bar stays put while the note scrolls under it (#825). */}
+        <div className="relative flex min-w-0 flex-1">
+        {!isDesktop && <FindReplaceBar />}
         {/* The container a `wide` live block takes its width from (src/index.css, "Live blocks"). */}
-        <div className="@container/live-blocks flex-1 overflow-y-auto relative bg-background w-full">
-          <FindReplaceBar />
+        <div className="@container/live-blocks flex-1 overflow-y-auto relative bg-background w-full pb-[var(--editor-bottom-space,0px)]">
+          {isDesktop && <FindReplaceBar />}
           <TipTapEditor
             noteId={noteId}
             metadata={selectedNoteMetadata!}
@@ -192,11 +214,14 @@ function EditorLayout({
               })
             }
             hideToolbar={true}
+            focusNewTitle={!isDesktop}
+            onTitleInView={isDesktop ? undefined : setTitleInView}
             className="min-h-full py-8 px-6 mx-auto pb-24 md:pb-8 editor-column max-w-5xl md:px-12"
           />
           <div className="mx-auto px-6 pb-24 md:pb-8 editor-column max-w-5xl md:px-12">
             <LinkedMentions noteId={noteId} isActive={isActive} />
           </div>
+        </div>
         </div>
         {isDesktop && tocOpen && editor && (
           <TocPanel editor={editor} onClose={() => setTocOpen(false)} />
@@ -237,7 +262,7 @@ export default function EditorPage({
   // tab the URL is actually on. Mobile renders one page, so it is always active.
   const isActiveTab = !overrideNoteId || overrideNoteId === params.noteId;
   
-  const navigate = useNavigate();
+  const backTo = useBackTo();
   const {
     get: { data: notes = [], isLoading: isNotesLoading },
     updateNote: { mutateAsync: updateNoteMetadata },
@@ -291,11 +316,7 @@ export default function EditorPage({
   };
 
   const handleBackToNotes = () => {
-    if (folderId) {
-      navigate(`/${folderId}`);
-    } else {
-      navigate("/");
-    }
+    backTo(folderId ? `/${folderId}` : "/");
   };
 
   // AI callbacks
@@ -364,6 +385,7 @@ export default function EditorPage({
       docId={noteId}
       metadata={selectedNoteMetadata}
       editorOdinId={dotYouClient.getHostIdentity()}
+      readOnly={isViewOnly(selectedNoteMetadata, dotYouClient.getHostIdentity())}
       onMetadataChange={async (meta) => {
         await updateNoteMetadata({
           docId: noteId,

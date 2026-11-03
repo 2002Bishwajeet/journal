@@ -1,24 +1,19 @@
-import { useState, useMemo, useCallback, useRef, memo } from "react";
+import type { ReactNode } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
 import {
   Plus,
   FileText,
   Trash2,
-  Share2,
-  Download,
   Users,
-  Archive,
-  FolderInput,
   Globe,
   Pin,
-  PinOff,
   ChevronDown,
   ChevronRight,
   ArrowUpDown,
-  ExternalLink,
+  ChevronLeft,
   Bot,
 } from "lucide-react";
 import { useDotYouClientContext } from "@/components/auth";
-import { ownerConsoleNoteUrl } from "@/lib/homebase";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -28,7 +23,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/modals";
-import { ContextMenuWrapper, RowOptionsMenu, type ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper";
+import { ContextMenuWrapper, RowOptionsMenu } from "@/components/ui/context-menu-wrapper";
+import { buildNoteMenuItems } from "@/helpers/noteMenuItems";
 import { cn } from "@/lib/utils";
 import { agentDisplayName } from "@/lib/agent/attribution";
 import type { NoteListEntry } from "@/types";
@@ -38,6 +34,11 @@ import { useSyncService } from "@/hooks/useSyncService";
 import { useNotes } from "@/hooks/useNotes";
 import { getNoteGroup } from "@/helpers/dateGrouping";
 import { useIntersection } from "@/hooks/useIntersection";
+import { swipeAxis } from "@/helpers/swipeAxis";
+import { haptic } from "@/lib/haptics";
+import { useLargeTitle } from "@/hooks/useLargeTitle";
+import { BarTitle, LargeTitle } from "./LargeTitle";
+import { FILL_EMPTY_VIEWPORT, largeTitleBarClass } from "./largeTitleClasses";
 
 // Rows mounted per render step; the sentinel adds another page as it scrolls into view.
 const PAGE = 100;
@@ -47,15 +48,26 @@ interface NoteListProps {
   selectedNoteId: string | null;
   onSelectNote: (docId: string) => void;
   onCreateNote: () => void;
+  /** The header's New button; phones hide it for the New note button (#878). */
+  showNewButton?: boolean;
   onDeleteNote: (docId: string) => void;
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder?: (note: NoteListEntry) => void;
-  onMarkCollaborative?: (note: NoteListEntry) => void;
+  /** A receiver drops a note shared with them from this device (#682). */
+  onRemoveFromList?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
   isLoading?: boolean;
   className?: string;
   /** Identifies the current view (folder or tag); changing it resets the render budget. */
   viewKey?: string;
+  /** Phone and tablet: the large title (#830), Back handler and trailing slot that replace the pane's own header. */
+  title?: string;
+  /** Phone and tablet: what an empty list shows instead of "No notes yet" (#830). */
+  emptyState?: ReactNode;
+  onBack?: () => void;
+  /** Accessible name of the Back button (the tablet one opens the folders). */
+  backLabel?: string;
+  trailing?: ReactNode;
 }
 
 export default function NoteList({
@@ -63,21 +75,31 @@ export default function NoteList({
   selectedNoteId,
   onSelectNote,
   onCreateNote,
+  showNewButton = true,
   onDeleteNote,
   onShareNote,
   onMoveToFolder,
-  onMarkCollaborative,
+  onRemoveFromList,
   onArchive,
   isLoading = false,
   className = "",
   viewKey,
+  title,
+  emptyState,
+  onBack,
+  backLabel = "Back to notes",
+  trailing,
 }: NoteListProps) {
+  const largeTitle = useLargeTitle(!!title);
+  const isEmpty = !isLoading && notes.length === 0;
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"modified" | "created" | "title">(
     "modified",
   );
   const { sync } = useSyncService();
   const { togglePin } = useNotes();
+  // One swiped-open row at a time; it closes on scroll and on a tap outside it.
+  const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     () => new Set(),
   );
@@ -112,6 +134,11 @@ export default function NoteList({
   };
 
   const handleDeleteNote = useCallback((id: string) => setNoteToDelete(id), []);
+  const handleSwipeChange = useCallback(
+    (id: string, open: boolean) =>
+      setOpenRowId((cur) => (open ? id : cur === id ? null : cur)),
+    [],
+  );
   const handleTogglePin = useCallback(
     (id: string, isPinned: boolean) => togglePin.mutate({ docId: id, isPinned }),
     [togglePin],
@@ -202,12 +229,32 @@ export default function NoteList({
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between h-12 px-3 border-b border-border shrink-0">
-        <span className="text-sm font-medium text-foreground">Notes</span>
-        <div className="flex items-center gap-1">
+      <div
+        className={cn(
+          "justify-between",
+          title ? largeTitleBarClass(largeTitle.collapsed) : "flex items-center h-12 px-3 border-b border-border shrink-0",
+        )}
+      >
+        {onBack && (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={backLabel}
+            className="h-8 w-8 shrink-0 pointer-coarse:size-11"
+            onClick={onBack}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+        )}
+        {title ? (
+          <BarTitle show={largeTitle.collapsed}>{title}</BarTitle>
+        ) : (
+          <span className="text-sm font-medium text-foreground">Notes</span>
+        )}
+        <div className="flex items-center gap-1 shrink-0 ml-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Sort notes" className="h-7 w-7">
+              <Button variant="ghost" size="icon" aria-label="Sort notes" className="h-7 w-7 pointer-coarse:size-11">
                 <ArrowUpDown className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
@@ -232,22 +279,33 @@ export default function NoteList({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" onClick={onCreateNote} className="h-7 text-xs">
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            New
-          </Button>
+          {showNewButton && (
+            <Button size="sm" onClick={onCreateNote} className="relative h-7 text-xs after:absolute after:inset-x-0 after:-inset-y-2">
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              New
+            </Button>
+          )}
+          {trailing}
         </div>
       </div>
 
       {/* Notes list */}
-      <ScrollArea className="flex-1 min-h-0 w-full">
-        <PullToRefresh onRefresh={handleRefresh} className="w-full">
+      <ScrollArea
+        className={cn(
+          "flex-1 min-h-0 w-full",
+          isEmpty && emptyState && FILL_EMPTY_VIEWPORT,
+        )}
+        onScrollCapture={() => setOpenRowId(null)}
+      >
+        <PullToRefresh onRefresh={handleRefresh} className="w-full overflow-x-clip">
+          <div className="flex h-full flex-col">
+          {title && <LargeTitle titleRef={largeTitle.ref}>{title}</LargeTitle>}
           {isLoading ? (
             <div className="flex items-center justify-center h-32">
               <span className="text-sm text-muted-foreground">Loading...</span>
             </div>
-          ) : notes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 px-4 text-center">
+          ) : isEmpty ? (
+            emptyState ?? <div className="flex flex-col items-center justify-center h-48 px-4 text-center">
               <FileText className="h-10 w-10 text-muted-foreground/70 mb-3" />
               <p className="text-sm text-muted-foreground mb-2">No notes yet</p>
               <Button variant="link" size="sm" onClick={onCreateNote}>
@@ -255,13 +313,13 @@ export default function NoteList({
               </Button>
             </div>
           ) : (
-            <div className="py-2 w-full space-y-4">
+            <div className="pt-2 pb-[calc(0.5rem+var(--fab-clearance,0px))] w-full space-y-4">
               {visibleGroups.map((group) => (
                 <div key={group.label} className="w-full">
                   <button
                     onClick={() => toggleGroup(group.label)}
                     aria-expanded={!group.collapsed}
-                    className="flex items-center w-full px-3 py-1 hover:bg-muted/50 transition-colors group/header"
+                    className="sticky top-0 z-10 bg-background flex items-center w-full px-3 py-1 pointer-coarse:min-h-11 hover:bg-muted transition-colors group/header"
                   >
                     {group.collapsed ? (
                       <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
@@ -271,7 +329,7 @@ export default function NoteList({
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       {group.label}
                     </span>
-                    <span className="ml-2 text-xs text-muted-foreground/70 opacity-0 group-hover/header:opacity-100 transition-opacity">
+                    <span className="ml-2 text-xs text-muted-foreground/70 opacity-0 pointer-coarse:opacity-100 group-hover/header:opacity-100 transition-opacity">
                       {group.notes.length}
                     </span>
                   </button>
@@ -282,13 +340,15 @@ export default function NoteList({
                         <NoteItem
                           key={note.docId}
                           note={note}
+                          isSwiped={openRowId === note.docId}
+                          onSwipeChange={handleSwipeChange}
                           selectedNoteId={selectedNoteId}
                           onSelectNote={onSelectNote}
                           onDeleteNote={handleDeleteNote}
                           onShareNote={onShareNote}
                           onMoveToFolder={onMoveToFolder}
                           onTogglePin={handleTogglePin}
-                          onMarkCollaborative={onMarkCollaborative}
+                          onRemoveFromList={onRemoveFromList}
                           onArchive={onArchive}
                         />
                       ))}
@@ -301,6 +361,7 @@ export default function NoteList({
               )}
             </div>
           )}
+          </div>
         </PullToRefresh>
       </ScrollArea>
 
@@ -320,170 +381,146 @@ export default function NoteList({
   );
 }
 
+const minSwipeDistance = 50;
+const maxSwipeDistance = 80;
+
+// Moves a swiped row to `offset` px. While dragging, the CSS transition is off so
+// the row follows the finger; on release it is back on for the snap.
+function moveRow(
+  content: HTMLElement | null,
+  action: HTMLElement | null,
+  offset: number,
+  dragging: boolean,
+) {
+  if (!content || !action) return;
+  const transition = dragging ? "none" : "";
+  content.style.transition = transition;
+  action.style.transition = transition;
+  content.style.transform = `translateX(-${offset}px)`;
+  action.style.transform = `translateX(${100 - (offset / maxSwipeDistance) * 100}%)`;
+  action.style.opacity = String(Math.min(offset / minSwipeDistance, 1));
+}
+
 // Extracted NoteItem for cleaner swipe logic with enhanced touch implementation
 const NoteItem = memo(function NoteItem({
   note,
+  isSwiped,
+  onSwipeChange,
   selectedNoteId,
   onSelectNote,
   onDeleteNote,
   onShareNote,
   onMoveToFolder,
   onTogglePin,
-  onMarkCollaborative,
+  onRemoveFromList,
   onArchive,
 }: {
   note: NoteListEntry;
+  isSwiped: boolean;
+  onSwipeChange: (id: string, open: boolean) => void;
   selectedNoteId: string | null;
   onSelectNote: (id: string) => void;
   onDeleteNote: (id: string) => void;
   onShareNote: (note: NoteListEntry) => void;
   onMoveToFolder?: (note: NoteListEntry) => void;
   onTogglePin: (id: string, isPinned: boolean) => void;
-  onMarkCollaborative?: (note: NoteListEntry) => void;
+  onRemoveFromList?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
 }) {
   const dotYouClient = useDotYouClientContext();
-  const touchStartRef = useRef<number | null>(null);
-  const touchEndRef = useRef<number | null>(null);
-  const [isSwiped, setIsSwiped] = useState(false);
-  const [swipeOffset, setSwipeOffset] = useState(0);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const actionRef = useRef<HTMLDivElement>(null);
+  // The gesture lives in a ref: the drag writes the transform to the DOM, so a
+  // touchmove does not re-render the row.
+  const gesture = useRef<{
+    x: number;
+    y: number;
+    axis: "x" | "y" | null;
+    offset: number;
+  } | null>(null);
 
-  const minSwipeDistance = 50;
-  const maxSwipeDistance = 80;
   const agentName = agentDisplayName(note.metadata.lastEditedBy);
   const isPeerNote =
     !!note.metadata.authorOdinId &&
     note.metadata.authorOdinId !== dotYouClient.getHostIdentity();
 
-  const triggerHaptic = (duration = 10) => {
-    if ("vibrate" in navigator) {
-      navigator.vibrate(duration);
-    }
-  };
+  // Sync the row to the open state, so a close from outside animates too.
+  useEffect(() => {
+    moveRow(contentRef.current, actionRef.current, isSwiped ? maxSwipeDistance : 0, false);
+  }, [isSwiped]);
+
+  // A tap anywhere outside an open row closes it.
+  useEffect(() => {
+    if (!isSwiped) return;
+    const closeOnOutsidePress = (e: PointerEvent) => {
+      if (!rowRef.current?.contains(e.target as Node)) {
+        onSwipeChange(note.docId, false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePress);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePress);
+  }, [isSwiped, note.docId, onSwipeChange]);
 
   const onTouchStart = (e: React.TouchEvent) => {
-    touchEndRef.current = null;
-    touchStartRef.current = e.targetTouches[0].clientX;
-    setSwipeOffset(0);
+    gesture.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      axis: null,
+      offset: isSwiped ? maxSwipeDistance : 0,
+    };
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    const currentX = e.targetTouches[0].clientX;
-    touchEndRef.current = currentX;
+    const g = gesture.current;
+    if (!g || g.axis === "y") return;
+    const dx = e.touches[0].clientX - g.x;
+    const dy = e.touches[0].clientY - g.y;
+    g.axis ??= swipeAxis(dx, dy);
+    // Undecided yet, or a vertical scroll: leave the row alone until touchend.
+    if (g.axis !== "x") return;
 
-    if (touchStartRef.current !== null) {
-      const diff = touchStartRef.current - currentX;
-      if (diff > 0) {
-        const offset =
-          diff > maxSwipeDistance
-            ? maxSwipeDistance + (diff - maxSwipeDistance) * 0.2
-            : diff;
-        setSwipeOffset(Math.min(offset, 100));
-      } else if (isSwiped) {
-        setSwipeOffset(Math.max(maxSwipeDistance + diff, 0));
-      }
-    }
+    const base = isSwiped ? maxSwipeDistance : 0;
+    const raw = base - dx;
+    const offset =
+      raw > maxSwipeDistance
+        ? Math.min(maxSwipeDistance + (raw - maxSwipeDistance) * 0.2, 100)
+        : Math.max(raw, 0);
+    g.offset = offset;
+    moveRow(contentRef.current, actionRef.current, offset, true);
   };
 
   const onTouchEnd = () => {
-    if (!touchStartRef.current || !touchEndRef.current) {
-      if (!isSwiped) setSwipeOffset(0);
-      return;
+    const g = gesture.current;
+    gesture.current = null;
+    if (g?.axis !== "x") return;
+
+    const open = isSwiped
+      ? g.offset > maxSwipeDistance - minSwipeDistance
+      : g.offset > minSwipeDistance;
+    moveRow(contentRef.current, actionRef.current, open ? maxSwipeDistance : 0, false);
+    if (open !== isSwiped) {
+      onSwipeChange(note.docId, open);
+      haptic(open ? "medium" : "light");
     }
-
-    const distance = touchStartRef.current - touchEndRef.current;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isLeftSwipe && !isSwiped) {
-      setIsSwiped(true);
-      setSwipeOffset(maxSwipeDistance);
-      triggerHaptic(15);
-    } else if (isRightSwipe && isSwiped) {
-      setIsSwiped(false);
-      setSwipeOffset(0);
-      triggerHaptic(10);
-    } else {
-      setSwipeOffset(isSwiped ? maxSwipeDistance : 0);
-    }
-
-    touchStartRef.current = null;
-    touchEndRef.current = null;
   };
 
   const handleGlobalClick = (e: React.MouseEvent) => {
     if (isSwiped) {
       e.stopPropagation();
-      setIsSwiped(false);
-      setSwipeOffset(0);
+      onSwipeChange(note.docId, false);
     }
   };
 
-  const menuItems: ContextMenuItemConfig[] = [
-    {
-      label: note.metadata.isPinned ? "Unpin" : "Pin",
-      icon: note.metadata.isPinned ? PinOff : Pin,
-      action: () => onTogglePin(note.docId, !note.metadata.isPinned),
-    },
-    {
-      label: "Share",
-      icon: Share2,
-      action: () => onShareNote(note),
-    },
-    // Collaborative notes live in the shared folder and notes from other people
-    // aren't ours to file: neither has a Move item.
-    ...(note.metadata.isCollaborative || isPeerNote || !onMoveToFolder
-      ? []
-      : [
-          {
-            label: "Move to folder…",
-            icon: FolderInput,
-            action: () => onMoveToFolder(note),
-          },
-        ]),
-    {
-      label: "Export to Markdown",
-      icon: Download,
-      action: () =>
-        void import("@/lib/importexport/exportNoteMarkdown").then((m) =>
-          m.exportNoteAsMarkdown(note.docId, note.title || "Untitled"),
-        ),
-    },
-    {
-      label: "Open in Owner Console",
-      icon: ExternalLink,
-      action: () =>
-        window.open(
-          ownerConsoleNoteUrl(dotYouClient.getRoot(), note.docId),
-          "_blank",
-          "noopener,noreferrer",
-        ),
-    },
-    {
-      label: note.metadata.isCollaborative
-        ? "Revoke Collaboration"
-        : "Mark as Collaborative",
-      icon: Users,
-      action: () => onMarkCollaborative?.(note),
-      disabled: !onMarkCollaborative,
-    },
-    {
-      label: "Archive",
-      icon: Archive,
-      action: () => onArchive?.(note),
-      disabled: !onArchive,
-    },
-    {
-      label: "Move to Trash",
-      icon: Trash2,
-      action: () => onDeleteNote(note.docId),
-      variant: "destructive",
-      shortcut: "⌫",
-    },
-  ];
+  const menuItems = buildNoteMenuItems(note, {
+    isPeerNote,
+    dotYouRoot: dotYouClient.getRoot(),
+    handlers: { onTogglePin, onShare: onShareNote, onMoveToFolder, onRemoveFromList, onArchive, onTrash: onDeleteNote },
+  });
 
   return (
     <div
+      ref={rowRef}
       data-testid="note-row"
       className="relative overflow-hidden w-full select-none [-webkit-touch-callout:none]"
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 72px" }}
@@ -493,21 +530,20 @@ const NoteItem = memo(function NoteItem({
         <div className="relative w-full h-full">
           {/* Background Action (Delete) with glow effect */}
           <div
+            ref={actionRef}
             className={cn(
               "absolute inset-y-0 right-0 w-20 bg-destructive flex items-center justify-center text-destructive-foreground",
               "transition-all duration-300 ease-out",
               isSwiped && "shadow-[-4px_0_16px_rgba(239,68,68,0.3)]",
             )}
-            style={{
-              transform: `translateX(${100 - (swipeOffset / maxSwipeDistance) * 100}%)`,
-              opacity: Math.min(swipeOffset / minSwipeDistance, 1),
-            }}
+            style={{ transform: "translateX(100%)", opacity: 0 }}
           >
             <button
+              aria-label="Move to Trash"
               className="w-full h-full flex items-center justify-center active:scale-110 transition-transform"
               onClick={(e) => {
                 e.stopPropagation();
-                triggerHaptic(20);
+                haptic("medium");
                 onDeleteNote(note.docId);
               }}
             >
@@ -517,6 +553,7 @@ const NoteItem = memo(function NoteItem({
 
           {/* Note Content */}
           <div
+            ref={contentRef}
             role="button"
             tabIndex={0}
             onClick={() => {
@@ -533,15 +570,14 @@ const NoteItem = memo(function NoteItem({
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchEnd}
             className={cn(
               "relative grid grid-cols-1 w-full px-4 py-3.5 text-left bg-background group cursor-pointer outline-none focus:bg-accent select-none",
               "hover:bg-accent",
               "transition-[transform,background-color] duration-200 ease-out",
               selectedNoteId === note.docId && "bg-accent",
             )}
-            style={{
-              transform: `translateX(-${swipeOffset}px)`,
-            }}
+            style={{ touchAction: "pan-y" }}
           >
             <RowOptionsMenu
               items={menuItems}

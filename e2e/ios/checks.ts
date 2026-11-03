@@ -22,8 +22,14 @@ export type Layout = {
   dialogFooter: Rect | null;
   /** The full-screen Search sheet on a phone (#780). */
   searchSheet: Rect | null;
-  /** The sidebar's last button ("Log out"), the bottom of the shell at the root. */
+  /** An open bottom or full sheet (#823). */
+  sheet: Rect | null;
+  /** The sidebar's last button (Trash on a phone, #830), the bottom of the shell at the root. */
   sidebarFooter: Rect | null;
+  /** The large title on show (#830): it starts below the status bar. */
+  largeTitle: Rect | null;
+  /** The last tab button of the phone tab bar (#853): the bar's content, above the home indicator. */
+  tabBar: Rect | null;
   /** Requests that left the app origin. Safari can't fence them like Playwright does, so they are caught afterwards. */
   foreignRequests: string[];
 };
@@ -55,7 +61,9 @@ export function measureLayout(): Layout {
   const selection = getSelection();
   const range = field?.isContentEditable && selection?.rangeCount ? selection.getRangeAt(0) : null;
   const toolbar = [...document.querySelectorAll('button[title="Undo"]')].map((b) => b.closest('.fixed')).find(Boolean);
-  const logOut = [...document.querySelectorAll('[aria-label="Sidebar"] button')].find((b) => b.textContent?.trim() === 'Log out');
+  const sidebarFooter = [...document.querySelectorAll('[aria-label="Sidebar"] button')].pop();
+  const largeTitle = [...document.querySelectorAll('[data-large-title]')].find((el) => el.getClientRects().length);
+  const lastTab = [...document.querySelectorAll('nav[aria-label="Tabs"] button')].pop();
   const vv = window.visualViewport;
 
   return {
@@ -72,7 +80,10 @@ export function measureLayout(): Layout {
     toolbar: box(shown(toolbar)?.getBoundingClientRect()),
     dialogFooter: box(shown(document.querySelector('[role="dialog"] [data-slot="dialog-footer"]'))?.getBoundingClientRect()),
     searchSheet: box(shown(document.querySelector('[role="dialog"][aria-label="Search notes"]'))?.getBoundingClientRect()),
-    sidebarFooter: box(shown(logOut)?.getBoundingClientRect()),
+    sheet: box(shown(document.querySelector('[role="dialog"][data-slot="sheet-content"]'))?.getBoundingClientRect()),
+    sidebarFooter: box(shown(sidebarFooter)?.getBoundingClientRect()),
+    largeTitle: box(largeTitle?.getBoundingClientRect()),
+    tabBar: box(shown(lastTab)?.getBoundingClientRect()),
     foreignRequests: performance
       .getEntriesByType('resource')
       .map((e) => new URL(e.name))
@@ -87,10 +98,13 @@ const SLACK = 1;
 /** What is wrong with a measured layout. `keyboardUp`: the software keyboard is showing. */
 export function layoutProblems(m: Layout, keyboardUp: boolean): string[] {
   const problems: string[] = [];
-  const visibleBottom = m.viewport.top + m.viewport.height;
-  const onScreen = (r: Rect) => r.top >= m.viewport.top - SLACK && r.bottom <= visibleBottom + SLACK;
+  // When Safari scrolls to a field low on the page it can shrink innerHeight to the visual viewport;
+  // then the layout viewport is what is on screen and rects run from 0, whatever offsetTop says (#823).
+  const visibleTop = m.innerHeight <= m.viewport.height + SLACK ? 0 : m.viewport.top;
+  const visibleBottom = visibleTop + m.viewport.height;
+  const onScreen = (r: Rect) => r.top >= visibleTop - SLACK && r.bottom <= visibleBottom + SLACK;
   const span = (r: Rect) => `${Math.round(r.top)}–${Math.round(r.bottom)}`;
-  const visible = `${Math.round(m.viewport.top)}–${Math.round(visibleBottom)}`;
+  const visible = `${Math.round(visibleTop)}–${Math.round(visibleBottom)}`;
 
   if (m.scrollWidth > m.innerWidth) {
     problems.push(`the page scrolls sideways: scrollWidth ${m.scrollWidth} > innerWidth ${m.innerWidth}`);
@@ -112,10 +126,22 @@ export function layoutProblems(m: Layout, keyboardUp: boolean): string[] {
   if (m.focused && m.searchSheet && !onScreen(m.searchSheet)) {
     problems.push(`the search sheet (${span(m.searchSheet)}) is outside the visual viewport (${visible})`);
   }
+  // A sheet rides up on the keyboard, so its field and footer stay in view (#823).
+  if (m.focused && m.sheet && !onScreen(m.sheet)) {
+    problems.push(`the sheet (${span(m.sheet)}) is outside the visual viewport (${visible})`);
+  }
   const usableBottom = Math.min(m.innerHeight, visibleBottom) - m.insets.bottom;
   // With a field focused the keyboard covers the bottom of the page, the sidebar footer included.
   if (!m.focused && m.sidebarFooter && m.sidebarFooter.bottom > usableBottom + SLACK) {
     problems.push(`the sidebar footer ends at ${Math.round(m.sidebarFooter.bottom)}, below the usable bottom ${Math.round(usableBottom)} (viewport minus the safe area)`);
+  }
+  // The large title starts below the status bar and the notch (#830).
+  if (!m.focused && m.largeTitle && m.largeTitle.top < m.insets.top - SLACK) {
+    problems.push(`the large title starts at ${Math.round(m.largeTitle.top)}, under the status bar (safe area top ${Math.round(m.insets.top)})`);
+  }
+  // The tab bar's buttons sit above the home indicator (#853).
+  if (!m.focused && m.tabBar && m.tabBar.bottom > usableBottom + SLACK) {
+    problems.push(`the tab bar ends at ${Math.round(m.tabBar.bottom)}, below the usable bottom ${Math.round(usableBottom)} (viewport minus the safe area)`);
   }
   if (m.foreignRequests.length) {
     problems.push(`requests left the test origin: ${m.foreignRequests.join(', ')}`);
@@ -128,4 +154,92 @@ export function safeAreaProblem(measured: Insets[]): string | null {
   return measured.some((i) => i.top > 0 || i.right > 0 || i.bottom > 0 || i.left > 0)
     ? null
     : 'every safe-area inset is 0 on a notched iPhone, in portrait and landscape (is viewport-fit=cover set?)';
+}
+
+/** What `startGestureProbe` saw during one touch gesture on the note list (#778). */
+export type GestureProbe = {
+  /** The list's lowest and highest scrollTop. WebKit's rubber band shows as a negative scrollTop. */
+  minTop: number;
+  maxTop: number;
+  /** How far the pull-to-refresh content moved down. */
+  maxPull: number;
+  /** How far the page itself moved (scrollY or the visual viewport offset). */
+  pageMoved: number;
+  /** The largest swipe offset of any row during the gesture, and of the first row at the end. */
+  maxRowOffset: number;
+  firstRowOffset: number;
+};
+
+/**
+ * Runs in the page: samples the note list every frame until `stopGestureProbe`.
+ * Like `measureLayout`, it must not use anything from outside its own body.
+ */
+export function startGestureProbe(): void {
+  const rows = () => [...document.querySelectorAll('[data-testid="note-row"] [role="button"]')];
+  const offset = (el: Element | undefined) => {
+    const t = el ? getComputedStyle(el).transform : 'none';
+    return t === 'none' ? 0 : Math.abs(new DOMMatrix(t).m41);
+  };
+  const list = document.querySelector('[data-testid="note-row"]')!.closest('[data-radix-scroll-area-viewport]')!;
+  const pulled = list.querySelector('[data-pull-to-refresh] > div:last-child')!;
+  const p: GestureProbe = { minTop: list.scrollTop, maxTop: list.scrollTop, maxPull: 0, pageMoved: 0, maxRowOffset: 0, firstRowOffset: 0 };
+  const w = window as unknown as { __gestureProbe?: { p: GestureProbe; stop: boolean } };
+  const probe = { p, stop: false };
+  w.__gestureProbe = probe;
+  const sample = () => {
+    const t = getComputedStyle(pulled).transform;
+    p.minTop = Math.min(p.minTop, list.scrollTop);
+    p.maxTop = Math.max(p.maxTop, list.scrollTop);
+    p.maxPull = Math.max(p.maxPull, t === 'none' ? 0 : new DOMMatrix(t).m42);
+    p.pageMoved = Math.max(p.pageMoved, Math.abs(scrollY), Math.abs(visualViewport?.offsetTop ?? 0));
+    p.maxRowOffset = Math.max(p.maxRowOffset, ...rows().map(offset));
+    p.firstRowOffset = offset(rows()[0]);
+    if (!probe.stop) requestAnimationFrame(sample);
+  };
+  sample();
+}
+
+/** Runs in the page: stops the probe and returns what it saw. */
+export function stopGestureProbe(): GestureProbe {
+  const probe = (window as unknown as { __gestureProbe: { p: GestureProbe; stop: boolean } }).__gestureProbe;
+  probe.stop = true;
+  return probe.p;
+}
+
+export type Gesture = 'swipe' | 'drift-scroll' | 'pull' | 'scroll-after-pull';
+
+/** What is wrong with how the note list followed a gesture (#778). */
+export function gestureProblems(gesture: Gesture, p: GestureProbe): string[] {
+  const problems: string[] = [];
+  if (p.pageMoved > SLACK) problems.push(`the page itself moved ${Math.round(p.pageMoved)}px`);
+  switch (gesture) {
+    case 'swipe':
+      if (Math.abs(p.firstRowOffset - 80) > SLACK) problems.push(`the swiped row is open ${Math.round(p.firstRowOffset)}px, not 80px`);
+      break;
+    case 'drift-scroll':
+      if (p.maxTop < 50) problems.push(`the list scrolled only ${Math.round(p.maxTop)}px`);
+      if (p.maxRowOffset > SLACK) problems.push(`a row slid ${Math.round(p.maxRowOffset)}px during a vertical scroll`);
+      break;
+    case 'pull':
+      if (p.maxPull < 30) problems.push(`the pull moved the list only ${Math.round(p.maxPull)}px`);
+      if (p.minTop < -SLACK) problems.push(`the list rubber-banded to scrollTop ${Math.round(p.minTop)} during the pull`);
+      if (p.maxTop > SLACK) problems.push(`the list scrolled to ${Math.round(p.maxTop)} during the pull`);
+      break;
+    case 'scroll-after-pull':
+      if (p.maxTop < 50) problems.push(`the list stuck at the top: it scrolled only ${Math.round(p.maxTop)}px after the pull`);
+      break;
+  }
+  return problems;
+}
+
+/**
+ * Focusing a 16 px field must not zoom the page, and the viewport meta must leave
+ * pinch zoom on (#785). `scale` is visualViewport.scale after the focus settles.
+ */
+export function zoomProblems(field: string, scale: number, viewport: string): string[] {
+  const problems: string[] = [];
+  if (!Number.isFinite(scale)) problems.push(`could not read visualViewport.scale after focusing ${field}`);
+  else if (Math.abs(scale - 1) > 0.01) problems.push(`focusing ${field} zoomed the page to ${scale}x`);
+  if (/maximum-scale|user-scalable\s*=\s*(no|0)/i.test(viewport)) problems.push(`the viewport meta blocks pinch zoom: "${viewport}"`);
+  return problems;
 }

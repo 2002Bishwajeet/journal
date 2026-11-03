@@ -3,7 +3,7 @@ import { getPendingImageUpload, getPendingImageUploadStatus } from '@/lib/db';
 import { useOnlineContext } from '@/hooks/useOnlineContext';
 import type { PendingImageUpload } from '@/types';
 
-export type PendingImageState = 'offline' | 'uploading' | 'failed' | 'remote';
+export type PendingImageState = 'offline' | 'uploading' | 'failed' | 'discarded' | 'remote';
 
 const POLL_MS = 5000;
 
@@ -48,6 +48,8 @@ export function usePendingImage(pendingId: string): { url: string | undefined; s
 
     let state: PendingImageState;
     if (status === null) state = 'remote';
+    // Discarded in Diagnostics (#874): kept on this device, never uploaded
+    else if (status === 'discarded') state = 'discarded';
     else if (!isOnline) state = 'offline';
     else if (status === 'failed' || status === 'failed_permanent') state = 'failed';
     else state = 'uploading';

@@ -75,6 +75,17 @@ jobs:
           appium driver install xcuitest
           npm install --no-save webdriverio@10
 
+      # Compile WebDriverAgent here, not inside the first session request (#843),
+      # and point the session at it with WDA_DERIVED_DATA.
+      - name: Prebuild WebDriverAgent
+        run: |
+          WDA=$(find "$(npm root -g)/appium" ~/.appium -type d -name WebDriverAgent.xcodeproj -prune -print 2>/dev/null | head -1)
+          if [ -z "$WDA" ]; then echo "::error::WebDriverAgent.xcodeproj not found"; exit 1; fi
+          xcodebuild build-for-testing -project "$WDA" -scheme WebDriverAgentRunner \
+            -destination "id=$IOS_UDID" -derivedDataPath "$RUNNER_TEMP/wda" CODE_SIGNING_ALLOWED=NO > "$RUNNER_TEMP/wda-build.log" 2>&1 \
+            || { tail -60 "$RUNNER_TEMP/wda-build.log"; exit 1; }
+          echo "WDA_DERIVED_DATA=$RUNNER_TEMP/wda" >> "$GITHUB_ENV"
+
       - name: Start Appium
         run: |
           nohup appium --address 127.0.0.1 --port 4723 --log-level info > appium.log 2>&1 &
@@ -83,6 +94,12 @@ jobs:
 
       - name: Run the iOS Safari check
         run: node e2e/ios/safari-check.ts
+
+      # Reports whether iOS picks the launch image by prefers-color-scheme (#854); never fails the job.
+      - name: Check the launch image colour scheme
+        if: always()
+        continue-on-error: true
+        run: node e2e/ios/launch-image-check.ts
 
       - name: Upload screenshots
         id: upload

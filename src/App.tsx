@@ -19,7 +19,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   DotYouClientProvider,
   AuthGuard,
-  RootRedirect,
 } from "@/components/auth";
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { OnlineProvider } from "@/components/providers/OnlineProvider";
@@ -29,6 +28,7 @@ import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 // lazily loaded JournalLayout chunk.
 import { BootErrorScreen } from "@/components/layout/SplashScreen";
 import { isPublicSharePath } from "@/lib/sharePath";
+import { markBoot } from "@/lib/bootProgress";
 import { useCloseOtherAppNotifications } from "@/hooks/useCloseOtherAppNotifications";
 
 // Computed once at boot, not per route: UpdatePrompt sits outside BrowserRouter.
@@ -63,6 +63,8 @@ function App() {
       <PersistQueryClientProvider
         client={queryClient}
         persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
+        // Queries wait for this restore, so a stuck IndexedDB read here holds the splash (#806).
+        onSuccess={() => markBoot("query-cache")}
       >
         <ErrorBoundary>
           <BrowserRouter>
@@ -82,7 +84,7 @@ function App() {
                         </AuthGuard>
                       }
                     >
-                      <Route index element={<RootRedirect />} />
+                      <Route index element={<EmptyEditorPage />} />
                       <Route path="/:folderId" element={<EmptyEditorPage />} />
                       <Route
                         path="/:folderId/:noteId"

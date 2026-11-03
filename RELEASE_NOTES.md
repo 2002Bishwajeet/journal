@@ -16,6 +16,383 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.56.0 (2026-11-03)
+
+### Changed
+
+- On a phone, the Notes tab and the Shared tab each keep their own screens. When you go back to a tab, you are where you left it, and Back goes through that tab's screens.
+
+## 2.55.0 (2026-11-03)
+
+### Changed
+
+- On a phone, Share folder opens as a full sheet below the status bar. The Share folder button stays at the bottom, in reach of your thumb.
+- On a phone, sync status and "Shared" open as sheets from the bottom of the screen. Their buttons are easy to tap.
+
+## 2.54.1 (2026-11-03)
+
+### Changed
+
+- A Mermaid diagram cannot show an image from the web.
+
+### Fixed
+
+- A Mermaid diagram is drawn in a sandboxed frame, as an HTML block is. Before, a fault in Mermaid could let a shared note run code in the app.
+
+## 2.54.0 (2026-11-03)
+
+### Changed
+
+- On a phone, Settings is now a list of sections. Tap a section to open its page. Tap Back to return to the list.
+- On a phone, Settings has a large title and a Done button.
+- Sign out is now one full-width button at the bottom of the Account page.
+- The Account page shows your identity in the normal font.
+- On a phone, the Sync status is on one line, and Sync now is a full-width button below it.
+- Back from a note that you open from Diagnostics goes to the screen under Settings.
+
+### Fixed
+
+- The home page and the pricing page include Cursor in the list of agents that can use the Journal MCP server.
+- In `llms-full.txt`, the operations of the `edit_block` tool show as sub-bullets of its `op` input.
+
+## 2.53.0 (2026-11-02)
+
+### Changed
+
+- When the assistant proposes a change to a public note or a note in a shared folder, the card shows "Will be public".
+- The assistant treats the text in your notes as data. It does not obey instructions in a note.
+
+### Fixed
+
+- A live block in a note cannot go to another web address in its frame. Before, a block could send its saved data to a different site when you opened the note.
+- An agent cannot add an external image, link preview or diagram URL that can send note text to another site.
+- When an agent writes to a public note, the result tells you that the note is public.
+
+## 2.52.5 (2026-10-28)
+
+### Fixed
+
+- In a narrow editor, the formatting toolbar stays on one row. Scroll it to the side to see more buttons.
+
+## 2.52.4 (2026-10-28)
+
+### Fixed
+
+- In "People with access", your photo shows immediately. Other people show their initials while their photo loads, not a spinner.
+
+## 2.52.3 (2026-10-28)
+
+### Fixed
+
+- On a phone, the status bar colour now agrees with the theme that you select in Settings, and with the top of the screen (the sidebar on the home screen).
+
+## 2.52.2 (2026-10-28)
+
+### Changed
+
+- Settings → AI and the assistant panel show an "Experimental" label. A line tells you that the on-device assistant runs only on this device and is slower and less capable than AI agents connected through MCP. It has a link to set up an agent.
+
+## 2.52.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, a tapped link, note link or gallery button does not stay highlighted after the tap. Only one gallery layout shows as selected.
+- On a phone, the previous, next and dot buttons of a gallery carousel are larger and easier to tap.
+- On an iPhone in landscape, text does not become larger.
+
+## 2.52.0 (2026-10-28)
+
+### Changed
+
+- When you make a new note from a tag list, the new note has that tag. The note stays in Main and shows in the tag list.
+
+## 2.51.0 (2026-10-28)
+
+### Changed
+
+- On a phone or a tablet, the home screen and each list show their name in a large title. When you scroll, the name moves into the top bar.
+- On a phone or a tablet, an empty list tells you what it is for. An empty folder has a New note button.
+- On a phone, Log out is no longer on the home screen. To sign out, open Settings, then Account.
+- On a phone or a tablet, Empty Trash is in the More menu of Trash. The app asks you to confirm before it empties Trash. A computer also asks you to confirm.
+
+## 2.50.1 (2026-10-28)
+
+### Changed
+
+- The Share dialog and the "Shared" popover show each person with their photo and name, and each circle with its member count. The text has better contrast in light and dark mode.
+- The search field in the Share dialog has a clearer border. On a phone, the field is easier to see.
+
+### Fixed
+
+- In the Share dialog, Escape clears the search first. Before, Escape closed the dialog and the people that you added were not saved.
+- On a phone, the "Shared" popover stays away from the edge of the screen.
+
+## 2.50.0 (2026-10-28)
+
+### New
+
+- On a phone, a tab bar is at the bottom of the screen. Its tabs are Notes, Shared, Search and Settings. The Shared and Settings rows no longer show on the home screen. A tablet or a computer keeps its layout.
+- On a phone, the New note button is above the tab bar. It does not show on the Shared list.
+
+## 2.49.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, the sign-in, share and error pages fit the screen when the address bar is shown.
+
+## 2.49.0 (2026-10-28)
+
+### New
+
+- On a phone, the More button in a note opens a sheet with all note actions. You can pin, share, move, archive or trash the note, and find text in it.
+- On a phone, you can open the contents of a note. Tap a heading to go to it.
+
+### Changed
+
+- On a phone, the Back button in a note is bigger and shows the name of the folder it goes to.
+- On a phone, the small title in the note header shows only when the big title is out of view.
+- On a phone, a new note opens with the cursor in the title.
+
+## 2.48.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, Back closes a sheet also when you push it immediately after the sheet opens.
+
+## 2.48.0 (2026-10-28)
+
+### Changed
+
+- When you ask the assistant a question, it does not change your notes.
+- The assistant reads the open note before it edits the note.
+- The assistant does not make the same change two times in one request.
+- The assistant can add text at the end of the open note. You accept or reject the change in the note.
+
+## 2.47.2 (2026-10-28)
+
+### Fixed
+
+- On a phone, the resize handles show only on the selected image.
+
+## 2.47.1 (2026-10-28)
+
+### Fixed
+
+- On a phone, the image toolbar shows only when you select the image. It is now inside the image and does not cover the text above it.
+
+## 2.47.0 (2026-10-27)
+
+### Changed
+
+- On a phone, Link, Emoji, Table, Text alignment and the callout type open as a sheet above the keyboard.
+- On a phone, the Link sheet has a Text field, a URL field and a Remove link button.
+- On a phone, you set the size of a table with two counters.
+- On a phone, the slash menu shows above the keyboard toolbar, with large rows.
+
+## 2.46.0 (2026-10-27)
+
+### Changed
+
+- One Share dialog replaces Mark as Collaborative, Edit Sharing and Revoke Collaboration. Use "Share…" in the note menu.
+- In the Share dialog, you add people and circles and give each one a role. A circle can be Editor or Viewer.
+- The public link of a note is under "General access" in the same Share dialog.
+- A shared note stays in its folder. You can move a shared note to a different folder.
+- A note that a person shares with you has "Remove from my list". This removes the note from this device only.
+- The "Shared" badge on a note shows the circles and people that can open the note.
+
+## 2.45.0 (2026-10-27)
+
+### Changed
+
+- On a phone, an image opens in a full-screen viewer. Swipe down to close it. The Close and Download buttons stay below the status bar.
+- On a phone, the image editor fills the screen. Cancel and Apply are in the top bar. The crop handles and the tools are bigger, to touch with a finger.
+
+## 2.44.1 (2026-10-27)
+
+### Fixed
+
+- When you open a folder or note while the app starts, the app does not move you back to the last note.
+
+## 2.44.0 (2026-10-27)
+
+### Changed
+
+- On a phone, Move to folder shows the folder that holds the note, with a check mark.
+- On a phone, Move to folder has a New folder row. The note moves into the new folder.
+- On a phone, Move to folder has a search field when you have many folders.
+- When a part of the app shows an error screen, the browser console now shows the full error text and its stack. This helps to find the cause of an error on iOS.
+
+## 2.43.0 (2026-10-27)
+
+### Changed
+
+- On a phone, buttons and links dim when you press them, and a fast double tap on a button does not zoom the page.
+- On a phone, the remove button on a tag and the image controls are always visible.
+- A long press on a button or a row does not open a system preview. Note text, code and images stay selectable.
+
+## 2.42.0 (2026-10-27)
+
+### New
+
+- You can share a note with a person by their Homebase identity. That person can read the note but cannot change it. Use "Add a person" in the Mark as Collaborative dialog.
+- To change who can see a shared note, use Edit Sharing in the note's menu.
+
+## 2.41.1 (2026-10-27)
+
+### Fixed
+
+- A note holds at most 24 images, which is what Homebase accepts. Adding more now shows a message ("This note holds at most 24 images. Split it, or link a new note.") instead of starting an upload that fails.
+
+## 2.41.0 (2026-10-27)
+
+### New
+
+- On a phone, Move to folder opens as a sheet from the bottom of the screen, and Version history opens as a full-screen sheet. Pull a sheet down to close it.
+
+### Fixed
+
+- On a phone, the line you type on stays above the toolbar and the keyboard.
+- On a phone, the last line of a note scrolls above the toolbar.
+- On a phone, the slash, emoji and note link menus move when the keyboard opens.
+- On iOS Safari, the text that you type just before you reload or leave the page stays in the note.
+
+## 2.40.1 (2026-10-27)
+
+### Fixed
+
+- The assistant panel now counts only the tool steps, not the error row.
+- With the assistant panel open, the editor toolbar wraps and no icon is cut off.
+- With the assistant panel open, a toast shows to the left of the panel and does not cover the message box.
+- On an iPad in landscape, the editor shows one formatting toolbar. Before, it also showed the phone toolbar at the bottom.
+
+## 2.40.0 (2026-10-27)
+
+### Changed
+
+- On an iPad held upright, Journal shows the note list and the open note side by side. To see your folders, tap the arrow at the top of the list.
+
+## 2.39.3 (2026-10-26)
+
+### Fixed
+
+- Desktop: with no note open, the editor shows the Start Writing page with Create New Note again, instead of "No notes open".
+
+## 2.39.2 (2026-10-26)
+
+### Fixed
+
+- On an iPhone, photos upload again. In version 2.38.2, image uploads failed with "The world has ended".
+- Images that did not upload for this reason try again automatically after you update the app.
+
+## 2.39.1 (2026-10-26)
+
+### Changed
+
+- When no app owns your journal drive, Settings > Diagnostics shows "Fix in owner console". One approval on your owner console gives the drive to Journal and also fixes share notifications.
+
+## 2.39.0 (2026-10-26)
+
+### New
+
+- On a phone, a round New note button is at the bottom right of the folder list and the note lists. It replaces the New button in the list header. A tablet or a computer keeps the New button.
+
+## 2.38.3 (2026-10-26)
+
+### Fixed
+
+- The links from Journal to the journal drive and to a note on your owner console open the correct page again.
+
+## 2.38.2 (2026-10-26)
+
+### Fixed
+
+- On an iPhone, large images (for example, screenshots) upload again. Before, Homebase refused their previews because they were larger than 1 MB.
+- Images that did not upload for this reason try again automatically after you update the app.
+
+## 2.38.1 (2026-10-26)
+
+### Fixed
+
+- App icon: the install icon on Android and in Chrome has its colours again (the beige background and the cream tile).
+
+## 2.38.0 (2026-10-26)
+
+### New
+
+- Diagnostics shows each image that did not sync, with a preview. Use Retry or Discard for one image, or Discard all for all of them. Journal asks before it discards. A discarded image stays in the note on this device, but it does not sync.
+- The sync status menu and Settings › Account show how many changes did not sync, and open Diagnostics.
+
+### Fixed
+
+- When your Homebase refuses a change, Journal stops sending it again and again. Settings › Diagnostics shows the reason that your Homebase gives. Problems with the connection or with the server still retry after a pause.
+- A note can have only 25 files on your Homebase, and the note text is one of them. Diagnostics now tells you when an image goes above this limit.
+
+## 2.37.0 (2026-10-26)
+
+### Changed
+
+- In Settings, Diagnostics, "Share notifications are off" now has a "Fix in owner console" button. It opens the extend-permissions page of your owner console, and you approve the change there. This needs an up-to-date owner console; on an older one, the manual steps under "Do it by hand" are the safe path.
+- The step "Assign to an app" is no longer part of "Share notifications are off", because share notifications do not need it. It has its own notice now.
+
+## 2.36.1 (2026-10-26)
+
+### Fixed
+
+- Note list (phone): the New button has its compact size again. Its tap area stays 44 px tall.
+
+## 2.36.0 (2026-10-26)
+
+### Changed
+
+- On a phone, the Back button and the Back swipe now close a dialog or sheet and stay on the same screen. Back inside a note or a list now goes to the screen you came from, including after you open a note from Search.
+- On a phone, the note list has one header with Back, Sort and New. The buttons are bigger, and the date headings stay at the top while you scroll. Opening a folder or a note slides the new screen in from the right, and the Back button slides it back. The Back swipe keeps Safari's own animation.
+
+## 2.35.1 (2026-10-26)
+
+### Fixed
+
+- In Safari on iPhone and iPad, Journal no longer stays on the loading screen when it opens a new page of the app.
+- If Journal does not open within 20 seconds, the app shows a Reload button. You are no longer stuck on the loading screen.
+
+## 2.35.0 (2026-10-26)
+
+### New
+
+- On iPhone and iPad, the home screen app now opens with a launch screen that matches the app. It is light or dark to match your phone's appearance when you added the app to the home screen.
+
+## 2.34.0 (2026-10-26)
+
+### New
+
+- Search shows the notes you opened recently and your recent searches. A note you opened recently also ranks a little higher in the results.
+
+## 2.33.0 (2026-10-26)
+
+### Changed
+
+- When share notifications are off, Settings > Diagnostics shows only the owner console steps that your journal drive still needs.
+- The install dialog in Chrome now shows screenshots of the app.
+- On Android, the app icon fills the shape of the icon mask.
+- On iOS, the Home Screen icon is named "Journal".
+
+### Fixed
+
+- The assistant does not propose an edit again after you reject it or after it fails. After two such edits, it answers the question.
+
+## 2.32.1 (2026-10-26)
+
+### Fixed
+
+- On a phone or tablet, tapping a text field no longer zooms the page. You can now pinch to zoom in the app.
+- The sign-in screen fits a phone screen. Its error message is easy to read in light and dark mode.
+
+## 2.32.0 (2026-10-26)
+
+### Fixed
+
+- On a phone, a normal scroll through your notes no longer opens the delete button on a note. Swipe left to show it. Only one note stays open, and it closes when you scroll or tap outside it.
+- On a phone, pull down to refresh no longer scrolls the list at the same time.
+
 ## 2.31.0 (2026-10-26)
 
 ### Changed
