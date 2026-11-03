@@ -128,14 +128,24 @@ async function reactBlockLibrary(entry: string, name: string): Promise<string> {
   }
 }
 
+// A mermaid block's script (#946): mermaid's own prebuilt bundle, which sets window.mermaid and
+// holds every diagram type, and the note's font, which a sandboxed frame cannot load from the
+// app. Mermaid has to measure its labels in the font it draws them in.
+function mermaidBlockRuntime(): string {
+  const mermaid = fs.readFileSync(appRequire.resolve('mermaid/dist/mermaid.min.js'), 'utf8');
+  const inter = fs.readFileSync(appRequire.resolve('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')).toString('base64');
+  return `${mermaid}\n;document.fonts.add(new FontFace('Inter Variable', 'url(data:font/woff2;base64,${inter})', { weight: '100 900' }));`;
+}
+
 // The script of the library a react block imports as `module`, setting its global in
 // REACT_BLOCK_LIBRARIES. Its entry is the package itself unless given.
 const library = (module: ReactBlockLibrary, entry = `export * from '${module}';`) => () => reactBlockLibrary(entry, REACT_BLOCK_LIBRARIES[module]);
 const srcModule = (file: string) => JSON.stringify(path.resolve(import.meta.dirname, file));
 
 // A react block's page, as virtual modules: each is imported lazily, and a library only for
-// a block that imports it.
+// a block that imports it. A mermaid block's runtime goes the same way.
 const REACT_BLOCK_PIECES: Record<string, () => string | Promise<string>> = {
+  'virtual:react-block-mermaid': mermaidBlockRuntime,
   'virtual:react-block-runtime': reactBlockRuntime,
   'virtual:react-block-tailwind': reactBlockTailwind,
   // Tailwind's theme, for the compiler that builds a block's own classes in the app (#559).
@@ -268,15 +278,11 @@ export default defineConfig(({ mode }) => ({
           // webllm-runtime route in sw.ts.
           '**/web-llm-*.js',
           '**/worker-*.js',
-          // Mermaid runtime (see manualChunks) — loaded only when a mermaid code
-          // block is previewed, cached on first use by the mermaid-runtime route
-          // in sw.ts.
-          '**/mermaid-*.js',
-          // A react block's runtime, Tailwind sheet and libraries (reactBlockPieces
-          // above; Rolldown names a virtual module's chunk `_virtual_<name>`)
-          // and its compiler (src/lib/reactBlockCompiler.ts, with sucrase and Tailwind's compiler): loaded only when
-          // a react block is previewed, cached on first use by the react-block route in
-          // sw.ts (#426, #427).
+          // A react block's runtime, Tailwind sheet and libraries, and a mermaid block's
+          // runtime (reactBlockPieces above; Rolldown names a virtual module's chunk
+          // `_virtual_<name>`) and a react block's compiler (src/lib/reactBlockCompiler.ts,
+          // with sucrase and Tailwind's compiler): loaded only when such a block is
+          // previewed, cached on first use by the react-block route in sw.ts (#426, #427).
           '**/_virtual_react-block-*.js',
           '**/reactBlockCompiler-*.js',
           // Legacy engine: loaded only to upgrade a leftover v0.3/v0.4 database
@@ -372,18 +378,6 @@ export default defineConfig(({ mode }) => ({
             stack.delete(moduleId);
             return lazy;
           };
-          // True for mermaid itself and for modules whose every importer is one
-          // (so shared deps such as katex, also used by the editor, stay out).
-          const onlyViaMermaid = (moduleId: string, stack: Set<string>): boolean => {
-            if (moduleId.includes('/node_modules/mermaid/')) return true;
-            const info = getModuleInfo(moduleId);
-            if (!info || info.isEntry || stack.has(moduleId) || !moduleId.includes('/node_modules/')) return false;
-            if (info.importers.length + info.dynamicImporters.length === 0) return false;
-            stack.add(moduleId);
-            const only = [...info.importers, ...info.dynamicImporters].every((importer) => onlyViaMermaid(importer, stack));
-            stack.delete(moduleId);
-            return only;
-          };
           // React MUST be claimed first, or it gets absorbed into whichever
           // chunk reaches it (it was landing in 'tiptap'), forcing every chunk
           // to import the 750 KB editor bundle just to get jsx-runtime.
@@ -398,11 +392,6 @@ export default defineConfig(({ mode }) => ({
           // The migration's fallback imports the full engine on the main thread.
           if (id.includes('@electric-sql/pglite') && lazyOnly(id, new Set())) return 'pglite-engine';
           if (id.includes('@mlc-ai/web-llm')) return 'web-llm';
-          // Mermaid and the modules only it pulls in (~100 lazy diagram/helper
-          // chunks otherwise). One chunk with a stable name so globIgnores and
-          // the mermaid-runtime route in sw.ts can match it. Loaded only through
-          // the dynamic import in LiveBlockPreview, so it is off the boot path.
-          if (onlyViaMermaid(id, new Set())) return 'mermaid';
           if (id.includes('@electric-sql/pglite')) return 'pglite';
           // Deliberately no 'tiptap' / 'ui-libs' rules: a manual chunk acts as
           // an attractor for shared modules, so grouping TipTap dragged React

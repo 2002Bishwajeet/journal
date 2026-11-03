@@ -249,8 +249,9 @@ block**, with `replace_in_note` or `update_note`, or the block loses its saved s
 
 Any Mermaid diagram: flowchart, sequence, class, state, ER, gantt, pie, timeline,
 mindmap and more. Journal draws it in its own theme. Leave colours to it: no
-`%%{init}%%` theme and no `style` or `classDef` colours. A URL in a diagram follows the
-same rule as an `https://` image URL, as a diagram can load one when the note opens.
+`%%{init}%%` theme and no `style` or `classDef` colours. A diagram is drawn in a sandboxed
+frame with no network, so it shows no image from the web, and a URL in it still follows the
+same rule as an `https://` image URL.
 
 ### `svg`
 

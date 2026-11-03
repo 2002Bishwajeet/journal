@@ -13,7 +13,7 @@
  */
 import { chromium, expect, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { activeEditor, activeTitleInput, createFolder, createNote, typeInEditor, waitForNoteSaved } from '../e2e/support/actions';
+import { activeEditor, activeTitleInput, createFolder, createNote, mermaidFrame, typeInEditor, waitForNoteSaved } from '../e2e/support/actions';
 import { installNetworkFence, assertNoFenceViolations } from '../e2e/support/network-fence';
 import { assertAllowedOrigin, assertTestOrigin } from '../e2e/support/origin-guard';
 
@@ -131,7 +131,7 @@ async function wide(browser: Awaited<ReturnType<typeof chromium.launch>>) {
     data.setData('text/plain', '');
     el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
   }, DIAGRAM);
-  await expect(page.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]').first()).toBeVisible({ timeout: 20000 });
+  await expect(mermaidFrame(page.locator('[data-live-block="mermaid"]').first()).locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 20000 });
   await page.waitForTimeout(1500);
   await waitForNoteSaved(page);
   await shoot(page, 'wide-live-block');

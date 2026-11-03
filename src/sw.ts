@@ -37,32 +37,18 @@ registerRoute(
     })
 );
 
-// The mermaid runtime chunk (mermaid-*.js) is not precached either: it loads
-// only when a mermaid code block is previewed. Cached on first use, before the
-// generic static-resources route so it doesn't count against that budget.
-registerRoute(
-    ({ url, sameOrigin }) =>
-        sameOrigin && /\/assets\/mermaid-.*\.js$/.test(url.pathname),
-    new CacheFirst({
-        cacheName: 'mermaid-runtime',
-        plugins: [
-            new ExpirationPlugin({ maxEntries: 2 }),
-        ],
-    })
-);
-
 // A react block's React runtime and JSX compiler (#426), its Tailwind sheet and the libraries
-// it may import (#427, #558) are not precached either: they load only when a react block is
-// previewed, and are cached on first use so the block renders offline from then on. Chunk
-// names: injectManifest.globIgnores in vite.config.ts.
+// it may import (#427, #558), and a mermaid block's runtime (#946) are not precached either: they
+// load only when such a block is previewed, and are cached on first use so the block renders
+// offline from then on. Chunk names: injectManifest.globIgnores in vite.config.ts.
 registerRoute(
     ({ url, sameOrigin }) =>
         sameOrigin && /\/assets\/(_virtual_react-block-[\w-]+|reactBlockCompiler)-.*\.js$/.test(url.pathname),
     new CacheFirst({
         cacheName: 'react-block',
         plugins: [
-            // Every piece (11), with room for its copy from the previous release.
-            new ExpirationPlugin({ maxEntries: 22 }),
+            // Every piece (12), with room for its copy from the previous release.
+            new ExpirationPlugin({ maxEntries: 24 }),
         ],
     })
 );
@@ -243,7 +229,7 @@ self.addEventListener('activate', (event) => {
             const cacheNames = await caches.keys();
             await Promise.all(
                 cacheNames
-                    .filter((name) => !['static-resources', 'images', 'api-cache', 'proxied-images'].includes(name) && !name.startsWith('webllm') && !name.startsWith('mermaid') && name !== 'react-block' && !name.startsWith('workbox-'))
+                    .filter((name) => !['static-resources', 'images', 'api-cache', 'proxied-images'].includes(name) && !name.startsWith('webllm') && name !== 'react-block' && !name.startsWith('workbox-'))
                     .map((name) => caches.delete(name))
             );
 
