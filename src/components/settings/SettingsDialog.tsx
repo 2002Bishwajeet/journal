@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -7,18 +8,14 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useDeviceType } from "@/hooks";
+import { overlayDepth, useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { OPEN_SETTINGS_EVENT } from "@/hooks/useSettingsOpener";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "./sections";
-
-// Fade only the tab-strip edge that has more tabs past it (see .settings-tab-fade in index.css).
-function syncTabStrip(el: HTMLElement) {
-  el.dataset.fadeStart = String(el.scrollLeft > 1);
-  el.dataset.fadeEnd = String(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-}
+import MobileSettings from "./MobileSettings";
 
 interface SettingsDialogProps {
   isOpen: boolean;
-  /** Section to show each time the dialog opens; omitted keeps the last one. */
+  /** Section to show each time the dialog opens; omitted keeps the last one (the list on a phone). */
   initialSection?: SettingsSectionId;
   onClose: () => void;
 }
@@ -29,29 +26,38 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(
     SETTINGS_SECTIONS[0].id
   );
-  const scrolledFor = useRef<SettingsSectionId | null>(null);
+  // Phone: the section page on top of the list, or null for the list (#831).
+  const [mobilePage, setMobilePage] = useState<SettingsSectionId | null>(null);
+  // Overlay depth when the dialog opened: the page's history entry waits for the dialog's own.
+  const [baseDepth, setBaseDepth] = useState(0);
+  const location = useLocation();
   const [wasOpen, setWasOpen] = useState(isOpen);
   if (isOpen !== wasOpen) {
     setWasOpen(isOpen);
-    if (isOpen && initialSection) setActiveSection(initialSection);
+    if (isOpen) {
+      setBaseDepth(overlayDepth(location.state));
+      setMobilePage(initialSection ?? null);
+      if (initialSection) setActiveSection(initialSection);
+    }
   }
   // openSettings(section) while the dialog is already open (Account's "View", #874) switches to it.
   useEffect(() => {
-    const onOpen = (event: Event) => setActiveSection((event as CustomEvent<SettingsSectionId>).detail);
+    const onOpen = (event: Event) => {
+      const section = (event as CustomEvent<SettingsSectionId>).detail;
+      setActiveSection(section);
+      setMobilePage(section);
+    };
     window.addEventListener(OPEN_SETTINGS_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_SETTINGS_EVENT, onOpen);
   }, []);
   const isMobile = useDeviceType() === "mobile";
   const sections = SETTINGS_SECTIONS.filter((s) => !(isMobile && s.desktopOnly));
-  // A desktop-only section picked before shrinking to phone width falls back to the first.
-  const currentSection = sections.some((s) => s.id === activeSection)
-    ? activeSection
-    : sections[0].id;
 
-  // Reset on close so the active tab is scrolled into view again on the next open.
-  useEffect(() => {
-    if (!isOpen) scrolledFor.current = null;
-  }, [isOpen]);
+  // One history entry per level: the dialog has its own (see ui/dialog.tsx), a section page adds a second.
+  useOverlayHistory(
+    isOpen && isMobile && mobilePage !== null && overlayDepth(location.state) > baseDepth,
+    () => setMobilePage(null),
+  );
 
   return (
     <Dialog
@@ -61,85 +67,79 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
       }}
     >
       {/* `settings-dialog` scopes this dialog's token overrides (see src/index.css).
-          On phones the close button grows to a 44px touch target, and the sheet is pinned
-          to the corner instead of centred, so an odd viewport width leaves no half-pixel seam. */}
-      <DialogContent className="settings-dialog max-h-none top-1/2 p-0 max-md:inset-0 max-md:translate-x-0 max-md:translate-y-0 max-md:h-dvh max-md:w-screen max-md:max-w-none sm:max-w-none max-md:rounded-none md:max-w-[min(900px,calc(100%-2rem))] gap-0 overflow-hidden border-0 shadow-2xl bg-background max-md:[&>[data-slot=dialog-close]]:top-[calc(0.375rem+env(safe-area-inset-top))] max-md:[&>[data-slot=dialog-close]]:right-1.5 max-md:[&>[data-slot=dialog-close]]:p-3.5">
+          On phones the sheet is pinned to the corner instead of centred, so an odd viewport
+          width leaves no half-pixel seam, and the list has its own Done button. */}
+      <DialogContent
+        showCloseButton={!isMobile}
+        className="settings-dialog max-h-none top-1/2 p-0 max-md:inset-0 max-md:translate-x-0 max-md:translate-y-0 max-md:h-dvh max-md:w-screen max-md:max-w-none sm:max-w-none max-md:rounded-none md:max-w-[min(900px,calc(100%-2rem))] gap-0 overflow-hidden border-0 shadow-2xl bg-background"
+      >
         <DialogDescription className="sr-only">
           Manage your application preferences and data.
         </DialogDescription>
 
-        {/* Fixed height lives here, not on DialogContent: DialogContent is a
-            grid, so an h-full child would grow with its content and never scroll. */}
-        <Tabs
-          value={currentSection}
-          onValueChange={(value) => setActiveSection(value as SettingsSectionId)}
-          orientation="vertical"
-          activationMode="automatic"
-          className="flex flex-col md:flex-row gap-0 h-dvh min-w-0 md:h-[min(640px,85dvh)]"
-        >
-          {/* ── Navigation: a strip under the title on phones, a left rail from md ── */}
-          <nav className="flex min-w-0 shrink-0 flex-col border-b border-border/60 bg-muted/30 md:w-56 md:overflow-y-auto md:border-b-0 md:border-r">
-            {/* pr-12 and pb-2 on phones keep the title and tab strip clear of the dialog's close button. */}
-            <div className="pl-5 pr-12 pt-[calc(1rem+env(safe-area-inset-top))] pb-2 md:px-6 md:pt-7 md:pb-5">
-              <DialogTitle className="font-serif text-xl font-normal tracking-tight text-foreground md:text-2xl">
-                Settings
-              </DialogTitle>
-              <div className="mt-2 hidden h-0.5 w-8 rounded-full bg-primary md:block" />
-            </div>
-
-            <TabsList
-              ref={(el) => {
-                // React calls an inline ref with null on every re-render, so don't reset the guard here.
-                if (!el) return;
-                syncTabStrip(el);
-                // Only when the section changes (or the dialog opens), so re-renders don't undo manual scrolling.
-                if (scrolledFor.current === currentSection) return;
-                scrolledFor.current = currentSection;
-                el.querySelector("[data-state=active]")?.scrollIntoView({ inline: "nearest", block: "nearest" });
-              }}
-              onScroll={(e) => syncTabStrip(e.currentTarget)}
-              className="settings-tab-fade scrollbar-hide scroll-px-5 h-auto w-full flex-row items-stretch justify-start gap-1 overflow-x-auto rounded-none bg-transparent px-5 py-2 md:flex-col md:gap-0.5 md:overflow-visible md:px-3 md:py-0 md:pb-6"
-            >
-              {sections.map((section) => {
-                const Icon = section.icon;
-                return (
-                  <TabsTrigger
-                    key={section.id}
-                    value={section.id}
-                    className="group relative h-auto min-h-11 flex-none justify-start gap-2.5 rounded-lg border-0 px-3.5 py-2 text-left text-sm font-medium text-muted-foreground hover:text-foreground data-[state=inactive]:hover:bg-foreground/5 data-[state=active]:bg-foreground/8 data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:bg-foreground/10 md:min-h-10 md:w-full md:gap-3"
-                  >
-                    {/* Active marker: the same short rule as under the title. */}
-                    <span
-                      aria-hidden="true"
-                      className="absolute left-0 top-1/2 hidden h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary md:group-data-[state=active]:block"
-                    />
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {section.label}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </nav>
-
-          {/* ── Content Area ── */}
-          <div
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-            style={{ scrollbarGutter: "stable" }}
+        {isMobile ? (
+          <MobileSettings sections={sections} page={mobilePage} onPage={setMobilePage} onClose={onClose} />
+        ) : (
+          /* Fixed height lives here, not on DialogContent: DialogContent is a
+             grid, so an h-full child would grow with its content and never scroll. */
+          <Tabs
+            value={activeSection}
+            onValueChange={(value) => setActiveSection(value as SettingsSectionId)}
+            orientation="vertical"
+            activationMode="automatic"
+            className="flex h-[min(640px,85dvh)] min-w-0 flex-row gap-0"
           >
-            {sections.map((section) => (
-              <TabsContent
-                key={section.id}
-                value={section.id}
-                className="px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-6 outline-none md:px-10 md:pb-10 md:pt-7"
-              >
-                <h2 className="mb-8 font-serif max-md:sr-only text-2xl tracking-tight text-balance">
-                  {section.label}
-                </h2>
-                <section.Component close={onClose} />
-              </TabsContent>
-            ))}
-          </div>
-        </Tabs>
+            {/* ── Navigation: a left rail ── */}
+            <nav className="flex w-56 min-w-0 shrink-0 flex-col overflow-y-auto border-r border-border/60 bg-muted/30">
+              <div className="px-6 pb-5 pt-7">
+                <DialogTitle className="font-serif text-2xl font-normal tracking-tight text-foreground">
+                  Settings
+                </DialogTitle>
+                <div className="mt-2 h-0.5 w-8 rounded-full bg-primary" />
+              </div>
+
+              <TabsList className="h-auto w-full flex-col items-stretch justify-start gap-0.5 overflow-visible rounded-none bg-transparent px-3 py-0 pb-6">
+                {sections.map((section) => {
+                  const Icon = section.icon;
+                  return (
+                    <TabsTrigger
+                      key={section.id}
+                      value={section.id}
+                      className="group relative h-auto min-h-10 w-full flex-none justify-start gap-3 rounded-lg border-0 px-3.5 py-2 text-left text-sm font-medium text-muted-foreground hover:text-foreground data-[state=inactive]:hover:bg-foreground/5 data-[state=active]:bg-foreground/8 data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:bg-foreground/10"
+                    >
+                      {/* Active marker: the same short rule as under the title. */}
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-0 top-1/2 hidden h-5 w-0.5 -translate-y-1/2 rounded-full bg-primary group-data-[state=active]:block"
+                      />
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {section.label}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </nav>
+
+            {/* ── Content Area ── */}
+            <div
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+              style={{ scrollbarGutter: "stable" }}
+            >
+              {sections.map((section) => (
+                <TabsContent
+                  key={section.id}
+                  value={section.id}
+                  className="px-10 pb-10 pt-7 outline-none"
+                >
+                  <h2 className="mb-8 font-serif text-2xl tracking-tight text-balance">
+                    {section.label}
+                  </h2>
+                  <section.Component close={onClose} />
+                </TabsContent>
+              ))}
+            </div>
+          </Tabs>
+        )}
       </DialogContent>
     </Dialog>
   );

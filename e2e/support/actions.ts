@@ -136,6 +136,21 @@ export async function shareNotePublicly(page: Page, title: string): Promise<stri
     return shareUrl;
 }
 
+/**
+ * Open a Settings section: a tab on desktop, a row of the section list on a phone (#831).
+ * A phone that shows a section page goes Back to the list first.
+ */
+export async function openSettingsSection(dialog: Locator, name: string): Promise<void> {
+    const tab = dialog.getByRole('tab', { name, exact: true });
+    const row = dialog.getByRole('listitem').getByRole('button', { name, exact: true });
+    const back = dialog.getByRole('button', { name: 'Settings', exact: true });
+    if (await back.count()) await back.click();
+    await tab.or(row).click();
+}
+
+/** The open Settings section: the tab panel on desktop, the section page on a phone. */
+export const settingsPanel = (dialog: Locator): Locator => dialog.getByRole('tabpanel').or(dialog.getByRole('region'));
+
 /** Grant a folder access to MCP agents via Settings -> Agent access (#168 UI). */
 export async function setFolderAgentAccess(
     page: Page,
@@ -145,7 +160,7 @@ export async function setFolderAgentAccess(
     await assertTestOrigin(page);
     await page.getByRole('button', { name: 'Settings' }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('tab', { name: 'Agent access' }).click();
+    await openSettingsSection(dialog, 'Agent access');
     await dialog.getByLabel(`Agent access for ${folderName}`).selectOption(access);
     await page.keyboard.press('Escape');
 }

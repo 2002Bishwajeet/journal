@@ -29,7 +29,7 @@ test('the share notifications notice has one Fix in owner console button and the
     await page.getByRole('button', { name: /Pending items|Diagnostics/ }).tap();
 
     const dialog = page.getByRole('dialog', { name: 'Settings' });
-    const panel = dialog.getByRole('tabpanel');
+    const panel = dialog.getByRole('region');
     await expect(panel.getByRole('list', { name: 'Pending sync items' })).toBeVisible();
     await page.evaluate(() => window.__journalE2E!.refuseSharePush());
 

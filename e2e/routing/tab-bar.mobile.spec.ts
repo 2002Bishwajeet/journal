@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { withMobilePage } from '../support/mobile';
-import { createFolder, inBothThemes, selectFolder } from '../support/actions';
+import { createFolder, inBothThemes, openSettingsSection, selectFolder } from '../support/actions';
 
 // On a phone, Notes, Shared, Search and Settings are a tab bar at the bottom (#853).
 
@@ -131,10 +131,12 @@ test('a toast sits above the tab bar and the New note button', async ({ browser 
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await tab(page, 'Settings').click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('tab', { name: 'About', exact: true }).click();
+    await openSettingsSection(dialog, 'About');
     await dialog.getByRole('button', { name: 'Copy' }).click();
     const toast = page.locator('[data-sonner-toast]').first();
     await expect(toast).toBeVisible();
+    // Back leaves the section page, then closes Settings.
+    await page.goBack();
     await page.goBack();
     await expect(dialog).toBeHidden();
     await expect(fab(page)).toBeVisible();

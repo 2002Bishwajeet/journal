@@ -1,5 +1,5 @@
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
-import { inBothThemes } from '../support/actions';
+import { inBothThemes, openSettingsSection } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 import type { Page } from '@playwright/test';
 
@@ -8,7 +8,7 @@ import type { Page } from '@playwright/test';
 async function showToastOverSettings(page: Page) {
   await page.getByRole('button', { name: 'Settings' }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByRole('tab', { name: 'About', exact: true }).click();
+  await openSettingsSection(dialog, 'About');
   await dialog.getByRole('button', { name: 'Copy' }).click();
   const toast = page.locator('[data-sonner-toast]').first();
   await expect(toast).toBeVisible();

@@ -6,6 +6,9 @@ type OverlayState = { overlays?: string[] };
 
 const stackOf = (state: unknown) => (state as OverlayState | null)?.overlays ?? [];
 
+/** How many overlays own a history entry at or below the current one. */
+export const overlayDepth = (state: unknown) => stackOf(state).length;
+
 /** The current entry belongs to an open overlay, so navigating away from it should replace it. */
 export const overlayEntryOpen = (state: unknown) => stackOf(state).length > 0;
 

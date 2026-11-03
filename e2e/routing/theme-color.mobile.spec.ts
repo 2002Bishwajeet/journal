@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { selectFolder } from '../support/actions';
+import { openSettingsSection, selectFolder } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 import { withMobilePage } from '../support/mobile';
 
@@ -58,7 +58,7 @@ async function reloadWithTheme(page: Page, theme: 'light' | 'dark') {
 async function pickTheme(page: Page, label: 'Light' | 'Dark') {
   await page.getByRole('navigation', { name: 'Tabs' }).getByRole('button', { name: 'Settings', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByRole('tab', { name: 'Appearance' }).click();
+  await openSettingsSection(dialog, 'Appearance');
   await dialog.getByRole('radiogroup', { name: 'Theme' }).getByText(label, { exact: true }).click();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();

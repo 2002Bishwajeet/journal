@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import { useDiagnostics } from "@/hooks/useDiagnostics";
+import { overlayDepth } from "@/hooks/useOverlayHistory";
 import { getPendingImageUpload } from "@/lib/db";
 import { DRIVE_OWNER_STEP, SHARE_DRIVE_FIX_STEPS } from "@/lib/homebase/shareNotifications";
 import { MAIN_FOLDER_ID } from "@/lib/homebase";
@@ -234,8 +235,15 @@ export default function DiagnosticsSection({ close }: { close: () => void }) {
                 onRetry={() => diagnostics.retryItem(item)}
                 onDiscard={() => setToDiscard([item])}
                 onOpen={() => {
-                  navigate(`/${item.folderId ?? MAIN_FOLDER_ID}/${item.noteId}`);
-                  close();
+                  const openNote = () => {
+                    navigate(`/${item.folderId ?? MAIN_FOLDER_ID}/${item.noteId}`);
+                    close();
+                  };
+                  // On a phone Settings holds history entries: leave them first, so Back from the note skips them (#831).
+                  const overlays = overlayDepth(window.history.state?.usr);
+                  if (overlays === 0) return openNote();
+                  window.addEventListener("popstate", openNote, { once: true });
+                  navigate(-overlays);
                 }}
               />
             ))}

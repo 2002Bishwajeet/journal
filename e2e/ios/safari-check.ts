@@ -279,6 +279,15 @@ async function closeDialog() {
   await waitFor('the dialog to close', dialogClosed);
 }
 
+// Phone Settings: the section rows, and the header button that is Back on a page and Done on the list (#831).
+const settingsRow = '[role="dialog"] li > button[aria-labelledby^="settings-row-"]';
+const settingsHeaderButton = '[role="dialog"] header button';
+
+async function closeSettings() {
+  await tap(settingsHeaderButton);
+  await waitFor('Settings to close', dialogClosed);
+}
+
 /** After a tap into a field: the page must not have zoomed, and pinch zoom must stay allowed (#785). */
 async function checkZoom(field: string) {
   // Safari's focus zoom animates for about 300 ms.
@@ -490,16 +499,17 @@ try {
   });
   await tap('button=Settings');
   await waitFor('Settings', dialogOpen);
-  const tabs = await browser.execute(() => [...document.querySelectorAll('[role="dialog"] [role="tab"]')].map((t) => t.textContent?.trim() ?? ''));
-  for (const [i, tab] of tabs.entries()) {
-    await tap('[role="dialog"] [role="tab"]', i);
-    await browser.waitUntil(
-      () => browser.execute((n) => document.querySelectorAll('[role="dialog"] [role="tab"]')[n]?.getAttribute('aria-selected') === 'true', i),
-      { timeout: 30_000, timeoutMsg: `timed out waiting for the ${tab} tab` },
-    );
-    await check(`settings-${tab.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`);
+  // A phone shows Settings as a list that drills into one page per section (#831).
+  const sections = await browser.execute(() => [...document.querySelectorAll('[role="dialog"] [id^="settings-row-"]')].map((t) => t.textContent?.trim() ?? ''));
+  if (sections.length === 0) failures.push('Settings: no section rows on the phone');
+  for (const [i, section] of sections.entries()) {
+    await tap(settingsRow, i);
+    await waitFor(`the ${section} page`, () => !!document.querySelector('[role="dialog"] [role="region"]'));
+    await check(`settings-${section.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`);
+    await tap(settingsHeaderButton);
+    await waitFor('the section list', () => !document.querySelector('[role="dialog"] [role="region"]'));
   }
-  await closeDialog();
+  await closeSettings();
 
   // The system Back, which iOS swipe-back fires, closes a dialog and keeps the screen under it (#822).
   await tap('button=Settings');
@@ -585,7 +595,7 @@ try {
   // row, scroll with sideways drift, pull to refresh at the top and scroll again.
   await tap('button=Settings');
   await waitFor('Settings', dialogOpen);
-  await tap('[role="dialog"] [role="tab"]', tabs.findIndex((t) => t.includes('Data')));
+  await tap(settingsRow, sections.findIndex((t) => t.includes('Data')));
   await waitFor('the import field', () => !!document.querySelector('[role="dialog"] input[type="file"]'));
   assertTestOrigin(await browser.execute(() => location.origin));
   await browser.execute((count) => {
@@ -598,7 +608,9 @@ try {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }, 20);
   await waitFor('the import', () => document.body.textContent?.includes('Successfully imported 20 notes') ?? false, 60_000);
-  await closeDialog();
+  await tap(settingsHeaderButton);
+  await waitFor('the section list', () => !document.querySelector('[role="dialog"] [role="region"]'));
+  await closeSettings();
   await tap('[aria-label="Folders"] button');
   await waitFor('the note rows', () => document.querySelectorAll('[data-testid="note-row"]').length >= 10);
   // Touches during the push slide (#779) land on its overlay, not the list.
