@@ -475,10 +475,10 @@ Logged in as you.dotyou.cloud. Credentials saved to the OS keychain.</code></pre
               <dl class="params">
                 <div><dt><code>note_id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
                 <div><dt><code>block_id</code> <span>string, required</span></dt><dd>The block's id from <code>get_note</code>.</dd></div>
-                <div><dt><code>op</code> <span>object, required</span></dt><dd>One of:
+                <div><dt><code>op</code> <span>object, required</span></dt><dd>Its <code>type</code> is one of:
                   <ul class="ops">
                     <li><code>replace</code>, <code>insert_before</code>, <code>insert_after</code> with <code>markdown</code></li>
-                    <li><code>set_text</code> with <code>markdown</code>: a callout's or toggle's body</li>
+                    <li><code>set_text</code> with <code>markdown</code>: a callout's or toggle's body, keeping its variant or summary</li>
                     <li><code>delete</code></li>
                     <li><code>set_attrs</code> with <code>attrs</code>: <code>variant</code>, <code>summary</code>, <code>level</code>, <code>language</code>, <code>id</code>, <code>wide</code> or <code>checked</code></li>
                     <li><code>set_cell</code> with <code>row</code>, <code>col</code>, <code>markdown</code></li>
