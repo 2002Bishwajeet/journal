@@ -41,7 +41,7 @@ async function record(page: Page) {
       (e) => {
         const el = e.target as HTMLElement;
         const slot = el.dataset?.slot;
-        if (slot !== 'sheet-content' && slot !== 'dialog-content') return;
+        if (slot !== 'sheet-content' && slot !== 'dialog-content' && slot !== 'dialog-overlay') return;
         const a = el.getAnimations().find((x) => x instanceof CSSAnimation && x.animationName === e.animationName);
         if (a) return add(slot, a);
         // A zeroed animation (reduced motion) has already ended: read what it ran with.
@@ -129,6 +129,9 @@ test('push, pop, a bottom sheet and a centred dialog run with the motion tokens'
     const [dialog] = await runs(page, 'dialog-content');
     expect(dialog.duration).toBe(await ms(page, '--duration-fade'));
     expect(curve(dialog.easing)).toEqual(ease);
+    const [overlay] = await runs(page, 'dialog-overlay');
+    expect(overlay.duration).toBe(dialog.duration);
+    expect(curve(overlay.easing)).toEqual(ease);
 
     // folder -> list -> note -> Back -> Back, each a slide at the push duration and curve.
     await slide(page, () => selectFolder(page, FOLDER));
