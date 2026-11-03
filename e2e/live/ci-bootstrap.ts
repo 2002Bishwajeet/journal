@@ -18,6 +18,8 @@ const IDENTITY = process.env.E2E_LIVE_IDENTITY;
 const CONSENT_TIMEOUT_MS = 120_000;
 // src/lib/homebase/config.ts's JOURNAL_DRIVE; that module reads import.meta.env, which Playwright's Node has not got.
 const JOURNAL_DRIVE = { alias: 'd5f411fa83fd4854a3bd7e974cc9bca9', type: '30743710039d4b97bbd352f343d1c9df' };
+// Its JOURNAL_APP_ID for a production build, which the live tier's `vite build` is.
+const JOURNAL_APP_ID = 'c762ee784274473480919d8080d7a825';
 
 setup.describe.configure({ mode: 'serial' });
 
@@ -141,61 +143,91 @@ async function withIdentity(browser: Browser, storageState: string, body: (page:
     }
 }
 
-// The owner console's sidebar expands over the page while the mouse rests on
-// it, and Playwright's mouse starts at (0, 0), inside it.
-async function openOwnerConsole(page: Page, identity: string, path: string) {
-    await page.goto(`https://${identity}${path}`);
-    await page.mouse.move(1000, 600);
+// odin-core v0.1.966's owner console has no Connections or Circles pages (odin-js #950, #951),
+// so the sharing setup talks to the owner API directly, from the identity's owner console page.
+// The owner API takes and returns bodies sealed with the owner console's shared secret
+// (odin-core's SharedSecretEncryptionMiddleware 400s on plain JSON, and on a GET without an
+// encrypted `ss` querystring): AES-CBC under localStorage's base64 `SS`, as {iv, data}.
+// Same as js-lib's DotYouClient interceptors.
+async function ownerApi<T>(page: Page, identity: string, method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+    if (new URL(page.url()).hostname !== identity) await page.goto(`https://${identity}/owner`);
+    return page.evaluate(async ({ method, path, body }) => {
+        const toBase64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
+        const fromBase64 = (text: string) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
+        const key = await crypto.subtle.importKey(
+            'raw', fromBase64(localStorage.getItem('SS')!), 'AES-CBC', false, ['encrypt', 'decrypt']);
+        const seal = async (text: string) => {
+            const iv = crypto.getRandomValues(new Uint8Array(16));
+            const data = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, key, new TextEncoder().encode(text)));
+            return JSON.stringify({ iv: toBase64(iv), data: toBase64(data) });
+        };
+        const [route, query = ''] = path.split('?');
+        const response = method === 'GET'
+            ? await fetch(`/api/owner/v1${route}?ss=${encodeURIComponent(await seal(query))}`)
+            : await fetch(`/api/owner/v1${route}`, {
+                method,
+                headers: { 'Content-Type': 'application/json', 'X-ODIN-FILE-SYSTEM-TYPE': 'Standard' },
+                body: await seal(JSON.stringify(body)),
+            });
+        const text = await response.text();
+        if (!response.ok) throw new Error(`${method} ${path}: ${response.status} ${text}`);
+        if (!text) return null;
+        const sealed = JSON.parse(text) as { iv: string; data: string };
+        const plain = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: fromBase64(sealed.iv) }, key, fromBase64(sealed.data));
+        return JSON.parse(new TextDecoder().decode(plain) || 'null');
+    }, { method, path, body }) as Promise<T>;
 }
 
+async function circleId(page: Page, identity: string, name: string): Promise<string> {
+    const circles = await ownerApi<{ id: string; name: string }[]>(page, identity, 'GET', '/circles/definitions/list');
+    const circle = circles.find((c) => c.name === name);
+    if (!circle) throw new Error(`No circle "${name}" on ${identity}`);
+    return circle.id;
+}
+
+// What the owner console's old "Add Circle" dialog created: Read on the standard profile
+// drive and ReadConnections (10). A circle must grant at least one drive or key.
 async function createCircle(page: Page, identity: string, name: string) {
-    await openOwnerConsole(page, identity, '/owner/circles');
-    await page.getByRole('button', { name: 'Add Circle' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Create new Circle' });
-    // The Name field has no usable accessible name of its own; it is the first textbox.
-    await dialog.getByRole('textbox').first().fill(name);
-    await dialog.getByRole('button', { name: 'Add Circle' }).click();
-    await expect(page.getByRole('link', { name })).toBeVisible();
+    await ownerApi(page, identity, 'POST', '/circles/definitions/create', {
+        id: crypto.randomUUID(),
+        name,
+        description: '',
+        driveGrants: [{
+            permissionedDrive: { drive: { alias: '8f12d8c4933813d378488d91ed23b64c', type: '597241530e3ef24b28b9a75ec3a5c45c' }, permission: 1 },
+        }],
+        permissions: { keys: [10] },
+    });
 }
 
-// The circle toggles in the owner console's connection dialogs hide the real
-// checkbox under a styled switch, hence `force`.
 async function sendConnectionRequest(page: Page, from: string, to: string, circle: string | null) {
-    await openOwnerConsole(page, from, '/owner/connections');
-    await page.getByRole('button', { name: 'Send Request' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Send connection request' });
-    await dialog.getByLabel('Recipient identity').fill(to);
-    await dialog.getByRole('button', { name: 'Continue' }).click();
-    if (circle) await dialog.getByRole('checkbox', { name: circle, exact: true }).check({ force: true });
-    await dialog.getByRole('button', { name: 'Send' }).click();
-    await expect(page.getByRole('link', { name: new RegExp(to) })).toBeVisible();
+    await ownerApi(page, from, 'POST', '/circles/requests/sendrequest', {
+        recipient: to,
+        message: 'E2E setup',
+        contactData: { name: from },
+        circleIds: circle ? [await circleId(page, from, circle)] : [],
+    });
 }
 
 async function acceptConnectionRequest(page: Page, identity: string, from: string, circle: string | null) {
-    const confirm = page.getByRole('button', { name: 'Confirm request...' });
-    // The request travels host to host; reload until it lands.
-    await expect(async () => {
-        await openOwnerConsole(page, identity, '/owner/connections');
-        await expect(confirm).toBeVisible({ timeout: 5_000 });
-    }).toPass({ timeout: 60_000 });
-    await confirm.click();
-    const dialog = page.getByRole('dialog', { name: `Connection request from ${from}` });
-    await dialog.getByRole('button', { name: 'Continue' }).click();
-    if (circle) await dialog.getByRole('checkbox', { name: circle, exact: true }).check({ force: true });
-    await dialog.getByRole('button', { name: 'Connect' }).click();
-    await expect(page.getByRole('link', { name: new RegExp(from) })).toBeVisible();
+    // The request travels host to host; pending/single 404s until it lands.
+    await expect(() => ownerApi(page, identity, 'POST', '/circles/requests/pending/single', { odinId: from }))
+        .toPass({ timeout: 60_000 });
+    await ownerApi(page, identity, 'POST', '/circles/requests/pending/accept', {
+        sender: from,
+        circleIds: circle ? [await circleId(page, identity, circle)] : [],
+        contactData: { name: identity },
+    });
 }
 
 /** Members of `circle` on `identity`, as identities. */
 async function circleMembers(page: Page, identity: string, circle: string): Promise<string[]> {
-    await openOwnerConsole(page, identity, '/owner/circles');
-    await page.getByRole('link', { name: circle }).click();
-    await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible();
-    // Member rows link to /owner/connections/<identity>; the sidebar's link has no trailing segment.
-    const members = page.locator('a[href^="/owner/connections/"]');
-    await expect(members.first()).toBeVisible();
-    return (await members.evaluateAll((links) => links.map((a) => a.getAttribute('href')!))).map((href) =>
-        href.replace('/owner/connections/', ''));
+    return ownerApi<string[]>(page, identity, 'POST', '/circles/connections/circles/list',
+        { circleId: await circleId(page, identity, circle) });
+}
+
+async function connectionStatus(page: Page, identity: string, other: string): Promise<string> {
+    const { status } = await ownerApi<{ status: string }>(page, identity, 'POST', '/circles/connections/status', { odinId: other });
+    return status;
 }
 
 // Opens Journal's collaboration dialog on a throwaway note, follows its
@@ -229,20 +261,17 @@ async function grantCollaborationPermissions(page: Page, identity: string) {
     });
 }
 
-// Circle page -> "Apps that <circle> can use" -> Journal. Its members then get
-// Journal's circle drive grant (Journal Notes: Read, Write, React, Comment).
+// What the circle page's "Apps that <circle> can use" -> Journal did: authorise the circle for
+// Journal, so its members get Journal's circle drive grant (Journal Notes: Read, Write, React, Comment).
 async function authorizeCircleForJournal(page: Page, identity: string, circle: string) {
-    await openOwnerConsole(page, identity, '/owner/circles');
-    await page.getByRole('link', { name: circle }).click();
-    const apps = page.getByRole('heading', { name: new RegExp(`^Apps that "${circle}" can use`) });
-    // The section's edit button has no accessible name; it sits right after the heading.
-    await apps.locator('xpath=following::button[1]').click();
-    const dialog = page.getByRole('dialog', { name: 'Edit accessible apps' });
-    await dialog.getByRole('link', { name: 'Journal', exact: true })
-        .locator('xpath=following::input[@type="checkbox"][1]').check({ force: true });
-    await dialog.getByRole('button', { name: 'Update' }).click();
-    await expect(dialog).toBeHidden();
-    await expect(page.getByRole('link', { name: 'Journal', exact: true })).toBeVisible();
+    type App = { authorizedCircles: string[]; circleMemberPermissionSetGrantRequest: unknown };
+    const app = await ownerApi<App>(page, identity, 'POST', '/appmanagement/app', { appId: JOURNAL_APP_ID });
+    const id = await circleId(page, identity, circle);
+    await ownerApi(page, identity, 'POST', '/appmanagement/register/updateauthorizedcircles', {
+        appId: JOURNAL_APP_ID,
+        authorizedCircles: [...app.authorizedCircles.filter((c) => c !== id), id],
+        circleMemberPermissionGrant: app.circleMemberPermissionSetGrantRequest,
+    });
 }
 
 setup('connect the owner with the peer and the outsider, and put only the peer in the E2E collaborators circle', async ({ browser }) => {
@@ -266,11 +295,9 @@ setup('connect the owner with the peer and the outsider, and put only the peer i
         acceptConnectionRequest(page, outsider.identity, owner, null));
 
     await withIdentity(browser, LIVE_STORAGE_STATE, async (page) => {
-        await openOwnerConsole(page, owner, '/owner/connections');
         for (const { identity } of [peer, outsider]) {
-            await expect(page.getByRole('link', { name: new RegExp(identity) })).toBeVisible();
+            expect((await connectionStatus(page, owner, identity)).toLowerCase()).toBe('connected');
         }
-        await expect(page.getByRole('heading', { name: 'Sent Connection Requests' })).toBeHidden();
         expect(await circleMembers(page, owner, LIVE_CIRCLE_NAME)).toEqual([peer.identity]);
     });
 });
@@ -304,50 +331,25 @@ setup('grant Journal what circle collaboration needs, on the owner and on the pe
 setup('mark the owner\'s Journal drive as a collaboration drive that allows subscriptions', async ({ browser }) => {
     const owner = IDENTITY!;
     await withIdentity(browser, LIVE_STORAGE_STATE, async (page) => {
-        await openOwnerConsole(page, owner, '/owner');
-        // The owner API takes and returns bodies sealed with the owner console's shared secret
-        // (odin-core's SharedSecretEncryptionMiddleware 400s on a plain JSON body): AES-CBC under
-        // localStorage's base64 `SS`, as {iv, data}. Same as js-lib's DotYouClient interceptors.
-        const result = await page.evaluate(async ({ alias, type }) => {
-            const toBase64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
-            const fromBase64 = (text: string) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
-            const key = await crypto.subtle.importKey(
-                'raw', fromBase64(localStorage.getItem('SS')!), 'AES-CBC', false, ['encrypt', 'decrypt']);
-            const post = async (path: string, body: unknown) => {
-                const iv = crypto.getRandomValues(new Uint8Array(16));
-                const data = new Uint8Array(await crypto.subtle.encrypt(
-                    { name: 'AES-CBC', iv }, key, new TextEncoder().encode(JSON.stringify(body))));
-                const response = await fetch(`/api/owner/v1/drive/mgmt${path}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-ODIN-FILE-SYSTEM-TYPE': 'Standard' },
-                    body: JSON.stringify({ iv: toBase64(iv), data: toBase64(data) }),
-                });
-                if (!response.ok) throw new Error(`drive/mgmt${path}: ${response.status}`);
-                const sealed = (await response.json()) as { iv: string; data: string };
-                const plain = await crypto.subtle.decrypt(
-                    { name: 'AES-CBC', iv: fromBase64(sealed.iv) }, key, fromBase64(sealed.data));
-                return JSON.parse(new TextDecoder().decode(plain) || 'null');
-            };
-            type Drive = { targetDriveInfo: { alias: string }; allowSubscriptions: boolean; attributes: Record<string, string> | null };
-            const journalDrive = async () => {
-                const { results } = (await post('', { pageNumber: 1, pageSize: 1000 })) as { results: Drive[] };
-                const drive = results.find((d) => d.targetDriveInfo.alias.replace(/-/g, '') === alias);
-                if (!drive) throw new Error('Journal drive not found');
-                return drive;
-            };
-            const drive = await journalDrive();
-            const targetDrive = { alias, type };
-            // updateattributes replaces the whole set, so keep what the drive already has.
-            await post('/updateattributes', {
-                targetDrive,
-                attributes: { ...drive.attributes, IsCollaborativeChannel: 'true' },
-            });
-            if (!drive.allowSubscriptions) {
-                await post('/set-allow-subscriptions', { targetDrive, allowSubscriptions: true });
-            }
-            const updated = await journalDrive();
-            return { allowSubscriptions: updated.allowSubscriptions, collaborative: updated.attributes?.IsCollaborativeChannel };
-        }, JOURNAL_DRIVE);
+        const targetDrive = JOURNAL_DRIVE;
+        type Drive = { targetDriveInfo: { alias: string }; allowSubscriptions: boolean; attributes: Record<string, string> | null };
+        const journalDrive = async () => {
+            const { results } = await ownerApi<{ results: Drive[] }>(page, owner, 'POST', '/drive/mgmt', { pageNumber: 1, pageSize: 1000 });
+            const drive = results.find((d) => d.targetDriveInfo.alias.replace(/-/g, '') === targetDrive.alias);
+            if (!drive) throw new Error('Journal drive not found');
+            return drive;
+        };
+        const drive = await journalDrive();
+        // updateattributes replaces the whole set, so keep what the drive already has.
+        await ownerApi(page, owner, 'POST', '/drive/mgmt/updateattributes', {
+            targetDrive,
+            attributes: { ...drive.attributes, IsCollaborativeChannel: 'true' },
+        });
+        if (!drive.allowSubscriptions) {
+            await ownerApi(page, owner, 'POST', '/drive/mgmt/set-allow-subscriptions', { targetDrive, allowSubscriptions: true });
+        }
+        const updated = await journalDrive();
+        const result = { allowSubscriptions: updated.allowSubscriptions, collaborative: updated.attributes?.IsCollaborativeChannel };
         expect(result).toEqual({ allowSubscriptions: true, collaborative: 'true' });
     });
 });
