@@ -3,6 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <script>
+    // Before first paint (#913). Pages serves this page for any path it has no file for:
+    // those are old app links from when the app was at /, so they move to /app/. At /, a
+    // signed-in visitor (the app's shared secret, src/lib/homebase/config.ts) and the
+    // installed app open the app. ?landing shows this page anyway.
+    (function () {
+      var l = location;
+      if (l.pathname !== '/' && l.pathname !== '/index.html') return l.replace('/app' + l.pathname + l.search + l.hash);
+      if (/[?&]landing(=|&|$)/.test(l.search)) return;
+      var signedIn = false;
+      try { signedIn = !!localStorage.getItem('APSS'); } catch (e) {}
+      if (signedIn || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) l.replace('/app/' + l.search + l.hash);
+    })();
+  </script>
   <title>Journal: your notes stay home</title>
   <meta name="description" content="Journal is an open source notebook that keeps your notes on your device first, works offline, and syncs them encrypted to a space you own. AI agents work in the folders you grant." />
   <meta property="og:title" content="Journal: your notes stay home" />

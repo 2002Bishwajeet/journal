@@ -10,7 +10,8 @@ import { activeTitleInput, createFolder, selectFolder, typeInEditor } from '../s
 const PROJECTS = 'Projects';
 const tabBar = (page: Page) => page.getByRole('navigation', { name: 'Tabs' });
 const tab = (page: Page, name: string) => tabBar(page).getByRole('button', { name, exact: true });
-const pathOf = (page: Page) => new URL(page.url()).pathname;
+// The route, without the app's /app (#913).
+const pathOf = (page: Page) => new URL(page.url()).pathname.replace(/^\/app/, '');
 const sidebar = (page: Page) => page.getByRole('complementary', { name: 'Sidebar' });
 const savedStack = (page: Page, name: 'notes' | 'shared') =>
   page.evaluate((n) => (JSON.parse(sessionStorage.getItem('journal-tab-stacks') ?? '{}') as Record<string, string[]>)[n], name);

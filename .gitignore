@@ -9,12 +9,14 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-pages
 dist-ssr
 dev-dist
 *.local
 
 # Playwright / e2e
 dist-e2e/
+dist-e2e-pages/
 test-results/
 playwright-report/
 e2e/.auth/

@@ -253,7 +253,7 @@ src/
 ├── globals.d.ts
 ├── index.css                   # Tailwind + custom CSS variables
 └── sw.ts                       # Service Worker
-functions/                      # Cloudflare Pages Functions (limited to /share/* by public/_routes.json)
+functions/                      # Cloudflare Pages Functions (limited to /share/* by site/public/_routes.json)
 ├── share/[[path]].ts           # Injects link-preview meta into the SPA shell
 └── _lib/                       # shareMeta.ts (fetch + build meta, pure), types.ts
 mcp/                            # Local stdio MCP server for agents (run with vite-node)
@@ -496,13 +496,14 @@ npm run e2e        # Playwright, hermetic project (see e2e/README.md)
 npm run mcp        # local MCP server (see mcp/README.md)
 ```
 
-**Dev server**: `vite.config.ts` serves HTTPS on `dev.dotyou.cloud:5173` with the committed **Let's Encrypt** certificate `dev-dotyou-cloud.crt`/`.key`. `dev.dotyou.cloud` resolves to `127.0.0.1` in public DNS, so no hosts entry is needed. Let's Encrypt certificates last 90 days; the current one expires 2026-11-03 (`openssl x509 -in dev-dotyou-cloud.crt -noout -enddate`); renewing it means committing a new pair. Dev and preview also send `Cross-Origin-Embedder-Policy: require-corp` and `Cross-Origin-Opener-Policy: same-origin` (for WebLLM/SharedArrayBuffer); production gets the same from `public/_headers`.
+**Dev server**: `vite.config.ts` serves HTTPS on `dev.dotyou.cloud:5173` with the committed **Let's Encrypt** certificate `dev-dotyou-cloud.crt`/`.key`. `dev.dotyou.cloud` resolves to `127.0.0.1` in public DNS, so no hosts entry is needed. Let's Encrypt certificates last 90 days; the current one expires 2026-11-03 (`openssl x509 -in dev-dotyou-cloud.crt -noout -enddate`); renewing it means committing a new pair. Dev and preview also send `Cross-Origin-Embedder-Policy: require-corp` and `Cross-Origin-Opener-Policy: same-origin` (for WebLLM/SharedArrayBuffer); production gets the same from `site/public/_headers`.
 
 **E2E origins** never use the dev cert or host: `vite --mode e2e` serves plain HTTP on `127.0.0.1` (`:5174` dev, `:4173` preview), the edge tier runs `wrangler pages dev` on `127.0.0.1:8788`, and the live tier uses `https://e2e.dotyou.cloud:4443` with a throwaway certificate that `e2e/support/make-cert.mjs` generates locally (into the ignored e2e/.certs directory).
 
 ## Deploy and release
 
 - A push to `main` deploys a Cloudflare Pages **preview** (`deploy-cloudflare.yml`, `--branch=preview`), never production.
+- One origin, two builds (#913): the landing site (`site/`, `npm run site:build`) is the root of journal.cloudx.run and the app is under `/app/` (Vite `base`, router basename, service worker scope; dev and e2e too). The workflow copies `site/dist` to `dist-pages/` and the app's `dist` to `dist-pages/app/`, plus the app's shell as `dist-pages/app/404.html`: Pages serves it (status 404) for an app route, since a 200 rewrite in `_redirects` would also shadow real files. Root-level Pages files are in `site/public/`: `_headers` (COEP and the CSP for `/app/*` only), `_redirects` (old app links to `/app/...`), `_routes.json`, and `sw.js`, which removes the service worker of an app installed at `/`. The landing page's head script sends a signed-in visitor (`APSS` in localStorage) or the installed app to `/app/` (`/?landing` skips it), and sends any other unknown path (an old folder link) to `/app/<path>`. `/share/*` stays at the root and runs the app's shell. The manifest `id` stays `/`.
 - Production changes only with a release: run **Manual Release** (`manual-release.yml`, patch/minor/major). It pushes over SSH with the `RELEASE_DEPLOY_KEY` deploy key (the main ruleset's bypass actor) and otherwise uses `github.token`: it bumps `package.json`, updates `CHANGELOG.md`, commits `chore(release): X.Y.Z [skip ci]`, pushes tag `vX.Y.Z`, creates the GitHub release, then calls `deploy-cloudflare.yml` (production branch `main`) on that tag.
 - `mcp-release.yml` (`mcp-v*` releases, patch/minor/major) bumps journal-mcp and the plugin URLs itself, pushes `chore(mcp): X.Y.Z [skip ci]` with the same deploy key, and never deploys the app.
 - **Release notes:** a PR with a change users can see adds one file in `release-notes/` (for example `release-notes/783-dialogs.md`) with bullets under `### New`, `### Changed` or `### Fixed`, written in ASD-STE100 Simplified Technical English (rules at the top of that file). Users read it in the app's What's new dialog and on the GitHub release. Do not edit `RELEASE_NOTES.md` itself: every PR adding a bullet there made open PRs conflict. Manual Release moves the files into `RELEASE_NOTES.md` under the new version, deletes them, and fails if there are none. `CHANGELOG.md` stays the generated commit log.
@@ -630,6 +631,8 @@ const unsub = documentBroadcast.subscribe(handler);   // Listen for messages
 
 ## Routes
 
+All paths are under `/app/` (#913), except `/share/*`, which stays at the root.
+
 | Path | Component | Auth |
 |------|-----------|------|
 | `/` | EmptyEditorPage | Yes |
@@ -695,7 +698,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 
 - Publishing (`makeNotePublic` in `src/lib/homebase/NotesDriveProvider.ts`) re-uploads the note unencrypted with an Anonymous ACL and a small public header that carries a `card` (`description`, `coverKey`, `cardImageKey`, `indexable`; `src/lib/share/publicCard.ts`). The share dialog previews the link card and edits the description and search-engine indexing.
 - The page: `/share/:identity/:noteId` → `src/pages/SharePage.tsx` reads the note with the SDK guest client (`src/lib/providers/ShareProvider.ts`) and renders it as an article: cover (the dark-mode cover in dark mode, read from the Yjs payload), byline, dates, reading time, highlighted code, live blocks (`src/components/share/`, `src/lib/share/`).
-- Link previews: the Pages Function `functions/share/[[path]].ts`, limited to `/share/*` by `public/_routes.json`, fetches the SPA shell through `env.ASSETS` (so `public/_headers` still applies), validates the identity and note id, reads the public header and profile (`functions/_lib/shareMeta.ts`, short timeouts, no redirects) and injects `<title>`, `og:*`, `twitter:*`, `robots` and JSON-LD. Meta is cached 5 min (60 s for misses); any failure serves the plain shell.
+- Link previews: the Pages Function `functions/share/[[path]].ts`, limited to `/share/*` by `site/public/_routes.json`, fetches the SPA shell through `env.ASSETS` (so `site/public/_headers` still applies), validates the identity and note id, reads the public header and profile (`functions/_lib/shareMeta.ts`, short timeouts, no redirects) and injects `<title>`, `og:*`, `twitter:*`, `robots` and JSON-LD. Meta is cached 5 min (60 s for misses); any failure serves the plain shell.
 - Author index (#515): the same Function renders `/share/<identity>` (HTML, no client JS) and `/share/<identity>/sitemap.xml` from a guest `drive/query/batch` of the journal drive (`functions/_lib/authorIndex.ts`): every unencrypted, non-trashed note, newest first, up to 500. `card.indexable` ("Hide from search engines") only filters the sitemap; the page is `noindex` when no listed note is indexable. Cached like share meta; any failure is a 404, not the shell. The share header's "More notes" links there.
 - Shared folders (#618): Share folder / Stop sharing folder in a folder's context menu (`useFolderSharing`). The folder's `is_public` flag is local-first and syncs in the folder file (`FolderFile.isPublic`), which `FolderDriveProvider` stores Anonymous + unencrypted while shared (a flip re-uploads it). Sharing then makes each non-trashed note in it public one at a time, as the Share dialog does; a note created in a shared folder starts public (`newNoteShareFields`, `src/lib/share/sharedFolder.ts`: new note, templates, import, MCP `create_note`). No rule on pull; moves follow #622.
 - Folder page (#619): `/share/<identity>/f/<folderId>` is the same Function and renderer as the author index (`parseAuthorPath` kind `folder`, `fetchAuthorIndex(..., folderId)`, `buildAuthorIndexHtml` with `index.folder`): the folder's name from its guest-readable file (`cuid/header`, must be unencrypted and `isPublic`) and the notes query filtered by `groupId`, newest first. An unshared or unknown folder, or a bad id, is a 404. Cached 30 s (the list changes as notes move). A shared folder's context menu has Folder link (`FolderLinkDialog`, `folderShareUrl`) with copy and open. Specs: `e2e/edge/share-folder.spec.ts`.

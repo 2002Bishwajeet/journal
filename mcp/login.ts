@@ -95,7 +95,7 @@ async function finalizeAndSave(
     return saveCredentials({ identity, clientAuthToken, sharedSecret });
 }
 
-/** Prompts for the code `/mcp/code` shows; rejects on stdin EOF or after the login timeout. */
+/** Prompts for the code `/app/mcp/code` shows; rejects on stdin EOF or after the login timeout. */
 function promptForCode(): Promise<string> {
     const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
     return new Promise((resolve, reject) => {
@@ -117,7 +117,7 @@ function promptForCode(): Promise<string> {
 
 async function loginWithPastedCode(identity: string, eccKey: Awaited<ReturnType<typeof createEccPair>>): Promise<string> {
     const origin = (process.env.JOURNAL_MCP_APP_ORIGIN || DEFAULT_APP_ORIGIN).replace(/\/+$/, '');
-    const authUrl = await buildAuthUrl(identity, `${origin}/mcp/code`, eccKey.publicKey);
+    const authUrl = await buildAuthUrl(identity, `${origin}/app/mcp/code`, eccKey.publicKey);
     console.error(
         `Open this URL in any browser to approve Journal MCP, then paste the code it shows:\n${authUrl}\n`
     );
@@ -135,7 +135,7 @@ async function loginWithPastedCode(identity: string, eccKey: Awaited<ReturnType<
  * redirect target. Saves the resulting credentials to the OS keychain (or a 0600 file) on success.
  *
  * With `noBrowser` (SSH / headless), no server is started: the finalize redirect is the
- * app's `/mcp/code` page, which shows a code the user pastes back into the terminal.
+ * app's `/app/mcp/code` page, which shows a code the user pastes back into the terminal.
  */
 export async function login(identityArg?: string, { noBrowser = false }: { noBrowser?: boolean } = {}): Promise<void> {
     if (!noBrowser && looksHeadless(process.env)) console.error(NO_BROWSER_HINT);

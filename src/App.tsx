@@ -36,6 +36,12 @@ import { useCloseOtherAppNotifications } from "@/hooks/useCloseOtherAppNotificat
 // on the next full load, which is fine.
 const isShareBoot = isPublicSharePath(window.location.pathname);
 
+// The app's routes are under /app/ (#913). A share page stays at /share/ on the root.
+// The trailing slash keeps the home route at /app/: /app is outside the service worker's scope.
+const routerBasename = window.location.pathname.startsWith("/share/")
+  ? "/"
+  : import.meta.env.BASE_URL;
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -67,7 +73,7 @@ function App() {
         onSuccess={() => markBoot("query-cache")}
       >
         <ErrorBoundary>
-          <BrowserRouter>
+          <BrowserRouter basename={routerBasename}>
             <OnlineProvider>
               <DotYouClientProvider>
                 <Suspense

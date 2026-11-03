@@ -172,7 +172,7 @@ test('react block: a note without one loads neither the runtime nor the compiler
     // Listening from before the first request: the boot is covered too.
     const requested: string[] = [];
     page.on('request', (request) => requested.push(request.url()));
-    await page.goto('/');
+    await page.goto('/app/');
     await assertTestOrigin(page);
     await waitForAppReady(page);
 
@@ -199,7 +199,7 @@ test('react block: after one render, it still renders offline after a reload', a
   // The hermetic project blocks service workers (playwright.config.ts). This test needs one to
   // serve the app offline, so its own context allows it; sw.ts only fetches the app's origin.
   await withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json', serviceWorkers: 'allow' }, async (page) => {
-    await page.goto('/');
+    await page.goto('/app/');
     await assertTestOrigin(page);
     await waitForAppReady(page);
     // Once it controls the page, the service worker has precached the app.

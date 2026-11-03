@@ -64,7 +64,7 @@ test('moving a note into a shared folder publishes it, moving it out makes it pr
 
     // A second device (fresh local database) files it under the shared folder.
     await withFencedPage(browser, { storageState: LIVE_STORAGE_STATE }, async (other) => {
-        await other.goto('/');
+        await other.goto('/app/');
         await assertTestOrigin(other);
         await waitForAppReady(other);
         await selectFolder(other, shared);

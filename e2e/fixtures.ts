@@ -111,7 +111,7 @@ export const test = base.extend<{
   app: [
     async ({ browser }, use) =>
       withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
-        await page.goto('/');
+        await page.goto('/app/');
         await assertTestOrigin(page);
         await waitForAppReady(page);
         await use(page);
@@ -133,7 +133,7 @@ export const test = base.extend<{
       const open = () =>
         new Promise<Page>((resolve, reject) => {
           done = withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
-            await page.goto('/');
+            await page.goto('/app/');
             await assertTestOrigin(page);
             await waitForAppReady(page);
             resolve(page);
@@ -185,7 +185,7 @@ export const test = base.extend<{
       const folderName = `${process.env.E2E_LIVE_RUN_FOLDER}-w${workerIndex}`;
       await withFencedPage(browser, { storageState: LIVE_STORAGE_STATE }, async (page) => {
         await skipWhatsNew(page);
-        await page.goto('/');
+        await page.goto('/app/');
         await assertTestOrigin(page);
         await waitForAppReady(page);
         await createFolder(page, folderName);
@@ -231,7 +231,7 @@ export const test = base.extend<{
         withFencedPage(browser, { storageState }, async (page) => {
           await stubOtherIdentities({ page, identity });
           await skipWhatsNew(page);
-          await page.goto('/');
+          await page.goto('/app/');
           await assertTestOrigin(page);
           await waitForAppReady(page);
           await body({ page, identity });

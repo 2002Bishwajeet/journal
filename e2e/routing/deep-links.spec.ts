@@ -43,7 +43,7 @@ test('back and forward navigate between notes', async ({ app }) => {
 });
 
 test('an unknown route lands on a valid screen instead of an error boundary', async ({ app }) => {
-  await app.goto('/does-not-exist/xyz');
+  await app.goto('/app/does-not-exist/xyz');
   await assertTestOrigin(app);
   await waitForAppReady(app);
 

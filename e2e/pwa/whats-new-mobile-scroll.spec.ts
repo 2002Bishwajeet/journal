@@ -9,7 +9,7 @@ test('on a phone, the What\'s new list scrolls to the oldest version', async ({ 
     browser,
     { storageState: 'e2e/fixtures/hermetic-auth.json', viewport: PHONE, hasTouch: true, isMobile: true },
     async (page) => {
-      await page.goto('/');
+      await page.goto('/app/');
       await assertTestOrigin(page);
       await waitForAppReady(page);
       // 2.3.0 is the oldest version in RELEASE_NOTES.md, so every later version shows.

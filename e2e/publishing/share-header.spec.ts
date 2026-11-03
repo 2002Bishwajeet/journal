@@ -159,12 +159,14 @@ test('share header: the logo, "More notes", "Save a copy" and "Open Journal" are
     await page.keyboard.press('Tab');
     await expect(link).toBeFocused();
   }
-  await expect(order[3]).toHaveAttribute('href', '/');
+  await expect(order[3]).toHaveAttribute('href', '/app/');
 });
 
 test('share header: the logo goes to "/"', async ({ app }) => {
   await openNote(app);
   await expect(app.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
+  await expect(homeLink(app)).toHaveAttribute('href', '/');
   await homeLink(app).click();
-  await expect.poll(() => new URL(app.url()).pathname).toBe('/');
+  // On Pages / is the landing page (e2e/edge); the preview server sends it on to the app.
+  await expect.poll(() => new URL(app.url()).pathname).toMatch(/^\/app\//);
 });

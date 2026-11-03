@@ -40,7 +40,7 @@ export default function AuthFinalizePage() {
     hasRedirected.current = true;
     // The `state` param is attacker-controllable — validate it to a safe
     // same-origin path before navigating (guards the open redirect, SEC-07).
-    const safeTarget = sanitizeReturnUrl(returnUrl || "/", window.location.origin);
+    const safeTarget = sanitizeReturnUrl(returnUrl || import.meta.env.BASE_URL, window.location.origin);
     // Use a full navigation instead of client-side routing when auth completes.
     // `replace` (not `assign`) so /auth/finalize leaves history — Back after
     // login can't re-run finalize with the now-spent ECC key.

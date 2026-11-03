@@ -33,7 +33,7 @@ test('a changed service worker surfaces the update prompt and reloads on accept 
   const app = await context.newPage();
 
   try {
-    await app.goto('/');
+    await app.goto('/app/');
     await assertTestOrigin(app);
     await waitForAppReady(app);
 

@@ -52,8 +52,9 @@ export default function LandingPage() {
           return;
         }
 
+        // `target` is a route; the app's routes are under BASE_URL (#913).
         const authParams = await getAuthorizationParameters(
-          window.location.origin + target
+          window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "") + target
         );
         const fullAuthUrl = getAuthUrl(identity.trim(), authParams);
         window.location.href = fullAuthUrl;

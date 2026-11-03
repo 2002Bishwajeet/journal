@@ -1,3 +1,0 @@
-# Netlify SPA redirect - static files are served automatically first
-# Only non-static routes fall through to index.html
-/*    /index.html   200

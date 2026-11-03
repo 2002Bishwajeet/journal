@@ -1,6 +1,6 @@
 # Edge specs (Cloudflare Pages)
 
-`npm run e2e:edge` runs `e2e/edge/*.spec.ts` against the app as Cloudflare Pages serves it: `public/_headers`, `public/_redirects` and `./functions`, via `wrangler@3.90.0 pages dev dist-e2e` on `http://127.0.0.1:8788` (pinned to the deploy's version). `E2E_EDGE_BASE_URL=https://… npm run e2e:edge` targets a deployed URL instead; then only `request`-based tests run and browser tests skip.
+`npm run e2e:edge` runs `e2e/edge/*.spec.ts` against the app as Cloudflare Pages serves it: the landing site at `/` and the app under `/app/` (#913), `site/public/_headers`, `site/public/_redirects` and `./functions`, via `wrangler@3.90.0 pages dev dist-e2e-pages` (assembled like the deploy, see `playwright.config.ts`) on `http://127.0.0.1:8788` (pinned to the deploy's version). `E2E_EDGE_BASE_URL=https://… npm run e2e:edge` targets a deployed URL instead; then only `request`-based tests run and browser tests skip.
 
 ## Writing a Pages Function spec
 

@@ -7,6 +7,6 @@ test('throws when the page is not on an allowlisted test origin', async ({ page 
 });
 
 test('passes when the page is on an allowlisted test origin', async ({ page }) => {
-  await page.goto('/welcome');
+  await page.goto('/app/welcome');
   await expect(assertTestOrigin(page)).resolves.toBeUndefined();
 });

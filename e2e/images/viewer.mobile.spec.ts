@@ -56,7 +56,7 @@ test('a tap on the selected image opens a full-screen viewer under the notch tha
     // A plain same-origin image, pasted as HTML so it skips the upload pipeline.
     await activeEditor(page).evaluate((el) => {
       const data = new DataTransfer();
-      data.setData('text/html', '<img src="/pwa-512x512.png" alt="Journal logo">');
+      data.setData('text/html', '<img src="/app/pwa-512x512.png" alt="Journal logo">');
       el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
     });
     const img = activeEditor(page).locator('img[alt="Journal logo"]');

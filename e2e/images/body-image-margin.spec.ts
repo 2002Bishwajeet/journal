@@ -37,7 +37,7 @@ test('body images sit fully inside their boxes, spacing unchanged', async ({ app
   await createNote(app, { title: `Margin ${Date.now()}`, body: 'Image below.' });
 
   // Normal image: unchanged from main (img 24px margins, box none).
-  await pasteImage(app, '<img src="/pwa-512x512.png" alt="Plain logo">');
+  await pasteImage(app, '<img src="/app/pwa-512x512.png" alt="Plain logo">');
   const plain = activeEditor(app).locator('img[alt="Plain logo"]');
   await expect(plain).toBeVisible();
   expect(await marginsOf(plain)).toEqual({ img: ['24px', '24px'], box: ['0px', '0px', '0px', '0px'] });
@@ -49,7 +49,7 @@ test('body images sit fully inside their boxes, spacing unchanged', async ({ app
   await activeEditor(app).press('ControlOrMeta+End');
   await pasteImage(
     app,
-    '<img src="/pwa-512x512.png" alt="Left logo" width="200" data-align="left">' +
+    '<img src="/app/pwa-512x512.png" alt="Left logo" width="200" data-align="left">' +
       `<p>${'Text wraps beside the floated image. '.repeat(12)}</p>`,
   );
   const left = activeEditor(app).locator('img[alt="Left logo"]');
@@ -67,7 +67,7 @@ test('body images sit fully inside their boxes, spacing unchanged', async ({ app
     host.className = 'prose';
     host.innerHTML =
       '<div class="image-node"><div class="group relative inline-block max-w-full" style="width:200px">' +
-      '<div id="clip" class="relative overflow-hidden h-auto w-full"><img id="clipped" class="w-full h-auto" src="/pwa-512x512.png" style="aspect-ratio:1"></div>' +
+      '<div id="clip" class="relative overflow-hidden h-auto w-full"><img id="clipped" class="w-full h-auto" src="/app/pwa-512x512.png" style="aspect-ratio:1"></div>' +
       '</div></div>';
     document.body.appendChild(host);
     const img = document.getElementById('clipped')!;

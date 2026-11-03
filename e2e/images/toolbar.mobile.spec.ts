@@ -22,7 +22,7 @@ for (const width of [390, 375]) {
       await typeInEditor(page, 'Text above the image.');
       await activeEditor(page).evaluate((el) => {
         const data = new DataTransfer();
-        data.setData('text/html', '<img src="/pwa-512x512.png" alt="Journal logo">');
+        data.setData('text/html', '<img src="/app/pwa-512x512.png" alt="Journal logo">');
         el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
       });
       const img = activeEditor(page).locator('img[alt="Journal logo"]');

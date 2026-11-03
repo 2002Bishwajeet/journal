@@ -17,15 +17,15 @@ describe('isPublicSharePath', () => {
     });
 
     it('does not match the authenticated share-target route', () => {
-        expect(isPublicSharePath('/share-target')).toBe(false);
+        expect(isPublicSharePath('/app/share-target')).toBe(false);
     });
 
     it('does not match other app routes', () => {
-        expect(isPublicSharePath('/')).toBe(false);
-        expect(isPublicSharePath('/inbox')).toBe(false);
-        expect(isPublicSharePath('/inbox/note-1')).toBe(false);
-        expect(isPublicSharePath('/welcome')).toBe(false);
-        expect(isPublicSharePath('/auth/finalize')).toBe(false);
-        expect(isPublicSharePath('/mcp/code')).toBe(true);
+        expect(isPublicSharePath('/app/')).toBe(false);
+        expect(isPublicSharePath('/app/inbox')).toBe(false);
+        expect(isPublicSharePath('/app/inbox/note-1')).toBe(false);
+        expect(isPublicSharePath('/app/welcome')).toBe(false);
+        expect(isPublicSharePath('/app/auth/finalize')).toBe(false);
+        expect(isPublicSharePath('/app/mcp/code')).toBe(true);
     });
 });

@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { DotYouClient, ApiType } from '@homebase-id/js-lib/core';
 import { base64ToUint8Array } from '@homebase-id/js-lib/helpers';
 import {
@@ -31,7 +30,6 @@ export function useAuth() {
     const [authenticationState, setAuthenticationState] = useState<AuthenticationState>(
         hasSharedSecret() ? 'authenticated' : 'anonymous'
     );
-    const navigate = useNavigate();
     const { isOnline } = useOnlineContext();
 
     const getAppAuthToken = useCallback(() => {
@@ -80,7 +78,7 @@ export function useAuth() {
     const { data: hasValidToken, isFetchedAfterMount } = useVerifyToken(dotYouClient);
 
     /**
-     * Log out: clear tokens and navigate to welcome page.
+     * Log out: clear tokens and go to the landing page at / (#913).
      */
     const logout = useCallback(async (): Promise<void> => {
         const client = getDotYouClient();
@@ -122,9 +120,8 @@ export function useAuth() {
         localStorage.removeItem(LIVE_BLOCK_RUNS_KEY);
         discardAllUnsavedEdits();
 
-        navigate('/welcome');
-        window.location.reload();
-    }, [getDotYouClient, navigate]);
+        window.location.replace('/');
+    }, [getDotYouClient]);
 
     // Handle auth state transitions
     useEffect(() => {

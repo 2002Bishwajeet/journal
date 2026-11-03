@@ -66,7 +66,7 @@ export function useYouAuthAuthorization() {
         // Persist key for usage on finalize
         await saveEccKey(eccKey);
 
-        const finalizeUrl = `${window.location.origin}/auth/finalize`;
+        const finalizeUrl = `${window.location.origin}${import.meta.env.BASE_URL}auth/finalize`;
         return getRegistrationParams(
             finalizeUrl,
             JOURNAL_APP_NAME,

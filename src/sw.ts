@@ -13,6 +13,9 @@ declare let self: ServiceWorkerGlobalScope & {
 // Disable Workbox development logs
 self.__WB_DISABLE_DEV_LOGS = true;
 
+// The app's root, '/app/' (#913): its shell and its routes are under it.
+const APP_BASE = import.meta.env.BASE_URL;
+
 // Precache static assets injected by VitePWA
 precacheAndRoute(self.__WB_MANIFEST);
 
@@ -203,12 +206,12 @@ registerRoute(
 // SPA Navigation Fallback: Serve index.html for all navigation requests
 // This is essential for the PWA to work offline on non-root paths
 registerRoute(
-    // '/' not '/index.html': Cloudflare Pages 308s /index.html -> /, and a
-    // redirected response served to a navigation is a network error. The
+    // '/app/' not '/app/index.html': Cloudflare Pages 308s /app/index.html -> /app/,
+    // and a redirected response served to a navigation is a network error. The
     // precache manifest is rewritten to match by manifestTransforms in
     // vite.config.ts — these two must change together, or this call throws at
     // service-worker startup.
-    new NavigationRoute(createHandlerBoundToURL('/'), {
+    new NavigationRoute(createHandlerBoundToURL(APP_BASE), {
         denylist: [
             /^\/api\//, // Exclude API calls
             /^\/img\//, // Exclude images if needed
@@ -310,8 +313,8 @@ self.addEventListener('notificationclick', (event) => {
     const type = typeId?.toLowerCase();
     // An edit push: tagId is the note id, and the owner's copy sits in the collaborative folder (#746)
     const url = !tagId || type === JOURNAL_TEST_PUSH_TYPE_ID ? undefined
-        : type === JOURNAL_PUSH_TYPE_EDIT ? `/${COLLABORATIVE_FOLDER_ID}/${encodeURIComponent(tagId)}`
-        : `/shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId ?? '')}`;
+        : type === JOURNAL_PUSH_TYPE_EDIT ? `${APP_BASE}${COLLABORATIVE_FOLDER_ID}/${encodeURIComponent(tagId)}`
+        : `${APP_BASE}shared/${encodeURIComponent(tagId)}?from=${encodeURIComponent(senderId ?? '')}`;
     event.waitUntil(
         (async () => {
             const [client] = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
@@ -320,7 +323,7 @@ self.addEventListener('notificationclick', (event) => {
                 // navigate() rejects for a window this worker does not control yet
                 if (url) await client.navigate(url).catch(() => self.clients.openWindow(url));
             } else {
-                await self.clients.openWindow(url ?? '/');
+                await self.clients.openWindow(url ?? APP_BASE);
             }
         })()
     );

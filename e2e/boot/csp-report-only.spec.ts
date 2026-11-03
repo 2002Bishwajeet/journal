@@ -4,7 +4,7 @@ import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
 import { activeEditor, createNote, mermaidFrame, pastePlainText, typeInEditor } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
-// #671: every page carries a Content-Security-Policy-Report-Only header (public/_headers,
+// #671: every page carries a Content-Security-Policy-Report-Only header (site/public/_headers,
 // mirrored by vite.config.ts), and the app's main flows break none of it. A violation of
 // a Report-Only policy is not blocked, so a `securitypolicyviolation` listener in every
 // document collects it. Live blocks' srcdoc frames inherit the policy and get the listener
@@ -46,7 +46,7 @@ async function expectNoViolations(collector: Collector): Promise<void> {
 test('the shell carries the Report-Only policy, also when the service worker serves it', async ({ browser }) => {
   test.skip(process.env.E2E_SERVER === 'dev', 'needs the preview build');
   await withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json', serviceWorkers: 'allow' }, async (page) => {
-    const first = await page.goto('/');
+    const first = await page.goto('/app/');
     await assertTestOrigin(page);
     expect(first!.headers()['content-security-policy-report-only']).toContain("default-src 'self'");
     expect(first!.headers()['content-security-policy']).toBe("frame-src 'self'");
@@ -70,7 +70,7 @@ test("the sidebar's owner photo loads through the service worker on a first visi
       }),
     );
     const collector = await collectViolations(page);
-    await page.goto('/');
+    await page.goto('/app/');
     await assertTestOrigin(page);
     await waitForAppReady(page);
 
@@ -82,7 +82,7 @@ test("the sidebar's owner photo loads through the service worker on a first visi
 
 test('signed out: booting to the welcome page violates nothing', async ({ anonPage }) => {
   const collector = await collectViolations(anonPage);
-  await anonPage.goto('/');
+  await anonPage.goto('/app/');
   await assertTestOrigin(anonPage);
   await expect(anonPage).toHaveURL(/\/welcome$/);
   await expect(anonPage.getByRole('heading').first()).toBeVisible();

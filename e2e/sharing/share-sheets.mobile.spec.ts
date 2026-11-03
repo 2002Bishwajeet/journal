@@ -25,7 +25,7 @@ async function makeNote(page: Page) {
   await page.getByRole('button', { name: 'New note', exact: true }).tap();
   await expect(page.getByRole('textbox', { name: 'Note title' })).toBeVisible();
   await page.getByRole('button', { name: /^Back to (?!notes$)/ }).tap();
-  await expect.poll(() => new URL(page.url()).pathname.split('/').filter(Boolean).length).toBe(1);
+  await expect.poll(() => new URL(page.url()).pathname.split('/').filter(Boolean).length).toBe(2);
   await expect(noteRow(page)).toHaveCount(1);
 }
 

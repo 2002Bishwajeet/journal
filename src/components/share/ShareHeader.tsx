@@ -1,11 +1,10 @@
-import { Link } from 'react-router-dom';
 import { ArrowUpRight, CopyPlus, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useHasScrolled } from '@/hooks/useHasScrolled';
 import { cn } from '@/lib/utils';
 
 interface ShareHeaderProps {
-    /** The in-app route that saves a copy of the note; the action is left out without one. */
+    /** The app's URL that saves a copy of the note; the action is left out without one. */
     saveHref?: string;
     /** The author's index, `/share/<identity>` (#515); left out without one. */
     authorIndexHref?: string;
@@ -24,16 +23,17 @@ export function ShareHeader({ saveHref, authorIndexHref }: ShareHeaderProps) {
             )}
         >
             <div className="max-w-4xl mx-auto h-14 px-4 sm:px-6 flex items-center justify-between gap-3">
-                <Link
-                    to="/"
+                {/* Plain links (#913): a share page is outside the app's routes, at the root. */}
+                <a
+                    href="/"
                     className="flex items-center gap-2 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 >
                     {/* The logo's tile, without the square it sits on. */}
                     <span className="size-6 shrink-0 overflow-hidden rounded-md">
-                        <img src="/logo.webp" alt="" className="size-full scale-[1.6]" />
+                        <img src={`${import.meta.env.BASE_URL}logo.webp`} alt="" className="size-full scale-[1.6]" />
                     </span>
                     <span className="font-serif text-xl leading-none tracking-tight">Journal</span>
-                </Link>
+                </a>
                 <div className="flex items-center gap-1.5">
                     {authorIndexHref && (
                         // A plain link: the Pages Function renders the index, not the SPA.
@@ -47,17 +47,17 @@ export function ShareHeader({ saveHref, authorIndexHref }: ShareHeaderProps) {
                     {saveHref && (
                         // Signed out, the app's guard sends the visitor through sign-in and back here.
                         <Button asChild size="sm">
-                            <Link to={saveHref}>
+                            <a href={saveHref}>
                                 <CopyPlus aria-hidden />
                                 Save a copy
-                            </Link>
+                            </a>
                         </Button>
                     )}
                     <Button asChild variant="ghost" size="sm" className="max-sm:px-2">
-                        <Link to="/">
+                        <a href={import.meta.env.BASE_URL}>
                             <span className="sr-only sm:not-sr-only">Open Journal</span>
                             <ArrowUpRight aria-hidden />
-                        </Link>
+                        </a>
                     </Button>
                 </div>
             </div>

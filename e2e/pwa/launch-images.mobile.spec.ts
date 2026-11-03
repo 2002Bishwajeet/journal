@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test';
 const MEDIA = /\(device-width: (\d+)px\) and \(device-height: (\d+)px\) and \(-webkit-device-pixel-ratio: (\d+)\) and \(orientation: (portrait|landscape)\)(?: and \(prefers-color-scheme: (light|dark)\))?/;
 
 test('every launch image loads as a PNG that matches its media query', async ({ request }) => {
-  const html = await (await request.get('/')).text();
+  const html = await (await request.get('/app/')).text();
   const tags = [...html.matchAll(/<link\b[^>]*rel="apple-touch-startup-image"[^>]*>/g)].map((m) => m[0]);
   expect(tags.length).toBeGreaterThan(0);
 

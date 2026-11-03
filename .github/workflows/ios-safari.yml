@@ -51,7 +51,7 @@ jobs:
       - name: Serve the build on 127.0.0.1:4173
         run: |
           nohup npx vite preview --mode e2e --outDir dist-e2e --host 127.0.0.1 --port 4173 --strictPort > preview.log 2>&1 &
-          for _ in $(seq 60); do curl -sf http://127.0.0.1:4173/ > /dev/null && exit 0; sleep 1; done
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:4173/app/ > /dev/null && exit 0; sleep 1; done
           cat preview.log; exit 1
 
       - name: Boot an iPhone 15 simulator

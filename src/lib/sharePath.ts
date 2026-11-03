@@ -3,6 +3,6 @@
 // trailing slash is deliberate: /share-target (the authenticated share
 // target route) must not match.
 export function isPublicSharePath(pathname: string): boolean {
-    // /mcp/code is public too: it only echoes query params as a login code.
-    return pathname.startsWith('/share/') || pathname === '/mcp/code';
+    // The app's /mcp/code is public too: it only echoes query params as a login code.
+    return pathname.startsWith('/share/') || pathname === `${import.meta.env.BASE_URL}mcp/code`;
 }

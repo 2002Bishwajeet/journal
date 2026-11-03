@@ -335,7 +335,7 @@ footer p{margin:0;padding:2rem 0;color:var(--muted);font-size:.75rem}
 
 /**
  * The author and folder pages' Content-Security-Policy, Report-Only for now (#671): no
- * script, an inline <style> and our own images. public/_headers has the app's policy,
+ * script, an inline <style> and our own images. site/public/_headers has the app's policy,
  * but it does not apply to a Function's response.
  */
 export const AUTHOR_INDEX_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
@@ -405,15 +405,15 @@ ${property('og:site_name', folder ? authorName : 'Journal')}
 ${property('og:title', title)}
 ${property('og:description', description)}
 ${property('og:url', pageUrl)}
-${property('og:image', cardUrl ?? `${origin}/banner.webp`)}${cardUrl ? `\n${property('og:image:width', '1200')}\n${property('og:image:height', '630')}` : ''}
+${property('og:image', cardUrl ?? `${origin}/app/banner.webp`)}${cardUrl ? `\n${property('og:image:width', '1200')}\n${property('og:image:height', '630')}` : ''}
 ${named('twitter:card', cardUrl ? 'summary_large_image' : 'summary')}
 ${named('twitter:title', title)}
 ${named('twitter:description', description)}
-<link rel="icon" href="/favicon.ico" sizes="any" />
+<link rel="icon" href="/app/favicon.ico" sizes="any" />
 <style>${STYLE}</style>
 </head>
 <body>
-<header><div class="wrap"><a class="brand" href="/"><span class="logo"><img src="/logo.webp" alt="" /></span><span class="serif">Journal</span></a></div></header>
+<header><div class="wrap"><a class="brand" href="/"><span class="logo"><img src="/app/logo.webp" alt="" /></span><span class="serif">Journal</span></a></div></header>
 <main class="wrap">
 <h1 class="serif">${escapeHtml(folder ? folder.name : authorName)}</h1>
 <p class="sub">${folder ? `Shared folder by <a href="${escapeHtml(`${origin}/share/${identity}`)}">${escapeHtml(authorName)}</a>` : `Public notes by ${escapeHtml(identity)}`}</p>

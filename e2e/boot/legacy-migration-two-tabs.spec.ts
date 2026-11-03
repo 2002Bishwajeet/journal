@@ -78,7 +78,7 @@ test('only one of two tabs opened at once migrates the legacy database', async (
   const logs: string[] = [];
   for (const p of [a, b]) p.on('console', (msg) => logs.push(msg.text()));
 
-  await Promise.all([a.goto('/'), b.goto('/')]);
+  await Promise.all([a.goto('/app/'), b.goto('/app/')]);
   await Promise.all([a, b].map((p) => assertTestOrigin(p)));
   await Promise.all([a, b].map((p) => waitForAppReady(p)));
 

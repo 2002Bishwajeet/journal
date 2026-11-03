@@ -12,7 +12,7 @@ test('a folder tapped during a slow session restore stays open', async ({ app })
   await createFolder(app, folderB);
   await selectFolder(app, folderA);
   await createNote(app, { title: `Restore note ${stamp}`, body: 'Body.' });
-  const [folderAId, noteId] = new URL(app.url()).pathname.split('/').filter(Boolean);
+  const [, folderAId, noteId] = new URL(app.url()).pathname.split('/').filter(Boolean);
   expect(noteId).toBeTruthy();
 
   const page = await app.context().newPage();
@@ -23,7 +23,7 @@ test('a folder tapped during a slow session restore stays open', async ({ app })
     },
     [folderAId, noteId],
   );
-  await page.goto('/');
+  await page.goto('/app/');
   await assertTestOrigin(page);
   await waitForAppReady(page);
 
@@ -44,9 +44,9 @@ test('a cold start at / reopens the last note', async ({ app }) => {
   const notePath = new URL(app.url()).pathname;
   await expect
     .poll(() => app.evaluate(() => JSON.parse(localStorage.getItem('journal-session-state') ?? '{}').lastNoteId))
-    .toBe(notePath.split('/')[2]);
+    .toBe(notePath.split('/')[3]);
 
-  await app.goto('/');
+  await app.goto('/app/');
   await assertTestOrigin(app);
   await waitForAppReady(app);
   await expect(app).toHaveURL(new RegExp(`${notePath}$`));

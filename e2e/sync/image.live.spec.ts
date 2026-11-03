@@ -35,7 +35,7 @@ test('an image added to a note uploads and downloads on a second device', async 
     // Device B: a second context on the same real identity, opening the note
     // only after the upload above has settled — no realtime-image race to ride out.
     await withFencedPage(browser, { storageState: LIVE_STORAGE_STATE }, async (pageB) => {
-        await pageB.goto('/');
+        await pageB.goto('/app/');
         await assertTestOrigin(pageB);
         await waitForAppReady(pageB);
         await selectFolder(pageB, folderName);

@@ -97,13 +97,13 @@ test('moving a note to another folder shows it there, and its public state follo
     .poll(() =>
       app.evaluate(() => {
         const session = JSON.parse(localStorage.getItem('journal-session-state') ?? '{}');
-        return `/${session.lastFolderId}/${session.lastNoteId}` === location.pathname;
+        return `/app/${session.lastFolderId}/${session.lastNoteId}` === location.pathname;
       })
     )
     .toBe(true);
   await app.evaluate(() => localStorage.removeItem('journal-session-state'));
   await app.setViewportSize(MOBILE);
-  await app.goto('/');
+  await app.goto('/app/');
   await waitForAppReady(app);
   await selectFolder(app, PRIVATE);
   await openPicker(app, 'Traveller', MOBILE.width, true);

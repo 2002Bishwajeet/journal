@@ -60,7 +60,7 @@ A premium local-first journaling application designed for effortless writing and
    npm run dev
    ```
 
-5. Open https://dev.dotyou.cloud:5173. `dev.dotyou.cloud` resolves to `127.0.0.1`, and the dev server uses the Let's Encrypt certificate committed in the repo (`dev-dotyou-cloud.crt`/`.key`), so there is nothing to install or trust. Sign in with a Homebase identity (or the demo identity above).
+5. Open https://dev.dotyou.cloud:5173/app/ (the app is under `/app/`; `/` redirects there). `dev.dotyou.cloud` resolves to `127.0.0.1`, and the dev server uses the Let's Encrypt certificate committed in the repo (`dev-dotyou-cloud.crt`/`.key`), so there is nothing to install or trust. Sign in with a Homebase identity (or the demo identity above).
 
 ## Tests
 

@@ -66,7 +66,7 @@ test('an iPad in landscape shows only the top toolbar, not the keyboard toolbar 
     browser,
     { ...ipad, storageState: 'e2e/fixtures/hermetic-auth.json', serviceWorkers: 'block' },
     async (page) => {
-      await page.goto('/');
+      await page.goto('/app/');
       await assertTestOrigin(page);
       await waitForAppReady(page);
       await createNote(page, { title: `iPad ${Date.now()}`, body: 'Typing on an iPad' });

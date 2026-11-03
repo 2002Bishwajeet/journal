@@ -15,7 +15,7 @@ export function ShareCardPreview({ title, description, domain, image }: ShareCar
             <div className="aspect-[1200/630] w-full overflow-hidden border-b bg-muted">
                 {image ?? (
                     <div className="flex h-full w-full items-center justify-center">
-                        <img src="/logo.webp" alt="" width={80} height={80} className="size-20 rounded-2xl" />
+                        <img src={`${import.meta.env.BASE_URL}logo.webp`} alt="" width={80} height={80} className="size-20 rounded-2xl" />
                     </div>
                 )}
             </div>

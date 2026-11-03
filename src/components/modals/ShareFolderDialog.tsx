@@ -78,7 +78,7 @@ export default function ShareFolderDialog({ folder, onClose }: ShareFolderDialog
                 title={folder?.name ?? ''}
                 description={description}
                 domain={window.location.host}
-                image={<img src={cardImage ?? '/banner.webp'} alt="" className="h-full w-full object-cover" />}
+                image={<img src={cardImage ?? `${import.meta.env.BASE_URL}banner.webp`} alt="" className="h-full w-full object-cover" />}
             />
         </div>
     );

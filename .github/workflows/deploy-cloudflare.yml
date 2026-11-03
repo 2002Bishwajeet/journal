@@ -53,15 +53,21 @@ jobs:
           # WebMCP origin-trial token for journal.cloudx.run (#705); unset = no token, WebMCP stays off.
           VITE_WEBMCP_OT_TOKEN: ${{ vars.WEBMCP_OT_TOKEN }}
 
-      # Pages 308s /index.html -> /, and a redirected response served to a
+      # The landing page at the root of journal.cloudx.run (#913).
+      - name: Build landing site
+        run: npm run site:build
+        env:
+          SITE_URL: https://journal.cloudx.run
+
+      # Pages 308s /app/index.html -> /app/, and a redirected response served to a
       # navigation is a hard network error — every share link dies with "This
       # site can't be reached". Guarded here because it only breaks on Pages.
       - name: Verify service worker precaches the canonical shell URL
         run: |
-          grep -q '"url":"/"' dist/sw.js \
-            || { echo "::error::sw.js must precache '/' — see manifestTransforms in vite.config.ts"; exit 1; }
+          grep -q '"url":"/app/"' dist/sw.js \
+            || { echo "::error::sw.js must precache '/app/' — see manifestTransforms in vite.config.ts"; exit 1; }
           if grep -q '"url":"index.html"' dist/sw.js; then
-            echo "::error::sw.js precaches index.html, which Cloudflare Pages 308s to /"
+            echo "::error::sw.js precaches index.html, which Cloudflare Pages 308s to /app/"
             exit 1
           fi
 
@@ -71,6 +77,15 @@ jobs:
       - name: Verify legacy PGlite engines stay out of the precache
         run: node scripts/check-precache.mjs
 
+      # One Pages output (#913): the landing site at the root (with _headers,
+      # _redirects and _routes.json), the app under app/. The app's shell is also
+      # app/404.html, which Pages serves for the app's routes (see _redirects).
+      # playwright.config.ts assembles the edge tests' copy the same way.
+      - name: Assemble the Pages output
+        run: |
+          rm -rf dist-pages && cp -r site/dist dist-pages && cp -r dist dist-pages/app
+          cp dist-pages/app/index.html dist-pages/app/404.html
+
       # --branch is explicit: wrangler otherwise reads it from git, and the
       # detached tag checkout would land on a `head` preview alias.
       - name: Deploy to Cloudflare Pages
@@ -79,4 +94,4 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "3.90.0"
-          command: pages deploy dist --project-name=journal --branch=${{ inputs.version && 'main' || 'preview' }} --commit-dirty=true
+          command: pages deploy dist-pages --project-name=journal --branch=${{ inputs.version && 'main' || 'preview' }} --commit-dirty=true

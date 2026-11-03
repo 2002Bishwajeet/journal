@@ -55,7 +55,7 @@ test('the Show on my public page switch persists, and disables the search-engine
   await waitForNoteSaved(app);
   await app.evaluate(() => localStorage.removeItem('journal-session-state'));
   await app.setViewportSize(MOBILE);
-  await app.goto('/');
+  await app.goto('/app/');
   await waitForAppReady(app);
   await selectFolder(app, FOLDER);
   dialog = await openShareDialog(app, 'Quiet post');

@@ -124,7 +124,7 @@ describe('sw push', () => {
 
 describe('sw notificationclick', () => {
     const data = { senderId: 'sam.dotyou.cloud', typeId: 'type-1', tagId: 'note-1' };
-    const url = '/shared/note-1?from=sam.dotyou.cloud';
+    const url = '/app/shared/note-1?from=sam.dotyou.cloud';
 
     it('focuses an open window and navigates it to the note', async () => {
         const client = { focus: vi.fn(async () => {}), navigate: vi.fn(async () => null) };
@@ -147,7 +147,7 @@ describe('sw notificationclick', () => {
         const client = { focus: vi.fn(async () => {}), navigate: vi.fn(async () => null) };
         matchAll.mockResolvedValue([client]);
         await fireClick({ senderId: 'sam.dotyou.cloud', typeId: JOURNAL_PUSH_TYPE_EDIT, tagId: 'note-1' });
-        expect(client.navigate).toHaveBeenCalledWith(`/${COLLABORATIVE_FOLDER_ID}/note-1`);
+        expect(client.navigate).toHaveBeenCalledWith(`/app/${COLLABORATIVE_FOLDER_ID}/note-1`);
     });
 
     it('opens the app, not a note, for a test notification', async () => {
@@ -160,7 +160,7 @@ describe('sw notificationclick', () => {
 
         matchAll.mockResolvedValue([]);
         await fireClick(test);
-        expect(openWindow).toHaveBeenCalledWith('/');
+        expect(openWindow).toHaveBeenCalledWith('/app/');
     });
 
     it("focuses Journal without navigating for another app's notification", async () => {
@@ -172,6 +172,6 @@ describe('sw notificationclick', () => {
 
         matchAll.mockResolvedValue([]);
         await fireClick(undefined);
-        expect(openWindow).toHaveBeenCalledWith('/');
+        expect(openWindow).toHaveBeenCalledWith('/app/');
     });
 });

@@ -48,13 +48,13 @@ describe('ShareHeader', () => {
         await mount(createElement(ShareHeader));
         const home = link('Journal')!;
         expect(home.getAttribute('href')).toBe('/');
-        expect(home.querySelector('img')?.getAttribute('src')).toBe('/logo.webp');
+        expect(home.querySelector('img')?.getAttribute('src')).toBe('/app/logo.webp');
     });
 
-    it('shows "Save a copy" with its route, and "Open Journal"', async () => {
-        await mount(createElement(ShareHeader, { saveHref: '/save-shared?identity=a.test&file=1' }));
-        expect(link('Save a copy')?.getAttribute('href')).toBe('/save-shared?identity=a.test&file=1');
-        expect(link('Open Journal')?.getAttribute('href')).toBe('/');
+    it('shows "Save a copy" with its URL, and "Open Journal" at the app', async () => {
+        await mount(createElement(ShareHeader, { saveHref: '/app/save-shared?identity=a.test&file=1' }));
+        expect(link('Save a copy')?.getAttribute('href')).toBe('/app/save-shared?identity=a.test&file=1');
+        expect(link('Open Journal')?.getAttribute('href')).toBe('/app/');
     });
 
     it('leaves "Save a copy" out without a note to save', async () => {
@@ -89,7 +89,7 @@ describe('ShareFooter', () => {
     it('shows the logo, what Journal is, a way in and whose content it is', async () => {
         await mount(createElement(ShareFooter, { identity: 'author.test' }));
         const footer = el.querySelector('footer')!;
-        expect(footer.querySelector('img')?.getAttribute('src')).toBe('/logo.webp');
+        expect(footer.querySelector('img')?.getAttribute('src')).toBe('/app/logo.webp');
         expect(footer.textContent).toContain('private notes you own, stored on your Homebase identity');
         expect(link('Start your journal')?.getAttribute('href')).toBe('/');
         expect(footer.textContent).toContain("Published by author.test. Content is the author's own and is not reviewed by Journal.");

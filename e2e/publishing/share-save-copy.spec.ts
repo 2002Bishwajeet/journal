@@ -106,6 +106,8 @@ async function mockPublicNote(page: Page, { shared }: { shared: boolean } = { sh
 
 const liveBlock = (scope: Locator, kind: string) => scope.locator(`[data-live-block="${kind}"]`);
 const saveRoute = `/save-shared?identity=${AUTHOR}&file=${NOTE_ID}`;
+// The app's routes are under /app/ (#913).
+const saveUrl = `/app${saveRoute}`;
 
 /** Only reads reached the author's identity (the note as a guest, the byline's public profile). */
 const expectOnlyGuestReads = (requests: string[]) => {
@@ -152,7 +154,7 @@ test('share page: says whose content it is, with the author identity', async ({ 
     anonPage.getByText(`Published by ${AUTHOR}. Content is the author's own and is not reviewed by Journal.`),
   ).toBeVisible();
   // The button links to the in-app route on this origin.
-  await expect(anonPage.getByRole('link', { name: 'Save a copy' })).toHaveAttribute('href', saveRoute);
+  await expect(anonPage.getByRole('link', { name: 'Save a copy' })).toHaveAttribute('href', saveUrl);
 });
 
 test('signed in, "Save a copy" opens a new copy; saving twice makes two notes', async ({ app }) => {
@@ -184,7 +186,7 @@ test('signed in, "Save a copy" opens a new copy; saving twice makes two notes', 
 
 test('signed in, opening the route directly saves the same copy as the button', async ({ app }) => {
   const requests = await mockPublicNote(app);
-  await app.goto(saveRoute);
+  await app.goto(saveUrl);
   await assertTestOrigin(app);
   await waitForAppReady(app);
   // The toast lasts a few seconds; on a slow runner opening the copy takes
@@ -202,9 +204,9 @@ test('signed in, opening the route directly saves the same copy as the button', 
 });
 
 const BAD_LINKS: [string, string][] = [
-  ['no identity or file', '/save-shared'],
-  ['a malformed identity', `/save-shared?identity=not%20an%20identity&file=${NOTE_ID}`],
-  ['a malformed file', `/save-shared?identity=${AUTHOR}&file=nope`],
+  ['no identity or file', '/app/save-shared'],
+  ['a malformed identity', `/app/save-shared?identity=not%20an%20identity&file=${NOTE_ID}`],
+  ['a malformed file', `/app/save-shared?identity=${AUTHOR}&file=nope`],
 ];
 
 for (const [name, link] of BAD_LINKS) {
@@ -226,7 +228,7 @@ test('an unshared note shows the error state and creates no note', async ({ app 
   await mockPublicNote(app, { shared: false });
   await createNote(app, { title: 'Baseline note', body: 'Already here.' });
 
-  await app.goto(saveRoute);
+  await app.goto(saveUrl);
   await assertTestOrigin(app);
   await waitForAppReady(app);
   await expect(app.getByRole('alert')).toContainText("Couldn't save a copy", { timeout: 30_000 });

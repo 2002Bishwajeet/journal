@@ -15,7 +15,7 @@ test('on a phone, open Version history from More, restore a version, and keep th
     async (page) => {
       // Snapshots are throttled to one per 5 minutes; a fake clock lets the test jump past that.
       await page.clock.install();
-      await page.goto('/');
+      await page.goto('/app/');
       await assertTestOrigin(page);
       await waitForAppReady(page);
 
