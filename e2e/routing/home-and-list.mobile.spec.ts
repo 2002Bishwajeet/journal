@@ -165,7 +165,7 @@ test('Trash: Empty Trash is in the More sheet, behind a confirm', async ({ brows
     await page.getByRole('button', { name: 'Move to Trash', exact: true }).click();
     await page.getByRole('button', { name: 'Back to notes' }).click();
     await sidebar(page).getByRole('button', { name: /^Trash/ }).click();
-    await expect(page.getByRole('button', { name: 'Restore note' })).toBeVisible();
+    await expect(page.getByTestId('hidden-note-row')).toHaveCount(1);
 
     // The title row holds Back and More only.
     await expect(page.getByRole('button', { name: 'Empty Trash' })).toHaveCount(0);
