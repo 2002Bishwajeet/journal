@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { MoreHorizontal, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { haptic } from '@/lib/haptics';
@@ -39,6 +39,16 @@ interface ContextMenuWrapperProps {
 export function ContextMenuWrapper({ children, items }: ContextMenuWrapperProps) {
     const coarse = useCoarsePointer();
     const [sheetOpen, setSheetOpen] = useState(false);
+    // An action may open a dialog: run it once the sheet has closed and returned focus,
+    // or the dialog is dismissed by that focus return.
+    const afterClose = useRef<(() => void) | null>(null);
+    const onCloseAutoFocus = (event: Event) => {
+        const run = afterClose.current;
+        if (!run) return;
+        afterClose.current = null;
+        event.preventDefault();
+        run();
+    };
     return (
         // A touch long press opens this menu: give the same feedback as other gestures (#856).
         // On a finger the items show in a bottom sheet instead: a pointer-anchored menu runs
@@ -55,7 +65,15 @@ export function ContextMenuWrapper({ children, items }: ContextMenuWrapperProps)
                 {children}
             </ContextMenuTrigger>
             {coarse ? (
-                <ActionSheet open={sheetOpen} onOpenChange={setSheetOpen} title="Actions" items={items} />
+                <ActionSheet open={sheetOpen} onOpenChange={setSheetOpen} title="Actions"
+                    onCloseAutoFocus={onCloseAutoFocus}
+                    items={items.map((item) => ({
+                        ...item,
+                        action: () => {
+                            afterClose.current = item.action;
+                        },
+                    }))}
+                />
             ) : (
             <ContextMenuContent className="w-64">
                 {items.map((item, index) => {

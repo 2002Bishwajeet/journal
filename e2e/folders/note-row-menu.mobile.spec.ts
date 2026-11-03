@@ -36,6 +36,12 @@ test('a long press in the middle of a note row opens a sheet that is fully on sc
     await screenshotInBothThemes(page, (theme) => `note-row-actions-${theme}-393x852.png`);
 
     await menu.getByRole('menuitem', { name: 'Move to Trash' }).tap();
-    await expect(page.getByRole('alertdialog').or(page.getByRole('dialog')).filter({ hasText: /trash/i })).toBeVisible();
+    const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog')).filter({ hasText: 'Move to Trash?' });
+    await expect(dialog).toBeVisible();
+    // It must stay open after the sheet finishes closing, and its buttons must work.
+    await page.waitForTimeout(500);
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: 'Move to Trash' }).click();
+    await expect(dialog).toBeHidden();
   });
 });
