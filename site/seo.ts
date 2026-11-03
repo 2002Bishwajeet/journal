@@ -80,6 +80,10 @@ function toText(html: string): string {
       return keep(`\n${label ? label + ':\n' : ''}\`\`\`\n${decode(code.replace(/<[^>]+>/g, ''))}\n\`\`\`\n`)
     })
     .replace(/<textarea[^>]*>([\s\S]*?)<\/textarea>/g, (_, code: string) => keep(`\n\`\`\`mermaid\n${decode(code)}\n\`\`\`\n`))
+    // A list inside a parameter (edit_block's ops) stays nested under it, as sub-bullets
+    .replace(/<ul class="ops">([\s\S]*?)<\/ul>/g, (_, list: string) =>
+      keep(`\n${[...list.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(([, li]) => `  - ${plain(li.replace(/<code>([\s\S]*?)<\/code>/g, '`$1`'))}`).join('\n')}\n`),
+    )
     .replace(/<h([1-6])[^>]*>/g, (_, n: string) => `\n\n${'#'.repeat(Number(n))} `)
     .replace(/<\/h[1-6]>/g, '\n\n')
     .replace(/<summary[^>]*>/g, '\n\n### ')
