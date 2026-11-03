@@ -18,8 +18,14 @@ export interface DocumentMetadata {
     archivalStatus?: number; // Homebase ArchivalStatus: 0 active, 2 trashed (Removed)
     // Collaboration fields
     isCollaborative?: boolean;
-    circleIds?: string[];    // Circles granted access (multiple)
+    circleIds?: string[];    // Circles granted access (multiple): their members are editors
+    // People named on the share, lowercased: viewers, who can read but not edit (#897). Person
+    // editors (#736) would be a list of their own, so a stored note never changes meaning.
+    odinIds?: string[];
     recipients?: string[];   // OdinIds of collaborators (from circle members)
+    // Circles shared with as viewers, and their members, who read but don't edit (#682)
+    viewerCircleIds?: string[];
+    viewerRecipients?: string[];
     lastEditedBy?: string;   // OdinId of last editor
     authorOdinId?: string;     // Identity that owns the note (for peer fetch)
 }
@@ -95,7 +101,10 @@ export interface NoteFileContent {
     // Collaboration fields
     isCollaborative?: boolean;
     circleIds?: string[];
+    odinIds?: string[];      // Named viewers (#897)
     recipients?: string[];   // OdinIds of collaborators (from circle members)
+    viewerCircleIds?: string[]; // Circles shared with as viewers (#682)
+    viewerRecipients?: string[]; // Their members
     lastEditedBy?: string;
 }
 

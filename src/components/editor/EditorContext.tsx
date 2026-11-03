@@ -7,6 +7,8 @@ export interface EditorContextValue {
   isReady: boolean;
   isLoading: boolean;
   isAIReady: boolean;
+  /** The host can only view this note (#897): no typing and no toolbars. */
+  readOnly: boolean;
   cover: NoteCover | null;
   /** Set the light (default) or dark cover from an image file; queues the upload like an in-note image. */
   setCoverFromFile: (file: File, variant?: CoverVariant) => Promise<void>;

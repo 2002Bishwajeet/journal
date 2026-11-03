@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { mermaidFrame } from '../support/actions';
 
 // #408: on the share page text keeps its reading column, and a block that needs
 // room (code, table, image, live block) grows past it up to the wide measure.
@@ -157,7 +158,8 @@ async function openNote(page: Page): Promise<Locator> {
   await assertTestOrigin(page);
   const article = page.getByRole('article');
   await expect(article.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
-  await expect(article.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
+  await article.locator('[data-live-block="mermaid"]').scrollIntoViewIfNeeded();
+  await expect(mermaidFrame(article.locator('[data-live-block="mermaid"]')).locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
   await expect(article.locator('[data-live-block="svg"] img')).toBeVisible();
   // The frame is lazy: it loads once it is near the viewport.
   const frame = article.locator('[data-live-block="html"] iframe');

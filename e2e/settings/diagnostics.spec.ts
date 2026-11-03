@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
-import { inBothThemes } from '../support/actions';
+import { inBothThemes, settingsPanel } from '../support/actions';
 
 // Settings → Diagnostics (#800): from the sync badge, see what is pending and why, retry,
 // and copy a redacted report. Six items are seeded (two with errors); the backend is
@@ -15,11 +15,11 @@ async function openDiagnosticsFromSyncBadge(app: Page) {
     await app.getByRole('navigation', { name: 'Folders' }).getByRole('button', { name: 'Main' }).click();
   }
   await app.locator('button[aria-label="Sync status"]:visible').first().click();
-  await app.getByRole('button', { name: /Pending items|Diagnostics/ }).click();
+  // Desktop's popover has "Pending items"; a phone's sheet has "Open diagnostics" (#828).
+  await app.getByRole('button', { name: /Pending items|diagnostics/i }).click();
 
   const dialog = app.getByRole('dialog', { name: 'Settings' });
-  await expect(dialog.getByRole('tab', { name: 'Diagnostics' })).toHaveAttribute('aria-selected', 'true');
-  const panel = dialog.getByRole('tabpanel');
+  const panel = settingsPanel(dialog);
   const list = panel.getByRole('list', { name: 'Pending sync items' });
   await expect(list.getByTestId('pending-item')).toHaveCount(6);
   // The popover and dialog finish animating before a screenshot, or the shot is translucent.

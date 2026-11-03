@@ -2,7 +2,7 @@ import { CircleX, Info, Lightbulb, TriangleAlert, type LucideIcon } from 'lucide
 import { cn } from '@/lib/utils';
 import { CALLOUT_ICON_CLASSES, type CalloutVariant } from './calloutVariants';
 
-const ICONS: Record<CalloutVariant, LucideIcon> = {
+export const CALLOUT_ICONS: Record<CalloutVariant, LucideIcon> = {
   info: Info,
   warning: TriangleAlert,
   tip: Lightbulb,
@@ -11,6 +11,6 @@ const ICONS: Record<CalloutVariant, LucideIcon> = {
 
 /** The lucide icon for a callout variant, shared by the editor and share page. */
 export function CalloutIcon({ variant, className }: { variant: CalloutVariant; className?: string }) {
-  const Icon = ICONS[variant];
+  const Icon = CALLOUT_ICONS[variant];
   return <Icon aria-hidden className={cn('size-4 shrink-0', CALLOUT_ICON_CLASSES[variant], className)} />;
 }

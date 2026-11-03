@@ -13,6 +13,7 @@ import { getNewId } from '@homebase-id/js-lib/helpers';
 import { prepareImageForUpload, UnsupportedImageError } from '@/lib/images/imageIngest';
 import { GALLERY } from '../nodes/GalleryNode';
 import { editAttrs, NO_EDITS } from '@/lib/images/imageEdits';
+import { imageRoom, imageLimitMessage } from '@/lib/images/payloadLimit';
 
 export interface FileHandlerOptions {
     /** Maximum file size in MB */
@@ -88,6 +89,13 @@ async function queueImageFile(options: FileHandlerOptions, file: File): Promise<
     return { processed, pendingId };
 }
 
+/** The files that fit under Homebase's payload limit; toasts when some are left out. */
+function withinPayloadLimit(editor: Editor, files: File[]): File[] {
+    const room = imageRoom(editor.state.doc);
+    if (files.length > room) toast.error(imageLimitMessage(room));
+    return files.slice(0, room);
+}
+
 async function processImageFile(editor: Editor, options: FileHandlerOptions, file: File, pos?: number): Promise<boolean> {
     const queued = await queueImageFile(options, file);
     if (!queued || editor.isDestroyed) return false;
@@ -116,7 +124,7 @@ async function processImageFile(editor: Editor, options: FileHandlerOptions, fil
  */
 async function insertDroppedImages(editor: Editor, options: FileHandlerOptions, files: File[], pos?: number): Promise<void> {
     const images = [];
-    for (const file of files) {
+    for (const file of withinPayloadLimit(editor, files)) {
         const queued = await queueImageFile(options, file);
         if (queued) {
             images.push({ type: 'image', attrs: { src: URL.createObjectURL(queued.processed), 'data-pending-id': queued.pendingId } });
@@ -174,7 +182,7 @@ export const FileHandler = Extension.create<FileHandlerOptions>({
         return {
             // Each insert lands after its queue write, outside this command's transaction.
             insertImageFiles: (files: File[]) => () => {
-                for (const file of files) void processImageFile(this.editor, this.options, file);
+                for (const file of withinPayloadLimit(this.editor, files)) void processImageFile(this.editor, this.options, file);
                 return true;
             },
             insertImageGallery: (files: File[]) => () => {

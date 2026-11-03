@@ -85,7 +85,8 @@ jobs:
       # On shard 3, the shortest hermetic shard.
       - name: Run mobile E2E (chromium)
         if: matrix.shard == 3
-        timeout-minutes: 5
+        # Hit 8 minutes on PRs #955 and #956 on 2026-11-02, with every test passing so far
+        timeout-minutes: 14
         run: npm run e2e:mobile
         env:
           CI: true

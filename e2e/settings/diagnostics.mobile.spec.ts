@@ -26,10 +26,10 @@ test('the share notifications notice has one Fix in owner console button and the
     await page.evaluate(() => window.__journalE2E!.seedPendingSync());
     await foldersNav(page).getByRole('button', { name: 'Main', exact: true }).tap();
     await page.locator('button[aria-label="Sync status"]:visible').first().tap();
-    await page.getByRole('button', { name: /Pending items|Diagnostics/ }).tap();
+    await page.getByRole('button', { name: 'Open diagnostics' }).tap();
 
     const dialog = page.getByRole('dialog', { name: 'Settings' });
-    const panel = dialog.getByRole('tabpanel');
+    const panel = dialog.getByRole('region');
     await expect(panel.getByRole('list', { name: 'Pending sync items' })).toBeVisible();
     await page.evaluate(() => window.__journalE2E!.refuseSharePush());
 

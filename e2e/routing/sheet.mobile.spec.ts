@@ -73,7 +73,7 @@ test('the bottom sheet sits on the screen edge, springs back from a short drag a
     await createFolder(page, 'Sheet target');
     const title = `Sheet bottom ${Date.now()}`;
     await newNoteInMain(page, title);
-    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('button', { name: /^Back to (?!notes$)/ }).click();
     const row = page.getByTestId('note-row').filter({ hasText: title });
     await expect(row).toBeVisible();
     const listUrl = page.url();

@@ -114,7 +114,7 @@ export function createCarouselNav(scroller: HTMLElement, keyTarget: HTMLElement)
   const current = () => Math.max(0, Math.min(slides().length - 1, Math.round(scroller.scrollLeft / (scroller.clientWidth || 1))));
   const show = (index: number) => {
     const to = Math.max(0, Math.min(slides().length - 1, index));
-    scroller.scrollTo?.({ left: to * scroller.clientWidth, behavior: 'smooth' });
+    scroller.scrollTo?.({ left: to * scroller.clientWidth, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   };
   const prev = button('Previous image', '‹', () => show(current() - 1));
   const next = button('Next image', '›', () => show(current() + 1));

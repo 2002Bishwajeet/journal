@@ -4,6 +4,7 @@ import { useModelDownloadGate } from "@/hooks/useModelDownloadGate";
 import { getSearchIndexEntry } from "@/lib/db";
 import type { AgentEvent } from "@/lib/agent/loop/agentLoop";
 import { approveWrite, type WrittenNote } from "@/lib/agent/approveWrite";
+import { e2eSwitches } from "@/lib/e2e/switches";
 
 export interface ChatCommand {
   label: string;
@@ -26,7 +27,7 @@ export interface AgentStep {
   /** An edit to the open note: what the user is asked to accept or reject in the note. */
   summary?: string;
   /** An append to another note or a new note (#702): the card the user accepts or rejects in the panel. */
-  write?: { markdown: string; state: "pending" | "accepted" | "rejected" | "notApplied"; note?: { title: string; href: string } };
+  write?: { markdown: string; isPublic?: boolean; state: "pending" | "accepted" | "rejected" | "notApplied"; note?: { title: string; href: string } };
   /** The tool was called and has not answered yet. */
   open?: boolean;
   /** An error row, not a tool step. */
@@ -107,7 +108,7 @@ function applyEvent(steps: AgentStep[], event: AgentEvent): AgentStep[] {
               before: event.proposal.write ? "Waiting for your OK" : "Waiting for your OK in the note",
               after: "",
               summary: event.proposal.summary,
-              ...(event.proposal.write && { write: { markdown: event.proposal.write.markdown, state: "pending" as const } }),
+              ...(event.proposal.write && { write: { markdown: event.proposal.write.markdown, isPublic: event.proposal.write.isPublic, state: "pending" as const } }),
               open: true,
             }
           : step
@@ -203,7 +204,7 @@ export function useAgentSession(activeNoteId: string | undefined) {
     let failure: string | undefined;
     let content: string;
     try {
-      const [{ runAgent, MAX_TOOL_STEPS }, { approveEdit }, { createLocalWriteDeps }, { createAgentEngine }] =
+      const [{ runAgent, toolsFor, MAX_TOOL_STEPS }, { approveEdit }, { createLocalWriteDeps }, { createAgentEngine }] =
         await Promise.all([
           import("@/lib/agent/loop/agentLoop"),
           import("@/lib/agent/approveEdit"),
@@ -220,6 +221,8 @@ export function useAgentSession(activeNoteId: string | undefined) {
           setModelStatus({ progress: report.progress, message: report.text })
         ),
         deps: writeDeps,
+        // Judged on what the user typed, not the note title in `context`.
+        tools: toolsFor(request),
         writeDeps,
         // An edit to the open note shows in the note, an append to another note or a new note shows as a
         // card in this panel; the user accepts or rejects each.
@@ -227,6 +230,7 @@ export function useAgentSession(activeNoteId: string | undefined) {
           proposal.write ? approveWrite(proposal.write, controller.signal) : approveEdit(proposal, controller.signal),
         signal: controller.signal,
         onEvent: (event) => {
+          e2eSwitches.onAgentEvent?.(event);
           if (event.type === "step" && event.step > MAX_TOOL_STEPS) capped = true;
           if (event.type === "failed") failure = event.message;
           if (event.type !== "step") setModelStatus(null);

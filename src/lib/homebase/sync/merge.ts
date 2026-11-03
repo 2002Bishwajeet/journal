@@ -61,3 +61,12 @@ export async function resolveNoteFolderId(groupId: string | undefined): Promise<
     const failedFolderPulls = await getEntityIdsWithUnresolvedError('folder', 'pull');
     return failedFolderPulls.has(folderId) ? folderId : MAIN_FOLDER_ID;
 }
+
+/**
+ * A collaborator's save files the owner's note under their own hidden collaborative
+ * folder. Since #682 sharing keeps the note in its folder, so on the owner's side the
+ * note stays in `localFolderId`.
+ */
+export function ownersFolderId(remoteFolderId: string, localFolderId: string | undefined, isOwnNote: boolean): string {
+    return isOwnNote && remoteFolderId === COLLABORATIVE_FOLDER_ID && localFolderId ? localFolderId : remoteFolderId;
+}

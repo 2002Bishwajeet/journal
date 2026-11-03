@@ -89,7 +89,8 @@ async function call<T>(client: Client, name: string, args: Record<string, unknow
     const result = await client.callTool({ name, arguments: args });
     const [content] = result.content as Array<{ type: string; text: string }>;
     if (result.isError) throw new Error(content.text);
-    return JSON.parse(content.text) as T;
+    // get_note and search_notes wrap their JSON as untrusted content (#949).
+    return JSON.parse(/^<untrusted-note-content-[\w-]+>\n([\s\S]*)\n<\/untrusted-note-content-[\w-]+>$/m.exec(content.text)?.[1] ?? content.text) as T;
 }
 
 const getMarkdown = async (client: Client, id: string) => (await call<{ markdown: string }>(client, 'get_note', { id })).markdown;

@@ -5,6 +5,23 @@ import { createRoot } from 'react-dom/client';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { useOverlayHistory, overlayEntryOpen } from '@/hooks/useOverlayHistory';
 
+// When set, the hook's navigate only writes the browser entry, as BrowserRouter does
+// before the location renders in its transition.
+const pendingPush = vi.hoisted(() => ({ on: false }));
+vi.mock('react-router-dom', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('react-router-dom')>();
+    return {
+        ...actual,
+        useNavigate: () => {
+            const navigate = actual.useNavigate();
+            return ((to: unknown, options?: { state?: unknown }) =>
+                pendingPush.on && typeof to === 'object'
+                    ? window.history.pushState({ usr: options?.state, key: 'sheet', idx: 2 }, '')
+                    : navigate(to as never, options)) as typeof navigate;
+        },
+    };
+});
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 type Spec = { open: boolean; close: () => void };
@@ -32,6 +49,7 @@ function mount(initial: Spec[]) {
 
 beforeEach(() => {
     window.innerWidth = 393;
+    pendingPush.on = false;
 });
 
 describe('useOverlayHistory', () => {
@@ -92,6 +110,22 @@ describe('useOverlayHistory', () => {
         act(() => probe.navigate(-1));
         expect(probe.path()).toBe('/folder');
         expect(probe.stack()).toHaveLength(0);
+    });
+
+    it('closes on a Back that pops its entry before the entry renders', () => {
+        const close = vi.fn();
+        const { probe, render } = mount([{ open: false, close }]);
+        pendingPush.on = true;
+        render([{ open: true, close }]);
+        // Pushed but not rendered yet: a re-render keeps it open.
+        render([{ open: true, close }]);
+        expect(close).not.toHaveBeenCalled();
+        // System Back returns to the list entry, still the rendered location.
+        window.history.replaceState({ usr: null, key: 'list', idx: 1 }, '');
+        render([{ open: true, close }]);
+        window.history.replaceState(null, '');
+        expect(close).toHaveBeenCalledTimes(1);
+        expect(probe.path()).toBe('/folder');
     });
 
     it('does nothing on desktop', () => {

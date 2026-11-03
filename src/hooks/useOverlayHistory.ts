@@ -6,6 +6,9 @@ type OverlayState = { overlays?: string[] };
 
 const stackOf = (state: unknown) => (state as OverlayState | null)?.overlays ?? [];
 
+/** How many overlays own a history entry at or below the current one. */
+export const overlayDepth = (state: unknown) => stackOf(state).length;
+
 /** The current entry belongs to an open overlay, so navigating away from it should replace it. */
 export const overlayEntryOpen = (state: unknown) => stackOf(state).length > 0;
 
@@ -15,6 +18,14 @@ export const overlayEntryOpen = (state: unknown) => stackOf(state).length > 0;
 const entryReplaced = (key: string) => {
   const current = (window.history.state as { key?: string } | null)?.key;
   return current !== undefined && current !== key;
+};
+
+// The pushed entry renders in that transition too, so a quick Back (or a slow
+// render) can pop it before the location ever shows it: the browser entry no
+// longer lists the overlay.
+const entryPopped = (id: string) => {
+  const current = window.history.state as { key?: string; usr?: unknown } | null;
+  return current?.key !== undefined && !stackOf(current.usr).includes(id);
 };
 
 // Below the desktop breakpoint an open overlay owns one history entry, so the
@@ -42,6 +53,10 @@ export function useOverlayHistory(open: boolean, close: () => void) {
       );
     } else if (phase.current === "pushing" && inStack) {
       phase.current = "active";
+    } else if (phase.current === "pushing" && open && entryPopped(id)) {
+      // System Back removed our entry before it rendered.
+      phase.current = "idle";
+      close();
     } else if (phase.current === "active" && !inStack) {
       // System Back removed our entry.
       phase.current = "idle";

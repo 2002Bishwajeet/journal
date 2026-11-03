@@ -1,13 +1,13 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { withMobilePage } from '../support/mobile';
-import { createFolder, selectFolder, screenshotInBothThemes } from '../support/actions';
+import { createFolder, selectFolder, screenshotInBothThemes, waitForNoteSaved } from '../support/actions';
 
 // On a phone, New note is a 56 px floating button at the bottom right (#878).
 
 const FOLDER = 'Fab folder';
 const fab = (page: Page) => page.getByRole('button', { name: 'New note', exact: true });
-const back = (page: Page) => page.getByRole('button', { name: 'Back', exact: true });
+const back = (page: Page) => page.getByRole('button', { name: /^Back to (?!notes$)/ });
 const rows = (page: Page) => page.getByTestId('note-row');
 
 async function box(locator: Locator) {
@@ -32,16 +32,16 @@ test('the New note button sits in the thumb zone and opens a note in the right f
     // Layout only: no push slide, so screenshots never land mid-slide.
     await page.emulateMedia({ reducedMotion: 'reduce' });
 
-    await test.step('home: 56 x 56, 16 px inside the bottom right corner', async () => {
+    await test.step('home: 56 x 56, 16 px from the right edge and 16 px above the tab bar', async () => {
       await expect(fab(page)).toBeVisible();
       const b = await box(fab(page));
       expect(b.width).toBe(56);
       expect(b.height).toBe(56);
       expect(b.x + b.width).toBe(393 - 16);
-      expect(b.y + b.height).toBe(852 - 16);
+      expect(b.y + b.height).toBe(852 - 49 - 16);
       // The sidebar footer ends above it.
-      const logout = page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: /Log out/ });
-      expect((await box(logout)).y + (await box(logout)).height).toBeLessThanOrEqual(b.y);
+      const footer = page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: /^Trash/ });
+      expect((await box(footer)).y + (await box(footer)).height).toBeLessThanOrEqual(b.y);
       await shots(page, 'fab-home');
     });
 
@@ -116,5 +116,34 @@ test('the New note button sits in the thumb zone and opens a note in the right f
       const last = await box(rows(page).last());
       expect(last.y + last.height).toBeLessThanOrEqual((await box(fab(page))).y);
     });
+  });
+});
+
+test('in a tag list, the New note button tags the new note (#933)', async ({ browser }) => {
+  await withMobilePage(browser, async (page) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await fab(page).click();
+    await expect(back(page)).toBeVisible();
+    const main = routeFolder(page);
+    await page.getByPlaceholder('Add tags...').fill('work');
+    await page.getByPlaceholder('Add tags...').press('Enter');
+    await waitForNoteSaved(page);
+    await back(page).click();
+    const toHome = page.getByRole('button', { name: 'Back to notes' });
+    const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+    await expect(toHome.or(sidebar).first()).toBeVisible();
+    if (await toHome.isVisible()) await toHome.click();
+
+    await sidebar.getByRole('navigation', { name: 'Tags' }).getByRole('button', { name: /work/ }).click();
+    await expect(page.getByRole('heading', { name: '#work' })).toBeVisible();
+    await expect(rows(page)).toHaveCount(1);
+
+    await fab(page).click();
+    await expect(back(page)).toBeVisible();
+    expect(routeFolder(page)).toBe(main);
+    await back(page).click();
+    // The new note carries `work`, so it joined this list.
+    await expect(page.getByRole('heading', { name: '#work' })).toBeVisible();
+    await expect(rows(page)).toHaveCount(2);
   });
 });

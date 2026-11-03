@@ -39,12 +39,14 @@ const CREATED = '2026-01-02T03:04:05.000Z';
 const CREATED_MS = new Date(CREATED).getTime();
 const fakeClient = fakeDotYouClient();
 
-type Visibility = 'public' | 'collaborative' | 'private';
-const VISIBILITIES: Visibility[] = ['public', 'collaborative', 'private'];
+// 'person': shared with named viewers only (#897)
+type Visibility = 'public' | 'collaborative' | 'person' | 'private';
+const VISIBILITIES: Visibility[] = ['public', 'collaborative', 'person', 'private'];
 
 const ACL = {
     public: { requiredSecurityGroup: SecurityGroupType.Anonymous },
     collaborative: { requiredSecurityGroup: SecurityGroupType.Connected, circleIdList: ['circle-1', 'circle-2'] },
+    person: { requiredSecurityGroup: SecurityGroupType.Connected, odinIdList: ['sam.dotyou.cloud'] },
     private: { requiredSecurityGroup: SecurityGroupType.Owner },
 };
 
@@ -63,6 +65,13 @@ function meta(visibility: Visibility): DocumentMetadata {
                 isCollaborative: true,
                 circleIds: ['circle-1', 'circle-2'],
                 recipients: ['friend.dotyou.cloud'],
+                lastEditedBy: 'me.dotyou.cloud',
+            }
+            : {}),
+        ...(visibility === 'person'
+            ? {
+                isCollaborative: true,
+                odinIds: ['sam.dotyou.cloud'],
                 lastEditedBy: 'me.dotyou.cloud',
             }
             : {}),
@@ -140,6 +149,7 @@ describe('updateNote — full upload metadata', () => {
                 shareDescription: 'Hello',
                 isCollaborative: m.isCollaborative,
                 circleIds: m.circleIds,
+                odinIds: m.odinIds,
                 recipients: m.recipients,
                 lastEditedBy: m.lastEditedBy,
             });
@@ -179,6 +189,9 @@ describe('addImageToNote — full upload metadata', () => {
         isPublic: visibility === 'public',
         ...(visibility === 'collaborative'
             ? { isCollaborative: true, circleIds: ['circle-1', 'circle-2'] }
+            : {}),
+        ...(visibility === 'person'
+            ? { isCollaborative: true, odinIds: ['sam.dotyou.cloud'] }
             : {}),
     });
 

@@ -1,7 +1,8 @@
 import { test, expect } from '../fixtures';
+import { openSettingsSection, settingsPanel } from '../support/actions';
 
 // Settings section registry (#210): a left nav / vertical tablist on desktop,
-// a horizontal nav strip on mobile.
+// a grouped section list on mobile (#831).
 
 test('desktop: vertical tablist, arrow-key navigation, Tab into content', async ({ app }) => {
   await app.setViewportSize({ width: 1280, height: 800 });
@@ -34,19 +35,18 @@ test('desktop: vertical tablist, arrow-key navigation, Tab into content', async 
   await expect(dialog.getByRole('tabpanel')).toBeFocused();
 });
 
-test('mobile: nav strip switches sections and long content scrolls', async ({ app }) => {
+test('mobile: the section list opens a page and long content scrolls', async ({ app }) => {
   // A short phone viewport (e.g. browser chrome or keyboard showing): no
   // section overflows a full 390x844 screen, so the scroll check needs less height.
   await app.setViewportSize({ width: 390, height: 560 });
   await app.getByRole('button', { name: 'Settings' }).click();
 
   const dialog = app.getByRole('dialog');
-  await dialog.getByRole('tab', { name: 'Data & storage' }).click();
+  await openSettingsSection(dialog, 'Data & storage');
 
   // Regression: the content pane must be height-bounded so overflow scrolls
   // instead of being clipped by the dialog.
-  const panel = dialog.getByRole('tabpanel');
-  const scroller = panel.locator('..');
+  const scroller = settingsPanel(dialog);
   const { scrollHeight, clientHeight } = await scroller.evaluate((el) => ({
     scrollHeight: el.scrollHeight,
     clientHeight: el.clientHeight,
@@ -59,15 +59,15 @@ test('mobile: nav strip switches sections and long content scrolls', async ({ ap
   await expect(dialog).toBeHidden();
 });
 
-test('mobile 390px: close button does not overlap the section tab strip', async ({ app }) => {
+test('mobile 390px: Done closes the list and does not overlap the title', async ({ app }) => {
   await app.setViewportSize({ width: 390, height: 844 });
   await app.getByRole('button', { name: 'Settings' }).click();
 
   const dialog = app.getByRole('dialog');
-  const close = dialog.locator('[data-slot=dialog-close]');
-  const tabs = dialog.getByRole('tablist');
-  await expect(close).toBeVisible();
-  await expect(tabs).toBeVisible();
+  const done = dialog.getByRole('button', { name: 'Done', exact: true });
+  const title = dialog.getByRole('heading', { name: 'Settings', exact: true });
+  await expect(done).toBeVisible();
+  await expect(dialog.locator('[data-slot=dialog-close]')).toHaveCount(0);
   // Wait for the open animation to finish (no running animations, full opacity).
   await expect
     .poll(() =>
@@ -77,9 +77,11 @@ test('mobile 390px: close button does not overlap the section tab strip', async 
     )
     .toBe(true);
 
-  const closeBox = (await close.boundingBox())!;
-  const tabsBox = (await tabs.boundingBox())!;
-  expect(closeBox.y + closeBox.height).toBeLessThanOrEqual(tabsBox.y);
+  const doneBox = (await done.boundingBox())!;
+  const titleBox = (await title.boundingBox())!;
+  expect(doneBox.height).toBeGreaterThanOrEqual(44);
+  expect(doneBox.y + doneBox.height).toBeLessThanOrEqual(titleBox.y + 1);
 
-  await app.screenshot({ path: test.info().outputPath('settings-close-light-390.png') });
+  await done.click();
+  await expect(dialog).toBeHidden();
 });

@@ -32,7 +32,8 @@ export async function startJournalMcp(): Promise<JournalMcp> {
 
 /**
  * Calls a tool and parses its result as JSON (mcp/createServer.ts's `json()`
- * helper wraps every tool's result as one pretty-printed JSON text block).
+ * helper wraps a tool's result as one pretty-printed JSON text block; get_note's
+ * and search_notes' have an untrusted-content envelope around it, so don't use this for them).
  * Throws the tool's own error message on failure.
  */
 export async function callToolJson<T = unknown>(

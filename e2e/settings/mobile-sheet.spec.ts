@@ -21,7 +21,7 @@ async function openSettings(page: Page, tablet = false) {
   return dialog;
 }
 
-test('phone: Settings is a full-screen sheet with a tab strip that keeps tabs whole', async ({ browser }) => {
+test('phone: Settings is a full-screen sheet with a section list', async ({ browser }) => {
   await withFencedPage(browser, { storageState: AUTH, viewport: PHONE, hasTouch: true, isMobile: true }, async (page) => {
     const dialog = await openSettings(page);
 
@@ -31,38 +31,8 @@ test('phone: Settings is a full-screen sheet with a tab strip that keeps tabs wh
     expect(Math.abs(box.width - PHONE.width)).toBeLessThanOrEqual(1);
     expect(Math.abs(box.height - PHONE.height)).toBeLessThanOrEqual(1);
 
-    const tablist = dialog.getByRole('tablist');
-    const tabs = dialog.getByRole('tab');
-
-    // First tab lines up with the title.
-    const titleBox = (await dialog.getByRole('heading', { name: 'Settings', exact: true }).boundingBox())!;
-    const firstBox = (await tabs.first().boundingBox())!;
-    expect(Math.abs(firstBox.x - titleBox.x)).toBeLessThanOrEqual(2);
-
-    const count = await tabs.count();
-    for (let i = 0; i < count; i++) {
-      const tab = tabs.nth(i);
-      const name = (await tab.textContent())!.trim();
-      await tab.click();
-      await expect(tab).toHaveAttribute('aria-selected', 'true');
-      // Selecting scrolls the tab fully into view.
-      await expect
-        .poll(async () => {
-          const t = (await tab.boundingBox())!;
-          const l = (await tablist.boundingBox())!;
-          return t.x >= l.x - 1 && t.x + t.width <= l.x + l.width + 1;
-        })
-        .toBe(true);
-
-      // The section heading is not repeated visibly under the tab.
-      const h2 = dialog.getByRole('tabpanel').getByRole('heading', { level: 2, name, exact: true });
-      if (await h2.count()) {
-        const hb = await h2.first().boundingBox();
-        expect(hb === null || hb.width <= 1 || hb.height <= 1).toBe(true);
-      }
-
-      await screenshotInBothThemes(page, (theme) => `settings-${i}-${theme}-393.png`);
-    }
+    await expect(dialog.getByRole('tablist')).toHaveCount(0);
+    await screenshotInBothThemes(page, (theme) => `settings-list-${theme}-393.png`);
   });
 });
 

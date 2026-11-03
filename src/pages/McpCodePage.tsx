@@ -27,7 +27,7 @@ export default function McpCodePage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-svh flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-xl flex flex-col gap-4">
         {code ? (
           <>

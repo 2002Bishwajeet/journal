@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, mermaidFrame } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #393: design pass for live blocks. Takes the screenshots the issue asks for,
@@ -33,7 +33,7 @@ const NODE_FILL = { light: 'rgb(242, 240, 233)', dark: 'rgb(44, 43, 41)' } as co
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const liveBlock = (scope: Locator, kind: string) => scope.locator(`[data-live-block="${kind}"]`).first();
-const diagram = (scope: Locator) => liveBlock(scope, 'mermaid').locator('svg[id^="mermaid-"]');
+const diagram = (scope: Locator) => mermaidFrame(liveBlock(scope, 'mermaid')).locator('svg[id^="mermaid-"]');
 
 /** Screenshots one block with a little of the page around it. */
 async function shoot(page: Page, block: Locator, name: string): Promise<void> {
@@ -48,10 +48,11 @@ async function shoot(page: Page, block: Locator, name: string): Promise<void> {
 
 /** Every kind is showing its preview. */
 async function expectPreviews(scope: Locator): Promise<void> {
+  // A frame is lazy: it loads once it is near the viewport.
+  await liveBlock(scope, 'mermaid').scrollIntoViewIfNeeded();
   await expect(diagram(scope)).toBeVisible({ timeout: 30_000 });
   await expect(liveBlock(scope, 'svg').locator('img')).toBeVisible();
   const frame = liveBlock(scope, 'html').locator('iframe');
-  // The frame is lazy: it loads once it is near the viewport.
   await frame.scrollIntoViewIfNeeded();
   await expect(frame.contentFrame().getByRole('heading', { name: 'Counter' })).toBeVisible();
 }
@@ -63,10 +64,13 @@ async function expectLayout(page: Page, scope: Locator, theme: (typeof THEMES)[n
     width: svg.getBoundingClientRect().width,
     natural: svg.viewBox.baseVal.width,
     overflowX: getComputedStyle(svg.parentElement!).overflowX,
+    leftOfBox: svg.getBoundingClientRect().left - svg.parentElement!.getBoundingClientRect().left,
     nodeFill: getComputedStyle(svg.querySelector('.node rect')!).fill,
   }));
   expect(Math.abs(drawn.width - drawn.natural)).toBeLessThan(1);
   expect(drawn.overflowX).toBe('auto');
+  // A wide diagram starts at the box's left edge: scrolling can't reach what sticks out to the left.
+  expect(drawn.leftOfBox).toBeGreaterThanOrEqual(0);
   expect(drawn.nodeFill).toBe(NODE_FILL[theme]);
 
   for (const kind of KINDS) {
@@ -121,6 +125,8 @@ async function pasteBlocks(page: Page, blocks: [language: string, code: string][
 
 // One note, checked in light and then in dark: the blocks are drawn again in the new theme.
 test('editor: mermaid, svg and html blocks', async ({ app }) => {
+  // Going between desktop and mobile mounts the editor again, so each diagram's frame loads four times.
+  test.slow();
   await app.setViewportSize(VIEWPORTS.desktop);
   await createNote(app, { title: `Live blocks ${Date.now()}`, body: 'Live blocks in the editor.' });
   await pasteBlocks(app, [...KINDS.map((kind): [string, string] => [kind, SOURCES[kind]]), ['mermaid', BROKEN_MERMAID]]);
@@ -147,7 +153,9 @@ test('editor: mermaid, svg and html blocks', async ({ app }) => {
     await app.setViewportSize(VIEWPORTS.desktop);
     const editor = activeEditor(app);
     const broken = editor.locator('[data-live-block="mermaid"]').nth(1);
-    await expect(broken.getByRole('alert')).toBeVisible();
+    await broken.scrollIntoViewIfNeeded();
+    await expect(mermaidFrame(broken).getByRole('alert')).toBeVisible({ timeout: 30_000 });
+    await expect(mermaidFrame(broken).getByText('Rendering diagram')).toHaveCount(0);
     await shoot(app, broken, `mermaid-error-editor-${theme}-desktop.png`);
 
     const html = liveBlock(editor, 'html');

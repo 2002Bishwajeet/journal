@@ -25,9 +25,10 @@ const listeners = new Set<() => void>();
 /**
  * A boot timing mark, `journal-boot:<step>` in `performance.getEntriesByType('mark')`,
  * which the iOS Safari check reads to find the step a stuck boot stalls on (#806).
+ * `startTime` places a step timed elsewhere (the database worker) on this page's clock.
  */
-export function markBoot(step: string): void {
-    performance.mark(`journal-boot:${step}`);
+export function markBoot(step: string, startTime?: number): void {
+    performance.mark(`journal-boot:${step}`, startTime === undefined ? undefined : { startTime });
 }
 
 export function reportBootPhase(phase: BootPhase): void {

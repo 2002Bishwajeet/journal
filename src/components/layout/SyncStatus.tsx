@@ -19,6 +19,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { ResponsiveSheet } from "@/components/ui/responsive-sheet";
+import { useSheetMode } from "@/hooks/useSheetMode";
 import { formatRelativeTime } from "@/lib/utils";
 
 interface SyncStatusProps {
@@ -30,6 +32,7 @@ export function SyncStatus({ className }: SyncStatusProps) {
     useSyncService();
   const { isOnline } = useOnlineContext();
   const [open, setOpen] = useState(false);
+  const asSheet = useSheetMode();
 
   const isPending = pendingCount.total > 0;
   // Changes sync stopped retrying (#874): they need the user, in Diagnostics
@@ -67,42 +70,156 @@ export function SyncStatus({ className }: SyncStatusProps) {
   // Pending items, errors and the log, for a phone without a console (#800).
   const showDiagnostics = () => {
     setOpen(false);
-    openSettings("diagnostics");
+    if (!asSheet) return openSettings("diagnostics");
+    // The sheet pops its history entry as it closes; open Settings after that pop, or it takes
+    // Settings' entry with it and closes the dialog again.
+    // With no pop (no router, or a desktop-class touch device) a short timer opens it instead.
+    const go = () => {
+      window.removeEventListener("popstate", go);
+      clearTimeout(fallback);
+      setTimeout(() => openSettings("diagnostics"));
+    };
+    const fallback = setTimeout(go, 300);
+    window.addEventListener("popstate", go);
   };
 
   const status = getStatus();
   const StatusIcon = status.icon;
 
+  // A 44 px hit area on touch, with the icon at its size
+  const trigger = (
+    <button
+      type="button"
+      aria-label="Sync status"
+      onClick={asSheet ? () => setOpen(true) : undefined}
+      className={cn(
+        "group flex items-center justify-center rounded-md p-2 transition-colors hover:bg-muted/50 focus-visible:outline-none pointer-coarse:size-11",
+        className,
+      )}
+    >
+      {isSyncing ? (
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      ) : !isOnline ? (
+        <WifiOff className="h-4 w-4 text-muted-foreground/70" />
+      ) : isPending || failed > 0 ? (
+        <div className="relative">
+          <Cloud className="h-4 w-4 text-foreground" />
+          <span
+            className={cn(
+              "absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-background",
+              failed > 0 ? "bg-destructive dark:bg-red-400" : "bg-primary",
+            )}
+          />
+        </div>
+      ) : (
+        <Cloud className="h-4 w-4 text-muted-foreground/70 group-hover:text-foreground transition-colors" />
+      )}
+    </button>
+  );
+
+  if (asSheet) {
+    const waiting =
+      isPending && isOnline && !isSyncing && !failed && syncStatus !== "error";
+    return (
+      <>
+        {trigger}
+        <ResponsiveSheet open={open} onOpenChange={setOpen} title="Sync status">
+          <div className="flex flex-col gap-3 pb-2">
+            <div className="flex items-center gap-3">
+              <div
+                className={cn(
+                  "flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary",
+                  status.color,
+                )}
+              >
+                <StatusIcon
+                  className={cn("h-5 w-5", status.animate && "animate-spin")}
+                />
+              </div>
+              <div className="flex min-w-0 flex-col">
+                <span className="text-base font-medium">
+                  {waiting
+                    ? `${pendingCount.total} ${pendingCount.total === 1 ? "change" : "changes"} waiting`
+                    : status.label}
+                </span>
+                {lastSyncedAt && (
+                  <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                    {formatRelativeTime(lastSyncedAt)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <Button
+              className="h-11 w-full"
+              onClick={() => sync()}
+              disabled={isSyncing || !isOnline}
+            >
+              <RefreshCw
+                className={cn(isSyncing && "animate-spin")}
+                aria-hidden="true"
+              />
+              Sync now
+            </Button>
+
+            {isSyncing && syncProgress && syncProgress.total > 0 && (
+              <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
+                <div
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{
+                    width: `${(syncProgress.current / syncProgress.total) * 100}%`,
+                  }}
+                />
+              </div>
+            )}
+
+            {isPending && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Pending items</span>
+                <span className="font-medium text-foreground">
+                  {pendingCount.total}
+                </span>
+              </div>
+            )}
+
+            {failed > 0 && (
+              <button
+                type="button"
+                className="flex min-h-11 items-center justify-between text-sm text-destructive dark:text-red-400"
+                onClick={showDiagnostics}
+              >
+                <span>Couldn't sync</span>
+                <span className="font-medium">{failed}</span>
+              </button>
+            )}
+
+            {!isOnline && (
+              <p className="text-sm text-muted-foreground">
+                Sync paused while offline
+              </p>
+            )}
+
+            <button
+              type="button"
+              className="-mx-4 flex min-h-11 items-center justify-between border-t px-4 text-sm"
+              onClick={showDiagnostics}
+            >
+              Open diagnostics
+              <ChevronRight
+                className="h-4 w-4 text-muted-foreground"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
+        </ResponsiveSheet>
+      </>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label="Sync status"
-          className={cn(
-            "group flex items-center justify-center rounded-md p-2 transition-colors hover:bg-muted/50 focus-visible:outline-none",
-            className,
-          )}
-        >
-          {isSyncing ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : !isOnline ? (
-            <WifiOff className="h-4 w-4 text-muted-foreground/70" />
-          ) : isPending || failed > 0 ? (
-            <div className="relative">
-              <Cloud className="h-4 w-4 text-foreground" />
-              <span
-                className={cn(
-                  "absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ring-2 ring-background",
-                  failed > 0 ? "bg-destructive dark:bg-red-400" : "bg-primary",
-                )}
-              />
-            </div>
-          ) : (
-            <Cloud className="h-4 w-4 text-muted-foreground/70 group-hover:text-foreground transition-colors" />
-          )}
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
 
       <PopoverContent
         align="end"

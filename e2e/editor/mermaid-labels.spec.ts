@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, mermaidFrame } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #432: no Mermaid label is clipped. Mermaid sizes each node from the label it measured,
@@ -97,13 +97,15 @@ async function expectSequenceNotesFit(block: Locator): Promise<void> {
 async function expectNoteLabelsFit(scope: Locator): Promise<void> {
   const blocks = scope.locator('[data-live-block="mermaid"]');
   await expect(blocks).toHaveCount(DIAGRAMS.length);
-  await expect(scope.locator('[data-live-block="mermaid"] svg[id^="mermaid-"]')).toHaveCount(DIAGRAMS.length, { timeout: 30_000 });
   // The sequence diagram draws its labels as svg text: it has no <foreignObject> to check.
   const minLabels = { flowchart: 5, sequence: 0, class: 1, state: 1 };
   for (const [nth, { name }] of DIAGRAMS.entries()) {
+    // A frame is lazy: it loads once it is near the viewport.
     await blocks.nth(nth).scrollIntoViewIfNeeded();
-    await expectNoClippedLabels(blocks.nth(nth), minLabels[name as keyof typeof minLabels]);
-    if (name === 'sequence') await expectSequenceNotesFit(blocks.nth(nth));
+    const page = mermaidFrame(blocks.nth(nth));
+    await expect(page.locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 30_000 });
+    await expectNoClippedLabels(page.locator('body'), minLabels[name as keyof typeof minLabels]);
+    if (name === 'sequence') await expectSequenceNotesFit(page.locator('body'));
   }
 }
 
@@ -112,6 +114,10 @@ async function shoot(page: Page, scope: Locator, where: string, theme: string): 
   for (const nth of [0, 1]) {
     const block = scope.locator('[data-live-block="mermaid"]').nth(nth);
     await block.scrollIntoViewIfNeeded();
+    // A sandboxed frame only paints inside the viewport: a screenshot taken before that shows it blank.
+    await mermaidFrame(block)
+      .locator('body')
+      .evaluate(() => new Promise<void>((painted) => requestAnimationFrame(() => requestAnimationFrame(() => painted()))));
     await block.screenshot({ path: test.info().outputPath(`${DIAGRAMS[nth].name}-${where}-${theme}.png`) });
   }
 }

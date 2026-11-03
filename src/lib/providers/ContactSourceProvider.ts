@@ -44,50 +44,21 @@ const queryRemoteAttributes = async (
   odinId: string,
 ): Promise<RawContact | undefined> => {
   try {
-    const [name, phone, email, location, birthday, photo] = await Promise.all([
-      (
-        await getProfileAttributesOverPeer(
-          dotYouClient,
-          odinId,
+    // All six at once: an `await` inside the array would run them one after another
+    const [name, phone, email, location, birthday, photo] = (
+      await Promise.all(
+        [
           BuiltInAttributes.Name,
-        )
-      )?.[0],
-      (
-        await getProfileAttributesOverPeer(
-          dotYouClient,
-          odinId,
           BuiltInAttributes.PhoneNumber,
-        )
-      )?.[0],
-      (
-        await getProfileAttributesOverPeer(
-          dotYouClient,
-          odinId,
           BuiltInAttributes.Email,
-        )
-      )?.[0],
-      (
-        await getProfileAttributesOverPeer(
-          dotYouClient,
-          odinId,
           BuiltInAttributes.Address,
-        )
-      )?.[0],
-      (
-        await getProfileAttributesOverPeer(
-          dotYouClient,
-          odinId,
           BuiltInAttributes.Birthday,
-        )
-      )?.[0],
-      (
-        await getProfileAttributesOverPeer(
-          dotYouClient,
-          odinId,
           BuiltInAttributes.Photo,
-        )
-      )?.[0],
-    ]);
+        ].map((attribute) =>
+          getProfileAttributesOverPeer(dotYouClient, odinId, attribute),
+        ),
+      )
+    ).map((attributes) => attributes?.[0]);
 
     const nameAttr = name?.fileMetadata.appData.content;
     const phoneAttr = phone?.fileMetadata.appData.content;

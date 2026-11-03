@@ -159,3 +159,37 @@ describe('unenroll and members', () => {
         expect(post).toHaveBeenCalledWith(`${V2}/revoke`, { circleId: SHARES_ID, odinId: 'b.id' });
     });
 });
+
+// #897: people named on a note as viewers get Read only, from a circle of their own
+describe('viewers', () => {
+    const VIEWERS_ID = 'cccccccc-0000-0000-0000-000000000003';
+
+    it('creates journal-viewers with Read only, once, and adds each person to it', async () => {
+        routePosts((slug) => (slug === 'journal-viewers' ? VIEWERS_ID : SHARES_ID));
+        const provider = new ShareCircleProvider(client);
+
+        const results = await provider.enrollViewers(['sam.id']);
+        await provider.enrollViewers(['pip.id']);
+
+        expect(results).toEqual([{ odinId: 'sam.id', status: 'added' }]);
+        const creates = post.mock.calls.filter(([url]) => url === `${V2}/create`);
+        expect(creates).toHaveLength(1);
+        expect(creates[0][1]).toMatchObject({
+            slug: 'journal-viewers',
+            driveGrants: [{ permissionedDrive: { drive: JOURNAL_DRIVE, permission: 1 } }],
+        });
+        expect(post).toHaveBeenCalledWith(`${V2}/add`, { circleId: VIEWERS_ID, odinId: 'sam.id' });
+        expect(post).toHaveBeenCalledWith(`${V2}/add`, { circleId: VIEWERS_ID, odinId: 'pip.id' });
+        // Neither the share circle nor journal-read is looked at
+        expect(get).not.toHaveBeenCalled();
+    });
+
+    it('removes people from journal-viewers only', async () => {
+        routePosts((slug) => (slug === 'journal-viewers' ? VIEWERS_ID : SHARES_ID));
+
+        await new ShareCircleProvider(client).unenrollViewers(['sam.id']);
+
+        expect(post).toHaveBeenCalledWith(`${V2}/revoke`, { circleId: VIEWERS_ID, odinId: 'sam.id' });
+        expect(post).not.toHaveBeenCalledWith(`${V2}/create`, expect.objectContaining({ slug: 'journal-shares' }));
+    });
+});

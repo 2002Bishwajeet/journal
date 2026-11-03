@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect, waitForAppReady } from '../fixtures';
-import { inBothThemes } from '../support/actions';
+import { inBothThemes, openSettingsSection, settingsPanel } from '../support/actions';
 
 // Settings > Notifications "Send test": shown only when this device is subscribed, it asks the
 // identity's app push API to push to itself, and it says what failed (403 points to the grant).
@@ -28,7 +28,7 @@ test('send test notification: success, then a 403 that points to the grant', asy
   await app.getByRole('button', { name: 'Settings' }).click();
   const dialog = app.getByRole('dialog');
   await dialog.getByRole('tab', { name: 'Notifications', exact: true }).click();
-  const panel = dialog.getByRole('tabpanel');
+  const panel = settingsPanel(dialog);
   await expect(panel).toContainText('On for this device');
   await expect(panel).toContainText('Every device where you turned on notifications gets it.');
 
@@ -47,6 +47,8 @@ test('send test notification: success, then a 403 that points to the grant', asy
   await app.setViewportSize({ width: 1280, height: 800 });
   await shoot('test-push-sent-desktop');
   await app.setViewportSize({ width: 390, height: 844 });
+  // A phone shows the section list after the resize.
+  await openSettingsSection(dialog, 'Notifications');
   await shoot('test-push-sent-mobile');
 
   status = 403;

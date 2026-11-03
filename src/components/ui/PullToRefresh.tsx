@@ -3,6 +3,7 @@ import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { swipeAxis } from '@/helpers/swipeAxis';
+import { haptic } from '@/lib/haptics';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
@@ -13,6 +14,8 @@ interface PullToRefreshProps {
 const PULL_THRESHOLD = 80;
 const MAX_PULL = 120;
 const FRICTION = 0.5;
+// The settle animation is JS-driven, so MotionConfig does not reach it: skip it under reduced motion (#856).
+const settle = () => ({ duration: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : 0.2 });
 
 export function PullToRefresh({ onRefresh, children, className }: PullToRefreshProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -113,16 +116,17 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
 
       if (pullDistance >= PULL_THRESHOLD) {
         setIsRefreshing(true);
-        animate(y, PULL_THRESHOLD, { duration: 0.2 });
+        haptic("light");
+        animate(y, PULL_THRESHOLD, settle());
 
         try {
           await onRefresh();
         } finally {
           setIsRefreshing(false);
-          animate(y, 0, { duration: 0.2 });
+          animate(y, 0, settle());
         }
       } else {
-        animate(y, 0, { duration: 0.2 });
+        animate(y, 0, settle());
       }
     };
 

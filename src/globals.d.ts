@@ -31,6 +31,12 @@ declare module 'virtual:react-block-lucide' {
   export default script;
 }
 
+/** The mermaid a mermaid block runs on, as the text of a script that sets window.mermaid (#946). */
+declare module 'virtual:react-block-mermaid' {
+  const script: string;
+  export default script;
+}
+
 /** Any other library a react block can import, as the text of a script that sets its global (REACT_BLOCK_LIBRARIES, #558). */
 declare module 'virtual:react-block-*' {
   const script: string;
@@ -55,6 +61,8 @@ interface JournalE2EHooks {
   seedPendingSync(): Promise<void>;
   /** Leaves only image uploads (PNG bytes) in a note already on the server (#874). */
   seedImageUploads(title: string, images: number[][]): Promise<void>;
+  /** Adds a synced note in Main that is shared with two people (#828). */
+  seedCollaborativeNote(title: string): Promise<void>;
   /** Runs the sync's image upload step once. */
   uploadPendingImages(): Promise<void>;
   /** Marks the identity's share pushes as refused by its server, so Diagnostics shows the drive fixes (#848). */
@@ -65,6 +73,21 @@ interface JournalE2EHooks {
   subscribePeerPush(odinId: string): Promise<void>;
   /** The newest entries of the signed-in identity's Journal notification list (#745). */
   journalNotifications(): Promise<{ id: string; senderId: string; unread: boolean; typeId: string; tagId: string }[]>;
+  /** This identity's note as its server has it: the ids a peer update addresses, and the stored ACL (#897). */
+  noteHeader(docId: string): Promise<{ globalTransitId?: string; versionTag: string; acl?: { odinIdList?: string[] | null; circleIdList?: string[] | null } } | null>;
+  /** The #897 security check: reads, then patches, another identity's note over peer, and says what each got. */
+  probePeerNote(
+    authorOdinId: string,
+    docId: string,
+    globalTransitId: string,
+    versionTag: string,
+  ): Promise<{ read: string; patch: string }>;
+  /** For the AI eval (#706): loads the agent model, then accepts every assistant proposal and records the loop's events. */
+  startAgentEval(modelId: string): Promise<{ loaded: boolean; loadMs: number; loadedModelId: string; cached: boolean }>;
+  /** The agent loop's events since the last call; a proposal keeps only its tool and args. */
+  takeAgentEvents(): ({ type: string; tool?: string; args?: unknown; step?: number; answer?: string; error?: string; message?: string; result?: string })[];
+  /** The open note's id and its editor content as TipTap JSON, or null with no note open. */
+  openNoteJSON(): Promise<{ docId: string; doc: unknown } | null>;
   /** Draws a 1200×630 link card JPEG, as src/lib/share/cardImage.ts's renderCardImage does. */
   renderCard(
     text: { title: string; excerpt?: string; author: string },

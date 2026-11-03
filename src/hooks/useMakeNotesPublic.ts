@@ -11,13 +11,15 @@ import { useSyncService } from '@/hooks/useSyncService';
 
 /**
  * Publishing a note from the share dialog, and the private notes it links to.
- * `makePublic(extraIds)` publishes the note and then each of `extraIds`, with one toast.
+ * `makePublic(extraIds)` publishes the note and then each of `extraIds`, with one toast;
+ * `makePrivate()` turns its public link off again.
  */
 export function useMakeNotesPublic(noteId: string) {
     const dotYouClient = useDotYouClientContext();
     const { get, setNotePublic, setShareCard } = useNotes();
     const { syncNote } = useSyncService();
     const [isMakingPublic, setIsMakingPublic] = useState(false);
+    const [isMakingPrivate, setIsMakingPrivate] = useState(false);
 
     const notes = get.data;
     const privateLinks = privateLinkedNotes(
@@ -67,5 +69,29 @@ export function useMakeNotesPublic(noteId: string) {
         }
     };
 
-    return { privateLinks, isMakingPublic, makePublic };
+    /** Resolves true once the note is private again. */
+    const makePrivate = async (): Promise<boolean> => {
+        if (!dotYouClient) {
+            toast.error('Not authenticated');
+            return false;
+        }
+
+        setIsMakingPrivate(true);
+        try {
+            const provider = new NotesDriveProvider(dotYouClient);
+            const record = await getSyncRecord(noteId);
+            const rekeyed = await provider.makeNotePrivate(noteId, record?.remoteFileId);
+            setNotePublic.mutate({ docId: noteId, isPublic: false, rekeyed });
+            toast.success('Sharing stopped — this note is private again');
+            return true;
+        } catch (err) {
+            console.error('Failed to make note private:', err);
+            toast.error('Failed to stop sharing');
+            return false;
+        } finally {
+            setIsMakingPrivate(false);
+        }
+    };
+
+    return { privateLinks, isMakingPublic, makePublic, isMakingPrivate, makePrivate };
 }

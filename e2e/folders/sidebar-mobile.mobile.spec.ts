@@ -33,7 +33,7 @@ test('a saved collapsed state does not shrink the phone sidebar', async ({ brows
     );
     await page.reload();
     const sidebar = sidebarOf(page);
-    await expect(sidebar.getByText('Journal', { exact: true })).toBeVisible();
+    await expect(sidebar.getByRole('heading', { name: 'Journal' })).toBeVisible();
     await expect(sidebar.getByRole('button', { name: 'Expand sidebar' })).toBeHidden();
     const box = await sidebar.boundingBox();
     expect(box!.width).toBeGreaterThanOrEqual(392); // the wrapper has a 1px border

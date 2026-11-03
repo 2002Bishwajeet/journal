@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { openSettingsSection } from '../support/actions';
 import { stubWebGPU } from '../support/webgpu';
 import { finishLoad, reloads, stubWebLLMWorker } from '../support/webllm-worker';
 
@@ -32,7 +33,7 @@ async function screenshotBothThemes(page: Page, name: string) {
 async function openAISettings(page: Page) {
   await page.getByRole('button', { name: 'Settings' }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByRole('tab', { name: 'AI', exact: true }).click();
+  await openSettingsSection(dialog, 'AI');
   return dialog;
 }
 
@@ -42,6 +43,8 @@ test('mobile: explains that AI needs a larger screen and disables the switch', a
 
   await expect(dialog.getByText("On-device AI needs a larger screen (768 px or wider) and isn't available on phones.")).toBeVisible();
   await expect(dialog.getByRole('switch', { name: 'Enable on-device AI' })).toBeDisabled();
+  await expect(dialog.getByText('Experimental', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('link', { name: 'Set up an agent' })).toHaveAttribute('href', 'https://journal.cloudx.run/agents');
   await expect(dialog.getByRole('radiogroup', { name: 'Model' })).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: 'Remove downloaded models' })).toHaveCount(0);
 });

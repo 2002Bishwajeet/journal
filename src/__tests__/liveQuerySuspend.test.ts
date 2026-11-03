@@ -179,7 +179,7 @@ describe('suspendLiveQueries — bulk pull skips per-write re-execution', () => 
   it('a query acquired while suspended gets its rows after resume', async () => {
     const FOLDER = '70000000-0000-0000-0000-0000000000ff';
     const resume = suspendLiveQueries();
-    const byFolder = track<{ doc_id: string }>(NOTE_ROW_KEY, NOTE_LIST_SQL.byFolder, [FOLDER]);
+    const byFolder = track<{ doc_id: string }>(NOTE_ROW_KEY, NOTE_LIST_SQL.byFolder, [FOLDER, HOST]);
     await insertNote(FOLDER);
     await sleep(400);
     expect(byFolder.state.calls).toBe(0);

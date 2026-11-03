@@ -1,7 +1,7 @@
 {
   "name": "journal",
   "private": true,
-  "version": "2.41.0",
+  "version": "2.56.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,9 @@
     "lint": "eslint .",
     "typecheck": "node node_modules/typescript-7/bin/tsc -b",
     "preview": "vite preview",
+    "site:dev": "vite -c site/vite.config.ts",
+    "site:build": "node node_modules/typescript-7/bin/tsc -p site && vite build -c site/vite.config.ts",
+    "site:preview": "vite preview -c site/vite.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
@@ -25,7 +28,8 @@
     "e2e:mobile:webkit": "playwright test --project=mobile-webkit",
     "e2e:quarantine": "playwright test --project=quarantine --pass-with-no-tests",
     "e2e:edge": "playwright test --project=edge",
-    "e2e:report": "playwright show-report"
+    "e2e:report": "playwright show-report",
+    "eval:ai": "node e2e/evals/run.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.10",
@@ -71,7 +75,7 @@
     "@tiptap/suggestion": "^3.32.0",
     "d3": "^7.9.0",
     "emojilib": "4.0.3",
-    "framer-motion": "^13.4.4",
+    "framer-motion": "^14.9.0",
     "gemoji": "^8.1.0",
     "idb-keyval": "^6.3.0",
     "jszip": "^3.10.1",
@@ -79,7 +83,7 @@
     "lodash-es": "^4.18.1",
     "lowlight": "^3.3.0",
     "mathjs": "^15.2.0",
-    "mermaid": "^12.0.0",
+    "mermaid": "12.2.0",
     "papaparse": "^5.7.0",
     "pglite-v4": "npm:@electric-sql/pglite@^0.4.6",
     "radix-ui": "^1.8.1",
@@ -104,9 +108,9 @@
   "devDependencies": {
     "@babel/core": "^8.0.7",
     "@eslint/js": "^10.0.1",
-    "@modelcontextprotocol/sdk": "1.32.1",
-    "@napi-rs/keyring": "2.1.0",
-    "@playwright/test": "1.63.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@napi-rs/keyring": "2.1.2",
+    "@playwright/test": "1.64.1",
     "@rolldown/plugin-babel": "^0.2.4",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.5.1",

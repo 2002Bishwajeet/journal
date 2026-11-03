@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect } from 'react';
+import { syncThemeColor } from '@/lib/themeColor';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 
@@ -33,6 +34,9 @@ function applyTheme(preference: ThemePreference): void {
 
     // Also set color-scheme for native browser UI (scrollbars, form controls)
     root.style.colorScheme = actualTheme;
+
+    // The status bar follows the in-app theme, not only the OS scheme (#893)
+    syncThemeColor();
 }
 
 export function useThemePreference() {

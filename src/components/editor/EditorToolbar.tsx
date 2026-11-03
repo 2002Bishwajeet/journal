@@ -65,7 +65,14 @@ export default function EditorToolbar({ editor, onToggleToc, tocOpen = false, on
 
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+    // One row that scrolls sideways (swipe, trackpad, shift+wheel) instead of wrapping in a narrow pane.
+    // The popovers it opens portal to <body>, so the overflow never clips them. The edge fade is as wide as
+    // the padding, so it only covers buttons while there is more to scroll to.
+    <div
+      role="toolbar"
+      aria-label="Formatting"
+      className="flex items-center gap-0.5 overflow-x-auto overscroll-x-contain scrollbar-hide scroll-px-4 *:shrink-0 [mask-image:linear-gradient(to_right,transparent,#000_1rem,#000_calc(100%-1rem),transparent)] px-4 py-2 border-b border-gray-200 dark:border-gray-700"
+    >
       {/* Undo/Redo - uses Y.js undo manager */}
       <ToolbarButton
         onClick={() => safeEditorCommand(editor, () => {

@@ -61,7 +61,7 @@ export function TagInput({ docId, metadata }: TagInputProps) {
           {tag}
           <button
             onClick={() => removeTag(docId, tag, metadata)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            className="opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
           >
             <X className="h-3 w-3" />
           </button>

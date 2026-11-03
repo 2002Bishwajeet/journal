@@ -18,6 +18,8 @@ export interface WriteProposal {
     summary: string;
     /** The markdown the agent wants to add, shown as plain text. */
     markdown: string;
+    /** The target note or folder is shared, so what is written goes public. */
+    isPublic?: boolean;
     /** Writes it, against the note as it is now. Throws when it no longer applies. */
     apply(): Promise<WrittenNote>;
     /** Set once `apply` has run. */

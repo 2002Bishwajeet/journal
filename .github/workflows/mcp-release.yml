@@ -1,6 +1,6 @@
 name: Release MCP package
 
-# Bumps journal-mcp (mcp/package/package.json and the plugin's version and URLs), builds and
+# Bumps journal-mcp (mcp/package/package.json, the plugin's version and URLs, and the site's setup guide), builds and
 # smoke-tests it, then commits, tags and pushes the bump (with the RELEASE_DEPLOY_KEY deploy
 # key, like manual-release.yml) and attaches the package to an `mcp-v<version>` GitHub
 # release. The Claude Code plugin (plugins/journal/.mcp.json) runs that asset through npx.
@@ -45,7 +45,7 @@ jobs:
           OLD=$(node -p "require('./mcp/package/package.json').version")
           (cd mcp/package && npm version ${{ github.event.inputs.version_type }} --no-git-tag-version)
           NEW=$(node -p "require('./mcp/package/package.json').version")
-          sed -i "s|mcp-v$OLD/journal-mcp-$OLD.tgz|mcp-v$NEW/journal-mcp-$NEW.tgz|g" plugins/journal/.mcp.json plugins/journal/commands/login.md
+          sed -i "s|mcp-v$OLD/journal-mcp-$OLD.tgz|mcp-v$NEW/journal-mcp-$NEW.tgz|g" plugins/journal/.mcp.json plugins/journal/commands/login.md site/agents.html
           sed -i "s|\"version\": \"$OLD\"|\"version\": \"$NEW\"|" plugins/journal/.claude-plugin/plugin.json
           git diff --stat
 
@@ -55,6 +55,9 @@ jobs:
           VERSION=$(node -p "require('./mcp/package/package.json').version")
           grep -rq "mcp-v$VERSION/journal-mcp-$VERSION.tgz" plugins/journal \
             || { echo "plugins/journal doesn't reference journal-mcp $VERSION"; exit 1; }
+          # The site's setup guide (site/agents.html) runs the same package through npx.
+          ! grep -o "mcp-v[0-9.]*/journal-mcp-[0-9.]*.tgz" site/agents.html | grep -qv "mcp-v$VERSION/journal-mcp-$VERSION.tgz" \
+            || { echo "site/agents.html points at another journal-mcp than $VERSION"; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Authenticate to Github packages
@@ -77,7 +80,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add mcp/package/package.json plugins/journal
+          git add mcp/package/package.json plugins/journal site/agents.html
           git commit -m "chore(mcp): $VERSION [skip ci]"
           git tag "mcp-v$VERSION"
           git push origin HEAD:main "mcp-v$VERSION"

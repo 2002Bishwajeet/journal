@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures';
 import type { Page } from '@playwright/test';
 import { createNote, activeEditor, screenshotInBothThemes, selectFolder } from '../support/actions';
+import { addToShare, openShareDialog, saveShare } from '../support/shareDialog';
 
 // #745: the owner's share sends a peer push; the peer's app pulls that owner and shows
 // the note under "Shared with me". Docker tier only, like shared-pull.live.spec.ts.
@@ -29,14 +30,9 @@ test('a share push lands in the peer\'s notification list and brings the note to
 
     await createNote(owner.page, { title, body });
     const noteId = new URL(owner.page.url()).pathname.split('/').pop()!;
-    await noteRow(owner.page, title).click({ button: 'right' });
-    await owner.page.getByRole('menuitem', { name: 'Mark as Collaborative' }).click();
-    const dialog = owner.page.getByRole('dialog', { name: 'Mark as Collaborative' });
-    await dialog.getByRole('button').filter({ hasText: circleName }).click();
-    await dialog.getByRole('button', { name: 'Share with 1 circle' }).click();
-    await expect(dialog).toBeHidden({ timeout: 30_000 });
-    const readOnly = owner.page.getByRole('dialog', { name: 'Note shared' });
-    if (await readOnly.isVisible()) await readOnly.getByRole('button', { name: 'Done' }).click();
+    await openShareDialog(owner.page, title);
+    await addToShare(owner.page, circleName);
+    await saveShare(owner.page);
 
     // The peer's server stored one Journal SHARE entry for this note, sent by the owner.
     let entries: Awaited<ReturnType<NonNullable<Window['__journalE2E']>['journalNotifications']>> = [];

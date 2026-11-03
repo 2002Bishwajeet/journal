@@ -19,6 +19,8 @@ vi.mock('@/lib/db', () => ({
     getSyncRecord: vi.fn(),
     upsertSyncRecord: mocks.upsertSyncRecord,
     deleteSyncRecord: vi.fn(),
+    getAppState: vi.fn(async () => null),
+    saveAppState: vi.fn(),
 }));
 
 import { handleInvitation } from '@/lib/homebase/sync/peerNotes';

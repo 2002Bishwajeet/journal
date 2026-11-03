@@ -209,16 +209,22 @@ async function grantCollaborationPermissions(page: Page, identity: string) {
     const title = 'E2E setup: collaboration permissions';
     await createNote(page, { title, body: 'Opens the collaboration dialog once, during setup.' });
     await page.getByTestId('note-row').filter({ hasText: title }).click({ button: 'right' });
-    await page.getByRole('menuitem', { name: 'Mark as Collaborative' }).click();
+    await page.getByRole('menuitem', { name: 'Share…' }).click();
 
     const grant = page.getByRole('link', { name: /Grant Permissions/ });
     await expect(grant).toBeVisible({ timeout: 30_000 });
     await grant.click();
     await page.waitForURL((url) => url.hostname === identity, { timeout: 30_000 });
     // The consent returns with ?action=collaborate, which reopens the dialog,
-    // now listing circles (ReadCircleMembership).
-    const circle = page.getByRole('dialog').getByText(LIVE_CIRCLE_NAME);
-    await consentUntil(page, identity, appOrigin, () => circle.isVisible());
+    // now finding circles (ReadCircleMembership) in its search.
+    const dialog = page.getByRole('dialog', { name: 'Share Note' });
+    const circle = dialog.getByRole('option').filter({ hasText: LIVE_CIRCLE_NAME });
+    await consentUntil(page, identity, appOrigin, async () => {
+        const search = dialog.getByLabel('Add people or circles');
+        if (!(await search.isVisible())) return false;
+        await search.fill(LIVE_CIRCLE_NAME);
+        return circle.first().isVisible();
+    });
 }
 
 setup('connect the owner with the peer and the outsider, and put only the peer in the E2E collaborators circle', async ({ browser }) => {
@@ -254,6 +260,8 @@ setup('connect the owner with the peer and the outsider, and put only the peer i
 // - peer, permissions: without them the peer app's read over peer
 //   (transit/query/header_byuniqueId) fails ("Does not have permission").
 setup('grant Journal the collaboration permissions, on the owner and on the peer', async ({ browser }) => {
+    // Two identities, each with a consent round-trip: the default 30s ran out on CI.
+    setup.setTimeout(120_000);
     const [peer] = LIVE_SHARING_IDENTITIES;
     for (const { identity, storageState } of [{ identity: IDENTITY!, storageState: LIVE_STORAGE_STATE }, peer]) {
         await withIdentity(browser, storageState, (page) => grantCollaborationPermissions(page, identity));

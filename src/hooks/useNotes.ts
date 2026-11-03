@@ -122,14 +122,14 @@ export function useNotes() {
 
     // --- Mutations ---
 
-    const createNoteMutation = useMutation<CreateNoteResult, Error, string | undefined>({
-        mutationFn: async (targetFolderId?: string) => {
+    const createNoteMutation = useMutation<CreateNoteResult, Error, { folderId?: string; tags?: string[] }>({
+        mutationFn: async ({ folderId: targetFolderId, tags = [] }) => {
             const docId = formatGuidId(getNewId());
             const now = new Date().toISOString();
             const metadata: DocumentMetadata = {
                 title: 'Untitled',
                 folderId: targetFolderId || MAIN_FOLDER_ID,
-                tags: [],
+                tags,
                 timestamps: { created: now, modified: now },
                 excludeFromAI: false,
                 isPinned: false,
@@ -306,7 +306,8 @@ export function useArchivedNotes(enabled: boolean = true) {
 export function useNotesByFolder(folderId: string | undefined) {
     // 'trash', 'shared' and 'archive' are pseudo-folders with their own views — skip the query.
     const enabled = !!folderId && !isPseudoFolder(folderId);
-    return useLiveNoteList(NOTE_LIST_SQL.byFolder, [folderId ?? ''], enabled);
+    const host = useDotYouClientContext().getHostIdentity();
+    return useLiveNoteList(NOTE_LIST_SQL.byFolder, [folderId ?? '', host], enabled);
 }
 
 export function useCollaborativeNotes(enabled: boolean = true) {

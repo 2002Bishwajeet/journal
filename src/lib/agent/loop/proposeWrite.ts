@@ -13,8 +13,6 @@ import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
 interface WriteContext {
     deps: ReadDeps;
     writeDeps: WriteDeps;
-    /** The note open in the editor; its edits go through the editor tools, so its undo keeps working. */
-    openNoteId?: string;
 }
 
 const noWrites = (deps: WriteDeps): WriteDeps => ({
@@ -34,18 +32,19 @@ type WriteArgs = {
 export async function proposeWrite(
     tool: AnyJournalTool,
     toolArgs: Record<string, unknown>,
-    { deps, writeDeps, openNoteId }: WriteContext
+    { deps, writeDeps }: WriteContext
 ): Promise<WriteProposal> {
     const args = toolArgs as unknown as WriteArgs;
     const { markdown } = args;
     if (tool.name === 'append_to_note') {
-        if (args.id === openNoteId) throw new Error('Use the editor tools for the open note');
         await tool.execute(noWrites(writeDeps), args);
         const note = (await writeDeps.fetchNoteForEdit(args.id!))!;
         const { id, title, folderId } = note.summary;
+        const folder = (await deps.listFolders()).find((f) => f.id === folderId);
         return {
             summary: `Append to '${title}'`,
             markdown,
+            isPublic: !!(note.metadata.isPublic || folder?.isPublic),
             apply: async () => {
                 await tool.execute(writeDeps, args);
                 return { id, title, folderId };
@@ -59,6 +58,7 @@ export async function proposeWrite(
         return {
             summary: `Create note '${args.title || 'Untitled'}' in ${folder?.name ?? 'Main'}`,
             markdown,
+            isPublic: !!folder?.isPublic,
             apply: async () => (await tool.execute(writeDeps, args)).data as WrittenNote,
         };
     }
