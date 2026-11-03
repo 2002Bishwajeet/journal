@@ -56,6 +56,8 @@ test('"Make these public too" publishes the note and its private links', async (
     const { a, b, aUrl, bUrl, dialog } = await setUp(liveRun.page, `${Date.now()}`);
     await dialog.getByRole('button', { name: 'Make these public too' }).click();
     await expect(dialog.locator('input[readonly]')).toBeVisible({ timeout: 60_000 });
+    // The link shows once A is public; the dialog won't close until B is published too.
+    await expect(dialog.getByRole('button', { name: 'Done' })).toBeEnabled({ timeout: 60_000 });
     // liveRun's page is shared across the worker's tests: close the dialog for the next one.
     await liveRun.page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
