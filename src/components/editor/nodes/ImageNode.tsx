@@ -10,7 +10,7 @@
 import { useContext, useRef, useState, type ReactNode } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { yUndoPluginKey } from "y-prosemirror";
-import { AlignCenter, AlignLeft, AlignRight, ArrowLeft, ArrowRight, Captions, Crop, Download, ImageUp, Loader2, Maximize2 } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, ArrowLeft, ArrowRight, Captions, Crop, Download, ImageUp, Loader2, Maximize2, MoreHorizontal } from "lucide-react";
 import { JOURNAL_DRIVE } from "@/lib/homebase/config";
 import { useDotYouClientContext } from "@/components/auth";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
@@ -22,6 +22,8 @@ import { useSyncService } from "@/hooks/useSyncService";
 import { useImageDownload } from "@/hooks/image/useImageDownload";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
+import { ActionSheet } from "@/components/ui/action-sheet";
+import type { ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper";
 import { EditedImage } from "@/components/EditedImage";
 import { editAttrs, editDataAttrs, hasEdits, readEdits, type ImageEdits } from "@/lib/images/imageEdits";
 import {
@@ -175,6 +177,9 @@ export function ImageNodeView({
   const edited = hasEdits(edits);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  // The viewer owns a history entry: open it once the sheet has closed and popped its own.
+  const afterMoreClose = useRef<(() => void) | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   // Where a touch landed on the image while it was already selected (#829)
   const tapOnSelected = useRef<{ x: number; y: number } | null>(null);
@@ -296,12 +301,12 @@ export function ImageNodeView({
       className={cn(
         "absolute -top-9 left-1/2 z-10 flex -translate-x-1/2 gap-0.5",
         "rounded-md border bg-popover p-0.5 shadow-md",
-        // 44px buttons do not fit in one row on a phone: wrap, and sit inside the image so they never cover the text above it (#917).
-        "pointer-coarse:top-1 pointer-coarse:left-1 pointer-coarse:w-max pointer-coarse:max-w-[calc(100vw-5.5rem)] pointer-coarse:translate-x-0 pointer-coarse:flex-wrap",
+        // On a phone it sits below the image in the text flow, so it covers neither the image nor the text around it (#917, #937).
+        "pointer-coarse:static pointer-coarse:mt-2 pointer-coarse:hidden pointer-coarse:w-max pointer-coarse:shrink-0 pointer-coarse:translate-x-0",
         "opacity-0 transition-opacity group-hover:opacity-100",
         // No hover on touch: only a selected image shows its toolbar, and a hidden one takes no taps.
         "[@media(hover:none)]:pointer-events-none [@media(hover:none)]:group-hover:opacity-0",
-        selected && "opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:group-hover:opacity-100",
+        selected && "opacity-100 pointer-coarse:flex [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:group-hover:opacity-100",
       )}
     >
       {!inGallery && ALIGN_BUTTONS.map(({ align: value, icon: Icon, label }) => (
@@ -315,7 +320,7 @@ export function ImageNodeView({
             updateAttributes({ align: align === value ? null : value })
           }
           className={cn(
-            "rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground",
+            "rounded p-1 pointer-coarse:hidden hover:bg-accent hover:text-accent-foreground",
             align === value && "bg-accent text-accent-foreground",
           )}
         >
@@ -328,7 +333,7 @@ export function ImageNodeView({
           type="button"
           aria-label={label}
           onClick={() => move(dir)}
-          className="rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground"
+          className="rounded p-1 pointer-coarse:hidden hover:bg-accent hover:text-accent-foreground"
         >
           <Icon className="h-4 w-4" />
         </button>
@@ -410,7 +415,7 @@ export function ImageNodeView({
             type="button"
             aria-label="View full size"
             onClick={() => setLightboxOpen(true)}
-            className="rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground"
+            className="rounded p-1 pointer-coarse:hidden hover:bg-accent hover:text-accent-foreground"
           >
             <Maximize2 className="h-4 w-4" />
           </button>
@@ -419,7 +424,7 @@ export function ImageNodeView({
             type="button"
             aria-label="Replace image"
             onClick={pickReplacement}
-            className="rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground"
+            className="rounded p-1 pointer-coarse:hidden hover:bg-accent hover:text-accent-foreground"
           >
             <ImageUp className="h-4 w-4" />
           </button>
@@ -441,12 +446,40 @@ export function ImageNodeView({
         type="button"
         aria-label="Download image"
         onClick={download}
-        className="rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center hover:bg-accent hover:text-accent-foreground"
+        className="rounded p-1 pointer-coarse:hidden hover:bg-accent hover:text-accent-foreground"
       >
         <Download className="h-4 w-4" />
       </button>
+      {/* On a phone the rest of the actions are in a sheet, so the bar is one row (#937) */}
+      <button
+        type="button"
+        aria-label="Image actions"
+        onClick={() => setMoreOpen(true)}
+        className="hidden rounded p-1 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
     </div>
   );
+
+  // The bar's actions that do not fit in one row on a phone (#937).
+  const moreItems: ContextMenuItemConfig[] = [
+    ...(inGallery
+      ? MOVE_BUTTONS.map(({ dir, icon, label }) => ({ label, icon, action: () => move(dir) }))
+      : ALIGN_BUTTONS.map(({ align: value, icon, label }) => ({
+          label,
+          icon,
+          checked: align === value,
+          action: () => updateAttributes({ align: align === value ? null : value }),
+        }))),
+    ...(canZoom(mode)
+      ? [
+          { label: "View full size", icon: Maximize2, action: () => { afterMoreClose.current = () => setLightboxOpen(true); } },
+          { label: "Replace image", icon: ImageUp, action: pickReplacement },
+        ]
+      : []),
+    { label: "Download image", icon: Download, action: download },
+  ];
 
   // Until a width is set the box shrink-wraps the image, so the image keeps its
   // natural size (previous behaviour); once sized, it fills the box.
@@ -536,7 +569,22 @@ export function ImageNodeView({
           {caption}
         </span>
       )}
-      {alignBar}
+      {/* w-0 min-w-full: the bar may be wider than a small image without widening the box */}
+      <div className="pointer-coarse:flex pointer-coarse:w-0 pointer-coarse:min-w-full pointer-coarse:justify-center">{alignBar}</div>
+      <ActionSheet
+        open={moreOpen}
+        onOpenChange={setMoreOpen}
+        title="Image actions"
+        items={moreItems}
+        // The sheet took focus and the selection from the editor: select the image again, so its bar stays.
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          const pos = getPos();
+          if (pos !== undefined) editor.chain().focus().setNodeSelection(pos).run();
+          afterMoreClose.current?.();
+          afterMoreClose.current = null;
+        }}
+      />
       <ImageLightbox open={lightboxOpen} onOpenChange={setLightboxOpen} src={src} alt={alt} edits={edits} />
       {canZoom(mode) && (
         <ImageEditDialog

@@ -97,7 +97,7 @@ test('a folder list and a note keep the shell still, selectable and touch friend
     await expect(remove).toBeAttached();
     expect(await remove.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
     await activeEditor(page).locator('img[alt="blue"]').tap();
-    const bar = page.getByRole('button', { name: 'Download image' });
+    const bar = page.getByRole('button', { name: 'Image actions' });
     await expect(bar).toBeVisible();
     expect(Number(await bar.locator('xpath=..').evaluate((el) => getComputedStyle(el).opacity))).toBeGreaterThan(0);
     await page.screenshot({ path: test.info().outputPath('touch-controls-visible.png') });
