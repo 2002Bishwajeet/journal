@@ -73,6 +73,16 @@ describe('Sheet', () => {
         expect(document.querySelector('[data-slot="sheet-close"]')).not.toBeNull();
     });
 
+    it('dims the page behind a bottom sheet, fully at rest, and not behind a full sheet (#833)', async () => {
+        const overlay = () => document.querySelector<HTMLElement>('[data-slot="dialog-overlay"]')!;
+        await mount(sampleSheet('bottom', vi.fn()));
+        expect(overlay().className).toMatch(/\bbg-black\/25\b/);
+        expect(overlay().className).toMatch(/\bdark:bg-black\/60\b/);
+        expect(overlay().style.opacity).toBe('1');
+        await mount(sampleSheet('full', vi.fn()));
+        expect(overlay().className).toMatch(/\bbg-transparent\b/);
+    });
+
     it('asks to close on Escape', async () => {
         const onOpenChange = vi.fn();
         await mount(sampleSheet('bottom', onOpenChange));
@@ -109,6 +119,15 @@ describe('ActionSheet', () => {
         const buttons = [...dialog()!.querySelectorAll('button')];
         expect(buttons[buttons.length - 1].textContent).toBe('Cancel');
         expect(buttons[buttons.length - 1].getAttribute('role')).toBeNull();
+    });
+
+    it('tints every row and Cancel while pressed, and sets Cancel apart from the groups (#833)', async () => {
+        await mount(createElement(ActionSheet, { open: true, onOpenChange: vi.fn(), title: 'Note actions', items: items() }));
+        const buttons = [...dialog()!.querySelectorAll('button')];
+        for (const button of buttons) expect(button.classList.contains('press-row'), button.textContent!).toBe(true);
+        const cancel = buttons[buttons.length - 1];
+        expect(cancel.closest('[role="group"]')).toBeNull();
+        expect(cancel.classList.contains('bg-card')).toBe(true);
     });
 
     it('runs the action, then closes', async () => {

@@ -75,10 +75,10 @@ export default function MoveToFolderDialog({
             <li>
               <Button
                 variant="ghost"
-                className="w-full justify-start h-10 px-2 pointer-coarse:h-13"
+                className="press-row w-full justify-start h-10 px-2 pointer-coarse:h-13 pointer-coarse:text-base"
                 onClick={() => setCreating(true)}
               >
-                <FolderPlus aria-hidden className="mr-2 h-4 w-4 shrink-0" />
+                <FolderPlus aria-hidden className="mr-2 size-4 shrink-0 pointer-coarse:mr-3 pointer-coarse:size-5" />
                 New folder…
               </Button>
             </li>
@@ -92,7 +92,7 @@ export default function MoveToFolderDialog({
               <li key={folder.id}>
                 <Button
                   variant="ghost"
-                  className="w-full justify-start h-auto min-h-10 px-2 py-1.5 pointer-coarse:min-h-13 aria-[current=true]:opacity-100"
+                  className="press-row w-full justify-start h-auto min-h-10 px-2 py-1.5 pointer-coarse:min-h-13 pointer-coarse:text-base aria-[current=true]:opacity-100"
                   disabled={current}
                   aria-current={current ? "true" : undefined}
                   aria-describedby={folder.isPublic ? `public-${folder.id}` : undefined}
@@ -101,7 +101,7 @@ export default function MoveToFolderDialog({
                     close();
                   }}
                 >
-                  <FolderOpen aria-hidden className="mr-2 h-4 w-4 shrink-0" />
+                  <FolderOpen aria-hidden className="mr-2 size-4 shrink-0 pointer-coarse:mr-3 pointer-coarse:size-5" />
                   <span className="min-w-0 flex-1 truncate text-left" title={folder.name}>
                     {folder.name}
                   </span>
@@ -114,7 +114,7 @@ export default function MoveToFolderDialog({
                   {current && <Check aria-hidden className="ml-2 h-5 w-5 shrink-0 text-primary" />}
                 </Button>
                 {folder.isPublic && (
-                  <p id={`public-${folder.id}`} className="-mt-1 mb-1 pl-8 text-xs text-muted-foreground">
+                  <p id={`public-${folder.id}`} className="-mt-1 mb-1 pl-8 text-xs text-muted-foreground pointer-coarse:pl-[34px]">
                     Notes here are public
                   </p>
                 )}

@@ -4,10 +4,12 @@ import { CheckIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { sheetGroup, sheetRowPress } from "@/components/ui/sheetClasses"
 
-const group = "bg-muted divide-border divide-y overflow-hidden rounded-xl"
-const row =
-  "active:bg-accent flex h-13 w-full items-center gap-3 px-4 text-left text-base outline-none focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-5 [&_svg]:shrink-0"
+const row = cn(
+  sheetRowPress,
+  "flex h-13 w-full items-center gap-3 px-4 text-left text-base outline-none focus-visible:bg-accent disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-5 [&_svg]:shrink-0"
+)
 
 /**
  * A list of 52 px rows in a bottom sheet (the iOS action sheet): destructive rows in their own
@@ -68,9 +70,9 @@ export function ActionSheet({
         </SheetHeader>
         <div className="flex flex-col gap-2 overflow-y-auto px-5">
           <div role="menu" aria-label={title} className="flex flex-col gap-2">
-            {regular.length > 0 && <div role="group" className={group}>{messageRow}{regular.map(renderRow)}</div>}
+            {regular.length > 0 && <div role="group" className={sheetGroup}>{messageRow}{regular.map(renderRow)}</div>}
             {destructive.length > 0 && (
-              <div role="group" className={group}>
+              <div role="group" className={sheetGroup}>
                 {regular.length === 0 && messageRow}
                 {destructive.map(renderRow)}
               </div>
@@ -79,7 +81,8 @@ export function ActionSheet({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className={cn(row, group, "justify-center font-semibold")}
+            // Cancel stands apart from the actions, as on iOS: a card with an outline, not a muted group.
+            className={cn(row, "bg-card justify-center rounded-xl border font-semibold [--press-row-bg:var(--border)]")}
           >
             Cancel
           </button>

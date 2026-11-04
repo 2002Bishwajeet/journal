@@ -6,6 +6,7 @@ import {
   useDragControls,
   useMotionValue,
   useReducedMotion,
+  useTransform,
   type DragControls,
   type PanInfo,
 } from "framer-motion"
@@ -66,6 +67,11 @@ function SheetContent({
   const y = useMotionValue(0)
   const reduceMotion = useReducedMotion()
   const contentRef = React.useRef<HTMLElement | null>(null)
+  // The dim lifts as the sheet is dragged down, so it is gone when the sheet is (#833).
+  const dim = useTransform(y, (v) => {
+    const height = contentRef.current?.offsetHeight
+    return height ? Math.min(1, Math.max(0, 1 - v / height)) : 1
+  })
 
   function handleDragEnd(_event: unknown, info: PanInfo) {
     const el = contentRef.current
@@ -88,8 +94,18 @@ function SheetContent({
   return (
     <DialogPortal>
       {/* A full sheet covers the page, so it needs no dim. A dim backdrop would tint the
-          iPhone status bar grey above the sheet (the bar takes the top layer's colour). */}
-      <DialogOverlay className={cn(variant === "full" && "bg-transparent")} />
+          iPhone status bar grey above the sheet (the bar takes the top layer's colour).
+          A bottom sheet's dim is lighter in light mode, as iOS's is, and fades in and out
+          with the sheet's own duration and curve (#833). */}
+      <DialogOverlay
+        asChild
+        className={cn(
+          "duration-(--duration-sheet) data-[state=closed]:duration-(--duration-sheet-exit) data-[state=closed]:ease-(--ease-exit)",
+          variant === "full" ? "bg-transparent" : "bg-black/25 dark:bg-black/60"
+        )}
+      >
+        <motion.div style={{ opacity: dim }} />
+      </DialogOverlay>
       <SheetDragContext value={controls}>
         <DialogPrimitive.Content
           asChild
