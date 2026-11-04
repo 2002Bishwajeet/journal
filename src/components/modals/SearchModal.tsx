@@ -119,7 +119,7 @@ function SearchResultItem({
             className="text-xs opacity-80 line-clamp-2"
           />
         ) : plainText ? (
-          <p className="text-xs pointer-coarse:text-[13px] truncate">
+          <p className="text-xs opacity-60 pointer-coarse:opacity-100 pointer-coarse:text-[13px] truncate">
             {plainText.slice(0, 100)}
           </p>
         ) : (

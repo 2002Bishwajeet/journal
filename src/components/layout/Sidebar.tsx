@@ -185,7 +185,9 @@ export default function Sidebar({
         className={cn(
           "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
           // Fixed widths on desktop, so the width transition runs between two lengths, not from a percentage.
-          isCollapsed ? "w-full lg:w-14 items-center" : "w-full lg:w-60", // Centered items when collapsed
+          // Collapsing eases in, so it ends at full speed: the default ease-out crawled its last 4 px over two
+          // frames, and a rail read as collapsed (under 60 px) was still shrinking a frame later.
+          isCollapsed ? "w-full lg:w-14 items-center ease-in" : "w-full lg:w-60", // Centered items when collapsed
           className
         )}
       >

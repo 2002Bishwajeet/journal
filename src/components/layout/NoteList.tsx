@@ -524,7 +524,11 @@ const NoteItem = memo(function NoteItem({
                 {(note.metadata.tags ?? []).slice(0, 3).map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-muted text-xs text-muted-foreground shrink-0"
+                    className={cn(
+                      "inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-muted text-xs text-muted-foreground shrink-0",
+                      // Touch (#781): bg-muted matches the selected row's accent, so the chip takes the border tone there.
+                      selectedNoteId === note.docId && "pointer-coarse:bg-border",
+                    )}
                   >
                     #{"\u2009"}
                     {tag}
