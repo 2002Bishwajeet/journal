@@ -219,11 +219,12 @@ export function ImageLightbox({ open, onOpenChange, src, alt, edits = NO_EDITS }
         }}
         className="flex h-[95vh] w-[95vw] max-w-[95vw] sm:max-w-[95vw] flex-col items-center justify-center gap-3 p-0 bg-transparent border-0 shadow-none"
       >
+        {/* Beside the dialog's close X (top-7 right-6): same icon centre, one gap apart. */}
         <button
           type="button"
           aria-label="Download image"
           onClick={download}
-          className="absolute top-4 right-12 z-10 rounded-xs p-0.5 text-white/80 hover:text-white focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute top-6.5 right-14 z-10 rounded-xs p-0.5 text-white/80 hover:text-white focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Download className="size-4" />
         </button>
