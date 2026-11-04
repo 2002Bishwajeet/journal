@@ -9,7 +9,7 @@ export function SectionHeader({
 }) {
   return (
     <div className="space-y-1">
-      <h3 className="text-base leading-6 font-semibold">
+      <h3 className="font-serif text-lg leading-snug tracking-tight">
         {children}
       </h3>
       {subtitle && (

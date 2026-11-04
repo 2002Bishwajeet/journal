@@ -90,7 +90,7 @@ export default function ShareFolderDialog({ folder, onClose }: ShareFolderDialog
                     <SheetContent variant="full" className="share-ui">
                         <SheetHeader>
                             <div className="flex min-w-0 items-center gap-3">
-                                <SheetTitle>Share Folder</SheetTitle>
+                                <SheetTitle className="font-serif text-xl leading-7 font-normal tracking-tight">Share Folder</SheetTitle>
                                 {status}
                             </div>
                             <SheetDescription className="truncate">{subtitle}</SheetDescription>
@@ -104,11 +104,11 @@ export default function ShareFolderDialog({ folder, onClose }: ShareFolderDialog
                 </Sheet>
             ) : (
                 <Dialog open={!!folder} onOpenChange={(open) => !open && onClose()}>
-                    <DialogContent className="share-dialog max-h-none top-1/2 gap-0 overflow-hidden p-0 sm:max-w-[min(960px,calc(100vw-2rem))] sm:[&>[data-slot=dialog-close]]:top-5">
+                    <DialogContent className="share-dialog max-h-none top-1/2 gap-0 overflow-hidden p-0 sm:max-w-[min(960px,calc(100vw-2rem))] sm:[&>[data-slot=dialog-close]]:top-5.5">
                         <div className="flex h-[min(520px,90dvh)] min-w-0 flex-col">
                             <DialogHeader className="shrink-0 gap-1.5 border-b px-6 py-4 pr-14 text-left">
                                 <div className="flex min-w-0 items-center gap-3">
-                                    <DialogTitle>Share Folder</DialogTitle>
+                                    <DialogTitle className="font-serif text-xl leading-7 font-normal tracking-tight">Share Folder</DialogTitle>
                                     {status}
                                 </div>
                                 <DialogDescription className="truncate">{subtitle}</DialogDescription>

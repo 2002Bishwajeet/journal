@@ -219,7 +219,7 @@ function SheetTitle({
     <DialogTitle
       data-slot="sheet-title"
       className={cn(
-        "in-data-[variant=full]:flex in-data-[variant=full]:min-h-11 in-data-[variant=full]:items-center",
+        "text-lg leading-tight font-semibold in-data-[variant=full]:flex in-data-[variant=full]:min-h-11 in-data-[variant=full]:items-center",
         className
       )}
       {...props}

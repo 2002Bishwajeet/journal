@@ -260,7 +260,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
                 <SheetContent variant="full" className="share-ui" onEscapeKeyDown={onEscapeKeyDown} onCloseAutoFocus={onCloseAutoFocus}>
                     <SheetHeader>
                         <div className="flex min-w-0 items-center gap-3">
-                            <SheetTitle>{title}</SheetTitle>
+                            <SheetTitle className="font-serif text-xl leading-7 font-normal tracking-tight">{title}</SheetTitle>
                             {!readOnlyDriveUrl && status}
                         </div>
                         <SheetDescription className="truncate">{description}</SheetDescription>
@@ -285,14 +285,14 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
             {/* A wide dialog. The fixed height lives on the inner wrapper, not here: DialogContent
                 is a grid, so a child sized to its content would never scroll. */}
             <DialogContent
-                className="share-dialog share-ui max-h-none top-1/2 gap-0 overflow-hidden p-0 sm:max-w-[min(960px,calc(100vw-2rem))] sm:[&>[data-slot=dialog-close]]:top-5"
+                className="share-dialog share-ui max-h-none top-1/2 gap-0 overflow-hidden p-0 sm:max-w-[min(960px,calc(100vw-2rem))] sm:[&>[data-slot=dialog-close]]:top-5.5"
                 onEscapeKeyDown={onEscapeKeyDown}
                 onCloseAutoFocus={onCloseAutoFocus}
             >
                 <div className="flex h-[min(640px,90dvh)] min-w-0 flex-col">
                     <DialogHeader className="shrink-0 gap-1.5 border-b px-6 py-4 pr-14 text-left">
                         <div className="flex min-w-0 items-center gap-3">
-                            <DialogTitle>{title}</DialogTitle>
+                            <DialogTitle className="font-serif text-xl leading-7 font-normal tracking-tight">{title}</DialogTitle>
                             {!readOnlyDriveUrl && status}
                         </div>
                         <DialogDescription className="truncate">{description}</DialogDescription>

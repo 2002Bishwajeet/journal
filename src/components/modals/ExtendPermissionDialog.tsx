@@ -28,7 +28,7 @@ export const ExtendPermissionDialog = () => {
           <div className="mb-1 w-fit rounded-full bg-secondary p-2.5">
             <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
           </div>
-          <DialogTitle className="text-balance">
+          <DialogTitle className="text-xl leading-tight text-balance">
             Journal needs {count} {noun}
           </DialogTitle>
           <DialogDescription className="text-pretty">

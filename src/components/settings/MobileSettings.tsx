@@ -52,7 +52,7 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
             </button>
             {/* The dialog keeps its "Settings" name on every page. */}
             <DialogTitle className="sr-only">Settings</DialogTitle>
-            <h2 className="text-lg leading-6 font-semibold tracking-tight">{current.label}</h2>
+            <h2 className="text-base font-semibold">{current.label}</h2>
           </header>
           {/* key remounts the page so each drill-in slides in from the right. */}
           <div

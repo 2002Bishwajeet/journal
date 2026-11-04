@@ -95,7 +95,9 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
             {/* ── Navigation: a left rail ── */}
             <nav className="flex w-56 min-w-0 shrink-0 flex-col overflow-y-auto border-r border-border/60 bg-muted/30">
               <div className="px-6 pb-5 pt-7">
-                <DialogTitle>Settings</DialogTitle>
+                <DialogTitle className="font-serif text-2xl font-normal tracking-tight text-foreground">
+                  Settings
+                </DialogTitle>
                 <div className="mt-2 h-0.5 w-8 rounded-full bg-primary" />
               </div>
 
@@ -132,7 +134,7 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
                   value={section.id}
                   className="px-10 pb-10 pt-7 outline-none"
                 >
-                  <h2 className="mb-6 text-lg leading-6 font-semibold tracking-tight text-balance">
+                  <h2 className="mb-8 font-serif text-2xl tracking-tight text-balance">
                     {section.label}
                   </h2>
                   <section.Component close={onClose} />
