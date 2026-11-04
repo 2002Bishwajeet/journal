@@ -1361,16 +1361,29 @@ html[data-fab] {
   max-width: none;
 }
 
-/* Every dialog: its 12px help text sits on the dialog and on cards,
+/* Every dialog and sheet: its 12px help text sits on the dialog and on cards,
    where the app-wide --muted-foreground is under WCAG AA (3.5:1 light, 4.4:1 on a
    dark card). These reach 5.4:1 and 5.9:1. The dark --input is barely lighter than
    the dialog, which would hide outline buttons, fields and unchecked switches. */
-[data-slot='dialog-content'] {
+[data-slot='dialog-content'],
+[data-slot='sheet-content'] {
   --muted-foreground: #6B6862;
 }
-.dark [data-slot='dialog-content'] {
+.dark [data-slot='dialog-content'],
+.dark [data-slot='sheet-content'] {
   --muted-foreground: #A19E96;
   --input: #3E3D3A;
+}
+
+/* A centred dialog's padding (#787): 20px on a phone, the side padding of every sheet and
+   of Settings, and 24px from 640px. A variable, so a dialog's own `p-0` still wins. */
+[data-slot='dialog-content'] {
+  --dialog-padding: 1.5rem;
+}
+@media (width < 40rem) {
+  [data-slot='dialog-content'] {
+    --dialog-padding: 1.25rem;
+  }
 }
 
 /* Live blocks: mermaid, svg, html and react code blocks (src/components/liveBlocks).

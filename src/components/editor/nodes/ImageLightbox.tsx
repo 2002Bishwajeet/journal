@@ -210,14 +210,15 @@ export function ImageLightbox({ open, onOpenChange, src, alt, edits = NO_EDITS }
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* sm:max-w-[95vw] overrides the base DialogContent's sm:max-w-lg, which
           otherwise caps the lightbox at 32rem. The fixed box also gives OdinImage
-          a large clientWidth to pick its thumbnail size from. */}
+          a large clientWidth to pick its thumbnail size from. The close X keeps its
+          top-right corner, with the Download button beside it. */}
       <DialogContent
         aria-label={alt || "Image preview"}
         onClick={(e) => {
           // The box covers the viewport, so treat clicks on the empty area as outside clicks.
           if (e.target === e.currentTarget) onOpenChange(false);
         }}
-        className="flex h-[95vh] w-[95vw] max-w-[95vw] sm:max-w-[95vw] flex-col items-center justify-center gap-3 p-0 bg-transparent border-0 shadow-none"
+        className="flex h-[95vh] w-[95vw] max-w-[95vw] sm:max-w-[95vw] flex-col items-center justify-center gap-3 p-0 bg-transparent border-0 shadow-none [&>[data-slot=dialog-close]]:top-4 [&>[data-slot=dialog-close]]:right-4"
       >
         <button
           type="button"

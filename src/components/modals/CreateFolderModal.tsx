@@ -46,7 +46,7 @@ export default function CreateFolderModal({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 pb-5">
             <Input
               id="name"
               value={name}

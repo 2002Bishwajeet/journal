@@ -55,7 +55,7 @@ export function ActionSheet({
   const destructive = items.filter(isLast)
   const messageId = useId()
   const messageRow = message && (
-    <p id={messageId} className="text-muted-foreground px-4 py-3.5 text-center text-[13px] text-balance">
+    <p id={messageId} className="text-muted-foreground px-4 py-3.5 text-center text-sm text-balance">
       {message}
     </p>
   )
@@ -66,7 +66,7 @@ export function ActionSheet({
         <SheetHeader className="sr-only">
           <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
-        <div className="flex flex-col gap-2 overflow-y-auto px-4">
+        <div className="flex flex-col gap-2 overflow-y-auto px-5">
           <div role="menu" aria-label={title} className="flex flex-col gap-2">
             {regular.length > 0 && <div role="group" className={group}>{messageRow}{regular.map(renderRow)}</div>}
             {destructive.length > 0 && (

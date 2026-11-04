@@ -265,7 +265,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
                         </div>
                         <SheetDescription className="truncate">{description}</SheetDescription>
                     </SheetHeader>
-                    <SheetBody className="flex flex-col gap-6 py-4">
+                    <SheetBody className="flex flex-col gap-5 py-5">
                         {readOnlyDriveUrl ? readOnlyNotice : (
                             <>
                                 {preview}
