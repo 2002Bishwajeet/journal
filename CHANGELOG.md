@@ -1,3 +1,12 @@
+# [2.61.0](https://github.com/2002Bishwajeet/journal/compare/v2.60.1...v2.61.0) (2026-11-04)
+
+
+### Bug Fixes
+
+* **editor:** keep a list item's leading link preview a link with tiptap 3.32.2 ([781f7cc](https://github.com/2002Bishwajeet/journal/commit/781f7cc538caf8c71e92458fca2d055cbe27cb5e))
+* **images:** keep the lightbox close X in its corner; restore the zoom spec ([#787](https://github.com/2002Bishwajeet/journal/issues/787)) ([3f2ef99](https://github.com/2002Bishwajeet/journal/commit/3f2ef9995f057f259e2ed7dd198366de27a0d0a1))
+* **images:** keep the lightbox Download level with the moved close X ([#787](https://github.com/2002Bishwajeet/journal/issues/787)) ([b1f9d5b](https://github.com/2002Bishwajeet/journal/commit/b1f9d5b63408bf83b35402651b831c17c1333332))
+* **mobile:** sidebar collapse ends at speed; touch-only tablet margins; chips on the selected row ([#781](https://github.com/2002Bishwajeet/journal/issues/781)) ([f372831](https://github.com/2002Bishwajeet/journal/commit/f3728311b9f88455bc142c075a11d2af88a52567))
 ## [2.60.1](https://github.com/2002Bishwajeet/journal/compare/v2.60.0...v2.60.1) (2026-11-03)
 
 

@@ -16,6 +16,16 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.61.0 (2026-11-04)
+
+### Changed
+
+- On a phone, the note list shows more notes on the screen. Each row shows the title, then the time and the preview on one line, then the tags.
+- On a phone or tablet, rows and menu items show a highlight while you touch them.
+- On a phone or tablet, menus have larger text and open and close more smoothly.
+- On a tablet, Trash and Archive have wider margins, and long previews stop before the right edge.
+- On a phone, dialogs, sheets and Settings use the same spacing and close button position. Settings slides up from the bottom like the other full-screen sheets.
+
 ## 2.60.1 (2026-11-03)
 
 ### Fixed
