@@ -221,6 +221,14 @@ button, [role="button"], [role="menuitem"], [role="tab"], a, summary, label, sel
     opacity: 0.6;
     transition: none;
   }
+
+  /* Rows and menu items (#781) tint while pressed, as iOS lists do, instead of fading; the
+     tint fades out on release through the row's own background transition. */
+  :is(button, [role="button"], [role="menuitem"], a).press-row:active {
+    opacity: 1;
+    background-color: var(--accent);
+    transition: none;
+  }
 }
 
 /* TipTap Editor Styles */

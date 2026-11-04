@@ -32,6 +32,8 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
   // Transform y value to opacity/rotation for indicators
   const opacity = useTransform(y, [0, PULL_THRESHOLD], [0, 1]);
   const rotate = useTransform(y, [0, MAX_PULL], [0, 360]);
+  // The spinner grows into place as it is pulled, so it never pops in at full size (#781).
+  const scale = useTransform(y, [0, PULL_THRESHOLD], [0.6, 1]);
 
   const getScrollableParent = (): HTMLElement | null => {
     if (!containerRef.current) return null;
@@ -159,15 +161,18 @@ export function PullToRefresh({ onRefresh, children, className }: PullToRefreshP
           opacity: isRefreshing ? 1 : opacity
         }}
       >
-        <div className="h-10 flex items-center justify-center p-2 rounded-full bg-background border shadow-sm">
+        <motion.div
+          className="flex size-9 items-center justify-center rounded-full bg-popover shadow-sm ring-1 ring-border/60"
+          style={{ scale: isRefreshing ? 1 : scale }}
+        >
           {isRefreshing ? (
-             <Loader2 className="h-5 w-5 animate-spin text-primary" />
+             <Loader2 className="size-5 animate-spin text-foreground" />
           ) : (
              <motion.div style={{ rotate }}>
-               <Loader2 className="h-5 w-5 text-muted-foreground" />
+               <Loader2 className="size-5 text-muted-foreground" />
              </motion.div>
           )}
-        </div>
+        </motion.div>
       </motion.div>
 
       <motion.div

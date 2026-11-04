@@ -74,7 +74,7 @@ function SearchResultItem({
       onClick={onSelect}
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') onHover(); }}
       className={cn(
-        "flex items-start gap-3 w-full px-3 py-3 text-left rounded-md transition-colors",
+        "press-row flex items-start gap-3 w-full px-3 py-3 text-left rounded-md transition-colors duration-(--duration-fade)",
         removable && "pr-12",
         isSelected ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"
       )}
@@ -89,7 +89,7 @@ function SearchResultItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 mb-0.5">
           <span className={cn(
-            "text-sm font-medium truncate",
+            "text-sm font-medium truncate pointer-coarse:text-[15px]",
             isSelected ? "text-foreground" : "text-foreground"
           )}>
             {result.title || "Untitled"}
@@ -119,7 +119,7 @@ function SearchResultItem({
             className="text-xs opacity-80 line-clamp-2"
           />
         ) : plainText ? (
-          <p className="text-xs opacity-60 truncate">
+          <p className="text-xs opacity-60 pointer-coarse:opacity-100 pointer-coarse:text-[13px] truncate">
             {plainText.slice(0, 100)}
           </p>
         ) : (
@@ -157,7 +157,7 @@ function RecentSearchRow({
       onClick={onSelect}
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') onHover(); }}
       className={cn(
-        "flex items-center gap-3 w-full px-3 py-3 pr-12 text-left rounded-md transition-colors",
+        "press-row flex items-center gap-3 w-full px-3 py-3 pr-12 text-left rounded-md transition-colors duration-(--duration-fade)",
         isSelected ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"
       )}
     >
@@ -233,7 +233,7 @@ export default function SearchModal({
         aria-label="Search notes"
         // On a phone the sheet fills what is left above the keyboard (followKeyboard sets the vars).
         ref={followKeyboard}
-        className="fixed inset-x-0 top-[var(--dialog-top,50%)] -translate-y-1/2 h-[var(--dialog-max-h,100dvh)] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:inset-x-auto sm:left-1/2 sm:top-[10%] sm:-translate-x-1/2 sm:translate-y-0 sm:h-auto sm:pt-0 sm:pb-0 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl sm:border border-border sm:rounded-xl overflow-hidden flex flex-col sm:max-h-[85dvh] animate-in fade-in zoom-in-95 duration-200"
+        className="fixed inset-x-0 top-[var(--dialog-top,50%)] -translate-y-1/2 h-[var(--dialog-max-h,100dvh)] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:inset-x-auto sm:left-1/2 sm:top-[10%] sm:-translate-x-1/2 sm:translate-y-0 sm:h-auto sm:pt-0 sm:pb-0 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl sm:border border-border sm:rounded-xl overflow-hidden flex flex-col sm:max-h-[85dvh] animate-in fade-in sm:zoom-in-95 duration-(--duration-fade) ease-(--ease-standard)"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input - Large and clean */}

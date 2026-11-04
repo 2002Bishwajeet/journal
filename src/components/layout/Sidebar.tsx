@@ -80,7 +80,7 @@ interface SidebarProps {
 function SectionChevron({ collapsed }: { collapsed: boolean }) {
   return (
     <ChevronDown
-      className={cn("h-3 w-3 shrink-0 transition-transform", collapsed && "-rotate-90")}
+      className={cn("h-3 w-3 shrink-0 transition-transform duration-(--duration-fade) ease-(--ease-standard)", collapsed && "-rotate-90")}
     />
   );
 }
@@ -142,7 +142,7 @@ export default function Sidebar({
           aria-label={isCollapsed ? "Search" : undefined}
           className={cn(
             "text-muted-foreground transition-all duration-200",
-            isCollapsed ? "size-9 px-0" : "w-full justify-start px-2 pointer-coarse:min-h-11"
+            isCollapsed ? "size-9 px-0" : "press-row w-full justify-start px-2 pointer-coarse:min-h-11"
           )}
           onClick={onSearch}
         >
@@ -161,7 +161,7 @@ export default function Sidebar({
                 aria-label="Open today's daily note"
                 className={cn(
                   "text-muted-foreground transition-all duration-200",
-                  isCollapsed ? "size-9 px-0" : "w-full justify-start px-2 pointer-coarse:min-h-11"
+                  isCollapsed ? "size-9 px-0" : "press-row w-full justify-start px-2 pointer-coarse:min-h-11"
                 )}
                 onClick={onOpenToday}
               >
@@ -185,7 +185,9 @@ export default function Sidebar({
         className={cn(
           "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
           // Fixed widths on desktop, so the width transition runs between two lengths, not from a percentage.
-          isCollapsed ? "w-full lg:w-14 items-center" : "w-full lg:w-60", // Centered items when collapsed
+          // Collapsing eases in, so it ends at full speed: the default ease-out crawled its last 4 px over two
+          // frames, and a rail read as collapsed (under 60 px) was still shrinking a frame later.
+          isCollapsed ? "w-full lg:w-14 items-center ease-in" : "w-full lg:w-60", // Centered items when collapsed
           className
         )}
       >
@@ -264,7 +266,7 @@ export default function Sidebar({
                     aria-label={isCollapsed ? "Shared with me" : undefined}
                     className={cn(
                       "group relative transition-all duration-200 flex items-center",
-                      isCollapsed ? "size-9 px-0" : "flex-1 min-w-0 h-10 justify-start px-2 pointer-coarse:min-h-11",
+                      isCollapsed ? "size-9 px-0" : "press-row flex-1 min-w-0 h-10 justify-start px-2 pointer-coarse:min-h-11",
                       selectedFolderId === PSEUDO_FOLDERS.shared && "bg-accent text-accent-foreground font-medium hover:bg-accent"
                     )}
                     onClick={onSelectShared}
@@ -382,7 +384,7 @@ export default function Sidebar({
                               isCollapsed
                                 ? // The button is the tile, so its focus ring and the badge are never clipped by an inner box.
                                   "size-9 px-0 rounded-lg border text-[11px] font-semibold tracking-wide"
-                                : "w-full min-w-0 shrink h-10 justify-start px-2 pointer-coarse:min-h-11 [-webkit-touch-callout:none]",
+                                : "press-row w-full min-w-0 shrink h-10 justify-start px-2 pointer-coarse:min-h-11 [-webkit-touch-callout:none]",
                               // Light mode needs a stronger edge and darker letters than the muted tokens give on the sidebar (4.5:1 text).
                               isCollapsed && !isSelected &&
                                 "border-muted-foreground/50 text-sidebar-foreground/80 hover:text-sidebar-foreground dark:border-sidebar-border dark:text-muted-foreground dark:hover:text-foreground",
@@ -471,7 +473,7 @@ export default function Sidebar({
                         <Button
                           variant={selectedTag === tag ? "secondary" : "ghost"}
                           className={cn(
-                            "w-full h-8 pointer-coarse:min-h-11 justify-start px-2 text-sm",
+                            "press-row w-full h-8 pointer-coarse:min-h-11 justify-start px-2 text-sm",
                             selectedTag === tag && "bg-accent text-accent-foreground font-medium"
                           )}
                           onClick={() => onSelectTag?.(selectedTag === tag ? null : tag)}
@@ -557,7 +559,7 @@ export default function Sidebar({
                 className={cn(
                   isCollapsed
                     ? "h-9 w-9 justify-center px-0"
-                    : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground",
+                    : "press-row w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground",
                   selectedFolderId === PSEUDO_FOLDERS.archive &&
                     "bg-accent text-accent-foreground font-medium hover:bg-accent"
                 )}
@@ -592,7 +594,7 @@ export default function Sidebar({
                 className={cn(
                   isCollapsed
                     ? "h-9 w-9 justify-center px-0"
-                    : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground",
+                    : "press-row w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground",
                   selectedFolderId === PSEUDO_FOLDERS.trash &&
                     "bg-accent text-accent-foreground font-medium hover:bg-accent"
                 )}
@@ -628,7 +630,7 @@ export default function Sidebar({
                   className={cn(
                     isCollapsed
                       ? "h-9 w-9 justify-center px-0"
-                      : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground"
+                      : "press-row w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground"
                   )}
                   aria-label={isCollapsed ? "Settings" : undefined}
                   onClick={onSettings}

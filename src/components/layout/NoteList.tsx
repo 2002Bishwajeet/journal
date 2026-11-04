@@ -319,7 +319,7 @@ export default function NoteList({
                   <button
                     onClick={() => toggleGroup(group.label)}
                     aria-expanded={!group.collapsed}
-                    className="sticky top-0 z-10 bg-background flex items-center w-full px-3 py-1 pointer-coarse:min-h-11 hover:bg-muted transition-colors group/header"
+                    className="press-row sticky top-0 z-10 bg-background flex items-center w-full px-3 py-1 pointer-coarse:min-h-11 pointer-coarse:px-4 hover:bg-muted transition-colors duration-(--duration-fade) ease-(--ease-standard) group/header"
                   >
                     {group.collapsed ? (
                       <ChevronRight className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
@@ -335,7 +335,7 @@ export default function NoteList({
                   </button>
 
                   {!group.collapsed && group.shown.length > 0 && (
-                    <div className="space-y-0.5 mt-1">
+                    <div className="space-y-0.5 mt-1 pointer-coarse:space-y-0 pointer-coarse:mt-0">
                       {group.shown.map((note) => (
                         <NoteItem
                           key={note.docId}
@@ -432,7 +432,7 @@ const NoteItem = memo(function NoteItem({
     <div
       ref={rowRef}
       data-testid="note-row"
-      className="relative overflow-hidden w-full select-none [-webkit-touch-callout:none]"
+      className="group/row relative overflow-hidden w-full select-none [-webkit-touch-callout:none]"
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 72px" }}
       onClick={isSwiped ? handleGlobalClick : undefined}
     >
@@ -443,14 +443,14 @@ const NoteItem = memo(function NoteItem({
             ref={actionRef}
             className={cn(
               "absolute inset-y-0 right-0 w-20 bg-destructive flex items-center justify-center text-destructive-foreground",
-              "transition-all duration-(--duration-fade) ease-(--ease-standard)",
+              "transition-[transform,opacity,box-shadow] duration-(--duration-fade) ease-(--ease-standard)",
               isSwiped && "shadow-[-4px_0_16px_rgba(239,68,68,0.3)]",
             )}
             style={{ transform: "translateX(100%)", opacity: 0 }}
           >
             <button
               aria-label="Move to Trash"
-              className="w-full h-full flex items-center justify-center active:scale-110 transition-transform"
+              className="w-full h-full flex items-center justify-center active:scale-110 transition-transform duration-(--duration-press) ease-(--ease-standard)"
               onClick={(e) => {
                 e.stopPropagation();
                 haptic("medium");
@@ -479,8 +479,12 @@ const NoteItem = memo(function NoteItem({
             }}
             {...touchHandlers}
             className={cn(
-              "relative grid grid-cols-1 w-full px-4 py-3.5 text-left bg-background group cursor-pointer outline-none focus:bg-accent select-none",
+              "press-row relative grid grid-cols-1 w-full px-4 py-3.5 text-left bg-background group cursor-pointer outline-none focus:bg-accent select-none",
               "hover:bg-accent",
+              // Touch (#781): title, then the time and preview on one line, then tags, as iOS Notes
+              // lays a row out; an inset hairline between rows, none under a group's last row.
+              "pointer-coarse:grid-cols-[auto_minmax(0,1fr)] pointer-coarse:gap-x-2 pointer-coarse:py-3",
+              "pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:bottom-0 pointer-coarse:after:ml-4 pointer-coarse:after:h-px pointer-coarse:after:bg-border/60 group-last/row:after:hidden",
               "transition-[transform,background-color] duration-(--duration-fade) ease-(--ease-standard)",
               selectedNoteId === note.docId && "bg-accent",
             )}
@@ -491,10 +495,10 @@ const NoteItem = memo(function NoteItem({
               label="Note options"
               className="absolute right-0 top-0"
             />
-            <div className="flex items-start justify-between gap-2 w-full overflow-hidden pointer-coarse:pr-9">
+            <div className="flex items-start justify-between gap-2 w-full overflow-hidden pointer-coarse:items-center pointer-coarse:col-span-2 pointer-coarse:row-start-1 pointer-coarse:pr-9">
               <span
                 className={cn(
-                  "text-sm font-medium truncate flex-1",
+                  "text-sm font-medium truncate flex-1 pointer-coarse:text-[15px] pointer-coarse:leading-5 pointer-coarse:font-semibold",
                   selectedNoteId === note.docId
                     ? "text-accent-foreground"
                     : "text-foreground",
@@ -512,15 +516,19 @@ const NoteItem = memo(function NoteItem({
                 <Users className="h-3 w-3 text-collaborative/70 shrink-0" />
               )}
             </div>
-            <p className="text-xs text-muted-foreground truncate mt-0.5 w-full">
+            <p className="text-xs text-muted-foreground truncate mt-0.5 w-full pointer-coarse:col-start-2 pointer-coarse:row-start-2 pointer-coarse:text-[13px] pointer-coarse:leading-[18px]">
               {note.preview || "No content"}
             </p>
             {(note.metadata.tags ?? []).length > 0 && (
-              <div className="flex items-center gap-1 mt-1 overflow-hidden">
+              <div className="flex items-center gap-1 mt-1 overflow-hidden pointer-coarse:col-span-2 pointer-coarse:row-start-3 pointer-coarse:mt-1.5">
                 {(note.metadata.tags ?? []).slice(0, 3).map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-muted text-xs text-muted-foreground shrink-0"
+                    className={cn(
+                      "inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-muted text-xs text-muted-foreground shrink-0",
+                      // Touch (#781): bg-muted matches the selected row's accent, so the chip takes the border tone there.
+                      selectedNoteId === note.docId && "pointer-coarse:bg-border",
+                    )}
                   >
                     #{"\u2009"}
                     {tag}
@@ -533,7 +541,7 @@ const NoteItem = memo(function NoteItem({
                 )}
               </div>
             )}
-            <span className="text-xs text-muted-foreground/70 mt-1">
+            <span className="text-xs text-muted-foreground/70 mt-1 tabular-nums pointer-coarse:col-start-1 pointer-coarse:row-start-2 pointer-coarse:mt-0.5 pointer-coarse:text-[13px] pointer-coarse:leading-[18px] pointer-coarse:font-medium pointer-coarse:text-foreground/70">
               {formatRelativeTime(note.metadata.timestamps.modified)}
               {agentName && (
                 <>
