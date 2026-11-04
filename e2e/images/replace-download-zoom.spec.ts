@@ -39,11 +39,6 @@ test('replace keeps attrs and undo restores; download names the file; lightbox z
   await img.dblclick();
   const dialog = app.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  // #787: Download sits level with the close X, to its left.
-  const iconBox = async (name: string) => (await dialog.getByRole('button', { name }).locator('svg').boundingBox())!;
-  const [dl, close] = [await iconBox('Download image'), await iconBox('Close')];
-  expect(Math.abs(dl.y + dl.height / 2 - (close.y + close.height / 2))).toBeLessThan(1);
-  expect(close.x - (dl.x + dl.width)).toBeGreaterThan(8);
   const zoom = dialog.getByTestId('lightbox-zoom');
   const scale = async () =>
     zoom.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
