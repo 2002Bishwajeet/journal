@@ -140,6 +140,28 @@ export function getLiveDatabase(): Promise<PGliteWithLive> {
   return getDatabase() as Promise<PGliteWithLive>;
 }
 
+let flushCount = 0;
+
+/**
+ * Resolves once this tab's database worker has flushed what PGlite committed to IndexedDB.
+ * PGlite's own syncToFs() only starts that flush under relaxedDurability (#833). For e2e's
+ * syncToDisk; a follower tab's worker holds no data dir and answers at once.
+ */
+export function flushToIndexedDb(): Promise<void> {
+  const worker = currentWorker;
+  if (!worker) return Promise.resolve();
+  const id = ++flushCount;
+  return new Promise((resolve) => {
+    const onMessage = (event: MessageEvent<{ type?: string; id?: number }>) => {
+      if (event.data?.type !== 'journal-flushed' || event.data.id !== id) return;
+      worker.removeEventListener('message', onMessage);
+      resolve();
+    };
+    worker.addEventListener('message', onMessage);
+    worker.postMessage({ type: 'journal-flush', id });
+  });
+}
+
 /**
  * `relaxedDurability` (the default) lets a COMMIT return before the write has
  * been flushed to IndexedDB, which is much faster but means committed data can

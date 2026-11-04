@@ -141,8 +141,9 @@ async function hasUnsavedEdits(): Promise<boolean> {
 
 /** Resolves once PGlite has flushed everything it committed to IndexedDB (a commit returns before that). */
 async function syncToDisk(): Promise<void> {
-    const { getDatabase } = await import('@/lib/db/pglite');
-    await (await getDatabase()).syncToFs();
+    const { getDatabase, flushToIndexedDb } = await import('@/lib/db/pglite');
+    await getDatabase();
+    await flushToIndexedDb();
 }
 
 /** Skip incoming invites until the page reloads, so a share arrives only through the shared pull (#732). */
