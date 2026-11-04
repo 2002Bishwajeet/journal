@@ -41,7 +41,7 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
     <div className="flex h-dvh min-w-0 flex-col md:h-[min(640px,85dvh)]">
       {current ? (
         <>
-          <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-border/60 px-1 pt-[env(safe-area-inset-top)]">
+          <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-border/60 px-2 pt-[env(safe-area-inset-top)]">
             <button
               type="button"
               onClick={() => onPage(null)}
@@ -52,21 +52,21 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
             </button>
             {/* The dialog keeps its "Settings" name on every page. */}
             <DialogTitle className="sr-only">Settings</DialogTitle>
-            <h2 className="text-base font-semibold">{current.label}</h2>
+            <h2 className="text-lg leading-6 font-semibold tracking-tight">{current.label}</h2>
           </header>
           {/* key remounts the page so each drill-in slides in from the right. */}
           <div
             key={current.id}
             role="region"
             aria-label={current.label}
-            className="min-h-0 flex-1 animate-in slide-in-from-right-8 fade-in-0 overflow-y-auto overscroll-contain px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-6 duration-(--duration-push) ease-(--ease-standard) motion-reduce:animate-none"
+            className="min-h-0 flex-1 animate-in slide-in-from-right-8 fade-in-0 overflow-y-auto overscroll-contain px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5 duration-(--duration-push) ease-(--ease-standard) motion-reduce:animate-none"
           >
             <current.Component close={onClose} />
           </div>
         </>
       ) : (
         <>
-          <header className="flex shrink-0 justify-end px-1 pt-[env(safe-area-inset-top)]">
+          <header className="flex shrink-0 justify-end px-2 pt-[env(safe-area-inset-top)]">
             <button
               type="button"
               onClick={onClose}
@@ -75,8 +75,8 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
               Done
             </button>
           </header>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(2rem+env(safe-area-inset-bottom))]">
-            <DialogTitle className="px-1 pb-4 pt-1 text-3xl font-bold tracking-tight">Settings</DialogTitle>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+            <DialogTitle className="pb-4 pt-1 text-3xl font-bold tracking-tight">Settings</DialogTitle>
             <div className="space-y-6">
               {groups.map((group) => (
                 <ul key={group[0].id} className="overflow-hidden rounded-xl border bg-card">

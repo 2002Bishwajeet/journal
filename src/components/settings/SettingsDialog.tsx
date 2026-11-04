@@ -68,12 +68,13 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
     >
       {/* `settings-dialog` scopes this dialog's token overrides (see src/index.css).
           On phones the sheet is pinned to the corner instead of centred, so an odd viewport
-          width leaves no half-pixel seam, and the list has its own Done button. */}
+          width leaves no half-pixel seam, and the list has its own Done button. It slides up
+          like every full sheet (ui/sheet.tsx) instead of the centred card's fade and zoom. */}
       <DialogContent
         showCloseButton={!isMobile}
         // Full screen on a phone: no dim, or the status bar above it turns grey (see Sheet).
         overlayClassName="max-md:bg-transparent"
-        className="settings-dialog max-h-none top-1/2 p-0 max-md:inset-0 max-md:translate-x-0 max-md:translate-y-0 max-md:h-dvh max-md:w-screen max-md:max-w-none sm:max-w-none max-md:rounded-none md:max-w-[min(900px,calc(100%-2rem))] gap-0 overflow-hidden border-0 shadow-2xl bg-background"
+        className="settings-dialog max-h-none top-1/2 p-0 max-md:inset-0 max-md:translate-x-0 max-md:translate-y-0 max-md:h-dvh max-md:w-screen max-md:max-w-none sm:max-w-none max-md:rounded-none md:max-w-[min(900px,calc(100%-2rem))] gap-0 overflow-hidden border-0 shadow-2xl bg-background max-md:data-[state=open]:fade-in-100 max-md:data-[state=open]:zoom-in-100 max-md:data-[state=open]:slide-in-from-bottom-full max-md:data-[state=closed]:fade-out-100 max-md:data-[state=closed]:zoom-out-100 max-md:data-[state=closed]:slide-out-to-bottom-full max-md:duration-(--duration-sheet) max-md:data-[state=closed]:duration-(--duration-sheet-exit) max-md:data-[state=closed]:ease-(--ease-exit)"
       >
         <DialogDescription className="sr-only">
           Manage your application preferences and data.
@@ -94,9 +95,7 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
             {/* ── Navigation: a left rail ── */}
             <nav className="flex w-56 min-w-0 shrink-0 flex-col overflow-y-auto border-r border-border/60 bg-muted/30">
               <div className="px-6 pb-5 pt-7">
-                <DialogTitle className="font-serif text-2xl font-normal tracking-tight text-foreground">
-                  Settings
-                </DialogTitle>
+                <DialogTitle>Settings</DialogTitle>
                 <div className="mt-2 h-0.5 w-8 rounded-full bg-primary" />
               </div>
 
@@ -133,7 +132,7 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
                   value={section.id}
                   className="px-10 pb-10 pt-7 outline-none"
                 >
-                  <h2 className="mb-8 font-serif text-2xl tracking-tight text-balance">
+                  <h2 className="mb-6 text-lg leading-6 font-semibold tracking-tight text-balance">
                     {section.label}
                   </h2>
                   <section.Component close={onClose} />

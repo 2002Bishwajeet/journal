@@ -15,7 +15,7 @@ export const ExtendPermissionDialog = () => {
     <Dialog open onOpenChange={(open) => !open && permissions.dismiss()}>
       <DialogContent
         showCloseButton={false}
-        className="gap-5 sm:max-w-md"
+        className="sm:max-w-md"
         // Radix skips links and would ring "Not now" on open; focus the dialog itself instead.
         // A stray backdrop tap must not save a dismissal; Escape and "Not now" still do.
         onInteractOutside={(e) => e.preventDefault()}
@@ -28,7 +28,7 @@ export const ExtendPermissionDialog = () => {
           <div className="mb-1 w-fit rounded-full bg-secondary p-2.5">
             <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
           </div>
-          <DialogTitle className="text-xl leading-tight text-balance">
+          <DialogTitle className="text-balance">
             Journal needs {count} {noun}
           </DialogTitle>
           <DialogDescription className="text-pretty">

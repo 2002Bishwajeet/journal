@@ -142,7 +142,7 @@ function SheetContent({
             {variant === "full" && showCloseButton && (
               <DialogClose
                 data-slot="sheet-close"
-                className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute top-[env(safe-area-inset-top)] right-1 flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-2 [&_svg]:size-5"
+                className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute top-[env(safe-area-inset-top)] right-2 flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-2 [&_svg]:size-5"
               >
                 <XIcon aria-hidden />
                 <span className="sr-only">Close</span>
@@ -176,9 +176,10 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sheet-header"
       onPointerDown={(e) => controls?.start(e)}
       className={cn(
-        "flex shrink-0 touch-none flex-col gap-1 px-4 pb-3 text-left",
-        // A bottom sheet's grabber already sits above; a full sheet's bar clears the status bar.
-        "in-data-[variant=full]:border-b in-data-[variant=full]:pt-[calc(env(safe-area-inset-top)+0.75rem)] in-data-[variant=full]:pr-14",
+        "flex shrink-0 touch-none flex-col gap-1.5 px-5 pb-3 text-left",
+        // A bottom sheet's grabber already sits above. A full sheet's title shares one 44px bar
+        // with the close button, right under the status bar (SheetTitle).
+        "in-data-[variant=full]:border-b in-data-[variant=full]:pt-[env(safe-area-inset-top)] in-data-[variant=full]:pr-14",
         className
       )}
       {...props}
@@ -191,7 +192,7 @@ function SheetBody({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-body"
-      className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-4", className)}
+      className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5", className)}
       {...props}
     />
   )
@@ -202,7 +203,7 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-footer"
       className={cn(
-        "flex shrink-0 flex-col gap-2 px-4 pt-3 max-sm:*:data-[slot=button]:h-11",
+        "flex shrink-0 flex-col gap-2 px-5 pt-3 max-sm:*:data-[slot=button]:h-11",
         className
       )}
       {...props}
@@ -217,7 +218,10 @@ function SheetTitle({
   return (
     <DialogTitle
       data-slot="sheet-title"
-      className={cn("text-lg leading-tight font-semibold", className)}
+      className={cn(
+        "in-data-[variant=full]:flex in-data-[variant=full]:min-h-11 in-data-[variant=full]:items-center",
+        className
+      )}
       {...props}
     />
   )
@@ -230,7 +234,7 @@ function SheetDescription({
   return (
     <DialogDescription
       data-slot="sheet-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={className}
       {...props}
     />
   )
