@@ -161,8 +161,8 @@ function HiddenNotesViewComponent({
           )}
           onScrollCapture={() => setOpenRowId(null)}
         >
-          {/* A tablet shows this list full width (#781): wider side margins, and no line longer than 60ch. */}
-          <div className="flex h-full flex-col md:px-2">
+          {/* A tablet shows this list full width (#781): even side margins, and no line longer than 60ch. */}
+          <div className="flex h-full flex-col md:px-4">
             <LargeTitle titleRef={largeTitle.ref}>{title}</LargeTitle>
             {isLoading ? (
               <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
@@ -330,7 +330,7 @@ function HiddenNoteRow({
               ref={contentRef}
               {...touchHandlers}
               style={{ touchAction: "pan-y" }}
-              className="relative flex items-center gap-2 bg-background py-3 pl-4 pr-1 transition-transform duration-(--duration-fade) ease-(--ease-standard) after:absolute after:inset-x-0 after:bottom-0 after:ml-4 after:h-px after:bg-border/60"
+              className="relative flex items-center gap-2 bg-background py-3 pl-4 pr-1 transition-transform duration-(--duration-fade) ease-(--ease-standard) after:absolute after:inset-x-0 after:bottom-0 after:ml-4 after:h-px after:bg-border/60 md:after:mr-4"
             >
               <div className="min-w-0 flex-1 md:[&>p]:max-w-[60ch]">
                 <p className="truncate text-sm font-medium pointer-coarse:text-[15px] pointer-coarse:leading-5 pointer-coarse:font-semibold">{note.title || "Untitled"}</p>

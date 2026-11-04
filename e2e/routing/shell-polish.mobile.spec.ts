@@ -47,9 +47,12 @@ async function importNotes(page: Page) {
   const dialog = page.getByRole('dialog');
   await openSettingsSection(dialog, 'Data & storage');
   await dialog.locator('input[type="file"]').setInputFiles(seedFiles());
-  await expect(page.getByText(`Successfully imported ${COUNT} notes`)).toBeVisible({ timeout: 60_000 });
+  const toast = page.getByText(`Successfully imported ${COUNT} notes`);
+  await expect(toast).toBeVisible({ timeout: 60_000 });
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
+  // The toast would cover the bottom of the sidebar in its screenshot.
+  await expect(toast).toBeHidden({ timeout: 15_000 });
 }
 
 async function swipeFirstRow(cdp: CDPSession, page: Page) {
