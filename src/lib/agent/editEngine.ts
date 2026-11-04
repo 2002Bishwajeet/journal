@@ -49,10 +49,13 @@ function wrapBlockImages(node: JSONContent) {
 /** A list item opens with a paragraph, so a link preview line there stays a plain link (#561). */
 function unwrapListItemCards(node: JSONContent) {
   if (!node.content) return;
-  const [first] = node.content;
-  if ((node.type === 'listItem' || node.type === 'taskItem') && first?.type === 'linkPreview') {
-    const href = String(first.attrs?.url);
-    node.content[0] = { type: 'paragraph', content: [{ type: 'text', text: href, marks: [{ type: 'link', attrs: { href } }] }] };
+  const [first, second] = node.content;
+  // The list item parser puts an empty paragraph before a leading non-paragraph block.
+  const lead = first?.type === 'paragraph' && !first.content?.length && second?.type === 'linkPreview' ? 1 : 0;
+  const card = node.content[lead];
+  if ((node.type === 'listItem' || node.type === 'taskItem') && card?.type === 'linkPreview') {
+    const href = String(card.attrs?.url);
+    node.content.splice(0, lead + 1, { type: 'paragraph', content: [{ type: 'text', text: href, marks: [{ type: 'link', attrs: { href } }] }] });
   }
   node.content.forEach(unwrapListItemCards);
 }
