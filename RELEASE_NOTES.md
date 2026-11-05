@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.61.3 (2026-11-05)
+
+### Fixed
+
+- When you paste a share link into a chat app for the first time, the preview shows the note's title and image more reliably. Before, a slow first request sometimes gave the general Journal preview.
+
 ## 2.61.2 (2026-11-05)
 
 ### Changed

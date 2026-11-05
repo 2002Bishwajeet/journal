@@ -1,3 +1,9 @@
+## [2.61.3](https://github.com/2002Bishwajeet/journal/compare/v2.61.2...v2.61.3) (2026-11-05)
+
+
+### Bug Fixes
+
+* **share:** a slow first upstream fetch no longer gives a link the generic card ([acd518c](https://github.com/2002Bishwajeet/journal/commit/acd518c838040fba186b4222f7434690e65ecfd0))
 ## [2.61.2](https://github.com/2002Bishwajeet/journal/compare/v2.61.1...v2.61.2) (2026-11-05)
 
 
