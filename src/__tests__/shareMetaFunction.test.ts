@@ -347,6 +347,24 @@ describe('share Pages Function', () => {
         expect(await res.text()).toBe(INDEX_HTML);
     });
 
+    it('should not cache a failed lookup, so the next request gets the note meta', async () => {
+        const stored = new Map<string, string>();
+        vi.stubGlobal('caches', {
+            default: {
+                match: async (req: Request) => (stored.has(req.url) ? new Response(stored.get(req.url)) : undefined),
+                put: async (req: Request, res: Response) => void stored.set(req.url, await res.text()),
+            },
+        });
+        vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('timed out'); }));
+        expect(await (await onRequest(context(`/share/${IDENTITY}/${GUID}`).ctx)).text()).toBe(INDEX_HTML);
+        expect(stored.size).toBe(0);
+
+        vi.stubGlobal('fetch', mockFetch({ status: 200, body: headerJson() }).impl);
+        const html = await (await onRequest(context(`/share/${IDENTITY}/${GUID}`).ctx)).text();
+        expect(html).toContain('property="og:title" content="T"');
+        await vi.waitFor(() => expect(stored.size).toBe(1));
+    });
+
     it('should pass non-GET requests to next()', async () => {
         const { ctx, next } = context(`/share/${IDENTITY}/${GUID}`, 'POST');
         expect(await (await onRequest(ctx)).text()).toBe('next');

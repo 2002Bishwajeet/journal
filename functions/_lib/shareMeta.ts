@@ -60,7 +60,7 @@ export function isoDate(value: unknown): string | undefined {
 
 export async function fetchAuthorName(url: string, fetchImpl: typeof fetch): Promise<string | undefined> {
     try {
-        const res = await fetchImpl(url, { redirect: 'manual', signal: AbortSignal.timeout(1000) });
+        const res = await fetchImpl(url, { redirect: 'manual', signal: AbortSignal.timeout(4000) });
         if (res.status !== 200) return undefined;
         const profile = (await res.json()) as { name?: unknown };
         return typeof profile?.name === 'string' && profile.name.trim() ? profile.name.trim() : undefined;
@@ -101,7 +101,7 @@ export async function fetchShareMeta(
         const [headerRes, authorName] = await Promise.all([
             fetchImpl(`${base}/api/guest/v1/drive/query/specialized/cuid/header?${query}`, {
                 redirect: 'manual',
-                signal: AbortSignal.timeout(1500),
+                signal: AbortSignal.timeout(4000),
                 headers: { accept: 'application/json' },
             }),
             fetchAuthorName(`${base}/pub/profile`, fetchImpl),
