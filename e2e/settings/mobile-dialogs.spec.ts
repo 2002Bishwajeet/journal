@@ -58,6 +58,8 @@ test('New folder dialog has 44px targets and a left-aligned header', async ({ br
 });
 
 test('Move to Trash confirm has 44px targets and a visible dark outline', async ({ browser }) => {
+  // Two boots, a saved note and eight screenshots: 24-28 s on CI runners, and it hit 30 s on main on 2026-11-05.
+  test.slow();
   await boot(browser, async (page) => {
     // Make the note at desktop width (the phone layout has no inline "New" list), then go phone-sized.
     await page.setViewportSize(DESKTOP);
