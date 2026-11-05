@@ -1,3 +1,9 @@
+## [2.61.2](https://github.com/2002Bishwajeet/journal/compare/v2.61.1...v2.61.2) (2026-11-05)
+
+
+### Performance Improvements
+
+* **images:** hide the viewer's bar while zoomed without a :has() rule ([#833](https://github.com/2002Bishwajeet/journal/issues/833)) ([f58bda2](https://github.com/2002Bishwajeet/journal/commit/f58bda229dc29ecdeb931964b7a0ea850eb1ca6c))
 ## [2.61.1](https://github.com/2002Bishwajeet/journal/compare/v2.61.0...v2.61.1) (2026-11-05)
 
 
