@@ -15,19 +15,42 @@ function markBoot(step: string) {
 
 /** The engine's IndexedDB filesystem, timing its read of the data dir at startup. */
 class TimedIdbFs extends IdbFs {
+  #flushing: Promise<unknown> = Promise.resolve();
+
   async initialSyncFs() {
     markBoot('db-idb-read');
     await super.initialSyncFs();
     markBoot('db-idb-loaded');
   }
+
+  // Flushes run one at a time, so a 'journal-flush' (below) never overlaps the engine's own.
+  syncToFs(relaxedDurability?: boolean) {
+    const flush = this.#flushing.then(() => super.syncToFs(relaxedDurability));
+    this.#flushing = flush.catch(() => {});
+    return flush;
+  }
 }
+
+// Set once this tab's worker is the leader and Postgres is up on the loaded data dir:
+// a flush before the load would write an empty data dir over the stored one.
+let openFs: TimedIdbFs | undefined;
+
+// e2e's syncToDisk (flushToIndexedDb in pglite.ts): under relaxedDurability the engine's
+// flushes are not awaited by anyone, so this flushes now and answers once IndexedDB has it.
+// A follower tab's worker has no data dir and answers at once.
+addEventListener('message', (event: MessageEvent<{ type?: string; id?: number }>) => {
+  if (event.data?.type !== 'journal-flush') return;
+  const { id } = event.data;
+  void (openFs?.syncToFs() ?? Promise.resolve()).finally(() => postMessage({ type: 'journal-flushed', id }));
+});
 
 worker({
   async init(options) {
+    const fs = new TimedIdbFs(options.dataDir!.replace(/^idb:\/\//, ''));
     const pg = new PGlite({
       dataDir: options.dataDir,
       // The same filesystem the engine picks for an idb:// dataDir, with the timing marks.
-      fs: new TimedIdbFs(options.dataDir!.replace(/^idb:\/\//, '')),
+      fs,
       // Without this every query waits for a full IndexedDB flush (~16 MB
       // rewritten per write). The trade-off is that COMMIT returns before the
       // flush, so the migrating launch passes false — see createWorkerInstance.
@@ -38,7 +61,10 @@ worker({
       extensions: { pg_trgm, live },
     });
     // Postgres is running on the loaded data dir.
-    void pg.waitReady.then(() => markBoot('db-open'));
+    void pg.waitReady.then(() => {
+      openFs = fs;
+      markBoot('db-open');
+    });
     return pg;
   },
 });

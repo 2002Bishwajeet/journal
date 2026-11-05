@@ -14,12 +14,14 @@ type InitFn = (options: InitOptions) => Promise<unknown>;
 
 const mocks = {
   pgliteArgs: [] as Array<Record<string, unknown>>,
+  flushLog: [] as string[],
 };
 
 /** Loads pglite-worker.ts with the engine and worker runtime stubbed out. */
 async function loadWorkerInit(): Promise<InitFn> {
   vi.resetModules();
   mocks.pgliteArgs = [];
+  mocks.flushLog = [];
   // A local, assigned only inside the mock factory below: resetting a property
   // here instead would pin its type for the rest of this function.
   let captured: InitFn | undefined;
@@ -34,6 +36,11 @@ async function loadWorkerInit(): Promise<InitFn> {
       dataDir: string;
       constructor(dataDir: string) {
         this.dataDir = dataDir;
+      }
+      async syncToFs() {
+        mocks.flushLog.push('start');
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        mocks.flushLog.push('end');
       }
     },
   }));
@@ -54,6 +61,8 @@ beforeEach(() => {
   mocks.pgliteArgs = [];
   // The worker posts its boot timing marks to the page.
   vi.stubGlobal('postMessage', vi.fn());
+  // ...and listens for the page's flush requests (#833).
+  vi.stubGlobal('addEventListener', vi.fn());
 });
 
 describe('pglite worker init', () => {
@@ -82,5 +91,29 @@ describe('pglite worker init', () => {
 
     expect((mocks.pgliteArgs[0].fs as { dataDir: string }).dataDir).toBe('journal-db-pg18');
     expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'journal-boot-mark', step: 'db-open' }));
+  });
+
+  it('runs IndexedDB flushes one at a time, and answers a flush request once its flush is done (#833)', async () => {
+    const init = await loadWorkerInit();
+    const onMessage = vi.mocked(addEventListener).mock.calls.find(([type]) => type === 'message')![1] as unknown as (event: { data: unknown }) => void;
+    const flushed = () => new Promise((resolve) => vi.mocked(postMessage).mockImplementation((message) => {
+      if ((message as { type: string }).type === 'journal-flushed') resolve(message);
+    }));
+
+    // Before Postgres is up there is nothing to flush: a flush then would overwrite the stored data dir.
+    let answer = flushed();
+    onMessage({ data: { type: 'journal-flush', id: 1 } });
+    expect(await answer).toEqual({ type: 'journal-flushed', id: 1 });
+    expect(mocks.flushLog).toEqual([]);
+
+    await init({ dataDir: 'idb://journal-db-pg18' });
+    await Promise.resolve();
+    const fs = mocks.pgliteArgs[0].fs as { syncToFs(relaxed?: boolean): Promise<void> };
+    answer = flushed();
+    const engineFlush = fs.syncToFs(true);
+    onMessage({ data: { type: 'journal-flush', id: 2 } });
+    expect(await answer).toEqual({ type: 'journal-flushed', id: 2 });
+    await engineFlush;
+    expect(mocks.flushLog).toEqual(['start', 'end', 'start', 'end']);
   });
 });
