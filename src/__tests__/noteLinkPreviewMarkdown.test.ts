@@ -184,6 +184,19 @@ describe('link preview cards in markdown', () => {
     expect(toMarkdown(createDoc('- <https://example.com/a><!-- preview -->'))).toBe('- [https://example.com/a](https://example.com/a)');
   });
 
+  it.each([
+    ['- <https://example.com/a><!-- preview -->\n  more text', 'more text'],
+    ['- <https://example.com/a><!-- preview -->\nmore text', 'more text'],
+    ['- <https://example.com/a><!-- preview -->\n\n  second para', 'second para'],
+    ['- <https://example.com/a><!-- preview -->\n  - child', 'child'],
+    ['- <https://example.com/a><!-- preview -->\n- second', 'second'],
+    ['- [ ] <https://example.com/a><!-- preview -->\n  more text', 'more text'],
+    ['> <https://example.com/a><!-- preview -->\n> more quoted', 'more quoted'],
+    ['> <https://example.com/a><!-- preview -->\n>\n> second para', 'second para'],
+  ])('a card line opening an item keeps the rest of it: %j', (markdown, text) => {
+    expect(toMarkdown(createDoc(markdown))).toContain(text);
+  });
+
   it('markdown export writes note links and cards in the syntax get_note returns', async () => {
     const markdown = 'See [Trip plan](journal:note/trip-1).\n\n<https://example.com/a><!-- preview -->';
     const doc = createDoc(markdown, TARGETS);
