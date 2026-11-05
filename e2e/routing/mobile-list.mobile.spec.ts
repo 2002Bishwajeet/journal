@@ -24,6 +24,8 @@ async function addNote(page: Page) {
 }
 
 test('the list screen has one 44 px header, and the group header sticks', async ({ browser }) => {
+  // Adds up to 40 notes; on a slow runner that alone takes about 30 s (PR #996).
+  test.slow();
   await withMobilePage(browser, async (page) => {
     // Layout only: no push slide, so screenshots never land mid-slide.
     await page.emulateMedia({ reducedMotion: 'reduce' });
