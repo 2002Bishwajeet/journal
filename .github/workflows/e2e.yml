@@ -12,11 +12,11 @@ concurrency:
 
 jobs:
   # The hermetic suite split three ways; `e2e` below is the required check.
-  # Step caps are about 1.5x the measured p90 (#868); they sum to 34 min, plus
+  # Step caps are about 1.5x the measured p90 (#868); they sum to 40 min, plus
   # 2 min for the uncapped steps that take a second each.
   e2e-shard:
     runs-on: ubuntu-latest
-    timeout-minutes: 36
+    timeout-minutes: 42
     permissions:
       contents: read
     strategy:
@@ -85,8 +85,9 @@ jobs:
       # On shard 3, the shortest hermetic shard.
       - name: Run mobile E2E (chromium)
         if: matrix.shard == 3
-        # Hit 8 minutes on PRs #955 and #956 on 2026-11-02, with every test passing so far
-        timeout-minutes: 14
+        # Hit 8 minutes on PRs #955 and #956 on 2026-11-02, with every test passing so far.
+        # Hit 14.1 minutes on PR #996 on 2026-11-04 on slow runners, with all 107 passing.
+        timeout-minutes: 20
         run: npm run e2e:mobile
         env:
           CI: true
