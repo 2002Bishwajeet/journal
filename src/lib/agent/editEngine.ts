@@ -56,6 +56,14 @@ function unwrapListItemCards(node: JSONContent) {
   if ((node.type === 'listItem' || node.type === 'taskItem') && card?.type === 'linkPreview') {
     const href = String(card.attrs?.url);
     node.content.splice(0, lead + 1, { type: 'paragraph', content: [{ type: 'text', text: href, marks: [{ type: 'link', attrs: { href } }] }] });
+    // The rest of the item's first paragraph is lexed as bare inline nodes, which the schema drops: wrap each run.
+    let run: JSONContent[] | null = null;
+    node.content = node.content.flatMap((child, i): JSONContent[] => {
+      if (i === 0 || child.type !== 'text') return (run = null), [child];
+      if (run) return run.push(child), [];
+      run = [child];
+      return [{ type: 'paragraph', content: run }];
+    });
   }
   node.content.forEach(unwrapListItemCards);
 }
