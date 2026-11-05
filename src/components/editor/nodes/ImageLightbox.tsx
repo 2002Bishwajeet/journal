@@ -4,7 +4,7 @@
  * (plain URLs, the pending upload's live object URL) is a plain <img>. An edited
  * image (#584) shows as edited.
  */
-import { useContext, useState, type CSSProperties } from "react";
+import { useContext, useEffect, useState, type CSSProperties } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { motion, useMotionValue, useTransform, type MotionValue } from "framer-motion";
 import { Download, X } from "lucide-react";
@@ -18,6 +18,7 @@ import { useImageDownload } from "@/hooks/image/useImageDownload";
 import { useZoomPan } from "@/hooks/image/useZoomPan";
 import { useSwipeToClose } from "@/hooks/image/useSwipeToClose";
 import { useSheetMode } from "@/hooks/useSheetMode";
+import { cn } from "@/lib/utils";
 import { ImageOwnerContext } from "./imageOwnerContext";
 
 interface ImageLightboxProps {
@@ -35,6 +36,7 @@ function ZoomStage({
   edits,
   onClose,
   swipeY,
+  onZoomedChange,
 }: {
   src: string;
   alt: string;
@@ -42,6 +44,7 @@ function ZoomStage({
   onClose: () => void;
   /** The full-screen viewer passes the value its background fades with; a swipe at fit moves it (#829). */
   swipeY?: MotionValue<number>;
+  onZoomedChange?: (zoomed: boolean) => void;
 }) {
   const dotYouClient = useDotYouClientContext();
   const owner = useContext(ImageOwnerContext);
@@ -53,6 +56,8 @@ function ZoomStage({
   const ownY = useMotionValue(0);
   const y = swipeY ?? ownY;
   const swipe = useSwipeToClose(y, Boolean(swipeY) && view.scale === 1, onClose);
+  const zoomed = view.scale > 1;
+  useEffect(() => onZoomedChange?.(zoomed), [zoomed, onZoomedChange]);
 
   return (
     // Wheel/pinch zooms, drag pans, double-click toggles fit and 100%
@@ -156,6 +161,13 @@ function PhoneViewer({
   const chrome = useTransform(y, (v) => fade(v, 120));
   const button =
     "flex size-11 items-center justify-center rounded-full text-white/90 outline-none focus-visible:ring-2 focus-visible:ring-white [&_svg]:size-6";
+  // Zoomed in, the bar and the caption fade out and take no taps, as in Photos; back at fit they return (#833).
+  // A state, not a :has() selector: one in the stylesheet slows every DOM change in the app.
+  const [zoomed, setZoomed] = useState(false);
+  const hideWhileZoomed = cn(
+    "transition-opacity duration-(--duration-fade) ease-(--ease-standard)",
+    zoomed && "pointer-events-none opacity-0",
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -167,31 +179,36 @@ function PhoneViewer({
             e.preventDefault();
             (e.currentTarget as HTMLElement).focus();
           }}
-          className="fixed inset-x-0 top-0 z-50 flex h-dvh flex-col outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-200"
+          className="fixed inset-x-0 top-0 z-50 flex h-dvh flex-col outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-(--duration-fade) ease-(--ease-standard)"
         >
           <DialogTitle className="sr-only">{alt || "Image preview"}</DialogTitle>
           <motion.div aria-hidden className="absolute inset-0 -z-10" style={{ backgroundColor: background }} />
-          <motion.div
-            style={{ opacity: chrome }}
-            className="flex shrink-0 items-center justify-between px-2 pt-[env(safe-area-inset-top)]"
-          >
-            <DialogPrimitive.Close aria-label="Close" className={button}>
-              <X aria-hidden />
-            </DialogPrimitive.Close>
-            <button type="button" aria-label="Download image" onClick={download} className={button}>
-              <Download aria-hidden />
-            </button>
-          </motion.div>
-          <div style={{ "--viewer-max-h": PHONE_MAX_H } as CSSProperties} className="flex min-h-0 flex-1 flex-col">
-            <ZoomStage src={src} alt={alt} edits={edits} onClose={() => onOpenChange(false)} swipeY={y} />
+          <div className={cn("nav-bar shrink-0", hideWhileZoomed)}>
+            <motion.div
+              style={{ opacity: chrome }}
+              className="flex items-center justify-between px-2 pt-[env(safe-area-inset-top)]"
+            >
+              <DialogPrimitive.Close aria-label="Close" className={button}>
+                <X aria-hidden />
+              </DialogPrimitive.Close>
+              <button type="button" aria-label="Download image" onClick={download} className={button}>
+                <Download aria-hidden />
+              </button>
+            </motion.div>
           </div>
-          <motion.p
-            aria-hidden="true"
-            style={{ opacity: chrome }}
-            className="shrink-0 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center text-sm text-white/90 empty:hidden"
-          >
-            {alt}
-          </motion.p>
+          <div style={{ "--viewer-max-h": PHONE_MAX_H } as CSSProperties} className="flex min-h-0 flex-1 flex-col">
+            <ZoomStage src={src} alt={alt} edits={edits} onClose={() => onOpenChange(false)} swipeY={y} onZoomedChange={setZoomed} />
+          </div>
+          {/* The caption is set like a list row's title (15/20), three lines at most. */}
+          <div className={cn("shrink-0", hideWhileZoomed)}>
+            <motion.p
+              aria-hidden="true"
+              style={{ opacity: chrome }}
+              className="line-clamp-3 px-5 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-center text-[15px] leading-5 text-balance text-white/90 empty:hidden"
+            >
+              {alt}
+            </motion.p>
+          </div>
         </DialogPrimitive.Content>
       </DialogPortal>
     </Dialog>

@@ -13,7 +13,7 @@ interface TablePickerProps {
 
 const SHEET_MAX = 10;
 const stepButton =
-  'flex size-11 items-center justify-center rounded-full bg-background text-foreground active:bg-accent disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-5';
+  'flex size-11 items-center justify-center rounded-full bg-background text-foreground active:bg-border disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-5';
 
 // Touch has no hover to preview a size, so the sheet counts rows and columns with steppers (#827).
 function Stepper({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {

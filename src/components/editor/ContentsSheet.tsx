@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import { useReducedMotion } from 'framer-motion';
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { sheetGroup, sheetRowPress } from '@/components/ui/sheetClasses';
+import { cn } from '@/lib/utils';
 import { extractHeadings, type HeadingEntry } from '@/lib/editor/extractHeadings';
 import { scrollToHeading } from '@/lib/editor/scrollToHeading';
 
@@ -42,7 +44,7 @@ export function ContentsSheet({
         </SheetHeader>
         <SheetBody>
           <nav aria-label="Table of contents">
-            <ul className="bg-muted divide-border divide-y overflow-hidden rounded-xl">
+            <ul className={sheetGroup}>
               {headings.map((heading, index) => (
                 <li key={`${heading.pos}-${index}`}>
                   <button
@@ -51,7 +53,7 @@ export function ContentsSheet({
                       onOpenChange(false);
                       scrollToHeading(editor, heading.pos, !reducedMotion);
                     }}
-                    className={`active:bg-accent flex min-h-13 w-full items-center pr-4 text-left text-base outline-none focus-visible:bg-accent ${indentByLevel[heading.level] ?? 'pl-4'}`}
+                    className={cn(sheetRowPress, 'flex min-h-13 w-full items-center pr-4 text-left text-base outline-none focus-visible:bg-accent', indentByLevel[heading.level] ?? 'pl-4')}
                   >
                     <span className="line-clamp-2">{heading.text || 'Untitled heading'}</span>
                   </button>

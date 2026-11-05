@@ -116,12 +116,17 @@ function EditorLayout({
 
   return (
     <div className="flex flex-col h-full w-full bg-background relative">
-      {/* Mobile Editor Header */}
+      {/* Mobile Editor Header: a 44 px bar like the list screens' (#833). It is one surface with
+          the status bar above it; its hairline and the small title show once the big title has
+          scrolled under it, and it is the tab bar's translucent material. */}
       <div
         className={
           isDesktop
             ? "hidden"
-            : "flex items-center h-12 px-3 bg-background border-b border-border w-full shrink-0"
+            : cn(
+                "nav-bar relative z-10 flex h-11 w-full shrink-0 items-center border-b bg-background/80 px-3 backdrop-blur-md transition-colors duration-(--duration-fade) ease-(--ease-standard)",
+                titleInView && "border-transparent",
+              )
         }
       >
         <Button
@@ -136,7 +141,7 @@ function EditorLayout({
         <span
           aria-hidden={titleInView}
           className={cn(
-            "mx-2 flex-1 truncate text-center text-sm font-semibold transition-opacity duration-200",
+            "mx-2 flex-1 truncate text-center text-[17px] font-semibold transition-opacity duration-(--duration-fade) ease-(--ease-standard)",
             titleInView && "opacity-0",
           )}
         >

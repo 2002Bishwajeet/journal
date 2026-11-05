@@ -43,7 +43,7 @@ export function MobileTabBar({
   return (
     <nav
       aria-label="Tabs"
-      className="mobile-tab-bar fixed inset-x-0 bottom-0 z-40 flex bg-background/80 shadow-[0_-1px_0_0_var(--border)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] backdrop-blur-md"
+      className="mobile-tab-bar nav-bar fixed inset-x-0 bottom-0 z-40 flex bg-background/80 shadow-[0_-1px_0_0_var(--border)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] backdrop-blur-md"
     >
       {TABS.map(({ id, label, icon: Icon }) => {
         const active = id === activeTab;
@@ -54,7 +54,7 @@ export function MobileTabBar({
             aria-current={active ? "page" : undefined}
             onClick={() => press(id)}
             className={cn(
-              "flex h-(--tab-bar-height) min-w-0 flex-1 flex-col items-center justify-center gap-0.5 outline-none select-none [-webkit-tap-highlight-color:transparent] active:opacity-60 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset",
+              "flex h-(--tab-bar-height) min-w-0 flex-1 flex-col items-center justify-center gap-0.5 outline-none select-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset",
               active ? "text-primary" : "text-muted-foreground",
             )}
           >

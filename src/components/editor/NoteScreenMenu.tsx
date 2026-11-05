@@ -93,7 +93,7 @@ export function NoteScreenMenu({
         className="h-11 w-11 -mr-2 shrink-0"
         onClick={() => setSheetOpen(true)}
       >
-        <MoreHorizontal className="h-5 w-5" />
+        <MoreHorizontal className="size-6" aria-hidden />
       </Button>
       <ActionSheet
         open={sheetOpen}

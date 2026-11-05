@@ -223,12 +223,23 @@ button, [role="button"], [role="menuitem"], [role="tab"], a, summary, label, sel
   }
 
   /* Rows and menu items (#781) tint while pressed, as iOS lists do, instead of fading; the
-     tint fades out on release through the row's own background transition. */
+     tint fades out on release through the row's own background transition. A grouped list
+     on a muted card sets --press-row-bg, since --accent matches that card in dark (#833). */
   :is(button, [role="button"], [role="menuitem"], a).press-row:active {
     opacity: 1;
-    background-color: var(--accent);
+    background-color: var(--press-row-bg, var(--accent));
     transition: none;
   }
+}
+
+/* Bar buttons (#833): Back, More and the other buttons in the note header, the tab bar and the
+   image viewer's bar dim while pressed, as iOS bar buttons do, and come back on release. */
+.nav-bar button:not(:disabled):active {
+  opacity: 0.35;
+  transition: none;
+}
+.nav-bar button {
+  transition: opacity var(--duration-fade) var(--ease-standard);
 }
 
 /* TipTap Editor Styles */

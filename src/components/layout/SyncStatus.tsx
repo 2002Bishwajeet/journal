@@ -202,7 +202,7 @@ export function SyncStatus({ className }: SyncStatusProps) {
 
             <button
               type="button"
-              className="-mx-4 flex min-h-11 items-center justify-between border-t px-4 text-sm"
+              className="press-row -mx-5 flex min-h-11 items-center justify-between border-t px-5 text-sm transition-colors duration-(--duration-fade) ease-(--ease-standard)"
               onClick={showDiagnostics}
             >
               Open diagnostics
