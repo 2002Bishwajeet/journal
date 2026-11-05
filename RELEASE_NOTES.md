@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.61.1 (2026-11-05)
+
+### Fixed
+
+- A list item that starts with a link preview keeps the text that follows it. Before, notes written by an AI assistant or imported from markdown lost that text.
+
 ## 2.61.0 (2026-11-04)
 
 ### Changed

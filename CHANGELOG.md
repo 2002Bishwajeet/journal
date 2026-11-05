@@ -1,3 +1,9 @@
+## [2.61.1](https://github.com/2002Bishwajeet/journal/compare/v2.61.0...v2.61.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **editor:** keep the rest of a list item whose first line is a link preview ([#995](https://github.com/2002Bishwajeet/journal/issues/995)) ([afd9ddd](https://github.com/2002Bishwajeet/journal/commit/afd9ddd121626dafbd40b86a789edd6c0ed8c239))
 # [2.61.0](https://github.com/2002Bishwajeet/journal/compare/v2.60.1...v2.61.0) (2026-11-04)
 
 
