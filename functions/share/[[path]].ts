@@ -36,8 +36,14 @@ export async function onRequest(context: ShareContext): Promise<Response> {
         const parsed = parseSharePath(url.pathname);
         if (!parsed || !shell.ok) return shell;
 
-        const meta = await cached(context, `https://share-meta.invalid/${parsed.identity}/${parsed.noteId}`, () =>
-            fetchShareMeta(parsed.identity, parsed.noteId, fetch, env.HOMEBASE_UPSTREAM_OVERRIDE),
+        // A miss is not cached: it is often a slow first upstream fetch, and a crawler served the
+        // plain shell keeps the generic card for that link.
+        const meta = await cached(
+            context,
+            `https://share-meta.invalid/${parsed.identity}/${parsed.noteId}`,
+            () => fetchShareMeta(parsed.identity, parsed.noteId, fetch, env.HOMEBASE_UPSTREAM_OVERRIDE),
+            undefined,
+            false,
         );
         if (!meta) return shell;
 
@@ -92,12 +98,13 @@ async function serveAuthorIndex(context: ShareContext, path: AuthorPath): Promis
     }
 }
 
-/** `load()`, cached for `ttl` seconds (5 min by default; 60 s for a null). */
+/** `load()`, cached for `ttl` seconds (5 min by default; 60 s for a null, unless `cacheMiss` is false). */
 async function cached<T extends object>(
     context: ShareContext,
     key: string,
     load: () => Promise<T | null>,
     ttl = 300,
+    cacheMiss = true,
 ): Promise<T | null> {
     // The Cache API may be unavailable (e.g. on *.pages.dev); that must not matter.
     const cache = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
@@ -114,6 +121,7 @@ async function cached<T extends object>(
     }
 
     const value = await load();
+    if (!value && !cacheMiss) return null;
     try {
         if (cache) {
             context.waitUntil(
