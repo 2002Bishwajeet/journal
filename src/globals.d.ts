@@ -84,8 +84,18 @@ interface JournalE2EHooks {
   ): Promise<{ read: string; patch: string }>;
   /** For the AI eval (#706): loads the agent model, then accepts every assistant proposal and records the loop's events. */
   startAgentEval(modelId: string): Promise<{ loaded: boolean; loadMs: number; loadedModelId: string; cached: boolean }>;
-  /** The agent loop's events since the last call; a proposal keeps only its tool and args. */
-  takeAgentEvents(): ({ type: string; tool?: string; args?: unknown; step?: number; answer?: string; error?: string; message?: string; result?: string })[];
+  /** The agent loop's events since the last call; a proposal keeps only its tool and args, and a `usage` event follows each model turn. */
+  takeAgentEvents(): ({
+    type: string;
+    tool?: string;
+    args?: unknown;
+    step?: number;
+    answer?: string;
+    error?: string;
+    message?: string;
+    result?: string;
+    usage?: { promptTokens: number; completionTokens: number; prefillTokensPerS: number; decodeTokensPerS: number };
+  })[];
   /** The open note's id and its editor content as TipTap JSON, or null with no note open. */
   openNoteJSON(): Promise<{ docId: string; doc: unknown } | null>;
   /** Makes a note on this device read as one `authorOdinId` shared with the identity (#947). */

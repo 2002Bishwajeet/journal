@@ -156,7 +156,7 @@ const agentEvents: AgentEvalEvent[] = [];
 
 /**
  * For the AI eval (#706), until the page reloads: loads `modelId` (timed), accepts every
- * assistant proposal as soon as it is shown, and records the agent loop's events.
+ * assistant proposal as soon as it is shown, and records the agent loop's events and each turn's usage.
  */
 async function startAgentEval(modelId: string): ReturnType<JournalE2EHooks['startAgentEval']> {
     const [{ initWebLLM, isModelCached }, { resolveModelId }, { activeEditor }, { pendingEdits, acceptEdit }, { pendingWrites, acceptWrite }] =
@@ -180,6 +180,16 @@ async function startAgentEval(modelId: string): ReturnType<JournalE2EHooks['star
     // A proposal carries the editor transaction, which can't leave the page.
     e2eSwitches.onAgentEvent = (event) =>
         agentEvents.push(event.type === 'proposal' ? { type: 'proposal', tool: event.proposal.tool, args: event.proposal.args } : event);
+    e2eSwitches.onAgentUsage = ({ prompt_tokens, completion_tokens, extra }) =>
+        agentEvents.push({
+            type: 'usage',
+            usage: {
+                promptTokens: prompt_tokens,
+                completionTokens: completion_tokens,
+                prefillTokensPerS: extra.prefill_tokens_per_s,
+                decodeTokensPerS: extra.decode_tokens_per_s,
+            },
+        });
 
     const loadedModelId = await resolveModelId(modelId);
     const cached = await isModelCached(loadedModelId);

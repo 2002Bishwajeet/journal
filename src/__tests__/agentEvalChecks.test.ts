@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blocksOf, fixtureFiles, FIXTURE_NOTES, TASKS, type Block, type FinalState } from '../../e2e/evals/tasks';
+import { blocksOf, fixtureFiles, FIXTURE_NOTES, LONG_NOTE_BODY, TASKS, type Block, type FinalState } from '../../e2e/evals/tasks';
 
 // The AI eval's task checkers (#706), on hand-made final states.
 
@@ -14,9 +14,9 @@ const list = (...items: string[]): Block => ({ type: 'bulletList', text: items.j
 const state = (overrides: Partial<FinalState>): FinalState => ({ answer: null, tools: [], blocks: null, ...overrides });
 
 describe('the eval tasks', () => {
-    it('has about 20 tasks in the five kinds, with unique ids', () => {
+    it('has 20 tasks in the five kinds plus 2 long-note tasks, with unique ids', () => {
         const count = (kind: string) => TASKS.filter((t) => t.kind === kind).length;
-        expect([count('find'), count('read'), count('edit'), count('cross'), count('refusal')]).toEqual([5, 4, 8, 2, 1]);
+        expect([count('find'), count('read'), count('edit'), count('cross'), count('refusal'), count('long')]).toEqual([5, 4, 8, 2, 1, 2]);
         expect(new Set(TASKS.map((t) => t.id)).size).toBe(TASKS.length);
     });
 
@@ -146,6 +146,44 @@ describe('cross-note', () => {
         expect(check(state({ blocks: [p('A scarf for Mum')], tools: ['create_note'] }))).toBe(true);
         expect(check(state({ blocks: null, tools: ['create_note'] }))).toBe(false);
         expect(check(state({ blocks: [p('A scarf for Mum')], tools: ['create_note', 'create_note'] }))).toBe(false);
+    });
+});
+
+describe('long note', () => {
+    it('is about 15k characters, with a heading per month', () => {
+        expect(LONG_NOTE_BODY.length).toBeGreaterThan(14_000);
+        expect(LONG_NOTE_BODY.length).toBeLessThan(16_000);
+        expect(LONG_NOTE_BODY.match(/^## /gm)).toHaveLength(12);
+    });
+
+    it('keeps the facts the checks need at the start, in the middle and near the end, each only once', () => {
+        const at = (word: string) => {
+            expect(LONG_NOTE_BODY.split(word)).toHaveLength(2);
+            return LONG_NOTE_BODY.indexOf(word) / LONG_NOTE_BODY.length;
+        };
+        expect(at('greenhouse')).toBeLessThan(0.1);
+        expect(at('beehive')).toBeGreaterThan(0.4);
+        expect(at('beehive')).toBeLessThan(0.6);
+        expect(at('cider')).toBeGreaterThan(0.9);
+        expect(at('tulip')).toBeGreaterThan(at('## November'));
+        expect(at('tulip')).toBeLessThan(at('## December'));
+    });
+
+    it('about: passes only with something from the start, the middle and the end', () => {
+        const check = task('long-about').check;
+        expect(check(state({ answer: 'A year on the allotment: the greenhouse, the bees, and pressing cider.' }))).toBe(true);
+        expect(check(state({ answer: 'Building a greenhouse, then a beehive, then the apple harvest.' }))).toBe(true);
+        expect(check(state({ answer: 'Building a greenhouse and digging beds.' }))).toBe(false);
+        expect(check(state({ answer: 'Bees and cider.' }))).toBe(false);
+        expect(check(state({ answer: 'The greenhouse and the beehive (truncated).' }))).toBe(false);
+        expect(check(state({}))).toBe(false);
+    });
+
+    it('section: passes on what the November heading holds', () => {
+        const check = task('long-section').check;
+        expect(check(state({ answer: 'You planted 40 tulip bulbs along the fence.' }))).toBe(true);
+        expect(check(state({ answer: 'You built a greenhouse.' }))).toBe(false);
+        expect(check(state({}))).toBe(false);
     });
 });
 

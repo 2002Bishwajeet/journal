@@ -6,18 +6,21 @@ import { test, expect, waitForAppReady } from '../fixtures';
 import { assertNoFenceViolations, installNetworkFence } from '../support/network-fence';
 import { assertTestOrigin } from '../support/origin-guard';
 import { activeTitleInput, openNote, selectFolder } from '../support/actions';
-import { getModelInfo, getModelsForJob } from '../../src/lib/webllm/models';
-import { blocksOf, fixtureFiles, TASKS, type EvalTask, type TaskKind } from './tasks';
+import { getModelsForJob } from '../../src/lib/webllm/models';
+import { markdownTable, type ModelResult, type TaskResult } from './stats';
+import { blocksOf, fixtureFiles, TASKS, type EvalTask } from './tasks';
 
 // The AI eval (#706): each model runs every task in the real app, with the real WebLLM worker
-// on this machine's GPU, and every proposal accepted. Run with `npm run eval:ai -- <model id>`
-// or `-- --all`; results go to e2e/evals/results/<date>-<model>.json.
+// on this machine's GPU, and every proposal accepted. Run with `npm run eval:ai -- [--gpu igpu|dgpu] <model id>`
+// (see run.mjs); results go to e2e/evals/results/<date>-<gpu>-<model>.json.
 
 /** The editor model the agent candidates are compared against. */
 const FLOOR_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 const MODELS = process.env.EVAL_MODELS === 'all'
     ? [...getModelsForJob('agent').map((m) => m.id), FLOOR_MODEL_ID]
     : (process.env.EVAL_MODELS ?? '').split(',').filter(Boolean);
+/** `igpu` makes Chromium pick the integrated GPU (#1022); `dgpu` leaves it to pick the graphics card. */
+const GPU = process.env.EVAL_GPU === 'igpu' ? 'igpu' : 'dgpu';
 
 // Downloaded weights stay in this profile's Cache Storage between runs; the app's own data is cleared per model.
 const PROFILE_DIR = path.join(homedir(), '.cache', 'journal-ai-evals', 'chromium');
@@ -25,35 +28,6 @@ const RESULTS_DIR = path.resolve('e2e/evals/results');
 /** Only the model files may leave the machine: Hugging Face (and its CDNs) and the model libraries on GitHub. */
 const MODEL_HOST = /(^|\.)(huggingface\.co|hf\.co)$|^raw\.githubusercontent\.com$/;
 const TASK_TIMEOUT = 10 * 60_000;
-const KINDS: TaskKind[] = ['find', 'read', 'edit', 'cross', 'refusal'];
-
-interface TaskResult {
-    id: string;
-    kind: TaskKind;
-    success: boolean;
-    steps: number;
-    invalidCalls: number;
-    wallMs: number;
-    answer: string | null;
-    /** Each tool call, with the start of its result (or, for a proposal, the user's answer). */
-    calls: { tool: string; args: unknown; result?: string }[];
-    /** Why each invalid call failed: not JSON, an unknown tool, bad args, or the tool refused it. */
-    errors: string[];
-    /** The run itself broke (a timeout, say), so the task could not be checked. */
-    error?: string;
-}
-
-interface ModelResult {
-    model: string;
-    loadedModelId: string;
-    date: string;
-    gpu: string;
-    firstLoadMs: number;
-    /** The weights were already downloaded, so the first load did not include the download. */
-    cached: boolean;
-    loadError?: string;
-    tasks: TaskResult[];
-}
 
 const results: ModelResult[] = [];
 
@@ -65,7 +39,11 @@ async function launch(baseURL: string, modelId: string): Promise<BrowserContext>
         baseURL,
         viewport: { width: 1280, height: 800 },
         serviceWorkers: 'block',
-        args: ['--enable-unsafe-webgpu', ...(process.platform === 'linux' ? ['--enable-features=Vulkan', '--use-angle=vulkan'] : [])],
+        args: [
+            '--enable-unsafe-webgpu',
+            ...(process.platform === 'linux' ? ['--enable-features=Vulkan', '--use-angle=vulkan'] : []),
+            ...(GPU === 'igpu' ? ['--use-webgpu-power-preference=force-low-power'] : []),
+        ],
     });
     const page = context.pages()[0] ?? (await context.newPage());
     // A fresh journal each time, but keep Cache Storage, where web-llm keeps the weights.
@@ -160,6 +138,7 @@ async function runTask(page: Page, task: EvalTask, consoleErrors: string[]): Pro
         if (e.type === 'toolResult') calls[calls.length - 1].result = e.result!.slice(0, 200);
     }
     const errors = events.filter((e) => e.type === 'error').map((e) => e.error!);
+    const turns = events.filter((e) => e.type === 'usage').map((e) => e.usage!);
     const answer = events.findLast((e) => e.type === 'answer')?.answer ?? null;
     let blocks = null;
     try {
@@ -174,41 +153,12 @@ async function runTask(page: Page, task: EvalTask, consoleErrors: string[]): Pro
         steps: events.filter((e) => e.type === 'step').length,
         invalidCalls: errors.length,
         wallMs,
+        turns,
         answer,
         calls,
         errors,
         ...(error && { error }),
     };
-}
-
-const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
-
-function score(tasks: TaskResult[], kind?: TaskKind) {
-    const of = kind ? tasks.filter((t) => t.kind === kind) : tasks;
-    return `${of.filter((t) => t.success).length}/${of.length}`;
-}
-
-function markdownTable(rows: ModelResult[]): string {
-    const lines = [
-        '| Model | VRAM | Success | Find | Read | Edit | Cross-note | Refusal | Avg steps | Invalid calls | Avg time per task | First load |',
-        '|---|---|---|---|---|---|---|---|---|---|---|---|',
-    ];
-    for (const r of rows) {
-        const info = getModelInfo(r.model);
-        const name = `${info?.name ?? r.model} (\`${r.loadedModelId}\`)`;
-        // A model that loads but then fails every run (out of GPU memory, say) gets no scores either.
-        const failure = r.loadError ? `load failed: ${r.loadError}` : r.tasks.every((t) => t.error) && `every run failed: ${r.tasks[0]?.error}`;
-        if (failure) {
-            lines.push(`| ${name} | ${info?.memoryUsage ?? '?'} | ${failure} | | | | | | | | | |`);
-            continue;
-        }
-        const n = r.tasks.length || 1;
-        const sum = (f: (t: TaskResult) => number) => r.tasks.reduce((s, t) => s + f(t), 0);
-        lines.push(
-            `| ${name} | ${info?.memoryUsage ?? '?'} | ${score(r.tasks)} | ${KINDS.map((k) => score(r.tasks, k)).join(' | ')} | ${(sum((t) => t.steps) / n).toFixed(1)} | ${sum((t) => t.invalidCalls)} | ${seconds(sum((t) => t.wallMs) / n)} | ${seconds(r.firstLoadMs)}${r.cached ? '' : ' (with download)'} |`,
-        );
-    }
-    return lines.join('\n');
 }
 
 for (const modelId of MODELS) {
@@ -229,18 +179,20 @@ for (const modelId of MODELS) {
             await importFixture(page);
             await selectFolder(page, 'Main');
 
-            const gpu = await page.evaluate(async () => {
-                type Adapter = { info?: { vendor: string; architecture: string } };
+            // The adapter web-llm loads on: it asks for high-performance, which force-low-power overrides.
+            const adapter = await page.evaluate(async () => {
+                type Adapter = { info?: { vendor: string; architecture: string }; features: { has(name: string): boolean } };
                 const { gpu } = navigator as Navigator & { gpu?: { requestAdapter(options: object): Promise<Adapter | null> } };
-                const info = (await gpu?.requestAdapter({ powerPreference: 'high-performance' }))?.info;
-                return info ? `${info.vendor} ${info.architecture}`.trim() : 'none';
+                const found = await gpu?.requestAdapter({ powerPreference: 'high-performance' });
+                return found ? { vendor: found.info?.vendor ?? '', architecture: found.info?.architecture ?? '', shaderF16: found.features.has('shader-f16') } : null;
             });
             const load = await page.evaluate((id) => window.__journalE2E!.startAgentEval(id), modelId);
             const result: ModelResult = {
                 model: modelId,
                 loadedModelId: load.loadedModelId,
                 date: new Date().toISOString().slice(0, 10),
-                gpu,
+                gpu: GPU,
+                adapter,
                 firstLoadMs: load.loadMs,
                 cached: load.cached,
                 ...(!load.loaded && { loadError: consoleErrors.find((e) => e.includes('[WebLLM]')) ?? 'the model did not load' }),
@@ -251,11 +203,16 @@ for (const modelId of MODELS) {
                     const taskResult = await runTask(page, task, consoleErrors);
                     console.log(`${modelId} ${task.id}: ${taskResult.success ? 'ok' : 'FAIL'} (${taskResult.calls.map((c) => c.tool).join(', ') || 'no tools'})`);
                     result.tasks.push(taskResult);
+                    // Out of GPU memory on the first generation, say: the other tasks would only fail the same way.
+                    if (result.tasks.length === 1 && taskResult.error && !taskResult.turns.length) {
+                        result.generationError = taskResult.error;
+                        break;
+                    }
                 }
             }
             results.push(result);
             mkdirSync(RESULTS_DIR, { recursive: true });
-            writeFileSync(path.join(RESULTS_DIR, `${result.date}-${modelId}.json`), `${JSON.stringify(result, null, 2)}\n`);
+            writeFileSync(path.join(RESULTS_DIR, `${result.date}-${GPU}-${modelId}.json`), `${JSON.stringify(result, null, 2)}\n`);
         } finally {
             await context.close();
         }

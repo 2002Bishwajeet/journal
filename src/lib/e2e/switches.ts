@@ -1,3 +1,4 @@
+import type { CompletionUsage } from '@mlc-ai/web-llm';
 import type { AgentEvent } from '@/lib/agent/loop/agentLoop';
 
 /** E2E-only switches, set only through window.__journalE2E (./testHooks.ts). All off in normal use. */
@@ -8,4 +9,6 @@ export const e2eSwitches = {
     onAgentEvent: undefined as ((event: AgentEvent) => void) | undefined,
     /** Hold the startup session restore this long after its index read, so a spec can tap first (#905). */
     sessionRestoreDelayMs: 0,
+    /** Gets the token counts and speed of each assistant turn, for the AI eval (#1022). */
+    onAgentUsage: undefined as ((usage: CompletionUsage) => void) | undefined,
 };
