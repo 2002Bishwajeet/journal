@@ -1,12 +1,12 @@
 import { useRef, type CSSProperties } from 'react';
-import { Link } from 'react-router-dom';
-import { FileText, ArrowLeft, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Link, Navigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { useSharePage } from '@/hooks/useSharePage';
 import { useShareOutline } from '@/hooks/useShareOutline';
 import { ShareOutline } from '@/components/share/ShareOutline';
 import { ShareHeader } from '@/components/share/ShareHeader';
 import { ShareFooter } from '@/components/share/ShareFooter';
+import { ShareUnavailable } from '@/components/share/ShareUnavailable';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Markdown, { defaultUrlTransform } from 'react-markdown';
@@ -23,10 +23,12 @@ import { formatShareDate, showUpdated } from '@/lib/share/articleMeta';
 import 'katex/dist/katex.min.css';
 
 /**
- * Public page to display a shared note.
+ * Public page to display a shared note. A note that is not public shows "no access"
+ * (or, signed in, opens in the app when it was shared with the viewer); a missing one
+ * shows "not found" (#1002).
  */
 export default function SharePage() {
-    const { identity, noteId, note, isLoading, error, author, readingMinutes, cover } = useSharePage();
+    const { identity, noteId, note, isLoading, error, forbidden, isAuthenticated, openSharedHref, author, readingMinutes, cover } = useSharePage();
     useDocumentTitle(note?.title ?? 'Shared note');
     const articleRef = useRef<HTMLElement>(null);
     const outline = useShareOutline(articleRef, note?.content ?? '');
@@ -42,26 +44,13 @@ export default function SharePage() {
         );
     }
 
+    if (forbidden && openSharedHref) {
+        // Signed in: the app opens the note when it was shared with this viewer.
+        return isAuthenticated ? <Navigate to={openSharedHref} replace /> : <ShareUnavailable reason="noAccess" signInHref={openSharedHref} />;
+    }
+
     if (error || !note || !identity || !noteId) {
-        return (
-            <div className="min-h-svh bg-background flex flex-col">
-                <ShareHeader />
-                {/* `m-auto`: centred in the space below the header. */}
-                <div className="m-auto px-4 py-16 text-center space-y-4">
-                    <FileText className="h-16 w-16 text-muted-foreground/50 mx-auto" />
-                    <h1 className="text-2xl font-semibold">Note Not Found</h1>
-                    <p className="text-muted-foreground">
-                        {error instanceof Error ? error.message : 'This note may have been deleted or is not publicly shared.'}
-                    </p>
-                    <Button asChild variant="outline">
-                        <Link to="/">
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Go to Journal
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-        );
+        return <ShareUnavailable reason="notFound" />;
     }
 
     return (

@@ -132,7 +132,7 @@ for (const theme of THEMES) {
 
       // Error state: the same header.
       await page.goto(`/share/${AUTHOR}/${MISSING_ID}`);
-      await expect(page.getByRole('heading', { name: 'Note Not Found' })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole('heading', { name: 'Note not found' })).toBeVisible({ timeout: 15_000 });
       await expectLogoHeader(page);
       await expect(pageHeader(page).getByRole('link', { name: 'Open Journal' })).toBeVisible();
       await expect(pageHeader(page).getByRole('link', { name: 'Save a copy' })).toHaveCount(0);

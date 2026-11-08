@@ -29,6 +29,11 @@ export interface SharedNoteData {
     updatedAt: string;
 }
 
+/** The note exists but is not public; tagged so the query hook can skip retrying a definitive result. */
+function notPublic(): Error {
+    return Object.assign(new Error('This note is not shared publicly.'), { isForbidden: true });
+}
+
 export class ShareProvider {
     /**
      * Fetch a publicly shared note.
@@ -42,7 +47,7 @@ export class ShareProvider {
      * @param identity - The identity of the note owner
      * @param noteId - The unique ID of the note
      * @returns The shared note data, or null if not found / offline
-     * @throws if the note exists but is not publicly shared (401/403)
+     * @throws if the note exists but is not publicly shared (401/403, or encrypted)
      */
     async getPublicNote(identity: string, noteId: string): Promise<SharedNoteData | null> {
         const client = new DotYouClient({ hostIdentity: identity, api: ApiType.Guest });
@@ -59,19 +64,15 @@ export class ShareProvider {
             // The SDK returns null for a 404; a 401/403 means the note exists but
             // isn't publicly shared.
             const status = httpStatus(err);
-            if (status === 401 || status === 403) {
-                // Tagged so the query hook can skip retrying a definitive result.
-                const forbidden = new Error('This note is not shared publicly.') as Error & {
-                    isForbidden?: boolean;
-                };
-                forbidden.isForbidden = true;
-                throw forbidden;
-            }
+            if (status === 401 || status === 403) throw notPublic();
             console.error('[ShareProvider] Failed to fetch shared note header:', err);
             return null;
         }
 
         if (!header?.fileId) return null;
+        // A viewer the note is shared with may hold a YouAuth cookie for the author, and is
+        // then given the encrypted note: not public either.
+        if (header.fileMetadata?.isEncrypted) throw notPublic();
 
         // A trashed note (archivalStatus 2) keeps its Anonymous ACL, so the guest
         // fetch still succeeds — but a shared link must not serve a trashed note.

@@ -13,6 +13,7 @@ const AuthFinalizePage = lazy(() => import("@/pages/AuthFinalizePage"));
 const McpCodePage = lazy(() => import("@/pages/McpCodePage"));
 const ShareTargetPage = lazy(() => import("@/pages/ShareTargetPage"));
 const SaveSharedPage = lazy(() => import("@/pages/SaveSharedPage"));
+const OpenSharedPage = lazy(() => import("@/pages/OpenSharedPage"));
 const JournalLayout = lazy(() => import("@/layouts/JournalLayout"));
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -111,6 +112,18 @@ function App() {
                         <AuthGuard>
                           <SyncProvider>
                             <SaveSharedPage />
+                          </SyncProvider>
+                        </AuthGuard>
+                      }
+                    />
+
+                    {/* Open a share link's note that is not public, for a viewer it was shared with (#1002) */}
+                    <Route
+                      path="/open-shared"
+                      element={
+                        <AuthGuard>
+                          <SyncProvider>
+                            <OpenSharedPage />
                           </SyncProvider>
                         </AuthGuard>
                       }

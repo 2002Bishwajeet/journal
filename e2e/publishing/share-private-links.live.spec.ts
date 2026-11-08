@@ -81,5 +81,5 @@ test('"Continue anyway" publishes only the note', async ({ liveRun, browser }) =
     await expect(dialog).toBeHidden();
 
     await loggedOut(browser, aUrl, (anon) => heading(anon, a));
-    await loggedOut(browser, bUrl, (anon) => heading(anon, 'Note Not Found'));
+    await loggedOut(browser, bUrl, (anon) => heading(anon, "You don't have access to this note"));
 });

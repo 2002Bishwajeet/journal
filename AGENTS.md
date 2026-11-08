@@ -150,6 +150,7 @@ src/
 │   ├── usePendingImage.ts      # Not-yet-uploaded image from local bytes
 │   ├── usePublicAuthor.ts
 │   ├── useRecentEmojis.ts
+│   ├── useOpenSharedNote.ts    # /open-shared: open a share link's note in the app
 │   ├── useSaveSharedNote.ts    # /save-shared copy logic
 │   ├── useSearchModal.ts       # Debounced search, keyboard nav
 │   ├── useSessionPersistence.ts # Last note/folder
@@ -240,6 +241,7 @@ src/
 │   ├── AuthFinalizePage.tsx    # OAuth callback
 │   ├── EditorPage.tsx          # Main editor with toolbar (EditorPage.lazy.ts wraps it)
 │   ├── EmptyEditorPage.tsx     # No-note-selected state
+│   ├── OpenSharedPage.tsx      # Open a share link's note that is not public
 │   ├── SaveSharedPage.tsx      # Save a copy of a shared note
 │   ├── SharePage.tsx           # Public read-only note
 │   └── ShareTargetPage.tsx     # PWA share target receiver
@@ -639,6 +641,7 @@ const unsub = documentBroadcast.subscribe(handler);   // Listen for messages
 | `/:folderId/:noteId` | EditorPage | Yes |
 | `/share-target` | ShareTargetPage | Yes |
 | `/save-shared?identity=&file=` | SaveSharedPage (saves a copy of a shared note; logic in `useSaveSharedNote`) | Yes |
+| `/open-shared?identity=&file=` | OpenSharedPage (opens a share link's note that is not public, or says no access; logic in `useOpenSharedNote`) | Yes |
 | `/welcome` | Landing | No |
 | `/auth/finalize` | AuthFinalizePage | No |
 | `/share/:identity/:noteId` | SharePage | No |
@@ -697,6 +700,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 
 - Publishing (`makeNotePublic` in `src/lib/homebase/NotesDriveProvider.ts`) re-uploads the note unencrypted with an Anonymous ACL and a small public header that carries a `card` (`description`, `coverKey`, `cardImageKey`, `indexable`; `src/lib/share/publicCard.ts`). The share dialog previews the link card and edits the description and search-engine indexing.
 - The page: `/share/:identity/:noteId` → `src/pages/SharePage.tsx` reads the note with the SDK guest client (`src/lib/providers/ShareProvider.ts`) and renders it as an article: cover (the dark-mode cover in dark mode, read from the Yjs payload), byline, dates, reading time, highlighted code, live blocks (`src/components/share/`, `src/lib/share/`).
+- Not public (#1002): one link per note, whatever its general access; the Share dialog copies it while restricted too. The guest read's status picks the page: odin-core answers 403 for a note the viewer can't read (and an encrypted header counts the same) and 404 for a missing one. A 403 shows "You don't have access" (`ShareUnavailable`), with Sign in when signed out; signed in, it goes to `/open-shared`, which opens the note when the local DB has it (own note, or a peer copy under the owner's uniqueId) after one `pullOwnerNow`, else no access. A 404 shows "Note not found".
 - Link previews: the Pages Function `functions/share/[[path]].ts`, limited to `/share/*` by `public/_routes.json`, fetches the SPA shell through `env.ASSETS` (so `public/_headers` still applies), validates the identity and note id, reads the public header and profile (`functions/_lib/shareMeta.ts`, short timeouts, no redirects) and injects `<title>`, `og:*`, `twitter:*`, `robots` and JSON-LD. Meta is cached 5 min (60 s for misses); any failure serves the plain shell.
 - Author index (#515): the same Function renders `/share/<identity>` (HTML, no client JS) and `/share/<identity>/sitemap.xml` from a guest `drive/query/batch` of the journal drive (`functions/_lib/authorIndex.ts`): every unencrypted, non-trashed note, newest first, up to 500. `card.indexable` ("Hide from search engines") only filters the sitemap; the page is `noindex` when no listed note is indexable. Cached like share meta; any failure is a 404, not the shell. The share header's "More notes" links there.
 - Shared folders (#618): Share folder / Stop sharing folder in a folder's context menu (`useFolderSharing`). The folder's `is_public` flag is local-first and syncs in the folder file (`FolderFile.isPublic`), which `FolderDriveProvider` stores Anonymous + unencrypted while shared (a flip re-uploads it). Sharing then makes each non-trashed note in it public one at a time, as the Share dialog does; a note created in a shared folder starts public (`newNoteShareFields`, `src/lib/share/sharedFolder.ts`: new note, templates, import, MCP `create_note`). No rule on pull; moves follow #622.

@@ -27,8 +27,8 @@ const isPublic = (browser: Browser, url: string, title: string) =>
 
 const isPrivate = (browser: Browser, url: string) =>
     openLoggedOut(browser, url, async (anon) => {
-        await expect(anon.getByRole('heading', { level: 1, name: 'Note Not Found' })).toBeVisible({ timeout: 15_000 });
-        await expect(anon.getByText('This note is not shared publicly.')).toBeVisible();
+        await expect(anon.getByRole('heading', { level: 1, name: "You don't have access to this note" })).toBeVisible({ timeout: 15_000 });
+        await expect(anon.getByRole('link', { name: 'Sign in' })).toBeVisible();
     });
 
 async function moveTo(page: Page, title: string, folder: string) {

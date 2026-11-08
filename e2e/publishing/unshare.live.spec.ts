@@ -25,8 +25,7 @@ test('unsharing a note blocks anonymous access to its old share URL', async ({ l
     await withFencedPage(browser, {}, async (anonPage) => {
         await anonPage.goto(shareUrl);
         await assertTestOrigin(anonPage);
-        await expect(anonPage.getByRole('heading', { level: 1, name: 'Note Not Found' })).toBeVisible({ timeout: 15_000 });
-        await expect(anonPage.getByText('This note is not shared publicly.')).toBeVisible();
+        await expect(anonPage.getByRole('heading', { level: 1, name: "You don't have access to this note" })).toBeVisible({ timeout: 15_000 });
         await expect(anonPage.getByRole('heading', { level: 1, name: title })).not.toBeVisible();
     }, [liveIdentityOrigin()]);
 });
