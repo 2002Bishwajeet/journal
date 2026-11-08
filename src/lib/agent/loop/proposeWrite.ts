@@ -17,8 +17,8 @@ interface WriteContext {
 
 const noWrites = (deps: WriteDeps): WriteDeps => ({
     ...deps,
-    uploadNoteEdit: async () => {},
-    createNote: async () => {},
+    uploadNoteEdit: async () => '',
+    createNote: async () => '',
 });
 
 /** The args `append_to_note` and `create_note` take; the loop has already checked them against the tool's schema. */

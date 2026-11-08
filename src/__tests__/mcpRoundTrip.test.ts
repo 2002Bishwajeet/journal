@@ -61,9 +61,14 @@ function makeDeps(): {
         uploadNoteEdit: async (id, edit) => {
             const note = store.get(id)!;
             store.set(id, { blob: edit.yjsBlob, versionTag: note.versionTag + 1, metadata: edit.metadata });
+            return edit.metadata.timestamps.modified;
         },
         createNote: async (id, metadata, blob) => {
             store.set(id, { blob, versionTag: 1, metadata });
+            return metadata.timestamps.modified;
+        },
+        setNotePublic: async () => {
+            throw new Error('not used');
         },
         createFolder: async () => {},
         grantFolder: async () => {},

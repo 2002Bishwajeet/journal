@@ -70,25 +70,41 @@ export const TOOLS: AnyJournalTool[] = [
     defineTool({
         name: 'list_notes',
         title: 'List notes',
-        description: 'List granted Journal notes, newest first. Optionally scoped to one folder.',
+        description:
+            'List granted Journal notes, newest first. Optionally scoped to one folder. ' +
+            'Each note has id, title, folderId and modified, or the `fields` you name, plus access "read" when it is read-only.',
         input: z.object({
             folderId: z.string().optional(),
             limit: z.number().int().min(1).max(200).optional(),
+            fields: z.array(z.enum(readTools.NOTE_LIST_FIELDS)).optional(),
         }),
         readOnly: true,
-        execute: async (deps, { folderId, limit }) => ({ data: await readTools.listNotes(deps, { folderId, limit }) }),
+        execute: async (deps, { folderId, limit, fields }) => ({ data: await readTools.listNotes(deps, { folderId, limit, fields }) }),
     }),
     defineTool({
         name: 'get_note',
         title: 'Get note',
         description:
             'Fetch one granted Journal note by id, with its body as markdown. ' +
-            'With format "blocks", the body is a list of top-level blocks { id, type, markdown, attrs }, plus rows (cell markdown) for a table: ' +
-            'the ids edit_block takes, which stay the same while the block exists.',
-        input: z.object({ id: z.string(), format: z.enum(['markdown', 'blocks']).optional() }),
+            'With format "outline", the body is a list of top-level blocks { id, type, preview }: headings in full, other blocks cut to ~80 characters. ' +
+            'With format "blocks", it is the blocks { id, type, markdown, attrs? }; give blockIds, or section (a heading\'s text: that heading and everything up to the next heading of its level or higher), to get only those, ' +
+            'and includeRows for a table\'s cells as rows. The ids are the ones edit_block takes and stay the same while the block exists. ' +
+            'To edit part of a long note, read its outline, then the section or blocks you change.',
+        input: z.object({
+            id: z.string(),
+            format: z.enum(['markdown', 'outline', 'blocks']).optional(),
+            blockIds: z.array(z.string()).optional(),
+            section: z.string().optional(),
+            includeRows: z.boolean().optional(),
+        }),
         readOnly: true,
-        execute: async (deps, { id, format }) => ({
-            data: format === 'blocks' ? await writeTools.getNoteBlocks(deps, { id }) : await readTools.getNote(deps, { id }),
+        execute: async (deps, { id, format, blockIds, section, includeRows }) => ({
+            data:
+                format === 'blocks'
+                    ? await writeTools.getNoteBlocks(deps, { id, blockIds, section, includeRows })
+                    : format === 'outline'
+                      ? await writeTools.getNoteOutline(deps, { id })
+                      : await readTools.getNote(deps, { id }),
         }),
     }),
     defineTool({
@@ -170,7 +186,9 @@ export const TOOLS: AnyJournalTool[] = [
         description:
             "Rewrite a Journal note with Read+write access: its whole body as markdown, its title and/or its tags (tags replace the note's tags). " +
             'Use it instead of creating a second note. Blocks you keep exactly as get_note returned them stay untouched, note links and images included. ' +
-            "Pass get_note's `modified` as expectedModified to refuse the edit if the note changed since. Merges with concurrent edits." +
+            'folderId moves the note to that folder, keeping its id, links and history; the folder may be read-only for you. ' +
+            'Moving into a shared folder makes the note public, and out of one into a private folder makes it private. ' +
+            "Pass `modified` from get_note or your last write as expectedModified to refuse the edit if the note changed since. Merges with concurrent edits." +
             BODY_IMAGES +
             RICH_BLOCKS,
         input: z.object({
@@ -178,12 +196,13 @@ export const TOOLS: AnyJournalTool[] = [
             markdown: z.string().optional(),
             title: z.string().optional(),
             tags: z.array(z.string()).optional(),
+            folderId: z.string().optional(),
             expectedModified: z.string().optional(),
         }),
         readOnly: false,
         destructive: true,
-        execute: async (deps, { id, markdown, title, tags, expectedModified }) => ({
-            data: await writeTools.updateNote(deps, { id, markdown, title, tags, expectedModified }),
+        execute: async (deps, { id, markdown, title, tags, folderId, expectedModified }) => ({
+            data: await writeTools.updateNote(deps, { id, markdown, title, tags, folderId, expectedModified }),
             notes: liveBlockLayoutWarnings(markdown ?? ''),
         }),
     }),
@@ -195,7 +214,7 @@ export const TOOLS: AnyJournalTool[] = [
             'op.type: replace, insert_before or insert_after (markdown); delete; set_text (a callout\'s or toggle\'s body, keeping its variant or summary); ' +
             'set_attrs (attrs: callout variant, toggle summary, heading level, code block language, id and wide, task list checked); ' +
             'and for a table, set_cell (row, col, markdown), insert_row (at, cells?), delete_row, insert_column and delete_column (at), which keep column widths and the other cells. ' +
-            'Returns the ids of the blocks the op leaves. Pass get_note\'s `modified` as expectedModified to refuse the edit if the note changed since.' +
+            'Returns the ids of the blocks the op leaves and the note\'s new `modified`. Pass `modified` from get_note or your last write as expectedModified to refuse the edit if the note changed since.' +
             BODY_IMAGES.replace('Images:', 'Images in markdown:') +
             RICH_BLOCKS,
         input: z.object({

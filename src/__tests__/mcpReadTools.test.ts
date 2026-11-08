@@ -68,6 +68,18 @@ describe('mcp read tools', () => {
         expect(limited.map((note) => note.id)).toEqual(['n3']);
     });
 
+    it('list_notes returns the default fields, or the ones asked for, plus access only when read-only (#1003)', async () => {
+        const { deps } = makeDeps();
+        expect(await listNotes(deps)).toEqual([
+            { id: 'n3', title: 'Note Three', folderId: 'F2', modified: '2024-01-03T00:00:00.000Z' },
+            { id: 'n1', title: 'Note One', folderId: 'F1', modified: '2024-01-01T00:00:00.000Z', access: 'read' },
+        ]);
+        expect(await listNotes(deps, { fields: ['title', 'tags'] })).toEqual([
+            { title: 'Note Three', tags: [] },
+            { title: 'Note One', tags: [], access: 'read' },
+        ]);
+    });
+
     it('get_note rejects ungranted, excluded and missing notes with the same message shape', async () => {
         const { deps } = makeDeps();
         await expect(getNote(deps, { id: 'n2' })).rejects.toThrow('Note not found: n2');

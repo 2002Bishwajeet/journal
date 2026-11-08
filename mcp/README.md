@@ -92,10 +92,14 @@ Claude Desktop (`claude_desktop_config.json`):
 ## Tools
 
 - `list_folders` — folders you've granted access to.
-- `list_notes` — granted notes, newest first (optional `folderId`, `limit`).
-- `get_note` — one granted note by id, body as markdown. With `format: "blocks"`, the
-  body is a list of top-level blocks (`id`, `type`, `markdown`, `attrs`, and `rows` for a
-  table), whose ids `edit_block` takes.
+- `list_notes` — granted notes, newest first (optional `folderId`, `limit`, and `fields`
+  from `id`, `title`, `folderId`, `modified`, `tags`; the first four by default). A
+  read-only note also has `access: "read"`.
+- `get_note` — one granted note by id, body as markdown. With `format: "outline"`, the
+  body is a list of top-level blocks (`id`, `type`, `preview`: headings in full, other
+  blocks cut to ~80 characters). With `format: "blocks"`, it is the blocks (`id`, `type`,
+  `markdown`, `attrs` when set), whose ids `edit_block` takes; `blockIds` or `section`
+  (a heading's text) returns only those, and `includeRows` adds a table's cells as `rows`.
 - `search_notes` — case-insensitive substring search over title, tags and body of
   granted notes.
 - `get_authoring_guide` — the authoring reference, [`AUTHORING.md`](AUTHORING.md): everything a
@@ -119,10 +123,13 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
   returns it (`id`, `old_text`, `new_text`). If `old_text` matches zero or several
   times the tool returns an error, so the agent can retry with more context.
   Example: *"In my Trip plan note, change the flight time from 9:40 to 10:15."*
-- `update_note` — rewrite a note's whole body (`markdown`), `title` and/or `tags` (`id`,
-  each optional). Blocks kept exactly as `get_note` returned them stay untouched. Pass
-  `get_note`'s `modified` as `expectedModified` to have the edit refused if the note
-  changed since.
+- `update_note` — rewrite a note's whole body (`markdown`), `title` and/or `tags`, or move
+  it to another folder (`folderId`) keeping its id (`id`, each optional). A note can move
+  into a folder the agent can only read; moving into a shared folder makes it public, and
+  out of one into a private folder makes it private. Blocks kept exactly as `get_note`
+  returned them stay untouched. Pass `modified` from `get_note` or the last write (every
+  write returns it) as `expectedModified` to have the edit refused if the note changed
+  since.
   Example: *"Redesign my Trip plan note as a day-by-day itinerary."*
 - `edit_block` — edit one block by its id from `get_note` with `format: "blocks"`
   (`note_id`, `block_id`, `op`, optional `expectedModified`). Ops: `replace`,
