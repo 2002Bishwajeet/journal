@@ -43,7 +43,7 @@ export function MobileTabBar({
   return (
     <nav
       aria-label="Tabs"
-      className="mobile-tab-bar nav-bar fixed inset-x-0 bottom-0 z-40 flex bg-background/80 shadow-[0_-1px_0_0_var(--border)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] backdrop-blur-md"
+      className="mobile-tab-bar nav-bar bar-material fixed inset-x-0 bottom-0 z-40 flex border-t pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
     >
       {TABS.map(({ id, label, icon: Icon }) => {
         const active = id === activeTab;

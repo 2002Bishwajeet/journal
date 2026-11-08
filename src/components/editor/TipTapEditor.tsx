@@ -59,7 +59,14 @@ export default function TipTapEditor({
   useEffect(() => {
     const field = titleInputRef.current;
     if (!field || !onTitleInView) return;
-    const observer = new IntersectionObserver(([entry]) => onTitleInView(entry.isIntersecting));
+    // On touch layouts the note scrolls under the translucent header (#833), which pads the
+    // scroller's top: the title counts as gone once it is under the header.
+    const root = field.closest<HTMLElement>("[data-note-scroller]");
+    const top = root ? parseFloat(getComputedStyle(root).paddingTop) || 0 : 0;
+    const observer = new IntersectionObserver(([entry]) => onTitleInView(entry.isIntersecting), {
+      root,
+      rootMargin: `-${top}px 0px 0px 0px`,
+    });
     observer.observe(field);
     return () => observer.disconnect();
   }, [isLoading, onTitleInView]);

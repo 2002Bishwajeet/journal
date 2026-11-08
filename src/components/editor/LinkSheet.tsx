@@ -32,6 +32,10 @@ export function LinkSheet({
   );
 }
 
+// The light --input border is white, which vanishes on the sheet (#833): in light mode the
+// fields are white with a 3:1 edge; dark keeps the input's own border and fill.
+const fieldClass = 'h-11 md:h-9 border-muted-foreground/70 bg-popover dark:border-input dark:bg-input/30';
+
 // Mounts when the sheet opens, so it reads the link and the selection once, at that moment.
 function LinkForm({ editor, onDone }: { editor: Editor; onDone: () => void }) {
   const [target] = useState(() => getLinkTarget(editor));
@@ -65,7 +69,7 @@ function LinkForm({ editor, onDone }: { editor: Editor; onDone: () => void }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           enterKeyHint="next"
-          className="h-11 md:h-9"
+          className={fieldClass}
         />
       </div>
       <div className="flex flex-col gap-1.5">
@@ -81,7 +85,7 @@ function LinkForm({ editor, onDone }: { editor: Editor; onDone: () => void }) {
           placeholder="https://example.com"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          className="h-11 md:h-9"
+          className={fieldClass}
         />
       </div>
       <div className="flex gap-2 pt-1 max-sm:flex-col-reverse sm:justify-end">
