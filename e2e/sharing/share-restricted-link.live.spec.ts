@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, withFencedPage, liveIdentityOrigin } from '../fixtures';
+import { test, expect, withFencedPage, liveIdentityOrigin, SIGNED_OUT } from '../fixtures';
 import { activeEditor, createNote } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 import { addToShare, openShareDialog, saveShare, shareDialog, stopSharing } from '../support/shareDialog';
@@ -18,10 +18,12 @@ const JOURNAL_DRIVE = { alias: 'd5f411fa83fd4854a3bd7e974cc9bca9', type: '307437
 const headerUrl = (uniqueId: string) =>
   `${liveIdentityOrigin()}${HEADER_PATH}?${new URLSearchParams({ alias: JOURNAL_DRIVE.alias, type: JOURNAL_DRIVE.type, clientUniqueId: uniqueId })}`;
 
-/** Lets `page` make the author's guest drive reads, which its fence blocks by default, and returns the header read's status. */
+/** Lets `page` make the share page's reads of the author (guest drive, profile), which its fence blocks, and returns the header read's status. */
 async function guestHeaderStatus(page: Page, docId: string, open: () => Promise<unknown>): Promise<number> {
   const owner = new URL(liveIdentityOrigin()).host;
-  await page.context().route(`https://${owner}/api/guest/v1/drive/**`, (route) => route.continue());
+  for (const path of ['/api/guest/v1/drive/**', '/pub/profile**']) {
+    await page.context().route(`https://${owner}${path}`, (route) => route.continue());
+  }
   const response = page.waitForResponse((r) => r.url().includes(HEADER_PATH) && r.url().includes(docId));
   await open();
   return (await response).status();
@@ -78,7 +80,7 @@ test('a restricted note\'s link opens for a recipient and says no access to anyo
   await expect(activeEditor(peer.page)).toContainText(body, { timeout: 60_000 });
 
   // 5. A signed-out visitor sees no access, with Sign in.
-  await withFencedPage(browser, {}, async (anonPage) => {
+  await withFencedPage(browser, SIGNED_OUT, async (anonPage) => {
     await anonPage.goto(link.pathname);
     await assertTestOrigin(anonPage);
     await expect(anonPage.getByRole('heading', { level: 1, name: "You don't have access to this note" })).toBeVisible({ timeout: 30_000 });

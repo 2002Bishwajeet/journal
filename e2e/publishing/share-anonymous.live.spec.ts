@@ -1,4 +1,4 @@
-import { test, expect, withFencedPage, liveIdentityOrigin } from '../fixtures';
+import { test, expect, withFencedPage, liveIdentityOrigin, SIGNED_OUT } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
 import { createNote, shareNotePublicly } from '../support/actions';
 
@@ -11,7 +11,7 @@ test('a public note is readable via its share link with no session', async ({ li
     const shareUrl = await shareNotePublicly(page, title);
 
     // No storage state; guest reads still hit the real identity's guest API.
-    await withFencedPage(browser, {}, async (anonPage) => {
+    await withFencedPage(browser, SIGNED_OUT, async (anonPage) => {
         await anonPage.goto(shareUrl);
         await assertTestOrigin(anonPage);
         await expect(anonPage.getByRole('heading', { level: 1, name: title })).toBeVisible({ timeout: 15_000 });

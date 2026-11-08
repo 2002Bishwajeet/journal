@@ -1,4 +1,4 @@
-import { test, expect, withFencedPage, liveIdentityOrigin } from '../fixtures';
+import { test, expect, withFencedPage, liveIdentityOrigin, SIGNED_OUT } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
 import { createNote, shareNotePublicly, unshareNotePublicly } from '../support/actions';
 
@@ -11,7 +11,7 @@ test('unsharing a note blocks anonymous access to its old share URL', async ({ l
     const shareUrl = await shareNotePublicly(page, title);
 
     // Fresh, uncached anonymous context: confirms the link works while public.
-    await withFencedPage(browser, {}, async (anonPage) => {
+    await withFencedPage(browser, SIGNED_OUT, async (anonPage) => {
         await anonPage.goto(shareUrl);
         await assertTestOrigin(anonPage);
         await expect(anonPage.getByRole('heading', { level: 1, name: title })).toBeVisible({ timeout: 15_000 });
@@ -22,7 +22,7 @@ test('unsharing a note blocks anonymous access to its old share URL', async ({ l
 
     // A second, separate anonymous context — not a reload of the first — so no
     // client-side query cache can mask the real 401/403 the guest API now returns.
-    await withFencedPage(browser, {}, async (anonPage) => {
+    await withFencedPage(browser, SIGNED_OUT, async (anonPage) => {
         await anonPage.goto(shareUrl);
         await assertTestOrigin(anonPage);
         await expect(anonPage.getByRole('heading', { level: 1, name: "You don't have access to this note" })).toBeVisible({ timeout: 15_000 });

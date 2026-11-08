@@ -1,4 +1,4 @@
-import { test, expect, withFencedPage, waitForAppReady, liveIdentityOrigin, LIVE_STORAGE_STATE } from '../fixtures';
+import { test, expect, withFencedPage, waitForAppReady, liveIdentityOrigin, LIVE_STORAGE_STATE, SIGNED_OUT } from '../fixtures';
 import type { Browser, Page } from '@playwright/test';
 import { assertTestOrigin } from '../support/origin-guard';
 import { createFolder, createNote, foldersNav, selectFolder } from '../support/actions';
@@ -14,7 +14,7 @@ function shareUrlOfOpenNote(page: Page): string {
 
 /** Open `url` logged out, in a fresh context (no cache can mask the guest API's answer). */
 async function openLoggedOut(browser: Browser, url: string, check: (anon: Page) => Promise<void>): Promise<void> {
-    await withFencedPage(browser, {}, async (anon) => {
+    await withFencedPage(browser, SIGNED_OUT, async (anon) => {
         await anon.goto(url);
         await assertTestOrigin(anon);
         await check(anon);
