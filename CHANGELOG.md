@@ -1,3 +1,9 @@
+## [2.61.4](https://github.com/2002Bishwajeet/journal/compare/v2.61.3...v2.61.4) (2026-11-08)
+
+
+### Bug Fixes
+
+* **db:** free the PGlite lock when Chrome freezes a background page ([63897d3](https://github.com/2002Bishwajeet/journal/commit/63897d3821262b6da16bb6a83f8baeac919253e6)), closes [#1006](https://github.com/2002Bishwajeet/journal/issues/1006)
 ## [2.61.3](https://github.com/2002Bishwajeet/journal/compare/v2.61.2...v2.61.3) (2026-11-05)
 
 

@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.61.4 (2026-11-08)
+
+### Fixed
+
+- On Android, the installed app opens when an earlier copy of it is asleep in the background. Before, it stayed on the start screen until the "taking too long" message showed.
+
 ## 2.61.3 (2026-11-05)
 
 ### Fixed
