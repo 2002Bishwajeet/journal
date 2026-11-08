@@ -1,3 +1,14 @@
+# [2.62.0](https://github.com/2002Bishwajeet/journal/compare/v2.61.4...v2.62.0) (2026-11-08)
+
+
+### Bug Fixes
+
+* **share:** /open-shared waits for the first sync on a miss; live specs sign out for real ([79155d3](https://github.com/2002Bishwajeet/journal/commit/79155d3a0ee791b378e580a0aa64b4ec77da7b0c))
+
+
+### Features
+
+* **share:** Copy link for restricted notes; share route shows no access or not found by status ([#1002](https://github.com/2002Bishwajeet/journal/issues/1002)) ([6efcc64](https://github.com/2002Bishwajeet/journal/commit/6efcc64f04c003b40f12fe8efa8b9f1bda349156))
 ## [2.61.4](https://github.com/2002Bishwajeet/journal/compare/v2.61.3...v2.61.4) (2026-11-08)
 
 
