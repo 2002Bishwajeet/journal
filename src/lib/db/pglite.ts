@@ -47,6 +47,22 @@ function onPageHide(event: PageTransitionEvent) {
   addEventListener('pageshow', () => location.reload(), { once: true });
 }
 
+/**
+ * Android Chrome freezes a page that has been in the background for a while, and a
+ * frozen worker keeps the election lock the same way, so the next launch of the app
+ * hangs on the splash screen (#1006). Flush when the page is hidden, while it can still
+ * run, and stop the worker when the page is frozen; reload the page when it resumes.
+ */
+function onVisibilityChange() {
+  if (document.visibilityState === 'hidden') void flushToIndexedDb();
+}
+
+function onFreeze() {
+  if (!currentWorker) return;
+  currentWorker.terminate();
+  document.addEventListener('resume', () => location.reload(), { once: true });
+}
+
 // Lazily enabled the first time fuzzy search runs — see ensureTrigramSearch().
 let trigramSearchPromise: Promise<void> | null = null;
 
@@ -178,7 +194,11 @@ function createWorkerInstance(relaxedDurability = true): Promise<PGliteInterface
     id: 'journal-pglite-pg18',
     extensions: { live },
   };
-  if (!currentWorker) addEventListener('pagehide', onPageHide);
+  if (!currentWorker) {
+    addEventListener('pagehide', onPageHide);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    document.addEventListener('freeze', onFreeze);
+  }
   currentWorker = new Worker(new URL('./pglite-worker.ts', import.meta.url), { type: 'module' });
   // The worker's boot timing marks (#901): reading the data dir from IndexedDB, and Postgres up.
   currentWorker.addEventListener('message', (event: MessageEvent<{ type?: string; step: string; at: number }>) => {
