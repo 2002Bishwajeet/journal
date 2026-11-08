@@ -57,7 +57,9 @@ export function EditorPane({
       id="main-content"
       tabIndex={-1}
       className={cn(
-        "flex-1 flex flex-col overflow-hidden bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
+        "flex-1 flex flex-col overflow-hidden bg-background pb-[env(safe-area-inset-bottom)]",
+        // A touch-layout note's header reaches under the status bar itself (#833).
+        (isDesktop || !noteId) && "pt-[env(safe-area-inset-top)]",
         // Visible focus indicator when reached via the skip-link (WCAG 2.4.7)
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
         // Desktop: Always visible (Outlet renders Editor or Empty), except in

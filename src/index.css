@@ -242,6 +242,18 @@ button, [role="button"], [role="menuitem"], [role="tab"], a, summary, label, sel
   transition: opacity var(--duration-fade) var(--ease-standard);
 }
 
+/* Bar material (#833): the note header and the tab bar are one translucent, blurred surface,
+   so what scrolls under them shows through, as under iOS bars. The phone note header reaches up
+   under the status bar; --note-header-h is its full height, which the note pads its top by. */
+.bar-material {
+  background-color: color-mix(in oklab, var(--background) 80%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+:root {
+  --note-header-h: calc(2.75rem + env(safe-area-inset-top));
+}
+
 /* TipTap Editor Styles */
 .tiptap {
   outline: none;

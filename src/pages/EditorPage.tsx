@@ -116,15 +116,16 @@ function EditorLayout({
 
   return (
     <div className="flex flex-col h-full w-full bg-background relative">
-      {/* Mobile Editor Header: a 44 px bar like the list screens' (#833). It is one surface with
-          the status bar above it; its hairline and the small title show once the big title has
-          scrolled under it, and it is the tab bar's translucent material. */}
+      {/* Mobile Editor Header: a 44 px bar like the list screens' (#833). It reaches up under the
+          status bar and floats over the note, which scrolls under it, so its translucent,
+          blurred material (the tab bar's) shows. Its hairline and the small title show once the
+          big title has scrolled under it. */}
       <div
         className={
           isDesktop
             ? "hidden"
             : cn(
-                "nav-bar relative z-10 flex h-11 w-full shrink-0 items-center border-b bg-background/80 px-3 backdrop-blur-md transition-colors duration-(--duration-fade) ease-(--ease-standard)",
+                "nav-bar bar-material absolute inset-x-0 top-0 z-30 flex h-(--note-header-h) items-center border-b px-3 pt-[env(safe-area-inset-top)] transition-colors duration-(--duration-fade) ease-(--ease-standard)",
                 titleInView && "border-transparent",
               )
         }
@@ -205,9 +206,20 @@ function EditorLayout({
       <div className="flex-1 flex min-h-0 w-full overflow-hidden">
         {/* Touch layouts: the find bar stays put while the note scrolls under it (#825). */}
         <div className="relative flex min-w-0 flex-1">
-        {!isDesktop && <FindReplaceBar />}
-        {/* The container a `wide` live block takes its width from (src/index.css, "Live blocks"). */}
-        <div className="@container/live-blocks flex-1 overflow-y-auto relative bg-background w-full pb-[var(--editor-bottom-space,0px)]">
+        {!isDesktop && (
+          <div className="absolute inset-x-0 top-(--note-header-h) z-20">
+            <FindReplaceBar />
+          </div>
+        )}
+        {/* The container a `wide` live block takes its width from (src/index.css, "Live blocks").
+            Touch layouts pad its top by the header, which the note scrolls under (#833). */}
+        <div
+          data-note-scroller
+          className={cn(
+            "@container/live-blocks flex-1 overflow-y-auto relative bg-background w-full pb-[var(--editor-bottom-space,0px)]",
+            !isDesktop && "pt-(--note-header-h) scroll-pt-(--note-header-h)",
+          )}
+        >
           {isDesktop && <FindReplaceBar />}
           <TipTapEditor
             noteId={noteId}
