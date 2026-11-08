@@ -104,17 +104,31 @@ exports[`MCP tools/list > lists the same tools, titles, descriptions and input s
     "title": "Search notes",
   },
   {
-    "description": "The full reference for writing Journal notes: every block a note can hold, with its markdown syntax and examples, how live blocks (mermaid, svg, html, react) run, and how to design them to match the note. Read it before writing rich content.",
+    "description": "The reference for writing Journal notes, in sections: every block a note can hold, with its markdown syntax and examples, how live blocks (mermaid, svg, html, react) run, and how to design them to match the note. With no section, an index of the sections; with a section, only that one.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "properties": {},
+      "properties": {
+        "section": {
+          "enum": [
+            "native",
+            "editing",
+            "mermaid-svg",
+            "html",
+            "react",
+            "charts",
+            "design",
+            "examples",
+          ],
+          "type": "string",
+        },
+      },
       "type": "object",
     },
     "name": "get_authoring_guide",
     "title": "Get authoring guide",
   },
   {
-    "description": "Create a Journal note from markdown in a folder you have granted Read+write access to. Images: \`![alt](/absolute/path/to/file.png)\` (wrap the path in <> if it has spaces) or \`![alt](data:image/png;base64,…)\` is uploaded to the note and shown there; prefer a path, it costs no tokens. PNG, JPEG or WebP, at most 5 MB each; metadata such as EXIF and GPS is removed. If any image is invalid, the call fails and nothing is written. \`https://\` image URLs are kept as they are, not fetched or uploaded; a new one with a query string or over 100 characters is refused, as are more than 5 new ones in a call, so pass a file path for those. Link previews and URLs in mermaid blocks count the same, so write such a page as a plain link. The result has a \`note\` when the note is public or fetches from other hosts. Supports rich blocks; call get_authoring_guide before writing anything beyond plain markdown.",
+    "description": "Create a Journal note from markdown in a folder you have granted Read+write access to. Supports rich blocks; call get_authoring_guide before writing a live block or an image.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
@@ -162,7 +176,7 @@ exports[`MCP tools/list > lists the same tools, titles, descriptions and input s
     "title": "Create folder",
   },
   {
-    "description": "Append markdown to the end of a Journal note with Read+write access. Merges with concurrent edits. Images: \`![alt](/absolute/path/to/file.png)\` (wrap the path in <> if it has spaces) or \`![alt](data:image/png;base64,…)\` is uploaded to the note and shown there; prefer a path, it costs no tokens. PNG, JPEG or WebP, at most 5 MB each; metadata such as EXIF and GPS is removed. If any image is invalid, the call fails and nothing is written. \`https://\` image URLs are kept as they are, not fetched or uploaded; a new one with a query string or over 100 characters is refused, as are more than 5 new ones in a call, so pass a file path for those. Link previews and URLs in mermaid blocks count the same, so write such a page as a plain link. The result has a \`note\` when the note is public or fetches from other hosts. Supports rich blocks; call get_authoring_guide before writing anything beyond plain markdown.",
+    "description": "Append markdown to the end of a Journal note with Read+write access. Merges with concurrent edits. Supports rich blocks; call get_authoring_guide before writing a live block or an image.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
@@ -183,7 +197,7 @@ exports[`MCP tools/list > lists the same tools, titles, descriptions and input s
     "title": "Append to note",
   },
   {
-    "description": "Replace one unique span of a Journal note's markdown (as returned by get_note) with new markdown. old_text must match exactly once; include surrounding text if it is ambiguous. Images in new_text: \`![alt](/absolute/path/to/file.png)\` (wrap the path in <> if it has spaces) or \`![alt](data:image/png;base64,…)\` is uploaded to the note and shown there; prefer a path, it costs no tokens. PNG, JPEG or WebP, at most 5 MB each; metadata such as EXIF and GPS is removed. If any image is invalid, the call fails and nothing is written. \`https://\` image URLs are kept as they are, not fetched or uploaded; a new one with a query string or over 100 characters is refused, as are more than 5 new ones in a call, so pass a file path for those. Link previews and URLs in mermaid blocks count the same, so write such a page as a plain link. The result has a \`note\` when the note is public or fetches from other hosts. Supports rich blocks; call get_authoring_guide before writing anything beyond plain markdown.",
+    "description": "Replace one unique span of a Journal note's markdown (as returned by get_note) with new markdown. old_text must match exactly once; include surrounding text if it is ambiguous. Supports rich blocks; call get_authoring_guide before writing a live block or an image.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
@@ -208,7 +222,7 @@ exports[`MCP tools/list > lists the same tools, titles, descriptions and input s
     "title": "Replace in note",
   },
   {
-    "description": "Rewrite a Journal note with Read+write access: its whole body as markdown, its title and/or its tags (tags replace the note's tags). Use it instead of creating a second note. Blocks you keep exactly as get_note returned them stay untouched, note links and images included. folderId moves the note to that folder, keeping its id, links and history; the folder may be read-only for you. Moving into a shared folder makes the note public, and out of one into a private folder makes it private. Pass \`modified\` from get_note or your last write as expectedModified to refuse the edit if the note changed since. Merges with concurrent edits. Images: \`![alt](/absolute/path/to/file.png)\` (wrap the path in <> if it has spaces) or \`![alt](data:image/png;base64,…)\` is uploaded to the note and shown there; prefer a path, it costs no tokens. PNG, JPEG or WebP, at most 5 MB each; metadata such as EXIF and GPS is removed. If any image is invalid, the call fails and nothing is written. \`https://\` image URLs are kept as they are, not fetched or uploaded; a new one with a query string or over 100 characters is refused, as are more than 5 new ones in a call, so pass a file path for those. Link previews and URLs in mermaid blocks count the same, so write such a page as a plain link. The result has a \`note\` when the note is public or fetches from other hosts. Supports rich blocks; call get_authoring_guide before writing anything beyond plain markdown.",
+    "description": "Rewrite a Journal note with Read+write access: its whole body as markdown, its title and/or its tags (tags replace the note's tags). Use it instead of creating a second note. Blocks you keep exactly as get_note returned them stay untouched, note links and images included. folderId moves the note to that folder, keeping its id, links and history; the folder may be read-only for you. Moving into a shared folder makes the note public, and out of one into a private folder makes it private. Pass \`modified\` from get_note or your last write as expectedModified to refuse the edit if the note changed since. Merges with concurrent edits. Supports rich blocks; call get_authoring_guide before writing a live block or an image.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
@@ -243,7 +257,7 @@ exports[`MCP tools/list > lists the same tools, titles, descriptions and input s
     "title": "Update note",
   },
   {
-    "description": "Edit one block of a Journal note with Read+write access, by its id from get_note with format "blocks". Every other block is left as it is, and the edit merges with concurrent edits. op.type: replace, insert_before or insert_after (markdown); delete; set_text (a callout's or toggle's body, keeping its variant or summary); set_attrs (attrs: callout variant, toggle summary, heading level, code block language, id and wide, task list checked); and for a table, set_cell (row, col, markdown), insert_row (at, cells?), delete_row, insert_column and delete_column (at), which keep column widths and the other cells. Returns the ids of the blocks the op leaves and the note's new \`modified\`. Pass \`modified\` from get_note or your last write as expectedModified to refuse the edit if the note changed since. Images in markdown: \`![alt](/absolute/path/to/file.png)\` (wrap the path in <> if it has spaces) or \`![alt](data:image/png;base64,…)\` is uploaded to the note and shown there; prefer a path, it costs no tokens. PNG, JPEG or WebP, at most 5 MB each; metadata such as EXIF and GPS is removed. If any image is invalid, the call fails and nothing is written. \`https://\` image URLs are kept as they are, not fetched or uploaded; a new one with a query string or over 100 characters is refused, as are more than 5 new ones in a call, so pass a file path for those. Link previews and URLs in mermaid blocks count the same, so write such a page as a plain link. The result has a \`note\` when the note is public or fetches from other hosts. Supports rich blocks; call get_authoring_guide before writing anything beyond plain markdown.",
+    "description": "Edit one block of a Journal note with Read+write access, by its id from get_note with format "blocks". Every other block is left as it is, and the edit merges with concurrent edits. op.type: replace, insert_before or insert_after (markdown); delete; set_text (a callout's or toggle's body, keeping its variant or summary); set_attrs (attrs: callout variant, toggle summary, heading level, code block language, id and wide, task list checked); and for a table, set_cell (row, col, markdown), insert_row (at, cells?), delete_row, insert_column and delete_column (at), which keep column widths and the other cells. Returns the ids of the blocks the op leaves and the note's new \`modified\`. Pass \`modified\` from get_note or your last write as expectedModified to refuse the edit if the note changed since. Supports rich blocks; call get_authoring_guide before writing a live block or an image.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {

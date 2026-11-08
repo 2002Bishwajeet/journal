@@ -103,7 +103,9 @@ Claude Desktop (`claude_desktop_config.json`):
 - `search_notes` — case-insensitive substring search over title, tags and body of
   granted notes.
 - `get_authoring_guide` — the authoring reference, [`AUTHORING.md`](AUTHORING.md): everything a
-  note can hold and how to write it.
+  note can hold and how to write it. With no argument it returns an index; `section`
+  (`native`, `editing`, `mermaid-svg`, `html`, `react`, `charts`, `design` or `examples`)
+  returns only that part.
 
 Write tools need **Read+write** access; a note marked "exclude from AI" is never
 readable or writable. Every edit is applied to the note's current state and merged, not
@@ -183,8 +185,9 @@ task lists, tables, math, footnotes, images, a cover, links to other notes
 `react` blocks for diagrams, charts, dashboards and small interactive tools.
 [`AUTHORING.md`](AUTHORING.md) is the full reference: the syntax of every block, what a
 live block can load and do, the design rules and complete examples. The server returns the
-same file from `get_authoring_guide`, and its `initialize` instructions give agents a short
-summary pointing there.
+same file from `get_authoring_guide`, one section at a time, and its `initialize`
+instructions give agents a short summary that sends them there only for live blocks and
+images.
 
 In the app itself, pasting bare markup or a fenced block into an empty line of a note
 creates the same live block.
