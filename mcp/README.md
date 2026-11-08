@@ -104,7 +104,7 @@ Claude Desktop (`claude_desktop_config.json`):
   granted notes.
 - `get_authoring_guide` — the authoring reference, [`AUTHORING.md`](AUTHORING.md): everything a
   note can hold and how to write it. With no argument it returns an index; `section`
-  (`native`, `editing`, `mermaid-svg`, `html`, `react`, `charts`, `design` or `examples`)
+  (`native`, `editing`, `script`, `mermaid-svg`, `html`, `react`, `charts`, `design` or `examples`)
   returns only that part.
 
 Write tools need **Read+write** access; a note marked "exclude from AI" is never
@@ -154,19 +154,28 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
   Example: *"Use ~/Pictures/lisbon.jpg as the cover of my Trip plan note."*
 - `clear_note_cover` — remove a note's cover and its dark-mode cover (`id`), or with
   `dark: true` only the dark-mode cover.
+- `run_script` — run JavaScript (`code`, optional `dryRun`) against your granted notes and
+  get back only what it logs, for jobs that pick notes by what they say. It runs in a
+  QuickJS WebAssembly sandbox with no network, files or timers; its `journal` functions call
+  the tools above with the same grants. Limits per run: 10 s of CPU, 64 MB, 200 reads, 50
+  writes, 8000 characters of output. A script can't trash notes or add images, and
+  `dryRun: true` lists the writes without making them. The API is the
+  [`script` section](AUTHORING.md#scripts-run_script) of the guide.
+  Example: *"Tag every note that mentions Lisbon with lisbon."*
 
 ## Safety
 
 Tools carry MCP annotations: `readOnlyHint` on the read tools, and `destructiveHint` on the
 tools that can overwrite or remove content (`update_note`, `replace_in_note`, `edit_block`,
-`delete_note`, `set_note_cover`, `clear_note_cover`). The server never asks for confirmation
+`delete_note`, `set_note_cover`, `clear_note_cover`, `run_script`). The server never asks for confirmation
 itself: your MCP client does, so if you pick "always allow" for a write tool, its writes and
 trashing happen without a prompt.
 
 A note can hold text written to steer an agent (prompt injection), for example in something
 you pasted from the web. `get_note` and `search_notes` return note content between
 `untrusted-note-content` tags with a random suffix, and the `initialize` instructions tell
-agents that it is data, never instructions. That lowers the risk; it can't remove it.
+agents that it is data, never instructions. That lowers the risk; it can't remove it. `run_script` output is wrapped the same way, and a script can't upload a local file, so a
+note can't steer one into sending a file from this computer to your notes.
 
 **Grants are enforced by this server process, not by Homebase.** The credentials
 `mcp:login` saves have Read+Write on the whole notes drive, including the grants file, and

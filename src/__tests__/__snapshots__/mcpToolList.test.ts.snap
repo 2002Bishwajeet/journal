@@ -112,6 +112,7 @@ exports[`MCP tools/list > lists the same tools, titles, descriptions and input s
           "enum": [
             "native",
             "editing",
+            "script",
             "mermaid-svg",
             "html",
             "react",
@@ -513,6 +514,26 @@ exports[`MCP tools/list > lists the same tools, titles, descriptions and input s
     },
     "name": "clear_note_cover",
     "title": "Clear note cover",
+  },
+  {
+    "description": "Run JavaScript against your granted Journal notes in a sandbox, so only what it logs comes back: for jobs that pick notes by their content (tag every note that mentions X, move notes whose tables have an empty column) without reading every body. \`code\` is the body of an async function with a \`journal\` API (get_authoring_guide section "script") that calls the same tools with the same grants. No network, files, timers or modules; at most 10 s of CPU, 64 MB, 200 reads, 50 writes and 8000 characters of console.log output. Scripts can't trash notes or add images. dryRun: true makes no writes and logs each write it would make.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "code": {
+          "type": "string",
+        },
+        "dryRun": {
+          "type": "boolean",
+        },
+      },
+      "required": [
+        "code",
+      ],
+      "type": "object",
+    },
+    "name": "run_script",
+    "title": "Run script",
   },
 ]
 `;
