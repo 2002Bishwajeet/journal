@@ -50,6 +50,7 @@ export function createLocalWriteDeps(): WriteDeps {
             if (await getSyncRecord(id)) await updateSyncStatus(id, 'pending');
             else await upsertSyncRecord({ localId: id, entityType: 'note', syncStatus: 'pending' });
             documentBroadcast.notifyDocumentUpdated(id);
+            return metadata.timestamps.modified;
         },
 
         async createNote(uniqueId, metadata, yjsBlob) {
@@ -61,11 +62,13 @@ export function createLocalWriteDeps(): WriteDeps {
                 metadata,
             });
             await upsertSyncRecord({ localId: uniqueId, entityType: 'note', syncStatus: 'pending' });
+            return metadata.timestamps.modified;
         },
 
         createFolder: unavailable('Creating folders'),
         uploadNoteImage: unavailable('Images'),
         trashNote: unavailable('Deleting notes'),
+        setNotePublic: unavailable('Sharing notes'),
         grantFolder: unavailable('Granting access'),
         loadImage: async () => {
             throw new Error("Images can't be added here");

@@ -50,6 +50,11 @@ export interface NoteResult extends NoteListResult {
     markdown: string;
 }
 
+/** The fields `list_notes` can return; `access` is added only when a note is read-only. */
+export const NOTE_LIST_FIELDS = ['id', 'title', 'folderId', 'modified', 'tags'] as const;
+export type NoteListField = (typeof NOTE_LIST_FIELDS)[number];
+const DEFAULT_LIST_FIELDS: readonly NoteListField[] = ['id', 'title', 'folderId', 'modified'];
+
 const DEFAULT_LIST_NOTES_LIMIT = 50;
 const MAX_LIST_NOTES_LIMIT = 200;
 const DEFAULT_SEARCH_LIMIT = 20;
@@ -76,11 +81,13 @@ export async function listFolders(deps: ReadDeps): Promise<FolderResult[]> {
         .filter((folder) => folder.access !== 'none');
 }
 
+/** Granted notes, newest first, each with only `fields` (#1003), plus `access` when it is read. */
 export async function listNotes(
     deps: ReadDeps,
-    params: { folderId?: string; limit?: number } = {}
-): Promise<NoteListResult[]> {
+    params: { folderId?: string; limit?: number; fields?: readonly NoteListField[] } = {}
+): Promise<Partial<NoteListResult>[]> {
     const limit = Math.min(params.limit ?? DEFAULT_LIST_NOTES_LIMIT, MAX_LIST_NOTES_LIMIT);
+    const fields = params.fields?.length ? params.fields : DEFAULT_LIST_FIELDS;
     const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
 
     return notes
@@ -88,7 +95,11 @@ export async function listNotes(
         .map((note) => toListResult(note, noteAccess(grants, note)))
         .filter((note) => note.access !== 'none')
         .sort((a, b) => b.modified.localeCompare(a.modified))
-        .slice(0, limit);
+        .slice(0, limit)
+        .map((note) => ({
+            ...Object.fromEntries(fields.map((field) => [field, note[field]])),
+            ...(note.access === 'read' && { access: note.access }),
+        }));
 }
 
 export async function getNote(deps: ReadDeps, params: { id: string }): Promise<NoteResult> {

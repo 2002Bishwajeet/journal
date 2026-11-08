@@ -14,7 +14,7 @@ import type { EncryptedKeyHeader } from '@homebase-id/js-lib/core';
 import { getNewId } from '@/lib/utils';
 import { folderAccess, type AgentAccess, type AgentGrants } from '@/lib/agent/grants';
 import { agentEditor } from '@/lib/agent/attribution';
-import { newNoteShareFields } from '@/lib/share/sharedFolder';
+import { newNoteShareFields, publicAfterMove } from '@/lib/share/sharedFolder';
 import {
     appendMarkdown,
     replaceInNote as replaceInDoc,
@@ -42,6 +42,7 @@ import {
     type CoverVariant,
 } from '@/lib/editor/cover';
 import { collectImageRefs } from '@/lib/yjs/imageRefs';
+import { truncateAtWord } from '@/lib/share/publicCard';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import type { PreparedImage } from '@/lib/images/imageBytes';
 import type { DocumentMetadata } from '@/types';
@@ -77,8 +78,12 @@ export interface NoteEdit {
 
 export type WriteDeps = ReadDeps & {
     fetchNoteForEdit(id: string): Promise<NoteForEdit | null>;
-    uploadNoteEdit(id: string, edit: NoteEdit): Promise<void>;
-    createNote(uniqueId: string, metadata: DocumentMetadata, yjsBlob: Uint8Array): Promise<void>;
+    /** Resolves to the note's new `modified` (#1003). */
+    uploadNoteEdit(id: string, edit: NoteEdit): Promise<string>;
+    /** Resolves to the new note's `modified`. */
+    createNote(uniqueId: string, metadata: DocumentMetadata, yjsBlob: Uint8Array): Promise<string>;
+    /** Makes a note public or private as the app's Share dialog does (#1003); resolves to its new `modified`. */
+    setNotePublic(id: string, fileId: string, isPublic: boolean): Promise<string>;
     createFolder(uniqueId: string, name: string): Promise<void>;
     /**
      * Adds `image` as a new jrnl_img payload on the note's file (as the app's image upload
@@ -154,14 +159,19 @@ function assertUnchangedSince(expectedModified: string | undefined, summary: Not
     }
 }
 
-/** Returns the note's metadata as the edit found it. */
+/** The note's metadata as the edit found it, and the note's `modified` after the edit. */
+interface EditResult {
+    metadata: DocumentMetadata;
+    modified: string;
+}
+
 async function editWithRetry(
     deps: WriteDeps,
     id: string,
     // May return image payload keys the edit stops using, to delete with the upload.
     apply: (doc: Y.Doc) => string[] | void,
     opts: { metadata?: Partial<DocumentMetadata>; expectedModified?: string } = {}
-): Promise<DocumentMetadata> {
+): Promise<EditResult> {
     const lastEditedBy = agentEditor(deps.clientName());
     const [grants, firstNote] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
     let sent: { client: number; clock: number } | undefined;
@@ -173,7 +183,7 @@ async function editWithRetry(
 
         // A conflicting upload can still have been saved (#439). If the refetched doc already
         // holds its ops, the edit is in: re-applying it would duplicate it or fail on it.
-        if (sent && Y.getState(note.doc.store, sent.client) >= sent.clock) return note.metadata;
+        if (sent && Y.getState(note.doc.store, sent.client) >= sent.clock) return { metadata: note.metadata, modified: note.summary.modified };
 
         // Checked against the note as the agent's call found it; an edit landing while
         // uploading merges like any concurrent edit.
@@ -185,7 +195,7 @@ async function editWithRetry(
         // attempt) leaves the earlier record, if any, as what to detect.
         if (clock > 0) sent = { client: note.doc.clientID, clock };
         try {
-            await deps.uploadNoteEdit(id, {
+            const modified = await deps.uploadNoteEdit(id, {
                 fileId: note.fileId,
                 versionTag: note.versionTag,
                 keyHeader: note.keyHeader,
@@ -193,7 +203,7 @@ async function editWithRetry(
                 yjsBlob: Y.encodeStateAsUpdate(note.doc),
                 ...(toDeletePayloads?.length ? { toDeletePayloads } : {}),
             });
-            return note.metadata;
+            return { metadata: note.metadata, modified };
         } catch (err) {
             if (!(err instanceof VersionConflictError)) throw err;
         }
@@ -298,7 +308,7 @@ async function editWithBodyImages(
     loaded: Map<string, PreparedImage>,
     apply: (doc: Y.Doc, imageSrcs?: Map<string, string>) => string[] | void,
     opts: { metadata?: Partial<DocumentMetadata>; expectedModified?: string; dryRun?: boolean } = {}
-): Promise<DocumentMetadata> {
+): Promise<EditResult> {
     const { dryRun = true, ...editOpts } = opts;
     if (loaded.size === 0) return editWithRetry(deps, id, (doc) => apply(doc), editOpts);
 
@@ -339,7 +349,7 @@ async function editWithBodyImages(
 export async function createNote(
     deps: WriteDeps,
     params: { title: string; markdown: string; folderId: string; tags?: string[] }
-): Promise<{ id: string; title: string; folderId: string; note?: string }> {
+): Promise<{ id: string; title: string; folderId: string; modified: string; note?: string }> {
     await assertNoDataInFetchedUrls(deps, params.markdown);
     const [grants, notes] = await Promise.all([deps.loadGrants(), deps.listNotes()]);
     const targets = linkTargets(grants, notes);
@@ -366,21 +376,23 @@ export async function createNote(
     const doc = createDoc(params.markdown, targets);
     const result = { id, title: metadata.title, folderId: metadata.folderId, ...writeNotices(metadata.isPublic, params.markdown) };
     if (images.size === 0) {
-        await deps.createNote(id, metadata, Y.encodeStateAsUpdate(doc));
-        return result;
+        const modified = await deps.createNote(id, metadata, Y.encodeStateAsUpdate(doc));
+        return { ...result, modified };
     }
 
     // Images are payloads of the note's file, which only exists once created: create it
     // empty, then write the body like an append. A failed upload trashes the empty note.
     await deps.createNote(id, metadata, Y.encodeStateAsUpdate(createDoc('')));
     try {
-        await editWithBodyImages(deps, id, images, (doc, imageSrcs) => appendMarkdown(doc, params.markdown, imageSrcs, targets));
+        const { modified } = await editWithBodyImages(deps, id, images, (doc, imageSrcs) =>
+            appendMarkdown(doc, params.markdown, imageSrcs, targets)
+        );
+        return { ...result, modified };
     } catch (err) {
         const created = await deps.fetchNoteForEdit(id).catch(() => null);
         if (created) await deps.trashNote(id, created.fileId).catch(() => undefined);
         throw err;
     }
-    return result;
 }
 
 /**
@@ -398,45 +410,69 @@ export async function createFolder(deps: WriteDeps, params: { name: string }): P
     return { id, name };
 }
 
-export async function appendToNote(deps: WriteDeps, params: { id: string; markdown: string }): Promise<{ id: string; note?: string }> {
+/** A write's result: the note's id and new `modified` (#1003), and any notices. */
+type WriteResult = { id: string; modified: string; note?: string };
+
+export async function appendToNote(deps: WriteDeps, params: { id: string; markdown: string }): Promise<WriteResult> {
     await assertNoDataInFetchedUrls(deps, params.markdown, params.id);
     const [images, targets] = await Promise.all([loadBodyImages(deps, params.markdown), loadLinkTargets(deps)]);
-    const { isPublic } = await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) =>
+    const { metadata, modified } = await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) =>
         appendMarkdown(doc, params.markdown, imageSrcs, targets)
     );
-    return { id: params.id, ...writeNotices(isPublic, params.markdown) };
+    return { id: params.id, modified, ...writeNotices(metadata.isPublic, params.markdown) };
 }
 
 /** The engine's error (no match / several matches / lossy block) reaches the agent verbatim. */
 export async function replaceInNote(
     deps: WriteDeps,
     params: { id: string; old_text: string; new_text: string }
-): Promise<{ id: string; note?: string }> {
+): Promise<WriteResult> {
     const after = await markdownAfter(deps, params.id, (doc) => replaceInDoc(doc, params.old_text, params.new_text));
     await assertNoDataInFetchedUrls(deps, after, params.id);
     const [images, targets] = await Promise.all([loadBodyImages(deps, params.new_text), loadLinkTargets(deps)]);
-    const { isPublic } = await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) =>
+    const { metadata, modified } = await editWithBodyImages(deps, params.id, images, (doc, imageSrcs) =>
         replaceInDoc(doc, params.old_text, params.new_text, imageSrcs, targets)
     );
-    return { id: params.id, ...writeNotices(isPublic, after) };
+    return { id: params.id, modified, ...writeNotices(metadata.isPublic, after) };
+}
+
+/**
+ * Checks a move of note `id` to `folderId` (#1003) before anything is written. The target
+ * folder only has to be visible to the agent: the owner allows moving into a read-only one.
+ * The note must be writable, and one shared with people can't go into a shared folder,
+ * whose notes are public (as in the app's useMoveNote). Returns the metadata the move sets:
+ * a note going into a shared folder is published indexable unless the owner opted out.
+ */
+async function checkMove(deps: WriteDeps, id: string, folderId: string): Promise<Partial<DocumentMetadata>> {
+    const [grants, folders, note] = await Promise.all([deps.loadGrants(), deps.listFolders(), deps.fetchNoteForEdit(id)]);
+    assertWritable(grants, note, id);
+    const to = folders.find((f) => f.id === folderId);
+    if (!to || folderAccess(grants, folderId) === 'none') throw new Error(`Folder not found: ${folderId}`);
+    if (to.isPublic && note.metadata.isCollaborative) {
+        throw new Error(`Note is shared with people, so it can't move to the shared folder ${to.name}: ${id}`);
+    }
+    return { folderId, ...(to.isPublic && { shareIndexable: note.metadata.shareIndexable ?? true }) };
 }
 
 /**
  * Rewrites the body, title and/or tags as one edit on the stored Yjs state, so an open
- * editor merges it. With `expectedModified`, a note modified since is left unchanged.
+ * editor merges it, and with `folderId` moves the note there, keeping its id. A move into or
+ * out of a shared folder makes the note public or private, as in the app (#622).
+ * With `expectedModified`, a note modified since is left unchanged.
  */
 export async function updateNote(
     deps: WriteDeps,
-    params: { id: string; markdown?: string; title?: string; tags?: string[]; expectedModified?: string }
-): Promise<{ id: string; note?: string }> {
-    const { id, markdown, title, tags, expectedModified } = params;
-    if (markdown === undefined && title === undefined && tags === undefined) {
-        throw new Error('update_note: give markdown, title or tags');
+    params: { id: string; markdown?: string; title?: string; tags?: string[]; folderId?: string; expectedModified?: string }
+): Promise<WriteResult> {
+    const { id, markdown, title, tags, folderId, expectedModified } = params;
+    if (markdown === undefined && title === undefined && tags === undefined && folderId === undefined) {
+        throw new Error('update_note: give markdown, title, tags or folderId');
     }
     await assertNoDataInFetchedUrls(deps, markdown, id);
     const metadata: Partial<DocumentMetadata> = {
         ...(title !== undefined && { title: title || 'Untitled' }),
         ...(tags !== undefined && { tags }),
+        ...(folderId !== undefined && (await checkMove(deps, id, folderId))),
     };
     // The rewrite is diffed once, against the note as first fetched, and that update is merged
     // into any refetch: re-diffing against a refetched note would delete a concurrent edit.
@@ -452,33 +488,102 @@ export async function updateNote(
         setMarkdown(doc, markdown, imageSrcs, targets);
         rewrite = Y.encodeStateAsUpdate(doc, before);
     };
-    const { isPublic } = await editWithBodyImages(deps, id, images, apply, { metadata, expectedModified, dryRun: false });
-    return { id, ...writeNotices(isPublic, markdown) };
+    const edited = await editWithBodyImages(deps, id, images, apply, { metadata, expectedModified, dryRun: false });
+    let { modified } = edited;
+    let isPublic = edited.metadata.isPublic;
+    if (folderId !== undefined) {
+        const folders = await deps.listFolders();
+        const folderOf = (folder: string) => folders.find((f) => f.id === folder);
+        const nextPublic = publicAfterMove(folderOf(edited.metadata.folderId), folderOf(folderId), isPublic);
+        if (nextPublic !== !!isPublic) {
+            const note = await deps.fetchNoteForEdit(id);
+            if (!note) throw new Error(`Note not found: ${id}`);
+            modified = await deps.setNotePublic(id, note.fileId, nextPublic);
+        }
+        isPublic = nextPublic;
+    }
+    return { id, modified, ...writeNotices(isPublic, markdown) };
+}
+
+/** A note's blocks with the ids `edit_block` takes. Here rather than in read.ts because it needs the note's Yjs doc. */
+async function readNoteBlocks(deps: WriteDeps, id: string): Promise<{ note: NoteListResult; blocks: NoteBlock[] }> {
+    const [grants, notes, note] = await Promise.all([deps.loadGrants(), deps.listNotes(), deps.fetchNoteForEdit(id)]);
+    const access = note ? noteAccess(grants, note.summary) : 'none';
+    if (!note || access === 'none') throw new Error(`Note not found: ${id}`);
+    return { note: toListResult(note.summary, access), blocks: noteBlocks(note.doc, linkTargets(grants, notes)) };
+}
+
+const headingLevel = (block: NoteBlock) => (block.type === 'heading' ? (block.attrs.level ?? 1) : 0);
+const headingText = (block: NoteBlock) => block.markdown.replace(/^#+\s*/, '').trim().toLowerCase();
+
+/** The heading named `section` and every block up to the next heading of its level or higher. */
+function sectionBlocks(blocks: NoteBlock[], section: string): NoteBlock[] {
+    const start = blocks.findIndex((block) => headingLevel(block) && headingText(block) === section.trim().toLowerCase());
+    if (start < 0) throw new Error(`Section not found: ${section}`);
+    const level = headingLevel(blocks[start]);
+    const end = blocks.findIndex((block, i) => i > start && headingLevel(block) && headingLevel(block) <= level);
+    return blocks.slice(start, end < 0 ? undefined : end);
 }
 
 /**
- * `get_note` with `format: "blocks"` (#560): the note's top-level blocks with the ids
- * `edit_block` takes. Here rather than in read.ts because it needs the note's Yjs doc.
+ * `get_note` with `format: "blocks"` (#560): the note's top-level blocks, or only `blockIds` or
+ * one `section` (#1003). A table's `rows` only with `includeRows`, and no empty `attrs`.
  */
-export async function getNoteBlocks(deps: WriteDeps, params: { id: string }): Promise<NoteListResult & { blocks: NoteBlock[] }> {
-    const [grants, notes, note] = await Promise.all([deps.loadGrants(), deps.listNotes(), deps.fetchNoteForEdit(params.id)]);
-    const access = note ? noteAccess(grants, note.summary) : 'none';
-    if (!note || access === 'none') throw new Error(`Note not found: ${params.id}`);
-    return { ...toListResult(note.summary, access), blocks: noteBlocks(note.doc, linkTargets(grants, notes)) };
+export async function getNoteBlocks(
+    deps: WriteDeps,
+    params: { id: string; blockIds?: string[]; section?: string; includeRows?: boolean }
+): Promise<NoteListResult & { blocks: (Omit<NoteBlock, 'attrs'> & { attrs?: NoteBlock['attrs'] })[] }> {
+    const { id, blockIds, section, includeRows } = params;
+    if (blockIds && section !== undefined) throw new Error('get_note: give blockIds or section, not both');
+    const { note, blocks } = await readNoteBlocks(deps, id);
+    let picked = blocks;
+    if (blockIds) {
+        const missing = blockIds.filter((blockId) => !blocks.some((block) => block.id === blockId));
+        if (missing.length) throw new Error(`Block not found: ${missing.join(', ')}`);
+        picked = blocks.filter((block) => blockIds.includes(block.id));
+    } else if (section !== undefined) {
+        picked = sectionBlocks(blocks, section);
+    }
+    return {
+        ...note,
+        blocks: picked.map(({ rows, attrs, ...block }) => ({
+            ...block,
+            ...(Object.keys(attrs).length && { attrs }),
+            ...(includeRows && rows && { rows }),
+        })),
+    };
+}
+
+/** Longest preview of a non-heading block in an outline. */
+const OUTLINE_PREVIEW_LENGTH = 80;
+
+/** `get_note` with `format: "outline"` (#1003): each block's id, type and a short preview; headings in full. */
+export async function getNoteOutline(
+    deps: WriteDeps,
+    params: { id: string }
+): Promise<NoteListResult & { blocks: { id: string; type: string; preview: string }[] }> {
+    const { note, blocks } = await readNoteBlocks(deps, params.id);
+    return {
+        ...note,
+        blocks: blocks.map((block) => {
+            const text = block.markdown.replace(/\s+/g, ' ').trim();
+            return { id: block.id, type: block.type, preview: headingLevel(block) ? text : truncateAtWord(text, OUTLINE_PREVIEW_LENGTH) };
+        }),
+    };
 }
 
 /** One block op (#560), by the block's id from `getNoteBlocks`. Returns the ids the op leaves. */
 export async function editBlock(
     deps: WriteDeps,
     params: { note_id: string; block_id: string; op: BlockOp; expectedModified?: string }
-): Promise<{ id: string; block_ids: string[]; note?: string }> {
+): Promise<{ id: string; block_ids: string[]; modified: string; note?: string }> {
     const { note_id, block_id, op, expectedModified } = params;
     const markdown = 'markdown' in op ? op.markdown : op.type === 'insert_row' ? op.cells?.join('\n\n') : undefined;
     const after = await markdownAfter(deps, note_id, (doc) => editBlockInDoc(doc, block_id, op));
     await assertNoDataInFetchedUrls(deps, after, note_id);
     let blockIds: string[] = [];
     const [images, targets] = await Promise.all([loadBodyImages(deps, markdown), loadLinkTargets(deps)]);
-    const { isPublic } = await editWithBodyImages(
+    const { metadata, modified } = await editWithBodyImages(
         deps,
         note_id,
         images,
@@ -487,7 +592,7 @@ export async function editBlock(
         },
         { expectedModified }
     );
-    return { id: note_id, block_ids: blockIds, ...writeNotices(isPublic, after) };
+    return { id: note_id, block_ids: blockIds, modified, ...writeNotices(metadata.isPublic, after) };
 }
 
 /** Moves a note to Trash, where the owner can restore it. Never deletes permanently. */
@@ -539,7 +644,7 @@ const noCover = (id: string) => new Error(`Note has no cover; set the light cove
 export async function setNoteCover(
     deps: WriteDeps,
     params: { id: string; image: string; positionY?: number; dark?: boolean }
-): Promise<{ id: string; variant: CoverVariant; src: string; positionY: number; note?: string }> {
+): Promise<{ id: string; variant: CoverVariant; src: string; positionY: number; modified: string; note?: string }> {
     const { id, dark = false } = params;
     const positionY = Math.round(params.positionY ?? 50);
     if (!(positionY >= 0 && positionY <= 100)) throw new Error('positionY must be between 0 and 100');
@@ -551,7 +656,7 @@ export async function setNoteCover(
 
     const payloadKey = await deps.uploadNoteImage(id, note.versionTag, image, readNextImageIndex(note.doc));
     const next: CoverImage = { src: `attachment://${note.fileId}/${payloadKey}`, positionY };
-    await editWithRetry(deps, id, (doc) => {
+    const { modified } = await editWithRetry(deps, id, (doc) => {
         const old = getCover(doc);
         if (dark) {
             if (!old) throw noCover(id);
@@ -568,27 +673,27 @@ export async function setNoteCover(
         "This note is public. Its link-preview card image can't be drawn here, so link previews show " +
         'the plain cover until the note is next saved in the Journal app, which redraws the card.';
     const notes = [coverSizeAdvice(image.width, image.height), note.metadata.isPublic && !dark ? publicNote : undefined].filter(Boolean);
-    return { id, variant: dark ? 'dark' : 'light', ...next, ...(notes.length ? { note: notes.join(' ') } : {}) };
+    return { id, variant: dark ? 'dark' : 'light', ...next, modified, ...(notes.length ? { note: notes.join(' ') } : {}) };
 }
 
 /** Removes a note's cover (and its dark cover with it), or with `dark` only the dark cover. */
 export async function clearNoteCover(
     deps: WriteDeps,
     params: { id: string; dark?: boolean }
-): Promise<{ id: string; variant: CoverVariant; cleared: boolean }> {
+): Promise<{ id: string; variant: CoverVariant; cleared: boolean; modified: string }> {
     const { id, dark = false } = params;
     const variant = dark ? 'dark' : 'light';
     const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
     assertWritable(grants, note, id);
     const cover = getCover(note.doc);
     // Nothing to clear: no upload, so the note isn't marked as edited by the agent.
-    if (!(dark ? cover?.dark : cover)) return { id, variant, cleared: false };
+    if (!(dark ? cover?.dark : cover)) return { id, variant, cleared: false, modified: note.summary.modified };
 
-    await editWithRetry(deps, id, (doc) => {
+    const { modified } = await editWithRetry(deps, id, (doc) => {
         const old = getCover(doc);
         if (dark) clearDarkCover(doc);
         else clearCover(doc);
         return unusedImageKeys(doc, note.fileId, dark ? [old?.dark] : [old, old?.dark]);
     });
-    return { id, variant, cleared: true };
+    return { id, variant, cleared: true, modified };
 }

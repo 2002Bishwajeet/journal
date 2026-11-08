@@ -3,6 +3,7 @@ import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { FolderDriveProvider } from '@/lib/homebase/FolderDriveProvider';
 import { AgentGrantsDriveProvider } from '@/lib/homebase/AgentGrantsDriveProvider';
 import { toMarkdown, type LinkTarget } from '@/lib/agent/editEngine';
+import { buildPublicCard } from '@/lib/share/publicCard';
 import { setFolderAccess, type AgentAccess } from '@/lib/agent/grants';
 import type { HomebaseFile } from '@homebase-id/js-lib/core';
 import type { PreparedImage } from '@/lib/images/imageBytes';
@@ -140,7 +141,14 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         return note ? { summary: note.summary, markdown: toMarkdown(note.doc, targets) } : null;
     }
 
-    async function uploadNoteEdit(id: string, edit: NoteEdit): Promise<void> {
+    /** The note's `modified` as the drive has it now: an upload's result doesn't carry it. */
+    async function modifiedOf(id: string): Promise<string> {
+        const file = await notesProvider.getNote(id, undefined, { decrypt: false });
+        if (!file) throw new Error(`Note not found: ${id}`);
+        return new Date(file.fileMetadata.updated).toISOString();
+    }
+
+    async function uploadNoteEdit(id: string, edit: NoteEdit): Promise<string> {
         await notesProvider.updateNote(
             id,
             edit.fileId,
@@ -157,6 +165,7 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
                 toDeletePayloads: edit.toDeletePayloads?.map((key) => ({ key })),
             }
         );
+        return modifiedOf(id);
     }
 
     async function uploadNoteImage(id: string, versionTag: string, image: PreparedImage, minIndex: number): Promise<string> {
@@ -167,8 +176,21 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         return payloadKey;
     }
 
-    async function createNote(uniqueId: string, metadata: DocumentMetadata, yjsBlob: Uint8Array): Promise<void> {
+    async function createNote(uniqueId: string, metadata: DocumentMetadata, yjsBlob: Uint8Array): Promise<string> {
         await notesProvider.createNote(uniqueId, metadata, yjsBlob);
+        return modifiedOf(uniqueId);
+    }
+
+    async function setNotePublic(id: string, fileId: string, isPublic: boolean): Promise<string> {
+        // As the app's setNoteShared: a re-upload that re-keys every payload, with the link card on a public note.
+        if (isPublic) {
+            const note = await fetchNoteForEdit(id);
+            if (!note) throw new Error(`Note not found: ${id}`);
+            await notesProvider.makeNotePublic(id, fileId, buildPublicCard(Y.encodeStateAsUpdate(note.doc), note.metadata));
+        } else {
+            await notesProvider.makeNotePrivate(id, fileId);
+        }
+        return modifiedOf(id);
     }
 
     async function createFolder(uniqueId: string, name: string): Promise<void> {
@@ -205,6 +227,7 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         uploadNoteImage,
         createNote,
         createFolder,
+        setNotePublic,
         trashNote,
         grantFolder,
     };

@@ -15,6 +15,7 @@ import {
     clearNoteCover,
     editBlock,
     getNoteBlocks,
+    getNoteOutline,
     VersionConflictError,
     type WriteDeps,
 } from '@/lib/agent/tools/write';
@@ -34,6 +35,9 @@ const FOLDERS = [
     { id: 'FR', name: 'Readable' },
     { id: 'FN', name: 'Hidden' },
 ];
+
+/** A second after `iso`. */
+const later = (iso: string) => new Date(Date.parse(iso) + 1000).toISOString();
 
 function metadataFor(folderId: string, overrides: Partial<DocumentMetadata> = {}): DocumentMetadata {
     return {
@@ -81,6 +85,7 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
     const folderCreates: { uniqueId: string; name: string }[] = [];
     const folderGrants: { folderId: string; access: AgentAccess }[] = [];
     const trashed: { id: string; fileId: string }[] = [];
+    const visibility: { id: string; fileId: string; isPublic: boolean }[] = [];
     const images: { id: string; versionTag: string; image: PreparedImage; payloadKey: string }[] = [];
     const lastImageIndex = new Map<string, number>();
     let uploadAttempts = 0;
@@ -122,11 +127,22 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
             uploads.push({ id, ...edit });
             const note = store.get(id)!;
             if (edit.versionTag !== String(note.versionTag)) throw new VersionConflictError();
-            store.set(id, { blob: edit.yjsBlob, versionTag: note.versionTag + 1, metadata: edit.metadata });
+            // Like the drive, the upload gives the file a new modified time.
+            const modified = later(note.metadata.timestamps.modified);
+            store.set(id, { blob: edit.yjsBlob, versionTag: note.versionTag + 1, metadata: { ...edit.metadata, timestamps: { ...edit.metadata.timestamps, modified } } });
+            return modified;
         },
         createNote: async (uniqueId, metadata, yjsBlob) => {
             creates.push({ uniqueId, metadata, yjsBlob });
             store.set(uniqueId, { blob: yjsBlob, versionTag: 1, metadata });
+            return metadata.timestamps.modified;
+        },
+        setNotePublic: async (id, fileId, isPublic) => {
+            visibility.push({ id, fileId, isPublic });
+            const note = store.get(id)!;
+            const modified = later(note.metadata.timestamps.modified);
+            store.set(id, { ...note, versionTag: note.versionTag + 1, metadata: { ...note.metadata, isPublic, timestamps: { ...note.metadata.timestamps, modified } } });
+            return modified;
         },
         createFolder: async (uniqueId, name) => {
             folderCreates.push({ uniqueId, name });
@@ -160,7 +176,7 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
         store.set(id, { blob: Y.encodeStateAsUpdate(doc), versionTag: 1, metadata });
     }
 
-    return { deps, store, uploads, creates, folderCreates, folderGrants, trashed, images, put, putDoc };
+    return { deps, store, uploads, creates, folderCreates, folderGrants, trashed, visibility, images, put, putDoc };
 }
 
 function markdownOf(blob: Uint8Array): string {
@@ -308,8 +324,9 @@ describe('write tools: conflict-safe upload', () => {
         const upload = drive.deps.uploadNoteEdit;
         let calls = 0;
         drive.deps.uploadNoteEdit = async (id, edit) => {
-            await upload(id, edit);
+            const modified = await upload(id, edit);
             if (++calls === 1) throw new VersionConflictError();
+            return modified;
         };
     }
 
@@ -383,7 +400,7 @@ describe('write tools: metadata and attribution', () => {
 
         expect(creates).toHaveLength(1);
         const { uniqueId, metadata, yjsBlob } = creates[0];
-        expect(result).toEqual({ id: uniqueId, title: 'Standup', folderId: 'FW' });
+        expect(result).toEqual({ id: uniqueId, title: 'Standup', folderId: 'FW', modified: metadata.timestamps.modified });
         expect(uniqueId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
         expect(Object.keys(metadata).sort()).toEqual(
             ['excludeFromAI', 'folderId', 'isPinned', 'lastEditedBy', 'tags', 'timestamps', 'title'].sort()
@@ -452,7 +469,7 @@ describe('write tools: update_note (#511)', () => {
 
         await expect(
             updateNote(deps, { id: 'nw', markdown: '# New plan\n\nDay two', title: 'Trip v2', tags: ['trip'] })
-        ).resolves.toEqual({ id: 'nw' });
+        ).resolves.toEqual({ id: 'nw', modified: '2024-01-02T00:00:01.000Z' });
 
         expect(uploads).toHaveLength(1);
         expect(markdownOf(uploads[0].yjsBlob)).toBe('# New plan\n\nDay two');
@@ -520,7 +537,7 @@ describe('write tools: update_note (#511)', () => {
         put('nw', 'Body', metadataFor('FW'));
         await expect(updateNote(deps, { id: 'nr', markdown: 'x' })).rejects.toThrow('Note is read-only for agents: nr');
         await expect(updateNote(deps, { id: 'nn', markdown: 'x' })).rejects.toThrow('Note not found: nn');
-        await expect(updateNote(deps, { id: 'nw' })).rejects.toThrow('update_note: give markdown, title or tags');
+        await expect(updateNote(deps, { id: 'nw' })).rejects.toThrow('update_note: give markdown, title, tags or folderId');
         expect(uploads).toHaveLength(0);
     });
 });
@@ -706,7 +723,7 @@ describe('write tools: set_note_cover / clear_note_cover (#516)', () => {
     it('clear_note_cover removes the cover with its dark one and deletes both payloads', async () => {
         const { deps, putDoc, store, uploads } = makeDrive();
         putDoc('nw', withCovers, metadataFor('FW'));
-        await expect(clearNoteCover(deps, { id: 'nw' })).resolves.toEqual({ id: 'nw', variant: 'light', cleared: true });
+        await expect(clearNoteCover(deps, { id: 'nw' })).resolves.toEqual({ id: 'nw', variant: 'light', cleared: true, modified: '2024-01-02T00:00:01.000Z' });
         expect(getCoverFromBlob(store.get('nw')!.blob)).toBeNull();
         expect(uploads.at(-1)!.toDeletePayloads).toEqual(['jrnl_img0', 'jrnl_img1']);
     });
@@ -714,7 +731,7 @@ describe('write tools: set_note_cover / clear_note_cover (#516)', () => {
     it('clear_note_cover with dark removes only the dark cover', async () => {
         const { deps, putDoc, store, uploads } = makeDrive();
         putDoc('nw', withCovers, metadataFor('FW'));
-        await expect(clearNoteCover(deps, { id: 'nw', dark: true })).resolves.toEqual({ id: 'nw', variant: 'dark', cleared: true });
+        await expect(clearNoteCover(deps, { id: 'nw', dark: true })).resolves.toEqual({ id: 'nw', variant: 'dark', cleared: true, modified: '2024-01-02T00:00:01.000Z' });
         expect(getCoverFromBlob(store.get('nw')!.blob)).toEqual({ src: 'attachment://file-nw/jrnl_img0', positionY: 20 });
         expect(uploads.at(-1)!.toDeletePayloads).toEqual(['jrnl_img1']);
     });
@@ -722,7 +739,7 @@ describe('write tools: set_note_cover / clear_note_cover (#516)', () => {
     it('clear_note_cover on a note without a cover changes nothing', async () => {
         const { deps, put, uploads } = makeDrive();
         put('nw', 'Body', metadataFor('FW'));
-        await expect(clearNoteCover(deps, { id: 'nw' })).resolves.toEqual({ id: 'nw', variant: 'light', cleared: false });
+        await expect(clearNoteCover(deps, { id: 'nw' })).resolves.toEqual({ id: 'nw', variant: 'light', cleared: false, modified: '2024-01-02T00:00:00.000Z' });
         expect(uploads).toHaveLength(0);
     });
 });
@@ -931,7 +948,7 @@ describe('write tools: get_note blocks and edit_block (#560)', () => {
         const [, two] = result.blocks;
         const edited = await editBlock(deps, { note_id: 'nw', block_id: two.id, op: { type: 'replace', markdown: 'Second' } });
 
-        expect(edited).toEqual({ id: 'nw', block_ids: [two.id] });
+        expect(edited).toEqual({ id: 'nw', block_ids: [two.id], modified: '2024-01-02T00:00:01.000Z' });
         expect(markdownOf(store.get('nw')!.blob)).toBe('One\n\nSecond');
         expect(uploads.at(-1)!.metadata.lastEditedBy).toBe('agent:claude-code');
         expect((await blocksOf(deps, 'nw')).map((b) => b.id)).toEqual(result.blocks.map((b) => b.id));
@@ -1102,7 +1119,7 @@ describe('write tools: leak guards (#948)', () => {
         const { deps, put } = makeDrive();
         put('nw', 'Body', metadataFor('FW'));
         const markdown = '[a](https://a.example/?x=1)\n\n```bash\ncurl https://a.example/?x=1\n```';
-        await expect(appendToNote(deps, { id: 'nw', markdown })).resolves.toEqual({ id: 'nw' });
+        await expect(appendToNote(deps, { id: 'nw', markdown })).resolves.toEqual({ id: 'nw', modified: '2024-01-02T00:00:01.000Z' });
     });
 
     it('counts images, cards and diagram URLs together towards the limit', async () => {
@@ -1176,7 +1193,7 @@ describe('write tools: leak guards (#948)', () => {
         const { deps, put } = makeDrive();
         put('nw', 'Body', metadataFor('FW'));
         expect(await createNote(deps, { title: 'T', markdown: 'Body', folderId: 'FW' })).not.toHaveProperty('note');
-        expect(await updateNote(deps, { id: 'nw', title: 'New' })).toEqual({ id: 'nw' });
+        expect(await updateNote(deps, { id: 'nw', title: 'New' })).toEqual({ id: 'nw', modified: '2024-01-02T00:00:01.000Z' });
     });
 
     it('every edit of a public note says it is public', async () => {
@@ -1198,5 +1215,120 @@ describe('write tools: leak guards (#948)', () => {
         await expect(appendToNote(deps, { id: 'np', markdown: `![x](${webp})` })).resolves.toMatchObject({
             note: expect.stringContaining('This note is public'),
         });
+    });
+});
+
+describe('write tools: lean reads and moves (#1003)', () => {
+    const LONG = '# Plan\n\nIntro text\n\n## Tasks\n\n- one\n- two\n\n### Detail\n\nDeep\n\n## Notes\n\n| a | b |\n| --- | --- |\n| 1 | 2 |';
+
+    it('outline gives each block id, type and a preview: headings in full, the rest cut', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', `# A heading longer than eighty characters stays whole in the outline, every single word\n\n${'word '.repeat(40)}`, metadataFor('FW'));
+        const { blocks: full } = await getNoteBlocks(deps, { id: 'nw' });
+        const outline = await getNoteOutline(deps, { id: 'nw' });
+        expect(outline).toMatchObject({ id: 'nw', access: 'write', modified: '2024-01-02T00:00:00.000Z' });
+        expect(outline.blocks.map((b) => b.id)).toEqual(full.map((b) => b.id));
+        expect(outline.blocks[0]).toEqual({
+            id: full[0].id,
+            type: 'heading',
+            preview: '# A heading longer than eighty characters stays whole in the outline, every single word',
+        });
+        expect(outline.blocks[1].type).toBe('paragraph');
+        expect(outline.blocks[1].preview.length).toBeLessThanOrEqual(81);
+        expect(outline.blocks[1].preview.endsWith('…')).toBe(true);
+    });
+
+    it('a section is its heading up to the next heading of the same or higher level', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', LONG, metadataFor('FW'));
+        const tasks = await getNoteBlocks(deps, { id: 'nw', section: 'tasks' });
+        expect(tasks.blocks.map((b) => b.markdown)).toEqual(['## Tasks', '- one\n- two', '### Detail', 'Deep']);
+        const plan = await getNoteBlocks(deps, { id: 'nw', section: 'Plan' });
+        expect(plan.blocks).toHaveLength(8);
+        await expect(getNoteBlocks(deps, { id: 'nw', section: 'Missing' })).rejects.toThrow('Section not found: Missing');
+    });
+
+    it('blockIds picks those blocks; an unknown id or both filters at once is refused', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', LONG, metadataFor('FW'));
+        const { blocks } = await getNoteBlocks(deps, { id: 'nw' });
+        const picked = await getNoteBlocks(deps, { id: 'nw', blockIds: [blocks[4].id, blocks[1].id] });
+        expect(picked.blocks.map((b) => b.id)).toEqual([blocks[1].id, blocks[4].id]);
+        await expect(getNoteBlocks(deps, { id: 'nw', blockIds: ['9:9'] })).rejects.toThrow('Block not found: 9:9');
+        await expect(getNoteBlocks(deps, { id: 'nw', blockIds: [], section: 'Plan' })).rejects.toThrow('not both');
+    });
+
+    it('drops table rows unless asked and omits empty attrs', async () => {
+        const { deps, put } = makeDrive();
+        put('nw', LONG, metadataFor('FW'));
+        const { blocks } = await getNoteBlocks(deps, { id: 'nw' });
+        const table = blocks.find((b) => b.type === 'table')!;
+        expect(table).not.toHaveProperty('rows');
+        expect(blocks.find((b) => b.type === 'paragraph')).not.toHaveProperty('attrs');
+        expect(blocks[0].attrs).toEqual({ level: 1 });
+        const withRows = await getNoteBlocks(deps, { id: 'nw', section: 'Notes', includeRows: true });
+        expect(withRows.blocks.at(-1)!.rows).toEqual([['a', 'b'], ['1', '2']]);
+    });
+
+    it('every write returns the note\'s new modified, which a chained edit can pass on', async () => {
+        const { deps, put, store } = makeDrive();
+        put('nw', 'One', metadataFor('FW'));
+        const current = () => store.get('nw')!.metadata.timestamps.modified;
+        const appended = await appendToNote(deps, { id: 'nw', markdown: 'Two' });
+        expect(appended.modified).toBe(current());
+        const replaced = await replaceInNote(deps, { id: 'nw', old_text: 'Two', new_text: 'Three', });
+        expect(replaced.modified).toBe(current());
+        const updated = await updateNote(deps, { id: 'nw', title: 'T', expectedModified: replaced.modified });
+        expect(updated.modified).toBe(current());
+        const [block] = (await getNoteBlocks(deps, { id: 'nw' })).blocks;
+        const edited = await editBlock(deps, { note_id: 'nw', block_id: block.id, op: { type: 'delete' }, expectedModified: updated.modified });
+        expect(edited).toEqual({ id: 'nw', block_ids: [], modified: current() });
+        const created = await createNote(deps, { title: 'New', markdown: 'Body', folderId: 'FW' });
+        expect(created.modified).toBe(store.get(created.id)!.metadata.timestamps.modified);
+    });
+
+    it('update_note moves a note in place, into a read-only folder too', async () => {
+        const { deps, put, store, creates, trashed } = makeDrive();
+        put('nw', 'Body', metadataFor('FW'));
+        const result = await updateNote(deps, { id: 'nw', folderId: 'FR' });
+        expect(result).toEqual({ id: 'nw', modified: store.get('nw')!.metadata.timestamps.modified });
+        expect(store.get('nw')!.metadata.folderId).toBe('FR');
+        expect(markdownOf(store.get('nw')!.blob)).toBe('Body');
+        expect(creates).toHaveLength(0);
+        expect(trashed).toHaveLength(0);
+    });
+
+    it('refuses to move a read-only note, or into a folder the agent cannot see', async () => {
+        const { deps, put, uploads } = makeDrive();
+        put('nr', 'Body', metadataFor('FR'));
+        put('nw', 'Body', metadataFor('FW'));
+        await expect(updateNote(deps, { id: 'nr', folderId: 'FW' })).rejects.toThrow('Note is read-only for agents: nr');
+        await expect(updateNote(deps, { id: 'nw', folderId: 'FN' })).rejects.toThrow('Folder not found: FN');
+        await expect(updateNote(deps, { id: 'nw', folderId: 'nope' })).rejects.toThrow('Folder not found: nope');
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('moving into a shared folder makes the note public, as create_note there does', async () => {
+        const { deps, put, store, visibility } = makeDrive();
+        deps.listFolders = async () => FOLDERS.map((f) => (f.id === 'FR' ? { ...f, isPublic: true } : f));
+        put('nw', 'Body', metadataFor('FW', { isCollaborative: false }));
+        const result = await updateNote(deps, { id: 'nw', folderId: 'FR' });
+        expect(visibility).toEqual([{ id: 'nw', fileId: 'file-nw', isPublic: true }]);
+        expect(store.get('nw')!.metadata).toMatchObject({ folderId: 'FR', isPublic: true, shareIndexable: true });
+        expect(result.modified).toBe(store.get('nw')!.metadata.timestamps.modified);
+        expect(result.note).toContain('This note is public');
+
+        // And back out into a private folder makes it private (once the agent may write there).
+        deps.loadGrants = async () => ({ ...GRANTS, folders: { ...GRANTS.folders, FR: 'write' } });
+        await updateNote(deps, { id: 'nw', folderId: 'FW' });
+        expect(visibility.at(-1)).toEqual({ id: 'nw', fileId: 'file-nw', isPublic: false });
+    });
+
+    it('refuses to move a note shared with people into a shared folder', async () => {
+        const { deps, put, uploads } = makeDrive();
+        deps.listFolders = async () => FOLDERS.map((f) => (f.id === 'FR' ? { ...f, isPublic: true } : f));
+        put('nw', 'Body', metadataFor('FW', { isCollaborative: true }));
+        await expect(updateNote(deps, { id: 'nw', folderId: 'FR' })).rejects.toThrow("can't move to the shared folder Readable");
+        expect(uploads).toHaveLength(0);
     });
 });

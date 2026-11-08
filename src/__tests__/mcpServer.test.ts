@@ -24,6 +24,9 @@ type ServerDeps = Omit<WriteDeps, 'clientName' | 'loadImage'>;
 /** The write tools that take markdown, sorted. */
 const MARKDOWN_TOOLS = ['append_to_note', 'create_note', 'edit_block', 'replace_in_note', 'update_note'];
 
+/** The `modified` the fake drive gives a note it writes. */
+const MODIFIED_AFTER = '2024-02-01T00:00:00.000Z';
+
 const METADATA: DocumentMetadata = {
     title: 'Note One',
     folderId: 'F1',
@@ -47,8 +50,10 @@ function makeFakeDeps(grants = GRANTS, uploads: DocumentMetadata[] = []): Server
                 : null,
         uploadNoteEdit: async (_id, edit) => {
             uploads.push(edit.metadata);
+            return MODIFIED_AFTER;
         },
-        createNote: async () => {},
+        createNote: async () => MODIFIED_AFTER,
+        setNotePublic: async () => MODIFIED_AFTER,
         createFolder: async () => {},
         grantFolder: async () => {},
         trashNote: async () => {},
@@ -190,20 +195,22 @@ describe('createJournalMcpServer', () => {
             fetchNoteForEdit: async () => ({ summary: NOTES[0], doc: docOf(), versionTag: 'v1', fileId: 'f1', metadata: METADATA }),
             uploadNoteEdit: async (_id, edit) => {
                 blob = edit.yjsBlob;
+                return MODIFIED_AFTER;
             },
         };
         const client = await connectedClient(deps);
         const text = (result: Awaited<ReturnType<Client['callTool']>>) => (result.content as Array<{ text: string }>)[0].text;
 
         const note = JSON.parse(insideEnvelope(text(await client.callTool({ name: 'get_note', arguments: { id: 'n1', format: 'blocks' } })))!);
-        expect(note).toMatchObject({ id: 'n1', access: 'write', blocks: [{ type: 'table', rows: [['Day', 'Plan'], ['Mon', 'Rest']] }, { type: 'paragraph', markdown: 'After' }] });
+        expect(note).toMatchObject({ id: 'n1', access: 'write', blocks: [{ type: 'table' }, { type: 'paragraph', markdown: 'After' }] });
+        expect(note.blocks[0]).not.toHaveProperty('rows');
 
         const tableId = note.blocks[0].id;
         const edited = await client.callTool({
             name: 'edit_block',
             arguments: { note_id: 'n1', block_id: tableId, op: { type: 'set_cell', row: 1, col: 1, markdown: 'Hike' } },
         });
-        expect(JSON.parse(text(edited))).toEqual({ id: 'n1', block_ids: [tableId] });
+        expect(JSON.parse(text(edited))).toEqual({ id: 'n1', block_ids: [tableId], modified: MODIFIED_AFTER });
         expect(toMarkdown(docOf())).toBe('| Day | Plan |\n| --- | --- |\n| Mon | Hike |\n\nAfter');
 
         // The default format is unchanged.
@@ -261,7 +268,23 @@ describe('createJournalMcpServer', () => {
         const result = await client.callTool({ name: 'list_notes', arguments: {} });
         const content = result.content as Array<{ type: string; text: string }>;
         const notes = JSON.parse(content[0].text);
-        expect(notes).toEqual([{ id: 'n1', title: 'Note One', folderId: 'F1', modified: '2024-01-01T00:00:00.000Z', tags: [], access: 'read' }]);
+        expect(notes).toEqual([{ id: 'n1', title: 'Note One', folderId: 'F1', modified: '2024-01-01T00:00:00.000Z', access: 'read' }]);
+        // Compact JSON (#1003): no indentation or line breaks.
+        expect(content[0].text).toBe(JSON.stringify(notes));
+    });
+
+    it('list_notes returns the fields asked for, and no access for a writable note (#1003)', async () => {
+        const client = await connectedClient(makeFakeDeps(WRITE_GRANTS));
+        const result = await client.callTool({ name: 'list_notes', arguments: { fields: ['id', 'tags'] } });
+        expect(JSON.parse((result.content as Array<{ text: string }>)[0].text)).toEqual([{ id: 'n1', tags: [] }]);
+    });
+
+    it('get_note format outline returns block ids and previews, compact (#1003)', async () => {
+        const client = await connectedClient(makeFakeDeps());
+        const result = await client.callTool({ name: 'get_note', arguments: { id: 'n1', format: 'outline' } });
+        const body = insideEnvelope((result.content as Array<{ text: string }>)[0].text)!;
+        expect(body).not.toContain('\n');
+        expect(JSON.parse(body)).toMatchObject({ id: 'n1', blocks: [{ type: 'paragraph', preview: 'todo one' }, { type: 'paragraph', preview: 'todo two' }] });
     });
 
     it('update_note, delete_note and the cover tools reject a read-only grant as tool errors', async () => {

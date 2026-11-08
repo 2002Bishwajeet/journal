@@ -169,17 +169,19 @@ The result has a `note` when the image is too small or far from that shape.
 ### Editing one block
 
 To change part of an existing note, edit just that block rather than rewriting the note.
-`get_note` with `format: "blocks"` returns the body as its top-level blocks:
+`get_note` with `format: "outline"` lists the top-level blocks as `{ id, type, preview }`;
+then `get_note` with `format: "blocks"` and `section` (a heading's text) or `blockIds`
+returns just the blocks you change:
 
 ```json
-{ "id": "1843:12", "type": "table", "markdown": "| Day | Plan |\n| --- | --- |\n| Mon | Rest |",
-  "attrs": {}, "rows": [["Day", "Plan"], ["Mon", "Rest"]] }
+{ "id": "1843:12", "type": "table", "markdown": "| Day | Plan |\n| --- | --- |\n| Mon | Rest |" }
 ```
 
-`attrs` holds what `set_attrs` can change: a callout's `variant`, a toggle's `summary`, a
-heading's `level`, a code block's `language`, `id` and `wide`, and a task list's `checked`
-(one value per task). A table also has `rows`, its cells as markdown. A block's `id` stays
-the same while the block exists, across edits, reloads and devices.
+`attrs`, when a block has any, holds what `set_attrs` can change: a callout's `variant`, a
+toggle's `summary`, a heading's `level`, a code block's `language`, `id` and `wide`, and a
+task list's `checked` (one value per task). With `includeRows`, a table also has `rows`, its
+cells as markdown. A block's `id` stays the same while the block exists, across edits,
+reloads and devices.
 
 `edit_block` takes `note_id`, `block_id`, an `op` and optionally `expectedModified`:
 
@@ -193,7 +195,8 @@ the same while the block exists, across edits, reloads and devices.
   `insert_column` and `delete_column` with `at`. Rows and columns count from 0, the header
   row included. These keep the column widths and every other cell.
 
-It returns the ids of the blocks the op leaves (none for `delete`). An id that no longer
+It returns the ids of the blocks the op leaves (none for `delete`) and the note's new
+`modified`, to pass as `expectedModified` on the next edit. An id that no longer
 exists fails with "block not found"; call `get_note` with `format: "blocks"` again.
 
 ### Note links
