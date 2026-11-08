@@ -1,3 +1,15 @@
+## [2.62.1](https://github.com/2002Bishwajeet/journal/compare/v2.62.0...v2.62.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* **mobile:** keep the tab bar's hairline as a shadow so the bar stays 49 px ([#833](https://github.com/2002Bishwajeet/journal/issues/833)) ([c7d0adb](https://github.com/2002Bishwajeet/journal/commit/c7d0adb54ec10f8aa4cbcac23b7e2b4cda816750))
+
+
+### Features
+
+* **mcp:** leaner reads, outline and section reads, compact JSON, and folder moves ([#1003](https://github.com/2002Bishwajeet/journal/issues/1003)) ([90163ea](https://github.com/2002Bishwajeet/journal/commit/90163ea0d52c0c7307ab90af7eb4c58a2d265a32))
+* **mobile:** translucent note header and tab bar, visible Link sheet fields ([#833](https://github.com/2002Bishwajeet/journal/issues/833)) ([5c256e6](https://github.com/2002Bishwajeet/journal/commit/5c256e68db8938d8feb6c23d94f2b329a6cbae9a))
 # [2.62.0](https://github.com/2002Bishwajeet/journal/compare/v2.61.4...v2.62.0) (2026-11-08)
 
 
