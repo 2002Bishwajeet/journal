@@ -6,23 +6,13 @@
  */
 import { z } from 'zod';
 import { CALLOUT_VARIANTS } from '@/components/editor/nodes/calloutVariants';
-// The full authoring reference (#519), inlined at build time so the packaged server carries it.
-// mcpServer.test.ts checks it names every live-block language, react import and CDN host in code.
-import AUTHORING_GUIDE from '../../../../mcp/AUTHORING.md?raw';
+import { GUIDE_INDEX, GUIDE_SECTION_IDS, guideSection } from './authoringGuide';
 import * as readTools from './read';
 import * as writeTools from './write';
 import { liveBlockLayoutWarnings, type WriteDeps } from './write';
 
 /** Shared by the tools that take markdown, in place of the full guide. */
-const RICH_BLOCKS = ' Supports rich blocks; call get_authoring_guide before writing anything beyond plain markdown.';
-
-/** Shared by the tools that take markdown: an image in it can be a local file or a data: URI (#415). */
-const BODY_IMAGES =
-    ' Images: `![alt](/absolute/path/to/file.png)` (wrap the path in <> if it has spaces) or `![alt](data:image/png;base64,…)` ' +
-    'is uploaded to the note and shown there; prefer a path, it costs no tokens. PNG, JPEG or WebP, at most 5 MB each; ' +
-    'metadata such as EXIF and GPS is removed. If any image is invalid, the call fails and nothing is written. ' +
-    '`https://` image URLs are kept as they are, not fetched or uploaded; a new one with a query string or over 100 characters is refused, as are more than 5 new ones in a call, ' +
-    'so pass a file path for those. Link previews and URLs in mermaid blocks count the same, so write such a page as a plain link. The result has a `note` when the note is public or fetches from other hosts.';
+const RICH_BLOCKS = ' Supports rich blocks; call get_authoring_guide before writing a live block or an image.';
 
 /** What a tool returns: `data` (sent as JSON, or as is with `text`) plus advisory `notes` shown after it. */
 export interface ToolOutput {
@@ -122,16 +112,17 @@ export const TOOLS: AnyJournalTool[] = [
         name: 'get_authoring_guide',
         title: 'Get authoring guide',
         description:
-            'The full reference for writing Journal notes: every block a note can hold, with its markdown syntax and examples, ' +
-            'how live blocks (mermaid, svg, html, react) run, and how to design them to match the note. Read it before writing rich content.',
-        input: z.object({}),
+            'The reference for writing Journal notes, in sections: every block a note can hold, with its markdown syntax and examples, ' +
+            'how live blocks (mermaid, svg, html, react) run, and how to design them to match the note. ' +
+            'With no section, an index of the sections; with a section, only that one.',
+        input: z.object({ section: z.enum(GUIDE_SECTION_IDS).optional() }),
         readOnly: true,
-        execute: async () => ({ data: AUTHORING_GUIDE, text: true }),
+        execute: async (_deps, { section }) => ({ data: section ? guideSection(section) : GUIDE_INDEX, text: true }),
     }),
     defineTool({
         name: 'create_note',
         title: 'Create note',
-        description: 'Create a Journal note from markdown in a folder you have granted Read+write access to.' + BODY_IMAGES + RICH_BLOCKS,
+        description: 'Create a Journal note from markdown in a folder you have granted Read+write access to.' + RICH_BLOCKS,
         input: z.object({
             title: z.string(),
             markdown: z.string(),
@@ -156,7 +147,7 @@ export const TOOLS: AnyJournalTool[] = [
         name: 'append_to_note',
         title: 'Append to note',
         description:
-            'Append markdown to the end of a Journal note with Read+write access. Merges with concurrent edits.' + BODY_IMAGES + RICH_BLOCKS,
+            'Append markdown to the end of a Journal note with Read+write access. Merges with concurrent edits.' + RICH_BLOCKS,
         input: z.object({ id: z.string(), markdown: z.string() }),
         readOnly: false,
         execute: async (deps, { id, markdown }) => ({
@@ -170,7 +161,6 @@ export const TOOLS: AnyJournalTool[] = [
         description:
             "Replace one unique span of a Journal note's markdown (as returned by get_note) with new markdown. " +
             'old_text must match exactly once; include surrounding text if it is ambiguous.' +
-            BODY_IMAGES.replace('Images:', 'Images in new_text:') +
             RICH_BLOCKS,
         input: z.object({ id: z.string(), old_text: z.string(), new_text: z.string() }),
         readOnly: false,
@@ -189,7 +179,6 @@ export const TOOLS: AnyJournalTool[] = [
             'folderId moves the note to that folder, keeping its id, links and history; the folder may be read-only for you. ' +
             'Moving into a shared folder makes the note public, and out of one into a private folder makes it private. ' +
             "Pass `modified` from get_note or your last write as expectedModified to refuse the edit if the note changed since. Merges with concurrent edits." +
-            BODY_IMAGES +
             RICH_BLOCKS,
         input: z.object({
             id: z.string(),
@@ -215,7 +204,6 @@ export const TOOLS: AnyJournalTool[] = [
             'set_attrs (attrs: callout variant, toggle summary, heading level, code block language, id and wide, task list checked); ' +
             'and for a table, set_cell (row, col, markdown), insert_row (at, cells?), delete_row, insert_column and delete_column (at), which keep column widths and the other cells. ' +
             'Returns the ids of the blocks the op leaves and the note\'s new `modified`. Pass `modified` from get_note or your last write as expectedModified to refuse the edit if the note changed since.' +
-            BODY_IMAGES.replace('Images:', 'Images in markdown:') +
             RICH_BLOCKS,
         input: z.object({
             note_id: z.string(),

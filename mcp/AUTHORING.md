@@ -166,39 +166,6 @@ resize it to 2400×1260, and save it as JPEG or WebP to stay well under 5 MB. On
 ImageMagick: `magick in.jpg -resize 2400x1260^ -gravity center -extent 2400x1260 out.jpg`.
 The result has a `note` when the image is too small or far from that shape.
 
-### Editing one block
-
-To change part of an existing note, edit just that block rather than rewriting the note.
-`get_note` with `format: "outline"` lists the top-level blocks as `{ id, type, preview }`;
-then `get_note` with `format: "blocks"` and `section` (a heading's text) or `blockIds`
-returns just the blocks you change:
-
-```json
-{ "id": "1843:12", "type": "table", "markdown": "| Day | Plan |\n| --- | --- |\n| Mon | Rest |" }
-```
-
-`attrs`, when a block has any, holds what `set_attrs` can change: a callout's `variant`, a
-toggle's `summary`, a heading's `level`, a code block's `language`, `id` and `wide`, and a
-task list's `checked` (one value per task). With `includeRows`, a table also has `rows`, its
-cells as markdown. A block's `id` stays the same while the block exists, across edits,
-reloads and devices.
-
-`edit_block` takes `note_id`, `block_id`, an `op` and optionally `expectedModified`:
-
-- `{ "type": "replace", "markdown": "…" }` re-parses that block alone;
-  `insert_before` and `insert_after` add blocks next to it; `{ "type": "delete" }` removes it.
-- `{ "type": "set_text", "markdown": "…" }` replaces a callout's or a toggle's body and keeps
-  its variant or summary. Use it rather than `replace` for those two.
-- `{ "type": "set_attrs", "attrs": { "variant": "tip" } }` changes attributes only.
-- In a table: `{ "type": "set_cell", "row": 1, "col": 0, "markdown": "Tue" }`,
-  `{ "type": "insert_row", "at": 2, "cells": ["Wed", "Hike"] }`, and `delete_row`,
-  `insert_column` and `delete_column` with `at`. Rows and columns count from 0, the header
-  row included. These keep the column widths and every other cell.
-
-It returns the ids of the blocks the op leaves (none for `delete`) and the note's new
-`modified`, to pass as `expectedModified` on the next edit. An id that no longer
-exists fails with "block not found"; call `get_note` with `format: "blocks"` again.
-
 ### Note links
 
 A link to another note is `[label](journal:note/<id>)`, with the id `list_notes` or
@@ -231,6 +198,39 @@ page as a plain link.
 <https://journal.cloudx.run><!-- preview -->
 ```
 
+## Editing one block
+
+To change part of an existing note, edit just that block rather than rewriting the note.
+`get_note` with `format: "outline"` lists the top-level blocks as `{ id, type, preview }`;
+then `get_note` with `format: "blocks"` and `section` (a heading's text) or `blockIds`
+returns just the blocks you change:
+
+```json
+{ "id": "1843:12", "type": "table", "markdown": "| Day | Plan |\n| --- | --- |\n| Mon | Rest |" }
+```
+
+`attrs`, when a block has any, holds what `set_attrs` can change: a callout's `variant`, a
+toggle's `summary`, a heading's `level`, a code block's `language`, `id` and `wide`, and a
+task list's `checked` (one value per task). With `includeRows`, a table also has `rows`, its
+cells as markdown. A block's `id` stays the same while the block exists, across edits,
+reloads and devices.
+
+`edit_block` takes `note_id`, `block_id`, an `op` and optionally `expectedModified`:
+
+- `{ "type": "replace", "markdown": "…" }` re-parses that block alone;
+  `insert_before` and `insert_after` add blocks next to it; `{ "type": "delete" }` removes it.
+- `{ "type": "set_text", "markdown": "…" }` replaces a callout's or a toggle's body and keeps
+  its variant or summary. Use it rather than `replace` for those two.
+- `{ "type": "set_attrs", "attrs": { "variant": "tip" } }` changes attributes only.
+- In a table: `{ "type": "set_cell", "row": 1, "col": 0, "markdown": "Tue" }`,
+  `{ "type": "insert_row", "at": 2, "cells": ["Wed", "Hike"] }`, and `delete_row`,
+  `insert_column` and `delete_column` with `at`. Rows and columns count from 0, the header
+  row included. These keep the column widths and every other cell.
+
+It returns the ids of the blocks the op leaves (none for `delete`) and the note's new
+`modified`, to pass as `expectedModified` on the next edit. An id that no longer
+exists fails with "block not found"; call `get_note` with `format: "blocks"` again.
+
 ## Live blocks
 
 A fenced code block whose language is `mermaid`, `svg`, `html` or `react` renders live.
@@ -245,7 +245,7 @@ Journal shows a preview with a Code / Preview toggle, in the editor and on the s
 
 Give each block an id after the language, ```` ```html id=k3f9 ````: 4 to 12 lowercase
 letters and digits, different for each block in the note. The id keys the block's saved state (see
-`journal.storage` below). **Keep the `id=…` part of the fence whenever you rewrite a
+`journal.storage` in the `html` section). **Keep the `id=…` part of the fence whenever you rewrite a
 block**, with `replace_in_note` or `update_note`, or the block loses its saved state.
 
 ### `mermaid`
@@ -279,7 +279,7 @@ An `html` block **can** contain:
   `https://cdnjs.cloudflare.com` and `https://unpkg.com` (`<script src>`,
   `<link rel="stylesheet">`, `@font-face`). They load only while the reader is online.
   React needs its UMD build and JSX needs Babel standalone, both from those hosts; a
-  `react` block (below) needs neither.
+  `react` block (the `react` section) needs neither.
 
 It **cannot**:
 
@@ -302,7 +302,7 @@ leaves the note column for the width of the editor (keeping its side margin) or 
 share page, up to about 1150px and centred on the column, and can be up to 2400px tall.
 On a phone it simply fills the width. `wide` is part of the fence, so it is in the markdown
 `get_note` returns: keep it when rewriting the block, as you keep the id. When to use it
-is under "Layout" below.
+is under "Layout" in the `design` section.
 
 ### Saved state: `journal.storage`
 
@@ -338,8 +338,8 @@ journal.storage.get('count').then((saved) => {
 
 A `react` block is JSX that defines a component named `App`, or exports one as default.
 Journal compiles it and renders `App` on its own copy of React, the version the app itself
-runs, in the same sandboxed frame as an `html` block: everything above about the frame
-applies, and no CDN script is needed. `jsx` and `tsx` blocks stay ordinary code.
+runs, in the same sandboxed frame as an `html` block: everything in the `html` section about
+the frame applies, and no CDN script is needed. `jsx` and `tsx` blocks stay ordinary code.
 
 - Hooks are on `React` (`React.useState`, `React.useCallback`, …), and `useState`,
   `useEffect`, `useRef`, `useMemo` and `useReducer` also work without the prefix.
@@ -351,7 +351,7 @@ applies, and no CDN script is needed. `jsx` and `tsx` blocks stay ordinary code.
   no network and works offline. TypeScript is not supported.
 - `journal-ui` is Journal's UI kit (below).
 - `className` takes Tailwind classes, drawn in Journal's theme (below).
-- `recharts` charts are drawn in the theme without colour props (below).
+- `recharts` charts are drawn in the theme without colour props (the `charts` section).
 - `lucide-react` icons draw in `currentColor`, so they take the text colour around them:
   `<Heart className="size-4 text-muted-foreground" />`.
 - State in the component is lost on reload; keep what should last with `journal.storage`.
@@ -372,7 +372,7 @@ function App() {
 ```
 ````
 
-The design rules below apply to a `react` block unchanged.
+The design rules (the `design` section) apply to a `react` block unchanged.
 
 #### Libraries in a `react` block
 
@@ -517,7 +517,7 @@ for a distinct look, or the block is meant to stand out, these are the ways past
   `margin` the block sets replaces it.
 
 Wrap a chart in `ResponsiveContainer` with a fixed height, so that it fills the note's
-width. The examples at the end include a chart.
+width. The `examples` section includes a chart.
 
 ## Designing a live block
 
@@ -641,11 +641,13 @@ header, a restyled button and a fixed height, and it is wrong in the dark theme.
 ```
 ````
 
-Check a block in both themes before you finish: every colour should come from a variable
-or a theme class, and nothing should depend on a white or a black page.
+### Before you finish
 
-Check the block at 390px before you finish: one column, nothing wider than the frame, and
-every control usable by tap, without hover.
+- Check the block in the light and the dark theme: every colour comes from a theme
+  variable (`var(--…)`) or a theme class, and nothing depends on a white or a black page.
+- Check the block at 390px: one column, nothing wider than the frame, no fixed pixel
+  widths and no `100vh`.
+- Every control is usable by tap, without hover, and big enough to tap.
 
 ## Examples
 

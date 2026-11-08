@@ -11,8 +11,12 @@ import * as Y from 'yjs';
 import { createDoc, toMarkdown } from '@/lib/agent/editEngine';
 import { HTML_BLOCK_CDN_HOSTS } from '@/lib/liveBlocks';
 import { REACT_BLOCK_IMPORTS } from '@/lib/reactBlockLibraries';
-import GUIDE from '../../mcp/AUTHORING.md?raw';
+import GUIDE_FILE from '../../mcp/AUTHORING.md?raw';
+import { GUIDE_INDEX, GUIDE_SECTION_IDS, guideSection } from '@/lib/agent/tools/authoringGuide';
 import LIVE_BLOCKS_SOURCE from '@/lib/liveBlocks.ts?raw';
+
+/** Every section of the guide (#1004): the coverage checks below run against what an agent can reach. */
+const GUIDE = GUIDE_SECTION_IDS.map(guideSection).join('\n\n');
 
 const GRANTS: AgentGrants = { version: 1, folders: { F1: 'read' }, notes: {} };
 const WRITE_GRANTS: AgentGrants = { version: 1, folders: { F1: 'write' }, notes: {} };
@@ -97,7 +101,7 @@ describe('createJournalMcpServer', () => {
     it('points the five markdown write tools, and only them, to the authoring guide in one line (#519)', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
-        const pointer = 'Supports rich blocks; call get_authoring_guide before writing anything beyond plain markdown.';
+        const pointer = 'Supports rich blocks; call get_authoring_guide before writing a live block or an image.';
         const told = tools.filter((tool) => tool.description?.includes(pointer)).map((tool) => tool.name);
         expect(told.sort()).toEqual(MARKDOWN_TOOLS);
         for (const tool of tools) {
@@ -136,13 +140,45 @@ describe('createJournalMcpServer', () => {
         }
     });
 
-    it('get_authoring_guide takes no arguments and returns mcp/AUTHORING.md as it is (#519)', async () => {
+    it('get_authoring_guide returns an index with no section, and one section with one (#1004)', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
-        expect(tools.find((tool) => tool.name === 'get_authoring_guide')?.inputSchema.properties ?? {}).toEqual({});
-        const result = await client.callTool({ name: 'get_authoring_guide', arguments: {} });
-        expect(result.isError).toBeFalsy();
-        expect(result.content).toEqual([{ type: 'text', text: GUIDE }]);
+        const schema = tools.find((tool) => tool.name === 'get_authoring_guide')?.inputSchema;
+        expect(schema?.properties).toEqual({ section: { type: 'string', enum: GUIDE_SECTION_IDS } });
+        expect(schema?.required ?? []).toEqual([]);
+        const call = async (args: Record<string, unknown>) => (await client.callTool({ name: 'get_authoring_guide', arguments: args })).content;
+
+        expect(await call({})).toEqual([{ type: 'text', text: GUIDE_INDEX }]);
+        expect(GUIDE_INDEX.length).toBeLessThan(2000);
+        for (const id of GUIDE_SECTION_IDS) {
+            expect(GUIDE_INDEX).toContain(`- \`${id}\`: `);
+            const [{ text }] = (await call({ section: id })) as Array<{ text: string }>;
+            expect(text).toBe(guideSection(id));
+            expect(text.length).toBeGreaterThan(200);
+            expect(text.length).toBeLessThan(GUIDE_FILE.length / 2);
+        }
+        expect((await client.callTool({ name: 'get_authoring_guide', arguments: { section: 'all' } })).isError).toBe(true);
+    });
+
+    it('the index and sections hold every line of mcp/AUTHORING.md (#1004)', () => {
+        const reachable = new Set([GUIDE_INDEX, GUIDE].join('\n').split('\n'));
+        expect(GUIDE_FILE.split('\n').filter((line) => !reachable.has(line))).toEqual([]);
+    });
+
+    it('ends the html and react sections with the design checklist (#1004)', () => {
+        for (const id of ['html', 'react'] as const) {
+            const text = guideSection(id);
+            expect(text.slice(text.lastIndexOf('\n### '))).toMatch(/^\n### Before you finish\n[\s\S]*light and the dark theme[\s\S]*390px[\s\S]*tap/);
+        }
+    });
+
+    it('states the image rules once, in the guide, not in each markdown tool (#1004)', async () => {
+        const client = await connectedClient(makeFakeDeps());
+        const { tools } = await client.listTools();
+        for (const tool of tools.filter((tool) => MARKDOWN_TOOLS.includes(tool.name))) {
+            for (const text of ['PNG, JPEG or WebP', 'EXIF', 'query string']) expect(tool.description).not.toContain(text);
+        }
+        for (const text of ['PNG, JPEG or WebP, at most 5 MB', 'EXIF', 'query string']) expect(guideSection('native')).toContain(text);
     });
 
     it('the README links to the guide instead of repeating it (#519)', () => {
