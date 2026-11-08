@@ -111,8 +111,9 @@ async function loadDatabaseModule() {
 const stamped = () => mocks.events.some((event) => event.startsWith('stamp'));
 const retired = () => mocks.events.some((event) => event.startsWith('retire'));
 
-// The page's window, which this node test environment doesn't have: pglite.ts listens on it.
+// The page's window and document, which this node test environment doesn't have: pglite.ts listens on them.
 let page = new EventTarget();
+let doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
 
 beforeEach(() => {
   mocks.events = [];
@@ -131,9 +132,14 @@ beforeEach(() => {
   // pglite.ts constructs a Worker before PGliteWorker.create sees it.
   page = new EventTarget();
   vi.stubGlobal('addEventListener', page.addEventListener.bind(page));
+  doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
+  vi.stubGlobal('document', doc);
   vi.stubGlobal('Worker', class FakeWorker extends EventTarget {
     terminate() {
       mocks.events.push('terminate');
+    }
+    postMessage(message: { type: string }) {
+      mocks.events.push(message.type);
     }
   });
 });
@@ -418,6 +424,34 @@ describe('leaving the page (#806)', () => {
 
     // Shown again from the cache, the page has no database, so it loads again.
     pageEvent('pageshow', true);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a page in the background (#1006)', () => {
+  it('flushes when the page is hidden, stops the worker when it is frozen, and reloads it when it resumes', async () => {
+    const reload = vi.fn();
+    vi.stubGlobal('location', { reload });
+    mocks.dump = null;
+    const { getDatabase } = await loadDatabaseModule();
+    await getDatabase();
+
+    doc.dispatchEvent(new Event('visibilitychange'));
+    expect(mocks.events).not.toContain('journal-flush');
+
+    // Hidden, the page can still run: write what relaxed durability has not flushed yet.
+    doc.visibilityState = 'hidden';
+    doc.dispatchEvent(new Event('visibilitychange'));
+    expect(mocks.events).toContain('journal-flush');
+    expect(mocks.events).not.toContain('terminate');
+
+    // A frozen worker would keep the election lock the next launch's worker waits for.
+    doc.dispatchEvent(new Event('freeze'));
+    expect(mocks.events).toContain('terminate');
+    expect(reload).not.toHaveBeenCalled();
+
+    // Resumed, the page has no database, so it loads again.
+    doc.dispatchEvent(new Event('resume'));
     expect(reload).toHaveBeenCalledTimes(1);
   });
 });
