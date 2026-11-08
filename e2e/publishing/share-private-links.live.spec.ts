@@ -1,4 +1,4 @@
-import { test, expect, withFencedPage, liveIdentityOrigin } from '../fixtures';
+import { test, expect, withFencedPage, liveIdentityOrigin, SIGNED_OUT } from '../fixtures';
 import type { Browser, Page } from '@playwright/test';
 import { assertTestOrigin } from '../support/origin-guard';
 import { activeEditor, createNote, shareNotePublicly, waitForNoteSaved } from '../support/actions';
@@ -13,7 +13,7 @@ function shareUrlOfOpenNote(page: Page): string {
 }
 
 async function loggedOut(browser: Browser, url: string, check: (anon: Page) => Promise<void>): Promise<void> {
-    await withFencedPage(browser, {}, async (anon) => {
+    await withFencedPage(browser, SIGNED_OUT, async (anon) => {
         await anon.goto(url);
         await assertTestOrigin(anon);
         await check(anon);
@@ -81,5 +81,5 @@ test('"Continue anyway" publishes only the note', async ({ liveRun, browser }) =
     await expect(dialog).toBeHidden();
 
     await loggedOut(browser, aUrl, (anon) => heading(anon, a));
-    await loggedOut(browser, bUrl, (anon) => heading(anon, 'Note Not Found'));
+    await loggedOut(browser, bUrl, (anon) => heading(anon, "You don't have access to this note"));
 });

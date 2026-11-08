@@ -341,7 +341,7 @@ try {
   // page must not be taller than the visible area (100vh is).
   await browser.url(`${BASE}/share/ios-check.homebase.test/0b8e4c27-5d1a-4f93-a6e2-7c3d9f1b5e40`);
   assertTestOrigin(await browser.execute(() => location.origin));
-  await browser.$('h1=Note Not Found').waitForDisplayed({ timeout: 60_000 });
+  await browser.$('h1=Note not found').waitForDisplayed({ timeout: 60_000 });
   const share = (await browser.execute(() => ({
     scroll: document.scrollingElement!.scrollHeight,
     visible: window.visualViewport!.height,

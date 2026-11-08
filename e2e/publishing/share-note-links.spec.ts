@@ -89,8 +89,7 @@ for (const theme of THEMES) {
       await expect(anonPage.getByRole('article').getByRole('heading', { level: 1, name: A.title })).toBeVisible({ timeout: 15_000 });
       await anonPage.getByRole('article').getByRole('link', { name: 'Note C' }).click();
       await expect(anonPage).toHaveURL(new RegExp(`/share/${AUTHOR}/${C_NOTE_ID}$`));
-      await expect(anonPage.getByRole('heading', { name: 'Note Not Found' })).toBeVisible({ timeout: 15_000 });
-      await expect(anonPage.getByText('This note is not shared publicly.')).toBeVisible();
+      await expect(anonPage.getByRole('heading', { name: "You don't have access to this note" })).toBeVisible({ timeout: 15_000 });
       await anonPage.screenshot({ path: test.info().outputPath(`share-note-links-private-${theme}-${vp}.png`) });
     });
   }

@@ -62,8 +62,9 @@ interface ShareGeneralAccessProps {
 }
 
 /**
- * "General access" (#682): restricted, or anyone with the link can view. On, it shows the
- * link with copy, the link-card settings and the way to turn it off (the old Share dialog).
+ * "General access" (#682): restricted, or anyone with the link can view. Restricted, it copies
+ * the note's link for the people with access (#1002). On, it shows the link with copy, the
+ * link-card settings and the way to turn it off (the old Share dialog).
  */
 export function ShareGeneralAccess({ noteId, metadata, publishing, onMakePublic, askingAboutLinks, setAskingAboutLinks }: ShareGeneralAccessProps) {
     const { getIdentity } = useAuth();
@@ -134,6 +135,18 @@ export function ShareGeneralAccess({ noteId, metadata, publishing, onMakePublic,
         }
     };
 
+    const copyLabel = copied ? (
+        <>
+            <Check className="text-green-700 dark:text-green-400" />
+            Copied
+        </>
+    ) : (
+        <>
+            <Copy />
+            Copy link
+        </>
+    );
+
     return (
         <section aria-labelledby="share-general-heading" className="flex min-w-0 flex-col gap-3">
             <h3 id="share-general-heading" className="text-sm leading-5 font-medium">
@@ -147,6 +160,17 @@ export function ShareGeneralAccess({ noteId, metadata, publishing, onMakePublic,
             <div ref={controlsRef} className="flex min-w-0 flex-col gap-6">
                 {!isPublic ? (
                     <div className="flex flex-col gap-4">
+                        {/* The same link as the public one (#1002): it opens the note for the people
+                            with access, and keeps working if the note is made public later. */}
+                        <div className="flex flex-col gap-2">
+                            <Button variant="outline" className="w-full max-sm:h-11" onClick={handleCopyLink} aria-describedby="share-restricted-link-help">
+                                {copyLabel}
+                            </Button>
+                            <p id="share-restricted-link-help" className="text-xs leading-relaxed text-muted-foreground">
+                                Only people with access can open this link.
+                            </p>
+                        </div>
+
                         <Notice icon={Eye}>
                             Making this note public will allow anyone with the link to view it, along with what its html and react blocks have saved.
                         </Notice>
@@ -214,22 +238,9 @@ export function ShareGeneralAccess({ noteId, metadata, publishing, onMakePublic,
                                     onClick={handleCopyLink}
                                     disabled={isMakingPrivate}
                                 >
-                                    {copied ? (
-                                        <>
-                                            <Check className="text-green-700 dark:text-green-400" />
-                                            Copied
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Copy />
-                                            Copy link
-                                        </>
-                                    )}
+                                    {copyLabel}
                                 </Button>
                             </div>
-                            <span aria-live="polite" className="sr-only">
-                                {copied ? 'Link copied' : ''}
-                            </span>
                         </div>
 
                         <div className="flex flex-col gap-2">
@@ -337,6 +348,9 @@ export function ShareGeneralAccess({ noteId, metadata, publishing, onMakePublic,
                     </>
                 )}
             </div>
+            <span aria-live="polite" className="sr-only">
+                {copied ? 'Link copied' : ''}
+            </span>
         </section>
     );
 }

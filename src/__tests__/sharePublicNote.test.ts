@@ -154,6 +154,16 @@ describe('ShareProvider.getPublicNote', () => {
         );
     });
 
+    it('treats an encrypted header as not public, never reading its payload (#1002)', async () => {
+        // A viewer the note is shared with can hold a YouAuth cookie for the author.
+        const encrypted = header();
+        (encrypted.fileMetadata as { isEncrypted?: boolean }).isEncrypted = true;
+        mockGetHeader.mockResolvedValue(encrypted);
+
+        await expect(shareProvider.getPublicNote(IDENTITY, NOTE_ID)).rejects.toHaveProperty('isForbidden', true);
+        expect(mockGetPayload).not.toHaveBeenCalled();
+    });
+
     it('returns the note with empty content when the payload is missing', async () => {
         mockGetHeader.mockResolvedValue(header());
         mockGetPayload.mockResolvedValue(null);

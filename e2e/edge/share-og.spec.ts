@@ -11,6 +11,8 @@ const OK_NOTE = '11111111-1111-1111-1111-111111111111';
 const FAILING_NOTE = '11111111-1111-1111-1111-222222222222';
 const CARD_NOTE = '11111111-1111-1111-1111-333333333333';
 const NO_COVER_NOTE = '11111111-1111-1111-1111-444444444444';
+const RESTRICTED_NOTE = '11111111-1111-1111-1111-555555555555';
+const ENCRYPTED_NOTE = '11111111-1111-1111-1111-666666666666';
 const TWITTERBOT = { 'User-Agent': 'Twitterbot/1.0' };
 const CHROME = {
   'User-Agent':
@@ -71,6 +73,18 @@ test.beforeAll(async () => {
         });
       }
       if (id === FAILING_NOTE) return json(500, {});
+      // odin-core refuses a guest read of a note that isn't public with a 403 (#1002).
+      if (id === RESTRICTED_NOTE) return json(403, {});
+      if (id === ENCRYPTED_NOTE) {
+        return json(200, {
+          fileId: 'aaaaaaaa-0000-0000-0000-000000000006',
+          fileMetadata: {
+            isEncrypted: true,
+            appData: { content: JSON.stringify({ title: 'Secret T', card: { coverKey: 'jrnl_img0' } }) },
+            payloads: [{ key: 'jrnl_img0' }],
+          },
+        });
+      }
     }
     json(404, {});
   });
@@ -139,6 +153,18 @@ test('an upstream failure serves the plain shell', async ({ request }) => {
   expect(html).toContain('<title>Journal - Effortless Writing</title>');
   expect(html).not.toContain('application/ld+json');
 });
+
+for (const [label, id] of [['a restricted note (403)', RESTRICTED_NOTE], ['an encrypted note', ENCRYPTED_NOTE]] as const) {
+  test(`${label} gets the generic card, never its title or image (#1002)`, async ({ request }) => {
+    const res = await request.get(`/share/edge.example.com/${id}`, { headers: TWITTERBOT });
+    expect(res.status()).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('<title>Journal - Effortless Writing</title>');
+    expect(html).not.toContain('Secret T');
+    expect(html).not.toContain('/api/guest/v1/drive/files/');
+    expect(html).not.toContain('application/ld+json');
+  });
+}
 
 test('an invalid identity serves the plain shell', async ({ request }) => {
   const res = await request.get(`/share/localhost/${OK_NOTE}`, { headers: TWITTERBOT });

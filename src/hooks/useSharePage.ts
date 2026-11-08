@@ -5,6 +5,7 @@ import { countWords } from '@/lib/share/articleMeta';
 import { readingTimeMinutes } from '@/lib/editor/extractHeadings';
 import { coverForTheme } from '@/lib/editor/cover';
 import { useIsDarkTheme } from '@/hooks/useIsDarkTheme';
+import { useAuth } from '@/hooks/auth';
 import type { SharedNoteData } from '@/lib/providers/ShareProvider';
 
 export interface UseSharePageReturn {
@@ -16,6 +17,11 @@ export interface UseSharePageReturn {
     note: SharedNoteData | undefined;
     isLoading: boolean;
     error: Error | null;
+    /** The note exists but is not public (the guest read was refused). */
+    forbidden: boolean;
+    isAuthenticated: boolean;
+    /** The in-app route that opens the note for a signed-in viewer it was shared with (#1002). */
+    openSharedHref: string | undefined;
 
     // Byline
     author: PublicAuthor;
@@ -35,6 +41,7 @@ export function useSharePage(): UseSharePageReturn {
     const { data: note, isLoading, error } = usePublicNote(identity, noteId);
     const author = usePublicAuthor(identity && decodeURIComponent(identity));
     const isDark = useIsDarkTheme();
+    const { isAuthenticated } = useAuth();
 
     const words = note ? countWords(note.content) : 0;
 
@@ -44,6 +51,11 @@ export function useSharePage(): UseSharePageReturn {
         note,
         isLoading,
         error: error as Error | null,
+        forbidden: (error as { isForbidden?: boolean } | null)?.isForbidden === true,
+        isAuthenticated,
+        openSharedHref: identity && noteId
+            ? `/open-shared?${new URLSearchParams({ identity: decodeURIComponent(identity), file: noteId })}`
+            : undefined,
         author,
         readingMinutes: words > 0 ? readingTimeMinutes(words) : 0,
         cover: note?.cover && coverForTheme(note.cover, isDark),

@@ -45,6 +45,10 @@ export async function skipWhatsNew(page: Page): Promise<void> {
 
 // Runs `body` with a page in a new fenced context. The context is closed even
 // if `body` throws, so a failed boot doesn't leak it.
+// A signed-out context. `{}` is not one on the live tier: browser.newContext() takes the
+// project's `use.storageState` (playwright.live.config.ts), which signs it in as the owner.
+export const SIGNED_OUT = { storageState: { cookies: [], origins: [] } };
+
 export async function withFencedPage(
   browser: Browser,
   options: BrowserContextOptions,

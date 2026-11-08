@@ -306,4 +306,20 @@ describe('ShareNoteDialog', () => {
             expect(personEditor?.textContent).toContain('Needs a Homebase server update');
         });
     });
+
+    describe('restricted link (#1002)', () => {
+        it('copies the note\'s share link while the note is restricted', async () => {
+            const writeText = vi.fn(async () => {});
+            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+            access.current = idleAccess({ isShared: true, entries: [{ kind: 'person', id: 'sam.id', role: 'viewer' }] });
+            await open();
+
+            expect(button('Make Note Public')).toBeDefined();
+            await act(async () => { buttons('Copy link')[0]?.click(); });
+
+            expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/share/frodo.dotyou.cloud/${NOTE_ID}`);
+            expect(buttons('Copied')).toHaveLength(1);
+            expect(document.body.textContent).toContain('Only people with access can open this link.');
+        });
+    });
 });

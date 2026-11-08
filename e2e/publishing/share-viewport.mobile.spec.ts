@@ -2,7 +2,7 @@ import { test, expect } from '../fixtures';
 import { withMobilePage } from '../support/mobile';
 import { assertTestOrigin } from '../support/origin-guard';
 
-// #894: the public note's "Note Not Found" screen is as tall as the screen (svh), not taller, and
+// #894: the public note's "Note not found" screen is as tall as the screen (svh), not taller, and
 // its message is centred below the header. Chromium emulation has no URL bar, so this proves the
 // layout, not the svh behaviour itself (that is e2e/ios/safari-check.ts).
 
@@ -26,7 +26,7 @@ for (const theme of ['light', 'dark'] as const) {
       );
       await page.goto(`/share/${AUTHOR}/${MISSING_ID}`);
       await assertTestOrigin(page);
-      const heading = page.getByRole('heading', { name: 'Note Not Found' });
+      const heading = page.getByRole('heading', { name: 'Note not found' });
       await expect(heading).toBeVisible({ timeout: 15_000 });
 
       const wrapper = heading.locator('xpath=ancestor::div[contains(@class,"min-h-svh")][1]');
