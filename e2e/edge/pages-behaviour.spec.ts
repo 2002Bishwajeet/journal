@@ -51,3 +51,11 @@ test('a signed-out deep link reaches /welcome', async ({ page }) => {
   await page.goto('/06cf9262-4eae-4276-b0d1-8ca3cf5be6f4');
   await expect(page).toHaveURL(/\/welcome/);
 });
+
+// A static file in public/ wins over the SPA fallback in _redirects (public/llms.txt).
+test('/llms.txt is served as plain text', async ({ request }) => {
+  const res = await request.get('/llms.txt');
+  expect(res.status()).toBe(200);
+  expect(res.headers()['content-type']).toContain('text/plain');
+  expect(await res.text()).toMatch(/^# Journal\n\n> /);
+});

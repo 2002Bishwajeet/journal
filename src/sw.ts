@@ -235,6 +235,7 @@ registerRoute(
             // no route for them. Note pages (/share/<identity>/<noteId>) still
             // get the shell.
             /^\/share\/[^/]+(\/sitemap\.xml|\/f\/[^/]+)?\/?(\?.*)?$/,
+            /^\/llms\.txt$/, // A static file for language models (public/llms.txt).
         ],
     })
 );

@@ -55,6 +55,7 @@ Open a template in a browser or render it. Each one takes query parameters.
 - `templates/social-card.html` is 1200×630: `?title=…&kicker=…&theme=dark`
 - `templates/screenshot-frame.html` is 1600×1000: `?src=<screenshot>&caption=…&theme=dark`
 - `templates/board.html` is the 1920×1440 overview above
+- `templates/readme-banner.html` is the 1280×640 GitHub README cover and social preview: `?theme=dark`. It matches the MCP banner (`mcp/assets/banner.svg`)
 
 ## Rendering
 

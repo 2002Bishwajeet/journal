@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- 1280x640 GitHub README cover and social preview, in the family of social-card.html and the MCP banner
+     (mcp/assets/banner.svg). Params: ?theme=dark. The screenshot is the site's hero poster (scripts/landing-media.ts),
+     and the ink wordmark is the one the MCP banner and the site use. -->
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  @font-face { font-family: 'Playfair Display Variable'; font-weight: 400 900; src: url(../../node_modules/@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2); }
+  @font-face { font-family: 'Inter Variable'; font-weight: 100 900; src: url(../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2); }
+  html,body{margin:0}
+  body{width:1280px;height:640px;position:relative;overflow:hidden;background:var(--paper);color:var(--ink);font-family:var(--font-sans)}
+  body.dark{background:var(--night);color:var(--mist)}
+  .logo{position:absolute;left:96px;top:72px;height:44px}
+  .kicker{position:absolute;left:96px;top:206px;font-size:20px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:var(--quill)}
+  body.dark .kicker,body.dark footer{color:var(--stone)}
+  h1{position:absolute;left:92px;top:236px;margin:0;font-family:var(--font-serif);font-weight:450;font-size:76px;line-height:88px;letter-spacing:-1px}
+  /* The app window from the notes list on: the sidebar is cropped off so the live blocks fit. */
+  .shot{position:absolute;left:608px;top:96px;width:720px;height:600px;overflow:hidden;border-radius:14px;
+    border:1.5px solid var(--line);box-shadow:0 24px 60px rgba(44,43,41,.12)}
+  .shot img{display:block;width:920px;margin-left:-172px}
+  body.dark .shot{border-color:var(--night-line);box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  footer{position:absolute;left:96px;top:560px;width:480px;padding-top:18px;border-top:1.5px solid var(--line);font-size:22px;color:var(--quill)}
+  body.dark footer{border-color:var(--night-line)}
+</style></head>
+<body>
+  <img class="logo" id="logo" src="../../site/public/brand/wordmark-ink.svg" alt="Journal">
+  <div class="kicker">Local-first notebook</div>
+  <h1>Your notes<br>stay home.</h1>
+  <div class="shot"><img id="shot" src="../../site/public/media/hero-poster-light.webp" alt=""></div>
+  <footer>Offline · encrypted sync · MCP for agents</footer>
+<script>
+  if (new URLSearchParams(location.search).get('theme') === 'dark') {
+    document.body.className = 'dark';
+    logo.src = '../logo/wordmark-dark.svg';
+    shot.src = '../../site/public/media/hero-poster-dark.webp';
+  }
+</script></body></html>

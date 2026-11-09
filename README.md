@@ -1,89 +1,64 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/png/readme-banner-dark.png">
+  <img alt="Journal: your notes stay home. A local-first notebook that works offline, syncs encrypted and has an MCP server for agents." src="brand/png/readme-banner-light.png">
+</picture>
+
 # Journal
 
-![Journal Banner](public/banner.webp)
+Journal is a local-first notebook on your own [Homebase](https://homebase.id) identity. Your notes are in a database in your browser (PGlite), so Journal works offline. It syncs them, encrypted, to your identity. You can install it as an app (PWA).
 
-A premium local-first journaling application designed for effortless writing and privacy. Powered by [Homebase](https://homebase.id)
+Open it at [journal.cloudx.run](https://journal.cloudx.run). The website has more detail.
 
 > [!NOTE]
-> Want to try a quick demo? use `john.doe.demo.rocks` as the homebaseId. Password "a" without quotes ;
-
+> To try Journal, sign in as `john.doe.demo.rocks` with the password `a`. Other people use this demo identity, so do not keep private notes in it.
 
 ## Features
 
-- **Local-first Storage**: Built with PGlite (PostgreSQL in the browser) for speed and privacy.
-- **PWA Ready**: Fully installable as a Progressive Web App for a native feel on desktop and mobile.
-- **Rich Text Editor**: Powerfully extensible block-based editor with Markdown support.
-- **Organization**: Nested folders to keep your thoughts structured.
-- **AI Powered**: Integrated with local AI capabilities for grammar and paraphrasing.
-- **Math & Code**: Full support for LaTeX equations and code syntax highlighting.
-- **Dark/Light Mode**: Seamlessly switches between themes for any environment.
-- **Search**: Instant full-text search across all your records.
+- An editor with Markdown shortcuts, math, code, callouts, toggles, tables, task lists, link previews and image galleries.
+- Live blocks: Mermaid, SVG, HTML and React that run in the note.
+- Folders (one level), tags and full-text search.
+- Sharing with other Homebase identities and circles, and public pages with a link to copy.
+- Version history on each device.
+- Import from Markdown, Notion or Obsidian. Export to Markdown or PDF.
+- An optional AI assistant that runs on your device with WebLLM, in desktop browsers.
+- An MCP server that lets AI agents read and write the folders you grant.
 
-## Installation
+## AI agents
 
-### Prerequisites
+Claude Code, Claude Desktop, Cursor and Codex CLI connect through the Journal MCP server. To add it to Claude Code, run:
 
-- **Node 22** or newer (CI runs Node 22) and npm.
-- A **GitHub personal access token** with the `read:packages` scope. The Homebase SDK, `@homebase-id/js-lib`, is published on GitHub Packages, which needs a token even for public packages.
+```
+/plugin marketplace add 2002Bishwajeet/journal
+/plugin install journal@journal
+/journal:login you.dotyou.cloud
+```
 
-### Steps
+Then grant folders in **Settings → Agent access**. The [agents page](https://journal.cloudx.run/landing/agents) and [mcp/README.md](mcp/README.md) cover the other clients and all the tools.
 
-1. Clone the repository and go into it:
+## Develop
 
-   ```bash
-   git clone https://github.com/2002Bishwajeet/journal.git
-   cd journal
-   ```
+You need Node 22 or newer. You also need a GitHub token with the `read:packages` scope, because `@homebase-id/js-lib` is on GitHub Packages.
 
-2. Tell npm where `@homebase-id` packages come from. Create a file named `.npmrc` in the project root with these two lines (the same ones CI writes):
+1. Clone the repository.
+2. Create `.npmrc` in the project root with these two lines. Do not commit it.
 
    ```ini
    @homebase-id:registry=https://npm.pkg.github.com
    //npm.pkg.github.com/:_authToken=${GH_TOKEN}
    ```
 
-   npm expands `${GH_TOKEN}` from your environment, so the token itself never goes in the file. `.npmrc` is git-ignored; don't commit it. Then export your token in the shell you run npm from:
-
-   ```bash
-   export GH_TOKEN=<your token with read:packages>
-   ```
-
-3. Install the exact locked dependencies:
-
-   ```bash
-   npm ci
-   ```
-
-4. Start the development server:
-
-   ```bash
-   npm run dev
-   ```
-
-5. Open https://dev.dotyou.cloud:5173. `dev.dotyou.cloud` resolves to `127.0.0.1`, and the dev server uses the Let's Encrypt certificate committed in the repo (`dev-dotyou-cloud.crt`/`.key`), so there is nothing to install or trust. Sign in with a Homebase identity (or the demo identity above).
-
-## Tests
+3. Set `GH_TOKEN` to your token, then run `npm ci`.
+4. Run `npm run dev` and open https://dev.dotyou.cloud:5173. This name points to `127.0.0.1`, and its certificate is in the repository.
 
 ```bash
-npm run test   # Vitest integration tests (src/__tests__/)
-npm run e2e    # Playwright e2e, hermetic: builds the app and runs it on 127.0.0.1
-npm run lint   # ESLint
+npm run build   # type check and production build
+npm run lint    # ESLint
+npm run test    # Vitest unit tests
+npm run e2e     # Playwright tests on 127.0.0.1, never a real identity
 ```
 
-The first `npm run e2e` needs the Playwright browser: `npx playwright install chromium`. The e2e suite never touches `dev.dotyou.cloud` or a real identity; `e2e/README.md` describes every layer, including the live tier against a real Homebase.
+[AGENTS.md](AGENTS.md) describes the architecture, project structure, conventions and testing policy. [e2e/README.md](e2e/README.md) describes the e2e tests.
 
-## Build
+## Licence
 
-```bash
-npm run build
-```
-
-This typechecks, then writes the production build to `dist/`.
-
-## Contributing
-
-Read `AGENTS.md` first: architecture, data flow, database schema, sync, code conventions and the testing policy. It is written for both people and coding agents.
-
-## License
-
-AGPL License
+[AGPL-3.0](LICENSE). Release notes are in [RELEASE_NOTES.md](RELEASE_NOTES.md).
