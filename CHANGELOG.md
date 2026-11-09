@@ -1,3 +1,10 @@
+# [2.64.0](https://github.com/2002Bishwajeet/journal/compare/v2.63.0...v2.64.0) (2026-11-09)
+
+
+### Features
+
+* **ai-eval:** GPU choice, speed per turn, long-note tasks ([#1022](https://github.com/2002Bishwajeet/journal/issues/1022)) ([32ae398](https://github.com/2002Bishwajeet/journal/commit/32ae398fe25e97cf8947c286a989c153b62de168))
+* **export:** export a note as PDF through the print dialog ([#520](https://github.com/2002Bishwajeet/journal/issues/520)) ([18844a7](https://github.com/2002Bishwajeet/journal/commit/18844a73b72d907a6279edd0dbd24b41365b5bd7))
 # [2.63.0](https://github.com/2002Bishwajeet/journal/compare/v2.62.1...v2.63.0) (2026-11-09)
 
 
