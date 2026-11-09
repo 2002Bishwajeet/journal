@@ -79,7 +79,7 @@ jobs:
           rm .npmrc
           # Trusted publishing needs npm 11.5.1 or newer.
           npm i -g npm@latest
-          npm publish "mcp/journal-mcp-${{ steps.version.outputs.version }}.tgz" --access public --registry https://registry.npmjs.org
+          npm publish "./mcp/journal-mcp-${{ steps.version.outputs.version }}.tgz" --access public --registry https://registry.npmjs.org
 
       - name: Commit, tag and push
         env:
