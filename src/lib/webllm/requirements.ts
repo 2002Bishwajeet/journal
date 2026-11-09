@@ -1,4 +1,4 @@
-import { getModelInfo, type ModelInfo } from './models';
+import { getModelInfo, getModelsForJob, type ModelInfo } from './models';
 
 export interface DeviceProbe {
   isMobile: boolean;
@@ -8,7 +8,7 @@ export interface DeviceProbe {
   shaderF16?: boolean;
   maxBufferSize?: number;
   maxStorageBufferBindingSize?: number;
-  /** GB. Chrome only, and capped at 8, so only a low value means anything. */
+  /** GB. Chrome only, and capped at 8, so only a value under 8 means anything. */
   deviceMemoryGB?: number;
 }
 
@@ -22,7 +22,8 @@ export interface RequirementsResult {
 
 // Conservative floor. Desktop adapters report 2 GiB or more per buffer.
 const MIN_BUFFER_BYTES = 1024 ** 3;
-const MIN_AGENT_MEMORY_GB = 4;
+// Browsers cap deviceMemory at 8, so 8 says nothing; under 8 is too little for any assistant model (#1023).
+const MIN_AGENT_MEMORY_GB = 8;
 
 interface GpuAdapterLike {
   features: { has(name: string): boolean };
@@ -32,11 +33,12 @@ interface GpuAdapterLike {
 export async function probeDevice(isMobile: boolean): Promise<DeviceProbe> {
   const nav = navigator as Navigator & {
     deviceMemory?: number;
-    gpu?: { requestAdapter(): Promise<GpuAdapterLike | null> };
+    gpu?: { requestAdapter(options?: { powerPreference: 'high-performance' }): Promise<GpuAdapterLike | null> };
   };
   let adapter: GpuAdapterLike | null = null;
   try {
-    adapter = (await nav.gpu?.requestAdapter()) ?? null;
+    // The adapter web-llm loads on: on a laptop with two GPUs, the default can be the other one (#1023).
+    adapter = (await nav.gpu?.requestAdapter({ powerPreference: 'high-performance' })) ?? null;
   } catch {
     // A blocked or broken adapter counts as no adapter.
   }
@@ -71,6 +73,25 @@ export function checkRequirements(probe: DeviceProbe, model: ModelInfo): Require
     reasons.push(`This browser reports ${probe.deviceMemoryGB} GB of device memory. The assistant model can be slow or fail.`);
   }
   return { verdict: reasons.length ? 'warn' : 'ok', modelId, reasons };
+}
+
+/** What a model needs, for the download dialog (#1023). */
+export function memoryTierText(model: ModelInfo): string {
+  return model.ramTier === 16 ? 'Needs about 16 GB of memory.' : 'Needs about 24 GB of memory, or a graphics card with 8 GB.';
+}
+
+/** web-llm's DeviceLostError says "device was lost" and "out of memory (OOM)". */
+const OUT_OF_MEMORY = /device was lost|out of memory|\bOOM\b/i;
+
+/** The message for a load that ran out of GPU memory, naming the next smaller model of the same job; null for other errors. */
+export function outOfMemoryMessage(error: unknown, modelId: string): string | null {
+  const text = error instanceof Error ? error.message : String(error);
+  const model = getModelInfo(modelId);
+  if (!model || !OUT_OF_MEMORY.test(text)) return null;
+  const smaller = getModelsForJob(model.job)
+    .filter((m) => m.vramMB < model.vramMB)
+    .sort((a, b) => b.vramMB - a.vramMB)[0];
+  return smaller ? `Not enough memory for this model. Try ${smaller.name}.` : 'Not enough memory for this model.';
 }
 
 /** The id to load for `modelId` on this device. Unknown ids pass through. */

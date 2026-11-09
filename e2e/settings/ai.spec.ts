@@ -163,7 +163,14 @@ test('desktop: turning AI on shows the requirements first; Cancel loads nothing,
   await expect(dialog.getByRole('status')).toContainText('Ready ·');
 
   // Two lists: one model for writing help, one for the assistant. The assistant list only saves its choice.
-  await expect(dialog.getByRole('radiogroup', { name: 'Assistant' }).getByRole('radio')).toHaveCount(4);
+  const assistant = dialog.getByRole('radiogroup', { name: 'Assistant' });
+  await expect(assistant.getByRole('radio')).toHaveCount(6);
+  // Qwen3.5 2B is the default and Qwen3.5 4B the higher-quality choice (#1023).
+  await expect(assistant.getByRole('radio', { name: /Qwen3\.5 2B/ })).toBeChecked();
+  await expect(assistant.locator('label').filter({ hasText: 'Qwen3.5 2B' })).toContainText('Recommended');
+  await expect(assistant.locator('label').filter({ hasText: 'Qwen3.5 4B' })).toContainText('Higher quality');
+  await assistant.scrollIntoViewIfNeeded();
+  await screenshotBothThemes(app, 'assistant-models');
   await dialog.locator('label').filter({ hasText: 'Qwen3 4B' }).click();
   await expect(dialog.getByRole('radio', { name: /Qwen3 4B/ })).toBeChecked();
   expect(await reloads(app)).toEqual([EDITOR_DEFAULT]);

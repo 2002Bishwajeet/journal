@@ -58,6 +58,10 @@ test('the panel answers from the notes, shows its steps, keeps an excluded note 
   // The stub keeps no model files, so the dialog shows on every send; a loaded model needs no second load.
   const download = app.getByRole('dialog', { name: /^Download / });
   await expect(download).toBeVisible();
+  // The agent default and its memory tier (#1023).
+  await expect(download).toHaveAccessibleName('Download Qwen3.5 2B?');
+  await expect(download).toContainText('Needs about 16 GB of memory.');
+  await screenshotInBothThemes(app, (theme) => `agent-download-${theme}-1280.png`);
   expect(await reloads(app)).toEqual([]);
   await download.getByRole('button', { name: 'Continue' }).click();
   await expect.poll(() => reloads(app)).toHaveLength(1);

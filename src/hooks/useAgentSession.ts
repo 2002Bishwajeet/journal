@@ -246,7 +246,9 @@ export function useAgentSession(activeNoteId: string | undefined) {
       else content = capped ? `${answer}\n\nI stopped after ${MAX_TOOL_STEPS} steps, so this may be incomplete.` : answer;
     } catch (error) {
       console.error("Agent error:", error);
-      content = controller.signal.aborted ? "Stopped." : "Sorry, I encountered an error. Please try again.";
+      // A model that did not load says why (out of memory, say); the class sits in a lazy chunk, so match the name.
+      const loadError = error instanceof Error && error.name === "ModelLoadError" ? error.message : null;
+      content = controller.signal.aborted ? "Stopped." : (loadError ?? "Sorry, I encountered an error. Please try again.");
     } finally {
       controllers.current.delete(key);
       setModelStatus(null);

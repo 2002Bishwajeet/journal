@@ -6,12 +6,18 @@
 import type * as WebLLMTypes from '@mlc-ai/web-llm';
 import type { AgentEngine } from '@/lib/agent/loop/agentLoop';
 import { e2eSwitches } from '@/lib/e2e/switches';
-import { getLoadedEngine, initWebLLM } from './engine';
+import { getLastLoadError, getLoadedEngine, initWebLLM } from './engine';
+import { outOfMemoryMessage } from './requirements';
 
 type CompletionEngine = Pick<WebLLMTypes.MLCEngineInterface, 'chat' | 'interruptGenerate'>;
 
 /** With `enable_thinking: false`, web-llm starts the reply with the empty thinking block it added to the prompt (#796). */
 const THINK_BLOCK = /^\s*<think>[\s\S]*?<\/think>\s*/;
+
+/** The assistant model did not load. Its message is for the user. */
+export class ModelLoadError extends Error {
+    name = 'ModelLoadError';
+}
 
 /** `load` resolves to an engine with the agent model loaded. */
 export function toAgentEngine(load: () => Promise<CompletionEngine>): AgentEngine {
@@ -43,7 +49,7 @@ export function createAgentEngine(
 ): AgentEngine {
     return toAgentEngine(async () => {
         const engine = (await initWebLLM(onProgress, agentModelId)) ? getLoadedEngine() : null;
-        if (!engine) throw new Error("Couldn't load the assistant model.");
+        if (!engine) throw new ModelLoadError(outOfMemoryMessage(getLastLoadError(), agentModelId) ?? "Couldn't load the assistant model.");
         return engine;
     });
 }

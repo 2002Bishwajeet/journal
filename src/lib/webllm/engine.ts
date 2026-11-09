@@ -7,6 +7,7 @@ let engine: WebLLMTypes.MLCEngineInterface | null = null;
 let worker: Worker | null = null;
 let isLoading = false;
 let modelLoaded = false; // Track if model is actually loaded and ready
+let lastLoadError: unknown = null;
 
 let currentModelId: string = DEFAULT_MODEL_ID;
 
@@ -126,6 +127,7 @@ export async function initWebLLM(
 
     isLoading = true;
     modelLoaded = false;
+    lastLoadError = null;
     currentModelId = targetModel;
 
     try {
@@ -156,10 +158,16 @@ export async function initWebLLM(
         return true;
     } catch (error) {
         console.error('[WebLLM] Failed to initialize:', error);
+        lastLoadError = error;
         isLoading = false;
         modelLoaded = false;
         return false;
     }
+}
+
+/** The error of the last failed `initWebLLM`; null after a load that worked. */
+export function getLastLoadError(): unknown {
+    return lastLoadError;
 }
 
 /**

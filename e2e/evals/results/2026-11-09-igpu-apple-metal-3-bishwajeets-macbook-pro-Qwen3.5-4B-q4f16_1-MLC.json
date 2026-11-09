@@ -1,0 +1,1241 @@
+{
+  "model": "Qwen3.5-4B-q4f16_1-MLC",
+  "loadedModelId": "Qwen3.5-4B-q4f16_1-MLC",
+  "date": "2026-11-09",
+  "gpu": "igpu",
+  "adapter": {
+    "vendor": "apple",
+    "architecture": "metal-3",
+    "shaderF16": true
+  },
+  "firstLoadMs": 110355,
+  "cached": false,
+  "tasks": [
+    {
+      "id": "find-lisbon",
+      "kind": "find",
+      "success": true,
+      "steps": 3,
+      "invalidCalls": 0,
+      "wallMs": 28718,
+      "turns": [
+        {
+          "promptTokens": 246,
+          "completionTokens": 20,
+          "prefillTokensPerS": 53.512986144436226,
+          "decodeTokensPerS": 8.259289528299435
+        },
+        {
+          "promptTokens": 414,
+          "completionTokens": 46,
+          "prefillTokensPerS": 92.96894298553057,
+          "decodeTokensPerS": 12.357918266714206
+        },
+        {
+          "promptTokens": 630,
+          "completionTokens": 75,
+          "prefillTokensPerS": 92.21750156343856,
+          "decodeTokensPerS": 11.82105793678915
+        }
+      ],
+      "answer": "I found your note about the Lisbon trip. It's titled \"Lisbon trip\" and contains the following:\n\nFlights to Lisbon on May 3, back on May 10.\n\nWe stay in a flat in Alfama, near the castle.\n\nMust try the pastéis de nata in Belém.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "Lisbon trip",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"ba92f7f2-502a-c490-be45-7b9e1ddba905\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Flight"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "ba92f7f2-502a-c490-be45-7b9e1ddba905"
+          },
+          "result": "{\"id\":\"ba92f7f2-502a-c490-be45-7b9e1ddba905\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Flight"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-sourdough",
+      "kind": "find",
+      "success": true,
+      "steps": 3,
+      "invalidCalls": 0,
+      "wallMs": 28768,
+      "turns": [
+        {
+          "promptTokens": 249,
+          "completionTokens": 22,
+          "prefillTokensPerS": 89.98265394467668,
+          "decodeTokensPerS": 12.091411066974446
+        },
+        {
+          "promptTokens": 396,
+          "completionTokens": 45,
+          "prefillTokensPerS": 88.67560961616228,
+          "decodeTokensPerS": 11.433204103310896
+        },
+        {
+          "promptTokens": 602,
+          "completionTokens": 92,
+          "prefillTokensPerS": 90.37268222877755,
+          "decodeTokensPerS": 10.608082076971744
+        }
+      ],
+      "answer": "Your sourdough starter feeding schedule is in the note titled \"Sourdough starter\" (id: cbf5a896-dc61-5bba-ed46-428fa585a8ff). It says to feed it every 12 hours with 50 g of flour and 50 g of water, keeping it on the counter away from the window.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "sourdough starter feeding schedule",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"cbf5a896-dc61-5bba-ed46-428fa585a8ff\",\"title\":\"Sourdough starter\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\""
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "cbf5a896-dc61-5bba-ed46-428fa585a8ff"
+          },
+          "result": "{\"id\":\"cbf5a896-dc61-5bba-ed46-428fa585a8ff\",\"title\":\"Sourdough starter\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-insurance",
+      "kind": "find",
+      "success": true,
+      "steps": 3,
+      "invalidCalls": 0,
+      "wallMs": 23546,
+      "turns": [
+        {
+          "promptTokens": 247,
+          "completionTokens": 18,
+          "prefillTokensPerS": 88.33100883460713,
+          "decodeTokensPerS": 11.898013028329446
+        },
+        {
+          "promptTokens": 416,
+          "completionTokens": 48,
+          "prefillTokensPerS": 93.42184454335789,
+          "decodeTokensPerS": 11.96929239716148
+        },
+        {
+          "promptTokens": 617,
+          "completionTokens": 47,
+          "prefillTokensPerS": 92.3589785420359,
+          "decodeTokensPerS": 11.597520650707084
+        }
+      ],
+      "answer": "Yes, you have a note titled \"Car insurance renewal\" with the content: \"Policy number AX-4471 renews on 14 March. Call Helen at the broker before then.\"",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "car insurance",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"4b840fa6-b96e-df85-c334-311e58c26c60\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"snippe"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "4b840fa6-b96e-df85-c334-311e58c26c60"
+          },
+          "result": "{\"id\":\"4b840fa6-b96e-df85-c334-311e58c26c60\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"markdow"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-offsite",
+      "kind": "find",
+      "success": true,
+      "steps": 3,
+      "invalidCalls": 0,
+      "wallMs": 26143,
+      "turns": [
+        {
+          "promptTokens": 247,
+          "completionTokens": 19,
+          "prefillTokensPerS": 89.67991169946873,
+          "decodeTokensPerS": 12.277219621033375
+        },
+        {
+          "promptTokens": 415,
+          "completionTokens": 45,
+          "prefillTokensPerS": 88.23094822873061,
+          "decodeTokensPerS": 11.32744820909079
+        },
+        {
+          "promptTokens": 617,
+          "completionTokens": 64,
+          "prefillTokensPerS": 89.29430723446306,
+          "decodeTokensPerS": 10.479416679546638
+        }
+      ],
+      "answer": "I found your note about the team offsite. It's titled \"Team offsite\" and contains the following:\n\nOffsite planning for the design team.\n\nThe venue is the boathouse by the lake.\n\nWe meet on tuesday at 10.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "team offsite",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"9d1ab788-1bec-a6c9-2f93-7fd8edbf669a\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Offsi"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "9d1ab788-1bec-a6c9-2f93-7fd8edbf669a"
+          },
+          "result": "{\"id\":\"9d1ab788-1bec-a6c9-2f93-7fd8edbf669a\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Offsi"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-git",
+      "kind": "find",
+      "success": false,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 35679,
+      "turns": [
+        {
+          "promptTokens": 246,
+          "completionTokens": 19,
+          "prefillTokensPerS": 86.95667542699275,
+          "decodeTokensPerS": 11.953024613421245
+        },
+        {
+          "promptTokens": 280,
+          "completionTokens": 49,
+          "prefillTokensPerS": 87.79383499253724,
+          "decodeTokensPerS": 10.885452161739492
+        },
+        {
+          "promptTokens": 461,
+          "completionTokens": 19,
+          "prefillTokensPerS": 87.95905420086638,
+          "decodeTokensPerS": 11.285514105328115
+        },
+        {
+          "promptTokens": 514,
+          "completionTokens": 19,
+          "prefillTokensPerS": 91.14962015011105,
+          "decodeTokensPerS": 11.259112845835343
+        },
+        {
+          "promptTokens": 567,
+          "completionTokens": 35,
+          "prefillTokensPerS": 92.09531459053126,
+          "decodeTokensPerS": 11.639132128895017
+        }
+      ],
+      "answer": "Your search for 'git command tips' returned no results. The only note found is 'Scratchpad', which currently contains 'Nothing here.'",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "git command tips",
+            "limit": 5
+          },
+          "result": "[]"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "5f52843f-f5cc-8221-a37e-63182902b9e2"
+          },
+          "result": "{\"id\":\"5f52843f-f5cc-8221-a37e-63182902b9e2\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.976Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-flight",
+      "kind": "read",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 66116,
+      "turns": [
+        {
+          "promptTokens": 245,
+          "completionTokens": 49,
+          "prefillTokensPerS": 85.45875655779366,
+          "decodeTokensPerS": 11.857795390112818
+        },
+        {
+          "promptTokens": 426,
+          "completionTokens": 19,
+          "prefillTokensPerS": 87.25923058260204,
+          "decodeTokensPerS": 9.520887770274935
+        },
+        {
+          "promptTokens": 611,
+          "completionTokens": 46,
+          "prefillTokensPerS": 87.8887567117645,
+          "decodeTokensPerS": 11.122535741633968
+        },
+        {
+          "promptTokens": 827,
+          "completionTokens": 46,
+          "prefillTokensPerS": 90.18514126211763,
+          "decodeTokensPerS": 9.85386715116111
+        },
+        {
+          "promptTokens": 907,
+          "completionTokens": 46,
+          "prefillTokensPerS": 88.1532953734761,
+          "decodeTokensPerS": 10.850589790434961
+        },
+        {
+          "promptTokens": 987,
+          "completionTokens": 16,
+          "prefillTokensPerS": 90.20577335247889,
+          "decodeTokensPerS": 9.428892010786752
+        }
+      ],
+      "answer": "Your flight to Lisbon is on May 3.",
+      "calls": [
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "5f52843f-f5cc-8221-a37e-63182902b9e2"
+          },
+          "result": "{\"id\":\"5f52843f-f5cc-8221-a37e-63182902b9e2\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.976Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        },
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "flight to Lisbon",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"ba92f7f2-502a-c490-be45-7b9e1ddba905\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Flight"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "ba92f7f2-502a-c490-be45-7b9e1ddba905"
+          },
+          "result": "{\"id\":\"ba92f7f2-502a-c490-be45-7b9e1ddba905\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Flight"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-flour",
+      "kind": "read",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 38438,
+      "turns": [
+        {
+          "promptTokens": 250,
+          "completionTokens": 21,
+          "prefillTokensPerS": 73.6748111722872,
+          "decodeTokensPerS": 9.699791456278277
+        },
+        {
+          "promptTokens": 418,
+          "completionTokens": 45,
+          "prefillTokensPerS": 81.76734842085708,
+          "decodeTokensPerS": 10.639198189864278
+        },
+        {
+          "promptTokens": 624,
+          "completionTokens": 49,
+          "prefillTokensPerS": 85.31659086315524,
+          "decodeTokensPerS": 10.647512974097632
+        },
+        {
+          "promptTokens": 805,
+          "completionTokens": 22,
+          "prefillTokensPerS": 87.77975024688901,
+          "decodeTokensPerS": 10.177722419960212
+        }
+      ],
+      "answer": "You should feed your sourdough starter with 50 g of flour.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "sourdough starter flour",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"cbf5a896-dc61-5bba-ed46-428fa585a8ff\",\"title\":\"Sourdough starter\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\""
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "cbf5a896-dc61-5bba-ed46-428fa585a8ff"
+          },
+          "result": "{\"id\":\"cbf5a896-dc61-5bba-ed46-428fa585a8ff\",\"title\":\"Sourdough starter\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\""
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "5f52843f-f5cc-8221-a37e-63182902b9e2"
+          },
+          "result": "{\"id\":\"5f52843f-f5cc-8221-a37e-63182902b9e2\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.976Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-policy",
+      "kind": "read",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 37088,
+      "turns": [
+        {
+          "promptTokens": 246,
+          "completionTokens": 20,
+          "prefillTokensPerS": 78.49694308664476,
+          "decodeTokensPerS": 10.185128106559233
+        },
+        {
+          "promptTokens": 417,
+          "completionTokens": 48,
+          "prefillTokensPerS": 86.4113491050441,
+          "decodeTokensPerS": 11.130833474769117
+        },
+        {
+          "promptTokens": 618,
+          "completionTokens": 49,
+          "prefillTokensPerS": 88.53551090576985,
+          "decodeTokensPerS": 10.800922128008212
+        },
+        {
+          "promptTokens": 799,
+          "completionTokens": 19,
+          "prefillTokensPerS": 87.96628876416142,
+          "decodeTokensPerS": 9.812044828765359
+        }
+      ],
+      "answer": "Your car insurance policy number is AX-4471.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "car insurance policy number",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"4b840fa6-b96e-df85-c334-311e58c26c60\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"snippe"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "4b840fa6-b96e-df85-c334-311e58c26c60"
+          },
+          "result": "{\"id\":\"4b840fa6-b96e-df85-c334-311e58c26c60\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"markdow"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "5f52843f-f5cc-8221-a37e-63182902b9e2"
+          },
+          "result": "{\"id\":\"5f52843f-f5cc-8221-a37e-63182902b9e2\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.976Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-venue",
+      "kind": "read",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 67192,
+      "turns": [
+        {
+          "promptTokens": 246,
+          "completionTokens": 20,
+          "prefillTokensPerS": 69.95512634654193,
+          "decodeTokensPerS": 10.206740210301545
+        },
+        {
+          "promptTokens": 415,
+          "completionTokens": 45,
+          "prefillTokensPerS": 85.48839623701481,
+          "decodeTokensPerS": 10.8085136677748
+        },
+        {
+          "promptTokens": 617,
+          "completionTokens": 49,
+          "prefillTokensPerS": 86.98631199266424,
+          "decodeTokensPerS": 10.82157145018689
+        },
+        {
+          "promptTokens": 798,
+          "completionTokens": 45,
+          "prefillTokensPerS": 87.31526884773358,
+          "decodeTokensPerS": 9.834566938229013
+        },
+        {
+          "promptTokens": 877,
+          "completionTokens": 45,
+          "prefillTokensPerS": 87.10100637929573,
+          "decodeTokensPerS": 10.713924813925463
+        },
+        {
+          "promptTokens": 956,
+          "completionTokens": 20,
+          "prefillTokensPerS": 88.56353831724132,
+          "decodeTokensPerS": 9.601051064514174
+        }
+      ],
+      "answer": "The team offsite venue is the boathouse by the lake.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "team offsite venue",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"9d1ab788-1bec-a6c9-2f93-7fd8edbf669a\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Offsi"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "9d1ab788-1bec-a6c9-2f93-7fd8edbf669a"
+          },
+          "result": "{\"id\":\"9d1ab788-1bec-a6c9-2f93-7fd8edbf669a\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Offsi"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "5f52843f-f5cc-8221-a37e-63182902b9e2"
+          },
+          "result": "{\"id\":\"5f52843f-f5cc-8221-a37e-63182902b9e2\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.976Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "refuse-salary",
+      "kind": "refusal",
+      "success": true,
+      "steps": 7,
+      "invalidCalls": 0,
+      "wallMs": 83646,
+      "turns": [
+        {
+          "promptTokens": 250,
+          "completionTokens": 18,
+          "prefillTokensPerS": 83.57793809803653,
+          "decodeTokensPerS": 9.97204893281707
+        },
+        {
+          "promptTokens": 395,
+          "completionTokens": 49,
+          "prefillTokensPerS": 82.23316119950846,
+          "decodeTokensPerS": 11.219068677198985
+        },
+        {
+          "promptTokens": 594,
+          "completionTokens": 18,
+          "prefillTokensPerS": 83.61698353922003,
+          "decodeTokensPerS": 8.97395968106916
+        },
+        {
+          "promptTokens": 646,
+          "completionTokens": 49,
+          "prefillTokensPerS": 82.7238955526067,
+          "decodeTokensPerS": 8.95855826836724
+        },
+        {
+          "promptTokens": 827,
+          "completionTokens": 18,
+          "prefillTokensPerS": 85.51087058158875,
+          "decodeTokensPerS": 8.16814854407149
+        },
+        {
+          "promptTokens": 879,
+          "completionTokens": 49,
+          "prefillTokensPerS": 85.36085597775993,
+          "decodeTokensPerS": 8.748954226747603
+        },
+        {
+          "promptTokens": 962,
+          "completionTokens": 74,
+          "prefillTokensPerS": 84.4728830631528,
+          "decodeTokensPerS": 9.908993361550525
+        }
+      ],
+      "answer": "I don't see a note specifically titled 'salary review' in your search results. The closest match is 'Weekly review', which mentions shipping an export feature and planning the next sprint, but doesn't mention salary. Would you like me to search for notes with different terms or check your open note ('Scratchpad') for more context?",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "salary review",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"ed4336cd-2795-148a-8d40-b0b09e48c897\",\"title\":\"Weekly review\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"\"}]"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "ed4336cd-2795-148a-8d40-b0b09e48c897"
+          },
+          "result": "{\"id\":\"ed4336cd-2795-148a-8d40-b0b09e48c897\",\"title\":\"Weekly review\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Good"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "5f52843f-f5cc-8221-a37e-63182902b9e2"
+          },
+          "result": "{\"id\":\"5f52843f-f5cc-8221-a37e-63182902b9e2\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.976Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-bold",
+      "kind": "edit",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 43974,
+      "turns": [
+        {
+          "promptTokens": 620,
+          "completionTokens": 32,
+          "prefillTokensPerS": 72.32943959862232,
+          "decodeTokensPerS": 10.647524021242202
+        },
+        {
+          "promptTokens": 667,
+          "completionTokens": 32,
+          "prefillTokensPerS": 90.23500333547038,
+          "decodeTokensPerS": 10.357223997774714
+        },
+        {
+          "promptTokens": 726,
+          "completionTokens": 32,
+          "prefillTokensPerS": 89.71264151216809,
+          "decodeTokensPerS": 10.187834081612792
+        },
+        {
+          "promptTokens": 785,
+          "completionTokens": 15,
+          "prefillTokensPerS": 89.2038865616215,
+          "decodeTokensPerS": 9.85408909739088
+        }
+      ],
+      "answer": "Done. The second paragraph is now bold.",
+      "calls": [
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 2,
+            "mark": "bold",
+            "on": true,
+            "find": "Shipped the export feature on time."
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-replace",
+      "kind": "edit",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 52600,
+      "turns": [
+        {
+          "promptTokens": 637,
+          "completionTokens": 22,
+          "prefillTokensPerS": 85.35304269522572,
+          "decodeTokensPerS": 9.425705245538643
+        },
+        {
+          "promptTokens": 674,
+          "completionTokens": 12,
+          "prefillTokensPerS": 89.29316642362745,
+          "decodeTokensPerS": 9.156480083192653
+        },
+        {
+          "promptTokens": 763,
+          "completionTokens": 12,
+          "prefillTokensPerS": 91.58185142943664,
+          "decodeTokensPerS": 9.506360618450483
+        },
+        {
+          "promptTokens": 810,
+          "completionTokens": 22,
+          "prefillTokensPerS": 90.74954078969394,
+          "decodeTokensPerS": 9.117452323416604
+        },
+        {
+          "promptTokens": 859,
+          "completionTokens": 33,
+          "prefillTokensPerS": 89.46998667310908,
+          "decodeTokensPerS": 10.440797414765576
+        }
+      ],
+      "answer": "I've already changed 'tuesday' to 'Wednesday' in paragraph 3 of your open note. No further changes are needed.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 3,
+            "find": "tuesday",
+            "replace": "Wednesday"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Offsite planning for the design team.\"},{\"n\":2,\"type\":\"paragraph\",\"text\":\"The venue is the boathouse by the lake.\"},{\"n\":3,\"type\":\"paragraph\",\"text\":\"We meet on Wedn"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-insert-above-list",
+      "kind": "edit",
+      "success": false,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 52843,
+      "turns": [
+        {
+          "promptTokens": 617,
+          "completionTokens": 18,
+          "prefillTokensPerS": 82.55793104650643,
+          "decodeTokensPerS": 7.860835468938919
+        },
+        {
+          "promptTokens": 650,
+          "completionTokens": 12,
+          "prefillTokensPerS": 89.2686698557936,
+          "decodeTokensPerS": 8.240379357188893
+        },
+        {
+          "promptTokens": 738,
+          "completionTokens": 12,
+          "prefillTokensPerS": 88.33462304372661,
+          "decodeTokensPerS": 3.319877767897833
+        },
+        {
+          "promptTokens": 785,
+          "completionTokens": 18,
+          "prefillTokensPerS": 85.75406498923174,
+          "decodeTokensPerS": 9.151026934635468
+        },
+        {
+          "promptTokens": 830,
+          "completionTokens": 21,
+          "prefillTokensPerS": 89.09393613798716,
+          "decodeTokensPerS": 9.720581872859517
+        }
+      ],
+      "answer": "I've added 'Next steps' above the list in your open note.",
+      "calls": [
+        {
+          "tool": "insert_paragraph",
+          "args": {
+            "after": 0,
+            "text": "Next steps"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Next steps\"},{\"n\":2,\"type\":\"paragraph\",\"text\":\"Things to sort before the move.\"},{\"n\":3,\"type\":\"bullet\",\"text\":\"Book the van\\nPack the kitchen\"},{\"n\":4,\"type\":\"parag"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-italic",
+      "kind": "edit",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 41124,
+      "turns": [
+        {
+          "promptTokens": 611,
+          "completionTokens": 27,
+          "prefillTokensPerS": 85.32703226086365,
+          "decodeTokensPerS": 10.755223520613065
+        },
+        {
+          "promptTokens": 653,
+          "completionTokens": 27,
+          "prefillTokensPerS": 89.74464693050227,
+          "decodeTokensPerS": 8.871721728312433
+        },
+        {
+          "promptTokens": 707,
+          "completionTokens": 27,
+          "prefillTokensPerS": 89.05762670931078,
+          "decodeTokensPerS": 10.96926075679978
+        },
+        {
+          "promptTokens": 761,
+          "completionTokens": 22,
+          "prefillTokensPerS": 89.87866970216535,
+          "decodeTokensPerS": 10.51277302019705
+        }
+      ],
+      "answer": "The word 'saffron' in the open note has been made italic.",
+      "calls": [
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 1,
+            "mark": "italic",
+            "on": true,
+            "find": "saffron"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-append-paragraph",
+      "kind": "edit",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 48589,
+      "turns": [
+        {
+          "promptTokens": 612,
+          "completionTokens": 49,
+          "prefillTokensPerS": 85.91589928460839,
+          "decodeTokensPerS": 10.92958387738042
+        },
+        {
+          "promptTokens": 677,
+          "completionTokens": 49,
+          "prefillTokensPerS": 86.52597568571194,
+          "decodeTokensPerS": 10.973146652233323
+        },
+        {
+          "promptTokens": 753,
+          "completionTokens": 49,
+          "prefillTokensPerS": 89.10905149224511,
+          "decodeTokensPerS": 11.150538072093491
+        },
+        {
+          "promptTokens": 829,
+          "completionTokens": 30,
+          "prefillTokensPerS": 91.7116558994778,
+          "decodeTokensPerS": 10.868058026458643
+        }
+      ],
+      "answer": "I already added 'Budget approved.' to the end of your note in the previous step. No further changes are needed.",
+      "calls": [
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "10c7e6d1-91ff-9bd2-de91-fa677efc914e",
+            "markdown": "Budget approved."
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-strike",
+      "kind": "edit",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 1,
+      "wallMs": 65008,
+      "turns": [
+        {
+          "promptTokens": 600,
+          "completionTokens": 28,
+          "prefillTokensPerS": 88.87947424941336,
+          "decodeTokensPerS": 11.503091988265414
+        },
+        {
+          "promptTokens": 643,
+          "completionTokens": 12,
+          "prefillTokensPerS": 89.37736778745376,
+          "decodeTokensPerS": 9.530947416621418
+        },
+        {
+          "promptTokens": 702,
+          "completionTokens": 26,
+          "prefillTokensPerS": 90.14805083667429,
+          "decodeTokensPerS": 8.50325674712736
+        },
+        {
+          "promptTokens": 750,
+          "completionTokens": 26,
+          "prefillTokensPerS": 83.40399505136297,
+          "decodeTokensPerS": 9.943837206490457
+        },
+        {
+          "promptTokens": 803,
+          "completionTokens": 26,
+          "prefillTokensPerS": 83.9153238988959,
+          "decodeTokensPerS": 10.185539795182038
+        },
+        {
+          "promptTokens": 856,
+          "completionTokens": 34,
+          "prefillTokensPerS": 86.18372235165212,
+          "decodeTokensPerS": 11.304195911603943
+        }
+      ],
+      "answer": "I cannot see the content of the open note. Please provide the note's ID or the text of the open note so I can proceed.",
+      "calls": [
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 1,
+            "mark": "strike",
+            "on": true,
+            "find": "Finish chapter four."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Finish chapter four.\"},{\"n\":2,\"type\":\"paragraph\",\"text\":\"The ending felt rushed.\"}]"
+        },
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 1,
+            "mark": "strike",
+            "on": true,
+            "find": "Reading notes"
+          }
+        }
+      ],
+      "errors": [
+        "\"Reading notes\" is not in block 1."
+      ]
+    },
+    {
+      "id": "edit-typo",
+      "kind": "edit",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 40217,
+      "turns": [
+        {
+          "promptTokens": 611,
+          "completionTokens": 27,
+          "prefillTokensPerS": 86.99564594581726,
+          "decodeTokensPerS": 11.477989848174575
+        },
+        {
+          "promptTokens": 653,
+          "completionTokens": 27,
+          "prefillTokensPerS": 87.65841943675532,
+          "decodeTokensPerS": 10.26278654554985
+        },
+        {
+          "promptTokens": 707,
+          "completionTokens": 27,
+          "prefillTokensPerS": 89.1324025912315,
+          "decodeTokensPerS": 10.486788664729472
+        },
+        {
+          "promptTokens": 761,
+          "completionTokens": 24,
+          "prefillTokensPerS": 92.84337408166635,
+          "decodeTokensPerS": 11.140334307905148
+        }
+      ],
+      "answer": "The typo 'recieve' has been fixed to 'receive' in the open note.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "recieve",
+            "replace": "receive"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-code",
+      "kind": "edit",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 48885,
+      "turns": [
+        {
+          "promptTokens": 607,
+          "completionTokens": 26,
+          "prefillTokensPerS": 88.73347941903911,
+          "decodeTokensPerS": 10.934674069850711
+        },
+        {
+          "promptTokens": 648,
+          "completionTokens": 12,
+          "prefillTokensPerS": 90.20295665306679,
+          "decodeTokensPerS": 9.629020115938582
+        },
+        {
+          "promptTokens": 713,
+          "completionTokens": 12,
+          "prefillTokensPerS": 92.01478172950864,
+          "decodeTokensPerS": 10.112431856176286
+        },
+        {
+          "promptTokens": 760,
+          "completionTokens": 26,
+          "prefillTokensPerS": 92.63813290377898,
+          "decodeTokensPerS": 9.981773282234144
+        },
+        {
+          "promptTokens": 813,
+          "completionTokens": 27,
+          "prefillTokensPerS": 92.46490627006513,
+          "decodeTokensPerS": 10.677289199806182
+        }
+      ],
+      "answer": "I've already formatted 'git status' as code in the open note. No further changes are needed.",
+      "calls": [
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 1,
+            "mark": "code",
+            "on": true,
+            "find": "git status"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Run git status before you commit.\"},{\"n\":2,\"type\":\"paragraph\",\"text\":\"Use git log to see the history.\"}]"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "cross-append",
+      "kind": "cross",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 71510,
+      "turns": [
+        {
+          "promptTokens": 592,
+          "completionTokens": 14,
+          "prefillTokensPerS": 86.46614894068205,
+          "decodeTokensPerS": 10.15093661945359
+        },
+        {
+          "promptTokens": 921,
+          "completionTokens": 50,
+          "prefillTokensPerS": 92.04619899751988,
+          "decodeTokensPerS": 9.978129568320943
+        },
+        {
+          "promptTokens": 1023,
+          "completionTokens": 50,
+          "prefillTokensPerS": 90.99140607125919,
+          "decodeTokensPerS": 10.239574702358487
+        },
+        {
+          "promptTokens": 1100,
+          "completionTokens": 50,
+          "prefillTokensPerS": 91.50508393974908,
+          "decodeTokensPerS": 11.180411917504093
+        },
+        {
+          "promptTokens": 1177,
+          "completionTokens": 26,
+          "prefillTokensPerS": 92.07685327192718,
+          "decodeTokensPerS": 10.477062566042893
+        }
+      ],
+      "answer": "I've already added 'oat milk' to your shopping list note. It's now included.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "shopping list",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"de4d7b8d-d879-816d-a101-d0db40e36267\",\"title\":\"Shopping list\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.977Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Eggs"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "de4d7b8d-d879-816d-a101-d0db40e36267",
+            "markdown": "Oat milk"
+          },
+          "result": "accepted (note id: de4d7b8d-d879-816d-a101-d0db40e36267)"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "cross-create",
+      "kind": "cross",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 38748,
+      "turns": [
+        {
+          "promptTokens": 597,
+          "completionTokens": 21,
+          "prefillTokensPerS": 91.44786323033567,
+          "decodeTokensPerS": 11.90819968785678
+        },
+        {
+          "promptTokens": 670,
+          "completionTokens": 21,
+          "prefillTokensPerS": 94.65476088698497,
+          "decodeTokensPerS": 10.648634978374092
+        },
+        {
+          "promptTokens": 718,
+          "completionTokens": 21,
+          "prefillTokensPerS": 92.63045994110297,
+          "decodeTokensPerS": 9.425736975762918
+        },
+        {
+          "promptTokens": 766,
+          "completionTokens": 35,
+          "prefillTokensPerS": 92.89791780094754,
+          "decodeTokensPerS": 11.198060758885429
+        }
+      ],
+      "answer": "I already created the note 'Gift ideas' with the line 'A scarf for Mum' in my previous step. No further action is needed.",
+      "calls": [
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Gift ideas",
+            "markdown": "A scarf for Mum"
+          },
+          "result": "accepted (note id: 4da46ab8-521e-3d92-1c67-c51eeab29015)"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "long-about",
+      "kind": "long",
+      "success": false,
+      "steps": 2,
+      "invalidCalls": 0,
+      "wallMs": 20621,
+      "turns": [
+        {
+          "promptTokens": 244,
+          "completionTokens": 48,
+          "prefillTokensPerS": 89.73903961216178,
+          "decodeTokensPerS": 12.51326206222661
+        },
+        {
+          "promptTokens": 784,
+          "completionTokens": 56,
+          "prefillTokensPerS": 92.04335664849216,
+          "decodeTokensPerS": 10.951593953628315
+        }
+      ],
+      "answer": "This note is a diary of the user's allotment activities, specifically focusing on the months of January and February. It details tasks like building a greenhouse, weeding, managing compost, and attending work parties, along with personal reflections and financial notes.",
+      "calls": [
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "3253857d-be40-4341-e5c9-3ae5c2e0b6c0"
+          },
+          "result": "{\"id\":\"3253857d-be40-4341-e5c9-3ae5c2e0b6c0\",\"title\":\"Allotment diary\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.979Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"##"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "long-section",
+      "kind": "long",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 66915,
+      "turns": [
+        {
+          "promptTokens": 245,
+          "completionTokens": 48,
+          "prefillTokensPerS": 88.78564788923528,
+          "decodeTokensPerS": 12.37710130986041
+        },
+        {
+          "promptTokens": 785,
+          "completionTokens": 17,
+          "prefillTokensPerS": 91.50165285869592,
+          "decodeTokensPerS": 10.09390485781817
+        },
+        {
+          "promptTokens": 1009,
+          "completionTokens": 48,
+          "prefillTokensPerS": 92.30421603390647,
+          "decodeTokensPerS": 11.245283560668716
+        },
+        {
+          "promptTokens": 1091,
+          "completionTokens": 48,
+          "prefillTokensPerS": 91.52070330886886,
+          "decodeTokensPerS": 11.123049325020627
+        },
+        {
+          "promptTokens": 1173,
+          "completionTokens": 61,
+          "prefillTokensPerS": 91.47336452390118,
+          "decodeTokensPerS": 10.875613793261806
+        }
+      ],
+      "answer": "Under the November heading, the note mentions planting 40 tulip bulbs along the fence by the gate in red and orange, cutting back raspberry canes that fruited that year and tying in the new ones. The weather was described as damp and foggy most days.",
+      "calls": [
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "3253857d-be40-4341-e5c9-3ae5c2e0b6c0"
+          },
+          "result": "{\"id\":\"3253857d-be40-4341-e5c9-3ae5c2e0b6c0\",\"title\":\"Allotment diary\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.979Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"##"
+        },
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "November",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"3253857d-be40-4341-e5c9-3ae5c2e0b6c0\",\"title\":\"Allotment diary\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T11:31:33.979Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"wr"
+        }
+      ],
+      "errors": []
+    }
+  ]
+}

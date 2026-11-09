@@ -51,6 +51,17 @@ export interface TaskResult {
     error?: string;
 }
 
+const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+/**
+ * Which machine a result file comes from, so runs on different machines do not overwrite each other (#1023):
+ * `EVAL_MACHINE` when set, else the adapter's vendor and architecture plus the host name's first label.
+ */
+export function machineTag(adapter: ModelResult['adapter'], hostname: string, override?: string): string {
+    if (override) return slug(override);
+    return slug([adapter?.vendor, adapter?.architecture, hostname.split('.')[0]].filter(Boolean).join('-'));
+}
+
 export interface ModelResult {
     model: string;
     /** `model`, or its q4f32 twin on a GPU without shader-f16. */

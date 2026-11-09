@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { prebuiltAppConfig } from '@mlc-ai/web-llm';
-import { AVAILABLE_MODELS, getModelInfo, getModelsForJob } from '@/lib/webllm/models';
-import { checkRequirements, probeDevice, resolveModelId, type DeviceProbe } from '@/lib/webllm/requirements';
+import { AVAILABLE_MODELS, DEFAULT_AGENT_MODEL_ID, getModelInfo, getModelsForJob } from '@/lib/webllm/models';
+import { checkRequirements, memoryTierText, outOfMemoryMessage, probeDevice, resolveModelId, type DeviceProbe } from '@/lib/webllm/requirements';
 
 const editor = getModelInfo('Qwen2.5-0.5B-Instruct-q4f16_1-MLC')!;
 const agent = getModelInfo('Qwen3-1.7B-q4f16_1-MLC')!;
@@ -47,6 +47,13 @@ describe('checkRequirements', () => {
     const result = checkRequirements({ ...goodProbe, deviceMemoryGB: 2 }, agent);
     expect(result.verdict).toBe('warn');
     expect(result.reasons).toHaveLength(1);
+  });
+
+  it('warns every agent model when deviceMemory is under 8, and not at the cap of 8 (#1023)', () => {
+    for (const model of getModelsForJob('agent')) {
+      expect(checkRequirements({ ...goodProbe, deviceMemoryGB: 4 }, model).verdict, model.id).toBe('warn');
+      expect(checkRequirements(goodProbe, model).verdict, model.id).toBe('ok');
+    }
   });
 
   it('does not warn editor models about low device memory', () => {
@@ -102,6 +109,13 @@ describe('probeDevice', () => {
     });
   });
 
+  it('asks for the high-performance adapter, the one web-llm loads on (#1023)', async () => {
+    const requestAdapter = vi.fn(async () => null);
+    nav.gpu = { requestAdapter };
+    await probeDevice(false);
+    expect(requestAdapter).toHaveBeenCalledWith({ powerPreference: 'high-performance' });
+  });
+
   it('resolveModelId swaps in the f32 twin when the adapter lacks shader-f16', async () => {
     nav.gpu = { requestAdapter: async () => ({ features: new Set(), limits: {} }) };
     expect(await resolveModelId(editor.id)).toBe(editor.f32Id);
@@ -129,5 +143,43 @@ describe('model catalogue', () => {
     for (const job of ['editor', 'agent'] as const) {
       expect(getModelsForJob(job).filter((m) => m.recommended), job).toHaveLength(1);
     }
+  });
+});
+
+describe('memory tiers (#1023)', () => {
+  it('puts models up to about 4,000 MB in the 16 GB tier, and larger ones in the 24 GB tier', () => {
+    for (const model of AVAILABLE_MODELS) expect(model.ramTier, model.id).toBe(model.vramMB <= 4000 ? 16 : 24);
+  });
+
+  it('names the tier', () => {
+    expect(memoryTierText(agent)).toBe('Needs about 16 GB of memory.');
+    expect(memoryTierText({ ...agent, ramTier: 24 })).toBe('Needs about 24 GB of memory, or a graphics card with 8 GB.');
+  });
+
+  it('makes Qwen3.5 2B the agent default and offers Qwen3.5 4B as higher quality', () => {
+    expect(DEFAULT_AGENT_MODEL_ID).toBe('Qwen3.5-2B-q4f16_1-MLC');
+    expect(getModelInfo(DEFAULT_AGENT_MODEL_ID)?.recommended).toBe(true);
+    expect(getModelInfo('Qwen3.5-4B-q4f16_1-MLC')?.badge).toBe('Higher quality');
+    for (const dropped of ['Phi-4-mini-instruct-q4f16_1-MLC', 'gemma3-1b-it-q4f16_1-MLC', 'Ministral-3-3B-Instruct-2512-BF16-q4f16_1-MLC']) {
+      expect(getModelInfo(dropped), dropped).toBeUndefined();
+    }
+  });
+});
+
+describe('outOfMemoryMessage (#1023)', () => {
+  const deviceLost = new Error('The WebGPU device was lost while loading the model. This issue often occurs due to running out of memory (OOM).');
+
+  it('names the next smaller model of the same job', () => {
+    expect(outOfMemoryMessage(deviceLost, 'Qwen3.5-4B-q4f16_1-MLC')).toBe('Not enough memory for this model. Try Qwen3 4B.');
+    expect(outOfMemoryMessage('GPUOutOfMemoryError: Out of memory', 'Qwen3.5-2B-q4f16_1-MLC')).toBe('Not enough memory for this model. Try Qwen3 1.7B.');
+  });
+
+  it('names no model when none is smaller', () => {
+    expect(outOfMemoryMessage(deviceLost, 'Qwen3-1.7B-q4f16_1-MLC')).toBe('Not enough memory for this model.');
+  });
+
+  it('is null for other errors and unknown models', () => {
+    expect(outOfMemoryMessage(new Error('Failed to fetch'), DEFAULT_AGENT_MODEL_ID)).toBeNull();
+    expect(outOfMemoryMessage(deviceLost, 'unlisted-model')).toBeNull();
   });
 });

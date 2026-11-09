@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { DEFAULT_MODEL_ID, DEFAULT_AGENT_MODEL_ID, LEGACY_LLAMA_MODEL_ID } from '@/lib/webllm/models';
+import { DEFAULT_MODEL_ID, DEFAULT_AGENT_MODEL_ID, LEGACY_LLAMA_MODEL_ID, PREVIOUS_AGENT_MODEL_ID } from '@/lib/webllm/models';
 import { AI_SETTINGS_KEY, LEGACY_WEBLLM_ENABLED_KEY, readString, writeString, removeKey } from '@/lib/storage';
 
 const STORAGE_KEY = AI_SETTINGS_KEY;
@@ -31,7 +31,8 @@ function migrateSettings(raw: Record<string, unknown>): AISettings {
   return {
     enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_SETTINGS.enabled,
     modelId: typeof raw.modelId === 'string' ? raw.modelId : DEFAULT_SETTINGS.modelId,
-    agentModelId: typeof raw.agentModelId === 'string' ? raw.agentModelId : DEFAULT_SETTINGS.agentModelId,
+    // Saved settings without an agent model used the old default: keep it, so it does not download again.
+    agentModelId: typeof raw.agentModelId === 'string' ? raw.agentModelId : PREVIOUS_AGENT_MODEL_ID,
     autocompleteEnabled: typeof raw.autocompleteEnabled === 'boolean' ? raw.autocompleteEnabled : DEFAULT_SETTINGS.autocompleteEnabled,
     grammarEnabled: typeof raw.grammarEnabled === 'boolean' ? raw.grammarEnabled : DEFAULT_SETTINGS.grammarEnabled,
   };
