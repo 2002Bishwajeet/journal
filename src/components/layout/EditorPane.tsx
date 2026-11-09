@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, type ReactNode } from "react";
 import { Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,8 @@ interface EditorPaneProps {
   onTabClose: (docId: string) => void;
   /** What the touch layouts' note menu asks of the layout (#825). */
   noteScreenActions: NoteScreenActions;
+  /** Shown above the open note, e.g. an agent's share request (#325). */
+  notice?: ReactNode;
 }
 
 /** Right pane: desktop tab bar plus the (keep-alive) editor, or the mobile Outlet. */
@@ -51,6 +53,7 @@ export function EditorPane({
   onTabClick,
   onTabClose,
   noteScreenActions,
+  notice,
 }: EditorPaneProps) {
   return (
     <main
@@ -101,6 +104,9 @@ export function EditorPane({
           <SyncStatus />
         </div>
       </div>
+
+      {/* Touch layouts' note header reaches under the status bar, so there it goes below the note */}
+      {isDesktop && !focusMode && notice}
 
       <div className="flex-1 relative overflow-hidden">
         {/* Local boundaries: the editor chunk is lazy, so both suspending and
@@ -171,6 +177,8 @@ export function EditorPane({
           </div>
         )}
       </div>
+
+      {!isDesktop && !focusMode && notice}
     </main>
   );
 }

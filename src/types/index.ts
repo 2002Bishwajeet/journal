@@ -28,6 +28,21 @@ export interface DocumentMetadata {
     viewerRecipients?: string[];
     lastEditedBy?: string;   // OdinId of last editor
     authorOdinId?: string;     // Identity that owns the note (for peer fetch)
+    // An agent's share_note request, waiting for the owner to confirm in the Share dialog (#325)
+    shareRequest?: ShareRequest;
+}
+
+/**
+ * What an agent asked share_note for (#325): `with` is the full set for 'people', as the Share
+ * dialog's Save takes it; 'private' stops sharing with people. A circle's `id` may be its name.
+ */
+export interface ShareRequest {
+    access: 'private' | 'public' | 'people';
+    with?: { kind: 'circle' | 'person'; id: string; role: 'viewer' | 'editor' }[];
+    /** The agent, as `agent:<client name>`. */
+    by: string;
+    /** When it asked, in ms since the epoch. */
+    at: number;
 }
 
 export interface Document {
@@ -106,6 +121,7 @@ export interface NoteFileContent {
     viewerCircleIds?: string[]; // Circles shared with as viewers (#682)
     viewerRecipients?: string[]; // Their members
     lastEditedBy?: string;
+    shareRequest?: ShareRequest;
 }
 
 export interface CollaborationInviteContent {

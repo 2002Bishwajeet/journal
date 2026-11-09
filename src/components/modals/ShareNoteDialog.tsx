@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { ExternalLink, Globe, Info, Loader2, Lock, Users } from 'lucide-react';
+import { ExternalLink, Globe, Info, Loader2, Lock, Share2, Users } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -16,6 +16,8 @@ import { Notice, ShareGeneralAccess, ShareLinkPreview } from '@/components/share
 import { useSheetMode } from '@/hooks/useSheetMode';
 import { useShareAccess } from '@/hooks/useShareAccess';
 import { useMakeNotesPublic } from '@/hooks/useMakeNotesPublic';
+import { useClearShareRequest } from '@/hooks/useShareRequest';
+import { describeRequest } from '@/lib/share/shareRequest';
 import { useMissingPermissions } from '@/hooks/auth/useMissingPermissions';
 import { journalDriveRequest } from '@/hooks/auth/useYouAuthAuthorization';
 import {
@@ -87,6 +89,13 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
     const publishing = useMakeNotesPublic(noteId);
     const metadata = access.note?.metadata;
     const isPublic = !!metadata?.isPublic;
+    // An agent's share_note request (#325): loaded into the controls below, and dropped once
+    // the owner shares from here or declines it.
+    const request = metadata?.shareRequest;
+    const clearRequest = useClearShareRequest();
+    const resolveRequest = () => {
+        if (request) void clearRequest(noteId);
+    };
 
     const [confirm, setConfirm] = useState<keyof typeof CONFIRMS | null>(null);
     const [pendingPublic, setPendingPublic] = useState<string[]>([]);
@@ -98,6 +107,8 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
     const saveAndClose = async () => {
         const result = await access.save();
         if (!result.shared) return;
+        // Done answers a request for people; a request to go public waits for Make public
+        if (request?.access !== 'public') resolveRequest();
         if (result.readOnlyDriveUrl) setReadOnlyDriveUrl(result.readOnlyDriveUrl);
         else onClose();
     };
@@ -109,7 +120,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
 
     const handleMakePublic = (extraIds: string[]) => {
         if (!access.isShared) {
-            void publishing.makePublic(extraIds);
+            void publishing.makePublic(extraIds).then((ok) => ok && resolveRequest());
             return;
         }
         setPendingPublic(extraIds);
@@ -118,8 +129,9 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
 
     const onConfirm = async () => {
         if (confirm === 'people') await saveAndClose();
-        else if (confirm === 'stop') await access.stopSharing();
-        else if (confirm === 'public' && (await access.stopSharing())) await publishing.makePublic(pendingPublic);
+        else if (confirm === 'stop') {
+            if (await access.stopSharing()) resolveRequest();
+        } else if (confirm === 'public' && (await access.stopSharing()) && (await publishing.makePublic(pendingPublic))) resolveRequest();
     };
 
     const handleOpenChange = (open: boolean) => {
@@ -177,6 +189,24 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
 
     const controls = (
         <div className="flex min-w-0 flex-col gap-8">
+            {request && (
+                <div className="flex min-w-0 flex-col gap-2" role="group" aria-label="Share request">
+                    <Notice icon={Share2}>
+                        {describeRequest(request)}{' '}
+                        {request.access === 'public'
+                            ? 'To agree, use Make public under General access.'
+                            : 'Its changes are filled in below: check them, then press Done.'}
+                    </Notice>
+                    {access.requestRefused.length > 0 && (
+                        <ul className="flex flex-col gap-1 pl-11 text-sm text-muted-foreground">
+                            {access.requestRefused.map((reason) => <li key={reason}>{reason}</li>)}
+                        </ul>
+                    )}
+                    <Button variant="outline" size="sm" className="self-start max-sm:h-11" disabled={busy} onClick={resolveRequest}>
+                        Decline request
+                    </Button>
+                </div>
+            )}
             <div className="flex min-w-0 flex-col gap-3">
                 {isPublic && !inSharedFolder && (
                     <Notice icon={Info}>The public link is on. Sharing with people turns it off. {EXCLUSIVE}</Notice>

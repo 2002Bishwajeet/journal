@@ -78,6 +78,8 @@ function fakeDrive(notes: Stored[], { readDelayMs = 0 } = {}) {
             throw new Error('the real loadImage must never be reached from a script');
         },
         clientName: () => 'test',
+        ownerIdentity: () => 'owner.dotyou.cloud',
+        shareLink: (id) => `https://journal.test/share/owner.dotyou.cloud/${id}`,
     };
     return { deps, writes, reads };
 }

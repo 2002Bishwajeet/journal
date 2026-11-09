@@ -208,6 +208,14 @@ async function markSharedWithMe(docId: string, authorOdinId: string): Promise<vo
     await updateSearchIndexMetadata(docId, entry.title, { ...entry.metadata, authorOdinId });
 }
 
+/** Leaves an agent's share_note request on a local note, as the MCP's write would after a pull (#325). */
+async function seedShareRequest(docId: string, request: import('@/types').ShareRequest): Promise<void> {
+    const { getSearchIndexEntry, updateSearchIndexMetadata } = await import('@/lib/db');
+    const entry = await getSearchIndexEntry(docId);
+    if (!entry) throw new Error(`No note ${docId} on this device`);
+    await updateSearchIndexMetadata(docId, entry.title, { ...entry.metadata, shareRequest: request });
+}
+
 /**
  * Leaves exactly 6 unsynced items for Settings → Diagnostics (#800): three notes, a folder, an
  * image and a note delete. A note and the folder also carry an error; those two are in backoff, so a
@@ -454,7 +462,7 @@ if (E2E_ORIGINS.includes(location.origin)) {
     // Set by a spec's init script before the page loads (#905).
     e2eSwitches.sessionRestoreDelayMs = Number(localStorage.getItem('e2e-session-restore-delay-ms')) || 0;
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, seedCollaborativeNote, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, seedCollaborativeNote, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe, seedShareRequest }),
         writable: false,
         configurable: false,
         enumerable: false,

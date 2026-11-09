@@ -102,6 +102,10 @@ export type WriteDeps = ReadDeps & {
     loadImage(image: string): Promise<PreparedImage>;
     /** The MCP client's `clientInfo.name` from the initialize handshake ('' if absent). */
     clientName(): string;
+    /** The owner's identity, whose drive this is. */
+    ownerIdentity(): string;
+    /** A note's link in Journal (`noteShareUrl`), the one the Share dialog copies (#325). */
+    shareLink(id: string): string;
 };
 
 const MAX_ATTEMPTS = 3;
@@ -147,7 +151,7 @@ export function liveBlockLayoutWarnings(markdown: string): string[] {
     return warnings;
 }
 
-function assertWritable(grants: AgentGrants, note: NoteForEdit | null, id: string): asserts note is NoteForEdit {
+export function assertWritable(grants: AgentGrants, note: NoteForEdit | null, id: string): asserts note is NoteForEdit {
     const access = note ? noteAccess(grants, note.summary) : 'none';
     if (!note || access === 'none') throw new Error(`Note not found: ${id}`);
     if (access === 'read') throw new Error(`Note is read-only for agents: ${id}`);
@@ -165,7 +169,7 @@ interface EditResult {
     modified: string;
 }
 
-async function editWithRetry(
+export async function editWithRetry(
     deps: WriteDeps,
     id: string,
     // May return image payload keys the edit stops using, to delete with the upload.

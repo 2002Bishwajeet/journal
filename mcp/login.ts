@@ -4,14 +4,13 @@ import * as readline from 'node:readline';
 import { spawn } from 'node:child_process';
 import { createEccPair, finalizeAuthentication, getRegistrationParams } from '@homebase-id/js-lib/auth';
 import { getDomainFromUrl } from '@homebase-id/js-lib/helpers';
-import { JOURNAL_MCP_APP_ID, JOURNAL_MCP_APP_NAME, JOURNAL_MCP_APP_SLUG, mcpDriveRequest } from './config';
+import { JOURNAL_MCP_APP_ID, JOURNAL_MCP_APP_NAME, JOURNAL_MCP_APP_SLUG, appOrigin, mcpDriveRequest } from './config';
 import { saveCredentials } from './credentials';
 import { decodeMcpLoginCode } from '@/lib/mcpLoginCode';
 
 // Same identity validation as useYouAuthAuthorization.ts's checkIdentity (src/hooks/auth/useYouAuthAuthorization.ts:107-127).
 const IDENTITY_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]{2,25}(?::\d{1,5})?$/i;
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
-const DEFAULT_APP_ORIGIN = 'https://journal.cloudx.run';
 const NO_BROWSER_HINT = 'Over SSH? Re-run with --no-browser.';
 
 async function checkIdentity(odinId: string): Promise<boolean> {
@@ -116,8 +115,7 @@ function promptForCode(): Promise<string> {
 }
 
 async function loginWithPastedCode(identity: string, eccKey: Awaited<ReturnType<typeof createEccPair>>): Promise<string> {
-    const origin = (process.env.JOURNAL_MCP_APP_ORIGIN || DEFAULT_APP_ORIGIN).replace(/\/+$/, '');
-    const authUrl = await buildAuthUrl(identity, `${origin}/mcp/code`, eccKey.publicKey);
+    const authUrl = await buildAuthUrl(identity, `${appOrigin()}/mcp/code`, eccKey.publicKey);
     console.error(
         `Open this URL in any browser to approve Journal MCP, then paste the code it shows:\n${authUrl}\n`
     );

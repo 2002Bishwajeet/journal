@@ -9,6 +9,7 @@ import { CALLOUT_VARIANTS } from '@/components/editor/nodes/calloutVariants';
 import { GUIDE_INDEX, GUIDE_SECTION_IDS, guideSection } from './authoringGuide';
 import * as readTools from './read';
 import * as writeTools from './write';
+import * as shareTools from './share';
 import { liveBlockLayoutWarnings, type WriteDeps } from './write';
 
 /** Shared by the tools that take markdown, in place of the full guide. */
@@ -244,6 +245,38 @@ export const TOOLS: AnyJournalTool[] = [
         readOnly: false,
         destructive: true,
         execute: async (deps, { id }) => ({ data: await writeTools.deleteNote(deps, { id }) }),
+    }),
+    defineTool({
+        name: 'get_sharing',
+        title: 'Get sharing',
+        description:
+            'Who can see a granted Journal note: access "private", "public" (anyone with the link) or "people" (the circles and people in `with`, each with a role), ' +
+            'its link unless private, whether it is public because it sits in a shared folder, and a share_note request still waiting for the owner (`pending`). ' +
+            'Circles are listed by id.',
+        input: z.object({ id: z.string() }),
+        readOnly: true,
+        execute: async (deps, { id }) => ({ data: await shareTools.getSharing(deps, { id }) }),
+    }),
+    defineTool({
+        name: 'share_note',
+        title: 'Share note',
+        description:
+            'Set who can see a Journal note with Read+write access, one call for every kind: access "private", "public" (anyone with the link can read it) or "people". ' +
+            'For "people", `with` is the full set (not a change): { kind: "person", id: their Homebase identity } or { kind: "circle", id: the circle\'s id or name }, role "viewer" (default) or "editor" (circles only). ' +
+            'Leave someone out of `with` to remove them. A note is public or shared with people, never both. ' +
+            'Making a public note private happens at once. Anything else is a request the owner confirms in Journal (status "pending"), and needs them to turn on "Let agents ask to share notes" in Settings → Agent access; ' +
+            'a newer request replaces an older one, and asking for what is already so (status "unchanged") drops it. ' +
+            'Returns the note\'s link unless private. A note in a shared folder is public through the folder: move it with update_note folderId instead.',
+        input: z.object({
+            id: z.string(),
+            access: z.enum(['private', 'public', 'people']),
+            with: z
+                .array(z.object({ kind: z.enum(['person', 'circle']), id: z.string(), role: z.enum(['viewer', 'editor']).optional() }))
+                .optional(),
+        }),
+        readOnly: false,
+        destructive: true,
+        execute: async (deps, args) => ({ data: await shareTools.shareNote(deps, args) }),
     }),
     defineTool({
         name: 'set_note_cover',

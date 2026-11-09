@@ -5,6 +5,7 @@ import { AgentGrantsDriveProvider } from '@/lib/homebase/AgentGrantsDriveProvide
 import { toMarkdown, type LinkTarget } from '@/lib/agent/editEngine';
 import { buildPublicCard } from '@/lib/share/publicCard';
 import { setFolderAccess, type AgentAccess } from '@/lib/agent/grants';
+import { noteShareUrl } from '@/lib/share/sharedFolder';
 import type { HomebaseFile } from '@homebase-id/js-lib/core';
 import type { PreparedImage } from '@/lib/images/imageBytes';
 import type { DocumentMetadata, NoteFileContent } from '@/types';
@@ -12,6 +13,7 @@ import type { NoteSummary } from '@/lib/agent/tools/read';
 import { VersionConflictError, type NoteEdit, type NoteForEdit, type WriteDeps } from '@/lib/agent/tools/write';
 import type { McpCredentials } from './credentials';
 import { createClient } from './client';
+import { appOrigin } from './config';
 
 export function toNoteSummary(file: HomebaseFile<NoteFileContent>): NoteSummary | null {
     const uniqueId = file.fileMetadata.appData.uniqueId;
@@ -122,6 +124,7 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
             viewerCircleIds: content.viewerCircleIds,
             viewerRecipients: content.viewerRecipients,
             lastEditedBy: content.lastEditedBy,
+            shareRequest: content.shareRequest,
         };
 
         return {
@@ -230,5 +233,7 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         setNotePublic,
         trashNote,
         grantFolder,
+        ownerIdentity: () => creds.identity,
+        shareLink: (id) => noteShareUrl(appOrigin(), creds.identity, id),
     };
 }

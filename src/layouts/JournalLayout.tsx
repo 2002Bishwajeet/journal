@@ -68,6 +68,7 @@ import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
 import { syncThemeColor } from "@/lib/themeColor";
 import { markBoot } from "@/lib/bootProgress";
+import { ShareRequestNotice } from "@/components/share/ShareRequestNotice";
 
 export default function JournalLayout() {
   // Initialize theme preference & system listener at root level
@@ -411,6 +412,12 @@ export default function JournalLayout() {
           onTrash: (id) => noteActions.deleteAndSelectNeighbour(id, { openNeighbour: !isPhone }),
           onRemoveFromList: removeSharedNote,
         }}
+        notice={
+          <ShareRequestNotice
+            note={notes.find((n) => n.docId === (isDesktop ? activeTabId : noteId))}
+            onReview={setShareNote}
+          />
+        }
       />
 
       {/* Focus mode exit pill for touch layouts; desktop has an Exit button in the toolbar. */}

@@ -74,5 +74,11 @@ export function createLocalWriteDeps(): WriteDeps {
             throw new Error("Images can't be added here");
         },
         clientName: () => CLIENT_NAME,
+        ownerIdentity: () => {
+            throw new Error("Sharing notes isn't available here.");
+        },
+        shareLink: () => {
+            throw new Error("Sharing notes isn't available here.");
+        },
     };
 }

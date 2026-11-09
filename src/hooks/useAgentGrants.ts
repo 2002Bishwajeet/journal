@@ -97,5 +97,9 @@ export function useAgentGrants() {
         isLoaded: data !== undefined,
         setFolder: (folderId: string, access: AgentAccess) => mutation.mutate(setFolderAccess(grants, folderId, access)),
         setNote: (noteId: string, access: AgentAccess | null) => mutation.mutate(setNoteAccess(grants, noteId, access)),
+        setAllowShareRequests: (allow: boolean) => {
+            const { allowShareRequests: _, ...rest } = grants;
+            mutation.mutate(allow ? { ...rest, allowShareRequests: true } : rest);
+        },
     };
 }

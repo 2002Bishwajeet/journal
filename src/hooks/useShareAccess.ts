@@ -19,6 +19,7 @@ import {
     type ShareCircle,
     type ShareRole,
 } from '@/lib/share/shareAccess';
+import { requestDraft } from '@/lib/share/shareRequest';
 
 export const PEOPLE_UNSUPPORTED = 'Your Homebase server is too old to share a note with a person. Update it to use this.';
 
@@ -59,9 +60,14 @@ export function useShareAccess(noteId: string, enabled: boolean) {
     });
 
     const saved = accessFromMetadata(note?.metadata);
+    // An agent's request to share with people, or to stop, starts as the draft (#325). One that
+    // names no circle or person the owner has is shown refused, never as "stop sharing".
+    const request = note?.metadata.shareRequest;
+    const requested = enabled && request && request.access !== 'public' && !circlesFetch.isLoading ? requestDraft(request, circles) : null;
+    const requestedEntries = requested && (request?.access === 'private' || requested.entries.length > 0) ? requested.entries : null;
     const [draft, setDraft] = useState<AccessEntry[] | null>(null);
-    const entries = draft ?? saved;
-    const isDirty = draft !== null && !sameAccess(draft, saved);
+    const entries = draft ?? requestedEntries ?? saved;
+    const isDirty = !sameAccess(entries, saved);
     const [isSaving, setIsSaving] = useState(false);
 
     const [query, setQuery] = useState('');
@@ -136,6 +142,8 @@ export function useShareAccess(noteId: string, enabled: boolean) {
         isLoading: circlesFetch.isLoading || connections.isLoading,
         circles,
         circleName,
+        /** The parts of an agent's request that can't be shared with (#325). */
+        requestRefused: requested?.refused ?? [],
         query,
         setQuery: (value: string) => {
             setQuery(value);

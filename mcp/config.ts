@@ -8,6 +8,11 @@ export const JOURNAL_MCP_APP_ID = '9fdd7bae5e9c453e8858b775ec892aee';
 export const JOURNAL_MCP_APP_SLUG = 'journal-mcp';
 export const JOURNAL_MCP_APP_NAME = 'Journal MCP';
 
+/** The Journal app the MCP's login page and note links point at: JOURNAL_MCP_APP_ORIGIN, or the hosted app. */
+export function appOrigin(): string {
+    return (process.env.JOURNAL_MCP_APP_ORIGIN || 'https://journal.cloudx.run').replace(/\/+$/, '');
+}
+
 // The MCP app's own drive request: Read+Write on the same JOURNAL_DRIVE the app uses, but
 // no React/Comment, no circle drives — an agent never needs those (#167). It still asks for the
 // app's subscriptions and attributes: if its consent is the first to create the drive, the drive
