@@ -9,7 +9,7 @@ const out = `${dir}png/`;
 mkdirSync(out, { recursive: true });
 
 const browser = await chromium.launch();
-const page = await browser.newPage();
+let page = await browser.newPage();
 
 async function shot(url, width, height, file, { transparent = false } = {}) {
   await page.setViewportSize({ width, height });
@@ -39,6 +39,12 @@ await shot(`${tpl}board.html`, 1920, 1440, 'board.png');
 await shot(`${tpl}social-card.html`, 1200, 630, 'social-card-light.png');
 await shot(`${tpl}social-card.html?theme=dark&kicker=Agents&title=${encodeURIComponent('Agents build live, interactive pages inside your notes.')}`, 1200, 630, 'social-card-dark.png');
 await shot(`${tpl}screenshot-frame.html`, 1600, 1000, 'screenshot-frame-example.png');
+// The README cover at 2x for both GitHub themes, and the light one at 1x for the repo's social preview.
+await shot(`${tpl}readme-banner.html`, 1280, 640, 'social-preview.png');
+await page.close();
+page = await browser.newPage({ deviceScaleFactor: 2 });
+await shot(`${tpl}readme-banner.html`, 1280, 640, 'readme-banner-light.png');
+await shot(`${tpl}readme-banner.html?theme=dark`, 1280, 640, 'readme-banner-dark.png');
 await browser.close();
 
 // favicon.ico with PNG payloads (supported by every current browser).
