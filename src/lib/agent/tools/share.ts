@@ -25,7 +25,7 @@ export interface SharingState {
     link?: string;
     with: AccessEntry[];
     inSharedFolder: boolean;
-    pending?: { access: ShareKind; with?: AccessEntry[]; by: string; at: string };
+    pending?: Omit<ShareRequest, 'at'> & { at: string };
 }
 
 export interface ShareResult {
@@ -59,16 +59,13 @@ export async function getSharing(deps: WriteDeps, { id }: { id: string }): Promi
         ...(access !== 'private' && { link: deps.shareLink(id) }),
         with: accessFromMetadata(note.metadata),
         inSharedFolder: (await inSharedFolder(deps, note)) !== undefined,
-        ...(request && {
-            pending: { access: request.access, ...(request.with && { with: request.with }), by: request.by, at: new Date(request.at).toISOString() },
-        }),
+        ...(request && { pending: { ...request, at: new Date(request.at).toISOString() } }),
     };
 }
 
 /** `with` as the share stores it, or why it can't be shared with. */
-function targetEntries(deps: WriteDeps, entries: ShareEntryInput[]): AccessEntry[] {
+function targetEntries(owner: string, entries: ShareEntryInput[]): AccessEntry[] {
     if (entries.length === 0) throw new Error('share_note: access "people" needs at least one person or circle in `with`');
-    const owner = normalizeOdinId(deps.ownerIdentity());
     return entries.map(({ kind, id, role = 'viewer' }): AccessEntry => {
         if (kind === 'circle') {
             const circle = id.trim();
@@ -96,23 +93,23 @@ export async function shareNote(
 ): Promise<ShareResult> {
     const { id, access } = params;
     if (access !== 'people' && params.with !== undefined) throw new Error(`share_note: \`with\` is only for access "people", not "${access}"`);
-    const target = access === 'people' ? targetEntries(deps, params.with ?? []) : [];
+    const owner = normalizeOdinId(deps.ownerIdentity());
+    const target = access === 'people' ? targetEntries(owner, params.with ?? []) : [];
 
     const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
     assertWritable(grants, note, id);
     const { metadata } = note;
-    const owner = normalizeOdinId(deps.ownerIdentity());
     if (metadata.authorOdinId && normalizeOdinId(metadata.authorOdinId) !== owner) {
         throw new Error(`share_note: only the owner can share a note shared with them: ${id}`);
     }
 
     const current = kindOf(metadata);
-    const link = deps.shareLink(id);
+    const shared = { id, access, ...(access !== 'private' && { link: deps.shareLink(id) }), ...(access === 'people' && { with: target }) };
     const unchanged = access === current && (access !== 'people' || sameAccess(accessFromMetadata(metadata), target));
     if (unchanged) {
         // What the agent asks for is already so, so an older request is dropped.
-        if (metadata.shareRequest) await editWithRetry(deps, id, () => {}, { metadata: { shareRequest: undefined } });
-        return { id, status: 'unchanged', access, ...(access !== 'private' && { link }), ...(access === 'people' && { with: target }) };
+        if (metadata.shareRequest) await editWithRetry(deps, id, () => {}, { metadata: { shareRequest: undefined }, fetched: [grants, note] });
+        return { ...shared, status: 'unchanged' };
     }
 
     const folder = await inSharedFolder(deps, note);
@@ -141,19 +138,12 @@ export async function shareNote(
         by: agentEditor(deps.clientName()),
         at: Date.now(),
     };
-    await editWithRetry(deps, id, () => {}, { metadata: { shareRequest } });
+    await editWithRetry(deps, id, () => {}, { metadata: { shareRequest }, fetched: [grants, note] });
     const asked =
         access === 'public'
             ? `Asked the owner to make the note public: anyone on the web could read it.${current === 'people' ? ' The people it is shared with would lose access.' : ''}`
             : access === 'people'
               ? 'Asked the owner to share the note with these people.'
               : 'Asked the owner to stop sharing the note.';
-    return {
-        id,
-        status: 'pending',
-        access,
-        ...(access !== 'private' && { link }),
-        ...(access === 'people' && { with: target }),
-        note: `${asked} ${PENDING_NOTE}`,
-    };
+    return { ...shared, status: 'pending', note: `${asked} ${PENDING_NOTE}` };
 }

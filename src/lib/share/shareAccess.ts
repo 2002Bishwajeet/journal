@@ -72,6 +72,11 @@ export function sameAccess(a: AccessEntry[], b: AccessEntry[]): boolean {
     return a.length === b.length && b.every((e) => keys.has(key(e)));
 }
 
+/** Why a circle can't be shared with, if it can't. */
+export function circleDisabledReason(c: ShareCircle): string | undefined {
+    return c.disabled ? 'Circle is disabled' : c.memberCount === 0 ? 'No members' : undefined;
+}
+
 /**
  * The circles and connections matching `query` that aren't on the note yet: circles first,
  * then people, each alphabetical. A circle with no members is listed but can't be added,
@@ -103,7 +108,7 @@ export function searchCandidates({
             id: c.id,
             label: c.name,
             memberCount: c.memberCount,
-            disabledReason: c.disabled ? 'Circle is disabled' : c.memberCount === 0 ? 'No members' : undefined,
+            disabledReason: circleDisabledReason(c),
         }))
         .sort(byLabel);
     const personRows = [...new Set(connections.map((c) => c.toLowerCase()))]

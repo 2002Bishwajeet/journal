@@ -87,7 +87,7 @@ function parseAccessMap(value: unknown): Record<string, AgentAccess> {
 export function parseGrants(json: unknown): AgentGrants {
     if (typeof json !== 'object' || json === null) return EMPTY_GRANTS;
 
-    const candidate = json as { version?: unknown; folders?: unknown; notes?: unknown };
+    const candidate = json as { version?: unknown; folders?: unknown; notes?: unknown; allowShareRequests?: unknown };
     if (
         candidate.version !== 1 ||
         typeof candidate.folders !== 'object' || candidate.folders === null ||
@@ -100,6 +100,6 @@ export function parseGrants(json: unknown): AgentGrants {
         version: 1,
         folders: parseAccessMap(candidate.folders),
         notes: parseAccessMap(candidate.notes),
-        ...((json as { allowShareRequests?: unknown }).allowShareRequests === true && { allowShareRequests: true }),
+        ...(candidate.allowShareRequests === true && { allowShareRequests: true }),
     };
 }

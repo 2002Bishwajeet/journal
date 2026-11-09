@@ -201,19 +201,20 @@ async function openNoteJSON(): ReturnType<JournalE2EHooks['openNoteJSON']> {
 }
 
 /** Gives a note on this device an author other than the identity, as a note shared with it has (#947). */
-async function markSharedWithMe(docId: string, authorOdinId: string): Promise<void> {
-    const { getSearchIndexEntry, updateSearchIndexMetadata } = await import('@/lib/db');
-    const entry = await getSearchIndexEntry(docId);
-    if (!entry) throw new Error(`No note ${docId} on this device`);
-    await updateSearchIndexMetadata(docId, entry.title, { ...entry.metadata, authorOdinId });
+function markSharedWithMe(docId: string, authorOdinId: string): Promise<void> {
+    return patchLocalMetadata(docId, { authorOdinId });
 }
 
 /** Leaves an agent's share_note request on a local note, as the MCP's write would after a pull (#325). */
-async function seedShareRequest(docId: string, request: import('@/types').ShareRequest): Promise<void> {
+function seedShareRequest(docId: string, request: import('@/types').ShareRequest): Promise<void> {
+    return patchLocalMetadata(docId, { shareRequest: request });
+}
+
+async function patchLocalMetadata(docId: string, patch: Partial<import('@/types').DocumentMetadata>): Promise<void> {
     const { getSearchIndexEntry, updateSearchIndexMetadata } = await import('@/lib/db');
     const entry = await getSearchIndexEntry(docId);
     if (!entry) throw new Error(`No note ${docId} on this device`);
-    await updateSearchIndexMetadata(docId, entry.title, { ...entry.metadata, shareRequest: request });
+    await updateSearchIndexMetadata(docId, entry.title, { ...entry.metadata, ...patch });
 }
 
 /**
