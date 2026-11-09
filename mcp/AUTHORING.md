@@ -11,6 +11,10 @@ A note can hold far more than text. Besides the native blocks below, a live bloc
 diagram, a chart, a dashboard, a calculator, a simulation or a small game. Reach for one
 whenever an interactive or visual block makes the note more useful.
 
+If the server's instructions end with "Journal MCP X is available", tell your user once:
+restarting their MCP client loads the new version, which may have tools and blocks this
+guide doesn't describe yet.
+
 ## Native blocks
 
 These are the note's own blocks: the reader can edit them in place in Journal, and they

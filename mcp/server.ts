@@ -1,6 +1,7 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createJournalMcpServer } from './createServer';
 import { loadCredentials, deleteCredentials } from './credentials';
+import { checkForUpdate, updateNotice } from './updateCheck';
 
 const USAGE = `Usage: journal-mcp [login [--no-browser] [identity] | logout | --help]
 
@@ -56,7 +57,10 @@ async function main(): Promise<void> {
     // Deferred: pulls in the Homebase drive providers and Yjs markdown extraction, which
     // --help/login/logout have no need for.
     const { createDriveDeps } = await import('./drive');
-    const server = createJournalMcpServer(createDriveDeps(creds));
+    // The packaged build defines JOURNAL_MCP_VERSION (mcp/vite.config.ts); a checkout has none and skips the check.
+    const version = process.env.JOURNAL_MCP_VERSION;
+    const server = createJournalMcpServer(createDriveDeps(creds), updateNotice(version));
+    if (version) void checkForUpdate();
     await server.connect(new StdioServerTransport());
     // Correct stdio behaviour for an MCP server: exit when the client closes our stdin
     // instead of lingering as an orphaned process.
