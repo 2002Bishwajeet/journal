@@ -1,10 +1,11 @@
 name: Release MCP package
 
-# Bumps journal-mcp (mcp/package/package.json, the plugin's version and URLs, and the site's setup guide), builds and
-# smoke-tests it, then commits, tags and pushes the bump (with the RELEASE_DEPLOY_KEY deploy
-# key, like manual-release.yml) and attaches the package to an `mcp-v<version>` GitHub
-# release, and publishes it to npm as `journal-mcp` through trusted publishing (OIDC: no token,
-# provenance is automatic). The Claude Code plugin (plugins/journal/.mcp.json) runs it through npx.
+# Bumps journal-mcp (mcp/package/package.json), builds and smoke-tests it, publishes it to npm as
+# `journal-mcp` through trusted publishing (OIDC: no token, provenance is automatic), then commits,
+# tags and pushes the bump (with the RELEASE_DEPLOY_KEY deploy key, like manual-release.yml) and
+# attaches the package to an `mcp-v<version>` GitHub release. The Claude Code plugin
+# (plugins/journal/.mcp.json) and the site's setup guide run `npx -y journal-mcp@latest`, so they
+# need no bump; the plugin's own version changes only when the plugin does.
 # Releases made with GITHUB_TOKEN don't trigger the `release: published` deploy workflows.
 
 on:
@@ -44,24 +45,18 @@ jobs:
           cache: npm
 
       - name: Bump version
-        run: |
-          OLD=$(node -p "require('./mcp/package/package.json').version")
-          (cd mcp/package && npm version ${{ github.event.inputs.version_type }} --no-git-tag-version)
-          NEW=$(node -p "require('./mcp/package/package.json').version")
-          sed -i "s|mcp-v$OLD/journal-mcp-$OLD.tgz|mcp-v$NEW/journal-mcp-$NEW.tgz|g" plugins/journal/.mcp.json plugins/journal/commands/login.md site/agents.html
-          sed -i "s|\"version\": \"$OLD\"|\"version\": \"$NEW\"|" plugins/journal/.claude-plugin/plugin.json
-          git diff --stat
-
-      - name: Check the plugin points at this version
         id: version
         run: |
-          VERSION=$(node -p "require('./mcp/package/package.json').version")
-          grep -rq "mcp-v$VERSION/journal-mcp-$VERSION.tgz" plugins/journal \
-            || { echo "plugins/journal doesn't reference journal-mcp $VERSION"; exit 1; }
-          # The site's setup guide (site/agents.html) runs the same package through npx.
-          ! grep -o "mcp-v[0-9.]*/journal-mcp-[0-9.]*.tgz" site/agents.html | grep -qv "mcp-v$VERSION/journal-mcp-$VERSION.tgz" \
-            || { echo "site/agents.html points at another journal-mcp than $VERSION"; exit 1; }
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          (cd mcp/package && npm version ${{ github.event.inputs.version_type }} --no-git-tag-version)
+          echo "version=$(node -p "require('./mcp/package/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Check the clients run journal-mcp@latest
+        run: |
+          # A pinned release URL would leave installed clients behind (#1035).
+          grep -q "journal-mcp@latest" plugins/journal/.mcp.json \
+            || { echo "plugins/journal/.mcp.json doesn't run journal-mcp@latest"; exit 1; }
+          ! grep -rn "releases/download/mcp-v" plugins/journal site/agents.html \
+            || { echo "plugins/journal or site/agents.html still pins a journal-mcp release"; exit 1; }
 
       - name: Authenticate to Github packages
         run: |
@@ -92,7 +87,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add mcp/package/package.json plugins/journal site/agents.html
+          git add mcp/package/package.json
           git commit -m "chore(mcp): $VERSION [skip ci]"
           git tag "mcp-v$VERSION"
           git push origin HEAD:main "mcp-v$VERSION"
