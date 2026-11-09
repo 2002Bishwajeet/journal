@@ -62,9 +62,11 @@ function json(x: unknown, notes: string[] = [], untrusted = false) {
  * Lives outside mcp/server.ts (the CLI entry) so tests can connect it to an
  * in-memory transport with fake deps — no SDK/drive access needed for the real server to
  * be exercised. `clientName` comes from this server's own initialize handshake.
+ * `updateNotice` (mcp/updateCheck.ts) ends the instructions when a newer version is out.
  */
-export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName' | 'loadImage'>): McpServer {
-    const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' }, { instructions: INSTRUCTIONS });
+export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName' | 'loadImage'>, updateNotice?: string): McpServer {
+    const instructions = updateNotice ? `${INSTRUCTIONS}\n\n${updateNotice}` : INSTRUCTIONS;
+    const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' }, { instructions });
     const deps: WriteDeps = { ...driveDeps, loadImage, clientName: () => server.server.getClientVersion()?.name ?? '' };
 
     for (const tool of TOOLS) {

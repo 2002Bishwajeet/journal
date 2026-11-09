@@ -46,4 +46,6 @@ skills-lock.json
 
 # MCP package build
 mcp/package/dist/
+mcp/package/README.md
+mcp/package/LICENSE
 mcp/*.tgz

@@ -20,8 +20,18 @@ The plugin runs the packaged server from the `mcp-v*` GitHub release via `npx`; 
 
 To release a new server version, run the **Release MCP package** workflow and pick patch,
 minor or major. It bumps `mcp/package/package.json` and the plugin's version and URLs,
-builds and smoke-tests the package, then pushes the bump and tag `mcp-v<version>` and
-creates the release.
+builds and smoke-tests the package, publishes it to npm as
+[`journal-mcp`](https://www.npmjs.com/package/journal-mcp) (trusted publishing from the
+workflow, with provenance; there is no npm token), then pushes the bump and tag
+`mcp-v<version>` and creates the release with the `.tgz` attached.
+
+### Updates
+
+How clients get new versions, and the server's once-a-day stale-version notice (opt out with
+`JOURNAL_MCP_NO_UPDATE_CHECK=1`), are described in the npm package's README,
+[`README.npm.md`](README.npm.md#updates). `npm run mcp:pack` turns that file into
+`mcp/package/README.md`, filling in the tool list from the server, and copies the repo's
+`LICENSE` next to it.
 
 ## Setup (from a checkout)
 
