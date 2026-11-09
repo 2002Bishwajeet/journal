@@ -1,3 +1,7 @@
+use std::fmt;
+use std::io;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tiny_http::{Header, Response, Server};
 
@@ -22,19 +26,77 @@ use tiny_http::{Header, Response, Server};
 /// Never make this dynamic, and never change the value once shipped.
 const PORT: u16 = 47821;
 
+/// A loopback address on `PORT` that something else already holds (or that
+/// failed to bind for any other reason).
+#[derive(Debug)]
+struct BindError {
+    addr: SocketAddr,
+    source: Box<dyn std::error::Error + Send + Sync>,
+}
+
+impl fmt::Display for BindError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "can't bind {}: {}", self.addr, self.source)
+    }
+}
+
+/// Binds `port` on BOTH loopback families, or fails.
+///
+/// The webview loads `http://localhost:PORT`, and `localhost` may resolve to
+/// `::1` before `127.0.0.1`. Whatever answers on either address runs inside
+/// Journal's origin and can read the session token and the local database, so
+/// another process holding either one is a failed bind. The one exception: a
+/// machine with no IPv6 loopback at all (`AddrNotAvailable`), where nothing
+/// else can listen on `::1` either.
+///
+/// Loopback only. Never 0.0.0.0 / :: — that would publish the user's journal,
+/// cross-origin-isolation headers and all, to every device on the LAN.
+fn bind_loopback(port: u16) -> Result<Vec<Server>, BindError> {
+    let v4 = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
+    let v6 = SocketAddr::from((Ipv6Addr::LOCALHOST, port));
+
+    let mut servers = vec![Server::http(v4).map_err(|source| BindError { addr: v4, source })?];
+    match Server::http(v6) {
+        Ok(server) => servers.push(server),
+        Err(e)
+            if e.downcast_ref::<io::Error>().map(io::Error::kind)
+                == Some(io::ErrorKind::AddrNotAvailable) => {}
+        Err(source) => return Err(BindError { addr: v6, source }),
+    }
+    Ok(servers)
+}
+
+/// Tells the user the app can't start, then exits non-zero. Explicit, so it
+/// holds in every build — not only release builds with `panic = "abort"`.
+fn abort_on_bind_failure(err: &BindError) -> ! {
+    eprintln!("Journal can't start: {err}");
+    #[cfg(desktop)]
+    rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title("Journal")
+        .set_description(format!(
+            "Journal can't start: port {PORT} is in use by another program. \
+             Close it and try again."
+        ))
+        .set_buttons(rfd::MessageButtons::Ok)
+        .show();
+    std::process::exit(1);
+}
+
 fn header(name: &str, value: &str) -> Header {
     Header::from_bytes(name.as_bytes(), value.as_bytes()).unwrap()
 }
 
-/// Blocking HTTP server for the app's assets. Runs on its own thread.
+/// Blocking HTTP server for the app's assets. Runs on its own thread, one per
+/// bound loopback address.
 ///
 /// `asset_resolver()` reads the embedded `frontendDist` in release builds, and
 /// falls back to reading `../dist` off disk in dev builds.
-fn serve(app: tauri::AppHandle) {
-    // Loopback only. Never 0.0.0.0 — that would publish the user's journal,
-    // cross-origin-isolation headers and all, to every device on the LAN.
-    let server = Server::http(("127.0.0.1", PORT)).expect("failed to bind local asset server");
-
+///
+/// This serves static assets only. Any Rust HTTP endpoint added later (for
+/// example a file-backed filesystem) must require a per-launch secret: every
+/// local process can reach this port, not only the webview.
+fn serve(app: tauri::AppHandle, server: Server) {
     for request in server.incoming_requests() {
         let path = request.url().split('?').next().unwrap_or("/");
         let path = if path.ends_with('/') {
@@ -74,10 +136,18 @@ fn serve(app: tauri::AppHandle) {
 /// exports this as the symbol the generated Xcode / Gradle project calls.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Bind before Tauri starts, so no window ever loads a page from another
+    // process that holds the port. It also has to happen before Tauri
+    // initialises GTK: on Linux, rfd's dialog runs GTK on a thread of its own
+    // and never appears once the event loop owns GTK's main context.
+    let servers = bind_loopback(PORT).unwrap_or_else(|e| abort_on_bind_failure(&e));
+
     tauri::Builder::default()
-        .setup(|app| {
-            let handle = app.handle().clone();
-            std::thread::spawn(move || serve(handle));
+        .setup(move |app| {
+            for server in servers {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || serve(handle, server));
+            }
 
             // In dev, load the Vite dev server (`devUrl`) so HMR works; it
             // already serves the COEP/COOP headers over HTTPS. In release,
@@ -120,4 +190,66 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::TcpListener;
+
+    /// A port free on both families right now. Never `PORT`.
+    fn free_port() -> u16 {
+        loop {
+            let port = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+                .unwrap()
+                .local_addr()
+                .unwrap()
+                .port();
+            let v6_free =
+                !has_ipv6_loopback() || TcpListener::bind((Ipv6Addr::LOCALHOST, port)).is_ok();
+            if port != PORT && v6_free {
+                return port;
+            }
+        }
+    }
+
+    fn has_ipv6_loopback() -> bool {
+        TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).is_ok()
+    }
+
+    #[test]
+    fn free_port_binds_both_families() {
+        let port = free_port();
+        let servers = bind_loopback(port).expect("free port should bind");
+        let addrs: Vec<_> = servers
+            .iter()
+            .map(|s| s.server_addr().to_ip().unwrap())
+            .collect();
+        assert!(addrs.contains(&SocketAddr::from((Ipv4Addr::LOCALHOST, port))));
+        if has_ipv6_loopback() {
+            assert!(addrs.contains(&SocketAddr::from((Ipv6Addr::LOCALHOST, port))));
+        } else {
+            eprintln!("no IPv6 loopback: only checked 127.0.0.1");
+        }
+    }
+
+    #[test]
+    fn port_held_on_ipv4_fails() {
+        let port = free_port();
+        let _squatter = TcpListener::bind((Ipv4Addr::LOCALHOST, port)).unwrap();
+        let err = bind_loopback(port).err().expect("held port must not bind");
+        assert_eq!(err.addr, SocketAddr::from((Ipv4Addr::LOCALHOST, port)));
+    }
+
+    #[test]
+    fn port_held_on_ipv6_fails() {
+        if !has_ipv6_loopback() {
+            eprintln!("skipped: no IPv6 loopback on this machine");
+            return;
+        }
+        let port = free_port();
+        let _squatter = TcpListener::bind((Ipv6Addr::LOCALHOST, port)).unwrap();
+        let err = bind_loopback(port).err().expect("held port must not bind");
+        assert_eq!(err.addr, SocketAddr::from((Ipv6Addr::LOCALHOST, port)));
+    }
 }
