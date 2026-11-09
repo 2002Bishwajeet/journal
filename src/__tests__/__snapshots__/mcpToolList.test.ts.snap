@@ -467,6 +467,78 @@ exports[`MCP tools/list > lists the same tools, titles, descriptions and input s
     "title": "Delete note",
   },
   {
+    "description": "Who can see a granted Journal note: access "private", "public" (anyone with the link) or "people" (the circles and people in \`with\`, each with a role), its link unless private, whether it is public because it sits in a shared folder, and a share_note request still waiting for the owner (\`pending\`). Circles are listed by id.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "id": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "id",
+      ],
+      "type": "object",
+    },
+    "name": "get_sharing",
+    "title": "Get sharing",
+  },
+  {
+    "description": "Set who can see a Journal note with Read+write access, one call for every kind: access "private", "public" (anyone with the link can read it) or "people". For "people", \`with\` is the full set (not a change): { kind: "person", id: their Homebase identity } or { kind: "circle", id: the circle's id or name }, role "viewer" (default) or "editor" (circles only). Leave someone out of \`with\` to remove them. A note is public or shared with people, never both. Making a public note private happens at once. Anything else is a request the owner confirms in Journal (status "pending"), and needs them to turn on "Let agents ask to share notes" in Settings → Agent access; a newer request replaces an older one, and asking for what is already so (status "unchanged") drops it. Returns the note's link unless private. A note in a shared folder is public through the folder: move it with update_note folderId instead.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "access": {
+          "enum": [
+            "private",
+            "public",
+            "people",
+          ],
+          "type": "string",
+        },
+        "id": {
+          "type": "string",
+        },
+        "with": {
+          "items": {
+            "properties": {
+              "id": {
+                "type": "string",
+              },
+              "kind": {
+                "enum": [
+                  "person",
+                  "circle",
+                ],
+                "type": "string",
+              },
+              "role": {
+                "enum": [
+                  "viewer",
+                  "editor",
+                ],
+                "type": "string",
+              },
+            },
+            "required": [
+              "kind",
+              "id",
+            ],
+            "type": "object",
+          },
+          "type": "array",
+        },
+      },
+      "required": [
+        "id",
+        "access",
+      ],
+      "type": "object",
+    },
+    "name": "share_note",
+    "title": "Share note",
+  },
+  {
     "description": "Set the cover image of a Journal note with Read+write access, replacing its cover. \`image\` is an absolute path to a file on this computer (preferred: it costs no tokens) or a base64 \`data:\` URI. PNG, JPEG or WebP, at most 5 MB; metadata such as EXIF and GPS is removed before upload. Recommended size 2400×1260, at least 1200×630. The image is uploaded as is (not resized): crop it to about 1.9:1 and resize it to 2400×1260 first; the result has a \`note\` when it is too small or the wrong shape. \`positionY\` is the vertical focal point, 0 (top) to 100 (bottom), default 50. \`dark: true\` sets the cover shown in dark mode instead; the note must already have a cover. Use this rather than an image in an html block: the cover also feeds the link preview of a public note.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",

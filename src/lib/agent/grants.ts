@@ -10,6 +10,11 @@ export interface AgentGrants {
     version: 1;
     folders: Record<string, AgentAccess>;
     notes: Record<string, AgentAccess>;
+    /**
+     * "Let agents ask to share notes" (#325): share_note may leave a request for the owner to
+     * confirm. Optional so an older app reads the file as before, and drops it (off) on save.
+     */
+    allowShareRequests?: true;
 }
 
 export const EMPTY_GRANTS: AgentGrants = {
@@ -95,5 +100,6 @@ export function parseGrants(json: unknown): AgentGrants {
         version: 1,
         folders: parseAccessMap(candidate.folders),
         notes: parseAccessMap(candidate.notes),
+        ...((json as { allowShareRequests?: unknown }).allowShareRequests === true && { allowShareRequests: true }),
     };
 }

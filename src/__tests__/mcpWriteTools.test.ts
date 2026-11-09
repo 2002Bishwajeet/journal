@@ -167,6 +167,8 @@ function makeDrive(opts: { clientName?: string; beforeUpload?: (store: Map<strin
         },
         loadImage,
         clientName: () => opts.clientName ?? '',
+        ownerIdentity: () => 'owner.dotyou.cloud',
+        shareLink: (id) => `https://journal.test/share/owner.dotyou.cloud/${id}`,
     };
 
     /** A note whose doc is built by `build` (e.g. with a cover). */

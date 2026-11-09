@@ -63,6 +63,8 @@ interface JournalE2EHooks {
   seedImageUploads(title: string, images: number[][]): Promise<void>;
   /** Adds a synced note in Main that is shared with two people (#828). */
   seedCollaborativeNote(title: string): Promise<void>;
+  /** Leaves an agent's share_note request on a local note (#325). */
+  seedShareRequest(docId: string, request: import('@/types').ShareRequest): Promise<void>;
   /** Runs the sync's image upload step once. */
   uploadPendingImages(): Promise<void>;
   /** Marks the identity's share pushes as refused by its server, so Diagnostics shows the drive fixes (#848). */

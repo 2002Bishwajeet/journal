@@ -32,3 +32,8 @@ export function publicAfterMove(
 export function folderShareUrl(origin: string, identity: string, folderId: string): string {
     return `${origin}/share/${encodeURIComponent(identity)}/f/${folderId}`;
 }
+
+/** A note's link (#1002): the public page, or for a restricted note the page its people open. */
+export function noteShareUrl(origin: string, identity: string, noteId: string): string {
+    return `${origin}/share/${encodeURIComponent(identity)}/${noteId}`;
+}

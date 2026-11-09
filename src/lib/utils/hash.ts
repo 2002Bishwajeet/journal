@@ -35,6 +35,8 @@ export async function computeContentHash(
         // Likewise for circles shared with as viewers (#682)
         ...(!!metadata.viewerCircleIds?.length && { viewerCircleIds: metadata.viewerCircleIds }),
         ...(!!metadata.viewerRecipients?.length && { viewerRecipients: metadata.viewerRecipients }),
+        // Only when set, so declining an agent's share request (#325) re-uploads the note
+        ...(metadata.shareRequest && { shareRequest: metadata.shareRequest }),
     });
 
     const encoder = new TextEncoder();

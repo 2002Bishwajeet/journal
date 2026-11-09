@@ -150,7 +150,7 @@ function NoteAccessRow({
 }
 
 export default function AgentAccessSection() {
-  const { grants, isLoaded, setFolder, setNote } = useAgentGrants();
+  const { grants, isLoaded, setFolder, setNote, setAllowShareRequests } = useAgentGrants();
   const { data: folders } = useFolders().get;
   const webMcp = useWebMcpSetting();
 
@@ -189,6 +189,20 @@ export default function AgentAccessSection() {
           </div>
         )}
       </div>
+
+      {isLoaded && (
+        <div className="space-y-4">
+          <SectionHeader>Sharing</SectionHeader>
+          <div className="overflow-hidden rounded-xl border bg-card">
+            <SettingsRow
+              id="agent-share-requests"
+              label="Let agents ask to share notes"
+              description="An agent with Read + write can ask to make a note public or share it with people. Nothing is shared until you confirm it in the note's Share dialog. Agents can always make a public note private."
+              control={<Switch checked={grants.allowShareRequests === true} onCheckedChange={setAllowShareRequests} />}
+            />
+          </div>
+        </div>
+      )}
 
       {webMcp.supported && (
         <div className="space-y-4">

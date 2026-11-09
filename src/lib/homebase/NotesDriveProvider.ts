@@ -356,6 +356,7 @@ export class NotesDriveProvider {
             viewerCircleIds: metadata.viewerCircleIds,
             viewerRecipients: metadata.viewerRecipients,
             lastEditedBy: metadata.lastEditedBy,
+            shareRequest: metadata.shareRequest,
         };
         // A public note's content is stored unencrypted (world-readable). Project
         // it to a minimal, non-sensitive subset so the owner's social graph

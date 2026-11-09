@@ -154,6 +154,20 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
   Example: *"Use ~/Pictures/lisbon.jpg as the cover of my Trip plan note."*
 - `clear_note_cover` — remove a note's cover and its dark-mode cover (`id`), or with
   `dark: true` only the dark-mode cover.
+- `get_sharing` — who can see a note (`id`): `access` (`private`, `public` or `people`),
+  its link unless private, the circles and people it is shared with (`with`, circles by id),
+  whether it is public through a shared folder (`inSharedFolder`), and a `share_note`
+  request still waiting for you (`pending`). Read access is enough.
+- `share_note` — one tool for every kind of sharing (`id`, `access`, and for `people` the
+  full set `with`: `{ kind: "person", id: "<identity>" }` or `{ kind: "circle", id: "<id or
+  name>" }`, `role` `viewer` by default; `editor` is for circles only). Making a public note
+  private happens at once. Anything else (publishing, sharing with people, changing who or
+  stopping) only leaves a request: the note shows "Claude Code asks to …" with Review and
+  Decline, and nothing is shared until you confirm it in the note's Share dialog. Requests are
+  off until you turn on **Let agents ask to share notes** in Settings → Agent access. A note
+  shared with you, or in a shared folder (use `update_note` `folderId`), can't be shared this
+  way. Set `JOURNAL_MCP_APP_ORIGIN` if the links should point at another Journal than the hosted one.
+  Example: *"Make my Trip plan note public and give me the link."*
 - `run_script` — run JavaScript (`code`, optional `dryRun`) against your granted notes and
   get back only what it logs, for jobs that pick notes by what they say. It runs in a
   QuickJS WebAssembly sandbox with no network, files or timers; its `journal` functions call
@@ -167,7 +181,7 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
 
 Tools carry MCP annotations: `readOnlyHint` on the read tools, and `destructiveHint` on the
 tools that can overwrite or remove content (`update_note`, `replace_in_note`, `edit_block`,
-`delete_note`, `set_note_cover`, `clear_note_cover`, `run_script`). The server never asks for confirmation
+`delete_note`, `set_note_cover`, `clear_note_cover`, `share_note`, `run_script`). The server never asks for confirmation
 itself: your MCP client does, so if you pick "always allow" for a write tool, its writes and
 trashing happen without a prompt.
 

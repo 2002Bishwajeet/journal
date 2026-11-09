@@ -78,6 +78,8 @@ function makeDeps(): {
             store.set(id, { ...note, versionTag: note.versionTag + 1 });
             return `jrnl_img${images++}`;
         },
+        ownerIdentity: () => 'owner.dotyou.cloud',
+        shareLink: (id) => `https://journal.test/share/owner.dotyou.cloud/${id}`,
     };
     return { deps, uploadedImages: () => images, store, docOf };
 }

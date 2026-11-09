@@ -49,10 +49,11 @@ export function useMakeNotesPublic(noteId: string) {
         setNotePublic.mutate({ docId, isPublic: true, rekeyed });
     };
 
-    const makePublic = async (extraIds: string[] = []) => {
+    /** Resolves true once the note is public. */
+    const makePublic = async (extraIds: string[] = []): Promise<boolean> => {
         if (!dotYouClient) {
             toast.error('Not authenticated');
-            return;
+            return false;
         }
 
         setIsMakingPublic(true);
@@ -60,9 +61,11 @@ export function useMakeNotesPublic(noteId: string) {
             const provider = new NotesDriveProvider(dotYouClient);
             for (const docId of [noteId, ...extraIds]) await publishOne(provider, docId);
             toast.success(extraIds.length ? 'Note and linked notes are now publicly accessible' : 'Note is now publicly accessible');
+            return true;
         } catch (err) {
             console.error('Failed to make note public:', err);
             toast.error('Failed to make note public');
+            return false;
         } finally {
             setIsMakingPublic(false);
         }

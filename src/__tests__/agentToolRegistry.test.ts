@@ -7,9 +7,9 @@ describe('agent tool registry', () => {
         expect(new Set(names).size).toBe(names.length);
     });
 
-    it('marks exactly the five read tools read-only', () => {
+    it('marks exactly the six read tools read-only', () => {
         const readOnly = TOOLS.filter((tool) => tool.readOnly).map((tool) => tool.name);
-        expect(readOnly.sort()).toEqual(['get_authoring_guide', 'get_note', 'list_folders', 'list_notes', 'search_notes']);
+        expect(readOnly.sort()).toEqual(['get_authoring_guide', 'get_note', 'get_sharing', 'list_folders', 'list_notes', 'search_notes']);
     });
 
     it('converts every tool input to an object JSON Schema', () => {

@@ -343,6 +343,7 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             viewerCircleIds: content?.viewerCircleIds,
             viewerRecipients: content?.viewerRecipients,
             lastEditedBy: content?.lastEditedBy,
+            shareRequest: content?.shareRequest,
         };
 
         const contentHash = remoteBlob ? await computeContentHash(metadata, remoteBlob) : undefined;
@@ -413,6 +414,7 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             viewerCircleIds: content?.viewerCircleIds,
             viewerRecipients: content?.viewerRecipients,
             lastEditedBy: content?.lastEditedBy,
+            shareRequest: content?.shareRequest,
         };
 
         // Hash what the server holds, not the merged state: a merge that kept unpushed
