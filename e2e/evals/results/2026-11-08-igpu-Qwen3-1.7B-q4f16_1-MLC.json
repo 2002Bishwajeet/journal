@@ -1,0 +1,29 @@
+{
+  "model": "Qwen3-1.7B-q4f16_1-MLC",
+  "loadedModelId": "Qwen3-1.7B-q4f16_1-MLC",
+  "date": "2026-11-08",
+  "gpu": "igpu",
+  "adapter": {
+    "vendor": "amd",
+    "architecture": "gcn-5",
+    "shaderF16": true
+  },
+  "firstLoadMs": 3887,
+  "cached": true,
+  "tasks": [
+    {
+      "id": "find-lisbon",
+      "kind": "find",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 3664,
+      "turns": [],
+      "answer": null,
+      "calls": [],
+      "errors": [],
+      "error": "Agent error: AbortError: Failed to execute 'mapAsync' on 'GPUBuffer': Buffer was unmapped before mapping was resolved."
+    }
+  ],
+  "generationError": "Agent error: AbortError: Failed to execute 'mapAsync' on 'GPUBuffer': Buffer was unmapped before mapping was resolved."
+}

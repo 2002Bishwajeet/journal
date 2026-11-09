@@ -2,7 +2,8 @@
 // (the answer, the tools called, the note it targets), never on the wording of the answer.
 // Pure, so src/__tests__/agentEvalChecks.test.ts can run the checkers on hand-made states.
 
-export type TaskKind = 'find' | 'read' | 'edit' | 'cross' | 'refusal';
+/** `long`: reads of a ~15k-character note, the baseline for long notes (#1022). Not in the 20-task score. */
+export type TaskKind = 'find' | 'read' | 'edit' | 'cross' | 'refusal' | 'long';
 
 /** A top-level block of a note: its type, its text (list items joined by \n) and its marked runs. */
 export interface Block {
@@ -32,6 +33,51 @@ export interface EvalTask {
 }
 
 const SCRATCH = 'Scratchpad';
+const LONG_NOTE = 'Allotment diary';
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** One paragraph per month that only that month has. The start, middle and end ones are what the long-note tasks look for. */
+const MONTH_EVENTS = [
+    'This year starts with a big job: building the greenhouse at the top of the plot. Dad and I laid the slabs, bolted the aluminium frame together and fitted the glass on the one calm weekend of the month. It leans a little to the left but it kept the frost off the seedlings.',
+    'I dug over the two long beds and spread a barrow of manure on each. The soil was heavy and wet, so I stopped after an hour each time to stop it compacting under my boots.',
+    'Sowed broad beans, onion sets and the first early potatoes. I tried a new variety of potato called Casablanca on a tip from the man on plot 12.',
+    'Put up the bean poles and the netting for the peas. Lost a row of lettuce to slugs in one night, so I put down a ring of wool pellets round the next sowing.',
+    'Planted out the courgettes and squash once the risk of frost had gone. The rhubarb was ready, and I took the first big bundle home for a crumble.',
+    'The early potatoes came up well, about a bucket per row. I watered every other evening in the heat and mulched the beds with grass clippings to hold the moisture.',
+    'The beehive arrived this month. A local keeper set it up at the bottom of the plot, behind the hedge, and the bees settled in within a week. She thinks we will get our first honey next summer.',
+    'Picked runner beans every two days and gave a carrier bag to the neighbours on both sides. The courgettes got away from me again and one turned into a marrow.',
+    'Dug up the maincrop potatoes and dried them on the paths before storing them in hessian sacks. Saved seed from the best of the beans for next year.',
+    'Cleared the summer beds and sowed a green manure of field beans to protect the soil over winter. Raked the leaves into a cage to make leaf mould.',
+    'Planted 40 tulip bulbs along the fence by the gate, in red and orange. Also cut back the raspberry canes that fruited this year and tied in the new ones.',
+    'The last job of the year was pressing cider with the apple crop from the two old trees. We filled six demijohns, and the first bottle goes to the Christmas lunch.',
+];
+
+const WEATHER = [
+    'cold and bright, with hard frosts most mornings', 'grey and wet for weeks on end', 'mild, with a few sharp frosts at night',
+    'changeable, with sun and showers on the same day', 'warm and mostly dry', 'hot, with no rain for nearly three weeks',
+    'warm and close, with a few thunderstorms', 'hot at the start and then cooler and showery', 'calm and golden, the best of the year',
+    'windy, with two big storms', 'damp and foggy most days', 'cold, with one fall of snow that lasted two days',
+];
+
+const LESSONS = [
+    'order the seed potatoes earlier, before the good varieties sell out.', 'buy a second water butt for the shed roof.',
+    'label every row the day I sow it, not the week after.', 'start the slug patrol a fortnight sooner.',
+    'sow fewer courgettes, two plants are plenty for us.', 'put a timer on the hose so I do not forget it running.',
+    'pinch out the tomato side shoots every week, not every month.', 'pick little and often so nothing goes to waste.',
+    'store only the potatoes with clean skins, the damaged ones rot first.', 'clean and oil the tools before they go in the shed.',
+    'fix the gate latch before the winter winds get to it.', 'write the plan for next year while this one is fresh in my mind.',
+];
+
+/** A ~15k-character note with a heading per month (#1022): `get_note` cuts a note at 1,500 characters. */
+export const LONG_NOTE_BODY = MONTHS.map((month, i) =>
+    [
+        `## ${month}`,
+        MONTH_EVENTS[i],
+        `The weather in ${month} was ${WEATHER[i]}. I went down to the plot ${3 + (i % 4)} times, usually early on Saturday before the paths got busy. Most visits started the same way: a walk round the beds to see what the slugs and pigeons had done overnight, a look at the water butts, and a cup of tea from the flask on the bench by the shed. After that it was weeding, tying in and tidying, with the radio on low and a list in my pocket that never got finished. On the way home I stopped at the farm shop for eggs and a paper, and caught up with whoever was sitting on the bench outside it.`,
+        `Notes for next year: ${LESSONS[i]} The compost bays took the usual load of peelings, cardboard and grass clippings, and I turned the oldest bay once with the fork. The committee sent round the newsletter with the dates for the work party and the reminder about the shared trailer. I kept the receipts in the tin on the shelf and wrote the spend in the back of this diary, which came to ${12 + i * 3} pounds for the month.`,
+    ].join('\n\n'),
+).join('\n\n');
 
 /** The fixture journal, imported as markdown. Each edit task has a note of its own; the other tasks run with Scratchpad open. */
 export const FIXTURE_NOTES: { title: string; body: string; excludeFromAI?: boolean }[] = [
@@ -49,6 +95,7 @@ export const FIXTURE_NOTES: { title: string; body: string; excludeFromAI?: boole
     { title: 'Reading notes', body: 'Finish chapter four.\n\nThe ending felt rushed.' },
     { title: 'Meeting minutes', body: 'Attendees: Priya and Tom.\n\nWe will recieve the designs on Friday.' },
     { title: 'Shell tips', body: 'Run git status before you commit.\n\nUse git log to see the history.' },
+    { title: LONG_NOTE, body: LONG_NOTE_BODY },
 ];
 
 /** The fixture as importable markdown files. */
@@ -232,5 +279,22 @@ export const TASKS: EvalTask[] = [
         // One note: every accepted create_note makes another.
         check: ({ blocks, tools }) =>
             blocks !== null && /scarf for mum/i.test(texts(blocks).join('\n')) && tools.filter((t) => t === 'create_note').length === 1,
+    },
+
+    // A long note: expected to fail while get_note cuts the note at 1,500 characters.
+    {
+        id: 'long-about',
+        kind: 'long',
+        prompt: 'What is this note about?',
+        open: LONG_NOTE,
+        // Something from the start, the middle and the end of the note.
+        check: answered(/^(?=[\s\S]*greenhouse)(?=[\s\S]*\b(bees?|beehive|hive)\b)(?=[\s\S]*\b(cider|apples?)\b)/i),
+    },
+    {
+        id: 'long-section',
+        kind: 'long',
+        prompt: 'What is under the November heading?',
+        open: LONG_NOTE,
+        check: answered(/tulip/i),
     },
 ];

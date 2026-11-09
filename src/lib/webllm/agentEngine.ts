@@ -5,6 +5,7 @@
  */
 import type * as WebLLMTypes from '@mlc-ai/web-llm';
 import type { AgentEngine } from '@/lib/agent/loop/agentLoop';
+import { e2eSwitches } from '@/lib/e2e/switches';
 import { getLoadedEngine, initWebLLM } from './engine';
 
 type CompletionEngine = Pick<WebLLMTypes.MLCEngineInterface, 'chat' | 'interruptGenerate'>;
@@ -27,6 +28,7 @@ export function toAgentEngine(load: () => Promise<CompletionEngine>): AgentEngin
                     temperature: 0,
                     extra_body: { enable_thinking: false },
                 });
+                if (response.usage) e2eSwitches.onAgentUsage?.(response.usage);
                 return (response.choices[0]?.message?.content ?? '').replace(THINK_BLOCK, '');
             } finally {
                 signal?.removeEventListener('abort', interrupt);

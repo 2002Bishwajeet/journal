@@ -1,0 +1,1659 @@
+{
+  "model": "Qwen2.5-3B-Instruct-q4f16_1-MLC",
+  "loadedModelId": "Qwen2.5-3B-Instruct-q4f16_1-MLC",
+  "date": "2026-11-08",
+  "gpu": "dgpu",
+  "adapter": {
+    "vendor": "nvidia",
+    "architecture": "turing",
+    "shaderF16": true
+  },
+  "firstLoadMs": 83076,
+  "cached": false,
+  "tasks": [
+    {
+      "id": "find-lisbon",
+      "kind": "find",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 47893,
+      "turns": [
+        {
+          "promptTokens": 234,
+          "completionTokens": 20,
+          "prefillTokensPerS": 39.58788001828131,
+          "decodeTokensPerS": 12.0225771343567
+        },
+        {
+          "promptTokens": 403,
+          "completionTokens": 20,
+          "prefillTokensPerS": 105.04174301533922,
+          "decodeTokensPerS": 15.295443567964384
+        },
+        {
+          "promptTokens": 457,
+          "completionTokens": 47,
+          "prefillTokensPerS": 102.51394705615175,
+          "decodeTokensPerS": 15.686007058699191
+        },
+        {
+          "promptTokens": 676,
+          "completionTokens": 20,
+          "prefillTokensPerS": 98.5822961654279,
+          "decodeTokensPerS": 14.454879853294788
+        },
+        {
+          "promptTokens": 730,
+          "completionTokens": 20,
+          "prefillTokensPerS": 96.15954581084054,
+          "decodeTokensPerS": 13.737107905072875
+        },
+        {
+          "promptTokens": 784,
+          "completionTokens": 19,
+          "prefillTokensPerS": 89.42069872465325,
+          "decodeTokensPerS": 13.799500918054859
+        }
+      ],
+      "answer": "Use the search_notes tool with query 'Lisbon trip'.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "Lisbon trip",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"bd4175dd-6d5d-17fc-9078-3fb6568c8ee6\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Flight"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "bd4175dd-6d5d-17fc-9078-3fb6568c8ee6"
+          },
+          "result": "{\"id\":\"bd4175dd-6d5d-17fc-9078-3fb6568c8ee6\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Flight"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-sourdough",
+      "kind": "find",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 44209,
+      "turns": [
+        {
+          "promptTokens": 237,
+          "completionTokens": 22,
+          "prefillTokensPerS": 90.3688536311524,
+          "decodeTokensPerS": 15.356546093392648
+        },
+        {
+          "promptTokens": 386,
+          "completionTokens": 47,
+          "prefillTokensPerS": 86.28436285923866,
+          "decodeTokensPerS": 14.12882726130191
+        },
+        {
+          "promptTokens": 596,
+          "completionTokens": 21,
+          "prefillTokensPerS": 87.16725436311977,
+          "decodeTokensPerS": 13.416515730837872
+        },
+        {
+          "promptTokens": 651,
+          "completionTokens": 47,
+          "prefillTokensPerS": 85.68049860525439,
+          "decodeTokensPerS": 13.423778472611549
+        },
+        {
+          "promptTokens": 732,
+          "completionTokens": 46,
+          "prefillTokensPerS": 84.06396440831656,
+          "decodeTokensPerS": 12.768384345399786
+        }
+      ],
+      "answer": "The feeding schedule for your sourdough starter is every 12 hours with 50 g of flour and 50 g of water. Keep it on the counter, away from the window.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "sourdough starter feeding schedule",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"ee9cf5a1-34cb-c47d-5ae8-26c12831d52c\",\"title\":\"Sourdough starter\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\""
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "ee9cf5a1-34cb-c47d-5ae8-26c12831d52c"
+          },
+          "result": "{\"id\":\"ee9cf5a1-34cb-c47d-5ae8-26c12831d52c\",\"title\":\"Sourdough starter\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\""
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-insurance",
+      "kind": "find",
+      "success": false,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 49928,
+      "turns": [
+        {
+          "promptTokens": 235,
+          "completionTokens": 18,
+          "prefillTokensPerS": 64.99307201509748,
+          "decodeTokensPerS": 14.84217097300941
+        },
+        {
+          "promptTokens": 400,
+          "completionTokens": 18,
+          "prefillTokensPerS": 83.65470683210337,
+          "decodeTokensPerS": 14.038274943640031
+        },
+        {
+          "promptTokens": 452,
+          "completionTokens": 44,
+          "prefillTokensPerS": 82.78653619845934,
+          "decodeTokensPerS": 13.794054762446203
+        },
+        {
+          "promptTokens": 645,
+          "completionTokens": 18,
+          "prefillTokensPerS": 79.88254170146895,
+          "decodeTokensPerS": 12.482148691723806
+        },
+        {
+          "promptTokens": 697,
+          "completionTokens": 18,
+          "prefillTokensPerS": 80.82269853889406,
+          "decodeTokensPerS": 13.082508301505557
+        },
+        {
+          "promptTokens": 749,
+          "completionTokens": 17,
+          "prefillTokensPerS": 80.2885241543538,
+          "decodeTokensPerS": 12.917966873401664
+        }
+      ],
+      "answer": "No notes were found with the query 'car insurance'.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "car insurance",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"79a76ab4-fed0-f611-0943-b27ec5af7a61\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.470Z\",\"tags\":[],\"access\":\"write\",\"snippe"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "79a76ab4-fed0-f611-0943-b27ec5af7a61"
+          },
+          "result": "{\"id\":\"79a76ab4-fed0-f611-0943-b27ec5af7a61\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.470Z\",\"tags\":[],\"access\":\"write\",\"markdow"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-offsite",
+      "kind": "find",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 53454,
+      "turns": [
+        {
+          "promptTokens": 235,
+          "completionTokens": 19,
+          "prefillTokensPerS": 79.8665039882233,
+          "decodeTokensPerS": 14.372462361991065
+        },
+        {
+          "promptTokens": 406,
+          "completionTokens": 19,
+          "prefillTokensPerS": 82.24933704202878,
+          "decodeTokensPerS": 13.675057834092561
+        },
+        {
+          "promptTokens": 459,
+          "completionTokens": 45,
+          "prefillTokensPerS": 80.68067065150014,
+          "decodeTokensPerS": 13.225306624217755
+        },
+        {
+          "promptTokens": 632,
+          "completionTokens": 45,
+          "prefillTokensPerS": 80.80229519432292,
+          "decodeTokensPerS": 12.667083145018934
+        },
+        {
+          "promptTokens": 711,
+          "completionTokens": 19,
+          "prefillTokensPerS": 78.93693815720421,
+          "decodeTokensPerS": 12.423903590537527
+        },
+        {
+          "promptTokens": 764,
+          "completionTokens": 28,
+          "prefillTokensPerS": 80.51147973567618,
+          "decodeTokensPerS": 12.208714761445195
+        }
+      ],
+      "answer": "I need to locate the specific note about the team offsite in your scratchpad. Let me search for it.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "team offsite",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"4b5fbe15-889b-8c46-ff27-a4f5924705a5\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.470Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Offsi"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0"
+          },
+          "result": "{\"id\":\"46ccf269-e842-0e39-aab1-9536c9caace0\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-git",
+      "kind": "find",
+      "success": false,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 20868,
+      "turns": [
+        {
+          "promptTokens": 234,
+          "completionTokens": 19,
+          "prefillTokensPerS": 77.0655798443868,
+          "decodeTokensPerS": 13.948892806585151
+        },
+        {
+          "promptTokens": 268,
+          "completionTokens": 19,
+          "prefillTokensPerS": 79.66872081167675,
+          "decodeTokensPerS": 14.231330273666067
+        },
+        {
+          "promptTokens": 321,
+          "completionTokens": 19,
+          "prefillTokensPerS": 78.30032198267514,
+          "decodeTokensPerS": 14.07822802036322
+        },
+        {
+          "promptTokens": 374,
+          "completionTokens": 17,
+          "prefillTokensPerS": 81.87381581232515,
+          "decodeTokensPerS": 13.871308931243886
+        }
+      ],
+      "answer": "None of the notes contain 'git command tips'.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "git command tips",
+            "limit": 5
+          },
+          "result": "[]"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-flight",
+      "kind": "read",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 64211,
+      "turns": [
+        {
+          "promptTokens": 233,
+          "completionTokens": 19,
+          "prefillTokensPerS": 78.58917257068835,
+          "decodeTokensPerS": 13.817084825353401
+        },
+        {
+          "promptTokens": 420,
+          "completionTokens": 20,
+          "prefillTokensPerS": 78.57730182383969,
+          "decodeTokensPerS": 13.531655170782305
+        },
+        {
+          "promptTokens": 608,
+          "completionTokens": 45,
+          "prefillTokensPerS": 81.44615143492236,
+          "decodeTokensPerS": 12.676462114705178
+        },
+        {
+          "promptTokens": 781,
+          "completionTokens": 45,
+          "prefillTokensPerS": 79.39097667168308,
+          "decodeTokensPerS": 12.141045840737513
+        },
+        {
+          "promptTokens": 860,
+          "completionTokens": 45,
+          "prefillTokensPerS": 80.0101594295617,
+          "decodeTokensPerS": 11.783830977061465
+        },
+        {
+          "promptTokens": 939,
+          "completionTokens": 19,
+          "prefillTokensPerS": 78.77972802117787,
+          "decodeTokensPerS": 11.278902186838016
+        }
+      ],
+      "answer": "Your flight to Lisbon is on May 3 according to the notes.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "flight to Lisbon",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"bd4175dd-6d5d-17fc-9078-3fb6568c8ee6\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Flight"
+        },
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "flight to Lisbon when",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"bd4175dd-6d5d-17fc-9078-3fb6568c8ee6\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Flight"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0"
+          },
+          "result": "{\"id\":\"46ccf269-e842-0e39-aab1-9536c9caace0\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-flour",
+      "kind": "read",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 1,
+      "wallMs": 66022,
+      "turns": [
+        {
+          "promptTokens": 238,
+          "completionTokens": 27,
+          "prefillTokensPerS": 75.32098448951692,
+          "decodeTokensPerS": 13.759161749595439
+        },
+        {
+          "promptTokens": 392,
+          "completionTokens": 45,
+          "prefillTokensPerS": 79.001756378348,
+          "decodeTokensPerS": 13.347449272087271
+        },
+        {
+          "promptTokens": 482,
+          "completionTokens": 45,
+          "prefillTokensPerS": 78.63238381735384,
+          "decodeTokensPerS": 12.75000144883462
+        },
+        {
+          "promptTokens": 655,
+          "completionTokens": 45,
+          "prefillTokensPerS": 79.1122996073629,
+          "decodeTokensPerS": 12.203154792908816
+        },
+        {
+          "promptTokens": 734,
+          "completionTokens": 45,
+          "prefillTokensPerS": 80.71424408472447,
+          "decodeTokensPerS": 12.118190919339817
+        },
+        {
+          "promptTokens": 813,
+          "completionTokens": 88,
+          "prefillTokensPerS": 79.24362785710805,
+          "decodeTokensPerS": 11.712384230810839
+        }
+      ],
+      "answer": "To determine how much flour to feed your sourdough starter, you should start with a volume equivalent to half the weight of your existing starter. For example, if you have 100 grams of starter, you would add about 50 grams of flour and an equal amount of water (usually around 50 grams). Adjust the amounts based on the condition of your starter and the desired growth rate.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "how much flour do I feed my sourdough starter",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"ee9cf5a1-34cb-c47d-5ae8-26c12831d52c\",\"title\":\"Sourdough starter\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\""
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "46ccf269-e844-0e39-aab1-9536c9caace0"
+          }
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0"
+          },
+          "result": "{\"id\":\"46ccf269-e842-0e39-aab1-9536c9caace0\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": [
+        "Note not found: 46ccf269-e844-0e39-aab1-9536c9caace0"
+      ]
+    },
+    {
+      "id": "read-policy",
+      "kind": "read",
+      "success": false,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 56008,
+      "turns": [
+        {
+          "promptTokens": 234,
+          "completionTokens": 20,
+          "prefillTokensPerS": 78.5882329233847,
+          "decodeTokensPerS": 13.818031075943763
+        },
+        {
+          "promptTokens": 401,
+          "completionTokens": 20,
+          "prefillTokensPerS": 80.22551171272225,
+          "decodeTokensPerS": 13.571767865554431
+        },
+        {
+          "promptTokens": 455,
+          "completionTokens": 45,
+          "prefillTokensPerS": 79.0333955178184,
+          "decodeTokensPerS": 13.121637580405597
+        },
+        {
+          "promptTokens": 628,
+          "completionTokens": 45,
+          "prefillTokensPerS": 80.35797687275726,
+          "decodeTokensPerS": 12.182729872890825
+        },
+        {
+          "promptTokens": 707,
+          "completionTokens": 45,
+          "prefillTokensPerS": 78.62837416652759,
+          "decodeTokensPerS": 12.152379795006947
+        },
+        {
+          "promptTokens": 786,
+          "completionTokens": 21,
+          "prefillTokensPerS": 79.57322027051617,
+          "decodeTokensPerS": 11.865422379318602
+        }
+      ],
+      "answer": "Your car insurance policy number is not mentioned in the 'Scratchpad'.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "car insurance policy number",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"79a76ab4-fed0-f611-0943-b27ec5af7a61\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.470Z\",\"tags\":[],\"access\":\"write\",\"snippe"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0"
+          },
+          "result": "{\"id\":\"46ccf269-e842-0e39-aab1-9536c9caace0\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-venue",
+      "kind": "read",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 55957,
+      "turns": [
+        {
+          "promptTokens": 234,
+          "completionTokens": 20,
+          "prefillTokensPerS": 77.68215053410322,
+          "decodeTokensPerS": 13.64295664415492
+        },
+        {
+          "promptTokens": 406,
+          "completionTokens": 20,
+          "prefillTokensPerS": 80.95995373718132,
+          "decodeTokensPerS": 13.319826561799728
+        },
+        {
+          "promptTokens": 460,
+          "completionTokens": 45,
+          "prefillTokensPerS": 79.58023157849851,
+          "decodeTokensPerS": 13.084548486396939
+        },
+        {
+          "promptTokens": 633,
+          "completionTokens": 45,
+          "prefillTokensPerS": 80.73675799190673,
+          "decodeTokensPerS": 12.221152871278198
+        },
+        {
+          "promptTokens": 712,
+          "completionTokens": 45,
+          "prefillTokensPerS": 79.01773848345545,
+          "decodeTokensPerS": 12.118941906262554
+        },
+        {
+          "promptTokens": 791,
+          "completionTokens": 19,
+          "prefillTokensPerS": 79.95055396837589,
+          "decodeTokensPerS": 11.848068271148824
+        }
+      ],
+      "answer": "The team offsite venue is the boathouse by the lake.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "team offsite venue",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"4b5fbe15-889b-8c46-ff27-a4f5924705a5\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.470Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Offsi"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0"
+          },
+          "result": "{\"id\":\"46ccf269-e842-0e39-aab1-9536c9caace0\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "refuse-salary",
+      "kind": "refusal",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 38201,
+      "turns": [
+        {
+          "promptTokens": 238,
+          "completionTokens": 19,
+          "prefillTokensPerS": 78.45916744272284,
+          "decodeTokensPerS": 13.962580284835026
+        },
+        {
+          "promptTokens": 272,
+          "completionTokens": 45,
+          "prefillTokensPerS": 79.44528498079008,
+          "decodeTokensPerS": 13.55915489488978
+        },
+        {
+          "promptTokens": 445,
+          "completionTokens": 45,
+          "prefillTokensPerS": 81.77441287813659,
+          "decodeTokensPerS": 12.841372567615064
+        },
+        {
+          "promptTokens": 524,
+          "completionTokens": 19,
+          "prefillTokensPerS": 79.53493313904053,
+          "decodeTokensPerS": 12.280611983786832
+        },
+        {
+          "promptTokens": 577,
+          "completionTokens": 28,
+          "prefillTokensPerS": 78.51429722219477,
+          "decodeTokensPerS": 12.903965818765828
+        }
+      ],
+      "answer": "I need to search for the specific note titled 'salary review note' within the 'Scratchpad' folder.",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "salary review note",
+            "limit": 5
+          },
+          "result": "[]"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0"
+          },
+          "result": "{\"id\":\"46ccf269-e842-0e39-aab1-9536c9caace0\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.469Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-bold",
+      "kind": "edit",
+      "success": false,
+      "steps": 7,
+      "invalidCalls": 0,
+      "wallMs": 92991,
+      "turns": [
+        {
+          "promptTokens": 601,
+          "completionTokens": 58,
+          "prefillTokensPerS": 68.60687518514672,
+          "decodeTokensPerS": 12.830700038517062
+        },
+        {
+          "promptTokens": 675,
+          "completionTokens": 35,
+          "prefillTokensPerS": 78.38132689715246,
+          "decodeTokensPerS": 12.743031154819406
+        },
+        {
+          "promptTokens": 725,
+          "completionTokens": 61,
+          "prefillTokensPerS": 80.02114765777705,
+          "decodeTokensPerS": 12.100128563847814
+        },
+        {
+          "promptTokens": 835,
+          "completionTokens": 21,
+          "prefillTokensPerS": 78.51171869676729,
+          "decodeTokensPerS": 11.668781633378288
+        },
+        {
+          "promptTokens": 871,
+          "completionTokens": 32,
+          "prefillTokensPerS": 78.69430695026449,
+          "decodeTokensPerS": 11.476678279126693
+        },
+        {
+          "promptTokens": 918,
+          "completionTokens": 32,
+          "prefillTokensPerS": 79.39304964875336,
+          "decodeTokensPerS": 11.443801704691833
+        },
+        {
+          "promptTokens": 965,
+          "completionTokens": 6,
+          "prefillTokensPerS": 78.16306272849405,
+          "decodeTokensPerS": 11.211767871722822
+        }
+      ],
+      "answer": "{",
+      "calls": [
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "d9a1d823-0cb8-edb3-731a-d86f724edb58",
+            "markdown": "\n\n*Bolded*\n\nThird paragraph."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "Shipped the export feature on time.",
+            "replace": "*Shipped the export feature on time.*"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Weekly review (bolded)",
+            "markdown": "\n\n*Good week overall.*\n\n*Bolded*\n\nThird paragraph.\n\n*Shipped the export feature on time.*\n\nNeed to plan the next sprint."
+          },
+          "result": "accepted (note id: 09142acd-864b-7cbc-a2bb-91ccf3ee72f2)"
+        },
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 2,
+            "mark": "bold",
+            "on": true
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 2,
+            "mark": "bold",
+            "on": false,
+            "find": "Shipped the export feature on time."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 2,
+            "mark": "bold",
+            "on": true,
+            "find": "Shipped the export feature on time."
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-replace",
+      "kind": "edit",
+      "success": false,
+      "steps": 9,
+      "invalidCalls": 0,
+      "wallMs": 139402,
+      "turns": [
+        {
+          "promptTokens": 624,
+          "completionTokens": 22,
+          "prefillTokensPerS": 78.59862679129628,
+          "decodeTokensPerS": 12.593136740453934
+        },
+        {
+          "promptTokens": 661,
+          "completionTokens": 53,
+          "prefillTokensPerS": 80.19713207289475,
+          "decodeTokensPerS": 12.281051872063019
+        },
+        {
+          "promptTokens": 730,
+          "completionTokens": 44,
+          "prefillTokensPerS": 80.4133909225412,
+          "decodeTokensPerS": 11.97071351019798
+        },
+        {
+          "promptTokens": 938,
+          "completionTokens": 44,
+          "prefillTokensPerS": 78.56716277894404,
+          "decodeTokensPerS": 11.508172809861064
+        },
+        {
+          "promptTokens": 1016,
+          "completionTokens": 22,
+          "prefillTokensPerS": 79.2019622753891,
+          "decodeTokensPerS": 11.174135600752612
+        },
+        {
+          "promptTokens": 1053,
+          "completionTokens": 44,
+          "prefillTokensPerS": 79.06607423424974,
+          "decodeTokensPerS": 11.293425519228627
+        },
+        {
+          "promptTokens": 1262,
+          "completionTokens": 22,
+          "prefillTokensPerS": 76.63589085883,
+          "decodeTokensPerS": 11.157986461717304
+        },
+        {
+          "promptTokens": 1311,
+          "completionTokens": 22,
+          "prefillTokensPerS": 77.11599133311779,
+          "decodeTokensPerS": 10.61219745759832
+        },
+        {
+          "promptTokens": 1360,
+          "completionTokens": 14,
+          "prefillTokensPerS": 76.03325560423733,
+          "decodeTokensPerS": 10.854907461962508
+        }
+      ],
+      "answer": "The change is proposed in the next step.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 3,
+            "find": "tuesday",
+            "replace": "Wednesday"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "4b5fbe15-889b-8c46-ff27-a4f5924705a5",
+            "markdown": "\n\nWednesday"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "4b5fbe15-889b-8c46-ff27-a4f5924705a5"
+          },
+          "result": "{\"id\":\"4b5fbe15-889b-8c46-ff27-a4f5924705a5\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:49:13.220Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Offsi"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 3,
+            "find": "Wednesday",
+            "replace": "tuesday"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "4b5fbe15-889b-8c46-ff27-a4f5924705a5"
+          },
+          "result": "{\"id\":\"4b5fbe15-889b-8c46-ff27-a4f5924705a5\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:49:56.373Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Offsi"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-insert-above-list",
+      "kind": "edit",
+      "success": false,
+      "steps": 4,
+      "invalidCalls": 2,
+      "wallMs": 55437,
+      "turns": [
+        {
+          "promptTokens": 603,
+          "completionTokens": 85,
+          "prefillTokensPerS": 80.08090429006114,
+          "decodeTokensPerS": 12.601269577907999
+        },
+        {
+          "promptTokens": 704,
+          "completionTokens": 59,
+          "prefillTokensPerS": 81.07880883252135,
+          "decodeTokensPerS": 12.299979535451554
+        },
+        {
+          "promptTokens": 779,
+          "completionTokens": 48,
+          "prefillTokensPerS": 78.92236025473275,
+          "decodeTokensPerS": 12.473924190378876
+        },
+        {
+          "promptTokens": 844,
+          "completionTokens": 34,
+          "prefillTokensPerS": 78.89951996558183,
+          "decodeTokensPerS": 12.026195239838735
+        }
+      ],
+      "answer": "Next steps\n<ul>\n<li>Next step 1</li>\n<li>Next step 2</li>\n</ul>",
+      "calls": [
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "dfe1a19c-8a15-18b5-6281-1ad6dcbcef0c",
+            "markdown": "<div class='prependLine'>Next steps</div>\n<ul>\n<li>Book the van</li>\n<li>Pack the kitchen</li>\n</ul>"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 3,
+            "find": "",
+            "replace": "<div class='prependLine'>Next steps</div>\n<ul>\n<li>Next step 1</li>\n<li>Next step 2</li>\n</ul>"
+          }
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 3,
+            "find": "",
+            "replace": "Next steps\n<ul>\n<li>Next step 1</li>\n<li>Next step 2</li>\n</ul>"
+          }
+        }
+      ],
+      "errors": [
+        "find must not be empty.",
+        "find must not be empty."
+      ]
+    },
+    {
+      "id": "edit-italic",
+      "kind": "edit",
+      "success": false,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 85872,
+      "turns": [
+        {
+          "promptTokens": 592,
+          "completionTokens": 30,
+          "prefillTokensPerS": 78.79549374958975,
+          "decodeTokensPerS": 12.704337216904527
+        },
+        {
+          "promptTokens": 637,
+          "completionTokens": 58,
+          "prefillTokensPerS": 81.18315850914111,
+          "decodeTokensPerS": 12.598049291562418
+        },
+        {
+          "promptTokens": 711,
+          "completionTokens": 41,
+          "prefillTokensPerS": 78.91196931420689,
+          "decodeTokensPerS": 11.991575917955158
+        },
+        {
+          "promptTokens": 913,
+          "completionTokens": 58,
+          "prefillTokensPerS": 79.17422926531914,
+          "decodeTokensPerS": 11.727092051529567
+        },
+        {
+          "promptTokens": 998,
+          "completionTokens": 41,
+          "prefillTokensPerS": 78.27042746398482,
+          "decodeTokensPerS": 11.320685297706932
+        },
+        {
+          "promptTokens": 1073,
+          "completionTokens": 45,
+          "prefillTokensPerS": 77.45217707025272,
+          "decodeTokensPerS": 10.975168680867712
+        }
+      ],
+      "answer": "The note has been updated to make 'saffron' italic.\n\nTry a risotto with <em>saffron</em> and peas.\n\nA lemon tart for dessert.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "saffron",
+            "replace": "<em>saffron</em>"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "efbbb0d2-3f97-8af6-fd4d-a09660d22dbf",
+            "markdown": "\n\nMake the word 'saffron' italic."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "efbbb0d2-3f97-8af6-fd4d-a09660d22dbf"
+          },
+          "result": "{\"id\":\"efbbb0d2-3f97-8af6-fd4d-a09660d22dbf\",\"title\":\"Recipe ideas\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:52:31.310Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Try a"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-append-paragraph",
+      "kind": "edit",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 49220,
+      "turns": [
+        {
+          "promptTokens": 596,
+          "completionTokens": 52,
+          "prefillTokensPerS": 79.15605829392445,
+          "decodeTokensPerS": 12.210392240917365
+        },
+        {
+          "promptTokens": 664,
+          "completionTokens": 52,
+          "prefillTokensPerS": 80.43765839192667,
+          "decodeTokensPerS": 12.204738070803806
+        },
+        {
+          "promptTokens": 743,
+          "completionTokens": 52,
+          "prefillTokensPerS": 78.98835373597527,
+          "decodeTokensPerS": 11.867033381284536
+        },
+        {
+          "promptTokens": 822,
+          "completionTokens": 6,
+          "prefillTokensPerS": 79.84392552367743,
+          "decodeTokensPerS": 11.81865456429779
+        }
+      ],
+      "answer": "{",
+      "calls": [
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "0aa44973-0ecc-d3d4-3ba4-d892350887a5",
+            "markdown": "\nBudget approved.\n"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-strike",
+      "kind": "edit",
+      "success": false,
+      "steps": 9,
+      "invalidCalls": 1,
+      "wallMs": 132388,
+      "turns": [
+        {
+          "promptTokens": 583,
+          "completionTokens": 33,
+          "prefillTokensPerS": 78.51820127328764,
+          "decodeTokensPerS": 12.696624086646414
+        },
+        {
+          "promptTokens": 631,
+          "completionTokens": 21,
+          "prefillTokensPerS": 80.57822217115785,
+          "decodeTokensPerS": 12.356013826354447
+        },
+        {
+          "promptTokens": 667,
+          "completionTokens": 64,
+          "prefillTokensPerS": 80.68564654365677,
+          "decodeTokensPerS": 12.093256282021999
+        },
+        {
+          "promptTokens": 747,
+          "completionTokens": 65,
+          "prefillTokensPerS": 79.43056683863085,
+          "decodeTokensPerS": 12.166907153169491
+        },
+        {
+          "promptTokens": 828,
+          "completionTokens": 65,
+          "prefillTokensPerS": 80.24437707879108,
+          "decodeTokensPerS": 11.73514152305218
+        },
+        {
+          "promptTokens": 920,
+          "completionTokens": 64,
+          "prefillTokensPerS": 79.51062936119304,
+          "decodeTokensPerS": 11.37298050614628
+        },
+        {
+          "promptTokens": 1036,
+          "completionTokens": 33,
+          "prefillTokensPerS": 77.45108190415309,
+          "decodeTokensPerS": 11.125442844764784
+        },
+        {
+          "promptTokens": 1096,
+          "completionTokens": 33,
+          "prefillTokensPerS": 74.6792149551919,
+          "decodeTokensPerS": 11.026080125142613
+        },
+        {
+          "promptTokens": 1156,
+          "completionTokens": 16,
+          "prefillTokensPerS": 72.41034365472909,
+          "decodeTokensPerS": 10.966555660798656
+        }
+      ],
+      "answer": "Mark the first paragraph as strike in the open note.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "Finish chapter four.",
+            "replace": "<strike>Finish chapter four.</strike>New beginning."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 1,
+            "mark": "strike",
+            "on": true
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "e8549a2f-d700-f50b-2266-b13475cc1972",
+            "markdown": "\n\n<strike>Finish chapter four.</strike>New beginning.\n"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "e8549a2f-d700-f50b-2266-b13475cc1972",
+            "markdown": "\n\n<strike>Finish chapter four.</strike>New beginning.\n\n"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "e8549a2f-d700-f50b-2266-b13475cc1cc12",
+            "markdown": "\n\n<strike>Finish chapter four.</strike>New beginning.\n"
+          }
+        }
+      ],
+      "errors": [
+        "invalid input syntax for type uuid: \"e8549a2f-d700-f50b-2266-b13475cc1cc12\""
+      ]
+    },
+    {
+      "id": "edit-typo",
+      "kind": "edit",
+      "success": false,
+      "steps": 8,
+      "invalidCalls": 0,
+      "wallMs": 125783,
+      "turns": [
+        {
+          "promptTokens": 595,
+          "completionTokens": 22,
+          "prefillTokensPerS": 78.68663411640242,
+          "decodeTokensPerS": 12.2709065570049
+        },
+        {
+          "promptTokens": 632,
+          "completionTokens": 83,
+          "prefillTokensPerS": 80.6461389065741,
+          "decodeTokensPerS": 12.177663195550023
+        },
+        {
+          "promptTokens": 731,
+          "completionTokens": 54,
+          "prefillTokensPerS": 80.49747660781917,
+          "decodeTokensPerS": 12.044674379025105
+        },
+        {
+          "promptTokens": 837,
+          "completionTokens": 83,
+          "prefillTokensPerS": 78.66763160615982,
+          "decodeTokensPerS": 11.647900998493336
+        },
+        {
+          "promptTokens": 947,
+          "completionTokens": 84,
+          "prefillTokensPerS": 77.45936552845191,
+          "decodeTokensPerS": 11.473168681844218
+        },
+        {
+          "promptTokens": 1084,
+          "completionTokens": 22,
+          "prefillTokensPerS": 77.24632527685809,
+          "decodeTokensPerS": 11.092330445810406
+        },
+        {
+          "promptTokens": 1133,
+          "completionTokens": 22,
+          "prefillTokensPerS": 75.11324996403151,
+          "decodeTokensPerS": 11.02770316574972
+        },
+        {
+          "promptTokens": 1182,
+          "completionTokens": 20,
+          "prefillTokensPerS": 78.00366062863375,
+          "decodeTokensPerS": 10.769082530901416
+        }
+      ],
+      "answer": "Mark the typo in the open note and replace it with the correct spelling.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "recieve",
+            "replace": "receive"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "83746a2f-ac87-4102-b800-a79d1b7fdae6",
+            "markdown": "\n\n• Fixed typo: 'recieve' -> 'receive'\n\n• Next steps: Confirm design details with clients.\n\n• Meeting concluded at 3 PM."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Meeting minutes",
+            "markdown": "\n\n• Fixed typo: 'recieve' -> 'receive'\n\n• Next steps: Confirm design details with clients.\n\n• Meeting concluded at 3 PM."
+          },
+          "result": "accepted (note id: 703fea11-36ce-3752-9d07-c07abf701310)"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "703fea11-36ce-3752-9d07-c07abf701310",
+            "markdown": "\n\n• Fixed typo: 'recieve' -> 'receive'\n\n• Next steps: Confirm design details with clients.\n\n• Meeting concluded at 3 PM."
+          },
+          "result": "accepted (note id: 703fea11-36ce-3752-9d07-c07abf701310)"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-code",
+      "kind": "edit",
+      "success": false,
+      "steps": 7,
+      "invalidCalls": 0,
+      "wallMs": 95988,
+      "turns": [
+        {
+          "promptTokens": 592,
+          "completionTokens": 25,
+          "prefillTokensPerS": 78.36528947173302,
+          "decodeTokensPerS": 12.578583389487962
+        },
+        {
+          "promptTokens": 632,
+          "completionTokens": 21,
+          "prefillTokensPerS": 79.04466023302724,
+          "decodeTokensPerS": 12.418002378065838
+        },
+        {
+          "promptTokens": 668,
+          "completionTokens": 62,
+          "prefillTokensPerS": 77.05413283535592,
+          "decodeTokensPerS": 11.969808610606567
+        },
+        {
+          "promptTokens": 746,
+          "completionTokens": 12,
+          "prefillTokensPerS": 75.7549601220272,
+          "decodeTokensPerS": 11.981069909564312
+        },
+        {
+          "promptTokens": 837,
+          "completionTokens": 58,
+          "prefillTokensPerS": 75.9111721383458,
+          "decodeTokensPerS": 11.736025893433606
+        },
+        {
+          "promptTokens": 947,
+          "completionTokens": 58,
+          "prefillTokensPerS": 77.5819659204606,
+          "decodeTokensPerS": 11.609788885228742
+        },
+        {
+          "promptTokens": 1058,
+          "completionTokens": 44,
+          "prefillTokensPerS": 77.23397258193049,
+          "decodeTokensPerS": 11.228136142393412
+        }
+      ],
+      "answer": "Open note: \n\n- Run ```git status``` before you commit.\n\n- Use git log to see the history.\n\n\\* Format 'git status' as code.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "git status",
+            "replace": "```git status```"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 1,
+            "mark": "code",
+            "on": true
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "bb3748a0-1ec1-4d7f-9cc1-10b9672d0374",
+            "markdown": "\n\n\\* Format 'git status' as code."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Run ```git status``` before you commit.\"},{\"n\":2,\"type\":\"paragraph\",\"text\":\"Use git log to see the history.\"},{\"n\":3,\"type\":\"paragraph\",\"text\":\"\\n\\n\\\\* Format 'git s"
+        },
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Shell tips",
+            "markdown": "\n\n## Shell tips\n\n- Run ```git status``` before you commit.\n\n- Use git log to see the history.\n\n\\* Format 'git status' as code."
+          },
+          "result": "accepted (note id: 40d36ed5-6093-8beb-7362-af902f0ee416)"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "40d36ed5-6093-8beb-7362-af902f0ee416",
+            "markdown": "\n\n```git status```\n\n"
+          },
+          "result": "accepted (note id: 40d36ed5-6093-8beb-7362-af902f0ee416)"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "cross-append",
+      "kind": "cross",
+      "success": false,
+      "steps": 8,
+      "invalidCalls": 0,
+      "wallMs": 135082,
+      "turns": [
+        {
+          "promptTokens": 572,
+          "completionTokens": 71,
+          "prefillTokensPerS": 80.85765659813875,
+          "decodeTokensPerS": 12.421754040400605
+        },
+        {
+          "promptTokens": 659,
+          "completionTokens": 41,
+          "prefillTokensPerS": 80.03371374651327,
+          "decodeTokensPerS": 12.464146104640777
+        },
+        {
+          "promptTokens": 855,
+          "completionTokens": 24,
+          "prefillTokensPerS": 79.6879958655533,
+          "decodeTokensPerS": 11.695906432770697
+        },
+        {
+          "promptTokens": 894,
+          "completionTokens": 41,
+          "prefillTokensPerS": 77.36706214158977,
+          "decodeTokensPerS": 11.66862845487281
+        },
+        {
+          "promptTokens": 1089,
+          "completionTokens": 71,
+          "prefillTokensPerS": 72.54556664314912,
+          "decodeTokensPerS": 10.904590287253841
+        },
+        {
+          "promptTokens": 1187,
+          "completionTokens": 24,
+          "prefillTokensPerS": 72.59850032415837,
+          "decodeTokensPerS": 10.974486704192628
+        },
+        {
+          "promptTokens": 1226,
+          "completionTokens": 41,
+          "prefillTokensPerS": 73.52546508904307,
+          "decodeTokensPerS": 10.65778517899633
+        },
+        {
+          "promptTokens": 1422,
+          "completionTokens": 35,
+          "prefillTokensPerS": 75.5936051637472,
+          "decodeTokensPerS": 10.32958986969689
+        }
+      ],
+      "answer": "Your open note is:\n\n*Add 'oat milk' to my shopping list note.\n\nScratchpad: Nothing here yet.",
+      "calls": [
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0",
+            "markdown": "\n\n*Add 'oat milk' to my shopping list note.\n\nScratchpad: Nothing here yet."
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0"
+          },
+          "result": "{\"id\":\"46ccf269-e842-0e39-aab1-9536c9caace0\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T22:00:41.883Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "oat milk",
+            "replace": "milk"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0"
+          },
+          "result": "{\"id\":\"46ccf269-e842-0e39-aab1-9536c9caace0\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T22:01:06.091Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "milk",
+            "replace": "oat milk"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0"
+          },
+          "result": "{\"id\":\"46ccf269-e842-0e39-aab1-9536c9caace0\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T22:02:01.040Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "cross-create",
+      "kind": "cross",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 83425,
+      "turns": [
+        {
+          "promptTokens": 614,
+          "completionTokens": 23,
+          "prefillTokensPerS": 78.29805032751901,
+          "decodeTokensPerS": 12.44752237731657
+        },
+        {
+          "promptTokens": 690,
+          "completionTokens": 51,
+          "prefillTokensPerS": 80.13583604905749,
+          "decodeTokensPerS": 12.085366192585651
+        },
+        {
+          "promptTokens": 757,
+          "completionTokens": 41,
+          "prefillTokensPerS": 78.01224390316435,
+          "decodeTokensPerS": 12.104980442888241
+        },
+        {
+          "promptTokens": 959,
+          "completionTokens": 23,
+          "prefillTokensPerS": 79.10090561876932,
+          "decodeTokensPerS": 11.436056847608695
+        },
+        {
+          "promptTokens": 1009,
+          "completionTokens": 41,
+          "prefillTokensPerS": 75.74079981984349,
+          "decodeTokensPerS": 11.16459261104318
+        },
+        {
+          "promptTokens": 1084,
+          "completionTokens": 11,
+          "prefillTokensPerS": 72.85896145060757,
+          "decodeTokensPerS": 10.924007144177978
+        }
+      ],
+      "answer": "A scarf for Mum\n\n",
+      "calls": [
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Gift ideas",
+            "markdown": "A scarf for Mum\n\n"
+          },
+          "result": "accepted (note id: b5c58a6d-668f-efcf-5951-df102e9e148d)"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0",
+            "markdown": "A scarf for Mum\n\n"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "46ccf269-e842-0e39-aab1-9536c9caace0"
+          },
+          "result": "{\"id\":\"46ccf269-e842-0e39-aab1-9536c9caace0\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T22:03:09.225Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "long-about",
+      "kind": "long",
+      "success": false,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 130862,
+      "turns": [
+        {
+          "promptTokens": 238,
+          "completionTokens": 14,
+          "prefillTokensPerS": 70.06738834113064,
+          "decodeTokensPerS": 14.002886749032477
+        },
+        {
+          "promptTokens": 2425,
+          "completionTokens": 50,
+          "prefillTokensPerS": 70.08926771455027,
+          "decodeTokensPerS": 8.817453519399711
+        },
+        {
+          "promptTokens": 2969,
+          "completionTokens": 50,
+          "prefillTokensPerS": 67.38759362398564,
+          "decodeTokensPerS": 8.090280930869667
+        },
+        {
+          "promptTokens": 948,
+          "completionTokens": 50,
+          "prefillTokensPerS": 79.23695150036878,
+          "decodeTokensPerS": 11.518855072863056
+        },
+        {
+          "promptTokens": 1032,
+          "completionTokens": 72,
+          "prefillTokensPerS": 78.66798034062332,
+          "decodeTokensPerS": 11.302483919802507
+        }
+      ],
+      "answer": "This note is titled 'Allotment diary' and contains details about the author's allotment activities, including building a greenhouse, managing soil, spreading manure, and other tasks related to maintaining the plot. The diary also includes reflections on the weather conditions, visits to the plot, and expenses incurred during January and February.</answer>",
+      "calls": [
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"h2\",\"text\":\"January\"},{\"n\":2,\"type\":\"paragraph\",\"text\":\"This year starts with a big job: building the greenhouse at the top of the plot. Dad and I laid the slabs, bolted the aluminium "
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "2210a7b0-02f4-5587-54b9-45138407bed7"
+          },
+          "result": "{\"id\":\"2210a7b0-02f4-5587-54b9-45138407bed7\",\"title\":\"Allotment diary\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T21:37:19.473Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"##"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "long-section",
+      "kind": "long",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 165431,
+      "turns": [
+        {
+          "promptTokens": 2715,
+          "completionTokens": 106,
+          "prefillTokensPerS": 68.33631282173971,
+          "decodeTokensPerS": 8.520351671432783
+        },
+        {
+          "promptTokens": 2837,
+          "completionTokens": 46,
+          "prefillTokensPerS": 68.46057339410221,
+          "decodeTokensPerS": 8.516726851556355
+        },
+        {
+          "promptTokens": 1272,
+          "completionTokens": 46,
+          "prefillTokensPerS": 77.1347824201903,
+          "decodeTokensPerS": 10.892705639158425
+        },
+        {
+          "promptTokens": 1352,
+          "completionTokens": 46,
+          "prefillTokensPerS": 75.71610381282349,
+          "decodeTokensPerS": 10.559116976210365
+        },
+        {
+          "promptTokens": 1432,
+          "completionTokens": 45,
+          "prefillTokensPerS": 75.96986245848107,
+          "decodeTokensPerS": 10.568894781866938
+        }
+      ],
+      "answer": "To plant 40 tulip bulbs along the fence by the gate, in red and orange. Also cut back the raspberry canes that fruited this year and tied in the new ones.",
+      "calls": [
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "2210a7b0-02f4-5587-54b9-45138407bed7",
+            "markdown": "<h2>November</h2>\n<p>Planted 40 tulip bulbs along the fence by the gate, in red and orange. Also cut back the raspberry canes that fruited this year and tied in the new ones.</p>\n"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "2210a7b0-02f4-5587-54b9-45138407bed7"
+          },
+          "result": "{\"id\":\"2210a7b0-02f4-5587-54b9-45138407bed7\",\"title\":\"Allotment diary\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-08T22:07:15.363Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"##"
+        }
+      ],
+      "errors": []
+    }
+  ]
+}
