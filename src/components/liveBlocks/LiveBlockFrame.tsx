@@ -87,7 +87,7 @@ export function LiveBlockFrame({ kind, source, preview, trusted, selected, label
           contentEditable={false}
           className={cn(
             // Positioned, so its z-index puts the toggles over the frame's bleed.
-            'relative z-10 flex items-center justify-end font-sans select-none',
+            'relative z-10 flex items-center justify-end font-sans select-none print:hidden',
             !labelled && cn('absolute right-0 top-0', REVEALED),
           )}
         >
@@ -122,7 +122,7 @@ export function LiveBlockFrame({ kind, source, preview, trusted, selected, label
             aria-hidden
             contentEditable={false}
             className={cn(
-              'pointer-events-none absolute bottom-0 right-0 flex size-5 items-center justify-center rounded-tl-md border-l border-t bg-secondary text-muted-foreground pointer-coarse:hidden',
+              'pointer-events-none absolute bottom-0 right-0 flex size-5 items-center justify-center rounded-tl-md border-l border-t bg-secondary text-muted-foreground pointer-coarse:hidden print:hidden',
               REVEALED,
             )}
           >

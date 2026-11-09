@@ -1570,3 +1570,47 @@ html[data-fab] {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+/* Print: Export to PDF (#520, src/lib/importexport/printNote.ts). printElement marks
+   the note (`data-print-root`) and every element it sits in (`data-print-path`);
+   everything else on the page is left out, and the elements around the note give up
+   their scrolling, fixed heights and padding so the whole note flows onto the pages. */
+@media print {
+  @page {
+    margin: 16mm 14mm;
+  }
+
+  html[data-printing] [data-print-path] {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+  }
+
+  html[data-printing] [data-print-path] > :not([data-print-path], [data-print-root]) {
+    display: none !important;
+  }
+
+  html[data-printing] [data-print-root] {
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    /* Callouts, code and the cover keep their backgrounds. */
+    print-color-adjust: exact;
+  }
+
+  /* A wide block keeps to the page; a frame, a diagram or an image is not cut across two pages. */
+  html[data-printing] [data-print-root] [data-live-block-wide] {
+    margin-inline: 0 !important;
+  }
+
+  html[data-printing] [data-print-root] :is([data-live-block], img, tr) {
+    break-inside: avoid;
+  }
+}

@@ -2,6 +2,7 @@ import {
   Archive,
   Download,
   ExternalLink,
+  FileText,
   FolderInput,
   ListX,
   Pin,
@@ -20,6 +21,8 @@ export interface NoteMenuHandlers {
   onRemoveFromList?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
   onTrash: (docId: string) => void;
+  /** Shows the note, for an action that needs it on screen (Export to PDF from a list row). */
+  onOpen?: (docId: string) => void;
 }
 
 /**
@@ -42,7 +45,7 @@ export function buildNoteMenuItems(
     extra?: ContextMenuItemConfig[];
   },
 ): ContextMenuItemConfig[] {
-  const { onTogglePin, onShare, onMoveToFolder, onRemoveFromList, onArchive, onTrash } = handlers;
+  const { onTogglePin, onShare, onMoveToFolder, onRemoveFromList, onArchive, onTrash, onOpen } = handlers;
   return [
     {
       label: note.metadata.isPinned ? "Unpin" : "Pin",
@@ -68,6 +71,15 @@ export function buildNoteMenuItems(
       action: () =>
         void import("@/lib/importexport/exportNoteMarkdown").then((m) =>
           m.exportNoteAsMarkdown(note.docId, note.title || "Untitled"),
+        ),
+    },
+    // The print dialog saves the note as it is drawn, so it has to be open (#520)
+    {
+      label: "Export to PDF",
+      icon: FileText,
+      action: () =>
+        void import("@/lib/importexport/printNote").then((m) =>
+          m.printNote(note.docId, note.title, onOpen && (() => onOpen(note.docId))),
         ),
     },
     {

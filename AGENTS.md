@@ -207,6 +207,7 @@ src/
 │   ├── importexport/
 │   │   ├── ExportService.ts    # .md/.zip with YAML frontmatter and assets/ images
 │   │   ├── exportNoteMarkdown.ts
+│   │   ├── printNote.ts        # Export to PDF: the print dialog on the note alone (index.css "Print")
 │   │   └── ImportService.ts
 │   ├── notes/createNote.ts     # Save Yjs blob, index, queue for sync
 │   ├── providers/              # ContactProvider, ContactSourceProvider, ShareProvider (guest reads)

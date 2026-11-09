@@ -38,7 +38,7 @@ export function CopyableCodeBlock({ source, children, ...rest }: CopyableCodeBlo
       <button
         type="button"
         onClick={copy}
-        className="group/copy absolute right-1 top-1 flex h-11 min-w-11 touch-manipulation items-center justify-center px-1 font-sans outline-none select-none md:pointer-fine:h-9"
+        className="group/copy absolute right-1 top-1 flex h-11 min-w-11 touch-manipulation items-center justify-center px-1 font-sans outline-none select-none md:pointer-fine:h-9 print:hidden"
       >
         <span
           aria-live="polite"

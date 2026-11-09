@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, CopyPlus, Library } from 'lucide-react';
+import { ArrowUpRight, CopyPlus, FileDown, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useHasScrolled } from '@/hooks/useHasScrolled';
 import { cn } from '@/lib/utils';
@@ -9,10 +9,12 @@ interface ShareHeaderProps {
     saveHref?: string;
     /** The author's index, `/share/<identity>` (#515); left out without one. */
     authorIndexHref?: string;
+    /** Saves the note as a PDF through the print dialog (#520); left out without one. */
+    onDownloadPdf?: () => void;
 }
 
 /** The share page's sticky bar: the logo and wordmark, then the actions. */
-export function ShareHeader({ saveHref, authorIndexHref }: ShareHeaderProps) {
+export function ShareHeader({ saveHref, authorIndexHref, onDownloadPdf }: ShareHeaderProps) {
     const scrolled = useHasScrolled();
 
     return (
@@ -42,6 +44,12 @@ export function ShareHeader({ saveHref, authorIndexHref }: ShareHeaderProps) {
                                 <Library aria-hidden />
                                 <span className="sr-only sm:not-sr-only">More notes</span>
                             </a>
+                        </Button>
+                    )}
+                    {onDownloadPdf && (
+                        <Button variant="ghost" size="sm" className="max-sm:px-2" onClick={onDownloadPdf}>
+                            <FileDown aria-hidden />
+                            <span className="sr-only sm:not-sr-only">Download PDF</span>
                         </Button>
                     )}
                     {saveHref && (
