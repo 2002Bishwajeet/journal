@@ -15,29 +15,35 @@
 import { newQuickJSWASMModuleFromVariant, type QuickJSDeferredPromise, type QuickJSHandle } from 'quickjs-emscripten-core';
 import variant from '@jitl/quickjs-singlefile-mjs-release-sync';
 import { z } from 'zod';
-import { TOOLS } from '@/lib/agent/tools/registry';
+import { TOOLS, type AnyJournalTool } from '@/lib/agent/tools/registry';
 import type { WriteDeps } from '@/lib/agent/tools/write';
 
 export const SCRIPT_LIMITS = { cpuMs: 10_000, memoryBytes: 64 * 1024 * 1024, reads: 200, writes: 50, outputChars: 8_000 };
 
 /** Each `journal` function: the tool it calls, and its arguments as that tool's input. */
-type Binding = [tool: string, input: (...args: unknown[]) => unknown];
+type Binding = [tool: AnyJournalTool, input: (...args: unknown[]) => unknown];
+
+function tool(name: string): AnyJournalTool {
+    const found = TOOLS.find((t) => t.name === name);
+    if (!found) throw new Error(`No tool ${name}`);
+    return found;
+}
 
 const READS: Record<string, Binding> = {
-    listNotes: ['list_notes', (options = {}) => options],
-    getNote: ['get_note', (id) => ({ id })],
-    outline: ['get_note', (id) => ({ id, format: 'outline' })],
-    search: ['search_notes', (query, limit) => ({ query, limit })],
-    listFolders: ['list_folders', () => ({})],
+    listNotes: [tool('list_notes'), (options = {}) => options],
+    getNote: [tool('get_note'), (id) => ({ id })],
+    outline: [tool('get_note'), (id) => ({ id, format: 'outline' })],
+    search: [tool('search_notes'), (query, limit) => ({ query, limit })],
+    listFolders: [tool('list_folders'), () => ({})],
 };
 
 const WRITES: Record<string, Binding> = {
-    create: ['create_note', (note) => note],
-    update: ['update_note', (changes) => changes],
-    append: ['append_to_note', (id, markdown) => ({ id, markdown })],
-    replaceIn: ['replace_in_note', (id, oldText, newText) => ({ id, old_text: oldText, new_text: newText })],
-    editBlock: ['edit_block', (noteId, blockId, op, expectedModified) => ({ note_id: noteId, block_id: blockId, op, expectedModified })],
-    setTags: ['update_note', (id, tags) => ({ id, tags })],
+    create: [tool('create_note'), (note) => note],
+    update: [tool('update_note'), (changes) => changes],
+    append: [tool('append_to_note'), (id, markdown) => ({ id, markdown })],
+    replaceIn: [tool('replace_in_note'), (id, oldText, newText) => ({ id, old_text: oldText, new_text: newText })],
+    editBlock: [tool('edit_block'), (noteId, blockId, op, expectedModified) => ({ note_id: noteId, block_id: blockId, op, expectedModified })],
+    setTags: [tool('update_note'), (id, tags) => ({ id, tags })],
 };
 
 /** The `journal` function names, for the guide's `.d.ts` check. */
@@ -91,14 +97,6 @@ export async function runScript(deps: WriteDeps, code: string, dryRun = false): 
         ...deps,
         loadImage: refuse('add images from a file or a data: URI; add them with append_to_note or update_note'),
         trashNote: refuse('trash notes; use delete_note'),
-        ...(dryRun && {
-            uploadNoteEdit: refuse('write in a dry run'),
-            createNote: refuse('write in a dry run'),
-            setNotePublic: refuse('write in a dry run'),
-            createFolder: refuse('write in a dry run'),
-            uploadNoteImage: refuse('write in a dry run'),
-            grantFolder: refuse('write in a dry run'),
-        }),
     };
 
     const lines: string[] = [];
@@ -114,18 +112,17 @@ export async function runScript(deps: WriteDeps, code: string, dryRun = false): 
     let reads = 0;
     let writes = 0;
     /** A limit the script hit, or the error it ended with; ends the run. */
-    let stopped: string | undefined;
+    let error: string | undefined;
 
     const call = async (name: string, argsJson: string): Promise<unknown> => {
         const write = WRITES[name];
         const binding = write ?? READS[name];
         if (!binding) throw new Error(`journal.${name} is not a function`);
         if (write ? ++writes > SCRIPT_LIMITS.writes : ++reads > SCRIPT_LIMITS.reads) {
-            stopped = `Script stopped: more than ${write ? `${SCRIPT_LIMITS.writes} writes` : `${SCRIPT_LIMITS.reads} reads`} in one run.`;
-            throw new Error(stopped);
+            error = `Script stopped: more than ${write ? `${SCRIPT_LIMITS.writes} writes` : `${SCRIPT_LIMITS.reads} reads`} in one run.`;
+            throw new Error(error);
         }
-        const [toolName, toInput] = binding;
-        const tool = TOOLS.find((t) => t.name === toolName)!;
+        const [tool, toInput] = binding;
         const parsed = tool.input.safeParse(toInput(...(JSON.parse(argsJson) as unknown[])));
         if (!parsed.success) throw new Error(`journal.${name}: ${z.prettifyError(parsed.error)}`);
         if (write && dryRun) {
@@ -135,9 +132,9 @@ export async function runScript(deps: WriteDeps, code: string, dryRun = false): 
         // At most HOST_CONCURRENCY tool calls at once, however many the script starts.
         while (active >= HOST_CONCURRENCY) await new Promise<void>((resolve) => waiting.push(resolve));
         // A call still queued when the run ends early is dropped, waking the next one.
-        if (stopped) {
+        if (error) {
             waiting.shift()?.();
-            throw new Error(stopped);
+            throw new Error(error);
         }
         active++;
         try {
@@ -166,10 +163,8 @@ export async function runScript(deps: WriteDeps, code: string, dryRun = false): 
     };
 
     const ctx = runtime.newContext();
-    let alive = true;
     const inFlight = new Set<Promise<void>>();
     const settle = (deferred: QuickJSDeferredPromise, ok: boolean, text: string) => {
-        if (!alive) return;
         inGuest(() => {
             const value = ok ? ctx.newString(text) : ctx.newError(text);
             if (ok) deferred.resolve(value);
@@ -211,33 +206,31 @@ export async function runScript(deps: WriteDeps, code: string, dryRun = false): 
         return text.slice(0, 1000);
     };
 
-    let error: string | undefined;
+    /** Ends the run with the error `handle` holds, unless a limit ended it first. */
+    const fail = (handle: QuickJSHandle) => {
+        error ??= errorText(handle);
+        handle.dispose();
+    };
+
     try {
         const started = inGuest(() => ctx.evalCode(`(async () => {\n${code}\n})()`, 'script.js'));
-        if (started.error) {
-            error = errorText(started.error);
-            started.error.dispose();
-        } else {
+        if (started.error) fail(started.error);
+        else {
             const promise = started.value;
             for (;;) {
                 const jobs = inGuest(() => runtime.executePendingJobs());
                 if (jobs.error) {
-                    error = errorText(jobs.error);
-                    jobs.error.dispose();
+                    fail(jobs.error);
                     break;
                 }
-                if (stopped) {
-                    error = stopped;
-                    break;
-                }
+                if (error) break;
                 const state = ctx.getPromiseState(promise);
                 if (state.type === 'fulfilled') {
                     state.value.dispose();
                     break;
                 }
                 if (state.type === 'rejected') {
-                    error = errorText(state.error);
-                    state.error.dispose();
+                    fail(state.error);
                     break;
                 }
                 if (inFlight.size === 0) {
@@ -249,10 +242,8 @@ export async function runScript(deps: WriteDeps, code: string, dryRun = false): 
             promise.dispose();
         }
     } finally {
-        stopped ??= error;
         // Calls the script didn't await still finish before the result is returned.
         await Promise.all(inFlight);
-        alive = false;
         describe.dispose();
         ctx.dispose();
         runtime.dispose();
