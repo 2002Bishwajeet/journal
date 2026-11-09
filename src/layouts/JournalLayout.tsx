@@ -262,11 +262,10 @@ export default function JournalLayout() {
   // Tab/window title: the open note, else the current view. Trash/Archive hide
   // the desktop editor, so an open tab there must not win.
   const openNoteId = isManagementView ? null : isDesktop ? activeTabId : noteId;
+  const openNote = openNoteId ? notes.find((n) => n.docId === openNoteId) : undefined;
   useRecordRecentNote(openNoteId);
   useDocumentTitle(
-    openNoteId
-      ? notes.find((n) => n.docId === openNoteId)?.title || "Untitled"
-      : currentViewLabel,
+    openNoteId ? openNote?.title || "Untitled" : currentViewLabel,
   );
 
   const booting = isNotesLoading || isFolderLoading;
@@ -414,7 +413,7 @@ export default function JournalLayout() {
         }}
         notice={
           <ShareRequestNotice
-            note={notes.find((n) => n.docId === (isDesktop ? activeTabId : noteId))}
+            note={openNote}
             onReview={setShareNote}
           />
         }

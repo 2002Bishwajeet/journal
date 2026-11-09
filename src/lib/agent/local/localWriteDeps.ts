@@ -21,6 +21,10 @@ const unavailable = (what: string) => async (): Promise<never> => {
     throw new Error(`${what} isn't available here.`);
 };
 
+const noSharing = (): never => {
+    throw new Error("Sharing notes isn't available here.");
+};
+
 export function createLocalWriteDeps(): WriteDeps {
     return {
         ...createLocalDeps(),
@@ -74,11 +78,7 @@ export function createLocalWriteDeps(): WriteDeps {
             throw new Error("Images can't be added here");
         },
         clientName: () => CLIENT_NAME,
-        ownerIdentity: () => {
-            throw new Error("Sharing notes isn't available here.");
-        },
-        shareLink: () => {
-            throw new Error("Sharing notes isn't available here.");
-        },
+        ownerIdentity: noSharing,
+        shareLink: noSharing,
     };
 }

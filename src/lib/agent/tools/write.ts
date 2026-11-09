@@ -174,10 +174,11 @@ export async function editWithRetry(
     id: string,
     // May return image payload keys the edit stops using, to delete with the upload.
     apply: (doc: Y.Doc) => string[] | void,
-    opts: { metadata?: Partial<DocumentMetadata>; expectedModified?: string } = {}
+    // `fetched`: grants and note the caller already holds, so the first attempt skips refetching them.
+    opts: { metadata?: Partial<DocumentMetadata>; expectedModified?: string; fetched?: [AgentGrants, NoteForEdit] } = {}
 ): Promise<EditResult> {
     const lastEditedBy = agentEditor(deps.clientName());
-    const [grants, firstNote] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
+    const [grants, firstNote] = opts.fetched ?? (await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]));
     let sent: { client: number; clock: number } | undefined;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {

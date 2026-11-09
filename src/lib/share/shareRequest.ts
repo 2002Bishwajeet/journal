@@ -1,5 +1,5 @@
 import { agentDisplayName } from '@/lib/agent/attribution';
-import type { AccessEntry, ShareCircle } from '@/lib/share/shareAccess';
+import { circleDisabledReason, type AccessEntry, type ShareCircle } from '@/lib/share/shareAccess';
 import type { ShareRequest } from '@/types';
 
 /**
@@ -20,9 +20,9 @@ export function requestDraft(
         }
         const circle = circles.find((c) => c.id === entry.id)
             ?? circles.find((c) => c.name.toLowerCase() === entry.id.toLowerCase());
+        const reason = circle && circleDisabledReason(circle);
         if (!circle) refused.push(`No circle named “${entry.id}”`);
-        else if (circle.disabled) refused.push(`${circle.name}: circle is disabled`);
-        else if (circle.memberCount === 0) refused.push(`${circle.name}: no members`);
+        else if (reason) refused.push(`${circle.name}: ${reason.charAt(0).toLowerCase()}${reason.slice(1)}`);
         else entries.push({ kind: 'circle', id: circle.id, role: entry.role });
     }
     return { entries, refused };
