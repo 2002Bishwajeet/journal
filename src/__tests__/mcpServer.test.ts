@@ -70,8 +70,8 @@ function makeFakeDeps(grants = GRANTS, uploads: DocumentMetadata[] = []): Server
 /** The text between a result's untrusted-content tags, or null when it has none. */
 const insideEnvelope = (text: string) => /<(untrusted-note-content-[\w-]+)>\n([\s\S]*)\n<\/\1>$/.exec(text)?.[2] ?? null;
 
-async function connectedClient(deps: ServerDeps): Promise<Client> {
-    const server = createJournalMcpServer(deps);
+async function connectedClient(deps: ServerDeps, updateNotice?: string): Promise<Client> {
+    const server = createJournalMcpServer(deps, updateNotice);
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: 'test-client', version: '0.0.0' });
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -194,6 +194,12 @@ describe('createJournalMcpServer', () => {
             expect(readme).not.toContain(section);
         }
         expect(readme).not.toContain('Designing an `html` block');
+    });
+
+    it('ends the instructions with the stale-version notice when there is one (#1035)', async () => {
+        const notice = 'Journal MCP 1.13.0 is available (running 1.12.0); restart your MCP client to update.';
+        expect((await connectedClient(makeFakeDeps(), notice)).getInstructions()?.endsWith(`.\n\n${notice}`)).toBe(true);
+        expect((await connectedClient(makeFakeDeps())).getInstructions()).not.toContain('is available');
     });
 
     it('tells agents in initialize to design for the column and keep `wide` for content that needs room (#557)', async () => {

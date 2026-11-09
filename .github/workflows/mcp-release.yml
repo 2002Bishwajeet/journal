@@ -3,7 +3,8 @@ name: Release MCP package
 # Bumps journal-mcp (mcp/package/package.json, the plugin's version and URLs, and the site's setup guide), builds and
 # smoke-tests it, then commits, tags and pushes the bump (with the RELEASE_DEPLOY_KEY deploy
 # key, like manual-release.yml) and attaches the package to an `mcp-v<version>` GitHub
-# release. The Claude Code plugin (plugins/journal/.mcp.json) runs that asset through npx.
+# release, and publishes it to npm as `journal-mcp` through trusted publishing (OIDC: no token,
+# provenance is automatic). The Claude Code plugin (plugins/journal/.mcp.json) runs it through npx.
 # Releases made with GITHUB_TOKEN don't trigger the `release: published` deploy workflows.
 
 on:
@@ -27,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # npm trusted publishing: the registry swaps the job's OIDC token for a one-time publish token.
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -73,6 +76,15 @@ jobs:
 
       - name: Smoke test the packed server
         run: npx -y --package=file:$PWD/mcp/journal-mcp-${{ steps.version.outputs.version }}.tgz journal-mcp --help
+
+      # Before the push: if this fails, nothing is tagged and the workflow can simply be re-run.
+      - name: Publish to npm
+        run: |
+          # The .npmrc above only serves @homebase-id from GitHub Packages; drop it so nothing redirects or authenticates the publish.
+          rm .npmrc
+          # Trusted publishing needs npm 11.5.1 or newer.
+          npm i -g npm@latest
+          npm publish "mcp/journal-mcp-${{ steps.version.outputs.version }}.tgz" --access public --registry https://registry.npmjs.org
 
       - name: Commit, tag and push
         env:

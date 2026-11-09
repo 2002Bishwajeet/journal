@@ -20,8 +20,28 @@ The plugin runs the packaged server from the `mcp-v*` GitHub release via `npx`; 
 
 To release a new server version, run the **Release MCP package** workflow and pick patch,
 minor or major. It bumps `mcp/package/package.json` and the plugin's version and URLs,
-builds and smoke-tests the package, then pushes the bump and tag `mcp-v<version>` and
-creates the release.
+builds and smoke-tests the package, publishes it to npm as
+[`journal-mcp`](https://www.npmjs.com/package/journal-mcp) (trusted publishing from the
+workflow, with provenance; there is no npm token), then pushes the bump and tag
+`mcp-v<version>` and creates the release with the `.tgz` attached.
+
+### Updates
+
+Every release goes to npm, so a client that runs `npx -y journal-mcp@latest` gets the new
+version the next time it starts the server: restart the MCP client (or `/mcp` → reconnect)
+and npx fetches it. If you added the server by hand with a pinned
+`…/mcp-v<version>/journal-mcp-<version>.tgz` URL, switch the args to
+`["-y", "journal-mcp@latest"]`; the pinned `.tgz` never changes. Keep the `.tgz` URL
+only if you want to stay on one version.
+
+The server tells your agent when it's out of date. Once a day at most, in the background,
+it asks `https://registry.npmjs.org/journal-mcp/latest` for the newest version (an
+anonymous request with a 3 s timeout; nothing about you or your notes is sent) and keeps
+the answer in `$XDG_CONFIG_HOME/journal-mcp/update-check.json`. When that is newer than
+the running version, the next start adds one line to the server's instructions: *Journal
+MCP X is available (running Y); restart your MCP client to update.* Offline, it says
+nothing. Set `JOURNAL_MCP_NO_UPDATE_CHECK=1` to turn the check off. A checkout
+(`npm run mcp`) never checks.
 
 ## Setup (from a checkout)
 

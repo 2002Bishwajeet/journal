@@ -24,7 +24,7 @@ function isMcpCredentials(value: unknown): value is McpCredentials {
     );
 }
 
-function credentialsDir(): string {
+export function credentialsDir(): string {
     return join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'journal-mcp');
 }
 
