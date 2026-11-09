@@ -1,3 +1,11 @@
+# [2.65.0](https://github.com/2002Bishwajeet/journal/compare/v2.64.0...v2.65.0) (2026-11-09)
+
+
+### Features
+
+* **ai:** Qwen3.5 2B is the assistant default, Qwen3.5 4B the higher-quality choice ([#1023](https://github.com/2002Bishwajeet/journal/issues/1023)) ([2b7eeba](https://github.com/2002Bishwajeet/journal/commit/2b7eeba2b73465ee9a31e9ded8d14779acc898ed)), closes [hi#performance](https://github.com/hi/issues/performance)
+* **mcp:** npm README, banner and package metadata for journal-mcp ([#1035](https://github.com/2002Bishwajeet/journal/issues/1035)) ([52bf6ac](https://github.com/2002Bishwajeet/journal/commit/52bf6acbed7332b6c1b659c76d297536843f84fa))
+* **mcp:** publish journal-mcp to npm and tell agents when it's out of date ([#1035](https://github.com/2002Bishwajeet/journal/issues/1035)) ([b736591](https://github.com/2002Bishwajeet/journal/commit/b736591e6cd12d12eadf4e1d7b16e4136e9de7d5))
 # [2.64.0](https://github.com/2002Bishwajeet/journal/compare/v2.63.0...v2.64.0) (2026-11-09)
 
 
