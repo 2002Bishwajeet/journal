@@ -19,6 +19,12 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tiny_http = "0.12"
 
+# Native error dialog when the asset server can't bind (lib.rs). Same library
+# and GTK backend tauri-plugin-dialog uses, without that plugin's tauri bump and
+# its bundled fs plugin. Desktop only: rfd has no iOS/Android backend.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+rfd = { version = "0.17", default-features = false, features = ["gtk3"] }
+
 [features]
 # Enabled by the Tauri CLI for production builds. Turning it on flips
 # `tauri::is_dev()` to false and embeds `frontendDist` into the binary.
