@@ -77,7 +77,7 @@ async function connectedClient(deps: ServerDeps): Promise<Client> {
 }
 
 describe('createJournalMcpServer', () => {
-    it('registers exactly the five read tools and the nine write tools', async () => {
+    it('registers exactly the five read tools, the nine write tools and run_script', async () => {
         const client = await connectedClient(makeFakeDeps());
         const { tools } = await client.listTools();
         expect(tools.map((tool) => tool.name).sort()).toEqual([
@@ -92,6 +92,7 @@ describe('createJournalMcpServer', () => {
             'list_folders',
             'list_notes',
             'replace_in_note',
+            'run_script',
             'search_notes',
             'set_note_cover',
             'update_note',
@@ -264,7 +265,7 @@ describe('createJournalMcpServer', () => {
         const { tools } = await client.listTools();
         const hint = (name: 'readOnlyHint' | 'destructiveHint') => tools.filter((tool) => tool.annotations?.[name]).map((tool) => tool.name).sort();
         expect(hint('readOnlyHint')).toEqual(['get_authoring_guide', 'get_note', 'list_folders', 'list_notes', 'search_notes']);
-        expect(hint('destructiveHint')).toEqual(['clear_note_cover', 'delete_note', 'edit_block', 'replace_in_note', 'set_note_cover', 'update_note']);
+        expect(hint('destructiveHint')).toEqual(['clear_note_cover', 'delete_note', 'edit_block', 'replace_in_note', 'run_script', 'set_note_cover', 'update_note']);
         // Stated, not left out: a missing destructiveHint means true.
         for (const name of ['append_to_note', 'create_folder', 'create_note']) {
             expect(tools.find((tool) => tool.name === name)?.annotations).toEqual({ readOnlyHint: false, destructiveHint: false });

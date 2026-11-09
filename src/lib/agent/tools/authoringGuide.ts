@@ -26,7 +26,11 @@ const SECTIONS = {
     },
     editing: {
         about: 'Changing part of a note: get_note outline and blocks, and every edit_block op.',
-        text: part('## Editing one block', '## Live blocks'),
+        text: part('## Editing one block', '## Scripts: `run_script`'),
+    },
+    script: {
+        about: 'run_script: the journal API a script calls (as a .d.ts), its limits, and an example.',
+        text: part('## Scripts: `run_script`', '## Live blocks'),
     },
     'mermaid-svg': {
         about: 'Live blocks in general (ids, the Code / Preview toggle), mermaid diagrams and svg drawings.',
