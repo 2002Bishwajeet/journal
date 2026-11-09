@@ -194,7 +194,8 @@ describe('run_script sandbox (#1005)', () => {
 
     it('stops a script that uses more memory than the limit', async () => {
         const { deps } = fakeDrive(NOTES());
-        const { error } = await runScript(deps, `const keep = []; for (let i = 0; ; i++) keep.push(new Array(1_000_000).fill(i));`);
+        // 16 MB buffers reach the limit in a few allocations, long before the CPU limit, even on a slow runner.
+        const { error } = await runScript(deps, `const keep = []; for (;;) keep.push(new ArrayBuffer(16 * 1024 * 1024));`);
         expect(error).toBe('Script stopped: it used more than 64 MB of memory.');
         // The next run starts in a fresh isolate.
         expect((await runScript(deps, `console.log('ok')`)).output).toBe('ok');
