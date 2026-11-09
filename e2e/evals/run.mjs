@@ -3,10 +3,9 @@
 import { spawnSync } from 'node:child_process';
 import { prebuiltAppConfig } from '@mlc-ai/web-llm';
 
-/** The candidates of #1023, with Qwen3 1.7B and Qwen3 4B as the reference. */
+/** The candidates of #1023, with Qwen3 1.7B as the reference. */
 const CANDIDATES = [
   'Qwen3-1.7B-q4f16_1-MLC',
-  'Qwen3-4B-q4f16_1-MLC',
   'Qwen3.5-2B-q4f16_1-MLC',
   'Qwen3.5-4B-q4f16_1-MLC',
   'Ministral-3-3B-Instruct-2512-BF16-q4f16_1-MLC',

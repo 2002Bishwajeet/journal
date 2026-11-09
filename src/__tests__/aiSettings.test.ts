@@ -105,9 +105,18 @@ describe('AI Settings - loadSettings', () => {
   });
 
   it('should keep a saved agentModelId', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, agentModelId: 'Qwen3-4B-q4f16_1-MLC' }));
-    expect(loadSettings().agentModelId).toBe('Qwen3-4B-q4f16_1-MLC');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, agentModelId: 'Qwen3.5-4B-q4f16_1-MLC' }));
+    expect(loadSettings().agentModelId).toBe('Qwen3.5-4B-q4f16_1-MLC');
   });
+
+  it.each(['Qwen3-4B-q4f16_1-MLC', 'Qwen2.5-3B-Instruct-q4f16_1-MLC', 'Hermes-3-Llama-3.2-3B-q4f16_1-MLC'])(
+    'should fall back to the agent default for a saved %s choice, removed from the catalogue',
+    (id) => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, enabled: true, agentModelId: id }));
+      expect(getModelInfo(id)).toBeUndefined();
+      expect(loadSettings().agentModelId).toBe('Qwen3.5-2B-q4f16_1-MLC');
+    },
+  );
 
   it('should fall back to the editor default for a saved Llama 3.2 1B choice', () => {
     const saved = { _v: 2, enabled: true, modelId: 'Llama-3.2-1B-Instruct-q4f16_1-MLC' };

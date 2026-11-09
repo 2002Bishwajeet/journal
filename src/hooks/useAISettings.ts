@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { DEFAULT_MODEL_ID, DEFAULT_AGENT_MODEL_ID, LEGACY_LLAMA_MODEL_ID, PREVIOUS_AGENT_MODEL_ID } from '@/lib/webllm/models';
+import { DEFAULT_MODEL_ID, DEFAULT_AGENT_MODEL_ID, LEGACY_LLAMA_MODEL_ID, PREVIOUS_AGENT_MODEL_ID, REMOVED_AGENT_MODEL_IDS } from '@/lib/webllm/models';
 import { AI_SETTINGS_KEY, LEGACY_WEBLLM_ENABLED_KEY, readString, writeString, removeKey } from '@/lib/storage';
 
 const STORAGE_KEY = AI_SETTINGS_KEY;
@@ -26,6 +26,9 @@ const DEFAULT_SETTINGS: AISettings = {
 function migrateSettings(raw: Record<string, unknown>): AISettings {
   if (raw.modelId === LEGACY_LLAMA_MODEL_ID) {
     raw.modelId = DEFAULT_SETTINGS.modelId;
+  }
+  if (REMOVED_AGENT_MODEL_IDS.includes(raw.agentModelId as string)) {
+    raw.agentModelId = DEFAULT_SETTINGS.agentModelId;
   }
 
   return {
