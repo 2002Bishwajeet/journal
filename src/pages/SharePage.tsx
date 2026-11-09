@@ -31,6 +31,7 @@ export default function SharePage() {
     const { identity, noteId, note, isLoading, error, forbidden, isAuthenticated, openSharedHref, author, readingMinutes, cover } = useSharePage();
     useDocumentTitle(note?.title ?? 'Shared note');
     const articleRef = useRef<HTMLElement>(null);
+    const mainRef = useRef<HTMLElement>(null);
     const outline = useShareOutline(articleRef, note?.content ?? '');
 
     if (isLoading) {
@@ -59,10 +60,14 @@ export default function SharePage() {
             <ShareHeader
                 saveHref={`/save-shared?${new URLSearchParams({ identity: decodeURIComponent(identity), file: noteId })}`}
                 authorIndexHref={`/share/${identity}`}
+                onDownloadPdf={() => {
+                    const main = mainRef.current;
+                    if (main) void import('@/lib/importexport/printNote').then((m) => m.printElement(main, note.title));
+                }}
             />
 
             {/* Content */}
-            <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+            <main ref={mainRef} className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
                 {/* Outside the article so the global `.prose img` margin doesn't apply. */}
                 {cover && (
                     <div className="mb-8 h-40 sm:h-56 w-full rounded-lg overflow-hidden">

@@ -425,7 +425,7 @@ const NoteItem = memo(function NoteItem({
   const menuItems = buildNoteMenuItems(note, {
     isPeerNote,
     dotYouRoot: dotYouClient.getRoot(),
-    handlers: { onTogglePin, onShare: onShareNote, onMoveToFolder, onRemoveFromList, onArchive, onTrash: onDeleteNote },
+    handlers: { onTogglePin, onShare: onShareNote, onMoveToFolder, onRemoveFromList, onArchive, onTrash: onDeleteNote, onOpen: onSelectNote },
   });
 
   return (

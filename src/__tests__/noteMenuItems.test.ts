@@ -34,6 +34,7 @@ describe('buildNoteMenuItems', () => {
       'Share…',
       'Move to folder…',
       'Export to Markdown',
+      'Export to PDF',
       'Open in Owner Console',
       'Archive',
       'Move to Trash',
@@ -52,6 +53,7 @@ describe('buildNoteMenuItems', () => {
     expect(labels(items)).toEqual([
       'Pin',
       'Export to Markdown',
+      'Export to PDF',
       'Open in Owner Console',
       'Remove from my list',
       'Archive',

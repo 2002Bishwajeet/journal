@@ -141,7 +141,8 @@ export default function TipTapEditor({
   }
 
   return (
-    <div className={`flex flex-col ${className}`}>
+    // `data-print-note`: what Export to PDF prints (lib/importexport/printNote)
+    <div data-print-note={noteId} className={`flex flex-col ${className}`}>
       {/* Header: "Add cover" shows on hover anywhere in it */}
       <div className="group/header">
         <NoteCover metadata={metadata} />
@@ -163,13 +164,19 @@ export default function TipTapEditor({
             readOnly={readOnly}
             placeholder="Untitled"
             aria-label="Note title"
-            className="block w-full max-h-[3lh] resize-none overflow-y-auto [field-sizing:content] text-3xl font-bold bg-transparent border-none outline-none placeholder:text-gray-400 dark:text-white"
+            className="block w-full max-h-[3lh] resize-none overflow-y-auto [field-sizing:content] text-3xl font-bold bg-transparent border-none outline-none placeholder:text-gray-400 dark:text-white print:hidden"
           />
+          {/* A textarea would print cut to its rows */}
+          <h1 className="hidden text-3xl font-bold print:block">{title || "Untitled"}</h1>
         </div>
       </div>
 
       {/* Tag Input */}
-      {!readOnly && <TagInput docId={noteId} metadata={metadata} />}
+      {!readOnly && (
+        <div className="print:hidden">
+          <TagInput docId={noteId} metadata={metadata} />
+        </div>
+      )}
 
       {/* Toolbar */}
       {editor && !hideToolbar && !readOnly && <EditorToolbar editor={editor} />}
@@ -181,7 +188,7 @@ export default function TipTapEditor({
 
       {/* A view-only note gets none of the editing toolbars (#897) */}
       {editor && !readOnly && (
-        <>
+        <div className="contents print:hidden">
           {/* Mobile Toolbar - appears above keyboard on touch devices */}
           <MobileToolbar editor={editor} />
           {/* Bubble Menu - appears when text is selected on any screen */}
@@ -189,12 +196,12 @@ export default function TipTapEditor({
           {/* Table Handles */}
           <TableColumnMenu editor={editor} />
           <TableRowMenu editor={editor} />
-        </>
+        </div>
       )}
 
       {/* Word Count Status Bar */}
       {editor && (
-        <div className="flex items-center justify-end px-4 py-1.5 border-t border-gray-200 dark:border-gray-700 text-xs text-muted-foreground select-none">
+        <div className="flex items-center justify-end px-4 py-1.5 border-t border-gray-200 dark:border-gray-700 text-xs text-muted-foreground select-none print:hidden">
           <span>{wordCount.words} words</span>
           <span className="mx-2">·</span>
           <span>{wordCount.characters} characters</span>

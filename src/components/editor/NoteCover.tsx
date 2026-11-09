@@ -136,7 +136,7 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
   if (!cover) {
     if (isPeerNote) return null;
     return (
-      <div className="px-4 pt-3" {...dropHandlers("light")}>
+      <div className="px-4 pt-3 print:hidden" {...dropHandlers("light")}>
         {dropping && (
           <div className="pointer-events-none mb-2 flex h-40 items-center justify-center rounded-md border-2 border-dashed border-primary/60 bg-muted text-sm text-muted-foreground sm:h-56">
             Drop image to add a cover
@@ -252,7 +252,7 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
       {!isPeerNote && (
         <div
           className={cn(
-            "absolute bottom-2 left-2 right-2 flex flex-wrap justify-end gap-1 transition-opacity duration-200",
+            "absolute bottom-2 left-2 right-2 flex flex-wrap justify-end gap-1 transition-opacity duration-200 print:hidden",
             repositioning || isTouch
               ? "opacity-100"
               : "opacity-0 focus-within:opacity-100 group-hover:opacity-100 has-[[data-state=open]]:opacity-100",

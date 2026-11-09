@@ -143,15 +143,16 @@ for (const theme of THEMES) {
   }
 }
 
-test('share header: the logo, "More notes", "Save a copy" and "Open Journal" are reachable by keyboard, in order', async ({ anonPage: page }) => {
+test('share header: the logo, "More notes", "Download PDF", "Save a copy" and "Open Journal" are reachable by keyboard, in order', async ({ anonPage: page }) => {
   await page.setViewportSize(VIEWPORTS[390]);
   await openNote(page);
   await expect(page.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
 
-  // At 390px "More notes" and "Open Journal" are icons; their accessible names are still the labels.
+  // At 390px "More notes", "Download PDF" and "Open Journal" are icons; their accessible names are still the labels.
   const order = [
     homeLink(page),
     pageHeader(page).getByRole('link', { name: 'More notes' }),
+    pageHeader(page).getByRole('button', { name: 'Download PDF' }),
     pageHeader(page).getByRole('link', { name: 'Save a copy' }),
     pageHeader(page).getByRole('link', { name: 'Open Journal' }),
   ];
@@ -159,7 +160,7 @@ test('share header: the logo, "More notes", "Save a copy" and "Open Journal" are
     await page.keyboard.press('Tab');
     await expect(link).toBeFocused();
   }
-  await expect(order[3]).toHaveAttribute('href', '/');
+  await expect(order.at(-1)!).toHaveAttribute('href', '/');
 });
 
 test('share header: the logo goes to "/"', async ({ app }) => {

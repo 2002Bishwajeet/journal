@@ -4,7 +4,7 @@
  * "Save a copy" only when there is a note to save, a hairline once the page
  * has scrolled, and a footer that says what Journal is.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createElement, act, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
@@ -70,6 +70,16 @@ describe('ShareHeader', () => {
         expect(index.hasAttribute('data-discover')).toBe(false); // not a router <Link>
         await mount(createElement(ShareHeader));
         expect(link('More notes')).toBeUndefined();
+    });
+
+    it('offers "Download PDF" only when given a way to print (#520)', async () => {
+        const onDownloadPdf = vi.fn();
+        await mount(createElement(ShareHeader, { onDownloadPdf }));
+        const button = [...el.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Download PDF')!;
+        await act(async () => button.click());
+        expect(onDownloadPdf).toHaveBeenCalledOnce();
+        await mount(createElement(ShareHeader));
+        expect(el.textContent).not.toContain('Download PDF');
     });
 
     it('shows its hairline only once the page has scrolled', async () => {

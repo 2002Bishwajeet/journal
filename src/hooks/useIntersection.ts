@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from 'react';
 
-const listenerCallbacks = new WeakMap<Element, () => void>();
+// A Map, not a WeakMap, so revealIntersections can walk it; the effect cleanup removes each entry.
+const listenerCallbacks = new Map<Element, () => void>();
 const cleanupSettings = new WeakMap<Element, boolean>();
 
 let observer: IntersectionObserver;
@@ -30,6 +31,18 @@ const getIntersectionObserver = () => {
     }
     return observer;
 };
+
+/** Runs the callback of every observed element inside `root` as if it had come into view (PDF export, #520). */
+export function revealIntersections(root: Element): void {
+    for (const [target, callback] of listenerCallbacks) {
+        if (!root.contains(target)) continue;
+        if (cleanupSettings.get(target)) {
+            observer.unobserve(target);
+            listenerCallbacks.delete(target);
+        }
+        callback();
+    }
+}
 
 export const useIntersection = (
     elem: RefObject<HTMLElement | null> | undefined,

@@ -69,6 +69,17 @@ export async function waitForNoteSaved(page: Page): Promise<void> {
     await page.evaluate(() => window.__journalE2E!.syncToDisk());
 }
 
+/** Paste `html` at the editor's cursor, through ProseMirror's own HTML paste path. */
+export async function pasteHtml(page: Page, html: string): Promise<void> {
+    await assertTestOrigin(page);
+    await activeEditor(page).evaluate((el, value) => {
+        const data = new DataTransfer();
+        data.setData('text/html', value);
+        data.setData('text/plain', '');
+        el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    }, html);
+}
+
 /** Paste `text` as plain text at the editor's cursor, through a synthetic paste event. */
 export async function pastePlainText(page: Page, text: string): Promise<void> {
     await assertTestOrigin(page);
