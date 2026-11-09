@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect } from '../fixtures';
+import { test, expect, waitForAppReady } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
 import { openSettingsSection } from '../support/actions';
 import { stubWebGPU } from '../support/webgpu';
@@ -164,16 +164,41 @@ test('desktop: turning AI on shows the requirements first; Cancel loads nothing,
 
   // Two lists: one model for writing help, one for the assistant. The assistant list only saves its choice.
   const assistant = dialog.getByRole('radiogroup', { name: 'Assistant' });
-  await expect(assistant.getByRole('radio')).toHaveCount(6);
+  await expect(assistant.getByRole('radio')).toHaveCount(3);
   // Qwen3.5 2B is the default and Qwen3.5 4B the higher-quality choice (#1023).
   await expect(assistant.getByRole('radio', { name: /Qwen3\.5 2B/ })).toBeChecked();
   await expect(assistant.locator('label').filter({ hasText: 'Qwen3.5 2B' })).toContainText('Recommended');
   await expect(assistant.locator('label').filter({ hasText: 'Qwen3.5 4B' })).toContainText('Higher quality');
   await assistant.scrollIntoViewIfNeeded();
   await screenshotBothThemes(app, 'assistant-models');
-  await dialog.locator('label').filter({ hasText: 'Qwen3 4B' }).click();
-  await expect(dialog.getByRole('radio', { name: /Qwen3 4B/ })).toBeChecked();
+  await dialog.locator('label').filter({ hasText: 'Qwen3 1.7B' }).click();
+  await expect(dialog.getByRole('radio', { name: /Qwen3 1\.7B/ })).toBeChecked();
   expect(await reloads(app)).toEqual([EDITOR_DEFAULT]);
+});
+
+test('desktop: a saved retired assistant model stays selected with a hint, until another is picked', async ({ app }) => {
+  await app.setViewportSize({ width: 1280, height: 800 });
+  await stubWebLLMWorker(app);
+  await stubWebGPU(app);
+  await assertTestOrigin(app);
+  await app.evaluate(() => {
+    localStorage.setItem('journal-ai-settings', JSON.stringify({ enabled: true, _v: 2, agentModelId: 'Qwen3-4B-q4f16_1-MLC' }));
+  });
+  await app.reload();
+  await waitForAppReady(app);
+  const dialog = await openAISettings(app);
+  const assistant = dialog.getByRole('radiogroup', { name: 'Assistant' });
+
+  await expect(assistant.getByRole('radio')).toHaveCount(4);
+  await expect(assistant.getByRole('radio', { name: /Qwen3 4B/ })).toBeChecked();
+  await expect(assistant.locator('label').filter({ hasText: 'Qwen3 4B' })).toContainText('Retired: switch to Qwen3.5 2B');
+  await assistant.scrollIntoViewIfNeeded();
+  await screenshotBothThemes(app, 'assistant-retired');
+
+  await assistant.locator('label').filter({ hasText: 'Recommended' }).click();
+  await expect(assistant.getByRole('radio', { name: /Qwen3\.5 2B/ })).toBeChecked();
+  await expect(assistant.getByRole('radio')).toHaveCount(3);
+  await expect(assistant).not.toContainText('Retired');
 });
 
 test('desktop: without WebGPU the dialog says so and nothing can start a download', async ({ app }) => {

@@ -18,6 +18,7 @@ export default function AIModelList({
   onSelect: (id: string) => void | Promise<void>;
   disabled: boolean;
 }) {
+  const recommended = models.find((m) => m.recommended);
   return (
     <div role="radiogroup" aria-label={label} aria-disabled={disabled} className="space-y-3">
       {models.map((model) => {
@@ -52,6 +53,11 @@ export default function AIModelList({
                   {model.recommended && (
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                       Recommended
+                    </span>
+                  )}
+                  {model.retired && recommended && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      Retired: switch to {recommended.name}
                     </span>
                   )}
                   {model.badge && (

@@ -170,8 +170,12 @@ describe('outOfMemoryMessage (#1023)', () => {
   const deviceLost = new Error('The WebGPU device was lost while loading the model. This issue often occurs due to running out of memory (OOM).');
 
   it('names the next smaller model of the same job', () => {
-    expect(outOfMemoryMessage(deviceLost, 'Qwen3.5-4B-q4f16_1-MLC')).toBe('Not enough memory for this model. Try Qwen3 4B.');
+    expect(outOfMemoryMessage(deviceLost, 'Qwen3.5-4B-q4f16_1-MLC')).toBe('Not enough memory for this model. Try Qwen3.5 2B.');
     expect(outOfMemoryMessage('GPUOutOfMemoryError: Out of memory', 'Qwen3.5-2B-q4f16_1-MLC')).toBe('Not enough memory for this model. Try Qwen3 1.7B.');
+  });
+
+  it('names no retired model', () => {
+    expect(outOfMemoryMessage(deviceLost, 'Qwen3-4B-q4f16_1-MLC')).toBe('Not enough memory for this model. Try Qwen3.5 2B.');
   });
 
   it('names no model when none is smaller', () => {
