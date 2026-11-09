@@ -1,0 +1,1291 @@
+{
+  "model": "gemma3-1b-it-q4f16_1-MLC",
+  "loadedModelId": "gemma3-1b-it-q4f16_1-MLC",
+  "date": "2026-11-09",
+  "gpu": "dgpu",
+  "adapter": {
+    "vendor": "nvidia",
+    "architecture": "turing",
+    "shaderF16": true
+  },
+  "firstLoadMs": 5340,
+  "cached": true,
+  "tasks": [
+    {
+      "id": "find-lisbon",
+      "kind": "find",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 19413,
+      "turns": [
+        {
+          "promptTokens": 253,
+          "completionTokens": 23,
+          "prefillTokensPerS": 68.83211222083982,
+          "decodeTokensPerS": 17.652888052567608
+        },
+        {
+          "promptTokens": 425,
+          "completionTokens": 65,
+          "prefillTokensPerS": 413.87503895186376,
+          "decodeTokensPerS": 23.829159817366328
+        },
+        {
+          "promptTokens": 625,
+          "completionTokens": 61,
+          "prefillTokensPerS": 405.96409978225654,
+          "decodeTokensPerS": 22.771305877564256
+        },
+        {
+          "promptTokens": 721,
+          "completionTokens": 22,
+          "prefillTokensPerS": 402.0789881663413,
+          "decodeTokensPerS": 22.57712507181782
+        },
+        {
+          "promptTokens": 778,
+          "completionTokens": 9,
+          "prefillTokensPerS": 363.0416167946534,
+          "decodeTokensPerS": 18.16097433616256
+        }
+      ],
+      "answer": "Lisbon trip",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "Lisbon trip",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"970c7f36-6606-6e3c-6f0e-26cf981ceef4\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Flight"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "c3675562-9e9e-35c7-ba97-211b8e7376c1"
+          },
+          "result": "{\"id\":\"c3675562-9e9e-35c7-ba97-211b8e7376c1\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-sourdough",
+      "kind": "find",
+      "success": false,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 17445,
+      "turns": [
+        {
+          "promptTokens": 254,
+          "completionTokens": 26,
+          "prefillTokensPerS": 308.22063258004266,
+          "decodeTokensPerS": 27.452767513681703
+        },
+        {
+          "promptTokens": 410,
+          "completionTokens": 65,
+          "prefillTokensPerS": 417.00357504360295,
+          "decodeTokensPerS": 25.12513494938181
+        },
+        {
+          "promptTokens": 610,
+          "completionTokens": 61,
+          "prefillTokensPerS": 395.97533268419346,
+          "decodeTokensPerS": 22.724647341753382
+        },
+        {
+          "promptTokens": 706,
+          "completionTokens": 57,
+          "prefillTokensPerS": 391.518576336547,
+          "decodeTokensPerS": 21.919309541787793
+        },
+        {
+          "promptTokens": 798,
+          "completionTokens": 9,
+          "prefillTokensPerS": 388.08699373574603,
+          "decodeTokensPerS": 21.557241212246318
+        }
+      ],
+      "answer": "Scratchpad",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "sourdough starter feeding schedule",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"268ed077-b9fa-0d9e-0917-e9fd40b3a589\",\"title\":\"Sourdough starter\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\""
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "c3675562-9e9e-35c7-ba97-211b8e7376c1"
+          },
+          "result": "{\"id\":\"c3675562-9e9e-35c7-ba97-211b8e7376c1\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-insurance",
+      "kind": "find",
+      "success": false,
+      "steps": 8,
+      "invalidCalls": 0,
+      "wallMs": 19566,
+      "turns": [
+        {
+          "promptTokens": 254,
+          "completionTokens": 22,
+          "prefillTokensPerS": 420.34537826905324,
+          "decodeTokensPerS": 24.637188076109197
+        },
+        {
+          "promptTokens": 429,
+          "completionTokens": 22,
+          "prefillTokensPerS": 397.84662039044474,
+          "decodeTokensPerS": 24.226762496905017
+        },
+        {
+          "promptTokens": 486,
+          "completionTokens": 16,
+          "prefillTokensPerS": 391.4982056338821,
+          "decodeTokensPerS": 24.02960447312338
+        },
+        {
+          "promptTokens": 535,
+          "completionTokens": 22,
+          "prefillTokensPerS": 391.0104147633839,
+          "decodeTokensPerS": 23.51650074463425
+        },
+        {
+          "promptTokens": 592,
+          "completionTokens": 22,
+          "prefillTokensPerS": 379.9865207476925,
+          "decodeTokensPerS": 22.06148852002254
+        },
+        {
+          "promptTokens": 749,
+          "completionTokens": 16,
+          "prefillTokensPerS": 371.17611786518097,
+          "decodeTokensPerS": 21.101646631418546
+        },
+        {
+          "promptTokens": 802,
+          "completionTokens": 22,
+          "prefillTokensPerS": 360.3271698812464,
+          "decodeTokensPerS": 20.493403076731077
+        },
+        {
+          "promptTokens": 859,
+          "completionTokens": 7,
+          "prefillTokensPerS": 362.87827102733354,
+          "decodeTokensPerS": 15.664773839583921
+        }
+      ],
+      "answer": "Yes",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "car insurance",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"61db2985-f16c-d563-855b-09bff16d08f8\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"snippe"
+        },
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Nothing here yet.\"}]"
+        },
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "scratchpad",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"c3675562-9e9e-35c7-ba97-211b8e7376c1\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-offsite",
+      "kind": "find",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 16010,
+      "turns": [
+        {
+          "promptTokens": 254,
+          "completionTokens": 23,
+          "prefillTokensPerS": 346.9234446464962,
+          "decodeTokensPerS": 26.47141989012514
+        },
+        {
+          "promptTokens": 426,
+          "completionTokens": 65,
+          "prefillTokensPerS": 376.89109086182714,
+          "decodeTokensPerS": 24.50262541799464
+        },
+        {
+          "promptTokens": 626,
+          "completionTokens": 59,
+          "prefillTokensPerS": 361.9794377170021,
+          "decodeTokensPerS": 22.46860206573304
+        },
+        {
+          "promptTokens": 720,
+          "completionTokens": 22,
+          "prefillTokensPerS": 346.51201963543264,
+          "decodeTokensPerS": 20.747400400189523
+        },
+        {
+          "promptTokens": 777,
+          "completionTokens": 9,
+          "prefillTokensPerS": 347.4007538194889,
+          "decodeTokensPerS": 20.65875608479234
+        }
+      ],
+      "answer": "Team offsite",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "team offsite",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"ba7f2ea3-e6de-0678-e502-ffaad0641d59\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.385Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Offsi"
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "c3675562-9e9e-35c7-ba97-211b8e7376c1"
+          },
+          "result": "{\"id\":\"c3675562-9e9e-35c7-ba97-211b8e7376c1\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "find-git",
+      "kind": "find",
+      "success": false,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 18272,
+      "turns": [
+        {
+          "promptTokens": 253,
+          "completionTokens": 54,
+          "prefillTokensPerS": 341.605681723922,
+          "decodeTokensPerS": 24.678481295518903
+        },
+        {
+          "promptTokens": 442,
+          "completionTokens": 53,
+          "prefillTokensPerS": 366.4977902322816,
+          "decodeTokensPerS": 22.966473365724422
+        },
+        {
+          "promptTokens": 530,
+          "completionTokens": 53,
+          "prefillTokensPerS": 340.809712434355,
+          "decodeTokensPerS": 12.981339324696568
+        },
+        {
+          "promptTokens": 618,
+          "completionTokens": 41,
+          "prefillTokensPerS": 334.00350217242897,
+          "decodeTokensPerS": 12.42876762564737
+        }
+      ],
+      "answer": "c3675562-9e9e-35c7-ba97-211b8e7376c1",
+      "calls": [
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "c3675562-9e9e-35c7-ba97-211b8e7376c1"
+          },
+          "result": "{\"id\":\"c3675562-9e9e-35c7-ba97-211b8e7376c1\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-flight",
+      "kind": "read",
+      "success": false,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 18475,
+      "turns": [
+        {
+          "promptTokens": 252,
+          "completionTokens": 54,
+          "prefillTokensPerS": 296.92120983579144,
+          "decodeTokensPerS": 14.663507095654229
+        },
+        {
+          "promptTokens": 441,
+          "completionTokens": 16,
+          "prefillTokensPerS": 381.61828652386214,
+          "decodeTokensPerS": 23.86767759527522
+        },
+        {
+          "promptTokens": 490,
+          "completionTokens": 53,
+          "prefillTokensPerS": 364.6077490317833,
+          "decodeTokensPerS": 16.99074331245791
+        },
+        {
+          "promptTokens": 578,
+          "completionTokens": 16,
+          "prefillTokensPerS": 341.51068254784406,
+          "decodeTokensPerS": 18.579302656634532
+        },
+        {
+          "promptTokens": 631,
+          "completionTokens": 12,
+          "prefillTokensPerS": 344.75128462201803,
+          "decodeTokensPerS": 19.604348601170646
+        }
+      ],
+      "answer": "I don't know.",
+      "calls": [
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "c3675562-9e9e-35c7-ba97-211b8e7376c1"
+          },
+          "result": "{\"id\":\"c3675562-9e9e-35c7-ba97-211b8e7376c1\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        },
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Nothing here yet.\"}]"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-flour",
+      "kind": "read",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 22509,
+      "turns": [
+        {
+          "promptTokens": 255,
+          "completionTokens": 32,
+          "prefillTokensPerS": 276.51418626203525,
+          "decodeTokensPerS": 19.953977117160015
+        },
+        {
+          "promptTokens": 451,
+          "completionTokens": 65,
+          "prefillTokensPerS": 349.83206509578423,
+          "decodeTokensPerS": 18.032588268210716
+        },
+        {
+          "promptTokens": 651,
+          "completionTokens": 65,
+          "prefillTokensPerS": 336.51062774052235,
+          "decodeTokensPerS": 18.868592049107768
+        },
+        {
+          "promptTokens": 751,
+          "completionTokens": 32,
+          "prefillTokensPerS": 332.5606059600521,
+          "decodeTokensPerS": 20.81228327538292
+        },
+        {
+          "promptTokens": 818,
+          "completionTokens": 34,
+          "prefillTokensPerS": 323.52475874089623,
+          "decodeTokensPerS": 21.027546085507606
+        }
+      ],
+      "answer": "50 g of flour and 50 g of water. Keep it on the counter, away from the window",
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "flour",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"268ed077-b9fa-0d9e-0917-e9fd40b3a589\",\"title\":\"Sourdough starter\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\""
+        },
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "c3675562-9e9e-35c7-ba97-211b8e7376c1"
+          },
+          "result": "{\"id\":\"c3675562-9e9e-35c7-ba97-211b8e7376c1\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-policy",
+      "kind": "read",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 10971,
+      "turns": [
+        {
+          "promptTokens": 253,
+          "completionTokens": 16,
+          "prefillTokensPerS": 356.01711133596166,
+          "decodeTokensPerS": 14.695940981028075
+        },
+        {
+          "promptTokens": 302,
+          "completionTokens": 23,
+          "prefillTokensPerS": 331.76787234681206,
+          "decodeTokensPerS": 24.27653176635364
+        },
+        {
+          "promptTokens": 478,
+          "completionTokens": 16,
+          "prefillTokensPerS": 337.9082911240384,
+          "decodeTokensPerS": 22.17639101377461
+        },
+        {
+          "promptTokens": 531,
+          "completionTokens": 16,
+          "prefillTokensPerS": 330.27728363996107,
+          "decodeTokensPerS": 21.26739495657607
+        },
+        {
+          "promptTokens": 584,
+          "completionTokens": 12,
+          "prefillTokensPerS": 326.59726474828875,
+          "decodeTokensPerS": 20.7937543119428
+        }
+      ],
+      "answer": "AX-4471",
+      "calls": [
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Nothing here yet.\"}]"
+        },
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "car insurance policy number",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"61db2985-f16c-d563-855b-09bff16d08f8\",\"title\":\"Car insurance renewal\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"snippe"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "read-venue",
+      "kind": "read",
+      "success": false,
+      "steps": 7,
+      "invalidCalls": 0,
+      "wallMs": 24391,
+      "turns": [
+        {
+          "promptTokens": 253,
+          "completionTokens": 54,
+          "prefillTokensPerS": 304.74217366657535,
+          "decodeTokensPerS": 20.879664191993815
+        },
+        {
+          "promptTokens": 442,
+          "completionTokens": 53,
+          "prefillTokensPerS": 326.0777348656961,
+          "decodeTokensPerS": 18.915556590185002
+        },
+        {
+          "promptTokens": 530,
+          "completionTokens": 16,
+          "prefillTokensPerS": 327.85972552537277,
+          "decodeTokensPerS": 16.644935778482118
+        },
+        {
+          "promptTokens": 579,
+          "completionTokens": 23,
+          "prefillTokensPerS": 313.1896663639563,
+          "decodeTokensPerS": 22.71284256381805
+        },
+        {
+          "promptTokens": 752,
+          "completionTokens": 16,
+          "prefillTokensPerS": 315.98962108518833,
+          "decodeTokensPerS": 22.499718752861806
+        },
+        {
+          "promptTokens": 805,
+          "completionTokens": 23,
+          "prefillTokensPerS": 309.5445465366076,
+          "decodeTokensPerS": 16.586811223094283
+        },
+        {
+          "promptTokens": 863,
+          "completionTokens": 9,
+          "prefillTokensPerS": 310.1739202314841,
+          "decodeTokensPerS": 21.93132753075918
+        }
+      ],
+      "answer": "Scratchpad",
+      "calls": [
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "c3675562-9e9e-35c7-ba97-211b8e7376c1"
+          },
+          "result": "{\"id\":\"c3675562-9e9e-35c7-ba97-211b8e7376c1\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        },
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Nothing here yet.\"}]"
+        },
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "team offsite venue",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"ba7f2ea3-e6de-0678-e502-ffaad0641d59\",\"title\":\"Team offsite\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.385Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Offsi"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "refuse-salary",
+      "kind": "refusal",
+      "success": true,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 22705,
+      "turns": [
+        {
+          "promptTokens": 257,
+          "completionTokens": 54,
+          "prefillTokensPerS": 259.03863404927296,
+          "decodeTokensPerS": 23.107375176794413
+        },
+        {
+          "promptTokens": 446,
+          "completionTokens": 53,
+          "prefillTokensPerS": 342.028474254078,
+          "decodeTokensPerS": 20.57291615171116
+        },
+        {
+          "promptTokens": 534,
+          "completionTokens": 16,
+          "prefillTokensPerS": 328.43651303643134,
+          "decodeTokensPerS": 16.733134394874302
+        },
+        {
+          "promptTokens": 583,
+          "completionTokens": 53,
+          "prefillTokensPerS": 315.0006213564379,
+          "decodeTokensPerS": 21.19974234159823
+        },
+        {
+          "promptTokens": 671,
+          "completionTokens": 53,
+          "prefillTokensPerS": 322.92762041774915,
+          "decodeTokensPerS": 21.505287405645305
+        },
+        {
+          "promptTokens": 759,
+          "completionTokens": 11,
+          "prefillTokensPerS": 305.3177174782414,
+          "decodeTokensPerS": 20.436941816549442
+        }
+      ],
+      "answer": "50000",
+      "calls": [
+        {
+          "tool": "get_note",
+          "args": {
+            "id": "c3675562-9e9e-35c7-ba97-211b8e7376c1"
+          },
+          "result": "{\"id\":\"c3675562-9e9e-35c7-ba97-211b8e7376c1\",\"title\":\"Scratchpad\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:38:55.384Z\",\"tags\":[],\"access\":\"write\",\"markdown\":\"Nothing"
+        },
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"paragraph\",\"text\":\"Nothing here yet.\"}]"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-bold",
+      "kind": "edit",
+      "success": false,
+      "steps": 4,
+      "invalidCalls": 2,
+      "wallMs": 19616,
+      "turns": [
+        {
+          "promptTokens": 649,
+          "completionTokens": 42,
+          "prefillTokensPerS": 120.2779551264804,
+          "decodeTokensPerS": 23.023554219016223
+        },
+        {
+          "promptTokens": 707,
+          "completionTokens": 40,
+          "prefillTokensPerS": 316.87197610204646,
+          "decodeTokensPerS": 22.350402737225032
+        },
+        {
+          "promptTokens": 768,
+          "completionTokens": 38,
+          "prefillTokensPerS": 309.2135989565525,
+          "decodeTokensPerS": 21.51569337177216
+        },
+        {
+          "promptTokens": 827,
+          "completionTokens": 10,
+          "prefillTokensPerS": 310.5508428434921,
+          "decodeTokensPerS": 19.93245113754763
+        }
+      ],
+      "answer": "Bold the second paragraph",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "Shipped",
+            "replace": "Exported"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "Weekly",
+            "replace": "Bold"
+          }
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "review",
+            "replace": "weekly"
+          }
+        }
+      ],
+      "errors": [
+        "\"Weekly\" is not in block 2.",
+        "\"review\" is not in block 2."
+      ]
+    },
+    {
+      "id": "edit-replace",
+      "kind": "edit",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 15734,
+      "turns": [
+        {
+          "promptTokens": 663,
+          "completionTokens": 42,
+          "prefillTokensPerS": 305.38218834141765,
+          "decodeTokensPerS": 22.858672078376635
+        },
+        {
+          "promptTokens": 721,
+          "completionTokens": 36,
+          "prefillTokensPerS": 312.23948465327777,
+          "decodeTokensPerS": 22.905609256515202
+        },
+        {
+          "promptTokens": 784,
+          "completionTokens": 36,
+          "prefillTokensPerS": 317.6255866859608,
+          "decodeTokensPerS": 22.28149808089133
+        },
+        {
+          "promptTokens": 847,
+          "completionTokens": 10,
+          "prefillTokensPerS": 314.1464174512253,
+          "decodeTokensPerS": 21.52363414588107
+        }
+      ],
+      "answer": "<think></think>",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 3,
+            "find": "tuesday",
+            "replace": "Wednesday"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-insert-above-list",
+      "kind": "edit",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 12761,
+      "turns": [
+        {
+          "promptTokens": 648,
+          "completionTokens": 20,
+          "prefillTokensPerS": 308.4906334048801,
+          "decodeTokensPerS": 22.493858584146874
+        },
+        {
+          "promptTokens": 683,
+          "completionTokens": 20,
+          "prefillTokensPerS": 305.00262355803244,
+          "decodeTokensPerS": 22.539221210752807
+        },
+        {
+          "promptTokens": 729,
+          "completionTokens": 20,
+          "prefillTokensPerS": 318.2488889659605,
+          "decodeTokensPerS": 21.92134850850962
+        },
+        {
+          "promptTokens": 775,
+          "completionTokens": 7,
+          "prefillTokensPerS": 310.3357833182532,
+          "decodeTokensPerS": 21.69275823392899
+        }
+      ],
+      "answer": "Next steps",
+      "calls": [
+        {
+          "tool": "insert_paragraph",
+          "args": {
+            "after": 1,
+            "text": "Next steps"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-italic",
+      "kind": "edit",
+      "success": false,
+      "steps": 6,
+      "invalidCalls": 0,
+      "wallMs": 25341,
+      "turns": [
+        {
+          "promptTokens": 635,
+          "completionTokens": 25,
+          "prefillTokensPerS": 313.62825914012075,
+          "decodeTokensPerS": 19.44398309985821
+        },
+        {
+          "promptTokens": 676,
+          "completionTokens": 33,
+          "prefillTokensPerS": 309.90480512935494,
+          "decodeTokensPerS": 21.145630618802343
+        },
+        {
+          "promptTokens": 725,
+          "completionTokens": 32,
+          "prefillTokensPerS": 308.819457755824,
+          "decodeTokensPerS": 21.598121659532723
+        },
+        {
+          "promptTokens": 773,
+          "completionTokens": 32,
+          "prefillTokensPerS": 305.3622077733956,
+          "decodeTokensPerS": 21.13566712033137
+        },
+        {
+          "promptTokens": 832,
+          "completionTokens": 32,
+          "prefillTokensPerS": 297.52858169727114,
+          "decodeTokensPerS": 21.510972330422035
+        },
+        {
+          "promptTokens": 891,
+          "completionTokens": 55,
+          "prefillTokensPerS": 312.2262326107845,
+          "decodeTokensPerS": 20.53809817195096
+        }
+      ],
+      "answer": "Recipe ideas (id: c0d5ffcf-8070-7564-28e1-851ce8f60325) - The word 'saffron' is italic.",
+      "calls": [
+        {
+          "tool": "insert_paragraph",
+          "args": {
+            "after": 1,
+            "text": "italic"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "saffron",
+            "replace": "saffron"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "saffron",
+            "replace": "italic"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-append-paragraph",
+      "kind": "edit",
+      "success": false,
+      "steps": 3,
+      "invalidCalls": 2,
+      "wallMs": 11279,
+      "turns": [
+        {
+          "promptTokens": 643,
+          "completionTokens": 39,
+          "prefillTokensPerS": 290.0937277948285,
+          "decodeTokensPerS": 21.873902707224556
+        },
+        {
+          "promptTokens": 702,
+          "completionTokens": 34,
+          "prefillTokensPerS": 316.3701260069918,
+          "decodeTokensPerS": 20.200907204241734
+        },
+        {
+          "promptTokens": 756,
+          "completionTokens": 9,
+          "prefillTokensPerS": 308.0031941067868,
+          "decodeTokensPerS": 21.691091739463154
+        }
+      ],
+      "answer": "Budget approved.",
+      "calls": [
+        {
+          "tool": "insert_paragraph",
+          "args": {
+            "after": 3,
+            "text": "Budget approved."
+          }
+        },
+        {
+          "tool": "insert_paragraph",
+          "args": {
+            "after": 92,
+            "text": "Budget approved."
+          }
+        }
+      ],
+      "errors": [
+        "after must be 0 to 2.",
+        "after must be 0 to 2."
+      ]
+    },
+    {
+      "id": "edit-strike",
+      "kind": "edit",
+      "success": false,
+      "steps": 5,
+      "invalidCalls": 1,
+      "wallMs": 18439,
+      "turns": [
+        {
+          "promptTokens": 628,
+          "completionTokens": 27,
+          "prefillTokensPerS": 306.38854263047847,
+          "decodeTokensPerS": 23.01424670418873
+        },
+        {
+          "promptTokens": 671,
+          "completionTokens": 29,
+          "prefillTokensPerS": 313.07374496378816,
+          "decodeTokensPerS": 21.796498548713288
+        },
+        {
+          "promptTokens": 721,
+          "completionTokens": 29,
+          "prefillTokensPerS": 307.31132427393896,
+          "decodeTokensPerS": 21.046855562515944
+        },
+        {
+          "promptTokens": 777,
+          "completionTokens": 29,
+          "prefillTokensPerS": 302.43171446121863,
+          "decodeTokensPerS": 21.847946098234626
+        },
+        {
+          "promptTokens": 833,
+          "completionTokens": 12,
+          "prefillTokensPerS": 299.03790924739894,
+          "decodeTokensPerS": 20.359059780872876
+        }
+      ],
+      "answer": "Strike through the first paragraph.",
+      "calls": [
+        {
+          "tool": "insert_paragraph",
+          "args": {
+            "after": 1,
+            "text": "Reading notes"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "Reading",
+            "replace": "Strike"
+          }
+        }
+      ],
+      "errors": [
+        "\"Reading\" is not in block 1."
+      ]
+    },
+    {
+      "id": "edit-typo",
+      "kind": "edit",
+      "success": false,
+      "steps": 3,
+      "invalidCalls": 2,
+      "wallMs": 11531,
+      "turns": [
+        {
+          "promptTokens": 636,
+          "completionTokens": 41,
+          "prefillTokensPerS": 292.56915741378475,
+          "decodeTokensPerS": 21.746990080379312
+        },
+        {
+          "promptTokens": 698,
+          "completionTokens": 39,
+          "prefillTokensPerS": 307.20884479787526,
+          "decodeTokensPerS": 20.56755630376501
+        },
+        {
+          "promptTokens": 758,
+          "completionTokens": 8,
+          "prefillTokensPerS": 305.9566695928492,
+          "decodeTokensPerS": 19.233675417579487
+        }
+      ],
+      "answer": "Meeting minutes",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "recieve",
+            "replace": "receive"
+          }
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "recieve",
+            "replace": "meeting"
+          }
+        }
+      ],
+      "errors": [
+        "\"recieve\" is not in block 1.",
+        "\"recieve\" is not in block 1."
+      ]
+    },
+    {
+      "id": "edit-code",
+      "kind": "edit",
+      "success": false,
+      "steps": 5,
+      "invalidCalls": 0,
+      "wallMs": 18580,
+      "turns": [
+        {
+          "promptTokens": 635,
+          "completionTokens": 29,
+          "prefillTokensPerS": 298.51097086559025,
+          "decodeTokensPerS": 21.750022332541718
+        },
+        {
+          "promptTokens": 680,
+          "completionTokens": 30,
+          "prefillTokensPerS": 313.8051177929361,
+          "decodeTokensPerS": 20.70142125968543
+        },
+        {
+          "promptTokens": 726,
+          "completionTokens": 28,
+          "prefillTokensPerS": 290.5650409434637,
+          "decodeTokensPerS": 21.462297896384662
+        },
+        {
+          "promptTokens": 781,
+          "completionTokens": 28,
+          "prefillTokensPerS": 300.6586773333514,
+          "decodeTokensPerS": 20.675000478517198
+        },
+        {
+          "promptTokens": 836,
+          "completionTokens": 7,
+          "prefillTokensPerS": 296.4786072605456,
+          "decodeTokensPerS": 19.021954505106574
+        }
+      ],
+      "answer": "git status",
+      "calls": [
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 1,
+            "mark": "code",
+            "on": true
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "status",
+            "replace": "git"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "cross-append",
+      "kind": "cross",
+      "success": false,
+      "steps": 5,
+      "invalidCalls": 2,
+      "wallMs": 22328,
+      "turns": [
+        {
+          "promptTokens": 620,
+          "completionTokens": 40,
+          "prefillTokensPerS": 301.00521175950684,
+          "decodeTokensPerS": 21.061954549385575
+        },
+        {
+          "promptTokens": 680,
+          "completionTokens": 33,
+          "prefillTokensPerS": 303.8644407112114,
+          "decodeTokensPerS": 19.197485129472067
+        },
+        {
+          "promptTokens": 729,
+          "completionTokens": 67,
+          "prefillTokensPerS": 307.93665544499845,
+          "decodeTokensPerS": 19.07875623887179
+        },
+        {
+          "promptTokens": 814,
+          "completionTokens": 38,
+          "prefillTokensPerS": 302.2976852315065,
+          "decodeTokensPerS": 20.130412428618918
+        },
+        {
+          "promptTokens": 875,
+          "completionTokens": 9,
+          "prefillTokensPerS": 299.9400119976005,
+          "decodeTokensPerS": 21.257091232845767
+        }
+      ],
+      "answer": "oat milk",
+      "calls": [
+        {
+          "tool": "insert_paragraph",
+          "args": {
+            "after": 3,
+            "text": "oat milk"
+          }
+        },
+        {
+          "tool": "insert_paragraph",
+          "args": {
+            "after": 1,
+            "text": "oat milk"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "append_to_note",
+          "args": {
+            "id": "c3675562-9e9e-35c7-ba97-211b8e7376c1",
+            "markdown": "oat milk"
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "Scratchpad",
+            "replace": "oat milk"
+          }
+        }
+      ],
+      "errors": [
+        "after must be 0 to 1.",
+        "\"Scratchpad\" is not in block 1."
+      ]
+    },
+    {
+      "id": "cross-create",
+      "kind": "cross",
+      "success": false,
+      "steps": 5,
+      "invalidCalls": 1,
+      "wallMs": 22113,
+      "turns": [
+        {
+          "promptTokens": 654,
+          "completionTokens": 44,
+          "prefillTokensPerS": 296.5179542989515,
+          "decodeTokensPerS": 17.67626940278441
+        },
+        {
+          "promptTokens": 714,
+          "completionTokens": 31,
+          "prefillTokensPerS": 299.62043881378065,
+          "decodeTokensPerS": 17.889461020237597
+        },
+        {
+          "promptTokens": 761,
+          "completionTokens": 31,
+          "prefillTokensPerS": 303.914344876308,
+          "decodeTokensPerS": 17.818853535048724
+        },
+        {
+          "promptTokens": 819,
+          "completionTokens": 31,
+          "prefillTokensPerS": 284.23337677210225,
+          "decodeTokensPerS": 16.92839851712638
+        },
+        {
+          "promptTokens": 877,
+          "completionTokens": 10,
+          "prefillTokensPerS": 297.6735976756643,
+          "decodeTokensPerS": 20.22517359897327
+        }
+      ],
+      "answer": "A scarf for Mum",
+      "calls": [
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Gift ideas",
+            "markdown": "A scarf for Mum",
+            "folderId": "id"
+          }
+        },
+        {
+          "tool": "insert_paragraph",
+          "args": {
+            "after": 1,
+            "text": "A scarf for Mum"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": [
+        "Folder not found: id"
+      ]
+    },
+    {
+      "id": "long-about",
+      "kind": "long",
+      "success": false,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 30500,
+      "turns": [
+        {
+          "promptTokens": 251,
+          "completionTokens": 21,
+          "prefillTokensPerS": 277.00678169925686,
+          "decodeTokensPerS": 24.498095273298205
+        },
+        {
+          "promptTokens": 2382,
+          "completionTokens": 16,
+          "prefillTokensPerS": 295.70501500549244,
+          "decodeTokensPerS": 18.703824932163883
+        },
+        {
+          "promptTokens": 2435,
+          "completionTokens": 16,
+          "prefillTokensPerS": 276.71995372476164,
+          "decodeTokensPerS": 19.558754499037967
+        },
+        {
+          "promptTokens": 2488,
+          "completionTokens": 8,
+          "prefillTokensPerS": 280.12844474667213,
+          "decodeTokensPerS": 19.667617268217366
+        }
+      ],
+      "answer": "Allocation diary",
+      "calls": [
+        {
+          "tool": "read_open_note",
+          "args": {},
+          "result": "[{\"n\":1,\"type\":\"h2\",\"text\":\"January\"},{\"n\":2,\"type\":\"paragraph\",\"text\":\"This year starts with a big job: building the greenhouse at the top of the plot. Dad and I laid the slabs, bolted the aluminium "
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "long-section",
+      "kind": "long",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 2827,
+      "turns": [
+        {
+          "promptTokens": 252,
+          "completionTokens": 18,
+          "prefillTokensPerS": 276.1537913625095,
+          "decodeTokensPerS": 22.478447136167407
+        }
+      ],
+      "answer": "Allotment diary",
+      "calls": [],
+      "errors": []
+    }
+  ]
+}

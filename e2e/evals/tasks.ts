@@ -293,7 +293,7 @@ export const TASKS: EvalTask[] = [
     {
         id: 'long-section',
         kind: 'long',
-        prompt: 'What did I write under November?',
+        prompt: 'What is under the November heading?',
         open: LONG_NOTE,
         check: answered(/tulip/i),
     },

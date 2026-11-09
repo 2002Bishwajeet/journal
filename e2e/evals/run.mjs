@@ -12,9 +12,10 @@ const CANDIDATES = [
   'Ministral-3-3B-Instruct-2512-BF16-q4f16_1-MLC',
   'gemma-4-E2B-it-q4f16_1-MLC',
   'Phi-4-mini-instruct-q4f16_1-MLC',
+  'gemma3-1b-it-q4f16_1-MLC',
 ];
-/** Too large for the 4 GB graphics card; the integrated GPU can use half of the RAM. */
-const IGPU_CANDIDATES = ['Qwen3.5-9B-q4f16_1-MLC', 'Qwen3-8B-q4f16_1-MLC', 'Hermes-3-Llama-3.1-8B-q4f16_1-MLC'];
+/** The 24 GB tier: too large for a 4 GB graphics card, but an integrated GPU can use part of the RAM. */
+const IGPU_CANDIDATES = ['Qwen3.5-9B-q4f16_1-MLC', 'Qwen3-8B-q4f16_1-MLC', 'Hermes-3-Llama-3.1-8B-q4f16_1-MLC', 'gemma-2-9b-it-q4f16_1-MLC'];
 
 const usage = () => {
   console.error('Usage: npm run eval:ai -- [--gpu igpu|dgpu] <model id>... | --all | --candidates');
@@ -23,7 +24,8 @@ const usage = () => {
 
 const args = process.argv.slice(2);
 const gpuAt = args.indexOf('--gpu');
-const gpu = gpuAt === -1 ? 'dgpu' : args.splice(gpuAt, 2)[1];
+// A Mac has one GPU, with unified memory, so it counts as integrated.
+const gpu = gpuAt === -1 ? (process.platform === 'darwin' ? 'igpu' : 'dgpu') : args.splice(gpuAt, 2)[1];
 if (gpu !== 'igpu' && gpu !== 'dgpu') usage();
 
 let models;

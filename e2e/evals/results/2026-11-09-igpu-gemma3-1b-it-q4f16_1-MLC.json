@@ -1,0 +1,45 @@
+{
+  "model": "gemma3-1b-it-q4f16_1-MLC",
+  "loadedModelId": "gemma3-1b-it-q4f16_1-MLC",
+  "date": "2026-11-09",
+  "gpu": "igpu",
+  "adapter": {
+    "vendor": "amd",
+    "architecture": "gcn-5",
+    "shaderF16": true
+  },
+  "firstLoadMs": 4781,
+  "cached": true,
+  "tasks": [
+    {
+      "id": "find-lisbon",
+      "kind": "find",
+      "success": false,
+      "steps": 2,
+      "invalidCalls": 0,
+      "wallMs": 12467,
+      "turns": [
+        {
+          "promptTokens": 253,
+          "completionTokens": 23,
+          "prefillTokensPerS": 33.50926802779414,
+          "decodeTokensPerS": 14.497098932869926
+        }
+      ],
+      "answer": null,
+      "calls": [
+        {
+          "tool": "search_notes",
+          "args": {
+            "query": "Lisbon trip",
+            "limit": 5
+          },
+          "result": "[{\"id\":\"c9b6642c-8385-6be3-d0aa-526063da2e9e\",\"title\":\"Lisbon trip\",\"folderId\":\"06cf9262-4eae-4276-b0d1-8ca3cf5be6f4\",\"modified\":\"2026-11-09T06:08:33.206Z\",\"tags\":[],\"access\":\"write\",\"snippet\":\"Flight"
+        }
+      ],
+      "errors": [],
+      "error": "Agent error: AbortError: Failed to execute 'mapAsync' on 'GPUBuffer': Buffer was unmapped before mapping was resolved."
+    }
+  ],
+  "generationError": "Agent error: AbortError: Failed to execute 'mapAsync' on 'GPUBuffer': Buffer was unmapped before mapping was resolved."
+}

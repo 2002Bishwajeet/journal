@@ -19,7 +19,7 @@ const FLOOR_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 const MODELS = process.env.EVAL_MODELS === 'all'
     ? [...getModelsForJob('agent').map((m) => m.id), FLOOR_MODEL_ID]
     : (process.env.EVAL_MODELS ?? '').split(',').filter(Boolean);
-/** `igpu` makes Chromium pick the integrated GPU (#1022); `dgpu` leaves it to pick the graphics card. */
+/** `igpu` makes Chromium pick the integrated GPU (#1022), a no-op with one GPU; `dgpu` leaves it to pick the graphics card. */
 const GPU = process.env.EVAL_GPU === 'igpu' ? 'igpu' : 'dgpu';
 
 // Downloaded weights stay in this profile's Cache Storage between runs; the app's own data is cleared per model.
@@ -201,7 +201,22 @@ for (const modelId of MODELS) {
             };
             if (load.loaded) {
                 for (const task of TASKS) {
-                    const taskResult = await runTask(page, task, consoleErrors);
+                    // A model that broke the fixture (a note it can no longer open) fails that task, not the whole run.
+                    const taskResult = await runTask(page, task, consoleErrors).catch(
+                        (e): TaskResult => ({
+                            id: task.id,
+                            kind: task.kind,
+                            success: false,
+                            steps: 0,
+                            invalidCalls: 0,
+                            wallMs: 0,
+                            turns: [],
+                            answer: null,
+                            calls: [],
+                            errors: [],
+                            error: e instanceof Error ? e.message.split('\n')[0] : String(e),
+                        }),
+                    );
                     console.log(`${modelId} ${task.id}: ${taskResult.success ? 'ok' : 'FAIL'} (${taskResult.calls.map((c) => c.tool).join(', ') || 'no tools'})`);
                     result.tasks.push(taskResult);
                     // The engine threw in the first task (out of GPU memory, say): the other tasks would only fail
