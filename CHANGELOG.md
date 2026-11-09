@@ -1,3 +1,16 @@
+# [2.66.0](https://github.com/2002Bishwajeet/journal/compare/v2.65.0...v2.66.0) (2026-11-09)
+
+
+### Bug Fixes
+
+* **mcp:** publish the tgz by ./ path so npm doesn't read it as GitHub shorthand ([#1035](https://github.com/2002Bishwajeet/journal/issues/1035)) ([ad1459f](https://github.com/2002Bishwajeet/journal/commit/ad1459f80ae73723372d85c040e8786fd8f34353))
+
+
+### Features
+
+* **ai:** remove Qwen3 4B, Qwen 2.5 3B and Hermes 3 3B from the catalogue ([6402e0c](https://github.com/2002Bishwajeet/journal/commit/6402e0c82fdf5de401f758add00cba28ed6bff4c)), closes [#1040](https://github.com/2002Bishwajeet/journal/issues/1040)
+* **ai:** retire Qwen3 4B, Qwen 2.5 3B and Hermes 3 3B from the assistant picker ([ea91331](https://github.com/2002Bishwajeet/journal/commit/ea9133119e4532d3198d0ce4fa3337443d5acc79)), closes [#1023](https://github.com/2002Bishwajeet/journal/issues/1023)
+* **mcp:** run journal-mcp@latest in the plugin and site guide ([#1035](https://github.com/2002Bishwajeet/journal/issues/1035)) ([546f525](https://github.com/2002Bishwajeet/journal/commit/546f525979e2e9dad29e5c637292b41bf01dcb59))
 # [2.65.0](https://github.com/2002Bishwajeet/journal/compare/v2.64.0...v2.65.0) (2026-11-09)
 
 
