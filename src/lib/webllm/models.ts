@@ -11,19 +11,26 @@ export interface ModelInfo {
   vramMB: number;
   /** Derived from `vramMB`, for display. */
   memoryUsage: string;
+  /** Derived from `vramMB`: the system RAM a laptop with built-in graphics needs, in GB (#1023). */
+  ramTier: 16 | 24;
   /** The `q4f32_1` build of this model, for GPUs without the WebGPU `shader-f16` feature. */
   f32Id?: string;
   description: string;
   capabilities: ('autocomplete' | 'grammar' | 'rewrite' | 'chat' | 'agentic')[];
   /** The default for its job. */
   recommended?: boolean;
+  /** A badge for a model offered next to the default, such as "Higher quality". */
+  badge?: string;
 }
 
 function formatMemory(vramMB: number): string {
   return vramMB >= 1000 ? `~${(vramMB / 1000).toFixed(1)} GB` : `~${Math.round(vramMB / 10) * 10} MB`;
 }
 
-const MODELS: Omit<ModelInfo, 'memoryUsage'>[] = [
+// An integrated GPU can use about half of the RAM, and the OS and browser need part of the rest.
+const ramTier = (vramMB: number): 16 | 24 => (vramMB <= 4000 ? 16 : 24);
+
+const MODELS: Omit<ModelInfo, 'memoryUsage' | 'ramTier'>[] = [
   {
     id: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
     name: 'SmolLM2 360M',
@@ -59,6 +66,30 @@ const MODELS: Omit<ModelInfo, 'memoryUsage'>[] = [
     capabilities: ['autocomplete', 'grammar', 'rewrite', 'chat'],
   },
   {
+    id: 'Qwen3.5-2B-q4f16_1-MLC',
+    name: 'Qwen3.5 2B',
+    job: 'agent',
+    parameterCount: '2B',
+    downloadSize: '~1.1 GB',
+    vramMB: 2245.44,
+    f32Id: 'Qwen3.5-2B-q4f32_1-MLC',
+    description: 'Good at questions and note edits, at a moderate speed.',
+    capabilities: ['chat', 'agentic'],
+    recommended: true,
+  },
+  {
+    id: 'Qwen3.5-4B-q4f16_1-MLC',
+    name: 'Qwen3.5 4B',
+    job: 'agent',
+    parameterCount: '4B',
+    downloadSize: '~2.4 GB',
+    vramMB: 3867.82,
+    f32Id: 'Qwen3.5-4B-q4f32_1-MLC',
+    description: 'The most accurate assistant model. Slower, and needs more memory.',
+    capabilities: ['chat', 'agentic'],
+    badge: 'Higher quality',
+  },
+  {
     id: 'Qwen3-1.7B-q4f16_1-MLC',
     name: 'Qwen3 1.7B',
     job: 'agent',
@@ -66,9 +97,8 @@ const MODELS: Omit<ModelInfo, 'memoryUsage'>[] = [
     downloadSize: '~1.1 GB',
     vramMB: 2036.66,
     f32Id: 'Qwen3-1.7B-q4f32_1-MLC',
-    description: 'The smallest assistant model. Good for simple questions and note actions.',
+    description: 'The fastest assistant model. Good for simple questions, but makes more mistakes in edits.',
     capabilities: ['chat', 'agentic'],
-    recommended: true,
   },
   {
     id: 'Hermes-3-Llama-3.2-3B-q4f16_1-MLC',
@@ -100,15 +130,17 @@ const MODELS: Omit<ModelInfo, 'memoryUsage'>[] = [
     downloadSize: '~2.3 GB',
     vramMB: 3431.59,
     f32Id: 'Qwen3-4B-q4f32_1-MLC',
-    description: 'The best quality here. Needs a GPU with plenty of memory.',
+    description: 'A larger Qwen3 model. Needs a GPU with plenty of memory.',
     capabilities: ['chat', 'agentic'],
   },
 ];
 
-export const AVAILABLE_MODELS: ModelInfo[] = MODELS.map((m) => ({ ...m, memoryUsage: formatMemory(m.vramMB) }));
+export const AVAILABLE_MODELS: ModelInfo[] = MODELS.map((m) => ({ ...m, memoryUsage: formatMemory(m.vramMB), ramTier: ramTier(m.vramMB) }));
 
 export const DEFAULT_MODEL_ID = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
-export const DEFAULT_AGENT_MODEL_ID = 'Qwen3-1.7B-q4f16_1-MLC';
+export const DEFAULT_AGENT_MODEL_ID = 'Qwen3.5-2B-q4f16_1-MLC';
+/** The agent default before #1023. Saved settings from before #695 have no agent model, and keep this one. */
+export const PREVIOUS_AGENT_MODEL_ID = 'Qwen3-1.7B-q4f16_1-MLC';
 
 /** Removed from the catalogue. A saved choice of it falls back to the editor default. */
 export const LEGACY_LLAMA_MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';

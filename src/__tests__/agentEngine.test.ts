@@ -2,16 +2,17 @@
  * The WebLLM agent adapter and one-model-at-a-time (#698), over fake engines: no WebLLM runs.
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { toAgentEngine } from '@/lib/webllm/agentEngine';
+import { createAgentEngine, toAgentEngine } from '@/lib/webllm/agentEngine';
 import { checkGrammar, initWebLLM, isWebLLMReady, rewriteText } from '@/lib/webllm/engine';
 import { DEFAULT_AGENT_MODEL_ID, DEFAULT_MODEL_ID } from '@/lib/webllm/models';
 
 const create = vi.hoisted(() => vi.fn(async () => ({ choices: [{ message: { content: '["an error"]' } }] })));
+const reload = vi.hoisted(() => vi.fn(async () => {}));
 
 vi.mock('@mlc-ai/web-llm', () => ({
     WebWorkerMLCEngine: class {
         chat = { completions: { create } };
-        reload = vi.fn(async () => {});
+        reload = reload;
         unload = vi.fn(async () => {});
         setInitProgressCallback = vi.fn();
     },
@@ -87,5 +88,21 @@ describe('one model at a time', () => {
         expect(await initWebLLM(undefined, DEFAULT_MODEL_ID)).toBe(true);
         expect(isWebLLMReady()).toBe(true);
         expect(await checkGrammar('Their is a error.')).toEqual(['an error']);
+    });
+});
+
+describe('createAgentEngine', () => {
+    it('should say a load that ran out of GPU memory needs a smaller model (#1023)', async () => {
+        reload.mockRejectedValueOnce(new Error('The WebGPU device was lost while loading the model. This issue often occurs due to running out of memory (OOM).'));
+        const engine = createAgentEngine('Qwen3.5-2B-q4f16_1-MLC');
+        await expect(engine.generate([], { schema: {}, maxTokens: 1 })).rejects.toMatchObject({
+            name: 'ModelLoadError',
+            message: 'Not enough memory for this model. Try Qwen3 1.7B.',
+        });
+    });
+
+    it('should keep the generic message for other load failures', async () => {
+        reload.mockRejectedValueOnce(new Error('Failed to fetch'));
+        await expect(createAgentEngine('Qwen3-4B-q4f16_1-MLC').generate([], { schema: {}, maxTokens: 1 })).rejects.toThrow("Couldn't load the assistant model.");
     });
 });

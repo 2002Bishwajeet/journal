@@ -26,13 +26,13 @@ async function gate() {
 
 describe('useModelDownloadGate, for a model outside the catalogue', () => {
     it('lets it run once it is downloaded', async () => {
-        cached.add('Qwen3.5-2B-q4f16_1-MLC');
-        expect(await (await gate()).confirmDownload('Qwen3.5-2B-q4f16_1-MLC')).toBe(true);
+        cached.add('gemma-4-E2B-it-q4f16_1-MLC');
+        expect(await (await gate()).confirmDownload('gemma-4-E2B-it-q4f16_1-MLC')).toBe(true);
     });
 
     it('refuses it before, without asking', async () => {
         const api = await gate();
-        expect(await api.confirmDownload('Qwen3.5-4B-q4f16_1-MLC')).toBe(false);
+        expect(await api.confirmDownload('Phi-4-mini-instruct-q4f16_1-MLC')).toBe(false);
         expect(api.dialogProps.pending).toBeNull();
     });
 });

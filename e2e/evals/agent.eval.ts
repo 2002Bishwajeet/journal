@@ -1,18 +1,18 @@
 import { chromium, type BrowserContext, type Page } from '@playwright/test';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, hostname } from 'node:os';
 import path from 'node:path';
 import { test, expect, waitForAppReady } from '../fixtures';
 import { assertNoFenceViolations, installNetworkFence } from '../support/network-fence';
 import { assertTestOrigin } from '../support/origin-guard';
 import { activeTitleInput, openNote, selectFolder } from '../support/actions';
 import { getModelsForJob } from '../../src/lib/webllm/models';
-import { markdownTable, type ModelResult, type TaskResult } from './stats';
+import { machineTag, markdownTable, type ModelResult, type TaskResult } from './stats';
 import { blocksOf, fixtureFiles, TASKS, type EvalTask } from './tasks';
 
 // The AI eval (#706): each model runs every task in the real app, with the real WebLLM worker
 // on this machine's GPU, and every proposal accepted. Run with `npm run eval:ai -- [--gpu igpu|dgpu] <model id>`
-// (see run.mjs); results go to e2e/evals/results/<date>-<gpu>-<model>.json.
+// (see run.mjs); results go to e2e/evals/results/<date>-<gpu>-<machine>-<model>.json (machineTag in stats.ts).
 
 /** The editor model the agent candidates are compared against. */
 const FLOOR_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
@@ -229,7 +229,8 @@ for (const modelId of MODELS) {
             }
             results.push(result);
             mkdirSync(RESULTS_DIR, { recursive: true });
-            writeFileSync(path.join(RESULTS_DIR, `${result.date}-${GPU}-${modelId}.json`), `${JSON.stringify(result, null, 2)}\n`);
+            const machine = machineTag(adapter, hostname(), process.env.EVAL_MACHINE);
+            writeFileSync(path.join(RESULTS_DIR, `${result.date}-${GPU}-${machine}-${modelId}.json`), `${JSON.stringify(result, null, 2)}\n`);
         } finally {
             await context.close();
         }

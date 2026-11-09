@@ -54,6 +54,11 @@ export default function AIModelList({
                       Recommended
                     </span>
                   )}
+                  {model.badge && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
+                      {model.badge}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                   {model.description}

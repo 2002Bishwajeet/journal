@@ -4,7 +4,8 @@ import { AVAILABLE_MODELS, DEFAULT_MODEL_ID, getModelInfo } from '@/lib/webllm/m
 import { DEFAULT_SETTINGS, STORAGE_KEY, loadSettings } from '@/hooks/useAISettings';
 
 const EDITOR_DEFAULT = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
-const AGENT_DEFAULT = 'Qwen3-1.7B-q4f16_1-MLC';
+const AGENT_DEFAULT = 'Qwen3.5-2B-q4f16_1-MLC';
+const PREVIOUS_AGENT_DEFAULT = 'Qwen3-1.7B-q4f16_1-MLC';
 
 describe('Model Registry', () => {
   it('should have at least one model', () => {
@@ -89,8 +90,18 @@ describe('AI Settings - loadSettings', () => {
 
   it('should default agentModelId to the agent default', () => {
     expect(DEFAULT_SETTINGS.agentModelId).toBe(AGENT_DEFAULT);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, enabled: true, modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' }));
     expect(loadSettings().agentModelId).toBe(AGENT_DEFAULT);
+  });
+
+  it('should keep the previous agent default for saved settings without an agentModelId (#1023)', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, enabled: true, modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' }));
+    expect(loadSettings().agentModelId).toBe(PREVIOUS_AGENT_DEFAULT);
+    expect(getModelInfo(PREVIOUS_AGENT_DEFAULT)?.job).toBe('agent');
+  });
+
+  it('should keep a saved Qwen3 1.7B choice after the default changed (#1023)', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, enabled: true, agentModelId: PREVIOUS_AGENT_DEFAULT }));
+    expect(loadSettings().agentModelId).toBe(PREVIOUS_AGENT_DEFAULT);
   });
 
   it('should keep a saved agentModelId', () => {

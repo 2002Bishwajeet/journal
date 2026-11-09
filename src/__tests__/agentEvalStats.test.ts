@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { percentile, speedOf, type Turn } from '../../e2e/evals/stats';
+import { machineTag, percentile, speedOf, type Turn } from '../../e2e/evals/stats';
 
 // The AI eval's speed figures (#1022).
 
@@ -35,5 +35,22 @@ describe('speedOf', () => {
 
     it('has no speed for a model that never finished a turn', () => {
         expect(speedOf([{ wallMs: 5_000, turns: [] }])).toMatchObject({ prefillTokensPerS: null, decodeTokensPerS: null, promptTokensPerTurn: null });
+    });
+});
+
+describe('machineTag (#1023)', () => {
+    const apple = { vendor: 'apple', architecture: 'metal-3', shaderF16: true };
+
+    it('joins the adapter and the host name\'s first label', () => {
+        expect(machineTag(apple, 'Bishwajeets-MacBook-Pro.local')).toBe('apple-metal-3-bishwajeets-macbook-pro');
+        expect(machineTag({ vendor: 'amd', architecture: 'gcn-5', shaderF16: true }, 'CachyOs-G14')).toBe('amd-gcn-5-cachyos-g14');
+    });
+
+    it('uses only the host without an adapter', () => {
+        expect(machineTag(null, 'CachyOs-G14')).toBe('cachyos-g14');
+    });
+
+    it('prefers EVAL_MACHINE', () => {
+        expect(machineTag(apple, 'anything', 'M1 Pro')).toBe('m1-pro');
     });
 });
