@@ -269,6 +269,8 @@ mcp/                            # Local stdio MCP server for agents (run with vi
 ├── login.ts / credentials.ts   # App registration, OS-keychain credentials
 ├── config.ts                   # journal-mcp app id and slug
 ├── updateCheck.ts              # Daily npm check for the stale-version notice (#1035)
+├── npmReadme.ts                # Builds the package README from README.npm.md + the live tool list
+├── assets/                     # README banner (banner.svg source, render-banner.mjs → banner.png)
 ├── package/                    # npm package published by mcp-release.yml
 └── README.md                   # Setup, tools, live-block authoring guide
 e2e/                            # Playwright (see e2e/README.md)

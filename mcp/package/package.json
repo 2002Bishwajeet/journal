@@ -1,9 +1,22 @@
 {
   "name": "journal-mcp",
   "version": "1.12.0",
-  "description": "MCP server for Journal notes on your Homebase identity",
+  "description": "MCP server for Journal: let Claude, Cursor or Codex read, search and edit the notes you grant it on your Homebase identity",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "notes",
+    "homebase",
+    "journal",
+    "ai-agent"
+  ],
+  "author": "Bishwajeet Parhi",
   "license": "AGPL-3.0-only",
   "homepage": "https://github.com/2002Bishwajeet/journal/tree/main/mcp#readme",
+  "bugs": {
+    "url": "https://github.com/2002Bishwajeet/journal/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/2002Bishwajeet/journal.git",
