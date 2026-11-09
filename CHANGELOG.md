@@ -1,3 +1,11 @@
+# [2.63.0](https://github.com/2002Bishwajeet/journal/compare/v2.62.1...v2.63.0) (2026-11-09)
+
+
+### Features
+
+* **mcp:** run_script runs agent JS in a QuickJS sandbox against the notes API ([#1005](https://github.com/2002Bishwajeet/journal/issues/1005)) ([7d04f83](https://github.com/2002Bishwajeet/journal/commit/7d04f83788e09258d582e9fb7ce13b611981a8ff))
+* **mcp:** serve the authoring guide in on-demand sections ([#1004](https://github.com/2002Bishwajeet/journal/issues/1004)) ([57c30bc](https://github.com/2002Bishwajeet/journal/commit/57c30bc26520e9c6c61e2858a496f5926df43b62))
+* **mcp:** share_note and get_sharing, one tool for every kind of sharing ([#325](https://github.com/2002Bishwajeet/journal/issues/325)) ([26daa92](https://github.com/2002Bishwajeet/journal/commit/26daa928a33c3afd338a023fdbacfdf05ef82862))
 ## [2.62.1](https://github.com/2002Bishwajeet/journal/compare/v2.62.0...v2.62.1) (2026-11-08)
 
 
