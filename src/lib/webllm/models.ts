@@ -21,8 +21,6 @@ export interface ModelInfo {
   recommended?: boolean;
   /** A badge for a model offered next to the default, such as "Higher quality". */
   badge?: string;
-  /** Not offered any more. Settings lists it only while it is the saved choice, so that choice keeps working. */
-  retired?: boolean;
 }
 
 function formatMemory(vramMB: number): string {
@@ -102,42 +100,6 @@ const MODELS: Omit<ModelInfo, 'memoryUsage' | 'ramTier'>[] = [
     description: 'The fastest assistant model. Good for simple questions, but makes more mistakes in edits.',
     capabilities: ['chat', 'agentic'],
   },
-  {
-    id: 'Hermes-3-Llama-3.2-3B-q4f16_1-MLC',
-    name: 'Hermes 3 Llama 3.2 3B',
-    job: 'agent',
-    parameterCount: '3B',
-    downloadSize: '~1.8 GB',
-    vramMB: 2263.69,
-    f32Id: 'Hermes-3-Llama-3.2-3B-q4f32_1-MLC',
-    description: 'Trained to follow multi-step instructions and to use tools.',
-    capabilities: ['chat', 'agentic'],
-    retired: true,
-  },
-  {
-    id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',
-    name: 'Qwen 2.5 3B',
-    job: 'agent',
-    parameterCount: '3B',
-    downloadSize: '~1.8 GB',
-    vramMB: 2504.76,
-    f32Id: 'Qwen2.5-3B-Instruct-q4f32_1-MLC',
-    description: 'A strong all-round model for longer tasks.',
-    capabilities: ['chat', 'agentic'],
-    retired: true,
-  },
-  {
-    id: 'Qwen3-4B-q4f16_1-MLC',
-    name: 'Qwen3 4B',
-    job: 'agent',
-    parameterCount: '4B',
-    downloadSize: '~2.3 GB',
-    vramMB: 3431.59,
-    f32Id: 'Qwen3-4B-q4f32_1-MLC',
-    description: 'A larger Qwen3 model. Needs a GPU with plenty of memory.',
-    capabilities: ['chat', 'agentic'],
-    retired: true,
-  },
 ];
 
 export const AVAILABLE_MODELS: ModelInfo[] = MODELS.map((m) => ({ ...m, memoryUsage: formatMemory(m.vramMB), ramTier: ramTier(m.vramMB) }));
@@ -149,12 +111,13 @@ export const PREVIOUS_AGENT_MODEL_ID = 'Qwen3-1.7B-q4f16_1-MLC';
 
 /** Removed from the catalogue. A saved choice of it falls back to the editor default. */
 export const LEGACY_LLAMA_MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+/** Removed from the catalogue after #1023. A saved choice of one falls back to the agent default. */
+export const REMOVED_AGENT_MODEL_IDS = ['Qwen3-4B-q4f16_1-MLC', 'Qwen2.5-3B-Instruct-q4f16_1-MLC', 'Hermes-3-Llama-3.2-3B-q4f16_1-MLC'];
 
 export function getModelInfo(modelId: string): ModelInfo | undefined {
   return AVAILABLE_MODELS.find((m) => m.id === modelId);
 }
 
-/** The models offered for a job. A retired model is included only while it is `selectedId`. */
-export function getModelsForJob(job: ModelJob, selectedId?: string): ModelInfo[] {
-  return AVAILABLE_MODELS.filter((m) => m.job === job && (!m.retired || m.id === selectedId));
+export function getModelsForJob(job: ModelJob): ModelInfo[] {
+  return AVAILABLE_MODELS.filter((m) => m.job === job);
 }

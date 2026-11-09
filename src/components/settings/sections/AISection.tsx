@@ -135,7 +135,7 @@ export default function AISection() {
             </SectionHeader>
             <AIModelList
               label="Assistant"
-              models={getModelsForJob("agent", settings.agentModelId)}
+              models={getModelsForJob("agent")}
               selectedModelId={settings.agentModelId}
               onSelect={selectAgentModel}
               disabled={false}

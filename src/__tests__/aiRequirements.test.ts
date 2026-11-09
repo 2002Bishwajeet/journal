@@ -174,10 +174,6 @@ describe('outOfMemoryMessage (#1023)', () => {
     expect(outOfMemoryMessage('GPUOutOfMemoryError: Out of memory', 'Qwen3.5-2B-q4f16_1-MLC')).toBe('Not enough memory for this model. Try Qwen3 1.7B.');
   });
 
-  it('names no retired model', () => {
-    expect(outOfMemoryMessage(deviceLost, 'Qwen3-4B-q4f16_1-MLC')).toBe('Not enough memory for this model. Try Qwen3.5 2B.');
-  });
-
   it('names no model when none is smaller', () => {
     expect(outOfMemoryMessage(deviceLost, 'Qwen3-1.7B-q4f16_1-MLC')).toBe('Not enough memory for this model.');
   });
