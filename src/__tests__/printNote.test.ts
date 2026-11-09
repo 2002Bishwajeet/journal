@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /** #520: Export to PDF prints the note alone, light, with every toggle open, then puts the screen back. */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const toast = vi.hoisted(() => ({ loading: vi.fn(() => 't1'), dismiss: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
@@ -40,7 +40,6 @@ function capturePrint() {
     Object.assign(seen, {
       theme: html.className,
       scheme: html.style.colorScheme,
-      printing: html.hasAttribute('data-printing'),
       root: document.querySelector('[data-print-root]')?.id,
       path: [...document.querySelectorAll('[data-print-path]')].map((el) => el.id || el.tagName.toLowerCase()),
       toggleOpen: document.querySelector('[data-type="toggle"] button')?.getAttribute('aria-expanded'),
@@ -53,18 +52,28 @@ function capturePrint() {
   return seen;
 }
 
-describe('printElement', () => {
-  beforeEach(() => vi.clearAllMocks());
+// The waits for frames and images run on fake timers.
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.useFakeTimers();
+});
+afterEach(() => vi.useRealTimers());
 
+/** Runs `pending` to its end, through every wait. */
+async function settle<T>(pending: Promise<T>): Promise<T> {
+  await vi.advanceTimersByTimeAsync(20_000);
+  return pending;
+}
+
+describe('printElement', () => {
   it('prints only the note and what it sits in, light, every toggle open, under its title', async () => {
     const seen = capturePrint();
 
-    await printElement(mountNote(), 'Trip notes');
+    await settle(printElement(mountNote(), 'Trip notes'));
 
     expect(seen).toEqual({
       theme: 'light',
       scheme: 'light',
-      printing: true,
       root: 'note',
       path: ['body', 'app', 'pane'],
       toggleOpen: 'true',
@@ -77,12 +86,11 @@ describe('printElement', () => {
   it('puts the theme, the toggles and the title back once the dialog closes', async () => {
     capturePrint();
 
-    await printElement(mountNote(), 'Trip notes');
+    await settle(printElement(mountNote(), 'Trip notes'));
 
     const html = document.documentElement;
     expect(html.className).toBe('dark');
     expect(html.style.colorScheme).toBe('dark');
-    expect(html.hasAttribute('data-printing')).toBe(false);
     expect(document.querySelectorAll('[data-print-root], [data-print-path]')).toHaveLength(0);
     expect(document.querySelector('[data-type="toggle"] button')?.getAttribute('aria-expanded')).toBe('false');
     expect((document.getElementById('details') as HTMLDetailsElement).open).toBe(false);
@@ -95,7 +103,7 @@ describe('printElement', () => {
     const note = mountNote();
     document.documentElement.className = 'light';
 
-    await printElement(note, 'Trip notes');
+    await settle(printElement(note, 'Trip notes'));
 
     expect(seen.theme).toBe('light');
     expect(document.documentElement.className).toBe('light');
@@ -103,14 +111,12 @@ describe('printElement', () => {
 });
 
 describe('printNote', () => {
-  beforeEach(() => vi.clearAllMocks());
-
   it('prints the note on screen, untitled as Untitled', async () => {
     const seen = capturePrint();
     mountNote();
     const open = vi.fn();
 
-    await printNote('n1', '', open);
+    await settle(printNote('n1', '', open));
 
     expect(open).not.toHaveBeenCalled();
     expect(seen.root).toBe('note');
@@ -122,21 +128,17 @@ describe('printNote', () => {
     document.body.innerHTML = '';
     const open = vi.fn(() => setTimeout(mountNote, 50));
 
-    await printNote('n1', 'Trip notes', open);
+    await settle(printNote('n1', 'Trip notes', open));
 
     expect(open).toHaveBeenCalledOnce();
     expect(seen.root).toBe('note');
   });
 
   it('says so when the note never shows', async () => {
-    vi.useFakeTimers();
     document.body.innerHTML = '';
     window.print = vi.fn();
 
-    const done = printNote('missing', 'Trip notes', vi.fn());
-    await vi.advanceTimersByTimeAsync(20_000);
-    await done;
-    vi.useRealTimers();
+    await settle(printNote('missing', 'Trip notes', vi.fn()));
 
     expect(window.print).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalled();

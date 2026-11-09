@@ -79,7 +79,7 @@ export function buildNoteMenuItems(
       icon: FileText,
       action: () =>
         void import("@/lib/importexport/printNote").then((m) =>
-          m.printNote(note.docId, note.title, onOpen && (() => onOpen(note.docId))),
+          m.printNote(note.docId, note.title, onOpen),
         ),
     },
     {

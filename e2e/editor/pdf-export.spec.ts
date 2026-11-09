@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote } from '../support/actions';
+import { activeEditor, createNote, pasteHtml } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #520: Export to PDF opens the print dialog on the note alone ("static print"): light
@@ -30,13 +30,7 @@ test('Export to PDF prints the note alone, light, with toggles open, and puts th
   const title = `PDF export ${Date.now()}`;
   await createNote(app, { title, body: 'Before the blocks.' });
   await app.keyboard.press('Enter');
-  await assertTestOrigin(app);
-  await activeEditor(app).evaluate((el, pasted) => {
-    const data = new DataTransfer();
-    data.setData('text/html', pasted);
-    data.setData('text/plain', '');
-    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
-  }, BODY);
+  await pasteHtml(app, BODY);
 
   const editor = activeEditor(app);
   const html = editor.locator('[data-live-block="html"]');
@@ -57,7 +51,6 @@ test('Export to PDF prints the note alone, light, with toggles open, and puts th
   const root = app.locator('html');
   await expect(root).toHaveAttribute('data-test-printed', '', { timeout: 15_000 });
   await expect(root).toHaveClass(/\blight\b/);
-  await expect(root).toHaveAttribute('data-printing', '');
   await expect(editor.getByText('Text inside the toggle.')).toBeVisible();
   expect(await app.title()).toBe(title);
 
@@ -76,7 +69,6 @@ test('Export to PDF prints the note alone, light, with toggles open, and puts th
   await app.emulateMedia({ media: 'screen' });
   await app.evaluate(() => window.dispatchEvent(new Event('afterprint')));
   await expect(root).toHaveClass(/\bdark\b/);
-  await expect(root).not.toHaveAttribute('data-printing');
   await expect(editor.getByText('Text inside the toggle.')).toBeHidden();
   await expect(app.locator('[data-print-path], [data-print-root]')).toHaveCount(0);
   expect(await app.title()).not.toBe(title);

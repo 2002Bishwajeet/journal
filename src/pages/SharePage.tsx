@@ -62,7 +62,7 @@ export default function SharePage() {
                 authorIndexHref={`/share/${identity}`}
                 onDownloadPdf={() => {
                     const main = mainRef.current;
-                    if (main) void import('@/lib/importexport/printNote').then((m) => m.printElement(main, note.title || 'Untitled'));
+                    if (main) void import('@/lib/importexport/printNote').then((m) => m.printElement(main, note.title));
                 }}
             />
 

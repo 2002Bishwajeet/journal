@@ -1580,7 +1580,7 @@ html[data-fab] {
     margin: 16mm 14mm;
   }
 
-  html[data-printing] [data-print-path] {
+  [data-print-path] {
     display: block !important;
     position: static !important;
     overflow: visible !important;
@@ -1592,11 +1592,11 @@ html[data-fab] {
     transform: none !important;
   }
 
-  html[data-printing] [data-print-path] > :not([data-print-path], [data-print-root]) {
+  [data-print-path] > :not([data-print-path], [data-print-root]) {
     display: none !important;
   }
 
-  html[data-printing] [data-print-root] {
+  [data-print-root] {
     max-width: none !important;
     min-height: 0 !important;
     margin: 0 !important;
@@ -1606,11 +1606,11 @@ html[data-fab] {
   }
 
   /* A wide block keeps to the page; a frame, a diagram or an image is not cut across two pages. */
-  html[data-printing] [data-print-root] [data-live-block-wide] {
+  [data-print-root] [data-live-block-wide] {
     margin-inline: 0 !important;
   }
 
-  html[data-printing] [data-print-root] :is([data-live-block], img, tr) {
+  [data-print-root] :is([data-live-block], img, tr) {
     break-inside: avoid;
   }
 }

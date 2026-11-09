@@ -7,16 +7,16 @@
  * as it first draws, with what it saved through `journal.storage`.
  */
 import { toast } from 'sonner';
+import { revealIntersections } from '@/hooks/useIntersection';
 
 /** How long to wait for a frame to load, or for an image, before printing without it. */
 const LOAD_TIMEOUT_MS = 1500;
 /** How long an open note takes to show up after `open`. */
 const OPEN_TIMEOUT_MS = 15000;
-/** Time for a mermaid diagram to redraw in the new theme and a block to report its height. */
+/** Time for a lazy image to start loading, a mermaid diagram to redraw in the new theme and a block to report its height. */
 const SETTLE_MS = 300;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
 /** The rendered note on screen (a desktop tab kept in the background has no boxes). */
 function findNoteRoot(docId: string): HTMLElement | null {
@@ -28,48 +28,39 @@ function findNoteRoot(docId: string): HTMLElement | null {
 }
 
 /** Prints the note `docId`; `open` shows it first when it isn't on screen (a note list row). */
-export async function printNote(docId: string, title: string, open?: () => void): Promise<void> {
+export async function printNote(docId: string, title: string, open?: (docId: string) => void): Promise<void> {
   let root = findNoteRoot(docId);
   if (!root && open) {
-    open();
+    open(docId);
     for (const end = Date.now() + OPEN_TIMEOUT_MS; !root && Date.now() < end; root = findNoteRoot(docId)) await sleep(100);
   }
   if (!root) {
     toast.error('Couldn’t open the note to export it');
     return;
   }
-  await printElement(root, title || 'Untitled');
+  await printElement(root, title);
 }
 
 /** Resolves when `el` (an iframe or img) next loads or fails, or after LOAD_TIMEOUT_MS. */
 function loaded(el: HTMLElement): Promise<void> {
   return new Promise((resolve) => {
-    const done = () => resolve();
-    el.addEventListener('load', done, { once: true });
-    el.addEventListener('error', done, { once: true });
-    setTimeout(done, LOAD_TIMEOUT_MS);
+    const timer = setTimeout(done, LOAD_TIMEOUT_MS);
+    function done() {
+      clearTimeout(timer);
+      el.removeEventListener('load', done);
+      el.removeEventListener('error', done);
+      resolve();
+    }
+    el.addEventListener('load', done);
+    el.addEventListener('error', done);
   });
 }
 
-/** The box `el` scrolls in: the editor's pane, else the page. */
-function scrollParent(el: HTMLElement): HTMLElement {
-  for (let p = el.parentElement; p; p = p.parentElement) {
-    const { overflowY } = getComputedStyle(p);
-    if ((overflowY === 'auto' || overflowY === 'scroll') && p.scrollHeight > p.clientHeight) return p;
-  }
-  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
-}
-
-/** Scrolls through the whole note and back, so images and frames that load in view all load. */
-async function revealAll(root: HTMLElement) {
-  const scroller = scrollParent(root);
-  const start = scroller.scrollTop;
-  for (let top = 0; top < scroller.scrollHeight; top += Math.max(scroller.clientHeight, 1)) {
-    scroller.scrollTop = top;
-    await nextFrame();
-  }
-  scroller.scrollTop = start;
-}
+/** Whether `el` is out of the window, where a lazy frame has not loaded yet. */
+const offScreen = (el: Element) => {
+  const { top, bottom } = el.getBoundingClientRect();
+  return bottom < 0 || top > window.innerHeight;
+};
 
 /** Opens the print dialog with only `root` on the page, then puts the screen back as it was. */
 export async function printElement(root: HTMLElement, title: string): Promise<void> {
@@ -79,7 +70,8 @@ export async function printElement(root: HTMLElement, title: string): Promise<vo
   try {
     // The PDF is always light; a live block's frame takes the theme from <html> (LiveBlockPreview).
     // Native controls (a task's checkbox) follow color-scheme (useThemePreference).
-    if (html.classList.replace('dark', 'light')) {
+    const flipped = html.classList.replace('dark', 'light');
+    if (flipped) {
       const { colorScheme } = html.style;
       html.style.colorScheme = 'light';
       undo.push(() => {
@@ -88,7 +80,8 @@ export async function printElement(root: HTMLElement, title: string): Promise<vo
       });
     }
 
-    // Toggles print open: the editor's through its own button, the share page's <details>.
+    // Toggles print open: the editor's through its own button (preflight's `[hidden]` rule is
+    // !important in a layer, so no print rule can show its content), the share page's <details>.
     for (const button of root.querySelectorAll<HTMLButtonElement>('[data-type="toggle"] button[aria-expanded="false"]')) {
       button.click();
       undo.push(() => button.click());
@@ -98,25 +91,29 @@ export async function printElement(root: HTMLElement, title: string): Promise<vo
       undo.push(() => (details.open = false));
     }
 
-    for (const frame of root.querySelectorAll('iframe')) frame.setAttribute('loading', 'eager');
-    const frames = [...root.querySelectorAll('iframe')].map(loaded);
-    await revealAll(root);
-    await Promise.all(frames);
-    await sleep(SETTLE_MS);
+    // Everything that loads once in view loads now. An html or react frame reloads in the new
+    // theme (a mermaid one redraws in place); one out of the window may not have loaded yet.
+    revealIntersections(root);
+    for (const img of root.querySelectorAll('img[loading="lazy"]')) img.setAttribute('loading', 'eager');
+    const frames = [...root.querySelectorAll('iframe')].filter((frame) => {
+      frame.setAttribute('loading', 'eager');
+      return (flipped && frame.title !== 'Mermaid preview') || offScreen(frame);
+    });
+    await Promise.all([...frames.map(loaded), sleep(SETTLE_MS)]);
     await Promise.all([...root.querySelectorAll('img')].filter((img) => !img.complete).map(loaded));
 
     // Only the root and the elements it sits in print (src/index.css, "Print").
+    const path: Element[] = [];
+    for (let el = root.parentElement; el && el !== html; el = el.parentElement) path.push(el);
     root.setAttribute('data-print-root', '');
-    for (let el = root.parentElement; el && el !== html; el = el.parentElement) el.setAttribute('data-print-path', '');
-    html.setAttribute('data-printing', '');
+    for (const el of path) el.setAttribute('data-print-path', '');
     undo.push(() => {
-      html.removeAttribute('data-printing');
       root.removeAttribute('data-print-root');
-      for (const el of document.querySelectorAll('[data-print-path]')) el.removeAttribute('data-print-path');
+      for (const el of path) el.removeAttribute('data-print-path');
     });
     // The PDF's file name
     const pageTitle = document.title;
-    document.title = title;
+    document.title = title || 'Untitled';
     undo.push(() => (document.title = pageTitle));
 
     toast.dismiss(toastId);
