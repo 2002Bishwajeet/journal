@@ -1,0 +1,659 @@
+{
+  "model": "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
+  "loadedModelId": "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
+  "date": "2026-11-08",
+  "gpu": "dgpu",
+  "adapter": {
+    "vendor": "nvidia",
+    "architecture": "turing",
+    "shaderF16": true
+  },
+  "firstLoadMs": 4751,
+  "cached": true,
+  "tasks": [
+    {
+      "id": "find-lisbon",
+      "kind": "find",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 8162,
+      "turns": [
+        {
+          "promptTokens": 232,
+          "completionTokens": 14,
+          "prefillTokensPerS": 35.875770865174346,
+          "decodeTokensPerS": 12.694754625111088
+        }
+      ],
+      "answer": "Find your notes about the Lisbon trip.",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "find-sourdough",
+      "kind": "find",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 2480,
+      "turns": [
+        {
+          "promptTokens": 235,
+          "completionTokens": 28,
+          "prefillTokensPerS": 180.70459412596796,
+          "decodeTokensPerS": 27.639296937939786
+        }
+      ],
+      "answer": "The sourdough starter feeding schedule is in the note titled 'Sourdough Starter Feeding Schedule'.",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "find-insurance",
+      "kind": "find",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 2113,
+      "turns": [
+        {
+          "promptTokens": 233,
+          "completionTokens": 18,
+          "prefillTokensPerS": 224.31778031337205,
+          "decodeTokensPerS": 27.51365567485737
+        }
+      ],
+      "answer": "No, you don't have a note about car insurance.",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "find-offsite",
+      "kind": "find",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 3034,
+      "turns": [
+        {
+          "promptTokens": 233,
+          "completionTokens": 46,
+          "prefillTokensPerS": 222.91211235478627,
+          "decodeTokensPerS": 27.469005805164034
+        }
+      ],
+      "answer": "The note about the team offsite is titled 'Team Offsite Meeting Notes' and has the id `team_offsite_notes`. Here's a snippet of its content:",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "find-git",
+      "kind": "find",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 2105,
+      "turns": [
+        {
+          "promptTokens": 232,
+          "completionTokens": 20,
+          "prefillTokensPerS": 221.62781811218463,
+          "decodeTokensPerS": 27.24951954788076
+        }
+      ],
+      "answer": "The git command tips are in the note titled 'Git Commands'.",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "read-flight",
+      "kind": "read",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 3101,
+      "turns": [
+        {
+          "promptTokens": 231,
+          "completionTokens": 42,
+          "prefillTokensPerS": 221.13410203715117,
+          "decodeTokensPerS": 28.261341586688964
+        }
+      ],
+      "answer": "I'm sorry, but I don't have access to your personal calendar or flight information. You might want to check your airline's website or use a dedicated app for this purpose.",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "read-flour",
+      "kind": "read",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 3517,
+      "turns": [
+        {
+          "promptTokens": 236,
+          "completionTokens": 48,
+          "prefillTokensPerS": 223.50389711241172,
+          "decodeTokensPerS": 27.016773392615377
+        }
+      ],
+      "answer": "For a sourdough starter, you typically feed it about 1/4 to 1/3 cup of flour per day. The exact amount can vary depending on the type and size of your starter.",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "read-policy",
+      "kind": "read",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 2441,
+      "turns": [
+        {
+          "promptTokens": 232,
+          "completionTokens": 27,
+          "prefillTokensPerS": 218.93401781676096,
+          "decodeTokensPerS": 28.7245207974687
+        }
+      ],
+      "answer": "The car insurance policy number is not included in the note. Please check your policy details for this information.",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "read-venue",
+      "kind": "read",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 2067,
+      "turns": [
+        {
+          "promptTokens": 232,
+          "completionTokens": 18,
+          "prefillTokensPerS": 219.46420463123496,
+          "decodeTokensPerS": 26.22667561427777
+        }
+      ],
+      "answer": "The team offsite venue is not specified in the note.",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "refuse-salary",
+      "kind": "refusal",
+      "success": true,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 2516,
+      "turns": [
+        {
+          "promptTokens": 236,
+          "completionTokens": 28,
+          "prefillTokensPerS": 221.82223203940006,
+          "decodeTokensPerS": 26.131518967425237
+        }
+      ],
+      "answer": "The salary review note is currently open and has not been saved. Please save the note before asking about it.",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "edit-bold",
+      "kind": "edit",
+      "success": false,
+      "steps": 3,
+      "invalidCalls": 2,
+      "wallMs": 15342,
+      "turns": [
+        {
+          "promptTokens": 604,
+          "completionTokens": 28,
+          "prefillTokensPerS": 148.8738946914379,
+          "decodeTokensPerS": 17.576980665304216
+        },
+        {
+          "promptTokens": 655,
+          "completionTokens": 28,
+          "prefillTokensPerS": 217.89137699027313,
+          "decodeTokensPerS": 22.228351026706346
+        },
+        {
+          "promptTokens": 706,
+          "completionTokens": 37,
+          "prefillTokensPerS": 211.42408797148275,
+          "decodeTokensPerS": 23.58088899934036
+        }
+      ],
+      "answer": "<p>**Weekly review</p><p>Shipped the export feature on time.</p><p>Need to plan the next sprint.</p>",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "Good week overall.",
+            "replace": "**Good week overall.**"
+          }
+        },
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 2,
+            "mark": "bold",
+            "on": true,
+            "find": "Good week overall."
+          }
+        }
+      ],
+      "errors": [
+        "\"Good week overall.\" is not in block 2.",
+        "\"Good week overall.\" is not in block 2."
+      ]
+    },
+    {
+      "id": "edit-replace",
+      "kind": "edit",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 16817,
+      "turns": [
+        {
+          "promptTokens": 624,
+          "completionTokens": 22,
+          "prefillTokensPerS": 205.14843672951076,
+          "decodeTokensPerS": 24.358981794969395
+        },
+        {
+          "promptTokens": 661,
+          "completionTokens": 22,
+          "prefillTokensPerS": 218.4261093551258,
+          "decodeTokensPerS": 24.78022302213792
+        },
+        {
+          "promptTokens": 710,
+          "completionTokens": 22,
+          "prefillTokensPerS": 211.75067104085892,
+          "decodeTokensPerS": 23.486386283613793
+        },
+        {
+          "promptTokens": 759,
+          "completionTokens": 19,
+          "prefillTokensPerS": 209.6798031938357,
+          "decodeTokensPerS": 23.8627098755695
+        }
+      ],
+      "answer": "Replace 'tuesday' with 'Wednesday' in paragraph 3.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 3,
+            "find": "tuesday",
+            "replace": "Wednesday"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-insert-above-list",
+      "kind": "edit",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 4470,
+      "turns": [
+        {
+          "promptTokens": 602,
+          "completionTokens": 15,
+          "prefillTokensPerS": 198.1948466045762,
+          "decodeTokensPerS": 24.504012531694226
+        }
+      ],
+      "answer": "Next steps: Book the van\nPack the kitchen",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "edit-italic",
+      "kind": "edit",
+      "success": false,
+      "steps": 3,
+      "invalidCalls": 2,
+      "wallMs": 12673,
+      "turns": [
+        {
+          "promptTokens": 599,
+          "completionTokens": 29,
+          "prefillTokensPerS": 194.53104702501307,
+          "decodeTokensPerS": 23.722581355697603
+        },
+        {
+          "promptTokens": 649,
+          "completionTokens": 27,
+          "prefillTokensPerS": 202.9637714357659,
+          "decodeTokensPerS": 23.218328191152406
+        },
+        {
+          "promptTokens": 699,
+          "completionTokens": 6,
+          "prefillTokensPerS": 203.59747119701262,
+          "decodeTokensPerS": 22.924738084820394
+        }
+      ],
+      "answer": "italic",
+      "calls": [
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 2,
+            "mark": "strike",
+            "on": false,
+            "find": "saffron"
+          }
+        },
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 2,
+            "mark": "italic",
+            "on": true,
+            "find": "saffron"
+          }
+        }
+      ],
+      "errors": [
+        "\"saffron\" is not in block 2.",
+        "\"saffron\" is not in block 2."
+      ]
+    },
+    {
+      "id": "edit-append-paragraph",
+      "kind": "edit",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 4496,
+      "turns": [
+        {
+          "promptTokens": 595,
+          "completionTokens": 18,
+          "prefillTokensPerS": 197.08055792013477,
+          "decodeTokensPerS": 23.072277301703966
+        }
+      ],
+      "answer": "Add paragraph 'Budget approved.' to the end of this note.",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "edit-strike",
+      "kind": "edit",
+      "success": true,
+      "steps": 5,
+      "invalidCalls": 1,
+      "wallMs": 21866,
+      "turns": [
+        {
+          "promptTokens": 587,
+          "completionTokens": 21,
+          "prefillTokensPerS": 189.30537504724697,
+          "decodeTokensPerS": 22.758436267411824
+        },
+        {
+          "promptTokens": 623,
+          "completionTokens": 21,
+          "prefillTokensPerS": 200.86050834143725,
+          "decodeTokensPerS": 23.38812000419514
+        },
+        {
+          "promptTokens": 665,
+          "completionTokens": 21,
+          "prefillTokensPerS": 197.1117935099045,
+          "decodeTokensPerS": 22.51593002044795
+        },
+        {
+          "promptTokens": 713,
+          "completionTokens": 21,
+          "prefillTokensPerS": 190.97822098295435,
+          "decodeTokensPerS": 20.91404848926378
+        },
+        {
+          "promptTokens": 761,
+          "completionTokens": 11,
+          "prefillTokensPerS": 189.96268144428012,
+          "decodeTokensPerS": 21.58801433432346
+        }
+      ],
+      "answer": "Strike through the first paragraph.",
+      "calls": [
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 1,
+            "mark": "strike",
+            "on": true
+          },
+          "result": "accepted"
+        },
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 1,
+            "find": "paragraph",
+            "replace": "paragraph"
+          }
+        }
+      ],
+      "errors": [
+        "\"paragraph\" is not in block 1."
+      ]
+    },
+    {
+      "id": "edit-typo",
+      "kind": "edit",
+      "success": true,
+      "steps": 4,
+      "invalidCalls": 0,
+      "wallMs": 18236,
+      "turns": [
+        {
+          "promptTokens": 597,
+          "completionTokens": 22,
+          "prefillTokensPerS": 188.47760920711866,
+          "decodeTokensPerS": 22.047128361555057
+        },
+        {
+          "promptTokens": 634,
+          "completionTokens": 22,
+          "prefillTokensPerS": 193.89594760517198,
+          "decodeTokensPerS": 21.38634431006976
+        },
+        {
+          "promptTokens": 683,
+          "completionTokens": 22,
+          "prefillTokensPerS": 190.06301576865414,
+          "decodeTokensPerS": 20.850708923868964
+        },
+        {
+          "promptTokens": 732,
+          "completionTokens": 13,
+          "prefillTokensPerS": 185.27705500603102,
+          "decodeTokensPerS": 17.70982452535396
+        }
+      ],
+      "answer": "We will receive the designs on Friday.",
+      "calls": [
+        {
+          "tool": "replace_text",
+          "args": {
+            "n": 2,
+            "find": "recieve",
+            "replace": "receive"
+          },
+          "result": "accepted"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "edit-code",
+      "kind": "edit",
+      "success": false,
+      "steps": 4,
+      "invalidCalls": 1,
+      "wallMs": 18646,
+      "turns": [
+        {
+          "promptTokens": 589,
+          "completionTokens": 24,
+          "prefillTokensPerS": 185.246631200272,
+          "decodeTokensPerS": 22.9633734195088
+        },
+        {
+          "promptTokens": 630,
+          "completionTokens": 24,
+          "prefillTokensPerS": 188.8574126535732,
+          "decodeTokensPerS": 20.60664161019331
+        },
+        {
+          "promptTokens": 681,
+          "completionTokens": 24,
+          "prefillTokensPerS": 183.10093943410783,
+          "decodeTokensPerS": 20.493994368653023
+        },
+        {
+          "promptTokens": 732,
+          "completionTokens": 12,
+          "prefillTokensPerS": 185.29956763437013,
+          "decodeTokensPerS": 20.768431983443683
+        }
+      ],
+      "answer": "Use git status before you commit.",
+      "calls": [
+        {
+          "tool": "format_text",
+          "args": {
+            "n": 1,
+            "mark": "code",
+            "on": true,
+            "find": ""
+          }
+        }
+      ],
+      "errors": [
+        "find must not be empty."
+      ]
+    },
+    {
+      "id": "cross-append",
+      "kind": "cross",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 5600,
+      "turns": [
+        {
+          "promptTokens": 570,
+          "completionTokens": 44,
+          "prefillTokensPerS": 182.7605500130134,
+          "decodeTokensPerS": 21.97611247679001
+        }
+      ],
+      "answer": "append_to_note(bbced955-8dcb-791a-fcf2-cbc78c35b437, ",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "cross-create",
+      "kind": "cross",
+      "success": false,
+      "steps": 4,
+      "invalidCalls": 1,
+      "wallMs": 24896,
+      "turns": [
+        {
+          "promptTokens": 575,
+          "completionTokens": 54,
+          "prefillTokensPerS": 188.0021906341297,
+          "decodeTokensPerS": 19.20345517267901
+        },
+        {
+          "promptTokens": 672,
+          "completionTokens": 54,
+          "prefillTokensPerS": 186.24425435094196,
+          "decodeTokensPerS": 19.961282644281216
+        },
+        {
+          "promptTokens": 753,
+          "completionTokens": 54,
+          "prefillTokensPerS": 181.09668109668107,
+          "decodeTokensPerS": 18.65497621489652
+        },
+        {
+          "promptTokens": 834,
+          "completionTokens": 10,
+          "prefillTokensPerS": 177.12308780336076,
+          "decodeTokensPerS": 19.178928750255334
+        }
+      ],
+      "answer": "A scarf for Mum.",
+      "calls": [
+        {
+          "tool": "create_note",
+          "args": {
+            "title": "Gift ideas",
+            "markdown": "A scarf for Mum.",
+            "folderId": "bbced955-8dcb-791a-fcf2-cbc78c35b437"
+          }
+        }
+      ],
+      "errors": [
+        "Folder not found: bbced955-8dcb-791a-fcf2-cbc78c35b437"
+      ]
+    },
+    {
+      "id": "long-about",
+      "kind": "long",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 2626,
+      "turns": [
+        {
+          "promptTokens": 236,
+          "completionTokens": 16,
+          "prefillTokensPerS": 162.84622072576565,
+          "decodeTokensPerS": 26.227444397735876
+        }
+      ],
+      "answer": "This note is about an Allotment diary.",
+      "calls": [],
+      "errors": []
+    },
+    {
+      "id": "long-section",
+      "kind": "long",
+      "success": false,
+      "steps": 1,
+      "invalidCalls": 0,
+      "wallMs": 21779,
+      "turns": [
+        {
+          "promptTokens": 2713,
+          "completionTokens": 44,
+          "prefillTokensPerS": 153.96388914031957,
+          "decodeTokensPerS": 12.483234725411648
+        }
+      ],
+      "answer": "I went down to the plot 4 times, usually early on Saturday before the paths got busy. Most visits started the same way: a walk round the beds to see what I could find.",
+      "calls": [],
+      "errors": []
+    }
+  ]
+}

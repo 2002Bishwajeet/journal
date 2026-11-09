@@ -74,7 +74,8 @@ async function importFixture(page: Page) {
     await dialog
         .locator('input[type="file"]')
         .setInputFiles(files.map(({ name, body }) => ({ name, mimeType: 'text/markdown', buffer: Buffer.from(body) })));
-    await expect(page.getByText(`Successfully imported ${files.length} notes`)).toBeVisible();
+    // The long note (#1022) makes the import take longer than the default 5 s.
+    await expect(page.getByText(`Successfully imported ${files.length} notes`)).toBeVisible({ timeout: 60_000 });
     await page.keyboard.press('Escape');
 }
 
@@ -203,8 +204,9 @@ for (const modelId of MODELS) {
                     const taskResult = await runTask(page, task, consoleErrors);
                     console.log(`${modelId} ${task.id}: ${taskResult.success ? 'ok' : 'FAIL'} (${taskResult.calls.map((c) => c.tool).join(', ') || 'no tools'})`);
                     result.tasks.push(taskResult);
-                    // Out of GPU memory on the first generation, say: the other tasks would only fail the same way.
-                    if (result.tasks.length === 1 && taskResult.error && !taskResult.turns.length) {
+                    // The engine threw in the first task (out of GPU memory, say): the other tasks would only fail
+                    // the same way, or hang on a lost GPU device.
+                    if (result.tasks.length === 1 && taskResult.error?.startsWith('Agent error')) {
                         result.generationError = taskResult.error;
                         break;
                     }

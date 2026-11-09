@@ -27,7 +27,8 @@ export function useModelDownloadGate() {
 
     const confirmDownload = async (modelId: string): Promise<boolean> => {
         const model = getModelInfo(modelId);
-        if (!model) return false;
+        // A model outside the catalogue (one the AI eval loaded, #1022) runs only once it is downloaded.
+        if (!model) return isModelCached(modelId);
         const result = checkRequirements(await probeDevice(isMobile), model);
         if (result.verdict !== 'unsupported' && (await isModelCached(result.modelId))) return true;
         settleRef.current?.(false);

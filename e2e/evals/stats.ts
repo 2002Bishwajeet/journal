@@ -63,7 +63,7 @@ export interface ModelResult {
     /** The weights were already downloaded, so the first load did not include the download. */
     cached: boolean;
     loadError?: string;
-    /** The first task failed before any turn finished, so the other tasks did not run. */
+    /** The engine threw in the first task, so the other tasks did not run. */
     generationError?: string;
     tasks: TaskResult[];
 }
@@ -91,7 +91,7 @@ export function markdownTable(rows: ModelResult[]): string {
         const failure = r.loadError
             ? `load failed: ${r.loadError}`
             : r.generationError
-              ? `first generation failed: ${r.generationError}`
+              ? `first task failed: ${r.generationError}`
               : r.tasks.every((t) => t.error) && `every run failed: ${r.tasks[0]?.error}`;
         if (failure) {
             lines.push(`${head} ${failure} |${' |'.repeat(14)}`);
