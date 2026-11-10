@@ -1,3 +1,11 @@
+## [2.66.1](https://github.com/2002Bishwajeet/journal/compare/v2.66.0...v2.66.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **live-blocks:** keep a block's frame from taking the note's scroll on iPhone ([#1045](https://github.com/2002Bishwajeet/journal/issues/1045)) ([cbe3463](https://github.com/2002Bishwajeet/journal/commit/cbe3463c32ae44adb2cc8835041cd45a4aac3854))
+* **live-blocks:** remount the frame for each document so Back leaves the note ([#1044](https://github.com/2002Bishwajeet/journal/issues/1044)) ([b2865f6](https://github.com/2002Bishwajeet/journal/commit/b2865f653c2024266ebe8f744d83d489c8520c06))
+* **routing:** wait for and pull a linked note not synced yet ([#1047](https://github.com/2002Bishwajeet/journal/issues/1047)) ([af7d571](https://github.com/2002Bishwajeet/journal/commit/af7d571fadfd9d83eb1d95c9efce0869b46581ee))
 # [2.66.0](https://github.com/2002Bishwajeet/journal/compare/v2.65.0...v2.66.0) (2026-11-09)
 
 

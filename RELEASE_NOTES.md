@@ -16,6 +16,14 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.66.1 (2026-11-10)
+
+### Fixed
+
+- Back no longer gets stuck on notes with live blocks that changed while open.
+- On a phone, when you scroll a note over an HTML or React block, the note scrolls. The block scrolls only when its content is taller than the block can show.
+- Opening a link to a note that has not synced to this device yet now waits for it instead of saying "Note not found".
+
 ## 2.66.0 (2026-11-09)
 
 ### Changed
