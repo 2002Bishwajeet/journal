@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, pastePlainText } from '../support/actions';
+import { activeEditor, pastePlainText, waitForNoteSaved } from '../support/actions';
 import { withMobilePage } from '../support/mobile';
 
 // #1045: on a phone, a frame whose page can scroll takes the touch, and the note stops scrolling.
@@ -28,8 +28,22 @@ async function noteWithBlock(page: Page, source: string) {
   // block would land in its code.
   await pastePlainText(page, PARAGRAPHS);
   await expect(activeEditor(page).getByText('Paragraph 30 of')).toBeAttached();
-  await page.keyboard.press('ControlOrMeta+Home');
+  // Let the paste's save land before moving the caret: under load the caret was left in
+  // paragraph 30, and the block was pasted into its text instead of above the note.
+  await waitForNoteSaved(page);
+  // Put the caret at the start of paragraph 1 by selection, not by a Home key: a key press
+  // does not reliably move it under load.
+  await activeEditor(page).evaluate((el) => {
+    el.focus();
+    const range = document.createRange();
+    range.setStart(el.querySelector('p')!.firstChild!, 0);
+    range.collapse(true);
+    const selection = getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
   await page.keyboard.press('Enter');
+  await expect(activeEditor(page).locator('p').first()).toHaveText('');
   await page.keyboard.press('ArrowUp');
   await pastePlainText(page, '```html\n' + source + '\n```');
   const block = activeEditor(page).locator('[data-live-block="html"]');

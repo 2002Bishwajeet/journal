@@ -5,6 +5,9 @@ import { activeEditor, createNote, openNote, typeInEditor } from '../support/act
 // Version history restores one, as a single undoable edit that persists.
 
 test('restore an earlier version, undo it, and keep it across a reload', async ({ app }) => {
+  // Two reloads and four note opens: ~15 s alone, ~28 s with three workers on a busy machine, against
+  // the 30 s default. Every step waits on its own condition, so the whole test gets more time.
+  test.slow();
   // Snapshots are throttled to one per 5 minutes; a fake clock (installed before
   // the app boots, so its timers run normally) lets the test jump past that.
   await app.clock.install();
