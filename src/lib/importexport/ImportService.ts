@@ -1,6 +1,6 @@
 import JSZip, { type JSZipObject } from 'jszip';
 import { getNewId } from '@/lib/utils';
-import { saveDocumentUpdate, upsertSearchIndex, createFolder, getAllFolders, savePendingImageUpload, upsertSyncRecord } from '@/lib/db/queries';
+import { saveDocumentUpdate, upsertSearchIndex, createFolder, getAllFolders, savePendingImageUpload, upsertSyncRecord, checkpoint } from '@/lib/db/queries';
 import { prepareImageForUpload } from '@/lib/images/imageIngest';
 import { formatGuidId } from '@homebase-id/js-lib/helpers';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
@@ -59,6 +59,8 @@ export const ImportService = {
             }
         }
 
+        // Drops the WAL the import wrote (#1054)
+        if (result.imported > 0) await checkpoint();
         return result;
     }
 };

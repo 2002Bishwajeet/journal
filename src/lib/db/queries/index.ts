@@ -8,3 +8,4 @@ export * from './images';
 export * from './syncErrors';
 export * from './diagnostics';
 export * from './tags';
+export * from './maintenance';

@@ -3,6 +3,7 @@ import { IdbFs, PGlite } from '@electric-sql/pglite';
 import { worker } from './pgliteWorkerHost';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 import { live } from '@electric-sql/pglite/live';
+import { PGLITE_START_PARAMS } from './startParams';
 
 /**
  * A boot timing mark from inside the worker (#901), posted to the page, which records it
@@ -58,6 +59,7 @@ worker({
       // verbatim, but this init picks fields explicitly: a flag only reaches
       // the engine if it is named here.
       relaxedDurability: options.relaxedDurability !== false,
+      startParams: PGLITE_START_PARAMS,
       extensions: { pg_trgm, live },
     });
     // Postgres is running on the loaded data dir.

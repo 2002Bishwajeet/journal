@@ -27,6 +27,7 @@ async function loadWorkerInit(): Promise<InitFn> {
   let captured: InitFn | undefined;
   vi.doMock('@electric-sql/pglite', () => ({
     PGlite: class FakePGlite {
+      static defaultStartParams = ['--single'];
       waitReady = Promise.resolve();
       constructor(options: Record<string, unknown>) {
         mocks.pgliteArgs.push(options);
@@ -81,6 +82,14 @@ describe('pglite worker init', () => {
     await init({ dataDir: 'idb://journal-db-pg18', relaxedDurability: false });
 
     expect(mocks.pgliteArgs[0].relaxedDurability).toBe(false);
+  });
+
+  it("keeps the engine's start flags and turns WAL recycling off, so a checkpoint deletes old WAL (#1054)", async () => {
+    const init = await loadWorkerInit();
+
+    await init({ dataDir: 'idb://journal-db-pg18' });
+
+    expect(mocks.pgliteArgs[0].startParams).toEqual(['--single', '-c', 'wal_recycle=off']);
   });
 
   it('opens the same IndexedDB data dir through its filesystem and marks when Postgres is up', async () => {

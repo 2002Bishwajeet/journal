@@ -14,6 +14,7 @@ vi.mock('@/lib/db/queries', () => ({
     saveDocumentUpdate: vi.fn(),
     upsertSearchIndex,
     createFolder: vi.fn(),
+    checkpoint: vi.fn(),
 }));
 
 import { ImportService } from '@/lib/importexport/ImportService';

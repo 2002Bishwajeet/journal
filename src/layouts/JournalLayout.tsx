@@ -64,6 +64,7 @@ import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
 import { useFolders, isUnknownFolderRoute, findOrCreateFolderByName } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useEditorAppearance } from "@/hooks/useEditorAppearance";
+import { useDailySnapshotPrune } from "@/hooks/useDailySnapshotPrune";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
 import { syncThemeColor } from "@/lib/themeColor";
@@ -75,6 +76,7 @@ export default function JournalLayout() {
   useThemePreference();
   // Apply the stored editor font/width attributes at root level
   useEditorAppearance();
+  useDailySnapshotPrune();
   const whatsNew = useAutoWhatsNew();
 
   // Warm the lazy editor chunk once the shell is idle. Desktop with restored

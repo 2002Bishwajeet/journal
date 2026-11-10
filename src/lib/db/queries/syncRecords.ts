@@ -2,6 +2,7 @@ import type { Transaction } from '@electric-sql/pglite';
 import { getDatabase } from '../pglite';
 import type { SyncRecord } from '@/types';
 import { clearNoteListEntryCache } from './noteList';
+import { reclaimSpace } from './maintenance';
 
 export async function upsertSyncRecord(record: SyncRecord): Promise<void> {
     const db = await getDatabase();
@@ -252,6 +253,8 @@ export async function clearAllLocalData(): Promise<void> {
         -- Clear app state (session, last sync time, etc.)
         DELETE FROM app_state;
     `);
+    // Gives the emptied tables' pages back, so the next account starts small (#1054)
+    await reclaimSpace();
 
     // Drop cached row identities so a re-login can't serve entries for wiped notes.
     clearNoteListEntryCache();

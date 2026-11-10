@@ -417,6 +417,7 @@ Defined in `src/lib/db/schema.ts`: base tables in `initializeSchema()`, later co
 
 ### `job_queue` — Background tasks
 - `id` SERIAL PK, `job_type` TEXT, `payload` JSONB, `status` TEXT, `error_message` TEXT, `created_at` TIMESTAMPTZ, `processed_at` TIMESTAMPTZ
+- `snapshot-prune` is the only job: `claimDailyJob` (queries/maintenance.ts) gives it at most one run a day across tabs
 
 ### `app_state` — Session persistence (key-value)
 - `key` TEXT PK, `value` JSONB, `updated_at` TIMESTAMPTZ
@@ -424,7 +425,8 @@ Defined in `src/lib/db/schema.ts`: base tables in `initializeSchema()`, later co
 ### `document_snapshots` — Version history (this device only, never synced)
 - `id` SERIAL PK, `doc_id` UUID, `state_blob` BYTEA, `state_vector` BYTEA, `preview` TEXT, `word_count` INT, `created_at` TIMESTAMPTZ
 - Index: `idx_snapshots_doc_created` on (doc_id, created_at DESC)
-- Written by `PGliteProvider.compact()` before the update log is replaced (skipped if the newest snapshot is under 5 min old or has the same state vector); pruned by `selectSnapshotsToPrune` (all < 24 h, one per UTC day to 30 days, one per ISO week after, max 50)
+- Written by `PGliteProvider.compact()` before the update log is replaced (skipped if the newest snapshot is under 5 min old or has the same state vector); pruned by `selectSnapshotsToPrune` (all < 24 h, one per UTC day to 30 days, one per ISO week after, max 50; then weekly ones go oldest first until the rest fit 3 × the newest snapshot or 32 KB, whichever is larger) on every save and in a daily pass over every note (`runDailySnapshotPrune`, started by `useDailySnapshotPrune` in JournalLayout), which then runs `VACUUM` (`VACUUM FULL`, which shrinks the file, when it pruned a quarter of the bytes or more) + `CHECKPOINT`
+- WAL: PGlite runs Postgres single-user, where nothing checkpoints on its own; `wal_recycle=off` (`src/lib/db/startParams.ts`) makes each `CHECKPOINT` delete old segments. `reclaimSpace`/`checkpoint` run after the daily prune, Trash empty, sign-out and imports (#1054)
 
 ## PGlite Version Migration
 
