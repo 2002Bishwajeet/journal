@@ -3,11 +3,11 @@ import { Button } from '@/components/ui/button';
 import type { PeerNoteContentStatus } from '@/hooks/usePeerNoteContent';
 import { PEER_NOTE_MESSAGES } from './peerNoteStatus';
 
-export function PeerNoteLoading() {
+export function PeerNoteLoading({ label = 'Loading shared note…' }: { label?: string }) {
     return (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <p className="text-sm">Loading shared note…</p>
+            <p className="text-sm">{label}</p>
         </div>
     );
 }
