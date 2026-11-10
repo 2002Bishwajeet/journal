@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.66.3 (2026-11-10)
+
+### Fixed
+
+- After you undo or redo a change, the note list preview and search show the correct text. The app also saves the change.
+
 ## 2.66.2 (2026-11-10)
 
 ### New
