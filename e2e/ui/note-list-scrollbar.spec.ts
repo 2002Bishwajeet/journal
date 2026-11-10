@@ -13,11 +13,12 @@ test('note list scrollbar paints above a stuck group header', async ({ app }) =>
   await expect(headers.filter({ hasText: 'Pinned' })).toBeVisible();
   await expect.poll(() => headers.count()).toBeGreaterThan(1);
 
-  await app.setViewportSize({ width: 1280, height: 320 });
+  await app.setViewportSize({ width: 1280, height: 420 });
   const row = app.getByTestId('note-row').first();
   const box = (await row.boundingBox())!;
   await app.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await app.mouse.wheel(0, 2000);
+  // A small scroll keeps the Pinned header stuck at the top, where the thumb starts.
+  await app.mouse.wheel(0, 40);
 
   await expect(app.locator('[data-slot=scroll-area]:has([data-testid=note-row]) [data-slot=scroll-area-scrollbar]')).toBeVisible();
 
@@ -37,5 +38,6 @@ test('note list scrollbar paints above a stuck group header', async ({ app }) =>
   expect(result.bar).toBeGreaterThanOrEqual(0);
   expect(result.header).toBeGreaterThanOrEqual(0);
   expect(result.bar).toBeLessThan(result.header);
-  await app.screenshot({ path: test.info().outputPath('note-list-scrollbar-desktop.png') });
+  const sidebar = app.locator('[data-slot=scroll-area]:has([data-testid=note-row])');
+  await sidebar.screenshot({ path: test.info().outputPath('note-list-scrollbar-desktop.png') });
 });
