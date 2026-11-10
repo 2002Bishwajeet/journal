@@ -223,3 +223,66 @@ export async function getDatabaseInfo(): Promise<DatabaseInfo> {
         sizeBytes: Number.isFinite(size) ? size : null,
     };
 }
+
+/** The tables the breakdown names; every other user table is summed into "other". */
+const BREAKDOWN_TABLES = [
+    'document_updates',
+    'document_snapshots',
+    'search_index',
+    'pending_image_uploads',
+    'sync_records',
+] as const;
+
+export interface DatabaseBreakdown {
+    /** Each table with its indexes and TOAST, in `BREAKDOWN_TABLES` order, then `other`. */
+    tables: { name: string; bytes: number }[];
+    noteCount: number;
+    snapshotCount: number;
+    /** Stored bytes per note across document_updates + document_snapshots + search_index; null with no notes. */
+    avgBytesPerNote: number | null;
+    p95BytesPerNote: number | null;
+}
+
+type Numeric = string | number | bigint | null;
+
+/**
+ * Where the bytes of the local database go (#1053). Scans every note's rows, so call it
+ * only when Diagnostics opens, never at app start.
+ */
+export async function getDatabaseBreakdown(): Promise<DatabaseBreakdown> {
+    const db = await getDatabase();
+    const sizes = await db.query<{ name: string; bytes: Numeric }>(
+        `SELECT c.relname AS name, pg_total_relation_size(c.oid) AS bytes
+         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE c.relkind = 'r' AND n.nspname = 'public'`,
+    );
+    const bytesOf = new Map(sizes.rows.map((row) => [row.name, Number(row.bytes)]));
+    const named = new Set<string>(BREAKDOWN_TABLES);
+    const other = [...bytesOf].filter(([name]) => !named.has(name)).reduce((sum, [, bytes]) => sum + bytes, 0);
+
+    const stats = await db.query<{ notes: Numeric; snapshots: Numeric; avg: Numeric; p95: Numeric }>(
+        `WITH updates AS (
+             SELECT doc_id, SUM(octet_length(update_blob)) AS bytes FROM document_updates GROUP BY doc_id
+         ), snaps AS (
+             SELECT doc_id, SUM(octet_length(state_blob) + octet_length(state_vector)) AS bytes
+             FROM document_snapshots GROUP BY doc_id
+         ), per_note AS (
+             SELECT pg_column_size(s.*) + COALESCE(u.bytes, 0) + COALESCE(n.bytes, 0) AS bytes
+             FROM search_index s
+             LEFT JOIN updates u ON u.doc_id = s.doc_id
+             LEFT JOIN snaps n ON n.doc_id = s.doc_id
+         )
+         SELECT COUNT(*) AS notes, (SELECT COUNT(*) FROM document_snapshots) AS snapshots,
+                AVG(bytes) AS avg, percentile_cont(0.95) WITHIN GROUP (ORDER BY bytes) AS p95
+         FROM per_note`,
+    );
+    const row = stats.rows[0];
+    const rounded = (value: Numeric | undefined) => (value === null || value === undefined ? null : Math.round(Number(value)));
+    return {
+        tables: [...BREAKDOWN_TABLES.map((name) => ({ name, bytes: bytesOf.get(name) ?? 0 })), { name: 'other', bytes: other }],
+        noteCount: Number(row?.notes ?? 0),
+        snapshotCount: Number(row?.snapshots ?? 0),
+        avgBytesPerNote: rounded(row?.avg),
+        p95BytesPerNote: rounded(row?.p95),
+    };
+}

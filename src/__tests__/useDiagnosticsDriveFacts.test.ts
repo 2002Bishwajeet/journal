@@ -28,6 +28,7 @@ vi.mock('@/hooks/auth/useMissingPermissions', () => ({ getJournalDriveFixUrl: ()
 vi.mock('@/lib/db', () => ({
     clearRetryBackoff: vi.fn(),
     getAppState: vi.fn(async () => null),
+    getDatabaseBreakdown: vi.fn(async () => null),
     getDatabaseInfo: vi.fn(async () => null),
     getPendingSyncItems: vi.fn(async () => []),
     retryPendingImageUploadNow: vi.fn(),
