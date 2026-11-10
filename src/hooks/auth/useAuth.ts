@@ -99,8 +99,11 @@ export function useAuth() {
         // IndexedDB. Dynamic import keeps the heavy PGlite db module out of the auth
         // hook's static graph (and avoids an import cycle).
         try {
-            const { clearAllLocalData } = await import('@/lib/db');
+            const { clearAllLocalData, flushToIndexedDb } = await import('@/lib/db');
             await clearAllLocalData();
+            // A COMMIT returns before PGlite writes it to IndexedDB, so the reload below
+            // could drop the wipe and show this identity's notes to the next one (#1060).
+            await flushToIndexedDb();
         } catch (err) {
             console.warn('[logout] Failed to clear local data:', err);
         }
