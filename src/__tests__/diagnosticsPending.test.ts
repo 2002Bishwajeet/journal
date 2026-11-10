@@ -12,7 +12,7 @@ import { setTestDb } from './pgliteMock';
 import {
     upsertSearchIndex, upsertSyncRecord, createFolder, recordSyncError, resolveSyncErrorsForEntity,
     savePendingImageUpload, getPendingSyncCount, getPendingSyncItems, clearRetryBackoff,
-    derivePendingStatus, getDatabaseInfo,
+    derivePendingStatus, getDatabaseInfo, getDatabaseBreakdown,
 } from '@/lib/db/queries';
 
 const NOTE_OK = '11111111-1111-4111-8111-111111111111';
@@ -157,5 +157,35 @@ describe('getDatabaseInfo', () => {
         const info = await getDatabaseInfo();
         expect(info.engine).toMatch(/^PostgreSQL \d+/);
         expect(info.sizeBytes).toBeGreaterThan(0);
+    });
+});
+
+describe('getDatabaseBreakdown', () => {
+    it('sizes each table, counts notes and snapshots, and reports bytes per note', async () => {
+        await resetTestDatabase();
+        const empty = await getDatabaseBreakdown();
+        expect(empty.noteCount).toBe(0);
+        expect(empty.avgBytesPerNote).toBeNull();
+        expect(empty.p95BytesPerNote).toBeNull();
+
+        for (const [id, size] of [[NOTE_OK, 1000], [NOTE_FAILING, 3000]] as const) {
+            await addNote(id, `Note ${id}`);
+            await db.query('INSERT INTO document_updates (doc_id, update_blob) VALUES ($1, $2)', [id, new Uint8Array(size)]);
+        }
+        await db.query(
+            'INSERT INTO document_snapshots (doc_id, state_blob, state_vector, preview, word_count) VALUES ($1, $2, $3, $4, $5)',
+            [NOTE_FAILING, new Uint8Array(2000), new Uint8Array(10), 'preview', 1],
+        );
+
+        const breakdown = await getDatabaseBreakdown();
+        expect(breakdown.tables.map((table) => table.name)).toEqual([
+            'document_updates', 'document_snapshots', 'search_index', 'pending_image_uploads', 'sync_records', 'other',
+        ]);
+        for (const table of breakdown.tables) expect(table.bytes).toBeGreaterThan(0);
+        expect(breakdown.noteCount).toBe(2);
+        expect(breakdown.snapshotCount).toBe(1);
+        // NOTE_OK: 1000 + its search row; NOTE_FAILING: 3000 + 2010 + its search row
+        expect(breakdown.avgBytesPerNote).toBeGreaterThan(3000);
+        expect(breakdown.p95BytesPerNote).toBeGreaterThan(breakdown.avgBytesPerNote!);
     });
 });

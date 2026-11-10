@@ -11,9 +11,11 @@ import {
     clearRetryBackoff,
     discardPendingImageUploads,
     getAppState,
+    getDatabaseBreakdown,
     getDatabaseInfo,
     getPendingSyncItems,
     retryPendingImageUploadNow,
+    type DatabaseBreakdown,
     type DatabaseInfo,
     type PendingSyncItem,
 } from '@/lib/db';
@@ -37,6 +39,7 @@ import { formatRelativeTime } from '@/lib/utils';
 interface DeviceFacts {
     serviceWorker: string;
     database: DatabaseInfo | null;
+    breakdown: DatabaseBreakdown | null;
     sharedPassAt: number | null;
 }
 
@@ -50,12 +53,13 @@ async function describeServiceWorker(): Promise<string> {
 }
 
 async function loadDeviceFacts(): Promise<DeviceFacts> {
-    const [serviceWorker, database, shared] = await Promise.all([
+    const [serviceWorker, database, breakdown, shared] = await Promise.all([
         describeServiceWorker().catch(() => 'unknown'),
         getDatabaseInfo().catch(() => null),
+        getDatabaseBreakdown().catch(() => null),
         getAppState<{ fullPassAt?: number }>(SHARED_PULL_STATE_KEY).catch(() => null),
     ]);
-    return { serviceWorker, database, sharedPassAt: shared?.fullPassAt ?? null };
+    return { serviceWorker, database, breakdown, sharedPassAt: shared?.fullPassAt ?? null };
 }
 
 function formatWhen(time: Date | number | null): string {
@@ -130,6 +134,19 @@ export function useDiagnostics() {
         };
     }, []);
 
+    const breakdown = facts?.breakdown;
+    const breakdownRows: StatusRow[] = breakdown
+        ? [
+              ...breakdown.tables.map((table) => ({ label: `Database · ${table.name}`, value: formatBytes(table.bytes) })),
+              { label: 'Database · notes', value: `${breakdown.noteCount} (${breakdown.snapshotCount} snapshots)` },
+              ...(breakdown.avgBytesPerNote === null || breakdown.p95BytesPerNote === null
+                  ? []
+                  : [
+                        { label: 'Database · per note', value: `${formatBytes(breakdown.avgBytesPerNote)} average, ${formatBytes(breakdown.p95BytesPerNote)} p95` },
+                    ]),
+          ]
+        : [];
+
     const status: StatusRow[] = [
         { label: 'App version', value: `v${__APP_VERSION__} (build ${__APP_BUILD__})` },
         { label: 'Identity', value: getIdentity() || 'unknown' },
@@ -147,6 +164,7 @@ export function useDiagnostics() {
                 ? `${facts.database.engine}${facts.database.sizeBytes === null ? '' : ` · ${formatBytes(facts.database.sizeBytes)}`}`
                 : 'unknown',
         },
+        ...breakdownRows,
         {
             label: 'Browser storage',
             value: usage === null ? 'unknown' : `${formatBytes(usage)}${quota === null ? '' : ` of ${formatBytes(quota)}`}`,
