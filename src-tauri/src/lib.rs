@@ -87,6 +87,20 @@ fn header(name: &str, value: &str) -> Header {
     Header::from_bytes(name.as_bytes(), value.as_bytes()).unwrap()
 }
 
+/// The `/*` headers of `public/_headers`, the file Cloudflare Pages serves the
+/// hosted PWA with and vite.config.ts reads for dev and preview. Reading it
+/// here keeps the shell on the same cross-origin isolation (PGlite and WebLLM
+/// need SharedArrayBuffer) and the same CSPs (#671, #945) as the web.
+fn app_headers() -> Vec<(&'static str, &'static str)> {
+    include_str!("../../public/_headers")
+        .lines()
+        .skip_while(|line| *line != "/*")
+        .skip(1)
+        .take_while(|line| line.starts_with(char::is_whitespace))
+        .filter_map(|line| line.trim().split_once(": "))
+        .collect()
+}
+
 /// Blocking HTTP server for the app's assets. Runs on its own thread, one per
 /// bound loopback address.
 ///
@@ -97,6 +111,7 @@ fn header(name: &str, value: &str) -> Header {
 /// example a file-backed filesystem) must require a per-launch secret: every
 /// local process can reach this port, not only the webview.
 fn serve(app: tauri::AppHandle, server: Server) {
+    let headers = app_headers();
     for request in server.incoming_requests() {
         let path = request.url().split('?').next().unwrap_or("/");
         let path = if path.ends_with('/') {
@@ -112,18 +127,16 @@ fn serve(app: tauri::AppHandle, server: Server) {
             .get(path)
             .or_else(|| resolver.get("/index.html".into()));
 
-        let response = match asset {
+        let mut response = match asset {
             // Content-Type comes from Tauri's own extension/sniffing logic.
             Some(asset) => Response::from_data(asset.bytes)
                 .with_header(header("Content-Type", &asset.mime_type)),
             None => Response::from_data(Vec::new()).with_status_code(404),
         }
-        // PGlite and WebLLM need SharedArrayBuffer, which requires a
-        // cross-origin-isolated context. The hosted PWA gets these from
-        // public/_headers; the desktop shell has to serve them itself.
-        .with_header(header("Cross-Origin-Embedder-Policy", "require-corp"))
-        .with_header(header("Cross-Origin-Opener-Policy", "same-origin"))
         .with_header(header("Cache-Control", "no-cache"));
+        for (name, value) in &headers {
+            response.add_header(header(name, value));
+        }
 
         let _ = request.respond(response);
     }
@@ -215,6 +228,18 @@ mod tests {
 
     fn has_ipv6_loopback() -> bool {
         TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).is_ok()
+    }
+
+    #[test]
+    fn app_headers_match_the_web() {
+        let headers = app_headers();
+        let get = |name| headers.iter().find(|(n, _)| *n == name).map(|(_, v)| *v);
+        assert_eq!(get("Cross-Origin-Embedder-Policy"), Some("require-corp"));
+        assert_eq!(get("Cross-Origin-Opener-Policy"), Some("same-origin"));
+        assert_eq!(get("Content-Security-Policy"), Some("frame-src 'self'"));
+        assert!(get("Content-Security-Policy-Report-Only").is_some());
+        // The /assets/* block stays out: no immutable caching of a local dist/.
+        assert!(get("Cache-Control").is_none());
     }
 
     #[test]
