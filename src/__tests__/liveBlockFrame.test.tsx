@@ -275,7 +275,7 @@ describe('LiveBlockPreview html, mounted', () => {
     expect(srcdoc).toContain('font-family:Georgia, serif;line-height:1.5}');
   });
 
-  it('should rebuild the document when the theme changes', async () => {
+  it('should rebuild the document when the theme changes, in a new frame (#1044)', async () => {
     setTokens(LIGHT);
     const frame = await mount();
     await act(async () => {
@@ -284,7 +284,10 @@ describe('LiveBlockPreview html, mounted', () => {
       // The theme is observed through a MutationObserver, which reports asynchronously.
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    const srcdoc = frame.getAttribute('srcdoc')!;
+    // A new srcdoc in the loaded frame would add a history entry.
+    const reloaded = note.querySelector('iframe')!;
+    expect(reloaded).not.toBe(frame);
+    const srcdoc = reloaded.getAttribute('srcdoc')!;
     for (const [name, value] of Object.entries(DARK)) expect(srcdoc).toContain(`${name}:${value};`);
     expect(srcdoc).toContain('color-scheme:dark}');
   });

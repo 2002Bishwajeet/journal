@@ -159,12 +159,15 @@ describe('a mounted html block’s storage', () => {
       document.documentElement.classList.add('dark');
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(frame.getAttribute('srcdoc')).not.toBe(before);
-    // The reloaded page has the same token, and hands over a port of its own.
-    await connect(frame);
-    expect(valueOf(ask(frame, get('count')))).toBe(3);
+    // A new frame for the new document (#1044), whose page has the same token and hands over a port of its own.
+    const reloaded = note.querySelector('iframe')!;
+    expect(reloaded).not.toBe(frame);
+    expect(reloaded.getAttribute('srcdoc')).not.toBe(before);
+    expect(tokenOf(reloaded)).toBe(tokenOf(frame));
+    await connect(reloaded);
+    expect(valueOf(ask(reloaded, get('count')))).toBe(3);
 
-    ask(frame, set('count', 4));
+    ask(reloaded, set('count', 4));
     await act(async () => root.unmount());
     expect(write).toHaveBeenLastCalledWith('{"count":4}');
     root = createRoot(note);
