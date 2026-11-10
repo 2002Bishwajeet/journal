@@ -171,8 +171,11 @@ function HtmlPreview({
   }, [port, frame, themeVariables]);
 
   // No background: the page inside is see-through, so the note shows behind it.
+  // A frame of its own for each document: a new srcdoc in a loaded frame adds a history entry,
+  // so Back would walk through the frame's pages before it left the note (#1044).
   return (
     <iframe
+      key={srcDoc}
       ref={setFrame}
       sandbox="allow-scripts"
       srcDoc={srcDoc}
