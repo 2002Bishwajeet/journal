@@ -142,6 +142,16 @@ fn serve(app: tauri::AppHandle, server: Server) {
     }
 }
 
+/// Sets `window.__JOURNAL_NATIVE__` before any page script runs.
+/// `std::env::consts::OS` is already `macos`, `windows`, `linux`, `ios` or
+/// `android`, the values `NativePlatform` in src/lib/native.ts expects.
+fn native_flag_script() -> String {
+    format!(
+        "window.__JOURNAL_NATIVE__ = {{ platform: {:?} }};",
+        std::env::consts::OS
+    )
+}
+
 /// Shared entry point for every target.
 ///
 /// On desktop `main.rs` calls this directly. On mobile there is no `main` —
@@ -171,7 +181,11 @@ pub fn run() {
                 WebviewUrl::External(format!("http://localhost:{PORT}").parse()?)
             };
 
-            let builder = WebviewWindowBuilder::new(app, "main", url).title("Journal");
+            let builder = WebviewWindowBuilder::new(app, "main", url)
+                .title("Journal")
+                // Read by isNativeApp() in src/lib/native.ts. Main frame only:
+                // live-block iframes don't need to know.
+                .initialization_script(native_flag_script());
 
             // Desktop-only window geometry. These are NOT harmless no-ops on
             // iOS: `tao`'s UIKit backend uses `WindowAttributes::inner_size`
@@ -240,6 +254,16 @@ mod tests {
         assert!(get("Content-Security-Policy-Report-Only").is_some());
         // The /assets/* block stays out: no immutable caching of a local dist/.
         assert!(get("Cache-Control").is_none());
+    }
+
+    #[test]
+    fn native_flag_names_this_platform() {
+        let os = std::env::consts::OS;
+        assert!(["macos", "windows", "linux", "ios", "android"].contains(&os));
+        assert_eq!(
+            native_flag_script(),
+            format!("window.__JOURNAL_NATIVE__ = {{ platform: \"{os}\" }};")
+        );
     }
 
     #[test]
