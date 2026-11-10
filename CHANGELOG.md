@@ -1,3 +1,15 @@
+## [2.66.4](https://github.com/2002Bishwajeet/journal/compare/v2.66.3...v2.66.4) (2026-11-10)
+
+
+### Bug Fixes
+
+* **auth:** flush the sign-out wipe to IndexedDB before the reload ([#1060](https://github.com/2002Bishwajeet/journal/issues/1060)) ([6ba0f47](https://github.com/2002Bishwajeet/journal/commit/6ba0f47d6a94227f458c987c76382c0a3f37d7c8))
+* **ci:** keep playwright-deps ldd scan non-fatal under pipefail ([#1063](https://github.com/2002Bishwajeet/journal/issues/1063)) ([928c7b2](https://github.com/2002Bishwajeet/journal/commit/928c7b2c1d9b02e426bfdbf4153f6cd9701e0d6d))
+
+
+### Performance Improvements
+
+* **db:** shrink the local database: WAL recycling off, snapshot byte budget, daily prune, VACUUM ([#1054](https://github.com/2002Bishwajeet/journal/issues/1054)) ([df262fe](https://github.com/2002Bishwajeet/journal/commit/df262fe9186039bd9f19debb993d64937a94b05c)), closes [#1053](https://github.com/2002Bishwajeet/journal/issues/1053)
 ## [2.66.3](https://github.com/2002Bishwajeet/journal/compare/v2.66.2...v2.66.3) (2026-11-10)
 
 
