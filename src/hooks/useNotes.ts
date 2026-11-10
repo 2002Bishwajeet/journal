@@ -8,6 +8,7 @@ import {
     upsertSyncRecord,
     updateSyncStatus,
     getTrashedNotes,
+    reclaimSpace,
     getSearchIndexEntry,
     isFolderPublic,
     setNoteArchivalStatusLocal,
@@ -188,6 +189,12 @@ export function useNotes() {
                     ]);
                 })
             );
+            // In the background, so emptying Trash doesn't wait on it
+            if (trashed.length > 0) {
+                void reclaimSpace(['document_updates', 'search_index']).catch((error) =>
+                    console.warn('[notes] Reclaiming space after emptying Trash failed:', error)
+                );
+            }
         },
     });
 

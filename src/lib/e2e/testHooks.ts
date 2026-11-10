@@ -203,6 +203,28 @@ function takeAgentEvents(): AgentEvalEvent[] {
     return agentEvents.splice(0);
 }
 
+/** Half a year of version history for a note, then the daily prune (#1054); see JournalE2EHooks. */
+async function seedSnapshotHistory(docId: string): Promise<void> {
+    const { getDatabase } = await import('@/lib/db/pglite');
+    const { runDailySnapshotPrune } = await import('@/lib/history/dailyPrune');
+    const db = await getDatabase();
+    const DAY = 86_400_000;
+    const today = Math.floor(Date.now() / DAY) * DAY; // 00:00 UTC
+    const rows: [string, number, number][] = []; // preview, created at, bytes
+    for (let day = 2; day <= 21; day++) {
+        for (const hour of [1, 2, 3]) rows.push([`day ${day}`, today - day * DAY + hour * 3_600_000, 512]);
+    }
+    for (let week = 5; week <= 24; week++) rows.push([`week ${week}`, today - week * 7 * DAY, 8 * 1024]);
+    for (const [preview, createdAt, bytes] of rows) {
+        await db.query(
+            `INSERT INTO document_snapshots (doc_id, state_blob, state_vector, preview, word_count, created_at)
+             VALUES ($1, $2, $3, $4, 2, $5)`,
+            [docId, new Uint8Array(bytes), new Uint8Array(1), preview, new Date(createdAt)],
+        );
+    }
+    await runDailySnapshotPrune();
+}
+
 /** The open note's id and its editor content as TipTap JSON. */
 async function openNoteJSON(): ReturnType<JournalE2EHooks['openNoteJSON']> {
     const { activeEditor } = await import('@/lib/agent/activeEditor');
@@ -473,7 +495,7 @@ if (E2E_ORIGINS.includes(location.origin)) {
     // Set by a spec's init script before the page loads (#905).
     e2eSwitches.sessionRestoreDelayMs = Number(localStorage.getItem('e2e-session-restore-delay-ms')) || 0;
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, seedCollaborativeNote, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe, seedShareRequest }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, seedCollaborativeNote, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe, seedShareRequest, seedSnapshotHistory }),
         writable: false,
         configurable: false,
         enumerable: false,

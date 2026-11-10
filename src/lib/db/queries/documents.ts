@@ -63,9 +63,9 @@ export async function saveSnapshot(
 
 export async function getSnapshots(docId: string): Promise<SnapshotMeta[]> {
     const db = await getDatabase();
-    const result = await db.query<{ id: number; preview: string; word_count: number; created_at: Date }>(
-        `SELECT id, preview, word_count, created_at FROM document_snapshots
-         WHERE doc_id = $1 ORDER BY created_at DESC, id DESC`,
+    const result = await db.query<{ id: number; preview: string; word_count: number; created_at: Date; bytes: number }>(
+        `SELECT id, preview, word_count, created_at, octet_length(state_blob) + octet_length(state_vector) AS bytes
+         FROM document_snapshots WHERE doc_id = $1 ORDER BY created_at DESC, id DESC`,
         [docId]
     );
     return result.rows.map(row => ({
@@ -73,7 +73,15 @@ export async function getSnapshots(docId: string): Promise<SnapshotMeta[]> {
         preview: row.preview,
         wordCount: row.word_count,
         createdAt: row.created_at,
+        bytes: row.bytes,
     }));
+}
+
+/** Every note that has snapshots, for the daily prune pass (#1054). */
+export async function getSnapshotDocIds(): Promise<string[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ doc_id: string }>('SELECT DISTINCT doc_id FROM document_snapshots');
+    return result.rows.map(row => row.doc_id);
 }
 
 export async function getLatestSnapshotVector(

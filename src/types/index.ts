@@ -189,6 +189,8 @@ export interface SnapshotMeta {
     preview: string;
     wordCount: number;
     createdAt: Date;
+    /** Stored size of the snapshot's state, for the retention byte budget */
+    bytes: number;
 }
 
 // Progress tracking for sync operations

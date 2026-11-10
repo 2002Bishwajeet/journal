@@ -18,6 +18,7 @@ vi.mock('@/lib/db/queries', () => ({
     upsertSyncRecord,
     upsertSearchIndex: vi.fn(),
     createFolder: vi.fn(),
+    checkpoint: vi.fn(),
 }));
 // happy-dom has no createImageBitmap; the ingest itself is covered in imageIngest.test.ts
 const { prepareImageForUpload } = vi.hoisted(() => ({ prepareImageForUpload: vi.fn(async (file: File) => file) }));
