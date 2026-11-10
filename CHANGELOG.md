@@ -1,3 +1,9 @@
+## [2.66.3](https://github.com/2002Bishwajeet/journal/compare/v2.66.2...v2.66.3) (2026-11-10)
+
+
+### Bug Fixes
+
+* **editor:** undo and redo update the note list preview; harden load-sensitive e2e specs ([#1057](https://github.com/2002Bishwajeet/journal/issues/1057)) ([876af5b](https://github.com/2002Bishwajeet/journal/commit/876af5b338abc91570ad1ec1ebd25df0ca66b9e2))
 ## [2.66.2](https://github.com/2002Bishwajeet/journal/compare/v2.66.1...v2.66.2) (2026-11-10)
 
 
