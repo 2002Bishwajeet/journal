@@ -1601,7 +1601,7 @@ dependencies = [
 
 [[package]]
 name = "journal"
-version = "2.1.2"
+version = "2.66.2"
 dependencies = [
  "rfd",
  "tauri",
