@@ -225,7 +225,7 @@ export async function getDatabaseInfo(): Promise<DatabaseInfo> {
 }
 
 /** The tables the breakdown names; every other user table is summed into "other". */
-export const BREAKDOWN_TABLES = [
+const BREAKDOWN_TABLES = [
     'document_updates',
     'document_snapshots',
     'search_index',
