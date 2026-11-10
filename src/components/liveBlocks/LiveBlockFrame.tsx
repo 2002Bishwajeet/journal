@@ -64,8 +64,9 @@ export function LiveBlockFrame({ kind, source, preview, trusted, selected, label
   // the browser then writes an inline height that is not the fitted one, and that one stays.
   const fitContent = (height: number) => {
     const el = box.current;
-    if (!el || el.style.height !== fittedHeight.current) return;
+    if (!el || el.style.height !== fittedHeight.current) return false;
     el.style.height = fittedHeight.current = `${height}px`;
+    return true;
   };
 
   return (

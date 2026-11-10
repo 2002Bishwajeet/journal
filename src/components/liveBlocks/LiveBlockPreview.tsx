@@ -60,8 +60,8 @@ interface LiveBlockPreviewProps {
   source: string;
   /** Where an html or react block's saved state is kept; without one it lasts while the preview is shown. */
   store?: BlockStateStore;
-  /** An html or react block's preview reported how tall its content is. */
-  onHeight?: (height: number) => void;
+  /** An html or react block's preview reported how tall its content is. False: the box keeps a height the user gave it. */
+  onHeight?: (height: number) => boolean | void;
   /** A `wide` html or react block, which may be taller (#557). */
   wide?: boolean;
   /** A link the user clicked in the block's page, an http(s) or mailto URL. */
@@ -153,8 +153,12 @@ function HtmlPreview({
   useEffect(() => {
     if (!port) return;
     const onMessage = ({ data }: MessageEvent<unknown>) => {
-      const height = frameHeightFromMessage(data, wide);
-      if (height !== null) onHeight?.(height);
+      const fit = frameHeightFromMessage(data, wide);
+      if (fit) {
+        // The page scrolls only when the frame can't show all of it: the content is over the cap, or the user sized the box.
+        const userSized = onHeight?.(fit.height) === false;
+        port.postMessage({ journalLiveBlock: 1, clamped: fit.clamped || userSized });
+      }
       const link = linkFromMessage(data);
       if (link) onLink?.(link);
       const reply = replyToStorageMessage(data, session, blockStore);

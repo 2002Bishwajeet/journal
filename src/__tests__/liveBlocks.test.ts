@@ -85,9 +85,12 @@ describe('buildSrcdoc', () => {
   const CSP_META = `<meta http-equiv="Content-Security-Policy" content="${CSP}">`;
   const buildSrcdoc = (source: string, theme: FrameTheme) => buildPage(source, theme, 'the-token');
   const BRIDGE_REPORTS =
-    // The height report, once the source is parsed, and then the link bridge: a clicked web
-    // or mail link the user clicked is passed to the app to open (#947). Both over the port.
-    "addEventListener('DOMContentLoaded', function () {new ResizeObserver(function () { port.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - 24 }); }).observe(document.documentElement);});" +
+    // The height report, once the source is parsed and on every resize of the frame (#1045), and
+    // then the link bridge: a clicked web or mail link the user clicked is passed to the app to
+    // open (#947). Both over the port.
+    'function report() { port.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - 24 }); }' +
+    "addEventListener('DOMContentLoaded', function () { new ResizeObserver(report).observe(document.documentElement); });" +
+    "addEventListener('resize', report);" +
     "addEventListener('click', function (event) {var link = event.target.closest && event.target.closest('a');var href = link && (link.href.baseVal || link.href);if (!href || !/^(https?|mailto):/i.test(href)) return;event.preventDefault();if (event.isTrusted) port.postMessage({ journalLiveBlock: 1, link: href });});";
 
   // The dark theme's values in src/index.css.
@@ -180,6 +183,12 @@ describe('buildSrcdoc', () => {
     expect(style).toContain(':where(button,input,select,textarea){font:inherit}');
     expect(style).toContain('th,td{border:1px solid var(--border);');
     expect(style).toContain('img{max-width:100%}');
+  });
+
+  it('should keep the page from scrolling by itself, until the app says the frame is clamped (#1045)', () => {
+    const srcdoc = buildSrcdoc('<p>hi</p>', THEME);
+    expect(head('<p>hi</p>')).toContain('html{overflow:hidden}html[data-journal-scroll]{overflow:auto;overscroll-behavior:contain}');
+    expect(srcdoc).toContain("document.documentElement.toggleAttribute('data-journal-scroll', data.clamped === true)");
   });
 
   describe('form controls (#424)', () => {
@@ -286,19 +295,27 @@ describe('bridgePortFromMessage', () => {
 describe('frameHeightFromMessage', () => {
   const report = (height: unknown) => ({ journalLiveBlock: 1, height });
 
-  it('should return the height its own frame reported', () => {
-    expect(frameHeightFromMessage(report(900))).toBe(900);
+  it('should return the height its own frame reported, not clamped', () => {
+    expect(frameHeightFromMessage(report(900))).toEqual({ height: 900, clamped: false });
   });
 
-  it('should clamp the height to 120–1600px', () => {
-    expect(frameHeightFromMessage(report(0))).toBe(120);
-    expect(frameHeightFromMessage(report(5000))).toBe(1600);
+  it('should clamp the height to 120–1600px, and say so only when the content is over the cap (#1045)', () => {
+    expect(frameHeightFromMessage(report(0))).toEqual({ height: 120, clamped: false });
+    expect(frameHeightFromMessage(report(1600))).toEqual({ height: 1600, clamped: false });
+    expect(frameHeightFromMessage(report(1601))).toEqual({ height: 1600, clamped: true });
+    expect(frameHeightFromMessage(report(5000))).toEqual({ height: 1600, clamped: true });
+  });
+
+  it('should round a fractional height up, so the frame is never a pixel short (#1045)', () => {
+    expect(frameHeightFromMessage(report(300.2))).toEqual({ height: 301, clamped: false });
+    expect(frameHeightFromMessage(report(1599.5))).toEqual({ height: 1600, clamped: false });
+    expect(frameHeightFromMessage(report(1600.1))).toEqual({ height: 1600, clamped: true });
   });
 
   it('should let a wide block be up to 2400px tall (#557)', () => {
-    expect(frameHeightFromMessage(report(2000), true)).toBe(2000);
-    expect(frameHeightFromMessage(report(5000), true)).toBe(2400);
-    expect(frameHeightFromMessage(report(0), true)).toBe(120);
+    expect(frameHeightFromMessage(report(2000), true)).toEqual({ height: 2000, clamped: false });
+    expect(frameHeightFromMessage(report(5000), true)).toEqual({ height: 2400, clamped: true });
+    expect(frameHeightFromMessage(report(0), true)).toEqual({ height: 120, clamped: false });
   });
 
   it('should ignore a height that is not a finite number', () => {

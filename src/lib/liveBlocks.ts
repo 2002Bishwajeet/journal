@@ -78,13 +78,16 @@ export const FRAME_BLEED = 12;
 // given a hearing, and the script leaves the document before the source can read it.
 //
 // Over the port the frame sends how tall its content is, without the bleed, whenever that changes
-// (#412), from the end of parsing as a report at the end of the page would; `journal.storage` calls
+// (#412), from the end of parsing as a report at the end of the page would, and again when the frame
+// is resized (the user dragged the box); `journal.storage` calls
 // (#410), which the app answers by number, deciding everything itself (which block, the limits);
 // and a clicked web or mail link, because a sandboxed frame can't open a tab. Only a click the user
 // made opens one: the block's own script can click a link too, and the app would open it (#947). A
 // link from a block the user may not have written shows its URL before it opens (#975).
 // Any other link (an in-page `#anchor`) behaves as before. The app sends a mermaid page the note's look (#946), which
-// stays on `journal.look` because it can arrive before the page's own script is parsed.
+// stays on `journal.look` because it can arrive before the page's own script is parsed. The app
+// also says whether the frame shows all of the page (#1045): only when it does not (`clamped`) may
+// the page scroll, so a touch on a block that fits scrolls the note, not the frame.
 const bridgeScript = (token: string) =>
   '<script>(function () {' +
   'document.currentScript.remove();' +
@@ -93,6 +96,7 @@ const bridgeScript = (token: string) =>
   'port.onmessage = function (event) {' +
   'var data = event.data, wait = waiting[data && data.reply];' +
   "if (data && data.journalLiveBlock === 1 && data.look) { journal.look = data.look; dispatchEvent(new Event('journal-look')); return; }" +
+  "if (data && data.journalLiveBlock === 1 && 'clamped' in data) { document.documentElement.toggleAttribute('data-journal-scroll', data.clamped === true); return; }" +
   'if (!wait || data.journalLiveBlock !== 1) return;' +
   'delete waiting[data.reply];' +
   'if (data.error !== undefined) wait.reject(new Error(data.error)); else wait.resolve(data.value);' +
@@ -108,9 +112,9 @@ const bridgeScript = (token: string) =>
   "get: function (key) { return ask('get', key); }," +
   "set: function (key, value) { return ask('set', key, value); }" +
   '} };' +
-  "addEventListener('DOMContentLoaded', function () {" +
-  `new ResizeObserver(function () { port.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - ${2 * FRAME_BLEED} }); }).observe(document.documentElement);` +
-  '});' +
+  `function report() { port.postMessage({ journalLiveBlock: 1, height: Math.ceil(document.documentElement.getBoundingClientRect().height) - ${2 * FRAME_BLEED} }); }` +
+  "addEventListener('DOMContentLoaded', function () { new ResizeObserver(report).observe(document.documentElement); });" +
+  "addEventListener('resize', report);" +
   "addEventListener('click', function (event) {" +
   "var link = event.target.closest && event.target.closest('a');" +
   // An svg link's `href` is an object, and a mermaid node's link is one.
@@ -199,6 +203,12 @@ export function buildSrcdoc(source: string, theme: FrameTheme, bridgeToken: stri
     frameRootStyle(theme) +
     // The bleed is on the root, so a block's own `body` margin or padding still adds to it.
     `html{padding:${FRAME_BLEED}px}` +
+    // The page does not scroll by itself (#1045): on iOS a frame whose page can scroll takes the
+    // touch, and the note under the finger stops scrolling. Only on the root, so a sticky element
+    // keeps the frame as its scroller and a box of the block's own (`overflow-x: auto`) still
+    // scrolls. The app lets the page scroll when the frame can't show all of it (the bridge).
+    'html{overflow:hidden}' +
+    'html[data-journal-scroll]{overflow:auto;overscroll-behavior:contain}' +
     '*,*::before,*::after{box-sizing:border-box}' +
     'html,body{background:transparent}' +
     `body{margin:0;color:var(--foreground);font-family:${theme.fontFamily};line-height:${theme.lineHeight}}` +
@@ -365,15 +375,18 @@ export function bridgePortFromMessage(event: Pick<MessageEvent<unknown>, 'source
 
 /**
  * The height to give an `html` block, from a message on its port: the height it
- * reported, clamped (taller content scrolls inside the frame); a `wide` block may
- * be taller. Null for anything else. The frame's source is untrusted and can send
- * any message it likes, so the most a block can do with one is pick its own height
- * within the clamp.
+ * reported, rounded up so the frame is never a pixel short, and clamped; a `wide`
+ * block may be taller. `clamped` when the content is taller than that, so it scrolls
+ * inside the frame (#1045). Null for anything else. The frame's source is untrusted
+ * and can send any message it likes, so the most a block can do with one is pick its
+ * own height within the clamp.
  */
-export function frameHeightFromMessage(message: unknown, wide = false): number | null {
+export function frameHeightFromMessage(message: unknown, wide = false): { height: number; clamped: boolean } | null {
   const data = message as { journalLiveBlock?: unknown; height?: unknown } | null | undefined;
   if (data?.journalLiveBlock !== 1 || typeof data.height !== 'number' || !Number.isFinite(data.height)) return null;
-  return Math.min(Math.max(data.height, MIN_FRAME_HEIGHT), wide ? MAX_WIDE_FRAME_HEIGHT : MAX_FRAME_HEIGHT);
+  const max = wide ? MAX_WIDE_FRAME_HEIGHT : MAX_FRAME_HEIGHT;
+  const height = Math.ceil(data.height);
+  return { height: Math.min(Math.max(height, MIN_FRAME_HEIGHT), max), clamped: height > max };
 }
 
 /** A `journal.storage` call from a block's frame (#410). `key` and `value` are not checked yet. */
