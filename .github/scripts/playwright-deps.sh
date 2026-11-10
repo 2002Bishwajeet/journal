@@ -18,7 +18,7 @@ if compgen -G "$archives/*.deb" > /dev/null; then
   done | xargs -r sudo dpkg -i && missing=$(
     # A cache built on an older runner image can lack libraries the current
     # image dropped, so dpkg succeeds yet the browser still cannot launch.
-    find ~/.cache/ms-playwright -type f \( -perm -u+x -o -name '*.so*' \) -exec ldd {} + 2>/dev/null | { grep 'not found' || true; } | sort -u
+    { find ~/.cache/ms-playwright -type f \( -perm -u+x -o -name '*.so*' \) -exec ldd {} + 2>/dev/null || true; } | { grep 'not found' || true; } | sort -u
   ) && [ -z "$missing" ] && exit 0
   echo "::warning::Cached .debs failed or left libraries missing (${missing:-none listed}); falling back to apt."
 fi
