@@ -21,6 +21,7 @@ import { CONTEXT_WINDOW, estimateTokens, trimToBudget, type AgentMessage } from 
 export type { AgentMessage } from './trim';
 
 export interface AgentEngine {
+    /** Resolves to the reply exactly as the engine recorded it: the loop sends it back unchanged as history (#1024). */
     generate(messages: AgentMessage[], options: { schema: object; maxTokens: number; signal?: AbortSignal }): Promise<string>;
 }
 
@@ -215,6 +216,12 @@ function callKey(name: string, args: unknown): string {
     return `${name}:${JSON.stringify(args, (_, value) => (value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value))}`;
 }
 
+/** With thinking off, web-llm starts every reply with the empty thinking block it put in the prompt (#796). */
+const THINK_BLOCK = /^\s*<think>[\s\S]*?<\/think>\s*/;
+
+/** Parses a reply as JSON without its thinking block. The history keeps the reply as it came. */
+const parseReply = (output: string) => JSON.parse(output.replace(THINK_BLOCK, ''));
+
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** Runs one request to an answer. Resolves to null when aborted or when no answer came. */
@@ -226,7 +233,8 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
 
     const generate = async (schema: object) => {
         const budget = CONTEXT_WINDOW - MAX_TOKENS - estimateTokens(JSON.stringify(schema));
-        const messages = trimToBudget([system, ...history, user], budget);
+        // Chat order, so each step's prompt extends the last one and WebLLM reuses its KV cache (#1024).
+        const messages = trimToBudget([system, user, ...history], budget);
         return engine.generate(messages, { schema, maxTokens: MAX_TOKENS, signal });
     };
 
@@ -243,7 +251,7 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
         const output = await generate(ANSWER_SCHEMA);
         if (signal?.aborted) return null;
         try {
-            const { answer } = JSON.parse(output);
+            const { answer } = parseReply(output);
             if (typeof answer === 'string') {
                 onEvent({ type: 'answer', answer });
                 return answer;
@@ -288,7 +296,7 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
 
         let turn: { tool?: unknown; args?: unknown; answer?: unknown };
         try {
-            turn = JSON.parse(output);
+            turn = parseReply(output);
         } catch {
             fail(output, 'The reply was not valid JSON.', ' Reply with one JSON object only.');
             // Two bad replies in a row: the model can't follow the format, and more steps won't change that.

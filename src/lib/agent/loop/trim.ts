@@ -23,17 +23,16 @@ export const estimatePrompt = (messages: AgentMessage[]) =>
 const shorten = (text: string) => (text.length > SHORT_RESULT ? `${text.slice(0, SHORT_RESULT)}… (shortened)` : text);
 
 /**
- * `messages` is the system prompt, then one (assistant call, user result) pair per step, then
- * the request. The system prompt, the request and the last two steps are always kept whole;
- * older results are shortened first, then the oldest steps are dropped.
+ * `messages` is the system prompt, the request, then one (assistant call, user result) pair per
+ * step, in chat order (#1024). The system prompt, the request and the last two steps are always
+ * kept whole; older results are shortened first, then the oldest steps are dropped.
  */
 export function trimToBudget(messages: AgentMessage[], budget: number): AgentMessage[] {
-    const system = messages[0];
-    const request = messages[messages.length - 1];
+    const [system, request] = messages;
     const steps: AgentMessage[][] = [];
-    for (let i = 1; i < messages.length - 1; i += 2) steps.push(messages.slice(i, i + 2));
+    for (let i = 2; i < messages.length; i += 2) steps.push(messages.slice(i, i + 2));
 
-    const build = () => [system, ...steps.flat(), request];
+    const build = () => [system, request, ...steps.flat()];
     const over = () => estimatePrompt(build()) > budget;
 
     for (let i = 0; i < steps.length - 2 && over(); i++) {

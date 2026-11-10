@@ -11,15 +11,21 @@ import { outOfMemoryMessage } from './requirements';
 
 type CompletionEngine = Pick<WebLLMTypes.MLCEngineInterface, 'chat' | 'interruptGenerate'>;
 
-/** With `enable_thinking: false`, web-llm starts the reply with the empty thinking block it added to the prompt (#796). */
-const THINK_BLOCK = /^\s*<think>[\s\S]*?<\/think>\s*/;
-
 /** The assistant model did not load. Its message is for the user. */
 export class ModelLoadError extends Error {
     name = 'ModelLoadError';
 }
 
-/** `load` resolves to an engine with the agent model loaded. */
+/**
+ * `load` resolves to an engine with the agent model loaded.
+ *
+ * web-llm reuses its KV cache only when a request's messages, all but the last, are the
+ * conversation it holds: the last request's messages plus the reply it generated (#1024).
+ * So the loop sends messages in chat order (system, request, then each step's call and
+ * result), and the reply is returned as web-llm recorded it, empty `<think>` block included:
+ * a stripped reply sent back as history would never match, and every step would prefill
+ * the whole prompt again. The loop strips the block only to parse the reply.
+ */
 export function toAgentEngine(load: () => Promise<CompletionEngine>): AgentEngine {
     return {
         async generate(messages, { schema, maxTokens, signal }) {
@@ -35,7 +41,7 @@ export function toAgentEngine(load: () => Promise<CompletionEngine>): AgentEngin
                     extra_body: { enable_thinking: false },
                 });
                 if (response.usage) e2eSwitches.onAgentUsage?.(response.usage);
-                return (response.choices[0]?.message?.content ?? '').replace(THINK_BLOCK, '');
+                return response.choices[0]?.message?.content ?? '';
             } finally {
                 signal?.removeEventListener('abort', interrupt);
             }

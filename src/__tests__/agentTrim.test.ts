@@ -30,26 +30,25 @@ describe('trimToBudget', () => {
     it('should keep every prompt of a 20-step history under budget with the system prompt and request', () => {
         const steps = history(20);
         for (let n = 1; n <= 20; n++) {
-            const messages = [system, ...steps.slice(0, n * 2), request];
+            const messages = [system, request, ...steps.slice(0, n * 2)];
             const trimmed = trimToBudget(messages, budget);
 
             expect(estimatePrompt(trimmed)).toBeLessThanOrEqual(budget);
-            expect(trimmed[0]).toEqual(system);
-            expect(trimmed.at(-1)).toEqual(request);
+            expect(trimmed.slice(0, 2)).toEqual([system, request]);
             // The last two tool results stay whole.
-            expect(trimmed.slice(-5, -1)).toEqual(messages.slice(-5, -1));
+            expect(trimmed.slice(-4)).toEqual(messages.slice(-4));
         }
     });
 
     it('should leave a prompt that fits untouched', () => {
-        const messages = [system, ...history(1), request];
+        const messages = [system, request, ...history(1)];
         expect(trimToBudget(messages, budget)).toEqual(messages);
     });
 
     it('should shorten older results before dropping steps', () => {
-        const messages = [system, ...history(8), request];
+        const messages = [system, request, ...history(8)];
         const trimmed = trimToBudget(messages, budget);
         expect(trimmed).toHaveLength(messages.length);
-        expect(trimmed[2].content).toContain('… (shortened)');
+        expect(trimmed[3].content).toContain('… (shortened)');
     });
 });

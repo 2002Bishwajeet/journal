@@ -107,8 +107,28 @@ describe('runAgent', () => {
         expect(events.filter((e) => e.type === 'step')).toHaveLength(3);
         expect(resultsSent(calls[1]).some((m) => m.includes(GARDEN))).toBe(true);
         expect(resultsSent(calls[2]).some((m) => m.includes('south fence'))).toBe(true);
-        // The request is the last message every time.
-        for (const call of calls) expect(call.messages.at(-1)).toEqual({ role: 'user', content: 'When do I plant zucchini?' });
+        // The request comes right after the system prompt every time.
+        for (const call of calls) expect(call.messages[1]).toEqual({ role: 'user', content: 'When do I plant zucchini?' });
+    });
+
+    it('should send each step as the last step plus its reply, so WebLLM can reuse its KV cache (#1024)', async () => {
+        const replies = [
+            `<think>\n\n</think>\n\n${JSON.stringify({ tool: 'search_notes', args: { query: 'zucchini' } })}`,
+            '{not json',
+            `<think>\n\n</think>\n\n${JSON.stringify({ tool: 'get_note', args: { id: GARDEN } })}`,
+            `<think>\n\n</think>\n\n${JSON.stringify({ tool: 'get_note', args: { id: GARDEN } })}`,
+            `<think>\n\n</think>\n\n${JSON.stringify({ answer: 'In May.' })}`,
+        ];
+        const { engine, calls } = scriptedEngine(replies);
+        const editor: ActiveEditorStore = { get: () => null, subscribe: () => () => {} };
+
+        expect(await run('When do I plant zucchini?', engine, { editor }).result).toBe('In May.');
+        expect(calls).toHaveLength(replies.length);
+        expect(calls[0].messages.map((m) => m.role)).toEqual(['system', 'user']);
+        for (let i = 1; i < calls.length; i++) {
+            // The reply goes back as it came, thinking block included: a stripped one would never match.
+            expect(calls[i].messages.slice(0, -1)).toEqual([...calls[i - 1].messages, { role: 'assistant', content: replies[i - 1] }]);
+        }
     });
 
     it('should feed invalid JSON, an unknown tool and bad args back as errors and go on', async () => {
@@ -439,7 +459,7 @@ describe('runAgent — rules for small models (#914)', () => {
         const { result, events } = run('Bold the second paragraph', engine, { approve, editor: editorWith('one', 'two') });
 
         expect(await result).toBe('Done.');
-        expect(calls[0].messages.slice(1, 3)).toEqual([
+        expect(calls[0].messages.slice(2, 4)).toEqual([
             { role: 'assistant', content: JSON.stringify(read) },
             { role: 'user', content: 'Result of read_open_note: [{"n":1,"type":"paragraph","text":"one"},{"n":2,"type":"paragraph","text":"two"}]' },
         ]);
