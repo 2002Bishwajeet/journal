@@ -7,6 +7,7 @@ import type * as WebLLMTypes from '@mlc-ai/web-llm';
 import type { AgentEngine } from '@/lib/agent/loop/agentLoop';
 import { e2eSwitches } from '@/lib/e2e/switches';
 import { getLastLoadError, getLoadedEngine, initWebLLM } from './engine';
+import { getModelInfo } from './models';
 import { outOfMemoryMessage } from './requirements';
 
 type CompletionEngine = Pick<WebLLMTypes.MLCEngineInterface, 'chat' | 'interruptGenerate'>;
@@ -19,9 +20,10 @@ export class ModelLoadError extends Error {
     name = 'ModelLoadError';
 }
 
-/** `load` resolves to an engine with the agent model loaded. */
-export function toAgentEngine(load: () => Promise<CompletionEngine>): AgentEngine {
+/** `load` resolves to an engine with the agent model loaded, with `contextWindow` tokens. */
+export function toAgentEngine(load: () => Promise<CompletionEngine>, contextWindow?: number): AgentEngine {
     return {
+        contextWindow,
         async generate(messages, { schema, maxTokens, signal }) {
             const engine = await load();
             const interrupt = () => engine.interruptGenerate();
@@ -51,5 +53,5 @@ export function createAgentEngine(
         const engine = (await initWebLLM(onProgress, agentModelId)) ? getLoadedEngine() : null;
         if (!engine) throw new ModelLoadError(outOfMemoryMessage(getLastLoadError(), agentModelId) ?? "Couldn't load the assistant model.");
         return engine;
-    });
+    }, getModelInfo(agentModelId)?.contextWindow);
 }

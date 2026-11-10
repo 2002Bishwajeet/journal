@@ -13,6 +13,11 @@ export interface ModelInfo {
   memoryUsage: string;
   /** Derived from `vramMB`: the system RAM a laptop with built-in graphics needs, in GB (#1023). */
   ramTier: 16 | 24;
+  /**
+   * Loads the model with this `context_window_size` instead of the prebuilt 4,096 tokens (#1025).
+   * Set only where the eval shows the load still fits on an integrated GPU: the KV cache grows with it.
+   */
+  contextWindow?: number;
   /** The `q4f32_1` build of this model, for GPUs without the WebGPU `shader-f16` feature. */
   f32Id?: string;
   description: string;

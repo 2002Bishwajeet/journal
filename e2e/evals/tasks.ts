@@ -69,7 +69,7 @@ const LESSONS = [
     'fix the gate latch before the winter winds get to it.', 'write the plan for next year while this one is fresh in my mind.',
 ];
 
-/** A ~15k-character note with a heading per month (#1022): `get_note` cuts a note at 1,500 characters. */
+/** A ~15k-character note with a heading per month (#1022): `get_note` gives a note over 1,500 characters as its outline (#1025). */
 export const LONG_NOTE_BODY = MONTHS.map((month, i) =>
     [
         `## ${month}`,
@@ -281,7 +281,7 @@ export const TASKS: EvalTask[] = [
             blocks !== null && /scarf for mum/i.test(texts(blocks).join('\n')) && tools.filter((t) => t === 'create_note').length === 1,
     },
 
-    // A long note: expected to fail while get_note cuts the note at 1,500 characters.
+    // A long note: get_note gives its outline, then one section at a time (#1025).
     {
         id: 'long-about',
         kind: 'long',

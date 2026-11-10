@@ -10,6 +10,7 @@ vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
 import { upsertSearchIndex, saveDocumentUpdate, createFolder } from '@/lib/db/queries';
 import { createLocalDeps } from '@/lib/agent/local/localDeps';
+import { createLocalWriteDeps } from '@/lib/agent/local/localWriteDeps';
 import { appendMarkdown } from '@/lib/agent/editEngine';
 import type { AnyJournalTool } from '@/lib/agent/tools/registry';
 import { EditorState } from '@tiptap/pm/state';
@@ -30,7 +31,7 @@ import {
     type RunAgentOptions,
 } from '@/lib/agent/loop/agentLoop';
 import { CONTEXT_WINDOW, estimatePrompt, estimateTokens } from '@/lib/agent/loop/trim';
-import { TASKS } from '../../e2e/evals/tasks';
+import { LONG_NOTE_BODY, TASKS } from '../../e2e/evals/tasks';
 
 const FOLDER = '10000000-0000-0000-0000-000000000001';
 const GARDEN = '30000000-0000-0000-0000-000000000001';
@@ -54,9 +55,10 @@ interface Call {
 }
 
 /** Replies with `script` in order and records every call. */
-function scriptedEngine(script: (string | object)[]) {
+function scriptedEngine(script: (string | object)[], contextWindow?: number) {
     const calls: Call[] = [];
     const engine: AgentEngine = {
+        contextWindow,
         generate: vi.fn(async (messages, { schema }) => {
             calls.push({ messages, schema: schema as Call['schema'] });
             const next = script[calls.length - 1];
@@ -596,7 +598,123 @@ describe('runAgent — replies that are not JSON (#796)', () => {
         const schemaTokens = estimateTokens(JSON.stringify(turnSchema(AGENT_TOOLS)));
         // The prompt estimate (characters / 3) of each step, schema included, leaves room for the reply.
         for (const call of calls) expect(estimatePrompt(call.messages) + schemaTokens).toBeLessThanOrEqual(CONTEXT_WINDOW - MAX_TOKENS);
-        // The note read in full: no step was trimmed away.
+        // No step was trimmed away: the open note's outline, with its last heading, is still there (#1025).
         expect(resultsSent(calls[2]).join('\n')).toContain('Section 4');
+    });
+});
+
+describe('runAgent — long notes (#1025)', () => {
+    const DIARY = '40000000-0000-0000-0000-000000000001';
+    /** For a variant of the diary: a second addNote on DIARY would merge into it. */
+    const OTHER = '40000000-0000-0000-0000-000000000002';
+    const READ_A_SECTION = 'Call get_note with section "<heading>" to read a part.';
+    const lastResult = (call: Call) => resultsSent(call).at(-2)!;
+    const runWithWrites = (request: string, engine: AgentEngine, extra: Partial<RunAgentOptions> = {}) =>
+        run(request, engine, { deps: createLocalWriteDeps(), tools: toolsFor(request), ...extra });
+
+    beforeEach(async () => {
+        await addNote(DIARY, 'Allotment diary', LONG_NOTE_BODY);
+    });
+
+    it('should give a long note as its title, length and headings, with how to read a part', async () => {
+        const { engine, calls } = scriptedEngine([{ tool: 'get_note', args: { id: DIARY } }, { answer: 'A diary.' }]);
+        expect(await runWithWrites('What is this note about?', engine).result).toBe('A diary.');
+
+        const result = lastResult(calls[1]);
+        const [json, hint] = result.replace('Result of get_note: ', '').split('\n');
+        const data = JSON.parse(json);
+        expect(data).toMatchObject({ id: DIARY, title: 'Allotment diary', folderId: FOLDER });
+        expect(data.length).toBeGreaterThan(14_000);
+        expect(data.outline).toEqual(['## January', '## February', '## March', '## April', '## May', '## June', '## July', '## August', '## September', '## October', '## November', '## December']);
+        expect(data.markdown).toBeUndefined();
+        expect(hint).toBe(READ_A_SECTION);
+    });
+
+    it('should read only the section under one heading, # marks or not', async () => {
+        const { engine, calls } = scriptedEngine([
+            { tool: 'get_note', args: { id: DIARY, section: '## December' } },
+            { tool: 'get_note', args: { id: DIARY, section: 'november' } },
+            { answer: 'Cider and tulips.' },
+        ]);
+        await runWithWrites('What did I do at the end of the year?', engine).result;
+
+        const december = JSON.parse(lastResult(calls[1]).replace('Result of get_note: ', '')).markdown;
+        expect(december).toMatch(/^## December\n\nThe last job of the year was pressing cider/);
+        expect(december).not.toMatch(/November|tulip/);
+        expect(lastResult(calls[2])).toContain('Planted 40 tulip bulbs');
+        expect(lastResult(calls[2])).not.toContain('cider');
+    });
+
+    it('should cut a long section at the note length', async () => {
+        await addNote(OTHER, 'Allotment diary', `## Everything\n\n${LONG_NOTE_BODY.replace(/^## /gm, '### ')}`);
+        const { engine, calls } = scriptedEngine([{ tool: 'get_note', args: { id: OTHER, section: 'Everything' } }, { answer: 'ok' }]);
+        await runWithWrites('What is in it?', engine).result;
+        expect(lastResult(calls[1])).toMatch(/… \(truncated, \d+ characters\)/);
+        expect(lastResult(calls[1]).length).toBeLessThan(1900);
+    });
+
+    it('should give a short note as markdown, as before', async () => {
+        const { engine, calls } = scriptedEngine([{ tool: 'get_note', args: { id: GARDEN } }, { answer: 'May.' }]);
+        await runWithWrites('When do I plant zucchini?', engine).result;
+        const data = JSON.parse(lastResult(calls[1]).replace('Result of get_note: ', ''));
+        expect(data).toMatchObject({ id: GARDEN, markdown: 'Planting zucchini along the south fence in May.' });
+        expect(data.outline).toBeUndefined();
+    });
+
+    it('should give a long note with no heading as cut markdown, as it has no part to read', async () => {
+        await addNote(OTHER, 'Allotment diary', LONG_NOTE_BODY.replace(/^## .*\n\n/gm, ''));
+        const { engine, calls } = scriptedEngine([{ tool: 'get_note', args: { id: OTHER } }, { answer: 'ok' }]);
+        await runWithWrites('What is this note about?', engine).result;
+        expect(lastResult(calls[1])).toMatch(/"markdown":"This year starts with a big job.*… \(truncated, \d+ characters\)"/);
+    });
+
+    it('should take the note length and the prompt budget from the model window', async () => {
+        // About 2,400 characters: longer than a 4,096-token window's 1,500, shorter than an 8,192-token window's 3,000.
+        await addNote(OTHER, 'Allotment diary', LONG_NOTE_BODY.split('\n\n## ').slice(0, 2).join('\n\n## '));
+        const script = () => [{ tool: 'get_note', args: { id: OTHER } }, { answer: 'ok' }];
+        const small = scriptedEngine(script());
+        const large = scriptedEngine(script(), 8192);
+        await runWithWrites('What is this note about?', small.engine).result;
+        await runWithWrites('What is this note about?', large.engine).result;
+
+        expect(lastResult(small.calls[1])).toContain('"outline":');
+        expect(lastResult(large.calls[1])).toContain('Notes for next year: buy a second water butt');
+        expect(lastResult(large.calls[1])).not.toContain('truncated');
+        const schemaTokens = estimateTokens(JSON.stringify(turnSchema(toolsFor('What is this note about?'))));
+        for (const call of large.calls) expect(estimatePrompt(call.messages) + schemaTokens).toBeLessThanOrEqual(8192 - MAX_TOKENS);
+    });
+
+    it('should put a long open note in up front as its first block and headings, with their numbers', async () => {
+        const paragraph = 'The project review covered the schedule, the budget and the open risks in detail. '.repeat(4);
+        const content = [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Review notes.' }] },
+            ...Array.from({ length: 3 }, (_, i) => [
+                { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: `Section ${i + 1}` }] },
+                ...Array.from({ length: 4 }, () => ({ type: 'paragraph', content: [{ type: 'text', text: paragraph }] })),
+            ]).flat(),
+        ];
+        const doc = editorSchema.nodeFromJSON({ type: 'doc', content });
+        const editor: ActiveEditorStore = {
+            get: () => ({ docId: GARDEN, editor: { state: EditorState.create({ doc }) } as unknown as Editor, editable: true, excludeFromAI: false }),
+            subscribe: () => () => {},
+        };
+        const { engine, calls } = scriptedEngine([{ answer: 'ok' }]);
+        await run('Bold the first heading', engine, { editor }).result;
+
+        expect(calls[0].messages[2].content).toBe(
+            'Result of read_open_note: [{"n":1,"type":"paragraph","text":"Review notes."},{"n":2,"type":"h2","text":"Section 1"},{"n":7,"type":"h2","text":"Section 2"},{"n":12,"type":"h2","text":"Section 3"}]\n' +
+                READ_A_SECTION
+        );
+    });
+
+    it('should tell the model about outlines only when get_note is offered', async () => {
+        const rule = 'A long note comes as an outline';
+        const withRead = scriptedEngine([{ answer: 'hi' }]);
+        await run('Hi', withRead.engine).result;
+        const without = scriptedEngine([{ answer: 'hi' }]);
+        await run('Hi', without.engine, { tools: AGENT_TOOLS.filter((tool) => tool.name !== 'get_note') }).result;
+
+        expect(withRead.calls[0].messages[0].content).toContain(rule);
+        expect(without.calls[0].messages[0].content).not.toContain(rule);
     });
 });

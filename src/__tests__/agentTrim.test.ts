@@ -1,30 +1,33 @@
 /**
- * trimToBudget (#698): an agent prompt always fits the 4k window by the chars / 3 estimate.
+ * trimToBudget (#698): an agent prompt always fits the model's window (4k, or a larger one a
+ * catalogue model loads with, #1025) by the chars / 3 estimate.
  */
 import { describe, it, expect } from 'vitest';
-import { AGENT_TOOLS, MAX_TOKENS, formatToolResult, turnSchema } from '@/lib/agent/loop/agentLoop';
+import { AGENT_TOOLS, MAX_TOKENS, formatToolResult, noteLengthFor, turnSchema } from '@/lib/agent/loop/agentLoop';
 import { CONTEXT_WINDOW, estimatePrompt, estimateTokens, trimToBudget, type AgentMessage } from '@/lib/agent/loop/trim';
 
-const budget = CONTEXT_WINDOW - MAX_TOKENS - estimateTokens(JSON.stringify(turnSchema(AGENT_TOOLS)));
 const system: AgentMessage = { role: 'system', content: 'You are the assistant in Journal.' };
 const request: AgentMessage = { role: 'user', content: 'Summarise my garden notes.' };
 
-function history(steps: number): AgentMessage[] {
-    return Array.from({ length: steps }, (_, i) => {
-        const markdown = `Note ${i}. `.repeat(2000).slice(0, 10_000);
-        const result = formatToolResult('get_note', { data: { id: `note-${i}`, title: `Note ${i}`, markdown } });
-        return [
-            { role: 'assistant' as const, content: JSON.stringify({ tool: 'get_note', args: { id: `note-${i}` } }) },
-            { role: 'user' as const, content: `Result of get_note: ${result}` },
-        ];
-    }).flat();
-}
+describe.each([CONTEXT_WINDOW, 8192])('trimToBudget in a %i-token window', (contextWindow) => {
+    const budget = contextWindow - MAX_TOKENS - estimateTokens(JSON.stringify(turnSchema(AGENT_TOOLS)));
+    const noteLength = noteLengthFor(contextWindow);
 
-describe('trimToBudget', () => {
-    it('should cut a 10 KB note to 1,500 characters with its length', () => {
+    function history(steps: number): AgentMessage[] {
+        return Array.from({ length: steps }, (_, i) => {
+            const markdown = `Note ${i}. `.repeat(2000).slice(0, 10_000);
+            const result = formatToolResult('get_note', { data: { id: `note-${i}`, title: `Note ${i}`, markdown } }, noteLength);
+            return [
+                { role: 'assistant' as const, content: JSON.stringify({ tool: 'get_note', args: { id: `note-${i}` } }) },
+                { role: 'user' as const, content: `Result of get_note: ${result}` },
+            ];
+        }).flat();
+    }
+
+    it("should cut a 10 KB note to the window's note length (1,500 characters in 4k) with its length", () => {
         const [, result] = history(1);
         expect(result.content).toContain('… (truncated, 10000 characters)');
-        expect(result.content.length).toBeLessThan(1700);
+        expect(result.content.length).toBeLessThan(noteLength + 200);
     });
 
     it('should keep every prompt of a 20-step history under budget with the system prompt and request', () => {
