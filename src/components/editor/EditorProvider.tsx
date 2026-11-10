@@ -581,7 +581,10 @@ export function EditorProvider({
       // one-shot "skip the first docChanged" dropped the user's FIRST edit — e.g.
       // pasting into a fresh note never saved — because the initial-load update
       // fires before this listener attaches (or not at all for an empty note).
-      if (transaction.getMeta(ySyncPluginKey)?.isChangeOrigin) {
+      // Undo/redo (Yjs UndoManager) arrive tagged the same way but are local edits:
+      // they must refresh the search index and save like any other.
+      const sync = transaction.getMeta(ySyncPluginKey);
+      if (sync?.isChangeOrigin && !sync.isUndoRedoOperation) {
         return;
       }
 

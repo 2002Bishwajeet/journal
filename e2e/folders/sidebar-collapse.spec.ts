@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures';
+import { test, expect, waitForAppReady } from '../fixtures';
 import { createNote } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
@@ -44,6 +44,7 @@ test('tags and folders sections collapse and stay collapsed after reload', async
   }
 
   await app.reload();
+  await waitForAppReady(app);
   await expect(sidebar.getByRole('button', { name: /^Tags/ })).toHaveAttribute('aria-expanded', 'false');
   await expect(sidebar.getByRole('navigation', { name: 'Tags' })).toBeHidden();
   await expect(sidebar.getByRole('navigation', { name: 'Folders' })).toBeHidden();
