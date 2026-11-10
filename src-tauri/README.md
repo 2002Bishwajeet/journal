@@ -14,3 +14,13 @@ Journal's origin and could read the session token and local database.
 In development, the iOS Simulator shares the host's loopback. So the desktop
 app and a Simulator build can't run at the same time: the second one to start
 now stops with that error instead of quietly serving from the first.
+
+## iOS: `tauri ios build` fails with "Directory not empty"
+
+A second `npm run tauri ios build` can fail with `Directory not empty` after
+Xcode has already built the app: the CLI won't overwrite the output of the
+previous build. Delete it first:
+
+```bash
+rm -rf src-tauri/gen/apple/build/arm64-sim/Journal.app src-tauri/gen/apple/journal_iOS.xcarchive
+```
