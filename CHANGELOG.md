@@ -1,3 +1,14 @@
+## [2.66.2](https://github.com/2002Bishwajeet/journal/compare/v2.66.1...v2.66.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* **ui:** paint the scrollbar above sticky group headers ([#1051](https://github.com/2002Bishwajeet/journal/issues/1051)) ([73eaba8](https://github.com/2002Bishwajeet/journal/commit/73eaba8b4ecde6f361626ec944e5fc138f308dc2))
+
+
+### Features
+
+* **diagnostics:** show local database size per table and add a large-account benchmark ([#1053](https://github.com/2002Bishwajeet/journal/issues/1053)) ([29e849d](https://github.com/2002Bishwajeet/journal/commit/29e849d3c4c14f85a384fcdad6f92b1d2b48dcac))
 ## [2.66.1](https://github.com/2002Bishwajeet/journal/compare/v2.66.0...v2.66.1) (2026-11-10)
 
 

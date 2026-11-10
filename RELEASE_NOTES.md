@@ -16,6 +16,16 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.66.2 (2026-11-10)
+
+### New
+
+- Settings > Diagnostics now shows how much space each part of the local database uses, and the average and largest size of a note.
+
+### Fixed
+
+- The note list scrollbar no longer disappears behind the group headers (Pinned, Today, and so on).
+
 ## 2.66.1 (2026-11-10)
 
 ### Fixed
