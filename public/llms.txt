@@ -10,7 +10,8 @@ Journal runs in the browser and signs in with a Homebase identity. The web app i
 - [Home](https://journal.cloudx.run/): what Journal is, where notes live, the editor, sharing, live blocks and common questions
 - [Pricing](https://journal.cloudx.run/landing/pricing): the free web app and the paid native apps
 - [Journal+](https://journal.cloudx.run/landing/buy): the native apps, the license key and renewing updates
-- [Contact](https://journal.cloudx.run/landing/contact): how to reach us
+- [Contact](https://journal.cloudx.run/landing/contact): how to reach us, and support for the web app and the native apps
+- [Privacy](https://journal.cloudx.run/landing/privacy): what Journal stores, where, and what it never collects
 
 ## Agents
 
