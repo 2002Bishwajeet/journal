@@ -109,6 +109,12 @@ export async function getSnapshotBlob(id: number): Promise<Uint8Array | null> {
     return result.rows[0]?.state_blob ?? null;
 }
 
+/** Drops a note's whole version history, once it is in Trash (#1070). */
+export async function deleteNoteSnapshots(docId: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query('DELETE FROM document_snapshots WHERE doc_id = $1', [docId]);
+}
+
 export async function deleteSnapshots(ids: number[]): Promise<void> {
     if (ids.length === 0) return;
     const db = await getDatabase();
@@ -261,8 +267,7 @@ export async function deleteSearchIndexEntry(docId: string): Promise<void> {
 
 /**
  * Update only the archivalStatus on a note's local metadata (0 active, 2 trashed),
- * preserving every other metadata field. Moving a note to Trash also drops its
- * version history (#1070).
+ * preserving every other metadata field.
  */
 export async function setNoteArchivalStatusLocal(docId: string, status: number): Promise<void> {
     const db = await getDatabase();
@@ -273,7 +278,6 @@ export async function setNoteArchivalStatusLocal(docId: string, status: number):
          WHERE doc_id = $1`,
         [docId, status]
     );
-    if (status === 2) await db.query('DELETE FROM document_snapshots WHERE doc_id = $1', [docId]);
 }
 
 /** Set a note's folderId locally, preserving every other metadata field. */

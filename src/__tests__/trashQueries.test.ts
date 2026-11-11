@@ -11,8 +11,6 @@ import {
     getTrashedNotes,
     getArchivedNotes,
     setNoteArchivalStatusLocal,
-    saveSnapshot,
-    getSnapshots,
 } from '@/lib/db/queries';
 
 const ACTIVE_A = '10000000-0000-0000-0000-000000000001';
@@ -109,35 +107,5 @@ describe('trash filtering in list queries', () => {
         const ids = (await getArchivedNotes()).map((n) => n.docId);
 
         expect(ids).toEqual([ARCHIVED]);
-    });
-});
-
-describe('moving a note to Trash drops its version history (#1070)', () => {
-    const snap = { stateBlob: new Uint8Array([1]), stateVector: new Uint8Array([1]), preview: '', wordCount: 0 };
-
-    it('removes the trashed note\'s snapshots and keeps other notes\' snapshots', async () => {
-        await addNote(ACTIVE_A, 'A');
-        await addNote(ACTIVE_B, 'B');
-        await saveSnapshot(ACTIVE_A, snap);
-        await saveSnapshot(ACTIVE_A, snap);
-        await saveSnapshot(ACTIVE_B, snap);
-
-        await setNoteArchivalStatusLocal(ACTIVE_A, 2);
-
-        expect(await getSnapshots(ACTIVE_A)).toHaveLength(0);
-        expect(await getSnapshots(ACTIVE_B)).toHaveLength(1);
-    });
-
-    it('archiving keeps the history, and a restored note comes back with an empty history', async () => {
-        await addNote(ACTIVE_A, 'A');
-        await saveSnapshot(ACTIVE_A, snap);
-        await setNoteArchivalStatusLocal(ACTIVE_A, 1);
-        expect(await getSnapshots(ACTIVE_A)).toHaveLength(1);
-
-        await setNoteArchivalStatusLocal(ACTIVE_A, 2);
-        await setNoteArchivalStatusLocal(ACTIVE_A, 0);
-
-        expect((await getNotesForList()).map((n) => n.docId)).toContain(ACTIVE_A);
-        expect(await getSnapshots(ACTIVE_A)).toEqual([]);
     });
 });
