@@ -71,6 +71,9 @@ const cdInto = (impl) => `\`cd ${impl.worktreePath}\` first (if it no longer exi
 
 const HEAVY = `Run every build/test/lint/e2e/vitest/tsc/npm ci command ONLY as \`${repoRoot}/scripts/harness/serial.sh <cmd> > /tmp/agent-<issue>-<step>.log 2>&1; echo exit=$?\` (machine-wide lock, 16 GB machine), in the foreground with a 600000 ms timeout — never run_in_background: you must see the exit code before you return. Never let full output into your context: read only \`tail -40\` of the log, plus \`grep -nE 'FAIL|Error|error|✗|×' <log> | head -40\` when it failed.`
 
+// Owner rule 2026-11-11: agents verify only what the change touches, push, open the PR and exit. CI's sharded runs do the full suites; the orchestrating session watches CI and merges.
+const SCOPE = `Run only what the change touches: lint, build, the unit tests for changed files (\`vitest related <changed files>\` or the specific test files) and the e2e specs this change adds or touches. Never run the full unit suite or the full e2e suite, and never wait for or poll CI (\`gh pr checks\`) — CI runs the full suites.`
+
 // playwright.config.ts only screenshots failures, so a passing run has no pictures unless the spec takes them.
 const SHOTS = `If the issue asks for screenshots, its e2e spec must take them itself: \`await page.screenshot({ path: test.info().outputPath('<what>-<theme>-<viewport>.png') })\` for every state the issue lists (theme via \`page.emulateMedia({ colorScheme })\`, viewport via \`page.setViewportSize\`). Hermetic origin only — never dev.dotyou.cloud or a real identity.`
 
@@ -94,7 +97,7 @@ function simplifyPrompt(issue, impl) {
   return `You are the simplifier for issue #${issue.number} of ${REPO}. The implementation is committed on branch ${impl.branch} in the worktree ${impl.worktreePath}. ${cdInto(impl)} and work only there. Do NOT invoke any skill and do NOT spawn subagents.
 
 Read \`git diff origin/main...HEAD\` and CLAUDE.md sections 2–3. Cut over-engineering in the lines this branch added: unrequested abstractions or options, single-use helpers, re-implemented stdlib/existing \`@/lib/utils\` helpers, needless useCallback/useMemo/useState, defensive code for impossible cases, dead code the branch introduced, verbose comments. Keep behaviour, tests, input validation and data-loss error handling. Don't touch lines the branch didn't change.
-If you changed anything: ${HEAVY} Run \`npm run build\`, \`npm run lint\` and \`npm run test\` that way; if any fails and you can't fix it quickly, \`git checkout -- .\` to drop your edits. Commit passing edits as \`refactor: simplify #${issue.number}\` (no attribution lines). Do not push.
+If you changed anything: ${HEAVY} Run \`npm run build\`, \`npm run lint\` and the unit tests for the changed files (\`vitest related\`) that way — never the full suite; if any fails and you can't fix it quickly, \`git checkout -- .\` to drop your edits. Commit passing edits as \`refactor: simplify #${issue.number}\` (no attribution lines). Do not push.
 Return the same fields as the implementer (status "done"), with summary = what you removed (or "nothing to simplify").`
 }
 
@@ -102,7 +105,7 @@ function verifyPrompt(issue, impl) {
   return `You are the verifier for issue #${issue.number} of ${REPO}. The implementation is committed on branch ${impl.branch} in the worktree ${impl.worktreePath}. ${cdInto(impl)} and work only there. You are READ-ONLY on source files: never edit, commit or push.
 
 - Read the issue: \`gh issue view ${issue.number} -R ${REPO}\`. If \`.claude/skills/e2e-verify/SKILL.md\` exists in the worktree, read and follow it.
-- Run the commands in the issue's \`## Verification\` section in order, but e2e ones (\`npm run e2e…\`) first. ${HEAVY}
+- Run the commands in the issue's \`## Verification\` section in order, but e2e ones (\`npm run e2e…\`) first. ${SCOPE} Where a command is a full-suite run (\`npm run test\`, \`npm run e2e\` with no spec), run the scoped equivalent instead and record that. ${HEAVY}
 - Never run \`npm run e2e:live\` — record it as exitCode "owner-run". If the section says e2e is blocked on #196 and \`playwright.config.ts\` is missing, run its interim checks instead.
 - Check each \`## Acceptance criteria\` box you can check by command; list the ones only the owner can do (real identity, e2e:live) in ownerOnly.
 - Screenshots the issue asks for are yours to check, not the owner's: after the e2e run, find them with \`find test-results -name '*.png'\`, open each with the Read tool, and confirm it shows what the issue describes (right state, nothing blank, clipped, overlapping or unreadable in that theme). Put their absolute paths — images only, no logs — in evidence. A missing or bad screenshot is an entry in problems (the fix: the spec takes it, see "${SHOTS}"). Only a judgement of taste ("visual review before merge") stays in ownerOnly.
@@ -118,7 +121,7 @@ ${verdict.problems.map((p) => `- ${p}`).join('\n')}
 Failed checks:
 ${verdict.checks.filter((c) => c.exitCode !== '0' && c.exitCode !== 'owner-run').map((c) => `$ ${c.command} (exit ${c.exitCode})\n${c.tail}`).join('\n\n') || '(none)'}
 
-Fix them within the issue's Scope, re-run the failing commands, and commit. ${SHOTS} ${HEAVY} If fixing would require going outside the Scope or a STOP condition now applies, return status "stopped". Do not push.`
+Fix them within the issue's Scope, re-run only the failing commands (scoped, never a full suite), and commit. ${SHOTS} ${HEAVY} If fixing would require going outside the Scope or a STOP condition now applies, return status "stopped". Do not push.`
 }
 
 function publishPrompt(issue, impl, verdict) {
@@ -136,7 +139,7 @@ No PR. Return result "stopped: <condition>".`
 3. For each evidence file in ${JSON.stringify(verdict.evidence || [])}: commit it to the \`agent-evidence\` branch (images on a draft release don't render in PR bodies) with \`gh api -X PUT repos/${REPO}/contents/${issue.number}/<basename> -f branch=agent-evidence -f message="evidence: #${issue.number} <basename>" -f content="$(base64 < <file>)"\`, adding \`-f sha=<sha>\` when \`gh api "repos/${REPO}/contents/${issue.number}/<basename>?ref=agent-evidence" -q .sha\` prints one; on a 409, repeat once. Its image URL is \`https://raw.githubusercontent.com/${REPO}/agent-evidence/${issue.number}/<basename>\`.
 4. Write the PR body to a file: first line \`Closes #${issue.number}\`; a \`## Summary\` for a reviewer: what changed and why, rewritten from the implementer notes below (drop anything about commits, pushing or PRs); a markdown table \`command | exit | result\` for every check below; each check's tail in a \`<details><summary>command</summary>\` block with a fenced code block; the e2e list output verbatim if present; owner-only items as unchecked \`- [ ]\` boxes; a \`## Evidence\` section showing every evidence image inline, never as bare links: a table with one row per state and one column per theme/viewport, each cell \`<a href="<url>"><img src="<url>" width="260"></a>\` (width 110 for phone-width shots). No attribution lines (no "Generated with Claude Code", no Co-Authored-By).
 5. \`gh pr create -R ${REPO} --base main --head ${impl.branch} --label agent-harness --title ${JSON.stringify(`${issue.title} (#${issue.number})`)} --body-file <file>\`
-Never merge. Return the PR URL.
+Never merge, and do not wait for or poll CI (\`gh pr checks\`): return the PR URL straight after \`gh pr create\`; the orchestrating session watches CI and merges.
 
 Implementer notes: ${JSON.stringify(impl.summary)}
 Checks: ${JSON.stringify(verdict.checks)}
