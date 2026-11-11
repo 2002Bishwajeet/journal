@@ -14,6 +14,7 @@ import {
 } from "@/components/layout";
 import { NewNoteFab } from "@/components/layout/NewNoteFab";
 import { MobileTabBar } from "@/components/layout/MobileTabBar";
+import { MobileSyncPill } from "@/components/layout/MobileSyncPill";
 import {
   useTabRouting,
   useLayoutUrlActions,
@@ -436,6 +437,7 @@ export default function JournalLayout() {
       )}
 
       {showFab && <NewNoteFab onClick={() => void noteActions.createAndOpen(folderId)} />}
+      {showTabBar && <MobileSyncPill />}
       {showTabBar && (
         <MobileTabBar
           activeTab={tabs.activeTab}

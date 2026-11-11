@@ -1354,6 +1354,38 @@ html[data-fab] {
     opacity: 0.85;
   }
 }
+/* Phone sync pill (#1162): centred on the New note button's row, above the tab bar. It fades
+   up after 300 ms, so a quick sync never flashes it, and hides at once, as the tab bar does. */
+.sync-pill-row {
+  bottom: calc(var(--fab-bottom) + (var(--fab-size) - 2rem) / 2 + env(safe-area-inset-bottom));
+}
+.sync-pill {
+  box-shadow: 0 0 0 1px var(--border), 0 4px 12px -4px rgb(28 27 26 / 0.18);
+  transition:
+    transform var(--duration-press) var(--ease-standard),
+    opacity var(--duration-fade) var(--ease-standard) 300ms,
+    translate var(--duration-fade) var(--ease-standard) 300ms;
+}
+button.sync-pill:active {
+  transform: scale(0.96);
+}
+@starting-style {
+  .sync-pill {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .sync-pill {
+      translate: none;
+    }
+  }
+  button.sync-pill:active {
+    transform: none;
+    opacity: 0.85;
+  }
+}
 /* Dark: the light surface already stands out; a short black shadow lifts it without a glow. */
 .dark .new-note-fab {
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 4px 10px -2px rgb(0 0 0 / 0.5);
