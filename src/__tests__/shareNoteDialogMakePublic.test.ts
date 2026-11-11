@@ -28,6 +28,10 @@ vi.mock('@/hooks/useShareAccess', () => ({
 }));
 vi.mock('@/hooks/useSheetMode', () => ({ useSheetMode: () => false }));
 vi.mock('@/hooks/auth/useMissingPermissions', () => ({ useMissingPermissions: () => undefined }));
+vi.mock('@/hooks/usePublishToFeed', () => ({
+    FEED_PERMISSION_MESSAGE: '',
+    usePublishToFeed: () => ({ publish: vi.fn(), isPublishing: false, isPublished: false, canPublish: true, permissionDeclined: false }),
+}));
 vi.mock('@/hooks/auth/useYouAuthAuthorization', () => ({ journalDriveRequest: {} }));
 vi.mock('@/hooks/useContact', () => ({ useContact: () => ({ fetch: { data: undefined } }) }));
 vi.mock('@/components/author/AuthorImage', () => ({ AuthorImage: () => null }));
