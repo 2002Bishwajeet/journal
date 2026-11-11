@@ -45,3 +45,9 @@
 # Hashed build assets are immutable — cache them aggressively.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The buy page (#305): Dodo's return appends the license key and the buyer's email to its
+# address. The page strips them at once; these keep them out of referrers and caches meanwhile.
+/landing/buy*
+  Referrer-Policy: no-referrer
+  Cache-Control: no-store
