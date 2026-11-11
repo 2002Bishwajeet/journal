@@ -12,6 +12,7 @@ import {
     getSearchIndexEntry,
     isFolderPublic,
     setNoteArchivalStatusLocal,
+    deleteNoteSnapshots,
     clearCachedKeyHeader,
     recordNoteRekey,
     NOTE_LIST_SQL,
@@ -119,6 +120,8 @@ export function useNotes() {
             }
             throw err;
         }
+        // Trash drops the history (#1070), only now that the trash can no longer roll back
+        if (status === 2) await deleteNoteSnapshots(docId);
     };
 
     // --- Mutations ---

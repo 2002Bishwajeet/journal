@@ -77,11 +77,14 @@ export async function getSnapshots(docId: string): Promise<SnapshotMeta[]> {
     }));
 }
 
-/** Every note that has snapshots, for the daily prune pass (#1054). */
-export async function getSnapshotDocIds(): Promise<string[]> {
+/** Every note that has snapshots, and whether it is in Trash, for the daily prune pass (#1054, #1070). */
+export async function getSnapshotDocIds(): Promise<{ docId: string; trashed: boolean }[]> {
     const db = await getDatabase();
-    const result = await db.query<{ doc_id: string }>('SELECT DISTINCT doc_id FROM document_snapshots');
-    return result.rows.map(row => row.doc_id);
+    const result = await db.query<{ doc_id: string; trashed: boolean }>(
+        `SELECT DISTINCT s.doc_id, COALESCE((i.metadata->>'archivalStatus')::int, 0) = 2 AS trashed
+         FROM document_snapshots s LEFT JOIN search_index i ON i.doc_id = s.doc_id`
+    );
+    return result.rows.map(row => ({ docId: row.doc_id, trashed: row.trashed }));
 }
 
 export async function getLatestSnapshotVector(
@@ -104,6 +107,12 @@ export async function getSnapshotBlob(id: number): Promise<Uint8Array | null> {
         [id]
     );
     return result.rows[0]?.state_blob ?? null;
+}
+
+/** Drops a note's whole version history, once it is in Trash (#1070). */
+export async function deleteNoteSnapshots(docId: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query('DELETE FROM document_snapshots WHERE doc_id = $1', [docId]);
 }
 
 export async function deleteSnapshots(ids: number[]): Promise<void> {

@@ -4,7 +4,7 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
-import { getSnapshots } from '@/lib/db';
+import { getSnapshots, upsertSearchIndex } from '@/lib/db';
 import { runDailySnapshotPrune } from '@/lib/history/dailyPrune';
 
 const DOC_A = '30000000-0000-0000-0000-00000000000a';
@@ -104,5 +104,28 @@ describe('runDailySnapshotPrune', () => {
         await runDailySnapshotPrune(later);
         expect(await getSnapshots(DOC_B)).toHaveLength(11);
         expect(await relfilenode()).toBe(kept);
+    });
+
+    it('drops all history of a note trashed elsewhere, and counts it as pruned', async () => {
+        // Arrived by sync already in Trash: setNoteArchivalStatusLocal never ran here
+        const now = NOW.toISOString();
+        await upsertSearchIndex({
+            docId: DOC_A,
+            title: 'Trashed',
+            plainTextContent: '',
+            metadata: { title: 'Trashed', folderId: 'main', timestamps: { created: now, modified: now }, excludeFromAI: false, archivalStatus: 2 },
+        });
+        await addSnapshot(DOC_A, new Date(NOW.getTime() - 3_600_000));
+        await addSnapshot(DOC_B, new Date(NOW.getTime() - 3_600_000));
+        const relfilenode = async () =>
+            (await db.query<{ relfilenode: number }>(`SELECT relfilenode FROM pg_class WHERE relname = 'document_snapshots'`)).rows[0].relfilenode;
+        const before = await relfilenode();
+
+        await runDailySnapshotPrune(NOW);
+
+        expect(await getSnapshots(DOC_A)).toHaveLength(0);
+        expect(await getSnapshots(DOC_B)).toHaveLength(1);
+        // Half the bytes went, so the table was rewritten
+        expect(await relfilenode()).not.toBe(before);
     });
 });
