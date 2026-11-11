@@ -1,0 +1,337 @@
+use std::fmt;
+use std::io;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+
+use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tiny_http::{Header, Response, Server};
+
+/// Fixed port for the local HTTP server that serves the built frontend.
+///
+/// The desktop shell deliberately does NOT use Tauri's default
+/// `tauri://localhost` custom protocol. It serves `dist/` over a real
+/// `http://localhost` origin instead, because:
+///
+///   1. Service workers refuse to register on `tauri://` in WKWebView
+///      (wry#389). `http://localhost` is a secure context, so they register.
+///   2. The YouAuth OAuth flow builds its callback as
+///      `${window.location.origin}/auth/finalize`
+///      (src/hooks/auth/useYouAuthAuthorization.ts). An identity server
+///      rejects a `tauri://` callback; `http://localhost:PORT` is an ordinary
+///      HTTP origin the backend already accepts.
+///
+/// THE PORT MUST STAY FIXED AND HARDCODED. The origin is the storage key for
+/// localStorage / IndexedDB / OPFS — i.e. the user's entire local database. An
+/// OS-assigned (port 0) or otherwise changing port would hand the webview a
+/// different origin on every launch and silently wipe the user's notes.
+/// Never make this dynamic, and never change the value once shipped.
+const PORT: u16 = 47821;
+
+/// A loopback address on `PORT` that something else already holds (or that
+/// failed to bind for any other reason).
+#[derive(Debug)]
+struct BindError {
+    addr: SocketAddr,
+    source: Box<dyn std::error::Error + Send + Sync>,
+}
+
+impl fmt::Display for BindError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "can't bind {}: {}", self.addr, self.source)
+    }
+}
+
+/// Binds `port` on BOTH loopback families, or fails.
+///
+/// The webview loads `http://localhost:PORT`, and `localhost` may resolve to
+/// `::1` before `127.0.0.1`. Whatever answers on either address runs inside
+/// Journal's origin and can read the session token and the local database, so
+/// another process holding either one is a failed bind. The one exception: a
+/// machine with no IPv6 loopback at all (`AddrNotAvailable`), where nothing
+/// else can listen on `::1` either.
+///
+/// Loopback only. Never 0.0.0.0 / :: — that would publish the user's journal,
+/// cross-origin-isolation headers and all, to every device on the LAN.
+fn bind_loopback(port: u16) -> Result<Vec<Server>, BindError> {
+    let v4 = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
+    let v6 = SocketAddr::from((Ipv6Addr::LOCALHOST, port));
+
+    let mut servers = vec![Server::http(v4).map_err(|source| BindError { addr: v4, source })?];
+    match Server::http(v6) {
+        Ok(server) => servers.push(server),
+        Err(e)
+            if e.downcast_ref::<io::Error>().map(io::Error::kind)
+                == Some(io::ErrorKind::AddrNotAvailable) => {}
+        Err(source) => return Err(BindError { addr: v6, source }),
+    }
+    Ok(servers)
+}
+
+/// Tells the user the app can't start, then exits non-zero. Explicit, so it
+/// holds in every build — not only release builds with `panic = "abort"`.
+fn abort_on_bind_failure(err: &BindError) -> ! {
+    eprintln!("Journal can't start: {err}");
+    #[cfg(desktop)]
+    rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title("Journal")
+        .set_description(format!(
+            "Journal can't start: port {PORT} is in use by another program. \
+             Close it and try again."
+        ))
+        .set_buttons(rfd::MessageButtons::Ok)
+        .show();
+    std::process::exit(1);
+}
+
+fn header(name: &str, value: &str) -> Header {
+    Header::from_bytes(name.as_bytes(), value.as_bytes()).unwrap()
+}
+
+/// The `/*` headers of `public/_headers`, the file Cloudflare Pages serves the
+/// hosted PWA with and vite.config.ts reads for dev and preview. Reading it
+/// here keeps the shell on the same cross-origin isolation (PGlite and WebLLM
+/// need SharedArrayBuffer) and the same CSPs (#671, #945) as the web.
+fn app_headers() -> Vec<(&'static str, &'static str)> {
+    include_str!("../../public/_headers")
+        .lines()
+        .skip_while(|line| *line != "/*")
+        .skip(1)
+        .take_while(|line| line.starts_with(char::is_whitespace))
+        .filter_map(|line| line.trim().split_once(": "))
+        .collect()
+}
+
+/// Blocking HTTP server for the app's assets. Runs on its own thread, one per
+/// bound loopback address.
+///
+/// `asset_resolver()` reads the embedded `frontendDist` in release builds, and
+/// falls back to reading `../dist` off disk in dev builds.
+///
+/// This serves static assets only. Any Rust HTTP endpoint added later (for
+/// example a file-backed filesystem) must require a per-launch secret: every
+/// local process can reach this port, not only the webview.
+fn serve(app: tauri::AppHandle, server: Server) {
+    let headers = app_headers();
+    for request in server.incoming_requests() {
+        let path = request.url().split('?').next().unwrap_or("/");
+        let path = if path.ends_with('/') {
+            format!("{path}index.html")
+        } else {
+            path.to_string()
+        };
+
+        let resolver = app.asset_resolver();
+        // SPA fallback: client-side routes (/auth/finalize, /note/<id>, ...)
+        // are not files on disk and must resolve to the app shell.
+        let asset = resolver
+            .get(path)
+            .or_else(|| resolver.get("/index.html".into()));
+
+        let mut response = match asset {
+            // Content-Type comes from Tauri's own extension/sniffing logic.
+            Some(asset) => Response::from_data(asset.bytes)
+                .with_header(header("Content-Type", &asset.mime_type)),
+            None => Response::from_data(Vec::new()).with_status_code(404),
+        }
+        .with_header(header("Cache-Control", "no-cache"));
+        for (name, value) in &headers {
+            response.add_header(header(name, value));
+        }
+
+        let _ = request.respond(response);
+    }
+}
+
+/// Sets `window.__JOURNAL_NATIVE__` before any page script runs.
+/// `std::env::consts::OS` is already `macos`, `windows`, `linux`, `ios` or
+/// `android`, the values `NativePlatform` in src/lib/native.ts expects.
+fn native_flag_script() -> String {
+    format!(
+        "window.__JOURNAL_NATIVE__ = {{ platform: {:?} }};",
+        std::env::consts::OS
+    )
+}
+
+/// iOS: removes the form assistant bar (the ^ v Done row) WKWebView puts above
+/// the keyboard, so the editor's own toolbar sits on the keyboard like in a
+/// native app. Same trick as Capacitor's Keyboard plugin (`HideFormAccessoryBar`):
+/// `WKContentView`, the view that takes the keyboard focus, answers nil for
+/// `inputAccessoryView`. `class_replaceMethod` changes that one class, never
+/// `UIResponder`. With the Done button gone, tapping outside the field closes
+/// the keyboard.
+#[cfg(target_os = "ios")]
+fn hide_form_accessory_bar() {
+    use objc2::runtime::{AnyClass, AnyObject, Imp, Sel};
+
+    extern "C-unwind" fn no_accessory_view(_: *mut AnyObject, _: Sel) -> *mut AnyObject {
+        std::ptr::null_mut()
+    }
+
+    let Some(class) = AnyClass::get(c"WKContentView") else {
+        return;
+    };
+    unsafe {
+        objc2::ffi::class_replaceMethod(
+            class as *const AnyClass as *mut AnyClass,
+            objc2::sel!(inputAccessoryView),
+            std::mem::transmute::<extern "C-unwind" fn(*mut AnyObject, Sel) -> *mut AnyObject, Imp>(
+                no_accessory_view,
+            ),
+            c"@@:".as_ptr(),
+        );
+    }
+}
+
+/// Shared entry point for every target.
+///
+/// On desktop `main.rs` calls this directly. On mobile there is no `main` —
+/// the platform loads the crate as a library and `#[tauri::mobile_entry_point]`
+/// exports this as the symbol the generated Xcode / Gradle project calls.
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    // Bind before Tauri starts, so no window ever loads a page from another
+    // process that holds the port. It also has to happen before Tauri
+    // initialises GTK: on Linux, rfd's dialog runs GTK on a thread of its own
+    // and never appears once the event loop owns GTK's main context.
+    let servers = bind_loopback(PORT).unwrap_or_else(|e| abort_on_bind_failure(&e));
+
+    tauri::Builder::default()
+        .setup(move |app| {
+            for server in servers {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || serve(handle, server));
+            }
+
+            // In dev, load the Vite dev server (`devUrl`) so HMR works; it
+            // already serves the COEP/COOP headers over HTTPS. In release,
+            // load the local asset server above.
+            let url = if tauri::is_dev() {
+                WebviewUrl::App("index.html".into())
+            } else {
+                WebviewUrl::External(format!("http://localhost:{PORT}").parse()?)
+            };
+
+            let builder = WebviewWindowBuilder::new(app, "main", url)
+                .title("Journal")
+                // Read by isNativeApp() in src/lib/native.ts. Main frame only:
+                // live-block iframes don't need to know.
+                .initialization_script(native_flag_script());
+
+            // Desktop-only window geometry. These are NOT harmless no-ops on
+            // iOS: `tao`'s UIKit backend uses `WindowAttributes::inner_size`
+            // verbatim as the UIWindow frame when it is `Some`, and only falls
+            // back to `UIScreen.bounds` when it is `None`
+            // (tao/src/platform_impl/ios/window.rs). `wry` then creates the
+            // WKWebView with `initWithFrame: ns_view.frame()`. So on an
+            // iPhone 17 (402x874pt) a 1200x800 request produced a 1200x800 CSS
+            // px viewport — `window.innerWidth` reported 1200, `useDeviceType()`
+            // selected `desktop`, the layout was clipped at the right edge, and
+            // the 74pt of screen the too-short window never covered rendered as
+            // a black bar. Leaving it unset gives the webview the full screen.
+            //
+            // (`min_inner_size` is separately ignored on iOS, but belongs in
+            // the same block because it is equally meaningless there.)
+            //
+            // This lives here, in `src-tauri/src/lib.rs`, rather than in the
+            // Xcode project, precisely because `gen/apple/` is git-ignored and
+            // regenerated by `tauri ios init`. Nothing under `gen/` is patched.
+            #[cfg(desktop)]
+            let builder = builder
+                .inner_size(1200.0, 800.0)
+                .min_inner_size(400.0, 600.0)
+                .resizable(true);
+
+            builder.build()?;
+
+            #[cfg(target_os = "ios")]
+            hide_form_accessory_bar();
+
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::TcpListener;
+
+    /// A port free on both families right now. Never `PORT`.
+    fn free_port() -> u16 {
+        loop {
+            let port = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+                .unwrap()
+                .local_addr()
+                .unwrap()
+                .port();
+            let v6_free =
+                !has_ipv6_loopback() || TcpListener::bind((Ipv6Addr::LOCALHOST, port)).is_ok();
+            if port != PORT && v6_free {
+                return port;
+            }
+        }
+    }
+
+    fn has_ipv6_loopback() -> bool {
+        TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).is_ok()
+    }
+
+    #[test]
+    fn app_headers_match_the_web() {
+        let headers = app_headers();
+        let get = |name| headers.iter().find(|(n, _)| *n == name).map(|(_, v)| *v);
+        assert_eq!(get("Cross-Origin-Embedder-Policy"), Some("require-corp"));
+        assert_eq!(get("Cross-Origin-Opener-Policy"), Some("same-origin"));
+        assert_eq!(get("Content-Security-Policy"), Some("frame-src 'self'"));
+        assert!(get("Content-Security-Policy-Report-Only").is_some());
+        // The /assets/* block stays out: no immutable caching of a local dist/.
+        assert!(get("Cache-Control").is_none());
+    }
+
+    #[test]
+    fn native_flag_names_this_platform() {
+        let os = std::env::consts::OS;
+        assert!(["macos", "windows", "linux", "ios", "android"].contains(&os));
+        assert_eq!(
+            native_flag_script(),
+            format!("window.__JOURNAL_NATIVE__ = {{ platform: \"{os}\" }};")
+        );
+    }
+
+    #[test]
+    fn free_port_binds_both_families() {
+        let port = free_port();
+        let servers = bind_loopback(port).expect("free port should bind");
+        let addrs: Vec<_> = servers
+            .iter()
+            .map(|s| s.server_addr().to_ip().unwrap())
+            .collect();
+        assert!(addrs.contains(&SocketAddr::from((Ipv4Addr::LOCALHOST, port))));
+        if has_ipv6_loopback() {
+            assert!(addrs.contains(&SocketAddr::from((Ipv6Addr::LOCALHOST, port))));
+        } else {
+            eprintln!("no IPv6 loopback: only checked 127.0.0.1");
+        }
+    }
+
+    #[test]
+    fn port_held_on_ipv4_fails() {
+        let port = free_port();
+        let _squatter = TcpListener::bind((Ipv4Addr::LOCALHOST, port)).unwrap();
+        let err = bind_loopback(port).err().expect("held port must not bind");
+        assert_eq!(err.addr, SocketAddr::from((Ipv4Addr::LOCALHOST, port)));
+    }
+
+    #[test]
+    fn port_held_on_ipv6_fails() {
+        if !has_ipv6_loopback() {
+            eprintln!("skipped: no IPv6 loopback on this machine");
+            return;
+        }
+        let port = free_port();
+        let _squatter = TcpListener::bind((Ipv6Addr::LOCALHOST, port)).unwrap();
+        let err = bind_loopback(port).err().expect("held port must not bind");
+        assert_eq!(err.addr, SocketAddr::from((Ipv6Addr::LOCALHOST, port)));
+    }
+}

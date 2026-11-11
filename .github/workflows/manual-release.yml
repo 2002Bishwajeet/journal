@@ -48,6 +48,7 @@ jobs:
         run: |
           VERSION_TYPE=${{ github.event.inputs.version_type }}
           npm version $VERSION_TYPE --no-git-tag-version
+          node scripts/native-version.mjs
 
       - name: Generate Changelog
         run: |
@@ -64,7 +65,7 @@ jobs:
         id: tag
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          git add -A package.json package-lock.json CHANGELOG.md RELEASE_NOTES.md release-notes
+          git add -A package.json package-lock.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock CHANGELOG.md RELEASE_NOTES.md release-notes
           git commit -m "chore(release): $VERSION [skip ci]"
           git tag "v$VERSION"
           git push origin main --tags

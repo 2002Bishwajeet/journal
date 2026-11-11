@@ -18,7 +18,7 @@ import { fragmentToMarkdown } from '@/lib/yjs/fragmentToMarkdown';
 import { footnoteOrder, normalizeFootnotes } from '@/lib/editor/footnotes';
 import { getNewId } from '@/lib/utils';
 import { editAttrs, parseEditData } from '@/lib/images/imageEdits';
-import { liveBlockKind, parseCodeInfo } from '@/lib/liveBlocks';
+import { liveBlockKind, parseCodeInfo } from '@2002bishwajeet/live-blocks/core';
 import { CALLOUT_VARIANTS, type CalloutVariant } from '@/components/editor/nodes/calloutVariants';
 import { GALLERY } from '@/components/editor/nodes/GalleryNode';
 

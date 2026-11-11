@@ -79,6 +79,10 @@ export async function unloadWebLLM(): Promise<void> {
     lastActivityTimestamp = 0;
 }
 
+const isModelStore = (name: string) => name.includes("webllm") || name.includes("mlc");
+
+type IterableDirectory = FileSystemDirectoryHandle & { entries(): AsyncIterable<[string, FileSystemHandle]> };
+
 /**
  * Delete cached model weights (Cache API + OPFS) after unloading the engine.
  */
@@ -87,25 +91,33 @@ export async function clearModelCache(): Promise<void> {
     try {
         const cacheNames = await caches.keys();
         for (const name of cacheNames) {
-            if (
-                name.includes("webllm") ||
-                name.includes("mlc")
-            ) {
+            if (isModelStore(name)) {
                 await caches.delete(name);
             }
         }
         const root = await navigator.storage.getDirectory();
-        for await (const [name] of (root as FileSystemDirectoryHandle & { entries(): AsyncIterable<[string, FileSystemHandle]> }).entries()) {
-            if (
-                name.includes("mlc") ||
-                name.includes("webllm")
-            ) {
+        for await (const [name] of (root as IterableDirectory).entries()) {
+            if (isModelStore(name)) {
                 await root.removeEntry(name, { recursive: true });
             }
         }
     } catch {
         // Ignore cleanup errors
     }
+}
+
+/** True when this browser holds downloaded model weights (Cache API or OPFS). */
+export async function hasModelFiles(): Promise<boolean> {
+    try {
+        if ((await caches.keys()).some(isModelStore)) return true;
+        const root = await navigator.storage.getDirectory();
+        for await (const [name] of (root as IterableDirectory).entries()) {
+            if (isModelStore(name)) return true;
+        }
+    } catch {
+        // No Cache API or OPFS here, so no model files either.
+    }
+    return false;
 }
 
 /**

@@ -11,7 +11,7 @@ Read `e2e/README.md` first — it is the canonical reference for layers, convent
 
 1. Iterate: `npm run e2e:dev -- <spec>` (Vite dev server on `:5174`, HMR, server reused across runs).
 2. Before opening a PR: `npm run e2e -- <spec>` (preview build on `:4173` — the real built bundle, same as CI).
-3. Once, right before opening the PR: the full `npm run e2e` (no spec filter).
+3. Run only the specs your change adds or touches. Never run the full `npm run e2e` and never wait for CI: CI's sharded runs cover the full suite, and the orchestrating session watches CI and merges. Push, open the PR and exit. A full local run is only for reproducing a CI failure.
 4. Never run e2e concurrently with `npm run build`, `npm run test`, or `npm run lint` — they compete for RAM on the same machine. If `~/.claude/bin/heavy` exists in your environment, wrap each of those commands with it, e.g. `~/.claude/bin/heavy npm run e2e`; it's a per-machine lock for hosts running several agents in parallel, and a harmless no-op to skip if the script isn't there (CI, other developers' machines).
 
 ## Adding a spec

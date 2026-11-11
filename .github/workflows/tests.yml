@@ -62,6 +62,14 @@ jobs:
         env:
           CI: true
 
+      # `npm test` runs the package's unit tests on its source; these run on its published build.
+      - name: Build the live-blocks package and test its build
+        run: |
+          npm run build --workspace packages/live-blocks
+          npm test --workspace packages/live-blocks -- test/published
+        env:
+          CI: true
+
   typecheck:
     runs-on: ubuntu-latest
     permissions:
