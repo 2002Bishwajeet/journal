@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/modals/ConfirmDialog';
 import { SharePeopleSection } from '@/components/share/SharePeopleSection';
 import { Notice, ShareGeneralAccess, ShareLinkPreview } from '@/components/share/ShareGeneralAccess';
+import { ShareToFeed } from '@/components/share/ShareToFeed';
 import { useSheetMode } from '@/hooks/useSheetMode';
 import { useShareAccess } from '@/hooks/useShareAccess';
 import { useMakeNotesPublic } from '@/hooks/useMakeNotesPublic';
@@ -26,6 +27,7 @@ import {
     JOURNAL_APP_ID,
     JOURNAL_APP_NAME,
 } from '@/lib/homebase/config';
+import { collaborateReturnUrl } from '@/lib/share/shareAccess';
 
 // Focus returns to the note row on close. The dialog opens from the row's context menu,
 // which hands focus back to the row only as it finishes closing, sometimes after the
@@ -77,7 +79,7 @@ interface ShareNoteDialogProps {
 export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, inSharedFolder = false }: ShareNoteDialogProps) {
     const asSheet = useSheetMode();
     // After a permission grant the app reopens the dialog from this URL
-    const returnUrl = `${window.location.origin}${window.location.pathname}?action=collaborate&noteId=${noteId}`;
+    const returnUrl = collaborateReturnUrl(noteId);
     const grantPermissionsUrl = useMissingPermissions({
         appId: JOURNAL_APP_ID,
         drives: [journalDriveRequest, CONTACT_TARGET_DRIVE_REQUEST],
@@ -230,6 +232,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
                     setAskingAboutLinks={setAskingAboutLinks}
                 />
             </fieldset>
+            <ShareToFeed noteId={noteId} />
         </div>
     );
 

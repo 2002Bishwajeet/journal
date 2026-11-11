@@ -19,7 +19,9 @@ vi.mock('@homebase-id/js-lib/auth', async (importOriginal) => ({
     saveEccKey: vi.fn(),
 }));
 
+import { BlogConfig } from '@homebase-id/js-lib/public';
 import { useYouAuthAuthorization } from '@/hooks/auth/useYouAuthAuthorization';
+import { JOURNAL_DRIVE } from '@/lib/homebase/config';
 
 // Mirrors the owner console's appreg parsing (odin-js owner-app RegisterApp.tsx + util.ts).
 const ownerConsolePermissionSet = (p: string | undefined) =>
@@ -36,5 +38,12 @@ describe('registration permission set (#246)', () => {
 
         // #743: the base set is never empty, so the permission set is never null
         expect(ownerConsolePermissionSet(request.p)).toEqual({ keys: [10, 405] });
+    });
+
+    it('does not ask for the feed drive: that is asked for on the first Publish to feed (#1074)', async () => {
+        const params = await useYouAuthAuthorization().getAuthorizationParameters('https://journal.test/');
+
+        expect(params.permission_request).not.toContain(BlogConfig.PublicChannelDrive.alias);
+        expect(params.permission_request).toContain(JOURNAL_DRIVE.alias);
     });
 });

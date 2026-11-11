@@ -45,6 +45,12 @@ describe('computeContentHash', () => {
         expect(after).not.toBe(before);
     });
 
+    it('changes when the note gets a feed post id (#1074)', async () => {
+        const before = await computeContentHash(meta(), blob);
+        const after = await computeContentHash(meta({ feedPostId: 'post-1' }), blob);
+        expect(after).not.toBe(before);
+    });
+
     it('does NOT change when only the timestamps change', async () => {
         const original = await computeContentHash(meta(), blob);
         const laterTimestamps = await computeContentHash(

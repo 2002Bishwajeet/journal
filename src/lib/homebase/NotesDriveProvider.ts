@@ -378,6 +378,7 @@ export class NotesDriveProvider {
                 shareDescription: metadata.shareDescription,
                 shareIndexable: metadata.shareIndexable,
                 shareUnlisted: metadata.shareUnlisted,
+                feedPostId: metadata.feedPostId,
                 card: nonEmptyCard(card),
             })
             : JSON.stringify(noteContent);
@@ -486,7 +487,7 @@ export class NotesDriveProvider {
             if (keptFrom?.cover && from?.cover?.src !== keptFrom.cover.src) return { remove: true };
             return { remove: false, kept: true, keptFrom };
         }
-        const upload = from ? await this.#drawCardImage(fileId, from, (key) => this.#readPayloadBlob(fileId, key, header)) : null;
+        const upload = from ? await this.#drawCardImage(fileId, from, (key) => this.readPayloadBlob(fileId, key, header)) : null;
         if (upload) return { upload, remove: false };
         return { remove: !!header?.fileMetadata.payloads?.some((p) => p.key === PAYLOAD_KEY_CARD_IMAGE) };
     }
@@ -523,7 +524,7 @@ export class NotesDriveProvider {
     }
 
     /** A payload as a Blob, read with its lastModified so the browser can't hand back a stale copy (#451). */
-    async #readPayloadBlob(fileId: string, key: string, header: HomebaseFile<NoteFileContent> | null): Promise<Blob | null> {
+    async readPayloadBlob(fileId: string, key: string, header: HomebaseFile<NoteFileContent> | null): Promise<Blob | null> {
         const lastModified = header?.fileMetadata.payloads?.find((p) => p.key === key)?.lastModified;
         const data = await getPayloadBytes(this.#dotYouClient, JOURNAL_DRIVE, fileId, key, { decrypt: true, lastModified });
         return data ? new Blob([new Uint8Array(data.bytes)], { type: data.contentType }) : null;
@@ -536,10 +537,10 @@ export class NotesDriveProvider {
     async getCardImage(fileId: string, from: CardImageFrom): Promise<Blob | null> {
         const header = await getFileHeader<NoteFileContent>(this.#dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true });
         if (header && isCardImageCurrent(header, from)) {
-            const uploaded = await this.#readPayloadBlob(fileId, PAYLOAD_KEY_CARD_IMAGE, header);
+            const uploaded = await this.readPayloadBlob(fileId, PAYLOAD_KEY_CARD_IMAGE, header);
             if (uploaded) return uploaded;
         }
-        return this.#drawCardImage(fileId, from, (key) => this.#readPayloadBlob(fileId, key, header));
+        return this.#drawCardImage(fileId, from, (key) => this.readPayloadBlob(fileId, key, header));
     }
 
     /**
@@ -845,6 +846,7 @@ export class NotesDriveProvider {
                 shareDescription: existing.shareDescription,
                 shareIndexable: existing.shareIndexable,
                 shareUnlisted: existing.shareUnlisted,
+                feedPostId: existing.feedPostId,
                 card: card && nonEmptyCard(card),
             }),
             // Draw the card image from the cover bytes this re-upload already read.

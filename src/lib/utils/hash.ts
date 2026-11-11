@@ -37,6 +37,8 @@ export async function computeContentHash(
         ...(!!metadata.viewerRecipients?.length && { viewerRecipients: metadata.viewerRecipients }),
         // Only when set, so declining an agent's share request (#325) re-uploads the note
         ...(metadata.shareRequest && { shareRequest: metadata.shareRequest }),
+        // Only when set, so the hash of every note never published to the feed is unchanged (#1074)
+        ...(metadata.feedPostId && { feedPostId: metadata.feedPostId }),
     });
 
     const encoder = new TextEncoder();

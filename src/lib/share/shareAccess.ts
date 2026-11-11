@@ -129,3 +129,7 @@ export function refusalFor(query: string, candidates: ShareCandidate[], owner: s
     if (entries.some((e) => e.kind === 'person' && e.id === odinId)) return `${odinId} already has access`;
     return NOT_A_CONNECTION;
 }
+
+/** The URL a permission grant returns to: the app reopens this note's Share dialog from it (see useLayoutUrlActions). */
+export const collaborateReturnUrl = (noteId: string) =>
+    `${window.location.origin}${window.location.pathname}?action=collaborate&noteId=${noteId}`;

@@ -117,6 +117,8 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
             shareDescription: content.shareDescription,
             shareIndexable: content.shareIndexable,
             shareUnlisted: content.shareUnlisted,
+            // Kept so a publish to the feed after an agent edit updates the same post (#1074).
+            feedPostId: content.feedPostId,
             archivalStatus: file.fileMetadata.appData.archivalStatus,
             isCollaborative: content.isCollaborative,
             circleIds: content.circleIds,

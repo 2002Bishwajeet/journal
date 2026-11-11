@@ -75,7 +75,7 @@ function withNewExtension(name: string, outType: ImageIngestOutType): string {
     return `${base}.${ext}`;
 }
 
-function makeCanvas(width: number, height: number): OffscreenCanvas | HTMLCanvasElement {
+export function makeCanvas(width: number, height: number): OffscreenCanvas | HTMLCanvasElement {
     if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(width, height);
     const canvas = document.createElement('canvas');
     canvas.width = width;
@@ -94,15 +94,18 @@ async function encodeToBlob(
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('2D canvas context unavailable');
     ctx.drawImage(bitmap, 0, 0, width, height);
+    return canvasToBlob(canvas, outType, quality);
+}
 
+export function canvasToBlob(canvas: OffscreenCanvas | HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
     // Duck-typed rather than `instanceof OffscreenCanvas`: that class may not exist as a
     // global at all on a browser without it, and referencing it directly would throw.
-    if ('convertToBlob' in canvas) return canvas.convertToBlob({ type: outType, quality });
+    if ('convertToBlob' in canvas) return canvas.convertToBlob({ type, quality });
 
     return new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
             (blob) => (blob ? resolve(blob) : reject(new Error('canvas.toBlob failed'))),
-            outType,
+            type,
             quality,
         );
     });
