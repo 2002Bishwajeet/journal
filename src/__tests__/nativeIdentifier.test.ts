@@ -7,7 +7,7 @@ describe('native app identifier', () => {
   const { identifier } = JSON.parse(read('src-tauri/tauri.conf.json')) as { identifier: string };
 
   it('is the App Store bundle id', () => {
-    expect(identifier).toBe('id.biswa.journal');
+    expect(identifier).toBe('com.biswa.journal');
   });
 
   it('matches the Android namespace, applicationId and MainActivity package', () => {
