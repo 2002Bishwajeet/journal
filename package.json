@@ -37,7 +37,8 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:ios:init": "node scripts/ios-project.mjs",
-    "tauri:ios:release": "node scripts/ios-project.mjs --release"
+    "tauri:ios:release": "node scripts/ios-project.mjs --release",
+    "tauri:android:release": "node scripts/android-release.mjs"
   },
   "dependencies": {
     "@2002bishwajeet/live-blocks": "*",
