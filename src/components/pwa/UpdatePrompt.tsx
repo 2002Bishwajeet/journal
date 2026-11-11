@@ -1,6 +1,7 @@
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { isRunningBuild } from '@/lib/swBuild';
 
 export function UpdatePrompt() {
   const registrationRef = useRef<ServiceWorkerRegistration | undefined>(undefined);
@@ -15,7 +16,16 @@ export function UpdatePrompt() {
     onOfflineReady() {
       toast.success("App ready to work offline");
     },
-    onNeedRefresh() {
+    async onNeedRefresh() {
+      // A launch after a deploy already runs the new bundle (the root page comes from the network)
+      // while its worker waits behind the old one: let it take over without asking or reloading.
+      const waiting = (await navigator.serviceWorker.getRegistration())?.waiting;
+      if (await isRunningBuild(waiting)) {
+        setNeedRefresh(false);
+        toast.dismiss("sw-update");
+        waiting?.postMessage({ type: 'SKIP_WAITING' });
+        return;
+      }
       toast.info("New version available", {
         id: "sw-update",
         description: "A new version of the app is available. Click to update.",
@@ -31,6 +41,10 @@ export function UpdatePrompt() {
           onClick: () => setNeedRefresh(false),
         },
       });
+    },
+    // A worker taking over reloads the page onto its build, unless the page already runs it.
+    async onNeedReload() {
+      if (!(await isRunningBuild(navigator.serviceWorker.controller))) window.location.reload();
     },
     onRegisterError(error: unknown) {
       console.error('SW registration error', error);
