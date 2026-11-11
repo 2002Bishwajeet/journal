@@ -11,7 +11,7 @@ export default function DataSection() {
   const { isExporting, isImporting, handleExport, handleImport } =
     useImportExport();
   const { getIdentity } = useAuth();
-  const { usage, quota, persisted, requestPersist } = useStorageInfo();
+  const { usage, quota, persisted, appManaged, requestPersist } = useStorageInfo();
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const protect = async () => {
@@ -36,7 +36,7 @@ export default function DataSection() {
         </p>
       </div>
 
-      {(usage !== null || persisted !== null) && (
+      {(usage !== null || persisted !== null || appManaged) && (
         <div className="space-y-4">
           <SectionHeader>This device</SectionHeader>
           <div className="overflow-hidden rounded-xl border bg-card">
@@ -47,6 +47,16 @@ export default function DataSection() {
                   <p className="text-xs leading-relaxed text-muted-foreground tabular-nums">
                     {formatBytes(usage)}
                     {quota !== null && ` of ${formatBytes(quota)} available`}
+                  </p>
+                </div>
+              </div>
+            )}
+            {appManaged && (
+              <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3 last:border-b-0">
+                <div className="min-w-36 flex-1 space-y-0.5">
+                  <h4 className="text-sm leading-5 font-medium">Local copy</h4>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Stored in the app on this device
                   </p>
                 </div>
               </div>
