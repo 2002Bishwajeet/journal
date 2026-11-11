@@ -35,7 +35,9 @@
     "eval:ai": "node e2e/evals/run.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "tauri:ios:init": "node scripts/ios-project.mjs",
+    "tauri:ios:release": "node scripts/ios-project.mjs --release"
   },
   "dependencies": {
     "@2002bishwajeet/live-blocks": "*",
