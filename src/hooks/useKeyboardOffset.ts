@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { getKeyboardOffset, MOBILE_TOOLBAR_HEIGHT } from "@/lib/editor/keyboardOffset";
+import { getKeyboardOffset, getLayoutOffsetTop, MOBILE_TOOLBAR_HEIGHT } from "@/lib/editor/keyboardOffset";
 
 /**
  * While `enabled`, writes the keyboard offset to `--keyboard-offset` and the
@@ -18,7 +18,7 @@ export function useKeyboardOffset(enabled: boolean) {
       const offset = getKeyboardOffset(
         window.innerHeight,
         viewport?.height ?? window.innerHeight,
-        viewport?.offsetTop ?? 0,
+        getLayoutOffsetTop(viewport?.offsetTop ?? 0, document.documentElement.clientHeight, window.innerHeight),
       );
       rootStyle.setProperty("--keyboard-offset", `${offset}px`);
       // Room at the end of the note so the last line scrolls above the toolbar (#790).

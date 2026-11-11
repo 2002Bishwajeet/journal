@@ -41,6 +41,15 @@ describe('followKeyboard', () => {
         expect(vars()).toEqual(['', '']);
     });
 
+    it('should not count the page scroll twice in the iOS app, where innerHeight shrinks by it', () => {
+        Object.defineProperty(window, 'innerHeight', { value: 734, configurable: true });
+        Object.defineProperty(document.documentElement, 'clientHeight', { value: 852, configurable: true });
+        followKeyboard(el);
+        vv.set({ height: 456, offsetTop: 118 });
+        expect(vars()).toEqual(['228px', '456px']);
+        delete (document.documentElement as { clientHeight?: number }).clientHeight;
+    });
+
     it('should ignore a pinch zoom, which also shrinks the visual viewport', () => {
         followKeyboard(el);
         vv.set({ height: 426, scale: 2 });
