@@ -132,7 +132,8 @@ test('Search and Settings open their sheets over the tab bar, and Back closes th
 test('a toast sits above the tab bar and the New note button', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    // WebKit has no clipboard permissions to grant; it lets a click write to the clipboard.
+    if (browser.browserType().name() === 'chromium') await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await tab(page, 'Settings').click();
     const dialog = page.getByRole('dialog');
     await openSettingsSection(dialog, 'About');
