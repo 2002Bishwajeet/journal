@@ -68,6 +68,8 @@ interface NoteListProps {
   /** Accessible name of the Back button (the tablet one opens the folders). */
   backLabel?: string;
   trailing?: ReactNode;
+  /** Phone (#1162): the sync pill, in the bar's middle above the large title. */
+  barStatus?: ReactNode;
 }
 
 export default function NoteList({
@@ -89,6 +91,7 @@ export default function NoteList({
   onBack,
   backLabel = "Back to notes",
   trailing,
+  barStatus,
 }: NoteListProps) {
   const largeTitle = useLargeTitle(!!title);
   const isEmpty = !isLoading && notes.length === 0;
@@ -247,7 +250,10 @@ export default function NoteList({
           </Button>
         )}
         {title ? (
-          <BarTitle show={largeTitle.collapsed}>{title}</BarTitle>
+          <>
+            {barStatus}
+            <BarTitle show={largeTitle.collapsed}>{title}</BarTitle>
+          </>
         ) : (
           <span className="text-sm font-medium text-foreground">Notes</span>
         )}
