@@ -236,6 +236,8 @@ registerRoute(
             // get the shell.
             /^\/share\/[^/]+(\/sitemap\.xml|\/f\/[^/]+)?\/?(\?.*)?$/,
             /^\/llms\.txt$/, // A static file for language models (public/llms.txt).
+            // The landing site (#913) is static pages, not the app; Dodo's checkout returns to /landing/buy (#305).
+            /^\/landing(\/|\?|$)/,
         ],
     })
 );
