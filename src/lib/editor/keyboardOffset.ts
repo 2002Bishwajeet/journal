@@ -15,6 +15,18 @@ export function getKeyboardOffset(
   return Math.max(0, layoutHeight - (viewportOffsetTop + viewportHeight));
 }
 
+/**
+ * The part of `visualViewport.offsetTop` that is still inside the layout viewport.
+ * The iOS app's WebKit view (WKWebView) shrinks `innerHeight` by the amount the page
+ * scrolls for the keyboard, so that scroll is already outside the layout viewport and
+ * must not be counted twice. In Safari `clientHeight` equals `innerHeight`, so this
+ * returns `offsetTop` unchanged.
+ */
+export function getLayoutOffsetTop(offsetTop: number, clientHeight: number, innerHeight: number): number {
+  const shrink = clientHeight - innerHeight;
+  return shrink > 0 ? Math.max(0, offsetTop - shrink) : offsetTop;
+}
+
 /** Height in px of the fixed mobile formatting toolbar (#790). */
 export const MOBILE_TOOLBAR_HEIGHT = 65;
 
