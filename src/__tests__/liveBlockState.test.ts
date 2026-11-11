@@ -6,22 +6,29 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import * as Y from 'yjs';
 import { appendMarkdown, createDoc, replaceInNote, setMarkdown, toMarkdown } from '@/lib/agent/editEngine';
-import { buildSrcdoc, FRAME_TOKENS, liveBlockKind, parseCodeInfo, withBlockId, type FrameTheme } from '@/lib/liveBlocks';
+import {
+  buildSrcdoc,
+  createBlockStateSession,
+  FRAME_TOKENS,
+  liveBlockKind,
+  MAX_BLOCK_STATE_BYTES,
+  memoryBlockStateStore,
+  parseCodeInfo,
+  replyToStorageMessage,
+  withBlockId,
+  type BlockStateStore,
+  type FrameTheme,
+} from '@2002bishwajeet/live-blocks/core';
 import {
   BLOCK_STATE_MAP,
-  MAX_BLOCK_STATE_BYTES,
   MAX_NOTE_BLOCK_STATE_BYTES,
   blockStateRoom,
-  createBlockStateSession,
   getBlockState,
   getBlockStates,
   getBlockStatesFromBlob,
-  memoryBlockStateStore,
   newBlockId,
   ownBlockId,
-  replyToStorageMessage,
   setBlockState,
-  type BlockStateStore,
 } from '@/lib/liveBlockState';
 import { COVER_MAP } from '@/lib/editor/cover';
 import { getSchema, type JSONContent } from '@tiptap/core';

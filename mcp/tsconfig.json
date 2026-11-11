@@ -19,7 +19,8 @@
     /* Path aliases */
 
     "paths": {
-      "@/*": ["../src/*"]
+      "@/*": ["../src/*"],
+      "@2002bishwajeet/live-blocks/*": ["../packages/live-blocks/src/*"]
     },
 
     /* Linting */

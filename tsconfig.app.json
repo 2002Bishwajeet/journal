@@ -19,7 +19,9 @@
     /* Path aliases */
 
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@2002bishwajeet/live-blocks": ["./packages/live-blocks/src/index.ts"],
+      "@2002bishwajeet/live-blocks/*": ["./packages/live-blocks/src/*"]
     },
 
     /* Linting */
@@ -30,5 +32,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src", "packages/live-blocks/src/virtual.d.ts"]
 }

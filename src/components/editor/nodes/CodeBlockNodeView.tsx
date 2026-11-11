@@ -13,8 +13,8 @@
 import { useState } from 'react';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { LiveBlockFrame, LiveBlockToggle } from '@/components/liveBlocks/LiveBlockFrame';
-import { liveBlockKind, parseCodeInfo, withBlockId } from '@/lib/liveBlocks';
-import { memoryBlockStateStore, newBlockId, ownBlockId, type BlockStateStore } from '@/lib/liveBlockState';
+import { liveBlockKind, memoryBlockStateStore, parseCodeInfo, withBlockId, type BlockStateStore } from '@2002bishwajeet/live-blocks/core';
+import { newBlockId, ownBlockId } from '@/lib/liveBlockState';
 import { useEditorContext } from '../EditorContext';
 
 export function CodeBlockNodeView({ node, selected, editor, getPos, updateAttributes }: NodeViewProps) {

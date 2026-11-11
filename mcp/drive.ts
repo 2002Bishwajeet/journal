@@ -116,6 +116,7 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
             // Kept so an agent edit of a public note keeps its link-card text and indexing.
             shareDescription: content.shareDescription,
             shareIndexable: content.shareIndexable,
+            shareUnlisted: content.shareUnlisted,
             archivalStatus: file.fileMetadata.appData.archivalStatus,
             isCollaborative: content.isCollaborative,
             circleIds: content.circleIds,
