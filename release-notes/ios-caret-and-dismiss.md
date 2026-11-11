@@ -4,7 +4,7 @@
 
 ### Changed
 
-- On a phone, the formatting toolbar floats a little above the keyboard, with rounded ends and a gap at each side.
+- On a phone, the formatting toolbar floats a little above the keyboard, with rounded ends and a gap at each side. When you scroll it, it stops at the start of a group of buttons, and at either end it stretches a little and springs back.
 
 ### Fixed
 

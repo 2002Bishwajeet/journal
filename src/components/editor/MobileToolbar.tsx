@@ -10,7 +10,7 @@
  * - Comprehensive formatting options matching desktop
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Editor } from "@tiptap/react";
 import {
   Bold,
@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
 import { MOBILE_TOOLBAR_GAP } from "@/lib/editor/keyboardOffset";
 import { useSwipeToDismissKeyboard } from "@/hooks/useSwipeToDismissKeyboard";
+import { useToolbarOverscroll } from "@/hooks/useToolbarOverscroll";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { ToolbarButton, ToolbarDivider, useToolbarState, safeEditorCommand } from "./shared";
 import { EmojiPicker } from "./EmojiPicker";
@@ -53,6 +54,8 @@ interface MobileToolbarProps {
 }
 
 const V = "mobile" as const;
+/** The first button of each group: where the row comes to rest after a scroll. */
+const GROUP = "snap-start";
 const CAPSULE =
   "pointer-events-auto flex items-center rounded-full border border-border bg-card/90 shadow-lg backdrop-blur-md";
 
@@ -100,6 +103,9 @@ export default function MobileToolbar({
   const isVisible = isTouchDevice && !isDesktop && hasFocus;
   useKeyboardOffset(isVisible, editor.view.dom);
   useSwipeToDismissKeyboard(editor, isVisible);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const capsuleRef = useRef<HTMLDivElement>(null);
+  useToolbarOverscroll(isVisible, rowRef, capsuleRef);
 
   // Action handlers using safeEditorCommand
   const handleUndo = () => {
@@ -241,10 +247,15 @@ export default function MobileToolbar({
       <div data-slash-dock className="pointer-events-auto absolute inset-x-0 bottom-full empty:hidden" />
       <LinkSheet editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />
       {/* Scrollable toolbar container */}
-      <div className={cn(CAPSULE, "min-w-0 flex-1 overflow-hidden")}>
-      <div className="flex min-w-0 flex-1 items-center gap-0.5 p-1 overflow-x-auto scrollbar-hide">
+      <div ref={capsuleRef} className={cn(CAPSULE, "min-w-0 flex-1 overflow-hidden")}>
+      {/* Comes to rest on the first button of a group. Past the ends useToolbarOverscroll
+          rubber-bands it, the same on iOS and Android, so the browser's own bounce is off. */}
+      <div
+        ref={rowRef}
+        className="flex min-w-0 flex-1 items-center gap-0.5 p-1 overflow-x-auto overscroll-x-none snap-x snap-mandatory scroll-px-1 scrollbar-hide"
+      >
         {/* Undo/Redo */}
-        <ToolbarButton variant={V} onClick={handleUndo} title="Undo">
+        <ToolbarButton variant={V} onClick={handleUndo} title="Undo" className={GROUP}>
           <Undo className="h-5 w-5" />
         </ToolbarButton>
         <ToolbarButton variant={V} onClick={handleRedo} title="Redo">
@@ -254,7 +265,7 @@ export default function MobileToolbar({
         <ToolbarDivider variant="mobile" />
 
         {/* Text formatting */}
-        <ToolbarButton variant={V}
+        <ToolbarButton variant={V} className={GROUP}
           onClick={toggleBold}
           isActive={state.isBold}
           title="Bold"
@@ -296,7 +307,7 @@ export default function MobileToolbar({
         <ToolbarDivider variant="mobile" />
 
         {/* Headings */}
-        <ToolbarButton variant={V}
+        <ToolbarButton variant={V} className={GROUP}
           onClick={toggleHeading1}
           isActive={state.isHeading1}
           title="Heading 1"
@@ -342,7 +353,7 @@ export default function MobileToolbar({
         <ToolbarDivider variant="mobile" />
 
         {/* Lists */}
-        <ToolbarButton variant={V}
+        <ToolbarButton variant={V} className={GROUP}
           onClick={toggleBulletList}
           isActive={state.isBulletList}
           title="Bullet List"
@@ -367,7 +378,7 @@ export default function MobileToolbar({
         <ToolbarDivider variant="mobile" />
 
         {/* Block elements */}
-        <ToolbarButton variant={V}
+        <ToolbarButton variant={V} className={GROUP}
           onClick={toggleBlockquote}
           isActive={state.isBlockquote}
           title="Quote"
@@ -378,7 +389,7 @@ export default function MobileToolbar({
         <ToolbarDivider variant="mobile" />
 
         {/* Insert */}
-        <ToolbarButton variant={V}
+        <ToolbarButton variant={V} className={GROUP}
           onClick={addLink}
           isActive={state.isLink}
           title="Add Link"
@@ -399,7 +410,7 @@ export default function MobileToolbar({
         <TextAlignPicker
           editor={editor}
           currentAlign={state.textAlign}
-          className="flex items-center justify-center w-12 h-12 min-w-12 rounded-full transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
+          className="snap-start flex items-center justify-center w-12 h-12 min-w-12 rounded-full transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
           iconSize={20}
         />
       </div>
