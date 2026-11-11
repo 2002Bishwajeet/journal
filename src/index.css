@@ -3,12 +3,12 @@
 
 /* Class names for a react block's own Tailwind sheet (#427), and the docs and tests that
    name them: not the app's. */
-@source not "./lib/reactBlockTailwind.ts";
-@source not "./__tests__/reactBlockTailwind.test.ts";
+@source not "../packages/live-blocks/src/reactBlockTailwind.ts";
+@source not "../packages/live-blocks/test/reactBlockTailwind.test.ts";
 @source not "../mcp/README.md";
 @source not "../mcp/createServer.ts";
 @source not "../e2e/editor/live-react-artifact.spec.ts";
-@source not "./lib/reactBlockCompiler.ts";
+@source not "../packages/live-blocks/src/reactBlockCompiler.ts";
 @source not "../e2e/editor/live-react-styling.spec.ts";
 /* The examples of mcp/AUTHORING.md's "Going further" (#559). */
 @source not inline("bg-[#ff6600] text-[13px] w-[420px] grid-cols-[1fr_2fr] rotate-3 text-gray-600");

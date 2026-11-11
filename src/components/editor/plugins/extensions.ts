@@ -34,7 +34,7 @@ import { Toggle } from '../nodes/ToggleNode';
 import { Callout } from '../nodes/CalloutNode';
 import { Gallery } from '../nodes/GalleryNode';
 import { Footnote, FootnoteReference, Footnotes } from '../nodes/FootnoteNodes';
-import { parseCodeInfo } from '@/lib/liveBlocks';
+import { parseCodeInfo } from '@2002bishwajeet/live-blocks/core';
 
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';

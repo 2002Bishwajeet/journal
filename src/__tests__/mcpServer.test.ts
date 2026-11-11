@@ -9,11 +9,10 @@ import type { AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
 import * as Y from 'yjs';
 import { createDoc, toMarkdown } from '@/lib/agent/editEngine';
-import { HTML_BLOCK_CDN_HOSTS } from '@/lib/liveBlocks';
-import { REACT_BLOCK_IMPORTS } from '@/lib/reactBlockLibraries';
+import { HTML_BLOCK_CDN_HOSTS, REACT_BLOCK_IMPORTS } from '@2002bishwajeet/live-blocks/core';
 import GUIDE_FILE from '../../mcp/AUTHORING.md?raw';
 import { GUIDE_INDEX, GUIDE_SECTION_IDS, guideSection } from '@/lib/agent/tools/authoringGuide';
-import LIVE_BLOCKS_SOURCE from '@/lib/liveBlocks.ts?raw';
+import LIVE_BLOCKS_SOURCE from '@2002bishwajeet/live-blocks/liveBlocks.ts?raw';
 
 /** Every section of the guide (#1004): the coverage checks below run against what an agent can reach. */
 const GUIDE = GUIDE_SECTION_IDS.map(guideSection).join('\n\n');
@@ -481,7 +480,7 @@ describe('the authoring guide (#519)', () => {
     });
 
     it('names every live-block language, react import and CDN host that the code allows', () => {
-        // Read from the code (src/lib/liveBlocks.ts, src/lib/reactBlockLibraries.ts), so one added there and not here fails this test.
+        // Read from the code (packages/live-blocks/src/liveBlocks.ts and reactBlockLibraries.ts), so one added there and not here fails this test.
         const languages = [...LIVE_BLOCKS_SOURCE.matchAll(/lang === '([^']+)'/g)].map((match) => match[1]);
         expect(languages).toEqual(expect.arrayContaining(['mermaid', 'svg', 'html', 'react']));
         for (const language of languages) expect(GUIDE).toContain(`| \`${language}\` |`);

@@ -8,11 +8,10 @@
  * thin edge, and a link it opens shows where it goes first (#975).
  */
 import { useRef, useState, type ReactNode } from 'react';
-import type { LiveBlockKind } from '@/lib/liveBlocks';
-import type { BlockStateStore } from '@/lib/liveBlockState';
+import { LiveBlockPreview } from '@2002bishwajeet/live-blocks';
+import type { BlockStateStore, LiveBlockKind } from '@2002bishwajeet/live-blocks/core';
 import { cn } from '@/lib/utils';
 import { LiveBlockLinkSheet } from './LiveBlockLinkSheet';
-import { LiveBlockPreview } from './LiveBlockPreview';
 
 const LABELS: Record<LiveBlockKind, string> = { mermaid: 'Mermaid', svg: 'SVG', html: 'HTML', react: 'React' };
 

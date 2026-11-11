@@ -2,6 +2,7 @@ export {
     initWebLLM,
     unloadWebLLM,
     clearModelCache,
+    hasModelFiles,
     checkGrammar,
     getAutocompleteSuggestion,
     isWebLLMReady,

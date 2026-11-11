@@ -28,6 +28,7 @@ export default function AISection() {
     setAutocomplete,
     setGrammar,
     clearCache,
+    canClearCache,
   } = useAIPreferences();
   const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
   const percent = Math.round(loadingProgress * 100);
@@ -60,6 +61,31 @@ export default function AISection() {
     </div>
   );
 
+  const modelFiles = (
+    <div className="space-y-4">
+      <SectionHeader subtitle="Downloaded models are stored in this browser so they load faster next time.">
+        Model files
+      </SectionHeader>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-11 md:h-8 text-destructive hover:text-destructive hover:bg-destructive/5 border-destructive/20 dark:text-red-400 dark:hover:text-red-400"
+        onClick={() => setIsConfirmingRemove(true)}
+      >
+        <Trash2 className="h-4 w-4 mr-2" />
+        Remove downloaded models
+      </Button>
+      <ConfirmDialog
+        isOpen={isConfirmingRemove}
+        onClose={() => setIsConfirmingRemove(false)}
+        onConfirm={() => clearCache()}
+        title="Remove downloaded models?"
+        description="This frees up space in this browser. AI will be turned off and the model will download again the next time you turn it on."
+        confirmText="Remove"
+      />
+    </div>
+  );
+
   if (!isSupported) {
     return (
       <div className="space-y-4">
@@ -69,6 +95,7 @@ export default function AISection() {
           available on phones.
         </p>
         {enableRow}
+        {canClearCache && modelFiles}
       </div>
     );
   }
@@ -179,29 +206,7 @@ export default function AISection() {
 
       <ModelDownloadDialog {...downloadDialogProps} />
 
-      {/* Model files */}
-      <div className="space-y-4">
-        <SectionHeader subtitle="Downloaded models are stored in this browser so they load faster next time.">
-          Model files
-        </SectionHeader>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-11 md:h-8 text-destructive hover:text-destructive hover:bg-destructive/5 border-destructive/20 dark:text-red-400 dark:hover:text-red-400"
-          onClick={() => setIsConfirmingRemove(true)}
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Remove downloaded models
-        </Button>
-        <ConfirmDialog
-          isOpen={isConfirmingRemove}
-          onClose={() => setIsConfirmingRemove(false)}
-          onConfirm={() => clearCache()}
-          title="Remove downloaded models?"
-          description="This frees up space in this browser. AI will be turned off and the model will download again the next time you turn it on."
-          confirmText="Remove"
-        />
-      </div>
+      {modelFiles}
     </div>
   );
 }

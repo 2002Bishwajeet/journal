@@ -4,12 +4,13 @@ import { activeEditor, createNote, screenshotInBothThemes } from '../support/act
 import { withMobilePage } from '../support/mobile';
 import { assertTestOrigin } from '../support/origin-guard';
 
-// The formatting toolbar sits on top of the keyboard in every keyboard mode and
+// The formatting toolbar floats 8px above the keyboard in every keyboard mode and
 // its taps never blur the editor (#789). The keyboard is simulated: a smaller
 // viewport (the layout resizes, as on Android) or a shorter, scrolled
 // visualViewport (the layout stays, as on iOS).
 
 const toolbar = (page: Page) => page.locator('[data-mobile-toolbar]');
+const GAP = 8;
 
 const toolbarBottom = async (page: Page) => {
   const box = await toolbar(page).boundingBox();
@@ -25,13 +26,23 @@ test('the toolbar sits on the keyboard in each mode and a tap on Bold keeps the 
     await editor.tap();
     await expect(toolbar(page)).toBeVisible();
 
-    await test.step('the layout shrinks for the keyboard: the toolbar is at the bottom of the window', async () => {
+    await test.step('the toolbar is a capsule with side margins, as tall as the caret math assumes', async () => {
+      const box = (await toolbar(page).boundingBox())!;
+      // MOBILE_TOOLBAR_HEIGHT in src/lib/editor/keyboardOffset.ts
+      expect(box.height).toBeCloseTo(58, 0);
+      // 12px side margin, then the 1px border and 4px padding of each capsule.
+      expect((await toolbar(page).getByTitle('Undo').boundingBox())!.x).toBeCloseTo(17, 0);
+      const hide = (await toolbar(page).getByTitle('Hide keyboard').boundingBox())!;
+      expect(hide.x + hide.width).toBeCloseTo(393 - 17, 0);
+    });
+
+    await test.step('the layout shrinks for the keyboard: the toolbar floats just above the bottom of the window', async () => {
       await page.setViewportSize({ width: 393, height: 516 });
       await expect(toolbar(page)).toBeVisible();
-      await expect.poll(() => toolbarBottom(page)).toBeCloseTo(516, 0);
+      await expect.poll(() => toolbarBottom(page)).toBeCloseTo(516 - GAP, 0);
       await screenshotInBothThemes(page, (theme) => `toolbar-resized-layout-${theme}-393x516.png`);
       await page.setViewportSize({ width: 393, height: 852 });
-      await expect.poll(() => toolbarBottom(page)).toBeCloseTo(852, 0);
+      await expect.poll(() => toolbarBottom(page)).toBeCloseTo(852 - GAP, 0);
     });
 
     await test.step('only the visual viewport shrinks and scrolls: the toolbar follows the keyboard top', async () => {
@@ -41,7 +52,7 @@ test('the toolbar sits on the keyboard in each mode and a tap on Bold keeps the 
         Object.defineProperty(viewport, 'offsetTop', { configurable: true, value: 200 });
         viewport.dispatchEvent(new Event('resize'));
       });
-      await expect.poll(() => toolbarBottom(page)).toBeCloseTo(716, 0);
+      await expect.poll(() => toolbarBottom(page)).toBeCloseTo(716 - GAP, 0);
       await screenshotInBothThemes(page, (theme) => `toolbar-visual-viewport-${theme}-393x852.png`);
     });
 
