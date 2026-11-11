@@ -12,7 +12,13 @@ export default defineConfig({
     publicDir: false,
     // The running version, for the stale-version notice (mcp/updateCheck.ts).
     define: { 'process.env.JOURNAL_MCP_VERSION': JSON.stringify(version) },
-    resolve: { alias: { '@': path.resolve(import.meta.dirname, '../src') } },
+    resolve: {
+        alias: {
+            '@': path.resolve(import.meta.dirname, '../src'),
+            // Only `@journal/live-blocks/core`: the server has no use for the components.
+            '@journal/live-blocks': path.resolve(import.meta.dirname, '../packages/live-blocks/src'),
+        },
+    },
     ssr: { noExternal: true, external: ['@napi-rs/keyring'] },
     build: {
         ssr: 'mcp/server.ts',

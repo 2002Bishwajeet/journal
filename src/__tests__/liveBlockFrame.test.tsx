@@ -9,7 +9,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { LiveBlockFrame, LiveBlockToggle } from '@/components/liveBlocks/LiveBlockFrame';
-import { LiveBlockPreview } from '@/components/liveBlocks/LiveBlockPreview';
+import { LiveBlockPreview } from '@journal/live-blocks';
 
 beforeAll(() => {
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -147,7 +147,7 @@ describe('LiveBlockPreview mermaid, mounted (#946)', () => {
   it('should run the mermaid runtime in the frame, on the block\'s source', async () => {
     await mount();
     const srcdoc = note.querySelector('iframe')!.getAttribute('srcdoc')!;
-    // The stub stands in for the runtime vite.config.ts builds (src/__tests__/stubs/reactBlockMermaid.ts).
+    // The stub stands in for the runtime build/pieces.ts builds (packages/live-blocks/test/stubs/reactBlockMermaid.ts).
     expect(srcdoc).toContain('<script>/* react-block-mermaid stub */</script>');
     expect(srcdoc).toContain(JSON.stringify(SOURCE));
   });
@@ -184,12 +184,12 @@ describe('LiveBlockPreview react, mounted (#426)', () => {
     const srcdoc = frame.getAttribute('srcdoc')!;
     expect(srcdoc.startsWith('<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src \'none\';')).toBe(true);
     expect(srcdoc).not.toContain('unsafe-eval');
-    // The stub stands in for the runtime vite.config.ts builds (src/__tests__/stubs/reactBlockRuntime.ts).
+    // The stub stands in for the runtime build/pieces.ts builds (packages/live-blocks/test/stubs/reactBlockRuntime.ts).
     expect(srcdoc).toContain('<script>/* react-block-runtime stub */</script>');
     expect(srcdoc).toContain("React.createElement('button'");
   });
 
-  // The stubs stand in for what vite.config.ts builds (src/__tests__/stubs/).
+  // The stubs stand in for what build/pieces.ts builds (packages/live-blocks/test/stubs/).
   it('should give a block that imports only react the Tailwind sheet, and no Recharts or lucide-react code (#427)', async () => {
     await mount("import { useState } from 'react';\n" + COUNTER);
     const srcdoc = note.querySelector('iframe')!.getAttribute('srcdoc')!;

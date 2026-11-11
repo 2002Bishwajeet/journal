@@ -1,6 +1,6 @@
 import mermaid from 'mermaid';
 
-// Mermaid themed like the app's live blocks (src/components/liveBlocks/LiveBlockPreview.tsx), with the
+// Mermaid themed like the app's live blocks (packages/live-blocks/src/LiveBlockPreview.tsx), with the
 // flat `classic` look. The preview pane is the Beige band, so nodes take the page's paper (or night) tone.
 function themeVariables(dark: boolean) {
   return dark

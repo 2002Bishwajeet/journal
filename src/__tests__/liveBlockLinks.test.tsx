@@ -8,7 +8,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi, type MockIn
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { LiveBlockFrame } from '@/components/liveBlocks/LiveBlockFrame';
-import { ownerWroteNote, type LiveBlockKind } from '@/lib/liveBlocks';
+import { ownerWroteNote, type LiveBlockKind } from '@journal/live-blocks/core';
 
 const ME = 'me.homebase.test';
 
