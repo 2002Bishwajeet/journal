@@ -16,7 +16,7 @@ vi.mock('@homebase-id/js-lib/public', async (importOriginal) => ({
 
 import { BlogConfig } from '@homebase-id/js-lib/public';
 import { buildFeedArticle, saveFeedPost, type FeedArticleInput } from '@/lib/share/feedArticle';
-import type { TiptapJSONContent } from '@/lib/share/articleBody';
+import type { TiptapJSONContent } from '@homebase-id/js-lib/public';
 import { fakeDotYouClient } from './fakes';
 
 const FILE_ID = 'note-file';

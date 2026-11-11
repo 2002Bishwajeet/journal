@@ -9,14 +9,18 @@
 import type { DotYouClient, HomebaseFile, NewHomebaseFile, NewMediaFile } from '@homebase-id/js-lib/core';
 import { SecurityGroupType } from '@homebase-id/js-lib/core';
 import { makeSlug } from '@homebase-id/js-lib/helpers';
-import { BlogConfig, getPostByGlobalTransitId, savePost, type Article } from '@homebase-id/js-lib/public';
+import {
+    BlogConfig,
+    getPostByGlobalTransitId,
+    savePost,
+    toStoredArticleBody,
+    type Article,
+    type StoredArticleBody,
+    type TiptapJSONContent,
+} from '@homebase-id/js-lib/public';
 import { getNewId } from '@/lib/utils';
 import { readEdits, NO_EDITS, type ImageEdits } from '@/lib/images/imageEdits';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
-import { toStoredArticleBody, type StoredBodyDoc, type TiptapJSONContent } from '@/lib/share/articleBody';
-
-/** An article with the Tiptap document next to its Slate body (odin-js#1035 adds `bodyDoc` to `Article`). */
-type FeedArticle = Article & { bodyDoc: StoredBodyDoc };
 
 /** The post's own payload keys for the note's images, as the feed's uploader names media. */
 const FEED_MEDIA_KEY_PREFIX = 'pst_mdi';
@@ -38,7 +42,7 @@ export interface FeedArticleInput {
 }
 
 interface BuiltFeedArticle {
-    content: Pick<FeedArticle, 'caption' | 'abstract' | 'body' | 'bodyDoc' | 'primaryMediaFile'>;
+    content: Pick<Article, 'caption' | 'abstract' | 'primaryMediaFile'> & StoredArticleBody;
     files: NewMediaFile[];
 }
 
@@ -128,14 +132,14 @@ export async function buildFeedArticle(input: FeedArticleInput): Promise<BuiltFe
  */
 export async function saveFeedPost(client: DotYouClient, article: BuiltFeedArticle, feedPostId?: string): Promise<string> {
     const channelId = BlogConfig.PublicChannelId;
-    const existing = feedPostId ? await getPostByGlobalTransitId<FeedArticle>(client, channelId, feedPostId) : null;
+    const existing = feedPostId ? await getPostByGlobalTransitId<Article>(client, channelId, feedPostId) : null;
 
-    let file: HomebaseFile<FeedArticle> | NewHomebaseFile<FeedArticle>;
+    let file: HomebaseFile<Article> | NewHomebaseFile<Article>;
     if (existing) {
         const content = { ...existing.fileMetadata.appData.content, ...article.content };
         file = { ...existing, fileMetadata: { ...existing.fileMetadata, appData: { ...existing.fileMetadata.appData, content } } };
     } else {
-        const content: FeedArticle = {
+        const content: Article = {
             id: getNewId(),
             channelId,
             type: 'Article',
