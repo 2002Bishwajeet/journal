@@ -152,6 +152,36 @@ fn native_flag_script() -> String {
     )
 }
 
+/// iOS: removes the form assistant bar (the ^ v Done row) WKWebView puts above
+/// the keyboard, so the editor's own toolbar sits on the keyboard like in a
+/// native app. Same trick as Capacitor's Keyboard plugin (`HideFormAccessoryBar`):
+/// `WKContentView`, the view that takes the keyboard focus, answers nil for
+/// `inputAccessoryView`. `class_replaceMethod` changes that one class, never
+/// `UIResponder`. With the Done button gone, tapping outside the field closes
+/// the keyboard.
+#[cfg(target_os = "ios")]
+fn hide_form_accessory_bar() {
+    use objc2::runtime::{AnyClass, AnyObject, Imp, Sel};
+
+    extern "C-unwind" fn no_accessory_view(_: *mut AnyObject, _: Sel) -> *mut AnyObject {
+        std::ptr::null_mut()
+    }
+
+    let Some(class) = AnyClass::get(c"WKContentView") else {
+        return;
+    };
+    unsafe {
+        objc2::ffi::class_replaceMethod(
+            class as *const AnyClass as *mut AnyClass,
+            objc2::sel!(inputAccessoryView),
+            std::mem::transmute::<extern "C-unwind" fn(*mut AnyObject, Sel) -> *mut AnyObject, Imp>(
+                no_accessory_view,
+            ),
+            c"@@:".as_ptr(),
+        );
+    }
+}
+
 /// Shared entry point for every target.
 ///
 /// On desktop `main.rs` calls this directly. On mobile there is no `main` —
@@ -212,6 +242,9 @@ pub fn run() {
                 .resizable(true);
 
             builder.build()?;
+
+            #[cfg(target_os = "ios")]
+            hide_form_accessory_bar();
 
             Ok(())
         })

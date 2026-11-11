@@ -1603,6 +1603,7 @@ dependencies = [
 name = "journal"
 version = "2.66.2"
 dependencies = [
+ "objc2",
  "rfd",
  "tauri",
  "tauri-build",
