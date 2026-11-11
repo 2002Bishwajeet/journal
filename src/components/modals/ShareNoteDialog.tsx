@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import ConfirmDialog from '@/components/modals/ConfirmDialog';
 import { SharePeopleSection } from '@/components/share/SharePeopleSection';
 import { Notice, ShareGeneralAccess, ShareLinkPreview } from '@/components/share/ShareGeneralAccess';
+import { ShareToFeed } from '@/components/share/ShareToFeed';
 import { useSheetMode } from '@/hooks/useSheetMode';
 import { useShareAccess } from '@/hooks/useShareAccess';
 import { useMakeNotesPublic } from '@/hooks/useMakeNotesPublic';
@@ -230,6 +231,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
                     setAskingAboutLinks={setAskingAboutLinks}
                 />
             </fieldset>
+            <ShareToFeed noteId={noteId} />
         </div>
     );
 

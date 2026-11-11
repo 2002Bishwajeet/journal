@@ -116,6 +116,8 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
             // Kept so an agent edit of a public note keeps its link-card text and indexing.
             shareDescription: content.shareDescription,
             shareIndexable: content.shareIndexable,
+            // Kept so a publish to the feed after an agent edit updates the same post (#1074).
+            feedPostId: content.feedPostId,
             archivalStatus: file.fileMetadata.appData.archivalStatus,
             isCollaborative: content.isCollaborative,
             circleIds: content.circleIds,

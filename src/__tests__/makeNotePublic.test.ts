@@ -156,6 +156,16 @@ describe('NotesDriveProvider.makeNotePublic', () => {
         expect(content.shareDescription).toBe('Blurb');
         expect(content.shareIndexable).toBe(true);
     });
+
+    it('keeps the feed post id, so the next Publish to feed updates the same post (#1074)', async () => {
+        const header = ownerHeader();
+        Object.assign(header.fileMetadata.appData.content, { feedPostId: 'post-1' });
+        mockGetHeader.mockResolvedValue(header);
+
+        await provider.makeNotePublic(NOTE_ID, undefined, {});
+
+        expect(JSON.parse(mockReUpload.mock.calls[0][2].appData.content).feedPostId).toBe('post-1');
+    });
 });
 
 describe('NotesDriveProvider.makeNotePrivate', () => {
