@@ -265,6 +265,10 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+    // The page asks which build a waiting worker is, so a launch already on that build skips the prompt.
+    if (event.data?.type === 'GET_BUILD') {
+        event.ports[0]?.postMessage(__APP_BUILD__);
+    }
 });
 
 // Web push from the identity (#744). Payload: odin-core `PushNotificationContent`, serialized
