@@ -4,8 +4,13 @@
 <dict>
 	<!-- iOS-only keys. The Tauri CLI merges this file (after Info.plist) into
 	     gen/apple/journal_iOS/Info.plist on every `tauri ios build` / `dev`. -->
+	<!-- "Journal" is taken on the App Store (ITMS-90129), so the home-screen
+	     and bundle names are "Journal+". CFBundleName overrides the generated
+	     $(PRODUCT_NAME), which stays "Journal" for desktop and the .app name. -->
 	<key>CFBundleDisplayName</key>
-	<string>Journal</string>
+	<string>Journal+</string>
+	<key>CFBundleName</key>
+	<string>Journal+</string>
 	<!-- The app only uses HTTPS and the OS's own encryption, which is exempt:
 	     App Store Connect then skips the export-compliance question. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
