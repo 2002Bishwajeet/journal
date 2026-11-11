@@ -4,7 +4,7 @@
  * it applies the same affine transforms a browser canvas does and samples the source per pixel.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { bakeImageEdits } from '@/lib/share/bakeImageEdits';
+import { bakeImageEdits, MAX_PIXELS } from '@/lib/share/bakeImageEdits';
 import { NO_EDITS, type ImageEdits } from '@/lib/images/imageEdits';
 
 type Matrix = [number, number, number, number, number, number];
@@ -122,6 +122,32 @@ describe('bakeImageEdits', () => {
         expect((await bakeImageEdits(new Blob(['src'], { type: 'image/webp' }), edits({ rotate: 180 }))).type).toBe('image/png');
         decoded = bitmap(2, 2);
         expect((await bakeImageEdits(new Blob(['src'], { type: 'image/webp' }), edits({ rotate: 180 }))).type).toBe('image/jpeg');
+    });
+
+    it('re-encodes an unedited AVIF too, as any raster type can carry EXIF', async () => {
+        decoded = bitmap(2, 2);
+        const avif = new Blob(['avif-with-exif'], { type: 'image/avif' });
+        const out = await bakeImageEdits(avif, NO_EDITS);
+
+        expect(out).not.toBe(avif);
+        expect(out.type).toBe('image/jpeg');
+    });
+
+    it('scales an image past the canvas limit down to fit it', async () => {
+        // A canvas that only records its size: a real-size fake would allocate millions of pixels
+        let size = { width: 0, height: 0 };
+        vi.stubGlobal('OffscreenCanvas', class {
+            constructor(width: number, height: number) { size = { width, height }; }
+            getContext() { return { translate() {}, scale() {}, rotate() {}, drawImage() {} }; }
+            async convertToBlob({ type }: { type: string }) { return new Blob([], { type }); }
+        });
+        decoded = { ...bitmap(1, 1), width: 8000, height: 6000 };
+        await bakeImageEdits(new Blob(['src'], { type: 'image/jpeg' }), NO_EDITS);
+
+        // MAX_PIXELS before rounding, so within a row of it; always under iOS Safari's limit
+        expect(size.width * size.height).toBeLessThan(MAX_PIXELS * 1.001);
+        expect(size.width * size.height).toBeLessThan(16_777_216);
+        expect(size.width / size.height).toBeCloseTo(8000 / 6000, 2);
     });
 
     it('keeps an unedited GIF as it is, for its animation', async () => {

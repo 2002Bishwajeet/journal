@@ -11,7 +11,7 @@ import { SecurityGroupType } from '@homebase-id/js-lib/core';
 import { makeSlug } from '@homebase-id/js-lib/helpers';
 import { BlogConfig, getPostByGlobalTransitId, savePost, type Article } from '@homebase-id/js-lib/public';
 import { getNewId } from '@/lib/utils';
-import { hasEdits, readEdits, NO_EDITS, type ImageEdits } from '@/lib/images/imageEdits';
+import { readEdits, NO_EDITS, type ImageEdits } from '@/lib/images/imageEdits';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import { toStoredArticleBody, type StoredBodyDoc, type TiptapJSONContent } from '@/lib/share/articleBody';
 
@@ -79,7 +79,7 @@ export async function buildFeedArticle(input: FeedArticleInput): Promise<BuiltFe
             }
             // A pending (blob:) image or one of another note can't be published
             const edits = readEdits(attrs);
-            const fileKey = await upload(src, hasEdits(edits) ? edits : NO_EDITS);
+            const fileKey = await upload(src, edits);
             if (!fileKey) return [];
             for (const k of [...EDIT_ATTRS, 'src', 'data-pending-id']) delete attrs[k];
             return [{ ...node, attrs: { ...attrs, fileKey } }];
@@ -144,7 +144,8 @@ export async function saveFeedPost(client: DotYouClient, article: BuiltFeedArtic
     }
 
     const result = await savePost(client, file, undefined, channelId, article.files);
-    const id = 'globalTransitIdFileIdentifier' in result ? result.globalTransitIdFileIdentifier?.globalTransitId : undefined;
+    // An update keeps the post's id; don't rely on the update response carrying it
+    const id = existing ? feedPostId : 'globalTransitIdFileIdentifier' in result ? result.globalTransitIdFileIdentifier?.globalTransitId : undefined;
     if (!id) throw new Error('The feed returned no post id');
     return id;
 }

@@ -48,18 +48,18 @@ vi.mock('@/lib/share/feedArticle', () => ({ buildFeedArticle: mocks.buildFeedArt
 vi.mock('sonner', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
 
 import { FEED_CONSENT_PENDING_KEY, FEED_PERMISSION_MESSAGE, usePublishToFeed } from '@/hooks/usePublishToFeed';
+import { getSyncRecord } from '@/lib/db';
 
 type Api = ReturnType<typeof usePublishToFeed>;
 let root: ReturnType<typeof createRoot> | undefined;
 
-async function mount() {
+async function mount(client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })) {
     const result = { current: null as Api | null };
     function Probe() {
         result.current = usePublishToFeed('note-1');
         return null;
     }
     root = createRoot(document.createElement('div'));
-    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
     await act(async () => root!.render(h(QueryClientProvider, { client }, h(Probe))));
     return () => result.current!;
 }
@@ -102,7 +102,7 @@ describe('usePublishToFeed', () => {
         await act(() => api().publish());
 
         expect(assign).toHaveBeenCalledWith(CONSENT_URL);
-        expect(sessionStorage.getItem(FEED_CONSENT_PENDING_KEY)).toBe('note-1');
+        expect(sessionStorage.getItem(FEED_CONSENT_PENDING_KEY)).toMatch(/^note-1 \d+$/);
         expect(mocks.saveFeedPost).not.toHaveBeenCalled();
 
         // Back from the consent page with the grant: the reopened dialog publishes
@@ -117,7 +117,7 @@ describe('usePublishToFeed', () => {
 
     it('leaves the note unpublished when the access is declined, says so, and asks again on the next press', async () => {
         state.missing = { url: CONSENT_URL };
-        sessionStorage.setItem(FEED_CONSENT_PENDING_KEY, 'note-1');
+        sessionStorage.setItem(FEED_CONSENT_PENDING_KEY, `note-1 ${Date.now()}`);
         const api = await mount();
 
         expect(mocks.saveFeedPost).not.toHaveBeenCalled();
@@ -139,6 +139,48 @@ describe('usePublishToFeed', () => {
         expect(mocks.saveFeedPost).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'post-1');
         expect(mocks.updateSearchIndexMetadata).not.toHaveBeenCalled();
         expect(mocks.toastSuccess).toHaveBeenCalledWith('Updated on your feed');
+    });
+
+    it('ignores a consent flag left long ago by backing out of the consent page', async () => {
+        sessionStorage.setItem(FEED_CONSENT_PENDING_KEY, `note-1 ${Date.now() - 60 * 60 * 1000}`);
+        const api = await mount();
+        await act(async () => {});
+
+        expect(mocks.saveFeedPost).not.toHaveBeenCalled();
+        expect(mocks.toastError).not.toHaveBeenCalled();
+        expect(api().permissionDeclined).toBe(false);
+    });
+
+    it('keeps the button busy in a Share dialog reopened mid-publish, so no second post is made', async () => {
+        let finish!: (id: string) => void;
+        mocks.saveFeedPost.mockReturnValue(new Promise<string>((resolve) => (finish = resolve)));
+        const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+        const first = await mount(client);
+        let pending!: Promise<void>;
+        await act(async () => {
+            pending = first().publish();
+        });
+
+        await unmount();
+        const api = await mount(client);
+        expect(api().isPublishing).toBe(true);
+        expect(api().canPublish).toBe(false);
+        await act(() => api().publish());
+        expect(mocks.saveFeedPost).toHaveBeenCalledTimes(1);
+
+        await act(async () => {
+            finish('post-1');
+            await pending;
+        });
+    });
+
+    it('publishes nothing while the note is not on the server, as its images would be left out', async () => {
+        vi.mocked(getSyncRecord).mockResolvedValueOnce(null);
+        const api = await mount();
+        await act(() => api().publish());
+
+        expect(mocks.saveFeedPost).not.toHaveBeenCalled();
+        expect(mocks.toastError).toHaveBeenCalledWith('Failed to publish to your feed');
     });
 
     it('keeps the note unpublished when the feed refuses the post', async () => {

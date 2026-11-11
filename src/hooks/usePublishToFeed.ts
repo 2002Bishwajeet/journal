@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useIsMutating, useMutation } from '@tanstack/react-query';
 import * as Y from 'yjs';
 import { yXmlFragmentToProsemirrorJSON } from 'y-prosemirror';
 import { toast } from 'sonner';
@@ -26,7 +26,7 @@ export const FEED_DRIVE_REQUEST: TargetDriveAccessRequest = {
     description: 'Publish notes to your feed',
     permissions: [DrivePermissionType.Read, DrivePermissionType.Write],
     // Owned by the feed; slugs only apply if the drive doesn't exist yet
-    driveSlug: BlogConfig.PublicChannelSlug,
+    driveSlug: 'posts',
     driveTypeSlug: 'channel',
 };
 
@@ -35,16 +35,20 @@ export const FEED_CONSENT_PENDING_KEY = 'journal.feedConsentPending';
 export const FEED_PERMISSION_MESSAGE =
     'Publishing to your feed needs permission to write to your public posts. Nothing was published. Press Publish to feed to ask again.';
 
+// A flag older than this is left from backing out of the consent page, not a return from it
+const PENDING_MAX_AGE_MS = 10 * 60 * 1000;
+
 const readPending = () => {
     try {
-        return sessionStorage.getItem(FEED_CONSENT_PENDING_KEY);
+        const [noteId, at] = (sessionStorage.getItem(FEED_CONSENT_PENDING_KEY) ?? '').split(' ');
+        return Date.now() - Number(at) < PENDING_MAX_AGE_MS ? noteId : null;
     } catch {
         return null;
     }
 };
 const writePending = (noteId: string | null) => {
     try {
-        if (noteId) sessionStorage.setItem(FEED_CONSENT_PENDING_KEY, noteId);
+        if (noteId) sessionStorage.setItem(FEED_CONSENT_PENDING_KEY, `${noteId} ${Date.now()}`);
         else sessionStorage.removeItem(FEED_CONSENT_PENDING_KEY);
     } catch {
         // Without storage the publish just doesn't resume after the consent page
@@ -87,11 +91,16 @@ export function usePublishToFeed(noteId: string) {
         void syncNote(noteId);
     };
 
+    // Keyed by note, so a Share dialog reopened mid-publish can't start a second post
+    const mutationKey = ['publishToFeed', noteId];
     const publishing = useMutation({
+        mutationKey,
         mutationFn: async () => {
             // Push the latest edits first: the images are read from the server
             await syncNote(noteId);
             const fileId = (await getSyncRecord(noteId))?.remoteFileId;
+            // Without it every image would be left out of the post
+            if (!fileId) throw new Error('The note is not on the server yet');
             const updates = await getDocumentUpdates(noteId);
             const ydoc = new Y.Doc();
             if (updates.length) Y.applyUpdate(ydoc, Y.mergeUpdates(updates));
@@ -99,7 +108,7 @@ export function usePublishToFeed(noteId: string) {
             const cover = getCover(ydoc);
             ydoc.destroy();
 
-            const header = fileId ? await getFileHeader<NoteFileContent>(dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true }) : null;
+            const header = await getFileHeader<NoteFileContent>(dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true });
             const { bakeImageEdits } = await import('@/lib/share/bakeImageEdits');
             const identity = dotYouClient.getHostIdentity();
             const article = await buildFeedArticle({
@@ -111,7 +120,6 @@ export function usePublishToFeed(noteId: string) {
                     notes?.find((n) => n.docId === id)?.metadata.isPublic ? noteShareUrl(window.location.origin, identity, id) : null,
                 // With lastModified, so the browser can't hand back a stale copy (#451)
                 readImage: async (key) => {
-                    if (!fileId) return null;
                     const lastModified = header?.fileMetadata.payloads?.find((p) => p.key === key)?.lastModified;
                     const data = await getPayloadBytes(dotYouClient, JOURNAL_DRIVE, fileId, key, { decrypt: true, lastModified });
                     return data ? new Blob([new Uint8Array(data.bytes)], { type: data.contentType }) : null;
@@ -120,14 +128,16 @@ export function usePublishToFeed(noteId: string) {
             });
             const postId = await saveFeedPost(dotYouClient, article, feedPostId);
             if (postId !== feedPostId) await saveFeedPostId(postId);
+            return postId === feedPostId;
         },
-        onSuccess: () => toast.success(feedPostId ? 'Updated on your feed' : 'Published to your feed'),
+        // From the result, not the render: the post id is saved before this runs
+        onSuccess: (updated) => toast.success(updated ? 'Updated on your feed' : 'Published to your feed'),
         onError: (err) => {
             console.error('Failed to publish to the feed:', err);
             toast.error('Failed to publish to your feed');
         },
     });
-    const isPublishing = publishing.isPending;
+    const isPublishing = useIsMutating({ mutationKey }) > 0;
 
     const publish = async () => {
         if (!permissionKnown || isPublishing) return;
