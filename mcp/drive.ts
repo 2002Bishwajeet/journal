@@ -58,14 +58,21 @@ export async function collectPages<T>(
     return all;
 }
 
-/** Strips an unedited image's metadata in place of the app's canvas redraw; an edited one can't be published here. */
+// As bakeImageEdits: kept as they are when unedited (animation, vectors).
+const KEEP_TYPES = ['image/gif', 'image/svg+xml'];
+
+/**
+ * In place of the app's canvas redraw (bakeImageEdits): an unedited GIF or SVG as it is, a
+ * PNG, JPEG or WebP without its metadata. Anything else, or an edited image, needs the app.
+ */
 export async function stripForFeed(image: Blob, edits: ImageEdits): Promise<Blob> {
-    if (hasEdits(edits)) {
-        throw new Error('publish_to_feed: the note has a cropped, rotated or flipped image, which only the Journal app can publish. Nothing was published.');
-    }
+    const appOnly = (what: string) => new Error(`publish_to_feed: the note has ${what}, which only the Journal app can publish. Nothing was published.`);
+    if (hasEdits(edits)) throw appOnly('a cropped, rotated or flipped image');
+    if (KEEP_TYPES.includes(image.type)) return image;
     const bytes = new Uint8Array(await image.arrayBuffer());
     const type = sniffImageType(bytes);
-    return type ? new Blob([new Uint8Array(stripImageMetadata(bytes, type))], { type }) : image;
+    if (!type) throw appOnly(`an image of type ${image.type || 'unknown'}`);
+    return new Blob([new Uint8Array(stripImageMetadata(bytes, type))], { type });
 }
 
 /**

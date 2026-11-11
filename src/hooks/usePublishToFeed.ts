@@ -1,32 +1,38 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import * as Y from 'yjs';
+import { useIsMutating, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useDotYouClientContext } from '@/components/auth';
 import { useMissingPermissions } from '@/hooks/auth/useMissingPermissions';
 import { useSecurityContext } from '@/hooks/securityContext/useSecurityContext';
 import { useNotes } from '@/hooks/useNotes';
 import { useSyncService } from '@/hooks/useSyncService';
-import { getDocumentUpdates, getSearchIndexEntry, getSyncRecord, updateSearchIndexMetadata, updateSyncStatus } from '@/lib/db';
+import { getSearchIndexEntry, getSyncRecord, updateSearchIndexMetadata, updateSyncStatus } from '@/lib/db';
 import { JOURNAL_APP_ID } from '@/lib/homebase/config';
+import { bakeImageEdits } from '@/lib/share/bakeImageEdits';
 import { FEED_DRIVE_REQUEST, publishNoteToFeed } from '@/lib/share/publishNoteToFeed';
+import { collaborateReturnUrl } from '@/lib/share/shareAccess';
 import { noteShareUrl } from '@/lib/share/sharedFolder';
+import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 
 /** The note whose Publish to feed went to the Homebase consent page, so the publish goes on after it. */
 export const FEED_CONSENT_PENDING_KEY = 'journal.feedConsentPending';
 export const FEED_PERMISSION_MESSAGE =
     'Publishing to your feed needs permission to write to your public posts. Nothing was published. Press Publish to feed to ask again.';
 
+// A flag older than this is left from backing out of the consent page, not a return from it
+const PENDING_MAX_AGE_MS = 10 * 60 * 1000;
+
 const readPending = () => {
     try {
-        return sessionStorage.getItem(FEED_CONSENT_PENDING_KEY);
+        const [noteId, at] = (sessionStorage.getItem(FEED_CONSENT_PENDING_KEY) ?? '').split(' ');
+        return Date.now() - Number(at) < PENDING_MAX_AGE_MS ? noteId : null;
     } catch {
         return null;
     }
 };
 const writePending = (noteId: string | null) => {
     try {
-        if (noteId) sessionStorage.setItem(FEED_CONSENT_PENDING_KEY, noteId);
+        if (noteId) sessionStorage.setItem(FEED_CONSENT_PENDING_KEY, `${noteId} ${Date.now()}`);
         else sessionStorage.removeItem(FEED_CONSENT_PENDING_KEY);
     } catch {
         // Without storage the publish just doesn't resume after the consent page
@@ -48,8 +54,9 @@ export function usePublishToFeed(noteId: string) {
     const { syncNote } = useSyncService();
     const security = useSecurityContext().fetch;
     // After a permission grant the app reopens the share dialog from this URL
-    const returnUrl = `${window.location.origin}${window.location.pathname}?action=collaborate&noteId=${noteId}`;
-    const missing = useMissingPermissions({ appId: JOURNAL_APP_ID, drives: [FEED_DRIVE_REQUEST], permissions: [], returnUrl });
+    const missing = useMissingPermissions({
+        appId: JOURNAL_APP_ID, drives: [FEED_DRIVE_REQUEST], permissions: [], returnUrl: collaborateReturnUrl(noteId),
+    });
     // This dialog opened back from the consent page (or Back out of it)
     const [fromConsent] = useState(() => readPending() === noteId);
 
@@ -69,15 +76,15 @@ export function usePublishToFeed(noteId: string) {
         void syncNote(noteId);
     };
 
+    // Keyed by note, so a Share dialog reopened mid-publish can't start a second post
+    const mutationKey = ['publishToFeed', noteId];
     const publishing = useMutation({
+        mutationKey,
         mutationFn: async () => {
             // Push the latest edits first: the images are read from the server
             await syncNote(noteId);
             const fileId = (await getSyncRecord(noteId))?.remoteFileId;
-            const updates = await getDocumentUpdates(noteId);
-            const ydoc = new Y.Doc();
-            if (updates.length) Y.applyUpdate(ydoc, Y.mergeUpdates(updates));
-            const { bakeImageEdits } = await import('@/lib/share/bakeImageEdits');
+            const ydoc = await loadLocalYDoc(noteId);
             const identity = dotYouClient.getHostIdentity();
             const postId = await publishNoteToFeed(dotYouClient, {
                 ydoc,
@@ -87,16 +94,18 @@ export function usePublishToFeed(noteId: string) {
                 publicNoteUrl: (id) =>
                     notes?.find((n) => n.docId === id)?.metadata.isPublic ? noteShareUrl(window.location.origin, identity, id) : null,
                 bakeImage: bakeImageEdits,
-            }).finally(() => ydoc.destroy());
+            }).finally(() => ydoc?.destroy());
             if (postId !== feedPostId) await saveFeedPostId(postId);
+            return postId === feedPostId;
         },
-        onSuccess: () => toast.success(feedPostId ? 'Updated on your feed' : 'Published to your feed'),
+        // From the result, not the render: the post id is saved before this runs
+        onSuccess: (updated) => toast.success(updated ? 'Updated on your feed' : 'Published to your feed'),
         onError: (err) => {
             console.error('Failed to publish to the feed:', err);
             toast.error('Failed to publish to your feed');
         },
     });
-    const isPublishing = publishing.isPending;
+    const isPublishing = useIsMutating({ mutationKey }) > 0;
 
     const publish = async () => {
         if (!permissionKnown || isPublishing) return;

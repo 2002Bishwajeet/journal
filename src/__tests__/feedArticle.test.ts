@@ -137,7 +137,8 @@ describe('saveFeedPost', () => {
             fileMetadata: { versionTag: 'v1', appData: { content: { id: 'p', slug: 'old-slug', caption: 'Old', type: 'Article' } } },
             serverMetadata: { accessControlList: { requiredSecurityGroup: SecurityGroupType.Anonymous } },
         });
-        mockSavePost.mockResolvedValue({ globalTransitIdFileIdentifier: { globalTransitId: 'post-1' } });
+        // An update response need not carry the post's global transit id
+        mockSavePost.mockResolvedValue({ newVersionTag: 'v2' });
 
         expect(await saveFeedPost(client, built, 'post-1')).toBe('post-1');
 

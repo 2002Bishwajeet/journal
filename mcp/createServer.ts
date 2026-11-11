@@ -44,7 +44,7 @@ const RUN_SCRIPT_DESCRIPTION =
 const PUBLISH_TO_FEED_DESCRIPTION =
     "Publish a Journal note with Read+write access to the owner's Homebase feed, as an article on their public channel that anyone can read, " +
     "as Publish to feed in the note's Share dialog does. The note itself does not have to be public. Publishing a note again updates its post. " +
-    'Images go with the post, without their metadata; a note with a cropped, rotated or flipped image can only be published from the Journal app. ' +
+    'Images go with the post, without their metadata; a note with a cropped, rotated or flipped image, or one that is not PNG, JPEG, WebP, GIF or SVG, can only be published from the Journal app. ' +
     'Needs the owner to have let Journal MCP write to their feed: until then it publishes nothing and returns the link that asks them. ' +
     "Returns the post's `postId` and `url`, and `status` \"published\" or \"updated\".";
 

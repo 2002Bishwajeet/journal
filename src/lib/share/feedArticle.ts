@@ -11,15 +11,15 @@ import { SecurityGroupType } from '@homebase-id/js-lib/core';
 import { makeSlug } from '@homebase-id/js-lib/helpers';
 import { BlogConfig, getPostByGlobalTransitId, savePost, type Article } from '@homebase-id/js-lib/public';
 import { getNewId } from '@/lib/utils';
-import { hasEdits, readEdits, NO_EDITS, type ImageEdits } from '@/lib/images/imageEdits';
+import { readEdits, NO_EDITS, type ImageEdits } from '@/lib/images/imageEdits';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import { toStoredArticleBody, type StoredBodyDoc, type TiptapJSONContent } from '@/lib/share/articleBody';
 
 /** An article with the Tiptap document next to its Slate body (odin-js#1035 adds `bodyDoc` to `Article`). */
-export type FeedArticle = Article & { bodyDoc: StoredBodyDoc };
+type FeedArticle = Article & { bodyDoc: StoredBodyDoc };
 
 /** The post's own payload keys for the note's images, as the feed's uploader names media. */
-export const FEED_MEDIA_KEY_PREFIX = 'pst_mdi';
+const FEED_MEDIA_KEY_PREFIX = 'pst_mdi';
 const EDIT_ATTRS = ['crop', 'rotate', 'flipH', 'flipV'];
 
 export interface FeedArticleInput {
@@ -29,7 +29,7 @@ export interface FeedArticleInput {
     /** The cover's `attachment://` src, when the note has one. */
     coverSrc?: string;
     /** The note's remote fileId: only images of this note are read (see parseAttachmentSrc). */
-    noteFileId: string | undefined;
+    noteFileId: string;
     /** A linked note's public URL, or null while that note is not public. */
     publicNoteUrl: (noteId: string) => string | null | Promise<string | null>;
     /** The bytes of one of the note's image payloads. */
@@ -37,7 +37,7 @@ export interface FeedArticleInput {
     bakeImage: (image: Blob, edits: ImageEdits) => Promise<Blob>;
 }
 
-export interface BuiltFeedArticle {
+interface BuiltFeedArticle {
     content: Pick<FeedArticle, 'caption' | 'abstract' | 'body' | 'bodyDoc' | 'primaryMediaFile'>;
     files: NewMediaFile[];
 }
@@ -47,21 +47,28 @@ const textOf = (node: TiptapJSONContent): string =>
 
 /** The article fields and the payloads to upload with them. */
 export async function buildFeedArticle(input: FeedArticleInput): Promise<BuiltFeedArticle> {
-    const files: NewMediaFile[] = [];
+    // One slot per payload, reserved in document order before any await, so the keys are the
+    // same on every run while the images are read in parallel. A failed read leaves a gap.
+    const slots: (NewMediaFile | null)[] = [];
     // One payload per original, however often the note shows it with the same edits
     const uploaded = new Map<string, Promise<string | null>>();
+    // One bake at a time: each holds a full-size bitmap and canvas
+    let baking: Promise<unknown> = Promise.resolve();
 
     const upload = (src: string, edits: ImageEdits): Promise<string | null> => {
-        const ref = input.noteFileId ? parseAttachmentSrc(src, input.noteFileId) : null;
+        const ref = parseAttachmentSrc(src, input.noteFileId);
         if (!ref) return Promise.resolve(null);
         const id = `${ref.payloadKey}:${JSON.stringify(edits)}`;
         let key = uploaded.get(id);
         if (!key) {
+            const slot = slots.push(null) - 1;
             key = (async () => {
                 const original = await input.readImage(ref.payloadKey);
                 if (!original) return null;
-                const fileKey = `${FEED_MEDIA_KEY_PREFIX}${files.length}`;
-                files.push({ key: fileKey, file: await input.bakeImage(original, edits) });
+                const baked = baking.then(() => input.bakeImage(original, edits));
+                baking = baked.catch(() => undefined);
+                const fileKey = `${FEED_MEDIA_KEY_PREFIX}${slot}`;
+                slots[slot] = { key: fileKey, file: await baked };
                 return fileKey;
             })();
             uploaded.set(id, key);
@@ -73,15 +80,14 @@ export async function buildFeedArticle(input: FeedArticleInput): Promise<BuiltFe
         if (node.type === 'image') {
             const attrs = { ...node.attrs };
             const src = typeof attrs.src === 'string' ? attrs.src : '';
-            if (/^https?:\/\//.test(src)) {
-                for (const k of EDIT_ATTRS) delete attrs[k];
-                return [{ ...node, attrs }];
-            }
-            // A pending (blob:) image or one of another note can't be published
             const edits = readEdits(attrs);
-            const fileKey = await upload(src, hasEdits(edits) ? edits : NO_EDITS);
+            for (const k of EDIT_ATTRS) delete attrs[k];
+            if (/^https?:\/\//.test(src)) return [{ ...node, attrs }];
+            // A pending (blob:) image or one of another note can't be published
+            const fileKey = await upload(src, edits);
             if (!fileKey) return [];
-            for (const k of [...EDIT_ATTRS, 'src', 'data-pending-id']) delete attrs[k];
+            delete attrs.src;
+            delete attrs['data-pending-id'];
             return [{ ...node, attrs: { ...attrs, fileKey } }];
         }
         if (node.type === 'noteLink') {
@@ -91,21 +97,22 @@ export async function buildFeedArticle(input: FeedArticleInput): Promise<BuiltFe
             return [href ? { type: 'text', text: label, marks: [{ type: 'link', attrs: { href } }] } : { type: 'text', text: label }];
         }
         if (!node.content) return [node];
-        const content: TiptapJSONContent[] = [];
-        for (const child of node.content) content.push(...(await convert(child)));
-        return [{ ...node, content }];
+        return [{ ...node, content: (await Promise.all(node.content.map(convert))).flat() }];
     };
 
-    const [doc] = await convert(input.doc);
-    const coverKey = input.coverSrc ? await upload(input.coverSrc, NO_EDITS) : null;
+    // Both started before either is awaited, so the cover's slot comes after the body's
+    const converting = convert(input.doc);
+    const covering = input.coverSrc ? upload(input.coverSrc, NO_EDITS) : Promise.resolve(null);
+    const [[doc], coverKey] = await Promise.all([converting, covering]);
+    const files = slots.filter((f): f is NewMediaFile => !!f);
     const cover = coverKey ? files.find((f) => f.key === coverKey) : undefined;
     const { body, bodyDoc } = await toStoredArticleBody(doc);
-    const firstParagraph = (doc.content ?? []).find((n) => n.type === 'paragraph' && textOf(n).trim());
+    const abstract = (doc.content ?? []).filter((n) => n.type === 'paragraph').map((n) => textOf(n).trim()).find(Boolean) ?? '';
 
     return {
         content: {
             caption: input.title,
-            abstract: firstParagraph ? textOf(firstParagraph).trim() : '',
+            abstract,
             body,
             bodyDoc,
             primaryMediaFile: cover ? { fileKey: cover.key as string, fileId: undefined, type: cover.file.type } : undefined,
@@ -144,7 +151,8 @@ export async function saveFeedPost(client: DotYouClient, article: BuiltFeedArtic
     }
 
     const result = await savePost(client, file, undefined, channelId, article.files);
-    const id = 'globalTransitIdFileIdentifier' in result ? result.globalTransitIdFileIdentifier?.globalTransitId : undefined;
+    // An update keeps the post's id; don't rely on the update response carrying it
+    const id = existing ? feedPostId : 'globalTransitIdFileIdentifier' in result ? result.globalTransitIdFileIdentifier?.globalTransitId : undefined;
     if (!id) throw new Error('The feed returned no post id');
     return id;
 }

@@ -181,9 +181,9 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
 - `publish_to_feed` — publish a note (`id`) to your Homebase feed as an article on your
   public channel, as **Publish to feed** in the Share dialog does; the note doesn't have to be
   public. Publishing it again updates the same post. Returns the post's `postId` and `url`.
-  Images lose their metadata; a note with a cropped, rotated or flipped image has to be
-  published from the Journal app. Journal MCP needs its own permission to write to your feed:
-  until you give it, the tool publishes nothing and returns the link that asks you for it.
+  Images lose their metadata; a note with a cropped, rotated or flipped image, or one that is
+  not PNG, JPEG, WebP, GIF or SVG, has to be published from the Journal app. Journal MCP needs
+  its own permission to write to your feed: until you give it, the tool publishes nothing and returns the link that asks you for it.
   Example: *"Publish my Trip plan note to my feed."*
 - `run_script` — run JavaScript (`code`, optional `dryRun`) against your granted notes and
   get back only what it logs, for jobs that pick notes by what they say. It runs in a

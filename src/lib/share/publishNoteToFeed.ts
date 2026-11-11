@@ -3,13 +3,14 @@
  * public channel, images read from the note's file on the server. Shared by the app's
  * usePublishToFeed and the MCP's publish_to_feed.
  */
-import type * as Y from 'yjs';
+import * as Y from 'yjs';
 import type { TargetDriveAccessRequest } from '@homebase-id/js-lib/auth';
 import { yXmlFragmentToProsemirrorJSON } from 'y-prosemirror';
-import { DrivePermissionType, getFileHeader, getPayloadBytes, type DotYouClient } from '@homebase-id/js-lib/core';
+import { DrivePermissionType, getFileHeader, type DotYouClient } from '@homebase-id/js-lib/core';
 import { BlogConfig } from '@homebase-id/js-lib/public';
 import { getCover } from '@/lib/editor/cover';
 import { JOURNAL_DRIVE } from '@/lib/homebase/config';
+import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { buildFeedArticle, saveFeedPost, type FeedArticleInput } from '@/lib/share/feedArticle';
 import type { NoteFileContent } from '@/types';
 
@@ -21,37 +22,37 @@ export const FEED_DRIVE_REQUEST: TargetDriveAccessRequest = {
     description: 'Publish notes to your feed',
     permissions: [DrivePermissionType.Read, DrivePermissionType.Write],
     // Owned by the feed; slugs only apply if the drive doesn't exist yet
-    driveSlug: BlogConfig.PublicChannelSlug,
+    driveSlug: 'posts',
     driveTypeSlug: 'channel',
 };
 
-export interface PublishNoteToFeedInput extends Pick<FeedArticleInput, 'title' | 'noteFileId' | 'publicNoteUrl' | 'bakeImage'> {
-    /** The note's Yjs state as the server has it (its images are read from the server). */
-    ydoc: Y.Doc;
+export interface PublishNoteToFeedInput extends Pick<FeedArticleInput, 'title' | 'publicNoteUrl' | 'bakeImage'> {
+    /** The note's Yjs state; null for an empty note. */
+    ydoc: Y.Doc | null;
+    /** The note's remote fileId: its images are read from the server copy. */
+    noteFileId: string | undefined;
     /** The post published before, to update. */
     feedPostId: string | undefined;
 }
 
-/** Publishes the note and returns its post's global transit id (see saveFeedPost). */
+/** Publishes the note and returns its post's global transit id (see saveFeedPost): `feedPostId` on an update. */
 export async function publishNoteToFeed(client: DotYouClient, input: PublishNoteToFeedInput): Promise<string> {
-    const { ydoc, noteFileId: fileId } = input;
+    const fileId = input.noteFileId;
+    // Without it every image would be left out of the post
+    if (!fileId) throw new Error('The note is not on the server yet');
+    const ydoc = input.ydoc ?? new Y.Doc();
     const doc = yXmlFragmentToProsemirrorJSON(ydoc.getXmlFragment('prosemirror'));
     const cover = getCover(ydoc);
 
-    const header = fileId ? await getFileHeader<NoteFileContent>(client, JOURNAL_DRIVE, fileId, { decrypt: true }) : null;
+    const header = await getFileHeader<NoteFileContent>(client, JOURNAL_DRIVE, fileId, { decrypt: true });
+    const provider = new NotesDriveProvider(client);
     const article = await buildFeedArticle({
         doc,
         title: input.title,
         coverSrc: cover?.src,
         noteFileId: fileId,
         publicNoteUrl: input.publicNoteUrl,
-        // With lastModified, so the browser can't hand back a stale copy (#451)
-        readImage: async (key) => {
-            if (!fileId) return null;
-            const lastModified = header?.fileMetadata.payloads?.find((p) => p.key === key)?.lastModified;
-            const data = await getPayloadBytes(client, JOURNAL_DRIVE, fileId, key, { decrypt: true, lastModified });
-            return data ? new Blob([new Uint8Array(data.bytes)], { type: data.contentType }) : null;
-        },
+        readImage: (key) => provider.readPayloadBlob(fileId, key, header),
         bakeImage: input.bakeImage,
     });
     return saveFeedPost(client, article, input.feedPostId);

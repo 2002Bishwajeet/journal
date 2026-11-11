@@ -1,3 +1,12 @@
+## [2.66.7](https://github.com/2002Bishwajeet/journal/compare/v2.66.6...v2.66.7) (2026-11-11)
+
+
+### Bug Fixes
+
+* **mobile:** keep the keyboard toolbar, sheets and dialogs above the keyboard in the iOS app ([2716821](https://github.com/2002Bishwajeet/journal/commit/271682137184d07bd20c7422879c9779f618380e))
+* **notes:** Back after Move to Trash no longer opens an endless spinner ([9968016](https://github.com/2002Bishwajeet/journal/commit/996801635f29a37cbadd09fa16157c64d7c33a25))
+* **pwa:** no update prompt when the app already runs the waiting build ([50bacff](https://github.com/2002Bishwajeet/journal/commit/50bacff4134d517212d85363c94771dd429478af)), closes [#913](https://github.com/2002Bishwajeet/journal/issues/913)
+* **sw:** let /landing/* page loads reach the landing site ([080e543](https://github.com/2002Bishwajeet/journal/commit/080e54326d579a45386e5ce2f5308cfe021f868f))
 ## [2.66.6](https://github.com/2002Bishwajeet/journal/compare/v2.66.5...v2.66.6) (2026-11-11)
 
 

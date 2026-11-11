@@ -126,8 +126,13 @@ describe('stripForFeed', () => {
         expect([...new Uint8Array(await out.arrayBuffer())]).toEqual([0xff, 0xd8, ...scan]);
     });
 
-    it('keeps an image it does not strip, such as a GIF, as it is', async () => {
+    it('keeps an unedited GIF as it is', async () => {
         const gif = new Blob([new TextEncoder().encode('GIF89a')], { type: 'image/gif' });
         expect(await stripForFeed(gif, NO_EDITS)).toBe(gif);
+    });
+
+    it('refuses a type it cannot strip, which the app re-encodes', async () => {
+        const avif = new Blob([new Uint8Array([0, 0, 0, 0x20])], { type: 'image/avif' });
+        await expect(stripForFeed(avif, NO_EDITS)).rejects.toThrow('an image of type image/avif');
     });
 });
