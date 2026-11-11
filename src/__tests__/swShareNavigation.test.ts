@@ -51,6 +51,17 @@ describe('service worker navigation fallback', () => {
         expect(servesShell(path)).toBe(false);
     });
 
+    // The landing site's pages, also with a query (Dodo returns to /landing/buy?…, #305): the app shell would send them to /welcome.
+    it.each([
+        '/landing/buy',
+        '/landing/buy?payment_id=pay_123&status=succeeded&email=a%40b.example',
+        '/landing/pricing',
+        '/landing/',
+        '/landing',
+    ])('lets the landing page %s reach the network', (path) => {
+        expect(servesShell(path)).toBe(false);
+    });
+
     it.each([
         '/',
         '/share/alice.example/0d8f6f3e-1b2c-4d5e-8f90-123456789abc',
