@@ -196,7 +196,20 @@ pub fn run() {
     let servers = bind_loopback(PORT).unwrap_or_else(|e| abort_on_bind_failure(&e));
 
     tauri::Builder::default()
+        // journal.cloudx.run links (iOS Universal Links, Android App Links) and
+        // journal:// links (desktop) open the app; useDeepLinks routes them.
+        .plugin(tauri_plugin_deep_link::init())
         .setup(move |app| {
+            // Installers register journal:// on Windows and Linux; this covers
+            // dev builds and AppImages. macOS registers it from Info.plist.
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(e) = app.deep_link().register_all() {
+                    eprintln!("can't register journal:// links: {e}");
+                }
+            }
+
             for server in servers {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || serve(handle, server));

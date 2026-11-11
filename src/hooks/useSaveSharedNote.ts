@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { shareProvider } from '@/lib/providers/ShareProvider';
 import { createNoteFromMarkdownInDb } from '@/lib/notes/createNote';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
+import { publicOrigin } from '@/lib/native';
 
 // An identity is a hostname (optionally with a port); a file id is a GUID, with or without hyphens.
 const IDENTITY = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+(:\d{1,5})?$/i;
@@ -65,7 +66,7 @@ export function useSaveSharedNote(): { error: string | null } {
         // Strict mode runs effects twice; one visit must make one copy.
         if (!valid || started.current) return;
         started.current = true;
-        copySharedNote(identity, file!, window.location.origin)
+        copySharedNote(identity, file!, publicOrigin())
             .then((copy) => {
                 toast.success(
                     copy.hadImages

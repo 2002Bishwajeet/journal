@@ -14,6 +14,7 @@ import { useShareCardPreview } from '@/hooks/useShareCardPreview';
 import { useShareCardImage } from '@/hooks/useShareCardImage';
 import type { ShareCardPatch } from '@/lib/share/publicCard';
 import { noteShareUrl } from '@/lib/share/sharedFolder';
+import { publicOrigin } from '@/lib/native';
 import type { DocumentMetadata } from '@/types';
 import { toast } from 'sonner';
 
@@ -42,7 +43,7 @@ export function ShareLinkPreview({ noteId, noteTitle, isPublic }: { noteId: stri
             <ShareCardPreview
                 title={noteTitle || 'Untitled'}
                 description={cardPreview.description}
-                domain={window.location.host}
+                domain={new URL(publicOrigin()).host}
                 image={cardImage ? (
                     <img src={cardImage} alt="" className="h-full w-full object-cover" />
                 ) : undefined}
@@ -80,7 +81,7 @@ export function ShareGeneralAccess({ noteId, metadata, publishing, onMakePublic,
     const shareDescription = metadata?.shareDescription ?? '';
     const unlisted = metadata?.shareUnlisted === true;
     const identity = getIdentity() || 'unknown';
-    const shareUrl = noteShareUrl(window.location.origin, identity, noteId);
+    const shareUrl = noteShareUrl(publicOrigin(), identity, noteId);
 
     useEffect(() => () => {
         if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);

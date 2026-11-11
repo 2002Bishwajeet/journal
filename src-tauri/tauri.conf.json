@@ -28,5 +28,30 @@
       "minimumSystemVersion": "17.0",
       "developmentTeam": "N899Y9TW48"
     }
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [
+        {
+          "scheme": [
+            "https"
+          ],
+          "host": "journal.cloudx.run",
+          "pathPattern": [
+            "/share/..*/..*"
+          ],
+          "path": [
+            "/save-shared",
+            "/open-shared"
+          ],
+          "appLink": true
+        }
+      ],
+      "desktop": {
+        "schemes": [
+          "journal"
+        ]
+      }
+    }
   }
 }

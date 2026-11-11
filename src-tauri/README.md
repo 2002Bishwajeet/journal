@@ -29,8 +29,9 @@ rm -rf src-tauri/gen/apple/build/arm64-sim/Journal.app src-tauri/gen/apple/journ
 
 `gen/apple` is generated and git-ignored. The iOS-only files that must survive
 a regeneration live in `ios/` at the paths they take inside `gen/apple`: the app
-icon and launch-screen assets (`Assets.xcassets`), `LaunchScreen.storyboard` and
-the privacy manifest (`journal_iOS/PrivacyInfo.xcprivacy`). Info.plist keys go
+icon and launch-screen assets (`Assets.xcassets`), `LaunchScreen.storyboard`,
+the privacy manifest (`journal_iOS/PrivacyInfo.xcprivacy`) and the entitlements
+(`journal_iOS/journal_iOS.entitlements`: Associated Domains for Universal Links). Info.plist keys go
 in `Info.plist` (shared with macOS) or `Info.ios.plist`.
 
 ```bash

@@ -31,6 +31,7 @@ import { BootErrorScreen } from "@/components/layout/SplashScreen";
 import { isPublicSharePath } from "@/lib/sharePath";
 import { markBoot } from "@/lib/bootProgress";
 import { useCloseOtherAppNotifications } from "@/hooks/useCloseOtherAppNotifications";
+import { useDeepLinks } from "@/hooks/useDeepLinks";
 
 // Computed once at boot, not per route: UpdatePrompt sits outside BrowserRouter.
 // A visitor who clicks from a share page into the app gets the SW registered
@@ -57,6 +58,12 @@ const persister = createAsyncStoragePersister({
   key: "journal-query-cache",
 });
 
+// Inside the router: a deep link navigates.
+function DeepLinks() {
+  useDeepLinks();
+  return null;
+}
+
 function App() {
   useCloseOtherAppNotifications();
   return (
@@ -69,6 +76,7 @@ function App() {
       >
         <ErrorBoundary>
           <BrowserRouter>
+            <DeepLinks />
             <OnlineProvider>
               <DotYouClientProvider>
                 <Suspense

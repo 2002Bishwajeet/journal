@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import ConfirmDialog from '@/components/modals/ConfirmDialog';
 import { ShareCardPreview } from '@/components/share/ShareCardPreview';
 import { useShareFolderDialog } from '@/hooks/useShareFolderDialog';
+import { publicOrigin } from '@/lib/native';
 
 interface ShareFolderDialogProps {
     folder: { id: string; name: string; isPublic?: boolean } | null;
@@ -77,7 +78,7 @@ export default function ShareFolderDialog({ folder, onClose }: ShareFolderDialog
             <ShareCardPreview
                 title={folder?.name ?? ''}
                 description={description}
-                domain={window.location.host}
+                domain={new URL(publicOrigin()).host}
                 image={<img src={cardImage ?? '/banner.webp'} alt="" className="h-full w-full object-cover" />}
             />
         </div>
