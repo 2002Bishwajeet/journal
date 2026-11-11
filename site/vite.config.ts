@@ -9,10 +9,22 @@ const page = (name: string) => resolve(import.meta.dirname, name)
 // replaced from site/partials, the nav link named by <body data-page> is marked current, and
 // a page's `<!-- credit: ... -->` (picture credits) moves into the footer.
 const read = (name: string) => readFileSync(page(`partials/${name}.html`), 'utf8')
+
+// Buying the native apps is off until billing production and the app downloads are live: the buy page
+// then shows "coming soon" instead of its buy and renew buttons. Turn it on with VITE_BILLING_LIVE=true
+// in the build's environment (deploy-cloudflare.yml, or `VITE_BILLING_LIVE=true npm run site:build`).
+export const BILLING_LIVE = process.env.VITE_BILLING_LIVE === 'true'
+
+/** Keeps a page's `<!-- billing-live -->…<!-- /billing-live -->` parts when billing is on, its `billing-soon` parts when it is off. */
+export function billingBlocks(html: string, live: boolean): string {
+  const drop = live ? 'billing-soon' : 'billing-live'
+  return html.replace(new RegExp(`<!-- ${drop} -->[\\s\\S]*?<!-- /${drop} -->\\n?`, 'g'), '')
+}
+
 function render(html: string): string {
   const current = /<body data-page="(\w+)"/.exec(html)?.[1]
   const credit = /<!-- credit: ([\s\S]*?) -->\n?/.exec(html)
-  const out = html
+  const out = billingBlocks(html, BILLING_LIVE)
     .replace(credit?.[0] ?? '', '')
     .replace(/<!-- (head|header|footer) -->/g, (_, name) => read(name))
     .replace('<!-- credit -->', credit ? `<p class="wrap credit">${credit[1]}</p>` : '')
@@ -50,19 +62,24 @@ function textFiles(): Plugin {
   }
 }
 
+// The billing Worker (#300) the buy page talks to once BILLING_LIVE is on. Dodo test mode everywhere
+// except a build with `--mode live`, which the production deploy uses (deploy-cloudflare.yml).
+const BILLING_URL = { test: 'https://journal-billing-test.cloudx.run', live: 'https://journal-billing.cloudx.run' }
+
 // The landing site: static pages of their own, built to site/dist for Cloudflare Pages.
 // It shares the app's installed packages but none of its code or config. The app is the root of
 // the origin, so the site is served under /landing/; functions/index.ts serves its home page at /
 // to a visitor who is not signed in (#913).
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: import.meta.dirname,
   base: '/landing/',
   plugins: [partials(), textFiles()],
+  define: { __BILLING_URL__: JSON.stringify(mode === 'live' ? BILLING_URL.live : BILLING_URL.test) },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: { index: page('index.html'), agents: page('agents.html'), pricing: page('pricing.html') },
+      input: { index: page('index.html'), agents: page('agents.html'), pricing: page('pricing.html'), buy: page('buy.html'), contact: page('contact.html') },
     },
     // Mermaid's diagram chunks (elk is the largest) load only when the playground is used.
     chunkSizeWarningLimit: 1600,
@@ -73,4 +90,4 @@ export default defineConfig({
     fs: { allow: [searchForWorkspaceRoot(import.meta.dirname), realpathSync(resolve(import.meta.dirname, '../node_modules'))] },
   },
   preview: { host: '127.0.0.1', port: 5181, strictPort: true },
-})
+}))
