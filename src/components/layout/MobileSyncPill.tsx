@@ -5,8 +5,11 @@ import { useSyncIndicator } from "@/hooks/useSyncIndicator";
 const ICONS = { syncing: Loader2, offline: WifiOff, error: CloudOff, failed: CloudOff };
 
 /**
- * Phone only (#1162): a small pill above the tab bar, on the New note button's row, while a
- * sync runs, while offline, or when sync failed. Gone when there is nothing to say.
+ * Phone only (#1162): a small pill in the bar above a large title (home, a note list, Shared)
+ * while a sync runs, while offline, or when sync failed. Gone when there is nothing to say.
+ * It sits in the bar's empty middle, so it never moves the title; with the bar title shown
+ * (scrolled), it takes the bar title's place until it goes (index.css). Render it right
+ * before BarTitle.
  */
 export function MobileSyncPill() {
   const { indicator, act } = useSyncIndicator();
@@ -26,12 +29,12 @@ export function MobileSyncPill() {
     </>
   );
   const pillClass = cn(
-    "sync-pill bar-material pointer-events-auto flex h-8 max-w-full items-center gap-1.5 rounded-full px-3 text-[13px] font-medium select-none",
+    "sync-pill pointer-events-auto flex h-7 max-w-full items-center gap-1.5 rounded-full bg-muted/70 px-3 text-[13px] font-medium select-none",
     alert ? "text-destructive dark:text-red-400" : "text-muted-foreground",
   );
 
   return (
-    <div className="sync-pill-row pointer-events-none fixed inset-x-0 z-40 flex justify-center px-20">
+    <div className="sync-pill-row pointer-events-none absolute inset-x-24 flex justify-center">
       {"action" in indicator ? (
         <button
           type="button"

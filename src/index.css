@@ -1354,17 +1354,20 @@ html[data-fab] {
     opacity: 0.85;
   }
 }
-/* Phone sync pill (#1162): centred on the New note button's row, above the tab bar. It fades
-   up after 300 ms, so a quick sync never flashes it, and hides at once, as the tab bar does. */
-.sync-pill-row {
-  bottom: calc(var(--fab-bottom) + (var(--fab-size) - 2rem) / 2 + env(safe-area-inset-bottom));
-}
+/* Phone sync pill (#1162), in the bar above a large title. It fades down into place after
+   300 ms, so a quick sync never flashes it, and hides at once. While it is there it takes the
+   place of the bar title (shown once the large title has scrolled away), after the same delay. */
 .sync-pill {
-  box-shadow: 0 0 0 1px var(--border), 0 4px 12px -4px rgb(28 27 26 / 0.18);
+  box-shadow: 0 0 0 1px var(--border);
   transition:
     transform var(--duration-press) var(--ease-standard),
     opacity var(--duration-fade) var(--ease-standard) 300ms,
     translate var(--duration-fade) var(--ease-standard) 300ms;
+}
+.sync-pill-row + [data-bar-title] {
+  opacity: 0;
+  visibility: hidden;
+  transition-delay: 300ms;
 }
 button.sync-pill:active {
   transform: scale(0.96);
@@ -1372,7 +1375,7 @@ button.sync-pill:active {
 @starting-style {
   .sync-pill {
     opacity: 0;
-    translate: 0 8px;
+    translate: 0 -4px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

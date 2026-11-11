@@ -610,7 +610,7 @@ Bidirectional sync with Yjs CRDTs for conflict resolution:
    - when the websocket reconnects (`useJournalWebsocket`), plus per-file handling of `fileAdded`/`fileModified`/`fileDeleted` notifications in between;
    - as a retry after a failed sync (5 s backoff) or when skipped pushes/uploads become due;
    - manually: Sync now (sync status button, Settings → Account), pull-to-refresh on the note list.
-   On a phone, every tab-bar screen shows a running sync, offline, or a failed sync in a pill above the tab bar (`MobileSyncPill`, `useSyncIndicator`, #1162); it is hidden when idle.
+   On a phone, home, note lists and Shared show a running sync, offline, or a failed sync in a pill in the bar above the large title (`MobileSyncPill`, `useSyncIndicator`, #1162); it is hidden when idle.
    Between full syncs, an edited note is pushed on its own (`syncNote`) by the editor's 2 s debounced save (`EditorPage` → `EditorProvider` `onSave`) and by the share dialog. Cmd+S does not sync; it is only swallowed.
 2. **SyncService** (`src/lib/homebase/SyncService.ts`, steps in `src/lib/homebase/sync/`) — Pull/push orchestration
 3. **PGliteProvider** (`src/lib/yjs/provider.ts`) — Persists Yjs updates, auto-compaction
