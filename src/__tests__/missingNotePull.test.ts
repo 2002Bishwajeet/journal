@@ -55,7 +55,7 @@ beforeEach(() => {
     mocks.online.isOnline = true;
     mocks.getNote.mockResolvedValue(HEADER);
     mocks.handleRemoteNote.mockResolvedValue(undefined);
-    mocks.getSearchIndexEntry.mockResolvedValue({ docId: NOTE });
+    mocks.getSearchIndexEntry.mockResolvedValue({ docId: NOTE, metadata: {} });
 });
 
 describe('useMissingNotePull', () => {
@@ -109,6 +109,25 @@ describe('useMissingNotePull', () => {
         const skipped = await mount();
         expect(skipped.state()).toBe('not-found');
         await skipped.unmount();
+    });
+
+    it('says not found for a note that is in Trash or the Archive, which the editor does not open', async () => {
+        mocks.getSearchIndexEntry.mockResolvedValue({ docId: NOTE, metadata: { archivalStatus: 2 } });
+        const trashed = await mount();
+        expect(trashed.state()).toBe('not-found');
+        await trashed.unmount();
+
+        mocks.getSearchIndexEntry.mockResolvedValue({ docId: NOTE, metadata: { archivalStatus: 1 } });
+        const archived = await mount();
+        expect(archived.state()).toBe('not-found');
+        await archived.unmount();
+    });
+
+    it('keeps waiting for an active note the pull stored, until it is listed', async () => {
+        mocks.getSearchIndexEntry.mockResolvedValue({ docId: NOTE, metadata: { archivalStatus: 0 } });
+        const probe = await mount();
+        expect(probe.state()).toBe('loading');
+        await probe.unmount();
     });
 
     it('offline: says so, then fetches once the app is back online', async () => {

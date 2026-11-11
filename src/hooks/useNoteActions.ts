@@ -7,6 +7,7 @@ import { resolveNoteFolderId } from '@/hooks/useFolders';
 import type { NoteListEntry } from '@/types';
 import { slideNavigate } from '@/lib/navDirection';
 import { markNewNote } from '@/lib/newNoteFocus';
+import { useBackTo } from '@/hooks/useBackTo';
 
 interface UseNoteActionsOptions {
     folderId: string | undefined;
@@ -37,6 +38,7 @@ export function useNoteActions({
     handleTabClose,
 }: UseNoteActionsOptions) {
     const navigate = useNavigate();
+    const backTo = useBackTo();
     const moveNote = useMoveNote();
 
     const {
@@ -128,14 +130,16 @@ export function useNoteActions({
             return;
         }
 
-        // If the deleted note is the one currently open, navigate to next note or folder
+        // If the deleted note is the one currently open, leave it: Back must never reopen it.
+        // The next note takes its history entry; with no next note, leave as Back would.
         if (noteId === id) {
             if (nextNoteId) {
                 navigate(`/${folderId}/${nextNoteId}`, {
+                    replace: true,
                     viewTransition: true,
                 });
             } else {
-                navigate(`/${folderId}`, { viewTransition: true });
+                backTo(`/${folderId}`);
             }
         }
     };
