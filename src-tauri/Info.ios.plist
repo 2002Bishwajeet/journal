@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- iOS-only keys. The Tauri CLI merges this file (after Info.plist) into
+	     gen/apple/journal_iOS/Info.plist on every `tauri ios build` / `dev`. -->
+	<key>CFBundleDisplayName</key>
+	<string>Journal</string>
+	<!-- The app only uses HTTPS and the OS's own encryption, which is exempt:
+	     App Store Connect then skips the export-compliance question. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- Image inputs (cover, inline images) offer "Take Photo" in the picker.
+	     The photo library side uses PHPicker, which needs no permission. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Journal uses the camera when you take a photo to add to a note.</string>
+</dict>
+</plist>
