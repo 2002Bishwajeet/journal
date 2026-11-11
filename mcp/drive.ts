@@ -6,14 +6,22 @@ import { toMarkdown, type LinkTarget } from '@/lib/agent/editEngine';
 import { buildPublicCard } from '@/lib/share/publicCard';
 import { setFolderAccess, type AgentAccess } from '@/lib/agent/grants';
 import { noteShareUrl } from '@/lib/share/sharedFolder';
-import type { HomebaseFile } from '@homebase-id/js-lib/core';
+import { getExtendAppRegistrationParams } from '@homebase-id/js-lib/auth';
+import { getSecurityContext, type DotYouClient, type HomebaseFile } from '@homebase-id/js-lib/core';
+import { drivesEqual, getUniqueDrivesWithHighestPermission, stringifyToQueryParams } from '@homebase-id/js-lib/helpers';
+import { BlogConfig, getPostByGlobalTransitId } from '@homebase-id/js-lib/public';
+import { hasEdits, type ImageEdits } from '@/lib/images/imageEdits';
+import { sniffImageType, stripImageMetadata } from '@/lib/images/imageBytes';
+import { FEED_DRIVE_REQUEST, publishNoteToFeed } from '@/lib/share/publishNoteToFeed';
 import type { PreparedImage } from '@/lib/images/imageBytes';
 import type { DocumentMetadata, NoteFileContent } from '@/types';
 import type { NoteSummary } from '@/lib/agent/tools/read';
-import { VersionConflictError, type NoteEdit, type NoteForEdit, type WriteDeps } from '@/lib/agent/tools/write';
+import { VersionConflictError, type NoteEdit, type NoteForEdit } from '@/lib/agent/tools/write';
 import type { McpCredentials } from './credentials';
 import { createClient } from './client';
-import { appOrigin } from './config';
+import { JOURNAL_MCP_APP_ID, appOrigin } from './config';
+import type { FeedDeps } from './feed';
+import type { McpDriveDeps } from './createServer';
 
 export function toNoteSummary(file: HomebaseFile<NoteFileContent>): NoteSummary | null {
     const uniqueId = file.fileMetadata.appData.uniqueId;
@@ -50,13 +58,68 @@ export async function collectPages<T>(
     return all;
 }
 
+/** Strips an unedited image's metadata in place of the app's canvas redraw; an edited one can't be published here. */
+export async function stripForFeed(image: Blob, edits: ImageEdits): Promise<Blob> {
+    if (hasEdits(edits)) {
+        throw new Error('publish_to_feed: the note has a cropped, rotated or flipped image, which only the Journal app can publish. Nothing was published.');
+    }
+    const bytes = new Uint8Array(await image.arrayBuffer());
+    const type = sniffImageType(bytes);
+    return type ? new Blob([new Uint8Array(stripImageMetadata(bytes, type))], { type }) : image;
+}
+
+/**
+ * FeedDeps (mcp/feed.ts) on the app's publish code. Images are not redrawn (no canvas in Node):
+ * their metadata is stripped, and a note with a cropped, rotated or flipped image is left for
+ * the app to publish.
+ */
+export function createFeedDeps(client: DotYouClient, notesProvider: NotesDriveProvider, identity: string): FeedDeps {
+    async function missingGrantUrl(): Promise<string | null> {
+        // As useMissingPermissions: the highest grant on the drive covers what is asked for.
+        const context = await getSecurityContext(client);
+        const grants = getUniqueDrivesWithHighestPermission(context.permissionContext.permissionGroups.flatMap((g) => g.driveGrants));
+        const asked = FEED_DRIVE_REQUEST.permissions.reduce((a, b) => a + b, 0);
+        const granted = grants.some(
+            (g) => drivesEqual(g.permissionedDrive.drive, FEED_DRIVE_REQUEST) && g.permissionedDrive.permission.reduce((a, b) => a + b, 0) >= asked
+        );
+        if (granted) return null;
+        const params = getExtendAppRegistrationParams(JOURNAL_MCP_APP_ID, [FEED_DRIVE_REQUEST], undefined, undefined, undefined, appOrigin());
+        return `https://${identity}/owner/appupdate?${stringifyToQueryParams(params)}`;
+    }
+
+    // As the app: a link to a public note goes to its share page, any other is its label.
+    async function publicNoteUrl(id: string): Promise<string | null> {
+        const file = await notesProvider.getNote(id).catch(() => null);
+        const live = file && file.fileMetadata.appData.archivalStatus !== 2;
+        return live && file.fileMetadata.appData.content?.isPublic ? noteShareUrl(appOrigin(), identity, id) : null;
+    }
+
+    return {
+        missingGrantUrl,
+        publish: (note) =>
+            publishNoteToFeed(client, {
+                ydoc: note.doc,
+                title: note.metadata.title,
+                noteFileId: note.fileId,
+                feedPostId: note.metadata.feedPostId,
+                publicNoteUrl,
+                bakeImage: stripForFeed,
+            }),
+        postUrl: async (postId) => {
+            const post = await getPostByGlobalTransitId(client, BlogConfig.PublicChannelId, postId);
+            const key = post?.fileMetadata.appData.content.slug || postId;
+            return `https://${identity}/posts/${BlogConfig.PublicChannelSlug}/${key}`;
+        },
+    };
+}
+
 /**
  * Implements ReadDeps (src/lib/agent/tools/read.ts) and the drive half of WriteDeps
  * (src/lib/agent/tools/write.ts; `clientName` comes from the MCP server) against the real Homebase drive, using the same
  * NotesDriveProvider/FolderDriveProvider the app uses (imported directly, not through the
  * @/lib/homebase barrel, which also re-exports SyncService and pulls in PGlite).
  */
-export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientName' | 'loadImage'> {
+export function createDriveDeps(creds: McpCredentials): McpDriveDeps {
     const client = createClient(creds);
     const notesProvider = new NotesDriveProvider(client);
     const folderProvider = new FolderDriveProvider(client);
@@ -237,5 +300,6 @@ export function createDriveDeps(creds: McpCredentials): Omit<WriteDeps, 'clientN
         grantFolder,
         ownerIdentity: () => creds.identity,
         shareLink: (id) => noteShareUrl(appOrigin(), creds.identity, id),
+        feed: createFeedDeps(client, notesProvider, creds.identity),
     };
 }

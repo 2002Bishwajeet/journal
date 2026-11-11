@@ -178,6 +178,13 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
   shared with you, or in a shared folder (use `update_note` `folderId`), can't be shared this
   way. Set `JOURNAL_MCP_APP_ORIGIN` if the links should point at another Journal than the hosted one.
   Example: *"Make my Trip plan note public and give me the link."*
+- `publish_to_feed` — publish a note (`id`) to your Homebase feed as an article on your
+  public channel, as **Publish to feed** in the Share dialog does; the note doesn't have to be
+  public. Publishing it again updates the same post. Returns the post's `postId` and `url`.
+  Images lose their metadata; a note with a cropped, rotated or flipped image has to be
+  published from the Journal app. Journal MCP needs its own permission to write to your feed:
+  until you give it, the tool publishes nothing and returns the link that asks you for it.
+  Example: *"Publish my Trip plan note to my feed."*
 - `run_script` — run JavaScript (`code`, optional `dryRun`) against your granted notes and
   get back only what it logs, for jobs that pick notes by what they say. It runs in a
   QuickJS WebAssembly sandbox with no network, files or timers; its `journal` functions call
@@ -191,7 +198,7 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
 
 Tools carry MCP annotations: `readOnlyHint` on the read tools, and `destructiveHint` on the
 tools that can overwrite or remove content (`update_note`, `replace_in_note`, `edit_block`,
-`delete_note`, `set_note_cover`, `clear_note_cover`, `share_note`, `run_script`). The server never asks for confirmation
+`delete_note`, `set_note_cover`, `clear_note_cover`, `share_note`, `publish_to_feed`, `run_script`). The server never asks for confirmation
 itself: your MCP client does, so if you pick "always allow" for a write tool, its writes and
 trashing happen without a prompt.
 

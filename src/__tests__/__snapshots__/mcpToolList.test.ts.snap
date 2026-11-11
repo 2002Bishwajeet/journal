@@ -607,5 +607,22 @@ exports[`MCP tools/list > lists the same tools, titles, descriptions and input s
     "name": "run_script",
     "title": "Run script",
   },
+  {
+    "description": "Publish a Journal note with Read+write access to the owner's Homebase feed, as an article on their public channel that anyone can read, as Publish to feed in the note's Share dialog does. The note itself does not have to be public. Publishing a note again updates its post. Images go with the post, without their metadata; a note with a cropped, rotated or flipped image can only be published from the Journal app. Needs the owner to have let Journal MCP write to their feed: until then it publishes nothing and returns the link that asks them. Returns the post's \`postId\` and \`url\`, and \`status\` "published" or "updated".",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "id": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "id",
+      ],
+      "type": "object",
+    },
+    "name": "publish_to_feed",
+    "title": "Publish to feed",
+  },
 ]
 `;

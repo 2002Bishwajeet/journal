@@ -1,34 +1,16 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import * as Y from 'yjs';
-import { yXmlFragmentToProsemirrorJSON } from 'y-prosemirror';
 import { toast } from 'sonner';
-import type { TargetDriveAccessRequest } from '@homebase-id/js-lib/auth';
-import { DrivePermissionType, getFileHeader, getPayloadBytes } from '@homebase-id/js-lib/core';
-import { BlogConfig } from '@homebase-id/js-lib/public';
 import { useDotYouClientContext } from '@/components/auth';
 import { useMissingPermissions } from '@/hooks/auth/useMissingPermissions';
 import { useSecurityContext } from '@/hooks/securityContext/useSecurityContext';
 import { useNotes } from '@/hooks/useNotes';
 import { useSyncService } from '@/hooks/useSyncService';
 import { getDocumentUpdates, getSearchIndexEntry, getSyncRecord, updateSearchIndexMetadata, updateSyncStatus } from '@/lib/db';
-import { getCover } from '@/lib/editor/cover';
-import { JOURNAL_APP_ID, JOURNAL_DRIVE } from '@/lib/homebase/config';
-import { buildFeedArticle, saveFeedPost } from '@/lib/share/feedArticle';
+import { JOURNAL_APP_ID } from '@/lib/homebase/config';
+import { FEED_DRIVE_REQUEST, publishNoteToFeed } from '@/lib/share/publishNoteToFeed';
 import { noteShareUrl } from '@/lib/share/sharedFolder';
-import type { NoteFileContent } from '@/types';
-
-// The feed's default public channel (#1074). Asked for on the first Publish to feed, never at
-// sign-in, so people who never publish see no extra consent.
-export const FEED_DRIVE_REQUEST: TargetDriveAccessRequest = {
-    ...BlogConfig.PublicChannelDrive,
-    name: 'Public posts',
-    description: 'Publish notes to your feed',
-    permissions: [DrivePermissionType.Read, DrivePermissionType.Write],
-    // Owned by the feed; slugs only apply if the drive doesn't exist yet
-    driveSlug: BlogConfig.PublicChannelSlug,
-    driveTypeSlug: 'channel',
-};
 
 /** The note whose Publish to feed went to the Homebase consent page, so the publish goes on after it. */
 export const FEED_CONSENT_PENDING_KEY = 'journal.feedConsentPending';
@@ -95,30 +77,17 @@ export function usePublishToFeed(noteId: string) {
             const updates = await getDocumentUpdates(noteId);
             const ydoc = new Y.Doc();
             if (updates.length) Y.applyUpdate(ydoc, Y.mergeUpdates(updates));
-            const doc = yXmlFragmentToProsemirrorJSON(ydoc.getXmlFragment('prosemirror'));
-            const cover = getCover(ydoc);
-            ydoc.destroy();
-
-            const header = fileId ? await getFileHeader<NoteFileContent>(dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true }) : null;
             const { bakeImageEdits } = await import('@/lib/share/bakeImageEdits');
             const identity = dotYouClient.getHostIdentity();
-            const article = await buildFeedArticle({
-                doc,
+            const postId = await publishNoteToFeed(dotYouClient, {
+                ydoc,
                 title: metadata?.title ?? '',
-                coverSrc: cover?.src,
                 noteFileId: fileId,
+                feedPostId,
                 publicNoteUrl: (id) =>
                     notes?.find((n) => n.docId === id)?.metadata.isPublic ? noteShareUrl(window.location.origin, identity, id) : null,
-                // With lastModified, so the browser can't hand back a stale copy (#451)
-                readImage: async (key) => {
-                    if (!fileId) return null;
-                    const lastModified = header?.fileMetadata.payloads?.find((p) => p.key === key)?.lastModified;
-                    const data = await getPayloadBytes(dotYouClient, JOURNAL_DRIVE, fileId, key, { decrypt: true, lastModified });
-                    return data ? new Blob([new Uint8Array(data.bytes)], { type: data.contentType }) : null;
-                },
                 bakeImage: bakeImageEdits,
-            });
-            const postId = await saveFeedPost(dotYouClient, article, feedPostId);
+            }).finally(() => ydoc.destroy());
             if (postId !== feedPostId) await saveFeedPostId(postId);
         },
         onSuccess: () => toast.success(feedPostId ? 'Updated on your feed' : 'Published to your feed'),
