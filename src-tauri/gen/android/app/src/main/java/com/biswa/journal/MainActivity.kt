@@ -1,4 +1,4 @@
-package id.biswa.journal
+package com.biswa.journal
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
