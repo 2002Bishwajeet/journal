@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-/** The sidebar and the Share pill's "People with access": our own photo from our public image through the service worker's proxy, and initials while a contact loads. */
+/** The sidebar and the Share pill's "People with access": our own photo from our public image through the service worker's proxy (fetched into a blob: URL without one), and initials while a contact loads. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act, createElement } from 'react';
@@ -18,13 +18,20 @@ vi.mock('@/hooks/connections/useIsConnected', () => ({ useIsConnected: mocks.use
 import { AuthorImage, OwnerImage } from '@/components/author/AuthorImage';
 import { PersonLabel } from '@/components/share/SharePeopleSection';
 
-const PROXIED_PHOTO = `/proxy-image/${encodeURIComponent('https://me.example.com/pub/image')}`;
+const PHOTO = 'https://me.example.com/pub/image';
+const PROXIED_PHOTO = `/proxy-image/${encodeURIComponent(PHOTO)}`;
+const BLOB_PHOTO = 'blob:photo';
 
 let container: HTMLDivElement;
 let root: Root;
 let serviceWorker: EventTarget & { controller: object | null };
+const fetchMock = vi.fn();
 
 beforeEach(() => {
+    fetchMock.mockReset().mockResolvedValue(new Response(new Blob(['jpeg'], { type: 'image/jpeg' })));
+    vi.stubGlobal('fetch', fetchMock);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue(BLOB_PHOTO);
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     serviceWorker = Object.assign(new EventTarget(), { controller: {} });
     Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: serviceWorker });
     container = document.createElement('div');
@@ -38,6 +45,8 @@ afterEach(() => {
     act(() => root.unmount());
     container.remove();
     delete (navigator as { serviceWorker?: unknown }).serviceWorker;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
 });
 
 describe('OwnerImage', () => {
@@ -57,24 +66,45 @@ describe('OwnerImage', () => {
         expect(fallback.className).not.toContain('h-10');
     });
 
-    it('waits with initials until a service worker controls the page, then loads the photo', () => {
+    it('fetches the photo into a blob: URL while no service worker controls the page, then uses the proxy', async () => {
         serviceWorker.controller = null;
-        act(() => root.render(createElement(OwnerImage, { size: 'xs' })));
+        await act(async () => root.render(createElement(OwnerImage, { size: 'xs' })));
 
-        expect(container.querySelector('img')).toBeNull();
+        expect(fetchMock).toHaveBeenCalledWith(PHOTO);
+        expect(container.querySelector('img')!.getAttribute('src')).toBe(BLOB_PHOTO);
         expect(container.textContent).toBe('ME');
 
         serviceWorker.controller = {};
         act(() => serviceWorker.dispatchEvent(new Event('controllerchange')));
         expect(container.querySelector('img')!.getAttribute('src')).toBe(PROXIED_PHOTO);
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith(BLOB_PHOTO);
     });
 
-    it('keeps initials where service workers are unavailable', () => {
+    it('fetches the photo where service workers are unavailable (the iOS app)', async () => {
         delete (navigator as { serviceWorker?: unknown }).serviceWorker;
-        act(() => root.render(createElement(OwnerImage, { size: 'xs' })));
+        await act(async () => root.render(createElement(OwnerImage, { size: 'xs' })));
+
+        expect(fetchMock).toHaveBeenCalledWith(PHOTO);
+        const img = container.querySelector('img')!;
+        expect(img.getAttribute('src')).toBe(BLOB_PHOTO);
+
+        act(() => img.dispatchEvent(new Event('load')));
+        expect(container.textContent).toBe('');
+    });
+
+    it('keeps initials when the fetched photo is missing', async () => {
+        delete (navigator as { serviceWorker?: unknown }).serviceWorker;
+        fetchMock.mockResolvedValue(new Response(null, { status: 404 }));
+        await act(async () => root.render(createElement(OwnerImage, { size: 'xs' })));
 
         expect(container.querySelector('img')).toBeNull();
         expect(container.textContent).toBe('ME');
+    });
+
+    it('does not fetch when a service worker controls the page', () => {
+        act(() => root.render(createElement(OwnerImage, { size: 'xs' })));
+
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 });
 
