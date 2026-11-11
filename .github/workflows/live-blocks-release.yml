@@ -1,10 +1,10 @@
 name: Release live-blocks package
 
-# Builds, tests and publishes @journal/live-blocks (packages/live-blocks) to the public npm
+# Builds, tests and publishes @2002bishwajeet/live-blocks (packages/live-blocks) to the public npm
 # registry, at the version in its package.json. Not part of the app deploy: run it by hand, or
 # push a `live-blocks-v<version>` tag. Bump the version and add its CHANGELOG.md line first.
 # Publishing needs the NPM_TOKEN repository secret (an npm automation token that can publish
-# the @journal scope).
+# the @2002bishwajeet scope).
 
 on:
   workflow_dispatch:

@@ -322,7 +322,7 @@ scripts/                        # check-precache, release-notes, check-doc-paths
 | `src/lib/yjs/provider.ts` | PGlite Yjs persistence + auto-compaction |
 | `src/lib/yjs/flushPendingSave.ts` | Push the last edits when an editor unmounts |
 | `src/lib/images/imageIngest.ts` | Image downscale / EXIF strip before upload |
-| `packages/live-blocks/` | `@journal/live-blocks`: the live-block runtime (kinds, frame CSP, previews, react/mermaid pieces), an npm workspace published by live-blocks-release.yml |
+| `packages/live-blocks/` | `@2002bishwajeet/live-blocks`: the live-block runtime (kinds, frame CSP, previews, react/mermaid pieces), an npm workspace published by live-blocks-release.yml |
 | `src/lib/agent/grants.ts` | Agent-access grant resolver (app + MCP server) |
 | `src/lib/webllm/engine.ts` | Grammar, autocomplete, rewrite, chat |
 | `src/lib/webllm/models.ts` | Available model registry |

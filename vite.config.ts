@@ -200,7 +200,7 @@ export default defineConfig(({ mode }) => ({
       '@': path.resolve(import.meta.dirname, './src'),
       // The workspace package's source, not the link in node_modules: a worktree that shares
       // another checkout's node_modules still builds its own copy.
-      '@journal/live-blocks': path.resolve(import.meta.dirname, './packages/live-blocks/src'),
+      '@2002bishwajeet/live-blocks': path.resolve(import.meta.dirname, './packages/live-blocks/src'),
     },
   },
   optimizeDeps: {

@@ -9,10 +9,10 @@ import type { AgentGrants } from '@/lib/agent/grants';
 import type { DocumentMetadata } from '@/types';
 import * as Y from 'yjs';
 import { createDoc, toMarkdown } from '@/lib/agent/editEngine';
-import { HTML_BLOCK_CDN_HOSTS, REACT_BLOCK_IMPORTS } from '@journal/live-blocks/core';
+import { HTML_BLOCK_CDN_HOSTS, REACT_BLOCK_IMPORTS } from '@2002bishwajeet/live-blocks/core';
 import GUIDE_FILE from '../../mcp/AUTHORING.md?raw';
 import { GUIDE_INDEX, GUIDE_SECTION_IDS, guideSection } from '@/lib/agent/tools/authoringGuide';
-import LIVE_BLOCKS_SOURCE from '@journal/live-blocks/liveBlocks.ts?raw';
+import LIVE_BLOCKS_SOURCE from '@2002bishwajeet/live-blocks/liveBlocks.ts?raw';
 
 /** Every section of the guide (#1004): the coverage checks below run against what an agent can reach. */
 const GUIDE = GUIDE_SECTION_IDS.map(guideSection).join('\n\n');

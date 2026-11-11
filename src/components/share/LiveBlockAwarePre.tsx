@@ -18,7 +18,7 @@ import { useContext, useState, type ComponentProps } from 'react';
 import type { Element, ElementContent } from 'hast';
 import type { ExtraProps } from 'react-markdown';
 import { LiveBlockFrame, LiveBlockToggle } from '@/components/liveBlocks/LiveBlockFrame';
-import { liveBlockKind, memoryBlockStateStore, parseCodeInfo } from '@journal/live-blocks/core';
+import { liveBlockKind, memoryBlockStateStore, parseCodeInfo } from '@2002bishwajeet/live-blocks/core';
 import { CopyableCodeBlock } from './CopyableCodeBlock';
 import { LiveBlockStatesContext } from './liveBlockStatesContext';
 

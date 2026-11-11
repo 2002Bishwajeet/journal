@@ -56,7 +56,7 @@ import {
 } from "./plugins";
 
 import { joinPreviewText } from "@/lib/previewText";
-import { ownerWroteNote } from "@journal/live-blocks/core";
+import { ownerWroteNote } from "@2002bishwajeet/live-blocks/core";
 
 /** Prose first, code/live-block text after a separator (see previewText.ts). */
 function editorPreviewText(editor: Editor): string {

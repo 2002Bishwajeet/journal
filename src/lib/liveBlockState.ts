@@ -4,12 +4,12 @@
  * (```html id=k3f9), so it syncs with the note. A block reaches it only through
  * `journal.storage` in its frame, which asks the app over the #412 bridge; the
  * frame is untrusted, so every check and limit is in the app (the session in
- * @journal/live-blocks, and the note's limit here).
+ * @2002bishwajeet/live-blocks, and the note's limit here).
  */
 import * as Y from 'yjs';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { getNewId } from '@/lib/utils';
-import { MAX_BLOCK_STATE_BYTES, parseCodeInfo } from '@journal/live-blocks/core';
+import { MAX_BLOCK_STATE_BYTES, parseCodeInfo } from '@2002bishwajeet/live-blocks/core';
 
 /** Y.Map in the note's Yjs doc: block id -> the block's whole state as one JSON text. */
 export const BLOCK_STATE_MAP = 'liveBlockState';

@@ -7,7 +7,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { HTML_BLOCK_CDN_HOSTS } from '@journal/live-blocks/core';
+import { HTML_BLOCK_CDN_HOSTS } from '@2002bishwajeet/live-blocks/core';
 
 const HEADERS = readFileSync(new URL('../../public/_headers', import.meta.url), 'utf8');
 const policy = HEADERS.match(/^\s+Content-Security-Policy-Report-Only: (.+)$/m)?.[1] ?? '';

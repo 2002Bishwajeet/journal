@@ -2,8 +2,8 @@
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"],
-      "@journal/live-blocks": ["./packages/live-blocks/src/index.ts"],
-      "@journal/live-blocks/*": ["./packages/live-blocks/src/*"]
+      "@2002bishwajeet/live-blocks": ["./packages/live-blocks/src/index.ts"],
+      "@2002bishwajeet/live-blocks/*": ["./packages/live-blocks/src/*"]
     }
   },
   "files": [],

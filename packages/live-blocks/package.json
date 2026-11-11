@@ -1,5 +1,5 @@
 {
-  "name": "@journal/live-blocks",
+  "name": "@2002bishwajeet/live-blocks",
   "version": "0.1.0",
   "description": "Journal's live blocks (html, react, mermaid and svg code blocks) for any React host: sandboxed frames in Journal's look.",
   "license": "AGPL-3.0-only",

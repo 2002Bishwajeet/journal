@@ -18,7 +18,7 @@ import {
   withBlockId,
   type BlockStateStore,
   type FrameTheme,
-} from '@journal/live-blocks/core';
+} from '@2002bishwajeet/live-blocks/core';
 import {
   BLOCK_STATE_MAP,
   MAX_NOTE_BLOCK_STATE_BYTES,

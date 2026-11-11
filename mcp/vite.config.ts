@@ -15,8 +15,8 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': path.resolve(import.meta.dirname, '../src'),
-            // Only `@journal/live-blocks/core`: the server has no use for the components.
-            '@journal/live-blocks': path.resolve(import.meta.dirname, '../packages/live-blocks/src'),
+            // Only `@2002bishwajeet/live-blocks/core`: the server has no use for the components.
+            '@2002bishwajeet/live-blocks': path.resolve(import.meta.dirname, '../packages/live-blocks/src'),
         },
     },
     ssr: { noExternal: true, external: ['@napi-rs/keyring'] },

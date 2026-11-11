@@ -13,7 +13,7 @@
 import { useState } from 'react';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { LiveBlockFrame, LiveBlockToggle } from '@/components/liveBlocks/LiveBlockFrame';
-import { liveBlockKind, memoryBlockStateStore, parseCodeInfo, withBlockId, type BlockStateStore } from '@journal/live-blocks/core';
+import { liveBlockKind, memoryBlockStateStore, parseCodeInfo, withBlockId, type BlockStateStore } from '@2002bishwajeet/live-blocks/core';
 import { newBlockId, ownBlockId } from '@/lib/liveBlockState';
 import { useEditorContext } from '../EditorContext';
 

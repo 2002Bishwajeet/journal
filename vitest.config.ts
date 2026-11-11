@@ -35,7 +35,7 @@ export default defineConfig({
             // vi.mock can intercept it.
             'virtual:pwa-register/react': path.resolve(import.meta.dirname, './src/__tests__/stubs/pwaRegister.ts'),
             // The workspace package's source, as vite.config.ts resolves it.
-            '@journal/live-blocks': path.resolve(import.meta.dirname, './packages/live-blocks/src'),
+            '@2002bishwajeet/live-blocks': path.resolve(import.meta.dirname, './packages/live-blocks/src'),
             // Built by the live-blocks package's plugin (build/pieces.ts), which vitest does not load.
             ...pieceStubs,
         },

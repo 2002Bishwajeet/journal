@@ -2,7 +2,7 @@
  * The live-block runtime without React: reading a code block's info string, the frame's
  * page (CSP, srcdoc, bridge) and the messages that cross it, and a block's saved state.
  * For a host that only needs to know which code blocks are live (a server, a markdown
- * pipeline); `@journal/live-blocks` has all of this and the components.
+ * pipeline); `@2002bishwajeet/live-blocks` has all of this and the components.
  */
 export * from './liveBlocks';
 export * from './blockState';

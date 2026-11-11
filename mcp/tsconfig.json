@@ -20,7 +20,7 @@
 
     "paths": {
       "@/*": ["../src/*"],
-      "@journal/live-blocks/*": ["../packages/live-blocks/src/*"]
+      "@2002bishwajeet/live-blocks/*": ["../packages/live-blocks/src/*"]
     },
 
     /* Linting */
