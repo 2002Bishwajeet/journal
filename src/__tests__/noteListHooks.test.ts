@@ -131,14 +131,14 @@ describe('useNoteActions', () => {
             }),
         );
 
-    it('trashes the open note and opens the next one', async () => {
+    it('trashes the open note and opens the next one in its place in history', async () => {
         const closeTab = vi.fn();
         const { api, unmount } = await actions({ closeTab });
         await act(async () => api().deleteAndSelectNeighbour('b'));
 
         expect(closeTab).toHaveBeenCalledWith('b');
         expect(mocks.trashNote).toHaveBeenCalledWith('b');
-        expect(mocks.navigate).toHaveBeenCalledWith('/f1/c', { viewTransition: true });
+        expect(mocks.navigate).toHaveBeenCalledWith('/f1/c', { replace: true, viewTransition: true });
         await unmount();
     });
 
@@ -165,12 +165,21 @@ describe('useNoteActions', () => {
     it('opens the previous note when the last one is deleted, and the folder when none is left', async () => {
         const last = await actions({ noteId: 'c' });
         await act(async () => last.api().deleteAndSelectNeighbour('c'));
-        expect(mocks.navigate).toHaveBeenCalledWith('/f1/b', { viewTransition: true });
+        expect(mocks.navigate).toHaveBeenCalledWith('/f1/b', { replace: true, viewTransition: true });
         await last.unmount();
 
         const only = await actions({ noteId: 'a', notes: [note('a')] });
         await act(async () => only.api().deleteAndSelectNeighbour('a'));
-        expect(mocks.navigate).toHaveBeenLastCalledWith('/f1', { viewTransition: true });
+        expect(mocks.navigate).toHaveBeenLastCalledWith('/f1', { replace: true });
+        await only.unmount();
+    });
+
+    it('pops the trashed note off history when no note is left, so Back never reopens it', async () => {
+        window.history.replaceState({ idx: 2 }, '');
+        const only = await actions({ noteId: 'a', notes: [note('a')] });
+        await act(async () => only.api().deleteAndSelectNeighbour('a'));
+        expect(mocks.navigate).toHaveBeenLastCalledWith(-1);
+        window.history.replaceState(null, '');
         await only.unmount();
     });
 
