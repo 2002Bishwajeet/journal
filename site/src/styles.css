@@ -652,6 +652,13 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .contact-mail .copy-btn { justify-content: center; margin-top: 0; min-height: 52px; background: var(--bg); color: var(--ink); }
 @media (hover: hover) and (pointer: fine) { .contact-mail .copy-btn:hover { background: var(--band); } }
 
+/* ---- Privacy page: each part's heading beside its text ---- */
+.policy { display: grid; gap: clamp(48px, 6vw, 80px); }
+.policy-part { display: grid; gap: 16px; }
+@media (min-width: 860px) { .policy-part { grid-template-columns: 5fr 7fr; gap: var(--gap); align-items: start; } }
+.policy-body { display: grid; gap: 16px; max-width: 62ch; }
+.policy-list { display: grid; gap: 10px; padding-left: 1.2em; list-style: disc; }
+
 /* ---- Footer ---- */
 .footer { padding: clamp(56px, 7vw, 88px) 0 calc(32px + env(safe-area-inset-bottom)); background: var(--band); }
 .footer-grid { display: grid; gap: 40px; }
