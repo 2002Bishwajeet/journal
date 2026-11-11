@@ -1,3 +1,10 @@
+## [2.66.5](https://github.com/2002Bishwajeet/journal/compare/v2.66.4...v2.66.5) (2026-11-11)
+
+
+### Bug Fixes
+
+* **history:** drop a trashed note's version history; checkpoint hourly ([#1070](https://github.com/2002Bishwajeet/journal/issues/1070)) ([47b8624](https://github.com/2002Bishwajeet/journal/commit/47b8624bcee70f35e12e186c4c18fe53a9a600c1))
+* **history:** drop snapshots only after the server confirms the trash ([#1070](https://github.com/2002Bishwajeet/journal/issues/1070)) ([2faf905](https://github.com/2002Bishwajeet/journal/commit/2faf9058ded0a0be535b02c0b342af3eb6fc84f8))
 ## [2.66.4](https://github.com/2002Bishwajeet/journal/compare/v2.66.3...v2.66.4) (2026-11-10)
 
 
