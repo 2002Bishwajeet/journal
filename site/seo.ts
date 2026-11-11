@@ -14,6 +14,7 @@ export const PAGES = [
   { id: 'agents', file: 'agents.html', path: '/landing/agents', name: 'Agents' },
   { id: 'pricing', file: 'pricing.html', path: '/landing/pricing', name: 'Pricing' },
   { id: 'buy', file: 'buy.html', path: '/landing/buy', name: 'Buy' },
+  { id: 'contact', file: 'contact.html', path: '/landing/contact', name: 'Contact' },
 ] as const
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' }

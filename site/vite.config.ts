@@ -9,10 +9,22 @@ const page = (name: string) => resolve(import.meta.dirname, name)
 // replaced from site/partials, the nav link named by <body data-page> is marked current, and
 // a page's `<!-- credit: ... -->` (picture credits) moves into the footer.
 const read = (name: string) => readFileSync(page(`partials/${name}.html`), 'utf8')
+
+// Buying the native apps is off until billing production and the app downloads are live: the buy page
+// then shows "coming soon" instead of its buy and renew buttons. Turn it on with VITE_BILLING_LIVE=true
+// in the build's environment (deploy-cloudflare.yml, or `VITE_BILLING_LIVE=true npm run site:build`).
+export const BILLING_LIVE = process.env.VITE_BILLING_LIVE === 'true'
+
+/** Keeps a page's `<!-- billing-live -->…<!-- /billing-live -->` parts when billing is on, its `billing-soon` parts when it is off. */
+export function billingBlocks(html: string, live: boolean): string {
+  const drop = live ? 'billing-soon' : 'billing-live'
+  return html.replace(new RegExp(`<!-- ${drop} -->[\\s\\S]*?<!-- /${drop} -->\\n?`, 'g'), '')
+}
+
 function render(html: string): string {
   const current = /<body data-page="(\w+)"/.exec(html)?.[1]
   const credit = /<!-- credit: ([\s\S]*?) -->\n?/.exec(html)
-  const out = html
+  const out = billingBlocks(html, BILLING_LIVE)
     .replace(credit?.[0] ?? '', '')
     .replace(/<!-- (head|header|footer) -->/g, (_, name) => read(name))
     .replace('<!-- credit -->', credit ? `<p class="wrap credit">${credit[1]}</p>` : '')
@@ -50,8 +62,8 @@ function textFiles(): Plugin {
   }
 }
 
-// The billing Worker (#300) the buy page talks to. Dodo test mode everywhere except the production
-// deploy, which builds with `--mode live` (deploy-cloudflare.yml).
+// The billing Worker (#300) the buy page talks to once BILLING_LIVE is on. Dodo test mode everywhere
+// except a build with `--mode live`, which the production deploy uses (deploy-cloudflare.yml).
 const BILLING_URL = { test: 'https://journal-billing-test.cloudx.run', live: 'https://journal-billing.cloudx.run' }
 
 // The landing site: static pages of their own, built to site/dist for Cloudflare Pages.
@@ -67,7 +79,7 @@ export default defineConfig(({ mode }) => ({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: { index: page('index.html'), agents: page('agents.html'), pricing: page('pricing.html'), buy: page('buy.html') },
+      input: { index: page('index.html'), agents: page('agents.html'), pricing: page('pricing.html'), buy: page('buy.html'), contact: page('contact.html') },
     },
     // Mermaid's diagram chunks (elk is the largest) load only when the playground is used.
     chunkSizeWarningLimit: 1600,

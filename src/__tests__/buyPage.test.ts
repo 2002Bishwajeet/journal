@@ -1,58 +1,58 @@
 /**
- * #305: the landing site's buy page. Its identity check mirrors the billing Worker's hostname rule,
- * it reads Dodo's return from the query, it tells a failed checkout apart by status, and the page
- * is built and listed like the others, against the test Worker unless the build is `--mode live`.
+ * #305: the landing site's buy page. It checks a license key with the billing Worker's own rule,
+ * shows it masked, sends the right /checkout body for a new key or a renewal, reads Dodo's return
+ * from the query, and keeps its buy and renew buttons out of the build until VITE_BILLING_LIVE is on.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { UserConfig } from 'vite';
-import siteConfig from '../../site/vite.config';
+import siteConfig, { BILLING_LIVE, billingBlocks } from '../../site/vite.config';
 import { PAGES } from '../../site/seo';
-import { checkoutError, parseOdinId, paymentReturn } from '../../site/src/license';
+import { checkoutBody, checkoutError, maskKey, parseLicenseKey, paymentReturn, RETURN_URL } from '../../site/src/license';
 
-describe('parseOdinId', () => {
+describe('parseLicenseKey', () => {
     it.each([
-        ['frodo.dotyou.cloud', 'frodo.dotyou.cloud'],
-        ['Frodo.Example.COM', 'frodo.example.com'],
-        ['  sam.example.com  ', 'sam.example.com'],
-        ['https://sam.example.com/', 'sam.example.com'],
-        ['a-b.c-d.example', 'a-b.c-d.example'],
-        ['1.example', '1.example'],
-    ])('accepts %j as %j', (input, expected) => {
-        expect(parseOdinId(input)).toBe(expected);
+        ['ABCD-1234-efgh_5678', 'ABCD-1234-efgh_5678'],
+        ['  abcdefgh  ', 'abcdefgh'],
+        ['a'.repeat(100), 'a'.repeat(100)],
+    ])('accepts %j', (input, expected) => {
+        expect(parseLicenseKey(input)).toBe(expected);
     });
 
-    it.each([
-        '',
-        'localhost',
-        'example',
-        'frodo..example.com',
-        '-frodo.example.com',
-        'frodo-.example.com',
-        'frodo.example.123',
-        'frodo.example.com/notes',
-        'frodo@example.com',
-        'fro do.example.com',
-        '192.168.1.1',
-        `${'a'.repeat(64)}.example.com`,
-        `${'a.'.repeat(126)}com`,
-    ])('rejects %j', (input) => {
-        expect(parseOdinId(input)).toBeNull();
+    it.each(['', 'short', 'abcd efgh', 'abcd.efgh', 'abcd/efgh', 'ключ-ключ-ключ', 'a'.repeat(101)])('rejects %j', (input) => {
+        expect(parseLicenseKey(input)).toBeNull();
+    });
+});
+
+describe('maskKey', () => {
+    it('hides all but the last four characters', () => {
+        const masked = maskKey('SECRET-KEY-WXYZ');
+        expect(masked).toBe('••••••••WXYZ');
+        expect(masked).not.toContain('SECRET');
+    });
+});
+
+describe('checkoutBody', () => {
+    it('buys a new key without one, renews the key it is given', () => {
+        expect(checkoutBody(null)).toEqual({ returnUrl: 'https://journal.cloudx.run/landing/buy' });
+        expect(checkoutBody('ABCD-1234-EFGH')).toEqual({ returnUrl: RETURN_URL, licenseKey: 'ABCD-1234-EFGH' });
+        expect(JSON.stringify(checkoutBody(null))).not.toContain('odinId');
     });
 
-    it('takes a 63-character label and a 253-character name, like the Worker', () => {
-        expect(parseOdinId(`${'a'.repeat(63)}.example.com`)).not.toBeNull();
-        expect(parseOdinId(`${'a.'.repeat(125)}com`)).toHaveLength(253);
+    it('sends the one return URL the Worker accepts: no query, no fragment', () => {
+        const url = new URL(RETURN_URL);
+        expect(url.origin + url.pathname).toBe(RETURN_URL);
     });
 });
 
 describe('paymentReturn', () => {
-    it('is null on a plain visit or one from the app', () => {
+    it('is null on a plain visit', () => {
         expect(paymentReturn('')).toBeNull();
-        expect(paymentReturn('?odinId=frodo.example.com')).toBeNull();
+        expect(paymentReturn('?ref=pricing')).toBeNull();
     });
 
     it("reads Dodo's status", () => {
-        expect(paymentReturn('?payment_id=pay_1&status=succeeded&email=a%40b.example')).toBe('succeeded');
+        expect(paymentReturn('?payment_id=pay_1&status=succeeded&license_key=K&email=a%40b.example')).toBe('succeeded');
         expect(paymentReturn('?payment_id=pay_1&status=processing')).toBe('processing');
         expect(paymentReturn('?payment_id=pay_1&status=requires_customer_action')).toBe('processing');
         expect(paymentReturn('?payment_id=pay_1&status=failed')).toBe('failed');
@@ -63,21 +63,48 @@ describe('paymentReturn', () => {
 
 describe('checkoutError', () => {
     it('names each failure', () => {
-        expect(checkoutError(null)).toMatch(/connection/);
-        expect(checkoutError(429)).toMatch(/Wait a minute/);
-        expect(checkoutError(400)).toMatch(/identity/);
-        expect(checkoutError(502)).toMatch(/Nothing was charged/);
-        expect(checkoutError(503)).toBe(checkoutError(500));
+        expect(checkoutError(null, false)).toMatch(/connection/);
+        expect(checkoutError(429, false)).toMatch(/Wait a minute/);
+        expect(checkoutError(400, true)).toMatch(/could not find a license for that key/);
+        expect(checkoutError(400, false)).toMatch(/Nothing was charged/);
+        expect(checkoutError(502, true)).toMatch(/Nothing was charged/);
     });
 });
 
-describe('the buy page in the build', () => {
+describe('the billing flag', () => {
+    const html = readFileSync(new URL('../../site/buy.html', import.meta.url), 'utf8');
+
+    it('is off unless VITE_BILLING_LIVE is true', () => {
+        expect(BILLING_LIVE).toBe(process.env.VITE_BILLING_LIVE === 'true');
+    });
+
+    it('shows "coming soon" and no buy or renew button while off', () => {
+        const off = billingBlocks(html, false);
+        expect(off).toContain('Native apps coming soon');
+        expect(off).not.toContain('id="buy-new"');
+        expect(off).not.toContain('id="renew-form"');
+    });
+
+    it('shows the buy and renew buttons, and no "coming soon", while on', () => {
+        const on = billingBlocks(html, true);
+        expect(on).toContain('id="buy-new"');
+        expect(on).toContain('id="renew-form"');
+        expect(on).not.toContain('Native apps coming soon');
+    });
+
+    it('keeps the return message either way, so a test checkout can land on the page', () => {
+        for (const live of [true, false]) expect(billingBlocks(html, live)).toContain('id="buy-done"');
+    });
+});
+
+describe('the buy and contact pages in the build', () => {
     const config = (mode: string) =>
         (siteConfig as (env: { mode: string; command: 'build' }) => UserConfig)({ mode, command: 'build' });
 
-    it('is built and listed with every other page', () => {
+    it('are built and listed with every other page', () => {
         const input = config('production').build?.rollupOptions?.input as Record<string, string>;
         expect(PAGES.find((p) => p.id === 'buy')?.path).toBe('/landing/buy');
+        expect(PAGES.find((p) => p.id === 'contact')?.path).toBe('/landing/contact');
         for (const page of PAGES) expect(Object.values(input).some((file) => file.endsWith(`/${page.file}`))).toBe(true);
     });
 
