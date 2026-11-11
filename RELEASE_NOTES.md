@@ -16,6 +16,28 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.66.8 (2026-11-11)
+
+### New
+
+- You can publish a note to your Homebase feed. In the Share dialog, select **Publish to feed**. The note does not have to be public. When you publish a note again, Journal updates the same post.
+- The first time you publish, Homebase asks you for permission to write to your public posts. If you do not give permission, Journal does not publish the note.
+- Journal applies your crop, rotation and flip to the images in the post, and removes their location data.
+
+### Changed
+
+- Live blocks (html, react, mermaid and svg code blocks) now come from a separate package, `@2002bishwajeet/live-blocks`. Other apps, for example the Homebase feed, can use this package to show live blocks as Journal shows them. In Journal, live blocks look and work as before.
+- On a phone, the formatting toolbar floats a little above the keyboard, with rounded ends and a gap at each side. When you scroll it, it stops at the start of a group of buttons, and at either end it stretches a little and springs back.
+
+### Fixed
+
+- On a phone, the line you are typing on no longer hides behind the formatting toolbar when the keyboard opens.
+- When an AI agent edits a note that is public by link only, the note stays off your public page. Before, the edit put it back on the page.
+
+### Added
+
+- On a phone, the formatting toolbar now ends with a Hide keyboard button. You can also close the keyboard by dragging the note down.
+
 ## 2.66.7 (2026-11-11)
 
 ### Fixed

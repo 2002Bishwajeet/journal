@@ -1,3 +1,29 @@
+## [2.66.8](https://github.com/2002Bishwajeet/journal/compare/v2.66.7...v2.66.8) (2026-11-11)
+
+
+### Bug Fixes
+
+* **ai:** keep model removal reachable where AI is gated ([#101](https://github.com/2002Bishwajeet/journal/issues/101)) ([4c9174b](https://github.com/2002Bishwajeet/journal/commit/4c9174b402fde72f0807527602c2daa3b9ab3522))
+* **feed:** review fixes for publish to feed ([3a34817](https://github.com/2002Bishwajeet/journal/commit/3a34817126553398c2603e955b2e0bfe361c5ad7))
+* **landing:** stop iOS mangling the typed Homebase ID ([f21d910](https://github.com/2002Bishwajeet/journal/commit/f21d9108b6a34293c18c14093ba6d85a1a004472))
+* **mcp:** keep an unlisted public note unlisted when an agent edits it ([4b6e35d](https://github.com/2002Bishwajeet/journal/commit/4b6e35dea5f409f8a17304457c50dde74c64e18e))
+* **mobile:** keep the caret above the keyboard toolbar; float the toolbar, add Hide keyboard and drag-down to close ([9257caa](https://github.com/2002Bishwajeet/journal/commit/9257caa5babd7aa1fd32f186ea7ee003080755ff))
+* **native:** abort when localhost:47821 can't bind on IPv4 or IPv6 ([#1012](https://github.com/2002Bishwajeet/journal/issues/1012)) ([fc48f2f](https://github.com/2002Bishwajeet/journal/commit/fc48f2fb04828da1b0e6ae73b567c1bf6b739641))
+* **native:** serve public/_headers from the asset server ([225248c](https://github.com/2002Bishwajeet/journal/commit/225248c5bbffe990134753d973e0fb7c9902f49c)), closes [#945](https://github.com/2002Bishwajeet/journal/issues/945) [#671](https://github.com/2002Bishwajeet/journal/issues/671)
+
+
+### Features
+
+* **android:** Android target, with cleartext scoped to loopback ([5352d10](https://github.com/2002Bishwajeet/journal/commit/5352d10f94699b486b5bf6980ee2cf2333829702)), closes [#97](https://github.com/2002Bishwajeet/journal/issues/97) [#102](https://github.com/2002Bishwajeet/journal/issues/102)
+* **ios:** bundle id id.biswa.journal, icons, launch screen and TestFlight release ([89b3011](https://github.com/2002Bishwajeet/journal/commit/89b3011083ae575a020eb00866709b5007172c71)), closes [#102](https://github.com/2002Bishwajeet/journal/issues/102) [#1080](https://github.com/2002Bishwajeet/journal/issues/1080)
+* **ios:** hide WKWebView's form accessory bar so the editor toolbar sits on the keyboard ([#97](https://github.com/2002Bishwajeet/journal/issues/97)) ([f2ba7e0](https://github.com/2002Bishwajeet/journal/commit/f2ba7e087b7df17e8a3e41dd6ff555653769975f))
+* **live-blocks:** extract the live-block runtime into @journal/live-blocks ([#1075](https://github.com/2002Bishwajeet/journal/issues/1075)) ([21908bc](https://github.com/2002Bishwajeet/journal/commit/21908bc5427d33943555390b68df558f9de8fb4d))
+* **mcp:** publish_to_feed tool ([#1074](https://github.com/2002Bishwajeet/journal/issues/1074)) ([6abb850](https://github.com/2002Bishwajeet/journal/commit/6abb8501865d3008af2c060c0ff57536a452bbf3))
+* **mobile:** springy toolbar scroll: rubber band and stretch past the ends, rest on a button group ([b8e378c](https://github.com/2002Bishwajeet/journal/commit/b8e378c197af780601dad6d5d751bde25cc203a0))
+* **native:** isNativeApp() and the platform, set by the shell ([#101](https://github.com/2002Bishwajeet/journal/issues/101)) ([ed4c639](https://github.com/2002Bishwajeet/journal/commit/ed4c63960c920fafcf605f1af70a699960b2ce4b))
+* publish a note to the feed ([#1074](https://github.com/2002Bishwajeet/journal/issues/1074)) ([50ea99c](https://github.com/2002Bishwajeet/journal/commit/50ea99c078d28390b722a8d5c911b6907438420c)), closes [odin-js#1033](https://github.com/odin-js/issues/1033)
+* publish a note to the feed ([#1074](https://github.com/2002Bishwajeet/journal/issues/1074)) ([ba122ce](https://github.com/2002Bishwajeet/journal/commit/ba122ce4555e9eb7afc3a9e3aa3e7da79bc7fbda)), closes [odin-js#1033](https://github.com/odin-js/issues/1033)
+* **shell:** native desktop + iOS app via Tauri v2 ([cb08eb3](https://github.com/2002Bishwajeet/journal/commit/cb08eb36ac20ec22cfc74812b7262ed721de7e24)), closes [wry#389](https://github.com/wry/issues/389) [#97](https://github.com/2002Bishwajeet/journal/issues/97) [#101](https://github.com/2002Bishwajeet/journal/issues/101) [#99](https://github.com/2002Bishwajeet/journal/issues/99) [#100](https://github.com/2002Bishwajeet/journal/issues/100)
 ## [2.66.7](https://github.com/2002Bishwajeet/journal/compare/v2.66.6...v2.66.7) (2026-11-11)
 
 
