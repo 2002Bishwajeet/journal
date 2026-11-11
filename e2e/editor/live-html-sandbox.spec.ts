@@ -1,6 +1,6 @@
 import type { FrameLocator, Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-import { activeEditor, createNote, pastePlainText, screenshotInBothThemes } from '../support/actions';
+import { activeEditor, createNote, pastePlainText, screenshotInBothThemes, waitForNoteSaved } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #389: an `html` code block previews as a running page in a sandboxed frame
@@ -100,9 +100,22 @@ async function serveFakeScripts(app: Page): Promise<string[]> {
   return requests;
 }
 
-/** Creates a note with `source` as an `html` block, previews it, and returns its frame. */
-async function previewProbe(app: Page, source = PROBE) {
-  await createNote(app, { title: `Html ${Date.now()}`, body: '```html ' + source });
+/**
+ * Creates a note with `source` as an `html` block, previews it, and returns its frame.
+ * The fence is typed; the source goes in as one text input a line unless `typed`, as a key
+ * per character spent most of the 30s budget on CI for the long probes, not on the sandbox.
+ */
+async function previewProbe(app: Page, source = PROBE, { typed = false } = {}) {
+  if (typed) {
+    await createNote(app, { title: `Html ${Date.now()}`, body: '```html ' + source });
+  } else {
+    await createNote(app, { title: `Html ${Date.now()}`, body: '```html ' });
+    for (const [i, line] of source.split('\n').entries()) {
+      if (i > 0) await app.keyboard.press('Enter');
+      await app.keyboard.insertText(line);
+    }
+    await waitForNoteSaved(app);
+  }
   // Something on the app's origin for the frame to fail to read.
   await assertTestOrigin(app);
   await app.evaluate(() => {
@@ -383,7 +396,7 @@ test('html block: an external image does not load', async ({ reusedApp: app }) =
 
 test('html block: typed, a script from an allowlisted CDN host runs', async ({ reusedApp: app }) => {
   const requests = await serveFakeScripts(app);
-  const frame = await previewProbe(app, CDN_SOURCE);
+  const frame = await previewProbe(app, CDN_SOURCE, { typed: true });
 
   await expect(frame.locator('#out')).toHaveText('cdn script ran');
   expect(new Set(requests)).toEqual(new Set([`script ${CDN_SCRIPT_URL}`]));
