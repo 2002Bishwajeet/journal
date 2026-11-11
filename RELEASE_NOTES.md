@@ -16,6 +16,16 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.66.6 (2026-11-11)
+
+### Changed
+
+- The assistant can now read all of a long note. It first gets the headings of the note, then it reads the part under one heading.
+
+### Fixed
+
+- On a phone, when you go back immediately after you open Settings or a sheet, the app closes it.
+
 ## 2.66.5 (2026-11-11)
 
 ### Changed

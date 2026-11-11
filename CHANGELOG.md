@@ -1,3 +1,15 @@
+## [2.66.6](https://github.com/2002Bishwajeet/journal/compare/v2.66.5...v2.66.6) (2026-11-11)
+
+
+### Bug Fixes
+
+* **ai:** get_note takes section only after the note's outline was shown ([#1025](https://github.com/2002Bishwajeet/journal/issues/1025)) ([c251082](https://github.com/2002Bishwajeet/journal/commit/c2510823258cc47652a0029f33807d645344c19c))
+* **ai:** offer get_note's section only after an outline was shown ([#1025](https://github.com/2002Bishwajeet/journal/issues/1025)) ([1cb28b6](https://github.com/2002Bishwajeet/journal/commit/1cb28b6f9bf86db319b4e52ccf7def302c87b9a6))
+
+
+### Features
+
+* **ai:** long notes as outline + section reads, per-model context window ([#1025](https://github.com/2002Bishwajeet/journal/issues/1025)) ([1ca1d0b](https://github.com/2002Bishwajeet/journal/commit/1ca1d0b03c16c3866aa6067a44fe5aed8d822a6d))
 ## [2.66.5](https://github.com/2002Bishwajeet/journal/compare/v2.66.4...v2.66.5) (2026-11-11)
 
 
