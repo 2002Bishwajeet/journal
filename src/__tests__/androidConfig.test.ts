@@ -22,8 +22,8 @@ describe('android app config', () => {
     expect(read(`${RES}/values-night/colors.xml`)).toContain('<color name="splash_background">#FF1C1B1A</color>');
   });
 
-  it('is labelled Journal', () => {
-    expect(read(`${RES}/values/strings.xml`)).toContain('<string name="app_name">"Journal"</string>');
+  it('is labelled Journal+', () => {
+    expect(read(`${RES}/values/strings.xml`)).toContain('<string name="app_name">"Journal+"</string>');
   });
 
   it('signs release builds with an upload key read from outside the repo', () => {
