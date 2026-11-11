@@ -53,8 +53,11 @@ DESIGN-IS-*/
 .agents/skills/
 .claude/skills/*
 !.claude/skills/e2e-verify/
-!.claude/skills/app-store-screenshots/
 skills-lock.json
+# Store screenshot tooling stays local; only the exported PNGs in brand/store/{ios,android} are committed
+brand/store/generator/
+brand/store/capture/
+brand/store/README.md
 
 # MCP package build
 mcp/package/dist/
