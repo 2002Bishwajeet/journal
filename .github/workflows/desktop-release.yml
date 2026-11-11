@@ -1,0 +1,161 @@
+name: Desktop Release
+
+# Builds the desktop app for a `v<version>` app release and attaches it to that
+# GitHub release (#305): a signed, notarised and stapled universal .dmg for macOS,
+# an NSIS installer and an .msi for Windows (unsigned for now), and an AppImage and
+# a .deb for Linux. Each build also uploads its signed updater bundle and merges
+# its platform into the release's latest.json, the endpoint in tauri.conf.json (#1141).
+#
+# Asset names carry no version, so `releases/latest/download/<name>` always gets
+# the newest build (the site's download page links those).
+#
+# manual-release.yml calls this after it creates the release, once the repo
+# variable DESKTOP_RELEASES is 'true'. Run it by hand to (re)build a release.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'App release tag to build and attach to (e.g. v2.66.8)'
+        required: true
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+
+concurrency:
+  group: desktop-release-${{ inputs.tag }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: --target universal-apple-darwin
+            secrets: APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_KEY APPLE_API_ISSUER APPLE_API_PRIVATE_KEY
+          - os: windows-latest
+            args: --bundles nsis,msi
+          # 22.04: an AppImage runs on distributions with this glibc or newer.
+          - os: ubuntu-22.04
+            args: --bundles appimage,deb
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+      - name: Check secrets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          missing=0
+          for name in GH_TOKEN TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD ${{ matrix.secrets }}; do
+            if [ -z "${!name}" ]; then echo "::error::Actions secret $name is not set (#299)"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Authenticate to Github packages
+        shell: bash
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install WebKitGTK and GTK
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+
+      # notarytool takes the App Store Connect API key as a .p8 file.
+      - name: Write the App Store Connect API key
+        if: runner.os == 'macOS'
+        env:
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          printf '%s\n' "$APPLE_API_PRIVATE_KEY" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+
+      # The Tauri CLI imports APPLE_CERTIFICATE into a temporary keychain, signs
+      # with the hardened runtime, notarises with the API key and staples.
+      # tauri.release.conf.json turns on the updater bundles, signed with
+      # TAURI_SIGNING_PRIVATE_KEY.
+      - name: Build and upload
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CI: true
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: 'Developer ID Application: Bishwajeet Parhi (N899Y9TW48)'
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        with:
+          tagName: ${{ inputs.tag }}
+          args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json
+          # Journal-darwin-universal.dmg, Journal-windows-x64-setup.exe, Journal-windows-x64.msi,
+          # Journal-linux-amd64.AppImage, Journal-linux-amd64.deb (+ updater bundles and .sig files).
+          releaseAssetNamePattern: 'Journal-[platform]-[arch][setup][ext]'
+          updaterJsonPreferNsis: true
+          retryAttempts: 1
+
+  # Runs once every build has uploaded: SHA-256 checksums for the download page,
+  # and a check that no platform's latest.json entry was lost (the builds merge
+  # the file one at a time, and two finishing together could drop one).
+  checksums:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Check latest.json
+        run: |
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p latest.json -D "$RUNNER_TEMP"
+          for platform in darwin-aarch64 darwin-x86_64 windows-x86_64 linux-x86_64; do
+            jq -e --arg p "$platform" '.platforms[$p].url' "$RUNNER_TEMP/latest.json" > /dev/null \
+              || { echo "::error::latest.json has no $platform entry: re-run this workflow for $TAG"; exit 1; }
+          done
+
+      - name: Upload SHA256SUMS.txt
+        run: |
+          mkdir assets && cd assets
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p 'Journal-*'
+          sha256sum Journal-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt >> "$GITHUB_STEP_SUMMARY"
+          gh release upload "$TAG" SHA256SUMS.txt -R "$GITHUB_REPOSITORY" --clobber

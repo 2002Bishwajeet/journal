@@ -14,6 +14,7 @@ export const PAGES = [
   { id: 'agents', file: 'agents.html', path: '/landing/agents', name: 'Agents' },
   { id: 'pricing', file: 'pricing.html', path: '/landing/pricing', name: 'Pricing' },
   { id: 'buy', file: 'buy.html', path: '/landing/buy', name: 'Buy' },
+  { id: 'download', file: 'download.html', path: '/landing/download', name: 'Download' },
   { id: 'contact', file: 'contact.html', path: '/landing/contact', name: 'Contact' },
 ] as const
 

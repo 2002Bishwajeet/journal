@@ -14,17 +14,22 @@ const read = (name: string) => readFileSync(page(`partials/${name}.html`), 'utf8
 // then shows "coming soon" instead of its buy and renew buttons. Turn it on with VITE_BILLING_LIVE=true
 // in the build's environment (deploy-cloudflare.yml, or `VITE_BILLING_LIVE=true npm run site:build`).
 export const BILLING_LIVE = process.env.VITE_BILLING_LIVE === 'true'
+// The download page's installer links stay off ("coming soon") until the first desktop release is out
+// (desktop-release.yml). Turn them on with VITE_DOWNLOADS_LIVE=true, like VITE_BILLING_LIVE.
+export const DOWNLOADS_LIVE = process.env.VITE_DOWNLOADS_LIVE === 'true'
 
-/** Keeps a page's `<!-- billing-live -->…<!-- /billing-live -->` parts when billing is on, its `billing-soon` parts when it is off. */
-export function billingBlocks(html: string, live: boolean): string {
-  const drop = live ? 'billing-soon' : 'billing-live'
+/** Keeps a page's `<!-- <flag>-live -->…<!-- /<flag>-live -->` parts when the flag is on, its `<flag>-soon` parts when it is off. */
+export function flagBlocks(html: string, flag: string, live: boolean): string {
+  const drop = live ? `${flag}-soon` : `${flag}-live`
   return html.replace(new RegExp(`<!-- ${drop} -->[\\s\\S]*?<!-- /${drop} -->\\n?`, 'g'), '')
 }
+
+export const billingBlocks = (html: string, live: boolean): string => flagBlocks(html, 'billing', live)
 
 function render(html: string): string {
   const current = /<body data-page="(\w+)"/.exec(html)?.[1]
   const credit = /<!-- credit: ([\s\S]*?) -->\n?/.exec(html)
-  const out = billingBlocks(html, BILLING_LIVE)
+  const out = flagBlocks(billingBlocks(html, BILLING_LIVE), 'downloads', DOWNLOADS_LIVE)
     .replace(credit?.[0] ?? '', '')
     .replace(/<!-- (head|header|footer) -->/g, (_, name) => read(name))
     .replace('<!-- credit -->', credit ? `<p class="wrap credit">${credit[1]}</p>` : '')
@@ -79,7 +84,7 @@ export default defineConfig(({ mode }) => ({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: { index: page('index.html'), agents: page('agents.html'), pricing: page('pricing.html'), buy: page('buy.html'), contact: page('contact.html') },
+      input: { index: page('index.html'), agents: page('agents.html'), pricing: page('pricing.html'), buy: page('buy.html'), download: page('download.html'), contact: page('contact.html') },
     },
     // Mermaid's diagram chunks (elk is the largest) load only when the playground is used.
     chunkSizeWarningLimit: 1600,

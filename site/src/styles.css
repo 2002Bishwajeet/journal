@@ -641,6 +641,20 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .buy-phone { width: min(100%, 320px); justify-self: center; }
 @media (min-width: 980px) { .buy-name { grid-template-columns: 7fr 5fr; } }
 
+/* ---- Download page: the claim beside the installers, the app below them ---- */
+.dl { display: grid; gap: 40px var(--gap); }
+.dl-head { display: grid; gap: 24px; align-content: start; }
+@media (min-width: 860px) {
+  .dl { grid-template-columns: 7fr 5fr; align-items: start; }
+  .dl .display { font-size: clamp(46px, 4.4vw + 20px, 80px); }
+}
+.dl-panel { display: grid; gap: 20px; padding: clamp(24px, 3.4vw, 40px); border-radius: 16px; background: var(--sand-soft); }
+.dl-soon { display: grid; gap: 12px; justify-items: start; }
+.dl-soon .btn { width: 100%; }
+.dl-list { display: grid; gap: 8px; }
+.dl-item { display: grid; gap: 12px; padding: 16px 20px; border-radius: 12px; background: var(--bg); }
+.dl-item .btn { width: 100%; }
+
 /* ---- Contact page: the claim beside the address, set large ---- */
 .contact { display: grid; gap: 40px var(--gap); }
 .contact-head { display: grid; gap: 24px; align-content: start; }
