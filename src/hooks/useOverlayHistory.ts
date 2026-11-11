@@ -22,10 +22,10 @@ const entryReplaced = (key: string) => {
 
 // The pushed entry renders in that transition too, so a quick Back (or a slow
 // render) can pop it before the location ever shows it: the browser entry no
-// longer lists the overlay.
+// longer lists the overlay. The page's first entry has an idx but no key.
 const entryPopped = (id: string) => {
-  const current = window.history.state as { key?: string; usr?: unknown } | null;
-  return current?.key !== undefined && !stackOf(current.usr).includes(id);
+  const current = window.history.state as { idx?: number; usr?: unknown } | null;
+  return current?.idx !== undefined && !stackOf(current.usr).includes(id);
 };
 
 // Below the desktop breakpoint an open overlay owns one history entry, so the

@@ -11,8 +11,10 @@ const style = (page: Page, selector: string, prop: string) =>
 
 const userSelect = (page: Page, selector: string) =>
   page.locator(selector).first().evaluate((el) => {
+    // WebKit inherits only the prefixed property: a button under a `user-select: none` body
+    // computes unprefixed `auto` but prefixed `none`, and that is the value it uses.
     const cs = getComputedStyle(el);
-    return cs.userSelect || cs.getPropertyValue('-webkit-user-select');
+    return cs.getPropertyValue('-webkit-user-select') || cs.userSelect;
   });
 
 const noPageScroll = (page: Page) =>

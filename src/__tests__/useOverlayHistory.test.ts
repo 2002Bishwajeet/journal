@@ -128,6 +128,17 @@ describe('useOverlayHistory', () => {
         expect(probe.path()).toBe('/folder');
     });
 
+    it('closes on a quick Back to the first entry of the page, which has no key', () => {
+        const close = vi.fn();
+        const { render } = mount([{ open: false, close }]);
+        pendingPush.on = true;
+        render([{ open: true, close }]);
+        window.history.replaceState({ idx: 0 }, '');
+        render([{ open: true, close }]);
+        window.history.replaceState(null, '');
+        expect(close).toHaveBeenCalledTimes(1);
+    });
+
     it('does nothing on desktop', () => {
         window.innerWidth = 1280;
         const close = vi.fn();
