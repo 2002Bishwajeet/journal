@@ -1,3 +1,49 @@
+## [2.66.7](https://github.com/2002Bishwajeet/journal/compare/v2.66.6...v2.66.7) (2026-11-11)
+
+
+### Bug Fixes
+
+* **mobile:** keep the keyboard toolbar, sheets and dialogs above the keyboard in the iOS app ([2716821](https://github.com/2002Bishwajeet/journal/commit/271682137184d07bd20c7422879c9779f618380e))
+* **notes:** Back after Move to Trash no longer opens an endless spinner ([9968016](https://github.com/2002Bishwajeet/journal/commit/996801635f29a37cbadd09fa16157c64d7c33a25))
+* **pwa:** no update prompt when the app already runs the waiting build ([50bacff](https://github.com/2002Bishwajeet/journal/commit/50bacff4134d517212d85363c94771dd429478af)), closes [#913](https://github.com/2002Bishwajeet/journal/issues/913)
+* **sw:** let /landing/* page loads reach the landing site ([080e543](https://github.com/2002Bishwajeet/journal/commit/080e54326d579a45386e5ce2f5308cfe021f868f))
+## [2.66.6](https://github.com/2002Bishwajeet/journal/compare/v2.66.5...v2.66.6) (2026-11-11)
+
+
+### Bug Fixes
+
+* **ai:** get_note takes section only after the note's outline was shown ([#1025](https://github.com/2002Bishwajeet/journal/issues/1025)) ([c251082](https://github.com/2002Bishwajeet/journal/commit/c2510823258cc47652a0029f33807d645344c19c))
+* **ai:** offer get_note's section only after an outline was shown ([#1025](https://github.com/2002Bishwajeet/journal/issues/1025)) ([1cb28b6](https://github.com/2002Bishwajeet/journal/commit/1cb28b6f9bf86db319b4e52ccf7def302c87b9a6))
+
+
+### Features
+
+* **ai:** long notes as outline + section reads, per-model context window ([#1025](https://github.com/2002Bishwajeet/journal/issues/1025)) ([1ca1d0b](https://github.com/2002Bishwajeet/journal/commit/1ca1d0b03c16c3866aa6067a44fe5aed8d822a6d))
+## [2.66.5](https://github.com/2002Bishwajeet/journal/compare/v2.66.4...v2.66.5) (2026-11-11)
+
+
+### Bug Fixes
+
+* **history:** drop a trashed note's version history; checkpoint hourly ([#1070](https://github.com/2002Bishwajeet/journal/issues/1070)) ([47b8624](https://github.com/2002Bishwajeet/journal/commit/47b8624bcee70f35e12e186c4c18fe53a9a600c1))
+* **history:** drop snapshots only after the server confirms the trash ([#1070](https://github.com/2002Bishwajeet/journal/issues/1070)) ([2faf905](https://github.com/2002Bishwajeet/journal/commit/2faf9058ded0a0be535b02c0b342af3eb6fc84f8))
+## [2.66.4](https://github.com/2002Bishwajeet/journal/compare/v2.66.3...v2.66.4) (2026-11-10)
+
+
+### Bug Fixes
+
+* **auth:** flush the sign-out wipe to IndexedDB before the reload ([#1060](https://github.com/2002Bishwajeet/journal/issues/1060)) ([6ba0f47](https://github.com/2002Bishwajeet/journal/commit/6ba0f47d6a94227f458c987c76382c0a3f37d7c8))
+* **ci:** keep playwright-deps ldd scan non-fatal under pipefail ([#1063](https://github.com/2002Bishwajeet/journal/issues/1063)) ([928c7b2](https://github.com/2002Bishwajeet/journal/commit/928c7b2c1d9b02e426bfdbf4153f6cd9701e0d6d))
+
+
+### Performance Improvements
+
+* **db:** shrink the local database: WAL recycling off, snapshot byte budget, daily prune, VACUUM ([#1054](https://github.com/2002Bishwajeet/journal/issues/1054)) ([df262fe](https://github.com/2002Bishwajeet/journal/commit/df262fe9186039bd9f19debb993d64937a94b05c)), closes [#1053](https://github.com/2002Bishwajeet/journal/issues/1053)
+## [2.66.3](https://github.com/2002Bishwajeet/journal/compare/v2.66.2...v2.66.3) (2026-11-10)
+
+
+### Bug Fixes
+
+* **editor:** undo and redo update the note list preview; harden load-sensitive e2e specs ([#1057](https://github.com/2002Bishwajeet/journal/issues/1057)) ([876af5b](https://github.com/2002Bishwajeet/journal/commit/876af5b338abc91570ad1ec1ebd25df0ca66b9e2))
 ## [2.66.2](https://github.com/2002Bishwajeet/journal/compare/v2.66.1...v2.66.2) (2026-11-10)
 
 

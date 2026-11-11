@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { createAgentEngine, toAgentEngine } from '@/lib/webllm/agentEngine';
 import { checkGrammar, initWebLLM, isWebLLMReady, rewriteText } from '@/lib/webllm/engine';
-import { DEFAULT_AGENT_MODEL_ID, DEFAULT_MODEL_ID } from '@/lib/webllm/models';
+import { DEFAULT_AGENT_MODEL_ID, DEFAULT_MODEL_ID, getModelInfo } from '@/lib/webllm/models';
 
 const create = vi.hoisted(() => vi.fn(async () => ({ choices: [{ message: { content: '["an error"]' } }] })));
 const reload = vi.hoisted(() => vi.fn(async () => {}));
@@ -99,6 +99,24 @@ describe('createAgentEngine', () => {
             name: 'ModelLoadError',
             message: 'Not enough memory for this model. Try Qwen3 1.7B.',
         });
+    });
+
+    it('should load a model with its catalogue context window and give the loop that window (#1025)', async () => {
+        const model = getModelInfo('Qwen3.5-4B-q4f16_1-MLC')!;
+        model.contextWindow = 8192;
+        try {
+            const engine = createAgentEngine(model.id);
+            expect(engine.contextWindow).toBe(8192);
+            await engine.generate([], { schema: {}, maxTokens: 1 });
+            expect(reload).toHaveBeenLastCalledWith(model.id, { context_window_size: 8192 });
+        } finally {
+            delete model.contextWindow;
+        }
+        // Without one, the prebuilt 4,096 window: no chat options.
+        const engine = createAgentEngine(DEFAULT_AGENT_MODEL_ID);
+        expect(engine.contextWindow).toBeUndefined();
+        await engine.generate([], { schema: {}, maxTokens: 1 });
+        expect(reload).toHaveBeenLastCalledWith(DEFAULT_AGENT_MODEL_ID, undefined);
     });
 
     it('should keep the generic message for other load failures', async () => {

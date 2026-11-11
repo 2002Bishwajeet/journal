@@ -63,9 +63,9 @@ export async function saveSnapshot(
 
 export async function getSnapshots(docId: string): Promise<SnapshotMeta[]> {
     const db = await getDatabase();
-    const result = await db.query<{ id: number; preview: string; word_count: number; created_at: Date }>(
-        `SELECT id, preview, word_count, created_at FROM document_snapshots
-         WHERE doc_id = $1 ORDER BY created_at DESC, id DESC`,
+    const result = await db.query<{ id: number; preview: string; word_count: number; created_at: Date; bytes: number }>(
+        `SELECT id, preview, word_count, created_at, octet_length(state_blob) + octet_length(state_vector) AS bytes
+         FROM document_snapshots WHERE doc_id = $1 ORDER BY created_at DESC, id DESC`,
         [docId]
     );
     return result.rows.map(row => ({
@@ -73,7 +73,18 @@ export async function getSnapshots(docId: string): Promise<SnapshotMeta[]> {
         preview: row.preview,
         wordCount: row.word_count,
         createdAt: row.created_at,
+        bytes: row.bytes,
     }));
+}
+
+/** Every note that has snapshots, and whether it is in Trash, for the daily prune pass (#1054, #1070). */
+export async function getSnapshotDocIds(): Promise<{ docId: string; trashed: boolean }[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ doc_id: string; trashed: boolean }>(
+        `SELECT DISTINCT s.doc_id, COALESCE((i.metadata->>'archivalStatus')::int, 0) = 2 AS trashed
+         FROM document_snapshots s LEFT JOIN search_index i ON i.doc_id = s.doc_id`
+    );
+    return result.rows.map(row => ({ docId: row.doc_id, trashed: row.trashed }));
 }
 
 export async function getLatestSnapshotVector(
@@ -96,6 +107,12 @@ export async function getSnapshotBlob(id: number): Promise<Uint8Array | null> {
         [id]
     );
     return result.rows[0]?.state_blob ?? null;
+}
+
+/** Drops a note's whole version history, once it is in Trash (#1070). */
+export async function deleteNoteSnapshots(docId: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query('DELETE FROM document_snapshots WHERE doc_id = $1', [docId]);
 }
 
 export async function deleteSnapshots(ids: number[]): Promise<void> {

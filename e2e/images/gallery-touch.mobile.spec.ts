@@ -65,9 +65,12 @@ test('a tap leaves no hover style, and the carousel controls are 44px targets', 
     });
     expect(ungated).toEqual([]);
 
-    if (test.info().project.name === 'mobile-webkit') {
-      expect(await page.evaluate(() => (getComputedStyle(document.documentElement) as unknown as { webkitTextSizeAdjust: string }).webkitTextSizeAdjust)).toBe('100%');
-    }
+    // Only iOS WebKit builds know text-size-adjust; Playwright's desktop WebKit drops it, so
+    // check the computed value wherever the engine has the property.
+    const textSizeAdjust = await page.evaluate(() =>
+      CSS.supports('-webkit-text-size-adjust', '100%') ? getComputedStyle(document.documentElement).getPropertyValue('-webkit-text-size-adjust') : null,
+    );
+    if (textSizeAdjust !== null) expect(textSizeAdjust).toBe('100%');
 
     await newNote(page);
     const editor = activeEditor(page);

@@ -174,7 +174,9 @@ export const test = base.extend<{
       const closeTab = page.getByRole('button', { name: /^Close (?!assistant)/ });
       while ((await closeTab.count()) > 0) await closeTab.first().click();
     },
-    {},
+    // Its own budget, so the worker's boot (a fresh database: 8-9 s on a loaded runner)
+    // or a recycle isn't charged to whichever test happens to come first.
+    { timeout: 30_000 },
   ],
 
   // A signed-out page: same origin allowlist and network fence, no storageState.

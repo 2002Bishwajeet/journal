@@ -29,8 +29,10 @@ export function useMissingNotePull(noteId: string | undefined, isLoading: boolea
         (async () => {
             const header = await syncService.getNoteProvider().getNote(noteId, undefined, { decrypt: false });
             if (header) await syncService.handleRemoteNote(header);
-            // A pull can skip a note (a planted one, #730): only a stored note will open
-            return !!header && !!(await getSearchIndexEntry(noteId));
+            // A pull can skip a note (a planted one, #730): only a stored note will open.
+            // The editor opens only active notes, so a trashed or archived one is not found.
+            const entry = header && (await getSearchIndexEntry(noteId));
+            return !!entry && (entry.metadata.archivalStatus ?? 0) === 0;
         })()
             .catch((error) => {
                 console.warn('[MissingNotePull] Could not fetch the linked note:', error);

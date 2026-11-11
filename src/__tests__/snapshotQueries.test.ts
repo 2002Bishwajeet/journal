@@ -45,8 +45,9 @@ describe('snapshot queries', () => {
         const snaps = await getSnapshots(DOC_A);
 
         expect(snaps).toHaveLength(1);
-        expect(Object.keys(snaps[0]).sort()).toEqual(['createdAt', 'id', 'preview', 'wordCount']);
-        expect(snaps[0]).toMatchObject({ preview: 'preview 3', wordCount: 3 });
+        expect(Object.keys(snaps[0]).sort()).toEqual(['bytes', 'createdAt', 'id', 'preview', 'wordCount']);
+        // bytes is the stored blob plus vector size, for the retention byte budget (#1054)
+        expect(snaps[0]).toMatchObject({ preview: 'preview 3', wordCount: 3, bytes: 4 });
         expect(snaps[0].createdAt).toBeInstanceOf(Date);
     });
 

@@ -236,6 +236,8 @@ registerRoute(
             // get the shell.
             /^\/share\/[^/]+(\/sitemap\.xml|\/f\/[^/]+)?\/?(\?.*)?$/,
             /^\/llms\.txt$/, // A static file for language models (public/llms.txt).
+            // The landing site (#913) is static pages, not the app; Dodo's checkout returns to /landing/buy (#305).
+            /^\/landing(\/|\?|$)/,
         ],
     })
 );
@@ -262,6 +264,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
+    }
+    // The page asks which build a waiting worker is, so a launch already on that build skips the prompt.
+    if (event.data?.type === 'GET_BUILD') {
+        event.ports[0]?.postMessage(__APP_BUILD__);
     }
 });
 

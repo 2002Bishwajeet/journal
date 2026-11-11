@@ -16,6 +16,48 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.66.7 (2026-11-11)
+
+### Fixed
+
+- In the iPhone app, the formatting toolbar stays above the keyboard while you type. Bottom sheets and dialogs also stay above the keyboard.
+- In a browser where you use Journal, the pages of the Journal website (for example Pricing) open correctly. Before, these pages opened the app.
+- After you move the open note to Trash, Back does not open that note again. Before, Back showed "Looking for this note…" and did not stop.
+- A link to a note in Trash or in the Archive shows "Note not found" and a button to go back. Before, it showed "Looking for this note…" and did not stop.
+- When the app opens on the newest version, it does not show "New version available" anymore.
+
+## 2.66.6 (2026-11-11)
+
+### Changed
+
+- The assistant can now read all of a long note. It first gets the headings of the note, then it reads the part under one heading.
+
+### Fixed
+
+- On a phone, when you go back immediately after you open Settings or a sheet, the app closes it.
+
+## 2.66.5 (2026-11-11)
+
+### Changed
+
+- When you move a note to Trash, the app deletes the version history of that note. If you restore the note, it has no history.
+
+## 2.66.4 (2026-11-10)
+
+### Changed
+
+- The local database is smaller, so the app opens faster and uses less memory. The app removes old log files that it does not need. Version history keeps fewer weekly versions of large notes, and the app removes old versions once a day, also for notes that you do not edit. Version history still shows one version for each day of the last 30 days.
+
+### Fixed
+
+- When you sign out, the app fully removes the notes and folders on this device. The next identity that signs in on the device does not see them.
+
+## 2.66.3 (2026-11-10)
+
+### Fixed
+
+- After you undo or redo a change, the note list preview and search show the correct text. The app also saves the change.
+
 ## 2.66.2 (2026-11-10)
 
 ### New

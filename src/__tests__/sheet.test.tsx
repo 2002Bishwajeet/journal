@@ -215,6 +215,17 @@ describe('followKeyboardBottom', () => {
         expect(el.style.getPropertyValue('--sheet-h')).toBe('436px');
     });
 
+    it('sits on the keyboard in the iOS app, where innerHeight shrinks by the page scroll', () => {
+        // WKWebView on an iPhone 15: clientHeight 852, scrolled 118px, innerHeight 852 - 118.
+        stubViewport({ height: 456, offsetTop: 118, scale: 1 });
+        vi.stubGlobal('innerHeight', 734);
+        Object.defineProperty(document.documentElement, 'clientHeight', { value: 852, configurable: true });
+        const el = document.createElement('div');
+        followKeyboardBottom(el);
+        expect(el.style.getPropertyValue('--sheet-bottom')).toBe('278px');
+        delete (document.documentElement as { clientHeight?: number }).clientHeight;
+    });
+
     it('ignores a pinch zoom', () => {
         stubViewport({ height: 400, offsetTop: 0, scale: 2 });
         const el = document.createElement('div');

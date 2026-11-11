@@ -161,7 +161,8 @@ export async function initWebLLM(
             engine.setInitProgressCallback(onProgress);
         }
 
-        await engine.reload(await resolveModelId(currentModelId));
+        const contextWindow = getModelInfo(currentModelId)?.contextWindow;
+        await engine.reload(await resolveModelId(currentModelId), contextWindow ? { context_window_size: contextWindow } : undefined);
 
         isLoading = false;
         modelLoaded = true;

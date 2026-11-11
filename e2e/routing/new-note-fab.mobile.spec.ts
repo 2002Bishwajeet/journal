@@ -28,6 +28,8 @@ async function shots(page: Page, name: string) {
 }
 
 test('the New note button sits in the thumb zone and opens a note in the right folder', async ({ browser }) => {
+  // 16 new notes and 4 screenshots take about 26 s on either engine, too close to the 30 s default.
+  test.slow();
   await withMobilePage(browser, async (page) => {
     // Layout only: no push slide, so screenshots never land mid-slide.
     await page.emulateMedia({ reducedMotion: 'reduce' });

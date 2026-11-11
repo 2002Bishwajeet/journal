@@ -4,11 +4,16 @@ import { createNote } from '../support/actions';
 // Closing the active tab activates exactly one neighbour, the URL follows it,
 // and no other editor gets mounted on the way (#191).
 
-test('closing the active tab switches to its right neighbour without mounting others', async ({ app }) => {
-  const titles = ['Tab A', 'Tab B', 'Tab C', 'Tab D'];
+// On the worker's booted app, with title-only notes: a fresh `app` spent a quarter of the
+// 30s budget on CI booting an empty database before the reload below boots it again, and
+// each body's typing and save cost another second a note. Only the tabs matter here.
+test('closing the active tab switches to its right neighbour without mounting others', async ({ reusedApp: app }) => {
+  const run = Date.now();
+  const titles = ['A', 'B', 'C', 'D'].map((x) => `Tab ${x} ${run}`);
+  const [, b, c] = titles;
   const ids: string[] = [];
   for (const title of titles) {
-    await createNote(app, { title, body: `${title} body` });
+    await createNote(app, { title, body: '' });
     ids.push(new URL(app.url()).pathname.split('/')[2]);
   }
   const main = app.locator('#main-content');
@@ -16,17 +21,17 @@ test('closing the active tab switches to its right neighbour without mounting ot
 
   // Activate B and reload, so B is the only mounted editor (tabs mount on
   // activation, and the restored active tab and the URL are both B).
-  await tab('Tab B').click();
+  await tab(b).click();
   await expect(app).toHaveURL(new RegExp(ids[1]));
   await app.reload();
   await waitForAppReady(app);
-  await expect(tab('Tab B')).toHaveAttribute('aria-current', 'true');
+  await expect(tab(b)).toHaveAttribute('aria-current', 'true');
   await expect(main.locator('.ProseMirror')).toHaveCount(1);
 
-  await main.getByRole('button', { name: 'Close Tab B', exact: true }).click();
+  await main.getByRole('button', { name: `Close ${b}`, exact: true }).click();
 
-  await expect(tab('Tab B')).toHaveCount(0);
-  await expect(tab('Tab C')).toHaveAttribute('aria-current', 'true');
+  await expect(tab(b)).toHaveCount(0);
+  await expect(tab(c)).toHaveAttribute('aria-current', 'true');
   await expect(app).toHaveURL(new RegExp(ids[2]));
   // Only C mounted — not C plus a transiently activated or last tab.
   await expect(main.locator('.ProseMirror')).toHaveCount(1);

@@ -86,3 +86,44 @@ describe('selectSnapshotsToPrune', () => {
         expect(selectSnapshotsToPrune(snaps, NOW)).not.toContain(snaps[1].id);
     });
 });
+
+describe('selectSnapshotsToPrune byte budget (#1054)', () => {
+    const KB = 1024;
+    const WEEK = 7 * DAY;
+
+    function sized(ageMs: number, bytes: number) {
+        return { id: nextId++, createdAt: new Date(NOW.getTime() - ageMs), bytes };
+    }
+    /** The newest snapshot an hour old, then one a week from 5 weeks back, all `bytes` big. */
+    function weeklyHistory(bytes: number) {
+        return [sized(HOUR, bytes), ...Array.from({ length: 20 }, (_, i) => sized((5 + i) * WEEK, bytes))];
+    }
+
+    it('keeps fewer weekly snapshots of a large note, dropping the oldest first', () => {
+        const snaps = weeklyHistory(100 * KB);
+
+        // Budget: 3 × the 100 KB current state, so the newest and the 2 youngest weekly ones fit
+        expect(kept(snaps).map((s) => s.id)).toEqual(snaps.slice(0, 3).map((s) => s.id));
+    });
+
+    it('leaves a small note unchanged', () => {
+        // 21 KB in all, under the 32 KB floor
+        const snaps = weeklyHistory(KB);
+
+        expect(selectSnapshotsToPrune(snaps, NOW)).toEqual([]);
+    });
+
+    it('always keeps the newest snapshot, even when it is weekly itself', () => {
+        const newest = sized(40 * DAY, KB);
+        const snaps = [newest, sized(50 * DAY, 1024 * KB), sized(60 * DAY, 1024 * KB)];
+
+        expect(kept(snaps)).toEqual([newest]);
+    });
+
+    it('never drops a snapshot under 30 days old for the budget', () => {
+        const daily = Array.from({ length: 25 }, (_, i) => sized((2 + i) * DAY, 1024 * KB));
+        const weekly = [sized(40 * DAY, 1024 * KB), sized(50 * DAY, 1024 * KB)];
+
+        expect(kept([...daily, ...weekly])).toEqual(daily);
+    });
+});

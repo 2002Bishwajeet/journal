@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, waitForAppReady } from '../fixtures';
 import { withMobilePage } from '../support/mobile';
-import { activeTitleInput, createFolder, selectFolder } from '../support/actions';
+import { activeTitleInput, createFolder, selectFolder, waitForNoteSaved } from '../support/actions';
 
 // Coming back to the installed app after it was in the background must not add history
 // entries: iOS can reload a backgrounded page, or show it again from its back/forward cache.
@@ -18,6 +18,8 @@ async function openNote(page: Page) {
   await page.getByRole('button', { name: 'New note', exact: true }).click();
   await expect.poll(() => pathOf(page)).not.toBe(folder);
   await expect(activeTitleInput(page)).toHaveValue('Untitled');
+  // The tests reload the page; a reload before the flush to IndexedDB loses the new note.
+  await waitForNoteSaved(page);
   return { folder, note: pathOf(page) };
 }
 

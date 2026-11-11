@@ -11,6 +11,7 @@
  * the real selectSnapshotsToPrune as of that session's date, and the note's update log ends as the single
  * compacted blob PGliteProvider.compact() leaves. Search and sync rows go through the app's own queries.
  * Trigram indexes (created on a user's first fuzzy search) are built at the end, as most accounts have them.
+ * Last, the app's daily snapshot prune runs as of today, as it would on the user's next launch (#1054).
  *
  * Prints the per-table breakdown (getDatabaseBreakdown), the data directory size, how long a cold
  * PGlite.create() over that directory takes, and peak RSS, as a markdown table. The cold open runs in a
@@ -28,6 +29,8 @@ import * as Y from 'yjs';
 import { initializeSchema, TRIGRAM_SEARCH_SQL } from '@/lib/db/schema';
 import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
 import { selectSnapshotsToPrune } from '@/lib/history/retention';
+import { runDailySnapshotPrune } from '@/lib/history/dailyPrune';
+import { PGLITE_START_PARAMS } from '@/lib/db/startParams';
 import { upsertSearchIndex, saveDocumentUpdate } from '@/lib/db/queries/documents';
 import { upsertSyncRecord } from '@/lib/db/queries/syncRecords';
 import { getDatabaseBreakdown } from '@/lib/db/queries/diagnostics';
@@ -66,7 +69,7 @@ function printBreakdown(breakdown: Awaited<ReturnType<typeof getDatabaseBreakdow
 // ---- Cold open, run in a child process by the seeding run ----
 if (flag('open-only')) {
     const started = performance.now();
-    const db = await PGlite.create(dataDir);
+    const db = await PGlite.create(dataDir, { startParams: PGLITE_START_PARAMS });
     const created = performance.now() - started;
     await initializeSchema(db);
     const ready = performance.now() - started;
@@ -129,6 +132,7 @@ interface Snap {
     createdAt: Date;
     stateBlob: Uint8Array;
     stateVector: Uint8Array;
+    bytes: number;
     preview: string;
     wordCount: number;
 }
@@ -162,11 +166,14 @@ function simulateNote(now: number) {
             }
         });
         const first = ((fragment.get(0) as Y.XmlElement).get(0) as Y.XmlText).toString();
+        const stateBlob = Y.encodeStateAsUpdate(doc);
+        const stateVector = Y.encodeStateVector(doc);
         snaps.push({
             id: session,
             createdAt: new Date(time),
-            stateBlob: Y.encodeStateAsUpdate(doc),
-            stateVector: Y.encodeStateVector(doc),
+            stateBlob,
+            stateVector,
+            bytes: stateBlob.length + stateVector.length,
             preview: first.slice(0, 200),
             wordCount: Math.round(written / 6),
         });
@@ -188,7 +195,7 @@ function simulateNote(now: number) {
 
 rmSync(dataDir, { recursive: true, force: true });
 mkdirSync(dataDir, { recursive: true });
-const db = await PGlite.create(dataDir, { extensions: { pg_trgm } });
+const db = await PGlite.create(dataDir, { startParams: PGLITE_START_PARAMS, extensions: { pg_trgm } });
 await initializeSchema(db);
 setTestDb(db);
 
@@ -239,15 +246,22 @@ for (let index = 0; index < notes; index++) {
         }
     }
 }
+const part = (name: string) => `${name} ${mb(dirSize(path.join(dataDir, name)))}`;
+const dirLine = () => `${mb(dirSize(dataDir))} (${part('base')}, ${part('pg_wal')})`;
 await db.exec(TRIGRAM_SEARCH_SQL);
 await db.exec('CHECKPOINT');
 const seedSeconds = (performance.now() - seedStarted) / 1000;
+console.log(`\nSeeded ${notes} notes in ${seedSeconds.toFixed(0)} s. Data directory: ${dirLine()}`);
+
+// The app's daily pass (#1054) as of now: prunes notes not edited since, then VACUUM and CHECKPOINT
+const pruneStarted = performance.now();
+await runDailySnapshotPrune(new Date(now));
+const pruneSeconds = (performance.now() - pruneStarted) / 1000;
 const seedPeak = peakRss();
 await db.close();
 
-console.log(`\nSeeded ${notes} notes in ${seedSeconds.toFixed(0)} s, seeding peak RSS ${mb(seedPeak)}`);
-const part = (name: string) => `${name} ${mb(dirSize(path.join(dataDir, name)))}`;
-console.log(`Data directory: ${mb(dirSize(dataDir))} (${part('base')}, ${part('pg_wal')})\n`);
+console.log(`Daily prune pass in ${pruneSeconds.toFixed(0)} s, seeding peak RSS ${mb(seedPeak)}`);
+console.log(`Data directory: ${dirLine()}\n`);
 
 const root = path.resolve(import.meta.dirname, '../..');
 const child = spawnSync(

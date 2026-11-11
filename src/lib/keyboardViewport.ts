@@ -1,3 +1,5 @@
+import { getLayoutOffsetTop } from '@/lib/editor/keyboardOffset';
+
 /**
  * Ref callback for a fixed, centred box (DialogContent). iOS Safari shrinks only the visual
  * viewport for the software keyboard, so `dvh` and fixed layouts ignore it. While the keyboard
@@ -11,7 +13,8 @@ export function followKeyboard(el: HTMLElement | null): (() => void) | undefined
     const update = () => {
         // A pinch zoom shrinks the visual viewport too; only follow it at 1x.
         const up = vv.scale === 1 && vv.height < window.innerHeight - 1;
-        el.style.setProperty('--dialog-top', up ? `${vv.offsetTop + vv.height / 2}px` : '');
+        const top = getLayoutOffsetTop(vv.offsetTop, document.documentElement.clientHeight, window.innerHeight);
+        el.style.setProperty('--dialog-top', up ? `${top + vv.height / 2}px` : '');
         el.style.setProperty('--dialog-max-h', up ? `${vv.height}px` : '');
     };
     update();
@@ -37,7 +40,8 @@ export function followKeyboardBottom(el: HTMLElement | null): (() => void) | und
     if (!el || !vv) return;
     const update = () => {
         const follow = vv.scale === 1;
-        el.style.setProperty('--sheet-bottom', follow ? `${Math.max(0, window.innerHeight - vv.offsetTop - vv.height)}px` : '');
+        const top = getLayoutOffsetTop(vv.offsetTop, document.documentElement.clientHeight, window.innerHeight);
+        el.style.setProperty('--sheet-bottom', follow ? `${Math.max(0, window.innerHeight - top - vv.height)}px` : '');
         el.style.setProperty('--sheet-h', follow ? `${vv.height}px` : '');
     };
     update();
