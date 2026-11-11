@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { ApiType, DotYouClient } from '@homebase-id/js-lib/core';
 import { FallbackImg } from '../ui/FallbackImg/FallbackImg';
 import { ContactImage } from '../contact/ContactImage';
@@ -59,7 +59,8 @@ const hasController = () => !!navigator.serviceWorker?.controller;
 /**
  * The signed-in identity's photo: its public image through the service worker's proxy (a
  * direct load breaks the CSP's img-src), one request it caches, with our initials until it
- * loads, and for good on a page no service worker controls (a hard reload, dev). Not
+ * loads. A page no service worker controls (the iOS app: WKWebView runs none outside
+ * App-Bound Domains; a hard reload, dev) fetches it over CORS into a blob: URL instead. Not
  * ContactImage: a contact lookup of ourselves goes over peer, six profile reads in a row,
  * before the photo can start. Not the profile drive: the app has no permission on it.
  */
@@ -67,14 +68,39 @@ export const OwnerImage = ({ className, size }: ImageProps) => {
   const odinId = useDotYouClientContext().getHostIdentity();
   const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
   const controlled = useSyncExternalStore(subscribeToController, hasController);
+  const photoUrl = `${new DotYouClient({ hostIdentity: odinId, api: ApiType.Guest }).getRoot()}/pub/image`;
+  const [blobUrl, setBlobUrl] = useState<string>();
+
+  useEffect(() => {
+    if (controlled) return;
+    let cancelled = false;
+    let objectUrl: string | undefined;
+    fetch(photoUrl)
+      .then((response) => {
+        if (!response.ok) throw new Error(`${response.status}`);
+        return response.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => !cancelled && setStatus('failed'));
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [controlled, photoUrl]);
+
+  const src = controlled ? getProxiedImageUrl(photoUrl) : blobUrl;
 
   return (
     <div className={`relative aspect-square ${getSizeClassname(size)} overflow-hidden rounded-full ${className ?? ''}`}>
       {/* size-full: the fallback is 40px by default, wider than the sidebar's circles */}
       {status !== 'loaded' && <FallbackImg odinId={odinId} className="size-full" />}
-      {controlled && status !== 'failed' && (
+      {src && status !== 'failed' && (
         <img
-          src={getProxiedImageUrl(`${new DotYouClient({ hostIdentity: odinId, api: ApiType.Guest }).getRoot()}/pub/image`)}
+          src={src}
           alt=""
           className={status === 'loaded' ? 'h-full w-full object-cover' : 'hidden'}
           onLoad={() => setStatus('loaded')}
