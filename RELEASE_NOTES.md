@@ -16,6 +16,16 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.66.7 (2026-11-11)
+
+### Fixed
+
+- In the iPhone app, the formatting toolbar stays above the keyboard while you type. Bottom sheets and dialogs also stay above the keyboard.
+- In a browser where you use Journal, the pages of the Journal website (for example Pricing) open correctly. Before, these pages opened the app.
+- After you move the open note to Trash, Back does not open that note again. Before, Back showed "Looking for this note…" and did not stop.
+- A link to a note in Trash or in the Archive shows "Note not found" and a button to go back. Before, it showed "Looking for this note…" and did not stop.
+- When the app opens on the newest version, it does not show "New version available" anymore.
+
 ## 2.66.6 (2026-11-11)
 
 ### Changed
