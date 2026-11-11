@@ -1,0 +1,63 @@
+name: Release live-blocks package
+
+# Builds, tests and publishes @2002bishwajeet/live-blocks (packages/live-blocks) to the public npm
+# registry, at the version in its package.json. Not part of the app deploy: run it by hand, or
+# push a `live-blocks-v<version>` tag. Bump the version and add its CHANGELOG.md line first.
+# Published through npm trusted publishing (OIDC): no token. The package's trusted publisher on
+# npmjs.com is this repository and this workflow file, with no environment.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'live-blocks-v*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Trusted publishing: the registry swaps the job's OIDC token for a one-time publish token,
+      # and --provenance signs the package with it.
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check the tag is the package's version
+        if: github.ref_type == 'tag'
+        run: |
+          version=$(node -p "require('./packages/live-blocks/package.json').version")
+          test "$GITHUB_REF_NAME" = "live-blocks-v$version" \
+            || { echo "::error::Tag $GITHUB_REF_NAME, but packages/live-blocks/package.json is $version"; exit 1; }
+
+      - name: Authenticate to Github packages
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+
+      - name: Install dependencies
+        run: npm ci --include=optional
+
+      - name: Build
+        run: npm run build --workspace packages/live-blocks
+
+      - name: Test
+        run: npm test --workspace packages/live-blocks
+
+      - name: Publish to npm
+        run: |
+          # The .npmrc above only serves @homebase-id from GitHub Packages; drop it so nothing redirects or authenticates the publish.
+          rm .npmrc
+          # Trusted publishing needs npm 11.5.1 or newer.
+          npm i -g npm@latest
+          npm publish --workspace packages/live-blocks --access public --provenance

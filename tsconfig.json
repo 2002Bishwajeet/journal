@@ -1,13 +1,16 @@
 {
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@2002bishwajeet/live-blocks": ["./packages/live-blocks/src/index.ts"],
+      "@2002bishwajeet/live-blocks/*": ["./packages/live-blocks/src/*"]
     }
   },
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" },
+    { "path": "./packages/live-blocks/tsconfig.json" },
     { "path": "./mcp/tsconfig.json" },
     { "path": "./functions/tsconfig.json" }
   ]

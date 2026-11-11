@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
+import { pieceStubs } from './packages/live-blocks/test/pieceStubs';
 
 export default defineConfig({
     define: {
@@ -11,7 +12,8 @@ export default defineConfig({
         environment: 'node',
 
         // Include test files
-        include: ['src/**/*.test.{ts,tsx}', 'src/**/*.spec.ts'],
+        // The live-blocks package's unit tests too; its test/published/ needs the package built first.
+        include: ['src/**/*.test.{ts,tsx}', 'src/**/*.spec.ts', 'packages/live-blocks/test/*.test.{ts,tsx}'],
 
         // Global test timeout (some DB operations may take time)
         testTimeout: 30000,
@@ -32,19 +34,10 @@ export default defineConfig({
             // under vitest — and that failure happens in import analysis, before
             // vi.mock can intercept it.
             'virtual:pwa-register/react': path.resolve(import.meta.dirname, './src/__tests__/stubs/pwaRegister.ts'),
-            // Built by a plugin in vite.config.ts, which vitest does not load.
-            'virtual:react-block-runtime': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockRuntime.ts'),
-            'virtual:react-block-mermaid': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockMermaid.ts'),
-            'virtual:react-block-tailwind': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockTailwind.ts'),
-            'virtual:react-block-tailwind-theme': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockTailwindTheme.ts'),
-            'virtual:react-block-lucide': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockLucide.ts'),
-            'virtual:react-block-recharts': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockRecharts.ts'),
-            'virtual:react-block-d3': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockD3.ts'),
-            'virtual:react-block-three': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockThree.ts'),
-            'virtual:react-block-lodash': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockLodash.ts'),
-            'virtual:react-block-mathjs': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockMathjs.ts'),
-            'virtual:react-block-papaparse': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockPapaparse.ts'),
-            'virtual:react-block-ui': path.resolve(import.meta.dirname, './src/__tests__/stubs/reactBlockUi.ts'),
+            // The workspace package's source, as vite.config.ts resolves it.
+            '@2002bishwajeet/live-blocks': path.resolve(import.meta.dirname, './packages/live-blocks/src'),
+            // Built by the live-blocks package's plugin (build/pieces.ts), which vitest does not load.
+            ...pieceStubs,
         },
     },
 });
