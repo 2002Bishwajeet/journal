@@ -1,8 +1,9 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAISettings, type AISettings } from './useAISettings';
 import { useWebLLM } from './useWebLLM';
 import { useModelDownloadGate } from './useModelDownloadGate';
-import { clearModelCache, getModelInfo, unloadWebLLM } from '@/lib/webllm';
+import { clearModelCache, getModelInfo, hasModelFiles, unloadWebLLM } from '@/lib/webllm';
 
 export interface UseAIPreferencesReturn {
     settings: AISettings;
@@ -21,7 +22,11 @@ export interface UseAIPreferencesReturn {
     setAutocomplete: (checked: boolean) => void;
     setGrammar: (checked: boolean) => void;
     clearCache: () => Promise<void>;
+    /** Model files can be removed: always where AI runs, and where it can't only when some are stored. */
+    canClearCache: boolean;
 }
+
+const MODEL_FILES_KEY = ['webllm-model-files'];
 
 const modelName = (id: string) => getModelInfo(id)?.name ?? id;
 
@@ -39,6 +44,17 @@ export function useAIPreferences(): UseAIPreferencesReturn {
     } = useWebLLM();
 
     const { confirmDownload, dialogProps: downloadDialogProps } = useModelDownloadGate();
+
+    // A device that can't run AI may still hold models downloaded on it before (#101).
+    const queryClient = useQueryClient();
+    const { data: hasStoredModels = false } = useQuery({
+        queryKey: MODEL_FILES_KEY,
+        queryFn: hasModelFiles,
+        enabled: !isSupported,
+        // A local probe: re-read on every visit, offline too.
+        staleTime: 0,
+        networkMode: 'always',
+    });
 
     const setEnabled = async (checked: boolean) => {
         // Nothing is saved or downloaded until the device passed the check and the user said Continue.
@@ -86,6 +102,7 @@ export function useAIPreferences(): UseAIPreferencesReturn {
         // Turn AI off first so auto-init doesn't immediately re-download the model
         if (settings.enabled) updateSettings({ enabled: false });
         await clearModelCache();
+        queryClient.setQueryData(MODEL_FILES_KEY, false);
         toast.success("Model files removed. They'll download again next time AI loads.");
     };
 
@@ -105,5 +122,6 @@ export function useAIPreferences(): UseAIPreferencesReturn {
         setAutocomplete,
         setGrammar,
         clearCache,
+        canClearCache: isSupported || hasStoredModels,
     };
 }

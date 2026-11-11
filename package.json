@@ -32,7 +32,10 @@
     "e2e:quarantine": "playwright test --project=quarantine --pass-with-no-tests",
     "e2e:edge": "playwright test --project=edge",
     "e2e:report": "playwright show-report",
-    "eval:ai": "node e2e/evals/run.mjs"
+    "eval:ai": "node e2e/evals/run.mjs",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@2002bishwajeet/live-blocks": "*",
@@ -54,6 +57,7 @@
     "@radix-ui/react-slot": "^1.5.0",
     "@radix-ui/react-switch": "^1.4.1",
     "@radix-ui/react-tooltip": "^1.4.1",
+    "@tauri-apps/api": "^2.12.4",
     "@tanstack/query-async-storage-persister": "^5.107.1",
     "@tanstack/react-query": "^5.107.1",
     "@tanstack/react-query-persist-client": "^5.107.1",
@@ -118,6 +122,7 @@
     "@playwright/test": "1.64.1",
     "@rolldown/plugin-babel": "^0.2.4",
     "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^26.5.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.3.0",

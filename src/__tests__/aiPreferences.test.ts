@@ -7,15 +7,16 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { createElement as h, act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAIPreferences, type UseAIPreferencesReturn } from '@/hooks/useAIPreferences';
 import { STORAGE_KEY, DEFAULT_SETTINGS } from '@/hooks/useAISettings';
-import { clearModelCache } from '@/lib/webllm/engine';
+import { clearModelCache, hasModelFiles } from '@/lib/webllm/engine';
 import * as webllm from '@/lib/webllm';
 import * as requirements from '@/lib/webllm/requirements';
 
 // Stub the WebLLM engine boundary: the real one downloads a model into a worker.
-const engine = vi.hoisted(() => ({ ready: false, cached: true }));
+const engine = vi.hoisted(() => ({ ready: false, cached: true, files: false }));
 vi.mock('@/lib/webllm', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/lib/webllm')>()),
     isWebLLMReady: vi.fn(() => engine.ready),
@@ -23,7 +24,8 @@ vi.mock('@/lib/webllm', async (importOriginal) => ({
     isModelCached: vi.fn(async () => engine.cached),
     initWebLLM: vi.fn(async () => { engine.ready = true; return true; }),
     unloadWebLLM: vi.fn(async () => { engine.ready = false; }),
-    clearModelCache: vi.fn(async () => { engine.ready = false; }),
+    clearModelCache: vi.fn(async () => { engine.ready = false; engine.files = false; }),
+    hasModelFiles: vi.fn(async () => engine.files),
 }));
 vi.mock('@/lib/webllm/requirements', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@/lib/webllm/requirements')>()),
@@ -58,7 +60,9 @@ function renderAIPreferences() {
     const { root, cleanup } = mountRoot();
     return {
         get: () => latest!,
-        mount: () => act(async () => { root.render(h(Harness)); }),
+        mount: () => act(async () => {
+            root.render(h(QueryClientProvider, { client: new QueryClient() }, h(Harness)));
+        }),
         cleanup,
     };
 }
@@ -76,6 +80,34 @@ describe('useAIPreferences', () => {
         await harness.mount();
 
         expect(harness.get().isSupported).toBe(false);
+
+        await harness.cleanup();
+    });
+
+    it('hides model removal on a phone with no model files', async () => {
+        engine.files = false;
+        const harness = renderAIPreferences();
+        await harness.mount();
+        await wait(0);
+
+        expect(harness.get().canClearCache).toBe(false);
+
+        await harness.cleanup();
+    });
+
+    it('keeps model removal on a phone that still holds model files, until they are removed', async () => {
+        engine.files = true;
+        const harness = renderAIPreferences();
+        await harness.mount();
+        await wait(0);
+
+        expect(harness.get().canClearCache).toBe(true);
+
+        await act(async () => { await harness.get().clearCache(); });
+        await wait(0);
+
+        expect(webllm.clearModelCache).toHaveBeenCalled();
+        expect(harness.get().canClearCache).toBe(false);
 
         await harness.cleanup();
     });
@@ -272,6 +304,7 @@ describe('useAIPreferences on a supported (desktop) screen', () => {
 
         expect(storedSettings().enabled).toBe(false);
         expect(webllm.clearModelCache).toHaveBeenCalled();
+        expect(harness.get().canClearCache).toBe(true);
         expect(reload).not.toHaveBeenCalled();
         expect(toast.success).toHaveBeenCalledWith("Model files removed. They'll download again next time AI loads.");
 
@@ -315,5 +348,36 @@ describe('clearModelCache', () => {
 
         expect(deletedCaches).toEqual(['webllm-model-cache', 'mlc-shards']);
         expect(removedEntries).toEqual(['mlc-model-a', 'webllm-shard']);
+    });
+});
+
+describe('hasModelFiles', () => {
+    const stubStores = (cacheNames: string[], opfsNames: string[]) => {
+        (globalThis as unknown as { caches: { keys: () => Promise<string[]> } }).caches = { keys: async () => cacheNames };
+        Object.defineProperty(navigator, 'storage', {
+            value: {
+                getDirectory: async () => ({
+                    entries: async function* () {
+                        for (const name of opfsNames) yield [name, {}];
+                    },
+                }),
+            },
+            configurable: true,
+        });
+    };
+
+    it('finds a model in the Cache API', async () => {
+        stubStores(['some-other-cache', 'webllm/model'], []);
+        expect(await hasModelFiles()).toBe(true);
+    });
+
+    it('finds a model in OPFS', async () => {
+        stubStores([], ['unrelated-dir', 'mlc-model-a']);
+        expect(await hasModelFiles()).toBe(true);
+    });
+
+    it('is false when neither holds a model', async () => {
+        stubStores(['some-other-cache'], ['unrelated-dir']);
+        expect(await hasModelFiles()).toBe(false);
     });
 });
