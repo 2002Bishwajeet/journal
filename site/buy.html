@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Buy Journal for desktop and mobile</title>
+  <meta name="description" content="One license for the Journal apps on desktop, iPhone and Android: €24.99 once, with a year of updates. The apps keep working after the year ends." />
+  <meta property="og:title" content="Buy Journal for desktop and mobile" />
+  <meta property="og:description" content="One license for the Journal apps on desktop, iPhone and Android: €24.99 once, with a year of updates." />
+  <!-- head -->
+</head>
+<body data-page="buy">
+  <!-- header -->
+
+  <main id="main">
+    <section class="page-hero" aria-labelledby="buy-title">
+      <div class="wrap buy">
+        <div class="buy-head">
+          <h1 class="display page-title" id="buy-title" data-reveal>One license for every device</h1>
+          <p class="lede" data-reveal style="--i:1">The Journal apps for desktop, iPhone and Android, for €24.99 once. It includes a year of updates, and the apps keep working after the year ends.</p>
+        </div>
+
+        <div class="buy-panel" data-reveal style="--i:2">
+          <div class="buy-done" id="buy-done" role="status" hidden>
+            <h2 class="h2" tabindex="-1"></h2>
+            <p></p>
+            <button class="btn btn-secondary" type="button" hidden>Check again</button>
+          </div>
+          <form class="buy-form" id="buy-form" novalidate>
+            <p class="buy-price"><strong>€24.99</strong> once, tax included</p>
+            <label class="buy-label" for="odin-id">Your Homebase identity</label>
+            <input class="buy-input" id="odin-id" name="odinId" type="text" inputmode="url" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you.example.com" aria-describedby="odin-hint odin-status" required />
+            <p class="small" id="odin-hint">The one you sign in to Journal with. The license belongs to it, so every app signed in with it is unlocked.</p>
+            <p class="buy-status" id="odin-status" aria-live="polite"></p>
+            <button class="btn btn-primary" type="submit" data-renew="Renew for €14.99">Buy for €24.99</button>
+            <!-- Early bird: delete this paragraph to end the offer. -->
+            <p class="small buy-early">Early bird: enter the code EARLYBIRD at checkout to pay €9.99.</p>
+            <p class="small">Checkout opens at Dodo Payments, who sell on our behalf and handle receipts and returns. You come back here when it is done.</p>
+          </form>
+        </div>
+
+        <div class="buy-includes" data-reveal style="--i:3">
+          <h2 class="h3">What the license includes</h2>
+          <ul class="ticks">
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Desktop, iPhone and Android, all with one license</li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>A year of updates from the day you pay</li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>The apps keep working after that, with everything they have</li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Another year of updates is €14.99, whenever you want it</li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>No subscription: nothing renews on its own</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section band" aria-labelledby="buy-faq-title">
+      <div class="wrap">
+        <div class="faq-layout">
+          <div class="faq-intro">
+            <h2 class="h2" id="buy-faq-title" data-reveal>Questions before you buy</h2>
+            <p data-reveal style="--i:1">Journal in the browser stays free. See <a href="/landing/pricing">pricing</a> for what each part costs.</p>
+          </div>
+          <div class="faq" data-reveal style="--i:1">
+          <details class="faq-item" open>
+            <summary><span>Which identity do I enter?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p>The Homebase identity you sign in to Journal with. If you came here from the app, it is already filled in. The license belongs to that identity, not to a device.</p>
+          </details>
+          <details class="faq-item">
+            <summary><span>What happens after a year?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p>The apps keep working, with every feature you had. Updates released after your year show a prompt to renew. A renewal is €14.99 and adds another year of updates; this page offers it when the identity already has a license.</p>
+          </details>
+          <details class="faq-item">
+            <summary><span>Can I try the apps first?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p>Yes. Each app is a free download with a 3-day trial. Buy when the trial ends, or before.</p>
+          </details>
+          <details class="faq-item">
+            <summary><span>Do I need a license for the web app?</span><svg class="icon faq-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <p>No. <a href="/welcome">Journal in the browser</a> is free, with every feature it has. Your notes are on your Homebase either way.</p>
+          </details>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- footer -->
+  <script type="module" src="/src/buy.ts"></script>
+</body>
+</html>

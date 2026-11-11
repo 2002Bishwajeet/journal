@@ -50,19 +50,24 @@ function textFiles(): Plugin {
   }
 }
 
+// The billing Worker (#300) the buy page talks to. Dodo test mode everywhere except the production
+// deploy, which builds with `--mode live` (deploy-cloudflare.yml).
+const BILLING_URL = { test: 'https://journal-billing-test.cloudx.run', live: 'https://journal-billing.cloudx.run' }
+
 // The landing site: static pages of their own, built to site/dist for Cloudflare Pages.
 // It shares the app's installed packages but none of its code or config. The app is the root of
 // the origin, so the site is served under /landing/; functions/index.ts serves its home page at /
 // to a visitor who is not signed in (#913).
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: import.meta.dirname,
   base: '/landing/',
   plugins: [partials(), textFiles()],
+  define: { __BILLING_URL__: JSON.stringify(mode === 'live' ? BILLING_URL.live : BILLING_URL.test) },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: { index: page('index.html'), agents: page('agents.html'), pricing: page('pricing.html') },
+      input: { index: page('index.html'), agents: page('agents.html'), pricing: page('pricing.html'), buy: page('buy.html') },
     },
     // Mermaid's diagram chunks (elk is the largest) load only when the playground is used.
     chunkSizeWarningLimit: 1600,
@@ -73,4 +78,4 @@ export default defineConfig({
     fs: { allow: [searchForWorkspaceRoot(import.meta.dirname), realpathSync(resolve(import.meta.dirname, '../node_modules'))] },
   },
   preview: { host: '127.0.0.1', port: 5181, strictPort: true },
-})
+}))

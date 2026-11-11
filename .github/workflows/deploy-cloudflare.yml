@@ -74,8 +74,13 @@ jobs:
       # The landing site (#913), served under /landing/; functions/index.ts serves its
       # home page at / to a visitor who is not signed in. After the app's build, so the
       # app's service worker does not precache it.
+      # Production's buy page talks to the live billing Worker; previews to the test one (site/vite.config.ts).
+      # Dodo returns buyers to /landing/buy?payment_id=…, so that page must ship.
       - name: Build landing site
-        run: npm run site:build && cp -r site/dist dist/landing
+        run: |
+          npm run site:build -- ${{ inputs.version && '--mode live' || '' }}
+          cp -r site/dist dist/landing
+          test -f dist/landing/buy.html || { echo "::error::dist/landing/buy.html is missing: Dodo's return to /landing/buy would open the app"; exit 1; }
         env:
           SITE_URL: https://journal.cloudx.run
 
