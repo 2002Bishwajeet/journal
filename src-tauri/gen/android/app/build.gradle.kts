@@ -13,16 +13,39 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Play upload key, kept outside the repo: a properties file with storeFile,
+// password and keyAlias (see src-tauri/README.md). Without it, release
+// builds are unsigned.
+val uploadKeyProperties = Properties().apply {
+    val propFile = file(
+        System.getenv("JOURNAL_ANDROID_UPLOAD_KEY")
+            ?: "${System.getProperty("user.home")}/.journal-keys/journal-upload.properties"
+    )
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     compileSdk = 36
-    namespace = "id.biswa.journal"
+    namespace = "com.biswa.journal"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "id.biswa.journal"
+        applicationId = "com.biswa.journal"
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    signingConfigs {
+        if (!uploadKeyProperties.isEmpty) {
+            create("upload") {
+                storeFile = file(uploadKeyProperties.getProperty("storeFile"))
+                storePassword = uploadKeyProperties.getProperty("password")
+                keyAlias = uploadKeyProperties.getProperty("keyAlias")
+                keyPassword = uploadKeyProperties.getProperty("password")
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -37,6 +60,7 @@ android {
             }
         }
         getByName("release") {
+            signingConfig = signingConfigs.findByName("upload")
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }

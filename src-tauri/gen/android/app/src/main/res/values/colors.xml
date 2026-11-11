@@ -7,4 +7,8 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- The app background (vite.config.ts background_color, #1C1B1A at night)
+         behind the splash and the webview, so nothing flashes white on launch. -->
+    <color name="splash_background">#FFFDFCF8</color>
+    <color name="splash_icon">#FF67665E</color>
 </resources>
