@@ -4,7 +4,8 @@ import { selectSnapshotsToPrune } from './retention';
 /**
  * The daily pass (#1054): captureSnapshot prunes only the note it saves, so this prunes
  * every note's snapshots as of `now`, and notes never edited again lose old history too.
- * Then it reclaims the space. Claimed through job_queue, so it runs at most once a day
+ * A note in Trash loses all of it (#1070), also one trashed on another device. Then it
+ * reclaims the space. Claimed through job_queue, so it runs at most once a day
  * across tabs.
  */
 export async function runDailySnapshotPrune(now = new Date()): Promise<void> {
@@ -14,9 +15,9 @@ export async function runDailySnapshotPrune(now = new Date()): Promise<void> {
         let totalBytes = 0;
         let prunedBytes = 0;
         // One note at a time, so the app's own queries interleave with the pass
-        for (const docId of await getSnapshotDocIds()) {
+        for (const { docId, trashed } of await getSnapshotDocIds()) {
             const snaps = await getSnapshots(docId);
-            const prune = new Set(selectSnapshotsToPrune(snaps, now));
+            const prune = new Set(trashed ? snaps.map((snap) => snap.id) : selectSnapshotsToPrune(snaps, now));
             await deleteSnapshots([...prune]);
             for (const snap of snaps) {
                 totalBytes += snap.bytes;

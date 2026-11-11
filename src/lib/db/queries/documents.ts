@@ -77,11 +77,14 @@ export async function getSnapshots(docId: string): Promise<SnapshotMeta[]> {
     }));
 }
 
-/** Every note that has snapshots, for the daily prune pass (#1054). */
-export async function getSnapshotDocIds(): Promise<string[]> {
+/** Every note that has snapshots, and whether it is in Trash, for the daily prune pass (#1054, #1070). */
+export async function getSnapshotDocIds(): Promise<{ docId: string; trashed: boolean }[]> {
     const db = await getDatabase();
-    const result = await db.query<{ doc_id: string }>('SELECT DISTINCT doc_id FROM document_snapshots');
-    return result.rows.map(row => row.doc_id);
+    const result = await db.query<{ doc_id: string; trashed: boolean }>(
+        `SELECT DISTINCT s.doc_id, COALESCE((i.metadata->>'archivalStatus')::int, 0) = 2 AS trashed
+         FROM document_snapshots s LEFT JOIN search_index i ON i.doc_id = s.doc_id`
+    );
+    return result.rows.map(row => ({ docId: row.doc_id, trashed: row.trashed }));
 }
 
 export async function getLatestSnapshotVector(
@@ -258,7 +261,8 @@ export async function deleteSearchIndexEntry(docId: string): Promise<void> {
 
 /**
  * Update only the archivalStatus on a note's local metadata (0 active, 2 trashed),
- * preserving every other metadata field.
+ * preserving every other metadata field. Moving a note to Trash also drops its
+ * version history (#1070).
  */
 export async function setNoteArchivalStatusLocal(docId: string, status: number): Promise<void> {
     const db = await getDatabase();
@@ -269,6 +273,7 @@ export async function setNoteArchivalStatusLocal(docId: string, status: number):
          WHERE doc_id = $1`,
         [docId, status]
     );
+    if (status === 2) await db.query('DELETE FROM document_snapshots WHERE doc_id = $1', [docId]);
 }
 
 /** Set a note's folderId locally, preserving every other metadata field. */
