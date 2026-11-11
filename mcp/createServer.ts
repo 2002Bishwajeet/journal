@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { TOOLS } from '@/lib/agent/tools/registry';
 import { getNewId } from '@/lib/utils';
 import type { WriteDeps } from '@/lib/agent/tools/write';
+import { publishToFeed, type FeedDeps } from './feed';
 import { loadImage } from './imageSource';
 import { runScript, SCRIPT_LIMITS } from './runScript';
 
@@ -40,6 +41,16 @@ const RUN_SCRIPT_DESCRIPTION =
     `${SCRIPT_LIMITS.reads} reads, ${SCRIPT_LIMITS.writes} writes and ${SCRIPT_LIMITS.outputChars} characters of console.log output. ` +
     "Scripts can't trash notes or add images. dryRun: true makes no writes and logs each write it would make.";
 
+const PUBLISH_TO_FEED_DESCRIPTION =
+    "Publish a Journal note with Read+write access to the owner's Homebase feed, as an article on their public channel that anyone can read, " +
+    "as Publish to feed in the note's Share dialog does. The note itself does not have to be public. Publishing a note again updates its post. " +
+    'Images go with the post, without their metadata; a note with a cropped, rotated or flipped image, or one that is not PNG, JPEG, WebP, GIF or SVG, can only be published from the Journal app. ' +
+    'Needs the owner to have let Journal MCP write to their feed: until then it publishes nothing and returns the link that asks them. ' +
+    "Returns the post's `postId` and `url`, and `status` \"published\" or \"updated\".";
+
+/** What the server runs on: the drive half of WriteDeps, and the feed for publish_to_feed (absent in tests that don't publish). */
+export type McpDriveDeps = Omit<WriteDeps, 'clientName' | 'loadImage'> & { feed?: FeedDeps };
+
 /** The tools whose results hold note bodies. */
 const UNTRUSTED_CONTENT_TOOLS = new Set(['get_note', 'search_notes']);
 
@@ -64,7 +75,7 @@ function json(x: unknown, notes: string[] = [], untrusted = false) {
  * be exercised. `clientName` comes from this server's own initialize handshake.
  * `updateNotice` (mcp/updateCheck.ts) ends the instructions when a newer version is out.
  */
-export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName' | 'loadImage'>, updateNotice?: string): McpServer {
+export function createJournalMcpServer({ feed, ...driveDeps }: McpDriveDeps, updateNotice?: string): McpServer {
     const instructions = updateNotice ? `${INSTRUCTIONS}\n\n${updateNotice}` : INSTRUCTIONS;
     const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' }, { instructions });
     const deps: WriteDeps = { ...driveDeps, loadImage, clientName: () => server.server.getClientVersion()?.name ?? '' };
@@ -97,6 +108,20 @@ export function createJournalMcpServer(driveDeps: Omit<WriteDeps, 'clientName' |
             const { output, error, reads, writes } = await runScript(deps, code, dryRun);
             const summary = `${error ? 'The script stopped early; its error ends the output.' : 'The script finished.'} ${reads} reads, ${writes} writes${dryRun ? ' (dry run: none applied)' : ''}.`;
             return { content: [{ type: 'text' as const, text: untrustedContent(output) }, { type: 'text' as const, text: summary }], isError: !!error };
+        }
+    );
+
+    server.registerTool(
+        'publish_to_feed',
+        {
+            title: 'Publish to feed',
+            description: PUBLISH_TO_FEED_DESCRIPTION,
+            inputSchema: { id: z.string() },
+            annotations: { readOnlyHint: false, destructiveHint: true },
+        },
+        async ({ id }) => {
+            if (!feed) throw new Error('publish_to_feed: no feed to publish to');
+            return json(await publishToFeed(deps, feed, { id }));
         }
     );
 

@@ -35,7 +35,7 @@ export interface FeedArticleInput {
     /** The note's remote fileId: only images of this note are read (see parseAttachmentSrc). */
     noteFileId: string;
     /** A linked note's public URL, or null while that note is not public. */
-    publicNoteUrl: (noteId: string) => string | null;
+    publicNoteUrl: (noteId: string) => string | null | Promise<string | null>;
     /** The bytes of one of the note's image payloads. */
     readImage: (payloadKey: string) => Promise<Blob | null>;
     bakeImage: (image: Blob, edits: ImageEdits) => Promise<Blob>;
@@ -97,7 +97,7 @@ export async function buildFeedArticle(input: FeedArticleInput): Promise<BuiltFe
         if (node.type === 'noteLink') {
             const label = typeof node.attrs?.label === 'string' ? node.attrs.label : '';
             if (!label) return [];
-            const href = typeof node.attrs?.noteId === 'string' ? input.publicNoteUrl(node.attrs.noteId) : null;
+            const href = typeof node.attrs?.noteId === 'string' ? await input.publicNoteUrl(node.attrs.noteId) : null;
             return [href ? { type: 'text', text: label, marks: [{ type: 'link', attrs: { href } }] } : { type: 'text', text: label }];
         }
         if (!node.content) return [node];
