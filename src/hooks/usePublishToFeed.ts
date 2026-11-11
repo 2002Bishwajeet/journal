@@ -4,23 +4,27 @@ import * as Y from 'yjs';
 import { yXmlFragmentToProsemirrorJSON } from 'y-prosemirror';
 import { toast } from 'sonner';
 import type { TargetDriveAccessRequest } from '@homebase-id/js-lib/auth';
-import { DrivePermissionType, getFileHeader, getPayloadBytes } from '@homebase-id/js-lib/core';
+import { DrivePermissionType, getFileHeader } from '@homebase-id/js-lib/core';
 import { BlogConfig } from '@homebase-id/js-lib/public';
 import { useDotYouClientContext } from '@/components/auth';
 import { useMissingPermissions } from '@/hooks/auth/useMissingPermissions';
 import { useSecurityContext } from '@/hooks/securityContext/useSecurityContext';
 import { useNotes } from '@/hooks/useNotes';
 import { useSyncService } from '@/hooks/useSyncService';
-import { getDocumentUpdates, getSearchIndexEntry, getSyncRecord, updateSearchIndexMetadata, updateSyncStatus } from '@/lib/db';
+import { getSearchIndexEntry, getSyncRecord, updateSearchIndexMetadata, updateSyncStatus } from '@/lib/db';
 import { getCover } from '@/lib/editor/cover';
 import { JOURNAL_APP_ID, JOURNAL_DRIVE } from '@/lib/homebase/config';
+import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
+import { bakeImageEdits } from '@/lib/share/bakeImageEdits';
 import { buildFeedArticle, saveFeedPost } from '@/lib/share/feedArticle';
+import { collaborateReturnUrl } from '@/lib/share/shareAccess';
 import { noteShareUrl } from '@/lib/share/sharedFolder';
+import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 import type { NoteFileContent } from '@/types';
 
 // The feed's default public channel (#1074). Asked for on the first Publish to feed, never at
 // sign-in, so people who never publish see no extra consent.
-export const FEED_DRIVE_REQUEST: TargetDriveAccessRequest = {
+const FEED_DRIVE_REQUEST: TargetDriveAccessRequest = {
     ...BlogConfig.PublicChannelDrive,
     name: 'Public posts',
     description: 'Publish notes to your feed',
@@ -70,8 +74,9 @@ export function usePublishToFeed(noteId: string) {
     const { syncNote } = useSyncService();
     const security = useSecurityContext().fetch;
     // After a permission grant the app reopens the share dialog from this URL
-    const returnUrl = `${window.location.origin}${window.location.pathname}?action=collaborate&noteId=${noteId}`;
-    const missing = useMissingPermissions({ appId: JOURNAL_APP_ID, drives: [FEED_DRIVE_REQUEST], permissions: [], returnUrl });
+    const missing = useMissingPermissions({
+        appId: JOURNAL_APP_ID, drives: [FEED_DRIVE_REQUEST], permissions: [], returnUrl: collaborateReturnUrl(noteId),
+    });
     // This dialog opened back from the consent page (or Back out of it)
     const [fromConsent] = useState(() => readPending() === noteId);
 
@@ -101,15 +106,16 @@ export function usePublishToFeed(noteId: string) {
             const fileId = (await getSyncRecord(noteId))?.remoteFileId;
             // Without it every image would be left out of the post
             if (!fileId) throw new Error('The note is not on the server yet');
-            const updates = await getDocumentUpdates(noteId);
-            const ydoc = new Y.Doc();
-            if (updates.length) Y.applyUpdate(ydoc, Y.mergeUpdates(updates));
+            const [localDoc, header] = await Promise.all([
+                loadLocalYDoc(noteId),
+                getFileHeader<NoteFileContent>(dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true }),
+            ]);
+            const ydoc = localDoc ?? new Y.Doc();
             const doc = yXmlFragmentToProsemirrorJSON(ydoc.getXmlFragment('prosemirror'));
             const cover = getCover(ydoc);
             ydoc.destroy();
 
-            const header = await getFileHeader<NoteFileContent>(dotYouClient, JOURNAL_DRIVE, fileId, { decrypt: true });
-            const { bakeImageEdits } = await import('@/lib/share/bakeImageEdits');
+            const provider = new NotesDriveProvider(dotYouClient);
             const identity = dotYouClient.getHostIdentity();
             const article = await buildFeedArticle({
                 doc,
@@ -118,12 +124,7 @@ export function usePublishToFeed(noteId: string) {
                 noteFileId: fileId,
                 publicNoteUrl: (id) =>
                     notes?.find((n) => n.docId === id)?.metadata.isPublic ? noteShareUrl(window.location.origin, identity, id) : null,
-                // With lastModified, so the browser can't hand back a stale copy (#451)
-                readImage: async (key) => {
-                    const lastModified = header?.fileMetadata.payloads?.find((p) => p.key === key)?.lastModified;
-                    const data = await getPayloadBytes(dotYouClient, JOURNAL_DRIVE, fileId, key, { decrypt: true, lastModified });
-                    return data ? new Blob([new Uint8Array(data.bytes)], { type: data.contentType }) : null;
-                },
+                readImage: (key) => provider.readPayloadBlob(fileId, key, header),
                 bakeImage: bakeImageEdits,
             });
             const postId = await saveFeedPost(dotYouClient, article, feedPostId);

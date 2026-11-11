@@ -6,23 +6,16 @@
  * not really hide it. This draws the edited box to a canvas (crop, then rotate, then flip, as
  * `editLayers` shows it) and re-encodes it, which also drops EXIF and GPS.
  */
-import { editedSize, hasEdits, type ImageEdits } from '@/lib/images/imageEdits';
+import { editedSize, FULL_CROP, hasEdits, type ImageEdits } from '@/lib/images/imageEdits';
+import { canvasToBlob, makeCanvas } from '@/lib/images/imageIngest';
 
-export const JPEG_QUALITY = 0.92;
+const JPEG_QUALITY = 0.92;
 
 // Kept as they are when unedited (animation, vectors); every other type is re-encoded, so no
 // EXIF or GPS goes out with it.
 const KEEP_TYPES = ['image/gif', 'image/svg+xml'];
 // Under iOS Safari's canvas limit (16,777,216 pixels); larger images are scaled down to fit.
 export const MAX_PIXELS = 16_000_000;
-
-function makeCanvas(width: number, height: number): OffscreenCanvas | HTMLCanvasElement {
-    if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(width, height);
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    return canvas;
-}
 
 function hasTransparency(ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D, width: number, height: number): boolean {
     const { data } = ctx.getImageData(0, 0, width, height);
@@ -37,7 +30,7 @@ export async function bakeImageEdits(image: Blob, edits: ImageEdits): Promise<Bl
     const bitmap = await createImageBitmap(image, { imageOrientation: 'from-image' });
     try {
         const natural = { width: bitmap.width, height: bitmap.height };
-        const crop = edits.crop ?? { x: 0, y: 0, w: 1, h: 1 };
+        const crop = edits.crop ?? FULL_CROP;
         const sw = natural.width * crop.w;
         const sh = natural.height * crop.h;
         const box = editedSize(natural, edits);
@@ -57,10 +50,7 @@ export async function bakeImageEdits(image: Blob, edits: ImageEdits): Promise<Bl
         const png = image.type === 'image/png'
             || ((image.type === 'image/webp' || image.type === 'image/gif') && hasTransparency(ctx, width, height));
         const type = png ? 'image/png' : 'image/jpeg';
-        if ('convertToBlob' in canvas) return await canvas.convertToBlob({ type, quality: JPEG_QUALITY });
-        return await new Promise<Blob>((resolve, reject) => {
-            canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('canvas.toBlob failed'))), type, JPEG_QUALITY);
-        });
+        return await canvasToBlob(canvas, type, JPEG_QUALITY);
     } finally {
         bitmap.close();
     }
