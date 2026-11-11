@@ -632,25 +632,72 @@ describe('runAgent — long notes (#1025)', () => {
 
     it('should read only the section under one heading, # marks or not', async () => {
         const { engine, calls } = scriptedEngine([
+            { tool: 'get_note', args: { id: DIARY } },
             { tool: 'get_note', args: { id: DIARY, section: '## December' } },
             { tool: 'get_note', args: { id: DIARY, section: 'november' } },
             { answer: 'Cider and tulips.' },
         ]);
         await runWithWrites('What did I do at the end of the year?', engine).result;
 
-        const december = JSON.parse(lastResult(calls[1]).replace('Result of get_note: ', '')).markdown;
+        const december = JSON.parse(lastResult(calls[2]).replace('Result of get_note: ', '')).markdown;
         expect(december).toMatch(/^## December\n\nThe last job of the year was pressing cider/);
         expect(december).not.toMatch(/November|tulip/);
-        expect(lastResult(calls[2])).toContain('Planted 40 tulip bulbs');
-        expect(lastResult(calls[2])).not.toContain('cider');
+        expect(lastResult(calls[3])).toContain('Planted 40 tulip bulbs');
+        expect(lastResult(calls[3])).not.toContain('cider');
     });
 
     it('should cut a long section at the note length', async () => {
         await addNote(OTHER, 'Allotment diary', `## Everything\n\n${LONG_NOTE_BODY.replace(/^## /gm, '### ')}`);
-        const { engine, calls } = scriptedEngine([{ tool: 'get_note', args: { id: OTHER, section: 'Everything' } }, { answer: 'ok' }]);
+        const { engine, calls } = scriptedEngine([{ tool: 'get_note', args: { id: OTHER } }, { tool: 'get_note', args: { id: OTHER, section: 'Everything' } }, { answer: 'ok' }]);
         await runWithWrites('What is in it?', engine).result;
-        expect(lastResult(calls[1])).toMatch(/… \(truncated, \d+ characters\)/);
-        expect(lastResult(calls[1]).length).toBeLessThan(1900);
+        expect(lastResult(calls[2])).toMatch(/… \(truncated, \d+ characters\)/);
+        expect(lastResult(calls[2]).length).toBeLessThan(1900);
+    });
+
+    it('should give a short note whole when the model asks for a section of it, and count a repeat of that call', async () => {
+        // The #1025 eval: the model sent the question as section, got "Section not found" and sent it again until out of steps.
+        const asked = { tool: 'get_note', args: { id: GARDEN, section: 'When do I plant zucchini?' } };
+        const { engine, calls } = scriptedEngine([asked, asked, { answer: 'May.' }]);
+        const { result, events } = runWithWrites('When do I plant zucchini?', engine);
+
+        expect(await result).toBe('May.');
+        const data = JSON.parse(lastResult(calls[1]).replace('Result of get_note: ', ''));
+        expect(data).toMatchObject({ id: GARDEN, markdown: 'Planting zucchini along the south fence in May.' });
+        expect(events.filter((e) => e.type === 'error')).toEqual([]);
+        expect(events.filter((e) => e.type === 'toolCall')).toEqual([{ type: 'toolCall', tool: 'get_note', args: { id: GARDEN } }]);
+        expect(lastResult(calls[2])).toContain('You already called get_note with these arguments');
+    });
+
+    it('should give a long note as its outline when asked for a section before its outline was shown, then read the section', async () => {
+        const november = { tool: 'get_note', args: { id: DIARY, section: 'November' } };
+        const { engine, calls } = scriptedEngine([november, november, { answer: 'Tulips.' }]);
+        await runWithWrites('What is under the November heading?', engine).result;
+
+        const first = lastResult(calls[1]);
+        expect(first).toContain('"outline":');
+        expect(first).toContain(READ_A_SECTION);
+        expect(first).not.toContain('tulip');
+        // Not a repeat: the first call was read without its section.
+        expect(lastResult(calls[2])).toContain('Planted 40 tulip bulbs');
+    });
+
+    it('should read a section of the long open note at once, as its outline went in up front', async () => {
+        const blocks = LONG_NOTE_BODY.split('\n\n').map((text) =>
+            text.startsWith('## ')
+                ? { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: text.slice(3) }] }
+                : { type: 'paragraph', content: [{ type: 'text', text }] }
+        );
+        const doc = editorSchema.nodeFromJSON({ type: 'doc', content: blocks });
+        const editor: ActiveEditorStore = {
+            get: () => ({ docId: DIARY, editor: { state: EditorState.create({ doc }) } as unknown as Editor, editable: true, excludeFromAI: false }),
+            subscribe: () => () => {},
+        };
+        const { engine, calls } = scriptedEngine([{ tool: 'get_note', args: { id: DIARY, section: 'November' } }, { answer: 'ok' }]);
+        await runWithWrites('Bold the first line under November', engine, { editor }).result;
+
+        expect(calls[0].messages[2].content).toContain(READ_A_SECTION);
+        expect(lastResult(calls[1])).toContain('Planted 40 tulip bulbs');
+        expect(lastResult(calls[1])).not.toContain('"outline":');
     });
 
     it('should give a short note as markdown, as before', async () => {

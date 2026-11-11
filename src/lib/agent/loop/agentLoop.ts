@@ -203,17 +203,20 @@ function capArgs(name: string, args: Record<string, unknown>): Record<string, un
  * The in-app get_note (#1025): a note longer than `noteLength` comes as its title, length and
  * outline (the first block and the headings), and `section` reads the part under one heading.
  * A long note with no heading has no part to read, so it comes as markdown, cut like a short one.
+ * `outlined` collects the notes whose outline the model has been shown.
  */
-async function readNote(deps: WriteDeps, { id, section }: NoteRead, noteLength: number): Promise<ToolOutput> {
+async function readNote(deps: WriteDeps, { id, section }: NoteRead, noteLength: number, outlined: Set<string>): Promise<ToolOutput> {
+    const { markdown, ...note } = await getNoteMarkdown(deps, { id });
+    // A note that fits comes whole, section or not: small models pass the user's question as section (#1025 eval).
+    if (markdown.length <= noteLength) return { data: { ...note, markdown } };
     if (section !== undefined) {
         // Small models copy the heading from the outline with its # marks.
-        const { blocks, ...note } = await getNoteBlocks(deps, { id, section: section.replace(/^#+\s*/, '') });
-        return { data: { ...note, markdown: blocks.map((block) => block.markdown).join('\n\n') } };
+        const { blocks, ...part } = await getNoteBlocks(deps, { id, section: section.replace(/^#+\s*/, '') });
+        return { data: { ...part, markdown: blocks.map((block) => block.markdown).join('\n\n') } };
     }
-    const { markdown, ...note } = await getNoteMarkdown(deps, { id });
-    if (markdown.length <= noteLength) return { data: { ...note, markdown } };
     const { blocks } = await getNoteOutline(deps, { id });
     if (!blocks.some((block) => block.type === 'heading')) return { data: { ...note, markdown } };
+    outlined.add(id);
     const outline = blocks.filter((block, i) => i === 0 || block.type === 'heading').map((block) => block.preview);
     return { data: { ...note, length: markdown.length, outline }, notes: [READ_A_SECTION] };
 }
@@ -291,6 +294,8 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
     const refused = new Map<string, string>();
     /** Accepted writes, by name and args, with the turn that made them: small models repeat a write that worked (#914). */
     const applied = new Map<string, number>();
+    /** Notes whose outline the model has been shown: get_note takes `section` only for those (#1025 eval). */
+    const outlined = new Set<string>();
     // With edit tools offered, the open note's blocks go in up front, as a read_open_note already made (#914).
     // Small models edit without reading and guess `n` and `find`; told to read first, none of them did (#706 eval).
     // A long note goes in as its outline, the first block and the headings with their numbers (#1025).
@@ -299,6 +304,7 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
             const all = (await readOpenNote.execute(editor, {})).data as { n: number; type: string; text: string }[];
             const isHeading = (block: { type: string }) => /^h\d$/.test(block.type);
             const long = all.reduce((sum, block) => sum + block.text.length, 0) > noteLength && all.some(isHeading);
+            if (long) outlined.add(editor.get()!.docId);
             const blocks = formatToolResult(
                 readOpenNote.name,
                 long ? { data: all.filter((block, i) => i === 0 || isHeading(block)), notes: [READ_A_SECTION] } : { data: all }
@@ -348,6 +354,9 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
         }
 
         const args = capArgs(tool.name, parsed.data);
+        // A section of a note whose outline the model has not seen is a guess, often the user's question: drop it,
+        // so the call reads the note as if it had none, and a repeat of it counts as a repeat (#1025 eval).
+        if (tool === getNote && !outlined.has(String(args.id))) delete args.section;
         const key = callKey(tool.name, args);
         const earlier = seen.get(key);
         const done = applied.get(key);
@@ -381,7 +390,7 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
                 return tool.readOnly ? formatToolResult(tool.name, await run()) : proposeEdit(run);
             }
             // Only read-only tools run here, and they use only the ReadDeps half, except get_note's outline and section reads.
-            if (tool === getNote) return formatToolResult(tool.name, await readNote(deps as WriteDeps, args as NoteRead, noteLength), noteLength);
+            if (tool === getNote) return formatToolResult(tool.name, await readNote(deps as WriteDeps, args as NoteRead, noteLength, outlined), noteLength);
             if (tool.readOnly) return formatToolResult(tool.name, await tool.execute(deps as WriteDeps, args));
             // An append to the open note goes through its editor, so its undo keeps working (#914).
             if (tool.name === 'append_to_note' && args.id === editor.get()?.docId) {
