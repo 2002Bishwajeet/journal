@@ -44,8 +44,8 @@ test('"what is this about?" on a long note reads the outline, then one section',
   await expect(panel.getByText(answer)).toBeVisible();
   const requests = (await completionRequests(app))!;
   expect(requests).toHaveLength(3);
-  // The system prompt says how long notes come.
-  expect(requests[0]).toContain('A long note comes as an outline of its headings');
+  // get_note offers section only after an outline was shown, so a small model can't send its question as one.
+  expect(requests[0]).not.toContain('section');
   // The first read: every heading and how to read a part, not the body.
   expect(requests[1]).toContain('## November');
   expect(requests[1]).toContain('Call get_note with section');

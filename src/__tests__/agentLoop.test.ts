@@ -754,14 +754,14 @@ describe('runAgent — long notes (#1025)', () => {
         );
     });
 
-    it('should tell the model about outlines only when get_note is offered', async () => {
-        const rule = 'A long note comes as an outline';
-        const withRead = scriptedEngine([{ answer: 'hi' }]);
-        await run('Hi', withRead.engine).result;
-        const without = scriptedEngine([{ answer: 'hi' }]);
-        await run('Hi', without.engine, { tools: AGENT_TOOLS.filter((tool) => tool.name !== 'get_note') }).result;
+    it('should offer section in the schema only once an outline was shown, and never in the system prompt', async () => {
+        // The #1025 eval: with section offered from the start, the 2B model sent its question as one on short notes.
+        const { engine, calls } = scriptedEngine([{ tool: 'get_note', args: { id: GARDEN } }, { tool: 'get_note', args: { id: DIARY } }, { answer: 'ok' }]);
+        await runWithWrites('What is in my notes?', engine).result;
 
-        expect(withRead.calls[0].messages[0].content).toContain(rule);
-        expect(without.calls[0].messages[0].content).not.toContain(rule);
+        const offersSection = (call: Call) => JSON.stringify(call.schema).includes('"section"');
+        expect(calls.map(offersSection)).toEqual([false, false, true]);
+        expect(calls[0].messages[0].content).toContain('- get_note(id): Read the note with this id as markdown.');
+        expect(calls[0].messages[0].content).not.toContain('section');
     });
 });
