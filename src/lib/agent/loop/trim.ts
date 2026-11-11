@@ -8,7 +8,7 @@ export interface AgentMessage {
     content: string;
 }
 
-/** Every prebuilt WebLLM model has a 4,096-token context window. */
+/** Every prebuilt WebLLM model has a 4,096-token context window; a catalogue model can load with a larger one (`contextWindow`, #1025). */
 export const CONTEXT_WINDOW = 4096;
 /** Room for the chat template's tokens around each message. */
 const MESSAGE_OVERHEAD = 4;
