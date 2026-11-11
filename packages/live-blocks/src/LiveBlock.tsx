@@ -9,7 +9,6 @@
  */
 import { useRef, useState } from 'react';
 import { memoryBlockStateStore } from './blockState';
-import type { LiveBlockKind } from './liveBlocks';
 import { LiveBlockPreview, type LiveBlockPreviewProps } from './LiveBlockPreview';
 
 export interface LiveBlockProps extends Pick<LiveBlockPreviewProps, 'kind' | 'source' | 'wide' | 'theme'> {
@@ -19,21 +18,21 @@ export interface LiveBlockProps extends Pick<LiveBlockPreviewProps, 'kind' | 'so
   onLink?: (url: string) => void;
 }
 
-const isFramed = (kind: LiveBlockKind) => kind === 'html' || kind === 'react';
-
 export function LiveBlock({ kind, source, wide, theme, initialState, onLink = confirmAndOpen }: LiveBlockProps) {
   const box = useRef<HTMLDivElement>(null);
   const [store] = useState(() => memoryBlockStateStore(initialState));
-  const framed = isFramed(kind);
-  const fitContent = (height: number) => {
+  const framed = kind === 'html' || kind === 'react';
+  // One function for the block's life: the published build has no React Compiler, and a new one
+  // each render would make the preview listen on its port again.
+  const [fitContent] = useState(() => (height: number) => {
     if (box.current) box.current.style.height = `${height}px`;
-  };
+  });
 
   return (
     <div data-live-block={kind} data-live-block-wide={framed && wide ? '' : undefined} data-live-block-untrusted={framed ? '' : undefined} className="relative isolate my-4">
       {/* The frame reaches 12px (FRAME_BLEED) past the block on every side, and the box pads that back, as in Journal's LiveBlockFrame. */}
       <div ref={box} data-live-block-preview={kind} className={framed ? 'relative -m-3 box-content! h-[400px] overflow-hidden p-3' : undefined}>
-        <LiveBlockPreview kind={kind} source={source} store={store} onHeight={fitContent} wide={framed && !!wide} onLink={onLink} theme={theme} />
+        <LiveBlockPreview kind={kind} source={source} store={store} onHeight={fitContent} wide={wide} onLink={onLink} theme={theme} />
         {framed && <span aria-hidden className="pointer-events-none absolute inset-3 rounded-md border border-dashed border-muted-foreground/40" />}
       </div>
     </div>

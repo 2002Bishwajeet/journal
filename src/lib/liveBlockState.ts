@@ -9,14 +9,13 @@
 import * as Y from 'yjs';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { getNewId } from '@/lib/utils';
-import { MAX_BLOCK_STATE_BYTES, parseCodeInfo } from '@2002bishwajeet/live-blocks/core';
+import { MAX_BLOCK_STATE_BYTES, parseCodeInfo, utf8Length } from '@2002bishwajeet/live-blocks/core';
 
 /** Y.Map in the note's Yjs doc: block id -> the block's whole state as one JSON text. */
 export const BLOCK_STATE_MAP = 'liveBlockState';
 /** The most a note's blocks may save together, so many blocks can't bloat the note and its versions (#950). */
 export const MAX_NOTE_BLOCK_STATE_BYTES = 256 * 1024;
 
-const utf8Length = (text: string) => new TextEncoder().encode(text).length;
 
 /** A block's saved state as JSON text, or undefined when it has none. */
 export function getBlockState(ydoc: Y.Doc, id: string): string | undefined {

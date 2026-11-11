@@ -4,7 +4,7 @@
  * package loads none, a react block loads the libraries it imports and no others, and the
  * mermaid runtime loads for a mermaid block.
  */
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -24,6 +24,9 @@ vi.mock('virtual:react-block-lodash', () => piece('lodash'));
 vi.mock('virtual:react-block-mathjs', () => piece('mathjs'));
 vi.mock('virtual:react-block-papaparse', () => piece('papaparse'));
 vi.mock('virtual:react-block-ui', () => piece('journal-ui'));
+
+// A piece's module loads once: each test sees what it loaded itself.
+beforeEach(() => loaded.clear());
 
 beforeAll(() => {
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -59,6 +62,6 @@ describe('the pieces of a block\'s page', () => {
 
   it('should load the mermaid runtime for a mermaid block', async () => {
     await show('mermaid', 'graph TD; A-->B');
-    expect([...loaded].sort()).toEqual(['mermaid', 'runtime', 'tailwind', 'three']);
+    expect([...loaded]).toEqual(['mermaid']);
   });
 });

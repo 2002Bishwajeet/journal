@@ -12,7 +12,8 @@ export const MAX_BLOCK_STATE_BYTES = 64 * 1024;
 export const BLOCK_STATE_WRITE_INTERVAL_MS = 1000;
 const MAX_KEY_LENGTH = 256;
 
-const utf8Length = (text: string) => new TextEncoder().encode(text).length;
+/** A text's length in UTF-8 bytes, as the limits count it. */
+export const utf8Length = (text: string) => new TextEncoder().encode(text).length;
 
 /** Where one block's state is kept: the note (editor), or memory (a share page viewer). */
 export interface BlockStateStore {

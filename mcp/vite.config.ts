@@ -15,7 +15,7 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': path.resolve(import.meta.dirname, '../src'),
-            // Only `@2002bishwajeet/live-blocks/core`: the server has no use for the components.
+            // The server imports only `@2002bishwajeet/live-blocks/core`: it has no use for the components.
             '@2002bishwajeet/live-blocks': path.resolve(import.meta.dirname, '../packages/live-blocks/src'),
         },
     },

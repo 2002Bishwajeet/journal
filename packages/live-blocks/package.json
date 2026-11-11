@@ -5,7 +5,7 @@
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/2002Bishwajeet/journal.git",
+    "url": "https://github.com/2002Bishwajeet/journal",
     "directory": "packages/live-blocks"
   },
   "type": "module",

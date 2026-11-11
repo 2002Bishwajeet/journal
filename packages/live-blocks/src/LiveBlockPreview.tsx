@@ -66,10 +66,8 @@ export interface LiveBlockPreviewProps {
   /** A link the user clicked in the block's page, an http(s) or mailto URL. */
   onLink?: (url: string) => void;
   /** The colour scheme to draw the block in; without one, the `dark` class on `<html>` says. */
-  theme?: ColorScheme;
+  theme?: FrameTheme['colorScheme'];
 }
-
-type ColorScheme = 'light' | 'dark';
 
 type ReactResult = { source: string; page: string } | { source: string; title: string; error: string };
 
@@ -97,7 +95,7 @@ function subscribeToRootAttributes(onChange: () => void) {
 const isDarkTheme = () => document.documentElement.classList.contains('dark');
 
 /** The look of the note around an html block's frame (#420), read where the frame sits. */
-function frameTheme(frame: HTMLIFrameElement, theme: ColorScheme | undefined): FrameTheme {
+function frameTheme(frame: HTMLIFrameElement, theme: FrameTheme['colorScheme'] | undefined): FrameTheme {
   const root = getComputedStyle(document.documentElement);
   const colorScheme = theme ?? (isDarkTheme() ? 'dark' : 'light');
   // The frame element inherits the font of the content around it.
@@ -393,6 +391,7 @@ function MermaidPreview({ source, onLink, theme }: Pick<LiveBlockPreviewProps, '
           title="Mermaid preview"
           onHeight={setHeight}
           onLink={onLink}
+          theme={theme}
           themeVariables={JSON.stringify(mermaidThemeVariables(dark))}
         />
       </div>
