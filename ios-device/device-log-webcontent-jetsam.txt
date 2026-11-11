@@ -1,0 +1,8 @@
+Nov 11 12:41:30.092661 Journal(RunningBoardServices)[42964] <Notice>: Received state update for 167 (osservice<com.apple.InputUI>, running-active-NotVisible
+Nov 11 12:41:30.096386 Journal(RunningBoardServices)[42964] <Notice>: Received state update for 42964 (app<id.homebase.journal(2B6C7ADD-9F26-45DA-BC0C-C3B12803E32C)>, running-active-NotVisible
+Nov 11 12:41:30.130013 Journal(WebKit)[42964] <Error>: 0x1150ac0c0 - [PID=42985] WebProcessProxy::processDidTerminateOrFailedToLaunch: reason=Crash
+Nov 11 12:41:30.159871 Journal(WebKit)[42964] <Error>: 0x1150ac680 - [PID=42995] WebProcessProxy::processDidTerminateOrFailedToLaunch: reason=Crash
+Nov 11 12:41:30.188458 Journal(RunningBoardServices)[42964] <Notice>: Firing exit handlers for 42995 with context <RBSProcessExitContext| specific, status:<RBSProcessExitStatus| domain:jetsam(1) code:17>>
+Nov 11 12:41:30.190559 Journal(RunningBoardServices)[42964] <Notice>: Received state update for 42964 (app<id.homebase.journal(2B6C7ADD-9F26-45DA-BC0C-C3B12803E32C)>, running-active-NotVisible
+Nov 11 12:41:30.190862 Journal(RunningBoardServices)[42964] <Notice>: Received state update for 167 (osservice<com.apple.InputUI>, running-active-NotVisible
+Nov 11 12:41:30.197451 Journal(RunningBoardServices)[42964] <Notice>: Firing exit handlers for 42985 with context <RBSProcessExitContext| specific, status:<RBSProcessExitStatus| domain:jetsam(1) code:17>>
