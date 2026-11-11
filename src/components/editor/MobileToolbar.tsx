@@ -33,9 +33,12 @@ import {
   Image as ImageIcon,
   Undo,
   Redo,
+  KeyboardOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
+import { MOBILE_TOOLBAR_GAP } from "@/lib/editor/keyboardOffset";
+import { useSwipeToDismissKeyboard } from "@/hooks/useSwipeToDismissKeyboard";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { ToolbarButton, ToolbarDivider, useToolbarState, safeEditorCommand } from "./shared";
 import { EmojiPicker } from "./EmojiPicker";
@@ -50,6 +53,8 @@ interface MobileToolbarProps {
 }
 
 const V = "mobile" as const;
+const CAPSULE =
+  "pointer-events-auto flex items-center rounded-full border border-border bg-card/90 shadow-lg backdrop-blur-md";
 
 export default function MobileToolbar({
   editor,
@@ -93,7 +98,8 @@ export default function MobileToolbar({
   }, [editor]);
 
   const isVisible = isTouchDevice && !isDesktop && hasFocus;
-  useKeyboardOffset(isVisible);
+  useKeyboardOffset(isVisible, editor.view.dom);
+  useSwipeToDismissKeyboard(editor, isVisible);
 
   // Action handlers using safeEditorCommand
   const handleUndo = () => {
@@ -220,28 +226,23 @@ export default function MobileToolbar({
   if (!isVisible) return null;
 
   return (
+    // Floats above the keyboard: a capsule of tools and, beside it, the button that closes
+    // the keyboard. The row itself lets touches through to the note around the two.
     <div
-      className={cn(
-        "fixed left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border shadow-lg",
-        className,
-      )}
+      className={cn("fixed inset-x-0 z-50 flex items-center gap-2 pointer-events-none", className)}
       data-mobile-toolbar
       style={{
-        bottom: "var(--keyboard-offset, 0px)",
-        paddingBottom: "var(--keyboard-safe-bottom, env(safe-area-inset-bottom, 0px))",
+        bottom: `calc(var(--keyboard-offset, 0px) + var(--keyboard-safe-bottom, env(safe-area-inset-bottom, 0px)) + ${MOBILE_TOOLBAR_GAP}px)`,
+        paddingLeft: "max(12px, env(safe-area-inset-left, 0px))",
+        paddingRight: "max(12px, env(safe-area-inset-right, 0px))",
       }}
     >
       {/* The slash menu docks here, above the toolbar, while the editor keeps focus (#827) */}
-      <div data-slash-dock className="absolute inset-x-0 bottom-full empty:hidden" />
+      <div data-slash-dock className="pointer-events-auto absolute inset-x-0 bottom-full empty:hidden" />
       <LinkSheet editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />
       {/* Scrollable toolbar container */}
-      <div
-        className="flex items-center gap-0.5 px-2 py-2 overflow-x-auto scrollbar-hide"
-        style={{
-          paddingLeft: "max(8px, env(safe-area-inset-left, 8px))",
-          paddingRight: "max(8px, env(safe-area-inset-right, 8px))",
-        }}
-      >
+      <div className={cn(CAPSULE, "min-w-0 flex-1 overflow-hidden")}>
+      <div className="flex min-w-0 flex-1 items-center gap-0.5 p-1 overflow-x-auto scrollbar-hide">
         {/* Undo/Redo */}
         <ToolbarButton variant={V} onClick={handleUndo} title="Undo">
           <Undo className="h-5 w-5" />
@@ -386,7 +387,7 @@ export default function MobileToolbar({
         </ToolbarButton>
         <EmojiPicker
           editor={editor}
-          className="flex items-center justify-center w-12 h-12 min-w-12 rounded-lg transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
+          className="flex items-center justify-center w-12 h-12 min-w-12 rounded-full transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
         />
         <ToolbarButton variant={V} onClick={addImage} title="Add Image">
           <ImageIcon className="h-5 w-5" />
@@ -398,9 +399,17 @@ export default function MobileToolbar({
         <TextAlignPicker
           editor={editor}
           currentAlign={state.textAlign}
-          className="flex items-center justify-center w-12 h-12 min-w-12 rounded-lg transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
+          className="flex items-center justify-center w-12 h-12 min-w-12 rounded-full transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
           iconSize={20}
         />
+      </div>
+      </div>
+      {/* With the keyboard up there is no other way to close it. Focus is on the editor,
+          so the toolbar (and this button) only shows while the keyboard is. */}
+      <div className={cn(CAPSULE, "shrink-0 p-1")}>
+        <ToolbarButton variant={V} onClick={() => editor.chain().blur().run()} title="Hide keyboard">
+          <KeyboardOff className="h-5 w-5" />
+        </ToolbarButton>
       </div>
     </div>
   );

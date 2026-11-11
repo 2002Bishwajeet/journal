@@ -16,7 +16,7 @@ const variantStyles = {
     active: 'bg-accent text-accent-foreground',
   },
   mobile: {
-    base: 'flex items-center justify-center w-12 h-12 min-w-12 rounded-lg active:bg-primary/20 touch-manipulation',
+    base: 'flex items-center justify-center w-12 h-12 min-w-12 rounded-full active:bg-primary/20 touch-manipulation',
     active: 'bg-primary/10 text-primary',
     inactive: 'text-foreground hover:bg-muted',
   },
