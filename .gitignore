@@ -53,6 +53,7 @@ DESIGN-IS-*/
 .agents/skills/
 .claude/skills/*
 !.claude/skills/e2e-verify/
+!.claude/skills/app-store-screenshots/
 skills-lock.json
 
 # MCP package build
