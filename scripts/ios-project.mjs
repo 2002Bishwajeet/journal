@@ -20,6 +20,8 @@ rmSync(`${GEN}/Assets.xcassets/AppIcon.appiconset`, { recursive: true, force: tr
 cpSync('src-tauri/ios', GEN, { recursive: true });
 // Re-run XcodeGen so the project picks up the copied PrivacyInfo.xcprivacy.
 run('xcodegen', ['generate', '--spec', `${GEN}/project.yml`]);
+// XcodeGen just dropped any premium extension targets: add them back.
+run('npm', ['run', 'native:ios:targets']);
 
 if (process.argv.includes('--release')) {
   const build = execFileSync('git', ['rev-list', '--count', 'HEAD']).toString().trim();

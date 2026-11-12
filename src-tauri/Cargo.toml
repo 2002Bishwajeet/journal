@@ -13,6 +13,8 @@ name = "journal_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
+# build.rs reads native/rust/plugins.json when the premium submodule is there.
+serde_json = "1"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]

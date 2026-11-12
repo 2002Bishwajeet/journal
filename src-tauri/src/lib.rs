@@ -2,7 +2,7 @@ use std::fmt;
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tiny_http::{Header, Response, Server};
 
 // Paid features from the optional private submodule native/ (see build.rs).
@@ -154,13 +154,24 @@ fn serve(app: tauri::AppHandle, server: Server) {
     }
 }
 
+/// The Tauri plugins `premium::register` adds, from native/rust/plugins.json
+/// (see build.rs). Empty without the submodule.
+fn native_plugins() -> Vec<&'static str> {
+    env!("JOURNAL_NATIVE_PLUGINS")
+        .split(',')
+        .filter(|name| !name.is_empty())
+        .collect()
+}
+
 /// Sets `window.__JOURNAL_NATIVE__` before any page script runs.
 /// `std::env::consts::OS` is already `macos`, `windows`, `linux`, `ios` or
-/// `android`, the values `NativePlatform` in src/lib/native.ts expects.
+/// `android`, the values `NativePlatform` in src/lib/native.ts expects;
+/// `plugins` is what `hasNativePlugin()` there checks.
 fn native_flag_script() -> String {
     format!(
-        "window.__JOURNAL_NATIVE__ = {{ platform: {:?} }};",
-        std::env::consts::OS
+        "window.__JOURNAL_NATIVE__ = {{ platform: {:?}, plugins: {:?} }};",
+        std::env::consts::OS,
+        native_plugins()
     )
 }
 
@@ -305,6 +316,18 @@ pub fn run() {
                 }
             }
 
+            // The premium plugins' commands, for the main window on the dev
+            // server and on the asset server, like capabilities/default.json.
+            // build.rs declares their `<plugin>:default` permissions.
+            for plugin in native_plugins() {
+                app.add_capability(
+                    tauri::ipc::CapabilityBuilder::new(format!("native-{plugin}"))
+                        .window("main")
+                        .remote(format!("http://localhost:{PORT}"))
+                        .permission(format!("{plugin}:default")),
+                )?;
+            }
+
             for server in servers {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || serve(handle, server));
@@ -415,8 +438,18 @@ mod tests {
         assert!(["macos", "windows", "linux", "ios", "android"].contains(&os));
         assert_eq!(
             native_flag_script(),
-            format!("window.__JOURNAL_NATIVE__ = {{ platform: \"{os}\" }};")
+            format!(
+                "window.__JOURNAL_NATIVE__ = {{ platform: \"{os}\", plugins: {:?} }};",
+                native_plugins()
+            )
         );
+    }
+
+    #[cfg(not(journal_premium))]
+    #[test]
+    fn no_native_plugins_without_premium() {
+        assert!(native_plugins().is_empty());
+        assert!(native_flag_script().ends_with("plugins: [] };"));
     }
 
     #[test]
