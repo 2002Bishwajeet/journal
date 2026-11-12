@@ -67,6 +67,7 @@ import { useFolders, isUnknownFolderRoute, findOrCreateFolderByName } from "@/ho
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { useDailySnapshotPrune } from "@/hooks/useDailySnapshotPrune";
+import { useNotesMirror } from "@/hooks/useNotesMirror";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
 import { syncThemeColor } from "@/lib/themeColor";
@@ -79,6 +80,7 @@ export default function JournalLayout() {
   // Apply the stored editor font/width attributes at root level
   useEditorAppearance();
   useDailySnapshotPrune();
+  useNotesMirror();
   const whatsNew = useAutoWhatsNew();
 
   // Warm the lazy editor chunk once the shell is idle. Desktop with restored

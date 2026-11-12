@@ -16,6 +16,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# Derives for the command types of the premium Rust in native/rust (a dependency of tauri already).
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-deep-link = "2"
@@ -37,6 +39,11 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 # lib.rs can name it.
 [target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
 objc2 = "0.6"
+
+# The premium Rust tests (native/rust) call the commands through the mock runtime, with the
+# app's real permissions.
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
 
 [features]
 # Enabled by the Tauri CLI for production builds. Turning it on flips
