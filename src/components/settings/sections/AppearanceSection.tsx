@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Moon, Sun, Monitor, CheckCircle2, type LucideIcon } from "lucide-react";
 import { useLaunchAtLogin } from "@/hooks/useLaunchAtLogin";
+import { useMenuBarOnly } from "@/hooks/useMenuBarOnly";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
@@ -163,6 +164,7 @@ export default function AppearanceSection() {
   // The note column is the screen width on a phone, so the control would do nothing.
   const phone = isPhoneSettings(useSettingsPlatform());
   const { desktop, enabled: launchAtLogin, setEnabled: setLaunchAtLogin } = useLaunchAtLogin();
+  const { mac, enabled: menuBarOnly, setEnabled: setMenuBarOnly } = useMenuBarOnly();
 
   return (
     <div className="space-y-10">
@@ -289,6 +291,20 @@ export default function AppearanceSection() {
                 />
               }
             />
+            {mac && (
+              <SettingsRow
+                id="desktop-menu-bar-only"
+                label="Show in menu bar only"
+                description="Hides the Dock icon. Open Journal from its icon in the menu bar."
+                control={
+                  <Switch
+                    checked={menuBarOnly ?? false}
+                    disabled={menuBarOnly === null}
+                    onCheckedChange={(on) => void setMenuBarOnly(on).catch(() => toast.error("Couldn't change the Dock icon"))}
+                  />
+                }
+              />
+            )}
           </div>
         </div>
       )}
