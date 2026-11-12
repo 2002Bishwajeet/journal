@@ -50,7 +50,8 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "On-device models, autocomplete, and grammar",
     icon: Sparkles,
     Component: AISection,
-    platforms: ["web-desktop", "native-desktop"],
+    // The phone app only on iOS devices that passed the on-device AI check (#1143).
+    platforms: ["web-desktop", "native-desktop", "native-phone"],
   },
   {
     id: "agent-access",
@@ -115,13 +116,15 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
 
 /**
  * The sections that apply on a platform. The phone app has no web push, so Notifications
- * has a row there only when a daily-reminder scheduler is registered.
+ * has a row there only when a daily-reminder scheduler is registered, and AI only where
+ * the device can run it.
  */
-export function sectionsFor(platform: SettingsPlatform, hasReminder = false): SettingsSection[] {
+export function sectionsFor(platform: SettingsPlatform, hasReminder = false, hasLocalAI = false): SettingsSection[] {
   return SETTINGS_SECTIONS.filter(
     (s) =>
       !s.hidden &&
       (!s.platforms || s.platforms.includes(platform)) &&
-      !(s.id === "notifications" && platform === "native-phone" && !hasReminder),
+      !(s.id === "notifications" && platform === "native-phone" && !hasReminder) &&
+      !(s.id === "ai" && platform === "native-phone" && !hasLocalAI),
   );
 }

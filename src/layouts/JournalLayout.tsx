@@ -28,6 +28,7 @@ import {
 } from "@/hooks";
 import { useTrayNewNote } from "@/hooks/useTrayNewNote";
 import { useQuitShortcut } from "@/hooks/useQuitShortcut";
+import { useAISupported } from "@/hooks/useAISupported";
 import { LicenseGate } from "@/components/license/License";
 import { ReadOnlyBanner } from "@/components/license/ReadOnlyBanner";
 import { useCanEditAnswer } from "@/hooks/useCanEdit";
@@ -224,6 +225,7 @@ export default function JournalLayout() {
 
   const deviceType = useDeviceType();
   const isTablet = deviceType === "tablet";
+  const aiSupported = useAISupported();
   // Tablets (768-1023 px) show the list and the editor side by side (#832); the
   // folder sidebar is an overlay that owns a history entry, so Back closes it.
   const [sidebarRequested, setSidebarRequested] = useState(false);
@@ -484,7 +486,7 @@ export default function JournalLayout() {
       )}
 
       {/* Modals */}
-      {noteId && deviceType !== "mobile" ? <ChatBot activeNoteId={noteId} /> : null}
+      {noteId && aiSupported ? <ChatBot activeNoteId={noteId} /> : null}
 
       <SearchModal
         isOpen={showSearch}

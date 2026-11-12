@@ -486,7 +486,8 @@ Saved settings with no `agentModelId` (from before #695) keep Qwen3 1.7B (`PREVI
 - **Rewrite (#703)**: `AIMenu` runs `rewriteText` on the editor model and turns the result into a proposal (`src/lib/agent/rewriteEdit.ts`) for `approveEdit`, so it shows and is accepted like an agent edit
 - **Slash commands**: `/ask` and `/summarize` open the ChatBot panel (`/summarize` sends the request); `/rewrite` opens the AI menu for the selection. They talk through `aiRequests` (`src/lib/agent/aiRequests.ts`)
 - **Idle GC**: Auto-unloads model after 5 minutes idle to reclaim ~2-3 GB memory
-- **Mobile**: Disabled on mobile devices (insufficient memory)
+- **Mobile**: Disabled on phone-sized screens on the web and in the Android app (insufficient memory)
+- **iOS app (#1143)**: `useAISupported` / `aiSupportedOn` (`src/hooks/useAISupported.ts`) replace the screen-size gate in the iOS app with a device check (`src/lib/webllm/ios.ts`): a WebGPU adapter (WKWebView has it from iOS 26), web-llm's smallest buffer limits (256 MiB buffer, 128 MiB storage binding) and at least 7 GiB of physical memory from `invokeNative('premium', 'device_memory')` (8 GB devices; `None` in the Simulator and without `native/`, so AI stays hidden there). It gates the Assistant panel, the AI slash commands and the AI settings section. Models over 2,300 MB (`fitsIOS`) are hidden. The download dialog always notes cellular data (WKWebView has no `navigator.connection`), and auto-load on launch skips a model that is not cached. While a model is in memory and the page is visible, `localStorage['journal-ai-running-model']` names it; if the page dies, the next launch moves it to `journal-ai-crashed-models`, shows "This model was too large for this device." and `initWebLLM` refuses it from then on
 
 ### Settings
 - Stored in `localStorage['journal-ai-settings']`

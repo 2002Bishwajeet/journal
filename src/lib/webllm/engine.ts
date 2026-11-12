@@ -1,6 +1,7 @@
 import type * as WebLLMTypes from '@mlc-ai/web-llm';
 import { DEFAULT_MODEL_ID, getModelInfo } from './models';
 import { resolveModelId } from './requirements';
+import { crashedModels, isIOSApp, setRunningModel, TOO_LARGE_MESSAGE } from './ios';
 
 let webllmModule: typeof WebLLMTypes | null = null;
 let engine: WebLLMTypes.MLCEngineInterface | null = null;
@@ -71,6 +72,7 @@ export async function unloadWebLLM(): Promise<void> {
         modelLoaded = false;
         console.log('[WebLLM] Engine unloaded, memory freed');
     }
+    setRunningModel(null);
     if (worker) {
         worker.terminate();
         worker = null;
@@ -136,6 +138,11 @@ export async function initWebLLM(
 
     if (engine && modelLoaded) return true;
     if (isLoading) return false;
+    // A model that was in memory when WebKit killed the page never loads again on this device (#1143).
+    if (isIOSApp() && crashedModels().includes(targetModel)) {
+        lastLoadError = new Error(TOO_LARGE_MESSAGE);
+        return false;
+    }
 
     isLoading = true;
     modelLoaded = false;
@@ -162,6 +169,7 @@ export async function initWebLLM(
         }
 
         const contextWindow = getModelInfo(currentModelId)?.contextWindow;
+        setRunningModel(currentModelId);
         await engine.reload(await resolveModelId(currentModelId), contextWindow ? { context_window_size: contextWindow } : undefined);
 
         isLoading = false;
@@ -174,6 +182,7 @@ export async function initWebLLM(
         lastLoadError = error;
         isLoading = false;
         modelLoaded = false;
+        setRunningModel(null);
         return false;
     }
 }
