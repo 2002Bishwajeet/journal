@@ -44,7 +44,7 @@ export interface NotesMirror {
 
 export const notesMirror: NotesMirror | null = null;
 
-// License key, trial and paywall (#301): the public build has none.
+// License key, trial, paywall and Settings → Purchase (#301, #1177): the public build has none.
 export function LicenseGate(props: { onSignOut: () => void }): ReactNode {
     void props;
     return null;
@@ -102,6 +102,8 @@ export interface Entitlement {
     trialEndsAt?: string;
     /** Set only when a license key unlocks: its year of updates ends here. */
     updatesUntil?: string;
+    /** A source couldn't be read (after retries): status is 'locked' and canEdit false, not loading. `refresh` tries again. */
+    isError?: boolean;
     /** Reads every source again. */
     refresh(): Promise<void>;
 }

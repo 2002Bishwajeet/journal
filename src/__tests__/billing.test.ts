@@ -25,3 +25,34 @@ describe('licenseEnabled', () => {
         expect(web.licenseEnabled()).toBe(true);
     });
 });
+
+describe('billingEnabled', () => {
+    afterEach(() => {
+        vi.unstubAllEnvs();
+        vi.unstubAllGlobals();
+        vi.resetModules();
+    });
+
+    it('should be on in iOS and Android only with the store plugin, whatever VITE_BILLING_URL says', async () => {
+        vi.stubEnv('VITE_BILLING_URL', 'https://billing.example.test');
+        const { billingEnabled } = await import('@/lib/billing');
+        for (const platform of ['ios', 'android']) {
+            vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform, plugins: [] } });
+            expect(billingEnabled()).toBe(false);
+            vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform, plugins: ['journal-iap'] } });
+            expect(billingEnabled()).toBe(true);
+        }
+    });
+
+    it('should follow the billing Worker on desktop, and be off on the web', async () => {
+        vi.stubEnv('VITE_BILLING_URL', 'https://billing.example.test');
+        const { billingEnabled } = await import('@/lib/billing');
+        vi.stubGlobal('window', {});
+        expect(billingEnabled()).toBe(false);
+        vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform: 'macos', plugins: ['journal-iap'] } });
+        expect(billingEnabled()).toBe(true);
+        vi.stubEnv('VITE_BILLING_URL', '');
+        vi.resetModules();
+        expect((await import('@/lib/billing')).billingEnabled()).toBe(false);
+    });
+});

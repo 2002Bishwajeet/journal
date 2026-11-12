@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DialogTitle } from "@/components/ui/dialog";
+import { TrialChip } from "@/components/license/License";
 import { useAccountSettings } from "@/hooks/useAccountSettings";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { isAndroidPhone } from "@/lib/settingsPlatform";
@@ -98,7 +99,11 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
         </>
       ) : (
         <>
-          <header className="flex shrink-0 justify-end px-2 pt-[env(safe-area-inset-top)]">
+          <header className="flex shrink-0 items-center justify-end px-2 pt-[env(safe-area-inset-top)]">
+            {/* The native trial's "Trial: 2 days left" (#1177); opens the paywall. */}
+            <div className="mr-auto">
+              <TrialChip />
+            </div>
             <button
               type="button"
               onClick={onClose}
