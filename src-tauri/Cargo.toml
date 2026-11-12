@@ -46,6 +46,11 @@ tauri-plugin-browser = { path = "plugins/browser" }
 [target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
 objc2 = "0.6"
 
+# The completion handler of WKWebView's takeSnapshot (ios_recovery.rs). Already
+# in the tree through wry.
+[target.'cfg(target_os = "ios")'.dependencies]
+block2 = "0.6"
+
 # The premium Rust tests (native/rust) call the commands through the mock runtime, with the
 # app's real permissions.
 [dev-dependencies]

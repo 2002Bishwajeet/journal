@@ -1999,6 +1999,7 @@ dependencies = [
 name = "journal"
 version = "2.66.10"
 dependencies = [
+ "block2",
  "objc2",
  "rfd",
  "serde",
