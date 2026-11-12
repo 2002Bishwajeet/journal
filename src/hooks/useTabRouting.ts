@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTabManager, staleTabIds, nextActiveTabId } from '@/hooks/useTabManager';
 import { useMountedTabs } from '@/hooks/useMountedTabs';
+import { useBackTo } from '@/hooks/useBackTo';
 import type { NoteListEntry } from '@/types';
 
 interface UseTabRoutingOptions {
@@ -19,6 +20,11 @@ interface UseTabRoutingOptions {
 export function useTabRouting({ noteId, folderId, notes, isNotesLoading }: UseTabRoutingOptions) {
     const navigate = useNavigate();
     const { pathname } = useLocation();
+    const backTo = useBackTo();
+    const backToRef = useRef(backTo);
+    useEffect(() => {
+        backToRef.current = backTo;
+    }, [backTo]);
 
     const {
         openTabs,
@@ -81,7 +87,7 @@ export function useTabRouting({ noteId, folderId, notes, isNotesLoading }: UseTa
     // Reads notesRef rather than notes so handleArchive, which every memoized
     // NoteItem receives, doesn't change identity on each note edit.
     const handleTabClose = useCallback(
-        (docId: string) => {
+        (docId: string, { leaving = false } = {}) => {
             // Same tab closeTab activates, so the URL effect doesn't mount another one.
             const nextId = nextActiveTabId(openTabs, docId, activeTabId);
             closeTab(docId);
@@ -91,10 +97,14 @@ export function useTabRouting({ noteId, folderId, notes, isNotesLoading }: UseTa
                 const note = nextId
                     ? notesRef.current.find((n) => n.docId === nextId)
                     : undefined;
+                // leaving (archive): the note is gone, so Back must not reopen it.
                 if (note) {
                     navigate(`/${note.metadata.folderId}/${nextId}`, {
+                        ...(leaving && { replace: true }),
                         viewTransition: true,
                     });
+                } else if (leaving) {
+                    backToRef.current(folderId ? `/${folderId}` : '/');
                 } else {
                     navigate(folderId ? `/${folderId}` : '/', { viewTransition: true });
                 }

@@ -88,6 +88,23 @@ describe('useTabRouting', () => {
 
         await unmount();
     });
+
+    it('replaces the history entry when the open note is archived or trashed away', async () => {
+        localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify({
+            openTabs: NOTES.map((n) => ({ docId: n.docId, title: n.title })),
+            activeTabId: 'b',
+        }));
+        let api: ReturnType<typeof useTabRouting> | null = null;
+        const unmount = await mount(() => {
+            api = useTabRouting({ noteId: 'b', folderId: 'f1', notes: NOTES, isNotesLoading: false });
+        });
+
+        await act(async () => api!.handleTabClose('b', { leaving: true }));
+
+        expect(mocks.navigate).toHaveBeenCalledWith('/f1/c', { replace: true, viewTransition: true });
+
+        await unmount();
+    });
 });
 
 describe('useLayoutUrlActions', () => {

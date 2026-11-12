@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Journal privacy policy</title>
+  <meta name="description" content="What Journal stores, where it stores it, and what it never collects. Covers Journal in the browser and the Journal+ apps for iPhone, iPad, Android and desktop." />
+  <meta property="og:title" content="Journal privacy policy" />
+  <meta property="og:description" content="Your notes live on your device and on your own Homebase identity. Journal has no analytics, no ads and no account with us." />
+  <!-- head -->
+</head>
+<body data-page="privacy">
+  <!-- header -->
+
+  <main id="main">
+    <section class="page-hero" aria-labelledby="privacy-title">
+      <div class="wrap contact">
+        <div class="contact-head">
+          <h1 class="display page-title" id="privacy-title" data-reveal>Privacy policy</h1>
+          <p class="lede" data-reveal style="--i:1">Journal keeps your notes on your device and on your own Homebase identity. We, the people who make Journal, never receive them.</p>
+          <p data-reveal style="--i:2">Effective 12 November 2026. This policy covers Journal in the browser at journal.cloudx.run, the Journal+ apps for iPhone, iPad, Android, Mac, Windows and Linux (listed in the stores as "Journal - Private Notes"), and this website.</p>
+        </div>
+        <div class="contact-mail" data-reveal style="--i:2">
+          <h2 class="h3">The short version</h2>
+          <ul class="policy-list">
+            <li>You have no account with us. You sign in with a Homebase identity you already have.</li>
+            <li>Your notes sync only to that identity, encrypted at rest and in transit.</li>
+            <li>No analytics, no ads, no tracking, no crash reporting.</li>
+            <li>We do not sell or share any data, because we do not collect any.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section band" aria-label="The policy">
+      <div class="wrap policy">
+        <section class="policy-part" aria-labelledby="p-who">
+          <h2 class="h2" id="p-who" data-reveal>Who we are</h2>
+          <div class="policy-body" data-reveal style="--i:1">
+            <p>Journal is an open source notebook made by Bishwajeet Parhi. Its code is public on <a href="https://github.com/2002Bishwajeet/journal">GitHub</a> under the AGPL-3.0, so you can check every claim on this page against it. For anything about privacy, write to <a href="mailto:mail@bishwajeetparhi.dev?subject=Journal%20privacy">mail@bishwajeetparhi.dev</a>.</p>
+          </div>
+        </section>
+
+        <section class="policy-part" aria-labelledby="p-where">
+          <h2 class="h2" id="p-where" data-reveal>Where your notes live</h2>
+          <div class="policy-body" data-reveal style="--i:1">
+            <p><strong>On your device.</strong> Notes, folders, tags, images and version history are kept in a local database: in your browser's storage for the web app, and in the app's own storage for the Journal+ apps. That is why Journal works offline.</p>
+            <p><strong>On your Homebase identity.</strong> Journal syncs that data to your Homebase identity, a personal server that you run yourself or that a hosting provider runs for you. It is encrypted on the way there and stored encrypted. Whoever operates your identity is responsible for it under their own terms; for hosted identities, see <a href="https://homebase.id">homebase.id</a>.</p>
+            <p>Nothing passes through a server of ours on the way. We cannot read, restore or delete your notes.</p>
+          </div>
+        </section>
+
+        <section class="policy-part" aria-labelledby="p-signin">
+          <h2 class="h2" id="p-signin" data-reveal>Signing in</h2>
+          <div class="policy-body" data-reveal style="--i:1">
+            <p>You sign in by typing your Homebase identity, then approving Journal on your identity's own sign-in page. Your password goes to your identity, never to Journal. Journal keeps the access token it receives on your device. Journal does not create accounts; the "Create an identity" link on the sign-in screen opens homebase.id.</p>
+            <p>Signing out deletes Journal's local data from the device. Uninstalling an app does the same. Notes on your identity stay there until you delete them.</p>
+          </div>
+        </section>
+
+        <section class="policy-part" aria-labelledby="p-sharing">
+          <h2 class="h2" id="p-sharing" data-reveal>When you share</h2>
+          <div class="policy-body" data-reveal style="--i:1">
+            <p>Sharing is always something you start, and you can stop it.</p>
+            <ul class="policy-list">
+              <li><strong>With people.</strong> A note you share with another Homebase identity or a circle is sent to their identity, and they can read it.</li>
+              <li><strong>As a public page.</strong> Making a note public stores it unencrypted on your identity, so anyone with the link can read it. Search engines may index it unless you turn on "Hide from search engines". Making it private again removes public access.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="policy-part" aria-labelledby="p-device">
+          <h2 class="h2" id="p-device" data-reveal>On your device</h2>
+          <div class="policy-body" data-reveal style="--i:1">
+            <ul class="policy-list">
+              <li><strong>Camera and photos.</strong> The apps open the camera only when you choose to take a photo for a note. Photos you pick are added to the note you are writing. Journal removes location and other EXIF data from images before saving them.</li>
+              <li><strong>Link previews.</strong> When you paste a link, your Homebase identity fetches the page's title and picture, and the preview is saved in the note.</li>
+              <li><strong>Notifications.</strong> If you turn them on in a browser that supports them, your Homebase identity sends them to you through that browser's push service, such as Apple's, Google's or Mozilla's.</li>
+              <li><strong>Live blocks.</strong> An HTML or React block you write runs on your device. If its code loads a library from a public CDN, your device makes that request.</li>
+              <li><strong>On-device AI.</strong> In desktop browsers you can turn on an AI assistant that runs entirely on your device. The model files are downloaded once from a public model host. It is not available in the mobile apps.</li>
+              <li><strong>Diagnostics.</strong> Recent sync warnings and errors are kept on the device for Settings › Diagnostics. They leave the device only if you copy them and send them to us yourself.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="policy-part" aria-labelledby="p-never">
+          <h2 class="h2" id="p-never" data-reveal>What we never collect</h2>
+          <div class="policy-body" data-reveal style="--i:1">
+            <p>Journal contains no analytics, advertising, tracking or crash-reporting code, and no third-party SDK that collects data. We do not collect your name, email address, contacts, location, device identifiers or usage data, and we do not sell or share data with anyone.</p>
+            <p>Some services outside Journal see ordinary technical data. Cloudflare hosts this website and the web app and handles requests to them, including your IP address, under its own privacy policy. Apple and Google run the app stores and may give us aggregated figures such as download counts, and crash reports if you agreed to share them with developers. If you email us, we use your address and message only to reply.</p>
+          </div>
+        </section>
+
+        <section class="policy-part" aria-labelledby="p-children">
+          <h2 class="h2" id="p-children" data-reveal>Children</h2>
+          <div class="policy-body" data-reveal style="--i:1">
+            <p>Journal is not directed at children under 13. We do not knowingly collect information from anyone, children included. Signing in needs a Homebase identity, which is provided under Homebase's own terms.</p>
+          </div>
+        </section>
+
+        <section class="policy-part" aria-labelledby="p-changes">
+          <h2 class="h2" id="p-changes" data-reveal>Changes to this policy</h2>
+          <div class="policy-body" data-reveal style="--i:1">
+            <p>If what Journal does with data changes, we will update this page and its effective date before the change ships, and mention it in the <a href="https://github.com/2002Bishwajeet/journal/blob/main/RELEASE_NOTES.md">release notes</a>. Earlier versions of this page stay in the project's public history on GitHub.</p>
+            <p>Questions go to <a href="mailto:mail@bishwajeetparhi.dev?subject=Journal%20privacy">mail@bishwajeetparhi.dev</a>, or see the <a href="/landing/contact">contact and support page</a>.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <!-- footer -->
+</body>
+</html>

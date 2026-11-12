@@ -47,6 +47,7 @@ import { OwnerImage } from "@/components/author/AuthorImage";
 import { folderInitials } from "@/lib/folderInitials";
 import { useLargeTitle } from "@/hooks/useLargeTitle";
 import { BarTitle, LargeTitle } from "./LargeTitle";
+import { MobileSyncPill } from "./MobileSyncPill";
 import { largeTitleBarClass } from "./largeTitleClasses";
 
 interface SidebarProps {
@@ -194,6 +195,7 @@ export default function Sidebar({
         {/* Header */}
         {!isDesktop ? (
           <div className={cn(largeTitleBarClass(largeTitle.collapsed), largeTitle.collapsed && "border-sidebar-border")}>
+            {isPhone && <MobileSyncPill />}
             <BarTitle show={largeTitle.collapsed}>Journal</BarTitle>
           </div>
         ) : (
