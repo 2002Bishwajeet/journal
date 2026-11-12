@@ -13,13 +13,13 @@ name = "journal_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-# build.rs reads native/rust/plugins.json when the premium submodule is there.
-serde_json = "1"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# Derives for the command types of the premium Rust in native/rust (a dependency of tauri already).
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-deep-link = "2"
 tiny_http = "0.12"
 
@@ -30,12 +30,20 @@ tiny_http = "0.12"
 rfd = { version = "0.17", default-features = false, features = ["gtk3"] }
 # Auto-update from the GitHub release's latest.json (update_loop in lib.rs).
 tauri-plugin-updater = "2"
+# Launch at login and a single running instance, used by the tray code in native/.
+tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 
 # Objective-C runtime calls for hide_form_accessory_bar() and
 # allow_swipe_navigation() in lib.rs. Already in the tree through wry; listed so
 # lib.rs can name it.
 [target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
 objc2 = "0.6"
+
+# The premium Rust tests (native/rust) call the commands through the mock runtime, with the
+# app's real permissions.
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
 
 [features]
 # Enabled by the Tauri CLI for production builds. Turning it on flips

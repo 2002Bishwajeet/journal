@@ -1,7 +1,4 @@
-use std::collections::BTreeMap;
 use std::path::Path;
-
-use tauri_build::{Attributes, DefaultPermissionRule, InlinedPlugin};
 
 fn main() {
     // Paid features from the optional private submodule at ../native
@@ -12,33 +9,30 @@ fn main() {
     // dependency doesn't work: Cargo reads its manifest even when it's off.
     println!("cargo:rustc-check-cfg=cfg(journal_premium)");
     println!("cargo:rerun-if-changed=../native");
-    let mut attributes = Attributes::new();
-    let mut plugins = Vec::new();
+    let mut attributes = tauri_build::Attributes::new();
+    let mut names = Vec::new();
     if Path::new("../native/rust/mod.rs").exists() {
         println!("cargo:rustc-cfg=journal_premium");
-        // native/rust/plugins.json names the premium plugins and their commands,
-        // e.g. {"premium": ["ping"]}. Tauri denies a plugin command that has no
-        // permission, so each plugin gets a `<plugin>:default` allowing all of
-        // its commands; lib.rs grants it to the main window.
-        let json = std::fs::read_to_string("../native/rust/plugins.json")
-            .expect("native/rust/plugins.json");
-        let manifest: BTreeMap<String, Vec<String>> =
-            serde_json::from_str(&json).expect("native/rust/plugins.json");
-        for (name, commands) in manifest {
-            let commands: Vec<&'static str> = commands.into_iter().map(|c| &*c.leak()).collect();
-            let plugin = InlinedPlugin::new()
-                .commands(commands.leak())
-                .default_permission(DefaultPermissionRule::AllowAllCommands);
-            attributes = attributes.plugin(name.clone().leak(), plugin);
-            plugins.push(name);
+        // The premium plugins' commands (native/rust/plugins.txt, one plugin per line:
+        // its name, then its commands). Each gets an `allow-<command>` permission, which
+        // the plugin grants the main window at runtime (`app.add_capability`), so the
+        // public capabilities/ never names them.
+        if let Ok(plugins) = std::fs::read_to_string("../native/rust/plugins.txt") {
+            for line in plugins.lines().filter(|l| !l.trim().is_empty()) {
+                let mut words = line.split_whitespace().map(|w| &*Box::leak(w.to_owned().into_boxed_str()));
+                let name = words.next().unwrap();
+                let commands: &'static [&'static str] = Box::leak(words.collect::<Vec<_>>().into_boxed_slice());
+                attributes = attributes.plugin(
+                    name,
+                    tauri_build::InlinedPlugin::new()
+                        .commands(commands)
+                        .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
+                );
+                names.push(name);
+            }
         }
     }
-    // lib.rs: window.__JOURNAL_NATIVE__.plugins and the grants above.
-    println!(
-        "cargo:rustc-env=JOURNAL_NATIVE_PLUGINS={}",
-        plugins.join(",")
-    );
-    if let Err(e) = tauri_build::try_build(attributes) {
-        panic!("{e:#}");
-    }
+    // lib.rs puts the names in window.__JOURNAL_NATIVE__.plugins.
+    println!("cargo:rustc-env=JOURNAL_NATIVE_PLUGINS={}", names.join(","));
+    tauri_build::try_build(attributes).expect("failed to run tauri-build");
 }

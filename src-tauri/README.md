@@ -28,7 +28,7 @@ and every build below works the same without it:
 - **With it** (`git submodule update --init native`, needs access to the private
   repo): `build.rs` sets `cfg(journal_premium)`, compiles `native/rust/mod.rs` as
   `mod premium`, and makes a `<plugin>:default` permission for each plugin in
-  `native/rust/plugins.json`, which `lib.rs` grants to the main window. The web
+  `native/rust/plugins.txt`, which the plugin grants to the main window. The web
   sees the plugin names in `window.__JOURNAL_NATIVE__.plugins`:
   `hasNativePlugin('premium')` is true and `invokeNative('premium', 'ping')`
   resolves to `"pong"` (`src/lib/native.ts`). `tauri dev`, `tauri build` and

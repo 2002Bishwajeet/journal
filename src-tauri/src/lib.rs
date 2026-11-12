@@ -2,7 +2,7 @@ use std::fmt;
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tiny_http::{Header, Response, Server};
 
 // Paid features from the optional private submodule native/ (see build.rs).
@@ -12,6 +12,10 @@ mod premium;
 
 #[cfg(not(journal_premium))]
 mod premium {
+    pub fn register_first<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+        builder
+    }
+
     pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
         builder
     }
@@ -154,8 +158,8 @@ fn serve(app: tauri::AppHandle, server: Server) {
     }
 }
 
-/// The Tauri plugins `premium::register` adds, from native/rust/plugins.json
-/// (see build.rs). Empty without the submodule.
+/// The premium plugins with commands, from native/rust/plugins.txt (see
+/// build.rs). Empty without the submodule.
 fn native_plugins() -> Vec<&'static str> {
     env!("JOURNAL_NATIVE_PLUGINS")
         .split(',')
@@ -297,7 +301,7 @@ pub fn run() {
     // and never appears once the event loop owns GTK's main context.
     let servers = bind_loopback(PORT).unwrap_or_else(|e| abort_on_bind_failure(&e));
 
-    let builder = tauri::Builder::default()
+    let builder = premium::register_first(tauri::Builder::default())
         // journal.cloudx.run links (iOS Universal Links, Android App Links) and
         // journal:// links (desktop) open the app; useDeepLinks routes them.
         .plugin(tauri_plugin_deep_link::init());
@@ -314,18 +318,6 @@ pub fn run() {
                 if let Err(e) = app.deep_link().register_all() {
                     eprintln!("can't register journal:// links: {e}");
                 }
-            }
-
-            // The premium plugins' commands, for the main window on the dev
-            // server and on the asset server, like capabilities/default.json.
-            // build.rs declares their `<plugin>:default` permissions.
-            for plugin in native_plugins() {
-                app.add_capability(
-                    tauri::ipc::CapabilityBuilder::new(format!("native-{plugin}"))
-                        .window("main")
-                        .remote(format!("http://localhost:{PORT}"))
-                        .permission(format!("{plugin}:default")),
-                )?;
             }
 
             for server in servers {
