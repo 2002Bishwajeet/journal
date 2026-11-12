@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 /**
  * advancedSearch (hybrid FTS + trigram + LIKE) against the real schema.
  * Notes are seeded through upsertSearchIndex so search_vector is built by the
@@ -10,6 +11,8 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
 import { upsertSearchIndex, advancedSearch } from '@/lib/db/queries';
+import { createDoc } from '@/lib/agent/editEngine';
+import { previewTextFromFragment } from '@/lib/yjs/previewText';
 
 async function addNote(docId: string, title: string, plainTextContent: string) {
     const now = new Date().toISOString();
@@ -88,5 +91,15 @@ describe('advancedSearch', () => {
         } finally {
             errorSpy.mockRestore();
         }
+    });
+});
+
+describe('advancedSearch on the shared preview text (#1228)', () => {
+    it('finds a note by the label of a note link in its body', async () => {
+        const id = '20000000-0000-0000-0000-000000000099';
+        const text = previewTextFromFragment(createDoc('See [Budget 2026](journal:note/abc123) today').getXmlFragment('prosemirror'));
+        await addNote(id, 'Meeting', text);
+
+        expect(ids(await advancedSearch('budget'))).toEqual([id]);
     });
 });

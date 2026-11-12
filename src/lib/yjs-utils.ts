@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { fragmentToMarkdown } from '@/lib/yjs/fragmentToMarkdown';
 import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
-import { joinPreviewText } from '@/lib/previewText';
+import { previewTextFromFragment } from '@/lib/yjs/previewText';
 
 /**
  * Extracts markdown from a Yjs document's TipTap content.
@@ -53,64 +53,5 @@ export async function extractPreviewTextFromYjs(noteId: string, yjsBlob?: Uint8A
   // TipTap stores content in a Y.XmlFragment named 'prosemirror'
   const xmlFragment = ydoc.getXmlFragment('prosemirror');
 
-  // Simple extraction: iterate over elements and get text content only
-  let text = '';
-  let code = '';
-
-  const extractText = (node: Y.XmlElement | Y.XmlText): string => {
-    if (node instanceof Y.XmlText) {
-      // Use toDelta() to reliably get plain text without XML tags/attributes
-      const delta = node.toDelta();
-      return (delta as Array<{ insert?: unknown }>).map((op) => {
-        if (typeof op.insert === 'string') {
-          return op.insert;
-        }
-        return ''; // Ignore embeds
-      }).join('');
-    }
-
-    const nodeName = node.nodeName;
-    let content = '';
-
-    if (nodeName === 'codeBlock') {
-      node.toArray().forEach((child) => {
-        if (child instanceof Y.XmlElement || child instanceof Y.XmlText) code += extractText(child) + ' ';
-      });
-      return '';
-    }
-
-    node.toArray().forEach((child) => {
-      if (child instanceof Y.XmlElement || child instanceof Y.XmlText) {
-        content += extractText(child);
-      }
-    });
-
-    // Add spacing for block elements to prevent words running together
-    switch (nodeName) {
-      case 'paragraph':
-      case 'heading':
-      case 'blockquote':
-      case 'callout':
-      case 'listItem':
-      case 'taskItem':
-        return content + ' ';
-      case 'toggle':
-        // The summary is an attribute, so it isn't part of the child text.
-        return (node.getAttribute('summary') ?? '') + ' ' + content + ' ';
-      case 'linkPreview':
-        return `${node.getAttribute('title') ?? ''} ${node.getAttribute('url') ?? ''} `;
-      case 'hardBreak':
-        return ' ';
-      default:
-        return content;
-    }
-  };
-
-  xmlFragment.toArray().forEach((child) => {
-    if (child instanceof Y.XmlElement) {
-      text += extractText(child);
-    }
-  });
-
-  return joinPreviewText(text, code);
+  return previewTextFromFragment(xmlFragment);
 }
