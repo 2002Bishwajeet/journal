@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/auth";
 import { useImportExport } from "@/hooks/useImportExport";
 import { formatBytes, useStorageInfo } from "@/hooks/useStorageInfo";
 import { SectionHeader } from "../SectionHeader";
+import { NotesMirrorRow } from "../NotesMirrorRow";
 
 export default function DataSection() {
   const { isExporting, isImporting, handleExport, handleImport } =
@@ -130,6 +131,8 @@ export default function DataSection() {
           {isExporting ? "Exporting..." : "Export All Notes"}
         </Button>
       </div>
+
+      <NotesMirrorRow />
     </div>
   );
 }

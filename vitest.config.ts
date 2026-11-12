@@ -14,7 +14,8 @@ export default defineConfig({
 
         // Include test files
         // The live-blocks package's unit tests too; its test/published/ needs the package built first.
-        include: ['src/**/*.test.{ts,tsx}', 'src/**/*.spec.ts', 'packages/live-blocks/test/*.test.{ts,tsx}'],
+        // And the private native/ submodule's, when it is checked out (the glob matches nothing otherwise).
+        include: ['src/**/*.test.{ts,tsx}', 'src/**/*.spec.ts', 'packages/live-blocks/test/*.test.{ts,tsx}', 'native/web/**/*.test.ts'],
 
         // Global test timeout (some DB operations may take time)
         testTimeout: 30000,
