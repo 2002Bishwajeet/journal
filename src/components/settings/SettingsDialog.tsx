@@ -10,7 +10,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useDeviceType } from "@/hooks";
 import { overlayDepth, useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { OPEN_SETTINGS_EVENT } from "@/hooks/useSettingsOpener";
-import { SETTINGS_SECTIONS, type SettingsSectionId } from "./sections";
+import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
+import { SETTINGS_SECTIONS, sectionsFor, type SettingsSectionId } from "./sections";
 import MobileSettings from "./MobileSettings";
 
 interface SettingsDialogProps {
@@ -51,7 +52,8 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
     return () => window.removeEventListener(OPEN_SETTINGS_EVENT, onOpen);
   }, []);
   const isMobile = useDeviceType() === "mobile";
-  const sections = SETTINGS_SECTIONS.filter((s) => !(isMobile && s.desktopOnly));
+  const platform = useSettingsPlatform();
+  const sections = sectionsFor(platform);
 
   // One history entry per level: the dialog has its own (see ui/dialog.tsx), a section page adds a second.
   useOverlayHistory(

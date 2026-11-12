@@ -2,15 +2,23 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DialogTitle } from "@/components/ui/dialog";
 import { useAccountSettings } from "@/hooks/useAccountSettings";
 import { useThemePreference } from "@/hooks/useThemePreference";
+import { formatRelativeTime } from "@/lib/utils/index";
 import type { SettingsSection, SettingsSectionId } from "./sections";
 
 // Rows are grouped like iOS Settings. A section missing here still shows, in a last group.
 const GROUPS: SettingsSectionId[][] = [
   ["account"],
-  ["appearance", "ai", "agent-access", "notifications"],
-  ["data", "diagnostics"],
+  ["appearance", "ai", "notifications"],
+  ["data"],
+  ["agent-access"],
   ["about"],
 ];
+
+// Diagnostics is a page under About ("Troubleshooting"), not a list row.
+const NESTED: SettingsSectionId[] = ["diagnostics"];
+
+// Phone labels where the desktop name is too technical for a daily list.
+const PHONE_LABEL: Partial<Record<SettingsSectionId, string>> = { "agent-access": "Privacy & agents" };
 
 const THEME_LABEL = { light: "Light", dark: "Dark", system: "System" } as const;
 
@@ -24,18 +32,25 @@ interface MobileSettingsProps {
 
 /** Phone Settings (#831): a grouped list that drills into one page per section. */
 export default function MobileSettings({ sections, page, onPage, onClose }: MobileSettingsProps) {
-  const { identity } = useAccountSettings();
+  const { identity, pendingTotal, lastSyncedAt } = useAccountSettings();
   const { theme } = useThemePreference();
+  const syncStatus = pendingTotal
+    ? `${pendingTotal} ${pendingTotal === 1 ? "change" : "changes"} waiting`
+    : lastSyncedAt
+      ? `Synced ${formatRelativeTime(lastSyncedAt)}`
+      : null;
   const hints: Partial<Record<SettingsSectionId, string | null>> = {
-    account: identity,
     appearance: THEME_LABEL[theme],
+    about: `v${__APP_VERSION__}`,
   };
   const current = sections.find((s) => s.id === page);
-  const grouped = new Set(GROUPS.flat());
+  const labelOf = (s: SettingsSection) => PHONE_LABEL[s.id] ?? s.label;
+  const grouped = new Set([...GROUPS.flat(), ...NESTED]);
   const groups = [
     ...GROUPS.map((ids) => sections.filter((s) => ids.includes(s.id))),
     sections.filter((s) => !grouped.has(s.id)),
   ].filter((g) => g.length > 0);
+  const diagnostics = sections.find((s) => s.id === "diagnostics");
 
   return (
     <div className="flex h-dvh min-w-0 flex-col md:h-[min(640px,85dvh)]">
@@ -52,16 +67,31 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
             </button>
             {/* The dialog keeps its "Settings" name on every page. */}
             <DialogTitle className="sr-only">Settings</DialogTitle>
-            <h2 className="text-base font-semibold">{current.label}</h2>
+            <h2 className="text-base font-semibold">{labelOf(current)}</h2>
           </header>
           {/* key remounts the page so each drill-in slides in from the right. */}
           <div
             key={current.id}
             role="region"
-            aria-label={current.label}
+            aria-label={labelOf(current)}
             className="min-h-0 flex-1 animate-in slide-in-from-right-8 fade-in-0 overflow-y-auto overscroll-contain px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5 duration-(--duration-push) ease-(--ease-standard) motion-reduce:animate-none"
           >
             <current.Component close={onClose} />
+            {current.id === "about" && diagnostics && (
+              <ul className="mt-6 overflow-hidden rounded-xl border bg-card">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => onPage("diagnostics")}
+                    className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left active:bg-foreground/5"
+                  >
+                    <diagnostics.icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="flex-1 text-base">Troubleshooting</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </button>
+                </li>
+              </ul>
+            )}
           </div>
         </>
       ) : (
@@ -83,6 +113,26 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
                   {group.map((section) => {
                     const Icon = section.icon;
                     const hint = hints[section.id];
+                    if (section.id === "account") {
+                      return (
+                        <li key={section.id}>
+                          <button
+                            type="button"
+                            onClick={() => onPage(section.id)}
+                            className="flex min-h-[68px] w-full items-center gap-3 px-4 text-left active:bg-foreground/5"
+                          >
+                            <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-base font-semibold uppercase">
+                              {identity?.[0] ?? "?"}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-base">{identity ?? section.label}</span>
+                              {syncStatus && <span className="block truncate text-sm text-muted-foreground">{syncStatus}</span>}
+                            </span>
+                            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                          </button>
+                        </li>
+                      );
+                    }
                     return (
                       <li key={section.id} className="border-b last:border-b-0">
                         <button
@@ -93,7 +143,7 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
                           className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left active:bg-foreground/5"
                         >
                           <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                          <span id={`settings-row-${section.id}`} className="flex-1 text-base">{section.label}</span>
+                          <span id={`settings-row-${section.id}`} className="flex-1 text-base">{labelOf(section)}</span>
                           {hint && <span id={`settings-hint-${section.id}`} className="min-w-0 max-w-[45%] truncate text-sm text-muted-foreground">{hint}</span>}
                           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                         </button>

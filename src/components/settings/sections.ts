@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { UserRound, Monitor, Sparkles, Bot, Bell, Database, Keyboard, Info, Activity, type LucideIcon } from "lucide-react";
+import type { SettingsPlatform } from "@/lib/settingsPlatform";
 import AccountSection from "./sections/AccountSection";
 import AppearanceSection from "./sections/AppearanceSection";
 import AISection from "./sections/AISection";
@@ -19,8 +20,8 @@ export interface SettingsSection {
   icon: LucideIcon;
   /** `close` shuts the Settings dialog, for a section that navigates away. */
   Component: ComponentType<{ close: () => void }>;
-  /** Hidden on phones (e.g. keyboard shortcuts — phones have no keyboard). */
-  desktopOnly?: boolean;
+  /** Shown only on these platforms; omitted means all (a phone has no keyboard shortcuts). */
+  platforms?: SettingsPlatform[];
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
@@ -44,6 +45,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "On-device models, autocomplete, and grammar",
     icon: Sparkles,
     Component: AISection,
+    platforms: ["web-desktop", "native-desktop"],
   },
   {
     id: "agent-access",
@@ -58,6 +60,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "Notifications on this device",
     icon: Bell,
     Component: NotificationsSection,
+    platforms: ["web-desktop", "web-phone"],
   },
   {
     id: "data",
@@ -72,7 +75,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "Every shortcut in one place",
     icon: Keyboard,
     Component: ShortcutsSection,
-    desktopOnly: true,
+    platforms: ["web-desktop", "native-desktop"],
   },
   {
     id: "about",
@@ -89,3 +92,8 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     Component: DiagnosticsSection,
   },
 ];
+
+/** The sections that apply on a platform. */
+export function sectionsFor(platform: SettingsPlatform): SettingsSection[] {
+  return SETTINGS_SECTIONS.filter((s) => !s.platforms || s.platforms.includes(platform));
+}

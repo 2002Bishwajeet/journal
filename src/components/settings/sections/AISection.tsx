@@ -6,6 +6,8 @@ import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import { useAIPreferences } from "@/hooks/useAIPreferences";
 import ModelDownloadDialog from "@/components/modals/ModelDownloadDialog";
 import { getModelInfo, getModelsForJob } from "@/lib/webllm";
+import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
+import { isNativeSettings } from "@/lib/settingsPlatform";
 import { SectionHeader } from "../SectionHeader";
 import { SettingsRow } from "../SettingsRow";
 import AIModelList from "./AIModelList";
@@ -31,6 +33,7 @@ export default function AISection() {
     canClearCache,
   } = useAIPreferences();
   const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
+  const where = isNativeSettings(useSettingsPlatform()) ? "on this device" : "in this browser";
   const percent = Math.round(loadingProgress * 100);
 
   const intro = (
@@ -49,7 +52,7 @@ export default function AISection() {
       <SettingsRow
         id="ai-enabled"
         label="Enable on-device AI"
-        description="Runs a language model in this browser for autocomplete and grammar. Nothing you write leaves your device."
+        description={`Runs a language model ${where} for autocomplete and grammar. Nothing you write leaves your device.`}
         control={
           <Switch
             checked={isSupported && settings.enabled}
@@ -63,7 +66,7 @@ export default function AISection() {
 
   const modelFiles = (
     <div className="space-y-4">
-      <SectionHeader subtitle="Downloaded models are stored in this browser so they load faster next time.">
+      <SectionHeader subtitle={`Downloaded models are stored ${where} so they load faster next time.`}>
         Model files
       </SectionHeader>
       <Button
@@ -80,7 +83,7 @@ export default function AISection() {
         onClose={() => setIsConfirmingRemove(false)}
         onConfirm={() => clearCache()}
         title="Remove downloaded models?"
-        description="This frees up space in this browser. AI will be turned off and the model will download again the next time you turn it on."
+        description={`This frees up space ${where}. AI will be turned off and the model will download again the next time you turn it on.`}
         confirmText="Remove"
       />
     </div>

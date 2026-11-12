@@ -13,6 +13,8 @@ import { Moon, Sun, Monitor, CheckCircle2, type LucideIcon } from "lucide-react"
 import { useLaunchAtLogin } from "@/hooks/useLaunchAtLogin";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
+import { isPhoneSettings } from "@/lib/settingsPlatform";
 import { SectionHeader } from "../SectionHeader";
 import { SettingsRow } from "../SettingsRow";
 
@@ -158,6 +160,8 @@ function EditorOption({
 export default function AppearanceSection() {
   const { theme, setTheme } = useThemePreference();
   const { font, setFont, width, setWidth } = useEditorAppearance();
+  // The note column is the screen width on a phone, so the control would do nothing.
+  const phone = isPhoneSettings(useSettingsPlatform());
   const { desktop, enabled: launchAtLogin, setEnabled: setLaunchAtLogin } = useLaunchAtLogin();
 
   return (
@@ -237,6 +241,7 @@ export default function AppearanceSection() {
             ))}
           </EditorOption>
 
+          {!phone && (
           <EditorOption
             id="editor-width"
             title="Width"
@@ -264,6 +269,7 @@ export default function AppearanceSection() {
               </PreviewCard>
             ))}
           </EditorOption>
+          )}
         </div>
       </div>
 
