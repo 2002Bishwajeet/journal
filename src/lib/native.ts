@@ -17,3 +17,15 @@ export function nativePlatform(): NativePlatform | null {
 export function isNativeApp(): boolean {
   return nativePlatform() !== null;
 }
+
+/** The hosted app. Links for other people point here from the native app. */
+export const PUBLIC_ORIGIN = 'https://journal.cloudx.run';
+
+/**
+ * The origin of links the app hands to other people (share, folder and feed links).
+ * The native app's own origin is `http://localhost:47821` (src-tauri/src/lib.rs), so
+ * it uses the hosted app; the web uses its own origin, so dev and preview keep theirs.
+ */
+export function publicOrigin(): string {
+  return isNativeApp() ? PUBLIC_ORIGIN : window.location.origin;
+}

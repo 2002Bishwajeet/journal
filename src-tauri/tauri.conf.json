@@ -14,6 +14,12 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM5MDY3NkQ3M0EzNjM0QUMKUldTc05EWTYxM1lHT1JuWTZsbEgyWnRWc0l0dWl3RkIzbFIxRXBUZ3ZvSDJBWEFINHJ2U05KRkkK",
+      "endpoints": ["https://github.com/2002Bishwajeet/journal/releases/latest/download/latest.json"]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
@@ -27,6 +33,31 @@
     "iOS": {
       "minimumSystemVersion": "17.0",
       "developmentTeam": "N899Y9TW48"
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [
+        {
+          "scheme": [
+            "https"
+          ],
+          "host": "journal.cloudx.run",
+          "pathPattern": [
+            "/share/..*/..*"
+          ],
+          "path": [
+            "/save-shared",
+            "/open-shared"
+          ],
+          "appLink": true
+        }
+      ],
+      "desktop": {
+        "schemes": [
+          "journal"
+        ]
+      }
     }
   }
 }

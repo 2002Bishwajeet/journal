@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Applies src-tauri/ios/ (app icon, launch screen, privacy manifest) to the
-// generated Xcode project. src-tauri/gen/apple is git-ignored and recreated by
-// `tauri ios init`, so run this after every init: `npm run tauri:ios:init`.
+// Applies src-tauri/ios/ (app icon, launch screen, privacy manifest,
+// entitlements) to the generated Xcode project. src-tauri/gen/apple is
+// git-ignored and recreated by `tauri ios init`, so run this after every init:
+// `npm run tauri:ios:init`.
 //
 // --release then archives, signs and uploads a build to TestFlight through the
 // Apple account signed in to Xcode (`npm run tauri:ios:release`, on a Mac).

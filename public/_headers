@@ -51,3 +51,11 @@
 /landing/buy*
   Referrer-Policy: no-referrer
   Cache-Control: no-store
+
+# App link files (deep links into the native app): JSON, served as is. Apple's CDN
+# reads apple-app-site-association (no extension) and needs this type; Android reads
+# assetlinks.json. Neither may redirect.
+/.well-known/apple-app-site-association
+  Content-Type: application/json
+/.well-known/assetlinks.json
+  Content-Type: application/json

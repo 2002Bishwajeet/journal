@@ -16,7 +16,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+serde_json = "1"
 tauri = { version = "2", features = [] }
+tauri-plugin-deep-link = "2"
 tiny_http = "0.12"
 
 # Native error dialog when the asset server can't bind (lib.rs). Same library
@@ -24,10 +26,13 @@ tiny_http = "0.12"
 # its bundled fs plugin. Desktop only: rfd has no iOS/Android backend.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 rfd = { version = "0.17", default-features = false, features = ["gtk3"] }
+# Auto-update from the GitHub release's latest.json (update_loop in lib.rs).
+tauri-plugin-updater = "2"
 
-# Objective-C runtime calls for hide_form_accessory_bar() in lib.rs. Already in
-# the tree through wry; listed so lib.rs can name it.
-[target.'cfg(target_os = "ios")'.dependencies]
+# Objective-C runtime calls for hide_form_accessory_bar() and
+# allow_swipe_navigation() in lib.rs. Already in the tree through wry; listed so
+# lib.rs can name it.
+[target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
 objc2 = "0.6"
 
 [features]

@@ -42,7 +42,7 @@ describe('useStorageInfo', () => {
         });
 
         const { latest, unmount } = await mountHook();
-        expect(latest.current).toMatchObject({ usage: 1536, quota: 5 * 1024 ** 3, persisted: false });
+        expect(latest.current).toMatchObject({ usage: 1536, quota: 5 * 1024 ** 3, persisted: false, appManaged: false });
 
         let granted: boolean | undefined;
         await act(async () => { granted = await latest.current!.requestPersist(); });
@@ -69,6 +69,22 @@ describe('useStorageInfo', () => {
         expect(latest.current!.persisted).toBe(false);
 
         await unmount();
+    });
+
+    it('skips the browser persistence check in the native app', async () => {
+        const persisted = vi.fn().mockResolvedValue(false);
+        vi.stubGlobal('navigator', {
+            storage: { estimate: vi.fn().mockResolvedValue({ usage: 10, quota: 100 }), persisted },
+        });
+        window.__JOURNAL_NATIVE__ = { platform: 'ios' };
+        try {
+            const { latest, unmount } = await mountHook();
+            expect(latest.current).toMatchObject({ usage: 10, quota: 100, persisted: null, appManaged: true });
+            expect(persisted).not.toHaveBeenCalled();
+            await unmount();
+        } finally {
+            delete window.__JOURNAL_NATIVE__;
+        }
     });
 
     it('returns nulls when the Storage API is missing', async () => {
