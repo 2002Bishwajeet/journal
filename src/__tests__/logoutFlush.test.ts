@@ -23,6 +23,9 @@ vi.mock('@/hooks/auth/useVerifyToken', () => ({ useVerifyToken: () => ({ data: u
 vi.mock('@/hooks/useOnlineContext', () => ({ useOnlineContext: () => ({ isOnline: true }) }));
 vi.mock('@/lib/homebase/WebPushProvider', () => ({ removeWebPush: vi.fn(async () => {}) }));
 vi.mock('@/lib/yjs/unsavedEdits', () => ({ discardAllUnsavedEdits: vi.fn() }));
+vi.mock('@tauri-apps/api/core', () => ({
+    invoke: vi.fn(async (cmd: string) => { mocks.calls.push(cmd); }),
+}));
 
 import { useAuth } from '@/hooks/auth/useAuth';
 
@@ -74,6 +77,17 @@ describe('logout', () => {
         await logout();
         expect(mocks.calls).toEqual(['clear', 'navigate']);
         expect(warn).toHaveBeenCalledWith(expect.stringContaining('[logout]'), expect.any(Error));
+        await unmount();
+    });
+
+    it('purges the native bridge once, before the wipe (#1138)', async () => {
+        mocks.flush.mockResolvedValue();
+        window.__JOURNAL_NATIVE__ = { platform: 'ios', plugins: ['journal-bridge'] };
+        const { logout, unmount } = await renderLogout();
+
+        await logout();
+        delete window.__JOURNAL_NATIVE__;
+        expect(mocks.calls).toEqual(['plugin:journal-bridge|bridge_wipe', 'clear', 'navigate']);
         await unmount();
     });
 });

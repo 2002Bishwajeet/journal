@@ -51,33 +51,33 @@ export async function findOrCreateDailyNote(
  * local date inside a `Daily` folder. Idempotent per day. The caller navigates
  * to the returned note (hooks don't route here).
  */
-export function useDailyNote() {
-    const openToday = async (): Promise<{ docId: string; folderId: string }> => {
-        const { docId, folderId } = await findOrCreateDailyNote(new Date(), async (title) => {
-            let folderId: string;
-            try {
-                folderId = await findOrCreateFolderByName(DAILY_FOLDER_NAME);
-            } catch {
-                // Folder creation is a local PGlite insert, so this path is
-                // essentially unreachable offline; fall back to Main so opening
-                // "Today" never hard-fails.
-                folderId = MAIN_FOLDER_ID;
-            }
-            const template = await getActiveNoteByTitle(DAILY_TEMPLATE_TITLE);
-            // Copy the template's Yjs document so its formatting survives; the
-            // plain-text fallback is only the templateless starter heading.
-            const res = template
-                ? await createNoteFromTemplateInDb({
-                      templateDocId: template.docId,
-                      title,
-                      folderId,
-                      dateString: title,
-                  })
-                : await createNoteWithContentInDb({ title, content: `# ${title}\n\n`, folderId });
-            return { docId: res.docId, folderId };
-        });
-        return { docId, folderId };
-    };
+export async function openTodayNote(): Promise<{ docId: string; folderId: string }> {
+    const { docId, folderId } = await findOrCreateDailyNote(new Date(), async (title) => {
+        let folderId: string;
+        try {
+            folderId = await findOrCreateFolderByName(DAILY_FOLDER_NAME);
+        } catch {
+            // Folder creation is a local PGlite insert, so this path is
+            // essentially unreachable offline; fall back to Main so opening
+            // "Today" never hard-fails.
+            folderId = MAIN_FOLDER_ID;
+        }
+        const template = await getActiveNoteByTitle(DAILY_TEMPLATE_TITLE);
+        // Copy the template's Yjs document so its formatting survives; the
+        // plain-text fallback is only the templateless starter heading.
+        const res = template
+            ? await createNoteFromTemplateInDb({
+                  templateDocId: template.docId,
+                  title,
+                  folderId,
+                  dateString: title,
+              })
+            : await createNoteWithContentInDb({ title, content: `# ${title}\n\n`, folderId });
+        return { docId: res.docId, folderId };
+    });
+    return { docId, folderId };
+}
 
-    return { openToday };
+export function useDailyNote() {
+    return { openToday: openTodayNote };
 }
