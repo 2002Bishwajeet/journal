@@ -63,6 +63,8 @@ test('a link to a trashed note says "Note not found", not "Looking for this note
   const notePath = pathOf(app);
 
   await trashFromList(app, title);
+  // Trash leaves the open note once the trash is done: a link followed before then is undone by it
+  await expect.poll(() => pathOf(app)).not.toBe(notePath);
   await answerTrashedHeader(app, notePath.split('/')[2]);
 
   // An in-app navigation to the note, as a link inside another note would do.
