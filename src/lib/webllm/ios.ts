@@ -85,6 +85,7 @@ let runningModel: string | null = null;
 let listening = false;
 
 // Written only while the page is visible: iOS also kills a page in the background, which says nothing about the model.
+// Cleared on pagehide too: a reload (an app update, an error retry) is not a crash.
 function writeMarker() {
   if (runningModel && document.visibilityState === 'visible') localStorage.setItem(RUNNING_KEY, runningModel);
   else localStorage.removeItem(RUNNING_KEY);
@@ -97,6 +98,7 @@ export function setRunningModel(modelId: string | null): void {
   if (!listening) {
     listening = true;
     document.addEventListener('visibilitychange', writeMarker);
+    window.addEventListener('pagehide', () => localStorage.removeItem(RUNNING_KEY));
   }
   writeMarker();
 }

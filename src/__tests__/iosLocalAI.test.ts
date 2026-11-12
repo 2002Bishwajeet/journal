@@ -187,6 +187,15 @@ describe('the crash marker', () => {
     expect(takeCrashedModel()).toBe(id);
   });
 
+  it('marks nothing when the page reloads in the foreground', () => {
+    setIOS();
+    setRunningModel(id);
+    // An app update, an error retry or a bfcache reload: location.reload() fires pagehide while visible.
+    window.dispatchEvent(new Event('pagehide'));
+    expect(takeCrashedModel()).toBeNull();
+    expect(crashedModels()).toEqual([]);
+  });
+
   it('does nothing outside the iOS app', () => {
     setRunningModel(id);
     expect(takeCrashedModel()).toBeNull();

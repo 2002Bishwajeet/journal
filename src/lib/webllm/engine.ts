@@ -4,6 +4,8 @@ import { resolveModelId } from './requirements';
 import { crashedModels, isIOSApp, setRunningModel, TOO_LARGE_MESSAGE } from './ios';
 
 let webllmModule: typeof WebLLMTypes | null = null;
+// iOS (#1143): a reload frees the model before the next page loads one.
+const unloadOnPageHide = () => void unloadWebLLM();
 let engine: WebLLMTypes.MLCEngineInterface | null = null;
 let worker: Worker | null = null;
 let isLoading = false;
@@ -170,6 +172,7 @@ export async function initWebLLM(
 
         const contextWindow = getModelInfo(currentModelId)?.contextWindow;
         setRunningModel(currentModelId);
+        if (isIOSApp()) window.addEventListener('pagehide', unloadOnPageHide);
         await engine.reload(await resolveModelId(currentModelId), contextWindow ? { context_window_size: contextWindow } : undefined);
 
         isLoading = false;
