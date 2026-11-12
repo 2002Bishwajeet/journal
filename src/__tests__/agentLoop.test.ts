@@ -700,6 +700,34 @@ describe('runAgent — long notes (#1025)', () => {
         expect(lastResult(calls[1])).not.toContain('"outline":');
     });
 
+    const openNoteEditor = (blocks: object[]): ActiveEditorStore => {
+        const doc = editorSchema.nodeFromJSON({ type: 'doc', content: blocks });
+        return {
+            get: () => ({ docId: DIARY, editor: { state: EditorState.create({ doc }) } as unknown as Editor, editable: true, excludeFromAI: false }),
+            subscribe: () => () => {},
+        };
+    };
+
+    it("should put a long open note's outline in the prompt on a question, with no edit tools (#1077)", async () => {
+        const blocks = LONG_NOTE_BODY.split('\n\n').map((text) =>
+            text.startsWith('## ')
+                ? { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: text.slice(3) }] }
+                : { type: 'paragraph', content: [{ type: 'text', text }] }
+        );
+        const { engine, calls } = scriptedEngine([{ answer: 'A diary.' }]);
+        await runWithWrites('What is this note about?', engine, { editor: openNoteEditor(blocks) }).result;
+
+        expect(calls[0].messages[2].content).toContain('November');
+        expect(calls[0].messages[2].content).toContain(READ_A_SECTION);
+    });
+
+    it('should not feed a short open note on a question, as before (#1077)', async () => {
+        const { engine, calls } = scriptedEngine([{ answer: 'Short.' }]);
+        await runWithWrites('What is this note about?', engine, { editor: openNoteEditor([{ type: 'paragraph', content: [{ type: 'text', text: 'Short.' }] }]) }).result;
+
+        expect(calls[0].messages).toHaveLength(2);
+    });
+
     it('should give a short note as markdown, as before', async () => {
         const { engine, calls } = scriptedEngine([{ tool: 'get_note', args: { id: GARDEN } }, { answer: 'May.' }]);
         await runWithWrites('When do I plant zucchini?', engine).result;

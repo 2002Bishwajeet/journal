@@ -305,12 +305,16 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
     const outlined = new Set<string>();
     // With edit tools offered, the open note's blocks go in up front, as a read_open_note already made (#914).
     // Small models edit without reading and guess `n` and `find`; told to read first, none of them did (#706 eval).
-    // A long note goes in as its outline, the first block and the headings with their numbers (#1025).
-    if (tools.includes(readOpenNote) && tools.some((tool) => 'editor' in tool && !tool.readOnly)) {
+    // A long note goes in as its outline, the first block and the headings with their numbers (#1025),
+    // on a question too, as a model that is not shown it answers from the title alone (#1077).
+    if (tools.includes(readOpenNote)) {
+        const canEdit = tools.some((tool) => 'editor' in tool && !tool.readOnly);
         try {
             const all = (await readOpenNote.execute(editor, {})).data as { n: number; type: string; text: string }[];
             const isHeading = (block: { type: string }) => /^h\d$/.test(block.type);
             const long = all.reduce((sum, block) => sum + block.text.length, 0) > noteLength && all.some(isHeading);
+            // A short note on a question is read on request, as before.
+            if (!long && !canEdit) throw new Error('read on request');
             if (long) outlined.add(editor.get()!.docId);
             const blocks = formatToolResult(
                 readOpenNote.name,
