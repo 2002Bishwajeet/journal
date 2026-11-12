@@ -68,6 +68,7 @@ import { useThemePreference } from "@/hooks/useThemePreference";
 import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { useDailySnapshotPrune } from "@/hooks/useDailySnapshotPrune";
 import { useNotesMirror } from "@/hooks/useNotesMirror";
+import { useDailyReminder } from "@/hooks/useDailyReminder";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
 import { syncThemeColor } from "@/lib/themeColor";
@@ -81,6 +82,7 @@ export default function JournalLayout() {
   useEditorAppearance();
   useDailySnapshotPrune();
   useNotesMirror();
+  useDailyReminder();
   const whatsNew = useAutoWhatsNew();
 
   // Warm the lazy editor chunk once the shell is idle. Desktop with restored
