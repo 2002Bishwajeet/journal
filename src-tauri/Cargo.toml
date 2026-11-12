@@ -40,6 +40,8 @@ tauri-plugin-autostart = "2"
 # OS notifications for share invites and collaborator edits, registered by native/.
 tauri-plugin-notification = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+# The quick-capture hotkey, used by the capture code in native/.
+tauri-plugin-global-shortcut = "2"
 # External links and the macOS sign-in open in the default browser (src/lib/native.ts).
 tauri-plugin-opener = "2"
 
