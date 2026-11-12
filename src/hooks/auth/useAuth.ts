@@ -10,7 +10,9 @@ import {
     STORAGE_KEY_SHARED_SECRET,
 } from '@/lib/homebase/config';
 import { removeWebPush } from '@/lib/homebase/WebPushProvider';
+import { clearReminders } from '@/lib/native/reminders';
 import { SESSION_STORAGE_KEY, TABS_STORAGE_KEY, RECENT_NOTES_KEY, RECENT_SEARCHES_KEY } from '@/lib/storage';
+import { discardResumeState } from '@/lib/resumeRestore';
 import { discardAllUnsavedEdits } from '@/lib/yjs/unsavedEdits';
 import { clearSessionHint, setSessionHint } from '@/lib/sessionHint';
 import { useVerifyToken } from './useVerifyToken';
@@ -83,6 +85,7 @@ export function useAuth() {
      */
     const logout = useCallback(async (): Promise<void> => {
         const client = getDotYouClient();
+        await clearReminders();
         if (client) {
             // Before the token ends: the server drops a device subscription only for a live token
             await removeWebPush(client);
@@ -121,6 +124,7 @@ export function useAuth() {
         localStorage.removeItem(SESSION_STORAGE_KEY);
         localStorage.removeItem(RECENT_NOTES_KEY);
         localStorage.removeItem(RECENT_SEARCHES_KEY);
+        discardResumeState();
         discardAllUnsavedEdits();
         clearSessionHint();
 

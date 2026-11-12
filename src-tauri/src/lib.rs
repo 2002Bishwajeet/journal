@@ -1,8 +1,10 @@
 use std::fmt;
 use std::io;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tiny_http::{Header, Response, Server};
 
 // Paid features from the optional private submodule native/ (see build.rs).
@@ -21,6 +23,9 @@ mod premium {
     }
 }
 
+#[cfg(target_os = "ios")]
+mod ios_recovery;
+
 /// Fixed port for the local HTTP server that serves the built frontend.
 ///
 /// The desktop shell deliberately does NOT use Tauri's default
@@ -31,9 +36,10 @@ mod premium {
 ///      (wry#389). `http://localhost` is a secure context, so they register.
 ///   2. The YouAuth OAuth flow builds its callback as
 ///      `${window.location.origin}/auth/finalize`
-///      (src/hooks/auth/useYouAuthAuthorization.ts). An identity server
-///      rejects a `tauri://` callback; `http://localhost:PORT` is an ordinary
-///      HTTP origin the backend already accepts.
+///      on Windows and Linux (`authCallbackUrl` in src/lib/native.ts; iOS,
+///      Android and macOS sign in outside the web view and return on
+///      `journal://`). `http://localhost:PORT` is an ordinary HTTP origin the
+///      backend accepts.
 ///
 /// THE PORT MUST STAY FIXED AND HARDCODED. The origin is the storage key for
 /// localStorage / IndexedDB / OPFS — i.e. the user's entire local database. An
@@ -126,7 +132,7 @@ fn app_headers() -> Vec<(&'static str, &'static str)> {
 /// This serves static assets only. Any Rust HTTP endpoint added later (for
 /// example a file-backed filesystem) must require a per-launch secret: every
 /// local process can reach this port, not only the webview.
-fn serve(app: tauri::AppHandle, server: Server) {
+fn serve(app: &tauri::AppHandle, server: &Server) {
     let headers = app_headers();
     for request in server.incoming_requests() {
         let path = request.url().split('?').next().unwrap_or("/");
@@ -165,6 +171,76 @@ fn native_plugins() -> Vec<&'static str> {
         .split(',')
         .filter(|name| !name.is_empty())
         .collect()
+}
+
+/// The asset server's loopback addresses, and how many of them are being bound
+/// again right now (see `serve_forever`).
+struct AssetServer {
+    // Only ios_recovery.rs checks the addresses.
+    #[cfg_attr(not(target_os = "ios"), allow(dead_code))]
+    addrs: Vec<SocketAddr>,
+    rebinding: AtomicUsize,
+}
+
+#[cfg_attr(not(target_os = "ios"), allow(dead_code))]
+impl AssetServer {
+    /// True when every address is held by this app and takes connections. A
+    /// connection alone isn't proof: while an address is being bound again,
+    /// another process could be the one answering on it.
+    fn is_up(&self) -> bool {
+        self.rebinding.load(Ordering::SeqCst) == 0 && self.addrs.iter().all(|a| accepts(a))
+    }
+
+    /// Waits up to `timeout` for `is_up`.
+    fn wait_until_up(&self, timeout: Duration) -> bool {
+        let start = std::time::Instant::now();
+        while !self.is_up() {
+            if start.elapsed() >= timeout {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        true
+    }
+}
+
+#[cfg_attr(not(target_os = "ios"), allow(dead_code))]
+fn accepts(addr: &SocketAddr) -> bool {
+    TcpStream::connect_timeout(addr, Duration::from_millis(300)).is_ok()
+}
+
+/// Binds `addr` again, retrying until it is free. Loopback only, like
+/// `bind_loopback`.
+fn rebind(addr: SocketAddr) -> Server {
+    loop {
+        match Server::http(addr) {
+            Ok(server) => return server,
+            Err(e) => {
+                eprintln!("can't bind {addr} again: {e}");
+                std::thread::sleep(Duration::from_secs(1));
+            }
+        }
+    }
+}
+
+/// Serves `server` for as long as the app runs (#1187). tiny_http's accept
+/// thread quits for good on the first `accept()` error, and `serve` then
+/// returns. iOS gives that error when it reclaims the listening socket of an
+/// app it suspended, so after a night in the background the web view had
+/// nothing to load from. The address is bound again whenever that happens.
+fn serve_forever(app: tauri::AppHandle, mut server: Server) {
+    let addr = server.server_addr().to_ip().expect("bound to an IP address");
+    loop {
+        serve(&app, &server);
+        let state = app.state::<AssetServer>();
+        state.rebinding.fetch_add(1, Ordering::SeqCst);
+        drop(server);
+        eprintln!("asset server on {addr} stopped; binding it again");
+        // Not a busy loop if accept() keeps failing right away.
+        std::thread::sleep(Duration::from_millis(200));
+        server = rebind(addr);
+        state.rebinding.fetch_sub(1, Ordering::SeqCst);
+    }
 }
 
 /// Sets `window.__JOURNAL_NATIVE__` before any page script runs.
@@ -288,6 +364,16 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
+/// Open external links and the sign-in outside the web view (#1188): the
+/// default browser on desktop, an in-app browser on iOS and Android.
+fn link_plugins<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_opener::init());
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_browser::init());
+    builder
+}
+
 /// Shared entry point for every target.
 ///
 /// On desktop `main.rs` calls this directly. On mobile there is no `main` —
@@ -307,6 +393,9 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init());
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    #[cfg(target_os = "ios")]
+    let builder = ios_recovery::register(builder);
+    let builder = link_plugins(builder);
 
     premium::register(builder)
         .setup(move |app| {
@@ -320,9 +409,16 @@ pub fn run() {
                 }
             }
 
+            app.manage(AssetServer {
+                addrs: servers
+                    .iter()
+                    .map(|s| s.server_addr().to_ip().expect("bound to an IP address"))
+                    .collect(),
+                rebinding: AtomicUsize::new(0),
+            });
             for server in servers {
                 let handle = app.handle().clone();
-                std::thread::spawn(move || serve(handle, server));
+                std::thread::spawn(move || serve_forever(handle, server));
             }
 
             // In dev, load the Vite dev server (`devUrl`) so HMR works; it
@@ -466,6 +562,42 @@ mod tests {
         let _squatter = TcpListener::bind((Ipv4Addr::LOCALHOST, port)).unwrap();
         let err = bind_loopback(port).err().expect("held port must not bind");
         assert_eq!(err.addr, SocketAddr::from((Ipv4Addr::LOCALHOST, port)));
+    }
+
+    fn asset_server(addrs: Vec<SocketAddr>) -> AssetServer {
+        AssetServer {
+            addrs,
+            rebinding: AtomicUsize::new(0),
+        }
+    }
+
+    #[test]
+    fn asset_server_is_up_only_while_ours_accepts() {
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, free_port()));
+        let state = asset_server(vec![addr]);
+        assert!(!state.is_up(), "nothing listening");
+
+        let _server = Server::http(addr).unwrap();
+        assert!(state.is_up());
+
+        // Something answers, but our own server is being bound again.
+        state.rebinding.fetch_add(1, Ordering::SeqCst);
+        assert!(!state.is_up());
+        assert!(!state.wait_until_up(Duration::from_millis(250)));
+    }
+
+    #[test]
+    fn rebind_waits_for_the_address() {
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, free_port()));
+        let squatter = TcpListener::bind(addr).unwrap();
+        let rebound = std::thread::spawn(move || rebind(addr));
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(!rebound.is_finished(), "must not bind while the port is held");
+
+        drop(squatter);
+        let server = rebound.join().unwrap();
+        assert_eq!(server.server_addr().to_ip(), Some(addr));
+        assert!(asset_server(vec![addr]).is_up());
     }
 
     #[test]

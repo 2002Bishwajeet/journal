@@ -1,6 +1,6 @@
 import { PUBLIC_ORIGIN } from '@/lib/native';
 
-/** The desktop app's URL scheme (tauri.conf.json, plugins.deep-link.desktop). */
+/** The app's URL scheme (tauri.conf.json, plugins.deep-link). */
 const SCHEME = 'journal:';
 
 /**
@@ -8,7 +8,9 @@ const SCHEME = 'journal:';
  * no screen for it. Takes `https://journal.cloudx.run/<path>` (iOS Universal Links,
  * Android App Links) and `journal://<path>` (desktop). Opens a note's share page and
  * the save/open-shared screens; the author index, folder pages and sitemaps are
- * Pages Function HTML with no in-app screen.
+ * Pages Function HTML with no in-app screen. `journal://auth/finalize` is the
+ * YouAuth callback of the native sign-in (`startSignIn` in native.ts); it has no
+ * https form, so a web link can't stand in for it.
  */
 export function deepLinkRoute(link: string): string | null {
     let url: URL;
@@ -26,6 +28,7 @@ export function deepLinkRoute(link: string): string | null {
     const parts = path.split('/').filter(Boolean);
     const isNotePage = parts.length === 3 && parts[0] === 'share' && parts[2] !== 'sitemap.xml';
     const isSharedScreen = parts.length === 1 && (parts[0] === 'save-shared' || parts[0] === 'open-shared');
-    if (!isNotePage && !isSharedScreen) return null;
+    const isAuthCallback = url.protocol === SCHEME && parts.join('/') === 'auth/finalize';
+    if (!isNotePage && !isSharedScreen && !isAuthCallback) return null;
     return `/${parts.join('/')}${url.search}${url.hash}`;
 }
