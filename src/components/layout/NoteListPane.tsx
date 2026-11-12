@@ -1,4 +1,6 @@
 import { useBackTo } from "@/hooks/useBackTo";
+import { useCanEdit } from "@/hooks/useCanEdit";
+import { ReadOnlyBanner } from "@/components/license/ReadOnlyBanner";
 import { ArchiveRestore, Trash2, Archive, RefreshCw, FileText, Hash, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,6 +60,8 @@ export function NoteListPane({
   sharedPull,
 }: NoteListPaneProps) {
   const backTo = useBackTo();
+  // Read-only (#1176): Trash and Archive list their notes with no actions, and no view offers New.
+  const canEdit = useCanEdit();
   const goBack = () => backTo("/");
   const split = isDesktop || isTablet;
   const onBack = isDesktop ? undefined : isTablet ? onOpenSidebar : goBack;
@@ -71,10 +75,12 @@ export function NoteListPane({
   ) : (
     <EmptyState icon={FileText} title={`No notes in ${viewLabel ?? "this folder"}`} description="Notes you write here appear in this list.">
       {/* Named apart from the New note button (#878), which is on screen too. */}
-      <Button onClick={createNote} aria-label={`New note in ${viewLabel ?? "this folder"}`} className="h-11 rounded-full px-5 text-[15px]">
-        <Plus className="size-5" aria-hidden />
-        New note
-      </Button>
+      {canEdit && (
+        <Button onClick={createNote} aria-label={`New note in ${viewLabel ?? "this folder"}`} className="h-11 rounded-full px-5 text-[15px]">
+          <Plus className="size-5" aria-hidden />
+          New note
+        </Button>
+      )}
     </EmptyState>
   );
 
@@ -99,6 +105,8 @@ export function NoteListPane({
       )}
     >
       <div className="flex flex-col h-full w-full max-w-full min-w-0 overflow-hidden">
+        {/* Desktop shows it once, over the editor pane (#1176). */}
+        {!isDesktop && <ReadOnlyBanner />}
         {folderId === PSEUDO_FOLDERS.trash ? (
           <HiddenNotesView
             title="Trash"
@@ -107,7 +115,7 @@ export function NoteListPane({
             emptyIcon={Trash2}
             emptyLabel="Trash is empty"
             emptyDescription="Deleted notes stay here until you empty Trash."
-            rowActions={[
+            rowActions={!canEdit ? [] : [
               { icon: ArchiveRestore, label: "Restore note", onClick: noteActions.restoreFromTrash },
               {
                 icon: Trash2,
@@ -121,7 +129,7 @@ export function NoteListPane({
                 },
               },
             ]}
-            headerAction={{
+            headerAction={!canEdit ? undefined : {
               label: "Empty Trash",
               onClick: noteActions.emptyTrash,
               confirm: {
@@ -142,7 +150,7 @@ export function NoteListPane({
             emptyIcon={Archive}
             emptyLabel="No archived notes"
             emptyDescription="Notes you archive leave your lists and stay here until you restore them."
-            rowActions={[
+            rowActions={!canEdit ? [] : [
               { icon: ArchiveRestore, label: "Unarchive note", onClick: noteActions.unarchive },
               { icon: Trash2, label: "Move to Trash", onClick: noteActions.moveArchivedToTrash, destructive: true },
             ]}

@@ -11,6 +11,8 @@ interface UseLayoutUrlActionsOptions {
     createNote: (folderId: string) => Promise<{ docId: string; folderId: string }>;
     openSearch: (open: boolean, query?: string) => void;
     openToday: () => Promise<void>;
+    /** useCanEditAnswer(): ?action=today waits while it is undefined, as opening may create the note (#1176). */
+    canEdit: boolean | undefined;
     openCollaborate: (note: NoteListEntry) => void;
 }
 
@@ -26,6 +28,7 @@ export function useLayoutUrlActions({
     createNote,
     openSearch,
     openToday,
+    canEdit,
     openCollaborate,
 }: UseLayoutUrlActionsOptions): void {
     const navigate = useNavigate();
@@ -75,7 +78,7 @@ export function useLayoutUrlActions({
                 });
                 return;
             } else if (action === 'today') {
-                if (handledTodayRef.current) return;
+                if (canEdit === undefined || handledTodayRef.current) return;
                 handledTodayRef.current = true;
                 // openToday navigates to the note, which drops ?action.
                 await openToday();
@@ -115,6 +118,7 @@ export function useLayoutUrlActions({
         searchParams,
         openSearch,
         openToday,
+        canEdit,
         openCollaborate,
         hasNotes,
     ]);

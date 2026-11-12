@@ -59,6 +59,9 @@ export function LicenseSection(props: { close: () => void }): ReactNode {
     return null;
 }
 
+/** Opens the paywall over the read-only app (#1176). */
+export function openPaywall(): void {}
+
 export function RenewForUpdate(props: { feature: string; children: ReactNode }): ReactNode {
     return props.children;
 }

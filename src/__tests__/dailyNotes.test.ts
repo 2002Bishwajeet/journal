@@ -5,7 +5,7 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './test
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
 import { upsertSearchIndex, getActiveNoteByTitle } from '@/lib/db/queries';
-import { todayTitle, findOrCreateDailyNote } from '@/hooks/useDailyNote';
+import { todayTitle, findOrCreateDailyNote, findTodayNote } from '@/hooks/useDailyNote';
 import { applyTemplateSubstitutions } from '@/hooks/useTemplates';
 
 const DOC_ACTIVE = '20000000-0000-0000-0000-000000000001';
@@ -108,5 +108,22 @@ describe('findOrCreateDailyNote (find-or-create matrix)', () => {
         expect(result.docId).toBe(DOC_ACTIVE);
         // The query the decision relies on must not surface the trashed note.
         expect(await getActiveNoteByTitle(title)).toBeNull();
+    });
+});
+
+describe('findTodayNote (read-only, #1176)', () => {
+    const count = async (table: string) =>
+        (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${table}`)).rows[0].n;
+
+    it("returns today's existing active note", async () => {
+        await addNote(DOC_ACTIVE, todayTitle());
+        expect(await findTodayNote()).toEqual({ docId: DOC_ACTIVE, folderId: 'main' });
+    });
+
+    it('returns null and creates no note or Daily folder when today has none', async () => {
+        const [notes, folders] = [await count('search_index'), await count('folders')];
+        expect(await findTodayNote()).toBeNull();
+        expect(await count('search_index')).toBe(notes);
+        expect(await count('folders')).toBe(folders);
     });
 });

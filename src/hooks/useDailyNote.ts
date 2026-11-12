@@ -78,6 +78,12 @@ export async function openTodayNote(): Promise<{ docId: string; folderId: string
     return { docId, folderId };
 }
 
+/** Today's note if it exists, else null. Read-only (#1176) opens it but never creates it or the Daily folder. */
+export async function findTodayNote(): Promise<{ docId: string; folderId: string } | null> {
+    const existing = await getActiveNoteByTitle(todayTitle());
+    return existing ? { docId: existing.docId, folderId: existing.folderId } : null;
+}
+
 export function useDailyNote() {
-    return { openToday: openTodayNote };
+    return { openToday: openTodayNote, findToday: findTodayNote };
 }

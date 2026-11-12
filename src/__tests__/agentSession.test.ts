@@ -187,6 +187,29 @@ describe('useAgentSession — commands', () => {
     });
 });
 
+describe('useAgentSession — read-only (#1176)', () => {
+    it('offers the model only the tools that read, even for a change request', async () => {
+        const { setCanEdit } = await import('@/hooks/useCanEdit');
+        const { requests } = scriptedEngine([answer('I can only read here.'), answer('Added.')]);
+        const { render, cleanup, ask } = mountSession();
+        await render(PACKING.id);
+
+        setCanEdit(false);
+        await ask('add sunscreen to my packing list');
+        setCanEdit(true);
+        const readOnly = JSON.stringify(requests[0]);
+        expect(readOnly).toContain('search_notes');
+        for (const tool of ['append_to_note', 'create_note', 'insert_paragraph', 'replace_text', 'format_text']) {
+            expect(readOnly).not.toContain(tool);
+        }
+
+        await ask('add sunscreen to my packing list');
+        expect(JSON.stringify(requests[1])).toContain('append_to_note');
+
+        await cleanup();
+    });
+});
+
 describe('useAgentSession — steps', () => {
     it('lists each tool call in plain words, with the note title as a link target', async () => {
         scriptedEngine([call('search_notes', { query: 'packing' }), call('get_note', { id: PACKING.id }), answer('A passport.')]);

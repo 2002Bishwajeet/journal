@@ -793,6 +793,11 @@ img.ProseMirror-separator {
   opacity: 1;
 }
 
+/* A read-only editor (view only, #897; the native trial ended, #1176) can't change the layout. */
+.ProseMirror[contenteditable="false"] .gallery-toolbar {
+  display: none;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .gallery-block:hover > .gallery-toolbar {
     opacity: 1;

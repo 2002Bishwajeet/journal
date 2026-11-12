@@ -5,6 +5,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { useLayoutUrlActions } from '@/hooks/useLayoutUrlActions';
+import { setCanEdit, useCanEditAnswer } from '@/hooks/useCanEdit';
 
 let root: Root;
 
@@ -18,6 +19,7 @@ async function mount(url: string, openSearch = vi.fn(), openToday = vi.fn(async 
             createNote: vi.fn(),
             openSearch,
             openToday,
+            canEdit: useCanEditAnswer(),
             openCollaborate: vi.fn(),
         });
         return null;
@@ -31,11 +33,20 @@ async function mount(url: string, openSearch = vi.fn(), openToday = vi.fn(async 
 
 afterEach(async () => {
     await act(async () => root.unmount());
+    setCanEdit(true);
 });
 
 describe('useLayoutUrlActions deep link actions', () => {
     it('opens today once', async () => {
         const { openToday } = await mount('/?action=today');
+        expect(openToday).toHaveBeenCalledTimes(1);
+    });
+
+    it('waits for the entitlement before opening today (#1176)', async () => {
+        setCanEdit(undefined);
+        const { openToday } = await mount('/?action=today');
+        expect(openToday).not.toHaveBeenCalled();
+        await act(async () => setCanEdit(false));
         expect(openToday).toHaveBeenCalledTimes(1);
     });
 

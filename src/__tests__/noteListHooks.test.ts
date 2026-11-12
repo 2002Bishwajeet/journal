@@ -203,6 +203,18 @@ describe('useNoteActions', () => {
         await unmount();
     });
 
+    it('read-only (#1176): creates nothing (the tray, a shortcut or a stray button)', async () => {
+        const { setCanEdit } = await import('@/hooks/useCanEdit');
+        setCanEdit(false);
+        const { api, unmount } = await actions({ folderId: 'main' });
+        await act(async () => api().createAndOpen('main'));
+        setCanEdit(true);
+
+        expect(mocks.createNote).not.toHaveBeenCalled();
+        expect(mocks.navigate).not.toHaveBeenCalled();
+        await unmount();
+    });
+
     it('tags a note created from a tag list', async () => {
         const { api, unmount } = await actions({ folderId: undefined, selectedTag: 'work' });
         await act(async () => api().createAndOpen(undefined));

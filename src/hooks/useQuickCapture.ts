@@ -4,6 +4,7 @@ import { useNotes } from '@/hooks/useNotes';
 import { isNativeApp } from '@/lib/native';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { splitCapture } from '@/lib/quickCapture';
+import { useCanEdit } from '@/hooks/useCanEdit';
 
 async function hideCaptureWindow(): Promise<void> {
     if (!isNativeApp()) return;
@@ -21,6 +22,8 @@ export function useQuickCapture() {
     const [text, setText] = useState('');
     const [saving, setSaving] = useState(false);
     const input = useRef<HTMLTextAreaElement>(null);
+    // The native trial ended (#1176): nothing is saved; Esc still hides the window.
+    const canEdit = useCanEdit();
 
     // The native window is shown again by the hotkey: take the focus back into the text.
     useEffect(() => {
@@ -35,7 +38,7 @@ export function useQuickCapture() {
 
     const save = async () => {
         const note = splitCapture(text);
-        if (!note || saving) return;
+        if (!note || saving || !canEdit) return;
         setSaving(true);
         try {
             await createNoteWithContent.mutateAsync({ ...note, folderId: MAIN_FOLDER_ID });
@@ -60,5 +63,5 @@ export function useQuickCapture() {
         }
     };
 
-    return { text, setText, saving, input, onKeyDown };
+    return { text, setText, saving, canEdit, input, onKeyDown };
 }
