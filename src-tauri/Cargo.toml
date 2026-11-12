@@ -32,6 +32,8 @@ rfd = { version = "0.17", default-features = false, features = ["gtk3"] }
 tauri-plugin-updater = "2"
 # Launch at login and a single running instance, used by the tray code in native/.
 tauri-plugin-autostart = "2"
+# OS notifications for share invites and collaborator edits, registered by native/.
+tauri-plugin-notification = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 # External links and the macOS sign-in open in the default browser (src/lib/native.ts).
 tauri-plugin-opener = "2"
