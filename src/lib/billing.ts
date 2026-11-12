@@ -13,13 +13,21 @@ export function licenseEnabled(): boolean {
 }
 
 /**
- * True in a native app that sells itself: the store plugin (`journal-iap`) on iOS and Android,
- * a billing Worker on desktop. It turns on the trial, the paywall and Settings → Purchase; the
- * entitlement (`@premium`) decides what they show.
+ * The mobile platforms whose store purchase has shipped: #1174 sells on iOS, #1175 turns Android
+ * on. plugins.txt is one list for every platform, so `journal-iap` there (iOS first) must not
+ * make Android sell before it can, which would lock users out with no way to buy.
+ */
+export const STORE_BILLING: Record<'ios' | 'android', boolean> = { ios: true, android: false };
+
+/**
+ * True in a native app that sells itself: the store plugin (`journal-iap`) on a store platform
+ * that has shipped (STORE_BILLING), a billing Worker on desktop. It turns on the trial, the
+ * paywall, Settings → Purchase and the entitlement (`@premium`), which decides what they show.
+ * Otherwise (the web, dev and self-built apps, a store build before it sells) the app is unlocked.
  */
 export function billingEnabled(): boolean {
     const platform = nativePlatform();
-    if (platform === 'ios' || platform === 'android') return hasNativePlugin('journal-iap');
+    if (platform === 'ios' || platform === 'android') return STORE_BILLING[platform] && hasNativePlugin('journal-iap');
     return licenseEnabled();
 }
 

@@ -114,6 +114,8 @@ test.describe('native paywall', () => {
             device.answer = 'pending';
             await wall.getByRole('button', { name: `Unlock for ${PRICE}` }).click();
             await expect(wall.getByRole('button', { name: 'Waiting for approval' })).toBeDisabled();
+            // Only Buy waits: Restore still works (#1215 F1).
+            await expect(wall.getByRole('button', { name: 'Restore purchases' })).toBeEnabled();
 
             // Ask to Buy approved: the app reads the store again on the next launch (or its `changed` event).
             device.answer = 'purchased';
@@ -146,12 +148,18 @@ test.describe('native paywall', () => {
     });
 
     test('android: no trial screen, paywall or website until #1175 turns the Play purchase on', async ({ browser }) => {
-        await openNativeApp(browser, { platform: 'android', store: { trialStartedAt: hoursAgo(80) } }, async (page) => {
+        await openNativeApp(browser, { platform: 'android', store: { trialStartedAt: hoursAgo(80) } }, async (page, device) => {
             await page.setViewportSize(PHONE);
             await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
             await expect(trialScreen(page)).toHaveCount(0);
             await expect(storePaywall(page)).toHaveCount(0);
             await expectNoWebPurchase(page);
+            // Nothing reads or starts a trial, nor asks the store, so turning Play on later locks no one out (#1215 F2).
+            await page.getByRole('button', { name: 'Settings', exact: true }).click();
+            const settings = page.getByRole('dialog', { name: 'Settings' });
+            await expect(settings.getByRole('listitem').getByRole('button', { name: /^Account/ })).toBeVisible();
+            await expect(settings.getByRole('listitem').getByRole('button', { name: /^Purchase/ })).toHaveCount(0);
+            expect(device.calls.filter((c) => c.startsWith('plugin:journal-iap|') || c.startsWith('plugin:journal-license|'))).toEqual([]);
         });
     });
 
