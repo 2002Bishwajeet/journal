@@ -8,6 +8,7 @@ import {
     JOURNAL_FILE_TYPE,
     FOLDER_FILE_TYPE,
     COLLABORATION_INVITE_FILE_TYPE,
+    COLLABORATIVE_FOLDER_ID,
 } from '@/lib/homebase';
 import type { SyncService } from '@/lib/homebase/SyncService';
 import type { NotificationType } from '@homebase-id/js-lib/core';
@@ -59,7 +60,12 @@ export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: Use
                         try {
                             const invite = typeof content === 'string' ? JSON.parse(content) : content;
                             if (invite.authorOdinId && invite.noteTitle) {
-                                void notifyNative(`${invite.authorOdinId.split('.')[0]} shared "${invite.noteTitle}" with you`, '', '/');
+                                void notifyNative(
+                                    `${invite.authorOdinId.split('.')[0]} shared "${invite.noteTitle}" with you`,
+                                    '',
+                                    `/${COLLABORATIVE_FOLDER_ID}/${invite.noteUniqueId}`,
+                                    invite.noteUniqueId,
+                                );
                             }
                         } catch { /* ignore parse errors for toast */ }
                     }
