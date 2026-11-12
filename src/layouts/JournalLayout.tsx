@@ -75,6 +75,7 @@ import { useNotesMirror } from "@/hooks/useNotesMirror";
 import { useDailyReminder } from "@/hooks/useDailyReminder";
 import { useNativeBridge } from "@/hooks/useNativeBridge";
 import { useUserActivity } from "@/hooks/useUserActivity";
+import { useDockMenu } from "@/hooks/useDockMenu";
 import { useMacServices } from "@/hooks/useMacServices";
 import { NO_LICENSE } from "@/lib/native/bridge";
 import { toast } from "sonner";
@@ -304,6 +305,7 @@ export default function JournalLayout() {
   const openNote = openNoteId ? notes.find((n) => n.docId === openNoteId) : undefined;
   useRecordRecentNote(openNoteId);
   useUserActivity(openNoteId, openNote?.title);
+  useDockMenu(openNoteId, notes);
   useDocumentTitle(
     openNoteId ? openNote?.title || "Untitled" : currentViewLabel,
   );
