@@ -351,6 +351,30 @@ async function seedCollaborativeNote(title: string): Promise<void> {
     await upsertSyncRecord({ localId: docId, entityType: 'note', syncStatus: 'synced', remoteFileId: 'seeded-remote-collab', versionTag: 'seeded-version' });
 }
 
+/** Adds folders of `count` notes each, in one statement per folder (#1219). */
+async function seedFolders(folders: { name: string; count: number }[]): Promise<void> {
+    const { getDatabase } = await import('@/lib/db/pglite');
+    const { createFolder } = await import('@/lib/db');
+    const { getNewId } = await import('@/lib/utils');
+    const { formatGuidId } = await import('@homebase-id/js-lib/helpers');
+    const db = await getDatabase();
+    for (const { name, count } of folders) {
+        const folderId = formatGuidId(getNewId());
+        await createFolder(folderId, name);
+        await db.query(
+            `INSERT INTO search_index (doc_id, title, plain_text_content, metadata, updated_at)
+             SELECT gen_random_uuid(), $2 || ' ' || i, 'Body of ' || $2 || ' ' || i,
+                    jsonb_build_object('title', $2 || ' ' || i, 'folderId', $1::text, 'excludeFromAI', false,
+                        'tags', CASE WHEN i % 3 = 0 THEN '["work","ideas"]'::jsonb ELSE '[]'::jsonb END,
+                        'timestamps', jsonb_build_object('created', to_char(now() - i * interval '7 hours', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+                                                         'modified', to_char(now() - i * interval '7 hours', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))),
+                    CURRENT_TIMESTAMP
+             FROM generate_series(1, $3::int) AS i`,
+            [folderId, name, count],
+        );
+    }
+}
+
 /** Runs the sync's image upload step once, as a full sync does after its pull and push. */
 async function uploadPendingImages(): Promise<void> {
     const { SyncService } = await import('@/lib/homebase/SyncService');
@@ -495,7 +519,7 @@ if (E2E_ORIGINS.includes(location.origin)) {
     // Set by a spec's init script before the page loads (#905).
     e2eSwitches.sessionRestoreDelayMs = Number(localStorage.getItem('e2e-session-restore-delay-ms')) || 0;
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, seedCollaborativeNote, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe, seedShareRequest, seedSnapshotHistory }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, seedCollaborativeNote, seedFolders, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe, seedShareRequest, seedSnapshotHistory }),
         writable: false,
         configurable: false,
         enumerable: false,

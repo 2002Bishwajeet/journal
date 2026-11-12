@@ -38,7 +38,10 @@ const registry = new Map<string, LiveEntry>();
 // Returning to a recently-viewed folder/tag then shows those rows instantly
 // rather than flashing a loading state, while typing/sync only pay for the
 // queries that still have a live consumer. Bounded by an LRU so parked rows
-// don't grow without limit.
+// don't grow without limit. The limit holds per query text (#1219): each opened
+// note parks its own backlinks query, and with one shared budget, reading a dozen
+// notes pushed every visited folder's list out, so it loaded cold again.
+// Every query text is a fixed constant (src/lib/db/queries), so the total stays small.
 const IDLE_LIMIT = 12;
 const idleKeys = new Set<string>(); // insertion-ordered LRU of parked cacheKeys
 
@@ -112,12 +115,12 @@ function park(cacheKey: string, e: LiveEntry) {
   void unsub?.()?.catch(() => {});
   idleKeys.delete(cacheKey);
   idleKeys.add(cacheKey);
-  evictIdle();
+  evictIdle(e.sql);
 }
 
-function evictIdle() {
-  while (idleKeys.size > IDLE_LIMIT) {
-    const oldest = idleKeys.values().next().value as string;
+function evictIdle(sql: string) {
+  const sameQuery = [...idleKeys].filter((key) => registry.get(key)?.sql === sql);
+  for (const oldest of sameQuery.slice(0, Math.max(0, sameQuery.length - IDLE_LIMIT))) {
     idleKeys.delete(oldest);
     const e = registry.get(oldest);
     if (e && e.refs <= 0) {

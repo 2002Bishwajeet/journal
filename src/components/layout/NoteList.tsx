@@ -38,6 +38,7 @@ import { haptic } from "@/lib/haptics";
 import { useLargeTitle } from "@/hooks/useLargeTitle";
 import { useSwipeRow } from "@/hooks/useSwipeRow";
 import { useCanEdit } from "@/hooks/useCanEdit";
+import { useStableHandlers } from "@/hooks/useStableHandlers";
 import { BarTitle, LargeTitle } from "./LargeTitle";
 import { FILL_EMPTY_VIEWPORT, largeTitleBarClass } from "./largeTitleClasses";
 
@@ -145,10 +146,16 @@ export default function NoteList({
       setOpenRowId((cur) => (open ? id : cur === id ? null : cur)),
     [],
   );
-  const handleTogglePin = useCallback(
-    (id: string, isPinned: boolean) => togglePin.mutate({ docId: id, isPinned }),
-    [togglePin],
-  );
+  // Rows are memoized, but the layout's handlers change on every list emission, which
+  // re-rendered all of them several times per folder switch (#1219).
+  const rowHandlers = useStableHandlers({
+    onSelectNote,
+    onShareNote,
+    onMoveToFolder,
+    onRemoveFromList,
+    onArchive,
+    onTogglePin: (id: string, isPinned: boolean) => togglePin.mutate({ docId: id, isPinned }),
+  });
 
   const groupedNotes = useMemo(() => {
     const groups: { label: string; notes: NoteListEntry[] }[] = [];
@@ -353,14 +360,14 @@ export default function NoteList({
                           note={note}
                           isSwiped={openRowId === note.docId}
                           onSwipeChange={handleSwipeChange}
-                          selectedNoteId={selectedNoteId}
-                          onSelectNote={onSelectNote}
+                          isSelected={selectedNoteId === note.docId}
+                          onSelectNote={rowHandlers.onSelectNote}
                           onDeleteNote={handleDeleteNote}
-                          onShareNote={onShareNote}
-                          onMoveToFolder={onMoveToFolder}
-                          onTogglePin={handleTogglePin}
-                          onRemoveFromList={onRemoveFromList}
-                          onArchive={onArchive}
+                          onShareNote={rowHandlers.onShareNote}
+                          onMoveToFolder={rowHandlers.onMoveToFolder}
+                          onTogglePin={rowHandlers.onTogglePin}
+                          onRemoveFromList={rowHandlers.onRemoveFromList}
+                          onArchive={rowHandlers.onArchive}
                           canEdit={canEdit}
                         />
                       ))}
@@ -398,7 +405,7 @@ const NoteItem = memo(function NoteItem({
   note,
   isSwiped,
   onSwipeChange,
-  selectedNoteId,
+  isSelected,
   onSelectNote,
   onDeleteNote,
   onShareNote,
@@ -411,7 +418,7 @@ const NoteItem = memo(function NoteItem({
   note: NoteListEntry;
   isSwiped: boolean;
   onSwipeChange: (id: string, open: boolean) => void;
-  selectedNoteId: string | null;
+  isSelected: boolean;
   onSelectNote: (id: string) => void;
   onDeleteNote: (id: string) => void;
   onShareNote: (note: NoteListEntry) => void;
@@ -502,7 +509,7 @@ const NoteItem = memo(function NoteItem({
               "pointer-coarse:grid-cols-[auto_minmax(0,1fr)] pointer-coarse:gap-x-2 pointer-coarse:py-3",
               "pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:bottom-0 pointer-coarse:after:ml-4 pointer-coarse:after:h-px pointer-coarse:after:bg-border/60 group-last/row:after:hidden",
               "transition-[transform,background-color] duration-(--duration-fade) ease-(--ease-standard)",
-              selectedNoteId === note.docId && "bg-accent",
+              isSelected && "bg-accent",
             )}
             style={{ touchAction: "pan-y" }}
           >
@@ -515,7 +522,7 @@ const NoteItem = memo(function NoteItem({
               <span
                 className={cn(
                   "text-sm font-medium truncate flex-1 pointer-coarse:text-[15px] pointer-coarse:leading-5 pointer-coarse:font-semibold",
-                  selectedNoteId === note.docId
+                  isSelected
                     ? "text-accent-foreground"
                     : "text-foreground",
                 )}
@@ -543,7 +550,7 @@ const NoteItem = memo(function NoteItem({
                     className={cn(
                       "inline-flex items-center gap-0.5 px-1.5 py-0 rounded bg-muted text-xs text-muted-foreground shrink-0",
                       // Touch (#781): bg-muted matches the selected row's accent, so the chip takes the border tone there.
-                      selectedNoteId === note.docId && "pointer-coarse:bg-border",
+                      isSelected && "pointer-coarse:bg-border",
                     )}
                   >
                     #{"\u2009"}
