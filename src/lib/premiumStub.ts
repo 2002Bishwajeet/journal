@@ -34,3 +34,24 @@ export interface NotesMirror {
 }
 
 export const notesMirror: NotesMirror | null = null;
+
+/** What the desktop quick-capture hotkey reports (native/rust/capture.rs). */
+export interface QuickCaptureState {
+    /** The accelerator the hotkey is set to, e.g. `CmdOrCtrl+Shift+J`. */
+    shortcut: string;
+    /** `XDG_SESSION_TYPE` on Linux ("wayland" has no global shortcuts), else an empty string. */
+    session: string;
+    /** Why the shortcut isn't registered right now (the OS refused it), if it isn't. */
+    error: string | null;
+}
+
+/** The global hotkey and its capture window (#1014). Desktop only. */
+export interface QuickCapture {
+    state(): Promise<QuickCaptureState>;
+    /** Registers a new accelerator and keeps it. Rejects with a message when the OS refuses it. */
+    setShortcut(shortcut: string): Promise<QuickCaptureState>;
+    /** Hides the capture window (Esc, or after a save). */
+    hide(): Promise<void>;
+}
+
+export const quickCapture: QuickCapture | null = null;
