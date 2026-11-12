@@ -1,3 +1,22 @@
+## [2.66.9](https://github.com/2002Bishwajeet/journal/compare/v2.66.8...v2.66.9) (2026-11-12)
+
+
+### Bug Fixes
+
+* **ios:** home-screen name Journal+ (ITMS-90129) ([db91570](https://github.com/2002Bishwajeet/journal/commit/db91570848bbf691775594cf639b51c599c21717))
+* **ios:** show the owner photo without a service worker ([#1161](https://github.com/2002Bishwajeet/journal/issues/1161)) ([82dc401](https://github.com/2002Bishwajeet/journal/commit/82dc4016504f321b5a34669c78682861fae01680))
+* **native:** bundle id com.biswa.journal to match App Store Connect ([4a3724e](https://github.com/2002Bishwajeet/journal/commit/4a3724eb0d6e664bfaab7128a2d17d21465be7b6))
+* **notes:** Back after Archive on the open note skips the archived note ([#1084](https://github.com/2002Bishwajeet/journal/issues/1084)) ([85d26ac](https://github.com/2002Bishwajeet/journal/commit/85d26aca3a1ad906c3516bb58192b84f008d6620))
+
+
+### Features
+
+* **android:** icons, splash and signed AAB for Play internal testing ([fc0b753](https://github.com/2002Bishwajeet/journal/commit/fc0b7533474aad2dad447074deb2367a89805b7d))
+* **android:** label the app Journal+ to match the App Store name ([edd3fdc](https://github.com/2002Bishwajeet/journal/commit/edd3fdc69647b1b308b5568b425b4c273d2a2f15))
+* **mobile:** move the sync pill above the large title ([acf6e4d](https://github.com/2002Bishwajeet/journal/commit/acf6e4d6306ca31bd78b4e86243788f34f679c52)), closes [#1162](https://github.com/2002Bishwajeet/journal/issues/1162)
+* **mobile:** show sync state in a pill above the tab bar ([2e5368e](https://github.com/2002Bishwajeet/journal/commit/2e5368e94c83f57c7f2e115016dc774106d523ae)), closes [#1162](https://github.com/2002Bishwajeet/journal/issues/1162)
+* **site:** mention web push notifications in the privacy policy ([89926e6](https://github.com/2002Bishwajeet/journal/commit/89926e6e9106f0ea45aca3da37d25f8965ad1f88))
+* **site:** privacy policy page and support anchor for the store listings ([ecc0e26](https://github.com/2002Bishwajeet/journal/commit/ecc0e267513df6eaaab03fa0d8c4adf5a0e226a0))
 ## [2.66.8](https://github.com/2002Bishwajeet/journal/compare/v2.66.7...v2.66.8) (2026-11-11)
 
 
