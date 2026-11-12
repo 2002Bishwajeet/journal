@@ -134,7 +134,7 @@ describe("ReadOnlyBanner", () => {
     setCanEdit(false);
     await render(<ReadOnlyBanner />);
     expect(container.textContent).toContain(
-      "Your trial has ended. Your notes are read-only on this device. Unlock Journal to keep writing.",
+      "Your notes are read-only on this device. Unlock Journal to keep writing.",
     );
     await click(button("Unlock"));
     expect(mocks.openPaywall).toHaveBeenCalledTimes(1);

@@ -92,7 +92,7 @@ export default function ShareTargetPage() {
 
         {!canEdit && (
           <p role="status" className="text-sm text-muted-foreground text-pretty">
-            Your trial has ended. Your notes are read-only on this device. Unlock Journal to keep writing.
+            Your notes are read-only on this device. Unlock Journal to keep writing.
           </p>
         )}
 

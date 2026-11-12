@@ -12,7 +12,7 @@ import { activeEditor, activeTitleInput, createNote, openNote, screenshotInBothT
 
 const DAY = 86_400_000;
 const daysAgo = (days: number) => new Date(Date.now() - days * DAY).toISOString();
-const BANNER = 'Your trial has ended. Your notes are read-only on this device. Unlock Journal to keep writing.';
+const BANNER = 'Your notes are read-only on this device. Unlock Journal to keep writing.';
 
 type Store = Record<string, unknown> | null;
 
@@ -57,6 +57,14 @@ test.describe('native app after the trial', () => {
             await waitForAppReady(page);
             const wall = page.getByRole('dialog', { name: 'Your 3-day trial has ended.' });
             await expect(wall).toContainText('you can still read, search and export them');
+
+            // Sign out asks first: the note written above hasn't synced (no backend), and sign-out wipes it.
+            await wall.getByRole('button', { name: 'Sign out' }).click();
+            const signOut = page.getByRole('dialog', { name: 'Sign out?' });
+            await expect(signOut).toContainText(/n't synced yet and will be lost/);
+            await signOut.getByRole('button', { name: 'Cancel' }).click();
+            await expect(signOut).toBeHidden();
+            await expect(wall).toBeVisible();
             await wall.getByRole('button', { name: 'Keep reading' }).click();
             await expect(wall).toBeHidden();
 
@@ -97,6 +105,16 @@ test.describe('native app after the trial', () => {
             const download = page.waitForEvent('download');
             await panel.getByRole('button', { name: 'Export All Notes' }).click();
             expect((await download).suggestedFilename()).toMatch(/\.zip$/);
+
+            // Today (journal://today and ?action=today) creates nothing: with no note for today, both go home.
+            // At phone width: the desktop editor pane renders no route Outlet, so /today never mounts there.
+            await page.setViewportSize({ width: 390, height: 844 });
+            for (const url of ['/today', '/?action=today']) {
+                await page.goto(url);
+                await waitForAppReady(page);
+                await expect(page).toHaveURL((u) => u.pathname === '/' && !u.search);
+                await expect(page.getByText('Daily', { exact: true })).toHaveCount(0);
+            }
         });
     });
 });

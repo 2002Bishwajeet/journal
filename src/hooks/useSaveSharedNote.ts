@@ -85,6 +85,6 @@ export function useSaveSharedNote(): { error: string | null } {
     }, [valid, canEdit, identity, file, navigate]);
 
     if (!valid) return { error: 'This link is not a valid shared note link.' };
-    if (canEdit === false) return { error: "Your trial has ended. Your notes are read-only on this device, so a copy can't be saved here." };
+    if (canEdit === false) return { error: "Your notes are read-only on this device, so a copy can't be saved here." };
     return { error: copyError };
 }

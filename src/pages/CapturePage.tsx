@@ -21,7 +21,7 @@ export default function CapturePage() {
         placeholder={
           canEdit
             ? `Jot something down. The first line is the title. ${saveKey}+Enter saves, Esc hides.`
-            : "Your trial has ended. Your notes are read-only on this device. Esc hides."
+            : "Your notes are read-only on this device. Esc hides."
         }
         className="h-full w-full resize-none bg-transparent text-base leading-relaxed outline-none placeholder:text-muted-foreground"
       />

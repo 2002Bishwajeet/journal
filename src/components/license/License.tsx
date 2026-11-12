@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import SignOutConfirmDialog from "@/components/modals/SignOutConfirmDialog";
 import { licenseEnabled } from "@/lib/billing";
 import { FEATURE_RELEASES } from "@/lib/featureReleases";
 import { isNativeApp } from "@/lib/native";
@@ -10,16 +11,19 @@ const Gate = lazy(() => import("@premium").then((m) => ({ default: m.LicenseGate
 const Chip = lazy(() => import("@premium").then((m) => ({ default: m.TrialChip })));
 const Section = lazy(() => import("@premium").then((m) => ({ default: m.LicenseSection })));
 const Renew = lazy(() => import("@premium").then((m) => ({ default: m.RenewForUpdate })));
-// Copies useEntitlement().canEdit into useCanEdit()'s store (#1176).
+// Copies useEntitlement().canEdit into useCanEdit()'s store (#1176). A failed `@premium`
+// load must not take the app down, so it renders nothing and editing stays on.
 const Reporter = lazy(() =>
-  import("@premium").then((m) => ({
-    default: function Reporter() {
-      const { status, canEdit } = m.useEntitlement();
-      const answer = status === undefined ? undefined : canEdit;
-      useEffect(() => setCanEdit(answer), [answer]);
-      return null;
-    },
-  })),
+  import("@premium")
+    .then((m) => ({
+      default: function Reporter() {
+        const { status, canEdit } = m.useEntitlement();
+        const answer = status === undefined ? undefined : canEdit;
+        useEffect(() => setCanEdit(answer), [answer]);
+        return null;
+      },
+    }))
+    .catch(() => ({ default: () => null })),
 );
 
 /**
@@ -35,12 +39,22 @@ export function CanEditReporter() {
   );
 }
 
-/** Over the signed-in app: the paywall, the Enter license key screen and the updates notice. */
-export function LicenseGate({ onSignOut }: { onSignOut: () => void }) {
+/**
+ * Over the signed-in app: the paywall, the Enter license key screen and the updates notice.
+ * The paywall's Sign out asks first, as the sidebar's does: sign-out wipes unsynced changes.
+ */
+export function LicenseGate({ onSignOut, pendingTotal }: { onSignOut: () => void; pendingTotal: number }) {
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   if (!licenseEnabled()) return null;
   return (
     <Suspense fallback={null}>
-      <Gate onSignOut={onSignOut} />
+      <Gate onSignOut={() => setConfirmSignOut(true)} />
+      <SignOutConfirmDialog
+        isOpen={confirmSignOut}
+        onClose={() => setConfirmSignOut(false)}
+        onConfirm={onSignOut}
+        pendingTotal={pendingTotal}
+      />
     </Suspense>
   );
 }
