@@ -5,13 +5,17 @@ import { Trash2 } from "lucide-react";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import { useAIPreferences } from "@/hooks/useAIPreferences";
 import ModelDownloadDialog from "@/components/modals/ModelDownloadDialog";
-import { getModelInfo, getModelsForJob } from "@/lib/webllm";
+import { getModelInfo, getModelsForJob, type ModelJob } from "@/lib/webllm";
 import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
 import { isNativeSettings } from "@/lib/settingsPlatform";
 import { SectionHeader } from "../SectionHeader";
 import { SettingsRow } from "../SettingsRow";
 import AIModelList from "./AIModelList";
 import { ExperimentalBadge, LocalAINote } from "@/components/LocalAIExperimental";
+import { fitsIOS, isIOSApp } from "@/lib/webllm/ios";
+
+// iOS offers only the models that fit in the web view's memory (#1143).
+const modelsFor = (job: ModelJob) => getModelsForJob(job).filter((m) => !isIOSApp() || fitsIOS(m));
 
 export default function AISection() {
   const {
@@ -154,7 +158,7 @@ export default function AISection() {
             </SectionHeader>
             <AIModelList
               label="Writing help"
-              models={getModelsForJob("editor")}
+              models={modelsFor("editor")}
               selectedModelId={settings.modelId}
               onSelect={selectModel}
               disabled={isAILoading}
@@ -166,7 +170,7 @@ export default function AISection() {
             </SectionHeader>
             <AIModelList
               label="Assistant"
-              models={getModelsForJob("agent")}
+              models={modelsFor("agent")}
               selectedModelId={settings.agentModelId}
               onSelect={selectAgentModel}
               disabled={false}

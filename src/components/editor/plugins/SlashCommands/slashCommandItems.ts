@@ -34,7 +34,7 @@ import {
     ListEnd,
     type LucideIcon,
 } from 'lucide-react';
-import { getDeviceType } from '@/hooks/useDeviceType';
+import { aiSupportedOn } from '@/hooks/useAISupported';
 import { safeEditorCommand } from '../../shared';
 import { normalizeSearchText, rankSearch, type SearchTerms } from '../suggestionSearch';
 
@@ -326,14 +326,14 @@ export const slashCommandItems: SlashCommandItem[] = [
 ];
 
 /**
- * Items that work on this device. The assistant (ChatBot, AIMenu) is not
- * mounted on phones, so the AI group is hidden there. Same condition as
- * JournalLayout.
+ * Items that work on this device. The assistant (ChatBot) is not mounted where
+ * on-device AI can't run (phones, and iOS devices that failed the check), so the
+ * AI group is hidden there. Same condition as JournalLayout.
  */
 export function availableSlashItems(): SlashCommandItem[] {
-    return getDeviceType() === 'mobile'
-        ? slashCommandItems.filter((item) => item.group !== 'ai')
-        : slashCommandItems;
+    return aiSupportedOn()
+        ? slashCommandItems
+        : slashCommandItems.filter((item) => item.group !== 'ai');
 }
 
 const commandTerms = (item: SlashCommandItem): SearchTerms => ({
