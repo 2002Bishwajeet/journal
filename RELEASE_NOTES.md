@@ -16,6 +16,27 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.68.0 (2026-11-12)
+
+### New
+
+- In the native app, Settings > Security has "Show notes outside the app". When you turn it off, widgets, search, shortcuts and the watch show no note titles or text.
+
+### Changed
+
+- When the 3-day trial of a native app ends, your notes become read-only on that device. You can still open, read, search and export all your notes, and sync gets changes from your other devices. A banner at the top tells you that your notes are read-only. Tap Unlock to see how to keep writing. Your notes are never deleted.
+- On a phone, Settings starts with your account and when it last synced. Agent access is in a "Privacy & agents" group, and Diagnostics is "Troubleshooting" in About.
+- On a phone, Settings does not show AI, Keyboard shortcuts or the note width. These do nothing on a phone.
+- On Android, Settings uses full-width rows below section labels.
+- In the apps, Settings does not use the word "browser". It does not show the web push rows or the browser agent (WebMCP), and Storage used does not show the browser quota.
+- In the desktop apps, Keyboard shortcuts show ⌘ on macOS and Ctrl on Windows and Linux.
+
+### Added
+
+- The native apps start with a 3-day free trial. The sidebar shows how many days are left, and when the trial ends you can enter a license key. Your notes stay on your Homebase, and the free web app keeps working.
+- Settings → License shows your license key (only its last 4 characters), how long you get updates, and lets you remove the key from a device to free one of its 5 activations. A license keeps working offline for 60 days.
+- The web app has a "Get the desktop app" link in Settings → About.
+
 ## 2.67.0 (2026-11-12)
 
 ### New

@@ -1,3 +1,28 @@
+# [2.68.0](https://github.com/2002Bishwajeet/journal/compare/v2.67.0...v2.68.0) (2026-11-12)
+
+
+### Bug Fixes
+
+* **license:** a failed [@premium](https://github.com/premium) load answers canEdit=true so waiters don't hang ([#1176](https://github.com/2002Bishwajeet/journal/issues/1176)) ([e1f04a7](https://github.com/2002Bishwajeet/journal/commit/e1f04a7ce33eea0b4b6a2edc1298609a36f24462))
+* **native:** license security audit fixes ([#301](https://github.com/2002Bishwajeet/journal/issues/301)) ([635db4a](https://github.com/2002Bishwajeet/journal/commit/635db4a1e103d8a2ea2f8380ba8807cfab514867))
+* **native:** read-only audit fixes ([#1176](https://github.com/2002Bishwajeet/journal/issues/1176)) ([473450b](https://github.com/2002Bishwajeet/journal/commit/473450b5ed4a9a76cb648bb40d9e2c54f32dead6))
+
+
+### Features
+
+* **desktop:** journal:// hand-off to the running window, glue tests ([#1144](https://github.com/2002Bishwajeet/journal/issues/1144)) ([16a2e2c](https://github.com/2002Bishwajeet/journal/commit/16a2e2c120c601be2f5126ef053ff5bf8987fe2e))
+* **macos:** advertise the open note for Handoff, open continued activities ([#1147](https://github.com/2002Bishwajeet/journal/issues/1147)) ([fdbe29a](https://github.com/2002Bishwajeet/journal/commit/fdbe29aef02112fb55e51156aea31d4fb2d70420))
+* **native:** journal:// deep links, strict parser and useNativeDeepLink hook ([#1093](https://github.com/2002Bishwajeet/journal/issues/1093)) ([5dcc47e](https://github.com/2002Bishwajeet/journal/commit/5dcc47ec2bf66b1519b040a5ef402b4040d56a31))
+* **native:** license key, 3-day trial and paywall seam ([#301](https://github.com/2002Bishwajeet/journal/issues/301)) ([6ac9172](https://github.com/2002Bishwajeet/journal/commit/6ac9172dec1235066968d8ae6942f07f0741bb58))
+* **native:** macOS notification actions and the daily reminder ([#1123](https://github.com/2002Bishwajeet/journal/issues/1123)) ([0c8ee87](https://github.com/2002Bishwajeet/journal/commit/0c8ee87071fb0a5b2274ad241549a8ffa38a6fa3))
+* **native:** read-only mode after the trial ([#1176](https://github.com/2002Bishwajeet/journal/issues/1176)) ([8b33761](https://github.com/2002Bishwajeet/journal/commit/8b33761c05a64ea29afdac657b3b1e03b4d94f3a))
+* **native:** route haptic() to the journal-haptics plugin in the native app ([#1111](https://github.com/2002Bishwajeet/journal/issues/1111)) ([e3702ce](https://github.com/2002Bishwajeet/journal/commit/e3702ceedd0cf057836c68666fa487f638ac7162))
+* **native:** shared bridge schema, snapshot builder, action importer and notesVisibleOutsideApp() seam ([#1138](https://github.com/2002Bishwajeet/journal/issues/1138)) ([534bca6](https://github.com/2002Bishwajeet/journal/commit/534bca6b34019bf2765124cfcfc7f501e305d928))
+* **native:** trial screen, paywall and Settings → Purchase ([#1177](https://github.com/2002Bishwajeet/journal/issues/1177)) ([1eeca5f](https://github.com/2002Bishwajeet/journal/commit/1eeca5f4aef812378ac395f325fb57b369c0d3c2)), closes [#1208](https://github.com/2002Bishwajeet/journal/issues/1208) [#1175](https://github.com/2002Bishwajeet/journal/issues/1175)
+* **native:** trial screen, paywall and Settings → Purchase ([#1177](https://github.com/2002Bishwajeet/journal/issues/1177)) ([e3c0438](https://github.com/2002Bishwajeet/journal/commit/e3c043812d893c3e18c9e941c7b9b3c695076bb7))
+* **native:** useEntitlement seam in the premium stub ([#1173](https://github.com/2002Bishwajeet/journal/issues/1173)) ([0cfc990](https://github.com/2002Bishwajeet/journal/commit/0cfc9900d34e9cc107a4019dc5e16cb9ebe041db))
+* **settings:** finish per-platform Settings ([#1182](https://github.com/2002Bishwajeet/journal/issues/1182)) ([db0df4e](https://github.com/2002Bishwajeet/journal/commit/db0df4e452b51545dbbc11aeef420cffc7ece2e8))
+* **settings:** platform-aware Settings, phone groups, native copy ([#1182](https://github.com/2002Bishwajeet/journal/issues/1182)) ([bf65281](https://github.com/2002Bishwajeet/journal/commit/bf652810e32be237a10109044296940a9184d2d6))
 # [2.67.0](https://github.com/2002Bishwajeet/journal/compare/v2.66.10...v2.67.0) (2026-11-12)
 
 
