@@ -48,7 +48,7 @@ describe('sectionsFor', () => {
     });
 
     it('lists notifications on the phone app only with a daily reminder (no web push there)', () => {
-        expect(ids('native-phone')).toEqual(['account', 'appearance', 'agent-access', 'data', 'about', 'diagnostics']);
+        expect(ids('native-phone')).toEqual(['account', 'appearance', 'agent-access', 'security', 'data', 'about', 'diagnostics']);
         expect(ids('native-phone', true)).toContain('notifications');
     });
 

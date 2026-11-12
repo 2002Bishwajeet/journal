@@ -1,11 +1,12 @@
 import type { ComponentType } from "react";
-import { UserRound, Monitor, Sparkles, Bot, Bell, Database, Keyboard, KeyRound, Info, Activity, type LucideIcon } from "lucide-react";
+import { UserRound, Monitor, Sparkles, Bot, Bell, Shield, Database, Keyboard, KeyRound, Info, Activity, type LucideIcon } from "lucide-react";
 import type { SettingsPlatform } from "@/lib/settingsPlatform";
 import AccountSection from "./sections/AccountSection";
 import AppearanceSection from "./sections/AppearanceSection";
 import AISection from "./sections/AISection";
 import AgentAccessSection from "./sections/AgentAccessSection";
 import NotificationsSection from "./sections/NotificationsSection";
+import SecuritySection from "./sections/SecuritySection";
 import DataSection from "./sections/DataSection";
 import ShortcutsSection from "./sections/ShortcutsSection";
 import AboutSection from "./sections/AboutSection";
@@ -13,7 +14,7 @@ import DiagnosticsSection from "./sections/DiagnosticsSection";
 import { LicenseSection } from "@/components/license/License";
 import { licenseEnabled } from "@/lib/billing";
 
-export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "data" | "license" | "shortcuts" | "about" | "diagnostics";
+export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "security" | "data" | "license" | "shortcuts" | "about" | "diagnostics";
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -64,6 +65,14 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "Notifications on this device",
     icon: Bell,
     Component: NotificationsSection,
+  },
+  {
+    id: "security",
+    label: "Security",
+    description: "What shows outside the app",
+    icon: Shield,
+    Component: SecuritySection,
+    platforms: ["native-phone", "native-desktop"],
   },
   {
     id: "data",

@@ -29,6 +29,7 @@ export interface UseSearchModalOptions {
     isOpen: boolean;
     onClose: () => void;
     onSelectNote: (docId: string) => void;
+    initialQuery?: string;
 }
 
 export interface UseSearchModalReturn {
@@ -54,6 +55,7 @@ export function useSearchModal({
     isOpen,
     onClose,
     onSelectNote,
+    initialQuery,
 }: UseSearchModalOptions): UseSearchModalReturn {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<SearchResult[]>([]);
@@ -93,6 +95,12 @@ export function useSearchModal({
         setQuery(value);
         setSelectedIndex(0);
     }, []);
+
+    // Opened with a query (journal://search?q=)
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- seeds the field once when the search opens with a query
+        if (isOpen && initialQuery) handleQueryChange(initialQuery);
+    }, [isOpen, initialQuery, handleQueryChange]);
 
     // Focus input when modal opens
     useEffect(() => {

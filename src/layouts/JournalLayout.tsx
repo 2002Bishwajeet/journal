@@ -70,6 +70,8 @@ import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { useDailySnapshotPrune } from "@/hooks/useDailySnapshotPrune";
 import { useNotesMirror } from "@/hooks/useNotesMirror";
 import { useDailyReminder } from "@/hooks/useDailyReminder";
+import { useNativeBridge } from "@/hooks/useNativeBridge";
+import { NO_LICENSE } from "@/lib/native/bridge";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
 import { syncThemeColor } from "@/lib/themeColor";
@@ -84,6 +86,8 @@ export default function JournalLayout() {
   useDailySnapshotPrune();
   useNotesMirror();
   useDailyReminder();
+  // #301's licence state replaces NO_LICENSE.
+  useNativeBridge(NO_LICENSE);
   const whatsNew = useAutoWhatsNew();
 
   // Warm the lazy editor chunk once the shell is idle. Desktop with restored
@@ -150,6 +154,8 @@ export default function JournalLayout() {
 
   // Modal states
   const [showSearch, setShowSearch] = useState(false);
+  // journal://search?q= (#1093): the query the search opens with.
+  const [searchSeed, setSearchSeed] = useState("");
   const settings = useSettingsOpener();
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [folderToRename, setFolderToRename] = useState<string | null>(null);
@@ -174,7 +180,11 @@ export default function JournalLayout() {
     folderId,
     notes,
     createNote: (targetFolderId) => createNote({ folderId: targetFolderId }),
-    openSearch: setShowSearch,
+    openSearch: (open, query) => {
+      setSearchSeed(query ?? "");
+      setShowSearch(open);
+    },
+    openToday: () => handleOpenToday(),
     openCollaborate: setShareNote,
   });
 
@@ -460,7 +470,11 @@ export default function JournalLayout() {
 
       <SearchModal
         isOpen={showSearch}
-        onClose={() => setShowSearch(false)}
+        initialQuery={searchSeed}
+        onClose={() => {
+          setShowSearch(false);
+          setSearchSeed("");
+        }}
         onSelectNote={(docId) => {
           // Find note to get folder
           const note = notes.find((n) => n.docId === docId);

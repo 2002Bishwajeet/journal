@@ -12,7 +12,7 @@ const GROUPS: { ids: SettingsSectionId[]; label?: string }[] = [
   { ids: ["account"] },
   { ids: ["appearance", "ai", "notifications", "license"], label: "General" },
   { ids: ["data"] },
-  { ids: ["agent-access"], label: "Privacy & agents" },
+  { ids: ["agent-access", "security"], label: "Privacy & agents" },
   { ids: ["about"] },
 ];
 
