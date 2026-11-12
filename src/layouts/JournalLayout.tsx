@@ -71,6 +71,7 @@ import { useDailySnapshotPrune } from "@/hooks/useDailySnapshotPrune";
 import { useNotesMirror } from "@/hooks/useNotesMirror";
 import { useDailyReminder } from "@/hooks/useDailyReminder";
 import { useNativeBridge } from "@/hooks/useNativeBridge";
+import { useUserActivity } from "@/hooks/useUserActivity";
 import { NO_LICENSE } from "@/lib/native/bridge";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
@@ -286,6 +287,7 @@ export default function JournalLayout() {
   const openNoteId = isManagementView ? null : isDesktop ? activeTabId : noteId;
   const openNote = openNoteId ? notes.find((n) => n.docId === openNoteId) : undefined;
   useRecordRecentNote(openNoteId);
+  useUserActivity(openNoteId, openNote?.title);
   useDocumentTitle(
     openNoteId ? openNote?.title || "Untitled" : currentViewLabel,
   );
