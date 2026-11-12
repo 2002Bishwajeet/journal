@@ -85,6 +85,8 @@ jobs:
         env:
           SITE_URL: https://journal.cloudx.run
           VITE_BILLING_LIVE: 'false'
+          # The download page's installer links (#305): 'true' once desktop-release.yml has published a release.
+          VITE_DOWNLOADS_LIVE: 'false'
 
       # --branch is explicit: wrangler otherwise reads it from git, and the
       # detached tag checkout would land on a `head` preview alias.

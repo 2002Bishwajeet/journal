@@ -87,3 +87,15 @@ jobs:
     with:
       version: ${{ needs.release.outputs.version }}
     secrets: inherit
+
+  # Desktop installers and the updater manifest for this release (#305). Off until
+  # the signing secrets are set: `gh variable set DESKTOP_RELEASES --body true`.
+  desktop-release:
+    needs: release
+    if: vars.DESKTOP_RELEASES == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/desktop-release.yml
+    with:
+      tag: v${{ needs.release.outputs.version }}
+    secrets: inherit

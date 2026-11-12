@@ -15,6 +15,37 @@ In development, the iOS Simulator shares the host's loopback. So the desktop
 app and a Simulator build can't run at the same time: the second one to start
 now stops with that error instead of quietly serving from the first.
 
+## Desktop: build it yourself
+
+```bash
+npm ci
+npm run tauri:build   # the installers for this OS, in src-tauri/target/release/bundle/
+```
+
+It needs Rust and, on Linux, WebKitGTK (`libwebkit2gtk-4.1-dev`; see
+`.github/workflows/tauri.yml`). The app is named "Journal+" on desktop
+(`tauri.macos.conf.json`, `tauri.windows.conf.json`, `tauri.linux.conf.json`),
+because macOS ships its own Journal; `tauri.conf.json` keeps "Journal" for the
+generated iOS and Android projects. A local build is unsigned and has no
+updater bundles; it still checks for updates when it runs.
+
+## Desktop releases and updates
+
+`.github/workflows/desktop-release.yml` builds the signed and notarised
+universal macOS `.dmg`, the Windows NSIS and `.msi` installers (not code-signed
+yet) and the Linux AppImage and `.deb`, and attaches them to the app's
+`v<version>` GitHub release with `SHA256SUMS.txt`. Manual Release runs it once
+the repo variable `DESKTOP_RELEASES` is `true`; run it by hand with a tag to
+rebuild one release.
+
+The app checks `releases/latest/download/latest.json` at launch and daily
+(`update_loop` in `src/lib.rs`), downloads the update, and installs it when
+the user picks "Restart now". Updates are verified against `plugins.updater.pubkey`
+in `tauri.conf.json`. The private key is `~/.journal-keys/tauri-updater.key` on
+the owner's Mac (password in `tauri-updater.properties` next to it), and the
+release build signs with it through `tauri.release.conf.json`. Losing that key
+means installed apps can't update any more: keep a backup.
+
 ## iOS: `tauri ios build` fails with "Directory not empty"
 
 A second `npm run tauri ios build` can fail with `Directory not empty` after

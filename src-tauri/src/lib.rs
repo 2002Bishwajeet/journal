@@ -182,6 +182,67 @@ fn hide_form_accessory_bar() {
     }
 }
 
+/// Desktop auto-update (#1141). Checks the `plugins.updater` endpoint in
+/// tauri.conf.json at launch and then daily, downloads in the background, and
+/// installs only when the user picks "Restart now". The plugin refuses an
+/// update whose signature doesn't match the public key there. A failed check
+/// or download is a log line; the next check retries.
+#[cfg(desktop)]
+fn update_loop(app: tauri::AppHandle) {
+    std::thread::spawn(move || loop {
+        if let Err(e) = tauri::async_runtime::block_on(update(&app)) {
+            eprintln!("update check failed: {e}");
+        }
+        std::thread::sleep(std::time::Duration::from_secs(24 * 60 * 60));
+    });
+}
+
+#[cfg(desktop)]
+async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri_plugin_updater::UpdaterExt;
+
+    // On Linux only the AppImage replaces itself; a .deb is updated by
+    // installing the new one.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("APPIMAGE").is_none() {
+        return Ok(());
+    }
+    let Some(update) = app.updater()?.check().await? else {
+        return Ok(());
+    };
+    let bytes = update.download(|_, _| {}, || {}).await?;
+
+    // rfd's dialog has to run on the main thread once GTK's event loop owns
+    // it (see run()), and macOS wants UI on the main thread anyway.
+    const RESTART: &str = "Restart now";
+    let name = app.package_info().name.clone();
+    let version = update.version.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let result = rfd::MessageDialog::new()
+            .set_title(&name)
+            .set_description(format!(
+                "{name} {version} is ready. Restart to finish the update."
+            ))
+            .set_buttons(rfd::MessageButtons::OkCancelCustom(
+                RESTART.into(),
+                "Later".into(),
+            ))
+            .show();
+        let _ = tx.send(
+            result == rfd::MessageDialogResult::Ok
+                || result == rfd::MessageDialogResult::Custom(RESTART.into()),
+        );
+    })?;
+
+    if rx.recv()? {
+        // On Windows this starts the installer and exits the app.
+        update.install(bytes)?;
+        app.restart();
+    }
+    Ok(())
+}
+
 /// Shared entry point for every target.
 ///
 /// On desktop `main.rs` calls this directly. On mobile there is no `main` —
@@ -195,10 +256,14 @@ pub fn run() {
     // and never appears once the event loop owns GTK's main context.
     let servers = bind_loopback(PORT).unwrap_or_else(|e| abort_on_bind_failure(&e));
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         // journal.cloudx.run links (iOS Universal Links, Android App Links) and
         // journal:// links (desktop) open the app; useDeepLinks routes them.
-        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_deep_link::init());
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+
+    builder
         .setup(move |app| {
             // Installers register journal:// on Windows and Linux; this covers
             // dev builds and AppImages. macOS registers it from Info.plist.
@@ -225,7 +290,7 @@ pub fn run() {
             };
 
             let builder = WebviewWindowBuilder::new(app, "main", url)
-                .title("Journal")
+                .title(&app.package_info().name)
                 // Read by isNativeApp() in src/lib/native.ts. Main frame only:
                 // live-block iframes don't need to know.
                 .initialization_script(native_flag_script());
@@ -258,6 +323,11 @@ pub fn run() {
 
             #[cfg(target_os = "ios")]
             hide_form_accessory_bar();
+
+            #[cfg(desktop)]
+            if !tauri::is_dev() {
+                update_loop(app.handle().clone());
+            }
 
             Ok(())
         })
