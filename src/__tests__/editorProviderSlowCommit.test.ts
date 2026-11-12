@@ -29,7 +29,9 @@ vi.mock('@/hooks/useAISettings', () => ({
 const providerDocs = vi.hoisted(() => new Map<string, Y.Doc>());
 vi.mock('@/lib/yjs', () => ({
   PGliteProvider: class {
-    constructor(private docId: string, ydoc: Y.Doc) {
+    docId: string;
+    constructor(docId: string, ydoc: Y.Doc) {
+      this.docId = docId;
       providerDocs.set(docId, ydoc);
     }
     load() {
