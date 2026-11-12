@@ -1,6 +1,8 @@
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { useDailyReminderSettings } from "@/hooks/useDailyReminder";
 import { useDesktopNotifications } from "@/hooks/useDesktopNotifications";
 import { usePushNotifications, type PushStatus, type TestPush } from "@/hooks/usePushNotifications";
 import { SettingsRow } from "../SettingsRow";
@@ -28,6 +30,53 @@ function testPushText(testPush: TestPush): string {
   }
 }
 
+/** Native app only (a scheduler is registered): a nudge at a time the user picks, skipped on days they wrote. */
+function DailyReminderRows() {
+  const { available, prefs, denied, setEnabled, setTime, openSystemSettings } = useDailyReminderSettings();
+  if (!available) return null;
+
+  return (
+    <>
+      <SettingsRow
+        id="notifications-daily-reminder"
+        label="Daily reminder"
+        description="A gentle nudge to write. Skipped on days you already wrote."
+        control={<Switch checked={prefs.enabled} onCheckedChange={(on) => void setEnabled(on)} />}
+      />
+      {prefs.enabled && (
+        <SettingsRow
+          id="notifications-daily-reminder-time"
+          label="Reminder time"
+          control={
+            <Input
+              type="time"
+              className="min-h-11 w-32 md:min-h-0"
+              value={prefs.time}
+              onChange={(e) => setTime(e.target.value)}
+            />
+          }
+        />
+      )}
+      {denied && (
+        <SettingsRow
+          id="notifications-daily-reminder-denied"
+          label="Notifications are blocked"
+          description={
+            <span role="status" className="text-destructive dark:text-red-400">
+              Allow Journal to send notifications in your system settings, then turn the reminder on again.
+            </span>
+          }
+          control={
+            <Button variant="outline" size="sm" className="min-h-11 md:min-h-0" onClick={() => void openSystemSettings()}>
+              Open settings
+            </Button>
+          }
+        />
+      )}
+    </>
+  );
+}
+
 export default function NotificationsSection() {
   const desktopNotifications = useDesktopNotifications();
   const { status, busy, failed, turnOn, turnOff, testPush, sendTest } = usePushNotifications();
@@ -37,6 +86,7 @@ export default function NotificationsSection() {
 
   return (
     <div className="overflow-hidden rounded-xl border bg-card">
+      <DailyReminderRows />
       <SettingsRow
         id="notifications-push"
         label="Notify me when someone shares a note"

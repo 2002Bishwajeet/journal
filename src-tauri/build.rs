@@ -9,7 +9,13 @@ fn main() {
     // dependency doesn't work: Cargo reads its manifest even when it's off.
     println!("cargo:rustc-check-cfg=cfg(journal_premium)");
     println!("cargo:rerun-if-changed=../native");
-    let mut attributes = tauri_build::Attributes::new();
+    // set_style in lib.rs: the iOS status bar follows the in-app theme (#1080).
+    let mut attributes = tauri_build::Attributes::new().plugin(
+        "system-bars",
+        tauri_build::InlinedPlugin::new()
+            .commands(&["set_style"])
+            .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
+    );
     if Path::new("../native/rust/mod.rs").exists() {
         println!("cargo:rustc-cfg=journal_premium");
         // The premium plugins' commands (native/rust/plugins.txt, one plugin per line:

@@ -36,6 +36,12 @@
             "/open-shared"
           ],
           "appLink": true
+        },
+        {
+          "scheme": [
+            "journal"
+          ],
+          "appLink": false
         }
       ],
       "desktop": {
