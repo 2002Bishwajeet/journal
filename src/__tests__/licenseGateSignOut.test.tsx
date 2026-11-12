@@ -4,7 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createElement as h, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
-vi.mock('@/lib/billing', () => ({ licenseEnabled: () => true }));
+vi.mock('@/lib/billing', () => ({ billingEnabled: () => true }));
 vi.mock('@premium', () => ({
     LicenseGate: ({ onSignOut }: { onSignOut: () => void }) => h('button', { onClick: onSignOut }, 'Paywall sign out'),
 }));

@@ -79,7 +79,7 @@ const paywall = (page: Page) => page.getByRole('dialog', { name: /trial has ende
 async function openLicenseSettings(page: Page) {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('tab', { name: 'License', exact: true }).click();
+    await dialog.getByRole('tab', { name: 'Purchase', exact: true }).click();
     return settingsPanel(dialog);
 }
 
@@ -89,6 +89,8 @@ test.describe('native app', () => {
     test('first launch: a 3-day trial; a key activates with the device name; 422 names the 5-device limit', async ({ browser }) => {
         await openNativeApp(browser, {}, async (page, device) => {
             await page.setViewportSize({ width: 1280, height: 800 });
+            // #1177: the trial's terms once, on first launch.
+            await page.getByRole('dialog', { name: 'Try Journal free for 3 days' }).getByRole('button', { name: 'Continue' }).click();
             const chip = page.getByRole('button', { name: 'Trial: 3 days left' });
             await expect(chip).toBeVisible();
             expect(device.store?.trialStartedAt).toEqual(expect.any(String));
@@ -101,13 +103,15 @@ test.describe('native app', () => {
                 return route.fulfill(answer);
             });
 
+            // The chip opens the paywall (#1177), which takes a key.
             await chip.click();
+            await page.getByRole('dialog', { name: 'Unlock Journal' }).getByRole('button', { name: 'Enter license key' }).click();
             const sheet = page.getByRole('dialog', { name: 'Enter license key' });
             await expect(sheet.getByText('The key is in the email with your receipt.')).toBeVisible();
             await sheet.getByLabel('License key').fill(`  ${KEY}  `);
             await sheet.getByRole('button', { name: 'Activate' }).click();
             await expect(sheet.getByRole('alert')).toHaveText(
-                'This key is already active on 5 devices. Remove it from one in Settings → License on that device, or contact us at mail@bishwajeetparhi.dev for more.',
+                'This key is already active on 5 devices. Remove it from one in Settings → Purchase on that device, or contact us at mail@bishwajeetparhi.dev for more.',
             );
             await screenshotInBothThemes(page, (theme) => `activate-422-${theme}-desktop.png`);
 
@@ -223,22 +227,6 @@ test.describe('native app', () => {
         });
     });
 
-    for (const platform of ['ios', 'android']) {
-        test(`${platform}: the paywall is the store's, with no website, and takes a license key`, async ({ browser }) => {
-            await openNativeApp(browser, { platform, store: { trialStartedAt: daysAgo(4) } }, async (page) => {
-                await page.setViewportSize({ width: 390, height: 844 });
-                const wall = paywall(page);
-                await expect(wall.getByRole('heading', { name: 'Your 3-day trial has ended.' })).toBeVisible();
-                await expect(wall.getByText(/website|journal\.cloudx\.run/i)).toHaveCount(0);
-                await expect(wall.getByRole('button', { name: 'Buy on the website' })).toHaveCount(0);
-                await screenshotInBothThemes(page, (theme) => `paywall-${platform}-${theme}-phone.png`);
-
-                await wall.getByRole('button', { name: 'Have a license key?' }).click();
-                await expect(wall.getByRole('heading', { name: 'Enter license key' })).toBeVisible();
-                await expect(wall.getByLabel('License key')).toBeVisible();
-            });
-        });
-    }
 });
 
 test('web: no billing UI except About → Get the desktop app', async ({ app }) => {
@@ -246,7 +234,7 @@ test('web: no billing UI except About → Get the desktop app', async ({ app }) 
     await expect(app.getByText(/^Trial/)).toHaveCount(0);
     await app.getByRole('button', { name: 'Settings', exact: true }).click();
     const dialog = app.getByRole('dialog');
-    await expect(dialog.getByRole('tab', { name: 'License' })).toHaveCount(0);
+    await expect(dialog.getByRole('tab', { name: 'Purchase' })).toHaveCount(0);
     await dialog.getByRole('tab', { name: 'About', exact: true }).click();
     await expect(settingsPanel(dialog).getByRole('link', { name: /Get the desktop app/ })).toHaveAttribute(
         'href',

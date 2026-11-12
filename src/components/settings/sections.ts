@@ -12,7 +12,7 @@ import ShortcutsSection from "./sections/ShortcutsSection";
 import AboutSection from "./sections/AboutSection";
 import DiagnosticsSection from "./sections/DiagnosticsSection";
 import { LicenseSection } from "@/components/license/License";
-import { licenseEnabled } from "@/lib/billing";
+import { billingEnabled } from "@/lib/billing";
 
 export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "security" | "data" | "license" | "shortcuts" | "about" | "diagnostics";
 
@@ -84,11 +84,11 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   },
   {
     id: "license",
-    label: "License",
-    description: "Your license key and updates",
+    label: "Purchase",
+    description: "Your purchase, Restore and license key",
     icon: KeyRound,
     Component: LicenseSection,
-    hidden: !licenseEnabled(),
+    hidden: !billingEnabled(),
   },
   {
     id: "shortcuts",
