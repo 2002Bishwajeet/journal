@@ -26,13 +26,12 @@ test('archive a note, find it in Archive, unarchive it and open it again', async
     await page.getByRole('dialog', { name: title, exact: true }).getByRole('menuitem', { name: 'Archive', exact: true }).tap();
     await expect.poll(() => pathOf(page)).not.toBe(notePath);
 
-    // Back returns to the archived note's URL: it says so and offers a way out, it does not spin.
+    // Back leaves the archived note behind: it never reopens it, spins, or says "not found".
     await page.goBack();
-    await expect.poll(() => pathOf(page)).toBe(notePath);
-    await expect(page.getByText('Note not found')).toBeVisible();
+    await expect.poll(() => pathOf(page)).not.toBe(notePath);
+    await expect(page.getByText('Note not found')).toHaveCount(0);
     await expect(page.getByText('Looking for this note…')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Back to list' }).tap();
-    await page.getByRole('button', { name: 'Back to notes' }).tap();
+    await expect.poll(() => pathOf(page)).toBe('/');
     await page.getByRole('complementary', { name: 'Sidebar' }).getByRole('button', { name: /^Archive/ }).tap();
     await expect(archivedRow(page, title)).toBeVisible();
     await archivedRow(page, title).click({ button: 'right' });
