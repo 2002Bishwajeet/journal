@@ -29,6 +29,8 @@ import {
 import { useTrayNewNote } from "@/hooks/useTrayNewNote";
 import { useQuitShortcut } from "@/hooks/useQuitShortcut";
 import { LicenseGate } from "@/components/license/License";
+import { ReadOnlyBanner } from "@/components/license/ReadOnlyBanner";
+import { useCanEditAnswer } from "@/hooks/useCanEdit";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useLayoutEffect, lazy, Suspense, useMemo, useCallback } from "react";
 import { routeRendered, slideNavigate } from "@/lib/navDirection";
@@ -126,7 +128,11 @@ export default function JournalLayout() {
     deleteFolder: { mutate: deleteFolder },
   } = useFolders();
 
-  const { openToday } = useDailyNote();
+  const { openToday, findToday } = useDailyNote();
+  // Read-only (#1176): no New note button, daily note, share dialog or share request prompt.
+  // undefined while the native app reads its entitlement.
+  const canEditAnswer = useCanEditAnswer();
+  const canEdit = canEditAnswer !== false;
 
   // Tab management, kept in sync with the URL
   const {
@@ -142,7 +148,7 @@ export default function JournalLayout() {
   useSessionPersistence();
 
   // Homebase sync - auto-syncs on mount and focus
-  useSyncService();
+  const { pendingCount } = useSyncService();
 
   // Subscribe to each connection's Journal peer push
   usePeerPushSubscriptions();
@@ -186,6 +192,7 @@ export default function JournalLayout() {
       setShowSearch(open);
     },
     openToday: () => handleOpenToday(),
+    canEdit: canEditAnswer,
     openCollaborate: setShareNote,
   });
 
@@ -228,18 +235,23 @@ export default function JournalLayout() {
     setSidebarRequested(false);
   };
 
-  // Daily notes ("Today"): open/create today's note, then route to it.
+  // Daily notes ("Today"): open/create today's note, then route to it. Read-only (#1176)
+  // creates nothing: only an existing note opens, else home.
   const handleOpenToday = useCallback(async () => {
     try {
-      const { docId, folderId: dailyFolderId } = await openToday();
-      const path = `/${dailyFolderId}/${docId}`;
+      const note = canEdit ? await openToday() : await findToday();
+      if (!note) {
+        navigate("/", { replace: true });
+        return;
+      }
+      const path = `/${note.folderId}/${note.docId}`;
       // Already there: a push would make Back need two presses.
       if (path !== location.pathname) navigate(path, { viewTransition: true, replace: sidebarOverlayOpen });
       setSidebarRequested(false);
     } catch {
       toast.error("Couldn't open today's note");
     }
-  }, [openToday, navigate, location.pathname, sidebarOverlayOpen, setSidebarRequested]);
+  }, [canEdit, openToday, findToday, navigate, location.pathname, sidebarOverlayOpen, setSidebarRequested]);
 
   useTrayNewNote(noteActions.createAndOpen, folderId);
   useQuitShortcut();
@@ -250,7 +262,7 @@ export default function JournalLayout() {
     onKeyboardHelp: () => setShowKeyboardHelp(true),
     // No editor to focus in a management view — would just blank the screen.
     onFocusMode: () => setFocusMode((prev) => (isManagementView ? false : !prev)),
-    onDailyNote: handleOpenToday,
+    onDailyNote: canEdit ? handleOpenToday : undefined,
     onEscape: inFocusMode ? () => setFocusMode(false) : undefined,
   });
 
@@ -436,10 +448,14 @@ export default function JournalLayout() {
           onRemoveFromList: removeSharedNote,
         }}
         notice={
-          <ShareRequestNotice
-            note={openNote}
-            onReview={setShareNote}
-          />
+          canEdit ? (
+            <ShareRequestNotice
+              note={openNote}
+              onReview={setShareNote}
+            />
+          ) : (
+            <ReadOnlyBanner />
+          )
         }
       />
 
@@ -457,7 +473,7 @@ export default function JournalLayout() {
         </div>
       )}
 
-      {showFab && <NewNoteFab onClick={() => void noteActions.createAndOpen(folderId)} />}
+      {showFab && canEdit && <NewNoteFab onClick={() => void noteActions.createAndOpen(folderId)} />}
       {showTabBar && (
         <MobileTabBar
           activeTab={tabs.activeTab}
@@ -520,9 +536,9 @@ export default function JournalLayout() {
       <WhatsNewDialog entries={whatsNew.entries} onClose={whatsNew.close} />
 
       {/* Native app: the paywall once the trial ends, and the Enter license key screen (#301). */}
-      <LicenseGate onSignOut={logout} />
+      <LicenseGate onSignOut={logout} pendingTotal={pendingCount.total + pendingCount.failed} />
 
-      {shareNote && (
+      {shareNote && canEdit && (
         <Suspense fallback={null}>
           <ShareNoteDialog
             isOpen={!!shareNote}

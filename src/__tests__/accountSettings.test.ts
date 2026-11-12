@@ -96,6 +96,17 @@ describe('Account settings', () => {
         expect(host.textContent).not.toContain('waiting');
     });
 
+    it('leads with "Last synced" on a phone, where the row is one line (#1182)', async () => {
+        window.__JOURNAL_NATIVE__ = { platform: 'ios' };
+        try {
+            await render(0);
+            expect(host.textContent).toContain('Last synced');
+            expect(host.textContent).not.toContain('Up to date');
+        } finally {
+            window.__JOURNAL_NATIVE__ = undefined;
+        }
+    });
+
     it('uses the singular for one pending change', async () => {
         await render(1);
         expect(host.textContent).toContain('1 change waiting to sync');

@@ -50,6 +50,7 @@ import { useLargeTitle } from "@/hooks/useLargeTitle";
 import { BarTitle, LargeTitle } from "./LargeTitle";
 import { MobileSyncPill } from "./MobileSyncPill";
 import { largeTitleBarClass } from "./largeTitleClasses";
+import { useCanEdit } from "@/hooks/useCanEdit";
 
 interface SidebarProps {
   folders: Folder[];
@@ -128,6 +129,8 @@ export default function Sidebar({
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { sync, pendingCount } = useSyncService();
   const hasShared = collaborativeCount != null && collaborativeCount > 0;
+  // Read-only (#1176): folders and tags open, but nothing creates, renames, shares or deletes them.
+  const canEdit = useCanEdit();
 
   const handleRefresh = async () => {
     // The folder list is a live query — a sync pull surfaces new folders automatically.
@@ -154,7 +157,7 @@ export default function Sidebar({
       </div>
 
       {/* Quick actions */}
-      {FEATURES.dailyNotes && (
+      {FEATURES.dailyNotes && canEdit && (
         <div className="px-2 pb-2 space-y-1">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -336,25 +339,27 @@ export default function Sidebar({
                   Folders
                 </button>
               )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="New folder"
-                    className={cn(
-                      "shrink-0",
-                      isCollapsed
-                        ? "size-9 rounded-lg border border-dashed border-sidebar-border text-muted-foreground hover:border-solid hover:text-foreground"
-                        : "h-6 w-6 pointer-coarse:size-11"
-                    )}
-                    onClick={onCreateFolder}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">New folder</TooltipContent>
-              </Tooltip>
+              {canEdit && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="New folder"
+                      className={cn(
+                        "shrink-0",
+                        isCollapsed
+                          ? "size-9 rounded-lg border border-dashed border-sidebar-border text-muted-foreground hover:border-solid hover:text-foreground"
+                          : "h-6 w-6 pointer-coarse:size-11"
+                      )}
+                      onClick={onCreateFolder}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">New folder</TooltipContent>
+                </Tooltip>
+              )}
             </div>
 
             {isCollapsed && <Separator className="mx-auto my-2 w-6!" />}
@@ -365,7 +370,7 @@ export default function Sidebar({
               className={isCollapsed ? "flex flex-col items-center gap-1.5" : "space-y-0.5"}
             >
               {folders.map((folder) => {
-                const folderMenuItems: ContextMenuItemConfig[] = [
+                const folderMenuItems: ContextMenuItemConfig[] = !canEdit ? [] : [
                   ...(folder.id !== MAIN_FOLDER_ID
                     ? [
                         { label: "Rename Folder", icon: Pencil, action: () => onRenameFolder?.(folder.id) },
@@ -436,7 +441,7 @@ export default function Sidebar({
                           </TooltipContent>
                         )}
                       </Tooltip>
-                      {!isCollapsed && (
+                      {!isCollapsed && canEdit && (
                         <RowOptionsMenu items={folderMenuItems} label="Folder options" />
                       )}
                     </div>
@@ -472,7 +477,7 @@ export default function Sidebar({
                 >
                   {tags.map(tag => (
                     <ContextMenu key={tag}>
-                      <ContextMenuTrigger asChild>
+                      <ContextMenuTrigger asChild disabled={!canEdit}>
                         <Button
                           variant={selectedTag === tag ? "secondary" : "ghost"}
                           className={cn(

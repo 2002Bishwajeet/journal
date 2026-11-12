@@ -37,6 +37,7 @@ import { useIntersection } from "@/hooks/useIntersection";
 import { haptic } from "@/lib/haptics";
 import { useLargeTitle } from "@/hooks/useLargeTitle";
 import { useSwipeRow } from "@/hooks/useSwipeRow";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { BarTitle, LargeTitle } from "./LargeTitle";
 import { FILL_EMPTY_VIEWPORT, largeTitleBarClass } from "./largeTitleClasses";
 
@@ -94,6 +95,8 @@ export default function NoteList({
   barStatus,
 }: NoteListProps) {
   const largeTitle = useLargeTitle(!!title);
+  // Read-only (#1176): no New, no row actions but export; rows still open.
+  const canEdit = useCanEdit();
   const isEmpty = !isLoading && notes.length === 0;
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"modified" | "created" | "title">(
@@ -285,7 +288,7 @@ export default function NoteList({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {showNewButton && (
+          {showNewButton && canEdit && (
             <Button size="sm" onClick={onCreateNote} className="relative h-7 text-xs after:absolute after:inset-x-0 after:-inset-y-2">
               <Plus className="h-3.5 w-3.5 mr-1" />
               New
@@ -314,9 +317,11 @@ export default function NoteList({
             emptyState ?? <div className="flex flex-col items-center justify-center h-48 px-4 text-center">
               <FileText className="h-10 w-10 text-muted-foreground/70 mb-3" />
               <p className="text-sm text-muted-foreground mb-2">No notes yet</p>
-              <Button variant="link" size="sm" onClick={onCreateNote}>
-                Create your first note
-              </Button>
+              {canEdit && (
+                <Button variant="link" size="sm" onClick={onCreateNote}>
+                  Create your first note
+                </Button>
+              )}
             </div>
           ) : (
             <div className="pt-2 pb-[calc(0.5rem+var(--fab-clearance,0px))] w-full space-y-4">
@@ -356,6 +361,7 @@ export default function NoteList({
                           onTogglePin={handleTogglePin}
                           onRemoveFromList={onRemoveFromList}
                           onArchive={onArchive}
+                          canEdit={canEdit}
                         />
                       ))}
                     </div>
@@ -400,6 +406,7 @@ const NoteItem = memo(function NoteItem({
   onTogglePin,
   onRemoveFromList,
   onArchive,
+  canEdit,
 }: {
   note: NoteListEntry;
   isSwiped: boolean;
@@ -412,6 +419,7 @@ const NoteItem = memo(function NoteItem({
   onTogglePin: (id: string, isPinned: boolean) => void;
   onRemoveFromList?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
+  canEdit: boolean;
 }) {
   const dotYouClient = useDotYouClientContext();
   const { rowRef, contentRef, actionRef, touchHandlers } = useSwipeRow(note.docId, isSwiped, onSwipeChange);
@@ -430,6 +438,7 @@ const NoteItem = memo(function NoteItem({
 
   const menuItems = buildNoteMenuItems(note, {
     isPeerNote,
+    canEdit,
     dotYouRoot: dotYouClient.getRoot(),
     handlers: { onTogglePin, onShare: onShareNote, onMoveToFolder, onRemoveFromList, onArchive, onTrash: onDeleteNote, onOpen: onSelectNote },
   });
@@ -456,6 +465,7 @@ const NoteItem = memo(function NoteItem({
           >
             <button
               aria-label="Move to Trash"
+              disabled={!canEdit}
               className="w-full h-full flex items-center justify-center active:scale-110 transition-transform duration-(--duration-press) ease-(--ease-standard)"
               onClick={(e) => {
                 e.stopPropagation();
@@ -483,7 +493,7 @@ const NoteItem = memo(function NoteItem({
                 onSelectNote(note.docId);
               }
             }}
-            {...touchHandlers}
+            {...(canEdit ? touchHandlers : {})}
             className={cn(
               "press-row relative grid grid-cols-1 w-full px-4 py-3.5 text-left bg-background group cursor-pointer outline-none focus:bg-accent select-none",
               "hover:bg-accent",

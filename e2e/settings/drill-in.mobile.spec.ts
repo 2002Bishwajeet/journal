@@ -5,9 +5,10 @@ import { withMobilePage } from '../support/mobile';
 
 // #831: on a phone, Settings is a grouped section list that drills into one page per section.
 
-const SECTIONS = ['Account', 'Appearance', 'AI', 'Agent access', 'Notifications', 'Data & storage', 'Diagnostics', 'About'];
+const SECTIONS = ['Account', 'Appearance', 'Notifications', 'Data & storage', 'Agent access', 'About'];
 
-const sectionRow = (dialog: Locator, name: string) => dialog.getByRole('listitem').getByRole('button', { name, exact: true });
+const sectionRow = (dialog: Locator, name: string) =>
+  dialog.getByRole('listitem').getByRole('button', name === 'Account' ? { name: /^Account/ } : { name, exact: true });
 const overlayCount = (page: Page) => page.evaluate(() => history.state?.usr?.overlays?.length ?? 0);
 const animationsDone = (page: Page) => page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
 
@@ -88,7 +89,7 @@ test('openSettings from the sync status opens Diagnostics with the list undernea
     await expect.poll(() => overlayCount(page)).toBe(2);
     await page.goBack();
     await expect(dialog.getByRole('region')).toHaveCount(0);
-    await expect(sectionRow(dialog, 'Diagnostics')).toBeVisible();
+    await expect(sectionRow(dialog, 'About')).toBeVisible();
     await page.goBack();
     await expect(dialog).toBeHidden();
     expect(page.url()).toBe(noteListRoute);

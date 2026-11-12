@@ -2,6 +2,8 @@ import { useState, type ComponentProps } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
+import { isNativeSettings } from "@/lib/settingsPlatform";
 import { useFolders } from "@/hooks/useFolders";
 import { useNotesByFolder } from "@/hooks/useNotes";
 import {
@@ -153,6 +155,8 @@ export default function AgentAccessSection() {
   const { grants, isLoaded, setFolder, setNote, setAllowShareRequests } = useAgentGrants();
   const { data: folders } = useFolders().get;
   const webMcp = useWebMcpSetting();
+  // The app's web view has no browser agent.
+  const native = isNativeSettings(useSettingsPlatform());
 
   return (
     <div className="space-y-10">
@@ -204,7 +208,7 @@ export default function AgentAccessSection() {
         </div>
       )}
 
-      {webMcp.supported && (
+      {webMcp.supported && !native && (
         <div className="space-y-4">
           <SectionHeader>Browser agent</SectionHeader>
           <div className="overflow-hidden rounded-xl border bg-card">
