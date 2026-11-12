@@ -3,6 +3,7 @@
 // them and drains the actions they queue. The schema is bridgeSchema.json; the native
 // writers (iOS #1097, Android #1125) only move the bytes.
 import { invokeNative } from '@/lib/native';
+import { clearDockMenu } from '@/lib/native/dockMenu';
 import { localDateKey } from '@/lib/reminderSchedule';
 
 /** The premium Tauri plugin that writes the snapshot and holds the action queue. */
@@ -117,13 +118,13 @@ export type BridgePurgeReason = 'hidden' | 'sign-out' | 'account-switch';
 
 /**
  * The `bridge:purge` event: the native bridge drops everything it exposed (snapshot,
- * Spotlight index, Jump List, dynamic shortcuts, watch caches) at once. Sent when notes
- * stop being visible outside the app, on sign-out and on an account switch. Does nothing
+ * Spotlight index, Jump List, Dock menu, dynamic shortcuts, watch caches) at once. Sent when
+ * notes stop being visible outside the app, on sign-out and on an account switch. Does nothing
  * without the bridge plugin (the web, the public build).
  */
 export async function emitBridgePurge(reason: BridgePurgeReason): Promise<void> {
     try {
-        await invokeNative(BRIDGE_PLUGIN, 'bridge_wipe', { reason });
+        await Promise.all([invokeNative(BRIDGE_PLUGIN, 'bridge_wipe', { reason }), clearDockMenu()]);
     } catch (err) {
         console.warn('[bridge] Purge failed:', err);
     }
