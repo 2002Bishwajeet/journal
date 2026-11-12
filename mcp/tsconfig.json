@@ -20,6 +20,7 @@
 
     "paths": {
       "@/*": ["../src/*"],
+      "@premium": ["../src/lib/premiumStub.ts"],
       "@2002bishwajeet/live-blocks/*": ["../packages/live-blocks/src/*"]
     },
 

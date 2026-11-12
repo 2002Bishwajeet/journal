@@ -20,6 +20,13 @@ export function quitApp(): Promise<void> {
     return Promise.resolve();
 }
 
+/** Desktop only: shows an OS notification. Resolves false when it could not be shown. */
+export function notifyDesktop(title: string, body: string): Promise<boolean> {
+    void title;
+    void body;
+    return Promise.resolve(false);
+}
+
 /** One-way copy of every note as a .md file into a folder the user picks (#1015). Desktop only. */
 export interface NotesMirror {
     /** The folder the notes are mirrored into, or null while the mirror is off. */

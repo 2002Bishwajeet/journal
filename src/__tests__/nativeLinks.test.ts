@@ -7,7 +7,7 @@ const invoke = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 
 const setPlatform = (platform: NativePlatform | null) => {
-  if (platform) window.__JOURNAL_NATIVE__ = { platform };
+  if (platform) window.__JOURNAL_NATIVE__ = { platform, plugins: [] };
   else delete window.__JOURNAL_NATIVE__;
 };
 

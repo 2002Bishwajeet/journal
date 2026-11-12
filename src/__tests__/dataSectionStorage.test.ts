@@ -43,7 +43,7 @@ describe('DataSection storage status', () => {
         vi.stubGlobal('navigator', {
             storage: { persisted: vi.fn().mockResolvedValue(false), persist: vi.fn() },
         });
-        window.__JOURNAL_NATIVE__ = { platform: 'ios' };
+        window.__JOURNAL_NATIVE__ = { platform: 'ios', plugins: [] };
         const text = await renderText();
         expect(text).toContain('Stored in the app on this device');
         expect(text).not.toContain('Protected from browser cleanup');

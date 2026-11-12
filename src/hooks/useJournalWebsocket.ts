@@ -2,7 +2,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import type { DotYouClient, TypedConnectionNotification, ClientFileNotification } from '@homebase-id/js-lib/core';
 import { drivesEqual } from '@homebase-id/js-lib/helpers';
 import { useWebsocketSubscriber } from './useWebsocketSubscriber';
-import { toast } from 'sonner';
+import { notifyNative } from '@/lib/notifyNative';
 import {
     JOURNAL_DRIVE,
     JOURNAL_FILE_TYPE,
@@ -59,7 +59,7 @@ export const useJournalWebsocket = ({ isEnabled, syncService, onReconnect }: Use
                         try {
                             const invite = typeof content === 'string' ? JSON.parse(content) : content;
                             if (invite.authorOdinId && invite.noteTitle) {
-                                toast(`${invite.authorOdinId.split('.')[0]} shared "${invite.noteTitle}" with you`);
+                                void notifyNative(`${invite.authorOdinId.split('.')[0]} shared "${invite.noteTitle}" with you`, '', '/');
                             }
                         } catch { /* ignore parse errors for toast */ }
                     }

@@ -1,3 +1,11 @@
 include ':app'
 
+// Paid features from the optional private submodule native/ (src-tauri/README.md).
+// app/build.gradle.kts depends on it only when it's included here.
+def premium = file('../../../native/android/premium')
+if (premium.isDirectory()) {
+    include ':journal-premium'
+    project(':journal-premium').projectDir = premium
+}
+
 apply from: 'tauri.settings.gradle'

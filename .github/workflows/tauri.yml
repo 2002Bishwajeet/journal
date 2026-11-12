@@ -25,6 +25,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The private native/ submodule is never checked out here, so this job
+      # proves the shell builds without the premium code.
+      - name: native/ is absent
+        run: test -z "$(ls -A ../native)"
+
       - name: Install WebKitGTK and GTK
         run: |
           sudo apt-get update

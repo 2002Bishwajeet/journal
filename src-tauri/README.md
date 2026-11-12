@@ -15,6 +15,37 @@ In development, the iOS Simulator shares the host's loopback. So the desktop
 app and a Simulator build can't run at the same time: the second one to start
 now stops with that error instead of quietly serving from the first.
 
+## With and without the premium code
+
+Paid native features live in the private repo `journal-native-features`,
+mounted as the optional submodule `native/`. A normal clone doesn't fetch it,
+and every build below works the same without it:
+
+- **Without it** (the public build): `build.rs` finds no `native/rust/mod.rs`,
+  so `lib.rs` uses a no-op `premium::register`, `window.__JOURNAL_NATIVE__.plugins`
+  is `[]`, `@premium` is `src/lib/premiumStub.ts`, and the Android and iOS
+  projects get no premium module or targets.
+- **With it** (`git submodule update --init native`, needs access to the private
+  repo): `build.rs` sets `cfg(journal_premium)`, compiles `native/rust/mod.rs` as
+  `mod premium`, and makes a `<plugin>:default` permission for each plugin in
+  `native/rust/plugins.txt`, which the plugin grants to the main window. The web
+  sees the plugin names in `window.__JOURNAL_NATIVE__.plugins`:
+  `hasNativePlugin('premium')` is true and `invokeNative('premium', 'ping')`
+  resolves to `"pong"` (`src/lib/native.ts`). `tauri dev`, `tauri build` and
+  `tauri ios build` pick it up with no flag, since it's the same Cargo build.
+
+On Android, `gen/android/settings.gradle` includes `:journal-premium` from
+`native/android/premium` when that folder exists, and `app` depends on it then.
+On iOS, `npm run tauri:ios:init` ends with `npm run native:ios:targets`, which
+runs `native/scripts/apple-targets.rb` (needs `gem install xcodeproj`): it adds
+the extension targets in `native/apple/targets.json` and the App Group
+`group.id.biswa.journal` to the app. It's safe to run again, and without
+`native/` it only prints a message.
+
+Check both builds before a PR that touches either side: `npm run build` and
+`cargo test` here, with `native/` checked out and with it moved aside. Public CI
+always builds without it; the private repo's CI builds it inside journal.
+
 ## Sign-in and external links
 
 The app's web view never shows other sites (#1188). `src/lib/native.ts` routes them:

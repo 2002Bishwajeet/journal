@@ -13,7 +13,7 @@ describe('isNativeApp', () => {
   });
 
   it.each(['macos', 'windows', 'linux', 'ios', 'android'] as const)('is true with the platform the shell set (%s)', (platform) => {
-    window.__JOURNAL_NATIVE__ = { platform };
+    window.__JOURNAL_NATIVE__ = { platform, plugins: [] };
     expect(isNativeApp()).toBe(true);
     expect(nativePlatform()).toBe(platform);
   });
@@ -29,7 +29,7 @@ describe('publicOrigin', () => {
   });
 
   it.each(['macos', 'windows', 'linux', 'ios', 'android'] as const)('is journal.cloudx.run in the native app, not its localhost origin (%s)', (platform) => {
-    window.__JOURNAL_NATIVE__ = { platform };
+    window.__JOURNAL_NATIVE__ = { platform, plugins: [] };
     expect(publicOrigin()).toBe('https://journal.cloudx.run');
   });
 });
