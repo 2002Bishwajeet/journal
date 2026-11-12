@@ -19,8 +19,10 @@ let host: HTMLDivElement;
 let root: Root;
 const result = { current: null as unknown as ReturnType<typeof useLaunchAtLogin> };
 
+const capture = (value: ReturnType<typeof useLaunchAtLogin>) => { result.current = value; };
+
 function Probe() {
-    result.current = useLaunchAtLogin();
+    capture(useLaunchAtLogin());
     return null;
 }
 
