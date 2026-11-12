@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
+import { isNativeApp } from "@/lib/native";
 
 export interface StorageInfo {
     /** Bytes this origin is using (IndexedDB, caches, …), or null if unknown. */
     usage: number | null;
     /** Bytes the browser will let this origin use, or null if unknown. */
     quota: number | null;
-    /** Whether the browser promised not to evict this origin's data, or null if unknown. */
+    /** Whether the browser promised not to evict this origin's data, or null if unknown or in the app. */
     persisted: boolean | null;
+    /** True in the native app, where the app keeps the data and browser eviction rules don't apply. */
+    appManaged: boolean;
     /** Ask the browser for persistent storage; resolves to whether it was granted. */
     requestPersist: () => Promise<boolean>;
 }
@@ -31,6 +34,7 @@ export function useStorageInfo(): StorageInfo {
         quota: null,
     });
     const [persisted, setPersisted] = useState<boolean | null>(null);
+    const appManaged = isNativeApp();
 
     useEffect(() => {
         const storage = navigator.storage;
@@ -40,15 +44,18 @@ export function useStorageInfo(): StorageInfo {
                 if (!cancelled) setEstimate({ usage: usage ?? null, quota: quota ?? null });
             })
             .catch(() => {});
-        storage?.persisted?.()
-            .then((value) => {
-                if (!cancelled) setPersisted(value);
-            })
-            .catch(() => {});
+        // The app keeps its own data; the browser's eviction promise means nothing there.
+        if (!appManaged) {
+            storage?.persisted?.()
+                .then((value) => {
+                    if (!cancelled) setPersisted(value);
+                })
+                .catch(() => {});
+        }
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [appManaged]);
 
     const requestPersist = async () => {
         if (!navigator.storage?.persist) return false;
@@ -57,5 +64,5 @@ export function useStorageInfo(): StorageInfo {
         return granted;
     };
 
-    return { ...estimate, persisted, requestPersist };
+    return { ...estimate, persisted, appManaged, requestPersist };
 }
