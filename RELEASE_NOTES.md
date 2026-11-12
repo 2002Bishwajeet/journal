@@ -16,6 +16,13 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.66.9 (2026-11-12)
+
+### Fixed
+
+- After you archive the open note, Back goes to the screen you were on before. Before, Back showed "Note not found".
+- In the iOS app, the sidebar shows your profile photo. Before, it showed only your initials.
+
 ## 2.66.8 (2026-11-11)
 
 ### New

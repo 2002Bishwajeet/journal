@@ -5,6 +5,7 @@ import { useFolderSharing } from '@/hooks/useFolderSharing';
 import { useFolderCardImage } from '@/hooks/useFolderCardImage';
 import { usePublicAuthor } from '@/hooks/usePublicAuthor';
 import { folderShareUrl } from '@/lib/share/sharedFolder';
+import { publicOrigin } from '@/lib/native';
 import { folderShareDescription } from '../../functions/_lib/folderShare';
 
 /** State and actions of the Share folder dialog (#631). */
@@ -39,7 +40,7 @@ export function useShareFolderDialog(folder: { id: string; name: string; isPubli
     }, [folderId, isPublic, toShare]);
     const cardImage = useFolderCardImage(folder, isPublic ? publicCount : toShare);
 
-    const url = folder ? folderShareUrl(window.location.origin, identity, folder.id) : '';
+    const url = folder ? folderShareUrl(publicOrigin(), identity, folder.id) : '';
     // The same text the folder page serves as og:description.
     const description = folder ? folderShareDescription(folder.name, author.name) : '';
 
