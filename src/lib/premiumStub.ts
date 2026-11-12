@@ -83,3 +83,28 @@ export interface QuickCapture {
 }
 
 export const quickCapture: QuickCapture | null = null;
+
+/** What can unlock the native app (#1173): the App Store, Google Play or a license key. */
+export type EntitlementSource = 'appStore' | 'play' | 'licenseKey';
+
+export type EntitlementStatus = 'unlocked' | 'trial' | 'trial-not-started' | 'locked' | 'offline-expired';
+
+/** Whether this app may be used to write, and why. The public build is always unlocked. */
+export interface Entitlement {
+    /** Undefined while the native app reads its sources (canEdit stays true meanwhile). */
+    status: EntitlementStatus | undefined;
+    /** True while unlocked or in the trial. */
+    canEdit: boolean;
+    unlockedBy?: EntitlementSource;
+    trialEndsAt?: string;
+    /** Set only when a license key unlocks: its year of updates ends here. */
+    updatesUntil?: string;
+    /** Reads every source again. */
+    refresh(): Promise<void>;
+}
+
+const UNLOCKED: Entitlement = { status: 'unlocked', canEdit: true, refresh: () => Promise.resolve() };
+
+export function useEntitlement(): Entitlement {
+    return UNLOCKED;
+}
