@@ -314,14 +314,15 @@ export async function runAgent(request: string, options: RunAgentOptions): Promi
             const isHeading = (block: { type: string }) => /^h\d$/.test(block.type);
             const long = all.reduce((sum, block) => sum + block.text.length, 0) > noteLength && all.some(isHeading);
             // A short note on a question is read on request, as before.
-            if (!long && !canEdit) throw new Error('read on request');
-            if (long) outlined.add(editor.get()!.docId);
-            const blocks = formatToolResult(
-                readOpenNote.name,
-                long ? { data: all.filter((block, i) => i === 0 || isHeading(block)), notes: [READ_A_SECTION] } : { data: all }
-            );
-            history.push({ role: 'assistant', content: JSON.stringify({ tool: readOpenNote.name, args: {} }) }, { role: 'user', content: `Result of ${readOpenNote.name}: ${blocks}` });
-            seen.set(callKey(readOpenNote.name, {}), 0);
+            if (long || canEdit) {
+                if (long) outlined.add(editor.get()!.docId);
+                const blocks = formatToolResult(
+                    readOpenNote.name,
+                    long ? { data: all.filter((block, i) => i === 0 || isHeading(block)), notes: [READ_A_SECTION] } : { data: all }
+                );
+                history.push({ role: 'assistant', content: JSON.stringify({ tool: readOpenNote.name, args: {} }) }, { role: 'user', content: `Result of ${readOpenNote.name}: ${blocks}` });
+                seen.set(callKey(readOpenNote.name, {}), 0);
+            }
         } catch {
             // No note open, or one the agent can't edit: the edit tools say so if the model calls one.
         }
