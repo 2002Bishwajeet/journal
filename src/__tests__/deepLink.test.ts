@@ -15,6 +15,7 @@ describe('deepLinkRoute', () => {
         [`journal:///share/alice.dotyou.cloud/${NOTE}`, `/share/alice.dotyou.cloud/${NOTE}`],
         [`journal://save-shared?identity=alice.dotyou.cloud&file=${NOTE}`, `/save-shared?identity=alice.dotyou.cloud&file=${NOTE}`],
         ['journal://auth/finalize?identity=alice.dotyou.cloud&public_key=k&salt=s&state=%2F', '/auth/finalize?identity=alice.dotyou.cloud&public_key=k&salt=s&state=%2F'],
+        ['journal://today', '/today'],
     ])('opens %s at %s', (link, route) => {
         expect(deepLinkRoute(link)).toBe(route);
     });
@@ -26,6 +27,7 @@ describe('deepLinkRoute', () => {
         ['the landing pages', 'https://journal.cloudx.run/landing/agents'],
         ['the auth callback', 'https://journal.cloudx.run/auth/finalize?code=1'],
         ['another auth path', 'journal://auth/other?code=1'],
+        ['today on the web', 'https://journal.cloudx.run/today'],
         ['the home page', 'https://journal.cloudx.run/'],
         ['another host', `https://evil.example/share/alice.dotyou.cloud/${NOTE}`],
         ['a lookalike host', `https://journal.cloudx.run.evil.example/share/alice.dotyou.cloud/${NOTE}`],

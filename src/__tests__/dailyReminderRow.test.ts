@@ -71,6 +71,19 @@ describe('Daily reminder row', () => {
         expect(host.textContent).toContain('Notify me when someone shares a note');
     });
 
+    it('shows the reminder but no web push rows in the app (#1182)', async () => {
+        window.__JOURNAL_NATIVE__ = { platform: 'ios' };
+        try {
+            registerReminderScheduler(scheduler('granted').impl);
+            await mount();
+            expect(toggle()).not.toBeNull();
+            expect(host.textContent).not.toContain('Notify me when someone shares a note');
+            expect(host.textContent).not.toMatch(/browser|Home Screen/);
+        } finally {
+            window.__JOURNAL_NATIVE__ = undefined;
+        }
+    });
+
     it('appears once a scheduler is registered', async () => {
         await mount();
         await act(async () => registerReminderScheduler(scheduler('granted').impl));

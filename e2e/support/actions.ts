@@ -158,10 +158,17 @@ export async function shareNotePublicly(page: Page, title: string): Promise<stri
  */
 export async function openSettingsSection(dialog: Locator, name: string): Promise<void> {
     const tab = dialog.getByRole('tab', { name, exact: true });
-    const row = dialog.getByRole('listitem').getByRole('button', { name, exact: true });
     const back = dialog.getByRole('button', { name: 'Settings', exact: true });
     if (await back.count()) await back.click();
-    await tab.or(row).click();
+    // Diagnostics is a "Troubleshooting" page under About on a phone.
+    const rowName = name === 'Account' ? /^Account/ : name;
+    const listRow = (n: string | RegExp) => dialog.getByRole('listitem').getByRole('button', { name: n, exact: typeof n === 'string' });
+    if (name === 'Diagnostics' && !(await tab.count())) {
+        await listRow('About').click();
+        await dialog.getByRole('button', { name: 'Troubleshooting' }).click();
+        return;
+    }
+    await tab.or(listRow(rowName)).click();
 }
 
 /** The open Settings section: the tab panel on desktop, the section page on a phone. */

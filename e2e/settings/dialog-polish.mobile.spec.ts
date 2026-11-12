@@ -55,10 +55,18 @@ async function shootAll(page: Page, size: string, phone: boolean) {
     const rows = settings.locator('ul button');
     const count = await rows.count();
     for (let i = 0; i < count; i++) {
-      const label = (await rows.nth(i).locator('[id^=settings-row-]').textContent())!;
+      // The Account header row is named by the identity, so take the label from the page it opens.
       await rows.nth(i).click();
-      await settled(settings.getByRole('region', { name: label }));
+      const region = settings.getByRole('region');
+      await settled(region);
+      const label = (await region.getAttribute('aria-label'))!;
       await shoot(page, `settings-${label.toLowerCase().replace(/\W+/g, '-')}`, size);
+      if (label === 'About') {
+        // Diagnostics is the Troubleshooting page under About on a phone.
+        await settings.getByRole('button', { name: 'Troubleshooting' }).click();
+        await settled(settings.getByRole('region', { name: 'Diagnostics' }));
+        await shoot(page, 'settings-diagnostics', size);
+      }
       await settings.getByRole('button', { name: 'Settings', exact: true }).click();
       await expect(settings.getByRole('region')).toHaveCount(0);
     }

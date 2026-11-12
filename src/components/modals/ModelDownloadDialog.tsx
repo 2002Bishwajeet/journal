@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import type { PendingDownload } from '@/hooks/useModelDownloadGate';
 import { memoryTierText } from '@/lib/webllm/requirements';
+import { isNativeApp } from '@/lib/native';
 
 interface ModelDownloadDialogProps {
   pending: PendingDownload | null;
@@ -41,7 +42,7 @@ export default function ModelDownloadDialog({ pending, onContinue, onCancel }: M
     { Icon: MemoryStick, text: <>Uses <strong className="font-semibold tabular-nums">{model.memoryUsage}</strong> of memory while it runs.</> },
     // The assistant models are large enough that the computer's RAM matters (#1023).
     ...(model.job === 'agent' ? [{ Icon: Laptop, text: memoryTierText(model) }] : []),
-    { Icon: MonitorCheck, text: 'Needs WebGPU and a desktop browser.' },
+    { Icon: MonitorCheck, text: isNativeApp() ? 'Needs WebGPU.' : 'Needs WebGPU and a desktop browser.' },
   ];
 
   return (
