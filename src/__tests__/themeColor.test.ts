@@ -56,6 +56,25 @@ describe('setThemeColor', () => {
     });
 });
 
+describe('Android system bars', () => {
+    afterEach(() => {
+        delete window.JournalSystemBars;
+    });
+
+    it('receives the theme colour when the app theme changes', () => {
+        const postMessage = vi.fn();
+        window.JournalSystemBars = { postMessage };
+        syncThemeColor('--background');
+        document.documentElement.classList.add('dark');
+        syncThemeColor();
+        expect(postMessage.mock.calls).toEqual([[LIGHT_BG], [DARK_BG]]);
+    });
+
+    it('does nothing outside the Android shell', () => {
+        expect(() => setThemeColor('#123456')).not.toThrow();
+    });
+});
+
 describe('theme-color follows the in-app theme', () => {
     it("setTheme('dark') with a light OS leaves every theme-color equal to the dark token", async () => {
         let setTheme: (p: ThemePreference) => void = () => {};

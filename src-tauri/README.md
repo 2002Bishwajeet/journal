@@ -29,6 +29,10 @@ because macOS ships its own Journal; `tauri.conf.json` keeps "Journal" for the
 generated iOS and Android projects. A local build is unsigned and has no
 updater bundles; it still checks for updates when it runs.
 
+The desktop icons (`icons/`: `.icns`, `.ico` and the PNGs) are generated with
+`tauri icon` by `scripts/generate-desktop-icons.mjs` from the same feather as
+the iOS and Android icons; its header has the command.
+
 ## Desktop releases and updates
 
 `.github/workflows/desktop-release.yml` builds the signed and notarised
