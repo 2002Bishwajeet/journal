@@ -27,6 +27,7 @@ import {
   useDocumentTitle,
 } from "@/hooks";
 import { useTrayNewNote } from "@/hooks/useTrayNewNote";
+import { useQuitShortcut } from "@/hooks/useQuitShortcut";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useLayoutEffect, lazy, Suspense, useMemo, useCallback } from "react";
 import { routeRendered, slideNavigate } from "@/lib/navDirection";
@@ -225,6 +226,7 @@ export default function JournalLayout() {
   }, [openToday, navigate, location.pathname, sidebarOverlayOpen, setSidebarRequested]);
 
   useTrayNewNote(() => void noteActions.createAndOpen(folderId));
+  useQuitShortcut();
 
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({

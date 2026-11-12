@@ -15,3 +15,7 @@ export function setLaunchAtLogin(on: boolean): Promise<void> {
     void on;
     return Promise.resolve();
 }
+
+export function quitApp(): Promise<void> {
+    return Promise.resolve();
+}
