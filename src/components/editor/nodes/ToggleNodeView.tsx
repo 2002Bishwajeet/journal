@@ -8,9 +8,12 @@ import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { cn } from '@/lib/utils';
+import { useCanEdit } from '@/hooks/useCanEdit';
 
 export function ToggleNodeView({ node, updateAttributes }: NodeViewProps) {
   const [open, setOpen] = useState(true);
+  // The native trial ended (#1176): the title can't change; open/closed is local and still works.
+  const editable = useCanEdit();
 
   return (
     <NodeViewWrapper className="my-2" data-type="toggle">
@@ -28,7 +31,8 @@ export function ToggleNodeView({ node, updateAttributes }: NodeViewProps) {
           aria-label="Toggle title"
           placeholder="Toggle"
           value={node.attrs.summary as string}
-          onChange={(e) => updateAttributes({ summary: e.target.value })}
+          onChange={(e) => editable && updateAttributes({ summary: e.target.value })}
+          readOnly={!editable}
           className="min-w-0 flex-1 bg-transparent font-medium outline-none placeholder:text-muted-foreground/70"
         />
       </div>

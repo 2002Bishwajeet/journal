@@ -9,6 +9,7 @@ import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
 import { isNativeSettings } from "@/lib/settingsPlatform";
 import { SectionHeader } from "../SectionHeader";
 import { NotesMirrorRow } from "../NotesMirrorRow";
+import { useCanEdit } from "@/hooks/useCanEdit";
 
 export default function DataSection() {
   const { isExporting, isImporting, handleExport, handleImport } =
@@ -18,6 +19,7 @@ export default function DataSection() {
   // The web view's quota is not the device's free space.
   const native = isNativeSettings(useSettingsPlatform());
   const importInputRef = useRef<HTMLInputElement>(null);
+  const canEdit = useCanEdit();
 
   const protect = async () => {
     if (!(await requestPersist())) {
@@ -89,37 +91,40 @@ export default function DataSection() {
         </div>
       )}
 
-      <div className="space-y-4">
-        <SectionHeader subtitle="Add Markdown files (.md) or a ZIP of Markdown files, such as an Obsidian vault (zip the vault folder) or a Notion export (Markdown & CSV). Imported notes are added alongside existing ones; folders in a ZIP are matched by name.">
-          Import
-        </SectionHeader>
-        <input
-          ref={importInputRef}
-          type="file"
-          className="sr-only"
-          tabIndex={-1}
-          aria-hidden="true"
-          accept=".md,.zip"
-          multiple
-          onChange={(e) => {
-            if (e.target.files && e.target.files.length > 0) {
-              // Snapshot: resetting the input empties the live FileList
-              handleImport(Array.from(e.target.files));
-              e.target.value = "";
-            }
-          }}
-          disabled={isImporting}
-        />
-        <Button
-          variant="outline"
-          className="w-full h-11 sm:w-auto md:h-9"
-          onClick={() => importInputRef.current?.click()}
-          disabled={isImporting}
-        >
-          {isImporting ? <Loader2 className="animate-spin" /> : <FolderInput />}
-          {isImporting ? "Importing..." : "Import Archive"}
-        </Button>
-      </div>
+      {/* Read-only (#1176): no import; export below always works. */}
+      {canEdit && (
+        <div className="space-y-4">
+          <SectionHeader subtitle="Add Markdown files (.md) or a ZIP of Markdown files, such as an Obsidian vault (zip the vault folder) or a Notion export (Markdown & CSV). Imported notes are added alongside existing ones; folders in a ZIP are matched by name.">
+            Import
+          </SectionHeader>
+          <input
+            ref={importInputRef}
+            type="file"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+            accept=".md,.zip"
+            multiple
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                // Snapshot: resetting the input empties the live FileList
+                handleImport(Array.from(e.target.files));
+                e.target.value = "";
+              }
+            }}
+            disabled={isImporting}
+          />
+          <Button
+            variant="outline"
+            className="w-full h-11 sm:w-auto md:h-9"
+            onClick={() => importInputRef.current?.click()}
+            disabled={isImporting}
+          >
+            {isImporting ? <Loader2 className="animate-spin" /> : <FolderInput />}
+            {isImporting ? "Importing..." : "Import Archive"}
+          </Button>
+        </div>
+      )}
 
       <div className="space-y-4">
         <SectionHeader subtitle="Download all notes as a ZIP of Markdown files, one folder per journal folder.">

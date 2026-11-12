@@ -36,6 +36,7 @@ import { useRegisterActiveEditor } from "@/hooks/useRegisterActiveEditor";
 import { useBackTo } from "@/hooks/useBackTo";
 import { useNoteScreenActions } from "@/hooks/useNoteScreenActions";
 import { isViewOnly } from "@/lib/homebase/shareTargets";
+import { useCanEdit } from "@/hooks/useCanEdit";
 
 // EditorProvider auto-saves, so Cmd+S only needs swallowing. A module constant
 // keeps the handler's identity stable: every mounted tab rebinds the window
@@ -160,7 +161,8 @@ function EditorLayout({
             actions={screen}
             // Version history is for your own notes: a restore on a peer note
             // would push a whole-document replacement into someone else's note.
-            onOpenHistory={isPeerNote ? undefined : () => setHistoryOpen(true)}
+            // A read-only note (#1176) can't be restored either.
+            onOpenHistory={isPeerNote || readOnly ? undefined : () => setHistoryOpen(true)}
           />
         )}
       </div>
@@ -287,6 +289,7 @@ export default function EditorPage({
   } = useNotes();
   const { syncNote, syncService } = useSyncService();
   const dotYouClient = useDotYouClientContext();
+  const canEdit = useCanEdit();
 
   // WebLLM for AI-powered features
   const { isReady: isAIReady } = useWebLLM();
@@ -410,7 +413,7 @@ export default function EditorPage({
       docId={noteId}
       metadata={selectedNoteMetadata}
       editorOdinId={dotYouClient.getHostIdentity()}
-      readOnly={isViewOnly(selectedNoteMetadata, dotYouClient.getHostIdentity())}
+      readOnly={!canEdit || isViewOnly(selectedNoteMetadata, dotYouClient.getHostIdentity())}
       onMetadataChange={async (meta) => {
         await updateNoteMetadata({
           docId: noteId,

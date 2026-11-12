@@ -48,7 +48,7 @@ async function hintIfSmall(file: File) {
 }
 
 export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
-  const { cover, setCoverFromFile, removeCover, setCoverPosition } = useEditorContext();
+  const { cover, setCoverFromFile, removeCover, setCoverPosition, readOnly } = useEditorContext();
   const { getIdentity } = useAuth();
   const dotYouClient = useDotYouClientContext();
   const isTouch = useDeviceType() !== "desktop";
@@ -65,6 +65,8 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
   const [dropping, setDropping] = useState(false);
 
   const isPeerNote = !!metadata.authorOdinId && metadata.authorOdinId !== getIdentity();
+  // A peer's note, or a read-only one (view only, #897; the native trial ended, #1176).
+  const canChange = !isPeerNote && !readOnly;
 
   useEffect(() => {
     if (!repositioning) return;
@@ -134,7 +136,7 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
   );
 
   if (!cover) {
-    if (isPeerNote) return null;
+    if (!canChange) return null;
     return (
       <div className="px-4 pt-3 print:hidden" {...dropHandlers("light")}>
         {dropping && (
@@ -198,7 +200,7 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
-      {...(isPeerNote || repositioning ? {} : dropHandlers(themeVariant))}
+      {...(!canChange || repositioning ? {} : dropHandlers(themeVariant))}
       className={cn(
         "group relative h-40 w-full overflow-hidden bg-muted sm:h-56",
         repositioning && "cursor-grab touch-none select-none active:cursor-grabbing",
@@ -249,7 +251,7 @@ export function NoteCover({ metadata }: { metadata: DocumentMetadata }) {
         </div>
       )}
 
-      {!isPeerNote && (
+      {canChange && (
         <div
           className={cn(
             "absolute bottom-2 left-2 right-2 flex flex-wrap justify-end gap-1 transition-opacity duration-200 print:hidden",

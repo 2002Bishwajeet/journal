@@ -61,7 +61,8 @@ export function ContextMenuWrapper({ children, items }: ContextMenuWrapperProps)
                 if (coarse) setSheetOpen(true);
             }}
         >
-            <ContextMenuTrigger asChild>
+            {/* No items (a read-only row, #1176): no menu. */}
+            <ContextMenuTrigger asChild disabled={items.length === 0}>
                 {children}
             </ContextMenuTrigger>
             {coarse ? (

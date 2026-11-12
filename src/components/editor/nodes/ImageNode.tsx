@@ -40,6 +40,7 @@ import { ImageLightbox } from "./ImageLightbox";
 import { GALLERY } from "./GalleryNode";
 import { dispatchUndoStep, moveGalleryImage } from "./galleryDrag";
 import { ImageEditDialog } from "./ImageEditDialog";
+import { useCanEdit } from "@/hooks/useCanEdit";
 
 // Corner, the edge it drags, and the diagonal cursor for it.
 const CORNERS = [
@@ -184,6 +185,8 @@ export function ImageNodeView({
   // Where a touch landed on the image while it was already selected (#829)
   const tapOnSelected = useRef<{ x: number; y: number } | null>(null);
   const download = useImageDownload(src, alt, pendingId);
+  // The native trial ended (#1176): no resize handles and no toolbar; double-click still opens the viewer.
+  const editable = useCanEdit();
   // In a gallery (#601) the row sets the size: no resize handles or float.
   const pos = getPos();
   const inGallery =
@@ -556,7 +559,7 @@ export function ImageNodeView({
       {/* The handles sit on the image's corners, not below the caption */}
       <div className="relative">
         {children}
-        {!inGallery && CORNERS.map(corner)}
+        {editable && !inGallery && CORNERS.map(corner)}
       </div>
       {caption && (
         // w-0 min-w-full: wraps to the image's width instead of widening the box
@@ -570,7 +573,9 @@ export function ImageNodeView({
         </span>
       )}
       {/* w-0 min-w-full: the bar may be wider than a small image without widening the box */}
-      <div className="pointer-coarse:flex pointer-coarse:w-0 pointer-coarse:min-w-full pointer-coarse:justify-center">{alignBar}</div>
+      {editable && (
+        <div className="pointer-coarse:flex pointer-coarse:w-0 pointer-coarse:min-w-full pointer-coarse:justify-center">{alignBar}</div>
+      )}
       <ActionSheet
         open={moreOpen}
         onOpenChange={setMoreOpen}

@@ -5,6 +5,7 @@ import { FolderOpen, PenLine, PlusCircle } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useNotes } from "@/hooks/useNotes";
 import { useFolders, resolveNoteFolderId } from "@/hooks/useFolders";
+import { useCanEdit } from "@/hooks/useCanEdit";
 
 export default function EmptyEditorPage({ overrideFolderId }: { overrideFolderId?: string } = {}) {
   // MotionConfig reducedMotion="user" drops transforms but keeps opacity fades.
@@ -18,6 +19,8 @@ export default function EmptyEditorPage({ overrideFolderId }: { overrideFolderId
   const navigate = useNavigate();
   const params = useParams();
   const folderId = overrideFolderId ?? params.folderId;
+  // Read-only (#1176): no Create New Note.
+  const canEdit = useCanEdit();
 
   const handleCreateNote = async () => {
     const { docId, folderId: newFolderId } = await createNote({
@@ -68,14 +71,16 @@ export default function EmptyEditorPage({ overrideFolderId }: { overrideFolderId
             : "Select a folder to view your notes, or create a new one to get started."}
         </p>
 
-        <Button
-          size="lg"
-          onClick={handleCreateNote}
-          className="h-12 px-8 text-base shadow-lg hover:shadow-xl transition-all duration-300 rounded-full group"
-        >
-          <PlusCircle className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform duration-300" />
-          Create New Note
-        </Button>
+        {canEdit && (
+          <Button
+            size="lg"
+            onClick={handleCreateNote}
+            className="h-12 px-8 text-base shadow-lg hover:shadow-xl transition-all duration-300 rounded-full group"
+          >
+            <PlusCircle className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform duration-300" />
+            Create New Note
+          </Button>
+        )}
 
       </motion.div>
     </div>

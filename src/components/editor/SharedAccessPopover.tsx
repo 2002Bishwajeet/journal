@@ -14,6 +14,7 @@ import { AccessRow, CircleIcon, PersonAvatar, PersonLabel } from '@/components/s
 import { formatRelativeTime } from '@/lib/utils';
 import { agentDisplayName } from '@/lib/agent/attribution';
 import type { DocumentMetadata } from '@/types';
+import { useCanEdit } from '@/hooks/useCanEdit';
 
 type Role = 'Owner' | 'Editor' | 'Viewer';
 
@@ -34,6 +35,8 @@ export function SharedAccessPopover({ noteId, metadata, isOwner, owner }: Shared
     const [, setSearchParams] = useSearchParams();
     const asSheet = useSheetMode();
     const [open, setOpen] = useState(false);
+    // Read-only (#1176): the list stays, Manage… goes.
+    const canEdit = useCanEdit();
     const { fetch: circlesFetch } = useCircles(true);
     const circleName = (id: string) => circlesFetch.data?.find((c) => c.id === id)?.name;
     const circles = isOwner
@@ -106,7 +109,7 @@ export function SharedAccessPopover({ noteId, metadata, isOwner, owner }: Shared
                             </p>
                         )}
 
-                        {isOwner && (
+                        {isOwner && canEdit && (
                             <Button variant="outline" className="mt-1 h-11 w-full" onClick={() => { setOpen(false); manage(); }}>
                                 <UserPlus aria-hidden />
                                 Manage…
@@ -154,7 +157,7 @@ export function SharedAccessPopover({ noteId, metadata, isOwner, owner }: Shared
                     </p>
                 )}
 
-                {isOwner && (
+                {isOwner && canEdit && (
                     <Button variant="outline" className="mt-1 w-full max-sm:h-11" onClick={manage}>
                         <UserPlus aria-hidden />
                         Manage…

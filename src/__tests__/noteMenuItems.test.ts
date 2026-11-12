@@ -42,6 +42,24 @@ describe('buildNoteMenuItems', () => {
     expect(items.at(-1)?.variant).toBe('destructive');
   });
 
+  it('read-only (#1176): keeps only the extras, both exports and Owner Console', () => {
+    const extra = [{ label: 'Find in note', icon: Search, action: vi.fn() }];
+    for (const isPeerNote of [false, true]) {
+      const items = buildNoteMenuItems(note(), { isPeerNote, dotYouRoot: 'me.example', handlers: handlers(), extra, canEdit: false });
+      expect(labels(items)).toEqual(['Find in note', 'Export to Markdown', 'Export to PDF', 'Open in Owner Console']);
+      expect(items.some((item) => 'write' in item)).toBe(false);
+    }
+  });
+
+  it('read-only (#1176): Export to Markdown still exports', async () => {
+    const exportNoteAsMarkdown = vi.fn();
+    vi.doMock('@/lib/importexport/exportNoteMarkdown', () => ({ exportNoteAsMarkdown }));
+    const items = buildNoteMenuItems(note(), { isPeerNote: false, dotYouRoot: 'me.example', handlers: handlers(), canEdit: false });
+    items.find((item) => item.label === 'Export to Markdown')!.action();
+    await vi.waitFor(() => expect(exportNoteAsMarkdown).toHaveBeenCalledWith('n1', 'A note'));
+    vi.doUnmock('@/lib/importexport/exportNoteMarkdown');
+  });
+
   it('puts the extra items after Move to folder', () => {
     const extra = [{ label: 'Find in note', icon: Search, action: vi.fn() }];
     const items = buildNoteMenuItems(note(), { isPeerNote: false, dotYouRoot: 'me.example', handlers: handlers(), extra });
