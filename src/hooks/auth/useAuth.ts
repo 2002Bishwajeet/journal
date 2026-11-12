@@ -11,6 +11,7 @@ import {
 } from '@/lib/homebase/config';
 import { removeWebPush } from '@/lib/homebase/WebPushProvider';
 import { clearReminders } from '@/lib/native/reminders';
+import { emitBridgePurge } from '@/lib/native/bridge';
 import { SESSION_STORAGE_KEY, TABS_STORAGE_KEY, RECENT_NOTES_KEY, RECENT_SEARCHES_KEY } from '@/lib/storage';
 import { discardResumeState } from '@/lib/resumeRestore';
 import { discardAllUnsavedEdits } from '@/lib/yjs/unsavedEdits';
@@ -86,6 +87,7 @@ export function useAuth() {
     const logout = useCallback(async (): Promise<void> => {
         const client = getDotYouClient();
         await clearReminders();
+        await emitBridgePurge('sign-out');
         if (client) {
             // Before the token ends: the server drops a device subscription only for a live token
             await removeWebPush(client);
