@@ -5,6 +5,9 @@ import { JOURNAL_DRIVE, MAIN_FOLDER_ID } from '@/lib/homebase';
 import { extractMarkdownFromYjs } from '@/lib/yjs-utils';
 import type { SearchIndexEntry } from '@/types';
 import { EXPORT_MARKER } from './markdownImport';
+import { sanitizeFilename, uniqueName } from './fileNames';
+
+export { uniqueName };
 
 /**
  * Result of the export operation
@@ -112,18 +115,6 @@ export const ExportService = {
 };
 
 /**
- * Returns `base`, or `base (2)`, `base (3)`... when `base` is already in `taken`
- * (compared case-insensitively, since macOS and Windows unzip into case-insensitive
- * file systems). The returned name is added to `taken`.
- */
-export function uniqueName(taken: Set<string>, base: string): string {
-    let name = base;
-    for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base} (${n})`;
-    taken.add(name.toLowerCase());
-    return name;
-}
-
-/**
  * Fetches every attachment:// image referenced in a note's markdown, writes it to
  * <folder>/assets/<title>-<payloadKey>.<ext> in the zip, and rewrites the link to
  * that relative path. A fetch failure (offline, 404) leaves the original link and
@@ -192,11 +183,13 @@ function quote(value: string): string {
 }
 
 /**
- * Generate Markdown content with Frontmatter
+ * Generate Markdown content with Frontmatter. `id` adds the note id as the first key, so a
+ * file traces back to its note (the notes mirror uses it).
  */
-function generateMarkdown(note: SearchIndexEntry, body: string): string {
+export function generateMarkdown(note: SearchIndexEntry, body: string, id?: string): string {
     const frontmatter = [
         '---',
+        ...(id ? [`id: ${quote(id)}`] : []),
         `title: ${quote(note.title)}`,
         `created: "${note.metadata.timestamps.created}"`,
         `modified: "${note.metadata.timestamps.modified}"`,
@@ -214,14 +207,6 @@ function generateMarkdown(note: SearchIndexEntry, body: string): string {
     frontmatter.push('');
 
     return `${frontmatter.join('\n')}\n${body || ''}`;
-}
-
-/**
- * Sanitize filename to remove invalid characters
- */
-function sanitizeFilename(name: string): string {
-    // Remove characters that act as path separators or are invalid in most filesystems
-    return name.replace(/[<>:"/\\|?*]/g, '_').trim();
 }
 
 /**

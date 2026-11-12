@@ -12,6 +12,10 @@ mod premium;
 
 #[cfg(not(journal_premium))]
 mod premium {
+    pub fn register_first<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+        builder
+    }
+
     pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
         builder
     }
@@ -297,7 +301,7 @@ pub fn run() {
     // and never appears once the event loop owns GTK's main context.
     let servers = bind_loopback(PORT).unwrap_or_else(|e| abort_on_bind_failure(&e));
 
-    let builder = tauri::Builder::default()
+    let builder = premium::register_first(tauri::Builder::default())
         // journal.cloudx.run links (iOS Universal Links, Android App Links) and
         // journal:// links (desktop) open the app; useDeepLinks routes them.
         .plugin(tauri_plugin_deep_link::init());

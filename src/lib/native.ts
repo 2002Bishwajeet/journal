@@ -126,6 +126,10 @@ export function authCallbackUrl(): string {
  * user closes the iOS sheet.
  */
 export async function startSignIn(authUrl: string): Promise<void> {
+  const url = new URL(authUrl);
+  // The identity's authorize page is always http(s); refuse javascript: and the like.
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Sign-in URL must be http(s)');
+  authUrl = url.href;
   const platform = nativePlatform();
   if (!signsInOutsideApp()) {
     window.location.href = authUrl;

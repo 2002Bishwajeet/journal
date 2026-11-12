@@ -10,7 +10,11 @@ import {
 } from "@/hooks/useEditorAppearance";
 import { cn } from "@/lib/utils";
 import { Moon, Sun, Monitor, CheckCircle2, type LucideIcon } from "lucide-react";
+import { useLaunchAtLogin } from "@/hooks/useLaunchAtLogin";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import { SectionHeader } from "../SectionHeader";
+import { SettingsRow } from "../SettingsRow";
 
 /**
  * Mini-preview colours, copied from the light (`:root`) and `.dark` tokens in
@@ -154,6 +158,7 @@ function EditorOption({
 export default function AppearanceSection() {
   const { theme, setTheme } = useThemePreference();
   const { font, setFont, width, setWidth } = useEditorAppearance();
+  const { desktop, enabled: launchAtLogin, setEnabled: setLaunchAtLogin } = useLaunchAtLogin();
 
   return (
     <div className="space-y-10">
@@ -261,6 +266,26 @@ export default function AppearanceSection() {
           </EditorOption>
         </div>
       </div>
+
+      {desktop && (
+        <div className="space-y-4">
+          <SectionHeader subtitle="How Journal runs on this computer">Desktop</SectionHeader>
+          <div className="overflow-hidden rounded-xl border bg-card">
+            <SettingsRow
+              id="desktop-launch-at-login"
+              label="Launch at login"
+              description="Closing the window keeps Journal running in the tray so sync continues."
+              control={
+                <Switch
+                  checked={launchAtLogin ?? false}
+                  disabled={launchAtLogin === null}
+                  onCheckedChange={(on) => void setLaunchAtLogin(on).catch(() => toast.error("Couldn't change launch at login"))}
+                />
+              }
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
