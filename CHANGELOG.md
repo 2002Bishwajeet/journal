@@ -1,3 +1,19 @@
+## [2.66.10](https://github.com/2002Bishwajeet/journal/compare/v2.66.9...v2.66.10) (2026-11-12)
+
+
+### Bug Fixes
+
+* **native:** one plugins block in tauri.conf.json (updater + deep-link) ([f840e40](https://github.com/2002Bishwajeet/journal/commit/f840e409b3f2b2f38c9ecb00466eeadbd4ba197a)), closes [#1167](https://github.com/2002Bishwajeet/journal/issues/1167) [#1169](https://github.com/2002Bishwajeet/journal/issues/1169)
+* **native:** public links use journal.cloudx.run; journal.cloudx.run links open the app ([7eaaedb](https://github.com/2002Bishwajeet/journal/commit/7eaaedb15e061ef048ec75bf75bba871afb64aa2)), closes [#1168](https://github.com/2002Bishwajeet/journal/issues/1168)
+* **native:** swipe back on iOS and the Mac trackpad ([#1183](https://github.com/2002Bishwajeet/journal/issues/1183)) ([15ec69c](https://github.com/2002Bishwajeet/journal/commit/15ec69cb8671e42e8433172705b28bc1be2ebd23))
+* **settings:** hide browser storage protection in the native app ([2c33319](https://github.com/2002Bishwajeet/journal/commit/2c33319415937890333a84f17abbbf654a0bb1c8)), closes [#1180](https://github.com/2002Bishwajeet/journal/issues/1180)
+* **sync:** show a failed sync as a sync error ([#1170](https://github.com/2002Bishwajeet/journal/issues/1170)) ([0ad1ec5](https://github.com/2002Bishwajeet/journal/commit/0ad1ec51de9b8ed08244d68e4ab81570a9da024a))
+
+
+### Features
+
+* **desktop:** release workflow, auto-update and download page ([0f3144c](https://github.com/2002Bishwajeet/journal/commit/0f3144ca5630c9ec349727a225878ac38f5f8ad4)), closes [#305](https://github.com/2002Bishwajeet/journal/issues/305) [#1141](https://github.com/2002Bishwajeet/journal/issues/1141) [#1142](https://github.com/2002Bishwajeet/journal/issues/1142)
+* **native:** mount the private native-features submodule at native/ ([c62458d](https://github.com/2002Bishwajeet/journal/commit/c62458d2ed42b7ba8188944836ac3c3d178decb0))
 ## [2.66.9](https://github.com/2002Bishwajeet/journal/compare/v2.66.8...v2.66.9) (2026-11-12)
 
 

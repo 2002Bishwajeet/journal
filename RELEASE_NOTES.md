@@ -16,6 +16,20 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.66.10 (2026-11-12)
+
+### New
+
+- When the Journal app is on your phone, a link to a shared note on journal.cloudx.run opens in the app. On a computer, journal:// links open the app.
+
+### Fixed
+
+- In the iOS, Android and desktop apps, links to shared notes and folders start with https://journal.cloudx.run. Before, they started with localhost and did not open for other people.
+- When a sync fails (the server is down, the network can't reach it, or you need to sign in again), the sync status now shows a sync error until a sync works. Before, it went back to "Synced" as if nothing had happened.
+- In the app, Settings → Data & storage does not show the browser "Protect" control. That control did not work in the app. Settings now shows that your notes are stored in the app on this device.
+- In the iPhone app, a swipe from the left edge goes back to the previous screen, as in Safari.
+- In the Mac app, a two-finger swipe on the trackpad goes back and forward.
+
 ## 2.66.9 (2026-11-12)
 
 ### Fixed
