@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { UserRound, Monitor, Sparkles, Bot, Bell, Database, Keyboard, Info, Activity, type LucideIcon } from "lucide-react";
+import { UserRound, Monitor, Sparkles, Bot, Bell, Database, Keyboard, KeyRound, Info, Activity, type LucideIcon } from "lucide-react";
 import type { SettingsPlatform } from "@/lib/settingsPlatform";
 import AccountSection from "./sections/AccountSection";
 import AppearanceSection from "./sections/AppearanceSection";
@@ -10,8 +10,10 @@ import DataSection from "./sections/DataSection";
 import ShortcutsSection from "./sections/ShortcutsSection";
 import AboutSection from "./sections/AboutSection";
 import DiagnosticsSection from "./sections/DiagnosticsSection";
+import { LicenseSection } from "@/components/license/License";
+import { licenseEnabled } from "@/lib/billing";
 
-export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "data" | "shortcuts" | "about" | "diagnostics";
+export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "data" | "license" | "shortcuts" | "about" | "diagnostics";
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -22,6 +24,8 @@ export interface SettingsSection {
   Component: ComponentType<{ close: () => void }>;
   /** Shown only on these platforms; omitted means all (a phone has no keyboard shortcuts). */
   platforms?: SettingsPlatform[];
+  /** Listed only when this is false (e.g. License outside the native app). */
+  hidden?: boolean;
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
@@ -70,6 +74,14 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     Component: DataSection,
   },
   {
+    id: "license",
+    label: "License",
+    description: "Your license key and updates",
+    icon: KeyRound,
+    Component: LicenseSection,
+    hidden: !licenseEnabled(),
+  },
+  {
     id: "shortcuts",
     label: "Keyboard shortcuts",
     description: "Every shortcut in one place",
@@ -95,5 +107,5 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
 
 /** The sections that apply on a platform. */
 export function sectionsFor(platform: SettingsPlatform): SettingsSection[] {
-  return SETTINGS_SECTIONS.filter((s) => !s.platforms || s.platforms.includes(platform));
+  return SETTINGS_SECTIONS.filter((s) => !s.hidden && (!s.platforms || s.platforms.includes(platform)));
 }

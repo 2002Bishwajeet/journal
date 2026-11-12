@@ -11,7 +11,7 @@ describe('SETTINGS_SECTIONS', () => {
         expect(SETTINGS_SECTIONS[0].id).toBe('account');
     });
 
-    it('is in the order account, appearance, ai, agent-access, notifications, data, shortcuts, about, diagnostics', () => {
+    it('is in the order account, appearance, ai, agent-access, notifications, data, license, shortcuts, about, diagnostics', () => {
         expect(SETTINGS_SECTIONS.map((s) => s.id)).toEqual([
             'account',
             'appearance',
@@ -19,6 +19,7 @@ describe('SETTINGS_SECTIONS', () => {
             'agent-access',
             'notifications',
             'data',
+            'license',
             'shortcuts',
             'about',
             'diagnostics',
@@ -29,6 +30,10 @@ describe('SETTINGS_SECTIONS', () => {
         const ids = SETTINGS_SECTIONS.map((s) => s.id);
         expect(ids[ids.length - 1]).toBe('diagnostics');
         expect(ids[ids.indexOf('about') - 1]).toBe('shortcuts');
+    });
+
+    it('lists License only in the native app of a build with a billing Worker', () => {
+        expect(SETTINGS_SECTIONS.find((s) => s.id === 'license')?.hidden).toBe(true);
     });
 
     it('hides the shortcuts section on phones', () => {

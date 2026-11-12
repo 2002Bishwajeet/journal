@@ -1,7 +1,7 @@
 {
   "name": "journal",
   "private": true,
-  "version": "2.66.10",
+  "version": "2.67.0",
   "type": "module",
   "workspaces": [
     "packages/*"
@@ -38,7 +38,8 @@
     "tauri:build": "tauri build",
     "tauri:ios:init": "node scripts/ios-project.mjs",
     "tauri:ios:release": "node scripts/ios-project.mjs --release",
-    "tauri:android:release": "node scripts/android-release.mjs"
+    "tauri:android:release": "node scripts/android-release.mjs",
+    "native:ios:targets": "if [ -f native/scripts/apple-targets.rb ]; then ruby native/scripts/apple-targets.rb; else echo 'native/ is not checked out: no premium iOS targets to add.'; fi"
   },
   "dependencies": {
     "@2002bishwajeet/live-blocks": "*",

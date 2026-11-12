@@ -1,6 +1,6 @@
 [package]
 name = "journal"
-version = "2.66.10"
+version = "2.67.0"
 description = "Journal"
 edition = "2021"
 rust-version = "1.77.2"
@@ -22,6 +22,11 @@ serde_json = "1"
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-deep-link = "2"
 tiny_http = "0.12"
+# HTTPS to the billing Worker for the premium license key (native/rust/license.rs): the Worker
+# sends no CORS headers, so the web view can't call it. The same reqwest and rustls (ring) the
+# updater already brings in, so Cargo.lock gains no crates.
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 
 # Native error dialog when the asset server can't bind (lib.rs). Same library
 # and GTK backend tauri-plugin-dialog uses, without that plugin's tauri bump and
@@ -32,7 +37,11 @@ rfd = { version = "0.17", default-features = false, features = ["gtk3"] }
 tauri-plugin-updater = "2"
 # Launch at login and a single running instance, used by the tray code in native/.
 tauri-plugin-autostart = "2"
+# OS notifications for share invites and collaborator edits, registered by native/.
+tauri-plugin-notification = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+# The quick-capture hotkey, used by the capture code in native/.
+tauri-plugin-global-shortcut = "2"
 # External links and the macOS sign-in open in the default browser (src/lib/native.ts).
 tauri-plugin-opener = "2"
 
