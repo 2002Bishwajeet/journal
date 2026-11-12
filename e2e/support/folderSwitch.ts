@@ -1,9 +1,17 @@
 import type { CDPSession, Page } from '@playwright/test';
+import { test, expect, waitForAppReady } from '../fixtures';
 import { assertTestOrigin } from './origin-guard';
 
 // Folder-switch measurement (#1219): from the tap on a folder to the first frame that
 // shows its notes, plus what happened on the way (a loading or empty flash, long tasks,
 // CDP layout/style/script time, how many note rows React rendered).
+
+/** Folders the switch specs seed, from a small one to one past the 100-row window. */
+export const FOLDERS = [
+  { name: 'Alpha', count: 50 },
+  { name: 'Bravo', count: 200 },
+  { name: 'Charlie', count: 500 },
+];
 
 export interface SwitchSample {
   folder: string;
@@ -27,7 +35,7 @@ export interface SwitchSample {
  * (a row fiber is one whose props carry `note` and `onSwipeChange`; it rendered in a
  * commit when it is new or its hook list was rebuilt), and records long tasks.
  */
-export async function installSwitchProbes(page: Page): Promise<void> {
+async function installSwitchProbes(page: Page): Promise<void> {
   await page.addInitScript(() => {
     type Fiber = {
       child: Fiber | null;
@@ -62,24 +70,50 @@ export async function installSwitchProbes(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Installs the probes (they need a reload), seeds `folders` and returns a CDP session
+ * with Performance metrics enabled.
+ */
+export async function setUpSwitching(page: Page, folders = FOLDERS): Promise<CDPSession> {
+  await installSwitchProbes(page);
+  await page.reload();
+  await waitForAppReady(page);
+  await assertTestOrigin(page);
+  await page.evaluate((f) => window.__journalE2E!.seedFolders(f), folders);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Performance.enable');
+  return cdp;
+}
+
+/**
+ * Opens every folder once (cold), then again (warm), with `run`; records the samples
+ * as a table and an attachment, and checks that no warm open flashed empty and that
+ * every row rendered once, when it mounted.
+ */
+export async function switchColdThenWarm(run: (name: string) => Promise<SwitchSample>, attachment: string): Promise<void> {
+  const cold: SwitchSample[] = [];
+  for (const { name } of FOLDERS) cold.push(await run(name));
+  const warm: SwitchSample[] = [];
+  for (const { name } of FOLDERS) warm.push(await run(name));
+
+  const table = [...cold.map((s) => ({ pass: 'cold', ...s })), ...warm.map((s) => ({ pass: 'warm', ...s }))];
+  console.table(table);
+  await test.info().attach(attachment, { body: JSON.stringify(table, null, 2), contentType: 'application/json' });
+
+  for (const s of warm) expect(s.flashed, `${s.folder}: warm switch flashed empty`).toBe(false);
+  // The layout's re-renders on the way never reach the rows.
+  for (const s of [...cold, ...warm]) expect(s.rowRenders, `${s.folder}: rows re-rendered`).toBe(s.rowMounts);
+}
+
 async function cdpMetrics(cdp: CDPSession): Promise<Record<string, number>> {
   const { metrics } = await cdp.send('Performance.getMetrics');
   return Object.fromEntries(metrics.map((m) => [m.name, m.value]));
 }
 
-/**
- * Taps `open` (which navigates to folder `name`) and measures until the list shows rows
- * titled "<name> …". `listPane` selects the element the list renders in.
- */
-export async function measureSwitch(
-  page: Page,
-  cdp: CDPSession,
-  name: string,
-  open: () => Promise<void>,
-  listPane = '[data-pane="note-list"]',
-): Promise<SwitchSample> {
+/** Taps `open` (which navigates to folder `name`) and measures until the list shows rows titled "<name> …". */
+export async function measureSwitch(page: Page, cdp: CDPSession, name: string, open: () => Promise<void>): Promise<SwitchSample> {
   await assertTestOrigin(page);
-  await page.evaluate(({ name, listPane }) => {
+  await page.evaluate((name) => {
     const w = window as unknown as Record<string, unknown> & { __switchProbe: { renders: number; mounts: number } };
     w.__switchProbe.renders = 0;
     w.__switchProbe.mounts = 0;
@@ -88,7 +122,7 @@ export async function measureSwitch(
     document.addEventListener('pointerdown', () => { state.t0 = performance.now(); }, { capture: true, once: true });
     const check = () => {
       if (!state.t0 || state.paint) return;
-      const pane = document.querySelector(listPane);
+      const pane = document.querySelector('[data-pane="note-list"]');
       if (!pane) return;
       const first = pane.querySelector('[data-testid="note-row"]');
       if (first?.textContent?.includes(`${name} `)) {
@@ -101,7 +135,7 @@ export async function measureSwitch(
     };
     const obs = new MutationObserver(check);
     obs.observe(document.body, { subtree: true, childList: true, characterData: true });
-  }, { name, listPane });
+  }, name);
   const before = await cdpMetrics(cdp);
   await open();
   await page.waitForFunction(() => (window as unknown as { __switch: { paint: number } }).__switch.paint > 0, null, { timeout: 30_000 });

@@ -351,14 +351,13 @@ async function seedCollaborativeNote(title: string): Promise<void> {
     await upsertSyncRecord({ localId: docId, entityType: 'note', syncStatus: 'synced', remoteFileId: 'seeded-remote-collab', versionTag: 'seeded-version' });
 }
 
-/** Adds folders of `count` notes each in one statement per folder (#1219); returns the folder ids. */
-async function seedFolders(folders: { name: string; count: number }[]): Promise<string[]> {
+/** Adds folders of `count` notes each, in one statement per folder (#1219). */
+async function seedFolders(folders: { name: string; count: number }[]): Promise<void> {
     const { getDatabase } = await import('@/lib/db/pglite');
     const { createFolder } = await import('@/lib/db');
     const { getNewId } = await import('@/lib/utils');
     const { formatGuidId } = await import('@homebase-id/js-lib/helpers');
     const db = await getDatabase();
-    const ids: string[] = [];
     for (const { name, count } of folders) {
         const folderId = formatGuidId(getNewId());
         await createFolder(folderId, name);
@@ -373,9 +372,7 @@ async function seedFolders(folders: { name: string; count: number }[]): Promise<
              FROM generate_series(1, $3::int) AS i`,
             [folderId, name, count],
         );
-        ids.push(folderId);
     }
-    return ids;
 }
 
 /** Runs the sync's image upload step once, as a full sync does after its pull and push. */

@@ -23,8 +23,8 @@ interface JournalE2EHooks {
   seedImageUploads(title: string, images: number[][]): Promise<void>;
   /** Adds a synced note in Main that is shared with two people (#828). */
   seedCollaborativeNote(title: string): Promise<void>;
-  /** Adds folders of `count` notes each (#1219); returns the folder ids. */
-  seedFolders(folders: { name: string; count: number }[]): Promise<string[]>;
+  /** Adds folders of `count` notes each (#1219). */
+  seedFolders(folders: { name: string; count: number }[]): Promise<void>;
   /** Leaves an agent's share_note request on a local note (#325). */
   seedShareRequest(docId: string, request: import('@/types').ShareRequest): Promise<void>;
   /** Runs the sync's image upload step once. */

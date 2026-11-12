@@ -41,6 +41,7 @@ const registry = new Map<string, LiveEntry>();
 // don't grow without limit. The limit holds per query text (#1219): each opened
 // note parks its own backlinks query, and with one shared budget, reading a dozen
 // notes pushed every visited folder's list out, so it loaded cold again.
+// Every query text is a fixed constant (src/lib/db/queries), so the total stays small.
 const IDLE_LIMIT = 12;
 const idleKeys = new Set<string>(); // insertion-ordered LRU of parked cacheKeys
 
