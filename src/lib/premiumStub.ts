@@ -99,6 +99,8 @@ export interface Entitlement {
     trialEndsAt?: string;
     /** Set only when a license key unlocks: its year of updates ends here. */
     updatesUntil?: string;
+    /** A source couldn't be read (after retries): status is 'locked' and canEdit false, not loading. `refresh` tries again. */
+    isError?: boolean;
     /** Reads every source again. */
     refresh(): Promise<void>;
 }
