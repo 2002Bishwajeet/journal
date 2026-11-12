@@ -14,6 +14,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+# Links native/'s Swift (build.rs, iOS with native/ only). Already in the tree through tauri-plugin.
+tauri-utils = { version = "2", features = ["build-2"] }
 
 [dependencies]
 # Derives for the command types of the premium Rust in native/rust (a dependency of tauri already).

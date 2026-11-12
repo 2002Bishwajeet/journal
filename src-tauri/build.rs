@@ -37,8 +37,42 @@ fn main() {
                 names.push(name);
             }
         }
+        // The store purchase's StoreKit 2 plugin (native/rust/iap.rs) is the Swift package
+        // native/apple/JournalIap, built and linked for iOS as tauri-plugin builds a plugin's
+        // ios/ folder: a crate can't be a dependency only when native/ is there.
+        #[cfg(target_os = "macos")]
+        if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") && Path::new("../native/apple/JournalIap/Package.swift").exists() {
+            link_premium_swift("JournalIap");
+        }
     }
     // lib.rs puts the names in window.__JOURNAL_NATIVE__.plugins.
     println!("cargo:rustc-env=JOURNAL_NATIVE_PLUGINS={}", names.join(","));
     tauri_build::try_build(attributes).expect("failed to run tauri-build");
+}
+
+/// Builds and links the Swift package native/apple/<name>, which depends on Tauri's Swift API
+/// at native/apple/.tauri/tauri-api (git-ignored there), copied from the tauri crate.
+#[cfg(target_os = "macos")]
+fn link_premium_swift(name: &str) {
+    fn copy(from: &Path, to: &Path) -> std::io::Result<()> {
+        std::fs::create_dir_all(to)?;
+        for entry in std::fs::read_dir(from)? {
+            let entry = entry?;
+            if [".build", "Package.resolved", "Tests"].iter().any(|skip| entry.file_name() == *skip) {
+                continue;
+            }
+            if entry.file_type()?.is_dir() {
+                copy(&entry.path(), &to.join(entry.file_name()))?;
+            } else {
+                std::fs::copy(entry.path(), to.join(entry.file_name()))?;
+            }
+        }
+        Ok(())
+    }
+    let tauri_api = std::env::var("DEP_TAURI_IOS_LIBRARY_PATH").expect("tauri gives its Swift API's path to the crates that depend on it");
+    let target = Path::new("../native/apple/.tauri/tauri-api");
+    let _ = std::fs::remove_dir_all(target);
+    copy(Path::new(&tauri_api), target).expect("failed to copy Tauri's Swift API to native/apple/.tauri");
+    let source = std::fs::canonicalize(format!("../native/apple/{name}")).unwrap();
+    tauri_utils::build::link_apple_library(name, source);
 }
