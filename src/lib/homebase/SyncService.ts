@@ -26,6 +26,7 @@ import * as images from './sync/imageUploads';
 import * as merge from './sync/merge';
 import * as sharedPull from './sync/sharedPull';
 import { describeSyncError, type SyncErrorInfo } from './sync/syncErrorInfo';
+import { didSyncFail, isOutageError } from './sync/syncOutcome';
 
 export { classifyPeerFetchError } from './sync/peerNotes';
 export type { EnsureNoteContentStatus, EnsureNoteContentResult } from './sync/peerNotes';
@@ -38,6 +39,8 @@ export interface SyncResult {
     errors: string[];
     /** When records skipped for push backoff can be retried (ms since epoch), #263 */
     nextRetryAt?: number;
+    /** The run failed (network, sign-in or server), not just skipped or partly failed (#1170) */
+    failed?: boolean;
 }
 
 /**
@@ -57,6 +60,8 @@ export class SyncService {
     #dotYouClient: DotYouClient;
     #status: SyncStatus = 'idle';
     #onlineContext: OnlineContextType;
+    /** Items the running sync failed with an outage error (#1170) */
+    #outages = 0;
 
     constructor(dotYouClient: DotYouClient, onlineContext: OnlineContextType) {
         this.#ctx = {
@@ -131,6 +136,7 @@ export class SyncService {
         }
 
         this.#status = 'syncing';
+        this.#outages = 0;
         const result: SyncResult = {
             pulled: { folders: 0, notes: 0 },
             pushed: { folders: 0, notes: 0 },
@@ -152,7 +158,8 @@ export class SyncService {
 
             // 3. Process pending image uploads. A promoted src is a local edit made
             // after step 2, so push it now or it waits for some later sync.
-            if (await this.processPendingImageUploads() > 0) {
+            const uploaded = await this.processPendingImageUploads();
+            if (uploaded > 0) {
                 result.pushed.notes += (await this.pushChanges(onProgress)).notes;
             }
 
@@ -163,9 +170,16 @@ export class SyncService {
             const retryTimes = (await Promise.all([getNextPushRetryAt(), getNextImageRetryAt()])).filter((t) => t !== undefined);
             result.nextRetryAt = retryTimes.length > 0 ? Math.min(...retryTimes) : undefined;
 
+            const succeeded = result.pulled.folders + result.pulled.notes + result.pushed.folders + result.pushed.notes + uploaded;
+            if (didSyncFail({ succeeded, outages: this.#outages })) {
+                result.failed = true;
+                result.errors.push(`Every change this sync tried failed (${this.#outages})`);
+            }
+
             this.#status = 'idle';
         } catch (error) {
             this.#status = 'error';
+            result.failed = didSyncFail({ error, succeeded: 0, outages: 0 });
             result.errors.push(error instanceof Error ? error.message : 'Unknown sync error');
             console.error('[SyncService] Sync failed:', error);
         }
@@ -185,6 +199,7 @@ export class SyncService {
     private async logSyncError(entityId: string, entityType: 'folder' | 'note' | 'image', operation: 'push' | 'pull' | 'upload', error: unknown): Promise<SyncErrorInfo> {
         const info = describeSyncError(error);
         const permanent = info.permanent && operation !== 'pull';
+        if (isOutageError(error)) this.#outages++;
         console.error(
             `[SyncService] ${operation} of ${entityType} ${entityId} failed${info.code ? ` (${info.code})` : ''}: ${info.message}${permanent ? '; not retrying' : ''}`,
         );

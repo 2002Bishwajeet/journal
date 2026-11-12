@@ -160,10 +160,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         setSyncProgress(null);
       });
 
-      // Update last synced time
-      setLastSyncedAt(new Date());
-
-      setSyncStatus("idle");
+      // A failed run shows as an error until a sync that doesn't fail (#1170)
+      if (!result.failed) setLastSyncedAt(new Date());
+      setSyncStatus(result.failed ? "error" : "idle");
 
       if (result.errors.length > 0) {
         console.warn(
