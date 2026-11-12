@@ -50,6 +50,39 @@ describe('callout from markdown', () => {
   });
 });
 
+describe('Obsidian/GitHub callout forms', () => {
+  const bold = (text: string) => ({
+    type: 'paragraph', attrs: expect.anything(), content: [{ type: 'text', text, marks: [{ type: 'bold' }] }],
+  });
+
+  it('turns a title on the marker line into a bold first line', () => {
+    const md = '> [!warning] Fix first: sign-in\n> homebase.id is invite-only.';
+    expect(parse(md)).toEqual([
+      { type: 'callout', attrs: { variant: 'warning' }, content: [bold('Fix first: sign-in'), para('homebase.id is invite-only.')] },
+    ]);
+  });
+
+  it('parses a title-only callout', () => {
+    expect(parse('> [!tip] Just a title')).toEqual([{ type: 'callout', attrs: { variant: 'tip' }, content: [bold('Just a title')] }]);
+  });
+
+  it('maps any-case and aliased types, with a fold marker', () => {
+    expect(parse('> [!NOTE]\n> a')[0].attrs).toEqual({ variant: 'info' });
+    expect(parse('> [!Caution]- Careful\n> b')[0].attrs).toEqual({ variant: 'warning' });
+    expect(parse('> [!danger]\n> c')[0].attrs).toEqual({ variant: 'error' });
+  });
+
+  it('serializes a titled callout to the canonical form, which round-trips', () => {
+    const md = roundTrip('> [!warning] Fix first\n> body');
+    expect(md).toBe('> [!warning]\n> **Fix first**\n>\n> body');
+    expect(roundTrip(md)).toBe(md);
+  });
+
+  it('leaves a plain blockquote alone', () => {
+    expect(types(parse('> just a quote'))).toEqual(['blockquote']);
+  });
+});
+
 describe('toggle from markdown', () => {
   const toggle = (summary: string, body: string) => `<details>\n<summary>${summary}</summary>\n\n${body}\n\n</details>`;
 
@@ -129,8 +162,8 @@ describe('ordinary markdown still parses as before', () => {
     expect(roundTrip(md)).toBe(md);
   });
 
-  it('an unknown callout variant stays a blockquote', () => {
-    expect(parse('> [!note]\n> body')).toEqual([{ type: 'blockquote', content: [para('[!note]\nbody')] }]);
+  it('an unknown callout type stays a blockquote', () => {
+    expect(parse('> [!foo]\n> body')).toEqual([{ type: 'blockquote', content: [para('[!foo]\nbody')] }]);
   });
 
   it('callout markdown inside a list item stays a blockquote and keeps the whole item', () => {

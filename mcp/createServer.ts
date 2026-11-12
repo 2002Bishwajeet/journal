@@ -14,7 +14,7 @@ A note can hold:
 - Headings (# to ######), **bold**, *italic*, ~~strike~~, links, \`code\`, and fenced code with a language.
 - Tables: GitHub-style pipe tables.
 - Task lists: "- [ ] to do" and "- [x] done".
-- Callouts: a blockquote whose first line is > [!info], > [!tip], > [!warning] or > [!error].
+- Callouts: a blockquote whose first line is > [!info], > [!tip], > [!warning] or > [!error]. A title can follow the marker (> [!warning] Fix first); it becomes a bold first line.
 - Toggles: <details>, a <summary> line, a blank line, the body, a blank line, </details>.
 - Math: inline $E = mc^2$, or a block of LaTeX between two $$ lines.
 - Footnotes: text[^1], with "[^1]: the note" on its own line.
