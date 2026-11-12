@@ -12,6 +12,7 @@ import { bakeImageEdits } from '@/lib/share/bakeImageEdits';
 import { FEED_DRIVE_REQUEST, publishNoteToFeed } from '@/lib/share/publishNoteToFeed';
 import { collaborateReturnUrl } from '@/lib/share/shareAccess';
 import { noteShareUrl } from '@/lib/share/sharedFolder';
+import { publicOrigin } from '@/lib/native';
 import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 
 /** The note whose Publish to feed went to the Homebase consent page, so the publish goes on after it. */
@@ -92,7 +93,7 @@ export function usePublishToFeed(noteId: string) {
                 noteFileId: fileId,
                 feedPostId,
                 publicNoteUrl: (id) =>
-                    notes?.find((n) => n.docId === id)?.metadata.isPublic ? noteShareUrl(window.location.origin, identity, id) : null,
+                    notes?.find((n) => n.docId === id)?.metadata.isPublic ? noteShareUrl(publicOrigin(), identity, id) : null,
                 bakeImage: bakeImageEdits,
             }).finally(() => ydoc?.destroy());
             if (postId !== feedPostId) await saveFeedPostId(postId);
