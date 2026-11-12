@@ -51,6 +51,9 @@ export interface UseSearchModalReturn {
     handleClearRecents: () => void;
 }
 
+// getAllDocuments also feeds export, so the Trash/Archive filter lives here.
+const activeOnly = (docs: SearchIndexEntry[]) => docs.filter((d) => (d.metadata.archivalStatus ?? 0) === 0);
+
 export function useSearchModal({
     isOpen,
     onClose,
@@ -119,7 +122,7 @@ export function useSearchModal({
             // Notes opened since the modal last opened.
             setRecentNotes(loadRecentNotes());
             setRecentSearches(loadRecentSearches());
-            setResults(docs);
+            setResults(activeOnly(docs));
         })();
 
         return () => {
@@ -140,7 +143,7 @@ export function useSearchModal({
             (async () => {
                 const docs = await getAllDocuments();
                 if (cancelled || requestSeqRef.current !== requestSeq) return;
-                setResults(docs);
+                setResults(activeOnly(docs));
                 setSelectedIndex(0);
             })();
             return () => {

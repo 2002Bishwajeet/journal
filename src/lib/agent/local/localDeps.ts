@@ -70,13 +70,11 @@ export function createLocalDeps(): ReadDeps {
         },
 
         async searchNotes(query) {
-            const hits = await advancedSearch(query);
-            return hits
-                .filter((hit) => !isTrashed(hit.metadata))
-                .map((hit) => ({
-                    summary: toSummary(hit.docId, hit.title, hit.metadata),
-                    snippet: toSnippet(hit.contentHighlight ?? hit.titleHighlight),
-                }));
+            const hits = await advancedSearch(query, { includeArchived: true });
+            return hits.map((hit) => ({
+                summary: toSummary(hit.docId, hit.title, hit.metadata),
+                snippet: toSnippet(hit.contentHighlight ?? hit.titleHighlight),
+            }));
         },
     };
 }

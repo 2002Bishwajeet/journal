@@ -32,3 +32,16 @@ test('Cmd+K opens search, arrows and Enter pick a note, Esc closes', async ({ ap
   await expect(dialog).toBeHidden();
   await expect(app.locator('textarea[placeholder="Untitled"]:visible')).toHaveValue('Yak shaving');
 });
+
+test('a note moved to Trash is not listed in search', async ({ app }) => {
+  const title = `Trashed yak ${Date.now()}`;
+  await createNote(app, { title, body: 'Gone soon' });
+  await app.getByTestId('note-row').filter({ hasText: title }).click({ button: 'right' });
+  await app.getByRole('menuitem', { name: 'Move to Trash' }).click();
+  await app.getByRole('dialog', { name: 'Move to Trash?' }).getByRole('button', { name: 'Move to Trash' }).click();
+
+  await app.keyboard.press('ControlOrMeta+k');
+  const dialog = app.getByRole('dialog', { name: 'Search notes' });
+  await dialog.getByPlaceholder('Search notes...').fill(title);
+  await expect(dialog.getByText('No notes found')).toBeVisible();
+});

@@ -77,13 +77,22 @@ export async function getFrequentlyLinkedNotes(
     return result.rows.map(toNoteListEntry);
 }
 
+// Trash (2) is never searchable; Archive (1) only when the caller opts in.
+function visibilityFilter(includeArchived?: boolean): string {
+    return includeArchived ? `COALESCE((s.metadata->>'archivalStatus')::int, 0) <> 2` : ACTIVE_NOTES_FILTER;
+}
+
 /**
  * Advanced search combining:
  * - Full-text search with ts_rank for relevance scoring
  * - Trigram similarity for fuzzy/typo-tolerant matching
  * - ts_headline for extracting highlighted context snippets
  */
-export async function advancedSearch(query: string): Promise<AdvancedSearchResult[]> {
+export async function advancedSearch(
+    query: string,
+    options: { includeArchived?: boolean } = {},
+): Promise<AdvancedSearchResult[]> {
+    const visibleFilter = visibilityFilter(options.includeArchived);
     const db = await getDatabase();
     const trimmedQuery = query.trim();
 
@@ -154,7 +163,7 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
                 LOWER(s.title) LIKE sp.like_pattern as title_like_match,
                 LOWER(s.plain_text_content) LIKE sp.like_pattern as content_like_match
             FROM search_index s, search_params sp
-            WHERE 
+            WHERE (
                 -- Full-text search match
                 s.search_vector @@ sp.tsq
                 -- OR fuzzy title match (similarity > 0.3)
@@ -164,6 +173,7 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
                 -- OR exact substring match (fallback)
                 OR LOWER(s.title) LIKE sp.like_pattern
                 OR LOWER(s.plain_text_content) LIKE sp.like_pattern
+            ) AND ${visibleFilter}
             ORDER BY
                 -- Prioritize: FTS rank, then title similarity, then content match.
                 -- Bare output aliases only — an alias inside an expression like
@@ -229,7 +239,7 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
     } catch (error) {
         console.error('[advancedSearch] Error:', error);
         // Fallback to simple LIKE search if advanced search fails
-        return fallbackSearch(trimmedQuery);
+        return fallbackSearch(trimmedQuery, visibleFilter);
     }
 }
 
@@ -237,7 +247,7 @@ export async function advancedSearch(query: string): Promise<AdvancedSearchResul
  * Simple fallback search using LIKE pattern matching
  * Used when advanced search fails (e.g., extension not available)
  */
-async function fallbackSearch(query: string): Promise<AdvancedSearchResult[]> {
+async function fallbackSearch(query: string, visibleFilter: string): Promise<AdvancedSearchResult[]> {
     const db = await getDatabase();
     const searchPattern = `%${query.toLowerCase()}%`;
 
@@ -248,8 +258,8 @@ async function fallbackSearch(query: string): Promise<AdvancedSearchResult[]> {
         metadata: DocumentMetadata;
     }>(`
         SELECT doc_id, title, plain_text_content, metadata 
-        FROM search_index 
-        WHERE LOWER(title) LIKE $1 OR LOWER(plain_text_content) LIKE $1
+        FROM search_index s
+        WHERE (LOWER(title) LIKE $1 OR LOWER(plain_text_content) LIKE $1) AND ${visibleFilter}
         ORDER BY 
             CASE WHEN LOWER(title) LIKE $1 THEN 0 ELSE 1 END,
             (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST
