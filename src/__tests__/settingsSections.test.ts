@@ -11,13 +11,14 @@ describe('SETTINGS_SECTIONS', () => {
         expect(SETTINGS_SECTIONS[0].id).toBe('account');
     });
 
-    it('is in the order account, appearance, ai, agent-access, notifications, data, shortcuts, about, diagnostics', () => {
+    it('is in the order account, appearance, ai, agent-access, notifications, security, data, shortcuts, about, diagnostics', () => {
         expect(SETTINGS_SECTIONS.map((s) => s.id)).toEqual([
             'account',
             'appearance',
             'ai',
             'agent-access',
             'notifications',
+            'security',
             'data',
             'shortcuts',
             'about',
@@ -34,5 +35,9 @@ describe('SETTINGS_SECTIONS', () => {
     it('hides the shortcuts section on phones', () => {
         const shortcuts = SETTINGS_SECTIONS.find((s) => s.id === 'shortcuts');
         expect(shortcuts?.desktopOnly).toBe(true);
+    });
+
+    it('shows the security section only in the native app', () => {
+        expect(SETTINGS_SECTIONS.find((s) => s.id === 'security')?.nativeOnly).toBe(true);
     });
 });

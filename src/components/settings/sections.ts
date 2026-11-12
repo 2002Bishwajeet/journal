@@ -1,16 +1,17 @@
 import type { ComponentType } from "react";
-import { UserRound, Monitor, Sparkles, Bot, Bell, Database, Keyboard, Info, Activity, type LucideIcon } from "lucide-react";
+import { UserRound, Monitor, Sparkles, Bot, Bell, Shield, Database, Keyboard, Info, Activity, type LucideIcon } from "lucide-react";
 import AccountSection from "./sections/AccountSection";
 import AppearanceSection from "./sections/AppearanceSection";
 import AISection from "./sections/AISection";
 import AgentAccessSection from "./sections/AgentAccessSection";
 import NotificationsSection from "./sections/NotificationsSection";
+import SecuritySection from "./sections/SecuritySection";
 import DataSection from "./sections/DataSection";
 import ShortcutsSection from "./sections/ShortcutsSection";
 import AboutSection from "./sections/AboutSection";
 import DiagnosticsSection from "./sections/DiagnosticsSection";
 
-export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "data" | "shortcuts" | "about" | "diagnostics";
+export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "security" | "data" | "shortcuts" | "about" | "diagnostics";
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -21,6 +22,8 @@ export interface SettingsSection {
   Component: ComponentType<{ close: () => void }>;
   /** Hidden on phones (e.g. keyboard shortcuts — phones have no keyboard). */
   desktopOnly?: boolean;
+  /** Only in the native app (e.g. what widgets and the watch may show). */
+  nativeOnly?: boolean;
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
@@ -58,6 +61,14 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "Notifications on this device",
     icon: Bell,
     Component: NotificationsSection,
+  },
+  {
+    id: "security",
+    label: "Security",
+    description: "What shows outside the app",
+    icon: Shield,
+    Component: SecuritySection,
+    nativeOnly: true,
   },
   {
     id: "data",

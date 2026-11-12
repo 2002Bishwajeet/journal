@@ -69,6 +69,8 @@ import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { useDailySnapshotPrune } from "@/hooks/useDailySnapshotPrune";
 import { useNotesMirror } from "@/hooks/useNotesMirror";
 import { useDailyReminder } from "@/hooks/useDailyReminder";
+import { useNativeBridge } from "@/hooks/useNativeBridge";
+import { NO_LICENSE } from "@/lib/native/bridge";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
 import { syncThemeColor } from "@/lib/themeColor";
@@ -83,6 +85,8 @@ export default function JournalLayout() {
   useDailySnapshotPrune();
   useNotesMirror();
   useDailyReminder();
+  // #301's licence state replaces NO_LICENSE.
+  useNativeBridge(NO_LICENSE);
   const whatsNew = useAutoWhatsNew();
 
   // Warm the lazy editor chunk once the shell is idle. Desktop with restored
