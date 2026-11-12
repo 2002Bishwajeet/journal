@@ -16,6 +16,9 @@ import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { createElement as h, startTransition, use, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
+import * as Y from 'yjs';
+import { updateSearchIndexContent } from '@/lib/db';
+import { previewTextFromFragment } from '@/lib/yjs/previewText';
 import { EditorProvider } from '@/components/editor/EditorProvider';
 import { useEditorContext } from '@/components/editor/EditorContext';
 import type { DocumentMetadata } from '@/types';
@@ -23,10 +26,18 @@ import type { DocumentMetadata } from '@/types';
 vi.mock('@/hooks/useAISettings', () => ({
   useAISettings: () => ({ settings: { grammarEnabled: false } }),
 }));
+const providerDocs = vi.hoisted(() => new Map<string, Y.Doc>());
 vi.mock('@/lib/yjs', () => ({
   PGliteProvider: class {
+    constructor(private docId: string, ydoc: Y.Doc) {
+      providerDocs.set(docId, ydoc);
+    }
     load() {
-      return new Promise(() => {});
+      // doc-2 loads at once so the update listener attaches; the rest never settle
+      return this.docId === 'doc-2' ? Promise.resolve() : new Promise(() => {});
+    }
+    save() {
+      return Promise.resolve();
     }
   },
 }));
@@ -100,6 +111,47 @@ describe('EditorProvider — commit after a yielded render', () => {
     await new Promise((r) => setTimeout(r, 200));
 
     expect(reads).toEqual(['ok']);
+
+    root.unmount();
+    el.remove();
+  });
+
+  it('writes the search text the Y.Doc walk produces, 500 ms after an edit', async () => {
+    vi.mocked(updateSearchIndexContent).mockClear();
+    const held: { editor: import('@tiptap/react').Editor | null } = { editor: null };
+    function Grab() {
+      const { editor } = useEditorContext();
+      useEffect(() => {
+        held.editor = editor;
+      }, [editor]);
+      return null;
+    }
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const root = createRoot(el);
+    root.render(h(MemoryRouter, null, h(EditorProvider, { docId: 'doc-2', metadata, children: h(Grab) })));
+    await vi.waitFor(() => expect(held.editor).not.toBeNull());
+
+    held.editor!.commands.setContent({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'See ' },
+            { type: 'noteLink', attrs: { noteId: 'abc', label: 'Budget 2026' } },
+            { type: 'text', text: ' today' },
+          ],
+        },
+        { type: 'codeBlock', content: [{ type: 'text', text: 'let x' }] },
+      ],
+    }, { emitUpdate: true });
+
+    await vi.waitFor(() => expect(updateSearchIndexContent).toHaveBeenCalled(), { timeout: 2000 });
+    const written = vi.mocked(updateSearchIndexContent).mock.calls.at(-1)![1];
+    const ydoc = providerDocs.get('doc-2')!;
+    expect(written).toBe(previewTextFromFragment(ydoc.getXmlFragment('prosemirror')));
+    expect(written).toBe('See Budget 2026 today\u001Flet x');
 
     root.unmount();
     el.remove();
