@@ -23,7 +23,13 @@ const Reporter = lazy(() =>
         return null;
       },
     }))
-    .catch(() => ({ default: () => null })),
+    .catch(() => ({
+      default: function Reporter() {
+        // Fail open with an answer, so waiters (/today, Save a copy) don't wait forever.
+        useEffect(() => setCanEdit(true), []);
+        return null;
+      },
+    })),
 );
 
 /**
