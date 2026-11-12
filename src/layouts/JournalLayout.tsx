@@ -150,6 +150,8 @@ export default function JournalLayout() {
 
   // Modal states
   const [showSearch, setShowSearch] = useState(false);
+  // journal://search?q= (#1093): the query the search opens with.
+  const [searchSeed, setSearchSeed] = useState("");
   const settings = useSettingsOpener();
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [folderToRename, setFolderToRename] = useState<string | null>(null);
@@ -174,7 +176,11 @@ export default function JournalLayout() {
     folderId,
     notes,
     createNote: (targetFolderId) => createNote({ folderId: targetFolderId }),
-    openSearch: setShowSearch,
+    openSearch: (open, query) => {
+      setSearchSeed(query ?? "");
+      setShowSearch(open);
+    },
+    openToday: () => handleOpenToday(),
     openCollaborate: setShareNote,
   });
 
@@ -460,7 +466,11 @@ export default function JournalLayout() {
 
       <SearchModal
         isOpen={showSearch}
-        onClose={() => setShowSearch(false)}
+        initialQuery={searchSeed}
+        onClose={() => {
+          setShowSearch(false);
+          setSearchSeed("");
+        }}
         onSelectNote={(docId) => {
           // Find note to get folder
           const note = notes.find((n) => n.docId === docId);
