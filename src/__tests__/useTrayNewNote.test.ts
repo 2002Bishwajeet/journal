@@ -83,7 +83,7 @@ describe('tray New note', () => {
     });
 
     it('creates a note in the current folder and opens it, and stops listening on unmount', async () => {
-        window.__JOURNAL_NATIVE__ = { platform: 'linux' };
+        window.__JOURNAL_NATIVE__ = { platform: 'linux', plugins: [] };
         await act(async () => { root.render(createElement(Layout, { folderId: 'f1' })); });
         await flush();
         expect(mocks.listenTrayNewNote).toHaveBeenCalledTimes(1);

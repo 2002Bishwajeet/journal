@@ -36,7 +36,7 @@ afterEach(async () => {
 describe('useQuitShortcut', () => {
     it('quits on Ctrl+Q on Linux and Windows', async () => {
         for (const platform of ['linux', 'windows'] as const) {
-            window.__JOURNAL_NATIVE__ = { platform };
+            window.__JOURNAL_NATIVE__ = { platform, plugins: [] };
             await act(async () => { root.render(createElement(Probe)); });
             await press({ key: 'q', ctrlKey: true });
             expect(quitApp).toHaveBeenCalledTimes(1);
@@ -46,13 +46,13 @@ describe('useQuitShortcut', () => {
     });
 
     it('ignores other keys, and the web and macOS', async () => {
-        window.__JOURNAL_NATIVE__ = { platform: 'linux' };
+        window.__JOURNAL_NATIVE__ = { platform: 'linux', plugins: [] };
         await act(async () => { root.render(createElement(Probe)); });
         await press({ key: 'q' });
         await press({ key: 'w', ctrlKey: true });
         await act(async () => { root.render(null); });
 
-        window.__JOURNAL_NATIVE__ = { platform: 'macos' };
+        window.__JOURNAL_NATIVE__ = { platform: 'macos', plugins: [] };
         await act(async () => { root.render(createElement(Probe)); });
         await press({ key: 'q', ctrlKey: true });
         await act(async () => { root.render(null); });
