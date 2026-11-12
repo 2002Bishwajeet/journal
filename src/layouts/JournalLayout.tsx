@@ -28,6 +28,7 @@ import {
 } from "@/hooks";
 import { useTrayNewNote } from "@/hooks/useTrayNewNote";
 import { useQuitShortcut } from "@/hooks/useQuitShortcut";
+import { LicenseGate } from "@/components/license/License";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useLayoutEffect, lazy, Suspense, useMemo, useCallback } from "react";
 import { routeRendered, slideNavigate } from "@/lib/navDirection";
@@ -505,6 +506,9 @@ export default function JournalLayout() {
       </Suspense>
 
       <WhatsNewDialog entries={whatsNew.entries} onClose={whatsNew.close} />
+
+      {/* Native app: the paywall once the trial ends, and the Enter license key screen (#301). */}
+      <LicenseGate onSignOut={logout} />
 
       {shareNote && (
         <Suspense fallback={null}>

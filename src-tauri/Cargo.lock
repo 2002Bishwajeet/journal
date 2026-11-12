@@ -2050,7 +2050,9 @@ version = "2.67.0"
 dependencies = [
  "block2",
  "objc2",
+ "reqwest",
  "rfd",
+ "rustls",
  "serde",
  "serde_json",
  "tauri",

@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { MotionConfig } from "framer-motion";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, defaultShouldDehydrateQuery } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { get, set, del } from "idb-keyval";
@@ -71,7 +71,12 @@ function App() {
     <MotionConfig reducedMotion="user">
       <PersistQueryClientProvider
         client={queryClient}
-        persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
+        persistOptions={{
+          persister,
+          maxAge: 1000 * 60 * 60 * 24 * 7,
+          // A query with `meta: { persist: false }` stays out of IndexedDB (the native license, #301).
+          dehydrateOptions: { shouldDehydrateQuery: (query) => defaultShouldDehydrateQuery(query) && query.meta?.persist !== false },
+        }}
         // Queries wait for this restore, so a stuck IndexedDB read here holds the splash (#806).
         onSuccess={() => markBoot("query-cache")}
       >

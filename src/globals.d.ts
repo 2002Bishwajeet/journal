@@ -1,5 +1,7 @@
 declare const __APP_VERSION__: string;
 declare const __APP_BUILD__: string;
+/** The day this build was made, as YYYY-MM-DD (vite.config.ts). */
+declare const __BUILD_DATE__: string;
 
 /** Installed only in e2e mode on an allowlisted test origin — see src/lib/e2e/testHooks.ts. */
 interface JournalE2EHooks {
