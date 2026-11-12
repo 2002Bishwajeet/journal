@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { UserRound, Monitor, Sparkles, Bot, Bell, Database, Keyboard, Info, Activity, type LucideIcon } from "lucide-react";
+import { UserRound, Monitor, Sparkles, Bot, Bell, Database, Keyboard, KeyRound, Info, Activity, type LucideIcon } from "lucide-react";
 import AccountSection from "./sections/AccountSection";
 import AppearanceSection from "./sections/AppearanceSection";
 import AISection from "./sections/AISection";
@@ -9,8 +9,10 @@ import DataSection from "./sections/DataSection";
 import ShortcutsSection from "./sections/ShortcutsSection";
 import AboutSection from "./sections/AboutSection";
 import DiagnosticsSection from "./sections/DiagnosticsSection";
+import { LicenseSection } from "@/components/license/License";
+import { licenseEnabled } from "@/lib/billing";
 
-export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "data" | "shortcuts" | "about" | "diagnostics";
+export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "data" | "license" | "shortcuts" | "about" | "diagnostics";
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -21,6 +23,8 @@ export interface SettingsSection {
   Component: ComponentType<{ close: () => void }>;
   /** Hidden on phones (e.g. keyboard shortcuts — phones have no keyboard). */
   desktopOnly?: boolean;
+  /** Listed only when this is false (e.g. License outside the native app). */
+  hidden?: boolean;
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
@@ -65,6 +69,14 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "Where your data lives, import, and export",
     icon: Database,
     Component: DataSection,
+  },
+  {
+    id: "license",
+    label: "License",
+    description: "Your license key and updates",
+    icon: KeyRound,
+    Component: LicenseSection,
+    hidden: !licenseEnabled(),
   },
   {
     id: "shortcuts",

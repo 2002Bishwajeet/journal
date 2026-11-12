@@ -51,7 +51,7 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
     return () => window.removeEventListener(OPEN_SETTINGS_EVENT, onOpen);
   }, []);
   const isMobile = useDeviceType() === "mobile";
-  const sections = SETTINGS_SECTIONS.filter((s) => !(isMobile && s.desktopOnly));
+  const sections = SETTINGS_SECTIONS.filter((s) => !s.hidden && !(isMobile && s.desktopOnly));
 
   // One history entry per level: the dialog has its own (see ui/dialog.tsx), a section page adds a second.
   useOverlayHistory(

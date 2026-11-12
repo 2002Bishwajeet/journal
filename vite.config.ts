@@ -58,6 +58,7 @@ export default defineConfig(({ mode }) => ({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __APP_BUILD__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? gitShortSha() ?? 'dev'),
+    __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
   },
   plugins: [
     restorePgliteProcessGuard,
