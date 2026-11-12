@@ -97,7 +97,7 @@ describe('the billing flag', () => {
     });
 });
 
-describe('the buy and contact pages in the build', () => {
+describe('the buy, contact and privacy pages in the build', () => {
     const config = (mode: string) =>
         (siteConfig as (env: { mode: string; command: 'build' }) => UserConfig)({ mode, command: 'build' });
 
@@ -105,7 +105,16 @@ describe('the buy and contact pages in the build', () => {
         const input = config('production').build?.rollupOptions?.input as Record<string, string>;
         expect(PAGES.find((p) => p.id === 'buy')?.path).toBe('/landing/buy');
         expect(PAGES.find((p) => p.id === 'contact')?.path).toBe('/landing/contact');
+        expect(PAGES.find((p) => p.id === 'privacy')?.path).toBe('/landing/privacy');
         for (const page of PAGES) expect(Object.values(input).some((file) => file.endsWith(`/${page.file}`))).toBe(true);
+    });
+
+    // The App Store and Google Play listings link to these two pages as the privacy policy and support URLs.
+    it('links the privacy and support pages from every page footer', () => {
+        const footer = readFileSync(new URL('../../site/partials/footer.html', import.meta.url), 'utf8');
+        expect(footer).toContain('href="/landing/privacy"');
+        expect(footer).toContain('href="/landing/contact"');
+        expect(readFileSync(new URL('../../site/contact.html', import.meta.url), 'utf8')).toContain('id="support"');
     });
 
     it('talks to the test Worker unless built with --mode live', () => {

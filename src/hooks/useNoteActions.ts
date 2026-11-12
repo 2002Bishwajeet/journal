@@ -19,7 +19,7 @@ interface UseNoteActionsOptions {
     /** Closes a tab without navigating. */
     closeTab: (docId: string) => void;
     /** Closes a tab and leaves it if it's the open note. */
-    handleTabClose: (docId: string) => void;
+    handleTabClose: (docId: string, opts?: { leaving?: boolean }) => void;
 }
 
 /**
@@ -86,7 +86,7 @@ export function useNoteActions({
         (note: NoteListEntry) => {
             // Archived notes leave the active list, so an open tab would flip to
             // "Note not found" — close it (and leave it, if it's the open note).
-            handleTabClose(note.docId);
+            handleTabClose(note.docId, { leaving: true });
             archiveNote(note.docId).catch(() => toast.error("Couldn't archive note"));
         },
         [archiveNote, handleTabClose],

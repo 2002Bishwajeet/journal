@@ -8,6 +8,7 @@ import type { useNoteActions } from "@/hooks";
 import type { useSharedPull } from "@/hooks/useSharedPull";
 import NoteList from "./NoteList";
 import { SyncStatus } from "./SyncStatus";
+import { MobileSyncPill } from "./MobileSyncPill";
 import { HiddenNotesView } from "./HiddenNotesView";
 import { EmptyState } from "./LargeTitle";
 
@@ -168,6 +169,7 @@ export function NoteListPane({
           title={isDesktop ? undefined : viewLabel || "Notes"}
           onBack={onBack}
           backLabel={backLabel}
+          barStatus={isPhone && <MobileSyncPill />}
           trailing={
             split ? undefined : (
               <>
