@@ -40,8 +40,17 @@ async function appendToToday(text: string): Promise<void> {
  * too. An action that fails stays queued for the next drain.
  */
 export async function importBridgeActions(actions: BridgeAction[], license: BridgeLicense): Promise<BridgeImportResult> {
+    if (!licenseAllowsActions(license)) return { ack: [], open: null };
+    return importActions(actions);
+}
+
+/**
+ * Imports `actions` oldest first, each once by its id, whoever queued them (the bridge, the
+ * macOS Services menu). An action that fails is left out of `ack`, to be imported next time.
+ */
+export async function importActions(actions: BridgeAction[]): Promise<BridgeImportResult> {
     const result: BridgeImportResult = { ack: [], open: null };
-    if (!licenseAllowsActions(license) || actions.length === 0) return result;
+    if (actions.length === 0) return result;
 
     const seen = (await getAppState<string[]>(BRIDGE_SEEN_KEY)) ?? [];
     const sorted = [...actions].sort((a, b) => a.createdAt.localeCompare(b.createdAt));

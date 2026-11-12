@@ -74,6 +74,7 @@ import { useNotesMirror } from "@/hooks/useNotesMirror";
 import { useDailyReminder } from "@/hooks/useDailyReminder";
 import { useNativeBridge } from "@/hooks/useNativeBridge";
 import { useUserActivity } from "@/hooks/useUserActivity";
+import { useMacServices } from "@/hooks/useMacServices";
 import { NO_LICENSE } from "@/lib/native/bridge";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
@@ -91,6 +92,7 @@ export default function JournalLayout() {
   useDailyReminder();
   // #301's licence state replaces NO_LICENSE.
   useNativeBridge(NO_LICENSE);
+  useMacServices();
   const whatsNew = useAutoWhatsNew();
 
   // Warm the lazy editor chunk once the shell is idle. Desktop with restored

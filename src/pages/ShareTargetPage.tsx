@@ -8,6 +8,7 @@ import { Loader2, Save, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAIN_FOLDER_ID } from "@/lib/homebase";
 import { useCanEdit } from "@/hooks/useCanEdit";
+import { sharedNote } from "@/lib/sharedNote";
 
 export default function ShareTargetPage() {
   const [searchParams] = useSearchParams();
@@ -16,16 +17,14 @@ export default function ShareTargetPage() {
   // The native trial ended (#1176): nothing new is saved on this device.
   const canEdit = useCanEdit();
 
-  // Lazy initialization of state
-  const [title, setTitle] = useState(
-    () => searchParams.get("title") || "Shared Note",
-  );
-  const [content, setContent] = useState(() => {
-    const text = searchParams.get("text") || "";
-    const url = searchParams.get("url") || "";
-    if (text && url) return `${text}\n\n${url}`;
-    return text || url;
+  // Only the first render's value seeds the fields.
+  const shared = sharedNote({
+    title: searchParams.get("title"),
+    text: searchParams.get("text"),
+    url: searchParams.get("url"),
   });
+  const [title, setTitle] = useState(shared.title);
+  const [content, setContent] = useState(shared.content);
 
   const [isSaving, setIsSaving] = useState(false);
 
