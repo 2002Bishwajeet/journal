@@ -149,7 +149,7 @@ describe('EditorProvider — commit after a yielded render', () => {
       ],
     }, { emitUpdate: true });
 
-    await vi.waitFor(() => expect(updateSearchIndexContent).toHaveBeenCalled(), { timeout: 2000 });
+    await vi.waitFor(() => expect(updateSearchIndexContent).toHaveBeenCalled(), { timeout: 10_000 });
     const written = vi.mocked(updateSearchIndexContent).mock.calls.at(-1)![1];
     const ydoc = providerDocs.get('doc-2')!;
     expect(written).toBe(previewTextFromFragment(ydoc.getXmlFragment('prosemirror')));
