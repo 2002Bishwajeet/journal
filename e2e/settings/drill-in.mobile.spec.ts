@@ -5,7 +5,7 @@ import { withMobilePage } from '../support/mobile';
 
 // #831: on a phone, Settings is a grouped section list that drills into one page per section.
 
-const SECTIONS = ['Account', 'Appearance', 'Privacy & agents', 'Data & storage', 'About'];
+const SECTIONS = ['Account', 'Appearance', 'Notifications', 'Data & storage', 'Agent access', 'About'];
 
 const sectionRow = (dialog: Locator, name: string) =>
   dialog.getByRole('listitem').getByRole('button', name === 'Account' ? { name: /^Account/ } : { name, exact: true });

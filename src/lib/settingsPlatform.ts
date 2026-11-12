@@ -12,3 +12,10 @@ export function settingsPlatform(isPhone: boolean): SettingsPlatform {
 
 export const isNativeSettings = (p: SettingsPlatform) => p === "native-phone" || p === "native-desktop";
 export const isPhoneSettings = (p: SettingsPlatform) => p === "web-phone" || p === "native-phone";
+
+/** Android lays Settings out as a Material list; iOS and other phones as inset grouped cards. */
+export function isAndroidPhone(): boolean {
+  const native = nativePlatform();
+  if (native) return native === "android";
+  return /Android/i.test(navigator.userAgent);
+}

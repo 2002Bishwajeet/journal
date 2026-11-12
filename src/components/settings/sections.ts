@@ -64,7 +64,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "Notifications on this device",
     icon: Bell,
     Component: NotificationsSection,
-    platforms: ["web-desktop", "web-phone"],
   },
   {
     id: "data",
@@ -105,7 +104,15 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   },
 ];
 
-/** The sections that apply on a platform. */
-export function sectionsFor(platform: SettingsPlatform): SettingsSection[] {
-  return SETTINGS_SECTIONS.filter((s) => !s.hidden && (!s.platforms || s.platforms.includes(platform)));
+/**
+ * The sections that apply on a platform. The phone app has no web push, so Notifications
+ * has a row there only when a daily-reminder scheduler is registered.
+ */
+export function sectionsFor(platform: SettingsPlatform, hasReminder = false): SettingsSection[] {
+  return SETTINGS_SECTIONS.filter(
+    (s) =>
+      !s.hidden &&
+      (!s.platforms || s.platforms.includes(platform)) &&
+      !(s.id === "notifications" && platform === "native-phone" && !hasReminder),
+  );
 }

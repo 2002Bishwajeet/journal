@@ -11,6 +11,7 @@ import { useDeviceType } from "@/hooks";
 import { overlayDepth, useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { OPEN_SETTINGS_EVENT } from "@/hooks/useSettingsOpener";
 import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
+import { useDailyReminderSettings } from "@/hooks/useDailyReminder";
 import { SETTINGS_SECTIONS, sectionsFor, type SettingsSectionId } from "./sections";
 import MobileSettings from "./MobileSettings";
 
@@ -53,7 +54,7 @@ export default function SettingsDialog({ isOpen, initialSection, onClose }: Sett
   }, []);
   const isMobile = useDeviceType() === "mobile";
   const platform = useSettingsPlatform();
-  const sections = sectionsFor(platform);
+  const sections = sectionsFor(platform, useDailyReminderSettings().available);
 
   // One history entry per level: the dialog has its own (see ui/dialog.tsx), a section page adds a second.
   useOverlayHistory(

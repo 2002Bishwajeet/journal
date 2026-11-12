@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, afterEach } from 'vitest';
-import { settingsPlatform, isNativeSettings, isPhoneSettings } from '@/lib/settingsPlatform';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { settingsPlatform, isNativeSettings, isPhoneSettings, isAndroidPhone } from '@/lib/settingsPlatform';
 import { sectionsFor } from '@/components/settings/sections';
 
 const setNative = (platform?: 'macos' | 'windows' | 'linux' | 'ios' | 'android') => {
@@ -9,7 +9,8 @@ const setNative = (platform?: 'macos' | 'windows' | 'linux' | 'ios' | 'android')
 
 afterEach(() => setNative());
 
-const ids = (platform: Parameters<typeof sectionsFor>[0]) => sectionsFor(platform).map((s) => s.id);
+const ids = (platform: Parameters<typeof sectionsFor>[0], hasReminder = false) =>
+    sectionsFor(platform, hasReminder).map((s) => s.id);
 
 describe('settingsPlatform', () => {
     it('maps the web by viewport', () => {
@@ -42,15 +43,52 @@ describe('sectionsFor', () => {
         expect(ids('web-desktop')).toHaveLength(9);
     });
 
-    it('drops AI and keyboard shortcuts on phones, notifications in the app', () => {
+    it('drops AI and keyboard shortcuts on phones', () => {
         expect(ids('web-phone')).toEqual(['account', 'appearance', 'agent-access', 'notifications', 'data', 'about', 'diagnostics']);
-        expect(ids('native-phone')).toEqual(['account', 'appearance', 'agent-access', 'data', 'about', 'diagnostics']);
     });
 
-    it('drops notifications on native desktop but keeps AI and shortcuts', () => {
+    it('lists notifications on the phone app only with a daily reminder (no web push there)', () => {
+        expect(ids('native-phone')).toEqual(['account', 'appearance', 'agent-access', 'data', 'about', 'diagnostics']);
+        expect(ids('native-phone', true)).toContain('notifications');
+    });
+
+    it('keeps notifications (desktop notifications), AI and shortcuts on native desktop', () => {
         const native = ids('native-desktop');
-        expect(native).not.toContain('notifications');
+        expect(native).toContain('notifications');
         expect(native).toContain('ai');
         expect(native).toContain('shortcuts');
+    });
+});
+
+describe('isAndroidPhone', () => {
+    it('follows the app platform, else the browser', () => {
+        setNative('android');
+        expect(isAndroidPhone()).toBe(true);
+        setNative('ios');
+        expect(isAndroidPhone()).toBe(false);
+        setNative();
+        const ua = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Linux; Android 15; Pixel 9)');
+        expect(isAndroidPhone()).toBe(true);
+        ua.mockRestore();
+    });
+});
+
+describe('keyboard shortcut labels', () => {
+    const firstKey = async () => {
+        vi.resetModules();
+        const { shortcutGroups } = await import('@/components/modals/KeyboardShortcutsModal');
+        return shortcutGroups[0].shortcuts[0].keys[0];
+    };
+
+    it('shows ⌘ in the macOS app and Ctrl in the Windows and Linux apps, whatever navigator says', async () => {
+        const platform = vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Win32');
+        setNative('macos');
+        expect(await firstKey()).toBe('⌘');
+        platform.mockReturnValue('MacIntel');
+        setNative('windows');
+        expect(await firstKey()).toBe('Ctrl');
+        setNative('linux');
+        expect(await firstKey()).toBe('Ctrl');
+        platform.mockRestore();
     });
 });

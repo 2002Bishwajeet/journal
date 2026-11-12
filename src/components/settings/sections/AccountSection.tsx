@@ -5,6 +5,8 @@ import SignOutConfirmDialog from "@/components/modals/SignOutConfirmDialog";
 import { useAccountSettings } from "@/hooks/useAccountSettings";
 import { openSettings } from "@/hooks/useSettingsOpener";
 import { useJournalPermissions } from "@/hooks/auth/useJournalPermissions";
+import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
+import { isPhoneSettings } from "@/lib/settingsPlatform";
 import { cn, formatRelativeTime } from "@/lib/utils/index";
 import { SettingsRow } from "../SettingsRow";
 
@@ -14,6 +16,8 @@ export default function AccountSection() {
   const permissions = useJournalPermissions();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const isSyncing = syncStatus === "syncing";
+  // A phone row is one truncated line, so it leads with when it last synced (#1182).
+  const phone = isPhoneSettings(useSettingsPlatform());
 
   const waiting = `${pendingTotal} ${pendingTotal === 1 ? "change" : "changes"} waiting`;
   const lastSynced = lastSyncedAt ? `last synced ${formatRelativeTime(lastSyncedAt)}` : null;
@@ -23,6 +27,7 @@ export default function AccountSection() {
   else if (syncStatus === "error") statusText = "Last sync failed";
   else if (syncStatus === "offline") statusText = "Offline — changes will sync when you're back online";
   else if (pendingTotal > 0) statusText = [`${waiting} to sync`, lastSynced].filter(Boolean).join(" · ");
+  else if (phone && lastSyncedAt) statusText = `Last synced ${formatRelativeTime(lastSyncedAt)}`;
   else statusText = ["Up to date", lastSynced].filter(Boolean).join(" · ");
   if (pendingTotal > 0 && syncStatus !== "idle") {
     statusText += ` · ${waiting}`;

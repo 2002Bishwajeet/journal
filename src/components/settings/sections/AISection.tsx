@@ -33,7 +33,8 @@ export default function AISection() {
     canClearCache,
   } = useAIPreferences();
   const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
-  const where = isNativeSettings(useSettingsPlatform()) ? "on this device" : "in this browser";
+  const native = isNativeSettings(useSettingsPlatform());
+  const where = native ? "on this device" : "in this browser";
   const percent = Math.round(loadingProgress * 100);
 
   const intro = (
@@ -66,7 +67,7 @@ export default function AISection() {
 
   const modelFiles = (
     <div className="space-y-4">
-      <SectionHeader subtitle={`Downloaded models are stored ${where} so they load faster next time.`}>
+      <SectionHeader subtitle={`Downloaded models are stored ${native ? "in the app" : "in this browser"} so they load faster next time.`}>
         Model files
       </SectionHeader>
       <Button

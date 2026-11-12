@@ -161,7 +161,7 @@ export async function openSettingsSection(dialog: Locator, name: string): Promis
     const back = dialog.getByRole('button', { name: 'Settings', exact: true });
     if (await back.count()) await back.click();
     // Diagnostics is a "Troubleshooting" page under About on a phone.
-    const rowName = name === 'Agent access' ? 'Privacy & agents' : name === 'Account' ? /^Account/ : name;
+    const rowName = name === 'Account' ? /^Account/ : name;
     const listRow = (n: string | RegExp) => dialog.getByRole('listitem').getByRole('button', { name: n, exact: typeof n === 'string' });
     if (name === 'Diagnostics' && !(await tab.count())) {
         await listRow('About').click();

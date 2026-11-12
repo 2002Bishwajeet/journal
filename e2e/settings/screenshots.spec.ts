@@ -66,7 +66,7 @@ for (const [viewport, size] of Object.entries(VIEWPORTS)) {
       if (isMobile && section.desktopOnly) continue;
       await openSettingsSection(dialog, section.tab);
       const panel = settingsPanel(dialog);
-      await expect(dialog.getByRole('heading', { name: isMobile && section.tab === 'Agent access' ? 'Privacy & agents' : section.tab, exact: true }).first()).toBeVisible();
+      await expect(dialog.getByRole('heading', { name: section.tab, exact: true }).first()).toBeVisible();
       if (section.id === 'data') await expect(panel.getByText('Storage used')).toBeVisible();
       await capture(app, (theme) => `${section.id}-${theme}-${viewport}`);
     }

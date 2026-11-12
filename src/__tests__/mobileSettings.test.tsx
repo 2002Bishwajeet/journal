@@ -71,7 +71,7 @@ describe('MobileSettings', () => {
 });
 
 describe('MobileSettings groups (#1182)', () => {
-  it('relabels agent access, hides diagnostics from the list and links it under About', async () => {
+  it('puts agent access under a "Privacy & agents" label, hides diagnostics from the list and links it under About', async () => {
     const all = ['account', 'agent-access', 'about', 'diagnostics'].map((id) => ({
       id, label: id, description: '', icon: () => null, Component: () => <p>{id} page</p>,
     })) as never;
@@ -81,8 +81,25 @@ describe('MobileSettings groups (#1182)', () => {
     expect(onPage).toHaveBeenCalledWith('diagnostics');
 
     await act(async () => root.render(<MobileSettings sections={all} page={null} onPage={onPage} onClose={onClose} />));
-    expect(container.textContent).toContain('Privacy & agents');
+    expect(container.querySelector('h3')?.textContent).toBe('Privacy & agents');
+    expect(button('agent-access')).toBeDefined();
     expect(container.textContent).toContain('v1.2.3');
     expect(container.textContent).not.toContain('diagnostics');
+  });
+});
+
+describe('MobileSettings on Android (#1182)', () => {
+  afterEach(() => {
+    window.__JOURNAL_NATIVE__ = undefined;
+  });
+
+  it('draws full-width rows instead of inset cards', async () => {
+    await render(null);
+    expect(container.querySelector('ul')?.className).toContain('rounded-xl');
+    window.__JOURNAL_NATIVE__ = { platform: 'android' };
+    await render(null);
+    const list = container.querySelector('ul')!;
+    expect(list.className).not.toContain('rounded-xl');
+    expect(list.className).toContain('-mx-5');
   });
 });
