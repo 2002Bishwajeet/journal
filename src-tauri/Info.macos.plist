@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- macOS only, merged through bundle.macOS.infoPlist (tauri.macos.conf.json); keys for
+	     both Apple targets go in Info.plist. -->
+	<!-- The Services menu (#1118, native/rust/services_sys.rs): NSMessage is the provider's
+	     selector, <message>:userData:error:. Without the premium submodule nothing provides
+	     them and macOS leaves them out of the menu. -->
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>New Journal Note from Selection</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>newNote</string>
+			<key>NSPortName</key>
+			<string>Journal+</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendTypes</key>
+			<array>
+				<string>NSStringPboardType</string>
+				<string>public.utf8-plain-text</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Add to Today's Journal Note</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>addToToday</string>
+			<key>NSPortName</key>
+			<string>Journal+</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendTypes</key>
+			<array>
+				<string>NSStringPboardType</string>
+				<string>public.utf8-plain-text</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
