@@ -285,6 +285,48 @@ fn hide_form_accessory_bar() {
     }
 }
 
+/// iOS: `set_style` makes the status bar follow the in-app theme (#1080). The bar's
+/// light or dark text comes from the window's user interface style, which is the
+/// OS's unless the window overrides it. The page sends its theme preference:
+/// "light" or "dark" overrides it, "system" (anything else) gives it back to the OS,
+/// so the OS appearance still changes the "system" theme. Not on Android, where
+/// MainActivity.kt reads the page's theme-color. The plugin is registered on every
+/// target so the capability resolves everywhere; only iOS acts on it.
+#[tauri::command]
+fn set_style<R: tauri::Runtime>(
+    window: tauri::WebviewWindow<R>,
+    style: String,
+) -> tauri::Result<()> {
+    #[cfg(target_os = "ios")]
+    window.with_webview(move |webview| {
+        use objc2::runtime::AnyObject;
+
+        // UIUserInterfaceStyle: 0 unspecified (follow the OS), 1 light, 2 dark.
+        let value: isize = match style.as_str() {
+            "light" => 1,
+            "dark" => 2,
+            _ => 0,
+        };
+        // `inner()` is the WKWebView, and `with_webview` runs this on the main thread.
+        unsafe {
+            let view = &*webview.inner().cast::<AnyObject>();
+            let ui_window: Option<&AnyObject> = objc2::msg_send![view, window];
+            if let Some(ui_window) = ui_window {
+                let _: () = objc2::msg_send![ui_window, setOverrideUserInterfaceStyle: value];
+            }
+        }
+    })?;
+    #[cfg(not(target_os = "ios"))]
+    let _ = (window, style);
+    Ok(())
+}
+
+fn system_bars_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("system-bars")
+        .invoke_handler(tauri::generate_handler![set_style])
+        .build()
+}
+
 /// iOS and macOS: turns on the back and forward swipes of the WKWebView, which
 /// are off unless the app enables them (wry has the setting, Tauri doesn't pass
 /// it through). On an iPhone that is the interactive swipe from the left edge
@@ -390,7 +432,8 @@ pub fn run() {
     let builder = premium::register_first(tauri::Builder::default())
         // journal.cloudx.run links (iOS Universal Links, Android App Links) and
         // journal:// links (desktop) open the app; useDeepLinks routes them.
-        .plugin(tauri_plugin_deep_link::init());
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(system_bars_plugin());
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     #[cfg(target_os = "ios")]

@@ -6,8 +6,8 @@ export type NativePlatform = 'macos' | 'windows' | 'linux' | 'ios' | 'android';
 
 declare global {
   interface Window {
-    /** `plugins`: the premium Tauri plugins from the private native/ submodule. */
-    __JOURNAL_NATIVE__?: { platform: NativePlatform; plugins: string[] };
+    /** `plugins`: the premium Tauri plugins from the private native/ submodule (the init script always sets it; optional so tests can fake a platform alone). */
+    __JOURNAL_NATIVE__?: { platform: NativePlatform; plugins?: string[] };
   }
 }
 
@@ -23,7 +23,7 @@ export function isNativeApp(): boolean {
 
 /** True when the native app has the premium plugin `name`; always false on the web. */
 export function hasNativePlugin(name: string): boolean {
-  return window.__JOURNAL_NATIVE__?.plugins.includes(name) ?? false;
+  return window.__JOURNAL_NATIVE__?.plugins?.includes(name) ?? false;
 }
 
 /**
