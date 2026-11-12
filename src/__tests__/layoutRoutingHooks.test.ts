@@ -114,6 +114,7 @@ describe('useLayoutUrlActions', () => {
         folderId: 'f1',
         notes: NOTES,
         createNote: vi.fn(async () => ({ docId: 'new', folderId: 'f1' })),
+        openToday: vi.fn(async () => {}),
     };
 
     it('opens search for ?action=search and removes the param', async () => {
