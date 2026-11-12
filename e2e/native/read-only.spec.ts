@@ -29,6 +29,8 @@ async function openNativeApp(browser: Browser, body: (page: Page, device: { stor
         await page.addInitScript(() => {
             const w = window as unknown as Record<string, unknown>;
             w.__JOURNAL_NATIVE__ = { platform: 'macos' };
+            // The first launch's trial info sheet (#1177) is e2e/native/paywall.spec.ts's.
+            localStorage.setItem('journal:trial-info-seen', '1');
             w.__TAURI_INTERNALS__ = {
                 transformCallback: () => 0,
                 invoke: (cmd: string, args: Record<string, unknown> = {}) =>

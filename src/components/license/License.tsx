@@ -1,12 +1,12 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import SignOutConfirmDialog from "@/components/modals/SignOutConfirmDialog";
-import { licenseEnabled } from "@/lib/billing";
+import { billingEnabled } from "@/lib/billing";
 import { FEATURE_RELEASES } from "@/lib/featureReleases";
 import { isNativeApp } from "@/lib/native";
 import { setCanEdit } from "@/hooks/useCanEdit";
 
 // The native app's license screens (#301) live in the private native/ module (`@premium`),
-// loaded only when licenseEnabled(): never on the web, nor in a build without a billing Worker.
+// loaded only when billingEnabled(): never on the web, nor in a build that sells nothing.
 const Gate = lazy(() => import("@premium").then((m) => ({ default: m.LicenseGate })));
 const Chip = lazy(() => import("@premium").then((m) => ({ default: m.TrialChip })));
 const Section = lazy(() => import("@premium").then((m) => ({ default: m.LicenseSection })));
@@ -51,7 +51,7 @@ export function CanEditReporter() {
  */
 export function LicenseGate({ onSignOut, pendingTotal }: { onSignOut: () => void; pendingTotal: number }) {
   const [confirmSignOut, setConfirmSignOut] = useState(false);
-  if (!licenseEnabled()) return null;
+  if (!billingEnabled()) return null;
   return (
     <Suspense fallback={null}>
       <Gate onSignOut={() => setConfirmSignOut(true)} />
@@ -67,7 +67,7 @@ export function LicenseGate({ onSignOut, pendingTotal }: { onSignOut: () => void
 
 /** The sidebar footer's trial countdown. */
 export function TrialChip() {
-  if (!licenseEnabled()) return null;
+  if (!billingEnabled()) return null;
   return (
     <Suspense fallback={null}>
       <Chip />
@@ -75,7 +75,7 @@ export function TrialChip() {
   );
 }
 
-/** Settings → License (listed only when licenseEnabled(), see sections.ts). */
+/** Settings → Purchase (listed only when billingEnabled(), see sections.ts). */
 export function LicenseSection({ close }: { close: () => void }) {
   return (
     <Suspense fallback={null}>
@@ -89,7 +89,7 @@ export function LicenseSection({ close }: { close: () => void }) {
  * updates ended before the feature shipped sees "Renew to get this update" instead.
  */
 export function RenewForUpdate({ feature, children }: { feature: string; children: ReactNode }) {
-  if (!licenseEnabled() || !FEATURE_RELEASES[feature]) return children;
+  if (!billingEnabled() || !FEATURE_RELEASES[feature]) return children;
   return (
     <Suspense fallback={null}>
       <Renew feature={feature}>{children}</Renew>
