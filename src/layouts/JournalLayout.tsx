@@ -225,7 +225,7 @@ export default function JournalLayout() {
     }
   }, [openToday, navigate, location.pathname, sidebarOverlayOpen, setSidebarRequested]);
 
-  useTrayNewNote(() => void noteActions.createAndOpen(folderId));
+  useTrayNewNote(noteActions.createAndOpen, folderId);
   useQuitShortcut();
 
   // Keyboard shortcuts (Cmd+K for search)

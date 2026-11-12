@@ -7,7 +7,7 @@ import { act, createElement } from 'react';
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const launch = vi.hoisted(() => ({
-    value: { desktop: false, enabled: null as boolean | null, setEnabled: vi.fn(async (_on: boolean) => {}) },
+    value: { desktop: false, enabled: null as boolean | null, setEnabled: vi.fn<(on: boolean) => Promise<void>>(async () => {}) },
 }));
 vi.mock('@/hooks/useLaunchAtLogin', () => ({ useLaunchAtLogin: () => launch.value }));
 vi.mock('@/hooks/useThemePreference', () => ({ useThemePreference: () => ({ theme: 'light', setTheme: vi.fn() }) }));

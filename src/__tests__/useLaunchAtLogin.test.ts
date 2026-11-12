@@ -17,10 +17,10 @@ import { useLaunchAtLogin } from '@/hooks/useLaunchAtLogin';
 
 let host: HTMLDivElement;
 let root: Root;
-let current: ReturnType<typeof useLaunchAtLogin>;
+const result = { current: null as unknown as ReturnType<typeof useLaunchAtLogin> };
 
 function Probe() {
-    current = useLaunchAtLogin();
+    result.current = useLaunchAtLogin();
     return null;
 }
 
@@ -42,8 +42,8 @@ describe('useLaunchAtLogin', () => {
     it('is not desktop on the web and never reads the OS setting', async () => {
         await act(async () => { root.render(createElement(Probe)); });
         await flush();
-        expect(current.desktop).toBe(false);
-        expect(current.enabled).toBeNull();
+        expect(result.current.desktop).toBe(false);
+        expect(result.current.enabled).toBeNull();
         expect(getLaunchAtLogin).not.toHaveBeenCalled();
     });
 
@@ -51,7 +51,7 @@ describe('useLaunchAtLogin', () => {
         window.__JOURNAL_NATIVE__ = { platform: 'ios' };
         await act(async () => { root.render(createElement(Probe)); });
         await flush();
-        expect(current.desktop).toBe(false);
+        expect(result.current.desktop).toBe(false);
         expect(getLaunchAtLogin).not.toHaveBeenCalled();
     });
 
@@ -59,12 +59,12 @@ describe('useLaunchAtLogin', () => {
         window.__JOURNAL_NATIVE__ = { platform: 'linux' };
         await act(async () => { root.render(createElement(Probe)); });
         await flush();
-        expect(current.desktop).toBe(true);
-        expect(current.enabled).toBe(true);
+        expect(result.current.desktop).toBe(true);
+        expect(result.current.enabled).toBe(true);
 
-        await act(async () => { await current.setEnabled(false); });
+        await act(async () => { await result.current.setEnabled(false); });
         expect(setLaunchAtLogin).toHaveBeenCalledWith(false);
-        expect(current.enabled).toBe(false);
+        expect(result.current.enabled).toBe(false);
     });
 
     it('keeps the old value when the OS refuses the change', async () => {
@@ -72,7 +72,7 @@ describe('useLaunchAtLogin', () => {
         setLaunchAtLogin.mockRejectedValueOnce(new Error('denied'));
         await act(async () => { root.render(createElement(Probe)); });
         await flush();
-        await act(async () => { await current.setEnabled(false).catch(() => {}); });
-        expect(current.enabled).toBe(true);
+        await act(async () => { await result.current.setEnabled(false).catch(() => {}); });
+        expect(result.current.enabled).toBe(true);
     });
 });

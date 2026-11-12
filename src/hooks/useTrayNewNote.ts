@@ -2,13 +2,17 @@ import { useEffect, useRef } from 'react';
 import { isNativeApp } from '@/lib/native';
 
 /**
- * Desktop app: runs `onNewNote` when the tray menu's "New note" is picked. The window
- * may have been hidden; the webview and its sync keep running. Does nothing on the web.
+ * Desktop app: when the tray menu's "New note" is picked, creates a note in the current
+ * folder and opens it. The window may have been hidden; the webview and its sync keep
+ * running. Does nothing on the web.
  */
-export function useTrayNewNote(onNewNote: () => void): void {
-    const latest = useRef(onNewNote);
+export function useTrayNewNote(
+    createAndOpen: (folderId: string | undefined) => Promise<void>,
+    folderId: string | undefined,
+): void {
+    const latest = useRef(() => void createAndOpen(folderId));
     useEffect(() => {
-        latest.current = onNewNote;
+        latest.current = () => void createAndOpen(folderId);
     });
 
     useEffect(() => {
