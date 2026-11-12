@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import fs from 'fs';
 import path from 'path';
 import { pieceStubs } from './packages/live-blocks/test/pieceStubs';
 
@@ -30,6 +31,8 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': path.resolve(import.meta.dirname, './src'),
+            // Paid code from the optional private submodule native/, or its stub without it.
+            '@premium': path.resolve(import.meta.dirname, fs.existsSync(path.resolve(import.meta.dirname, 'native/web/index.ts')) ? 'native/web/index.ts' : 'src/lib/premiumStub.ts'),
             // Supplied by vite-plugin-pwa at build time, so it does not resolve
             // under vitest — and that failure happens in import analysis, before
             // vi.mock can intercept it.

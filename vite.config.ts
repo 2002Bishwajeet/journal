@@ -198,6 +198,8 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, './src'),
+      // Paid code from the optional private submodule native/, or its stub without it.
+      '@premium': path.resolve(import.meta.dirname, fs.existsSync(path.resolve(import.meta.dirname, 'native/web/index.ts')) ? 'native/web/index.ts' : 'src/lib/premiumStub.ts'),
       // The workspace package's source, not the link in node_modules: a worktree that shares
       // another checkout's node_modules still builds its own copy.
       '@2002bishwajeet/live-blocks': path.resolve(import.meta.dirname, './packages/live-blocks/src'),
