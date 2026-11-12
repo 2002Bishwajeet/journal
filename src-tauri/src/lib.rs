@@ -182,6 +182,24 @@ fn hide_form_accessory_bar() {
     }
 }
 
+/// iOS and macOS: turns on the back and forward swipes of the WKWebView, which
+/// are off unless the app enables them (wry has the setting, Tauri doesn't pass
+/// it through). On an iPhone that is the interactive swipe from the left edge
+/// Safari has, on a Mac the two-finger trackpad swipe. Both walk the page's
+/// history, and the app pushes an entry for every screen, sheet and dialog it
+/// opens on a phone (#822), so the swipe goes back one screen at a time and does
+/// nothing on the first one.
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+fn allow_swipe_navigation(webview: tauri::webview::PlatformWebview) {
+    use objc2::runtime::AnyObject;
+
+    // `inner()` is the WKWebView, and `with_webview` runs this on the main thread.
+    unsafe {
+        let webview = &*webview.inner().cast::<AnyObject>();
+        let _: () = objc2::msg_send![webview, setAllowsBackForwardNavigationGestures: true];
+    }
+}
+
 /// Desktop auto-update (#1141). Checks the `plugins.updater` endpoint in
 /// tauri.conf.json at launch and then daily, downloads in the background, and
 /// installs only when the user picks "Restart now". The plugin refuses an
@@ -319,7 +337,14 @@ pub fn run() {
                 .min_inner_size(400.0, 600.0)
                 .resizable(true);
 
-            builder.build()?;
+            #[cfg_attr(
+                not(any(target_os = "ios", target_os = "macos")),
+                allow(unused_variables)
+            )]
+            let window = builder.build()?;
+
+            #[cfg(any(target_os = "ios", target_os = "macos"))]
+            window.with_webview(allow_swipe_navigation)?;
 
             #[cfg(target_os = "ios")]
             hide_form_accessory_bar();
