@@ -26,7 +26,9 @@ It needs Rust and, on Linux, WebKitGTK (`libwebkit2gtk-4.1-dev`; see
 `.github/workflows/tauri.yml`). The app is named "Journal+" on desktop
 (`tauri.macos.conf.json`, `tauri.windows.conf.json`, `tauri.linux.conf.json`),
 because macOS ships its own Journal; `tauri.conf.json` keeps "Journal" for the
-generated iOS and Android projects. A local build is unsigned and has no
+generated iOS and Android projects, whose home-screen names (`Info.ios.plist`,
+Android `strings.xml`) are "Journal+" as well: "Journal" is taken on the App
+Store (ITMS-90129), so no platform shows plain "Journal". A local build is unsigned and has no
 updater bundles; it still checks for updates when it runs.
 
 The desktop icons (`icons/`: `.icns`, `.ico` and the PNGs) are generated with
