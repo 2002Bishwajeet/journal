@@ -13,6 +13,7 @@ const AuthFinalizePage = lazy(() => import("@/pages/AuthFinalizePage"));
 const McpCodePage = lazy(() => import("@/pages/McpCodePage"));
 const ShareTargetPage = lazy(() => import("@/pages/ShareTargetPage"));
 const SaveSharedPage = lazy(() => import("@/pages/SaveSharedPage"));
+const CapturePage = lazy(() => import("@/pages/CapturePage"));
 const OpenSharedPage = lazy(() => import("@/pages/OpenSharedPage"));
 const JournalLayout = lazy(() => import("@/layouts/JournalLayout"));
 import { Toaster } from "@/components/ui/sonner";
@@ -108,6 +109,18 @@ function App() {
                         <AuthGuard>
                           <SyncProvider>
                             <ShareTargetPage />
+                          </SyncProvider>
+                        </AuthGuard>
+                      }
+                    />
+
+                    {/* Desktop quick-capture window (#1014): a text area that becomes a note */}
+                    <Route
+                      path="/capture"
+                      element={
+                        <AuthGuard>
+                          <SyncProvider>
+                            <CapturePage />
                           </SyncProvider>
                         </AuthGuard>
                       }
