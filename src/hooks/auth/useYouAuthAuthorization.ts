@@ -21,6 +21,7 @@ import {
     STORAGE_KEY_SHARED_SECRET,
 } from '@/lib/homebase/config';
 import { setSessionHint } from '@/lib/sessionHint';
+import { authCallbackUrl } from '@/lib/native';
 
 // Drive request for Journal app
 export const journalDriveRequest: TargetDriveAccessRequest = {
@@ -67,9 +68,8 @@ export function useYouAuthAuthorization() {
         // Persist key for usage on finalize
         await saveEccKey(eccKey);
 
-        const finalizeUrl = `${window.location.origin}/auth/finalize`;
         return getRegistrationParams(
-            finalizeUrl,
+            authCallbackUrl(),
             JOURNAL_APP_NAME,
             JOURNAL_APP_ID,
             JOURNAL_APP_SLUG,
