@@ -6,6 +6,7 @@ import { pieceStubs } from './packages/live-blocks/test/pieceStubs';
 export default defineConfig({
     define: {
         __APP_BUILD__: '"test"',
+        __BUILD_DATE__: '"2026-01-01"',
     },
 
     test: {

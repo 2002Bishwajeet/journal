@@ -3,10 +3,14 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
 import { useLatestWhatsNew } from "@/hooks/useWhatsNew";
+import { BILLING_URL, DOWNLOAD_URL } from "@/lib/billing";
+import { isNativeApp } from "@/lib/native";
 
 const links = [
   { label: "Source code", href: "https://github.com/2002Bishwajeet/journal" },
   { label: "Report a problem", href: "https://github.com/2002Bishwajeet/journal/issues/new" },
+  // The web's only billing UI (#301), in a build with a billing Worker.
+  ...(BILLING_URL && !isNativeApp() ? [{ label: "Get the desktop app", href: DOWNLOAD_URL }] : []),
 ];
 
 export default function AboutSection() {

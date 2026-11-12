@@ -2001,7 +2001,9 @@ version = "2.66.10"
 dependencies = [
  "block2",
  "objc2",
+ "reqwest",
  "rfd",
+ "rustls",
  "serde",
  "serde_json",
  "tauri",

@@ -1,5 +1,7 @@
 // `@premium` when the private native/ submodule isn't checked out (the public build,
 // and the PWA). Keep its exports in step with native/web/index.ts.
+import type { ReactNode } from 'react';
+
 export const hasPremium = false;
 
 export function listenTrayNewNote(onNewNote: () => void): Promise<() => void> {
@@ -34,3 +36,22 @@ export interface NotesMirror {
 }
 
 export const notesMirror: NotesMirror | null = null;
+
+// License key, trial and paywall (#301): the public build has none.
+export function LicenseGate(props: { onSignOut: () => void }): ReactNode {
+    void props;
+    return null;
+}
+
+export function TrialChip(): ReactNode {
+    return null;
+}
+
+export function LicenseSection(props: { close: () => void }): ReactNode {
+    void props;
+    return null;
+}
+
+export function RenewForUpdate(props: { feature: string; children: ReactNode }): ReactNode {
+    return props.children;
+}

@@ -39,6 +39,7 @@ import {
 import { ContextMenuWrapper, RowOptionsMenu, type ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper";
 import { ConfirmDialog, ShareFolderDialog, SignOutConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
+import { TrialChip } from "@/components/license/License";
 import type { Folder } from "@/types";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
@@ -552,6 +553,9 @@ export default function Sidebar({
           )}
         >
           <Separator className={isCollapsed ? "mb-2 w-6!" : "mb-2"} />
+
+          {/* Native app: the trial countdown (#301). */}
+          {!isCollapsed && <TrialChip />}
 
           <Tooltip>
             {/* Archive */}
