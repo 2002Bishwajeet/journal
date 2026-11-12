@@ -1,0 +1,1 @@
+- Notes written by AI agents through the Journal MCP now show callouts correctly when the agent puts a title on the marker line (`> [!warning] Fix first`) or uses GitHub-style types like `[!NOTE]` or `[!CAUTION]`. Before, these appeared as a plain quote with the raw `[!warning]` text.
