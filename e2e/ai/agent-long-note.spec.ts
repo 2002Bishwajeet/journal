@@ -4,8 +4,8 @@ import { completionRequests, finishLoad, queueReply, reloads, stubWebLLMWorker }
 import { activeTitleInput, openNote, screenshotInBothThemes, selectFolder } from '../support/actions';
 import { LONG_NOTE_BODY } from '../evals/tasks';
 
-// A long note reaches the model as an outline of its headings, and get_note with a section reads one
-// part (#1025), so an answer can come from the end of the note. A scripted engine worker stands in
+// A long open note reaches the model as an outline of its headings, up front on a question too (#1077),
+// and get_note with a section reads one part (#1025), so an answer can come from the end of the note. A scripted engine worker stands in
 // for the model, so the spec drives the real loop, tools and local database.
 
 const TITLE = 'Allotment diary';
@@ -36,25 +36,22 @@ test('"what is this about?" on a long note reads the outline, then one section',
   await app.getByRole('dialog', { name: /^Download / }).getByRole('button', { name: 'Continue' }).click();
   await expect.poll(() => reloads(app)).toHaveLength(1);
   await finishLoad(app, 'ok');
-  await queueReply(app, { tool: 'get_note', args: { id } });
   await queueReply(app, { tool: 'get_note', args: { id, section: '## December' } });
   const answer = 'A year on the allotment, from building the greenhouse in January to pressing cider in December.';
   await queueReply(app, { answer });
 
   await expect(panel.getByText(answer)).toBeVisible();
   const requests = (await completionRequests(app))!;
-  expect(requests).toHaveLength(3);
-  // get_note offers section only after an outline was shown, so a small model can't send its question as one.
-  expect(requests[0]).not.toContain('section');
-  // The first read: every heading and how to read a part, not the body.
-  expect(requests[1]).toContain('## November');
-  expect(requests[1]).toContain('Call get_note with section');
-  expect(requests[1]).not.toContain('beehive');
-  // The second read: the last section only.
-  expect(requests[2]).toContain('pressing cider');
-  expect(requests[2]).not.toContain('tulip');
+  expect(requests).toHaveLength(2);
+  // The question goes in with the open note's outline: every heading and how to read a part, not the body.
+  expect(requests[0]).toContain('November');
+  expect(requests[0]).toContain('Call get_note with section');
+  expect(requests[0]).not.toContain('beehive');
+  // The one read: the last section only.
+  expect(requests[1]).toContain('pressing cider');
+  expect(requests[1]).not.toContain('tulip');
 
-  await panel.getByText('2 steps').click();
-  await expect(panel.getByRole('link', { name: TITLE })).toHaveCount(2);
+  await panel.getByText('1 step').click();
+  await expect(panel.getByRole('link', { name: TITLE })).toHaveCount(1);
   await screenshotInBothThemes(app, (theme) => `agent-long-note-${theme}-1280.png`);
 });
