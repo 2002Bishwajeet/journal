@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { UserRound, Monitor, Sparkles, Bot, Bell, Shield, Database, Keyboard, KeyRound, Info, Activity, type LucideIcon } from "lucide-react";
+import type { SettingsPlatform } from "@/lib/settingsPlatform";
 import AccountSection from "./sections/AccountSection";
 import AppearanceSection from "./sections/AppearanceSection";
 import AISection from "./sections/AISection";
@@ -22,10 +23,8 @@ export interface SettingsSection {
   icon: LucideIcon;
   /** `close` shuts the Settings dialog, for a section that navigates away. */
   Component: ComponentType<{ close: () => void }>;
-  /** Hidden on phones (e.g. keyboard shortcuts — phones have no keyboard). */
-  desktopOnly?: boolean;
-  /** Only in the native app (e.g. what widgets and the watch may show). */
-  nativeOnly?: boolean;
+  /** Shown only on these platforms; omitted means all (a phone has no keyboard shortcuts). */
+  platforms?: SettingsPlatform[];
   /** Listed only when this is false (e.g. License outside the native app). */
   hidden?: boolean;
 }
@@ -51,6 +50,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "On-device models, autocomplete, and grammar",
     icon: Sparkles,
     Component: AISection,
+    platforms: ["web-desktop", "native-desktop"],
   },
   {
     id: "agent-access",
@@ -72,7 +72,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "What shows outside the app",
     icon: Shield,
     Component: SecuritySection,
-    nativeOnly: true,
+    platforms: ["native-phone", "native-desktop"],
   },
   {
     id: "data",
@@ -95,7 +95,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     description: "Every shortcut in one place",
     icon: Keyboard,
     Component: ShortcutsSection,
-    desktopOnly: true,
+    platforms: ["web-desktop", "native-desktop"],
   },
   {
     id: "about",
@@ -112,3 +112,16 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     Component: DiagnosticsSection,
   },
 ];
+
+/**
+ * The sections that apply on a platform. The phone app has no web push, so Notifications
+ * has a row there only when a daily-reminder scheduler is registered.
+ */
+export function sectionsFor(platform: SettingsPlatform, hasReminder = false): SettingsSection[] {
+  return SETTINGS_SECTIONS.filter(
+    (s) =>
+      !s.hidden &&
+      (!s.platforms || s.platforms.includes(platform)) &&
+      !(s.id === "notifications" && platform === "native-phone" && !hasReminder),
+  );
+}

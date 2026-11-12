@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
+import { nativePlatform } from "@/lib/native";
 
 declare global {
   interface Navigator {
@@ -23,7 +24,10 @@ interface ShortcutGroup {
   shortcuts: ShortcutEntry[];
 }
 
-const isMac = (navigator.userAgentData?.platform ?? navigator.platform)?.includes("mac") ||
+// The app knows its OS (#1182); a browser reports it through navigator.
+const native = nativePlatform();
+const isMac = native ? native === "macos" || native === "ios" :
+  (navigator.userAgentData?.platform ?? navigator.platform)?.includes("mac") ||
   (navigator.userAgentData?.platform ?? navigator.platform)?.includes("Mac");
 const mod = isMac ? "⌘" : "Ctrl";
 const shift = isMac ? "⇧" : "Shift";
