@@ -3,6 +3,7 @@ import { isNativeApp } from '@/lib/native';
 /**
  * The billing Worker (#300) the native app checks license keys with. Read only here. Unset
  * (dev, forks, self-builds) turns off every license screen, the trial and the paywall.
+ * Store builds (iOS, Android) leave it unset until the in-app purchase ships (native/AGENTS.md).
  */
 export const BILLING_URL: string | null = import.meta.env.VITE_BILLING_URL || null;
 

@@ -7,7 +7,8 @@ import { screenshotInBothThemes, settingsPanel } from '../support/actions';
 // #301: the native app's license key, trial and paywall. The app is forced native through the
 // init-script globals (window.__JOURNAL_NATIVE__ and a stub of Tauri's IPC). The device's store
 // (native/rust/license.rs) lives on the test side, so it outlasts reloads and sign-out; the
-// billing Worker (VITE_BILLING_URL in .env.e2e) is mocked with page.route.
+// billing Worker is mocked with page.route. The Rust side compiles the Worker's origin in
+// (JOURNAL_BILLING_URL), so the IPC stub stands in for it with the same test origin.
 
 const WORKER = 'https://billing.journal.test';
 const BUY_URL = 'https://journal.cloudx.run/landing/buy';
@@ -43,7 +44,7 @@ async function openNativeApp(
             if (cmd === 'plugin:journal-mirror|state') return { root: null, files: {} };
             return null;
         });
-        await page.addInitScript((platform) => {
+        await page.addInitScript(({ platform, worker }) => {
             const w = window as unknown as Record<string, unknown>;
             w.__JOURNAL_NATIVE__ = { platform };
             w.__TAURI_INTERNALS__ = {
@@ -53,17 +54,17 @@ async function openNativeApp(
                     // The Worker call, as the page's own request so page.route can answer it (still logged in device.ipc).
                     if (cmd === 'plugin:journal-license|request') {
                         await deviceIpc(cmd, args);
-                        const res = await fetch(`${args.base}${args.path}`, {
+                        const res = await fetch(`${worker}${args.path}`, {
                             method: 'POST',
                             headers: { 'content-type': 'application/json' },
                             body: JSON.stringify(args.body),
                         });
-                        return { status: res.status, body: await res.json().catch(() => null) };
+                        return { status: res.status, body: await res.json().catch(() => null), date: res.headers.get('date') };
                     }
                     return deviceIpc(cmd, args);
                 },
             };
-        }, platform);
+        }, { platform, worker: WORKER });
         // The Worker has no answer unless a test gives one (a later page.route wins).
         await page.route(`${WORKER}/**`, (route) => route.fulfill({ status: 502, json: { error: 'no answer' } }));
         await page.goto('/');
@@ -115,6 +116,9 @@ test.describe('native app', () => {
             await expect(sheet).toBeHidden();
             await expect(chip).toBeHidden();
             expect(activations.at(-1)).toEqual({ licenseKey: KEY, name: 'Journal on macOS (e2e-host)' });
+            // The web view picks only the route: the Worker's origin is compiled into the Rust side.
+            const requests = device.ipc.filter((c) => c.cmd === 'plugin:journal-license|request');
+            expect(requests.map((c) => Object.keys(c.args).sort())).toEqual(requests.map(() => ['body', 'path']));
             expect(device.store).toMatchObject({ licenseKey: KEY, instanceId: 'inst-9', updatesUntil: '2027-11-12T00:00:00Z' });
         });
     });
