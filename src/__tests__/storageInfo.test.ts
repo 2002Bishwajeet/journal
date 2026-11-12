@@ -76,7 +76,7 @@ describe('useStorageInfo', () => {
         vi.stubGlobal('navigator', {
             storage: { estimate: vi.fn().mockResolvedValue({ usage: 10, quota: 100 }), persisted },
         });
-        window.__JOURNAL_NATIVE__ = { platform: 'ios' };
+        window.__JOURNAL_NATIVE__ = { platform: 'ios', plugins: [] };
         try {
             const { latest, unmount } = await mountHook();
             expect(latest.current).toMatchObject({ usage: 10, quota: 100, persisted: null, appManaged: true });

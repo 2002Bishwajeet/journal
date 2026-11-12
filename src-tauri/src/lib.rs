@@ -164,6 +164,15 @@ fn serve(app: &tauri::AppHandle, server: &Server) {
     }
 }
 
+/// The premium plugins with commands, from native/rust/plugins.txt (see
+/// build.rs). Empty without the submodule.
+fn native_plugins() -> Vec<&'static str> {
+    env!("JOURNAL_NATIVE_PLUGINS")
+        .split(',')
+        .filter(|name| !name.is_empty())
+        .collect()
+}
+
 /// The asset server's loopback addresses, and how many of them are being bound
 /// again right now (see `serve_forever`).
 struct AssetServer {
@@ -236,11 +245,13 @@ fn serve_forever(app: tauri::AppHandle, mut server: Server) {
 
 /// Sets `window.__JOURNAL_NATIVE__` before any page script runs.
 /// `std::env::consts::OS` is already `macos`, `windows`, `linux`, `ios` or
-/// `android`, the values `NativePlatform` in src/lib/native.ts expects.
+/// `android`, the values `NativePlatform` in src/lib/native.ts expects;
+/// `plugins` is what `hasNativePlugin()` there checks.
 fn native_flag_script() -> String {
     format!(
-        "window.__JOURNAL_NATIVE__ = {{ platform: {:?} }};",
-        std::env::consts::OS
+        "window.__JOURNAL_NATIVE__ = {{ platform: {:?}, plugins: {:?} }};",
+        std::env::consts::OS,
+        native_plugins()
     )
 }
 
@@ -558,8 +569,18 @@ mod tests {
         assert!(["macos", "windows", "linux", "ios", "android"].contains(&os));
         assert_eq!(
             native_flag_script(),
-            format!("window.__JOURNAL_NATIVE__ = {{ platform: \"{os}\" }};")
+            format!(
+                "window.__JOURNAL_NATIVE__ = {{ platform: \"{os}\", plugins: {:?} }};",
+                native_plugins()
+            )
         );
+    }
+
+    #[cfg(not(journal_premium))]
+    #[test]
+    fn no_native_plugins_without_premium() {
+        assert!(native_plugins().is_empty());
+        assert!(native_flag_script().ends_with("plugins: [] };"));
     }
 
     #[test]

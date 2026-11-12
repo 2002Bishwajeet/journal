@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useDailyReminderSettings } from "@/hooks/useDailyReminder";
+import { useDesktopNotifications } from "@/hooks/useDesktopNotifications";
 import { usePushNotifications, type PushStatus, type TestPush } from "@/hooks/usePushNotifications";
 import { SettingsRow } from "../SettingsRow";
 
@@ -77,6 +78,7 @@ function DailyReminderRows() {
 }
 
 export default function NotificationsSection() {
+  const desktopNotifications = useDesktopNotifications();
   const { status, busy, failed, turnOn, turnOff, testPush, sendTest } = usePushNotifications();
   const testFailed = testPush.state === "forbidden" || testPush.state === "failed";
   const sending = testPush.state === "sending";
@@ -108,6 +110,14 @@ export default function NotificationsSection() {
           ) : null
         }
       />
+      {desktopNotifications.desktop && (
+        <SettingsRow
+          id="notifications-desktop"
+          label="Desktop notifications"
+          description="Show a system notification for a shared note while Journal is hidden or in the background."
+          control={<Switch checked={desktopNotifications.enabled} onCheckedChange={desktopNotifications.setEnabled} />}
+        />
+      )}
       {status === "on" && (
         <SettingsRow
           id="notifications-test"
