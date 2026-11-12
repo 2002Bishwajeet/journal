@@ -119,6 +119,7 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
                           <button
                             type="button"
                             onClick={() => onPage(section.id)}
+                            aria-label={identity ? `Account, ${identity}` : "Account"}
                             className="flex min-h-[68px] w-full items-center gap-3 px-4 text-left active:bg-foreground/5"
                           >
                             <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-base font-semibold uppercase">

@@ -16,7 +16,7 @@ const VIEWPORTS = {
 const SECTIONS: { id: string; tab: string; desktopOnly?: boolean }[] = [
   { id: 'account', tab: 'Account' },
   { id: 'appearance', tab: 'Appearance' },
-  { id: 'ai', tab: 'AI' },
+  { id: 'ai', tab: 'AI', desktopOnly: true },
   { id: 'agent-access', tab: 'Agent access' },
   { id: 'notifications', tab: 'Notifications' },
   { id: 'data', tab: 'Data & storage' },
@@ -66,7 +66,7 @@ for (const [viewport, size] of Object.entries(VIEWPORTS)) {
       if (isMobile && section.desktopOnly) continue;
       await openSettingsSection(dialog, section.tab);
       const panel = settingsPanel(dialog);
-      await expect(dialog.getByRole('heading', { name: section.tab, exact: true }).first()).toBeVisible();
+      await expect(dialog.getByRole('heading', { name: isMobile && section.tab === 'Agent access' ? 'Privacy & agents' : section.tab, exact: true }).first()).toBeVisible();
       if (section.id === 'data') await expect(panel.getByText('Storage used')).toBeVisible();
       await capture(app, (theme) => `${section.id}-${theme}-${viewport}`);
     }

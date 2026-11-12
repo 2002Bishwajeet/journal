@@ -37,16 +37,12 @@ async function openAISettings(page: Page) {
   return dialog;
 }
 
-test('mobile: explains that AI needs a larger screen and disables the switch', async ({ app }) => {
+test('mobile: there is no AI section on a phone', async ({ app }) => {
   await app.setViewportSize({ width: 390, height: 844 });
-  const dialog = await openAISettings(app);
-
-  await expect(dialog.getByText("On-device AI needs a larger screen (768 px or wider) and isn't available on phones.")).toBeVisible();
-  await expect(dialog.getByRole('switch', { name: 'Enable on-device AI' })).toBeDisabled();
-  await expect(dialog.getByText('Experimental', { exact: true })).toBeVisible();
-  await expect(dialog.getByRole('link', { name: 'Set up an agent' })).toHaveAttribute('href', 'https://journal.cloudx.run/agents');
-  await expect(dialog.getByRole('radiogroup', { name: 'Model' })).toHaveCount(0);
-  await expect(dialog.getByRole('button', { name: 'Remove downloaded models' })).toHaveCount(0);
+  await app.getByRole('button', { name: 'Settings' }).click();
+  const dialog = app.getByRole('dialog');
+  await expect(dialog.getByRole('button', { name: 'Appearance', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'AI', exact: true })).toHaveCount(0);
 });
 
 test('desktop: status shows loading then ready, and turning AI off hides it', async ({ app }) => {
