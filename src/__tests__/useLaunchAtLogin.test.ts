@@ -50,7 +50,7 @@ describe('useLaunchAtLogin', () => {
     });
 
     it('is not desktop on a phone', async () => {
-        window.__JOURNAL_NATIVE__ = { platform: 'ios' };
+        window.__JOURNAL_NATIVE__ = { platform: 'ios', plugins: [] };
         await act(async () => { root.render(createElement(Probe)); });
         await flush();
         expect(result.current.desktop).toBe(false);
@@ -58,7 +58,7 @@ describe('useLaunchAtLogin', () => {
     });
 
     it('reads the OS setting on desktop and writes changes through', async () => {
-        window.__JOURNAL_NATIVE__ = { platform: 'linux' };
+        window.__JOURNAL_NATIVE__ = { platform: 'linux', plugins: [] };
         await act(async () => { root.render(createElement(Probe)); });
         await flush();
         expect(result.current.desktop).toBe(true);
@@ -70,7 +70,7 @@ describe('useLaunchAtLogin', () => {
     });
 
     it('keeps the old value when the OS refuses the change', async () => {
-        window.__JOURNAL_NATIVE__ = { platform: 'windows' };
+        window.__JOURNAL_NATIVE__ = { platform: 'windows', plugins: [] };
         setLaunchAtLogin.mockRejectedValueOnce(new Error('denied'));
         await act(async () => { root.render(createElement(Probe)); });
         await flush();

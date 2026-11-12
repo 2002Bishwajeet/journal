@@ -16,6 +16,7 @@ fn main() {
             .commands(&["set_style"])
             .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
     );
+    let mut names = Vec::new();
     if Path::new("../native/rust/mod.rs").exists() {
         println!("cargo:rustc-cfg=journal_premium");
         // The premium plugins' commands (native/rust/plugins.txt, one plugin per line:
@@ -33,8 +34,11 @@ fn main() {
                         .commands(commands)
                         .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
                 );
+                names.push(name);
             }
         }
     }
+    // lib.rs puts the names in window.__JOURNAL_NATIVE__.plugins.
+    println!("cargo:rustc-env=JOURNAL_NATIVE_PLUGINS={}", names.join(","));
     tauri_build::try_build(attributes).expect("failed to run tauri-build");
 }
