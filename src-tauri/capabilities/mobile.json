@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "External links and the sign-in open in an in-app browser.",
+  "windows": ["main"],
+  "platforms": ["iOS", "android"],
+  "remote": {
+    "urls": ["http://localhost:47821"]
+  },
+  "permissions": ["browser:default"]
+}

@@ -1,0 +1,13 @@
+[package]
+name = "tauri-plugin-browser"
+version = "0.1.0"
+description = "In-app browser and sign-in sessions for Journal's mobile apps (#1188)."
+edition = "2021"
+publish = false
+links = "tauri-plugin-browser"
+
+[dependencies]
+tauri = "2"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

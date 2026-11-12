@@ -31,9 +31,10 @@ mod premium {
 ///      (wry#389). `http://localhost` is a secure context, so they register.
 ///   2. The YouAuth OAuth flow builds its callback as
 ///      `${window.location.origin}/auth/finalize`
-///      (src/hooks/auth/useYouAuthAuthorization.ts). An identity server
-///      rejects a `tauri://` callback; `http://localhost:PORT` is an ordinary
-///      HTTP origin the backend already accepts.
+///      on Windows and Linux (`authCallbackUrl` in src/lib/native.ts; iOS,
+///      Android and macOS sign in outside the web view and return on
+///      `journal://`). `http://localhost:PORT` is an ordinary HTTP origin the
+///      backend accepts.
 ///
 /// THE PORT MUST STAY FIXED AND HARDCODED. The origin is the storage key for
 /// localStorage / IndexedDB / OPFS — i.e. the user's entire local database. An
@@ -277,6 +278,16 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
+/// Open external links and the sign-in outside the web view (#1188): the
+/// default browser on desktop, an in-app browser on iOS and Android.
+fn link_plugins<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_opener::init());
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_browser::init());
+    builder
+}
+
 /// Shared entry point for every target.
 ///
 /// On desktop `main.rs` calls this directly. On mobile there is no `main` —
@@ -296,6 +307,7 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init());
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    let builder = link_plugins(builder);
 
     premium::register(builder)
         .setup(move |app| {
