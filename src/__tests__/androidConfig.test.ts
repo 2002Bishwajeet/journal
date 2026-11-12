@@ -22,6 +22,21 @@ describe('android app config', () => {
     expect(read(`${RES}/values-night/colors.xml`)).toContain('<color name="splash_background">#FF1C1B1A</color>');
   });
 
+  it('sets the bar icons from the colour the page posts, for the app origin only', () => {
+    const activity = read('src-tauri/gen/android/app/src/main/java/com/biswa/journal/MainActivity.kt');
+    expect(activity).toContain('"JournalSystemBars", setOf("http://localhost:47821")');
+    expect(activity).toContain('isAppearanceLightStatusBars = light');
+    expect(activity).toContain('isAppearanceLightNavigationBars = light');
+    expect(read('src/lib/themeColor.ts')).toContain('window.JournalSystemBars?.postMessage(color)');
+  });
+
+  it('applies the last posted colour at launch, before the page runs', () => {
+    const activity = read('src-tauri/gen/android/app/src/main/java/com/biswa/journal/MainActivity.kt');
+    expect(activity).toContain('prefs.edit().putString("color", cssColor).apply()');
+    expect(activity).toContain('prefs.getString("color", null)?.let { setBarIcons(it) }');
+    expect(activity).toContain('webView.setBackgroundColor(last ?: getColor(R.color.splash_background))');
+  });
+
   it('is labelled Journal+', () => {
     expect(read(`${RES}/values/strings.xml`)).toContain('<string name="app_name">"Journal+"</string>');
   });

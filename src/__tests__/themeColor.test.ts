@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { createElement as h, act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { setThemeColor, syncThemeColor } from '@/lib/themeColor';
+import { setThemeColor, setSystemBarsStyle, syncThemeColor } from '@/lib/themeColor';
 import { useThemePreference, type ThemePreference } from '@/hooks/useThemePreference';
 
 const LIGHT_BG = '#FDFCF8';
@@ -56,6 +56,25 @@ describe('setThemeColor', () => {
     });
 });
 
+describe('Android system bars', () => {
+    afterEach(() => {
+        delete window.JournalSystemBars;
+    });
+
+    it('receives the theme colour when the app theme changes', () => {
+        const postMessage = vi.fn();
+        window.JournalSystemBars = { postMessage };
+        syncThemeColor('--background');
+        document.documentElement.classList.add('dark');
+        syncThemeColor();
+        expect(postMessage.mock.calls).toEqual([[LIGHT_BG], [DARK_BG]]);
+    });
+
+    it('does nothing outside the Android shell', () => {
+        expect(() => setThemeColor('#123456')).not.toThrow();
+    });
+});
+
 describe('theme-color follows the in-app theme', () => {
     it("setTheme('dark') with a light OS leaves every theme-color equal to the dark token", async () => {
         let setTheme: (p: ThemePreference) => void = () => {};
@@ -77,5 +96,50 @@ describe('theme-color follows the in-app theme', () => {
         document.documentElement.classList.add('dark');
         syncThemeColor();
         expect(metas().every((m) => m.getAttribute('content') === DARK_SIDEBAR)).toBe(true);
+    });
+});
+
+describe('iOS system bars', () => {
+    const invoke = vi.fn(() => Promise.resolve());
+
+    afterEach(() => {
+        delete window.__JOURNAL_NATIVE__;
+        delete window.__TAURI_INTERNALS__;
+        invoke.mockClear();
+    });
+
+    it('sends the theme preference to the shell on iOS', () => {
+        window.__JOURNAL_NATIVE__ = { platform: 'ios' };
+        window.__TAURI_INTERNALS__ = { invoke };
+        setSystemBarsStyle('dark');
+        setSystemBarsStyle('system');
+        expect(invoke.mock.calls).toEqual([
+            ['plugin:system-bars|set_style', { style: 'dark' }],
+            ['plugin:system-bars|set_style', { style: 'system' }],
+        ]);
+    });
+
+    it('does nothing on the web or on Android', () => {
+        window.__TAURI_INTERNALS__ = { invoke };
+        setSystemBarsStyle('dark');
+        window.__JOURNAL_NATIVE__ = { platform: 'android' };
+        setSystemBarsStyle('dark');
+        expect(invoke).not.toHaveBeenCalled();
+    });
+
+    it('a theme change reaches the shell', async () => {
+        window.__JOURNAL_NATIVE__ = { platform: 'ios' };
+        window.__TAURI_INTERNALS__ = { invoke };
+        let setTheme: (p: ThemePreference) => void = () => {};
+        function C() {
+            setTheme = useThemePreference().setTheme;
+            return null;
+        }
+        const root = createRoot(document.createElement('div'));
+        await act(async () => root.render(h(C)));
+        invoke.mockClear();
+        await act(async () => setTheme('light'));
+        expect(invoke).toHaveBeenCalledWith('plugin:system-bars|set_style', { style: 'light' });
+        root.unmount();
     });
 });
