@@ -17,5 +17,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- The open note, advertised for Handoff (#1147, native/rust/user_activity.rs). -->
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>id.biswa.journal.note</string>
+	</array>
 </dict>
 </plist>

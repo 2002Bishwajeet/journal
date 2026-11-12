@@ -57,10 +57,10 @@ objc2 = "0.6"
 
 # macOS notification actions and the daily reminder, used by native/ (#1123): UserNotifications
 # called directly for the actions, per-note threads, calendar triggers and the click delegate.
-# Already in the tree through wry and tauri.
+# NSUserActivity for Handoff and Spotlight taps (#1147). Already in the tree through wry and tauri.
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSBundle", "NSCalendar", "NSDictionary", "NSError", "NSObject", "NSSet", "NSString"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSBundle", "NSCalendar", "NSDictionary", "NSError", "NSObject", "NSSet", "NSString", "NSURL", "NSUserActivity"] }
 objc2-user-notifications = { version = "0.3", default-features = false, features = ["std", "bitflags", "block2", "UNNotification", "UNNotificationAction", "UNNotificationCategory", "UNNotificationContent", "UNNotificationRequest", "UNNotificationResponse", "UNNotificationSettings", "UNNotificationSound", "UNNotificationTrigger", "UNUserNotificationCenter"] }
 
 # The completion handler of WKWebView's takeSnapshot (ios_recovery.rs). Already
