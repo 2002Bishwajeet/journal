@@ -35,6 +35,7 @@ import { markBoot } from "@/lib/bootProgress";
 import { useCloseOtherAppNotifications } from "@/hooks/useCloseOtherAppNotifications";
 import { useDeepLinks } from "@/hooks/useDeepLinks";
 import { useOpenedNotifications } from "@/hooks/useOpenedNotifications";
+import { useNativeDeepLink } from "@/hooks/useNativeDeepLink";
 
 // Computed once at boot, not per route: UpdatePrompt sits outside BrowserRouter.
 // A visitor who clicks from a share page into the app gets the SW registered
@@ -65,6 +66,7 @@ const persister = createAsyncStoragePersister({
 function DeepLinks() {
   useDeepLinks();
   useOpenedNotifications();
+  useNativeDeepLink();
   return null;
 }
 

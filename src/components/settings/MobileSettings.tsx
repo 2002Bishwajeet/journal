@@ -7,7 +7,7 @@ import type { SettingsSection, SettingsSectionId } from "./sections";
 // Rows are grouped like iOS Settings. A section missing here still shows, in a last group.
 const GROUPS: SettingsSectionId[][] = [
   ["account"],
-  ["appearance", "ai", "agent-access", "notifications"],
+  ["appearance", "ai", "agent-access", "notifications", "security"],
   ["data", "diagnostics"],
   ["about"],
 ];

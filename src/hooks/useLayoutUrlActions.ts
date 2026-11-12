@@ -9,12 +9,13 @@ interface UseLayoutUrlActionsOptions {
     folderId: string | undefined;
     notes: NoteListEntry[];
     createNote: (folderId: string) => Promise<{ docId: string; folderId: string }>;
-    openSearch: (open: boolean) => void;
+    openSearch: (open: boolean, query?: string) => void;
+    openToday: () => Promise<void>;
     openCollaborate: (note: NoteListEntry) => void;
 }
 
 /**
- * URL action params (`?action=search|new|collaborate`, from PWA shortcuts and
+ * URL action params (`?action=search|new|today|collaborate`, from PWA shortcuts and
  * permission redirects).
  */
 export function useLayoutUrlActions({
@@ -24,6 +25,7 @@ export function useLayoutUrlActions({
     notes,
     createNote,
     openSearch,
+    openToday,
     openCollaborate,
 }: UseLayoutUrlActionsOptions): void {
     const navigate = useNavigate();
@@ -41,17 +43,22 @@ export function useLayoutUrlActions({
     // One note per ?action=new: the effect re-runs mid-await (folders/searchParams
     // change, StrictMode). Reset once `action` clears.
     const handledNewNoteRef = useRef(false);
+    // Same for ?action=today (journal://today, #1093): opening it navigates away.
+    const handledTodayRef = useRef(false);
 
     // Handle URL action params (PWA shortcuts, permission redirects)
     useEffect(() => {
         if (!action) {
             handledNewNoteRef.current = false;
+            handledTodayRef.current = false;
             return;
         }
 
         const handleAction = async () => {
             if (action === 'search') {
-                openSearch(true);
+                const query = searchParams.get('q');
+                if (query) openSearch(true, query);
+                else openSearch(true);
             } else if (action === 'new') {
                 // Cold start: wait for folders, or resolveNoteFolderId falls back to Main.
                 if (isFolderLoading || handledNewNoteRef.current) return;
@@ -66,6 +73,12 @@ export function useLayoutUrlActions({
                     replace: true,
                     viewTransition: true,
                 });
+                return;
+            } else if (action === 'today') {
+                if (handledTodayRef.current) return;
+                handledTodayRef.current = true;
+                // openToday navigates to the note, which drops ?action.
+                await openToday();
                 return;
             } else if (action === 'collaborate') {
                 const collaborateNoteId = searchParams.get('noteId');
@@ -82,6 +95,7 @@ export function useLayoutUrlActions({
             setSearchParams(
                 (params: URLSearchParams) => {
                     params.delete('action');
+                    params.delete('q');
                     params.delete('noteId');
                     return params;
                 },
@@ -100,6 +114,7 @@ export function useLayoutUrlActions({
         setSearchParams,
         searchParams,
         openSearch,
+        openToday,
         openCollaborate,
         hasNotes,
     ]);

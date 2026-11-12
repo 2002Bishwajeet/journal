@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://journal.cloudx.run/schemas/native-bridge-v1.json",
+  "title": "Journal native bridge",
+  "description": "What the app shares with widgets, intents, Spotlight, shortcuts, tiles and watch apps (#1138). The app writes one snapshot; the native surfaces write one action per file, which the app imports and acks. The TypeScript types are in bridge.ts.",
+  "$defs": {
+    "isoDateTime": { "type": "string", "format": "date-time" },
+    "license": {
+      "description": "The licence state from #301. Native surfaces show a generic \"Open Journal\" and refuse new actions when it is expired or none.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["trial", "licensed", "expired", "none"] },
+        "trialEndsAt": { "$ref": "#/$defs/isoDateTime" },
+        "updatesUntil": { "$ref": "#/$defs/isoDateTime" }
+      }
+    },
+    "visibleSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "updatedAt", "localDate", "timeZone", "redacted", "license", "today", "recent"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "updatedAt": { "$ref": "#/$defs/isoDateTime" },
+        "localDate": { "description": "The user's calendar date when written, in timeZone.", "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "timeZone": { "description": "IANA time zone, e.g. Europe/Berlin.", "type": "string", "minLength": 1 },
+        "redacted": { "const": false },
+        "license": { "$ref": "#/$defs/license" },
+        "today": {
+          "description": "The daily note for localDate. Its title is the date; id is null until it is written.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "title", "exists"],
+          "properties": {
+            "id": { "type": ["string", "null"] },
+            "title": { "type": "string" },
+            "exists": { "type": "boolean" }
+          }
+        },
+        "recent": {
+          "description": "The most recently modified notes, newest first.",
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "snippet", "modified"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "title": { "type": "string" },
+              "snippet": { "type": "string", "maxLength": 120 },
+              "modified": { "$ref": "#/$defs/isoDateTime" }
+            }
+          }
+        }
+      }
+    },
+    "redactedSnapshot": {
+      "description": "Notes are hidden outside the app: no titles or snippets anywhere, only ids and counts.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "updatedAt", "localDate", "timeZone", "redacted", "license", "today", "recent"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "updatedAt": { "$ref": "#/$defs/isoDateTime" },
+        "localDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "timeZone": { "type": "string", "minLength": 1 },
+        "redacted": { "const": true },
+        "license": { "$ref": "#/$defs/license" },
+        "today": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "exists"],
+          "properties": {
+            "id": { "type": ["string", "null"] },
+            "exists": { "type": "boolean" }
+          }
+        },
+        "recent": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "modified"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "modified": { "$ref": "#/$defs/isoDateTime" }
+            }
+          }
+        }
+      }
+    },
+    "snapshot": {
+      "oneOf": [{ "$ref": "#/$defs/visibleSnapshot" }, { "$ref": "#/$defs/redactedSnapshot" }]
+    },
+    "action": {
+      "description": "One file in the action queue. new_note: text is the note (first line = title). append_today: text is added to today's daily note. open: opens noteId.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "createdAt", "source"],
+      "properties": {
+        "id": { "description": "Unique per action; the app imports each id once.", "type": "string", "minLength": 1 },
+        "type": { "enum": ["new_note", "append_today", "open"] },
+        "text": { "type": "string" },
+        "noteId": { "type": "string", "minLength": 1 },
+        "createdAt": { "$ref": "#/$defs/isoDateTime" },
+        "source": { "description": "The surface that wrote it, e.g. widget, intent, watch, tile, shortcut.", "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

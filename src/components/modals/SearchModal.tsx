@@ -11,6 +11,8 @@ interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectNote: (docId: string) => void;
+  /** The query the search opens with (journal://search?q=). */
+  initialQuery?: string;
 }
 
 // Icon component for match type
@@ -203,6 +205,7 @@ export default function SearchModal({
   isOpen,
   onClose,
   onSelectNote,
+  initialQuery,
 }: SearchModalProps) {
   const {
     query,
@@ -217,7 +220,7 @@ export default function SearchModal({
     handleSelectEntry,
     handleRemoveEntry,
     handleClearRecents,
-  } = useSearchModal({ isOpen, onClose, onSelectNote });
+  } = useSearchModal({ isOpen, onClose, onSelectNote, initialQuery });
   useOverlayHistory(isOpen, handleClose);
 
   if (!isOpen) return null;
