@@ -7,6 +7,7 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import { get, set, del } from "idb-keyval";
 import EditorPage from "@/pages/EditorPage.lazy";
 const EmptyEditorPage = lazy(() => import("@/pages/EmptyEditorPage"));
+const TodayPage = lazy(() => import("@/pages/TodayPage"));
 const SharePage = lazy(() => import("@/pages/SharePage"));
 const LandingPage = lazy(() => import("@/pages/Landing"));
 const AuthFinalizePage = lazy(() => import("@/pages/AuthFinalizePage"));
@@ -33,6 +34,7 @@ import { isPublicSharePath } from "@/lib/sharePath";
 import { markBoot } from "@/lib/bootProgress";
 import { useCloseOtherAppNotifications } from "@/hooks/useCloseOtherAppNotifications";
 import { useDeepLinks } from "@/hooks/useDeepLinks";
+import { useOpenedNotifications } from "@/hooks/useOpenedNotifications";
 import { useNativeDeepLink } from "@/hooks/useNativeDeepLink";
 
 // Computed once at boot, not per route: UpdatePrompt sits outside BrowserRouter.
@@ -63,6 +65,7 @@ const persister = createAsyncStoragePersister({
 // Inside the router: a deep link navigates.
 function DeepLinks() {
   useDeepLinks();
+  useOpenedNotifications();
   useNativeDeepLink();
   return null;
 }
@@ -102,6 +105,7 @@ function App() {
                       }
                     >
                       <Route index element={<EmptyEditorPage />} />
+                      <Route path="/today" element={<TodayPage />} />
                       <Route path="/:folderId" element={<EmptyEditorPage />} />
                       <Route
                         path="/:folderId/:noteId"

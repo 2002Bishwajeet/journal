@@ -7,6 +7,7 @@ import { installConsoleCapture } from './lib/diagnostics/logBuffer';
 import { addOriginTrialToken } from './lib/agent/modelContext';
 import { installResumeRestore } from './lib/resumeRestore';
 import { routeExternalLinks } from './lib/native';
+import { registerMacReminderScheduler } from './lib/native/macNotifications';
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -35,6 +36,9 @@ if (!isPublicSharePath(location.pathname)) {
 
 // Native app: external links open in an in-app browser, not in the app's web view (#1188).
 routeExternalLinks();
+
+// macOS app: the daily reminder is scheduled with UserNotifications (#1123).
+registerMacReminderScheduler();
 
 // WebMCP is a Chrome origin trial: the token must be on the page before the browser sets up the API.
 addOriginTrialToken(import.meta.env.VITE_WEBMCP_OT_TOKEN);
