@@ -16,6 +16,7 @@ export const PAGES = [
   { id: 'buy', file: 'buy.html', path: '/landing/buy', name: 'Buy' },
   { id: 'download', file: 'download.html', path: '/landing/download', name: 'Download' },
   { id: 'contact', file: 'contact.html', path: '/landing/contact', name: 'Contact' },
+  { id: 'privacy', file: 'privacy.html', path: '/landing/privacy', name: 'Privacy' },
 ] as const
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' }

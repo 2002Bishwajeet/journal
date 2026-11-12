@@ -84,7 +84,7 @@ export default defineConfig(({ mode }) => ({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: { index: page('index.html'), agents: page('agents.html'), pricing: page('pricing.html'), buy: page('buy.html'), download: page('download.html'), contact: page('contact.html') },
+      input: { index: page('index.html'), agents: page('agents.html'), pricing: page('pricing.html'), buy: page('buy.html'), download: page('download.html'), contact: page('contact.html'), privacy: page('privacy.html') },
     },
     // Mermaid's diagram chunks (elk is the largest) load only when the playground is used.
     chunkSizeWarningLimit: 1600,
