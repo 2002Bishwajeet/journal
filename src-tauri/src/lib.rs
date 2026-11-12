@@ -5,6 +5,18 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tiny_http::{Header, Response, Server};
 
+// Paid features from the optional private submodule native/ (see build.rs).
+#[cfg(journal_premium)]
+#[path = "../../native/rust/mod.rs"]
+mod premium;
+
+#[cfg(not(journal_premium))]
+mod premium {
+    pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+        builder
+    }
+}
+
 /// Fixed port for the local HTTP server that serves the built frontend.
 ///
 /// The desktop shell deliberately does NOT use Tauri's default
@@ -281,7 +293,7 @@ pub fn run() {
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 
-    builder
+    premium::register(builder)
         .setup(move |app| {
             // Installers register journal:// on Windows and Linux; this covers
             // dev builds and AppImages. macOS registers it from Info.plist.
