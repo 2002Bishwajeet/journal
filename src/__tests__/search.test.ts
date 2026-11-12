@@ -11,7 +11,7 @@ vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
 import { upsertSearchIndex, advancedSearch } from '@/lib/db/queries';
 
-async function addNote(docId: string, title: string, plainTextContent: string) {
+async function addNote(docId: string, title: string, plainTextContent: string, archivalStatus?: number) {
     const now = new Date().toISOString();
     await upsertSearchIndex({
         docId,
@@ -22,6 +22,7 @@ async function addNote(docId: string, title: string, plainTextContent: string) {
             folderId: 'main',
             timestamps: { created: now, modified: now },
             excludeFromAI: false,
+            archivalStatus,
         },
     });
 }
@@ -88,5 +89,29 @@ describe('advancedSearch', () => {
         } finally {
             errorSpy.mockRestore();
         }
+    });
+});
+
+describe('advancedSearch visibility', () => {
+    const uid = (n: number) => `30000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
+
+    it('never lists trashed or archived notes by default', async () => {
+        await addNote(uid(1), 'Kiwi active', 'kiwi');
+        await addNote(uid(2), 'Kiwi trashed', 'kiwi', 2);
+        await addNote(uid(3), 'Kiwi archived', 'kiwi', 1);
+        expect(ids(await advancedSearch('kiwi'))).toEqual([uid(1)]);
+    });
+
+    it('includes archived but not trashed notes with includeArchived', async () => {
+        await addNote(uid(1), 'Kiwi active', 'kiwi');
+        await addNote(uid(2), 'Kiwi trashed', 'kiwi', 2);
+        await addNote(uid(3), 'Kiwi archived', 'kiwi', 1);
+        expect(ids(await advancedSearch('kiwi', { includeArchived: true })).sort()).toEqual([uid(1), uid(3)].sort());
+    });
+
+    it('does not let 60 trashed matches push out the active one', async () => {
+        for (let i = 0; i < 60; i++) await addNote(uid(100 + i), `Mango trash ${i}`, 'mango mango mango', 2);
+        await addNote(uid(1), 'Mango', 'mango');
+        expect(ids(await advancedSearch('mango'))).toEqual([uid(1)]);
     });
 });

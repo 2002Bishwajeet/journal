@@ -94,4 +94,13 @@ describe('createLocalDeps through the registry tools', () => {
         expect(data[0].snippet).toContain('zucchini');
         expect(data[0].snippet).not.toContain('<mark>');
     });
+
+    it('search_notes still returns an archived note', async () => {
+        const ARCHIVED = '10000000-0000-0000-0000-0000000000a1';
+        await addNote(ARCHIVED, 'Shelved', 'Archived zucchini notes.', F1, { archivalStatus: 1 });
+        const { data } = await run('search_notes', { query: 'zucchini' });
+        const found = data.map((n: { id: string }) => n.id);
+        expect(found).toContain(ARCHIVED);
+        expect(found).not.toContain(TRASHED);
+    });
 });
