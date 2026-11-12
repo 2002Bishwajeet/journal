@@ -9,6 +9,7 @@ import { createRoot, type Root } from 'react-dom/client';
 
 vi.mock('@/components/ui/dialog', () => ({ DialogTitle: ({ children }: { children: string }) => <h2>{children}</h2> }));
 vi.mock('@/hooks/useAccountSettings', () => ({ useAccountSettings: () => ({ identity: 'me.example.com' }) }));
+vi.stubGlobal('__APP_VERSION__', '1.2.3');
 vi.mock('@/hooks/useThemePreference', () => ({ useThemePreference: () => ({ theme: 'dark' }) }));
 
 const { default: MobileSettings } = await import('@/components/settings/MobileSettings');
@@ -66,5 +67,39 @@ describe('MobileSettings', () => {
 
     await act(async () => button('Settings').click());
     expect(onPage).toHaveBeenCalledWith(null);
+  });
+});
+
+describe('MobileSettings groups (#1182)', () => {
+  it('puts agent access under a "Privacy & agents" label, hides diagnostics from the list and links it under About', async () => {
+    const all = ['account', 'agent-access', 'about', 'diagnostics'].map((id) => ({
+      id, label: id, description: '', icon: () => null, Component: () => <p>{id} page</p>,
+    })) as never;
+    await act(async () => root.render(<MobileSettings sections={all} page={'about' as never} onPage={onPage} onClose={onClose} />));
+    expect(container.textContent).toContain('about page');
+    await act(async () => button('Troubleshooting').click());
+    expect(onPage).toHaveBeenCalledWith('diagnostics');
+
+    await act(async () => root.render(<MobileSettings sections={all} page={null} onPage={onPage} onClose={onClose} />));
+    expect(container.querySelector('h3')?.textContent).toBe('Privacy & agents');
+    expect(button('agent-access')).toBeDefined();
+    expect(container.textContent).toContain('v1.2.3');
+    expect(container.textContent).not.toContain('diagnostics');
+  });
+});
+
+describe('MobileSettings on Android (#1182)', () => {
+  afterEach(() => {
+    window.__JOURNAL_NATIVE__ = undefined;
+  });
+
+  it('draws full-width rows instead of inset cards', async () => {
+    await render(null);
+    expect(container.querySelector('ul')?.className).toContain('rounded-xl');
+    window.__JOURNAL_NATIVE__ = { platform: 'android' };
+    await render(null);
+    const list = container.querySelector('ul')!;
+    expect(list.className).not.toContain('rounded-xl');
+    expect(list.className).toContain('-mx-5');
   });
 });

@@ -5,6 +5,8 @@ import { Download, FolderInput, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/auth";
 import { useImportExport } from "@/hooks/useImportExport";
 import { formatBytes, useStorageInfo } from "@/hooks/useStorageInfo";
+import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
+import { isNativeSettings } from "@/lib/settingsPlatform";
 import { SectionHeader } from "../SectionHeader";
 import { NotesMirrorRow } from "../NotesMirrorRow";
 import { useCanEdit } from "@/hooks/useCanEdit";
@@ -14,6 +16,8 @@ export default function DataSection() {
     useImportExport();
   const { getIdentity } = useAuth();
   const { usage, quota, persisted, appManaged, requestPersist } = useStorageInfo();
+  // The web view's quota is not the device's free space.
+  const native = isNativeSettings(useSettingsPlatform());
   const importInputRef = useRef<HTMLInputElement>(null);
   const canEdit = useCanEdit();
 
@@ -49,7 +53,7 @@ export default function DataSection() {
                   <h4 className="text-sm leading-5 font-medium">Storage used</h4>
                   <p className="text-xs leading-relaxed text-muted-foreground tabular-nums">
                     {formatBytes(usage)}
-                    {quota !== null && ` of ${formatBytes(quota)} available`}
+                    {quota !== null && !native && ` of ${formatBytes(quota)} available`}
                   </p>
                 </div>
               </div>

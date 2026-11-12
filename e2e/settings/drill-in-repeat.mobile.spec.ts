@@ -17,7 +17,7 @@ test('Back from several section pages in a row returns to the list each time', a
     await expect(dialog).toBeVisible();
     await expect.poll(() => overlayCount(page)).toBe(1);
 
-    for (const section of ['Appearance', 'AI', 'Appearance', 'About']) {
+    for (const section of ['Appearance', 'Data & storage', 'Appearance', 'About']) {
       await openSettingsSection(dialog, section);
       await expect(dialog.getByRole('region', { name: section })).toBeVisible();
       await expect.poll(() => overlayCount(page)).toBe(2);
