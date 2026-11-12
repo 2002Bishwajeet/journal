@@ -6,6 +6,7 @@ import { isPublicSharePath } from './lib/sharePath';
 import { installConsoleCapture } from './lib/diagnostics/logBuffer';
 import { addOriginTrialToken } from './lib/agent/modelContext';
 import { installResumeRestore } from './lib/resumeRestore';
+import { routeExternalLinks } from './lib/native';
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -31,6 +32,9 @@ if (!isPublicSharePath(location.pathname)) {
   // to the local database, which a public share page never opens.
   installConsoleCapture();
 }
+
+// Native app: external links open in an in-app browser, not in the app's web view (#1188).
+routeExternalLinks();
 
 // WebMCP is a Chrome origin trial: the token must be on the page before the browser sets up the API.
 addOriginTrialToken(import.meta.env.VITE_WEBMCP_OT_TOKEN);

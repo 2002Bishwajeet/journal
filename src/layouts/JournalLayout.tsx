@@ -26,6 +26,8 @@ import {
   useKeyboardShortcuts,
   useDocumentTitle,
 } from "@/hooks";
+import { useTrayNewNote } from "@/hooks/useTrayNewNote";
+import { useQuitShortcut } from "@/hooks/useQuitShortcut";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useLayoutEffect, lazy, Suspense, useMemo, useCallback } from "react";
 import { routeRendered, slideNavigate } from "@/lib/navDirection";
@@ -65,6 +67,8 @@ import { useFolders, isUnknownFolderRoute, findOrCreateFolderByName } from "@/ho
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { useDailySnapshotPrune } from "@/hooks/useDailySnapshotPrune";
+import { useNotesMirror } from "@/hooks/useNotesMirror";
+import { useDailyReminder } from "@/hooks/useDailyReminder";
 import { toast } from "sonner";
 import { prefetchEditorPage } from "@/pages/EditorPage.lazy";
 import { syncThemeColor } from "@/lib/themeColor";
@@ -77,6 +81,8 @@ export default function JournalLayout() {
   // Apply the stored editor font/width attributes at root level
   useEditorAppearance();
   useDailySnapshotPrune();
+  useNotesMirror();
+  useDailyReminder();
   const whatsNew = useAutoWhatsNew();
 
   // Warm the lazy editor chunk once the shell is idle. Desktop with restored
@@ -222,6 +228,9 @@ export default function JournalLayout() {
       toast.error("Couldn't open today's note");
     }
   }, [openToday, navigate, location.pathname, sidebarOverlayOpen, setSidebarRequested]);
+
+  useTrayNewNote(noteActions.createAndOpen, folderId);
+  useQuitShortcut();
 
   // Keyboard shortcuts (Cmd+K for search)
   useKeyboardShortcuts({

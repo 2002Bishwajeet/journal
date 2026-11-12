@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/auth/useAuth";
 import { useYouAuthAuthorization } from "@/hooks/auth/useYouAuthAuthorization";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { sanitizeReturnUrl } from "@/lib/utils";
+import { startSignIn } from "@/lib/native";
 import logo from "@/assets/logo_withoutbg.png";
 
 export default function LandingPage() {
@@ -56,7 +57,7 @@ export default function LandingPage() {
           window.location.origin + target
         );
         const fullAuthUrl = getAuthUrl(identity.trim(), authParams);
-        window.location.href = fullAuthUrl;
+        await startSignIn(fullAuthUrl);
       } catch (err) {
         console.error("Auth error:", err);
         setError("Failed to connect. Please try again.");

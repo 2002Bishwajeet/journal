@@ -15,6 +15,19 @@ In development, the iOS Simulator shares the host's loopback. So the desktop
 app and a Simulator build can't run at the same time: the second one to start
 now stops with that error instead of quietly serving from the first.
 
+## Sign-in and external links
+
+The app's web view never shows other sites (#1188). `src/lib/native.ts` routes them:
+
+- External http(s) links and `window.open` open in an in-app browser on iOS
+  (SFSafariViewController) and Android (Custom Tabs), through the local plugin
+  in `plugins/browser`, and in the default browser on desktop (tauri-plugin-opener).
+- Sign-in sends the identity's YouAuth page back to `journal://auth/finalize`.
+  iOS runs it in an ASWebAuthenticationSession, which hands the callback back
+  directly. Android (Custom Tabs) and macOS (default browser) get it as a deep
+  link. Windows and Linux still sign in inside the web view: there a
+  `journal://` link starts a second copy of the app, which can't bind the port.
+
 ## Desktop: build it yourself
 
 ```bash

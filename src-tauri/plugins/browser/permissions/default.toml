@@ -1,0 +1,5 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Opens links in an in-app browser and runs the sign-in session."
+permissions = ["allow-open-url", "allow-authenticate"]
