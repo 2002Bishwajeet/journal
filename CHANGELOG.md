@@ -1,3 +1,25 @@
+# [2.67.0](https://github.com/2002Bishwajeet/journal/compare/v2.66.10...v2.67.0) (2026-11-12)
+
+
+### Bug Fixes
+
+* **ai:** feed the open long note's outline on questions too ([#1077](https://github.com/2002Bishwajeet/journal/issues/1077)) ([2b6fb27](https://github.com/2002Bishwajeet/journal/commit/2b6fb276d20faef30d1967fdcd26b630dad24d2d))
+* **desktop:** single-instance first with deep-link, tray panic guard, Ctrl+Q quit, tests ([#1013](https://github.com/2002Bishwajeet/journal/issues/1013)) ([0e3892a](https://github.com/2002Bishwajeet/journal/commit/0e3892a3ef132193b44c573a92e75f245bf46b77))
+* **desktop:** tray New note wiring test, lint fixes in [#1013](https://github.com/2002Bishwajeet/journal/issues/1013) tests ([6d71184](https://github.com/2002Bishwajeet/journal/commit/6d71184b5f0a30219ea5a20f0ee40a426a92a503))
+* **ios:** bring the page back after iOS takes it away in the background ([#1187](https://github.com/2002Bishwajeet/journal/issues/1187)) ([5bd6def](https://github.com/2002Bishwajeet/journal/commit/5bd6def3f36b632494a1b3c41d11ae54c92f1c63))
+
+
+### Features
+
+* **desktop:** quick capture with a global hotkey and a capture window ([#1014](https://github.com/2002Bishwajeet/journal/issues/1014)) ([2e080f1](https://github.com/2002Bishwajeet/journal/commit/2e080f1792b00e2cacf7ad3a06de79fb52c70354)), closes [journal-native-features#5](https://github.com/journal-native-features/issues/5)
+* **desktop:** tray hooks, launch-at-login setting, native submodule bump ([#1013](https://github.com/2002Bishwajeet/journal/issues/1013)) ([f38d128](https://github.com/2002Bishwajeet/journal/commit/f38d1285f81b109e970a45fffa0e477d30c6b765))
+* **native:** generated desktop icons, Android system bars follow the app theme ([#1080](https://github.com/2002Bishwajeet/journal/issues/1080)) ([30799a9](https://github.com/2002Bishwajeet/journal/commit/30799a9b3c96d04858b4b67e3abe04c685b51a2d))
+* **native:** iOS status bar follows the in-app theme, Android applies the last theme at launch ([#1080](https://github.com/2002Bishwajeet/journal/issues/1080)) ([81b379d](https://github.com/2002Bishwajeet/journal/commit/81b379d32ec7bbf7a97c0b9d1b9c89f97549ed57))
+* **native:** mirror every note as a .md file into a picked folder, one way ([#1015](https://github.com/2002Bishwajeet/journal/issues/1015)) ([9e30c83](https://github.com/2002Bishwajeet/journal/commit/9e30c838fe575708c3e1fcbaa2a619f461c914e7))
+* **native:** OS notifications for share invites, Desktop notifications setting ([#1016](https://github.com/2002Bishwajeet/journal/issues/1016)) ([7f4e63f](https://github.com/2002Bishwajeet/journal/commit/7f4e63f6aaa82819229439a7d12178a88c263daf))
+* **native:** sign in and open external links outside the app's web view ([#1188](https://github.com/2002Bishwajeet/journal/issues/1188)) ([405279b](https://github.com/2002Bishwajeet/journal/commit/405279b4962a2706389f17340e1183253a4d033b))
+* **native:** wire the optional premium submodule into Rust, web, iOS and Android ([#1137](https://github.com/2002Bishwajeet/journal/issues/1137)) ([dafb042](https://github.com/2002Bishwajeet/journal/commit/dafb042be23aa95d479f6ab05c099d2c70b471e8))
+* **reminders:** daily reminder setting, schedule builder and useDailyReminder behind a scheduler interface ([#1139](https://github.com/2002Bishwajeet/journal/issues/1139)) ([e124cf8](https://github.com/2002Bishwajeet/journal/commit/e124cf89787ed5c278b146459050b081a72f3676))
 ## [2.66.10](https://github.com/2002Bishwajeet/journal/compare/v2.66.9...v2.66.10) (2026-11-12)
 
 

@@ -16,6 +16,29 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.67.0 (2026-11-12)
+
+### New
+
+- In the desktop app, Journal has a tray icon with "New note" and "Quit". When you close the window, Journal stays open in the tray and continues to sync.
+- In the desktop app, you can set Journal to start when you log in (Settings, Appearance, Desktop).
+- In the desktop app, only one copy of Journal can run. When you open it again, the open window comes to the front.
+- In the desktop app, press Ctrl+Shift+J (Cmd+Shift+J on a Mac) anywhere, even when Journal is hidden, to open a small quick-capture window. Type a note (the first line is the title) and press Ctrl+Enter (Cmd+Enter) to save it to Main. Esc closes the window and keeps what you typed for next time.
+- You can change the quick-capture shortcut in Settings, Shortcuts. In a Linux Wayland session the shortcut is not available yet.
+
+### Changed
+
+- The desktop app has a new icon that matches the icon of the phone apps.
+- In the Android and iPhone apps, the status bar (and on Android the navigation bar) follows the theme you chose in Journal, also when it is different from the theme of your phone. Android remembers it from the last launch.
+- In the iPhone and iPad app, sign-in opens in a system sign-in sheet that can use your saved Safari passwords. On Android it opens in a Custom Tab, and in the Mac app it opens in your default browser. Then you go back to the app.
+- In the phone apps, external links and "Create an identity" open in a browser sheet on top of the app. In the desktop apps, they open in your default browser. Before, these pages replaced the app screen.
+
+### Fixed
+
+- The assistant now sees the headings of a long open note when you ask it a question, so it no longer answers from the title alone.
+- In the iPhone app, the screen is not blank when you open the app after a long time in the background. The app shows the note you had open, at the same scroll position.
+- When the app or the browser loads a note again, the note opens at the position where you left it.
+
 ## 2.66.10 (2026-11-12)
 
 ### New
