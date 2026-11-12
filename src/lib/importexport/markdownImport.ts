@@ -4,7 +4,7 @@
  * Markdown that doesn't use that syntax passes through unchanged, so they apply to
  * every import with no format detection. Code (fenced and inline) is never touched.
  */
-import type { CalloutVariant } from '@/components/editor/nodes/calloutVariants';
+import { calloutVariantFromType } from '@/components/editor/nodes/calloutVariants';
 
 /** A note of the import batch: its path in the zip and its new doc id. */
 export interface ImportedNote {
@@ -131,18 +131,13 @@ export function inlineTags(markdown: string): string[] {
     return [...tags];
 }
 
-const CALLOUT_TYPES: Record<string, CalloutVariant> = {
-    tip: 'tip', hint: 'tip', important: 'tip', success: 'tip', check: 'tip', done: 'tip',
-    warning: 'warning', caution: 'warning', attention: 'warning',
-    danger: 'error', error: 'error', bug: 'error', failure: 'error', fail: 'error', missing: 'error',
-};
 // `> [!TYPE]`, optionally foldable (`+`/`-`) and titled
 const CALLOUT = /^>[ \t]*\[!([\w-]+)\][+-]?[ \t]*(.*)$/gm;
 
 /** `> [!NOTE]-  Title` → `> [!info]` with the title as a bold first line, the form the editor parses. */
 function convertCallouts(text: string): string {
     return text.replace(CALLOUT, (_, type: string, title: string) => {
-        const variant = CALLOUT_TYPES[type.toLowerCase()] ?? 'info';
+        const variant = calloutVariantFromType(type);
         return title.trim() ? `> [!${variant}]\n> **${title.trim()}**\n>` : `> [!${variant}]`;
     });
 }
