@@ -29,7 +29,8 @@ export interface NoteMenuHandlers {
  * The items of a note's menu, shared by the note list rows (context menu and options button)
  * and the note screen's More sheet so the two cannot drift. A note from someone else has no
  * Share or Move, and "Remove from my list" in their place. `extra` items (the note screen's
- * Find, Contents and Version history) go after Move to folder.
+ * Find, Contents and Version history) go after Move to folder. Without `canEdit` (the native
+ * trial ended, #1176) only reading and export are left: the extras, both exports and Owner Console.
  */
 export function buildNoteMenuItems(
   note: NoteListEntry,
@@ -38,23 +39,26 @@ export function buildNoteMenuItems(
     dotYouRoot,
     handlers,
     extra = [],
+    canEdit = true,
   }: {
     isPeerNote: boolean;
     dotYouRoot: string;
     handlers: NoteMenuHandlers;
     extra?: ContextMenuItemConfig[];
+    canEdit?: boolean;
   },
 ): ContextMenuItemConfig[] {
   const { onTogglePin, onShare, onMoveToFolder, onRemoveFromList, onArchive, onTrash, onOpen } = handlers;
-  return [
+  const items: (ContextMenuItemConfig & { write?: true })[] = [
     {
       label: note.metadata.isPinned ? "Unpin" : "Pin",
       icon: note.metadata.isPinned ? PinOff : Pin,
       action: () => onTogglePin(note.docId, !note.metadata.isPinned),
+      write: true,
     },
     // One item for sharing with people and the public link (#682). Notes from other
     // people aren't ours to share or to file: they have neither.
-    ...(isPeerNote ? [] : [{ label: "Share…", icon: Share2, action: () => onShare(note) }]),
+    ...(isPeerNote ? [] : [{ label: "Share…", icon: Share2, action: () => onShare(note), write: true as const }]),
     ...(isPeerNote || !onMoveToFolder
       ? []
       : [
@@ -62,6 +66,7 @@ export function buildNoteMenuItems(
             label: "Move to folder…",
             icon: FolderInput,
             action: () => onMoveToFolder(note),
+            write: true as const,
           },
         ]),
     ...extra,
@@ -90,7 +95,7 @@ export function buildNoteMenuItems(
     },
     // A note shared with you leaves this device only; the owner's share is unchanged
     ...(isPeerNote && onRemoveFromList
-      ? [{ label: "Remove from my list", icon: ListX, action: () => onRemoveFromList(note) }]
+      ? [{ label: "Remove from my list", icon: ListX, action: () => onRemoveFromList(note), write: true as const }]
       : []),
     {
       label: "Archive",
@@ -98,6 +103,7 @@ export function buildNoteMenuItems(
       action: () => onArchive?.(note),
       disabled: !onArchive,
       separate: true,
+      write: true,
     },
     {
       label: "Move to Trash",
@@ -105,6 +111,8 @@ export function buildNoteMenuItems(
       action: () => onTrash(note.docId),
       variant: "destructive",
       shortcut: "⌫",
+      write: true,
     },
   ];
+  return items.filter((item) => canEdit || !item.write).map(({ write, ...item }) => item);
 }

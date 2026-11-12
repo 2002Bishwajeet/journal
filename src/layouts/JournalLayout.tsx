@@ -29,6 +29,8 @@ import {
 import { useTrayNewNote } from "@/hooks/useTrayNewNote";
 import { useQuitShortcut } from "@/hooks/useQuitShortcut";
 import { LicenseGate } from "@/components/license/License";
+import { ReadOnlyBanner } from "@/components/license/ReadOnlyBanner";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useLayoutEffect, lazy, Suspense, useMemo, useCallback } from "react";
 import { routeRendered, slideNavigate } from "@/lib/navDirection";
@@ -231,6 +233,8 @@ export default function JournalLayout() {
   }, [openToday, navigate, location.pathname, sidebarOverlayOpen, setSidebarRequested]);
 
   useTrayNewNote(noteActions.createAndOpen, folderId);
+  // Read-only (#1176): no New note button, daily note, share dialog or share request prompt.
+  const canEdit = useCanEdit();
   useQuitShortcut();
 
   // Keyboard shortcuts (Cmd+K for search)
@@ -239,7 +243,7 @@ export default function JournalLayout() {
     onKeyboardHelp: () => setShowKeyboardHelp(true),
     // No editor to focus in a management view — would just blank the screen.
     onFocusMode: () => setFocusMode((prev) => (isManagementView ? false : !prev)),
-    onDailyNote: handleOpenToday,
+    onDailyNote: canEdit ? handleOpenToday : undefined,
     onEscape: inFocusMode ? () => setFocusMode(false) : undefined,
   });
 
@@ -424,10 +428,14 @@ export default function JournalLayout() {
           onRemoveFromList: removeSharedNote,
         }}
         notice={
-          <ShareRequestNotice
-            note={openNote}
-            onReview={setShareNote}
-          />
+          canEdit ? (
+            <ShareRequestNotice
+              note={openNote}
+              onReview={setShareNote}
+            />
+          ) : (
+            <ReadOnlyBanner />
+          )
         }
       />
 
@@ -445,7 +453,7 @@ export default function JournalLayout() {
         </div>
       )}
 
-      {showFab && <NewNoteFab onClick={() => void noteActions.createAndOpen(folderId)} />}
+      {showFab && canEdit && <NewNoteFab onClick={() => void noteActions.createAndOpen(folderId)} />}
       {showTabBar && (
         <MobileTabBar
           activeTab={tabs.activeTab}
@@ -506,7 +514,7 @@ export default function JournalLayout() {
       {/* Native app: the paywall once the trial ends, and the Enter license key screen (#301). */}
       <LicenseGate onSignOut={logout} />
 
-      {shareNote && (
+      {shareNote && canEdit && (
         <Suspense fallback={null}>
           <ShareNoteDialog
             isOpen={!!shareNote}

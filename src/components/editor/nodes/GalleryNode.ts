@@ -145,6 +145,7 @@ export const Gallery = Node.create({
         el.textContent = layout[0].toUpperCase() + layout.slice(1);
         el.addEventListener('mousedown', (e) => e.preventDefault());
         el.addEventListener('click', () => {
+          if (!editor.isEditable) return;
           const pos = getPos();
           if (pos !== undefined) editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, layout }));
         });

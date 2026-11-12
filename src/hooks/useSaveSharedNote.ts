@@ -5,6 +5,7 @@ import { shareProvider } from '@/lib/providers/ShareProvider';
 import { createNoteFromMarkdownInDb } from '@/lib/notes/createNote';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { publicOrigin } from '@/lib/native';
+import { useCanEditAnswer } from '@/hooks/useCanEdit';
 
 // An identity is a hostname (optionally with a port); a file id is a GUID, with or without hyphens.
 const IDENTITY = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+(:\d{1,5})?$/i;
@@ -57,6 +58,8 @@ export function useSaveSharedNote(): { error: string | null } {
     const navigate = useNavigate();
     const [copyError, setCopyError] = useState<string | null>(null);
     const started = useRef(false);
+    // The native trial ended (#1176): no copy. Waits for the answer, as the copy saves by itself.
+    const canEdit = useCanEditAnswer();
 
     const identity = params.get('identity');
     const file = params.get('file');
@@ -64,7 +67,7 @@ export function useSaveSharedNote(): { error: string | null } {
 
     useEffect(() => {
         // Strict mode runs effects twice; one visit must make one copy.
-        if (!valid || started.current) return;
+        if (!valid || !canEdit || started.current) return;
         started.current = true;
         copySharedNote(identity, file!, publicOrigin())
             .then((copy) => {
@@ -79,7 +82,9 @@ export function useSaveSharedNote(): { error: string | null } {
                 console.error('[useSaveSharedNote] Failed to save a copy:', err);
                 setCopyError(err instanceof Error ? err.message : 'Could not save a copy of this note.');
             });
-    }, [valid, identity, file, navigate]);
+    }, [valid, canEdit, identity, file, navigate]);
 
-    return { error: valid ? copyError : 'This link is not a valid shared note link.' };
+    if (!valid) return { error: 'This link is not a valid shared note link.' };
+    if (canEdit === false) return { error: "Your trial has ended. Your notes are read-only on this device, so a copy can't be saved here." };
+    return { error: copyError };
 }

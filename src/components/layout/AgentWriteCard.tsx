@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Check, CircleSlash, Globe, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePendingWrite } from "@/hooks/usePendingWrite";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import type { AgentStep } from "@/hooks/useAgentSession";
 
 type WriteState = NonNullable<AgentStep["write"]>["state"];
@@ -34,6 +35,8 @@ function target(summary: string): { action: string; title: string } | null {
  */
 export function AgentWriteCard({ step }: { step: AgentStep }) {
   const { pending, accept, reject } = usePendingWrite();
+  // A write proposed before the native trial ended (#1176) can only be rejected.
+  const canEdit = useCanEdit();
   const { write, summary } = step;
   if (!write) return null;
   const to = summary ? target(summary) : null;
@@ -81,7 +84,7 @@ export function AgentWriteCard({ step }: { step: AgentStep }) {
         </p>
       ) : (
         <div className="flex justify-end gap-2 p-3">
-          <Button size="sm" className={BUTTON} disabled={!pending} onClick={accept}>
+          <Button size="sm" className={BUTTON} disabled={!pending || !canEdit} onClick={accept}>
             Accept
           </Button>
           <Button size="sm" variant="outline" className={BUTTON} disabled={!pending} onClick={reject}>

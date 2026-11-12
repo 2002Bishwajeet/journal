@@ -1,0 +1,102 @@
+import { existsSync } from 'node:fs';
+import type { Browser, Page } from '@playwright/test';
+import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
+import { assertTestOrigin } from '../support/origin-guard';
+import { activeEditor, activeTitleInput, createNote, openNote, screenshotInBothThemes, settingsPanel } from '../support/actions';
+
+// #1176: after the 3-day trial the native app is read-only on this device, never locked out.
+// The app is forced native through the init-script globals, as in e2e/boot/license.spec.ts; the
+// device store (native/rust/license.rs) lives on the test side, so moving its trialStartedAt
+// back ends the trial on the next load. That makes `@premium`'s useEntitlement() answer
+// `canEdit: false`.
+
+const DAY = 86_400_000;
+const daysAgo = (days: number) => new Date(Date.now() - days * DAY).toISOString();
+const BANNER = 'Your trial has ended. Your notes are read-only on this device. Unlock Journal to keep writing.';
+
+type Store = Record<string, unknown> | null;
+
+async function openNativeApp(browser: Browser, body: (page: Page, device: { store: Store }) => Promise<void>): Promise<void> {
+    const device = { store: { trialStartedAt: daysAgo(0) } as Store };
+    await withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json', acceptDownloads: true }, async (page) => {
+        await page.exposeFunction('deviceIpc', (cmd: string, args: Record<string, unknown>) => {
+            if (cmd === 'plugin:journal-license|load') return device.store;
+            if (cmd === 'plugin:journal-license|save') device.store = args.state as Store;
+            if (cmd === 'plugin:journal-license|hostname') return 'e2e-host';
+            if (cmd === 'plugin:journal-mirror|state') return { root: null, files: {} };
+            return null;
+        });
+        await page.addInitScript(() => {
+            const w = window as unknown as Record<string, unknown>;
+            w.__JOURNAL_NATIVE__ = { platform: 'macos' };
+            w.__TAURI_INTERNALS__ = {
+                transformCallback: () => 0,
+                invoke: (cmd: string, args: Record<string, unknown> = {}) =>
+                    (w.deviceIpc as (cmd: string, args: unknown) => Promise<unknown>)(cmd, args),
+            };
+        });
+        await page.goto('/');
+        await assertTestOrigin(page);
+        await waitForAppReady(page);
+        await body(page, device);
+    });
+}
+
+test.describe('native app after the trial', () => {
+    test.skip(!existsSync('native/web/index.ts'), 'needs the private native/ module');
+
+    test('reading, search and export work; nothing can be written', async ({ browser }) => {
+        await openNativeApp(browser, async (page, device) => {
+            await page.setViewportSize({ width: 1280, height: 800 });
+            // During the trial: write a note to read later.
+            await createNote(page, { title: 'Packing list', body: 'passport, charger' });
+
+            // The trial ends.
+            device.store = { ...device.store, trialStartedAt: daysAgo(4) };
+            await page.reload();
+            await waitForAppReady(page);
+            const wall = page.getByRole('dialog', { name: 'Your 3-day trial has ended.' });
+            await expect(wall).toContainText('you can still read, search and export them');
+            await wall.getByRole('button', { name: 'Keep reading' }).click();
+            await expect(wall).toBeHidden();
+
+            // The banner, at the top of the note list, with Unlock opening the paywall again.
+            const banner = page.getByRole('status').filter({ hasText: BANNER }).first();
+            await expect(banner).toBeVisible();
+            await banner.getByRole('button', { name: 'Unlock' }).click();
+            await expect(wall).toBeVisible();
+            await wall.getByRole('button', { name: 'Keep reading' }).click();
+
+            // No new note, no new folder.
+            await expect(page.getByRole('button', { name: /^New( note)?$/ })).toHaveCount(0);
+            await expect(page.getByRole('button', { name: 'New folder' })).toHaveCount(0);
+
+            // Reading: the note opens and its editor takes no typing.
+            await openNote(page, 'Packing list');
+            const editor = activeEditor(page);
+            await expect(editor).toContainText('passport, charger');
+            await expect(editor).toHaveAttribute('contenteditable', 'false');
+            await editor.click();
+            await page.keyboard.type('sunscreen');
+            await expect(editor).not.toContainText('sunscreen');
+            await expect(activeTitleInput(page)).toHaveJSProperty('readOnly', true);
+            await screenshotInBothThemes(page, (theme) => `read-only-${theme}-desktop.png`);
+
+            // Search finds it.
+            await page.getByRole('button', { name: 'Search', exact: true }).click();
+            await page.getByRole('dialog').getByRole('combobox').or(page.getByRole('dialog').getByRole('textbox')).first().fill('passport');
+            await expect(page.getByRole('dialog').getByText('Packing list').first()).toBeVisible();
+            await page.keyboard.press('Escape');
+
+            // Export from the banner's overflow: Settings → Data & storage, with no import.
+            await banner.getByRole('button', { name: 'More' }).click();
+            await page.getByRole('menuitem', { name: 'Export my notes' }).click();
+            const settings = page.getByRole('dialog');
+            const panel = settingsPanel(settings);
+            await expect(panel.getByRole('button', { name: 'Import Archive' })).toHaveCount(0);
+            const download = page.waitForEvent('download');
+            await panel.getByRole('button', { name: 'Export All Notes' }).click();
+            expect((await download).suggestedFilename()).toMatch(/\.zip$/);
+        });
+    });
+});

@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/auth/useAuth";
+import { CanEditReporter } from "@/components/license/License";
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -31,5 +32,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return <Navigate to={`/welcome${returnUrlParam}`} replace />;
   }
 
-  return <>{children}</>;
+  // Signed in: the native app's read-only mode (#1176) reads its entitlement from here on.
+  return (
+    <>
+      <CanEditReporter />
+      {children}
+    </>
+  );
 }

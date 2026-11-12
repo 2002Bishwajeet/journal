@@ -341,7 +341,7 @@ function HiddenNoteRow({
                   </p>
                 )}
               </div>
-              <RowOptionsMenu items={items} label="Note options" />
+              {items.length > 0 && <RowOptionsMenu items={items} label="Note options" />}
             </div>
           </div>
         </ContextMenuWrapper>

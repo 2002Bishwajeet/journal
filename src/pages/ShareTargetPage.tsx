@@ -7,11 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Save, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAIN_FOLDER_ID } from "@/lib/homebase";
+import { useCanEdit } from "@/hooks/useCanEdit";
 
 export default function ShareTargetPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { createNoteWithContent } = useNotes();
+  // The native trial ended (#1176): nothing new is saved on this device.
+  const canEdit = useCanEdit();
 
   // Lazy initialization of state
   const [title, setTitle] = useState(
@@ -87,6 +90,12 @@ export default function ShareTargetPage() {
           />
         </div>
 
+        {!canEdit && (
+          <p role="status" className="text-sm text-muted-foreground text-pretty">
+            Your trial has ended. Your notes are read-only on this device. Unlock Journal to keep writing.
+          </p>
+        )}
+
         <div className="grid grid-cols-2 gap-4 pb-[env(safe-area-inset-bottom)]">
           <Button
             variant="outline"
@@ -96,7 +105,7 @@ export default function ShareTargetPage() {
           >
             Cancel
           </Button>
-          <Button size="lg" onClick={handleSave} disabled={isSaving}>
+          <Button size="lg" onClick={handleSave} disabled={isSaving || !canEdit}>
             {isSaving ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
