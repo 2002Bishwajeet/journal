@@ -5,6 +5,7 @@ import { reportBootPhase } from './lib/bootProgress';
 import { isPublicSharePath } from './lib/sharePath';
 import { installConsoleCapture } from './lib/diagnostics/logBuffer';
 import { addOriginTrialToken } from './lib/agent/modelContext';
+import { installResumeRestore } from './lib/resumeRestore';
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -33,6 +34,9 @@ if (!isPublicSharePath(location.pathname)) {
 
 // WebMCP is a Chrome origin trial: the token must be on the page before the browser sets up the API.
 addOriginTrialToken(import.meta.env.VITE_WEBMCP_OT_TOKEN);
+
+// Puts a page iOS reloaded in the background back where it was (#1187).
+installResumeRestore();
 
 // Main bundle parsed and executing — first boot milestone for the splash bar.
 reportBootPhase('react');

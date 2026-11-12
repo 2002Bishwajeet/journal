@@ -154,6 +154,7 @@ export function SplashScreen({ className }: SplashScreenProps) {
 
   return (
     <div 
+      data-splash
       className={cn(
         "fixed inset-0 z-50 flex flex-col items-center justify-center bg-background",
         className

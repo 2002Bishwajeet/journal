@@ -35,6 +35,11 @@ tauri-plugin-updater = "2"
 [target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
 objc2 = "0.6"
 
+# The completion handler of WKWebView's takeSnapshot (ios_recovery.rs). Already
+# in the tree through wry.
+[target.'cfg(target_os = "ios")'.dependencies]
+block2 = "0.6"
+
 [features]
 # Enabled by the Tauri CLI for production builds. Turning it on flips
 # `tauri::is_dev()` to false and embeds `frontendDist` into the binary.
