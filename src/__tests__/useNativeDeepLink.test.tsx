@@ -19,10 +19,15 @@ vi.mock('@tauri-apps/plugin-deep-link', () => ({
     }),
 }));
 
+const late = vi.hoisted(() => ({ calls: 0 }));
+
 vi.mock('@/lib/db', () => ({
     getDatabase: async () => ({
         query: async (_sql: string, [id]: string[]) => ({
-            rows: id === '0b9b5e3c-3f1e-4b8a-9a35-1d1f3f6c2a10' ? [{ folder_id: 'work' }] : [],
+            rows:
+                id === '0b9b5e3c-3f1e-4b8a-9a35-1d1f3f6c2a10' || (id === '2d9b5e3c-3f1e-4b8a-9a35-1d1f3f6c2a10' && ++late.calls > 3)
+                    ? [{ folder_id: 'work' }]
+                    : [],
         }),
     }),
 }));
@@ -109,7 +114,16 @@ describe('useNativeDeepLink', () => {
     it('sends a note that is not on this device to Main, where the editor says "Note not found"', async () => {
         plugin.current = [`journal://note/${OTHER}`];
         await mount();
+        await new Promise((r) => setTimeout(r, 3500));
         await waitFor(() => expect(result.current).toBe(`/${MAIN_FOLDER_ID}/${OTHER}`));
+    });
+
+    it('waits briefly for a note that is still syncing in, then opens it in its folder', async () => {
+        late.calls = 0;
+        plugin.current = ['journal://note/2d9b5e3c-3f1e-4b8a-9a35-1d1f3f6c2a10'];
+        await mount();
+        await new Promise((r) => setTimeout(r, 1000));
+        await waitFor(() => expect(result.current).toBe('/work/2d9b5e3c-3f1e-4b8a-9a35-1d1f3f6c2a10'));
     });
 
     it('routes link events while running', async () => {

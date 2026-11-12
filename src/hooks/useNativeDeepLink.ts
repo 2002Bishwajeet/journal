@@ -8,18 +8,26 @@ import { nativeDeepLinkRoute, parseNativeDeepLink, type NativeDeepLink } from '@
 // The last link handled, so a reload (sign-in, chunk reload) doesn't follow the launch link again.
 const HANDLED_KEY = 'journal.nativeDeepLink.handled';
 
+// A note that exists remotely may not have synced yet: look again for a few seconds before giving up.
+const NOTE_WAIT_TRIES = 12;
+const NOTE_WAIT_MS = 250;
+
 /** The folder a note is in on this device, Main when it isn't here (the editor then says "Note not found"). */
 async function noteFolderId(id: string): Promise<string> {
-    try {
-        const db = await getDatabase();
-        const result = await db.query<{ folder_id: string | null }>(
-            `SELECT metadata->>'folderId' AS folder_id FROM search_index WHERE doc_id = $1`,
-            [id],
-        );
-        return result.rows[0]?.folder_id ?? MAIN_FOLDER_ID;
-    } catch {
-        return MAIN_FOLDER_ID;
+    for (let i = 0; i < NOTE_WAIT_TRIES; i++) {
+        try {
+            const db = await getDatabase();
+            const result = await db.query<{ folder_id: string | null }>(
+                `SELECT metadata->>'folderId' AS folder_id FROM search_index WHERE doc_id = $1`,
+                [id],
+            );
+            if (result.rows[0]) return result.rows[0].folder_id ?? MAIN_FOLDER_ID;
+        } catch {
+            return MAIN_FOLDER_ID;
+        }
+        await new Promise((r) => setTimeout(r, NOTE_WAIT_MS));
     }
+    return MAIN_FOLDER_ID;
 }
 
 /**
