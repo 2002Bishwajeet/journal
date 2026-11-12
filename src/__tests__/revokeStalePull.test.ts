@@ -140,3 +140,25 @@ describe('SyncService.handleRemoteNote after a revoke (#689)', () => {
         expect(entry?.metadata.folderId).toBe(MAIN_FOLDER_ID);
     });
 });
+
+describe('SyncService.handleRemoteNote with no content payload (#1228)', () => {
+    it('keeps the stored search text when the server returns no payload', async () => {
+        await resetTestDatabase();
+        vi.clearAllMocks();
+        mockDsr.mockResolvedValue({ title: 'Shared', tags: [] });
+        mockGetNotePayload.mockResolvedValue(null);
+        await upsertSearchIndex({ docId: NOTE_ID, title: 'Shared', plainTextContent: 'See Budget 2026 today', metadata: SHARED });
+        await upsertSyncRecord({
+            localId: NOTE_ID,
+            entityType: 'note',
+            remoteFileId: 'note-file-1',
+            versionTag: 'v1',
+            lastSyncedAt: new Date().toISOString(),
+            syncStatus: 'synced',
+        });
+
+        await new SyncService(fakeClient, fakeOnline).handleRemoteNote(sharedHeader(3000, 'v4'));
+
+        expect((await getSearchIndexEntry(NOTE_ID))?.plainTextContent).toBe('See Budget 2026 today');
+    });
+});
