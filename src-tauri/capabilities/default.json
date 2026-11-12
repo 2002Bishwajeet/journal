@@ -6,5 +6,5 @@
   "remote": {
     "urls": ["http://localhost:47821"]
   },
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "deep-link:default"]
 }

@@ -67,7 +67,7 @@ const PUBLISH_SCHEMA = {
 const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40).replace(/-$/, '')
 
 // The implementer's worktree may be auto-removed once its tree is clean; the branch survives.
-const cdInto = (impl) => `\`cd ${impl.worktreePath}\` first (if it no longer exists: \`git -C ${repoRoot} worktree add ${impl.worktreePath} ${impl.branch}\`, then cd)`
+const cdInto = (impl) => `\`cd ${impl.worktreePath}\` first (if it no longer exists: \`git -C ${repoRoot} worktree add ${impl.worktreePath} ${impl.branch}\`, then cd and \`git submodule update --init native || true\`)`
 
 const HEAVY = `Run every build/test/lint/e2e/vitest/tsc/npm ci command ONLY as \`${repoRoot}/scripts/harness/serial.sh <cmd> > /tmp/agent-<issue>-<step>.log 2>&1; echo exit=$?\` (machine-wide lock, 16 GB machine), in the foreground with a 600000 ms timeout — never run_in_background: you must see the exit code before you return. Never let full output into your context: read only \`tail -40\` of the log, plus \`grep -nE 'FAIL|Error|error|✗|×' <log> | head -40\` when it failed.`
 
@@ -81,13 +81,13 @@ function implementPrompt(issue) {
   const branch = `agent/${issue.number}-${slug(issue.title)}`
   return `You are implementing GitHub issue #${issue.number} of ${REPO}: "${issue.title}".
 
-1. You are in a fresh git worktree. Run \`pwd\` and \`git checkout -b ${branch} origin/main\`. If \`node_modules\` is missing, \`ln -s ${repoRoot}/node_modules node_modules\`.
+1. You are in a fresh git worktree. Run \`pwd\` and \`git checkout -b ${branch} origin/main\`. If \`node_modules\` is missing, \`ln -s ${repoRoot}/node_modules node_modules\`. Then \`git submodule update --init native || true\`: the private, optional premium submodule (AGENTS.md "Private native features"); it may be unavailable, and then only the stub builds.
 2. Read the issue: \`gh issue view ${issue.number} -R ${REPO} --comments\`. Read only the AGENTS.md sections relevant to the issue (\`grep -n '^#' AGENTS.md\` first). Follow the issue exactly, including its STOP conditions. If a STOP condition applies, stop and return status "stopped" with the condition and details — do not improvise around it.
    If the issue touches phone or tablet UI (Area includes mobile, or the title says Mobile, iPad or iOS), first read \`~/.claude/skills/mobile-native/SKILL.md\` and \`~/.claude/skills/emil-design-eng/SKILL.md\` (skip any that is missing) and follow them for the UI work.
 3. ${HEAVY}
 4. Stay inside this worktree — never edit files under ${repoRoot} itself. Stay inside the issue's Scope.
 5. ${SHOTS}
-6. Commit your work on the branch (conventional commit message referencing #${issue.number}; no Co-Authored-By or other attribution lines). Do NOT push, do NOT open a PR — a later stage does that.
+6. Commit your work on the branch (conventional commit message referencing #${issue.number}; no Co-Authored-By or other attribution lines). Work for the submodule goes inside \`native/\`: commit there on a branch of the same name (\`git -C native checkout -b ${branch}\` first), then \`git add native\` in the journal commit. Do NOT push, do NOT open a PR — a later stage does that.
 
 Return the worktree path, branch, summary, changed files, and linesChanged (insertions + deletions from \`git diff --shortstat origin/main...HEAD\`).`
 }
@@ -136,6 +136,7 @@ No PR. Return result "stopped: <condition>".`
   return `Open the PR for issue #${issue.number} of ${REPO}. ${cdInto(impl)}. Do exactly this:
 1. \`gh label create agent-harness --color 5319E7 --description "PR opened by the agent harness" -R ${REPO} 2>/dev/null || true\`
 2. \`git push -u origin ${impl.branch}\` (never push to main).
+   If \`git diff origin/main --submodule=short -- native\` is non-empty, also \`git -C native push -u origin HEAD:${impl.branch}\`; after step 5, \`gh pr create -R 2002Bishwajeet/journal-native-features --base main --head ${impl.branch} --title <same title> --body "Mounted by <journal PR URL>"\` and add that PR's URL to the journal PR body (\`gh pr edit --body-file\`).
 3. For each evidence file in ${JSON.stringify(verdict.evidence || [])}: commit it to the \`agent-evidence\` branch (images on a draft release don't render in PR bodies) with \`gh api -X PUT repos/${REPO}/contents/${issue.number}/<basename> -f branch=agent-evidence -f message="evidence: #${issue.number} <basename>" -f content="$(base64 < <file>)"\`, adding \`-f sha=<sha>\` when \`gh api "repos/${REPO}/contents/${issue.number}/<basename>?ref=agent-evidence" -q .sha\` prints one; on a 409, repeat once. Its image URL is \`https://raw.githubusercontent.com/${REPO}/agent-evidence/${issue.number}/<basename>\`.
 4. Write the PR body to a file: first line \`Closes #${issue.number}\`; a \`## Summary\` for a reviewer: what changed and why, rewritten from the implementer notes below (drop anything about commits, pushing or PRs); a markdown table \`command | exit | result\` for every check below; each check's tail in a \`<details><summary>command</summary>\` block with a fenced code block; the e2e list output verbatim if present; owner-only items as unchecked \`- [ ]\` boxes; a \`## Evidence\` section showing every evidence image inline, never as bare links: a table with one row per state and one column per theme/viewport, each cell \`<a href="<url>"><img src="<url>" width="260"></a>\` (width 110 for phone-width shots). No attribution lines (no "Generated with Claude Code", no Co-Authored-By).
 5. \`gh pr create -R ${REPO} --base main --head ${impl.branch} --label agent-harness --title ${JSON.stringify(`${issue.title} (#${issue.number})`)} --body-file <file>\`

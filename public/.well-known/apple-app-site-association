@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["N899Y9TW48.com.biswa.journal"],
+        "components": [
+          { "/": "/share/*/f/*", "exclude": true, "comment": "Folder pages have no in-app screen" },
+          { "/": "/share/*/sitemap.xml", "exclude": true, "comment": "Author sitemaps" },
+          { "/": "/share/*/*", "comment": "A note's share page" },
+          { "/": "/save-shared", "comment": "Save a copy of a shared note" },
+          { "/": "/open-shared", "comment": "Open a note shared with you" }
+        ]
+      }
+    ]
+  }
+}

@@ -532,6 +532,15 @@ npx vite-node -c scripts/bench/vite.config.ts scripts/bench/seed-large-db.ts -- 
 - A STOP condition or still-failing verification comments on the issue and adds `blocked`; remove the label to make it selectable again.
 - Heavy commands go through `scripts/harness/serial.sh` (one build/test/lint/e2e at a time). The owner is the only merge gate.
 
+## Private native features (`native/`)
+
+Paid native code (license and paywall #301, desktop extras #1013-#1016) lives in the private repo `2002Bishwajeet/journal-native-features`, mounted as the **optional** submodule `native/` (owner decision on #306). A clone without it builds, tests, lints and deploys exactly as before; public CI never checks it out. Get it with `git submodule update --init native` (needs access to the private repo). Its own `AGENTS.md` has the details.
+
+- **Web:** `@premium` (Vite alias in `vite.config.ts` and `vitest.config.ts`, tsconfig `paths`) is `native/web/index.ts` when it exists, else `src/lib/premiumStub.ts`. Every export the real module adds needs a stub export with the same type. Load it only in the native app: `if (isNativeApp()) await import('@premium')`.
+- **Rust:** `src-tauri/build.rs` sets `cfg(journal_premium)` when `native/rust/mod.rs` exists, and `lib.rs` then compiles that file as `mod premium`; otherwise an inline stub. `premium::register(builder)` adds plugins before journal's `.setup`. Premium crate dependencies go in the public `src-tauri/Cargo.toml`, so `Cargo.lock` is the same either way.
+- **Committing a submodule change (e.g. #1013):** in `native/`, `git checkout -b <branch> origin/main`, commit and push there; in journal, `git add native` (bumps the gitlink) with the public part (stub exports, Cargo deps). Open a PR in each repo and link them. Merge the private PR first, then point the gitlink at the merged `main` commit before the journal PR merges.
+- **Verify both builds:** with `native/` and with it moved aside: `npm run build`, `cargo test` in `src-tauri`.
+
 ## Code Conventions
 
 - **Minimize useState**: Derive state during render when possible
