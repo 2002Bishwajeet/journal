@@ -370,7 +370,7 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
         });
     } else {
         // Existing note - merge Yjs documents (CRDT handles conflicts automatically)
-        let plainTextContent = '';
+        let plainTextContent: string | undefined;
         let mergedBlob: Uint8Array | undefined;
         if (remoteBlob) {
             mergedBlob = await mergeYjsDocuments(uniqueId, remoteBlob);
@@ -436,7 +436,8 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
         await upsertSearchIndex({
             docId: uniqueId,
             title: noteTitle,
-            plainTextContent,
+            // No remote payload: keep the stored text rather than blanking it.
+            plainTextContent: plainTextContent ?? existingDoc?.plainTextContent ?? '',
             metadata: updatedMetadata
         });
         // Setting 'pending' bumps dirty_generation, so the guarded markSynced below records
