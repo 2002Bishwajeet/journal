@@ -35,6 +35,7 @@ import { SHARE_DRIVE_FIX_ATTEMPT_KEY, readString, removeKey, writeString } from 
 import { appendLog, getLogSnapshot, subscribeLog } from '@/lib/diagnostics/logBuffer';
 import { buildReport, type StatusRow } from '@/lib/diagnostics/report';
 import { formatRelativeTime } from '@/lib/utils';
+import { isNativeApp } from '@/lib/native';
 
 interface DeviceFacts {
     serviceWorker: string;
@@ -166,7 +167,7 @@ export function useDiagnostics() {
         },
         ...breakdownRows,
         {
-            label: 'Browser storage',
+            label: isNativeApp() ? 'Storage' : 'Browser storage',
             value: usage === null ? 'unknown' : `${formatBytes(usage)}${quota === null ? '' : ` of ${formatBytes(quota)}`}`,
         },
     ];

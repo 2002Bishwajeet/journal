@@ -9,6 +9,7 @@ import { ActionSheet } from '@/components/ui/action-sheet';
 import { cn } from '@/lib/utils';
 import { useSheetMode } from '@/hooks/useSheetMode';
 import { useRestoreEditorFocus } from '@/hooks/useRestoreEditorFocus';
+import { useCanEdit } from '@/hooks/useCanEdit';
 import { CALLOUT_ICONS, CalloutIcon } from './CalloutIcon';
 import { CALLOUT_CLASSES, CALLOUT_VARIANTS, toCalloutVariant } from './calloutVariants';
 
@@ -17,6 +18,8 @@ export function CalloutNodeView({ editor, node, updateAttributes }: NodeViewProp
   const asSheet = useSheetMode();
   const [sheetOpen, setSheetOpen] = useState(false);
   const onCloseAutoFocus = useRestoreEditorFocus(editor, sheetOpen);
+  // The native trial ended (#1176): the icon only, no variant picker.
+  const editable = useCanEdit();
 
   const trigger = (
     <button
@@ -36,7 +39,11 @@ export function CalloutNodeView({ editor, node, updateAttributes }: NodeViewProp
       className={cn('my-2 flex gap-2 rounded-md border-l-4 px-3 py-1', CALLOUT_CLASSES[variant])}
     >
       <div contentEditable={false} className="pt-3">
-        {asSheet ? (
+        {!editable ? (
+          <span className="block p-0.5">
+            <CalloutIcon variant={variant} />
+          </span>
+        ) : asSheet ? (
           <>
             {trigger}
             <ActionSheet

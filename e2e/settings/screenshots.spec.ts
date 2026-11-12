@@ -16,7 +16,7 @@ const VIEWPORTS = {
 const SECTIONS: { id: string; tab: string; desktopOnly?: boolean }[] = [
   { id: 'account', tab: 'Account' },
   { id: 'appearance', tab: 'Appearance' },
-  { id: 'ai', tab: 'AI' },
+  { id: 'ai', tab: 'AI', desktopOnly: true },
   { id: 'agent-access', tab: 'Agent access' },
   { id: 'notifications', tab: 'Notifications' },
   { id: 'data', tab: 'Data & storage' },

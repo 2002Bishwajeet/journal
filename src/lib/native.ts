@@ -13,6 +13,8 @@ declare global {
 
 /** The native app's platform, or null on the web. */
 export function nativePlatform(): NativePlatform | null {
+  // Node-environment tests render components with no window.
+  if (typeof window === 'undefined') return null;
   return window.__JOURNAL_NATIVE__?.platform ?? null;
 }
 

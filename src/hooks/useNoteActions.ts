@@ -8,6 +8,7 @@ import type { NoteListEntry } from '@/types';
 import { slideNavigate } from '@/lib/navDirection';
 import { markNewNote } from '@/lib/newNoteFocus';
 import { useBackTo } from '@/hooks/useBackTo';
+import { getCanEdit } from '@/hooks/useCanEdit';
 
 interface UseNoteActionsOptions {
     folderId: string | undefined;
@@ -145,6 +146,8 @@ export function useNoteActions({
     };
 
     const createAndOpen = async (targetFolderId: string | undefined) => {
+        // Read-only (#1176): the buttons are hidden; this also stops the tray's New note.
+        if (!getCanEdit()) return;
         // Falls back to Main for pseudo-folder routes (Trash/Archive/Shared)
         // and unknown folder ids — see resolveNoteFolderId. In a tag list the
         // new note carries that tag.

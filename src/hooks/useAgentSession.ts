@@ -4,6 +4,7 @@ import { useModelDownloadGate } from "@/hooks/useModelDownloadGate";
 import { getSearchIndexEntry } from "@/lib/db";
 import type { AgentEvent } from "@/lib/agent/loop/agentLoop";
 import { approveWrite, type WrittenNote } from "@/lib/agent/approveWrite";
+import { getCanEdit } from "@/hooks/useCanEdit";
 import { e2eSwitches } from "@/lib/e2e/switches";
 
 export interface ChatCommand {
@@ -221,8 +222,9 @@ export function useAgentSession(activeNoteId: string | undefined) {
           setModelStatus({ progress: report.progress, message: report.text })
         ),
         deps: writeDeps,
-        // Judged on what the user typed, not the note title in `context`.
-        tools: toolsFor(request),
+        // Judged on what the user typed, not the note title in `context`. Read-only (#1176): only
+        // the tools that read; the agent can still answer from the notes.
+        tools: toolsFor(request).filter((tool) => getCanEdit() || tool.readOnly),
         writeDeps,
         // An edit to the open note shows in the note, an append to another note or a new note shows as a
         // card in this panel; the user accepts or rejects each.

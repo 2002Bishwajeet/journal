@@ -9,6 +9,7 @@ import type { ContextMenuItemConfig } from '@/components/ui/context-menu-wrapper
 import { buildNoteMenuItems } from '@/helpers/noteMenuItems';
 import type { NoteScreenActions } from '@/hooks/useNoteScreenActions';
 import { useNotes } from '@/hooks/useNotes';
+import { useCanEdit } from '@/hooks/useCanEdit';
 import { extractHeadings } from '@/lib/editor/extractHeadings';
 import type { NoteListEntry } from '@/types';
 import { ContentsSheet } from './ContentsSheet';
@@ -64,8 +65,10 @@ export function NoteScreenMenu({
     ...(onOpenHistory ? [{ label: 'Version history', icon: History, action: onOpenHistory }] : []),
   ];
 
+  const canEdit = useCanEdit();
   const items = buildNoteMenuItems(note, {
     isPeerNote,
+    canEdit,
     dotYouRoot: dotYouClient.getRoot(),
     handlers: {
       onTogglePin: (docId, isPinned) => togglePin.mutate({ docId, isPinned }),

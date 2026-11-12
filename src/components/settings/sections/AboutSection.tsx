@@ -2,6 +2,8 @@ import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
+import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
+import { isNativeSettings } from "@/lib/settingsPlatform";
 import { useLatestWhatsNew } from "@/hooks/useWhatsNew";
 import { BILLING_URL, DOWNLOAD_URL } from "@/lib/billing";
 import { isNativeApp } from "@/lib/native";
@@ -15,11 +17,12 @@ const links = [
 
 export default function AboutSection() {
   const whatsNew = useLatestWhatsNew();
+  const native = isNativeSettings(useSettingsPlatform());
   const version = `v${__APP_VERSION__} (build ${__APP_BUILD__})`;
 
   const copyVersion = async () => {
     try {
-      await navigator.clipboard.writeText(`Journal ${version} · ${navigator.userAgent}`);
+      await navigator.clipboard.writeText(`Journal ${version}${native ? "" : ` · ${navigator.userAgent}`}`);
       toast.success("Copied");
     } catch {
       toast.error("Couldn't copy to clipboard");
@@ -54,7 +57,7 @@ export default function AboutSection() {
         <h3 className="text-sm leading-5 font-medium">Privacy</h3>
         <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
           Your notes are stored on this device and synced end-to-end encrypted
-          to your own Homebase. On-device AI runs in this browser; model files
+          to your own Homebase. On-device AI runs {native ? "on this device" : "in this browser"}; model files
           are downloaded once from a public model host. Journal has no
           analytics.
         </p>

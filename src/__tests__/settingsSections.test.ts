@@ -39,10 +39,10 @@ describe('SETTINGS_SECTIONS', () => {
 
     it('hides the shortcuts section on phones', () => {
         const shortcuts = SETTINGS_SECTIONS.find((s) => s.id === 'shortcuts');
-        expect(shortcuts?.desktopOnly).toBe(true);
+        expect(shortcuts?.platforms).toEqual(['web-desktop', 'native-desktop']);
     });
 
     it('shows the security section only in the native app', () => {
-        expect(SETTINGS_SECTIONS.find((s) => s.id === 'security')?.nativeOnly).toBe(true);
+        expect(SETTINGS_SECTIONS.find((s) => s.id === 'security')?.platforms).toEqual(['native-phone', 'native-desktop']);
     });
 });

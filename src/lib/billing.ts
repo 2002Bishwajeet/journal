@@ -12,5 +12,12 @@ export function licenseEnabled(): boolean {
     return BILLING_URL !== null && isNativeApp();
 }
 
+/** Opens the native app's paywall (the read-only banner's Unlock, #1176). Does nothing on the web. */
+export function openPaywall(): void {
+    import('@premium')
+        .then((m) => m.openPaywall())
+        .catch((err: unknown) => console.error('[billing] Failed to open the paywall:', err));
+}
+
 /** The website's download page (#305), for the web's "Get the desktop app" link. */
 export const DOWNLOAD_URL = 'https://journal.cloudx.run/landing/download';
