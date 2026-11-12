@@ -183,6 +183,38 @@ describe('acquireLiveQuery — parking (no-flash folder switch, no idle subscrip
 
     h2.release();
   });
+
+  it('keeps a parked list when many other queries park after it (#1219)', async () => {
+    await insertNote(ID1, 'Alpha');
+    const LIST_KEY = 'park-many::' + LIST_SQL;
+    const calls: unknown[][] = [];
+    const list = acquireLiveQuery(LIST_KEY, LIST_SQL, [], (rows) => calls.push(rows));
+    await waitFor(() => calls.length > 0);
+    list.release();
+
+    // Twenty per-note queries (a backlinks panel per opened note) park after it.
+    const NOTE_SQL = 'SELECT doc_id, title, metadata FROM search_index WHERE title = $1';
+    for (let i = 0; i < 20; i++) {
+      const got: unknown[][] = [];
+      const h = acquireLiveQuery(`park-many::${NOTE_SQL}::${i}`, NOTE_SQL, [`Note ${i}`], (rows) => got.push(rows));
+      await waitFor(() => got.length > 0);
+      h.release();
+    }
+
+    // The list is still cached: served at once, no loading state.
+    const again = acquireLiveQuery(LIST_KEY, LIST_SQL, [], () => {});
+    expect(again.ready).toBe(true);
+    expect(titlesOf(again.rows)).toEqual(['Alpha']);
+    again.release();
+
+    // The per-note queries keep their own budget: the oldest ones were dropped.
+    const oldest = acquireLiveQuery(`park-many::${NOTE_SQL}::0`, NOTE_SQL, ['Note 0'], () => {});
+    expect(oldest.ready).toBe(false);
+    oldest.release();
+    const newest = acquireLiveQuery(`park-many::${NOTE_SQL}::19`, NOTE_SQL, ['Note 19'], () => {});
+    expect(newest.ready).toBe(true);
+    newest.release();
+  });
 });
 
 describe('acquireLiveQuery — coalescing burst emissions', () => {
