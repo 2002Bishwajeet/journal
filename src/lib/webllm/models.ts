@@ -55,31 +55,9 @@ const MODELS: Omit<ModelInfo, 'memoryUsage' | 'ramTier'>[] = [
     downloadSize: '~600 MB',
     vramMB: 1629.49,
     f32Id: 'Qwen3.5-0.8B-q4f32_1-MLC',
-    description: 'Newer and sharper than Qwen 2.5 0.5B, with thinking off. Good for autocomplete, grammar and rewrites.',
+    description: 'The default, with thinking off. Good for autocomplete, grammar and rewrites.',
     capabilities: ['autocomplete', 'grammar', 'rewrite', 'chat'],
     recommended: true,
-  },
-  {
-    id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
-    name: 'Qwen 2.5 0.5B',
-    job: 'editor',
-    parameterCount: '0.5B',
-    downloadSize: '~350 MB',
-    vramMB: 944.62,
-    f32Id: 'Qwen2.5-0.5B-Instruct-q4f32_1-MLC',
-    description: 'Small and fast, with decent instruction following. Good for autocomplete, grammar and rewrites.',
-    capabilities: ['autocomplete', 'grammar', 'rewrite', 'chat'],
-  },
-  {
-    id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
-    name: 'Qwen 2.5 1.5B',
-    job: 'editor',
-    parameterCount: '1.5B',
-    downloadSize: '~900 MB',
-    vramMB: 1629.75,
-    f32Id: 'Qwen2.5-1.5B-Instruct-q4f32_1-MLC',
-    description: 'Better writing quality than the smaller models. Uses more memory.',
-    capabilities: ['autocomplete', 'grammar', 'rewrite', 'chat'],
   },
   {
     id: 'Qwen3.5-2B-q4f16_1-MLC',
@@ -125,8 +103,8 @@ export const DEFAULT_AGENT_MODEL_ID = 'Qwen3.5-2B-q4f16_1-MLC';
 /** The agent default before #1023. Saved settings from before #695 have no agent model, and keep this one. */
 export const PREVIOUS_AGENT_MODEL_ID = 'Qwen3-1.7B-q4f16_1-MLC';
 
-/** Removed from the catalogue. A saved choice of it falls back to the editor default. */
-export const LEGACY_LLAMA_MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+/** Removed from the catalogue (Qwen 2.5 after #1265). A saved choice of one falls back to the editor default. */
+export const REMOVED_EDITOR_MODEL_IDS = ['Llama-3.2-1B-Instruct-q4f16_1-MLC', 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'];
 /** Removed from the catalogue after #1023. A saved choice of one falls back to the agent default. */
 export const REMOVED_AGENT_MODEL_IDS = ['Qwen3-4B-q4f16_1-MLC', 'Qwen2.5-3B-Instruct-q4f16_1-MLC', 'Hermes-3-Llama-3.2-3B-q4f16_1-MLC'];
 
