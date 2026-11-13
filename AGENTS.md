@@ -466,7 +466,8 @@ Each model also has a `ramTier` (16 or 24 GB), from `vramMB`: up to about 4,000 
 | Model | Job | Download | VRAM | Tier | Default |
 |-------|-----|----------|------|------|---------|
 | SmolLM2 360M | editor | ~250 MB | ~380 MB | 16 | |
-| Qwen 2.5 0.5B | editor | ~350 MB | ~940 MB | 16 | Yes (editor) |
+| Qwen3.5 0.8B | editor | ~600 MB | ~1.6 GB | 16 | Yes (editor, since #1265) |
+| Qwen 2.5 0.5B | editor | ~350 MB | ~940 MB | 16 | the editor default before #1265 |
 | Qwen 2.5 1.5B | editor | ~900 MB | ~1.6 GB | 16 | |
 | Qwen3.5 2B | agent | ~1.1 GB | ~2.2 GB | 16 | Yes (agent, since #1023) |
 | Qwen3.5 4B | agent | ~2.4 GB | ~3.9 GB | 16 | "Higher quality" |

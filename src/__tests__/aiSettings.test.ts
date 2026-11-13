@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { AVAILABLE_MODELS, DEFAULT_MODEL_ID, getModelInfo } from '@/lib/webllm/models';
 import { DEFAULT_SETTINGS, STORAGE_KEY, loadSettings } from '@/hooks/useAISettings';
 
-const EDITOR_DEFAULT = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+const EDITOR_DEFAULT = 'Qwen3.5-0.8B-q4f16_1-MLC';
 const AGENT_DEFAULT = 'Qwen3.5-2B-q4f16_1-MLC';
 const PREVIOUS_AGENT_DEFAULT = 'Qwen3-1.7B-q4f16_1-MLC';
 
@@ -31,7 +31,7 @@ describe('Model Registry', () => {
   it('getModelInfo should return model for valid ID', () => {
     const model = getModelInfo(DEFAULT_MODEL_ID);
     expect(model).toBeDefined();
-    expect(model?.name).toBe('Qwen 2.5 0.5B');
+    expect(model?.name).toBe('Qwen3.5 0.8B');
   });
 
   it('getModelInfo should return undefined for invalid ID', () => {

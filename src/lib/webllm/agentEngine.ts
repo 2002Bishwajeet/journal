@@ -6,14 +6,11 @@
 import type * as WebLLMTypes from '@mlc-ai/web-llm';
 import type { AgentEngine } from '@/lib/agent/loop/agentLoop';
 import { e2eSwitches } from '@/lib/e2e/switches';
-import { getLastLoadError, getLoadedEngine, initWebLLM } from './engine';
+import { getLastLoadError, getLoadedEngine, initWebLLM, stripThink } from './engine';
 import { getModelInfo } from './models';
 import { outOfMemoryMessage } from './requirements';
 
 type CompletionEngine = Pick<WebLLMTypes.MLCEngineInterface, 'chat' | 'interruptGenerate'>;
-
-/** With `enable_thinking: false`, web-llm starts the reply with the empty thinking block it added to the prompt (#796). */
-const THINK_BLOCK = /^\s*<think>[\s\S]*?<\/think>\s*/;
 
 /** The assistant model did not load. Its message is for the user. */
 export class ModelLoadError extends Error {
@@ -37,7 +34,7 @@ export function toAgentEngine(load: () => Promise<CompletionEngine>, contextWind
                     extra_body: { enable_thinking: false },
                 });
                 if (response.usage) e2eSwitches.onAgentUsage?.(response.usage);
-                return (response.choices[0]?.message?.content ?? '').replace(THINK_BLOCK, '');
+                return stripThink(response.choices[0]?.message?.content ?? '');
             } finally {
                 signal?.removeEventListener('abort', interrupt);
             }

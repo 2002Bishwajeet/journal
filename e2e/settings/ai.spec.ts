@@ -11,7 +11,7 @@ import { finishLoad, reloads, stubWebLLMWorker } from '../support/webllm-worker'
 // passed the requirements check (#695) and the user chose Continue; the specs
 // stub navigator.gpu so the check does not depend on the machine.
 
-const EDITOR_DEFAULT = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+const EDITOR_DEFAULT = 'Qwen3.5-0.8B-q4f16_1-MLC';
 
 // Turns AI on and accepts the requirements dialog.
 async function enableAI(page: Page, dialog: Locator) {

@@ -48,6 +48,18 @@ const MODELS: Omit<ModelInfo, 'memoryUsage' | 'ramTier'>[] = [
     capabilities: ['autocomplete', 'grammar', 'rewrite'],
   },
   {
+    id: 'Qwen3.5-0.8B-q4f16_1-MLC',
+    name: 'Qwen3.5 0.8B',
+    job: 'editor',
+    parameterCount: '0.8B',
+    downloadSize: '~600 MB',
+    vramMB: 1629.49,
+    f32Id: 'Qwen3.5-0.8B-q4f32_1-MLC',
+    description: 'Newer and sharper than Qwen 2.5 0.5B, with thinking off. Good for autocomplete, grammar and rewrites.',
+    capabilities: ['autocomplete', 'grammar', 'rewrite', 'chat'],
+    recommended: true,
+  },
+  {
     id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
     name: 'Qwen 2.5 0.5B',
     job: 'editor',
@@ -57,7 +69,6 @@ const MODELS: Omit<ModelInfo, 'memoryUsage' | 'ramTier'>[] = [
     f32Id: 'Qwen2.5-0.5B-Instruct-q4f32_1-MLC',
     description: 'Small and fast, with decent instruction following. Good for autocomplete, grammar and rewrites.',
     capabilities: ['autocomplete', 'grammar', 'rewrite', 'chat'],
-    recommended: true,
   },
   {
     id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
@@ -109,7 +120,7 @@ const MODELS: Omit<ModelInfo, 'memoryUsage' | 'ramTier'>[] = [
 
 export const AVAILABLE_MODELS: ModelInfo[] = MODELS.map((m) => ({ ...m, memoryUsage: formatMemory(m.vramMB), ramTier: ramTier(m.vramMB) }));
 
-export const DEFAULT_MODEL_ID = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+export const DEFAULT_MODEL_ID = 'Qwen3.5-0.8B-q4f16_1-MLC';
 export const DEFAULT_AGENT_MODEL_ID = 'Qwen3.5-2B-q4f16_1-MLC';
 /** The agent default before #1023. Saved settings from before #695 have no agent model, and keep this one. */
 export const PREVIOUS_AGENT_MODEL_ID = 'Qwen3-1.7B-q4f16_1-MLC';

@@ -14,6 +14,10 @@ let lastLoadError: unknown = null;
 
 let currentModelId: string = DEFAULT_MODEL_ID;
 
+/** With `enable_thinking: false`, a Qwen3.5 reply still starts with the empty thinking block web-llm put in the prompt (#796, #1265). */
+const THINK_BLOCK = /^\s*<think>[\s\S]*?<\/think>\s*/;
+export const stripThink = (content: string): string => content.replace(THINK_BLOCK, '');
+
 // Auto-GC configuration
 let idleTimeoutMs = 5 * 60 * 1000; // Default 5 minutes
 let lastActivityTimestamp = 0;
@@ -240,9 +244,10 @@ Output format: ["error 1", "error 2"]`,
             ],
             max_tokens: 150,
             temperature: 0.0,
+            extra_body: { enable_thinking: false },
         });
 
-        const result = response.choices[0]?.message?.content || '[]';
+        const result = stripThink(response.choices[0]?.message?.content || '[]');
         try {
             const parsed = JSON.parse(result);
             if (!Array.isArray(parsed)) return [];
@@ -280,9 +285,10 @@ export async function getAutocompleteSuggestion(text: string): Promise<string> {
             ],
             max_tokens: 30,
             temperature: 0.3,
+            extra_body: { enable_thinking: false },
         });
 
-        const raw = response.choices[0]?.message?.content || '';
+        const raw = stripThink(response.choices[0]?.message?.content || '');
         const trimmed = raw.trim();
         if (trimmed.length > 80) return ''; // Hallucination guard
         return trimmed;
@@ -369,9 +375,10 @@ export async function chat(messages: ChatMessage[]): Promise<string> {
             max_tokens: 512,  // Reduced to encourage concise answers
             temperature: 0.4, // Lower temperature = less hallucination
             top_p: 0.9,       // Nucleus sampling for coherence
+            extra_body: { enable_thinking: false },
         });
 
-        return response.choices[0]?.message?.content || '';
+        return stripThink(response.choices[0]?.message?.content || '');
     } catch (error) {
         console.error('[WebLLM] Chat failed:', error);
         throw error;
@@ -400,9 +407,10 @@ export async function rewriteText(text: string, style: RewriteStyle): Promise<st
             ],
             max_tokens: 500,
             temperature: 0.3,
+            extra_body: { enable_thinking: false },
         });
 
-        return response.choices[0]?.message?.content || text;
+        return stripThink(response.choices[0]?.message?.content || text);
     } catch (error) {
         console.error('[WebLLM] Rewrite failed:', error);
         return text;

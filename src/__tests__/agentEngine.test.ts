@@ -89,6 +89,19 @@ describe('one model at a time', () => {
         expect(isWebLLMReady()).toBe(true);
         expect(await checkGrammar('Their is a error.')).toEqual(['an error']);
     });
+
+    it('should turn thinking off for editor jobs and drop an empty thinking block (#1265)', async () => {
+        expect(await initWebLLM(undefined, DEFAULT_MODEL_ID)).toBe(true);
+        create.mockClear();
+        create.mockResolvedValueOnce({ choices: [{ message: { content: '<think>\n\n</think>\n\nA short draft.' } }] });
+
+        expect(await rewriteText('draft', 'concise')).toBe('A short draft.');
+        expect(await checkGrammar('Their is a error.')).toEqual(['an error']);
+        expect(create).toHaveBeenCalledTimes(2);
+        for (const [args] of create.mock.calls as unknown as [{ extra_body: unknown }][]) {
+            expect(args.extra_body).toEqual({ enable_thinking: false });
+        }
+    });
 });
 
 describe('createAgentEngine', () => {
