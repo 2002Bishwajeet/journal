@@ -16,6 +16,8 @@ export const RECENT_SEARCHES_KEY = 'journal-recent-searches';
 export const SIDEBAR_COLLAPSE_KEY = 'journal-sidebar-collapse';
 export const AI_SETTINGS_KEY = 'journal-ai-settings';
 export const LEGACY_WEBLLM_ENABLED_KEY = 'webllm-enabled';
+/** Set once Apple's on-device model became this device's writing-help default (#1266). */
+export const AI_APPLE_DEFAULT_KEY = 'journal-ai-apple-default';
 export const SW_RELOAD_COUNT_KEY = 'sw_safety_reload_count';
 /** Whether this device lets the browser's AI agent use Journal through WebMCP (#705). */
 export const WEBMCP_ENABLED_KEY = 'journal-webmcp-enabled';

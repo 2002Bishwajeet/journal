@@ -2,15 +2,22 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { getDeviceType, useDeviceType, type DeviceType } from './useDeviceType';
 import { iosCanRunAI, isIOSApp, probeIOS, takeCrashedModel, TOO_LARGE_MESSAGE } from '@/lib/webllm/ios';
+import { checkAppleModel } from '@/lib/webllm/apple';
+import { adoptAppleModel } from './useAISettings';
 
 let iosSupported = false;
 let iosCheck: Promise<void> | undefined;
 
-/** Once per launch in the iOS app (#1143): tells about a model that crashed the page, then probes the device. */
+/**
+ * Once per launch in the iOS app (#1143): tells about a model that crashed the page, then probes
+ * the device and asks whether Apple's on-device model can run (#1266), which then is the default.
+ */
 function checkIOS(): Promise<void> {
   iosCheck ??= (async () => {
     const crashed = takeCrashedModel();
-    iosSupported = iosCanRunAI(await probeIOS());
+    const [probe, apple] = await Promise.all([probeIOS(), checkAppleModel()]);
+    iosSupported = iosCanRunAI(probe);
+    if (apple) adoptAppleModel();
     if (crashed) toast.error(TOO_LARGE_MESSAGE);
   })();
   return iosCheck;
