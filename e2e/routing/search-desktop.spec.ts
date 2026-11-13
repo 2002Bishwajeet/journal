@@ -14,6 +14,9 @@ test('Cmd+K opens search, arrows and Enter pick a note, Esc closes', async ({ ap
   expect(box!.width).toBeLessThan(app.viewportSize()!.width);
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeHidden();
 
+  await inBothThemes(app, async (theme) => {
+    await app.screenshot({ path: test.info().outputPath(`search-empty-${theme}-desktop.png`) });
+  });
   await dialog.getByPlaceholder('Search notes...').fill('Yak');
   const results = dialog.locator('[id^="search-result-"]');
   await expect(results).toHaveCount(2);
