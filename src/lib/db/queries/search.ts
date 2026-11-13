@@ -2,6 +2,7 @@ import { getDatabase, ensureTrigramSearch } from '../pglite';
 import type { NoteListEntry, DocumentMetadata, AdvancedSearchResult } from '@/types';
 import { ACTIVE_NOTES_FILTER, NOTE_LIST_SELECT, MODIFIED_DESC } from './shared';
 import { toNoteListEntry, type NoteListRow } from './noteList';
+import { buildSearchPlan, type SearchPlan } from '@/lib/search/searchPlan';
 
 /**
  * Fast search for the `[[` note-link picker: title substring match plus
@@ -82,219 +83,202 @@ function visibilityFilter(includeArchived?: boolean): string {
     return includeArchived ? `COALESCE((s.metadata->>'archivalStatus')::int, 0) <> 2` : ACTIVE_NOTES_FILTER;
 }
 
+type Db = Awaited<ReturnType<typeof getDatabase>>;
+interface HitRow {
+    doc_id: string;
+    title: string;
+    metadata: DocumentMetadata;
+}
+
+const MODIFIED = `s.metadata->'timestamps'->>'modified'`;
+// Below this many hits the next, slower stage runs.
+const ENOUGH = 10;
+
 /**
- * Advanced search combining:
- * - Full-text search with ts_rank for relevance scoring
- * - Trigram similarity for fuzzy/typo-tolerant matching
- * - ts_headline for extracting highlighted context snippets
+ * Search for the search dialog and the in-app agent (#1225). Staged so each
+ * statement can use an index, and ordered in tiers, best first: title equals
+ * the query (score 5+), title starts with it (4+), title contains it or
+ * matches the full-text query (3+), body full-text match (2+), body substring
+ * (1), typo-tolerant title match (0.5 and below). Inside a tier: rank
+ * (ts_rank_cd), then newest. Tiers are a whole point apart, so
+ * applyRecentBoost (+0.15 at most) only reorders rows inside one.
+ *
+ * 1. Titles and full text, always. Needs no trigram index.
+ * 2. Body substring, when stage 1 found fewer than 10 notes and the query has
+ *    3+ characters: partial words longer than their stem (`meetin`), CJK, code.
+ *    Waits for the lazy pg_trgm index build, which it uses.
+ * 3. Typo-tolerant title match, when still fewer than 10 and 4+ characters.
  */
 export async function advancedSearch(
     query: string,
     options: { includeArchived?: boolean } = {},
 ): Promise<AdvancedSearchResult[]> {
-    const visibleFilter = visibilityFilter(options.includeArchived);
+    const plan = buildSearchPlan(query);
+    if (!plan.text) return [];
     const db = await getDatabase();
-    const trimmedQuery = query.trim();
-
-    if (!trimmedQuery) {
-        return [];
-    }
-
-    // Prepare search patterns
-    const likePattern = `%${trimmedQuery.toLowerCase()}%`;
-
+    const visible = visibilityFilter(options.includeArchived);
+    const results: AdvancedSearchResult[] = [];
     try {
-        // pg_trgm + its indexes are loaded lazily (deferred out of app boot).
-        // If this fails the catch below falls back to plain LIKE search.
+        results.push(...(await searchTitlesAndFullText(db, plan, visible)));
+        if (results.length >= ENOUGH || plan.text.length < 3 || plan.kind === 'syntax') return results;
         await ensureTrigramSearch(db);
-
-        const result = await db.query<{
-            doc_id: string;
-            title: string;
-            metadata: DocumentMetadata;
-            fts_rank: number | null;
-            title_similarity: number | null;
-            content_similarity: number | null;
-            title_highlight: string | null;
-            content_highlight: string | null;
-            title_like_match: boolean;
-            content_like_match: boolean;
-        }>(`
-            WITH search_params AS (
-                SELECT 
-                    plainto_tsquery('english', $1) as tsq,
-                    $1::text as raw_query,
-                    $2::text as like_pattern
-            )
-            SELECT 
-                s.doc_id,
-                s.title,
-                s.metadata,
-                -- Full-text search rank (weighted: title A=1.0, content B=0.4)
-                CASE 
-                    WHEN s.search_vector @@ sp.tsq 
-                    THEN ts_rank_cd(s.search_vector, sp.tsq, 32)
-                    ELSE NULL 
-                END as fts_rank,
-                -- Trigram similarity for fuzzy matching
-                similarity(s.title, sp.raw_query) as title_similarity,
-                similarity(LEFT(s.plain_text_content, 1000), sp.raw_query) as content_similarity,
-                -- Highlighted snippets using ts_headline
-                CASE 
-                    WHEN s.search_vector @@ sp.tsq THEN
-                        ts_headline('english', s.title, sp.tsq, 
-                            'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=5, MaxFragments=1')
-                    WHEN LOWER(s.title) LIKE sp.like_pattern THEN
-                        s.title
-                    ELSE NULL
-                END as title_highlight,
-                CASE 
-                    WHEN s.search_vector @@ sp.tsq THEN
-                        ts_headline('english', s.plain_text_content, sp.tsq,
-                            'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=15, MaxFragments=2, FragmentDelimiter= ... ')
-                    WHEN LOWER(s.plain_text_content) LIKE sp.like_pattern THEN
-                        -- For LIKE matches, extract context around the match
-                        SUBSTRING(s.plain_text_content, 
-                            GREATEST(1, POSITION(LOWER(sp.raw_query) IN LOWER(s.plain_text_content)) - 40),
-                            120)
-                    ELSE NULL
-                END as content_highlight,
-                -- Fallback exact substring matches
-                LOWER(s.title) LIKE sp.like_pattern as title_like_match,
-                LOWER(s.plain_text_content) LIKE sp.like_pattern as content_like_match
-            FROM search_index s, search_params sp
-            WHERE (
-                -- Full-text search match
-                s.search_vector @@ sp.tsq
-                -- OR fuzzy title match (similarity > 0.3)
-                OR similarity(s.title, sp.raw_query) > 0.3
-                -- OR fuzzy content match  
-                OR similarity(LEFT(s.plain_text_content, 1000), sp.raw_query) > 0.2
-                -- OR exact substring match (fallback)
-                OR LOWER(s.title) LIKE sp.like_pattern
-                OR LOWER(s.plain_text_content) LIKE sp.like_pattern
-            ) AND ${visibleFilter}
-            ORDER BY
-                -- Prioritize: FTS rank, then title similarity, then content match.
-                -- Bare output aliases only — an alias inside an expression like
-                -- COALESCE(fts_rank, 0) is invalid in ORDER BY ("column does not
-                -- exist") and made this whole query silently fall back to LIKE.
-                fts_rank DESC NULLS LAST,
-                title_similarity DESC NULLS LAST,
-                content_similarity DESC NULLS LAST
-            LIMIT 50
-        `, [trimmedQuery, likePattern]);
-
-        const results: AdvancedSearchResult[] = [];
-        const highlightRegex = new RegExp(`(${trimmedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-
-        for (const row of result.rows) {
-            // Determine match type and score
-            let matchType: AdvancedSearchResult['matchType'] = 'content';
-            let score = 0;
-
-            if (row.fts_rank && row.fts_rank > 0) {
-                // FTS match - check if it's in title or content
-                if (row.title_highlight && row.title_highlight.includes('<mark>')) {
-                    matchType = 'title';
-                    score = row.fts_rank * 10; // Boost FTS matches
-                } else {
-                    matchType = 'content';
-                    score = row.fts_rank * 5;
-                }
-            } else if ((row.title_similarity ?? 0) > 0.3) {
-                matchType = 'fuzzy';
-                score = row.title_similarity ?? 0;
-            } else if ((row.content_similarity ?? 0) > 0.2) {
-                matchType = 'fuzzy';
-                score = (row.content_similarity ?? 0) * 0.8;
-            } else if (row.title_like_match) {
-                matchType = 'title';
-                score = 0.9;
-            } else if (row.content_like_match) {
-                matchType = 'content';
-                score = 0.7;
-            }
-
-            // Create highlighted content if not from FTS
-            let contentHighlight = row.content_highlight;
-            if (contentHighlight && !contentHighlight.includes('<mark>') && row.content_like_match) {
-                // Add manual highlighting for LIKE matches
-                contentHighlight = contentHighlight.replace(highlightRegex, '<mark>$1</mark>');
-            }
-
-            results.push({
-                docId: row.doc_id,
-                title: row.title,
-                metadata: row.metadata,
-                matchType,
-                score,
-                titleHighlight: row.title_highlight ?? undefined,
-                contentHighlight: contentHighlight ?? undefined,
-            });
-        }
-
-        // Sort by score descending (should already be sorted by SQL, but ensure consistency)
-        return results.toSorted((a: AdvancedSearchResult, b: AdvancedSearchResult) => b.score - a.score);
+        results.push(...(await searchBodySubstring(db, plan, visible, results)));
+        if (results.length >= ENOUGH || plan.text.length < 4 || plan.kind !== 'words') return results;
+        results.push(...(await searchFuzzyTitles(db, plan, visible, results)));
     } catch (error) {
         console.error('[advancedSearch] Error:', error);
-        // Fallback to simple LIKE search if advanced search fails
-        return fallbackSearch(trimmedQuery, visibleFilter);
     }
+    return results;
 }
 
-/**
- * Simple fallback search using LIKE pattern matching
- * Used when advanced search fails (e.g., extension not available)
- */
-async function fallbackSearch(query: string, visibleFilter: string): Promise<AdvancedSearchResult[]> {
-    const db = await getDatabase();
-    const searchPattern = `%${query.toLowerCase()}%`;
+/** The full-text query as tsquery text; '' when there is none (only stop words, or symbols). */
+async function fullTextQuery(db: Db, plan: SearchPlan): Promise<string> {
+    if (plan.kind === 'symbols') return '';
+    // The last word matches as its stem (`running` finds "runs") or as the
+    // unstemmed start of a word (`init` finds "initiative"), so a word that is
+    // not a stem yet (`runnin`) does not match everything that starts with `run`.
+    const parts = [
+        plan.head && `websearch_to_tsquery('english', $1)`,
+        plan.prefix &&
+            `(to_tsquery('english', quote_literal($${plan.head ? 2 : 1})) || to_tsquery('simple', quote_literal($${plan.head ? 2 : 1}) || ':*'))`,
+    ].filter(Boolean);
+    const { rows } = await db.query<{ tsq: string }>(
+        `SELECT (${parts.join(' && ')})::text AS tsq`,
+        [plan.head, plan.prefix].filter(Boolean),
+    );
+    return rows[0].tsq;
+}
 
-    const result = await db.query<{
-        doc_id: string;
-        title: string;
-        plain_text_content: string;
-        metadata: DocumentMetadata;
-    }>(`
-        SELECT doc_id, title, plain_text_content, metadata 
-        FROM search_index s
-        WHERE (LOWER(title) LIKE $1 OR LOWER(plain_text_content) LIKE $1) AND ${visibleFilter}
-        ORDER BY 
-            CASE WHEN LOWER(title) LIKE $1 THEN 0 ELSE 1 END,
-            (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST
-        LIMIT 50
-    `, [searchPattern]);
+async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string): Promise<AdvancedSearchResult[]> {
+    const tsq = await fullTextQuery(db, plan);
+    const titleBranch = plan.kind !== 'syntax';
+    if (!tsq && !titleBranch) return [];
 
-    const highlightRegex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const params = [tsq, plan.text, (/[\p{L}\p{N}]+/u.exec(plan.text)?.[0] ?? '').toLowerCase()];
+    const param = (value: string) => `$${params.push(value)}`;
+    // `t` is lower(title), computed once per row. The title is weight A in
+    // search_vector, so the query restricted to A matches in the title.
+    const titleQuery = tsq.replace(/('(?:[^']|'')*')(:\*)?/g, (_match, lexeme, star) => `${lexeme}:${star ? '*' : ''}A`);
+    const titleInFullText = tsq ? ` OR search_vector @@ ${param(titleQuery)}::tsquery` : '';
+    const tier = `CASE WHEN t = lower($2) THEN 5
+                       WHEN starts_with(t, lower($2)) THEN 4
+                       WHEN strpos(t, lower($2)) > 0${titleInFullText} THEN 3
+                       ELSE 2 END`;
+    // One UNION ALL branch per index: GIN full text, and the title (trigram
+    // index once built). An OR across them would scan every note. OFFSET 0
+    // keeps lower(title) from being inlined into every WHEN.
+    const branch = (where: string, fts: boolean) =>
+        `SELECT doc_id, ${tier} AS tier, ${fts} AS fts, modified
+         FROM (SELECT s.doc_id, lower(s.title) AS t, s.search_vector, ${MODIFIED} AS modified
+               FROM search_index s WHERE ${where} AND ${visible} OFFSET 0) b`;
+    const branches = [
+        tsq && branch('s.search_vector @@ $1::tsquery', true),
+        titleBranch && branch(`s.title ILIKE '%' || ${param(plan.like)} || '%'`, false),
+    ].filter(Boolean);
 
-    return result.rows.map((row, index) => {
-        const isTitle = row.title.toLowerCase().includes(query.toLowerCase());
-
-        // Extract context around match for content
-        let contentHighlight: string | undefined;
-        if (!isTitle && row.plain_text_content) {
-            const lowerContent = row.plain_text_content.toLowerCase();
-            const matchIndex = lowerContent.indexOf(query.toLowerCase());
-            if (matchIndex >= 0) {
-                const start = Math.max(0, matchIndex - 40);
-                const end = Math.min(row.plain_text_content.length, matchIndex + query.length + 80);
-                const snippet = row.plain_text_content.substring(start, end);
-                // Add highlight markers
-                contentHighlight = snippet.replace(highlightRegex, '<mark>$1</mark>');
-                if (start > 0) contentHighlight = '...' + contentHighlight;
-                if (end < row.plain_text_content.length) contentHighlight += '...';
-            }
-        }
-
-        return {
-            docId: row.doc_id,
-            title: row.title,
-            metadata: row.metadata,
-            matchType: isTitle ? 'title' : 'content',
-            score: 1 - (index * 0.01), // Simple decreasing score based on order
-            titleHighlight: isTitle ? row.title : undefined,
-            contentHighlight,
-        };
+    // ts_rank_cd costs ~15 µs a note, too much for a word in every note, so it
+    // ranks only the 100 newest notes of the best tiers (a note in both
+    // branches has the same tier and modified, so the newest 200 rows hold
+    // them, full-text copy first; it is kept once, as a full-text hit), and
+    // the best 50 of those are
+    // returned. ts_headline only for those 50, and on ~2,000 characters around
+    // a literal match of the query's first word: the first lowercase one, which
+    // strpos finds without lowercasing the body, else the first in any case,
+    // else the body start.
+    // enable_seqscan off: GIN's cost estimate for a prefix (`:*`) is so high that
+    // the planner scans every note, reading every search_vector twice.
+    const result = await db.transaction(async (tx) => {
+        await tx.exec('SET LOCAL enable_seqscan = off');
+        return tx.query<
+            HitRow & { tier: number; rank: number; fts: boolean; title_highlight: string; content_highlight: string | null }
+        >(
+            `SELECT s.doc_id, s.title, s.metadata, top.tier, top.rank, top.fts,
+                CASE WHEN top.fts THEN ts_headline('english', s.title, $1::tsquery,
+                    'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=5, MaxFragments=1')
+                    ELSE s.title END AS title_highlight,
+                CASE WHEN top.fts THEN ts_headline('english',
+                    SUBSTRING(s.plain_text_content FROM GREATEST(1, COALESCE(
+                        NULLIF(strpos(s.plain_text_content, $3), 0),
+                        strpos(lower(s.plain_text_content), $3)) - 1000) FOR 2000),
+                    $1::tsquery,
+                    'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=15, MaxFragments=2, FragmentDelimiter= ... ')
+                END AS content_highlight
+             FROM (SELECT c.doc_id, c.tier, c.fts, c.modified,
+                       CASE WHEN c.fts THEN ts_rank_cd(s.search_vector, $1::tsquery, 32) ELSE 0 END AS rank
+                   FROM (SELECT * FROM (SELECT DISTINCT ON (doc_id) * FROM (${branches.join(' UNION ALL ')}
+                                                                            ORDER BY tier DESC, modified DESC NULLS LAST, fts DESC
+                                                                            LIMIT 200) u
+                                        ORDER BY doc_id, fts DESC) d
+                         ORDER BY tier DESC, modified DESC NULLS LAST
+                         LIMIT 100) c
+                   JOIN search_index s ON s.doc_id = c.doc_id
+                   ORDER BY tier DESC, rank DESC, modified DESC NULLS LAST
+                   LIMIT 50) top
+             JOIN search_index s ON s.doc_id = top.doc_id
+             ORDER BY top.tier DESC, top.rank DESC, top.modified DESC NULLS LAST`,
+            params,
+        );
     });
+    return result.rows.map((row) => ({
+        docId: row.doc_id,
+        title: row.title,
+        metadata: row.metadata,
+        matchType: row.tier >= 3 ? 'title' : 'content',
+        score: row.tier + row.rank / 2,
+        titleHighlight: row.title_highlight,
+        contentHighlight: row.content_highlight ?? undefined,
+    }));
+}
+
+async function searchBodySubstring(
+    db: Db,
+    plan: SearchPlan,
+    visible: string,
+    found: AdvancedSearchResult[],
+): Promise<AdvancedSearchResult[]> {
+    // Capped without an ORDER BY, so the trigram bitmap scan stops at 30 matches.
+    const result = await db.query<HitRow & { snippet: string }>(
+        `SELECT s.doc_id, s.title, s.metadata,
+            SUBSTRING(s.plain_text_content FROM GREATEST(1, strpos(lower(s.plain_text_content), lower($2)) - 40) FOR 120) AS snippet
+         FROM (SELECT s.doc_id FROM search_index s
+               WHERE s.plain_text_content ILIKE '%' || $1 || '%' AND s.doc_id <> ALL($3::uuid[]) AND ${visible}
+               LIMIT 30) hit
+         JOIN search_index s ON s.doc_id = hit.doc_id
+         ORDER BY ${MODIFIED} DESC NULLS LAST`,
+        [plan.like, plan.text, found.map((r) => r.docId)],
+    );
+    const highlight = new RegExp(`(${plan.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return result.rows.map((row) => ({
+        docId: row.doc_id,
+        title: row.title,
+        metadata: row.metadata,
+        matchType: 'content',
+        score: 1,
+        contentHighlight: row.snippet.replace(highlight, '<mark>$1</mark>'),
+    }));
+}
+
+async function searchFuzzyTitles(
+    db: Db,
+    plan: SearchPlan,
+    visible: string,
+    found: AdvancedSearchResult[],
+): Promise<AdvancedSearchResult[]> {
+    // `<%`, not word_similarity() > x, so the title trigram index can serve it.
+    await db.exec(`SET pg_trgm.word_similarity_threshold = 0.5`);
+    const result = await db.query<HitRow & { similarity: number }>(
+        `SELECT s.doc_id, s.title, s.metadata, word_similarity($1, s.title) AS similarity
+         FROM search_index s
+         WHERE $1 <% s.title AND s.doc_id <> ALL($2::uuid[]) AND ${visible}
+         ORDER BY similarity DESC, ${MODIFIED} DESC NULLS LAST
+         LIMIT 10`,
+        [plan.text, found.map((r) => r.docId)],
+    );
+    return result.rows.map((row) => ({
+        docId: row.doc_id,
+        title: row.title,
+        metadata: row.metadata,
+        matchType: 'fuzzy',
+        score: row.similarity / 2,
+    }));
 }

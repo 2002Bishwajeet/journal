@@ -224,18 +224,6 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     console.warn('[DB Migration] Could not create FTS index:', error);
   }
 
-  // Drop any pre-existing trigram indexes. They're now created lazily on first
-  // search (ensureTrigramSearch); leaving them would force every search_index
-  // write to load pg_trgm at boot, defeating the deferral. DROP doesn't need the
-  // extension loaded, and on a fresh db these are no-ops.
-  try {
-    await database.exec(`DROP INDEX IF EXISTS idx_search_title_trgm;`);
-    await database.exec(`DROP INDEX IF EXISTS idx_search_content_trgm;`);
-    console.log('[DB Migration] Legacy trigram indexes dropped (now lazy)');
-  } catch (error) {
-    console.warn('[DB Migration] Could not drop legacy trigram indexes:', error);
-  }
-
   // Create BTREE expression index on metadata folderId for folder filtering
   try {
     await database.exec(`

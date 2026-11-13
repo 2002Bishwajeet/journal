@@ -4,7 +4,8 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
-import { initializeSchema, SCHEMA_VERSION } from '@/lib/db/schema';
+import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { initializeSchema, SCHEMA_VERSION, TRIGRAM_SEARCH_SQL } from '@/lib/db/schema';
 
 const WRITE = /^\s*(CREATE|ALTER|INSERT|UPDATE|DELETE|DROP)\b/i;
 
@@ -82,6 +83,21 @@ describe('initializeSchema read-only boot', () => {
     expect(rows.rows).toEqual([
       { title: 'Kept', plain_text_content: 'body', metadata: { a: 1 }, sv: "'hello':1 'world':2" },
     ]);
+  });
+
+  it('keeps the trigram indexes when the migrations re-run (#1225)', async () => {
+    db = new PGlite({ extensions: { pg_trgm } });
+    await initializeSchema(db);
+    await db.exec(TRIGRAM_SEARCH_SQL);
+    await db.exec(`UPDATE schema_meta SET version = '0' WHERE id = 1`);
+
+    await initializeSchema(db);
+
+    const indexes = await db.query<{ title: boolean; content: boolean }>(
+      `SELECT to_regclass('idx_search_title_trgm') IS NOT NULL AS title,
+              to_regclass('idx_search_content_trgm') IS NOT NULL AS content`,
+    );
+    expect(indexes.rows[0]).toEqual({ title: true, content: true });
   });
 
   it('a fresh database has no vector_embedding column', async () => {
