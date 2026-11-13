@@ -1,3 +1,20 @@
+# [2.69.0](https://github.com/2002Bishwajeet/journal/compare/v2.68.0...v2.69.0) (2026-11-13)
+
+
+### Bug Fixes
+
+* **ios:** a reload is not a crash; e2e for the iOS AI gate ([#1143](https://github.com/2002Bishwajeet/journal/issues/1143)) ([b00e474](https://github.com/2002Bishwajeet/journal/commit/b00e474537b00cacaf40cf3e7f867d063b8b758f))
+* **mcp:** parse titled and GitHub-style callouts from agent markdown ([cc60b1e](https://github.com/2002Bishwajeet/journal/commit/cc60b1e0c8150f98284d4a6fb959ba4749661690))
+* **search:** hide Trash and Archive notes from search results ([#1224](https://github.com/2002Bishwajeet/journal/issues/1224)) ([684eb04](https://github.com/2002Bishwajeet/journal/commit/684eb04c1fd01c83282fbda6371f51136f62558f))
+* **search:** one preview-text extractor for editor and sync paths, keep text on payload-less pull ([#1228](https://github.com/2002Bishwajeet/journal/issues/1228)) ([bcc00d3](https://github.com/2002Bishwajeet/journal/commit/bcc00d38bdf97f70f40ea3560a1d32c1d71b90c8))
+
+
+### Features
+
+* **ios:** local AI on capable devices, with a device gate and crash marker ([#1143](https://github.com/2002Bishwajeet/journal/issues/1143)) ([6355713](https://github.com/2002Bishwajeet/journal/commit/63557134320ff85f39d25b3c19351c33b77e0895))
+* **macos:** Dock menu with New note, Today and recent notes ([#1117](https://github.com/2002Bishwajeet/journal/issues/1117)) ([798ec43](https://github.com/2002Bishwajeet/journal/commit/798ec4306ddb44c098dbf91b099b5ddfd72e66bd))
+* **macos:** menu bar quick capture and Show in menu bar only ([#1116](https://github.com/2002Bishwajeet/journal/issues/1116)) ([c6110de](https://github.com/2002Bishwajeet/journal/commit/c6110de5dacb373f0cd7ddd2e7ee427093b7f081))
+* **macos:** Services menu entries for a new note and adding to today ([#1118](https://github.com/2002Bishwajeet/journal/issues/1118)) ([a60e1c3](https://github.com/2002Bishwajeet/journal/commit/a60e1c3886a4ea8008eed31e71595f95f0e08fae))
 # [2.68.0](https://github.com/2002Bishwajeet/journal/compare/v2.67.0...v2.68.0) (2026-11-12)
 
 

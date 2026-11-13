@@ -16,6 +16,30 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.69.0 (2026-11-13)
+
+- Notes written by AI agents through the Journal MCP now show callouts correctly when the agent puts a title on the marker line (`> [!warning] Fix first`) or uses GitHub-style types like `[!NOTE]` or `[!CAUTION]`. Before, these appeared as a plain quote with the raw `[!warning]` text.
+
+### New
+
+- On a Mac, click the Journal icon in the menu bar to open quick capture below it. Type a note and press Cmd+Return to save it. A right click on the icon opens the menu.
+- On a Mac, Settings > Appearance has "Show in menu bar only". It removes the Journal icon from the Dock. You do not have to restart Journal.
+- The iOS app can run on-device AI on iOS 26. It needs an iPhone 15 Pro or later, or an iPad with 8 GB of memory. On other devices, AI stays hidden.
+- Before a model downloads on iOS, the app tells you that the download can use cellular data.
+- Sometimes a model is too large for your device, and the app closes while the model loads or runs. The next time you open the app, it tells you "This model was too large for this device." It does not load that model again.
+- On iPhone and iPad, you can start a free 3-day trial from the App Store. After the trial, you can unlock Journal with one in-app purchase. Your notes stay readable if you do not buy.
+- Restore purchases gets back your unlock and your trial date after you delete and install the app again, or on a different device with the same Apple Account.
+
+### Changed
+
+- The quick capture window closes when you click outside it. Journal keeps your text for the next time.
+
+### Fixed
+
+- Switching between folders is smoother. The note list no longer draws each note again several times when you open a folder.
+- Search no longer lists notes in Trash or Archive, which could not be opened from the results and took up result slots.
+- Search now finds the same text on every device: note-link labels, image alt text and math in a note are searchable, and a sync that brings no note body no longer wipes its searchable text.
+
 ## 2.68.0 (2026-11-12)
 
 ### New
