@@ -37,12 +37,15 @@ fn main() {
                 names.push(name);
             }
         }
-        // The store purchase's StoreKit 2 plugin (native/rust/iap.rs) is the Swift package
-        // native/apple/JournalIap, built and linked for iOS as tauri-plugin builds a plugin's
-        // ios/ folder: a crate can't be a dependency only when native/ is there.
+        // The store purchase's StoreKit 2 plugin (native/rust/iap.rs) and Apple's on-device model
+        // (native/rust/apple_ai.rs, #1266) are Swift packages native/apple/<name>, built and
+        // linked for iOS as tauri-plugin builds a plugin's ios/ folder: a crate can't be a
+        // dependency only when native/ is there.
         #[cfg(target_os = "macos")]
-        if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") && Path::new("../native/apple/JournalIap/Package.swift").exists() {
-            link_premium_swift("JournalIap");
+        for name in ["JournalIap", "JournalAppleAi"] {
+            if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") && Path::new(&format!("../native/apple/{name}/Package.swift")).exists() {
+                link_premium_swift(name);
+            }
         }
     }
     // lib.rs puts the names in window.__JOURNAL_NATIVE__.plugins.

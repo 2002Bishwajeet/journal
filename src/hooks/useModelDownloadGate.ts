@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useDeviceType } from './useDeviceType';
 import { getModelInfo, isModelCached, type ModelInfo } from '@/lib/webllm';
+import { APPLE_MODEL_ID } from '@/lib/webllm/models';
 import { checkRequirements, probeDevice, type RequirementsResult } from '@/lib/webllm/requirements';
 import { checkIOSRequirements, crashedModels, isIOSApp, probeIOS } from '@/lib/webllm/ios';
 
@@ -27,6 +28,8 @@ export function useModelDownloadGate() {
     };
 
     const confirmDownload = async (modelId: string): Promise<boolean> => {
+        // Apple's on-device model (#1266) is built in: nothing to download.
+        if (modelId === APPLE_MODEL_ID) return true;
         const model = getModelInfo(modelId);
         // A model outside the catalogue (one the AI eval loaded, #1022) runs only once it is downloaded.
         if (!model) return isModelCached(modelId);

@@ -1,7 +1,8 @@
 import type * as WebLLMTypes from '@mlc-ai/web-llm';
-import { DEFAULT_MODEL_ID, getModelInfo } from './models';
+import { APPLE_MODEL_ID, DEFAULT_MODEL_ID, getModelInfo } from './models';
 import { resolveModelId } from './requirements';
 import { crashedModels, isIOSApp, setRunningModel, TOO_LARGE_MESSAGE } from './ios';
+import { appleEngine, checkAppleModel } from './apple';
 
 let webllmModule: typeof WebLLMTypes | null = null;
 // iOS (#1143): a reload frees the model before the next page loads one.
@@ -145,6 +146,7 @@ export async function initWebLLM(
         lastLoadError = new Error(TOO_LARGE_MESSAGE);
         return false;
     }
+    if (targetModel === APPLE_MODEL_ID) return loadAppleModel();
 
     isLoading = true;
     modelLoaded = false;
@@ -190,6 +192,21 @@ export async function initWebLLM(
     }
 }
 
+/**
+ * Apple's on-device model (#1266) has no weights: it is ready when the system says it can run.
+ * Its engine has only what the editor jobs and `chat` call; the assistant loads its own model first.
+ */
+async function loadAppleModel(): Promise<boolean> {
+    currentModelId = APPLE_MODEL_ID;
+    modelLoaded = await checkAppleModel();
+    lastLoadError = modelLoaded ? null : new Error("Apple's on-device model is not available now.");
+    if (!modelLoaded) return false;
+    engine = appleEngine as unknown as WebLLMTypes.MLCEngineInterface;
+    trackActivity();
+    startIdleChecker();
+    return true;
+}
+
 /** The error of the last failed `initWebLLM`; null after a load that worked. */
 export function getLastLoadError(): unknown {
     return lastLoadError;
@@ -200,6 +217,7 @@ export function getLastLoadError(): unknown {
  * so loading it downloads nothing.
  */
 export async function isModelCached(modelId: string): Promise<boolean> {
+    if (modelId === APPLE_MODEL_ID) return true;
     try {
         if (!webllmModule) {
             webllmModule = await import('@mlc-ai/web-llm');
@@ -209,6 +227,12 @@ export async function isModelCached(modelId: string): Promise<boolean> {
         return false;
     }
 }
+
+const GRAMMAR_SCHEMA = JSON.stringify({
+    type: 'object',
+    properties: { errors: { type: 'array', items: { type: 'string' }, maxItems: 5 } },
+    required: ['errors'],
+});
 
 /**
  * Check grammar and spelling
@@ -240,13 +264,16 @@ Output format: ["error 1", "error 2"]`,
             ],
             max_tokens: 150,
             temperature: 0.0,
+            // Apple's model gets the format as a schema (#1266): guided generation, `{ errors }`.
+            ...(currentModelId === APPLE_MODEL_ID && { response_format: { type: 'json_object' as const, schema: GRAMMAR_SCHEMA } }),
         });
 
         const result = response.choices[0]?.message?.content || '[]';
         try {
             const parsed = JSON.parse(result);
-            if (!Array.isArray(parsed)) return [];
-            return parsed
+            const errors = Array.isArray(parsed) ? parsed : parsed?.errors;
+            if (!Array.isArray(errors)) return [];
+            return errors
                 .filter((e: unknown): e is string => typeof e === 'string' && e.length < 200)
                 .slice(0, 5);
         } catch {
