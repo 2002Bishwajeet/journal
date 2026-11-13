@@ -109,13 +109,14 @@ test.describe('native app after the trial', () => {
             expect((await download).suggestedFilename()).toMatch(/\.zip$/);
 
             // Today (journal://today and ?action=today) creates nothing: with no note for today, both go home.
-            // At phone width: the desktop editor pane renders no route Outlet, so /today never mounts there.
-            await page.setViewportSize({ width: 390, height: 844 });
-            for (const url of ['/today', '/?action=today']) {
-                await page.goto(url);
-                await waitForAppReady(page);
-                await expect(page).toHaveURL((u) => u.pathname === '/' && !u.search);
-                await expect(page.getByText('Daily', { exact: true })).toHaveCount(0);
+            for (const size of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+                await page.setViewportSize(size);
+                for (const url of ['/today', '/?action=today']) {
+                    await page.goto(url);
+                    await waitForAppReady(page);
+                    await expect(page).toHaveURL((u) => u.pathname === '/' && !u.search);
+                    await expect(page.getByText('Daily', { exact: true })).toHaveCount(0);
+                }
             }
         });
     });

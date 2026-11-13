@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useMatch } from "react-router-dom";
 import { Suspense, lazy, type ReactNode } from "react";
 import { Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -55,6 +55,9 @@ export function EditorPane({
   noteScreenActions,
   notice,
 }: EditorPaneProps) {
+  // Desktop renders tabs, not the route outlet; /today is the one route that
+  // must still mount (it redirects to today's note, #1213).
+  const isTodayRoute = useMatch("/today") !== null;
   return (
     <main
       id="main-content"
@@ -138,6 +141,7 @@ export function EditorPane({
             </div>
           }
         >
+        {isDesktop && isTodayRoute && <Outlet context={noteScreenActions} />}
         {isDesktop ? (
           /* Desktop DOM keep-alive: a tab mounts on first activation and then
              stays mounted, hidden with display:none. <Activity mode="hidden">
