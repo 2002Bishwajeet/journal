@@ -59,6 +59,7 @@ export function ToolbarButton({
       onMouseDown={handleMouseDown}
       disabled={disabled}
       title={title}
+      aria-pressed={isActive}
       className={cn(
         'transition-colors',
         styles.base,
