@@ -49,6 +49,9 @@ vi.mock('@/hooks/auth/useAuth', () => ({
     }),
 }));
 
+// CanEditReporter loads @premium's useEntitlement (react-query) when native/ is checked out.
+vi.mock('@/components/license/License', () => ({ CanEditReporter: () => null }));
+
 import { AuthGuard } from '@/components/auth/AuthGuard';
 
 function Probe() {
