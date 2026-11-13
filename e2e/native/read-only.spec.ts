@@ -59,6 +59,8 @@ test.describe('native app after the trial', () => {
             await waitForAppReady(page);
             const wall = page.getByRole('dialog', { name: 'Your 3-day trial has ended.' });
             await expect(wall).toContainText('you can still read, search and export them');
+            // Desktop keeps the free web app link; store builds never show it (#1211 L6, App Store anti-steering).
+            await expect(wall.getByRole('button', { name: 'Use the free web app' })).toBeVisible();
 
             // Sign out asks first: the note written above hasn't synced (no backend), and sign-out wipes it.
             await wall.getByRole('button', { name: 'Sign out' }).click();
@@ -90,6 +92,11 @@ test.describe('native app after the trial', () => {
             await page.keyboard.type('sunscreen');
             await expect(editor).not.toContainText('sunscreen');
             await expect(activeTitleInput(page)).toHaveJSProperty('readOnly', true);
+            // #1211: no way to add a tag (tagInputReadOnly.test.tsx lists them), and Contents stays without the toolbar.
+            await expect(page.locator('input[placeholder="Add tags..."]:visible')).toHaveCount(0);
+            await expect(page.getByRole('toolbar', { name: 'Formatting' })).toHaveCount(0);
+            await page.getByRole('button', { name: 'Table of contents', exact: true }).click();
+            await expect(page.getByRole('navigation', { name: 'Table of contents' })).toBeVisible();
             await screenshotInBothThemes(page, (theme) => `read-only-${theme}-desktop.png`);
 
             // Search finds it.

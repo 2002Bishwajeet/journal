@@ -8,6 +8,9 @@ import { createElement as h, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { NodeViewProps } from '@tiptap/react';
 
+// The editor's read-only flag (#1211): editable unless a case says otherwise.
+const editorContext = vi.hoisted(() => ({ readOnly: false }));
+vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => editorContext }));
 vi.mock('@/components/OdinImage/OdinImage', () => ({ OdinImage: () => null }));
 vi.mock('@/hooks/image/useLocalImage', () => ({ useLocalImage: () => null }));
 
@@ -24,6 +27,7 @@ describe('ImageNodeView image actions sheet', () => {
         await act(async () => root.unmount());
         el.remove();
         document.body.innerHTML = '';
+        editorContext.readOnly = false;
     });
 
     async function render(updateAttributes: (attrs: Record<string, unknown>) => void, align: string | null = null) {
@@ -75,5 +79,13 @@ describe('ImageNodeView image actions sheet', () => {
         await act(async () => left!.click());
 
         expect(updates).toEqual([{ align: 'left' }]);
+    });
+
+    it("has no toolbar or resize handles in a read-only editor, as a note shared view-only (#897, #1211)", async () => {
+        editorContext.readOnly = true;
+        await render(() => {});
+        expect(el.querySelector('button[aria-label="Image actions"]')).toBeNull();
+        expect(el.querySelector('button[aria-label="Alt text"]')).toBeNull();
+        expect(el.querySelector('[aria-label^="Resize image"]')).toBeNull();
     });
 });

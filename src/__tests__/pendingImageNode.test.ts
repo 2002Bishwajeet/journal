@@ -15,6 +15,8 @@ const m = vi.hoisted(() => ({
     retry: vi.fn(async () => {}),
     remove: vi.fn(async () => {}),
 }));
+// The editor's read-only flag (#1211): these notes are editable.
+vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => ({ readOnly: false }) }));
 vi.mock('@/hooks/usePendingImage', () => ({ usePendingImage: () => m.pending }));
 vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ sync: m.sync }) }));
 vi.mock('@/lib/db', () => ({ retryPendingImageUploadNow: m.retry, deletePendingImageUpload: m.remove }));

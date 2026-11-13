@@ -233,6 +233,15 @@ describe("Save a copy of a shared note", () => {
     expect(mocks.createNoteFromMarkdownInDb).not.toHaveBeenCalled();
   });
 
+  it("says the check failed, not read-only, when the entitlement couldn't be read (#1211)", async () => {
+    setCanEdit(false, true);
+    await render(<SaveSharedPage />, link);
+    const alert = container.querySelector('[role="alert"]')?.textContent;
+    expect(alert).toContain("Couldn't check whether this device can save notes");
+    expect(alert).not.toContain("read-only");
+    expect(mocks.createNoteFromMarkdownInDb).not.toHaveBeenCalled();
+  });
+
   it("waits for the native answer before it copies", async () => {
     setCanEdit(undefined);
     await render(<SaveSharedPage />, link);

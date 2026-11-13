@@ -5,7 +5,7 @@ import { shareProvider } from '@/lib/providers/ShareProvider';
 import { createNoteFromMarkdownInDb } from '@/lib/notes/createNote';
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { publicOrigin } from '@/lib/native';
-import { useCanEditAnswer } from '@/hooks/useCanEdit';
+import { useCanEditAnswer, useCanEditReadFailed } from '@/hooks/useCanEdit';
 
 // An identity is a hostname (optionally with a port); a file id is a GUID, with or without hyphens.
 const IDENTITY = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+(:\d{1,5})?$/i;
@@ -60,6 +60,7 @@ export function useSaveSharedNote(): { error: string | null } {
     const started = useRef(false);
     // The native trial ended (#1176): no copy. Waits for the answer, as the copy saves by itself.
     const canEdit = useCanEditAnswer();
+    const readFailed = useCanEditReadFailed();
 
     const identity = params.get('identity');
     const file = params.get('file');
@@ -85,6 +86,7 @@ export function useSaveSharedNote(): { error: string | null } {
     }, [valid, canEdit, identity, file, navigate]);
 
     if (!valid) return { error: 'This link is not a valid shared note link.' };
+    if (canEdit === false && readFailed) return { error: "Couldn't check whether this device can save notes, so no copy was saved. Try again later." };
     if (canEdit === false) return { error: "Your notes are read-only on this device, so a copy can't be saved here." };
     return { error: copyError };
 }

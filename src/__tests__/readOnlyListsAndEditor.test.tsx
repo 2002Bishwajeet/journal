@@ -2,7 +2,7 @@
 /**
  * #1176, the list, sidebar and editor side: with useCanEdit() false the note list has no New
  * and no swipe to Trash, the sidebar can't make or change folders, and the cover, toggle
- * title and callout type can't change. Rows and folders still open.
+ * title and callout type can't change (from the editor's read-only flag, #1211). Rows and folders still open.
  */
 import { describe, it, expect, vi, afterEach, beforeAll } from "vitest";
 import { act, type ReactNode } from "react";
@@ -175,8 +175,9 @@ describe("editor", () => {
   const view = (summary: string) =>
     ({ editor: { isEditable: true }, node: { attrs: { summary, variant: "info" } }, updateAttributes: mocks.updateAttributes }) as unknown as NodeViewProps;
 
+  // The editor's read-only flag, not useCanEdit(): a note shared view-only (#897) is read-only on the web too (#1211).
   it("a toggle's title can't change, and it still opens and closes", async () => {
-    setCanEdit(false);
+    mocks.editorReadOnly = true;
     await render(<ToggleNodeView {...view("Details")} />);
     const input = byLabel("Toggle title") as unknown as HTMLInputElement;
     expect(input.readOnly).toBe(true);
@@ -185,9 +186,14 @@ describe("editor", () => {
   });
 
   it("a callout shows its icon with no type picker", async () => {
-    setCanEdit(false);
+    mocks.editorReadOnly = true;
     await render(<CalloutNodeView {...view("")} />);
     expect(byLabel("Callout type: info")).toBeUndefined();
+  });
+
+  it("a toggle's title still changes while the editor is editable", async () => {
+    await render(<ToggleNodeView {...view("Details")} />);
+    expect((byLabel("Toggle title") as unknown as HTMLInputElement).readOnly).toBe(false);
   });
 
   it("a callout keeps its type picker while the app can edit", async () => {

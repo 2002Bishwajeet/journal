@@ -40,7 +40,7 @@ import { ImageLightbox } from "./ImageLightbox";
 import { GALLERY } from "./GalleryNode";
 import { dispatchUndoStep, moveGalleryImage } from "./galleryDrag";
 import { ImageEditDialog } from "./ImageEditDialog";
-import { useCanEdit } from "@/hooks/useCanEdit";
+import { useEditorContext } from "../EditorContext";
 
 // Corner, the edge it drags, and the diagonal cursor for it.
 const CORNERS = [
@@ -185,8 +185,8 @@ export function ImageNodeView({
   // Where a touch landed on the image while it was already selected (#829)
   const tapOnSelected = useRef<{ x: number; y: number } | null>(null);
   const download = useImageDownload(src, alt, pendingId);
-  // The native trial ended (#1176): no resize handles and no toolbar; double-click still opens the viewer.
-  const editable = useCanEdit();
+  // A view-only note (#897) or an ended native trial (#1176): no resize handles and no toolbar; double-click still opens the viewer.
+  const editable = !useEditorContext().readOnly;
   // In a gallery (#601) the row sets the size: no resize handles or float.
   const pos = getPos();
   const inGallery =

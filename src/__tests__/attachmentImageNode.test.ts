@@ -10,6 +10,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import type { NodeViewProps } from '@tiptap/react';
 
 const m = vi.hoisted(() => ({ local: null as string | null | undefined }));
+// The editor's read-only flag (#1211): these notes are editable.
+vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => ({ readOnly: false }) }));
 vi.mock('@/hooks/image/useLocalImage', () => ({ useLocalImage: () => m.local }));
 vi.mock('@/hooks/usePendingImage', () => ({ usePendingImage: () => ({ url: undefined, state: 'remote' as const }) }));
 vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ sync: async () => {} }) }));

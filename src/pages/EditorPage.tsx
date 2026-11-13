@@ -8,6 +8,7 @@ import {
   TipTapEditor,
 } from "@/components/editor";
 import { TocPanel } from "@/components/editor/TocPanel";
+import { TocToggle } from "@/components/editor/EditorToolbar";
 import { FindReplaceBar } from "@/components/editor/FindReplaceBar";
 import { SyncStatus } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -186,6 +187,12 @@ function EditorLayout({
             // would push a whole-document replacement into someone else's note.
             onOpenHistory={isPeerNote ? undefined : () => setHistoryOpen(true)}
           />
+        )}
+        {/* A read-only note has no toolbar, but keeps its Contents (#1211) */}
+        {editor && readOnly && (
+          <div className="px-4 py-2">
+            <TocToggle open={tocOpen} onToggle={() => setTocOpen((prev) => !prev)} />
+          </div>
         )}
         {editor && !readOnly && <AIMenu editor={editor} />}
         {(viewOnlyBadge || collaborativePopover) && (

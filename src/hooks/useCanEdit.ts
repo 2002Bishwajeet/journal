@@ -8,6 +8,8 @@ import { isNativeApp } from '@/lib/native';
  * `undefined` while the native app reads its sources; the web app is always `true`.
  */
 let answer: boolean | undefined | null = null; // null: not set yet
+// The answer is false because the entitlement couldn't be read (#1208), not because the trial ended.
+let readFailed = false;
 const listeners = new Set<() => void>();
 
 const getAnswer = () => (answer === null ? (isNativeApp() ? undefined : true) : answer);
@@ -15,9 +17,10 @@ const getAnswer = () => (answer === null ? (isNativeApp() ? undefined : true) : 
 const getServerAnswer = () => (answer === null ? true : answer);
 
 /** Called only by CanEditReporter (and tests). */
-export function setCanEdit(value: boolean | undefined): void {
-    if (value === answer) return;
+export function setCanEdit(value: boolean | undefined, failed = false): void {
+    if (value === answer && failed === readFailed) return;
     answer = value;
+    readFailed = failed;
     listeners.forEach((listener) => listener());
 }
 
@@ -40,4 +43,9 @@ export function useCanEdit(): boolean {
  */
 export function useCanEditAnswer(): boolean | undefined {
     return useSyncExternalStore(subscribe, getAnswer, getServerAnswer);
+}
+
+/** True when editing is off because the native app couldn't read its entitlement (#1211). */
+export function useCanEditReadFailed(): boolean {
+    return useSyncExternalStore(subscribe, () => readFailed, () => readFailed);
 }

@@ -17,9 +17,9 @@ const Reporter = lazy(() =>
   import("@premium")
     .then((m) => ({
       default: function Reporter() {
-        const { status, canEdit } = m.useEntitlement();
+        const { status, canEdit, isError = false } = m.useEntitlement();
         const answer = status === undefined ? undefined : canEdit;
-        useEffect(() => setCanEdit(answer), [answer]);
+        useEffect(() => setCanEdit(answer, isError), [answer, isError]);
         return null;
       },
     }))
