@@ -318,4 +318,17 @@ describe('an html block in the editor (#950)', () => {
     expect(getBlockState(states, 'k3f9')).toBe('{"count":6}');
     expect(valueOf(ask(frame, get('count')))).toBe(9);
   });
+
+  it("should forget a viewer's changes once the note is editable again, so a later switch to read-only shows the note's state (#1211)", async () => {
+    const states = new Y.Doc();
+    setBlockState(states, 'k3f9', '{"count":3}');
+    const content = [code('html id=k3f9', '<p>A</p>')];
+    const [frame] = await render(<Note content={content} readOnly states={states} />);
+    await setCount([frame], 9);
+    expect(valueOf(ask(frame, get('count')))).toBe(9);
+
+    await act(async () => root.render(<Note content={content} readOnly={false} states={states} />));
+    await act(async () => root.render(<Note content={content} readOnly states={states} />));
+    expect(valueOf(ask(frame, get('count')))).toBe(3);
+  });
 });

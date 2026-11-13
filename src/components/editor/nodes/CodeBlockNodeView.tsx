@@ -10,7 +10,7 @@
  * and keys the block's saved state in the note (#410), and so is `wide` (#557).
  * In a note someone else may have written, a link a block opens shows where it goes first (#975).
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { LiveBlockFrame, LiveBlockToggle } from '@/components/liveBlocks/LiveBlockFrame';
 import { liveBlockKind, MAX_BLOCK_STATE_BYTES, parseCodeInfo, withBlockId, type BlockStateStore } from '@2002bishwajeet/live-blocks/core';
@@ -56,7 +56,11 @@ export function CodeBlockNodeView({ node, selected, editor, getPos, updateAttrib
   // A note the host can only view keeps a viewer's changes in memory, as the share page does: they never reach the note (#950).
   // Until the viewer changes something it reads the note's state as it is now, so a switch to read-only mid-session (#1176)
   // or a synced change shows the latest, not the state from when the note opened (#1211).
+  // Cleared once the note is editable again, so a later switch back doesn't show old viewer changes.
   const viewerJson = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!readOnly) viewerJson.current = undefined;
+  }, [readOnly]);
   const viewerStore: BlockStateStore = {
     read: () => viewerJson.current ?? store.read(),
     write: (json) => {

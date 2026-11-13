@@ -98,7 +98,8 @@ function PendingImage({
   pendingId: string;
   imgClass: string;
   alt: string;
-  onRemove: () => void;
+  /** Left out in a read-only editor: no Retry or Remove, as Remove deletes the node (#1211). */
+  onRemove?: () => void;
 }) {
   const { url, state } = usePendingImage(pendingId);
   const { sync } = useSyncService();
@@ -116,7 +117,7 @@ function PendingImage({
     sync().catch((err) => console.error("[ImageNode] Retry sync failed:", err));
   };
   const remove = () => {
-    onRemove();
+    onRemove?.();
     void deletePendingImageUpload(pendingId);
   };
   const actionClass = "rounded bg-white/20 px-1.5 hover:bg-white/30";
@@ -139,7 +140,7 @@ function PendingImage({
             {state === "uploading" && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
             <span className="truncate">{PENDING_LABEL[state]}</span>
           </span>
-          {(state === "failed" || state === "discarded") && (
+          {onRemove && (state === "failed" || state === "discarded") && (
             <>
               <button type="button" className={actionClass} onClick={retry}>
                 Retry
@@ -494,7 +495,7 @@ export function ImageNodeView({
     // Mode "pending": not uploaded yet. The blob: src dies with the tab, so the
     // bytes come from the local upload queue instead.
     if (mode === "pending" && pendingId) {
-      return <PendingImage pendingId={pendingId} imgClass={cls} alt={alt} onRemove={deleteNode} />;
+      return <PendingImage pendingId={pendingId} imgClass={cls} alt={alt} onRemove={editable ? deleteNode : undefined} />;
     }
     // Mode "attachment": remote image (attachment://fileId/payloadKey)
     if (mode === "attachment") {
