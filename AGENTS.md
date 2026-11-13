@@ -212,7 +212,7 @@ src/
 │   │   └── ImportService.ts
 │   ├── notes/createNote.ts     # Save Yjs blob, index, queue for sync
 │   ├── providers/              # ContactProvider, ContactSourceProvider, ShareProvider (guest reads)
-│   ├── search/                 # findReplace.ts
+│   ├── search/                 # findReplace.ts, searchPlan.ts (search box query → advancedSearch stages)
 │   ├── share/                  # articleMeta, cardImage, markdownPipeline, publicCard (share page + card)
 │   ├── sync/                   # WebSocketProcessQueue
 │   ├── utils/                  # attachmentSrc, chunkReload, hash, imageProxy, initLogging, markdownTableParser,
@@ -397,7 +397,7 @@ Defined in `src/lib/db/schema.ts`: base tables in `initializeSchema()`, later co
 
 ### `search_index` — Derived state for FTS and list rendering
 - `doc_id` UUID PK, `title` TEXT, `plain_text_content` TEXT, `metadata` JSONB, `search_vector` tsvector, `updated_at` TIMESTAMPTZ
-- Indexes: btree on title, GIN on search_vector, expression indexes on `metadata->>'folderId'` and modified time; GIN trigram on title + content is created lazily on first fuzzy search (`ensureTrigramSearch()`)
+- Indexes: btree on title, GIN on search_vector, expression indexes on `metadata->>'folderId'` and modified time; GIN trigram on title + content is created lazily by the first search that needs a body substring match (`ensureTrigramSearch()`) and then kept
 
 ### `folders`
 - `id` UUID PK, `name` TEXT, `created_at` TIMESTAMPTZ, `is_public` BOOLEAN (shared folder, #618)
@@ -511,6 +511,7 @@ npm run test:ui    # visual dashboard
 npm run e2e        # Playwright, hermetic project (see e2e/README.md)
 npm run mcp        # local MCP server (see mcp/README.md)
 npx vite-node -c scripts/bench/vite.config.ts scripts/bench/seed-large-db.ts -- --notes 10000   # size/open-time benchmark on a large account (wrap in heavy)
+npx vite-node -c scripts/bench/vite.config.ts scripts/bench/search-bench.ts -- --notes 10000      # advancedSearch p50/p95 per query; reuses a seed-large-db --keep dir (wrap in heavy)
 ```
 
 **Dev server**: `vite.config.ts` serves HTTPS on `dev.dotyou.cloud:5173` with the committed **Let's Encrypt** certificate `dev-dotyou-cloud.crt`/`.key`. `dev.dotyou.cloud` resolves to `127.0.0.1` in public DNS, so no hosts entry is needed. Let's Encrypt certificates last 90 days; the current one expires 2026-11-03 (`openssl x509 -in dev-dotyou-cloud.crt -noout -enddate`); renewing it means committing a new pair. Dev and preview also send `Cross-Origin-Embedder-Policy: require-corp` and `Cross-Origin-Opener-Policy: same-origin` (for WebLLM/SharedArrayBuffer); production gets the same from `public/_headers`.

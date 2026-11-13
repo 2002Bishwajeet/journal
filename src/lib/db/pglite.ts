@@ -63,13 +63,13 @@ function onFreeze() {
   document.addEventListener('resume', () => location.reload(), { once: true });
 }
 
-// Lazily enabled the first time fuzzy search runs — see ensureTrigramSearch().
+// Lazily enabled by the first search that needs a substring match — see ensureTrigramSearch().
 let trigramSearchPromise: Promise<void> | null = null;
 
 /**
  * Enable pg_trgm and its GIN indexes on demand. Deferred out of the boot path
- * because loading the extension costs ~1–2s per launch and only fuzzy search
- * (advancedSearch) needs it. Idempotent and run-once per app load; a failure
+ * because loading the extension costs ~1–2s per launch and only the substring and typo stages
+ * of advancedSearch need it. Idempotent and run-once per app load; a failure
  * clears the cached promise so the next search retries.
  */
 export function ensureTrigramSearch(db: PGliteInterface): Promise<void> {

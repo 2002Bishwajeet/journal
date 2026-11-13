@@ -95,6 +95,18 @@ describe('createLocalDeps through the registry tools', () => {
         expect(data[0].snippet).not.toContain('<mark>');
     });
 
+    it('search_notes keeps snippets for a match deep in a long body and for a partial word (#1225)', async () => {
+        const LONG = '10000000-0000-0000-0000-0000000000b1';
+        await addNote(LONG, 'Long log', `${'Nothing of note today. '.repeat(400)}The kohlrabi bed flooded.`, F1);
+
+        const deep = await run('search_notes', { query: 'kohlrabi' });
+        expect(deep.data[0].snippet).toContain('kohlrabi');
+
+        const partial = await run('search_notes', { query: 'lighthous' });
+        expect(partial.data.map((n: { id: string }) => n.id)).toEqual([NORMAL_B]);
+        expect(partial.data[0].snippet).toContain('lighthouses');
+    });
+
     it('search_notes still returns an archived note', async () => {
         const ARCHIVED = '10000000-0000-0000-0000-0000000000a1';
         await addNote(ARCHIVED, 'Shelved', 'Archived zucchini notes.', F1, { archivalStatus: 1 });

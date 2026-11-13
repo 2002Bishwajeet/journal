@@ -56,3 +56,33 @@ describe('ensureTrigramSearch', () => {
     expect(exec).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('advancedSearch before the trigram indexes exist (#1225)', () => {
+  it('returns full-text results from the first query without awaiting ensureTrigramSearch', async () => {
+    const { PGlite } = await import('@electric-sql/pglite');
+    const { initializeSchema } = await import('@/lib/db/schema');
+    const db = new PGlite();
+    await initializeSchema(db);
+    // The index build never finishes: a query that awaited it would hang.
+    const ensureTrigramSearch = vi.fn(() => new Promise<void>(() => {}));
+    vi.doMock('@/lib/db/pglite', () => ({ getDatabase: async () => db, ensureTrigramSearch }));
+    try {
+      const { upsertSearchIndex, advancedSearch } = await import('@/lib/db/queries');
+      const now = new Date().toISOString();
+      for (let i = 0; i < 10; i++) {
+        await upsertSearchIndex({
+          docId: `50000000-0000-0000-0000-${String(i).padStart(12, '0')}`,
+          title: `Kiwi ${i}`,
+          plainTextContent: 'kiwi',
+          metadata: { title: `Kiwi ${i}`, folderId: 'main', timestamps: { created: now, modified: now }, excludeFromAI: false },
+        });
+      }
+
+      expect(await advancedSearch('kiwi')).toHaveLength(10);
+      expect(ensureTrigramSearch).not.toHaveBeenCalled();
+    } finally {
+      vi.doUnmock('@/lib/db/pglite');
+      await db.close();
+    }
+  });
+});
