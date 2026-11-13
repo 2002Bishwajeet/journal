@@ -141,7 +141,7 @@ async function fullTextQuery(db: Db, plan: SearchPlan): Promise<string> {
     const parts = [
         plan.head && `websearch_to_tsquery('journal', $1)`,
         plan.prefix &&
-            `(to_tsquery('journal', quote_literal($${plan.head ? 2 : 1})) || to_tsquery('simple', quote_literal(journal_unaccent($${plan.head ? 2 : 1})) || ':*'))`,
+            `(to_tsquery('journal', quote_literal($${plan.head ? 2 : 1})) || to_tsquery('simple', quote_literal(unaccent($${plan.head ? 2 : 1})) || ':*'))`,
     ].filter(Boolean);
     const { rows } = await db.query<{ tsq: string }>(
         `SELECT (${parts.join(' && ')})::text AS tsq`,
@@ -165,7 +165,7 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
     const titleInFullText = tsq ? ` OR search_vector @@ ${param(inWeight('A'))}::tsquery` : '';
     // Version 1 rows (not rebuilt yet, searchReindex.ts) have the body at B.
     const inTags = tsq ? `WHEN vector_version = 2 AND search_vector @@ ${param(inWeight('B'))}::tsquery THEN 3` : '';
-    const q = 'lower(journal_unaccent($2))';
+    const q = 'lower(unaccent($2))';
     const tier = `CASE WHEN t = ${q} THEN 6
                        WHEN starts_with(t, ${q}) THEN 5
                        WHEN strpos(t, ${q}) > 0${titleInFullText} THEN 4
@@ -176,7 +176,7 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
     // keeps `t` from being inlined into every WHEN.
     const branch = (where: string, fts: boolean) =>
         `SELECT doc_id, ${tier} AS tier, ${fts} AS fts, modified
-         FROM (SELECT s.doc_id, lower(journal_unaccent(s.title)) AS t, s.search_vector, s.vector_version, ${MODIFIED} AS modified
+         FROM (SELECT s.doc_id, lower(unaccent(s.title)) AS t, s.search_vector, s.vector_version, ${MODIFIED} AS modified
                FROM search_index s WHERE ${where} AND ${visible} OFFSET 0) b`;
     const branches = [
         tsq && branch('s.search_vector @@ $1::tsquery', true),
@@ -207,7 +207,7 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
                     SUBSTRING(s.plain_text_content FROM GREATEST(1, COALESCE(
                         NULLIF(strpos(s.plain_text_content, $3), 0),
                         NULLIF(strpos(lower(s.plain_text_content), $3), 0),
-                        strpos(journal_unaccent(lower(s.plain_text_content)), journal_unaccent($3))) - 1000) FOR 2000),
+                        strpos(unaccent(lower(s.plain_text_content)), unaccent($3))) - 1000) FOR 2000),
                     $1::tsquery,
                     'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=15, MaxFragments=2, FragmentDelimiter= ... ')
                 END AS content_highlight
