@@ -31,6 +31,7 @@ import {
   Sigma,
   ListTree,
   History,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ToolbarButton, ToolbarDivider, ToolbarPopover, useToolbarState, safeEditorCommand } from './shared';
@@ -97,6 +98,9 @@ export default function EditorToolbar({ editor, onToggleToc, tocOpen = false, on
           <History size={iconSize} />
         </ToolbarButton>
       )}
+      <ToolbarButton onClick={() => safeEditorCommand(editor, () => editor.chain().openFind().run())} title="Find in note (⌘F)">
+        <Search size={iconSize} />
+      </ToolbarButton>
 
       <ToolbarDivider />
 

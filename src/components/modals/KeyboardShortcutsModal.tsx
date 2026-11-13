@@ -41,6 +41,8 @@ export const shortcutGroups: ShortcutGroup[] = [
       { keys: [mod, "N"], description: "New note" },
       { keys: [mod, shift, "T"], description: "Today (daily note)" },
       { keys: [mod, "S"], description: "Save note" },
+      { keys: [mod, "F"], description: "Find in note" },
+      { keys: [mod, "H"], description: "Find and replace" },
       { keys: [mod, "/"], description: "Keyboard shortcuts" },
       { keys: [mod, shift, "F"], description: "Focus mode" },
     ],

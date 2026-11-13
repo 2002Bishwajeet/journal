@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { createTrackedEditor } from './trackedEditor';
 import StarterKit from '@tiptap/starter-kit';
-import { SearchAndReplace } from '@/components/editor/plugins/SearchAndReplaceExtension';
+import { SearchAndReplace, searchPluginKey } from '@/components/editor/plugins/SearchAndReplaceExtension';
 
 function mkEditor(content: string) {
     const el = document.createElement('div');
@@ -60,5 +60,44 @@ describe('SearchAndReplace replace commands compose with the chain', () => {
 
         editor.commands.undo();
         expect(editor.getText()).toBe('foo bar foo baz foo');
+    });
+});
+
+describe('openFind(term)', () => {
+    it('stores the term for the find bar to take, and opens without one', () => {
+        const editor = mkEditor('<p>foo bar foo</p>');
+        editor.commands.openFind('foo');
+        expect(editor.storage.searchAndReplace.isOpen).toBe(true);
+        expect(editor.storage.searchAndReplace.pendingTerm).toBe('foo');
+
+        editor.commands.closeSearch();
+        expect(editor.storage.searchAndReplace.pendingTerm).toBeNull();
+        editor.commands.openFind();
+        expect(editor.storage.searchAndReplace.pendingTerm).toBeNull();
+    });
+
+    it('has results once the bar applies the term, and goToCurrentMatch stays on the first', () => {
+        const editor = mkEditor('<p>foo bar foo</p>');
+        editor.commands.openFind('foo');
+        const term = editor.storage.searchAndReplace.pendingTerm as string;
+        editor.commands.updateSearch({ searchTerm: term, caseSensitive: false, wholeWord: false });
+
+        const state = searchPluginKey.getState(editor.state);
+        expect(state.results).toHaveLength(2);
+        expect(state.currentIndex).toBe(0);
+        expect(editor.commands.goToCurrentMatch()).toBe(true);
+        expect(searchPluginKey.getState(editor.state).currentIndex).toBe(0);
+        expect(editor.state.selection.from).toBe(state.results[0].from);
+    });
+
+    it('opens Replace only on an editable note', () => {
+        const editor = mkEditor('<p>foo</p>');
+        editor.commands.openReplace();
+        expect(editor.storage.searchAndReplace.isReplaceOpen).toBe(true);
+
+        editor.setEditable(false);
+        editor.commands.openReplace();
+        expect(editor.storage.searchAndReplace.isOpen).toBe(true);
+        expect(editor.storage.searchAndReplace.isReplaceOpen).toBe(false);
     });
 });

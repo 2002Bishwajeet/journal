@@ -15,6 +15,12 @@ export function FindReplaceBar() {
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [wholeWord, setWholeWord] = useState(false);
   const [matchInfo, setMatchInfo] = useState({ total: 0, current: -1 });
+  // A term handed over by openFind(term): once the plugin has searched for it, the first match is
+  // selected and scrolled into view. The counter re-runs the search effect when the term is unchanged.
+  const [handedOver, setHandedOver] = useState(0);
+  const revealRef = useRef(false);
+  // On a touch device the on-screen keyboard would cover the match, so a handed-over term opens the bar unfocused.
+  const skipFocusRef = useRef(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const wasOpenRef = useRef(false);
@@ -28,6 +34,14 @@ export function FindReplaceBar() {
 
       setIsOpen(storage.isOpen);
       setIsReplaceOpen(storage.isReplaceOpen);
+
+      if (storage.pendingTerm) {
+        setSearchTerm(storage.pendingTerm);
+        storage.pendingTerm = null;
+        revealRef.current = true;
+        skipFocusRef.current = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+        setHandedOver((n) => n + 1);
+      }
 
       const state = searchPluginKey.getState(editor.state);
       if (state) {
@@ -52,6 +66,10 @@ export function FindReplaceBar() {
     if (isOpen) {
       wasOpenRef.current = true;
       requestAnimationFrame(() => {
+        if (skipFocusRef.current) {
+          skipFocusRef.current = false;
+          return;
+        }
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
       });
@@ -70,7 +88,13 @@ export function FindReplaceBar() {
   useEffect(() => {
     if (!editor || !isOpen) return;
     editor.commands.updateSearch({ searchTerm, caseSensitive, wholeWord });
-  }, [editor, searchTerm, caseSensitive, wholeWord, isOpen]);
+    if (revealRef.current) {
+      revealRef.current = false;
+      // After layout: a tab that has just been shown has no scroll box until the next frame.
+      const frame = requestAnimationFrame(() => editor.commands.goToCurrentMatch());
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [editor, searchTerm, caseSensitive, wholeWord, isOpen, handedOver]);
 
   const handleClose = () => {
     setSearchTerm("");

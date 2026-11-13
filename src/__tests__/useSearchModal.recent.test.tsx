@@ -78,7 +78,7 @@ describe('useSearchModal recents', () => {
             await act(async () => { await vi.advanceTimersByTimeAsync(200); });
             expect(ids(api())).toEqual(['notes:b']);
             await act(async () => { api().handleSelectResult('b'); });
-            expect(onSelectNote).toHaveBeenCalledWith('b');
+            expect(onSelectNote).toHaveBeenCalledWith('b', undefined);
             expect(stored(RECENT_SEARCHES_KEY)).toEqual(['Bee', 'zebra']);
         } finally {
             vi.useRealTimers();

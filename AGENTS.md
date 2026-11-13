@@ -346,6 +346,8 @@ scripts/                        # check-precache, release-notes, check-doc-paths
 | Cmd+K | Open search modal |
 | Cmd+N | Create new note |
 | Cmd+S | Swallowed — the editor auto-saves (no sync) |
+| Cmd+F | Find in note — works with focus anywhere (`useKeyboardShortcuts` `findInNote`, via `activeEditor`); a Search result opens its note with Find on the matched word (`useFindOnOpen`) |
+| Cmd+H | Find and replace (Find only on a read-only note) |
 | Cmd+B | Bold |
 | Cmd+I | Italic |
 | Cmd+E | Inline code |

@@ -39,7 +39,7 @@ function getTextMapping(node: PMNode, basePos: number): { text: string; position
     return { text, positions };
 }
 
-function findMatchesInDoc(
+export function findMatchesInDoc(
     doc: PMNode,
     searchTerm: string,
     caseSensitive: boolean,
@@ -125,7 +125,8 @@ function recalculate(
 declare module '@tiptap/core' {
     interface Commands<ReturnType> {
         searchAndReplace: {
-            openFind: () => ReturnType;
+            /** `term` fills the find bar once it has mounted (a search result handing over its match). */
+            openFind: (term?: string) => ReturnType;
             openReplace: () => ReturnType;
             closeSearch: () => ReturnType;
             updateSearch: (opts: {
@@ -133,6 +134,8 @@ declare module '@tiptap/core' {
                 caseSensitive: boolean;
                 wholeWord: boolean;
             }) => ReturnType;
+            /** Selects the current match and scrolls it into view, without stepping to the next one. */
+            goToCurrentMatch: () => ReturnType;
             goToNextMatch: () => ReturnType;
             goToPrevMatch: () => ReturnType;
             replaceCurrentMatch: (replaceTerm: string) => ReturnType;
@@ -144,6 +147,8 @@ declare module '@tiptap/core' {
         searchAndReplace: {
             isOpen: boolean;
             isReplaceOpen: boolean;
+            /** A term for the find bar to take: it reads this, applies it and clears it. */
+            pendingTerm: string | null;
         };
     }
 }
@@ -155,6 +160,7 @@ export const SearchAndReplace = Extension.create({
         return {
             isOpen: false,
             isReplaceOpen: false,
+            pendingTerm: null as string | null,
         };
     },
 
@@ -229,10 +235,11 @@ export const SearchAndReplace = Extension.create({
     addCommands() {
         return {
             openFind:
-                () =>
+                (term) =>
                 ({ editor }) => {
                     editor.storage.searchAndReplace.isOpen = true;
                     editor.storage.searchAndReplace.isReplaceOpen = false;
+                    if (term) editor.storage.searchAndReplace.pendingTerm = term;
                     editor.view.dispatch(editor.state.tr);
                     return true;
                 },
@@ -241,7 +248,8 @@ export const SearchAndReplace = Extension.create({
                 () =>
                 ({ editor }) => {
                     editor.storage.searchAndReplace.isOpen = true;
-                    editor.storage.searchAndReplace.isReplaceOpen = true;
+                    // A read-only note can be searched but not replaced in.
+                    editor.storage.searchAndReplace.isReplaceOpen = editor.isEditable;
                     editor.view.dispatch(editor.state.tr);
                     return true;
                 },
@@ -251,6 +259,7 @@ export const SearchAndReplace = Extension.create({
                 ({ editor }) => {
                     editor.storage.searchAndReplace.isOpen = false;
                     editor.storage.searchAndReplace.isReplaceOpen = false;
+                    editor.storage.searchAndReplace.pendingTerm = null;
                     editor.view.dispatch(
                         editor.state.tr.setMeta(searchPluginKey, { type: 'clear' } as SearchMeta),
                     );
@@ -268,6 +277,20 @@ export const SearchAndReplace = Extension.create({
                             wholeWord: opts.wholeWord,
                         } as SearchMeta),
                     );
+                    return true;
+                },
+
+            goToCurrentMatch:
+                () =>
+                ({ editor, state, commands }) => {
+                    const pluginState = searchPluginKey.getState(state) as SearchPluginState | undefined;
+                    const match = pluginState?.results[pluginState.currentIndex];
+                    if (!match) return false;
+                    commands.setTextSelection(match.from);
+                    // ProseMirror's own scroll skips a selection that is not in the page's DOM
+                    // selection, which is the case while the find input has focus.
+                    const { node } = editor.view.domAtPos(match.from);
+                    (node instanceof Element ? node : node.parentElement)?.scrollIntoView?.({ block: 'center' });
                     return true;
                 },
 

@@ -12,6 +12,7 @@ import {
     saveRecentNotes,
     saveRecentSearches,
 } from "@/lib/recentItems";
+import { findTermForResult } from "@/lib/search/findReplace";
 
 // Type for results - either basic search index entry or advanced result with highlights
 export type SearchResult = SearchIndexEntry | AdvancedSearchResult;
@@ -28,7 +29,8 @@ export type SearchEntry =
 export interface UseSearchModalOptions {
     isOpen: boolean;
     onClose: () => void;
-    onSelectNote: (docId: string) => void;
+    /** `find` is the text to look for in the note once it opens, when the match was in its body. */
+    onSelectNote: (docId: string, find?: string) => void;
     initialQuery?: string;
 }
 
@@ -44,7 +46,7 @@ export interface UseSearchModalReturn {
     handleQueryChange: (value: string) => void;
     handleKeyDown: (e: React.KeyboardEvent) => void;
     handleClose: () => void;
-    handleSelectResult: (docId: string) => void;
+    handleSelectResult: (docId: string, find?: string) => void;
     setSelectedIndex: (index: number) => void;
     handleSelectEntry: (entry: SearchEntry) => void;
     handleRemoveEntry: (entry: SearchEntry) => void;
@@ -80,10 +82,10 @@ export function useSearchModal({
     }, [onClose]);
 
     const handleSelectResult = useCallback(
-        (docId: string) => {
+        (docId: string, find?: string) => {
             // A query is worth remembering once it led to a note.
             if (trimmedQuery) saveRecentSearches(pushRecentSearch(loadRecentSearches(), trimmedQuery));
-            onSelectNote(docId);
+            onSelectNote(docId, find);
             handleClose();
         },
         [onSelectNote, handleClose, trimmedQuery]
@@ -183,9 +185,9 @@ export function useSearchModal({
     const handleSelectEntry = useCallback(
         (entry: SearchEntry) => {
             if (entry.kind === 'search') handleQueryChange(entry.text);
-            else handleSelectResult(entry.result.docId);
+            else handleSelectResult(entry.result.docId, findTermForResult(entry.result, trimmedQuery));
         },
-        [handleQueryChange, handleSelectResult]
+        [handleQueryChange, handleSelectResult, trimmedQuery]
     );
 
     const handleRemoveEntry = (entry: SearchEntry) => {
