@@ -22,3 +22,8 @@ export async function getAppState<T>(key: string): Promise<T | null> {
     if (result.rows.length === 0) return null;
     return result.rows[0].value;
 }
+
+export async function deleteAppState(key: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query('DELETE FROM app_state WHERE key = $1', [key]);
+}

@@ -11,11 +11,12 @@ describe('SETTINGS_SECTIONS', () => {
         expect(SETTINGS_SECTIONS[0].id).toBe('account');
     });
 
-    it('is in the order account, appearance, ai, agent-access, notifications, security, data, license, shortcuts, about, diagnostics', () => {
+    it('is in the order account, appearance, ai, voice, agent-access, notifications, security, data, license, shortcuts, about, diagnostics', () => {
         expect(SETTINGS_SECTIONS.map((s) => s.id)).toEqual([
             'account',
             'appearance',
             'ai',
+            'voice',
             'agent-access',
             'notifications',
             'security',
@@ -44,5 +45,9 @@ describe('SETTINGS_SECTIONS', () => {
 
     it('shows the security section only in the native app', () => {
         expect(SETTINGS_SECTIONS.find((s) => s.id === 'security')?.platforms).toEqual(['native-phone', 'native-desktop']);
+    });
+
+    it('shows Voice notes only in the native app', () => {
+        expect(SETTINGS_SECTIONS.find((s) => s.id === 'voice')?.platforms).toEqual(['native-phone', 'native-desktop']);
     });
 });
