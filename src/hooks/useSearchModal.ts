@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useDeferredValue } from "react";
-import { advancedSearch, getAllDocuments } from "@/lib/db";
-import type { SearchIndexEntry, AdvancedSearchResult } from "@/types";
+import { advancedSearch, getAllFolders, getNotesByIds, getRecentlyModifiedNotes } from "@/lib/db";
+import type { SearchIndexEntry, AdvancedSearchResult, NoteListEntry } from "@/types";
 import {
     applyRecentBoost,
     loadRecentNotes,
@@ -15,7 +15,7 @@ import {
 import { findTermForResult } from "@/lib/search/findReplace";
 
 // Type for results - either basic search index entry or advanced result with highlights
-export type SearchResult = SearchIndexEntry | AdvancedSearchResult;
+export type SearchResult = SearchIndexEntry | NoteListEntry | AdvancedSearchResult;
 
 export function isAdvancedResult(result: SearchResult): result is AdvancedSearchResult {
     return 'matchType' in result;
@@ -39,7 +39,10 @@ export interface UseSearchModalReturn {
     query: string;
     entries: SearchEntry[];
     selectedIndex: number;
+    /** A query is waiting for its results; the rows on screen are from the one before. */
     isLoading: boolean;
+    /** Folder names by id, for the rows' meta line. */
+    folderNames: Map<string, string>;
     inputRef: React.RefObject<HTMLInputElement | null>;
 
     // Handlers
@@ -53,8 +56,7 @@ export interface UseSearchModalReturn {
     handleClearRecents: () => void;
 }
 
-// getAllDocuments also feeds export, so the Trash/Archive filter lives here.
-const activeOnly = (docs: SearchIndexEntry[]) => docs.filter((d) => (d.metadata.archivalStatus ?? 0) === 0);
+const RECENT_MODIFIED_SHOWN = 30;
 
 export function useSearchModal({
     isOpen,
@@ -63,7 +65,13 @@ export function useSearchModal({
     initialQuery,
 }: UseSearchModalOptions): UseSearchModalReturn {
     const [query, setQuery] = useState("");
-    const [results, setResults] = useState<SearchResult[]>([]);
+    // Rows of the last settled query; null until one has arrived.
+    const [results, setResults] = useState<SearchResult[] | null>(null);
+    // The empty state, loaded once per open: the recently opened notes and the latest modified ones.
+    const [openedNotes, setOpenedNotes] = useState<NoteListEntry[]>([]);
+    const [modifiedNotes, setModifiedNotes] = useState<NoteListEntry[]>([]);
+    const [folderNames, setFolderNames] = useState(() => new Map<string, string>());
+    const selectedDocIdRef = useRef<string | undefined>(undefined);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [pendingQuery, setPendingQuery] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -78,7 +86,7 @@ export function useSearchModal({
 
     const handleClose = useCallback(() => {
         setQuery("");
-        setResults([]);
+        setResults(null);
         setSelectedIndex(0);
         setPendingQuery(null);
         onClose();
@@ -98,7 +106,11 @@ export function useSearchModal({
         const nextTrimmed = value.trim();
         setPendingQuery(nextTrimmed ? nextTrimmed : null);
         setQuery(value);
-        setSelectedIndex(0);
+        // A query keeps the selection on its note while results change (see below); clearing starts over.
+        if (!nextTrimmed) {
+            setResults(null);
+            setSelectedIndex(0);
+        }
     }, []);
 
     // Opened with a query (journal://search?q=)
@@ -117,14 +129,20 @@ export function useSearchModal({
             inputRef.current?.focus();
         }, 10);
 
-        // Load all notes initially
+        // Notes opened since the modal last opened.
+        const openedIds = loadRecentNotes();
         (async () => {
-            const docs = await getAllDocuments();
+            const [opened, modified, folders] = await Promise.all([
+                getNotesByIds(openedIds.map((n) => n.docId)),
+                getRecentlyModifiedNotes(RECENT_MODIFIED_SHOWN),
+                getAllFolders(),
+            ]);
             if (cancelled) return;
-            // Notes opened since the modal last opened.
-            setRecentNotes(loadRecentNotes());
+            setRecentNotes(openedIds);
             setRecentSearches(loadRecentSearches());
-            setResults(activeOnly(docs));
+            setOpenedNotes(opened);
+            setModifiedNotes(modified);
+            setFolderNames(new Map(folders.map((f) => [f.id, f.name])));
         })();
 
         return () => {
@@ -141,17 +159,8 @@ export function useSearchModal({
         const requestSeq = ++requestSeqRef.current;
         let cancelled = false;
 
-        if (!trimmed) {
-            (async () => {
-                const docs = await getAllDocuments();
-                if (cancelled || requestSeqRef.current !== requestSeq) return;
-                setResults(activeOnly(docs));
-                setSelectedIndex(0);
-            })();
-            return () => {
-                cancelled = true;
-            };
-        }
+        // The empty state is already in state: clearing the input loads nothing.
+        if (!trimmed) return;
 
         const debounce = setTimeout(async () => {
             // Use advanced search with FTS, fuzzy matching, and highlighting.
@@ -159,8 +168,9 @@ export function useSearchModal({
             const searchResults = await advancedSearch(query);
             if (cancelled || requestSeqRef.current !== requestSeq) return;
             setPendingQuery((current) => (current === trimmed ? null : current));
-            setResults(applyRecentBoost(searchResults, loadRecentNotes().map((n) => n.docId)));
-            setSelectedIndex(0);
+            const next = applyRecentBoost(searchResults, loadRecentNotes().map((n) => n.docId));
+            setResults(next);
+            setSelectedIndex(Math.max(0, next.findIndex((r) => r.docId === selectedDocIdRef.current)));
         }, 150);
 
         return () => {
@@ -169,22 +179,27 @@ export function useSearchModal({
         };
     }, [query, isOpen]);
 
-    const deferredResults = useDeferredValue(results);
+    const deferredResults = useDeferredValue(results ?? []);
 
     let entries: SearchEntry[];
     if (trimmedQuery) {
         entries = deferredResults.map((result) => ({ kind: 'note', section: 'notes', result }));
     } else {
-        const recent = resolveRecentNotes(recentNotes, deferredResults);
+        const recent = resolveRecentNotes(recentNotes, openedNotes);
         const recentIds = new Set(recent.map((r) => r.docId));
         entries = [
             ...recent.map((result): SearchEntry => ({ kind: 'note', section: 'recent', result })),
             ...recentSearches.map((text): SearchEntry => ({ kind: 'search', section: 'searches', text })),
-            ...deferredResults
+            ...modifiedNotes
                 .filter((r) => !recentIds.has(r.docId))
                 .map((result): SearchEntry => ({ kind: 'note', section: 'notes', result })),
         ];
     }
+
+    const selectedEntry = entries[selectedIndex];
+    useEffect(() => {
+        selectedDocIdRef.current = selectedEntry?.kind === 'note' ? selectedEntry.result.docId : undefined;
+    }, [selectedEntry]);
 
     const handleSelectEntry = useCallback(
         (entry: SearchEntry) => {
@@ -272,6 +287,7 @@ export function useSearchModal({
         entries,
         selectedIndex,
         isLoading,
+        folderNames,
         inputRef,
         handleQueryChange,
         handleKeyDown,

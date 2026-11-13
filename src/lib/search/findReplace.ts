@@ -1,4 +1,4 @@
-import type { AdvancedSearchResult, SearchIndexEntry } from '@/types';
+import type { AdvancedSearchResult, NoteListEntry, SearchIndexEntry } from '@/types';
 
 export interface TextMatch {
     index: number;
@@ -57,7 +57,7 @@ export function prevMatchIndex(current: number, total: number): number {
  * says `meeting`), so the snippet's first <mark> holds the real word, not the query.
  */
 export function findTermForResult(
-    result: SearchIndexEntry | AdvancedSearchResult,
+    result: SearchIndexEntry | NoteListEntry | AdvancedSearchResult,
     query: string,
 ): string | undefined {
     if (!('matchType' in result)) return undefined;

@@ -1,9 +1,11 @@
 import { HighlightedText } from "@/components/ui/HighlightedText";
 import { Kbd } from "@/components/ui/kbd";
 import { Search, FileText, Loader2, Sparkles, Type, FileSearch, Wand2, Clock, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
+import { COLLABORATIVE_FOLDER_ID } from "@/lib/homebase/config";
+import type { DocumentMetadata } from "@/types";
 import { followKeyboard } from "@/lib/keyboardViewport";
-import { proseOnly } from "@/lib/previewText";
+import { proseOnly, CODE_SEPARATOR } from "@/lib/previewText";
 import { useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { useSearchModal, isAdvancedResult, type SearchResult, type SearchEntry } from "@/hooks/useSearchModal";
 
@@ -47,10 +49,31 @@ function getMatchTypeLabel(matchType?: 'title' | 'content' | 'fuzzy' | 'semantic
   }
 }
 
+/** The title with the query's text marked: the ts_headline fragment when it has one, else a case-insensitive substring. */
+function markTitle(title: string, query: string, titleHighlight?: string): string | null {
+  if (titleHighlight?.includes('<mark>')) return titleHighlight;
+  const q = query.trim();
+  const at = q ? title.toLowerCase().indexOf(q.toLowerCase()) : -1;
+  return at === -1 ? null : `${title.slice(0, at)}<mark>${title.slice(at, at + q.length)}</mark>${title.slice(at + q.length)}`;
+}
+
+/** Folder · relative date · up to 3 tags, for telling same-titled notes apart. */
+function metaLine(metadata: DocumentMetadata, folderNames: Map<string, string>): string {
+  const folder = metadata.folderId === COLLABORATIVE_FOLDER_ID ? 'Shared' : folderNames.get(metadata.folderId);
+  const modified = metadata.timestamps?.modified;
+  return [
+    folder,
+    modified ? formatRelativeTime(modified) : null,
+    (metadata.tags ?? []).slice(0, 3).map((t) => `#${t}`).join(' '),
+  ].filter(Boolean).join(' · ');
+}
+
 // Result item component
 function SearchResultItem({
   result,
   index,
+  query,
+  folderNames,
   isSelected,
   onSelect,
   onHover,
@@ -58,6 +81,8 @@ function SearchResultItem({
 }: {
   result: SearchResult;
   index: number;
+  query: string;
+  folderNames: Map<string, string>;
   isSelected: boolean;
   onSelect: () => void;
   onHover: () => void;
@@ -66,8 +91,11 @@ function SearchResultItem({
 }) {
   const isAdvanced = isAdvancedResult(result);
   const matchType = isAdvanced ? result.matchType : undefined;
-  const contentHighlight = isAdvanced ? result.contentHighlight : undefined;
-  const plainText = 'plainTextContent' in result ? proseOnly(result.plainTextContent) : undefined;
+  const contentHighlight = isAdvanced ? result.contentHighlight?.replaceAll(CODE_SEPARATOR, ' ') : undefined;
+  const plainText = proseOnly('plainTextContent' in result ? result.plainTextContent : 'preview' in result ? result.preview : '');
+  const title = result.title || "Untitled";
+  const markedTitle = markTitle(title, query, isAdvanced ? result.titleHighlight : undefined);
+  const meta = metaLine(result.metadata, folderNames);
 
   return (
     <button
@@ -94,7 +122,7 @@ function SearchResultItem({
             "text-sm font-medium truncate pointer-coarse:text-[15px]",
             isSelected ? "text-foreground" : "text-foreground"
           )}>
-            {result.title || "Untitled"}
+            {markedTitle ? <HighlightedText text={markedTitle} /> : title}
           </span>
 
           {matchType && (
@@ -114,7 +142,9 @@ function SearchResultItem({
           )}
         </div>
 
-        {/* Show highlighted content if available, otherwise show first 80 chars */}
+        {meta && <p className="text-xs opacity-70 truncate mb-0.5">{meta}</p>}
+
+        {/* Show highlighted content if available, otherwise the first 100 chars; nothing for an empty note */}
         {contentHighlight ? (
           <HighlightedText
             text={contentHighlight}
@@ -124,11 +154,7 @@ function SearchResultItem({
           <p className="text-xs opacity-60 pointer-coarse:opacity-100 pointer-coarse:text-[13px] truncate">
             {plainText.slice(0, 100)}
           </p>
-        ) : (
-          <p className="text-xs opacity-40 italic">
-            No preview available
-          </p>
-        )}
+        ) : null}
       </div>
 
       {isSelected && (
@@ -212,6 +238,7 @@ export default function SearchModal({
     entries,
     selectedIndex,
     isLoading,
+    folderNames,
     inputRef,
     handleQueryChange,
     handleKeyDown,
@@ -241,7 +268,11 @@ export default function SearchModal({
       >
         {/* Search input - Large and clean */}
         <div className="flex items-center gap-3 px-4 py-4 border-b border-border shrink-0">
-          <Search className="h-5 w-5 text-muted-foreground shrink-0" />
+          {isLoading ? (
+            <Loader2 className="h-5 w-5 text-muted-foreground shrink-0 animate-spin" aria-label="Searching" />
+          ) : (
+            <Search className="h-5 w-5 text-muted-foreground shrink-0" />
+          )}
           <input
             ref={inputRef}
             type="text"
@@ -268,15 +299,13 @@ export default function SearchModal({
 
         {/* Results */}
         <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 py-2">
-          {isLoading ? (
-            <div className="py-12 text-center text-sm text-muted-foreground flex flex-col items-center justify-center gap-3">
-              <Loader2 className="h-6 w-6 animate-spin opacity-50" />
-              <span>Searching...</span>
-            </div>
-          ) : entries.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              {query ? 'No notes found matching your search.' : 'Start typing to search your notes.'}
-            </div>
+          {entries.length === 0 ? (
+            // While a query is pending, an empty list is not yet an answer.
+            isLoading ? null : (
+              <div className="py-12 text-center text-sm text-muted-foreground">
+                {query ? 'No notes found matching your search.' : 'Start typing to search your notes.'}
+              </div>
+            )
           ) : (
             <div className="px-2">
               {entries.map((entry, index) => {
@@ -302,6 +331,8 @@ export default function SearchModal({
                         <SearchResultItem
                           result={entry.result}
                           index={index}
+                          query={query}
+                          folderNames={folderNames}
                           isSelected={index === selectedIndex}
                           onSelect={() => handleSelectEntry(entry)}
                           onHover={() => setSelectedIndex(index)}
