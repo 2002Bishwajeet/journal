@@ -87,8 +87,8 @@ export interface QuickCapture {
 
 export const quickCapture: QuickCapture | null = null;
 
-/** What can unlock the native app (#1173): the App Store, Google Play or a license key. */
-export type EntitlementSource = 'appStore' | 'play' | 'licenseKey';
+/** What can unlock the native app (#1173). */
+export type EntitlementSource = 'appStore' | 'play' | 'licenseKey' | 'owner';
 
 export type EntitlementStatus = 'unlocked' | 'trial' | 'trial-not-started' | 'locked' | 'offline-expired';
 
