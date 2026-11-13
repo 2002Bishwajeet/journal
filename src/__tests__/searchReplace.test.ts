@@ -4,6 +4,7 @@ import {
     nextMatchIndex,
     prevMatchIndex,
     escapeRegex,
+    findTermForResult,
 } from '@/lib/search/findReplace';
 
 describe('escapeRegex', () => {
@@ -125,5 +126,34 @@ describe('prevMatchIndex', () => {
 
     it('should stay at 0 for single match', () => {
         expect(prevMatchIndex(0, 1)).toBe(0);
+    });
+});
+
+describe('findTermForResult', () => {
+    const base = { docId: 'd', title: 'T', metadata: {} as never, score: 1 };
+
+    it('takes the first marked word, which is the real text when the query was stemmed', () => {
+        const result = { ...base, matchType: 'content' as const, contentHighlight: 'we had <mark>meeting</mark> notes and a <mark>meeting</mark>' };
+        expect(findTermForResult(result, 'meetings')).toBe('meeting');
+    });
+
+    it('keeps punctuation inside the mark', () => {
+        const result = { ...base, matchType: 'content' as const, contentHighlight: 'use <mark>C++</mark> or <mark>don\'t</mark>' };
+        expect(findTermForResult(result, 'c++')).toBe('C++');
+    });
+
+    it('uses the query for a substring hit with no mark to read', () => {
+        const result = { ...base, matchType: 'content' as const, contentHighlight: 'plain snippet' };
+        expect(findTermForResult(result, ' snip ')).toBe('snip');
+    });
+
+    it('gives nothing for a title-only or fuzzy hit', () => {
+        expect(findTermForResult({ ...base, matchType: 'title', titleHighlight: '<mark>Plan</mark>' }, 'plan')).toBeUndefined();
+        expect(findTermForResult({ ...base, matchType: 'title', contentHighlight: 'start of the note' }, 'plan')).toBeUndefined();
+        expect(findTermForResult({ ...base, matchType: 'fuzzy', contentHighlight: 'start' }, 'plam')).toBeUndefined();
+    });
+
+    it('gives nothing for a result without a match type', () => {
+        expect(findTermForResult({ docId: 'd', title: 'T' } as never, 'plan')).toBeUndefined();
     });
 });

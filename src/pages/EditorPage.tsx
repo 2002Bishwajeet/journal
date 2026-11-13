@@ -37,6 +37,7 @@ import { useBackTo } from "@/hooks/useBackTo";
 import { useNoteScreenActions } from "@/hooks/useNoteScreenActions";
 import { isViewOnly } from "@/lib/homebase/shareTargets";
 import { useCanEdit } from "@/hooks/useCanEdit";
+import { useFindOnOpen } from "@/hooks/useFindOnOpen";
 
 // EditorProvider auto-saves, so Cmd+S only needs swallowing. A module constant
 // keeps the handler's identity stable: every mounted tab rebinds the window
@@ -72,6 +73,7 @@ function EditorLayout({
   // Touch layouts: the header's small title appears once the big one has scrolled out (#825)
   const [titleInView, setTitleInView] = useState(true);
   const screen = useNoteScreenActions();
+  useFindOnOpen(editor, isLoading, isActive);
 
   // Find the selected note metadata from the notes list
   // We can trust specific noteId exists because parent checks it

@@ -10,7 +10,7 @@ import { useSearchModal, isAdvancedResult, type SearchResult, type SearchEntry }
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectNote: (docId: string) => void;
+  onSelectNote: (docId: string, find?: string) => void;
   /** The query the search opens with (journal://search?q=). */
   initialQuery?: string;
 }

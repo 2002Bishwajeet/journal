@@ -268,6 +268,7 @@ export default function JournalLayout() {
     // No editor to focus in a management view — would just blank the screen.
     onFocusMode: () => setFocusMode((prev) => (isManagementView ? false : !prev)),
     onDailyNote: canEdit ? handleOpenToday : undefined,
+    findInNote: true,
     onEscape: inFocusMode ? () => setFocusMode(false) : undefined,
   });
 
@@ -499,13 +500,14 @@ export default function JournalLayout() {
           setShowSearch(false);
           setSearchSeed("");
         }}
-        onSelectNote={(docId) => {
+        onSelectNote={(docId, find) => {
           // Find note to get folder
           const note = notes.find((n) => n.docId === docId);
           if (note) {
             // On a phone the sheet owns the current entry (#822): replace it,
             // so Back from the note returns to the screen under the sheet.
-            navigate(`/${note.metadata.folderId}/${docId}`, { replace: overlayEntryOpen(location.state) });
+            // `find` rides in router state, not the URL: EditorPage opens Find with it once, then clears it.
+            navigate(`/${note.metadata.folderId}/${docId}`, { replace: overlayEntryOpen(location.state), state: find ? { find } : undefined });
           }
           setShowSearch(false);
         }}
