@@ -3,16 +3,18 @@ import { describe, it, expect, vi } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot } from 'react-dom/client';
 
-const row = (docId: string, archivalStatus?: number) => ({
+const row = (docId: string) => ({
     docId,
     title: docId,
-    plainTextContent: '',
-    metadata: { title: docId, archivalStatus },
+    preview: '',
+    metadata: { title: docId },
 });
 
 vi.mock('@/lib/db', () => ({
     advancedSearch: vi.fn(async () => []),
-    getAllDocuments: vi.fn(async () => [row('active'), row('archived', 1), row('trashed', 2)]),
+    getNotesByIds: vi.fn(async () => []),
+    getRecentlyModifiedNotes: vi.fn(async () => [row('active')]),
+    getAllFolders: vi.fn(async () => []),
 }));
 
 import { useSearchModal } from '@/hooks/useSearchModal';

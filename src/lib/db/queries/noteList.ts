@@ -107,6 +107,27 @@ export const FOLDERS_SQL = `SELECT id, name, created_at, is_public FROM folders 
 // navigating to an editor route that can't load them.
 export const NOTE_TITLE_MAP_SQL = `SELECT doc_id, title, metadata->>'folderId' AS folder_id FROM search_index WHERE ${ACTIVE_NOTES_FILTER}`;
 
+/** The most recently modified active notes, with a 150-character preview (the search dialog's empty state). */
+export async function getRecentlyModifiedNotes(limit = 30): Promise<NoteListEntry[]> {
+    const db = await getDatabase();
+    const result = await db.query<NoteListRow>(
+        `${NOTE_LIST_SELECT} WHERE ${ACTIVE_NOTES_FILTER} ${MODIFIED_DESC} LIMIT $1`,
+        [limit],
+    );
+    return result.rows.map(toNoteListEntry);
+}
+
+/** The active notes with these ids, most recently modified first. Missing, archived and trashed ids are skipped. */
+export async function getNotesByIds(ids: string[]): Promise<NoteListEntry[]> {
+    if (ids.length === 0) return [];
+    const db = await getDatabase();
+    const result = await db.query<NoteListRow>(
+        `${NOTE_LIST_SELECT} WHERE doc_id = ANY($1::uuid[]) AND ${ACTIVE_NOTES_FILTER} ${MODIFIED_DESC}`,
+        [ids],
+    );
+    return result.rows.map(toNoteListEntry);
+}
+
 /**
  * Lightweight query for the note list sidebar.
  * Returns only title, a short preview, and metadata — NOT full content.
