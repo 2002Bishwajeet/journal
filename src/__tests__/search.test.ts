@@ -222,7 +222,7 @@ describe('advancedSearch stages (#1225)', () => {
             await advancedSearch('zeppelin');
             await advancedSearch('meetin');
         });
-        const fullText = statements.find((s) => s.sql.includes('ts_rank('));
+        const fullText = statements.find((s) => s.sql.includes('ts_rank_cd('));
         const substring = statements.find((s) => s.sql.includes('plain_text_content ILIKE'));
         if (!fullText || !substring) throw new Error('stage statements not captured');
 

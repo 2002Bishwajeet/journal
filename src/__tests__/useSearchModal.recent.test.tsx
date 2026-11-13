@@ -85,6 +85,19 @@ describe('useSearchModal recents', () => {
         }
     });
 
+    it('searches with the untrimmed query, so a trailing space ends the last word', async () => {
+        vi.useFakeTimers();
+        try {
+            advancedSearch.mockResolvedValue([]);
+            const api = await render();
+            await act(async () => { api().handleQueryChange('zeppelin '); });
+            await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+            expect(advancedSearch).toHaveBeenCalledWith('zeppelin ');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('remove and clear update the list and storage', async () => {
         const api = await render();
         await act(async () => { api().handleRemoveEntry(api().entries[0]); });

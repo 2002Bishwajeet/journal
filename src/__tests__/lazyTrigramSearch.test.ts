@@ -85,4 +85,34 @@ describe('advancedSearch before the trigram indexes exist (#1225)', () => {
       await db.close();
     }
   });
+
+  it('returns the full-text results when the trigram stages fail', async () => {
+    const { PGlite } = await import('@electric-sql/pglite');
+    const { initializeSchema } = await import('@/lib/db/schema');
+    const db = new PGlite();
+    await initializeSchema(db);
+    const ensureTrigramSearch = vi.fn().mockRejectedValue(new Error('pg_trgm unavailable'));
+    vi.doMock('@/lib/db/pglite', () => ({ getDatabase: async () => db, ensureTrigramSearch }));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { upsertSearchIndex, advancedSearch } = await import('@/lib/db/queries');
+      const now = new Date().toISOString();
+      await upsertSearchIndex({
+        docId: '50000000-0000-0000-0000-000000000100',
+        title: 'Fruit',
+        plainTextContent: 'kiwi',
+        metadata: { title: 'Fruit', folderId: 'main', timestamps: { created: now, modified: now }, excludeFromAI: false },
+      });
+
+      const results = await advancedSearch('kiwi');
+
+      expect(ensureTrigramSearch).toHaveBeenCalled();
+      expect(results.map((r) => r.docId)).toEqual(['50000000-0000-0000-0000-000000000100']);
+      expect(consoleError).toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+      vi.doUnmock('@/lib/db/pglite');
+      await db.close();
+    }
+  });
 });

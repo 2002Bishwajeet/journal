@@ -99,9 +99,9 @@ const ENOUGH = 10;
  * statement can use an index, and ordered in tiers, best first: title equals
  * the query (score 5+), title starts with it (4+), title contains it or
  * matches the full-text query (3+), body full-text match (2+), body substring
- * (1), typo-tolerant title match (0.5 and below). Inside a tier: rank, then
- * newest. Tiers are a whole point apart, so applyRecentBoost (+0.15 at most)
- * only reorders rows inside one.
+ * (1), typo-tolerant title match (0.5 and below). Inside a tier: rank
+ * (ts_rank_cd), then newest. Tiers are a whole point apart, so
+ * applyRecentBoost (+0.15 at most) only reorders rows inside one.
  *
  * 1. Titles and full text, always. Needs no trigram index.
  * 2. Body substring, when stage 1 found fewer than 10 notes and the query has
@@ -154,31 +154,37 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
     const titleBranch = plan.kind !== 'syntax';
     if (!tsq && !titleBranch) return [];
 
-    // The title is weight A in search_vector, so the query restricted to A matches in the title.
-    const titleInFullText = tsq ? ` OR s.search_vector @@ $4::tsquery` : '';
-    const tier = `CASE WHEN s.title ILIKE $2 THEN 5
-                       WHEN s.title ILIKE $2 || '%' THEN 4
-                       WHEN s.title ILIKE '%' || $2 || '%'${titleInFullText} THEN 3
+    const params = [tsq, plan.text, (/[\p{L}\p{N}]+/u.exec(plan.text)?.[0] ?? '').toLowerCase()];
+    const param = (value: string) => `$${params.push(value)}`;
+    // `t` is lower(title), computed once per row. The title is weight A in
+    // search_vector, so the query restricted to A matches in the title.
+    const titleQuery = tsq.replace(/('(?:[^']|'')*')(:\*)?/g, (_match, lexeme, star) => `${lexeme}:${star ? '*' : ''}A`);
+    const titleInFullText = tsq ? ` OR search_vector @@ ${param(titleQuery)}::tsquery` : '';
+    const tier = `CASE WHEN t = lower($2) THEN 5
+                       WHEN starts_with(t, lower($2)) THEN 4
+                       WHEN strpos(t, lower($2)) > 0${titleInFullText} THEN 3
                        ELSE 2 END`;
     // One UNION ALL branch per index: GIN full text, and the title (trigram
-    // index once built). An OR across them would scan every note.
+    // index once built). An OR across them would scan every note. OFFSET 0
+    // keeps lower(title) from being inlined into every WHEN.
+    const branch = (where: string, fts: boolean) =>
+        `SELECT doc_id, ${tier} AS tier, ${fts} AS fts, modified
+         FROM (SELECT s.doc_id, lower(s.title) AS t, s.search_vector, ${MODIFIED} AS modified
+               FROM search_index s WHERE ${where} AND ${visible} OFFSET 0) b`;
     const branches = [
-        tsq &&
-            `SELECT s.doc_id, ${tier} AS tier, ts_rank(s.search_vector, $1::tsquery, 32) AS rank, true AS fts, ${MODIFIED} AS modified
-             FROM search_index s
-             WHERE s.search_vector @@ $1::tsquery AND ${visible}`,
-        titleBranch &&
-            `SELECT s.doc_id, ${tier} AS tier, 0::real AS rank, false AS fts, ${MODIFIED} AS modified
-             FROM search_index s
-             WHERE s.title ILIKE '%' || $2 || '%' AND ${visible}
-             ${tsq ? 'AND (s.search_vector @@ $1::tsquery) IS NOT TRUE' : ''}`,
+        tsq && branch('s.search_vector @@ $1::tsquery', true),
+        titleBranch && branch(`s.title ILIKE '%' || ${param(plan.like)} || '%'`, false),
     ].filter(Boolean);
 
-    const params = [tsq, plan.like, (/[\p{L}\p{N}]+/u.exec(plan.text)?.[0] ?? '').toLowerCase()];
-    if (tsq) params.push(tsq.replace(/('(?:[^']|'')*')(:\*)?/g, (_match, lexeme, star) => `${lexeme}:${star ? '*' : ''}A`));
-
-    // ts_headline only for the rows returned, and on ~2,000 characters around
-    // the first literal match of the query's first word (else the body start).
+    // ts_rank_cd costs ~15 µs a note, too much for a word in every note, so it
+    // ranks only the 100 newest notes of the best tiers (a note in both
+    // branches has the same tier and modified, so the newest 200 rows hold
+    // them, full-text copy first; it is kept once, as a full-text hit), and
+    // the best 50 of those are
+    // returned. ts_headline only for those 50, and on ~2,000 characters around
+    // a literal match of the query's first word: the first lowercase one, which
+    // strpos finds without lowercasing the body, else the first in any case,
+    // else the body start.
     // enable_seqscan off: GIN's cost estimate for a prefix (`:*`) is so high that
     // the planner scans every note, reading every search_vector twice.
     const result = await db.transaction(async (tx) => {
@@ -186,20 +192,30 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
         return tx.query<
             HitRow & { tier: number; rank: number; fts: boolean; title_highlight: string; content_highlight: string | null }
         >(
-            `SELECT s.doc_id, s.title, s.metadata, hit.tier, hit.rank, hit.fts,
-                CASE WHEN hit.fts THEN ts_headline('english', s.title, $1::tsquery,
+            `SELECT s.doc_id, s.title, s.metadata, top.tier, top.rank, top.fts,
+                CASE WHEN top.fts THEN ts_headline('english', s.title, $1::tsquery,
                     'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=5, MaxFragments=1')
                     ELSE s.title END AS title_highlight,
-                CASE WHEN hit.fts THEN ts_headline('english',
-                    SUBSTRING(s.plain_text_content FROM GREATEST(1, strpos(lower(s.plain_text_content), $3) - 1000) FOR 2000),
+                CASE WHEN top.fts THEN ts_headline('english',
+                    SUBSTRING(s.plain_text_content FROM GREATEST(1, COALESCE(
+                        NULLIF(strpos(s.plain_text_content, $3), 0),
+                        strpos(lower(s.plain_text_content), $3)) - 1000) FOR 2000),
                     $1::tsquery,
                     'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=15, MaxFragments=2, FragmentDelimiter= ... ')
                 END AS content_highlight
-             FROM (${branches.join(' UNION ALL ')}
+             FROM (SELECT c.doc_id, c.tier, c.fts, c.modified,
+                       CASE WHEN c.fts THEN ts_rank_cd(s.search_vector, $1::tsquery, 32) ELSE 0 END AS rank
+                   FROM (SELECT * FROM (SELECT DISTINCT ON (doc_id) * FROM (${branches.join(' UNION ALL ')}
+                                                                            ORDER BY tier DESC, modified DESC NULLS LAST, fts DESC
+                                                                            LIMIT 200) u
+                                        ORDER BY doc_id, fts DESC) d
+                         ORDER BY tier DESC, modified DESC NULLS LAST
+                         LIMIT 100) c
+                   JOIN search_index s ON s.doc_id = c.doc_id
                    ORDER BY tier DESC, rank DESC, modified DESC NULLS LAST
-                   LIMIT 50) hit
-             JOIN search_index s ON s.doc_id = hit.doc_id
-             ORDER BY hit.tier DESC, hit.rank DESC, hit.modified DESC NULLS LAST`,
+                   LIMIT 50) top
+             JOIN search_index s ON s.doc_id = top.doc_id
+             ORDER BY top.tier DESC, top.rank DESC, top.modified DESC NULLS LAST`,
             params,
         );
     });

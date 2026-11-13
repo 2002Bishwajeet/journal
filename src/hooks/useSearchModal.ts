@@ -154,8 +154,9 @@ export function useSearchModal({
         }
 
         const debounce = setTimeout(async () => {
-            // Use advanced search with FTS, fuzzy matching, and highlighting
-            const searchResults = await advancedSearch(trimmed);
+            // Use advanced search with FTS, fuzzy matching, and highlighting.
+            // Untrimmed: a trailing space ends the last word, so it stops matching as a prefix.
+            const searchResults = await advancedSearch(query);
             if (cancelled || requestSeqRef.current !== requestSeq) return;
             setPendingQuery((current) => (current === trimmed ? null : current));
             setResults(applyRecentBoost(searchResults, loadRecentNotes().map((n) => n.docId)));
