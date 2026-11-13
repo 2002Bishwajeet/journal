@@ -30,6 +30,7 @@ import { useTrayNewNote } from "@/hooks/useTrayNewNote";
 import { useQuitShortcut } from "@/hooks/useQuitShortcut";
 import { useAISupported } from "@/hooks/useAISupported";
 import { LicenseGate } from "@/components/license/License";
+import { VoiceDraftOffer } from "@/components/voice/VoiceNotes";
 import { ReadOnlyBanner } from "@/components/license/ReadOnlyBanner";
 import { useCanEditAnswer } from "@/hooks/useCanEdit";
 import { cn } from "@/lib/utils";
@@ -545,6 +546,9 @@ export default function JournalLayout() {
 
       {/* Native app: the paywall once the trial ends, and the Enter license key screen (#301). */}
       <LicenseGate onSignOut={logout} pendingTotal={pendingCount.total + pendingCount.failed} />
+
+      {/* Native app: a voice note cut off by a crash or kill is offered again (#1250). */}
+      <VoiceDraftOffer />
 
       {shareNote && canEdit && (
         <Suspense fallback={null}>

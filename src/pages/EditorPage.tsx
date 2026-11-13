@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, Globe, Minimize2 } from "lucide-react";
 import { SharedAccessPopover } from '@/components/editor/SharedAccessPopover';
 import { LinkedMentions } from "@/components/editor/LinkedMentions";
+import { VoiceReviewBar } from "@/components/voice/VoiceNotes";
 import { NoteScreenMenu } from "@/components/editor/NoteScreenMenu";
 import HistoryModal from "@/components/modals/HistoryModal";
 import { cn } from "@/lib/utils";
@@ -251,6 +252,7 @@ function EditorLayout({
             <LinkedMentions noteId={noteId} isActive={isActive} />
           </div>
         </div>
+        {!isPeerNote && !readOnly && <VoiceReviewBar noteId={noteId} />}
         </div>
         {isDesktop && tocOpen && editor && (
           <TocPanel editor={editor} onClose={() => setTocOpen(false)} />
