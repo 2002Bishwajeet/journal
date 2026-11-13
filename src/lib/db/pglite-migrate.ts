@@ -156,7 +156,8 @@ async function openWithLegacyEngines(dataDir: string, database?: string) {
     console.warn('[PGlite Migration] v0.4 engine refused the legacy dir; retrying with the current engine');
     const { PGlite } = await import('@electric-sql/pglite');
     const { pg_trgm: currentPgTrgm } = await import('@electric-sql/pglite/contrib/pg_trgm');
-    return PGlite.create(dataDir, { database, extensions: { pg_trgm: currentPgTrgm } });
+    const { unaccent } = await import('@electric-sql/pglite/contrib/unaccent');
+    return PGlite.create(dataDir, { database, extensions: { pg_trgm: currentPgTrgm, unaccent } });
   }
 }
 

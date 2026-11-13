@@ -128,16 +128,14 @@ export async function upsertSearchIndex(entry: SearchIndexEntry): Promise<void> 
     try {
         // Try the full insert with search_vector (for databases with FTS enabled)
         await db.query(
-            `INSERT INTO search_index (doc_id, title, plain_text_content, metadata, search_vector, updated_at)
-         VALUES ($1, $2, $3, $4, 
-           setweight(to_tsvector('english', COALESCE($2, '')), 'A') ||
-           setweight(to_tsvector('english', COALESCE($3, '')), 'B'),
-           CURRENT_TIMESTAMP)
+            `INSERT INTO search_index (doc_id, title, plain_text_content, metadata, search_vector, vector_version, updated_at)
+         VALUES ($1, $2, $3, $4, journal_search_vector($2, $3, $4::jsonb->'tags'), 2, CURRENT_TIMESTAMP)
          ON CONFLICT (doc_id) DO UPDATE SET
            title = EXCLUDED.title,
            plain_text_content = EXCLUDED.plain_text_content,
            metadata = EXCLUDED.metadata,
            search_vector = EXCLUDED.search_vector,
+           vector_version = 2,
            updated_at = CURRENT_TIMESTAMP`,
             [entry.docId, entry.title, entry.plainTextContent, JSON.stringify(entry.metadata)]
         );
@@ -186,8 +184,8 @@ export async function updateSearchIndexMetadata(
                || (CASE WHEN metadata ? 'isPublic' AND NOT ($3::jsonb ? 'isPublic')
                         THEN jsonb_build_object('isPublic', metadata->'isPublic')
                         ELSE '{}'::jsonb END),
-             search_vector = setweight(to_tsvector('english', COALESCE($2, '')), 'A') ||
-                             setweight(to_tsvector('english', COALESCE(plain_text_content, '')), 'B'),
+             search_vector = journal_search_vector($2, plain_text_content, $3::jsonb->'tags'),
+             vector_version = 2,
              updated_at = CURRENT_TIMESTAMP
          WHERE doc_id = $1`,
         [docId, title, JSON.stringify(metadata)]
@@ -212,8 +210,8 @@ export async function updateSearchIndexContent(
         `UPDATE search_index
          SET plain_text_content = $2,
              metadata = jsonb_set((metadata - 'lastEditedBy') || $3::jsonb, '{timestamps,modified}', to_jsonb($4::text)),
-             search_vector = setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
-                             setweight(to_tsvector('english', COALESCE($2, '')), 'B'),
+             search_vector = journal_search_vector(title, $2, metadata->'tags'),
+             vector_version = 2,
              updated_at = CURRENT_TIMESTAMP
          WHERE doc_id = $1`,
         [docId, plainTextContent, JSON.stringify(keys), modified]

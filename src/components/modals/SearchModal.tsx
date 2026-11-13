@@ -1,9 +1,9 @@
 import { HighlightedText } from "@/components/ui/HighlightedText";
 import { Kbd } from "@/components/ui/kbd";
-import { Search, FileText, Loader2, Sparkles, Type, FileSearch, Wand2, Clock, X } from "lucide-react";
+import { Search, FileText, Loader2, Sparkles, Type, Tag, FileSearch, Wand2, Clock, X } from "lucide-react";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { COLLABORATIVE_FOLDER_ID } from "@/lib/homebase/config";
-import type { DocumentMetadata } from "@/types";
+import type { AdvancedSearchResult, DocumentMetadata } from "@/types";
 import { followKeyboard } from "@/lib/keyboardViewport";
 import { proseOnly, CODE_SEPARATOR } from "@/lib/previewText";
 import { useOverlayHistory } from "@/hooks/useOverlayHistory";
@@ -18,10 +18,12 @@ interface SearchModalProps {
 }
 
 // Icon component for match type
-function MatchTypeIcon({ matchType }: { matchType?: 'title' | 'content' | 'fuzzy' | 'semantic' }) {
+function MatchTypeIcon({ matchType }: { matchType?: AdvancedSearchResult['matchType'] }) {
   switch (matchType) {
     case 'title':
       return <Type className="h-3 w-3" />;
+    case 'tag':
+      return <Tag className="h-3 w-3" />;
     case 'content':
       return <FileSearch className="h-3 w-3" />;
     case 'fuzzy':
@@ -34,10 +36,12 @@ function MatchTypeIcon({ matchType }: { matchType?: 'title' | 'content' | 'fuzzy
 }
 
 // Match type label for tooltip
-function getMatchTypeLabel(matchType?: 'title' | 'content' | 'fuzzy' | 'semantic'): string {
+function getMatchTypeLabel(matchType?: AdvancedSearchResult['matchType']): string {
   switch (matchType) {
     case 'title':
       return 'Title match';
+    case 'tag':
+      return 'Tag match';
     case 'content':
       return 'Content match';
     case 'fuzzy':
@@ -130,6 +134,7 @@ function SearchResultItem({
               className={cn(
                 "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide font-medium shrink-0",
                 matchType === 'title' && "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+                matchType === 'tag' && "bg-pink-500/10 text-pink-600 dark:text-pink-400",
                 matchType === 'content' && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
                 matchType === 'fuzzy' && "bg-orange-500/10 text-orange-600 dark:text-orange-400",
                 matchType === 'semantic' && "bg-purple-500/10 text-purple-600 dark:text-purple-400"

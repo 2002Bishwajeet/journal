@@ -10,24 +10,25 @@ import { createTestDatabase, closeTestDatabase, resetTestDatabase, getTestDataba
 
 vi.mock('@/lib/db/pglite', () => import('./pgliteMock'));
 import { setTestDb } from './pgliteMock';
-import { upsertSearchIndex, advancedSearch } from '@/lib/db/queries';
+import { upsertSearchIndex, advancedSearch, updateSearchIndexMetadata, deleteTagFromAllNotes } from '@/lib/db/queries';
+import type { DocumentMetadata } from '@/types';
 import { createDoc } from '@/lib/agent/editEngine';
 import { previewTextFromFragment } from '@/lib/yjs/previewText';
 
-async function addNote(docId: string, title: string, plainTextContent: string, archivalStatus?: number) {
+async function addNote(docId: string, title: string, plainTextContent: string, archivalStatus?: number, tags?: string[]) {
+    await upsertSearchIndex({ docId, title, plainTextContent, metadata: noteMetadata(title, archivalStatus, tags) });
+}
+
+function noteMetadata(title: string, archivalStatus?: number, tags?: string[]): DocumentMetadata {
     const now = new Date().toISOString();
-    await upsertSearchIndex({
-        docId,
+    return {
         title,
-        plainTextContent,
-        metadata: {
-            title,
-            folderId: 'main',
-            timestamps: { created: now, modified: now },
-            excludeFromAI: false,
-            archivalStatus,
-        },
-    });
+        folderId: 'main',
+        timestamps: { created: now, modified: now },
+        excludeFromAI: false,
+        archivalStatus,
+        tags,
+    };
 }
 
 const ids = (results: { docId: string }[]) => results.map((r) => r.docId);
@@ -126,6 +127,65 @@ describe('advancedSearch on the shared preview text (#1228)', () => {
         await addNote(id, 'Meeting', text);
 
         expect(ids(await advancedSearch('budget'))).toEqual([id]);
+    });
+});
+
+describe('advancedSearch ignores accents and matches tags (#1229)', () => {
+    const uid = (n: number) => `60000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
+
+    it('finds "café" for cafe, CAFE and café, and marks café in the snippet', async () => {
+        await addNote(uid(1), 'Breakfast', 'Breakfast at a café near the tram.');
+        await addNote(uid(2), 'Other', 'Nothing here.');
+
+        for (const query of ['cafe', 'CAFE', 'café']) {
+            const results = await advancedSearch(query);
+            expect(ids(results)).toEqual([uid(1)]);
+            expect(results[0].contentHighlight).toContain('<mark>café</mark>');
+        }
+    });
+
+    it('finds Zürich, crème brûlée and a title "Señor García" without their accents', async () => {
+        await addNote(uid(1), 'Trip', 'We took the train to Zürich.');
+        await addNote(uid(2), 'Dessert', 'The crème brûlée was perfect.');
+        await addNote(uid(3), 'Señor García', 'Met for lunch.');
+
+        expect(ids(await advancedSearch('zurich'))).toEqual([uid(1)]);
+        expect(ids(await advancedSearch('creme brulee'))).toEqual([uid(2)]);
+        const senor = await advancedSearch('senor garcia');
+        expect(ids(senor)).toEqual([uid(3)]);
+        expect(senor[0].matchType).toBe('title');
+        expect(senor[0].titleHighlight).toContain('<mark>Señor</mark>');
+    });
+
+    it('ranks a tag hit under a title hit and above a body-only hit', async () => {
+        await addNote(uid(1), 'Weeknight dinners', 'The recipe uses lentils.');
+        await addNote(uid(2), 'Lentil soup', 'Onions, carrots, stock.', 0, ['recipe']);
+        await addNote(uid(3), 'Recipe box', 'Index cards.');
+
+        const results = await advancedSearch('recipe');
+
+        expect(ids(results)).toEqual([uid(3), uid(2), uid(1)]);
+        expect(results.map((r) => r.matchType)).toEqual(['title', 'tag', 'content']);
+        expect(results[1].score).toBeLessThan(results[0].score - 0.5);
+        expect(results[2].score).toBeLessThan(results[1].score - 0.5);
+    });
+
+    it('no longer finds a note by a tag removed from it in the note menu or from every note', async () => {
+        await addNote(uid(1), 'Lentil soup', 'Onions.', 0, ['recipe', 'winter']);
+        await addNote(uid(2), 'Stew', 'Beans.', 0, ['recipe']);
+
+        await updateSearchIndexMetadata(uid(1), 'Lentil soup', noteMetadata('Lentil soup', 0, ['winter']));
+        expect(ids(await advancedSearch('recipe'))).toEqual([uid(2)]);
+        expect(ids(await advancedSearch('winter'))).toEqual([uid(1)]);
+
+        await deleteTagFromAllNotes('recipe');
+        expect(await advancedSearch('recipe')).toEqual([]);
+    });
+
+    it('still stems English words', async () => {
+        await addNote(uid(1), 'Notes', 'The meeting ran long.');
+
+        expect(ids(await advancedSearch('meetings'))).toEqual([uid(1)]);
     });
 });
 

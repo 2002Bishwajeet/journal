@@ -37,14 +37,19 @@ export async function deleteTagFromAllNotes(tag: string): Promise<string[]> {
     const db = await getDatabase();
     return db.transaction(async (tx) => {
         const result = await tx.query<{ doc_id: string }>(
-            `UPDATE search_index
-             SET metadata = jsonb_set(metadata, '{tags}', COALESCE(
-                   (SELECT jsonb_agg(t ORDER BY i)
-                    FROM jsonb_array_elements(metadata->'tags') WITH ORDINALITY AS e(t, i)
-                    WHERE t <> to_jsonb($1::text)),
-                   '[]'::jsonb))
-             WHERE metadata->'tags' ? $1
-             RETURNING doc_id`,
+            `UPDATE search_index s
+             SET metadata = jsonb_set(s.metadata, '{tags}', kept.tags),
+                 search_vector = journal_search_vector(s.title, s.plain_text_content, kept.tags),
+                 vector_version = 2
+             FROM (SELECT doc_id, COALESCE(
+                          (SELECT jsonb_agg(t ORDER BY i)
+                           FROM jsonb_array_elements(metadata->'tags') WITH ORDINALITY AS e(t, i)
+                           WHERE t <> to_jsonb($1::text)),
+                          '[]'::jsonb) AS tags
+                   FROM search_index
+                   WHERE metadata->'tags' ? $1) kept
+             WHERE s.doc_id = kept.doc_id
+             RETURNING s.doc_id`,
             [tag]
         );
         const docIds = result.rows.map(row => row.doc_id);

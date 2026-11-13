@@ -14,11 +14,13 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { unaccent } from '@electric-sql/pglite/contrib/unaccent';
 import { initializeSchema, TRIGRAM_SEARCH_SQL } from '@/lib/db/schema';
 import { PGLITE_START_PARAMS } from '@/lib/db/startParams';
 import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
 import { upsertSearchIndex } from '@/lib/db/queries/documents';
 import { advancedSearch } from '@/lib/db/queries/search';
+import { runSearchReindex } from '@/lib/db/searchReindex';
 import { setTestDb } from '../../src/__tests__/pgliteMock';
 
 function arg(name: string): string | undefined {
@@ -40,9 +42,14 @@ if (!existsSync(dataDir)) {
     if (seed.status !== 0) process.exit(seed.status ?? 1);
 }
 
-const db = await PGlite.create(dataDir, { startParams: PGLITE_START_PARAMS, extensions: { pg_trgm } });
+const db = await PGlite.create(dataDir, { startParams: PGLITE_START_PARAMS, extensions: { pg_trgm, unaccent } });
 await initializeSchema(db);
 setTestDb(db);
+
+// Rows written before #1229 get their accent-insensitive vector first, as the app does after boot.
+const reindexStarted = performance.now();
+await runSearchReindex();
+console.log(`Search vector rebuild: ${Math.round(performance.now() - reindexStarted)} ms`);
 
 const filler = 'Nothing much happened today, the weather stayed grey. '.repeat(60);
 const fixed: [string, string, string][] = [

@@ -5,6 +5,7 @@
 import { MAIN_FOLDER_ID } from '@/lib/homebase';
 import { PGlite } from '@electric-sql/pglite';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { unaccent } from '@electric-sql/pglite/contrib/unaccent';
 import { initializeSchema, TRIGRAM_SEARCH_SQL } from '@/lib/db/schema';
 
 let testDb: PGlite | null = null;
@@ -14,7 +15,7 @@ let testDb: PGlite | null = null;
  * is enabled up front (the app does it lazily on first search).
  */
 export async function createTestDatabase(): Promise<PGlite> {
-  testDb = new PGlite({ extensions: { pg_trgm } });
+  testDb = new PGlite({ extensions: { pg_trgm, unaccent } });
   await initializeSchema(testDb);
   await testDb.exec(TRIGRAM_SEARCH_SQL);
   return testDb;

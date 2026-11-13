@@ -25,7 +25,7 @@ export async function searchNotesForPicker(
         const result = await db.query<NoteListRow>(
             `${NOTE_LIST_SELECT}
              WHERE (title ILIKE '%' || $1 || '%'
-                    OR search_vector @@ plainto_tsquery('english', $1))
+                    OR search_vector @@ plainto_tsquery('journal', $1))
                AND ${ACTIVE_NOTES_FILTER}
                AND ($2::uuid IS NULL OR doc_id <> $2)
              ORDER BY (title ILIKE '%' || $1 || '%') DESC,
@@ -97,9 +97,10 @@ const ENOUGH = 10;
 /**
  * Search for the search dialog and the in-app agent (#1225). Staged so each
  * statement can use an index, and ordered in tiers, best first: title equals
- * the query (score 5+), title starts with it (4+), title contains it or
- * matches the full-text query (3+), body full-text match (2+), body substring
- * (1), typo-tolerant title match (0.5 and below). Inside a tier: rank
+ * the query (score 6+), title starts with it (5+), title contains it or
+ * matches the full-text query (4+), a tag matches it (3+), body full-text match
+ * (2+), body substring (1), typo-tolerant title match (0.5 and below). Titles
+ * and full text ignore accents (`cafe` finds "café", #1229). Inside a tier: rank
  * (ts_rank_cd), then newest. Tiers are a whole point apart, so
  * applyRecentBoost (+0.15 at most) only reorders rows inside one.
  *
@@ -138,9 +139,9 @@ async function fullTextQuery(db: Db, plan: SearchPlan): Promise<string> {
     // unstemmed start of a word (`init` finds "initiative"), so a word that is
     // not a stem yet (`runnin`) does not match everything that starts with `run`.
     const parts = [
-        plan.head && `websearch_to_tsquery('english', $1)`,
+        plan.head && `websearch_to_tsquery('journal', $1)`,
         plan.prefix &&
-            `(to_tsquery('english', quote_literal($${plan.head ? 2 : 1})) || to_tsquery('simple', quote_literal($${plan.head ? 2 : 1}) || ':*'))`,
+            `(to_tsquery('journal', quote_literal($${plan.head ? 2 : 1})) || to_tsquery('simple', quote_literal(journal_unaccent($${plan.head ? 2 : 1})) || ':*'))`,
     ].filter(Boolean);
     const { rows } = await db.query<{ tsq: string }>(
         `SELECT (${parts.join(' && ')})::text AS tsq`,
@@ -156,24 +157,30 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
 
     const params = [tsq, plan.text, (/[\p{L}\p{N}]+/u.exec(plan.text)?.[0] ?? '').toLowerCase()];
     const param = (value: string) => `$${params.push(value)}`;
-    // `t` is lower(title), computed once per row. The title is weight A in
-    // search_vector, so the query restricted to A matches in the title.
-    const titleQuery = tsq.replace(/('(?:[^']|'')*')(:\*)?/g, (_match, lexeme, star) => `${lexeme}:${star ? '*' : ''}A`);
-    const titleInFullText = tsq ? ` OR search_vector @@ ${param(titleQuery)}::tsquery` : '';
-    const tier = `CASE WHEN t = lower($2) THEN 5
-                       WHEN starts_with(t, lower($2)) THEN 4
-                       WHEN strpos(t, lower($2)) > 0${titleInFullText} THEN 3
+    // `t` is the lowercased, unaccented title, computed once per row. The title
+    // is weight A in search_vector and the tags weight B, so the query
+    // restricted to A matches in the title, and to B in the tags.
+    const inWeight = (weight: string) =>
+        tsq.replace(/('(?:[^']|'')*')(:\*)?/g, (_match, lexeme, star) => `${lexeme}:${star ? '*' : ''}${weight}`);
+    const titleInFullText = tsq ? ` OR search_vector @@ ${param(inWeight('A'))}::tsquery` : '';
+    // Version 1 rows (not rebuilt yet, searchReindex.ts) have the body at B.
+    const inTags = tsq ? `WHEN vector_version = 2 AND search_vector @@ ${param(inWeight('B'))}::tsquery THEN 3` : '';
+    const q = 'lower(journal_unaccent($2))';
+    const tier = `CASE WHEN t = ${q} THEN 6
+                       WHEN starts_with(t, ${q}) THEN 5
+                       WHEN strpos(t, ${q}) > 0${titleInFullText} THEN 4
+                       ${inTags}
                        ELSE 2 END`;
     // One UNION ALL branch per index: GIN full text, and the title (trigram
     // index once built). An OR across them would scan every note. OFFSET 0
-    // keeps lower(title) from being inlined into every WHEN.
+    // keeps `t` from being inlined into every WHEN.
     const branch = (where: string, fts: boolean) =>
         `SELECT doc_id, ${tier} AS tier, ${fts} AS fts, modified
-         FROM (SELECT s.doc_id, lower(s.title) AS t, s.search_vector, ${MODIFIED} AS modified
+         FROM (SELECT s.doc_id, lower(journal_unaccent(s.title)) AS t, s.search_vector, s.vector_version, ${MODIFIED} AS modified
                FROM search_index s WHERE ${where} AND ${visible} OFFSET 0) b`;
     const branches = [
         tsq && branch('s.search_vector @@ $1::tsquery', true),
-        titleBranch && branch(`s.title ILIKE '%' || ${param(plan.like)} || '%'`, false),
+        titleBranch && branch(`journal_unaccent(s.title) ILIKE '%' || journal_unaccent(${param(plan.like)}) || '%'`, false),
     ].filter(Boolean);
 
     // ts_rank_cd costs ~15 µs a note, too much for a word in every note, so it
@@ -184,7 +191,7 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
     // returned. ts_headline only for those 50, and on ~2,000 characters around
     // a literal match of the query's first word: the first lowercase one, which
     // strpos finds without lowercasing the body, else the first in any case,
-    // else the body start.
+    // else the first without accents, else the body start.
     // enable_seqscan off: GIN's cost estimate for a prefix (`:*`) is so high that
     // the planner scans every note, reading every search_vector twice.
     const result = await db.transaction(async (tx) => {
@@ -193,13 +200,14 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
             HitRow & { tier: number; rank: number; fts: boolean; title_highlight: string; content_highlight: string | null }
         >(
             `SELECT s.doc_id, s.title, s.metadata, top.tier, top.rank, top.fts,
-                CASE WHEN top.fts THEN ts_headline('english', s.title, $1::tsquery,
+                CASE WHEN top.fts THEN ts_headline('journal', s.title, $1::tsquery,
                     'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=5, MaxFragments=1')
                     ELSE s.title END AS title_highlight,
-                CASE WHEN top.fts THEN ts_headline('english',
+                CASE WHEN top.fts THEN ts_headline('journal',
                     SUBSTRING(s.plain_text_content FROM GREATEST(1, COALESCE(
                         NULLIF(strpos(s.plain_text_content, $3), 0),
-                        strpos(lower(s.plain_text_content), $3)) - 1000) FOR 2000),
+                        NULLIF(strpos(lower(s.plain_text_content), $3), 0),
+                        strpos(journal_unaccent(lower(s.plain_text_content)), journal_unaccent($3))) - 1000) FOR 2000),
                     $1::tsquery,
                     'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=15, MaxFragments=2, FragmentDelimiter= ... ')
                 END AS content_highlight
@@ -223,7 +231,7 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
         docId: row.doc_id,
         title: row.title,
         metadata: row.metadata,
-        matchType: row.tier >= 3 ? 'title' : 'content',
+        matchType: row.tier >= 4 ? 'title' : row.tier === 3 ? 'tag' : 'content',
         score: row.tier + row.rank / 2,
         titleHighlight: row.title_highlight,
         contentHighlight: row.content_highlight ?? undefined,
@@ -237,6 +245,8 @@ async function searchBodySubstring(
     found: AdvancedSearchResult[],
 ): Promise<AdvancedSearchResult[]> {
     // Capped without an ORDER BY, so the trigram bitmap scan stops at 30 matches.
+    // Accent-sensitive, unlike the other stages: it runs on the trigram index of
+    // the body as written, and an unaccented copy would double that index.
     const result = await db.query<HitRow & { snippet: string }>(
         `SELECT s.doc_id, s.title, s.metadata,
             SUBSTRING(s.plain_text_content FROM GREATEST(1, strpos(lower(s.plain_text_content), lower($2)) - 40) FOR 120) AS snippet
@@ -264,12 +274,13 @@ async function searchFuzzyTitles(
     visible: string,
     found: AdvancedSearchResult[],
 ): Promise<AdvancedSearchResult[]> {
-    // `<%`, not word_similarity() > x, so the title trigram index can serve it.
+    // `<%`, not word_similarity() > x, so the title trigram index (on the
+    // unaccented title) can serve it.
     await db.exec(`SET pg_trgm.word_similarity_threshold = 0.5`);
     const result = await db.query<HitRow & { similarity: number }>(
-        `SELECT s.doc_id, s.title, s.metadata, word_similarity($1, s.title) AS similarity
+        `SELECT s.doc_id, s.title, s.metadata, word_similarity(journal_unaccent($1), journal_unaccent(s.title)) AS similarity
          FROM search_index s
-         WHERE $1 <% s.title AND s.doc_id <> ALL($2::uuid[]) AND ${visible}
+         WHERE journal_unaccent($1) <% journal_unaccent(s.title) AND s.doc_id <> ALL($2::uuid[]) AND ${visible}
          ORDER BY similarity DESC, ${MODIFIED} DESC NULLS LAST
          LIMIT 10`,
         [plan.text, found.map((r) => r.docId)],
