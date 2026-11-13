@@ -1,17 +1,17 @@
 /**
  * Mobile Toolbar Component
  *
- * Sits on top of the keyboard on touch devices while the editor has focus.
- * Uses shared useToolbarState for optimized re-renders.
+ * Sits on top of the keyboard on touch devices while the editor has focus. It changes with
+ * the selection, like Apple Notes (#1272): an insert bar at the caret, a format bar over a
+ * text selection, and the Aa button swaps the keyboard for the style panel.
  *
  * Features:
  * - Safe area inset handling for notched devices (only while no keyboard is up)
- * - Larger touch targets (48px) for accessibility
- * - Comprehensive formatting options matching desktop
+ * - 44px+ touch targets, and no horizontal scroll at 390px
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Editor } from "@tiptap/react";
+import { Editor, useEditorState } from "@tiptap/react";
 import {
   Bold,
   Italic,
@@ -19,34 +19,26 @@ import {
   Strikethrough,
   RemoveFormatting,
   List,
-  ListOrdered,
   ListTodo,
-  Heading1,
-  Heading2,
-  Heading3,
-  Heading4,
-  Heading5,
-  Heading6,
   Code,
-  Quote,
   Link as LinkIcon,
   Image as ImageIcon,
-  Undo,
-  Redo,
   KeyboardOff,
+  Sparkles,
+  ALargeSmall,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
 import { MOBILE_TOOLBAR_GAP } from "@/lib/editor/keyboardOffset";
+import { getMobileBar, getStylePanelHeight } from "@/lib/editor/mobileBar";
+import { aiRequests } from "@/lib/agent/aiRequests";
 import { useSwipeToDismissKeyboard } from "@/hooks/useSwipeToDismissKeyboard";
 import { useToolbarOverscroll } from "@/hooks/useToolbarOverscroll";
 import { useDeviceType } from "@/hooks/useDeviceType";
-import { ToolbarButton, ToolbarDivider, useToolbarState, safeEditorCommand } from "./shared";
-import { EmojiPicker } from "./EmojiPicker";
+import { ToolbarButton, useToolbarState, safeEditorCommand } from "./shared";
 import { LinkSheet } from "./LinkSheet";
 import { TablePicker } from "./TablePicker";
-import { TextAlignPicker } from "./TextAlignPicker";
-import { undo, redo } from "./plugins/collaboration";
+import { MobileStylePanel } from "./MobileStylePanel";
 
 interface MobileToolbarProps {
   editor: Editor;
@@ -54,8 +46,8 @@ interface MobileToolbarProps {
 }
 
 const V = "mobile" as const;
-/** The first button of each group: where the row comes to rest after a scroll. */
-const GROUP = "snap-start";
+/** Buttons share the row's width, never narrower than a 44px target. */
+const FILL = "w-auto min-w-11 flex-1";
 const CAPSULE =
   "pointer-events-auto flex items-center rounded-full border border-border bg-card/90 shadow-lg backdrop-blur-md";
 
@@ -65,9 +57,14 @@ export default function MobileToolbar({
 }: MobileToolbarProps) {
   const [hasFocus, setHasFocus] = useState(() => editor.isFocused);
   const [linkOpen, setLinkOpen] = useState(false);
+  // The Aa panel, open in place of the keyboard, at the keyboard's height (null: unknown).
+  const [stylePanel, setStylePanel] = useState<{ height: number | null } | null>(null);
+  const [panelEl, setPanelEl] = useState<HTMLDivElement | null>(null);
 
   // Use shared toolbar state hook
   const state = useToolbarState(editor);
+  // Read on every transaction, so the bar swaps in the same frame as the selection.
+  const bar = useEditorState({ editor, selector: ({ editor: ed }) => getMobileBar(ed.state.selection) });
 
   // Check if we're on a touch device
   const isTouchDevice =
@@ -87,10 +84,16 @@ export default function MobileToolbar({
     const inSheet = (target: EventTarget | null) =>
       target instanceof Element && !!target.closest('[data-slot="sheet-content"]');
     const onFocusIn = (e: FocusEvent) => {
-      if (!inSheet(e.target)) setHasFocus(inEditorUi(e.target));
+      if (inSheet(e.target)) return;
+      setHasFocus(inEditorUi(e.target));
+      // Back in the note, the keyboard is up again: the style panel goes.
+      if (e.target instanceof Node && editor.view.dom.contains(e.target)) setStylePanel(null);
     };
     const onFocusOut = (e: FocusEvent) => {
-      if (!inSheet(e.target) && !inSheet(e.relatedTarget)) setHasFocus(inEditorUi(e.relatedTarget));
+      if (inSheet(e.target) || inSheet(e.relatedTarget)) return;
+      const stays = inEditorUi(e.relatedTarget);
+      setHasFocus(stays);
+      if (!stays) setStylePanel(null);
     };
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
@@ -101,141 +104,62 @@ export default function MobileToolbar({
   }, [editor]);
 
   const isVisible = isTouchDevice && !isDesktop && hasFocus;
-  useKeyboardOffset(isVisible, editor.view.dom);
+  // The open panel counts as the keyboard: the toolbar and the end of the note stay above it.
+  useKeyboardOffset(isVisible, editor.view.dom, panelEl);
   useSwipeToDismissKeyboard(editor, isVisible);
   const rowRef = useRef<HTMLDivElement>(null);
   const capsuleRef = useRef<HTMLDivElement>(null);
   useToolbarOverscroll(isVisible, rowRef, capsuleRef);
+  // Focus on the panel closes the keyboard and keeps the toolbar (it is inside it).
+  useEffect(() => {
+    panelEl?.focus({ preventScroll: true });
+  }, [panelEl]);
 
-  // Action handlers using safeEditorCommand
-  const handleUndo = () => {
-    safeEditorCommand(editor, () => {
-      undo(editor.state);
-      editor.view.focus();
-    });
-  };
-
-  const handleRedo = () => {
-    safeEditorCommand(editor, () => {
-      redo(editor.state);
-      editor.view.focus();
-    });
-  };
-
-  const toggleBold = () => {
-    safeEditorCommand(editor, () => editor.chain().focus().toggleBold().run());
-  };
-
-  const toggleItalic = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleItalic().run(),
-    );
-  };
-
-  const toggleUnderline = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleUnderline().run(),
-    );
-  };
-
-  const toggleStrike = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleStrike().run(),
-    );
-  };
-
-  const clearFormatting = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().clearNodes().unsetAllMarks().run(),
-    );
-  };
-
-  const toggleBulletList = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleBulletList().run(),
-    );
-  };
-
-  const toggleOrderedList = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleOrderedList().run(),
-    );
-  };
-
-  const toggleTaskList = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleTaskList().run(),
-    );
-  };
-
-  const toggleHeading1 = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleHeading({ level: 1 }).run(),
-    );
-  };
-
-  const toggleHeading2 = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleHeading({ level: 2 }).run(),
-    );
-  };
-
-  const toggleHeading3 = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleHeading({ level: 3 }).run(),
-    );
-  };
-
-  const toggleHeading4 = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleHeading({ level: 4 }).run(),
-    );
-  };
-
-  const toggleHeading5 = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleHeading({ level: 5 }).run(),
-    );
-  };
-
-  const toggleHeading6 = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleHeading({ level: 6 }).run(),
-    );
-  };
-
-  const toggleCode = () => {
-    safeEditorCommand(editor, () => editor.chain().focus().toggleCode().run());
-  };
-
-  const toggleBlockquote = () => {
-    safeEditorCommand(editor, () =>
-      editor.chain().focus().toggleBlockquote().run(),
-    );
-  };
-
+  const run = (command: () => void) => safeEditorCommand(editor, command);
+  const toggleBold = () => run(() => editor.chain().focus().toggleBold().run());
+  const toggleItalic = () => run(() => editor.chain().focus().toggleItalic().run());
+  const toggleUnderline = () => run(() => editor.chain().focus().toggleUnderline().run());
+  const toggleStrike = () => run(() => editor.chain().focus().toggleStrike().run());
+  const toggleCode = () => run(() => editor.chain().focus().toggleCode().run());
+  const clearFormatting = () => run(() => editor.chain().focus().clearNodes().unsetAllMarks().run());
+  const toggleBulletList = () => run(() => editor.chain().focus().toggleBulletList().run());
+  const toggleTaskList = () => run(() => editor.chain().focus().toggleTaskList().run());
   const addLink = () => setLinkOpen(true);
+  const rewrite = () => aiRequests.emit("rewrite");
 
   const addImage = () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
     input.onchange = () => {
-      safeEditorCommand(editor, () =>
-        editor.commands.insertImageFiles(Array.from(input.files ?? [])),
-      );
+      run(() => editor.chain().insertImageFiles(Array.from(input.files ?? [])).run());
     };
     input.click();
+  };
+
+  // Focus back in the note brings the keyboard back, with the selection the note kept.
+  const closeStyles = () => {
+    setStylePanel(null);
+    run(() => editor.chain().focus().run());
+  };
+  const toggleStyles = () => {
+    if (stylePanel) return closeStyles();
+    const keyboard = parseFloat(document.documentElement.style.getPropertyValue("--keyboard-offset")) || 0;
+    setStylePanel({ height: getStylePanelHeight(keyboard) });
+  };
+  const hideKeyboard = () => {
+    if (panelEl) panelEl.blur();
+    else editor.chain().blur().run();
   };
 
   // Don't render on non-touch devices, at desktop widths or when the editor has no focus
   if (!isVisible) return null;
 
   return (
-    // Floats above the keyboard: a capsule of tools and, beside it, the button that closes
-    // the keyboard. The row itself lets touches through to the note around the two.
+    // Floats above the keyboard: one capsule of tools. The row itself lets touches
+    // through to the note around it.
     <div
-      className={cn("fixed inset-x-0 z-50 flex items-center gap-2 pointer-events-none", className)}
+      className={cn("fixed inset-x-0 z-50 flex items-center pointer-events-none", className)}
       data-mobile-toolbar
       style={{
         bottom: `calc(var(--keyboard-offset, 0px) + var(--keyboard-safe-bottom, env(safe-area-inset-bottom, 0px)) + ${MOBILE_TOOLBAR_GAP}px)`,
@@ -246,181 +170,80 @@ export default function MobileToolbar({
       {/* The slash menu docks here, above the toolbar, while the editor keeps focus (#827) */}
       <div data-slash-dock className="pointer-events-auto absolute inset-x-0 bottom-full empty:hidden" />
       <LinkSheet editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />
-      {/* Scrollable toolbar container */}
-      <div ref={capsuleRef} className={cn(CAPSULE, "min-w-0 flex-1 overflow-hidden")}>
-      {/* Comes to rest on the first button of a group. Past the ends useToolbarOverscroll
-          rubber-bands it, the same on iOS and Android, so the browser's own bounce is off. */}
-      <div
-        ref={rowRef}
-        className="flex min-w-0 flex-1 items-center gap-0.5 p-1 overflow-x-auto overscroll-x-none snap-x snap-mandatory scroll-px-1 scrollbar-hide"
-      >
-        {/* Undo/Redo */}
-        <ToolbarButton variant={V} onClick={handleUndo} title="Undo" className={GROUP}>
-          <Undo className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V} onClick={handleRedo} title="Redo">
-          <Redo className="h-5 w-5" />
-        </ToolbarButton>
-
-        <ToolbarDivider variant="mobile" />
-
-        {/* Text formatting */}
-        <ToolbarButton variant={V} className={GROUP}
-          onClick={toggleBold}
-          isActive={state.isBold}
-          title="Bold"
-        >
-          <Bold className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V}
-          onClick={toggleItalic}
-          isActive={state.isItalic}
-          title="Italic"
-        >
-          <Italic className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V}
-          onClick={toggleUnderline}
-          isActive={state.isUnderline}
-          title="Underline"
-        >
-          <Underline className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V}
-          onClick={toggleStrike}
-          isActive={state.isStrike}
-          title="Strikethrough"
-        >
-          <Strikethrough className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V}
-          onClick={toggleCode}
-          isActive={state.isCode}
-          title="Code"
-        >
-          <Code className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V} onClick={clearFormatting} title="Clear Formatting">
-          <RemoveFormatting className="h-5 w-5" />
-        </ToolbarButton>
-
-        <ToolbarDivider variant="mobile" />
-
-        {/* Headings */}
-        <ToolbarButton variant={V} className={GROUP}
-          onClick={toggleHeading1}
-          isActive={state.isHeading1}
-          title="Heading 1"
-        >
-          <Heading1 className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V}
-          onClick={toggleHeading2}
-          isActive={state.isHeading2}
-          title="Heading 2"
-        >
-          <Heading2 className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V}
-          onClick={toggleHeading3}
-          isActive={state.isHeading3}
-          title="Heading 3"
-        >
-          <Heading3 className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V}
-          onClick={toggleHeading4}
-          isActive={state.isHeading4}
-          title="Heading 4"
-        >
-          <Heading4 className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V}
-          onClick={toggleHeading5}
-          isActive={state.isHeading5}
-          title="Heading 5"
-        >
-          <Heading5 className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V}
-          onClick={toggleHeading6}
-          isActive={state.isHeading6}
-          title="Heading 6"
-        >
-          <Heading6 className="h-5 w-5" />
-        </ToolbarButton>
-
-        <ToolbarDivider variant="mobile" />
-
-        {/* Lists */}
-        <ToolbarButton variant={V} className={GROUP}
-          onClick={toggleBulletList}
-          isActive={state.isBulletList}
-          title="Bullet List"
-        >
-          <List className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V}
-          onClick={toggleOrderedList}
-          isActive={state.isOrderedList}
-          title="Numbered List"
-        >
-          <ListOrdered className="h-5 w-5" />
-        </ToolbarButton>
-        <ToolbarButton variant={V}
-          onClick={toggleTaskList}
-          isActive={state.isTaskList}
-          title="Task List"
-        >
-          <ListTodo className="h-5 w-5" />
-        </ToolbarButton>
-
-        <ToolbarDivider variant="mobile" />
-
-        {/* Block elements */}
-        <ToolbarButton variant={V} className={GROUP}
-          onClick={toggleBlockquote}
-          isActive={state.isBlockquote}
-          title="Quote"
-        >
-          <Quote className="h-5 w-5" />
-        </ToolbarButton>
-
-        <ToolbarDivider variant="mobile" />
-
-        {/* Insert */}
-        <ToolbarButton variant={V} className={GROUP}
-          onClick={addLink}
-          isActive={state.isLink}
-          title="Add Link"
-        >
-          <LinkIcon className="h-5 w-5" />
-        </ToolbarButton>
-        <EmojiPicker
-          editor={editor}
-          className="flex items-center justify-center w-12 h-12 min-w-12 rounded-full transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
-        />
-        <ToolbarButton variant={V} onClick={addImage} title="Add Image">
-          <ImageIcon className="h-5 w-5" />
-        </ToolbarButton>
-        <TablePicker editor={editor} />
-
-        <ToolbarDivider variant="mobile" />
-
-        <TextAlignPicker
-          editor={editor}
-          currentAlign={state.textAlign}
-          className="snap-start flex items-center justify-center w-12 h-12 min-w-12 rounded-full transition-colors text-foreground hover:bg-muted active:bg-primary/20 touch-manipulation"
-          iconSize={20}
-        />
-      </div>
-      </div>
-      {/* With the keyboard up there is no other way to close it. Focus is on the editor,
-          so the toolbar (and this button) only shows while the keyboard is. */}
-      <div className={cn(CAPSULE, "shrink-0 p-1")}>
-        <ToolbarButton variant={V} onClick={() => editor.chain().blur().run()} title="Hide keyboard">
-          <KeyboardOff className="h-5 w-5" />
-        </ToolbarButton>
+      {stylePanel && (
+        <MobileStylePanel ref={setPanelEl} editor={editor} state={state} height={stylePanel.height} onClose={closeStyles} />
+      )}
+      <div ref={capsuleRef} className={cn(CAPSULE, "min-w-0 flex-1 overflow-hidden p-1")}>
+        {/* Fits at 390px; a narrower phone scrolls it. Past the ends useToolbarOverscroll
+            rubber-bands it, the same on iOS and Android, so the browser's own bounce is off. */}
+        <div ref={rowRef} className="flex min-w-0 flex-1 overflow-x-auto overscroll-x-none scrollbar-hide">
+          {/* Swaps in place when the selection changes; the new bar fades in. */}
+          <div
+            key={bar}
+            data-bar={bar}
+            className="flex min-w-full items-center animate-in fade-in duration-(--duration-fade) ease-(--ease-standard)"
+          >
+            {bar === "format" ? (
+              <>
+                <ToolbarButton variant={V} className={FILL} onClick={toggleBold} isActive={state.isBold} title="Bold">
+                  <Bold className="h-5 w-5" />
+                </ToolbarButton>
+                <ToolbarButton variant={V} className={FILL} onClick={toggleItalic} isActive={state.isItalic} title="Italic">
+                  <Italic className="h-5 w-5" />
+                </ToolbarButton>
+                <ToolbarButton variant={V} className={FILL} onClick={toggleUnderline} isActive={state.isUnderline} title="Underline">
+                  <Underline className="h-5 w-5" />
+                </ToolbarButton>
+                <ToolbarButton variant={V} className={FILL} onClick={toggleStrike} isActive={state.isStrike} title="Strikethrough">
+                  <Strikethrough className="h-5 w-5" />
+                </ToolbarButton>
+                <ToolbarButton variant={V} className={FILL} onClick={addLink} isActive={state.isLink} title="Add Link">
+                  <LinkIcon className="h-5 w-5" />
+                </ToolbarButton>
+                <ToolbarButton variant={V} className={FILL} onClick={toggleCode} isActive={state.isCode} title="Code">
+                  <Code className="h-5 w-5" />
+                </ToolbarButton>
+                <ToolbarButton variant={V} className={FILL} onClick={clearFormatting} title="Clear Formatting">
+                  <RemoveFormatting className="h-5 w-5" />
+                </ToolbarButton>
+                <ToolbarButton variant={V} className={FILL} onClick={rewrite} title="Rewrite with AI">
+                  <Sparkles className="h-5 w-5" />
+                </ToolbarButton>
+              </>
+            ) : (
+              <>
+                {/* Room for one more 44px button here: the voice-note mic (#1258). */}
+                <ToolbarButton variant={V} className={FILL} onClick={toggleTaskList} isActive={state.isTaskList} title="Checklist">
+                  <ListTodo className="h-5 w-5" />
+                </ToolbarButton>
+                <ToolbarButton variant={V} className={FILL} onClick={toggleBulletList} isActive={state.isBulletList} title="Bullet List">
+                  <List className="h-5 w-5" />
+                </ToolbarButton>
+                <ToolbarButton variant={V} className={FILL} onClick={addImage} title="Add Image">
+                  <ImageIcon className="h-5 w-5" />
+                </ToolbarButton>
+                <TablePicker
+                  editor={editor}
+                  iconSize={20}
+                  className={cn(FILL, "flex h-12 items-center justify-center rounded-full p-0 text-foreground active:bg-primary/20 touch-manipulation")}
+                />
+                <ToolbarButton variant={V} className={FILL} onClick={addLink} isActive={state.isLink} title="Add Link">
+                  <LinkIcon className="h-5 w-5" />
+                </ToolbarButton>
+                <ToolbarButton variant={V} className={FILL} onClick={toggleStyles} isActive={!!stylePanel} title="Text Styles">
+                  <ALargeSmall className="h-5 w-5" />
+                </ToolbarButton>
+              </>
+            )}
+          </div>
+        </div>
+        {/* With the keyboard up there is no other way to close it. Focus is on the editor,
+            so the toolbar (and this button) only shows while the keyboard is. */}
+        {bar === "insert" && (
+          <ToolbarButton variant={V} className="shrink-0" onClick={hideKeyboard} title="Hide keyboard">
+            <KeyboardOff className="h-5 w-5" />
+          </ToolbarButton>
+        )}
       </div>
     </div>
   );

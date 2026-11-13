@@ -34,6 +34,11 @@ describe('Slash Command Items', () => {
     expect(filterCommands(slashCommandItems, 'grid').map(r => r.title)).toContain('Gallery');
   });
 
+  it('should find an Emoji command by /emoji and /smiley (#1272)', () => {
+    expect(filterCommands(slashCommandItems, 'emoji')[0].title).toBe('Emoji');
+    expect(filterCommands(slashCommandItems, 'smiley')[0].title).toBe('Emoji');
+  });
+
   it('should include Toggle and Callout blocks (#159)', () => {
     const toggle = slashCommandItems.find(item => item.title === 'Toggle');
     const callout = slashCommandItems.find(item => item.title === 'Callout');

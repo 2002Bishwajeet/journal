@@ -13,8 +13,10 @@ import {
  * Writes happen in a requestAnimationFrame so React never re-renders per event (#789).
  * When the keyboard opens or changes height, the caret in `editorDom` is
  * scrolled clear of the toolbar again.
+ * `cover` is a panel that stands in for the keyboard (the Aa style panel, #1272): the offset
+ * is at least its height, so the toolbar and the end of the note stay above it.
  */
-export function useKeyboardOffset(enabled: boolean, editorDom: HTMLElement) {
+export function useKeyboardOffset(enabled: boolean, editorDom: HTMLElement, cover: HTMLElement | null = null) {
   useEffect(() => {
     if (!enabled) return;
     const viewport = window.visualViewport;
@@ -24,10 +26,13 @@ export function useKeyboardOffset(enabled: boolean, editorDom: HTMLElement) {
 
     const apply = () => {
       frame = 0;
-      const offset = getKeyboardOffset(
-        window.innerHeight,
-        viewport?.height ?? window.innerHeight,
-        getLayoutOffsetTop(viewport?.offsetTop ?? 0, document.documentElement.clientHeight, window.innerHeight),
+      const offset = Math.max(
+        cover?.offsetHeight ?? 0,
+        getKeyboardOffset(
+          window.innerHeight,
+          viewport?.height ?? window.innerHeight,
+          getLayoutOffsetTop(viewport?.offsetTop ?? 0, document.documentElement.clientHeight, window.innerHeight),
+        ),
       );
       rootStyle.setProperty("--keyboard-offset", `${offset}px`);
       // Room at the end of the note so the last line scrolls above the toolbar (#790).
@@ -62,5 +67,5 @@ export function useKeyboardOffset(enabled: boolean, editorDom: HTMLElement) {
       rootStyle.removeProperty("--keyboard-safe-bottom");
       rootStyle.removeProperty("--editor-bottom-space");
     };
-  }, [enabled, editorDom]);
+  }, [enabled, editorDom, cover]);
 }

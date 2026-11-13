@@ -9,6 +9,8 @@ import { PickerSurface } from './shared/PickerSurface';
 
 interface TablePickerProps {
   editor: Editor;
+  className?: string;
+  iconSize?: number;
 }
 
 const SHEET_MAX = 10;
@@ -33,7 +35,7 @@ function Stepper({ label, value, onChange }: { label: string; value: number; onC
   );
 }
 
-export function TablePicker({ editor }: TablePickerProps) {
+export function TablePicker({ editor, className, iconSize = 18 }: TablePickerProps) {
   const [open, setOpen] = useState(false);
   const [hoveredCell, setHoveredCell] = useState<{ rows: number; cols: number } | null>(null);
   const [size, setSize] = useState({ rows: 3, cols: 3 });
@@ -65,11 +67,12 @@ export function TablePicker({ editor }: TablePickerProps) {
           className={cn(
             'p-2 rounded-md transition-colors',
             'hover:bg-accent hover:text-accent-foreground',
-            open && 'bg-accent text-accent-foreground'
+            open && 'bg-accent text-accent-foreground',
+            className
           )}
           title="Insert Table"
         >
-          <TableIcon size={18} />
+          <TableIcon size={iconSize} />
         </button>
       }
       popover={
