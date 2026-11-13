@@ -40,7 +40,7 @@ import { ImageLightbox } from "./ImageLightbox";
 import { GALLERY } from "./GalleryNode";
 import { dispatchUndoStep, moveGalleryImage } from "./galleryDrag";
 import { ImageEditDialog } from "./ImageEditDialog";
-import { useCanEdit } from "@/hooks/useCanEdit";
+import { useEditorContext } from "../EditorContext";
 
 // Corner, the edge it drags, and the diagonal cursor for it.
 const CORNERS = [
@@ -98,7 +98,8 @@ function PendingImage({
   pendingId: string;
   imgClass: string;
   alt: string;
-  onRemove: () => void;
+  /** Left out in a read-only editor: no Retry or Remove, as Remove deletes the node (#1211). */
+  onRemove?: () => void;
 }) {
   const { url, state } = usePendingImage(pendingId);
   const { sync } = useSyncService();
@@ -116,7 +117,7 @@ function PendingImage({
     sync().catch((err) => console.error("[ImageNode] Retry sync failed:", err));
   };
   const remove = () => {
-    onRemove();
+    onRemove?.();
     void deletePendingImageUpload(pendingId);
   };
   const actionClass = "rounded bg-white/20 px-1.5 hover:bg-white/30";
@@ -139,7 +140,7 @@ function PendingImage({
             {state === "uploading" && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
             <span className="truncate">{PENDING_LABEL[state]}</span>
           </span>
-          {(state === "failed" || state === "discarded") && (
+          {onRemove && (state === "failed" || state === "discarded") && (
             <>
               <button type="button" className={actionClass} onClick={retry}>
                 Retry
@@ -185,8 +186,8 @@ export function ImageNodeView({
   // Where a touch landed on the image while it was already selected (#829)
   const tapOnSelected = useRef<{ x: number; y: number } | null>(null);
   const download = useImageDownload(src, alt, pendingId);
-  // The native trial ended (#1176): no resize handles and no toolbar; double-click still opens the viewer.
-  const editable = useCanEdit();
+  // A view-only note (#897) or an ended native trial (#1176): no resize handles and no toolbar; double-click still opens the viewer.
+  const editable = !useEditorContext().readOnly;
   // In a gallery (#601) the row sets the size: no resize handles or float.
   const pos = getPos();
   const inGallery =
@@ -494,7 +495,7 @@ export function ImageNodeView({
     // Mode "pending": not uploaded yet. The blob: src dies with the tab, so the
     // bytes come from the local upload queue instead.
     if (mode === "pending" && pendingId) {
-      return <PendingImage pendingId={pendingId} imgClass={cls} alt={alt} onRemove={deleteNode} />;
+      return <PendingImage pendingId={pendingId} imgClass={cls} alt={alt} onRemove={editable ? deleteNode : undefined} />;
     }
     // Mode "attachment": remote image (attachment://fileId/payloadKey)
     if (mode === "attachment") {

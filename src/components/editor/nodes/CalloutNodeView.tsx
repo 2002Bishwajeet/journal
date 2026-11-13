@@ -9,7 +9,7 @@ import { ActionSheet } from '@/components/ui/action-sheet';
 import { cn } from '@/lib/utils';
 import { useSheetMode } from '@/hooks/useSheetMode';
 import { useRestoreEditorFocus } from '@/hooks/useRestoreEditorFocus';
-import { useCanEdit } from '@/hooks/useCanEdit';
+import { useEditorContext } from '../EditorContext';
 import { CALLOUT_ICONS, CalloutIcon } from './CalloutIcon';
 import { CALLOUT_CLASSES, CALLOUT_VARIANTS, toCalloutVariant } from './calloutVariants';
 
@@ -18,8 +18,8 @@ export function CalloutNodeView({ editor, node, updateAttributes }: NodeViewProp
   const asSheet = useSheetMode();
   const [sheetOpen, setSheetOpen] = useState(false);
   const onCloseAutoFocus = useRestoreEditorFocus(editor, sheetOpen);
-  // The native trial ended (#1176): the icon only, no variant picker.
-  const editable = useCanEdit();
+  // A view-only note (#897) or an ended native trial (#1176): the icon only, no variant picker.
+  const editable = !useEditorContext().readOnly;
 
   const trigger = (
     <button

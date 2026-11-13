@@ -7,6 +7,8 @@ import { createElement as h, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { NodeViewProps } from '@tiptap/react';
 
+// The editor's read-only flag (#1211): these notes are editable.
+vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => ({ readOnly: false }) }));
 vi.mock('@/components/OdinImage/OdinImage', () => ({ OdinImage: () => null }));
 vi.mock('@/hooks/usePendingImage', () => ({ usePendingImage: () => ({ url: undefined, state: 'remote' as const }) }));
 vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ sync: async () => {} }) }));

@@ -171,12 +171,10 @@ export default function TipTapEditor({
         </div>
       </div>
 
-      {/* Tag Input */}
-      {!readOnly && (
-        <div className="print:hidden">
-          <TagInput docId={noteId} metadata={metadata} />
-        </div>
-      )}
+      {/* Tag Input: a read-only note shows its tags (#1211) */}
+      <div className="print:hidden">
+        <TagInput docId={noteId} metadata={metadata} readOnly={readOnly} />
+      </div>
 
       {/* Toolbar */}
       {editor && !hideToolbar && !readOnly && <EditorToolbar editor={editor} />}

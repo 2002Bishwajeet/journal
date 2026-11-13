@@ -13,6 +13,8 @@ import { createTrackedEditor } from './trackedEditor';
 import { toast } from 'sonner';
 
 const { odinImageProps } = vi.hoisted(() => ({ odinImageProps: [] as Record<string, unknown>[] }));
+// The editor's read-only flag (#1211): these notes are editable.
+vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => ({ readOnly: false }) }));
 vi.mock('@/components/OdinImage/OdinImage', () => ({
     OdinImage: (props: Record<string, unknown>) => { odinImageProps.push(props); return null; },
 }));

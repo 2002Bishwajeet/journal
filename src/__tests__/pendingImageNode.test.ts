@@ -15,6 +15,9 @@ const m = vi.hoisted(() => ({
     retry: vi.fn(async () => {}),
     remove: vi.fn(async () => {}),
 }));
+// The editor's read-only flag (#1211): editable unless a case says otherwise.
+const editorContext = vi.hoisted(() => ({ readOnly: false }));
+vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => editorContext }));
 vi.mock('@/hooks/usePendingImage', () => ({ usePendingImage: () => m.pending }));
 vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ sync: m.sync }) }));
 vi.mock('@/lib/db', () => ({ retryPendingImageUploadNow: m.retry, deletePendingImageUpload: m.remove }));
@@ -38,7 +41,10 @@ describe('ImageNodeView pending image', () => {
         el = document.createElement('div');
         root = createRoot(el);
     });
-    afterEach(async () => { await act(async () => root.unmount()); });
+    afterEach(async () => {
+        await act(async () => root.unmount());
+        editorContext.readOnly = false;
+    });
 
     async function render(url: string | undefined, state: PendingImageState) {
         m.pending = { url, state };
@@ -73,6 +79,15 @@ describe('ImageNodeView pending image', () => {
 
         expect(m.retry).toHaveBeenCalledWith(ID);
         expect(m.sync).toHaveBeenCalled();
+    });
+
+    it('offers no Retry or Remove in a read-only editor, so the node is never deleted (#1211)', async () => {
+        editorContext.readOnly = true;
+        await render('blob:restored', 'failed');
+        expect(el.textContent).toContain('Upload failed');
+        expect(button('Retry')).toBeUndefined();
+        expect(button('Remove')).toBeUndefined();
+        expect(deleteNode).not.toHaveBeenCalled();
     });
 
     it('offers Remove on failure: drops the node and the queued bytes', async () => {

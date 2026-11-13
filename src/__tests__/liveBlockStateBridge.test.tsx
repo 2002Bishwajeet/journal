@@ -300,4 +300,35 @@ describe('an html block in the editor (#950)', () => {
     expect(infos()).toEqual(['html id=k3f9', 'html']);
     for (const frame of frames) expect(valueOf(ask(frame, get('count')))).toBe(10);
   });
+
+  it("should show the note's state as it is now after a switch to read-only, and a synced change, until the viewer changes it (#1211)", async () => {
+    const states = new Y.Doc();
+    setBlockState(states, 'k3f9', '{"count":3}');
+    const content = [code('html id=k3f9', '<p>A</p>')];
+    const [frame] = await render(<Note content={content} readOnly={false} states={states} />);
+    await setCount([frame], 5);
+
+    // The native trial ends mid-session (#1176): the same block, now read-only.
+    await act(async () => root.render(<Note content={content} readOnly states={states} />));
+    expect(valueOf(ask(frame, get('count')))).toBe(5);
+    setBlockState(states, 'k3f9', '{"count":6}');
+    expect(valueOf(ask(frame, get('count')))).toBe(6);
+
+    await setCount([frame], 9);
+    expect(getBlockState(states, 'k3f9')).toBe('{"count":6}');
+    expect(valueOf(ask(frame, get('count')))).toBe(9);
+  });
+
+  it("should forget a viewer's changes once the note is editable again, so a later switch to read-only shows the note's state (#1211)", async () => {
+    const states = new Y.Doc();
+    setBlockState(states, 'k3f9', '{"count":3}');
+    const content = [code('html id=k3f9', '<p>A</p>')];
+    const [frame] = await render(<Note content={content} readOnly states={states} />);
+    await setCount([frame], 9);
+    expect(valueOf(ask(frame, get('count')))).toBe(9);
+
+    await act(async () => root.render(<Note content={content} readOnly={false} states={states} />));
+    await act(async () => root.render(<Note content={content} readOnly states={states} />));
+    expect(valueOf(ask(frame, get('count')))).toBe(3);
+  });
 });

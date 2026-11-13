@@ -276,21 +276,28 @@ export default function EditorToolbar({ editor, onToggleToc, tocOpen = false, on
       {onToggleToc && (
         <>
           <ToolbarDivider />
-          <button
-            type="button"
-            onClick={onToggleToc}
-            aria-pressed={tocOpen}
-            aria-label="Table of contents"
-            title="Table of contents"
-            className={cn(
-              'p-2 rounded-md transition-colors hover:bg-muted',
-              tocOpen && 'bg-accent text-accent-foreground'
-            )}
-          >
-            <ListTree size={iconSize} />
-          </button>
+          <TocToggle open={tocOpen} onToggle={onToggleToc} />
         </>
       )}
     </div>
+  );
+}
+
+/** The Table-of-contents toggle; also on its own above a read-only note, which has no toolbar (#1211). */
+export function TocToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={open}
+      aria-label="Table of contents"
+      title="Table of contents"
+      className={cn(
+        'p-2 rounded-md transition-colors hover:bg-muted',
+        open && 'bg-accent text-accent-foreground'
+      )}
+    >
+      <ListTree size={18} />
+    </button>
   );
 }

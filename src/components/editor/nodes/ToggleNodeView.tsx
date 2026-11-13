@@ -8,12 +8,12 @@ import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { cn } from '@/lib/utils';
-import { useCanEdit } from '@/hooks/useCanEdit';
+import { useEditorContext } from '../EditorContext';
 
 export function ToggleNodeView({ node, updateAttributes }: NodeViewProps) {
   const [open, setOpen] = useState(true);
-  // The native trial ended (#1176): the title can't change; open/closed is local and still works.
-  const editable = useCanEdit();
+  // A view-only note (#897) or an ended native trial (#1176): the title can't change; open/closed is local and still works.
+  const editable = !useEditorContext().readOnly;
 
   return (
     <NodeViewWrapper className="my-2" data-type="toggle">
