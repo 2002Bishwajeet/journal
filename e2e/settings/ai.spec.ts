@@ -11,7 +11,7 @@ import { finishLoad, reloads, stubWebLLMWorker } from '../support/webllm-worker'
 // passed the requirements check (#695) and the user chose Continue; the specs
 // stub navigator.gpu so the check does not depend on the machine.
 
-const EDITOR_DEFAULT = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+const EDITOR_DEFAULT = 'Qwen3.5-0.8B-q4f16_1-MLC';
 
 // Turns AI on and accepts the requirements dialog.
 async function enableAI(page: Page, dialog: Locator) {
@@ -67,7 +67,7 @@ test('desktop: status shows loading then ready, and turning AI off hides it', as
   for (const radio of radios) await expect(radio).toBeDisabled();
 
   await finishLoad(app, 'ok');
-  await expect(status).toHaveText('Ready · Qwen 2.5 0.5B · running on this device');
+  await expect(status).toHaveText('Ready · Qwen3.5 0.8B · running on this device');
   await expect(models.getByRole('radio', { name: /SmolLM2 360M/ })).toBeEnabled();
 
   await toggle.click();
@@ -137,11 +137,11 @@ test('desktop: turning AI on shows the requirements first; Cancel loads nothing,
   await stubWebGPU(app);
   const dialog = await openAISettings(app);
   const toggle = dialog.getByRole('switch', { name: 'Enable on-device AI' });
-  const confirm = app.getByRole('dialog', { name: 'Download Qwen 2.5 0.5B?' });
+  const confirm = app.getByRole('dialog', { name: 'Download Qwen3.5 0.8B?' });
 
   await toggle.click();
-  await expect(confirm).toContainText('~350 MB');
-  await expect(confirm).toContainText('~940 MB of memory');
+  await expect(confirm).toContainText('~600 MB');
+  await expect(confirm).toContainText('~1.6 GB of memory');
   await expect(confirm).toContainText('Needs WebGPU and a desktop browser.');
   await screenshotBothThemes(app, 'requirements');
 

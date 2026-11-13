@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { AVAILABLE_MODELS, DEFAULT_MODEL_ID, getModelInfo } from '@/lib/webllm/models';
 import { DEFAULT_SETTINGS, STORAGE_KEY, loadSettings } from '@/hooks/useAISettings';
 
-const EDITOR_DEFAULT = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+const EDITOR_DEFAULT = 'Qwen3.5-0.8B-q4f16_1-MLC';
 const AGENT_DEFAULT = 'Qwen3.5-2B-q4f16_1-MLC';
 const PREVIOUS_AGENT_DEFAULT = 'Qwen3-1.7B-q4f16_1-MLC';
 
@@ -31,7 +31,7 @@ describe('Model Registry', () => {
   it('getModelInfo should return model for valid ID', () => {
     const model = getModelInfo(DEFAULT_MODEL_ID);
     expect(model).toBeDefined();
-    expect(model?.name).toBe('Qwen 2.5 0.5B');
+    expect(model?.name).toBe('Qwen3.5 0.8B');
   });
 
   it('getModelInfo should return undefined for invalid ID', () => {
@@ -94,7 +94,7 @@ describe('AI Settings - loadSettings', () => {
   });
 
   it('should keep the previous agent default for saved settings without an agentModelId (#1023)', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, enabled: true, modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, enabled: true, modelId: EDITOR_DEFAULT }));
     expect(loadSettings().agentModelId).toBe(PREVIOUS_AGENT_DEFAULT);
     expect(getModelInfo(PREVIOUS_AGENT_DEFAULT)?.job).toBe('agent');
   });
@@ -118,16 +118,19 @@ describe('AI Settings - loadSettings', () => {
     },
   );
 
-  it('should fall back to the editor default for a saved Llama 3.2 1B choice', () => {
-    const saved = { _v: 2, enabled: true, modelId: 'Llama-3.2-1B-Instruct-q4f16_1-MLC' };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
-    expect(loadSettings().modelId).toBe(EDITOR_DEFAULT);
-  });
+  it.each(['Llama-3.2-1B-Instruct-q4f16_1-MLC', 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'])(
+    'should fall back to the editor default for a saved %s choice, removed from the catalogue',
+    (id) => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: 2, enabled: true, modelId: id }));
+      expect(getModelInfo(id)).toBeUndefined();
+      expect(loadSettings().modelId).toBe(EDITOR_DEFAULT);
+    },
+  );
 
-  it('should keep a saved Qwen 2.5 1.5B choice', () => {
-    const saved = { _v: 2, enabled: true, modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC' };
+  it('should keep a saved SmolLM2 360M choice', () => {
+    const saved = { _v: 2, enabled: true, modelId: 'SmolLM2-360M-Instruct-q4f16_1-MLC' };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
-    expect(loadSettings().modelId).toBe('Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
+    expect(loadSettings().modelId).toBe('SmolLM2-360M-Instruct-q4f16_1-MLC');
   });
 
   it('should handle corrupted data gracefully', () => {
@@ -145,10 +148,10 @@ describe('AI Settings - loadSettings', () => {
   });
 
   it('should preserve non-legacy model during v1 migration', () => {
-    const v1 = { enabled: true, modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', autocompleteEnabled: false, grammarEnabled: true };
+    const v1 = { enabled: true, modelId: 'SmolLM2-360M-Instruct-q4f16_1-MLC', autocompleteEnabled: false, grammarEnabled: true };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(v1));
     const settings = loadSettings();
-    expect(settings.modelId).toBe('Qwen2.5-1.5B-Instruct-q4f16_1-MLC');
+    expect(settings.modelId).toBe('SmolLM2-360M-Instruct-q4f16_1-MLC');
     expect(settings.autocompleteEnabled).toBe(false);
     expect(settings.grammarEnabled).toBe(true);
   });
@@ -161,7 +164,7 @@ describe('AI Settings - loadSettings', () => {
   });
 
   it('should not rewrite storage if already at current version', () => {
-    const v2 = { _v: 2, enabled: true, modelId: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', autocompleteEnabled: true, grammarEnabled: false };
+    const v2 = { _v: 2, enabled: true, modelId: 'SmolLM2-360M-Instruct-q4f16_1-MLC', autocompleteEnabled: true, grammarEnabled: false };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(v2));
     const before = localStorage.getItem(STORAGE_KEY);
     loadSettings();

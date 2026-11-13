@@ -4,7 +4,7 @@ import { prebuiltAppConfig } from '@mlc-ai/web-llm';
 import { AVAILABLE_MODELS, DEFAULT_AGENT_MODEL_ID, getModelInfo, getModelsForJob } from '@/lib/webllm/models';
 import { checkRequirements, memoryTierText, outOfMemoryMessage, probeDevice, resolveModelId, type DeviceProbe } from '@/lib/webllm/requirements';
 
-const editor = getModelInfo('Qwen2.5-0.5B-Instruct-q4f16_1-MLC')!;
+const editor = getModelInfo('Qwen3.5-0.8B-q4f16_1-MLC')!;
 const agent = getModelInfo('Qwen3-1.7B-q4f16_1-MLC')!;
 
 const GIB = 1024 ** 3;

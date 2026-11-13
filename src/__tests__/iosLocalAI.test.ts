@@ -126,7 +126,7 @@ describe('the iOS download gate', () => {
 
   it('offers the small models and hides the larger ones', () => {
     const offered = AVAILABLE_MODELS.filter((m) => checkIOSRequirements(capable, m, [], wifi).verdict === 'ok').map((m) => m.name);
-    expect(offered).toEqual(['SmolLM2 360M', 'Qwen 2.5 0.5B', 'Qwen 2.5 1.5B', 'Qwen3.5 2B', 'Qwen3 1.7B']);
+    expect(offered).toEqual(['SmolLM2 360M', 'Qwen3.5 0.8B', 'Qwen3.5 2B', 'Qwen3 1.7B']);
     expect(getModelsForJob('agent').some((m) => checkIOSRequirements(capable, m, [], wifi).verdict === 'unsupported')).toBe(true);
   });
 

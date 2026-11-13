@@ -16,7 +16,7 @@ A premium, offline-first markdown note-taking app powered by **Homebase**. Built
 | Editor | TipTap 3 (ProseMirror) + Yjs |
 | Local DB | PGlite 0.5.x — Postgres 18 in a Web Worker (IndexedDB persistence, live queries, pg_trgm) |
 | Backend | Homebase SDK `@homebase-id/js-lib` 0.0.7-alpha.86 (encrypted sync; from GitHub Packages) |
-| AI | WebLLM — Qwen2.5-1.5B default, 4 models available |
+| AI | WebLLM — Qwen3.5 0.8B editor default, Qwen3.5 2B agent default |
 | PWA | vite-plugin-pwa + Service Worker |
 | Animations | Framer Motion |
 | Testing | Vitest (integration) + Playwright (e2e) |
@@ -219,7 +219,7 @@ src/
 │   │                           # memoryMonitor, shareSanitizeSchema, sw-safety
 │   ├── webllm/
 │   │   ├── engine.ts           # Grammar, autocomplete, rewrite, chat
-│   │   ├── models.ts           # Model registry (Qwen2.5-1.5B, SmolLM2-360M, etc.)
+│   │   ├── models.ts           # Model registry (Qwen3.5 0.8B/2B/4B, Qwen3 1.7B, SmolLM2 360M)
 │   │   ├── worker.ts           # WebLLM worker
 │   │   └── index.ts
 │   ├── yjs/
@@ -465,14 +465,13 @@ Each model also has a `ramTier` (16 or 24 GB), from `vramMB`: up to about 4,000 
 
 | Model | Job | Download | VRAM | Tier | Default |
 |-------|-----|----------|------|------|---------|
-| SmolLM2 360M | editor | ~250 MB | ~380 MB | 16 | |
-| Qwen 2.5 0.5B | editor | ~350 MB | ~940 MB | 16 | Yes (editor) |
-| Qwen 2.5 1.5B | editor | ~900 MB | ~1.6 GB | 16 | |
+| SmolLM2 360M | editor | ~250 MB | ~380 MB | 16 | the low-end fallback |
+| Qwen3.5 0.8B | editor | ~600 MB | ~1.6 GB | 16 | Yes (editor, since #1265) |
 | Qwen3.5 2B | agent | ~1.1 GB | ~2.2 GB | 16 | Yes (agent, since #1023) |
 | Qwen3.5 4B | agent | ~2.4 GB | ~3.9 GB | 16 | "Higher quality" |
 | Qwen3 1.7B | agent | ~1.1 GB | ~2.0 GB | 16 | the agent default before #1023 |
 
-Saved settings with no `agentModelId` (from before #695) keep Qwen3 1.7B (`PREVIOUS_AGENT_MODEL_ID`), so a model that is already downloaded does not download again. A saved choice stays as it is, except Qwen3 4B, Qwen 2.5 3B and Hermes 3 3B (removed after #1023, `REMOVED_AGENT_MODEL_IDS`), which fall back to Qwen3.5 2B.
+Saved settings with no `agentModelId` (from before #695) keep Qwen3 1.7B (`PREVIOUS_AGENT_MODEL_ID`), so a model that is already downloaded does not download again. A saved choice stays as it is, except Qwen3 4B, Qwen 2.5 3B and Hermes 3 3B (removed after #1023, `REMOVED_AGENT_MODEL_IDS`), which fall back to Qwen3.5 2B, and Llama 3.2 1B, Qwen 2.5 0.5B and Qwen 2.5 1.5B (Qwen 2.5 removed in #1265, `REMOVED_EDITOR_MODEL_IDS`), which fall back to Qwen3.5 0.8B.
 
 **Agent eval (#706):** `npm run eval:ai -- <model id>` or `npm run eval:ai -- --all` (every agent model plus Qwen 2.5 1.5B as the floor) runs the 20 tasks in `e2e/evals/tasks.ts` (find, read and answer, open-note edits, cross-note writes, a refusal) against the real model in the e2e dev app (`playwright.evals.config.ts`, `127.0.0.1:5174`). Local only: it needs a WebGPU adapter, so it never runs in CI, and `npm run e2e` does not pick it up. Chromium starts with `--enable-unsafe-webgpu` (plus Vulkan on Linux), headless when there is no display; weights are cached in `~/.cache/journal-ai-evals`; only Hugging Face and `raw.githubusercontent.com` get past the network fence. Every proposal is accepted through the e2e hook `startAgentEval`. Each task is checked on the final state (answer, tools called, the target note's blocks), not the wording; the checkers are unit-tested in `src/__tests__/agentEvalChecks.test.ts`. `--gpu igpu|dgpu` picks the GPU and `--candidates` runs the #1023 candidates. Results go to `e2e/evals/results/<date>-<gpu>-<machine>-<model>.json` (the machine is `EVAL_MACHINE`, else the adapter's vendor and architecture plus the host name, so runs on different machines do not overwrite each other; files from before #1023 have no machine) and a markdown table is printed. The agent default is the best success rate within about 2.5 GB VRAM (the smaller one on a tie). The first run (2026-10-27, GTX 1650 Ti 4 GB, `q4f32_1` builds) left it at Qwen3 1.7B: every candidate passed fewer than half of the edit tasks (Hermes 3 best with 3/8), and Qwen3 4B did not run in 4 GB. After the small-model rules (#914, results in `results/2026-10-27-914-*.json`), Qwen3 1.7B passes 13/20 with 4/8 edits; Hermes 3 has 2/8 edits and Qwen 2.5 3B 1/8. The #1023 run on an M1 Pro (16 GB, integrated GPU, `results/2026-11-09-igpu-apple-metal-3-*`) made Qwen3.5 2B the default (16/20, 7/8 edits, p50 28 s) and added Qwen3.5 4B as "Higher quality" (18/20, 7/8 edits, p50 44 s); Phi-4 mini, Gemma 3 1B and Ministral 3 3B scored 6-7/20 and are not in the catalogue. No 24 GB-tier model is listed.
 
