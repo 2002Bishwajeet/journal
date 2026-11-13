@@ -87,6 +87,39 @@ export interface QuickCapture {
 
 export const quickCapture: QuickCapture | null = null;
 
+/** One recogniser segment of a voice note: its text and where it starts and ends, in seconds. */
+export interface VoiceSegment {
+    text: string;
+    start: number;
+    end: number;
+}
+
+/** `note` (default), `journal` (prose), `outline` (headings and bullets), `transcript` (cleanup only). */
+export type VoiceNoteStyle = 'note' | 'journal' | 'outline' | 'transcript';
+
+/** The model runtime a voice note is formatted with: one JSON answer under `schema` per call. */
+export interface VoiceFormatterEngine {
+    generate(
+        messages: { role: 'system' | 'user'; content: string }[],
+        schema: Readonly<Record<string, unknown>>,
+        signal?: AbortSignal,
+        options?: { temperature?: number },
+    ): Promise<string>;
+}
+
+/** Voice notes (#1248): a speech transcript as a formatted note (native/web/voice). Native only. */
+export interface VoiceNotes {
+    formatTranscript(
+        segments: Iterable<VoiceSegment> | AsyncIterable<VoiceSegment>,
+        style: VoiceNoteStyle,
+        engine: VoiceFormatterEngine,
+        onProgress?: (formatted: number) => void,
+        options?: { recordedAt?: Date; signal?: AbortSignal; allowTables?: boolean },
+    ): Promise<{ title: string; markdown: string; usedFallback: number[] }>;
+}
+
+export const voiceNotes: VoiceNotes | null = null;
+
 /** What can unlock the native app (#1173). */
 export type EntitlementSource = 'appStore' | 'play' | 'licenseKey' | 'owner';
 

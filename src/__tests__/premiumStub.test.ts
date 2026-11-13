@@ -1,11 +1,16 @@
 import { existsSync } from 'fs';
 import { describe, expect, it } from 'vitest';
-import { hasPremium } from '@premium';
-import { useEntitlement } from '@/lib/premiumStub';
+import { hasPremium, voiceNotes } from '@premium';
+import { useEntitlement, voiceNotes as stubVoiceNotes } from '@/lib/premiumStub';
 
 describe('@premium', () => {
   it('is the stub unless the native/ submodule is checked out', () => {
     expect(hasPremium).toBe(existsSync('native/web/index.ts'));
+  });
+
+  it('has voice notes only with the native/ submodule', () => {
+    expect(stubVoiceNotes).toBeNull();
+    expect(voiceNotes === null).toBe(!existsSync('native/web/index.ts'));
   });
 });
 
