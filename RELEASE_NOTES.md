@@ -16,6 +16,13 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.70.0 (2026-11-13)
+
+### New
+
+- When you pick a search result that matches the text of a note, the note opens with Find on the word that matched, and the first match is in view.
+- Press Cmd+F (Ctrl+F) to find in the open note, also when the cursor is in the title or on the note list. Press Cmd+H (Ctrl+H) to find and replace. The desktop toolbar has a Find button.
+
 ## 2.69.0 (2026-11-13)
 
 - Notes written by AI agents through the Journal MCP now show callouts correctly when the agent puts a title on the marker line (`> [!warning] Fix first`) or uses GitHub-style types like `[!NOTE]` or `[!CAUTION]`. Before, these appeared as a plain quote with the raw `[!warning]` text.
