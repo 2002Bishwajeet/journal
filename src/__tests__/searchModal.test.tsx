@@ -14,11 +14,13 @@ vi.mock('@/hooks/useSearchModal', () => ({
   useSearchModal: () => ({
     query: 'ze',
     entries: [
-      { kind: 'note', section: 'recent', result: { docId: 'a', title: 'Alpha' } },
-      { kind: 'note', section: 'notes', result: { docId: 'b', title: 'Beta' } },
+      { kind: 'note', section: 'recent', result: { docId: 'a', title: 'Alpha', metadata: { folderId: 'main', tags: ['x', 'y', 'z', 'w'], timestamps: { modified: new Date().toISOString() } } } },
+      { kind: 'note', section: 'notes', result: { docId: 'b', title: 'Beta', preview: '', metadata: { folderId: 'gone' } } },
+      { kind: 'note', section: 'notes', result: { docId: 'c', title: 'Zebra', metadata: { folderId: 'fc360190-4e23-b870-0ea4-ef233aad98ad' } } },
     ],
     selectedIndex: 0,
     isLoading: false,
+    folderNames: new Map([['main', 'Main']]),
     inputRef: { current: null },
     handleQueryChange: vi.fn(),
     handleKeyDown: vi.fn(),
@@ -81,6 +83,20 @@ describe('SearchModal', () => {
     act(() => button('Clear').click());
     expect(handleClearRecents).toHaveBeenCalledTimes(1);
     expect(document.activeElement).toBe(input);
+  });
+
+  it('shows folder, date and up to 3 tags under the title, "Shared" for the collaborative folder', () => {
+    const rows = host.querySelectorAll('[id^="search-result-"]');
+    expect(rows[0].textContent).toMatch(/Main · .+ · #x #y #z/);
+    expect(rows[0].textContent).not.toContain('#w');
+    expect(rows[1].textContent).toBe('Beta');
+    expect(rows[2].textContent).toContain('Shared');
+  });
+
+  it('marks the typed part of the title and never says "No preview available"', () => {
+    const marks = [...host.querySelectorAll('mark')].map((m) => m.textContent);
+    expect(marks).toEqual(['Ze']);
+    expect(host.textContent).not.toContain('No preview available');
   });
 
   it('Cancel closes the modal', () => {

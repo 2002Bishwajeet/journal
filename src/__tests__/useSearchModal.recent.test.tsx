@@ -8,13 +8,16 @@ import { RECENT_NOTES_KEY, RECENT_SEARCHES_KEY } from '@/lib/storage';
 const docs = ['a', 'b', 'c', 'd'].map((docId) => ({
     docId,
     title: docId.toUpperCase(),
-    plainTextContent: '',
+    preview: '',
     metadata: { archivalStatus: 0 },
 }));
-const getAllDocuments = vi.fn();
+const getNotesByIds = vi.fn();
+const getRecentlyModifiedNotes = vi.fn();
 const advancedSearch = vi.fn();
 vi.mock('@/lib/db', () => ({
-    getAllDocuments: () => getAllDocuments(),
+    getNotesByIds: (ids: string[]) => getNotesByIds(ids),
+    getRecentlyModifiedNotes: (limit: number) => getRecentlyModifiedNotes(limit),
+    getAllFolders: async () => [],
     advancedSearch: (q: string) => advancedSearch(q),
 }));
 
@@ -42,7 +45,8 @@ async function render() {
 beforeEach(() => {
     (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     localStorage.clear();
-    getAllDocuments.mockReset().mockResolvedValue(docs);
+    getNotesByIds.mockReset().mockImplementation(async (ids: string[]) => docs.filter((d) => ids.includes(d.docId)));
+    getRecentlyModifiedNotes.mockReset().mockResolvedValue(docs);
     advancedSearch.mockReset();
     onSelectNote.mockReset();
     localStorage.setItem(RECENT_NOTES_KEY, JSON.stringify({
@@ -52,11 +56,42 @@ beforeEach(() => {
 });
 
 describe('useSearchModal recents', () => {
+    it('clearing the input reuses the rows and keeps the old ones while a query is pending', async () => {
+        vi.useFakeTimers();
+        try {
+            let resolve: (r: unknown[]) => void = () => {};
+            advancedSearch.mockImplementation(() => new Promise((r) => { resolve = r; }));
+            const api = await render();
+            await act(async () => { api().handleQueryChange('b'); });
+            await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+            const hit = (docId: string) => ({ docId, title: docId, score: 1, matchType: 'title', metadata: {} });
+            await act(async () => { resolve([hit('b'), hit('d')]); });
+            expect(ids(api())).toEqual(['notes:b', 'notes:d']);
+            // Select d, then type another letter: rows stay while pending, and selection follows d.
+            await act(async () => { api().setSelectedIndex(1); });
+            await act(async () => { api().handleQueryChange('bd'); });
+            expect(ids(api())).toEqual(['notes:b', 'notes:d']);
+            expect(api().isLoading).toBe(true);
+            await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+            await act(async () => { resolve([hit('d'), hit('b')]); });
+            expect(api().isLoading).toBe(false);
+            expect(api().selectedIndex).toBe(0);
+            await act(async () => { api().handleQueryChange(''); });
+            expect(ids(api())).toEqual(['recent:c', 'recent:a', 'q:zebra', 'notes:b', 'notes:d']);
+            expect(getNotesByIds).toHaveBeenCalledTimes(1);
+            expect(getRecentlyModifiedNotes).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('lists recent notes, then recent searches, then the other notes', async () => {
         const api = await render();
         expect(ids(api())).toEqual(['recent:c', 'recent:a', 'q:zebra', 'notes:b', 'notes:d']);
-        // Same DB calls as before: one on open and one for the empty query.
-        expect(getAllDocuments).toHaveBeenCalledTimes(2);
+        // One load per open: the opened notes by id, and the latest 30.
+        expect(getNotesByIds).toHaveBeenCalledTimes(1);
+        expect(getRecentlyModifiedNotes).toHaveBeenCalledWith(30);
+        expect(getRecentlyModifiedNotes).toHaveBeenCalledTimes(1);
     });
 
     it('ArrowDown then Enter on a recent search sets the query', async () => {

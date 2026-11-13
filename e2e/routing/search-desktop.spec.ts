@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { createNote } from '../support/actions';
+import { createNote, inBothThemes } from '../support/actions';
 
 // Desktop Search keeps its keyboard flow and floating card (#780 must not regress it).
 
@@ -14,8 +14,24 @@ test('Cmd+K opens search, arrows and Enter pick a note, Esc closes', async ({ ap
   expect(box!.width).toBeLessThan(app.viewportSize()!.width);
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeHidden();
 
+  await inBothThemes(app, async (theme) => {
+    await app.screenshot({ path: test.info().outputPath(`search-empty-${theme}-desktop.png`) });
+  });
   await dialog.getByPlaceholder('Search notes...').fill('Yak');
   const results = dialog.locator('[id^="search-result-"]');
+  await expect(results).toHaveCount(2);
+  await expect(results.first()).toContainText('Main');
+  await inBothThemes(app, async (theme) => {
+    await app.screenshot({ path: test.info().outputPath(`search-results-${theme}-desktop.png`) });
+  });
+
+  // Typing another letter keeps the two rows mounted: no "Searching..." block between keystrokes.
+  const handles = await results.elementHandles();
+  await dialog.getByPlaceholder('Search notes...').pressSequentially(' ');
+  await expect(dialog.getByText('Searching...')).toHaveCount(0);
+  await expect(results).toHaveCount(2);
+  expect(await Promise.all(handles.map((h) => h.evaluate((el) => el.isConnected)))).toEqual([true, true]);
+  await dialog.getByPlaceholder('Search notes...').fill('Yak');
   await expect(results).toHaveCount(2);
   await app.keyboard.press('ArrowDown');
   await expect(results.nth(1)).toHaveClass(/bg-accent/);
