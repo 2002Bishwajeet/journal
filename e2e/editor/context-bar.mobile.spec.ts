@@ -79,6 +79,19 @@ test('the bar is the insert bar at the caret and the format bar over a text sele
       await screenshotInBothThemes(page, barShot('format-bar', '390'), undefined, bottomStrip(390, 844));
     });
 
+    await test.step('Rewrite with AI opens the AI Writing sheet and Cancel gives the selection back', async () => {
+      await toolbar(page).getByTitle('Rewrite with AI', { exact: true }).tap();
+      const sheet = page.getByRole('menu', { name: 'AI Writing' });
+      await expect(sheet).toBeVisible();
+      // WebLLM is not loaded in the test browser, so the sheet offers to enable it.
+      await expect(sheet.getByRole('menuitem', { name: 'Enable AI' })).toBeVisible();
+      await page.getByRole('button', { name: 'Cancel', exact: true }).tap();
+      await expect(sheet).toBeHidden();
+      await expect.poll(() => editorFocused(page)).toBe(true);
+      await expect.poll(() => page.evaluate(() => getSelection()!.toString())).toBe('world');
+      await expect(bar(page)).toHaveAttribute('data-bar', 'format');
+    });
+
     await test.step('collapsing the selection brings the insert bar back', async () => {
       await page.keyboard.press('End');
       await expect(bar(page)).toHaveAttribute('data-bar', 'insert');
