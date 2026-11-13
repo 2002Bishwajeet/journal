@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures';
+import { test, expect, waitForAppReady } from '../fixtures';
 
 // The desktop quick-capture window's route (#1014) works in a plain browser; only the
 // global hotkey and the window itself are native.
@@ -14,6 +14,7 @@ test('/capture turns text into a note, first line as the title', async ({ app })
   await expect(box).toHaveValue('');
 
   await app.goto('/');
+  await waitForAppReady(app);
   await app.getByRole('button', { name: 'Main' }).click();
   await expect(app.getByTestId('note-row').filter({ hasText: title })).toBeVisible();
 });
