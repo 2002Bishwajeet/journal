@@ -121,11 +121,14 @@ describe('EditorProvider — commit after a yielded render', () => {
   it('writes the search text the Y.Doc walk produces, 500 ms after an edit', async () => {
     vi.mocked(updateSearchIndexContent).mockClear();
     const held: { editor: import('@tiptap/react').Editor | null } = { editor: null };
+    // Wait for isReady, not just the editor: the editor arrives a render before
+    // the load settles, and the update listener only attaches once it has. On a
+    // slow runner the poll lands between the two and the edit is never seen.
     function Grab() {
-      const { editor } = useEditorContext();
+      const { editor, isReady } = useEditorContext();
       useEffect(() => {
-        held.editor = editor;
-      }, [editor]);
+        if (isReady) held.editor = editor;
+      }, [editor, isReady]);
       return null;
     }
     const el = document.createElement('div');
