@@ -13,9 +13,15 @@ import { SettingsRow } from "../SettingsRow";
 import AIModelList from "./AIModelList";
 import { ExperimentalBadge, LocalAINote } from "@/components/LocalAIExperimental";
 import { fitsIOS, isIOSApp } from "@/lib/webllm/ios";
+import { isAppleModelAvailable } from "@/lib/webllm/apple";
+import { APPLE_MODEL } from "@/lib/webllm/models";
 
-// iOS offers only the models that fit in the web view's memory (#1143).
-const modelsFor = (job: ModelJob) => getModelsForJob(job).filter((m) => !isIOSApp() || fitsIOS(m));
+// iOS offers only the models that fit in the web view's memory (#1143), and Apple's on-device
+// model for writing help where it can run (#1266).
+const modelsFor = (job: ModelJob) => [
+  ...(job === "editor" && isAppleModelAvailable() ? [APPLE_MODEL] : []),
+  ...getModelsForJob(job).filter((m) => !isIOSApp() || fitsIOS(m)),
+];
 
 export default function AISection() {
   const {
