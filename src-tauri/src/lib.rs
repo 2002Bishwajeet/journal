@@ -26,6 +26,10 @@ mod premium {
 #[cfg(target_os = "ios")]
 mod ios_recovery;
 
+// Benchmark-only endpoints (#1245). Never in a release build.
+#[cfg(feature = "encfs-bench")]
+mod bench;
+
 /// Fixed port for the local HTTP server that serves the built frontend.
 ///
 /// The desktop shell deliberately does NOT use Tauri's default
@@ -135,6 +139,15 @@ fn app_headers() -> Vec<(&'static str, &'static str)> {
 fn serve(app: &tauri::AppHandle, server: &Server) {
     let headers = app_headers();
     for request in server.incoming_requests() {
+        // Needs the per-launch token (bench.rs).
+        #[cfg(feature = "encfs-bench")]
+        let mut request = request;
+        #[cfg(feature = "encfs-bench")]
+        if let Some(response) = app.state::<bench::Bench>().respond(&mut request) {
+            let _ = request.respond(response);
+            continue;
+        }
+
         let path = request.url().split('?').next().unwrap_or("/");
         let path = if path.ends_with('/') {
             format!("{path}index.html")
@@ -439,6 +452,16 @@ pub fn run() {
     #[cfg(target_os = "ios")]
     let builder = ios_recovery::register(builder);
     let builder = link_plugins(builder);
+    #[cfg(feature = "encfs-bench")]
+    let builder = {
+        eprintln!("encfs-bench endpoints are ENABLED: not a release build");
+        builder.invoke_handler(tauri::generate_handler![
+            bench::bench_blob_put,
+            bench::bench_blob_get,
+            bench::bench_reset,
+            bench::bench_token
+        ])
+    };
 
     premium::register(builder)
         .setup(move |app| {
@@ -451,6 +474,10 @@ pub fn run() {
                     eprintln!("can't register journal:// links: {e}");
                 }
             }
+
+            // Before the asset server starts: it answers /__bench/ from this.
+            #[cfg(feature = "encfs-bench")]
+            app.manage(bench::Bench::new(app.path().app_data_dir()?)?);
 
             app.manage(AssetServer {
                 addrs: servers
@@ -549,6 +576,23 @@ mod tests {
 
     fn has_ipv6_loopback() -> bool {
         TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).is_ok()
+    }
+
+    /// encfs-bench must never reach a release build (#1245): not on by default,
+    /// not implied by another feature, not named by the release workflow.
+    #[test]
+    fn encfs_bench_is_never_on_by_default() {
+        let manifest: toml::Table = include_str!("../Cargo.toml").parse().unwrap();
+        let features = manifest["features"].as_table().unwrap();
+        assert!(features.contains_key("encfs-bench"));
+        for (name, implied) in features {
+            let implied = implied.as_array().unwrap();
+            assert!(
+                !implied.iter().any(|f| f.as_str().unwrap().contains("encfs-bench")),
+                "feature {name} turns on encfs-bench"
+            );
+        }
+        assert!(!include_str!("../../.github/workflows/desktop-release.yml").contains("encfs-bench"));
     }
 
     #[test]

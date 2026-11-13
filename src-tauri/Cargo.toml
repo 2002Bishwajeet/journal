@@ -29,6 +29,8 @@ tiny_http = "0.12"
 # updater already brings in, so Cargo.lock gains no crates.
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
+# The per-launch token of the encfs-bench endpoints (src/bench.rs). Already in the tree.
+getrandom = { version = "0.3", optional = true }
 
 # Native error dialog when the asset server can't bind (lib.rs). Same library
 # and GTK backend tauri-plugin-dialog uses, without that plugin's tauri bump and
@@ -74,12 +76,18 @@ block2 = "0.6"
 # app's real permissions.
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }
+# Reads this file in the encfs-bench guard test (lib.rs). Already in the tree through tauri-build.
+toml = "0.8"
 
 [features]
 # Enabled by the Tauri CLI for production builds. Turning it on flips
 # `tauri::is_dev()` to false and embeds `frontendDist` into the binary.
 # DO NOT REMOVE.
 custom-protocol = ["tauri/custom-protocol"]
+# Benchmark-only endpoints for the encryption spike (src/bench.rs, README "Benchmark
+# build"). Never on by default, never implied by another feature, never in a release
+# build: a test in lib.rs fails otherwise.
+encfs-bench = ["dep:getrandom"]
 
 [profile.release]
 codegen-units = 1
