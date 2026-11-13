@@ -10,12 +10,15 @@ import {
   List,
   ListOrdered,
   ListTodo,
+  Redo,
+  Undo,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { shiftIndent } from "@/lib/editor/mobileBar";
 import { safeEditorCommand, type ToolbarState } from "./shared";
+import { undo, redo } from "./plugins/collaboration";
 
 interface MobileStylePanelProps {
   editor: Editor;
@@ -92,8 +95,26 @@ export function MobileStylePanel({ editor, state, height, onClose, ref }: Mobile
         paddingRight: "env(safe-area-inset-right, 0px)",
       }}
     >
-      <div className="flex h-13 shrink-0 items-center justify-between pr-2 pl-5">
-        <h2 className="text-base font-semibold">Format</h2>
+      <div className="flex h-13 shrink-0 items-center gap-1 pr-2 pl-5">
+        <h2 className="mr-auto text-base font-semibold">Format</h2>
+        {/* Undo and redo live here on phones: the insert bar has no room for them at 390px. */}
+        {(
+          [
+            ["Undo", Undo, () => undo(editor.state)],
+            ["Redo", Redo, () => redo(editor.state)],
+          ] as const
+        ).map(([label, Icon, apply]) => (
+          <button
+            key={label}
+            type="button"
+            onMouseDown={keepFocus}
+            onClick={() => run(apply)}
+            title={label}
+            className={cn(PRESS, "flex size-11 items-center justify-center rounded-full")}
+          >
+            <Icon className="size-5" />
+          </button>
+        ))}
         <button
           type="button"
           onMouseDown={keepFocus}

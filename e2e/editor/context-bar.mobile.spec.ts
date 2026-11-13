@@ -32,6 +32,15 @@ async function expectFits(page: Page) {
   }
 }
 
+async function expectInsertBar(page: Page) {
+  await expect(bar(page)).toHaveAttribute('data-bar', 'insert');
+  for (const title of ['Checklist', 'Bullet List', 'Add Image', 'Insert Table', 'Add Link', 'Text Styles', 'Hide keyboard']) {
+    await expect(toolbar(page).getByTitle(title, { exact: true })).toBeVisible();
+  }
+  await expect(toolbar(page).getByTitle('Bold')).toHaveCount(0);
+  await expectFits(page);
+}
+
 const barShot = (what: string, size: string) => (theme: string) => `${what}-${theme}-${size}.png`;
 const bottomStrip = (width: number, height: number) => ({ clip: { x: 0, y: height - 160, width, height: 160 } });
 
@@ -42,11 +51,7 @@ test('the bar is the insert bar at the caret and the format bar over a text sele
 
     await test.step('caret: the insert bar fits at 390 px', async () => {
       await expect(bar(page)).toHaveAttribute('data-bar', 'insert');
-      for (const title of ['Checklist', 'Bullet List', 'Add Image', 'Insert Table', 'Add Link', 'Text Styles', 'Hide keyboard']) {
-        await expect(toolbar(page).getByTitle(title, { exact: true })).toBeVisible();
-      }
-      await expect(toolbar(page).getByTitle('Bold')).toHaveCount(0);
-      await expectFits(page);
+      await expectInsertBar(page);
       await screenshotInBothThemes(page, barShot('insert-bar', '390'), undefined, bottomStrip(390, 844));
     });
 
@@ -152,17 +157,29 @@ test('Aa swaps the keyboard for the style panel, styles apply, and Close brings 
       await expect(activeEditor(page).locator('ul li')).toHaveText('Big! idea');
       await expect.poll(async () => (await toolbar(page).boundingBox())!.y + 58).toBeCloseTo(516 - GAP, 0);
     });
+
+    await test.step('Undo and Redo sit in the panel, and work with the keyboard down', async () => {
+      await toolbar(page).getByTitle('Text Styles').tap();
+      await expect(panel(page)).toBeVisible();
+      await panel(page).getByTitle('Undo', { exact: true }).tap();
+      await expect(activeEditor(page).locator('ul li')).toHaveText('Big idea');
+      await panel(page).getByTitle('Redo', { exact: true }).tap();
+      await expect(activeEditor(page).locator('ul li')).toHaveText('Big! idea');
+      await expect(panel(page)).toBeVisible();
+      expect(await editorFocused(page)).toBe(false);
+    });
   });
 });
 
-test('on Android, where the keyboard height is unknown, the panel is a sheet under the bar', async ({ browser }) => {
+test('on Android the insert and format bars fit, and the panel is a sheet under the bar since the keyboard height is unknown', async ({ browser }) => {
   const { defaultBrowserType: _engine, ...pixel } = devices['Pixel 7'];
   await withMobilePage(
     browser,
     async (page) => {
       const { width, height } = page.viewportSize()!;
       await newNote(page, 'Hello world');
-      await expectFits(page);
+      await expectInsertBar(page);
+      await screenshotInBothThemes(page, barShot('insert-bar', `android-${width}`), undefined, bottomStrip(width, height));
       await page.keyboard.press('Control+Shift+ArrowLeft');
       await expect(bar(page)).toHaveAttribute('data-bar', 'format');
       await expectFits(page);
