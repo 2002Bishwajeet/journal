@@ -259,7 +259,7 @@ describe('useAIPreferences on a supported (desktop) screen', () => {
         await act(async () => { await harness.get().selectModel('SmolLM2-360M-Instruct-q4f16_1-MLC'); });
 
         expect(storedSettings().modelId).toBe(DEFAULT_SETTINGS.modelId);
-        expect(toast.error).toHaveBeenCalledWith("Couldn't switch to SmolLM2 360M. Kept Qwen 2.5 0.5B.");
+        expect(toast.error).toHaveBeenCalledWith("Couldn't switch to SmolLM2 360M. Kept Qwen3.5 0.8B.");
 
         await harness.cleanup();
     });
