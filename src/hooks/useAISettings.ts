@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { DEFAULT_MODEL_ID, DEFAULT_AGENT_MODEL_ID, PREVIOUS_AGENT_MODEL_ID, REMOVED_AGENT_MODEL_IDS, REMOVED_EDITOR_MODEL_IDS } from '@/lib/webllm/models';
-import { AI_SETTINGS_KEY, LEGACY_WEBLLM_ENABLED_KEY, readString, writeString, removeKey } from '@/lib/storage';
+import { APPLE_MODEL_ID, DEFAULT_MODEL_ID, DEFAULT_AGENT_MODEL_ID, PREVIOUS_AGENT_MODEL_ID, REMOVED_AGENT_MODEL_IDS, REMOVED_EDITOR_MODEL_IDS } from '@/lib/webllm/models';
+import { AI_APPLE_DEFAULT_KEY, AI_SETTINGS_KEY, LEGACY_WEBLLM_ENABLED_KEY, readString, writeString, removeKey } from '@/lib/storage';
 
 const STORAGE_KEY = AI_SETTINGS_KEY;
 const CURRENT_VERSION = 2;
@@ -93,6 +93,20 @@ export function useAISettings() {
   }, []);
 
   return { settings, updateSettings } as const;
+}
+
+/**
+ * Once per device, the first time Apple's on-device model can run (#1266): it becomes the
+ * writing-help model, unless the user picked another one. A later choice stays.
+ */
+export function adoptAppleModel(): void {
+  if (readString(AI_APPLE_DEFAULT_KEY)) return;
+  writeString(AI_APPLE_DEFAULT_KEY, '1');
+  const settings = loadSettings();
+  if (settings.modelId !== DEFAULT_MODEL_ID) return;
+  writeString(STORAGE_KEY, JSON.stringify({ ...settings, modelId: APPLE_MODEL_ID, _v: CURRENT_VERSION }));
+  // The hooks in this tab read the settings once; this makes them read again.
+  window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
 }
 
 // Export for direct access outside React (e.g., in tests)

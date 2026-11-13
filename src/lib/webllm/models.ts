@@ -108,8 +108,27 @@ export const REMOVED_EDITOR_MODEL_IDS = ['Llama-3.2-1B-Instruct-q4f16_1-MLC', 'Q
 /** Removed from the catalogue after #1023. A saved choice of one falls back to the agent default. */
 export const REMOVED_AGENT_MODEL_IDS = ['Qwen3-4B-q4f16_1-MLC', 'Qwen2.5-3B-Instruct-q4f16_1-MLC', 'Hermes-3-Llama-3.2-3B-q4f16_1-MLC'];
 
+/**
+ * Apple's on-device model (#1266): Foundation Models in the iOS app, through `apple.ts`. Not in
+ * `AVAILABLE_MODELS`: Settings offers it only where the native app says it can run.
+ */
+export const APPLE_MODEL_ID = 'apple-on-device';
+export const APPLE_MODEL: ModelInfo = {
+  id: APPLE_MODEL_ID,
+  name: 'Apple on-device model',
+  job: 'editor',
+  parameterCount: '3B',
+  downloadSize: 'Built in',
+  vramMB: 0,
+  memoryUsage: 'Outside the app',
+  ramTier: 16,
+  description: 'The model of Apple Intelligence. Nothing to download, and it does not use the memory of the app.',
+  capabilities: ['autocomplete', 'grammar', 'rewrite', 'chat'],
+  badge: 'No download',
+};
+
 export function getModelInfo(modelId: string): ModelInfo | undefined {
-  return AVAILABLE_MODELS.find((m) => m.id === modelId);
+  return modelId === APPLE_MODEL_ID ? APPLE_MODEL : AVAILABLE_MODELS.find((m) => m.id === modelId);
 }
 
 export function getModelsForJob(job: ModelJob): ModelInfo[] {
