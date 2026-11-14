@@ -27,7 +27,7 @@ describe('ensureTrigramSearch', () => {
     expect(exec).toHaveBeenCalledTimes(1);
     const sql = exec.mock.calls[0][0] as string;
     expect(sql).toContain('CREATE EXTENSION IF NOT EXISTS pg_trgm');
-    expect(sql).toContain('idx_search_title_trgm');
+    expect(sql).toContain('idx_search_title_unaccent_trgm');
     expect(sql).toContain('idx_search_content_trgm');
   });
 
@@ -60,8 +60,9 @@ describe('ensureTrigramSearch', () => {
 describe('advancedSearch before the trigram indexes exist (#1225)', () => {
   it('returns full-text results from the first query without awaiting ensureTrigramSearch', async () => {
     const { PGlite } = await import('@electric-sql/pglite');
+    const { unaccent } = await import('@electric-sql/pglite/contrib/unaccent');
     const { initializeSchema } = await import('@/lib/db/schema');
-    const db = new PGlite();
+    const db = new PGlite({ extensions: { unaccent } });
     await initializeSchema(db);
     // The index build never finishes: a query that awaited it would hang.
     const ensureTrigramSearch = vi.fn(() => new Promise<void>(() => {}));
@@ -88,8 +89,9 @@ describe('advancedSearch before the trigram indexes exist (#1225)', () => {
 
   it('returns the full-text results when the trigram stages fail', async () => {
     const { PGlite } = await import('@electric-sql/pglite');
+    const { unaccent } = await import('@electric-sql/pglite/contrib/unaccent');
     const { initializeSchema } = await import('@/lib/db/schema');
-    const db = new PGlite();
+    const db = new PGlite({ extensions: { unaccent } });
     await initializeSchema(db);
     const ensureTrigramSearch = vi.fn().mockRejectedValue(new Error('pg_trgm unavailable'));
     vi.doMock('@/lib/db/pglite', () => ({ getDatabase: async () => db, ensureTrigramSearch }));

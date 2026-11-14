@@ -396,8 +396,9 @@ Defined in `src/lib/db/schema.ts`: base tables in `initializeSchema()`, later co
 - Index: `idx_document_updates_doc_id` on doc_id
 
 ### `search_index` — Derived state for FTS and list rendering
-- `doc_id` UUID PK, `title` TEXT, `plain_text_content` TEXT, `metadata` JSONB, `search_vector` tsvector, `updated_at` TIMESTAMPTZ
-- Indexes: btree on title, GIN on search_vector, expression indexes on `metadata->>'folderId'` and modified time; GIN trigram on title + content is created lazily by the first search that needs a body substring match (`ensureTrigramSearch()`) and then kept
+- `doc_id` UUID PK, `title` TEXT, `plain_text_content` TEXT, `metadata` JSONB, `search_vector` tsvector, `vector_version` SMALLINT, `updated_at` TIMESTAMPTZ
+- Indexes: btree on title, GIN on search_vector, expression indexes on `metadata->>'folderId'` and modified time, partial index on rows with `vector_version < 2`; GIN trigram on `journal_unaccent(title)` + content is created lazily by the first search that needs a body substring match (`ensureTrigramSearch()`) and then kept
+- Search ignores accents (#1229): the `unaccent` extension (loaded in every PGlite the app creates) and the text search config `journal` (`english` with `unaccent` before the stemmer). `journal_search_vector(title, body, tags)` is the only place the vector expression lives: title weight A, tags B, body C. Every writer calls it and sets `vector_version = 2`; rows written before it (version 1) are rebuilt in batches of 200 by `runSearchReindex()` (`src/lib/db/searchReindex.ts`, started 20 s after the shell mounts by `useSearchReindex`), which then reclaims the space. `journal_unaccent(text)` is an IMMUTABLE wrapper so the title trigram index can use it. The body substring stage stays accent-sensitive
 
 ### `folders`
 - `id` UUID PK, `name` TEXT, `created_at` TIMESTAMPTZ, `is_public` BOOLEAN (shared folder, #618)

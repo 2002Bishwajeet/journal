@@ -5,6 +5,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { unaccent } from '@electric-sql/pglite/contrib/unaccent';
 import { initializeSchema, SCHEMA_VERSION, TRIGRAM_SEARCH_SQL } from '@/lib/db/schema';
 
 const WRITE = /^\s*(CREATE|ALTER|INSERT|UPDATE|DELETE|DROP)\b/i;
@@ -27,7 +28,7 @@ describe('initializeSchema read-only boot', () => {
   });
 
   it('runs no write statement when the schema is current', async () => {
-    db = new PGlite();
+    db = new PGlite({ extensions: { unaccent } });
     await initializeSchema(db);
 
     const statements = spy(db);
@@ -38,7 +39,7 @@ describe('initializeSchema read-only boot', () => {
   });
 
   it('creates and stamps a fresh database', async () => {
-    db = new PGlite();
+    db = new PGlite({ extensions: { unaccent } });
     await initializeSchema(db);
 
     const meta = await db.query<{ version: string }>('SELECT version FROM schema_meta WHERE id = 1');
@@ -50,7 +51,7 @@ describe('initializeSchema read-only boot', () => {
   });
 
   it('re-runs setup when the stored version is old', async () => {
-    db = new PGlite();
+    db = new PGlite({ extensions: { unaccent } });
     await initializeSchema(db);
     await db.exec(`UPDATE schema_meta SET version = '0' WHERE id = 1`);
     await db.exec(`DROP TABLE job_queue`);
@@ -64,7 +65,7 @@ describe('initializeSchema read-only boot', () => {
   });
 
   it('drops vector_embedding from a version-6 database and keeps its rows', async () => {
-    db = new PGlite();
+    db = new PGlite({ extensions: { unaccent } });
     await initializeSchema(db);
     await db.exec(`
       ALTER TABLE search_index ADD COLUMN vector_embedding REAL[];
@@ -86,7 +87,7 @@ describe('initializeSchema read-only boot', () => {
   });
 
   it('keeps the trigram indexes when the migrations re-run (#1225)', async () => {
-    db = new PGlite({ extensions: { pg_trgm } });
+    db = new PGlite({ extensions: { pg_trgm, unaccent } });
     await initializeSchema(db);
     await db.exec(TRIGRAM_SEARCH_SQL);
     await db.exec(`UPDATE schema_meta SET version = '0' WHERE id = 1`);
@@ -94,14 +95,29 @@ describe('initializeSchema read-only boot', () => {
     await initializeSchema(db);
 
     const indexes = await db.query<{ title: boolean; content: boolean }>(
-      `SELECT to_regclass('idx_search_title_trgm') IS NOT NULL AS title,
+      `SELECT to_regclass('idx_search_title_unaccent_trgm') IS NOT NULL AS title,
               to_regclass('idx_search_content_trgm') IS NOT NULL AS content`,
     );
     expect(indexes.rows[0]).toEqual({ title: true, content: true });
   });
 
+  it('re-runs the accent-insensitive search setup without error (#1229)', async () => {
+    db = new PGlite({ extensions: { unaccent } });
+    await initializeSchema(db);
+    await db.exec(`UPDATE schema_meta SET version = '10' WHERE id = 1`);
+
+    await initializeSchema(db);
+
+    const configs = await db.query(`SELECT 1 FROM pg_ts_config WHERE cfgname = 'journal'`);
+    expect(configs.rows).toHaveLength(1);
+    const vector = await db.query<{ v: string }>(
+      `SELECT journal_search_vector('Café', 'Zürich', '["crème"]')::text AS v`,
+    );
+    expect(vector.rows[0].v).toBe("'cafe':1A 'creme':2B 'zurich':3C");
+  });
+
   it('a fresh database has no vector_embedding column', async () => {
-    db = new PGlite();
+    db = new PGlite({ extensions: { unaccent } });
     await initializeSchema(db);
     const cols = await db.query(
       `SELECT 1 FROM information_schema.columns WHERE table_name = 'search_index' AND column_name = 'vector_embedding'`,

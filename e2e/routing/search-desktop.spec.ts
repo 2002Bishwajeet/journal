@@ -61,3 +61,14 @@ test('a note moved to Trash is not listed in search', async ({ app }) => {
   await dialog.getByPlaceholder('Search notes...').fill(title);
   await expect(dialog.getByText('No notes found')).toBeVisible();
 });
+
+test('a note titled "Café Zürich" is found by typing cafe zurich (#1229)', async ({ app }) => {
+  await createNote(app, { title: 'Café Zürich', body: 'Breakfast by the lake' });
+
+  await app.keyboard.press('ControlOrMeta+k');
+  const dialog = app.getByRole('dialog', { name: 'Search notes' });
+  await dialog.getByPlaceholder('Search notes...').fill('cafe zurich');
+  const results = dialog.locator('[id^="search-result-"]');
+  await expect(results).toHaveCount(1);
+  await expect(results.first()).toContainText('Café Zürich');
+});

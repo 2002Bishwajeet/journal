@@ -71,6 +71,7 @@ import { useFolders, isUnknownFolderRoute, findOrCreateFolderByName } from "@/ho
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useEditorAppearance } from "@/hooks/useEditorAppearance";
 import { useDailySnapshotPrune } from "@/hooks/useDailySnapshotPrune";
+import { useSearchReindex } from "@/hooks/useSearchReindex";
 import { useNotesMirror } from "@/hooks/useNotesMirror";
 import { useDailyReminder } from "@/hooks/useDailyReminder";
 import { useNativeBridge } from "@/hooks/useNativeBridge";
@@ -90,6 +91,7 @@ export default function JournalLayout() {
   // Apply the stored editor font/width attributes at root level
   useEditorAppearance();
   useDailySnapshotPrune();
+  useSearchReindex();
   useNotesMirror();
   useDailyReminder();
   // #301's licence state replaces NO_LICENSE.

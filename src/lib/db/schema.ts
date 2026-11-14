@@ -10,13 +10,14 @@ import { MAIN_FOLDER_ID } from '../homebase/config';
 import { REQUEUE_THUMBNAIL_FAILURE_UPLOADS_SQL, SYNC_ERRORS_ACTIVE_INDEX_SQL } from './syncErrorsSchema';
 
 // Bump whenever a new statement is added to runMigrations().
-export const SCHEMA_VERSION = '10';
+export const SCHEMA_VERSION = '11';
 
 // pg_trgm and its GIN indexes. Run on demand by ensureTrigramSearch() in
-// pglite.ts, not at boot (loading the extension costs ~1–2s).
+// pglite.ts, not at boot (loading the extension costs ~1–2s). The title index is
+// on the unaccented title, which the title substring and typo stages compare (#1229).
 export const TRIGRAM_SEARCH_SQL = `
   CREATE EXTENSION IF NOT EXISTS pg_trgm;
-  CREATE INDEX IF NOT EXISTS idx_search_title_trgm ON search_index USING GIN(title gin_trgm_ops);
+  CREATE INDEX IF NOT EXISTS idx_search_title_unaccent_trgm ON search_index USING GIN(journal_unaccent(title) gin_trgm_ops);
   CREATE INDEX IF NOT EXISTS idx_search_content_trgm ON search_index USING GIN(plain_text_content gin_trgm_ops);
 `;
 
@@ -248,13 +249,46 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     console.warn('[DB Migration] Could not create metadata modified index:', error);
   }
 
+  // Accent-insensitive full text over title, tags and body (#1229). The `journal`
+  // config is `english` with unaccent before the stemmer, so `cafe` finds "café".
+  // journal_search_vector is the only place the vector expression lives; rows
+  // written before it have vector_version 1 and are rebuilt in the background
+  // (searchReindex.ts), never here: rewriting every vector takes seconds.
+  // CREATE TEXT SEARCH CONFIGURATION has no IF NOT EXISTS. Not caught: every
+  // search_index write calls journal_search_vector, so a schema without it must
+  // fail the boot rather than be stamped as applied.
+  await database.exec(`
+    CREATE EXTENSION IF NOT EXISTS unaccent;
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname = 'journal') THEN
+        CREATE TEXT SEARCH CONFIGURATION journal (COPY = english);
+        ALTER TEXT SEARCH CONFIGURATION journal
+          ALTER MAPPING FOR hword, hword_part, word WITH unaccent, english_stem;
+      END IF;
+    END $$;
+    CREATE OR REPLACE FUNCTION journal_search_vector(title text, body text, tags jsonb) RETURNS tsvector
+    LANGUAGE sql IMMUTABLE AS $$
+      SELECT setweight(to_tsvector('journal', COALESCE(title, '')), 'A') ||
+             setweight(to_tsvector('journal', COALESCE(
+               (SELECT string_agg(tag, ' ') FROM jsonb_array_elements_text(
+                  CASE WHEN jsonb_typeof(tags) = 'array' THEN tags ELSE '[]'::jsonb END) AS tag), '')), 'B') ||
+             setweight(to_tsvector('journal', COALESCE(body, '')), 'C')
+    $$;
+    -- unaccent(text) is only STABLE, so an index needs this IMMUTABLE wrapper.
+    CREATE OR REPLACE FUNCTION journal_unaccent(text) RETURNS text
+    LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $$
+      SELECT public.unaccent('public.unaccent'::regdictionary, $1)
+    $$;
+    ALTER TABLE search_index ADD COLUMN IF NOT EXISTS vector_version SMALLINT NOT NULL DEFAULT 1;
+    CREATE INDEX IF NOT EXISTS idx_search_vector_old ON search_index (doc_id) WHERE vector_version < 2;
+    DROP INDEX IF EXISTS idx_search_title_trgm;
+  `);
+
   // Populate search_vector for existing documents that don't have it
   try {
     await database.exec(`
-      UPDATE search_index 
-      SET search_vector = 
-        setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
-        setweight(to_tsvector('english', COALESCE(plain_text_content, '')), 'B')
+      UPDATE search_index
+      SET search_vector = journal_search_vector(title, plain_text_content, metadata->'tags'), vector_version = 2
       WHERE search_vector IS NULL;
     `);
     console.log('[DB Migration] Populated search_vector for existing documents');

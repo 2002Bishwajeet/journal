@@ -2,6 +2,7 @@ import { IdbFs, PGlite } from '@electric-sql/pglite';
 // Our copy of the leader loop, fixing a lock leak when a tab closes (see the file).
 import { worker } from './pgliteWorkerHost';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { unaccent } from '@electric-sql/pglite/contrib/unaccent';
 import { live } from '@electric-sql/pglite/live';
 import { PGLITE_START_PARAMS } from './startParams';
 
@@ -60,7 +61,7 @@ worker({
       // the engine if it is named here.
       relaxedDurability: options.relaxedDurability !== false,
       startParams: PGLITE_START_PARAMS,
-      extensions: { pg_trgm, live },
+      extensions: { pg_trgm, unaccent, live },
     });
     // Postgres is running on the loaded data dir.
     void pg.waitReady.then(() => {

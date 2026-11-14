@@ -77,7 +77,7 @@ export interface AdvancedSearchResult {
     docId: string;
     title: string;
     metadata: DocumentMetadata;
-    matchType: 'title' | 'content' | 'fuzzy' | 'semantic';
+    matchType: 'title' | 'tag' | 'content' | 'fuzzy' | 'semantic';
     score: number;
     /** Highlighted title snippet with <mark> tags if title matched */
     titleHighlight?: string;

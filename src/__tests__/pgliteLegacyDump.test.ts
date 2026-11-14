@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { unaccent } from '@electric-sql/pglite/contrib/unaccent';
 import { PGlite as PGliteV3 } from 'pglite-v3';
 import { PGlite as PGliteV4 } from 'pglite-v4';
 import { pg_trgm as pg_trgm_v4 } from 'pglite-v4/contrib/pg_trgm';
@@ -65,7 +66,8 @@ async function restore(target: PGlite, sql: string) {
 }
 
 async function newTarget(): Promise<PGlite> {
-  return PGlite.create({ extensions: { pg_trgm } });
+  // The app's worker engine: pg_trgm and unaccent loaded, neither created yet.
+  return PGlite.create({ extensions: { pg_trgm, unaccent } });
 }
 
 async function expectLegacyData(db: PGlite) {
@@ -187,6 +189,26 @@ describe('legacy PGlite dump → PGlite 0.5 restore', () => {
       `SELECT title, search_vector::text AS sv FROM search_index`,
     );
     expect(rows.rows).toEqual([{ title: "héllo 'quoted' 🎉", sv: "'hello':1 'world':2" }]);
+    await target.close();
+  });
+
+  it('builds accent-insensitive search vectors on the restored rows after initializeSchema (#1229)', async () => {
+    const legacy = await PGliteV4.create({ extensions: { pg_trgm: pg_trgm_v4 } });
+    await legacy.exec(LEGACY_SEED);
+    const sql = await dumpSql(legacy);
+    await legacy.close();
+
+    const target = await newTarget();
+    await restoreLegacyDump(target, sql);
+    await initializeSchema(target);
+    await target.exec(
+      `UPDATE search_index SET search_vector = journal_search_vector(title, NULL, metadata->'tags'), vector_version = 2`,
+    );
+
+    const hits = await target.query(
+      `SELECT 1 FROM search_index WHERE search_vector @@ to_tsquery('journal', 'hello')`,
+    );
+    expect(hits.rows).toHaveLength(1);
     await target.close();
   });
 

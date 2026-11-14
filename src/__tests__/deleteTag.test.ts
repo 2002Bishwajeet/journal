@@ -99,6 +99,21 @@ describe('deleteTagFromAllNotes', () => {
         }
     });
 
+    it('takes the deleted tag out of the search vector and keeps the other tags (#1229)', async () => {
+        await addNote(ACTIVE, ['zebra', 'walrus']);
+        const matching = async (word: string) =>
+            (await db.query<{ doc_id: string }>(
+                `SELECT doc_id FROM search_index WHERE search_vector @@ to_tsquery('journal', $1)`,
+                [word],
+            )).rows.map((row) => row.doc_id);
+        expect(await matching('zebra')).toEqual([ACTIVE]);
+
+        await deleteTagFromAllNotes('zebra');
+
+        expect(await matching('zebra')).toEqual([]);
+        expect(await matching('walrus')).toEqual([ACTIVE]);
+    });
+
     it('drops the tag from the sidebar tag list and its counts', async () => {
         await seed();
         const tagList = async () => (await db.query<{ tag: string; count: number }>(TAGS_SQL)).rows;

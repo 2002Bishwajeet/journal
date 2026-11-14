@@ -94,6 +94,7 @@ async function loadMigrate() {
     return { PGlite: FakePGlite };
   });
   vi.doMock('@electric-sql/pglite/contrib/pg_trgm', () => ({ pg_trgm: { name: 'pg_trgm-current' } }));
+  vi.doMock('@electric-sql/pglite/contrib/unaccent', () => ({ unaccent: { name: 'unaccent-current' } }));
   vi.doMock('@electric-sql/pglite-tools/pg_dump', () => {
     mocks.pgDumpImport();
     return { pgDump: mocks.pgDump };
@@ -350,7 +351,7 @@ describe('dumpLegacyDatabase', () => {
 
     expect(result).toEqual({ sql: '-- dump sql', fromTemplate1: false });
     expect(mocks.currentCreate).toHaveBeenCalledWith('idb://journal-db', {
-      extensions: { pg_trgm: { name: 'pg_trgm-current' } },
+      extensions: { pg_trgm: { name: 'pg_trgm-current' }, unaccent: { name: 'unaccent-current' } },
     });
   });
 

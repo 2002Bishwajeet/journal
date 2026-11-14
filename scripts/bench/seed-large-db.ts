@@ -25,6 +25,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { unaccent } from '@electric-sql/pglite/contrib/unaccent';
 import * as Y from 'yjs';
 import { initializeSchema, TRIGRAM_SEARCH_SQL } from '@/lib/db/schema';
 import { MAIN_FOLDER_ID } from '@/lib/homebase/config';
@@ -195,7 +196,7 @@ function simulateNote(now: number) {
 
 rmSync(dataDir, { recursive: true, force: true });
 mkdirSync(dataDir, { recursive: true });
-const db = await PGlite.create(dataDir, { startParams: PGLITE_START_PARAMS, extensions: { pg_trgm } });
+const db = await PGlite.create(dataDir, { startParams: PGLITE_START_PARAMS, extensions: { pg_trgm, unaccent } });
 await initializeSchema(db);
 setTestDb(db);
 
